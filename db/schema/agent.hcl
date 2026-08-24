@@ -51,6 +51,86 @@ table "workflow_configs" {
   }
 }
 
+# What runs around a workflow's agents' lives, and the worktree a workflow's setup and
+# cleanup actions can point at instead of a hand-written script. Kept apart from
+# workflow_configs because that table is what a launch seeds into the agent's own row and
+# never looks at again, where this is looked up fresh every time a setup or cleanup action
+# fires, the same way workflows.context is.
+table "workflow_action_configs" {
+  schema  = schema.public
+  comment = "The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  # The action run before an agent in this workflow starts, blank for none. It blocks and a
+  # failure abandons the launch, so this is where a workflow puts the work an agent cannot run
+  # without, like provisioning a worktree to sit in. It holds a name rather than an id because
+  # an action is a file in a directory and has no row to reference.
+  #
+  # One action rather than a list of them, because an action is a script and a script already
+  # sequences its own steps. A workflow wanting three things done in order writes them in one
+  # file, where it also gets the error handling a list could not express.
+  column "setup_action" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  # The action run once an agent in this workflow is deleted, blank for none. It undoes what
+  # setup built. Nothing waits on it and nothing is downstream of a failure, so unlike setup
+  # it does not block.
+  column "cleanup_action" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  # Whether this workflow generates a git worktree for each of its agents instead of running
+  # a hand-written setup and cleanup action. When true, setup_action and cleanup_action name
+  # the built-in scripts weave points them at rather than anything hand-written, and the
+  # fields below are what those scripts read.
+  column "worktree_enabled" {
+    null    = false
+    type    = boolean
+    default = false
+  }
+  # The branch a new worktree is built from, empty for the repo's default branch. Kept
+  # whatever worktree_enabled is set to, so turning it off and back on hands back what was
+  # here before rather than starting over blank.
+  column "worktree_base_branch" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  # Files copied fresh into every new worktree, relative to the workflow's cwd. Kept
+  # whatever worktree_enabled is set to, for the same reason the base branch is.
+  column "worktree_copy_paths" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+  }
+  # Directories symlinked back to the workflow's cwd instead of duplicated into every
+  # worktree. Kept whatever worktree_enabled is set to, for the same reason the base branch is.
+  column "worktree_symlink_paths" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "updated_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+}
+
 table "workflows" {
   schema  = schema.public
   comment = "A named bucket of related agents. Pure organization; runs nothing."
@@ -72,33 +152,14 @@ table "workflows" {
     type    = text
     default = ""
   }
-  # The action run before an agent in this workflow starts, blank for none. It blocks and a
-  # failure abandons the launch, so this is where a workflow puts the work an agent cannot run
-  # without, like provisioning a worktree to sit in. It holds a name rather than an id because
-  # an action is a file in a directory and has no row to reference.
-  #
-  # One action rather than a list of them, because an action is a script and a script already
-  # sequences its own steps. A workflow wanting three things done in order writes them in one
-  # file, where it also gets the error handling a list could not express.
-  #
-  # These sit on the workflow rather than on workflow_configs because an agent never copies
-  # them. workflow_configs holds what a launch seeds into the agent's own row, where this is
-  # read at the moment it runs, like context.
-  column "setup_action" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  # The action run once an agent in this workflow is deleted, blank for none. It undoes what
-  # setup built. Nothing waits on it and nothing is downstream of a failure, so unlike setup
-  # it does not block.
-  column "cleanup_action" {
-    null    = false
-    type    = text
-    default = ""
-  }
   # The workflow's default config. References workflow_configs.id.
   column "workflow_config_id" {
+    null = false
+    type = uuid
+  }
+  # The actions run around this workflow's agents' lives, and the worktree config they can
+  # point at instead of a hand-written script. References workflow_action_configs.id.
+  column "action_config_id" {
     null = false
     type = uuid
   }
@@ -129,8 +190,19 @@ table "workflows" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
+  # A workflow always owns exactly one action config, for the same reason it always owns
+  # exactly one workflow_configs row.
+  foreign_key "workflows_action_config_id_fkey" {
+    columns     = [column.action_config_id]
+    ref_columns = [table.workflow_action_configs.column.id]
+    on_delete   = RESTRICT
+    on_update   = NO_ACTION
+  }
   index "workflows_workflow_config_id" {
     columns = [column.workflow_config_id]
+  }
+  index "workflows_action_config_id" {
+    columns = [column.action_config_id]
   }
 }
 
@@ -433,6 +505,22 @@ table "agents" {
   column "nudged_at" {
     null = true
     type = timestamptz
+  }
+  # The branch checked out at cwd, null when cwd is not a git worktree or has not been
+  # looked at yet. Written only by a slow periodic pass, never by the reconciler, since
+  # reading it is a shell-out rather than a tmux capture.
+  column "branch" {
+    null = true
+    type = text
+  }
+  # Whether cwd no longer exists on disk, false until a periodic pass has looked and found
+  # it gone. An agent's worktree can be removed by hand, or by a cleanup action run against
+  # the wrong agent, while its pane is still open; this is how the panel tells a directory
+  # that vanished under a running agent from one it was simply never given.
+  column "worktree_removed" {
+    null    = false
+    type    = boolean
+    default = false
   }
   # The tag the user put on this agent, null when it carries none. It holds the
   # glyph itself, since which glyphs exist is their config and the glyph is the

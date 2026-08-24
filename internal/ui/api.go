@@ -268,7 +268,28 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 		Flags:         w.GetFlags(),
 		SetupAction:   w.GetSetupAction(),
 		CleanupAction: w.GetCleanupAction(),
+		Worktree:      worktreeConfigFromProto(w.GetWorktree()),
 	}, nil
+}
+
+// worktreeConfigFromProto reads a workflow's worktree config off the wire.
+func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
+	return workflowstore.WorktreeConfig{
+		Enabled:      w.GetEnabled(),
+		BaseBranch:   w.GetBaseBranch(),
+		CopyPaths:    w.GetCopyPaths(),
+		SymlinkPaths: w.GetSymlinkPaths(),
+	}
+}
+
+// worktreeConfigToProto puts a workflow's worktree config on the wire.
+func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
+	return &workflowv1.WorktreeConfig{
+		Enabled:      w.Enabled,
+		BaseBranch:   w.BaseBranch,
+		CopyPaths:    w.CopyPaths,
+		SymlinkPaths: w.SymlinkPaths,
+	}
 }
 
 // createWorkflow adds a workflow, defaulting a blank name so the list always has a label
@@ -291,6 +312,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 		Flags:         cfg.Flags,
 		SetupAction:   cfg.SetupAction,
 		CleanupAction: cfg.CleanupAction,
+		Worktree:      worktreeConfigToProto(cfg.Worktree),
 	}))
 	if err != nil {
 		return nil, err
@@ -318,6 +340,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		Flags:         w.Flags,
 		SetupAction:   w.SetupAction,
 		CleanupAction: w.CleanupAction,
+		Worktree:      worktreeConfigToProto(w.Worktree),
 	}))
 
 	return err

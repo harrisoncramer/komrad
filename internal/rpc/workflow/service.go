@@ -94,8 +94,12 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 		Flags:         req.Msg.GetFlags(),
 		SetupAction:   req.Msg.GetSetupAction(),
 		CleanupAction: req.Msg.GetCleanupAction(),
+		Worktree:      worktreeConfigFromProto(req.Msg.GetWorktree()),
 	})
-	if err != nil {
+	switch {
+	case errors.Is(err, agents.ErrWorktreeNeedsCwd), errors.Is(err, agents.ErrWorktreeOwnsActions), errors.Is(err, agents.ErrWorktreeActionsReserved):
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create workflow: %w", err))
 	}
 
@@ -112,15 +116,29 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 		Flags:         req.Msg.GetFlags(),
 		SetupAction:   req.Msg.GetSetupAction(),
 		CleanupAction: req.Msg.GetCleanupAction(),
+		Worktree:      worktreeConfigFromProto(req.Msg.GetWorktree()),
 	})
 	switch {
 	case errors.Is(err, agents.ErrWorkflowNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))
+	case errors.Is(err, agents.ErrWorktreeNeedsCwd), errors.Is(err, agents.ErrWorktreeOwnsActions), errors.Is(err, agents.ErrWorktreeActionsReserved):
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update workflow: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// worktreeConfigFromProto reads the request's worktree config, unset reading as disabled
+// with no fields carried, since a request naming none is not turning worktree support on.
+func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
+	return workflowstore.WorktreeConfig{
+		Enabled:      w.GetEnabled(),
+		BaseBranch:   w.GetBaseBranch(),
+		CopyPaths:    w.GetCopyPaths(),
+		SymlinkPaths: w.GetSymlinkPaths(),
+	}
 }
 
 // ArchiveWorkflow hides a workflow and archives the agents inside it.

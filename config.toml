@@ -198,6 +198,12 @@ rename  = ["r"]
 # Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
 dir = ""
 
+# Where a workflow's generated worktree setup action creates its worktrees.
+[worktrees]
+# Directory generated worktrees are created under, one subdirectory per agent.
+# Left empty this is ~/.local/state/weave/worktrees.
+dir = ""
+
 # The standing text every agent is started with, whatever workflow it is in.
 [context]
 # The file holding global context, read at each launch.

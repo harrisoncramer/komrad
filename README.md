@@ -4,7 +4,9 @@
   <img src="docs/assets/weave.png" alt="Ultra" width="350" />
 </p>
 
-<hr>
+<p align="center">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT" /></a>
+</p>
 
 Weave is a terminal-based agent manager. It lets you:
 
@@ -53,6 +55,6 @@ Weave is a terminal tool, intended for power users. It does not aspire to be a r
 - [agents](docs/agents.md): The core resource of weave
 - [actions](docs/actions.md): Custom scripts that your agents can invoke
 - [schedules](docs/schedules.md): Durable schedules for running your agents
-- [MCP](docs/mcp.md): Lets agents spawn or manage other agents
-- [Mail](docs/mail.md): How agents communicate with each other
-- [CLI](docs/commands.md): The CLI tool and commands
+- [mcp](docs/mcp.md): Lets agents spawn or manage other agents
+- [mail](docs/mail.md): How agents communicate with each other
+- [cli](docs/commands.md): The CLI tool and commands

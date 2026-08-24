@@ -1,0 +1,15 @@
+#!/bin/sh
+#WEAVE description="A workflow's cleanup action when its worktree toggle is on. Configure it from the workflow's edit form; it does not take an argument of its own."
+set -eu
+
+tree="$WEAVE_AGENT_CWD"
+
+if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
+	exit 0
+fi
+
+common_dir=$(git -C "$tree" rev-parse --git-common-dir 2>/dev/null) || exit 0
+repo=$(dirname "$common_dir")
+
+git -C "$repo" worktree remove --force "$tree" || true
+git -C "$repo" branch -D "agent/$WEAVE_AGENT_ID" || true

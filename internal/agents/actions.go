@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 type agentGetter interface {
@@ -183,6 +185,12 @@ const setupTimeout = 10 * time.Minute
 
 const maxSetupDir = 4096
 
+// setupDirFileVar names the environment variable a setup or resume action is handed, pointing
+// at an empty file it may write the agent's new directory into. This is a channel of its own
+// rather than stdout, since stdout is also where a script's own output and whatever it shells
+// out to land, and any of that arriving first would otherwise be taken as the answer.
+const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
+
 // RunSetupAction runs a setup action before creating an agent.
 func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerSetup}, pane)
@@ -202,6 +210,24 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
 	}
+
+	dirFile, err := os.CreateTemp("", "weave-setup-dir-*")
+	if err != nil {
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, err)
+	}
+	dirPath := dirFile.Name()
+	closeErr := dirFile.Close()
+	defer func() {
+		if removeErr := os.Remove(dirPath); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
+			s.actionLogger(ctx, p.name, p.trigger, p.agent).LogAttrs(ctx, slog.LevelWarn,
+				"failed to remove the setup action's directory file", logging.Err(removeErr)...)
+		}
+	}()
+	if closeErr != nil {
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, closeErr)
+	}
+
+	env = append(env, setupDirFileVar+"="+dirPath)
 
 	logger := s.actionLogger(ctx, p.name, p.trigger, p.agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
@@ -235,9 +261,14 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
 	}
 
-	answered := string(bytes.TrimSpace(result.Stdout))
+	named, err := os.ReadFile(dirPath)
+	if err != nil {
+		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrSetupFailed, p.name, err)
+	}
+
+	answered := string(bytes.TrimSpace(named))
 	if len(answered) > maxSetupDir {
-		return "", fmt.Errorf("%w: %s wrote %d bytes to stdout, where a directory to run in was expected. Progress belongs on stderr", ErrSetupFailed, p.name, len(answered))
+		return "", fmt.Errorf("%w: %s wrote %d bytes to %s, where a directory to run in was expected", ErrSetupFailed, p.name, len(answered), setupDirFileVar)
 	}
 
 	return answered, nil
@@ -246,14 +277,14 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 const setupPaneOutputLimit = 64 << 10
 
 const setupPaneWrapper = `
-mkfifo "$7"
-tee "$6" >&2 <"$7" &
+mkfifo "$6"
+tee "$5" >&2 <"$6" &
 teepid=$!
-"$1" >"$4" 2>"$7"
+"$1" 2>"$6"
 ec=$?
 wait "$teepid"
-rm -f "$7"
-echo "$ec" >"$5"
+rm -f "$6"
+echo "$ec" >"$4"
 tmux -L "$2" wait-for -S "$3"
 if [ "$ec" -ne 0 ]; then
   printf '\n[setup action exited %s -- press enter to close]\n' "$ec"
@@ -279,13 +310,6 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 	if !s.tmux.IsPaneAlive(pane) {
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w: the pane %s is gone", action.Name, actions.ErrNotStartable, pane)
 	}
-
-	outFile, err := os.CreateTemp("", "weave-setup-out-")
-	if err != nil {
-		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
-	}
-	outFile.Close()
-	defer removeTemp(ctx, outFile.Name())
 
 	exitFile, err := os.CreateTemp("", "weave-setup-exit-")
 	if err != nil {
@@ -322,16 +346,10 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 	argv := append([]string{"env", "-i"}, os.Environ()...)
 	argv = append(argv, env...)
 	argv = append(argv, "sh", "-c", setupPaneWrapper, "sh",
-		action.Path, s.socket, channel, outFile.Name(), exitFile.Name(), errFile.Name(), fifoPath)
+		action.Path, s.socket, channel, exitFile.Name(), errFile.Name(), fifoPath)
 	s.tmux.RespawnPane(pane, dir, argv...)
 
 	waitErr := s.tmux.WaitFor(waitCtx, channel)
-
-	stdout, err := os.ReadFile(outFile.Name())
-	if err != nil {
-		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
-	}
-	stdout = tailBytes(stdout, setupPaneOutputLimit)
 
 	stderr, readErr := os.ReadFile(errFile.Name())
 	if readErr != nil {
@@ -347,27 +365,27 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 			}
 			s.tmux.RespawnPane(pane, dir, "sh", "-c", setupPaneGaveUpWrapper, "sh", action.Name, timeout.String(), shell)
 
-			return actions.Result{Stdout: stdout, Stderr: stderr, ExitCode: -1},
+			return actions.Result{Stderr: stderr, ExitCode: -1},
 				fmt.Errorf("failed to run action %s: %w: gave up after %s", action.Name, waitCtx.Err(), timeout)
 		}
 
-		return actions.Result{Stdout: stdout, Stderr: stderr, ExitCode: -1},
+		return actions.Result{Stderr: stderr, ExitCode: -1},
 			fmt.Errorf("failed to run action %s: could not tell whether it finished: %w", action.Name, waitErr)
 	}
 
 	exitRaw, err := os.ReadFile(exitFile.Name())
 	if err != nil {
-		return actions.Result{Stdout: stdout, Stderr: stderr, ExitCode: -1},
+		return actions.Result{Stderr: stderr, ExitCode: -1},
 			fmt.Errorf("failed to run action %s: could not read its exit status: %w", action.Name, err)
 	}
 
 	exitCode, convErr := strconv.Atoi(strings.TrimSpace(string(exitRaw)))
 	if convErr != nil {
-		return actions.Result{Stdout: stdout, Stderr: stderr, ExitCode: -1},
+		return actions.Result{Stderr: stderr, ExitCode: -1},
 			fmt.Errorf("failed to run action %s: could not read its exit status: %w", action.Name, convErr)
 	}
 
-	result := actions.Result{Stdout: stdout, Stderr: stderr, ExitCode: exitCode}
+	result := actions.Result{Stderr: stderr, ExitCode: exitCode}
 	if exitCode != 0 {
 		return result, fmt.Errorf("failed to run action %s: %w: exited %d", action.Name, actions.ErrFailed, exitCode)
 	}
@@ -550,6 +568,11 @@ type actionEnvParams struct {
 func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, error) {
 	agent, dir, trigger := p.agent, p.dir, p.trigger
 
+	workflow, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workflow %q: %w", agent.WorkflowID, err)
+	}
+
 	payload := actionPayload{
 		ID:        agent.ID,
 		Name:      agent.Name,
@@ -560,7 +583,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		SessionID: agent.SessionID,
 		Flags:     agent.Flags,
 		Pane:      agent.Pane,
-		Workflow:  s.workflowName(ctx, agent.WorkflowID),
+		Workflow:  workflowName(workflow),
 		Hidden:    agent.Hidden,
 		Metadata:  make(map[string]string, len(agent.Metadata)),
 	}
@@ -601,16 +624,52 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
 	}
 
+	if workflow != nil && workflow.Worktree.Enabled {
+		worktreeEnv, err := s.worktreeEnv(*workflow)
+		if err != nil {
+			return nil, err
+		}
+
+		env = append(env, worktreeEnv...)
+	}
+
 	return env, nil
 }
 
-func (s *ActionService) workflowName(ctx context.Context, id string) string {
-	found, err := s.workflows.GetIncludingArchived(ctx, id)
-	if err != nil || found == nil {
+func workflowName(workflow *workflowstore.Workflow) string {
+	if workflow == nil {
 		return ""
 	}
 
-	return found.Name
+	return workflow.Name
+}
+
+// worktreeEnv is what the built-in worktree setup and cleanup actions read their config
+// from, since a workflow's worktree settings live in the database rather than in the
+// script itself. The repo the worktrees are added off is named outright rather than left
+// to WEAVE_AGENT_CWD, which stops being the repo the moment setup replaces it with the
+// worktree and so would be wrong every time setup runs again on a resume. Cleanup asks for
+// none of this, since a worktree's own git-common-dir names the repo it came from.
+func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, error) {
+	loaded, err := s.load()
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the config: %w", err)
+	}
+
+	worktreesDir, err := loaded.GetWorktreesDir()
+	if err != nil {
+		return nil, err
+	}
+
+	cfg := workflow.Worktree
+
+	return []string{
+		"WEAVE_WORKTREE_REPO=" + config.ExpandHome(strings.TrimSpace(workflow.Cwd)),
+		"WEAVE_WORKTREES_DIR=" + worktreesDir,
+		"WEAVE_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
+		"WEAVE_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
+		"WEAVE_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
+	}, nil
 }
 
 // Avoid returning invalid UTF-8 when the byte limit splits a rune.

@@ -61,8 +61,8 @@ func TestBuildCommand(t *testing.T) {
 			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
 			require.NoError(t, err)
 
-			assert.True(t, strings.HasPrefix(stripMCPConfig(command), tt.wantCommand),
-				"want %q to start with %q", stripMCPConfig(command), tt.wantCommand)
+			assert.True(t, strings.HasPrefix(stripGeneratedFlags(command), tt.wantCommand),
+				"want %q to start with %q", stripGeneratedFlags(command), tt.wantCommand)
 		})
 	}
 }
@@ -212,8 +212,9 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 
 			var config struct {
 				MCPServers map[string]struct {
-					Type string `json:"type"`
-					URL  string `json:"url"`
+					Type       string `json:"type"`
+					URL        string `json:"url"`
+					AlwaysLoad bool   `json:"alwaysLoad"`
 				} `json:"mcpServers"`
 			}
 			require.NoError(t, json.Unmarshal(raw, &config))
@@ -222,6 +223,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			require.True(t, ok, "the panel's own server is registered")
 			assert.Equal(t, "http", server.Type)
 			assert.Equal(t, "http://127.0.0.1:9999/mcp", server.URL)
+			assert.True(t, server.AlwaysLoad, "the panel's tools sit in context rather than behind a tool search")
 		})
 	}
 }
@@ -229,11 +231,11 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 // mcpConfigRef matches the --mcp-config flag and the path it points at.
 var mcpConfigRef = regexp.MustCompile(` --mcp-config '([^']+)'`)
 
-// stripMCPConfig removes the MCP config flag from a launch command, so the
-// assertions about the rest of the line are not written around a path that
-// varies by machine.
-func stripMCPConfig(command string) string {
-	return mcpConfigRef.ReplaceAllString(command, "")
+// stripGeneratedFlags removes the MCP config and settings flags from a launch command,
+// so the assertions about the rest of the line are not written around paths that vary by
+// machine.
+func stripGeneratedFlags(command string) string {
+	return settingsRef.ReplaceAllString(mcpConfigRef.ReplaceAllString(command, ""), "")
 }
 
 // appendedPromptRef matches the temp file the launch command sources its
@@ -308,7 +310,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 		wantHook    bool
 	}{
 		{
-			name:     "a build that could not name itself registers nothing",
+			name:     "a build that could not name itself registers no hook",
 			wantHook: false,
 		},
 		{
@@ -337,30 +339,16 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			match := settingsRef.FindStringSubmatch(command)
+			settings := readSettings(t, command)
+			assert.Equal(t, filepath.Join(home, ".claude", "weave-settings.json"), settingsPath(t, command))
+
+			stop, ok := settings.Hooks["Stop"]
 			if !tt.wantHook {
-				assert.Empty(t, match, "no settings are passed")
+				assert.False(t, ok, "no hook is registered")
 
 				return
 			}
 
-			require.Len(t, match, 2, "the launch carries a settings path")
-			assert.Equal(t, filepath.Join(home, ".claude", "weave-settings.json"), match[1])
-
-			raw, err := os.ReadFile(match[1])
-			require.NoError(t, err)
-
-			var settings struct {
-				Hooks map[string][]struct {
-					Hooks []struct {
-						Type    string `json:"type"`
-						Command string `json:"command"`
-					} `json:"hooks"`
-				} `json:"hooks"`
-			}
-			require.NoError(t, json.Unmarshal(raw, &settings))
-
-			stop, ok := settings.Hooks["Stop"]
 			require.True(t, ok, "the Stop event is hooked")
 			require.Len(t, stop, 1)
 			require.Len(t, stop[0].Hooks, 1)
@@ -368,6 +356,87 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			assert.Equal(t, tt.hookCommand+" hook stop", stop[0].Hooks[0].Command)
 		})
 	}
+}
+
+// TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way
+// an agent spawns anything. A Claude subagent is a context inside the one conversation
+// rather than an agent the panel can show, so a launch carries the deny whether or not it
+// had a hook command to register alongside it, and a resume carries it too.
+func TestBuildCommandDeniesSubagents(t *testing.T) {
+	tests := []struct {
+		name        string
+		hookCommand string
+		resume      bool
+	}{
+		{
+			name:        "a fresh launch",
+			hookCommand: "/usr/local/bin/weave",
+		},
+		{
+			name:   "a launch that registered no hook",
+			resume: false,
+		},
+		{
+			name:        "a resume",
+			hookCommand: "/usr/local/bin/weave",
+			resume:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Setenv("HOME", t.TempDir())
+
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+				CacheDir:    t.TempDir(),
+				SessionID:   "sess",
+				HookCommand: tt.hookCommand,
+				Resume:      tt.resume,
+			})
+			require.NoError(t, err)
+
+			deny := readSettings(t, command).Permissions.Deny
+			assert.Contains(t, deny, "Agent(general-purpose)")
+			assert.Contains(t, deny, "Agent(claude)")
+			assert.NotContains(t, deny, "Agent(Explore)", "searching a codebase is not spawning an agent")
+		})
+	}
+}
+
+// claudeSettings is the part of the settings file the tests read back.
+type claudeSettings struct {
+	Hooks map[string][]struct {
+		Hooks []struct {
+			Type    string `json:"type"`
+			Command string `json:"command"`
+		} `json:"hooks"`
+	} `json:"hooks"`
+	Permissions struct {
+		Deny []string `json:"deny"`
+	} `json:"permissions"`
+}
+
+// settingsPath returns the settings file a launch command points claude at.
+func settingsPath(t *testing.T, command string) string {
+	t.Helper()
+
+	match := settingsRef.FindStringSubmatch(command)
+	require.Len(t, match, 2, "the launch carries a settings path")
+
+	return match[1]
+}
+
+// readSettings reads back the settings file a launch wrote.
+func readSettings(t *testing.T, command string) claudeSettings {
+	t.Helper()
+
+	raw, err := os.ReadFile(settingsPath(t, command))
+	require.NoError(t, err)
+
+	var settings claudeSettings
+	require.NoError(t, json.Unmarshal(raw, &settings))
+
+	return settings
 }
 
 var settingsRef = regexp.MustCompile(` --settings '([^']+)'`)

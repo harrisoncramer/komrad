@@ -12,19 +12,43 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
+// worktreeSetupAction and worktreeCleanupAction are the built-in actions a worktree-enabled
+// workflow's setup_action and cleanup_action are pointed at. Both are shipped scripts,
+// internal/actions/builtin/_worktree_setup and _worktree_cleanup, that read the workflow's
+// worktree settings off the environment rather than off a script generated for it, so one
+// pair of actions serves every worktree-enabled workflow.
+const (
+	worktreeSetupAction   = "_worktree_setup"
+	worktreeCleanupAction = "_worktree_cleanup"
+)
+
 // ErrWorkflowHasSchedules reports that a workflow still has schedules launching
 // into it. A schedule cannot outlive its workflow, since the workflow is where its
 // directory and flags come from.
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 
-// workflowReadWriter is the part of the workflow store this service reads and writes.
-// Workflows are pure organisation, so this touches no tmux.
+// ErrWorktreeNeedsCwd reports that a workflow turned worktree support on without naming the
+// repo its worktrees are added off, which is the workflow's own cwd.
+var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd naming the repo")
+
+// ErrWorktreeOwnsActions reports that a workflow turned worktree support on while also
+// naming a setup or cleanup action, which it does not need since it points at the built-in
+// pair itself.
+var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setup_action and cleanup_action at the built-in pair itself, so both must be blank")
+
+// ErrWorktreeActionsReserved reports that a workflow named the built-in worktree pair as
+// its setup or cleanup action without the toggle that makes them work. The built-in
+// scripts read the repo, base branch, and path lists off the environment, which is only
+// populated when the toggle is on, so pointed at them any other way they fail every time.
+var ErrWorktreeActionsReserved = errors.New("setup_action and cleanup_action may not name the built-in worktree pair unless worktree.enabled is set")
+
+// workflowReadWriter is the part of the workflow store this service reads outside a
+// transaction. Create and Update are not on it. Both write across three rows, so they
+// run through InTx instead, over a store built fresh on the transaction's own handle.
 type workflowReadWriter interface {
 	List(ctx context.Context) ([]workflowstore.Workflow, error)
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	Create(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
-	Update(ctx context.Context, id string, cfg workflowstore.Config) error
 }
 
 // scheduleCounter answers whether anything is still scheduled into a workflow,
@@ -96,6 +120,11 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 // NewWorkflow creates a workflow, defaulting a blank name so the list always has
 // a label to render. The cwd is home-expanded so the stored blueprint matches
 // what an agent launch would use.
+//
+// The write spans three rows, the workflow itself plus its blueprint and its action
+// config, so it runs inside a transaction. A failure partway through must not leave a
+// workflow_configs or workflow_action_configs row with nothing pointing at it, or worse,
+// a workflow row half-built.
 func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -106,8 +135,23 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
 	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
+	normalizeWorktreeBaseBranch(&cfg)
 
-	created, err := w.store.Create(ctx, cfg)
+	if cfg.Worktree.Enabled {
+		if err := setWorktreeActions(&cfg); err != nil {
+			return nil, err
+		}
+	} else if namesReservedWorktreeAction(cfg) {
+		return nil, ErrWorktreeActionsReserved
+	}
+
+	var created *workflowstore.Workflow
+	err := w.tx.InTx(ctx, func(db store.DBTX) error {
+		var txErr error
+		created, txErr = workflowstore.New(db).Create(ctx, cfg)
+
+		return txErr
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
@@ -116,7 +160,12 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 }
 
 // UpdateWorkflow replaces a workflow's editable fields. A blank name falls back
-// to the one it already has, so the list never renders an unlabelled bucket.
+// to the one it already has, so the list never renders an unlabelled bucket. The write
+// touches the workflow row, its blueprint, and its action config together, so it runs
+// inside a transaction the same way NewWorkflow's does.
+//
+// Turning worktree support off clears the setup and cleanup actions only when they still
+// name the built-in pair, leaving alone anything a caller pointed at something else since.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
@@ -135,10 +184,64 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
 	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
 	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
+	normalizeWorktreeBaseBranch(&cfg)
 
-	if err := w.store.Update(ctx, id, cfg); err != nil {
+	switch {
+	case cfg.Worktree.Enabled:
+		if err := setWorktreeActions(&cfg); err != nil {
+			return err
+		}
+	case existing.Worktree.Enabled:
+		if cfg.SetupAction == worktreeSetupAction {
+			cfg.SetupAction = ""
+		}
+		if cfg.CleanupAction == worktreeCleanupAction {
+			cfg.CleanupAction = ""
+		}
+	case namesReservedWorktreeAction(cfg):
+		return ErrWorktreeActionsReserved
+	}
+
+	err = w.tx.InTx(ctx, func(db store.DBTX) error {
+		return workflowstore.New(db).Update(ctx, id, cfg)
+	})
+	if err != nil {
 		return fmt.Errorf("failed to update workflow %q: %w", id, err)
 	}
+
+	return nil
+}
+
+// namesReservedWorktreeAction reports whether a config names the built-in worktree pair
+// as its own setup or cleanup action, which only means anything alongside the toggle that
+// makes weave supply the environment those scripts read.
+func namesReservedWorktreeAction(cfg workflowstore.Config) bool {
+	return cfg.SetupAction == worktreeSetupAction || cfg.CleanupAction == worktreeCleanupAction
+}
+
+// normalizeWorktreeBaseBranch trims the base branch. The base branch and the two path
+// lists are kept whatever the toggle is set to, on or off, so switching it back on later
+// hands the workflow back what was there before rather than starting over blank.
+func normalizeWorktreeBaseBranch(cfg *workflowstore.Config) {
+	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
+}
+
+// setWorktreeActions points a worktree-enabled config's setup and cleanup actions at the
+// built-in pair, refusing one that already names its own since weave is about to overwrite
+// it, and one with no cwd since that is the repo the built-in scripts work against.
+func setWorktreeActions(cfg *workflowstore.Config) error {
+	if cfg.Cwd == "" {
+		return ErrWorktreeNeedsCwd
+	}
+	if cfg.SetupAction != "" && cfg.SetupAction != worktreeSetupAction {
+		return ErrWorktreeOwnsActions
+	}
+	if cfg.CleanupAction != "" && cfg.CleanupAction != worktreeCleanupAction {
+		return ErrWorktreeOwnsActions
+	}
+
+	cfg.SetupAction = worktreeSetupAction
+	cfg.CleanupAction = worktreeCleanupAction
 
 	return nil
 }

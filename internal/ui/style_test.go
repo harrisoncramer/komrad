@@ -8,50 +8,120 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// branchName is the kind of name an agent spawned off a ticket carries: the branch it
-// works on, which is longer than a row has space for.
-const branchName = "eng-5433-turn-on-crm-integrations-for-teen-for-america-ein-46-0825676"
+// TestBranchMark covers the git branch shown beside an agent's row: nothing for one the
+// branch syncer has not found a branch for, and just the icon, no branch name, for one it
+// has.
+func TestBranchMark(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch *string
+		want   bool
+	}{
+		{
+			name: "no branch found is drawn as nothing",
+		},
+		{
+			name:   "a found branch is drawn with the icon alone",
+			branch: xptr.Ptr("feature/worktrees"),
+			want:   true,
+		},
+	}
 
-// TestClipName covers the cut itself. A name that fits is drawn as it came, and one that
-// does not ends in an ellipsis inside the same width, so no row is wider than another.
-func TestClipName(t *testing.T) {
-	assert.Equal(t, "auth", clipName("auth"))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := branchMark(agentstore.Agent{Branch: tt.branch})
+			if !tt.want {
+				assert.Empty(t, got)
+				return
+			}
 
-	clipped := clipName(branchName)
-	assert.Len(t, []rune(clipped), nameWidth)
-	assert.True(t, strings.HasSuffix(clipped, "…"), "a clipped name says it was cut: %q", clipped)
-	assert.True(t, strings.HasPrefix(branchName, strings.TrimSuffix(clipped, "…")),
-		"a clipped name is the head of the whole one: %q", clipped)
-}
-
-// branchTree is one agent named after its branch, which is the case the clip is for.
-func branchTree() model {
-	return model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: branchName, WorkflowID: "w1"}},
-		}},
+			assert.Contains(t, got, branchIcon)
+			assert.NotContains(t, got, "feature/worktrees", "the branch name itself is not drawn, only the icon")
+		})
 	}
 }
 
-// TestAgentsViewClipsName covers the rendered screen. The head of the name is on it and
-// the tail is not, and the whole name is still what the filter reads, so a row matches on
-// a word the list never drew.
-func TestAgentsViewClipsName(t *testing.T) {
-	m := branchTree()
+// TestAgentsViewShowsBranch covers the row itself: an agent the branch syncer found a
+// branch for shows the icon beside its name, and one it has not draws the row without it.
+func TestAgentsViewShowsBranch(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", Branch: xptr.Ptr("agent/a1")}},
+			{agent: agentstore.Agent{ID: "a2", Name: "reviewer", WorkflowID: "w1"}},
+		}},
+	}
 
-	view := m.agentsView()
-	assert.Contains(t, view, "eng-5433-turn-on-crm")
-	assert.NotContains(t, view, "0825676")
+	rows := strings.Split(m.agentsView(), "\n")
+	worker, ok := rowNamed(rows, "worker")
+	require.True(t, ok)
+	assert.Contains(t, worker, branchIcon)
+	assert.NotContains(t, worker, "agent/a1", "the branch name itself is not drawn, only the icon")
 
-	m.filter.setQuery("0825676")
-	assert.Len(t, m.agentRows(), 2, "the workflow header and the row that matched")
+	reviewer, ok := rowNamed(rows, "reviewer")
+	require.True(t, ok)
+	assert.NotContains(t, reviewer, branchIcon)
+}
+
+// TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree
+// syncer has found its cwd gone: nothing for one whose cwd is still there, and just the
+// icon for one it is not.
+func TestWorktreeRemovedMark(t *testing.T) {
+	tests := []struct {
+		name    string
+		removed bool
+		want    bool
+	}{
+		{
+			name: "a cwd still on disk is drawn as nothing",
+		},
+		{
+			name:    "a cwd the syncer found gone is drawn with the icon",
+			removed: true,
+			want:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := worktreeRemovedMark(agentstore.Agent{WorktreeRemoved: tt.removed})
+			if !tt.want {
+				assert.Empty(t, got)
+				return
+			}
+
+			assert.Contains(t, got, worktreeRemovedIcon)
+		})
+	}
+}
+
+// TestAgentsViewShowsWorktreeRemoved covers the row itself: an agent the worktree syncer
+// found gone shows the icon beside its name, and one it has not draws the row without it.
+func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+			{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", WorktreeRemoved: true}},
+			{agent: agentstore.Agent{ID: "a2", Name: "reviewer", WorkflowID: "w1"}},
+		}},
+	}
+
+	rows := strings.Split(m.agentsView(), "\n")
+	worker, ok := rowNamed(rows, "worker")
+	require.True(t, ok)
+	assert.Contains(t, worker, worktreeRemovedIcon)
+
+	reviewer, ok := rowNamed(rows, "reviewer")
+	require.True(t, ok)
+	assert.NotContains(t, reviewer, worktreeRemovedIcon)
 }
 
 func TestUnreadMailMark(t *testing.T) {
@@ -99,7 +169,7 @@ func rowNamed(rows []string, name string) (string, bool) {
 // title and its cursor in the accent, and the other keeps both in place without it, its title
 // grey and its cursor in the terminal's own foreground.
 func TestFocusColours(t *testing.T) {
-	m := model{}
+	m := detailsModel(&recordingTmux{})
 
 	assert.Equal(t, colorAccent, m.titleStyle().GetForeground(), "the list has the keys to begin with")
 	assert.Equal(t, colorAccent, m.rowCursorStyle().GetForeground())

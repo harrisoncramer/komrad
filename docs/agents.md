@@ -1,9 +1,9 @@
 # Agents
 
-An agent is just a CLI process, running in a tmux window and tracked by weave. Think of it as a managed claude or codex chat that you can step away from, reboot, search through, or automate. Some ideas:
+An agent is just a managed claude or codex chat that you can step away from, reboot, search through, or automate. Some ideas:
 
-- A worktree agent. One workflow per repository, with a setup action that creates a git worktree and prints it, and a cleanup action that removes it. Every agent you start there gets an isolated checkout, records its branch and pull request as metadata, and takes its worktree with it when you delete it.
-- A triage agent on a schedule. A workflow pointed at your repository with context explaining what your on-call rotation cares about, and a [schedule](schedules.md) that creates an agent every weekday morning with a prompt like "read the overnight alerts and write up anything that needs a human".
+- A worktree agent. Every agent you start with weave can be configured to get an isolated checkout, and takes its worktree with it when you delete it.
+- A triage agent on a schedule. Try configuring a workflow with context explaining what your on-call rotation cares about, and a [schedule](schedules.md) that creates an agent every weekday morning with a prompt like "read the overnight alerts and write up anything that needs a human".
 - An orchestrator. An agent whose prompt is to fan work out: it calls weave's [MCP](mcp.md) to `create_agent`for each subagent, and then communicates through Weave's mail.
 
 ## Creating your first agent
@@ -19,8 +19,6 @@ Separately from state, an agent is either running or dormant. Dormant agents' pa
 Metadata is how an agent records what a person would want to open later. It is a set of key/value rows on the agent, written by the agent.
 
 The panel shows those in the details under the list, after what the agent was launched with, and agents write them with `set_agent_metadata`, keyed on their own id from `WEAVE_AGENT_ID` environment variable.
-
-The details follow whichever row the cursor is on, and the schedules screen and the archive draw the same block under their own lists. Press `C-t` to move the cursor into them, then `j` and `k` to run down the fields and `y` to copy the one you land on. `C-t` again hands the keys back to the list.
 
 ## Archiving, restoring, deleting
 

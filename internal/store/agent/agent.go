@@ -63,6 +63,12 @@ type Agent struct {
 	SpawnedByAgentID *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
+	// Branch is the branch checked out at Cwd, nil when Cwd is not a git worktree or has
+	// not been looked at yet. Written only by the branch syncer, never by anything else.
+	Branch *string
+	// WorktreeRemoved reports whether Cwd no longer exists on disk, false until a periodic
+	// pass has looked and found it gone. Written only by the worktree syncer.
+	WorktreeRemoved bool
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -342,6 +348,34 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 
 	if err := s.queries.SetAgentStateByID(ctx, models.SetAgentStateByIDParams{ID: id, State: state}); err != nil {
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
+// is nil. Written only by the branch syncer's periodic pass.
+func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetAgentBranchByID(ctx, models.SetAgentBranchByIDParams{ID: id, Branch: branch}); err != nil {
+		return fmt.Errorf("failed to set the branch for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk. Written
+// only by the worktree syncer's periodic pass.
+func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetAgentWorktreeRemovedByID(ctx, models.SetAgentWorktreeRemovedByIDParams{ID: id, WorktreeRemoved: removed}); err != nil {
+		return fmt.Errorf("failed to set worktree_removed for id %q: %w", id, err)
 	}
 
 	return nil
@@ -648,5 +682,7 @@ func agentFromRow(agent models.Agent) Agent {
 		SpawnedByAgentID: agent.SpawnedByAgentID,
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
+		Branch:           agent.Branch,
+		WorktreeRemoved:  agent.WorktreeRemoved,
 	}
 }

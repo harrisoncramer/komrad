@@ -31,14 +31,14 @@ var (
 // titleStyle is how the list's own title is drawn: in the accent while the list has the keys,
 // and grey while the details under it do.
 func (m model) titleStyle() lipgloss.Style {
-	return titleStyleFor(!m.details.focused)
+	return titleStyleFor(!m.detailsFocused())
 }
 
 // rowCursorStyle is how the marker beside the row under the list cursor is drawn. The row
 // stays marked while the details below hold the keys, since it is the row they are about, but
 // it gives up the accent to them.
 func (m model) rowCursorStyle() lipgloss.Style {
-	return cursorStyleFor(!m.details.focused)
+	return cursorStyleFor(!m.detailsFocused())
 }
 
 // titleStyleFor and cursorStyleFor are the two halves of the sidebar asking the same question,
@@ -127,6 +127,32 @@ func hiddenTally(count int, showing bool) string {
 	}
 
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
+}
+
+const branchIcon = "⎇"
+
+// branchMark is the branch checked out at an agent's cwd, dim beside its name, for any
+// agent the branch syncer found one for, whether its worktree came from the workflow
+// toggle or a hand-written setup action.
+func branchMark(agent agentstore.Agent) string {
+	if agent.Branch == nil {
+		return ""
+	}
+
+	return " " + dimStyle.Render(branchIcon) + " "
+}
+
+const worktreeRemovedIcon = "⊘"
+
+// worktreeRemovedMark flags an agent whose cwd the worktree syncer has found gone from
+// disk, in the same danger colour the waiting state uses, since both mean the row needs a
+// person's attention.
+func worktreeRemovedMark(agent agentstore.Agent) string {
+	if !agent.WorktreeRemoved {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
 }
 
 func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {

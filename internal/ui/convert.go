@@ -33,22 +33,24 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	})
 
 	return agentstore.Agent{
-		ID:         s.GetId(),
-		Name:       s.GetName(),
-		Pane:       s.GetPaneId(),
-		Cwd:        s.GetCwd(),
-		Flags:      s.GetFlags(),
-		Prompt:     s.GetPrompt(),
-		State:      s.GetState(),
-		Harness:    s.GetHarness(),
-		SessionID:  s.GetSessionId(),
-		WorkflowID: s.GetWorkflowId(),
-		ScheduleID: s.ScheduleId,
-		CreatedAt:  created,
-		ArchivedAt: archived,
-		Tag:        s.Tag,
-		Hidden:     s.GetHidden(),
-		Metadata:   metadata,
+		ID:              s.GetId(),
+		Name:            s.GetName(),
+		Pane:            s.GetPaneId(),
+		Cwd:             s.GetCwd(),
+		Flags:           s.GetFlags(),
+		Prompt:          s.GetPrompt(),
+		State:           s.GetState(),
+		Harness:         s.GetHarness(),
+		SessionID:       s.GetSessionId(),
+		WorkflowID:      s.GetWorkflowId(),
+		ScheduleID:      s.ScheduleId,
+		CreatedAt:       created,
+		ArchivedAt:      archived,
+		Tag:             s.Tag,
+		Hidden:          s.GetHidden(),
+		Metadata:        metadata,
+		Branch:          s.Branch,
+		WorktreeRemoved: s.GetWorktreeRemoved(),
 	}
 }
 
@@ -103,6 +105,7 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 			Flags:         w.GetFlags(),
 			SetupAction:   w.GetSetupAction(),
 			CleanupAction: w.GetCleanupAction(),
+			Worktree:      worktreeConfigFromProto(w.GetWorktree()),
 			ArchivedAt:    archived,
 		}
 	})

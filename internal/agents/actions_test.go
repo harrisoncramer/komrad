@@ -159,6 +159,92 @@ func TestRunActionPayload(t *testing.T) {
 	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
 }
 
+// TestRunActionCarriesWorktreeEnvOnlyWhenEnabled covers the environment the two built-in
+// worktree actions read their config from: present, and reflecting the workflow's own
+// settings, when its worktree toggle is on, and absent entirely otherwise, since most
+// workflows are not worktrees and should not carry them.
+func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
+	tests := []struct {
+		name     string
+		worktree workflowstore.WorktreeConfig
+		wantKeys []string
+	}{
+		{
+			name: "disabled carries none of the worktree keys",
+		},
+		{
+			name: "enabled carries every worktree key, reflecting the workflow's own config",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:      true,
+				BaseBranch:   "develop",
+				CopyPaths:    []string{".env", "config/local.json"},
+				SymlinkPaths: []string{"node_modules"},
+			},
+			wantKeys: []string{
+				"WEAVE_WORKTREE_REPO",
+				"WEAVE_WORKTREES_DIR",
+				"WEAVE_WORKTREE_BASE_BRANCH",
+				"WEAVE_WORKTREE_COPY_PATHS",
+				"WEAVE_WORKTREE_SYMLINK_PATHS",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actionsDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(actionsDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+			worktreesDir := t.TempDir()
+
+			runner := &recordingRunner{}
+			service := NewActionService(ActionParams{
+				Agents: fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Cwd: "/worktrees/a1", WorkflowID: "w1"}},
+				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
+					ID: "w1", Name: "backend", Cwd: "/repo", Worktree: tt.worktree,
+				}},
+				Tmux:   fakePaneOwner{},
+				Runner: runner,
+				Load: func() (*config.Config, error) {
+					cfg := config.Defaults()
+					cfg.Actions.Dir = actionsDir
+					cfg.Worktrees.Dir = worktreesDir
+
+					return cfg, nil
+				},
+			})
+
+			require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+
+			values := map[string]string{}
+			for _, entry := range runner.env {
+				key, value, found := strings.Cut(entry, "=")
+				require.True(t, found)
+				values[key] = value
+			}
+
+			if len(tt.wantKeys) == 0 {
+				for _, key := range []string{"WEAVE_WORKTREE_REPO", "WEAVE_WORKTREES_DIR", "WEAVE_WORKTREE_BASE_BRANCH", "WEAVE_WORKTREE_COPY_PATHS", "WEAVE_WORKTREE_SYMLINK_PATHS"} {
+					_, ok := values[key]
+					assert.False(t, ok, "%s is not set for a workflow with worktree support off", key)
+				}
+
+				return
+			}
+
+			for _, key := range tt.wantKeys {
+				_, ok := values[key]
+				assert.True(t, ok, "%s is missing", key)
+			}
+
+			assert.Equal(t, "/repo", values["WEAVE_WORKTREE_REPO"], "the repo is the workflow's cwd, not the worktree the agent's cwd already names")
+			assert.Equal(t, worktreesDir, values["WEAVE_WORKTREES_DIR"])
+			assert.Equal(t, "develop", values["WEAVE_WORKTREE_BASE_BRANCH"])
+			assert.Equal(t, ".env\nconfig/local.json", values["WEAVE_WORKTREE_COPY_PATHS"])
+			assert.Equal(t, "node_modules", values["WEAVE_WORKTREE_SYMLINK_PATHS"])
+		})
+	}
+}
+
 // TestRunActionNamesAnArchivedWorkflow covers the label on an agent whose workflow has been
 // archived. The agent still belongs to it, and a script told nothing cannot tell that from a
 // workflow with no name.
@@ -351,21 +437,21 @@ func TestRunSetupAction(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "one that chats on stdout is refused rather than believed",
+			name:    "one that writes too much to its dir file is refused rather than believed",
 			action:  "loud",
-			result:  runResult{stdout: strings.Repeat("a", maxSetupDir+1)},
+			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir+1)},
 			wantRan: []string{"loud"},
 			wantErr: true,
 		},
 		{
-			name:    "an action that says nothing names no directory",
+			name:    "an action that names nothing names no directory",
 			action:  "install-deps",
 			wantRan: []string{"install-deps"},
 		},
 		{
-			name:    "what it writes to stdout is where the agent runs",
+			name:    "what it writes to its dir file is where the agent runs",
 			action:  "make-worktree",
-			result:  runResult{stdout: "/work/api-auth\n"},
+			result:  runResult{dirFile: "/work/api-auth\n"},
 			wantDir: "/work/api-auth",
 			wantRan: []string{"make-worktree"},
 		},
@@ -493,13 +579,12 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 	t.Run("a script that succeeds", func(t *testing.T) {
 		pane := freshPane(t)
 		script := filepath.Join(dir, "ok")
-		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho \"working in $FOO\" >&2\necho /repo/worktree\n"), 0o755))
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho \"working in $FOO\" >&2\n"), 0o755))
 
 		result, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, []string{"FOO=api-auth"}, pane, 2*time.Second)
 
 		require.NoError(t, err)
 		assert.Equal(t, 0, result.ExitCode)
-		assert.Equal(t, "/repo/worktree", strings.TrimSpace(string(result.Stdout)))
 		assert.Contains(t, string(result.Stderr), "working in api-auth", "captured alongside streaming live to the pane")
 	})
 
@@ -663,7 +748,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 		},
 		{
 			name:   "one that worked carries what it said about itself",
-			result: runResult{stdout: "/repo/.worktrees/auth\n", stderr: "cloning\n"},
+			result: runResult{dirFile: "/repo/.worktrees/auth\n", stderr: "cloning\n"},
 			wantFields: map[string]any{
 				"process.exit.code":     float64(0),
 				"weave.action.stderr":   "cloning",
@@ -1089,9 +1174,11 @@ type recordingRunner struct {
 	results map[string]runResult
 }
 
-// runResult is what the fake answers one run with.
+// runResult is what the fake answers one run with. dirFile is what the fake writes into the
+// file named by WEAVE_SETUP_DIR_FILE, standing in for what a real setup action would write
+// there itself.
 type runResult struct {
-	stdout   string
+	dirFile  string
 	stderr   string
 	exitCode int
 	err      error
@@ -1125,9 +1212,26 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 
 	answer := r.results[p.Action.Name]
 
+	if path, ok := lookupEnv(p.Env, setupDirFileVar); ok && answer.dirFile != "" {
+		if err := os.WriteFile(path, []byte(answer.dirFile), 0o644); err != nil {
+			return actions.Result{}, err
+		}
+	}
+
 	return actions.Result{
-		Stdout:   []byte(answer.stdout),
 		Stderr:   []byte(answer.stderr),
 		ExitCode: answer.exitCode,
 	}, answer.err
+}
+
+// lookupEnv finds the value of key in a process environment slice shaped "KEY=value", the
+// same form RunParams.Env carries.
+func lookupEnv(env []string, key string) (string, bool) {
+	for _, entry := range env {
+		if name, value, found := strings.Cut(entry, "="); found && name == key {
+			return value, true
+		}
+	}
+
+	return "", false
 }
