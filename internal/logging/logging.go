@@ -66,9 +66,9 @@ const (
 	// AgentID: a model firing an action on another agent is two different agents.
 	ActionAgentID  = "weave.action.agent.id"
 	ActionAgentCwd = "weave.action.agent.cwd"
-	// ActionStderr is the tail of what an action said about itself: carried always for an
-	// action waited on, since stderr is where its progress belongs, but only on failure for
-	// one nothing waits on.
+	// ActionStderr is the tail of what an action said about itself, carried on every run that
+	// completed. An action that exits zero and still has something to report, such as the
+	// built-in worktree cleanup declining to remove a checkout, has nowhere else to say it.
 	ActionStderr = "weave.action.stderr"
 	// MailID names one piece of mail between agents, and UnreadMail is how much was
 	// waiting when weave last looked.

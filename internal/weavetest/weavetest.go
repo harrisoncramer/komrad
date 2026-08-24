@@ -86,6 +86,10 @@ type Params struct {
 	// defaults to the config's own, and a test sets it to something already past to watch
 	// mail expire without waiting.
 	DeliveryDeadline string
+	// WorktreesDir is where a generated worktree setup action puts its worktrees. It has
+	// to be set by any test that lets one run, since the default is under the developer's
+	// own home directory.
+	WorktreesDir string
 }
 
 // Start builds the service and returns it running, torn down when the test ends.
@@ -114,6 +118,9 @@ func Start(t *testing.T, p Params) *Instance {
 	settings := fmt.Sprintf("[actions]\ndir = %q\n", actionsDir)
 	if p.DeliveryDeadline != "" {
 		settings += fmt.Sprintf("\n[mail]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
+	}
+	if p.WorktreesDir != "" {
+		settings += fmt.Sprintf("\n[worktrees]\ndir = %q\n", p.WorktreesDir)
 	}
 
 	configPath := filepath.Join(root, "config.toml")
