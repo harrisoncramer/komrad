@@ -23,8 +23,8 @@ const (
 	// one that has just been told to read.
 	DeliverySoon
 	// DeliveryLater means mail is waiting on something that may not change for a while: an
-	// agent with no pane, one sitting on a permission prompt, or one that has already been
-	// told once and has not moved since.
+	// agent with no pane, one sitting on a permission prompt, one whose pane a person is
+	// reading back through, or one that has already been told once and has not moved since.
 	DeliveryLater
 )
 
@@ -137,10 +137,8 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	case !s.paneReader.IsAgentRunning(*agent):
 		return DeliveryLater, nil
 	case s.paneTyper.IsPaneInMode(agent.Pane):
-		// A pane in a mode is a person reading back through what the agent wrote, and every
-		// key sent to it is read by that mode rather than by the agent, so nothing typed now
-		// arrives and one of the keys cancels the mode the person is using. Answering before
-		// the claim is taken is what leaves the mail to be delivered once they are done.
+		// Keys sent to a pane in a mode reach the mode rather than the agent. Answering before
+		// the claim is taken is what leaves the mail to be delivered once the mode is over.
 		return DeliveryLater, nil
 	}
 

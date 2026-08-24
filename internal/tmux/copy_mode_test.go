@@ -11,15 +11,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPaneInAModeTakesNoKeys is why delivery asks about the mode before it types. tmux
-// routes every key sent to a pane in a mode through that mode's key table, so the program
-// behind the pane receives nothing and one of the keys cancels the mode the person is
-// using. Nothing standing in for tmux can be made to disagree about that, which is what
-// this needs a real server for.
-//
-// The text goes literally here, which is not what rescues it: -l turns off the key-name
-// lookup, not the mode's key table, so a pane in copy mode swallows literal text just the
-// same.
+// TestPaneInAModeTakesNoKeys is why delivery asks about the mode before it types. What it
+// proves is that nothing sent to a pane in a mode arrives, which is the behaviour that
+// matters, rather than the route by which it is lost: with a client attached the mode's key
+// table eats the keys, and with none, as here, tmux refuses the send outright. Sending the
+// text literally does not help either way, since a mode reads literal keys through the same
+// table.
 func TestPaneInAModeTakesNoKeys(t *testing.T) {
 	client := testServer(t, "weave")
 
@@ -41,9 +38,8 @@ func TestPaneInAModeTakesNoKeys(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, client.IsPaneInMode(pane), "a pane scrolled back is in a mode")
 
-	// With no client attached tmux refuses some copy-mode commands outright, which is as
-	// much a failure to deliver as a key the mode ate, so the error is reported rather than
-	// asserted on. What the program received is what settles it.
+	// The error is reported rather than asserted on, since a refused send and an eaten key
+	// are the same failure to deliver. What the program received is what settles it.
 	if err := client.SendText(pane, "swallowed-by-the-mode"); err != nil {
 		t.Logf("tmux refused the text while the pane was in a mode: %v", err)
 	}

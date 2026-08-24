@@ -26,6 +26,7 @@ func TestDeliver(t *testing.T) {
 		inMode    bool
 		claimed   bool
 		want      Delivery
+		wantClaim bool
 		wantNudge bool
 	}{
 		{
@@ -79,9 +80,10 @@ func TestDeliver(t *testing.T) {
 				ID: "agent-a", Pane: "%1", State: agentstore.StateIdle,
 				StateChangedAt: idleSince, NudgedAt: &nudgedAfter,
 			},
-			pending: 1,
-			alive:   true,
-			want:    DeliveryLater,
+			pending:   1,
+			alive:     true,
+			want:      DeliveryLater,
+			wantClaim: true,
 		},
 		{
 			name: "an agent that has gone idle again since it was last told",
@@ -124,6 +126,8 @@ func TestDeliver(t *testing.T) {
 			if !tt.wantNudge {
 				assert.Empty(t, panes.text, "nothing is typed at the agent")
 				assert.Empty(t, panes.keys, "no key is sent to the agent")
+				assert.Equal(t, tt.wantClaim, agents.taken,
+					"the right to type is only spent on an agent that could have taken the keys")
 
 				return
 			}
@@ -153,31 +157,6 @@ func TestDeliverReportsExpiredMail(t *testing.T) {
 	assert.Equal(t, DeliveryDone, got)
 	assert.True(t, mailbox.readExpired, "an empty mailbox is checked for mail that ran out of time")
 	assert.Empty(t, panes.text)
-}
-
-// TestDeliverKeepsTheClaimWhileThePaneIsInAMode is the whole point of asking about the
-// mode. The claim is what stops an agent being told twice for one stretch of sitting idle,
-// so spending it on keys the pane's mode eats loses the mail until it expires.
-func TestDeliverKeepsTheClaimWhileThePaneIsInAMode(t *testing.T) {
-	agents := &fakeAgents{
-		agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
-		claimed: true,
-	}
-	panes := &fakePanes{alive: true, inMode: true}
-
-	svc := NewDeliveryService(NewDeliveryServiceParams{
-		MailboxReader: &fakeMailboxReader{pending: 1},
-		NudgeClaimer:  agents,
-		PaneReader:    panes,
-		PaneTyper:     panes,
-	})
-
-	got, err := svc.Deliver(t.Context(), "agent-a")
-	require.NoError(t, err)
-	assert.Equal(t, DeliveryLater, got)
-	assert.False(t, agents.taken, "the right to type is not spent on a pane that cannot take keys")
-	assert.Empty(t, panes.text)
-	assert.Empty(t, panes.keys)
 }
 
 type fakeMailboxReader struct {
