@@ -21,8 +21,9 @@ import (
 // option landed on.
 func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
 	hostSocket := throwawaySocket(t)
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
-		"new-session", "-d", "-s", "userland").Run())
+	out, err := exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
+		"new-session", "-d", "-s", "userland").CombinedOutput()
+	require.NoError(t, err, "tmux: %s", out)
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_open", "1").Run())
 
 	// A socket name no server is listening on, which is what a killed manager server leaves.
