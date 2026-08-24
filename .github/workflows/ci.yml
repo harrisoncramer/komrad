@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-harrisoncramer
 
     # The store tests run against a real Postgres rather than a fake, and
     # internal/pgtest creates a database per test off the server WEAVE_DATABASE_URL
