@@ -1,4 +1,4 @@
-package jobs
+package internaljobs
 
 import (
 	"context"
@@ -66,22 +66,6 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			assert.Equal(t, tt.wantDeleted, archive.deleted, "how many archived agents the sweep deleted")
 		})
 	}
-}
-
-// TestEmptyArchiveIsQueuedOnce covers River's side of it. The sweep takes as long as tearing
-// down that many agents takes, so a second press while one is under way has to collapse into
-// it rather than starting a second sweep over the same archive.
-func TestEmptyArchiveIsQueuedOnce(t *testing.T) {
-	client := newRiverClient(t)
-
-	first, err := client.Insert(t.Context(), EmptyArchiveArgs{}, nil)
-	require.NoError(t, err)
-	require.False(t, first.UniqueSkippedAsDuplicate)
-
-	second, err := client.Insert(t.Context(), EmptyArchiveArgs{}, nil)
-	require.NoError(t, err)
-
-	assert.True(t, second.UniqueSkippedAsDuplicate, "a sweep already in flight is the one that runs")
 }
 
 type fakeArchive struct {

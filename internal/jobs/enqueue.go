@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 
+	"weave/internal/jobs/internaljobs"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/riverqueue/river"
 )
@@ -21,7 +23,7 @@ func NewEnqueuer(client *river.Client[pgx.Tx]) *Enqueuer {
 // is recorded, since the sweep runs for as long as tearing down that many agents takes and
 // nobody is waiting on it.
 func (e *Enqueuer) EmptyArchive(ctx context.Context) error {
-	if _, err := e.client.Insert(ctx, EmptyArchiveArgs{}, nil); err != nil {
+	if _, err := e.client.Insert(ctx, internaljobs.EmptyArchiveArgs{}, nil); err != nil {
 		return fmt.Errorf("failed to queue emptying the archive: %w", err)
 	}
 

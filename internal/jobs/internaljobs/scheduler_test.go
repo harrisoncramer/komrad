@@ -1,4 +1,4 @@
-package jobs
+package internaljobs
 
 import (
 	"context"
@@ -371,7 +371,7 @@ func TestLaunchArgsForNeverOccurs(t *testing.T) {
 			schedule, err := robfig.ParseStandard(expression)
 			require.NoError(t, err)
 
-			args, _ := launchArgsFor("s1", schedule, time.Now())
+			args, _ := LaunchArgsFor("s1", schedule, time.Now())
 			assert.Nil(t, args)
 		})
 	}
@@ -385,7 +385,7 @@ func TestLaunchArgsForOccurrence(t *testing.T) {
 	cron, err := agents.ParseCron("0 9 * * *", "UTC")
 	require.NoError(t, err)
 
-	args, _ := launchArgsFor("s1", cron, nine.Add(30*time.Minute))
+	args, _ := LaunchArgsFor("s1", cron, nine.Add(30*time.Minute))
 	launch, ok := args.(LaunchAgentArgs)
 	require.True(t, ok)
 

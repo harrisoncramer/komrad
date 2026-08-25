@@ -16,6 +16,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
+	"weave/internal/jobs/internaljobs"
 	"weave/internal/mcp"
 	rpcaction "weave/internal/rpc/action"
 	rpcagent "weave/internal/rpc/agent"
@@ -309,7 +310,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv.ScheduleReconcile = Loop{
 		Name:     "schedule reconcile",
 		Interval: ScheduleReconcileInterval,
-		Pass:     jobs.NewScheduler(scheduleStore, srv.Periodic).Reconcile,
+		Pass:     internaljobs.NewScheduler(scheduleStore, srv.Periodic).Reconcile,
 	}
 	srv.Reconcile = Loop{
 		Name:     "reconcile",
