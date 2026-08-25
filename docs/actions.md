@@ -77,7 +77,6 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
 - `EDITOR` and `WEAVE_SHELL`
-- `WEAVE_AGENT_METADATA_<KEY>`, one variable per metadata entry the agent has recorded, so a script reads `pr` as `WEAVE_AGENT_METADATA_PR` rather than parsing the payload. A dash in a key becomes an underscore.
 
 ## Action Metadata
 
@@ -98,13 +97,16 @@ This action will abort and fail if it cannot execute within 1 second.
 
 ## Example: open the pull request an agent recorded
 
-Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. Weave ships this one as `_open_pr`, bound to `o` in the agents list on the agents that have one recorded, and an action of your own can read the same value:
+Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. Weave ships this one as `_open_pr`, bound to `o` in the agents list on the agents that have one recorded. It reads the value back through the API rather than out of the payload, which is what any action of your own wanting one field should do, since `weave` is on an action's PATH:
 
 ```sh
 #!/bin/sh
 set -eu
 
-exec open "${WEAVE_AGENT_METADATA_PR:?no pull request is recorded on this agent}"
+agent=$(weave rpc get-agent --id "$WEAVE_AGENT_ID" --compact)
+url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "pr") | .value] | first // ""')
+
+exec open "$url"
 ```
 
 ## The builtins, and replacing one

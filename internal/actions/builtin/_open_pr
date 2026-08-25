@@ -2,7 +2,10 @@
 #WEAVE description="Open the pull request an agent recorded, in your browser. What the agents list's pull request key runs, on the agents that have one."
 set -eu
 
-url="${WEAVE_AGENT_METADATA_PR:-}"
+# In two steps rather than a pipeline, so a weave that could not answer fails the action
+# rather than reaching jq as an empty response and reading as an agent with no pull request.
+agent=$(weave rpc get-agent --id "$WEAVE_AGENT_ID" --compact)
+url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "pr") | .value] | first // ""')
 
 if [ -z "$url" ]; then
 	echo "no pull request is recorded on this agent" >&2

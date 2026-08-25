@@ -94,15 +94,15 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 
 // TestPanelOpensThePullRequestKey covers the pull request key from the press through to a
 // process. The panel names an action nothing in its own list shows, so what proves the key is
-// wired is the script running, and the URL reaching it through the environment rather than out
-// of the payload is what keeps that script free of a JSON parser.
+// wired is the script running, on the agent the cursor was on, since the shipped one reads the
+// pull request back out of the API by that id.
 func TestPanelOpensThePullRequestKey(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
 	out := filepath.Join(t.TempDir(), "opened.txt")
 	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, openPRAction), []byte(
-		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT_METADATA_PR\" > "+out+"\n",
+		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT_ID\" > "+out+"\n",
 	), 0o755))
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
@@ -157,7 +157,7 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 		return err == nil && len(read) > 0
 	}, 5*time.Second, 10*time.Millisecond, "the pull request key never reached a process")
 
-	assert.Equal(t, "https://example.test/1", string(written))
+	assert.Equal(t, created.Msg.GetAgent().GetId(), string(written), "the agent the script reads the pull request back for")
 	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr", "the legend offers the key on an agent that has one")
 }
 
