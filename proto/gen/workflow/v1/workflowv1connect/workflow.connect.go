@@ -52,6 +52,9 @@ const (
 	// WorkflowServiceRestoreWorkflowProcedure is the fully-qualified name of the WorkflowService's
 	// RestoreWorkflow RPC.
 	WorkflowServiceRestoreWorkflowProcedure = "/workflow.v1.WorkflowService/RestoreWorkflow"
+	// WorkflowServiceDeleteWorkflowProcedure is the fully-qualified name of the WorkflowService's
+	// DeleteWorkflow RPC.
+	WorkflowServiceDeleteWorkflowProcedure = "/workflow.v1.WorkflowService/DeleteWorkflow"
 )
 
 // WorkflowServiceClient is a client for the workflow.v1.WorkflowService service.
@@ -62,6 +65,7 @@ type WorkflowServiceClient interface {
 	UpdateWorkflow(context.Context, *connect.Request[v1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveWorkflow(context.Context, *connect.Request[v1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreWorkflow(context.Context, *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error)
+	DeleteWorkflow(context.Context, *connect.Request[v1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewWorkflowServiceClient constructs a client for the workflow.v1.WorkflowService service. By
@@ -116,6 +120,13 @@ func NewWorkflowServiceClient(httpClient connect.HTTPClient, baseURL string, opt
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
+		deleteWorkflow: connect.NewClient[v1.DeleteWorkflowRequest, emptypb.Empty](
+			httpClient,
+			baseURL+WorkflowServiceDeleteWorkflowProcedure,
+			connect.WithSchema(workflowServiceMethods.ByName("DeleteWorkflow")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -127,6 +138,7 @@ type workflowServiceClient struct {
 	updateWorkflow  *connect.Client[v1.UpdateWorkflowRequest, emptypb.Empty]
 	archiveWorkflow *connect.Client[v1.ArchiveWorkflowRequest, emptypb.Empty]
 	restoreWorkflow *connect.Client[v1.RestoreWorkflowRequest, v1.RestoreWorkflowResponse]
+	deleteWorkflow  *connect.Client[v1.DeleteWorkflowRequest, emptypb.Empty]
 }
 
 // ListWorkflows calls workflow.v1.WorkflowService.ListWorkflows.
@@ -159,6 +171,11 @@ func (c *workflowServiceClient) RestoreWorkflow(ctx context.Context, req *connec
 	return c.restoreWorkflow.CallUnary(ctx, req)
 }
 
+// DeleteWorkflow calls workflow.v1.WorkflowService.DeleteWorkflow.
+func (c *workflowServiceClient) DeleteWorkflow(ctx context.Context, req *connect.Request[v1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.deleteWorkflow.CallUnary(ctx, req)
+}
+
 // WorkflowServiceHandler is an implementation of the workflow.v1.WorkflowService service.
 type WorkflowServiceHandler interface {
 	ListWorkflows(context.Context, *connect.Request[v1.ListWorkflowsRequest]) (*connect.Response[v1.ListWorkflowsResponse], error)
@@ -167,6 +184,7 @@ type WorkflowServiceHandler interface {
 	UpdateWorkflow(context.Context, *connect.Request[v1.UpdateWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 	ArchiveWorkflow(context.Context, *connect.Request[v1.ArchiveWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 	RestoreWorkflow(context.Context, *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error)
+	DeleteWorkflow(context.Context, *connect.Request[v1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewWorkflowServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -217,6 +235,13 @@ func NewWorkflowServiceHandler(svc WorkflowServiceHandler, opts ...connect.Handl
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
+	workflowServiceDeleteWorkflowHandler := connect.NewUnaryHandler(
+		WorkflowServiceDeleteWorkflowProcedure,
+		svc.DeleteWorkflow,
+		connect.WithSchema(workflowServiceMethods.ByName("DeleteWorkflow")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/workflow.v1.WorkflowService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case WorkflowServiceListWorkflowsProcedure:
@@ -231,6 +256,8 @@ func NewWorkflowServiceHandler(svc WorkflowServiceHandler, opts ...connect.Handl
 			workflowServiceArchiveWorkflowHandler.ServeHTTP(w, r)
 		case WorkflowServiceRestoreWorkflowProcedure:
 			workflowServiceRestoreWorkflowHandler.ServeHTTP(w, r)
+		case WorkflowServiceDeleteWorkflowProcedure:
+			workflowServiceDeleteWorkflowHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -262,4 +289,8 @@ func (UnimplementedWorkflowServiceHandler) ArchiveWorkflow(context.Context, *con
 
 func (UnimplementedWorkflowServiceHandler) RestoreWorkflow(context.Context, *connect.Request[v1.RestoreWorkflowRequest]) (*connect.Response[v1.RestoreWorkflowResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workflow.v1.WorkflowService.RestoreWorkflow is not implemented"))
+}
+
+func (UnimplementedWorkflowServiceHandler) DeleteWorkflow(context.Context, *connect.Request[v1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("workflow.v1.WorkflowService.DeleteWorkflow is not implemented"))
 }

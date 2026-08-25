@@ -329,6 +329,24 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())
 			},
 		},
+		{
+			name: "the workflow delete prompt",
+			open: func(m model) model {
+				workflow := archivedWorkflow("w1", "backend")
+				m.target.deleteWorkflow = &workflow
+				m.screen = screenArchiveDelete
+				m.form, m.values.confirmed = deleteWorkflowForm(workflow, 0, m.keys.Form)
+				*m.values.confirmed = true
+				m.form.State = huh.StateCompleted
+
+				return m
+			},
+			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateArchiveDelete(keyMsg("enter")) },
+			check: func(t *testing.T, sent *formRecorder) {
+				require.NotNil(t, sent.deletedWorkflow)
+				assert.Equal(t, "w1", sent.deletedWorkflow.GetId())
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -895,6 +913,7 @@ type formRecorder struct {
 	createdWorkflow  *workflowv1.CreateWorkflowRequest
 	updatedWorkflow  *workflowv1.UpdateWorkflowRequest
 	archivedWorkflow *workflowv1.ArchiveWorkflowRequest
+	deletedWorkflow  *workflowv1.DeleteWorkflowRequest
 	createdSchedule  *schedulev1.CreateScheduleRequest
 	updatedSchedule  *schedulev1.UpdateScheduleRequest
 	archivedSchedule *schedulev1.ArchiveScheduleRequest
@@ -983,6 +1002,16 @@ func (f *formRecorder) ArchiveWorkflow(_ context.Context, req *connect.Request[w
 	}
 
 	f.archivedWorkflow = req.Msg
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func (f *formRecorder) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
+	f.deletedWorkflow = req.Msg
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

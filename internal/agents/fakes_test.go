@@ -480,13 +480,14 @@ func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *Workfl
 
 func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier parentNotifier) *WorkflowService {
 	return NewWorkflowService(WorkflowParams{
-		Workflows: s.Workflows,
-		Agents:    s.Agents,
-		Schedules: s.Schedules,
-		Tmux:      tmux,
-		Tx:        s.Pool,
-		MaxAgents: maxAgents,
-		Notifier:  notifier,
+		Workflows:    s.Workflows,
+		Agents:       s.Agents,
+		AgentDeleter: s.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}, addr: "127.0.0.1:9999"}),
+		Schedules:    s.Schedules,
+		Tmux:         tmux,
+		Tx:           s.Pool,
+		MaxAgents:    maxAgents,
+		Notifier:     notifier,
 	})
 }
 

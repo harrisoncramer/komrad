@@ -23,6 +23,7 @@ type workflowWriter interface {
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
 	ArchiveWorkflow(ctx context.Context, id string) error
 	RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	DeleteWorkflow(ctx context.Context, id string) error
 }
 
 type workflowLister interface {
@@ -163,4 +164,18 @@ func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[work
 	}
 
 	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored).Workflow}), nil
+}
+
+// DeleteWorkflow permanently removes an archived workflow and the archived agents still
+// inside it.
+func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	err := s.workflows.DeleteWorkflow(ctx, req.Msg.GetId())
+	switch {
+	case errors.Is(err, agents.ErrWorkflowNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no archived workflow with id %q", req.Msg.GetId()))
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete workflow: %w", err))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

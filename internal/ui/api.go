@@ -335,6 +335,15 @@ func (a api) restoreWorkflow(id string) error {
 	return nil
 }
 
+func (a api) deleteWorkflow(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+
+	return err
+}
+
 func (a api) listActions() ([]*actionv1.Action, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
