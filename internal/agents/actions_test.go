@@ -913,13 +913,9 @@ func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 	assert.Contains(t, string(persisted), "tearing down 2")
 }
 
-// TestRunSetupActionPersistsStdoutOnAFailure is the same regression as
-// TestRunCleanupActionPersistsStdoutOnAFailure for the other synchronous path.
-// RunAndWait keeps stdout and stderr as two separate tails, and the non-pane branch of
-// runAwaitedAction used to log and report only the stderr one. A setup script that fails
-// through a plain echo and a bare exit, never touching stderr, used to leave nothing
-// anywhere, not the per-agent log, not the structured log, and not the refusal a create
-// call returns.
+// TestRunSetupActionPersistsStdoutOnAFailure covers a setup script that fails through a
+// plain echo and a bare exit, never touching stderr, and checks the per-agent log, the
+// structured log, and the refusal a create call returns all carry what it said.
 func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte(
@@ -945,10 +941,9 @@ func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
 }
 
 // TestActionDetailCapsOutputAndNamesTheLogPath covers the string that becomes a panel
-// banner. The whole tail used to travel unbounded into that banner, and now it is cut to a
-// size a banner can hold, with what got cut saying where the rest actually went. The two
-// streams share that one budget, so a chatty stdout must not be able to push the stderr
-// line that actually says what went wrong out of what survives.
+// banner, capped to a size a banner can hold with the cap allocated to stderr first so a
+// chatty stdout cannot push the line that actually says what went wrong out of what
+// survives.
 func TestActionDetailCapsOutputAndNamesTheLogPath(t *testing.T) {
 	long := strings.Repeat("x", actionDetailCap+50)
 
@@ -997,7 +992,9 @@ func TestActionDetailCapsOutputAndNamesTheLogPath(t *testing.T) {
 				return
 			}
 
-			assert.LessOrEqual(t, len(got), actionDetailCap+100)
+			kept, _, found := strings.Cut(strings.TrimPrefix(got, ": ..."), " (")
+			require.True(t, found, "the cut carries a parenthetical saying what happened to the rest")
+			assert.LessOrEqual(t, len(kept), actionDetailCap+1, "one byte of slack for the newline joining both streams")
 			if tt.wantSurvives != "" {
 				assert.Contains(t, got, tt.wantSurvives, "stderr keeps its own room rather than losing it to stdout")
 			} else {
@@ -1012,14 +1009,6 @@ func TestActionDetailCapsOutputAndNamesTheLogPath(t *testing.T) {
 	}
 }
 
-// TestActionEnvGuardsAgainstInteractivePrompts covers the environment every action starts
-// with. A cleanup or setup action running git against expired credentials must not open a
-// terminal prompt and hang forever with nothing waiting on it, so every run disables the
-// interactive fallbacks unless the user configured their own non-interactive askpass, which
-// has to survive untouched. This runs the real runner rather than the recording fake. The
-// fake only ever sees what this package appends, not what the child process actually
-// inherits once os.Environ() is merged in underneath it, which is exactly the layer the
-// guard has to be right about.
 func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 	tests := []struct {
 		name       string
