@@ -1,6 +1,8 @@
 package workflow
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -100,7 +102,7 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 			name: "enabling it writes the config and generates the two actions",
 			req: &workflowv1.CreateWorkflowRequest{
 				Name: "backend",
-				Cwd:  "/repo",
+				Cwd:  primaryCheckout(t),
 				Worktree: &workflowv1.WorktreeConfig{
 					Enabled:      true,
 					BaseBranch:   "develop",
@@ -498,6 +500,15 @@ func createWorkflow(t *testing.T, svc *Service, name string) string {
 	require.NoError(t, err)
 
 	return created.Msg.GetWorkflow().GetId()
+}
+
+func primaryCheckout(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	require.NoError(t, os.Mkdir(filepath.Join(dir, ".git"), 0o755))
+
+	return dir
 }
 
 // TestListWorkflowsArchived covers the flag that picks which set is listed, and the
