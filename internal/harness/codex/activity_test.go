@@ -73,6 +73,16 @@ const questionsFrame = "  Question 1/3 (3 unanswered)\n" +
 	"\n" +
 	"  tab to add notes | enter to submit answer | ←/→ to navigate questions | esc to interrupt"
 
+const quotedStatusFrame = "  \u2514 weave.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})\n" +
+	"\n" +
+	"\u2022 Yes. It is a separate bug that already exists on main.\n" +
+	"\n" +
+	"\u2500 Worked for 3m 48s \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n" +
+	"\n" +
+	"\u203a Explain this codebase\n" +
+	"\n" +
+	"  gpt-5.6-sol medium fast · /repo/worktree"
+
 const trustFrame = "> You are in /repo/worktree\n" +
 	"\n" +
 	"  Do you trust the contents of this directory?\n" +
@@ -159,6 +169,11 @@ func TestReadActivity(t *testing.T) {
 			name:  "the verb and timer alone are work, for a release that drops the hint",
 			frame: "• Working (12s)",
 			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "a finished turn that quoted the status line is not work",
+			frame: quotedStatusFrame,
+			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "an approval phrase just above a live status line",
