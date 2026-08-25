@@ -163,9 +163,6 @@ func TestReadHeaderUnreadable(t *testing.T) {
 	assert.False(t, text)
 }
 
-// TestHeaderTimeoutOr covers the three states a header can leave a caller's fallback in. It
-// can stand unset and let the fallback through, be beaten by a declared duration, or be
-// overridden by an explicit "no limit" that wins even over a real fallback.
 func TestHeaderTimeoutOr(t *testing.T) {
 	tests := []struct {
 		name     string
