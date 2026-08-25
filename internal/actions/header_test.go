@@ -119,6 +119,15 @@ func TestReadHeader(t *testing.T) {
 				Timeout:     time.Minute,
 			},
 		},
+		{
+			name:     "none declares no limit rather than leaving the timeout unset",
+			file:     "unlimited-timeout",
+			wantText: true,
+			want: Header{
+				Description: "Declares that it must never be timed out.",
+				Timeout:     unlimitedTimeout,
+			},
+		},
 	}
 
 	described := make([]string, 0, len(tests))
@@ -152,4 +161,38 @@ func TestReadHeaderUnreadable(t *testing.T) {
 
 	assert.Equal(t, Header{}, header)
 	assert.False(t, text)
+}
+
+func TestHeaderTimeoutOr(t *testing.T) {
+	tests := []struct {
+		name     string
+		header   Header
+		fallback time.Duration
+		want     time.Duration
+	}{
+		{
+			name:     "a header that declares nothing falls back",
+			header:   Header{},
+			fallback: 2 * time.Minute,
+			want:     2 * time.Minute,
+		},
+		{
+			name:     "a header that declares no limit beats a real fallback",
+			header:   Header{Timeout: unlimitedTimeout},
+			fallback: 2 * time.Minute,
+			want:     0,
+		},
+		{
+			name:     "a header that declares a duration is held to it",
+			header:   Header{Timeout: 30 * time.Second},
+			fallback: 2 * time.Minute,
+			want:     30 * time.Second,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, tt.header.TimeoutOr(tt.fallback))
+		})
+	}
 }

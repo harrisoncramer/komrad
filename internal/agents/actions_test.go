@@ -1260,8 +1260,16 @@ func TestActionTimeouts(t *testing.T) {
 			want: 0,
 		},
 		{
-			name:   "a cleanup that declares nothing is unbounded too",
+			name:   "a cleanup that declares nothing gets the default ceiling",
 			action: "bare",
+			fire: func(s *ActionService, name string) error {
+				return s.RunCleanupAction(context.Background(), agent, name, nil)
+			},
+			want: 2 * time.Minute,
+		},
+		{
+			name:   "a cleanup that declares no limit stays unbounded",
+			action: "unlimited",
 			fire: func(s *ActionService, name string) error {
 				return s.RunCleanupAction(context.Background(), agent, name, nil)
 			},
@@ -1313,6 +1321,9 @@ func TestActionTimeouts(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "bare"), []byte("#!/bin/sh\n"), 0o755))
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "declared"), []byte(
 				"#!/bin/sh\n#WEAVE timeout=\"30s\"\n",
+			), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "unlimited"), []byte(
+				"#!/bin/sh\n#WEAVE timeout=\"none\"\n",
 			), 0o755))
 
 			runner := &recordingRunner{}
