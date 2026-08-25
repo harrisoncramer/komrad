@@ -26,6 +26,16 @@ func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID str
 	return count, err
 }
 
+const deleteSchedule = `-- name: DeleteSchedule :exec
+DELETE FROM schedules
+WHERE id = $1
+`
+
+func (q *Queries) DeleteSchedule(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteSchedule, id)
+	return err
+}
+
 const getSchedule = `-- name: GetSchedule :one
 SELECT
     s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
@@ -206,6 +216,56 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 	var items []*ListSchedulesPageRow
 	for rows.Next() {
 		var i ListSchedulesPageRow
+		if err := rows.Scan(
+			&i.Schedule.ID,
+			&i.Schedule.Name,
+			&i.Schedule.Cron,
+			&i.Schedule.Timezone,
+			&i.Schedule.Enabled,
+			&i.Schedule.HideAgents,
+			&i.Schedule.Prompt,
+			&i.Schedule.WorkflowID,
+			&i.Schedule.ArchivedAt,
+			&i.Schedule.CreatedAt,
+			&i.Schedule.UpdatedAt,
+			&i.Schedule.LastResultStatus,
+			&i.Schedule.LastResultMessage,
+			&i.Schedule.LastResultAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkflowSchedules = `-- name: ListWorkflowSchedules :many
+SELECT
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
+FROM
+    schedules s
+WHERE
+    s.workflow_id = $1
+ORDER BY
+    s.id DESC
+`
+
+type ListWorkflowSchedulesRow struct {
+	Schedule Schedule
+}
+
+func (q *Queries) ListWorkflowSchedules(ctx context.Context, workflowID string) ([]*ListWorkflowSchedulesRow, error) {
+	rows, err := q.db.Query(ctx, listWorkflowSchedules, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWorkflowSchedulesRow
+	for rows.Next() {
+		var i ListWorkflowSchedulesRow
 		if err := rows.Scan(
 			&i.Schedule.ID,
 			&i.Schedule.Name,

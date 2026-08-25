@@ -4,7 +4,7 @@ Permanently delete an archived workflow along with whatever archived agents are 
 
 ### Synopsis
 
-Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same cleanup-action handling a direct agent delete uses. Returns not_found if the workflow does not exist or is not archived. An agent whose cleanup action is still running, or whose cleanup failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again.
+Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same cleanup-action handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose cleanup action is still running, or whose cleanup failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again.
 
 ```
 weave rpc delete-workflow [flags]

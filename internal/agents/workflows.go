@@ -11,6 +11,7 @@ import (
 	"weave/config"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 )
 
@@ -20,6 +21,8 @@ const (
 )
 
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
+
+var ErrScheduleHasAgents = errors.New("schedule still has agents outside the workflow being deleted")
 
 var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd naming the repo")
 
@@ -38,13 +41,16 @@ type workflowReadWriter interface {
 	Delete(ctx context.Context, id string) error
 }
 
-type scheduleCounter interface {
+type workflowScheduleStore interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
+	ListInWorkflow(ctx context.Context, workflowID string) ([]schedulestore.Schedule, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type workflowAgentLister interface {
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
+	NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error)
 }
 
 type workflowAgentDeleter interface {
@@ -55,7 +61,7 @@ type WorkflowService struct {
 	store        workflowReadWriter
 	agents       workflowAgentLister
 	agentDeleter workflowAgentDeleter
-	schedules    scheduleCounter
+	schedules    workflowScheduleStore
 	tmux         paneKiller
 	tx           txRunner
 
@@ -67,7 +73,7 @@ type WorkflowParams struct {
 	Workflows    workflowReadWriter
 	Agents       workflowAgentLister
 	AgentDeleter workflowAgentDeleter
-	Schedules    scheduleCounter
+	Schedules    workflowScheduleStore
 	Tmux         paneKiller
 	Tx           txRunner
 	MaxAgents    int
@@ -375,14 +381,14 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 }
 
 // DeleteWorkflow permanently removes an archived workflow along with whatever archived agents
-// are still inside it. Archiving a workflow archives every agent in it too, so there is never
-// a live agent to refuse here. The cascade goes through DeleteAgents rather than a raw store
-// delete, so an agent whose cleanup action is still running, or whose cleanup failed, is left
-// behind exactly as it would be from a direct delete, and the workflow row goes with it: a
-// delete that actually removes an agent checks the workflow it leaves behind for itself,
-// synchronously or from a cleanup action's own completion, so there is nothing left to check
-// here once agents are cascaded to. A workflow with nothing left to cascade is the exception,
-// since no delete runs to check it, so that case is still checked directly.
+// and schedules are still inside it. Archiving a workflow archives every agent in it too, so
+// there is never a live agent to refuse here. The cascade goes through DeleteAgents rather than
+// a raw store delete, so an agent whose cleanup action is still running, or whose cleanup
+// failed, is left behind exactly as it would be from a direct delete, and the workflow row goes
+// with it: a delete that actually removes an agent checks the workflow it leaves behind for
+// itself, synchronously or from a cleanup action's own completion, so there is nothing left to
+// check here once agents are cascaded to. A workflow with nothing left to cascade is the
+// exception, since no delete runs to check it, so that case is still checked directly.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
@@ -392,12 +398,17 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
 	}
 
+	schedules, err := w.heldSchedules(ctx, existing)
+	if err != nil {
+		return err
+	}
+
 	inside, err := w.agents.ListArchivedInWorkflow(ctx, id)
 	if err != nil {
 		return err
 	}
 	if len(inside) == 0 {
-		return w.deleteIfEmpty(ctx, existing)
+		return w.deleteWithSchedules(ctx, existing, schedules)
 	}
 
 	return w.agentDeleter.DeleteAgents(ctx, agentIDs(inside))
@@ -426,6 +437,46 @@ func (w *WorkflowService) deleteIfEmpty(ctx context.Context, existing *workflows
 	}
 	if len(remaining) > 0 {
 		return nil
+	}
+
+	schedules, err := w.heldSchedules(ctx, existing)
+	if err != nil {
+		return err
+	}
+
+	return w.deleteWithSchedules(ctx, existing, schedules)
+}
+
+// heldSchedules returns the schedules pointing at a workflow, refusing if any is still held by
+// an agent outside it. Only archived schedules can be there, since a live one refuses the
+// archive and none can be created against an archived workflow, and nothing else ever removes
+// them, so a workflow that ever held one would stay pinned by its foreign key forever. The
+// refusal comes before the agents inside are cascaded to, so a workflow that cannot be emptied
+// is left exactly as it was rather than stripped of its agents and kept anyway.
+func (w *WorkflowService) heldSchedules(ctx context.Context, existing *workflowstore.Workflow) ([]schedulestore.Schedule, error) {
+	schedules, err := w.schedules.ListInWorkflow(ctx, existing.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, schedule := range schedules {
+		held, err := w.agents.NamesHoldingSchedule(ctx, schedule.ID, existing.ID)
+		if err != nil {
+			return nil, err
+		}
+		if len(held) > 0 {
+			return nil, fmt.Errorf("%w: %q is still held by %s", ErrScheduleHasAgents, schedule.Name, strings.Join(held, ", "))
+		}
+	}
+
+	return schedules, nil
+}
+
+func (w *WorkflowService) deleteWithSchedules(ctx context.Context, existing *workflowstore.Workflow, schedules []schedulestore.Schedule) error {
+	for _, schedule := range schedules {
+		if err := w.schedules.Delete(ctx, schedule.ID); err != nil {
+			return err
+		}
 	}
 
 	if err := w.store.Delete(ctx, existing.ID); err != nil {
