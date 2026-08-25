@@ -611,3 +611,17 @@ func seedWorkflow(t *testing.T, st *testStore) string {
 
 	return created.ID
 }
+
+func backdateNudge(t *testing.T, st *testStore, id string, age time.Duration) {
+	t.Helper()
+	_, err := st.Pool.GetDB().Exec(t.Context(),
+		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
+	require.NoError(t, err)
+}
+
+func backdateStateChanged(t *testing.T, st *testStore, id string, age time.Duration) {
+	t.Helper()
+	_, err := st.Pool.GetDB().Exec(t.Context(),
+		`UPDATE agents SET state_changed_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
+	require.NoError(t, err)
+}

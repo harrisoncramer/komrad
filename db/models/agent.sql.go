@@ -7,6 +7,7 @@ package models
 
 import (
 	"context"
+	"time"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -61,13 +62,19 @@ WHERE
     id = $1
     AND archived_at IS NULL
     AND (nudged_at IS NULL
-        OR state_changed_at > nudged_at)
+        OR state_changed_at > nudged_at
+        OR nudged_at < $2)
 RETURNING
     id
 `
 
-func (q *Queries) ClaimAgentNudge(ctx context.Context, id string) ([]string, error) {
-	rows, err := q.db.Query(ctx, claimAgentNudge, id)
+type ClaimAgentNudgeParams struct {
+	ID           string
+	NudgedBefore *time.Time
+}
+
+func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, claimAgentNudge, arg.ID, arg.NudgedBefore)
 	if err != nil {
 		return nil, err
 	}

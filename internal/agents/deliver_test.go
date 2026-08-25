@@ -94,7 +94,7 @@ func TestDeliver(t *testing.T) {
 			want:    DeliveryLater,
 		},
 		{
-			name: "an agent already told about this stretch of sitting idle",
+			name: "an agent told about the mail recently enough that the line may yet be answered",
 			agent: &agentstore.Agent{
 				ID: "agent-a", Pane: "%1", State: agentstore.StateIdle,
 				StateChangedAt: idleSince, NudgedAt: &nudgedAfter,
@@ -105,7 +105,7 @@ func TestDeliver(t *testing.T) {
 			wantClaim: true,
 		},
 		{
-			name: "an agent that has gone idle again since it was last told",
+			name: "an agent whose last nudge has stood long enough to have been lost",
 			agent: &agentstore.Agent{
 				ID: "agent-a", Pane: "%1", State: agentstore.StateIdle,
 				StateChangedAt: idleSince, NudgedAt: &nudgedBefore,
@@ -209,7 +209,7 @@ func (f *fakeAgents) GetByID(context.Context, string) (*agentstore.Agent, error)
 	return f.agent, nil
 }
 
-func (f *fakeAgents) ClaimNudge(context.Context, string) (bool, error) {
+func (f *fakeAgents) ClaimNudge(context.Context, string, time.Time) (bool, error) {
 	f.taken = true
 
 	return f.claimed, nil
@@ -333,4 +333,113 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryLater, got)
 	assert.Len(t, panes.text, 1, "and told once, not once a pass")
+}
+
+// TestDeliverRetriesANudgeTheAgentNeverActedOn is what a lost keystroke leaves behind. tmux
+// takes the line and the agent never sees it, so the mail stays unread and the agent stays
+// exactly as it was. Nothing about the agent will ever move to say the line went nowhere, so
+// the mail still being unread is the only signal there is, and it is what puts the nudge back.
+func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "idler", Pane: "%1", State: agentstore.StateIdle}))
+	agent, err := st.Get(ctx, "idler")
+	require.NoError(t, err)
+	backdateStateChanged(t, st, agent.ID, time.Hour)
+
+	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+		FromName:  "somebody",
+		ToAgentID: agent.ID,
+		Body:      "please read this",
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	panes := &fakePanes{alive: true}
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: st.Mail,
+		NudgeClaimer:  st.Agents,
+		PaneReader:    panes,
+		PaneTyper:     panes,
+	})
+
+	got, err := svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	require.Len(t, panes.text, 1, "an idle agent holding mail is told about it")
+
+	for range 30 {
+		got, err = svc.Deliver(ctx, agent.ID)
+		require.NoError(t, err)
+		assert.Equal(t, DeliveryLater, got)
+	}
+	assert.Len(t, panes.text, 1, "and not told again once a pass")
+
+	backdateNudge(t, st, agent.ID, nudgeRetryAfter+time.Minute)
+
+	got, err = svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	assert.Len(t, panes.text, 2, "a nudge that did not get the mail read is sent again")
+
+	stranded := agentByID(t, st, agent.ID)
+	assert.Equal(t, agentstore.StateIdle, stranded.State, "nothing about the agent moved to earn the retry")
+	require.NotNil(t, stranded.NudgedAt)
+	assert.True(t, stranded.NudgedAt.After(stranded.StateChangedAt),
+		"the agent was told about this stretch of idling, which is all the agent itself can say")
+
+	pending, err := st.Mail.CountPending(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), pending, "and the mail is still waiting")
+}
+
+// TestDeliverRetriesANudgeAcrossAnArchive is the same stranding reached another way. Archiving
+// an agent and restoring it leaves its state and its stamp alone, so an agent nudged before it
+// was put away comes back holding a spent nudge and mail nobody read. Coming back is not a
+// state change either, so only the unread mail can put the nudge back.
+func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "sleeper", Pane: "%1", State: agentstore.StateIdle}))
+	agent, err := st.Get(ctx, "sleeper")
+	require.NoError(t, err)
+	backdateStateChanged(t, st, agent.ID, time.Hour)
+
+	_, err = st.Mail.Send(ctx, mailstore.SendParams{
+		FromName:  "somebody",
+		ToAgentID: agent.ID,
+		Body:      "please read this",
+		ExpiresAt: time.Now().Add(time.Hour),
+	})
+	require.NoError(t, err)
+
+	panes := &fakePanes{alive: true}
+	svc := NewDeliveryService(NewDeliveryServiceParams{
+		MailboxReader: st.Mail,
+		NudgeClaimer:  st.Agents,
+		PaneReader:    panes,
+		PaneTyper:     panes,
+	})
+
+	got, err := svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	require.Len(t, panes.text, 1)
+
+	require.NoError(t, st.Agents.Archive(ctx, []string{agent.ID}))
+
+	got, err = svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryDone, got, "an archived agent is not typed at")
+	assert.Len(t, panes.text, 1)
+
+	require.NoError(t, st.Agents.Restore(ctx, []string{agent.ID}))
+	backdateNudge(t, st, agent.ID, nudgeRetryAfter+time.Minute)
+
+	got, err = svc.Deliver(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, DeliverySoon, got)
+	assert.Len(t, panes.text, 2, "an agent back from the archive is told about the mail it never read")
 }
