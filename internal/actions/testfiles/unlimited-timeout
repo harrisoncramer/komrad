@@ -1,0 +1,3 @@
+#WEAVE description="Declares that it must never be timed out."
+#WEAVE timeout="none"
+set -eu

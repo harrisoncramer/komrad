@@ -22,6 +22,10 @@ var commentLeaders = []string{"#", "//"}
 
 const headerLimit = 8 << 10
 
+const noTimeoutWord = "none"
+
+const unlimitedTimeout time.Duration = -1
+
 type Header struct {
 	Description string
 
@@ -30,13 +34,17 @@ type Header struct {
 	Problems []string
 }
 
-// TimeoutOr is the header's declared timeout, or fallback where the file declared none.
+// TimeoutOr is the header's declared timeout, the fallback where the file declared none, or
+// 0 where the file declared no limit at all.
 func (h Header) TimeoutOr(fallback time.Duration) time.Duration {
-	if h.Timeout > 0 {
+	switch {
+	case h.Timeout < 0:
+		return 0
+	case h.Timeout > 0:
 		return h.Timeout
+	default:
+		return fallback
 	}
-
-	return fallback
 }
 
 func readHeader(path string) (Header, bool) {
@@ -130,7 +138,7 @@ func (h *Header) apply(directive string, line int) {
 		case key == directiveTimeout && isText:
 			h.applyTimeout(text, line)
 		case key == directiveTimeout:
-			h.note(line, `timeout wants a quoted duration, such as "90s" or "10m"`)
+			h.note(line, `timeout wants a quoted duration such as "90s" or "10m", or "none"`)
 		default:
 			h.note(line, fmt.Sprintf("%s is not a directive weave knows", key))
 		}
@@ -138,6 +146,12 @@ func (h *Header) apply(directive string, line int) {
 }
 
 func (h *Header) applyTimeout(text string, line int) {
+	if strings.EqualFold(text, noTimeoutWord) {
+		h.Timeout = unlimitedTimeout
+
+		return
+	}
+
 	timeout, err := time.ParseDuration(text)
 	if err != nil {
 		h.note(line, fmt.Sprintf("%q is not a duration: %v", text, err))

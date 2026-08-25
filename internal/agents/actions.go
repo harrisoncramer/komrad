@@ -180,6 +180,8 @@ var ErrSetupFailed = errors.New("the setup action failed")
 
 const setupTimeout = 10 * time.Minute
 
+const cleanupTimeout = 2 * time.Minute
+
 const maxSetupDir = 4096
 
 const actionDetailCap = 400
@@ -509,6 +511,14 @@ type startParams struct {
 	done    func(error)
 }
 
+func timeoutFallback(trigger string) time.Duration {
+	if trigger == TriggerCleanup {
+		return cleanupTimeout
+	}
+
+	return 0
+}
+
 func (s *ActionService) start(ctx context.Context, p startParams) error {
 	logger := s.actionLogger(ctx, p.action.Name, p.trigger, p.agent)
 	ctx = context.WithoutCancel(ctx)
@@ -519,7 +529,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 		Dir:    p.action.GetDir(),
 		Env:    p.env,
 
-		Timeout: p.action.Header.TimeoutOr(0),
+		Timeout: p.action.Header.TimeoutOr(timeoutFallback(p.trigger)),
 		Done: func(result actions.Result, err error) {
 			writeActionLog(ctx, p.logPath, combinedOutput(result.Stdout, result.Stderr))
 
