@@ -53,6 +53,8 @@ type agentStateWriter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
+// Reconciler treats the pane as the only authority on an agent's state; any other signal may
+// only accelerate a transition the pane would also reach.
 type Reconciler struct {
 	tmux      paneObserver
 	harnesses harnessGetter
