@@ -209,7 +209,7 @@ func (f *fakeAgents) GetByID(context.Context, string) (*agentstore.Agent, error)
 	return f.agent, nil
 }
 
-func (f *fakeAgents) ClaimNudge(context.Context, string, time.Time) (bool, error) {
+func (f *fakeAgents) ClaimNudge(context.Context, string, time.Duration) (bool, error) {
 	f.taken = true
 
 	return f.claimed, nil

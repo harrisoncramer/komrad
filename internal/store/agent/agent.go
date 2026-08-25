@@ -322,18 +322,20 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 }
 
 // ClaimNudge takes the right to tell an agent about waiting mail. An agent that has moved
-// since it was told is told again, and so is one told longer ago than nudgedBefore, since a
+// since it was told is told again, and so is one told longer ago than retryAfter, since a
 // nudge that stood that long against unread mail went nowhere. Its caller decides how long
-// one stands, since only the caller knows the mail is still unread. The check and the stamp
-// are one statement, so two passes racing cannot both go on to type.
-func (s *Store) ClaimNudge(ctx context.Context, id string, nudgedBefore time.Time) (bool, error) {
+// one stands, since only the caller knows the mail is still unread, but how long has passed
+// is counted from the database's clock rather than the caller's, since nudged_at is stamped
+// on that clock. The check and the stamp are one statement, so two passes racing cannot both
+// go on to type.
+func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
 
 	claimed, err := s.queries.ClaimAgentNudge(ctx, models.ClaimAgentNudgeParams{
-		ID:           id,
-		NudgedBefore: &nudgedBefore,
+		ID:          id,
+		RetryMicros: retryAfter.Microseconds(),
 	})
 	if err != nil {
 		return false, fmt.Errorf("failed to claim the nudge for agent %q: %w", id, err)

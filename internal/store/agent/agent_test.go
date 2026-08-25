@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"weave/db/models"
 	"weave/internal/pgtest"
@@ -1639,9 +1640,73 @@ func TestCountLive(t *testing.T) {
 	}
 }
 
+// TestANudgeIsHeldForTheRetryInterval covers what the interval buys. A nudge just taken
+// stands, and the same nudge left standing longer than the interval is there to be taken
+// again, which is the whole of what a caller asks for by passing one.
+func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "idler", Pane: "%1", State: StateIdle}))
+	agent, err := st.Get(ctx, "idler")
+	require.NoError(t, err)
+
+	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
+	require.NoError(t, err)
+	require.True(t, claimed, "an agent never nudged is there to be nudged")
+
+	again, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
+	require.NoError(t, err)
+	assert.False(t, again, "and not again while the one just taken still stands")
+
+	backdateNudge(t, st, agent.ID, 2*time.Minute)
+
+	again, err = st.ClaimNudge(ctx, agent.ID, time.Minute)
+	require.NoError(t, err)
+	assert.True(t, again, "a nudge older than the interval is spent")
+}
+
+// TestANudgeIsReclaimedOnTheDatabaseClock covers which clock the interval is counted on.
+// nudged_at is stamped by the database, so what it is compared against has to come from the
+// database too. Counted from the caller's clock the two agree only to within whatever the
+// clocks drift by, and inside a transaction they do not agree at all: NOW() stays at the
+// transaction's start while the caller's clock runs on, so a nudge taken moments ago reads
+// as one left standing for however long the transaction has been open.
+func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "idler", Pane: "%1", State: StateIdle}))
+	agent, err := st.Get(ctx, "idler")
+	require.NoError(t, err)
+
+	claimed, err := st.ClaimNudge(ctx, agent.ID, time.Minute)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	require.NoError(t, st.pool.InTx(ctx, func(db store.DBTX) error {
+		time.Sleep(300 * time.Millisecond)
+
+		again, err := New(db).ClaimNudge(ctx, agent.ID, 200*time.Millisecond)
+		require.NoError(t, err)
+		assert.False(t, again, "no database time has passed, so the nudge still stands")
+
+		return nil
+	}))
+}
+
+func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
+	t.Helper()
+
+	_, err := st.db.Exec(t.Context(),
+		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
+	require.NoError(t, err)
+}
+
 type fixture struct {
 	*Store
 	db        store.DBTX
+	pool      *store.Pool
 	workflows *workflowstore.Store
 
 	defaultWorkflow string
@@ -1691,7 +1756,7 @@ func open(t *testing.T) *fixture {
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.GetDB()), db: p.GetDB(), workflows: workflows, defaultWorkflow: created.ID}
+	return &fixture{Store: New(p.GetDB()), db: p.GetDB(), pool: p, workflows: workflows, defaultWorkflow: created.ID}
 }
 
 func pool(t *testing.T) *store.Pool {
