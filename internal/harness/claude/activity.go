@@ -14,16 +14,19 @@ var (
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
+var idleInputBox = regexp.MustCompile(`(?m)^─{3,}\s*$\n❯`)
+
 const liveRegionLines = 30
 
 const waitingRegionLines = 6
 
+const idleRegionLines = 6
+
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Claude is doing. Anything neither
-// working nor a live prompt is idle rather than unknown. An agent sitting at its
-// input box is the ordinary finished case, and reporting no verdict there would
-// leave every agent stuck in the state it last held.
+// ReadActivity reads what a captured frame says Claude is doing. Only a frame that
+// actually shows the empty input box counts as the recognised idle case, and anything
+// else that is neither working nor a live prompt is ActivityUnrecognized instead.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == "":
@@ -32,8 +35,10 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 		return harness.ActivityWorking
 	case doesFrameShowWaiting(frame):
 		return harness.ActivityWaiting
-	default:
+	case doesFrameShowIdleInputBox(frame):
 		return harness.ActivityIdle
+	default:
+		return harness.ActivityUnrecognized
 	}
 }
 
@@ -54,4 +59,8 @@ func doesFrameShowWork(frame string) bool {
 
 func doesFrameShowWaiting(frame string) bool {
 	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
+}
+
+func doesFrameShowIdleInputBox(frame string) bool {
+	return idleInputBox.MatchString(tailLines(frame, idleRegionLines))
 }

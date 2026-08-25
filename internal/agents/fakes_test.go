@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -206,9 +207,10 @@ func (f *fakeTmux) lastKeys(target string) []string {
 }
 
 const (
-	busyFrame = "frame: working"
-	idleFrame = "frame: idle"
-	waitFrame = "frame: waiting"
+	busyFrame         = "frame: working"
+	idleFrame         = "frame: idle"
+	waitFrame         = "frame: waiting"
+	unrecognizedFrame = "frame: unrecognized"
 )
 
 const testHarnessID = "claude"
@@ -239,13 +241,15 @@ func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
 
 func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
-	switch frame {
-	case busyFrame:
+	switch {
+	case frame == busyFrame:
 		return harness.ActivityWorking
-	case waitFrame:
+	case frame == waitFrame:
 		return harness.ActivityWaiting
-	case "":
+	case frame == "":
 		return harness.ActivityUnknown
+	case strings.HasPrefix(frame, unrecognizedFrame):
+		return harness.ActivityUnrecognized
 	default:
 		return harness.ActivityIdle
 	}

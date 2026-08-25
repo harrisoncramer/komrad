@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"fmt"
+	"hash/fnv"
 	"log/slog"
 	"slices"
 	"sync"
@@ -15,6 +16,8 @@ import (
 )
 
 const reconcileMisses = 3
+
+const unrecognizedHoldLimit = 5
 
 const reconcileShellGrace = 10 * time.Second
 
@@ -72,6 +75,10 @@ type Reconciler struct {
 	boundaryMu sync.Mutex
 	boundaries map[string]time.Time
 
+	unrecognizedHashes map[string]uint64
+	unrecognizedHolds  map[string]int
+	unrecognizedTotal  int
+
 	now func() time.Time
 }
 
@@ -79,14 +86,16 @@ type Reconciler struct {
 // captures, and the state store.
 func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) *Reconciler {
 	return &Reconciler{
-		tmux:             t,
-		harnesses:        harnesses,
-		store:            s,
-		misses:           map[string]int{},
-		shells:           map[string]time.Time{},
-		rateLimitedUntil: map[string]time.Time{},
-		boundaries:       map[string]time.Time{},
-		now:              time.Now,
+		tmux:               t,
+		harnesses:          harnesses,
+		store:              s,
+		misses:             map[string]int{},
+		shells:             map[string]time.Time{},
+		rateLimitedUntil:   map[string]time.Time{},
+		boundaries:         map[string]time.Time{},
+		unrecognizedHashes: map[string]uint64{},
+		unrecognizedHolds:  map[string]int{},
+		now:                time.Now,
 	}
 }
 
@@ -169,6 +178,17 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	}
 	r.boundaryMu.Unlock()
 
+	for id := range r.unrecognizedHashes {
+		if _, ok := listed[id]; !ok {
+			delete(r.unrecognizedHashes, id)
+		}
+	}
+	for id := range r.unrecognizedHolds {
+		if _, ok := listed[id]; !ok {
+			delete(r.unrecognizedHolds, id)
+		}
+	}
+
 	return nil
 }
 
@@ -221,23 +241,64 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	case harness.ActivityUnknown:
 
 	case harness.ActivityIdle:
-		if agent.State == agentstore.StateIdle {
-			delete(r.misses, agent.ID)
+		r.settleIdle(ctx, agent)
 
-			return
-		}
-
-		if r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
-			r.apply(ctx, agent, agentstore.StateIdle)
-
-			return
-		}
-
-		r.misses[agent.ID]++
-		if r.misses[agent.ID] >= reconcileMisses {
-			r.apply(ctx, agent, agentstore.StateIdle)
-		}
+	case harness.ActivityUnrecognized:
+		r.observeUnrecognized(ctx, agent, frame)
 	}
+}
+
+// settleIdle is what any frame the harness treats as an ordinary finished state runs
+// through, whether or not the harness positively recognised it.
+func (r *Reconciler) settleIdle(ctx context.Context, agent agentstore.Agent) {
+	if agent.State == agentstore.StateIdle {
+		delete(r.misses, agent.ID)
+
+		return
+	}
+
+	if r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
+		r.apply(ctx, agent, agentstore.StateIdle)
+
+		return
+	}
+
+	r.misses[agent.ID]++
+	if r.misses[agent.ID] >= reconcileMisses {
+		r.apply(ctx, agent, agentstore.StateIdle)
+	}
+}
+
+// observeUnrecognized holds a frame that keeps changing instead of demoting it, and
+// falls through to settleIdle once the frame goes static or the hold is capped.
+func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.Agent, frame string) {
+	r.unrecognizedTotal++
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a captured frame matched no known activity pattern",
+		slog.String(logging.AgentID, agent.ID),
+		slog.Int(logging.UnrecognizedFrameCount, r.unrecognizedTotal))
+
+	hash := hashFrame(frame)
+	last, seen := r.unrecognizedHashes[agent.ID]
+	r.unrecognizedHashes[agent.ID] = hash
+
+	changed := seen && hash != last
+	capped := r.unrecognizedHolds[agent.ID] >= unrecognizedHoldLimit
+
+	if changed && !capped {
+		r.unrecognizedHolds[agent.ID]++
+		delete(r.misses, agent.ID)
+
+		return
+	}
+
+	r.settleIdle(ctx, agent)
+}
+
+func hashFrame(frame string) uint64 {
+	h := fnv.New64a()
+	_, _ = h.Write([]byte(frame))
+
+	return h.Sum64()
 }
 
 func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bool) {
@@ -261,6 +322,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {
 	delete(r.misses, agent.ID)
 	delete(r.shells, agent.ID)
+	delete(r.unrecognizedHolds, agent.ID)
 	r.clearTurnBoundary(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
 	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {

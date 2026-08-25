@@ -22,9 +22,9 @@ const toolBlock = "\n" +
 	"      … +1 pending\n\n" +
 	"────────────────\n❯ \n────────────────\n   ~/dir  main\n  -- INSERT --"
 
-// TestReadActivity covers the verdict a single captured frame settles on. Idle is the
-// answer for anything that is neither working nor a live prompt, since an agent at
-// its input box is the ordinary finished case.
+// TestReadActivity covers the verdict a single captured frame settles on. Only a frame
+// that actually shows the empty input box reads as idle, and anything else that is
+// neither working nor a live prompt reads as unrecognized instead of being assumed idle.
 func TestReadActivity(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -44,7 +44,7 @@ func TestReadActivity(t *testing.T) {
 		{
 			name:  "finished summary line is not working",
 			frame: "✻ Brewed for 2m 36s",
-			want:  harness.ActivityIdle,
+			want:  harness.ActivityUnrecognized,
 		},
 		{
 			name:  "idle input box is neither working nor waiting",
@@ -54,22 +54,22 @@ func TestReadActivity(t *testing.T) {
 		{
 			name:  "a tool-result line rather than the spinner",
 			frame: "⎿ Found… (3 files)",
-			want:  harness.ActivityIdle,
+			want:  harness.ActivityUnrecognized,
 		},
 		{
 			name:  "prose that happens to end in an ellipsis",
 			frame: "wait… (2 more)",
-			want:  harness.ActivityIdle,
+			want:  harness.ActivityUnrecognized,
 		},
 		{
 			name:  "the input prompt echoing typed text",
 			frame: "❯ my message ends in…",
-			want:  harness.ActivityIdle,
+			want:  harness.ActivityUnrecognized,
 		},
 		{
 			name:  "a box rule",
 			frame: "───────────────",
-			want:  harness.ActivityIdle,
+			want:  harness.ActivityUnrecognized,
 		},
 		{
 			name:  "a verb with no timer yet, which is every turn's first frame",
