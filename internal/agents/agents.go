@@ -107,10 +107,19 @@ type parentNotifier interface {
 	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
+// workflowEmptyDeleter permanently removes a workflow left with nothing archived inside it.
+// It is wired in after construction, through WithWorkflowEmptyDeleter, because the service
+// that implements it takes this one as its own agent deleter — a plain constructor argument
+// here would make the two depend on each other before either exists.
+type workflowEmptyDeleter interface {
+	DeleteIfEmpty(ctx context.Context, workflowID string) error
+}
+
 type AgentService struct {
 	tmux               paneController
 	agents             agentManager
 	workflows          workflowReader
+	emptyWorkflows     workflowEmptyDeleter
 	tx                 txRunner
 	launcher           *Launcher
 	harnesses          harnessGetter
@@ -160,6 +169,16 @@ func NewAgentService(p NewAgentServiceParams) *AgentService {
 		notifier:           p.Notifier,
 		logsDir:            p.LogsDir,
 	}
+}
+
+// WithWorkflowEmptyDeleter arms the check that runs whenever a delete leaves a workflow with
+// nothing archived inside it: from then on, such a workflow is removed right along with the
+// agent that emptied it out, sync or async, rather than sitting there until something else
+// notices.
+func (s *AgentService) WithWorkflowEmptyDeleter(d workflowEmptyDeleter) *AgentService {
+	s.emptyWorkflows = d
+
+	return s
 }
 
 // IsAgentRunning reports whether the agent still owns its recorded pane.
@@ -282,6 +301,7 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 				return
 			}
 
+			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
 			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, "deleted")
 		})
 	}
@@ -294,9 +314,28 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 		return err
 	}
 
+	s.cleanupEmptyWorkflows(ctx, immediate)
 	notifyParents(ctx, s.notifier, immediate, "deleted")
 
 	return nil
+}
+
+// cleanupEmptyWorkflows deletes whatever workflow among removed's each now holds nothing
+// archived inside it, once per distinct workflow rather than once per agent. A failure is
+// logged rather than returned, the same as a failed notification: the agents are already
+// gone, so there is nothing left for the caller to undo.
+func (s *AgentService) cleanupEmptyWorkflows(ctx context.Context, removed []agentstore.Agent) {
+	if s.emptyWorkflows == nil {
+		return
+	}
+
+	touched := xslice.UniqueBy(removed, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	for _, agent := range touched {
+		if err := s.emptyWorkflows.DeleteIfEmpty(ctx, agent.WorkflowID); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to delete a workflow a delete left with nothing in it",
+				append([]slog.Attr{slog.String(logging.WorkflowID, agent.WorkflowID)}, logging.Err(err)...)...)
+		}
+	}
 }
 
 // ArchiveAgents stops agents while preserving their records and workspaces.

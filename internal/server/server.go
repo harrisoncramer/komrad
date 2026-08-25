@@ -227,6 +227,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		MaxAgents:    p.MaxAgents,
 		Notifier:     mailService,
 	})
+	agentService.WithWorkflowEmptyDeleter(workflowService)
 
 	srv.Delivery = agents.NewDeliveryService(agents.NewDeliveryServiceParams{
 		MailboxReader: mailStore,
