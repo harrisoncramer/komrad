@@ -78,6 +78,8 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
 - `EDITOR` and `WEAVE_SHELL`
 
+Every action also runs with `GIT_TERMINAL_PROMPT=0` and `GCM_INTERACTIVE=never`, and with `GIT_ASKPASS` and `SSH_ASKPASS` forced empty, so a git call against expired credentials fails rather than opening a prompt nothing answers. A non-interactive askpass you already configured is left as you set it.
+
 ## Action Metadata
 
 You can configure a small set of metadata for an action by adding _headers_ to the top of the file.
@@ -88,7 +90,8 @@ You can configure a small set of metadata for an action by adding _headers_ to t
 #WEAVE timeout="1s"
 
 # Add whatever logic you want here.
-# Failures on stdout will get captured by weave's log automatically
+# What this writes to stdout or stderr is captured, kept in full in weave's log and
+# the per-agent action log, and cut to a few hundred bytes in a setup refusal's banner.
 # You can also send messages to the log manually, like this:
 weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 ```
