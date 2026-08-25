@@ -305,7 +305,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv.Reconcile = Loop{
 		Name:     "reconcile",
 		Interval: ReconcileInterval,
-		Pass:     agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).Reconcile,
+		Pass:     agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).WithPRFinder(agents.NewGHPRFinder()).Reconcile,
 	}
 	srv.MailDelivery = Loop{
 		Name:     "mail delivery",
