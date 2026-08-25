@@ -57,15 +57,16 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 //
 // The failures are all of them from before the process started. A missing agent or action is
 // NotFound. A file the user has not made executable is FailedPrecondition, since the file is
-// there and one chmod away from running, and so is an agent whose directory has been removed
-// from under it, since nothing about the action itself is wrong.
+// there and one chmod away from running, and so are an agent whose directory has been removed
+// from under it and the same action already running for the same agent, since none of those
+// is a bug in weave.
 func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
 	switch {
 	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrActionNotExecutable), errors.Is(err, agents.ErrActionNotStartable),
-		errors.Is(err, agents.ErrActionDirMissing):
+		errors.Is(err, agents.ErrActionDirMissing), errors.Is(err, agents.ErrActionAlreadyRunning):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -85,7 +86,8 @@ func (s *Service) EditAction(ctx context.Context, req *connect.Request[actionv1.
 	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case errors.Is(err, agents.ErrNotEditable), errors.Is(err, agents.ErrActionNotExecutable),
-		errors.Is(err, agents.ErrActionNotStartable), errors.Is(err, agents.ErrActionDirMissing):
+		errors.Is(err, agents.ErrActionNotStartable), errors.Is(err, agents.ErrActionDirMissing),
+		errors.Is(err, agents.ErrActionAlreadyRunning):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, err)

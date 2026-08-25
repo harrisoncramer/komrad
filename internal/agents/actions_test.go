@@ -1335,6 +1335,98 @@ func TestActionTimeouts(t *testing.T) {
 	}
 }
 
+// TestRunActionRefusesASecondConcurrentRun covers holding enter on the actions list, or an
+// agent calling run_action in a loop, against the same action on the same agent.
+func TestRunActionRefusesASecondConcurrentRun(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "slow"), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+
+	svc := actionService(t, dir, actions.NewRunner())
+
+	require.NoError(t, svc.RunAction(context.Background(), "a1", "slow"))
+
+	err := svc.RunAction(context.Background(), "a1", "slow")
+	require.ErrorIs(t, err, ErrActionAlreadyRunning)
+
+	require.Eventually(t, func() bool {
+		return svc.RunAction(context.Background(), "a1", "slow") == nil
+	}, 5*time.Second, 20*time.Millisecond, "the claim is released once the first run finishes")
+
+	time.Sleep(500 * time.Millisecond)
+}
+
+// TestRunActionReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
+// synchronously and its Done callback never fires at all, which is the one place a claim
+// could be stranded forever with nothing left to release it.
+func TestRunActionReleasesTheClaimWhenItNeverStarts(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
+
+	svc := actionService(t, dir, actions.NewRunner())
+
+	require.ErrorIs(t, svc.RunAction(context.Background(), "a1", "unrunnable"), actions.ErrNotExecutable)
+
+	err := svc.RunAction(context.Background(), "a1", "unrunnable")
+	require.ErrorIs(t, err, actions.ErrNotExecutable)
+	assert.NotErrorIs(t, err, ErrActionAlreadyRunning, "a refusal that never started must not strand the claim")
+}
+
+// TestRunActionConcurrencyGuardIsScopedNarrowly covers what the guard must not catch: a
+// different action, a different agent, and a setup action, which is already serialized by
+// the create it blocks and must never be refused by this guard on top of that.
+func TestRunActionConcurrencyGuardIsScopedNarrowly(t *testing.T) {
+	tests := []struct {
+		name string
+		fire func(t *testing.T, svc *ActionService) error
+	}{
+		{
+			name: "a different action for the same agent runs alongside it",
+			fire: func(_ *testing.T, svc *ActionService) error {
+				return svc.RunAction(context.Background(), "a1", "other")
+			},
+		},
+		{
+			name: "the same action for a different agent runs alongside it",
+			fire: func(_ *testing.T, svc *ActionService) error {
+				return svc.RunAction(context.Background(), "a2", "slow")
+			},
+		},
+		{
+			name: "a setup action is never guarded by the in-flight set",
+			fire: func(_ *testing.T, svc *ActionService) error {
+				_, err := svc.RunSetupAction(context.Background(), agentstore.Agent{ID: "a1"}, "slow", "")
+
+				return err
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "slow"), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "other"), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+
+			svc := actionService(t, dir, actions.NewRunner())
+			svc.agents = fakeAgentReaderFunc(func(_ context.Context, id string) (*agentstore.Agent, error) {
+				return &agentstore.Agent{ID: id}, nil
+			})
+
+			require.NoError(t, svc.RunAction(context.Background(), "a1", "slow"))
+
+			assert.NoError(t, tt.fire(t, svc))
+
+			time.Sleep(500 * time.Millisecond)
+		})
+	}
+}
+
+type fakeAgentReaderFunc func(ctx context.Context, id string) (*agentstore.Agent, error)
+
+func (f fakeAgentReaderFunc) GetByID(ctx context.Context, id string) (*agentstore.Agent, error) {
+	return f(ctx, id)
+}
+
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 

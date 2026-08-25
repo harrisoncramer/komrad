@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 	"unicode/utf8"
 
@@ -70,6 +71,9 @@ type ActionService struct {
 	binPath    string
 
 	catalog *actions.Catalog
+
+	inFlightMu sync.Mutex
+	inFlight   map[actionKey]struct{}
 }
 
 type ActionParams struct {
@@ -101,6 +105,7 @@ func NewActionService(p ActionParams) *ActionService {
 		editor:     p.Editor,
 		binPath:    p.BinPath,
 		catalog:    actions.NewCatalog(),
+		inFlight:   make(map[actionKey]struct{}),
 	}
 }
 
@@ -502,6 +507,33 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 	})
 }
 
+var ErrActionAlreadyRunning = errors.New("the action is already running for this agent")
+
+type actionKey struct {
+	agentID string
+	name    string
+}
+
+func (s *ActionService) claim(key actionKey) bool {
+	s.inFlightMu.Lock()
+	defer s.inFlightMu.Unlock()
+
+	if _, running := s.inFlight[key]; running {
+		return false
+	}
+
+	s.inFlight[key] = struct{}{}
+
+	return true
+}
+
+func (s *ActionService) release(key actionKey) {
+	s.inFlightMu.Lock()
+	defer s.inFlightMu.Unlock()
+
+	delete(s.inFlight, key)
+}
+
 type startParams struct {
 	action  actions.Action
 	env     []string
@@ -520,6 +552,11 @@ func timeoutFallback(trigger string) time.Duration {
 }
 
 func (s *ActionService) start(ctx context.Context, p startParams) error {
+	key := actionKey{agentID: p.agent.ID, name: p.action.Name}
+	if !s.claim(key) {
+		return fmt.Errorf("failed to run action %s: %w", p.action.Name, ErrActionAlreadyRunning)
+	}
+
 	logger := s.actionLogger(ctx, p.action.Name, p.trigger, p.agent)
 	ctx = context.WithoutCancel(ctx)
 	began := time.Now()
@@ -531,6 +568,8 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 
 		Timeout: p.action.Header.TimeoutOr(timeoutFallback(p.trigger)),
 		Done: func(result actions.Result, err error) {
+			defer s.release(key)
+
 			writeActionLog(ctx, p.logPath, combinedOutput(result.Stdout, result.Stderr))
 
 			if err != nil {
@@ -546,6 +585,8 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 		},
 	})
 	if err != nil {
+		s.release(key)
+
 		return err
 	}
 
