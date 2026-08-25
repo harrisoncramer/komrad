@@ -23,6 +23,13 @@ const (
 
 const nudgeEnterDelay = 300 * time.Millisecond
 
+// nudgeRetryAfter is how long a nudge stands before the mail still being unread is taken as
+// evidence it went nowhere. Keys typed at a pane can be swallowed with nothing to say so, and
+// an agent that never saw the line has no reason to move, so an agent moving is not something
+// this can wait for. A nudge that landed is answered in seconds, so a minute is long enough
+// that mail outliving one means it was lost.
+const nudgeRetryAfter = time.Minute
+
 type paneReader interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 }
@@ -35,7 +42,7 @@ type paneTyper interface {
 
 type nudgeClaimer interface {
 	agentFinder
-	ClaimNudge(ctx context.Context, id string) (bool, error)
+	ClaimNudge(ctx context.Context, id string, nudgedBefore time.Time) (bool, error)
 }
 
 type mailboxReader interface {
@@ -119,7 +126,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID)
+	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID, time.Now().Add(-nudgeRetryAfter))
 	if err != nil {
 		return DeliveryLater, err
 	}
@@ -147,7 +154,14 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		return fmt.Errorf("failed to submit the nudge to agent %q: %w", agent.ID, err)
 	}
 
-	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail",
+	level := slog.LevelInfo
+	message := "told an agent to read its mail"
+	if agent.NudgedAt != nil {
+		level = slog.LevelWarn
+		message = "told an agent to read its mail again, so the last time went nowhere"
+	}
+
+	logging.From(ctx).LogAttrs(ctx, level, message,
 		slog.String(logging.TargetAgentID, agent.ID),
 		slog.Int64(logging.UnreadMail, pending))
 

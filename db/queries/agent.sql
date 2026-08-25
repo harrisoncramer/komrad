@@ -218,7 +218,8 @@ WHERE
     id = @id
     AND archived_at IS NULL
     AND (nudged_at IS NULL
-        OR state_changed_at > nudged_at)
+        OR state_changed_at > nudged_at
+        OR nudged_at < @nudged_before)
 RETURNING
     id;
 

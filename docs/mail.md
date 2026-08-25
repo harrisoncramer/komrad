@@ -22,6 +22,8 @@ Agents check their mailboxes for any pending mail at the end of each turn. Mail 
 
 If an agent is dormant when a mail item is written, it'll get "nudged" the next time it wakes up to check it's mailbox. Mail cannot be send to agents that have been archived.
 
+An idle agent ends no turn, so the nudge is the only way mail reaches one. Keys typed at a pane can be swallowed, and an agent that never saw the line has no reason to do anything, so a nudge stands for a minute and is then sent again while the mail is still unread.
+
 Because delivery happens as a turn ends, an agent cannot wait for mail inside a turn. Sitting in a sleep or a loop waiting for a reply is the one thing that stops the reply arriving. Agents are told to finish their turn instead.
 
 > Note, in the future, mail may be supplanted by or supplemented with [channels](https://code.claude.com/docs/en/channels), which push events into a running session rather than waiting for it to end a turn. They are a research preview today, plugin-only and behind an Anthropic allowlist, so the Stop hook remains how mail arrives.
