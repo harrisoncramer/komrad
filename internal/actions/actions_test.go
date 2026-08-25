@@ -490,6 +490,57 @@ func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
 	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
+func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
+		"#!/bin/sh\nsleep 60 &\necho ready >&2\nexit 0\n",
+	), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir, Timeout: 10 * time.Minute})
+
+	require.NoError(t, err)
+	assert.Equal(t, 0, result.ExitCode)
+	assert.Equal(t, "ready", strings.TrimSpace(string(result.Stderr)), "what the script said still comes back")
+}
+
+func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-shebang"), []byte("#!/nope/sh\n"), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
+
+	require.ErrorIs(t, err, ErrNotStartable)
+	assert.Contains(t, err.Error(), "bad-shebang", "the refusal names the action")
+	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
+}
+
+func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	result, err := NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir, Timeout: time.Minute})
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")
+	assert.Contains(t, err.Error(), "gave up after 1m0s", "the refusal names the limit it was given")
+	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
+}
+
 func write(t *testing.T, path string, mode os.FileMode) {
 	t.Helper()
 

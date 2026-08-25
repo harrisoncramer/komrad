@@ -203,19 +203,29 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	cmd.Cancel = killGroup(cmd)
 	cmd.WaitDelay = killDelay
 
-	err := cmd.Run()
-	result := Result{Stdout: stdout.kept(), Stderr: stderr.kept(), ExitCode: r.exitCode(cmd.ProcessState)}
+	if err := cmd.Start(); err != nil {
+		result := Result{ExitCode: r.exitCode(cmd.ProcessState)}
+		if expired := ctx.Err(); expired != nil {
+			return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
+		}
 
-	switch {
-	case ctx.Err() != nil:
-		return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, ctx.Err(), gaveUpAfter(p.Timeout))
-	case errors.As(err, new(*exec.ExitError)):
-		return result, fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrFailed, err)
-	case err != nil:
 		return result, fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
 	}
 
-	return result, nil
+	waitErr := cmd.Wait()
+	if expired := ctx.Err(); expired != nil {
+		result := Result{Stdout: stdout.kept(), Stderr: stderr.kept(), ExitCode: r.exitCode(cmd.ProcessState)}
+
+		return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
+	}
+
+	return r.outcome(outcomeParams{
+		action:  p.Action,
+		state:   cmd.ProcessState,
+		stdout:  stdout.kept(),
+		stderr:  stderr.kept(),
+		waitErr: waitErr,
+	})
 }
 
 func killGroup(cmd *exec.Cmd) func() error {
@@ -235,12 +245,13 @@ func gaveUpAfter(timeout time.Duration) string {
 type outcomeParams struct {
 	action  Action
 	state   *os.ProcessState
+	stdout  []byte
 	stderr  []byte
 	waitErr error
 }
 
 func (r Runner) outcome(p outcomeParams) (Result, error) {
-	result := Result{Stderr: p.stderr, ExitCode: r.exitCode(p.state)}
+	result := Result{Stdout: p.stdout, Stderr: p.stderr, ExitCode: r.exitCode(p.state)}
 	if result.ExitCode == 0 {
 		return result, nil
 	}
