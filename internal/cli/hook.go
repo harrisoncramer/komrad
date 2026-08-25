@@ -92,7 +92,7 @@ func stopHookCmd(state *app) *cobra.Command {
 			return nil
 		}
 
-		_ = recordTurnBoundary(cmd.Context(), state) //nolint:errcheck // a lost boundary only costs an acceleration, and the mail path below already reports weave being unreachable
+		recordTurnBoundary(cmd.Context(), state)
 
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {
@@ -140,18 +140,16 @@ func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
 	return &payload, nil
 }
 
-func recordTurnBoundary(ctx context.Context, state *app) error {
+func recordTurnBoundary(ctx context.Context, state *app) {
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
-	_, err := callRPC(ctx, callRPCParams{
+	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // its one caller has nothing to do with a failure here
 		Addr:    state.env.Addr,
 		Path:    agentv1connect.AgentServiceRecordTurnBoundaryProcedure,
 		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{},
 	})
-
-	return err
 }
 
 func readMail(ctx context.Context, state *app) (*deliveredMail, error) {
