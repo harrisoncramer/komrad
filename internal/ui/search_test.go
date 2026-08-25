@@ -9,6 +9,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
 
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -343,12 +344,14 @@ func TestJumpToSearchHit(t *testing.T) {
 		hidden     bool
 		wantScreen screen
 		wantCursor string
+		wantBanner bool
 	}{
 		{
-			name:       "a hit the panel holds no row for leaves the cursor alone",
+			name:       "a hit the panel holds no row for leaves the cursor alone and says so",
 			hit:        searchHit{agentID: "gone", name: "gone"},
 			wantScreen: screenAgents,
 			wantCursor: "billing",
+			wantBanner: true,
 		},
 		{
 			name:       "a live hit lands on its row in the tree",
@@ -386,12 +389,17 @@ func TestJumpToSearchHit(t *testing.T) {
 			require.True(t, ok)
 
 			require.Equal(t, tt.wantScreen, got.screen)
+			if tt.wantBanner {
+				require.NotNil(t, got.banner, "a hit with nowhere to land reports rather than doing nothing")
+			} else {
+				assert.Nil(t, got.banner)
+			}
 			assert.Nil(t, client.restored, "nothing is taken out of the archive")
 			assert.Nil(t, client.resumed, "nothing is put back in a pane")
 
 			rows, cursor := got.agentRows(), got.tree.cursor
 			if got.screen == screenArchive {
-				got.applyArchive(got.archive.agents, nil, "")
+				got.applyArchive(got.archive.agents, "")
 				rows, cursor = got.archiveRows(), got.archive.cursor
 			}
 
@@ -399,6 +407,31 @@ func TestJumpToSearchHit(t *testing.T) {
 			assert.Equal(t, tt.wantCursor, rows[cursor].item.agent.Name)
 		})
 	}
+}
+
+// TestJumpToSearchHitReachesALeftoverAgent covers a hit on an agent whose workflow was
+// archived out from under it. The row is live rather than archived, so the jump lands on the
+// tree, which draws the archived folder as a header for exactly this reason.
+func TestJumpToSearchHitReachesALeftoverAgent(t *testing.T) {
+	m := filterModel()
+	m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+	m.screen = screenSearch
+	m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w2", "simplify")}
+	m.listing.agents = append(m.listing.agents, agentItem{
+		agent: agentstore.Agent{ID: "a9", Name: "left-behind", WorkflowID: "w2", State: agentstore.StateFailedToCleanup},
+	})
+	m.search = searchState{query: "ledger", hits: []searchHit{{agentID: "a9", name: "left-behind"}}}
+
+	updated, _ := m.route(keyMsg("enter"))
+	got, ok := updated.(model)
+	require.True(t, ok)
+
+	require.Equal(t, screenAgents, got.screen)
+	assert.Nil(t, got.banner)
+
+	rows := got.agentRows()
+	require.Less(t, got.tree.cursor, len(rows))
+	assert.Equal(t, "left-behind", rows[got.tree.cursor].item.agent.Name)
 }
 
 // TestSearchEscape covers esc on the search screen, which steps back the way it does over a

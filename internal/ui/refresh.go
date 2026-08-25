@@ -34,14 +34,15 @@ type refreshResult struct {
 	workflows    []workflowstore.Workflow
 	workflowsErr error
 
+	archivedWorkflows    []workflowstore.Workflow
+	archivedWorkflowsErr error
+
 	schedules    []scheduleItem
 	schedulesErr error
 
-	archived             []agentstore.Agent
-	archivedErr          error
-	archivedWorkflows    []workflowstore.Workflow
-	archivedWorkflowsErr error
-	archivedListed       bool
+	archived       []agentstore.Agent
+	archivedErr    error
+	archivedListed bool
 }
 
 func (m model) refreshCmd() tea.Cmd {
@@ -67,6 +68,10 @@ func (m model) refreshCmd() tea.Cmd {
 			result.workflows, result.workflowsErr = workflowsFrom(listed), err
 		})
 		wg.Go(func() {
+			listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)
+			result.archivedWorkflows, result.archivedWorkflowsErr = workflowsFrom(listed), err
+		})
+		wg.Go(func() {
 			listed, err := client.ListAllSchedules(ctx, clients.schedules)
 			result.schedules, result.schedulesErr = scheduleItemsFrom(listed), err
 		})
@@ -74,10 +79,6 @@ func (m model) refreshCmd() tea.Cmd {
 			wg.Go(func() {
 				listed, err := client.ListAllArchivedAgents(ctx, clients.agents)
 				result.archived, result.archivedErr = archivedAgentsFrom(listed), err
-			})
-			wg.Go(func() {
-				listed, err := client.ListAllArchivedWorkflows(ctx, clients.workflows)
-				result.archivedWorkflows, result.archivedWorkflowsErr = workflowsFrom(listed), err
 			})
 		}
 		wg.Wait()
@@ -101,18 +102,21 @@ func (m *model) applyRefresh(result refreshResult) {
 	if result.workflowsErr == nil {
 		m.applyWorkflows(result.workflows)
 	}
+	if result.archivedWorkflowsErr == nil {
+		m.applyArchivedWorkflows(result.archivedWorkflows)
+	}
 	if result.agentsErr == nil {
 		m.applyAgents(result.agents)
 	}
-	if result.workflowsErr == nil || result.agentsErr == nil {
+	if result.workflowsErr == nil || result.archivedWorkflowsErr == nil || result.agentsErr == nil {
 		m.placeTreeCursor(treeRow)
 	}
 	if result.schedulesErr == nil {
 		m.applySchedules(result.schedules)
 	}
 
-	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
-		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
+	if result.archivedListed && result.archivedErr == nil {
+		m.applyArchive(result.archived, archiveRow)
 	}
 
 	switch m.screen {

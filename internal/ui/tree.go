@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
 	agentstore "weave/internal/store/agent"
@@ -55,7 +56,23 @@ func (m model) agentRows() []agentRow {
 }
 
 func (m model) allAgentRows() []agentRow {
-	return treeRows(m.listing.workflows, m.listing.agents, m.tree.showHidden)
+	return treeRows(m.treeHeaders(), m.listing.agents, m.tree.showHidden)
+}
+
+// treeHeaders is the live workflows, plus any archived workflow that still holds a live
+// agent. Archiving a workflow archives what is inside it, so an archived header here means
+// a row was left behind, and a row whose header is missing is drawn nowhere at all.
+func (m model) treeHeaders() []workflowstore.Workflow {
+	holding := xslice.KeyBy(m.listing.agents, func(item agentItem) string { return item.agent.WorkflowID })
+
+	headers := slices.Clone(m.listing.workflows)
+	for _, w := range m.listing.archivedWorkflows {
+		if _, isHolding := holding[w.ID]; isHolding {
+			headers = append(headers, w)
+		}
+	}
+
+	return headers
 }
 
 func (m model) hoveredRow() (agentRow, bool) {
@@ -188,6 +205,10 @@ func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {
 	m.listing.workflows = fresh
 }
 
+func (m *model) applyArchivedWorkflows(fresh []workflowstore.Workflow) {
+	m.listing.archivedWorkflows = fresh
+}
+
 func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
 }
@@ -227,18 +248,24 @@ func (m *model) placeTreeCursor(selected string) {
 }
 
 type listing struct {
-	agents    []agentItem
-	workflows []workflowstore.Workflow
+	agents            []agentItem
+	workflows         []workflowstore.Workflow
+	archivedWorkflows []workflowstore.Workflow
 }
 
-func (m *model) revealAgent(id string) {
+func (m *model) revealAgent(id string) bool {
 	for _, item := range m.listing.agents {
 		if item.agent.ID == id && item.agent.Hidden {
 			m.tree.showHidden = true
 		}
 	}
 
-	if idx := rowIndexOfAgentID(m.agentRows(), id); idx >= 0 {
-		m.tree.cursor = idx
+	idx := rowIndexOfAgentID(m.agentRows(), id)
+	if idx < 0 {
+		return false
 	}
+
+	m.tree.cursor = idx
+
+	return true
 }

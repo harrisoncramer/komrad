@@ -13,8 +13,7 @@ import (
 )
 
 type archiveState struct {
-	agents    []agentstore.Agent
-	workflows []workflowstore.Workflow
+	agents []agentstore.Agent
 	rowCursor
 }
 
@@ -37,9 +36,9 @@ func (m model) allArchiveRows() []agentRow {
 
 func (m model) archiveHeaders() []workflowstore.Workflow {
 	holding := xslice.KeyBy(m.archive.agents, func(agent agentstore.Agent) string { return agent.WorkflowID })
-	archived := xslice.KeyBy(m.archive.workflows, func(w workflowstore.Workflow) string { return w.ID })
+	archived := xslice.KeyBy(m.listing.archivedWorkflows, func(w workflowstore.Workflow) string { return w.ID })
 
-	headers := slices.Clone(m.archive.workflows)
+	headers := slices.Clone(m.listing.archivedWorkflows)
 	for _, w := range m.listing.workflows {
 		_, isHolding := holding[w.ID]
 		_, isArchived := archived[w.ID]
@@ -55,8 +54,8 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	return headers
 }
 
-func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
-	m.archive.agents, m.archive.workflows = agents, workflows
+func (m *model) applyArchive(agents []agentstore.Agent, selected string) {
+	m.archive.agents = agents
 
 	m.archive.selected = m.archive.selected.pruned(m.allArchiveRows())
 
@@ -64,10 +63,14 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 	m.archive.focus = ""
 
 	rows := m.archiveRows()
-	if idx := rowIndexOfAgentID(rows, focus); focus != "" && idx >= 0 {
-		m.archive.cursor = idx
+	if focus != "" {
+		if idx := rowIndexOfAgentID(rows, focus); idx >= 0 {
+			m.archive.cursor = idx
 
-		return
+			return
+		}
+
+		m.reportMissingRow()
 	}
 
 	if idx := rowIndexOfKey(rows, selected); idx >= 0 {

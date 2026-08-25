@@ -28,6 +28,7 @@ func TestAgentRows(t *testing.T) {
 	tests := []struct {
 		name      string
 		workflows []workflowstore.Workflow
+		archived  []workflowstore.Workflow
 		agents    []agentItem
 		wantRows  []string
 	}{
@@ -58,6 +59,33 @@ func TestAgentRows(t *testing.T) {
 			},
 		},
 		{
+			name:      "an archived workflow still holding a live agent keeps a header, so the agent is drawn",
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			archived:  []workflowstore.Workflow{archivedWorkflow("w2", "simplify")},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{Name: "left-behind", WorkflowID: "w2"}},
+			},
+			wantRows: []string{
+				"header:backend",
+				"agent:auth",
+				"header:simplify",
+				"agent:left-behind",
+			},
+		},
+		{
+			name:      "an archived workflow holding nothing live stays off the tree",
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			archived:  []workflowstore.Workflow{archivedWorkflow("w2", "simplify")},
+			agents: []agentItem{
+				{agent: agentstore.Agent{Name: "auth", WorkflowID: "w1"}},
+			},
+			wantRows: []string{
+				"header:backend",
+				"agent:auth",
+			},
+		},
+		{
 			name: "an agent whose workflow is gone is not rendered",
 			workflows: []workflowstore.Workflow{
 				{ID: "w1", Name: "backend"},
@@ -75,11 +103,29 @@ func TestAgentRows(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{listing: listing{workflows: tt.workflows, agents: tt.agents}}
+			m := model{listing: listing{workflows: tt.workflows, archivedWorkflows: tt.archived, agents: tt.agents}}
 
 			assert.Equal(t, tt.wantRows, describeRows(m.agentRows()))
 		})
 	}
+}
+
+// TestAgentsViewMarksALeftoverArchivedWorkflow covers the header the tree draws for an
+// archived workflow that still holds a live agent. The row has to say the folder is
+// archived, since everything else on the screen is not.
+func TestAgentsViewMarksALeftoverArchivedWorkflow(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{
+			archivedWorkflows: []workflowstore.Workflow{archivedWorkflow("w1", "simplify")},
+			agents:            []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "left-behind", WorkflowID: "w1"}}},
+		},
+	}
+
+	view := ansi.Strip(m.agentsView())
+	assert.Contains(t, view, "simplify archived")
+	assert.Contains(t, view, "left-behind")
 }
 
 // TestHoveredWorkflow checks the cursor reports a real workflow only when it

@@ -478,7 +478,7 @@ func (m model) agentsView() string {
 
 		if r.header {
 			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
-			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
+			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow)+hiddenTally(r.hiddenCount, m.tree.showHidden))
 			continue
 		}
 

@@ -308,7 +308,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.api = api{agents: &fakeArchiveAgents{}, workflows: workflows}
 		m.listing.workflows = nil
-		m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+		m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 		m.archive.cursor = 0
 		m.archive.selected = selection{ids: []string{"a1"}}
 
@@ -335,11 +335,7 @@ func TestArchiveSelection(t *testing.T) {
 		m := archiveSelectionTree()
 		m.archive.selected = selection{ids: []string{"a1", "a3"}}
 
-		m.applyArchive(
-			[]agentstore.Agent{{ID: "a3", Name: "db", WorkflowID: "w1"}},
-			nil,
-			"",
-		)
+		m.applyArchive([]agentstore.Agent{{ID: "a3", Name: "db", WorkflowID: "w1"}}, "")
 
 		assert.Equal(t, []string{"a3"}, m.archive.selected.ids)
 	})

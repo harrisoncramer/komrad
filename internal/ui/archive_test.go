@@ -125,7 +125,7 @@ func TestArchiveKeys(t *testing.T) {
 			m.archive.cursor = tt.cursor
 			if tt.archivedFolder {
 				m.listing.workflows = nil
-				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 			}
 			if tt.empty {
 				m.listing.workflows, m.archive.agents = nil, nil
@@ -203,8 +203,8 @@ func TestArchiveRows(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{
 				keys:    config.DefaultKeybindings(),
-				listing: listing{workflows: tt.live},
-				archive: archiveState{agents: tt.agents, workflows: tt.archived},
+				listing: listing{workflows: tt.live, archivedWorkflows: tt.archived},
+				archive: archiveState{agents: tt.agents},
 			}
 
 			assert.Equal(t, tt.wantRows, describeRows(m.archiveRows()))
@@ -212,6 +212,51 @@ func TestArchiveRows(t *testing.T) {
 			if tt.wantEmpty {
 				assert.Contains(t, m.archiveView(), "nothing archived")
 			}
+		})
+	}
+}
+
+// TestArchiveFocusReports covers enter on a search hit for an archived conversation. The
+// pass that follows puts the cursor on the row, and says so when the archive turns out not
+// to hold it, since otherwise the key reads as if nothing happened.
+func TestArchiveFocusReports(t *testing.T) {
+	archived := []agentstore.Agent{{ID: "a1", Name: "auth", WorkflowID: "w1"}}
+
+	tests := []struct {
+		name       string
+		focus      string
+		wantBanner bool
+	}{
+		{
+			name:  "the row the hit named takes the cursor",
+			focus: "a1",
+		},
+		{
+			name:       "a hit the archive no longer holds is reported",
+			focus:      "gone",
+			wantBanner: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{
+				keys:    config.DefaultKeybindings(),
+				listing: listing{archivedWorkflows: []workflowstore.Workflow{archivedWorkflow("w1", "backend")}},
+				archive: archiveState{rowCursor: rowCursor{focus: tt.focus}},
+			}
+
+			m.applyArchive(archived, "")
+
+			assert.Empty(t, m.archive.focus, "the focus is spent either way")
+			if tt.wantBanner {
+				require.NotNil(t, m.banner)
+
+				return
+			}
+
+			require.Nil(t, m.banner)
+			assert.Equal(t, "agent:a1", rowKeyAt(m.archiveRows(), m.archive.cursor))
 		})
 	}
 }
@@ -252,7 +297,7 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 			m.helpExpanded = true
 			if tt.archived {
 				m.listing.workflows = nil
-				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 			}
 
 			got := ansi.Strip(m.renderHelp(m.archiveHelp()))
@@ -469,7 +514,7 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 			)
 			if tt.onFolder {
 				m.listing.workflows = nil
-				m.archive.workflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
+				m.listing.archivedWorkflows = []workflowstore.Workflow{archivedWorkflow("w1", "backend")}
 				m.archive.cursor = 0
 			}
 
@@ -534,7 +579,8 @@ func TestArchiveView(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 			m.listing.workflows = tt.live
-			m.archive = archiveState{agents: tt.agents, workflows: tt.archived}
+			m.listing.archivedWorkflows = tt.archived
+			m.archive = archiveState{agents: tt.agents}
 
 			view := ansi.Strip(m.archiveView())
 			for _, want := range tt.wants {
@@ -671,8 +717,8 @@ func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	assert.Contains(t, workflows.listed, true, "and so are the folders it draws over them")
 	require.Len(t, got.archive.agents, 1)
 	assert.Equal(t, "api-refactor", got.archive.agents[0].Name)
-	require.Len(t, got.archive.workflows, 1)
-	assert.NotNil(t, got.archive.workflows[0].ArchivedAt, "an archived folder carries when it was put away")
+	require.Len(t, got.listing.archivedWorkflows, 1)
+	assert.NotNil(t, got.listing.archivedWorkflows[0].ArchivedAt, "an archived folder carries when it was put away")
 	assert.Empty(t, got.listing.agents, "the tree's rows are not what the archive listed")
 	assert.Empty(t, got.listing.workflows, "and the archived folder is not one of the tree's")
 }

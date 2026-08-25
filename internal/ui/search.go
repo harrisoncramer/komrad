@@ -285,7 +285,9 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 	}
 
 	m.enterScreen(screenAgents)
-	m.revealAgent(hit.agentID)
+	if !m.revealAgent(hit.agentID) {
+		m.reportMissingRow()
+	}
 	m.stageSelection()
 
 	return m, nil
