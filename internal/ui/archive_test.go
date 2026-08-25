@@ -355,6 +355,24 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 	}
 }
 
+// TestEmptyArchivePromptStartsOnCancel covers submitting the prompt without answering it.
+// Nothing in the panel undoes emptying the archive, so the answer it opens on has to be the
+// one that costs nothing rather than the one that destroys every archived conversation.
+func TestEmptyArchivePromptStartsOnCancel(t *testing.T) {
+	client := &fakeArchiveAgents{}
+	keys := config.DefaultKeybindings()
+	m := archiveModel(client, &fakeArchiveWorkflows{}, keys)
+
+	opened, _ := m.emptyArchiveConfirm()
+	m, ok := opened.(model)
+	require.True(t, ok)
+
+	got := answerEmptyPrompt(t, m, keys.Form.Submit[0])
+
+	assert.Zero(t, client.emptied, "a submit that answered nothing queues no sweep")
+	assert.Equal(t, screenArchive, got.screen)
+}
+
 func answerEmptyPrompt(t *testing.T, m model, key string) model {
 	t.Helper()
 

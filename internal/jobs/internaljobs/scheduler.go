@@ -17,7 +17,7 @@ type periodicJobRegistrar interface {
 }
 
 type Scheduler struct {
-	schedules ScheduleReader
+	schedules ScheduleLister
 	periodic  periodicJobRegistrar
 
 	registered map[string]registration
@@ -30,7 +30,7 @@ type registration struct {
 
 // NewScheduler builds the reconciler over the schedules it reads and the periodic jobs it
 // maintains.
-func NewScheduler(schedules ScheduleReader, periodic periodicJobRegistrar) *Scheduler {
+func NewScheduler(schedules ScheduleLister, periodic periodicJobRegistrar) *Scheduler {
 	return &Scheduler{
 		schedules:  schedules,
 		periodic:   periodic,

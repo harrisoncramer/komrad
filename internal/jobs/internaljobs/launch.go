@@ -47,7 +47,7 @@ func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 
 type LaunchAgentWorker struct {
 	river.WorkerDefaults[LaunchAgentArgs]
-	schedules ScheduleReader
+	schedules ScheduleGetter
 	agents    AgentLauncher
 	running   RunningAgentCounter
 	results   LaunchResultRecorder
@@ -56,7 +56,7 @@ type LaunchAgentWorker struct {
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher, running RunningAgentCounter, results LaunchResultRecorder, logger *slog.Logger) *LaunchAgentWorker {
+func NewLaunchAgentWorker(schedules ScheduleGetter, launcher AgentLauncher, running RunningAgentCounter, results LaunchResultRecorder, logger *slog.Logger) *LaunchAgentWorker {
 	return &LaunchAgentWorker{
 		schedules: schedules,
 		agents:    launcher,

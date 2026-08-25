@@ -192,8 +192,13 @@ func (m model) wasConfirmed() bool {
 }
 
 func confirmForm(title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
-	confirmed := true
+	return confirmFormStartingOn(true, title, description, affirmative, keys)
+}
 
+// confirmFormStartingOn builds a confirmation sitting on one of its two answers. Most of the
+// panel's prompts start on the affirmative, since the key was pressed to do the thing, but a
+// prompt nothing undoes starts on Cancel so a stray return costs nothing.
+func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
@@ -322,7 +327,7 @@ func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
 		warning = "Its transcript goes with it and search will not find the conversation again."
 	}
 
-	return confirmForm(title, warning, "Empty", keys)
+	return confirmFormStartingOn(false, title, warning, "Empty", keys)
 }
 
 type archiveChoice string

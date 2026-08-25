@@ -24,9 +24,10 @@ const jobTimeout = 2 * time.Minute
 
 type ClientParams struct {
 	Pool      *pgxpool.Pool
-	Schedules internaljobs.ScheduleReader
+	Schedules internaljobs.ScheduleGetter
 	Results   internaljobs.LaunchResultRecorder
-	Agents    internaljobs.AgentService
+	Launcher  internaljobs.AgentLauncher
+	Deleter   internaljobs.AgentDeleter
 	Archived  internaljobs.ArchivedAgentLister
 	Running   internaljobs.RunningAgentCounter
 	Logger    *slog.Logger
@@ -37,8 +38,8 @@ type ClientParams struct {
 // since which ones exist is a question only the database can answer.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running, p.Results, p.Logger))
-	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Agents))
+	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Launcher, p.Running, p.Results, p.Logger))
+	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Deleter))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      db.RiverSchema,

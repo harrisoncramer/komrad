@@ -22,6 +22,7 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 
 		archived int
 		failOn   int
+		keepRows bool
 
 		wantDeleted int
 		wantErr     bool
@@ -41,6 +42,12 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			archived: 0,
 		},
 		{
+			name:        "a page whose cleanup has not finished stays put without stalling the sweep",
+			archived:    emptyArchiveBatch*2 + 4,
+			keepRows:    true,
+			wantDeleted: emptyArchiveBatch*2 + 4,
+		},
+		{
 			name:        "a page that will not go leaves the rest of the sweep alone",
 			archived:    emptyArchiveBatch * 3,
 			failOn:      2,
@@ -53,6 +60,7 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			archive := newFakeArchive(tt.archived)
 			archive.failOn = tt.failOn
+			archive.keepRows = tt.keepRows
 			worker := NewEmptyArchiveWorker(archive, archive)
 
 			err := worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}})
@@ -78,6 +86,10 @@ type fakeArchive struct {
 	// through, which is what the zero value of this fake has to mean for the callers that
 	// only need an archive with nothing in it.
 	failOn int
+
+	// keepRows is the delete succeeding while leaving the rows where they are, which is what
+	// the real one does for an agent whose cleanup action is still running.
+	keepRows bool
 }
 
 func newFakeArchive(count int) *fakeArchive {
@@ -116,6 +128,12 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 		return errors.New("the delete would not go")
 	}
 
+	f.deleted += len(ids)
+
+	if f.keepRows {
+		return nil
+	}
+
 	gone := make(map[string]bool, len(ids))
 	for _, id := range ids {
 		gone[id] = true
@@ -128,7 +146,6 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 		}
 	}
 	f.agents = kept
-	f.deleted += len(ids)
 
 	return nil
 }

@@ -32,7 +32,8 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,
-		Agents:    &stubAgents{},
+		Launcher:  &stubAgents{},
+		Deleter:   &stubAgents{},
 		Archived:  &stubArchive{},
 		Running:   &stubRunning{},
 	})
@@ -150,6 +151,30 @@ func TestEmptyArchiveIsQueuedOnce(t *testing.T) {
 	assert.True(t, second.UniqueSkippedAsDuplicate, "a sweep already in flight is the one that runs")
 }
 
+// TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes is the other half of that. The archive
+// fills up again as agents are put away, so a sweep that has finished must not stand in the
+// way of the next one, however long River keeps the finished row around.
+func TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes(t *testing.T) {
+	client := newRiverClient(t)
+	require.NoError(t, client.Start(t.Context()))
+	t.Cleanup(func() { _ = client.Stop(context.Background()) })
+
+	first, err := client.Insert(t.Context(), internaljobs.EmptyArchiveArgs{}, nil)
+	require.NoError(t, err)
+	require.False(t, first.UniqueSkippedAsDuplicate)
+
+	require.Eventually(t, func() bool {
+		job, err := client.JobGet(t.Context(), first.Job.ID)
+		require.NoError(t, err)
+
+		return job.State == rivertype.JobStateCompleted
+	}, 10*time.Second, 10*time.Millisecond, "the sweep never finished")
+
+	second, err := client.Insert(t.Context(), internaljobs.EmptyArchiveArgs{}, nil)
+	require.NoError(t, err)
+	assert.False(t, second.UniqueSkippedAsDuplicate, "a finished sweep is not the one that runs next")
+}
+
 // TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration
 // under. The scheduler takes one off by the schedule's id and nothing else, so a
 // job filed under anything but the id it was added with could never be removed and
@@ -219,10 +244,6 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
 }
 
-func (b *blockingLauncher) DeleteAgents(context.Context, []string) error {
-	return nil
-}
-
 // TestStopWaitsForALaunchInFlight is the guarantee the shutdown path is built on. A
 // process killed partway through a launch leaves the firing marked running, and River's
 // rescuer does not come back for it for over an hour, so the stop has to wait rather
@@ -238,7 +259,8 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,
-		Agents:    launcher,
+		Launcher:  launcher,
+		Deleter:   &stubAgents{},
 		Archived:  &stubArchive{},
 		Running:   &stubRunning{},
 	})

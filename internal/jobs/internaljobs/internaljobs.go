@@ -11,9 +11,16 @@ import (
 	schedulestore "weave/internal/store/schedule"
 )
 
-type ScheduleReader interface {
-	List(ctx context.Context) ([]schedulestore.Schedule, error)
+// ScheduleGetter reads the one schedule a firing names, which is all the launch job knows
+// about the table.
+type ScheduleGetter interface {
 	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
+}
+
+// ScheduleLister reads every schedule, which is what the reconciler compares River's
+// registrations against.
+type ScheduleLister interface {
+	List(ctx context.Context) ([]schedulestore.Schedule, error)
 }
 
 type AgentLauncher interface {
@@ -22,12 +29,6 @@ type AgentLauncher interface {
 
 type AgentDeleter interface {
 	DeleteAgents(ctx context.Context, ids []string) error
-}
-
-// AgentService is what the workers need of the service that owns agents.
-type AgentService interface {
-	AgentLauncher
-	AgentDeleter
 }
 
 type ArchivedAgentLister interface {

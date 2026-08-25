@@ -9,6 +9,7 @@ import (
 	"weave/lib/xslice"
 
 	"github.com/riverqueue/river"
+	"github.com/riverqueue/river/rivertype"
 )
 
 // emptyArchiveBatch is how many archived agents one delete covers. Deleting the archive in
@@ -24,9 +25,22 @@ func (EmptyArchiveArgs) Kind() string { return "empty_archive" }
 // InsertOpts keeps one sweep in flight. The arguments are empty, so uniqueness by them is
 // uniqueness of the job itself, and asking again while a sweep is queued, running, or waiting
 // on a retry collapses into the sweep already under way.
+//
+// The states are River's defaults without completed. A finished sweep says nothing about the
+// archive now, which fills up again as agents are put away, so leaving completed in would
+// swallow every later press for as long as River keeps the row.
 func (EmptyArchiveArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
-		UniqueOpts: river.UniqueOpts{ByArgs: true},
+		UniqueOpts: river.UniqueOpts{
+			ByArgs: true,
+			ByState: []rivertype.JobState{
+				rivertype.JobStateAvailable,
+				rivertype.JobStatePending,
+				rivertype.JobStateRetryable,
+				rivertype.JobStateRunning,
+				rivertype.JobStateScheduled,
+			},
+		},
 	}
 }
 
