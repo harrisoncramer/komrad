@@ -1,16 +1,21 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"weave/config"
 	"weave/internal/ui/layout"
 	"weave/internal/weavetest"
+	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"connectrpc.com/connect"
+	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -85,6 +90,133 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	assert.Equal(t, []string{"header:backend"}, describeRows(panel.agentRows()),
 		"and the row goes off the panel's own list, leaving the folder it was in")
+}
+
+// TestPanelOpensThePullRequestKey covers the pull request key from the press through to a
+// process. The panel names an action nothing in its own list shows, so what proves the key is
+// wired is the script running, on the agent the cursor was on, since the shipped one reads the
+// pull request back out of the API by that id.
+func TestPanelOpensThePullRequestKey(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	out := filepath.Join(t.TempDir(), "opened.txt")
+	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, openPRAction), []byte(
+		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT_ID\" > "+out+"\n",
+	), 0o755))
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	_, err = instance.Agents.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
+		Id:    created.Msg.GetAgent().GetId(),
+		Key:   "pr",
+		Value: xptr.Ptr("https://example.test/1"),
+	}))
+	require.NoError(t, err)
+
+	keys := config.DefaultKeybindings()
+	tmux := &recordingTmux{}
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			actions:   instance.Actions,
+		},
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   keys,
+		screen: screenAgents,
+	}
+
+	panel = settle(t, panel, panel.refreshCmd())
+	panel.tree.cursor = 1
+
+	updated, cmd := panel.Update(keyMsg(keys.Agents.OpenPR[0]))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+	settle(t, pressed, cmd)
+
+	var written []byte
+	require.Eventually(t, func() bool {
+		read, err := os.ReadFile(out)
+		written = read
+
+		return err == nil && len(read) > 0
+	}, 5*time.Second, 10*time.Millisecond, "the pull request key never reached a process")
+
+	assert.Equal(t, created.Msg.GetAgent().GetId(), string(written), "the agent the script reads the pull request back for")
+	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr", "the legend offers the key on an agent that has one")
+}
+
+// TestPanelLeavesThePullRequestKeyAloneWithoutOne covers the agents that never recorded one.
+// The panel holds the metadata it is drawing from, so it answers this itself rather than
+// starting a script that has nothing to open.
+func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	out := filepath.Join(t.TempDir(), "opened.txt")
+	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, openPRAction), []byte(
+		"#!/bin/sh\nprintf 'ran' > "+out+"\n",
+	), 0o755))
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	_, err = instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	keys := config.DefaultKeybindings()
+	tmux := &recordingTmux{}
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			actions:   instance.Actions,
+		},
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   keys,
+		screen: screenAgents,
+	}
+
+	panel = settle(t, panel, panel.refreshCmd())
+	panel.tree.cursor = 1
+
+	assert.NotContains(t, helpDescriptions(panel.rowHelp()), "open pr", "the legend offers only what the key does")
+
+	updated, cmd := panel.Update(keyMsg(keys.Agents.OpenPR[0]))
+	pressed, ok := updated.(model)
+	require.True(t, ok)
+	settle(t, pressed, cmd)
+
+	require.Never(t, func() bool {
+		_, err := os.Stat(out)
+
+		return err == nil
+	}, time.Second, 10*time.Millisecond, "nothing is started for an agent with no pull request")
 }
 
 // TestStagedAgentArchivedElsewhere covers the panel losing the agent it is showing to
@@ -222,4 +354,13 @@ func panesInPanel(t *testing.T, instance *weavetest.Instance) []string {
 	}
 
 	return panes
+}
+
+func helpDescriptions(bindings []key.Binding) []string {
+	described := make([]string, 0, len(bindings))
+	for _, b := range bindings {
+		described = append(described, b.Help().Desc)
+	}
+
+	return described
 }

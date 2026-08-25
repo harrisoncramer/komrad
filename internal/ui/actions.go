@@ -136,6 +136,33 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	)
 }
 
+const openPRAction = "_open_pr"
+
+const prMetadataKey = "pr"
+
+func hasPR(agent agentstore.Agent) bool {
+	for _, entry := range agent.Metadata {
+		if entry.Key == prMetadataKey {
+			return entry.Value != ""
+		}
+	}
+
+	return false
+}
+
+func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	if !hasPR(agent) {
+		return m, nil
+	}
+
+	agentID := agent.ID
+
+	return m, m.writeCmd(
+		"Could not open the pull request",
+		func(a api) error { return a.runAction(agentID, openPRAction) },
+	)
+}
+
 func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {

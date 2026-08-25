@@ -99,6 +99,8 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.tagAgent(item.agent)
 		case isBound(k, m.keys.Agents.Hide):
 			return m.hideAgent(item.agent)
+		case isBound(k, m.keys.Agents.OpenPR):
+			return m.openAgentPR(item.agent)
 		case isBound(k, m.keys.Agents.Rename):
 			m.target.renameAgent = item.agent
 			m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)

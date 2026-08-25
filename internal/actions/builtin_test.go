@@ -28,6 +28,7 @@ func TestInstallBuiltins(t *testing.T) {
 	}
 
 	assert.Contains(t, names, "_edit_action")
+	assert.Contains(t, names, "_open_pr")
 	assert.NotContains(t, names, markerName, "the file claiming the directory is not something to run")
 }
 

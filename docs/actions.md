@@ -97,22 +97,14 @@ This action will abort and fail if it cannot execute within 1 second.
 
 ## Example: open the pull request an agent recorded
 
-Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. This action reads it back out of the payload and opens it.
-
-Open the agent manager and press `a` to view your actions, then select it:
+Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. Weave ships this one as `_open_pr`, bound to `o` in the agents list on the agents that have one recorded. It reads the value back through the API rather than out of the payload, which is what any action of your own wanting one field should do, since `weave` is on an action's PATH:
 
 ```sh
 #!/bin/sh
 set -eu
 
-url=$(printf '%s' "$WEAVE_AGENT" | jq -r '.metadata.pr // empty')
-
-if [ -z "$url" ]; then
-	# Nothing is watching stdout, so say it where the person is looking.
-	tmux -L "$WEAVE_HOST_TMUX_SOCKET" display-message \
-		-c "$WEAVE_HOST_CLIENT" "no pr recorded on this agent"
-	exit 1
-fi
+agent=$(weave rpc get-agent --id "$WEAVE_AGENT_ID" --compact)
+url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "pr") | .value] | first // ""')
 
 exec open "$url"
 ```
