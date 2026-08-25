@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"weave/config"
+	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -57,12 +58,28 @@ func (m model) logsDesc() string {
 	}
 }
 
+// logTarget is the agent the log keys read. The archive keeps its own cursor, so a row a
+// delete could not destroy has to page its own teardown log rather than whatever the agents
+// list was last left pointing at.
+func (m model) logTarget() (agentstore.Agent, bool) {
+	if m.screen == screenArchive {
+		return m.selectedArchived()
+	}
+
+	item, ok := m.selectedAgent()
+	if !ok {
+		return agentstore.Agent{}, false
+	}
+
+	return item.agent, true
+}
+
 func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 	if m.setupPending {
 		return m, nil
 	}
 
-	if _, ok := m.selectedAgent(); !ok {
+	if _, ok := m.logTarget(); !ok {
 		return m, nil
 	}
 
@@ -80,16 +97,16 @@ func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 }
 
 func (m model) actionLogContent(kind string) layout.Content {
-	agent, ok := m.selectedAgent()
+	agent, ok := m.logTarget()
 	if !ok {
 		return newTextContent("select an agent to see its " + kind + " log")
 	}
 
-	if !m.hasActionLog(agent.agent.ID, kind) {
+	if !m.hasActionLog(agent.ID, kind) {
 		return newTextContent("no " + kind + " log yet")
 	}
 
-	path := config.ActionLogPath(m.actionLogsDir, agent.agent.ID, kind)
+	path := config.ActionLogPath(m.actionLogsDir, agent.ID, kind)
 
 	return newLogContent(path, processLogArgv(m.processViewer, path))
 }
@@ -108,10 +125,10 @@ func (m model) hasActionLog(agentID, kind string) bool {
 }
 
 func (m model) agentLogContent() layout.Content {
-	agent, ok := m.selectedAgent()
+	agent, ok := m.logTarget()
 	if !ok {
 		return newTextContent("select an agent to see its log")
 	}
 
-	return newLogContent(m.logPath, logArgv(m.logViewer, m.logPath, agent.agent.ID))
+	return newLogContent(m.logPath, logArgv(m.logViewer, m.logPath, agent.ID))
 }

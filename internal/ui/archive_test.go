@@ -522,6 +522,12 @@ func TestArchiveView(t *testing.T) {
 			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
 			wants:    []string{"backend", "archived"},
 		},
+		{
+			name:   "a row a delete could not destroy is marked",
+			live:   []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1", State: agentstore.StateFailedToCleanup}},
+			wants:  []string{"api-refactor", "✗"},
+		},
 	}
 
 	for _, tt := range tests {
@@ -550,6 +556,28 @@ func TestArchiveMarkdown(t *testing.T) {
 	assert.Contains(t, got, "archived")
 	assert.Contains(t, got, "Restore brings it back")
 	assert.NotContains(t, got, "dormant", "an archived agent is not one waiting to be opened")
+}
+
+// TestArchiveStagesWhyADeleteLeftARowBehind covers the stage for an archived agent whose
+// cleanup action failed. The generic archived blurb reads as a row waiting to be restored,
+// which is the wrong thing to say about one a delete could not destroy: the archive is where
+// the failure was left, so it is where the reason has to be legible.
+func TestArchiveStagesWhyADeleteLeftARowBehind(t *testing.T) {
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
+	m.archive = archiveState{agents: []agentstore.Agent{{
+		ID:         "a1",
+		Name:       "api-refactor",
+		WorkflowID: "w1",
+		State:      agentstore.StateFailedToCleanup,
+		Metadata:   []agentstore.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
+	}}}
+
+	staged := m.archiveDocument(m.archive.agents[0])
+
+	assert.Contains(t, staged, "teardown failed")
+	assert.Contains(t, staged, "the worktree is dirty")
+	assert.NotContains(t, staged, "Restore brings it back", "this row is not one merely waiting to be restored")
 }
 
 // TestArchiveFields covers what the details under the list draw for an archived agent: what

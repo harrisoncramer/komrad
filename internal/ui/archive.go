@@ -315,19 +315,27 @@ func (m model) archiveDetails() details {
 
 func (m *model) stageArchive() {
 	r, ok := rowAt(m.archiveRows(), m.archive.cursor)
-	if !ok {
+	switch {
+	case !ok:
 		m.stageDocument(emptyArchiveMarkdown)
-
-		return
-	}
-
-	if r.header {
+	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
-
-		return
+	default:
+		m.stageDocument(m.archiveDocument(r.item.agent))
 	}
 
-	m.stageDocument(archiveMarkdown(r.item.agent))
+	m.stageInfo()
+}
+
+// archiveDocument is what the stage pages for an archived agent. A row a delete could not
+// destroy pages why instead of the blurb about restoring it, since the archive is where that
+// failure was left and so the only place it can be read.
+func (m model) archiveDocument(agent agentstore.Agent) string {
+	if agentstore.IsFailed(agent.State) {
+		return m.failedPlaceholder(agent)
+	}
+
+	return archiveMarkdown(agent)
 }
 
 func (m model) archivedCount(workflowID string) int {
@@ -360,7 +368,7 @@ func (m model) archiveView() string {
 
 		agent := r.item.agent
 		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
-		rows = append(rows, prefix+"  "+name+scheduledMark(agent)+tagGlyph(agent, m.tags))
+		rows = append(rows, prefix+"  "+name+failedMark(agent)+scheduledMark(agent)+tagGlyph(agent, m.tags))
 	}
 
 	return m.listView("Archive", rows, m.archive.cursor, below)
