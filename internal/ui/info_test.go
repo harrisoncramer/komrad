@@ -73,6 +73,8 @@ type recordingTmux struct {
 	windows       []string
 	openWindowErr error
 
+	popups []string
+
 	detaches int
 	killed   []string
 
@@ -138,6 +140,12 @@ func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
 	}
 
 	t.windows = append(t.windows, strings.Join(append([]string{dir}, argv...), " "))
+
+	return nil
+}
+
+func (t *recordingTmux) DisplayPopup(pane string, argv ...string) error {
+	t.popups = append(t.popups, strings.Join(append([]string{pane}, argv...), " "))
 
 	return nil
 }

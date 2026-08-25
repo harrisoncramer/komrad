@@ -74,6 +74,10 @@ run    = ["enter"]
 archive     = ["z"]
 # Step out of a workflow scope, or quit at the root.
 back        = ["esc"]
+# Review what the hovered agent has changed in its worktree, in a popup over the panel. The
+# key does nothing for an agent whose workflow does not make worktrees, since there is no
+# base branch to measure one against, and the legend leaves it off there.
+diff        = ["d"]
 # Hide the hovered agent from this list.
 hide        = ["h"]
 # Move the hovered agent to the next tag in the tags list, and past the last
