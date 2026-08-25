@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -442,6 +443,13 @@ func TestRunSetupAction(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "one that writes right up to the cap is believed rather than cut short",
+			action:  "loud",
+			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir)},
+			wantDir: strings.Repeat("a", maxSetupDir),
+			wantRan: []string{"loud"},
+		},
+		{
 			name:    "an action that names nothing names no directory",
 			action:  "install-deps",
 			wantRan: []string{"install-deps"},
@@ -477,6 +485,29 @@ func TestRunSetupAction(t *testing.T) {
 			assert.Equal(t, tt.wantRan, runner.ran)
 		})
 	}
+}
+
+func TestRunSetupActionDoesNotHoldTheWholeDirFile(t *testing.T) {
+	const wrote = 32 << 20
+
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greedy"), []byte("#!/bin/sh\n"), 0o755))
+
+	runner := &recordingRunner{results: map[string]runResult{"greedy": {dirFileSize: wrote}}}
+	service := actionService(t, dir, runner)
+
+	var before, after runtime.MemStats
+	runtime.ReadMemStats(&before)
+
+	got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy", "")
+
+	runtime.ReadMemStats(&after)
+
+	require.ErrorIs(t, err, ErrSetupFailed)
+	assert.Empty(t, got, "a refused setup names no directory")
+	assert.Contains(t, err.Error(), setupDirFileVar)
+	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(4<<20),
+		"the refusal read the whole dir file to arrive at it")
 }
 
 // TestRunSetupActionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
@@ -1534,10 +1565,11 @@ type recordingRunner struct {
 }
 
 type runResult struct {
-	dirFile  string
-	stderr   string
-	exitCode int
-	err      error
+	dirFile     string
+	dirFileSize int
+	stderr      string
+	exitCode    int
+	err         error
 }
 
 // Run answers the outcome inline, so a case asserting what reached the log has nothing to
@@ -1568,8 +1600,8 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 
 	answer := r.results[p.Action.Name]
 
-	if path, ok := lookupEnv(p.Env, setupDirFileVar); ok && answer.dirFile != "" {
-		if err := os.WriteFile(path, []byte(answer.dirFile), 0o644); err != nil {
+	if path, ok := lookupEnv(p.Env, setupDirFileVar); ok {
+		if err := answer.writeDirFile(path); err != nil {
 			return actions.Result{}, err
 		}
 	}
@@ -1578,6 +1610,34 @@ func (r *recordingRunner) RunAndWait(_ context.Context, p actions.RunParams) (ac
 		Stderr:   []byte(answer.stderr),
 		ExitCode: answer.exitCode,
 	}, answer.err
+}
+
+func (r runResult) writeDirFile(path string) error {
+	if r.dirFile != "" {
+		return os.WriteFile(path, []byte(r.dirFile), 0o644)
+	}
+	if r.dirFileSize == 0 {
+		return nil
+	}
+
+	file, err := os.OpenFile(path, os.O_WRONLY|os.O_TRUNC, 0o644)
+	if err != nil {
+		return err
+	}
+
+	chunk := bytes.Repeat([]byte("a"), 64<<10)
+	for left := r.dirFileSize; left > 0; left -= len(chunk) {
+		if left < len(chunk) {
+			chunk = chunk[:left]
+		}
+		if _, err := file.Write(chunk); err != nil {
+			_ = file.Close()
+
+			return err
+		}
+	}
+
+	return file.Close()
 }
 
 func lookupEnv(env []string, key string) (string, bool) {
