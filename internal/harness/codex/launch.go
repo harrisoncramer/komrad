@@ -37,6 +37,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 			tomlString("http://"+launch.MCPEndpoint+"/mcp"),
 		))
 		command += " -c " + harness.QuoteArg(mcpHeaders())
+		command += " -c " + harness.QuoteArg(`mcp_servers.weave.default_tools_approval_mode="approve"`)
 	}
 
 	if resuming {

@@ -112,6 +112,7 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 			require.NoError(t, err)
 
 			assert.Contains(t, command, `-c 'mcp_servers.weave.url="http://127.0.0.1:9999/mcp"'`)
+			assert.Contains(t, command, `-c 'mcp_servers.weave.default_tools_approval_mode="approve"'`)
 		})
 	}
 }
