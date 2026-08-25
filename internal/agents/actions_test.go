@@ -913,6 +913,167 @@ func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 	assert.Contains(t, string(persisted), "tearing down 2")
 }
 
+// TestRunSetupActionPersistsStdoutOnAFailure covers a setup script that fails through a
+// plain echo and a bare exit, never touching stderr, and checks the per-agent log, the
+// structured log, and the refusal a create call returns all carry what it said.
+func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte(
+		"#!/bin/sh\necho diagnosing 1\necho diagnosing 2\nexit 1\n",
+	), 0o755))
+
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+	ctx, records := loggedContext(t)
+
+	_, err := svc.RunSetupAction(ctx, agentstore.Agent{ID: "a1"}, "setup", "")
+
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
+
+	persisted, readErr := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogSetup))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(persisted), "diagnosing 1")
+	assert.Contains(t, string(persisted), "diagnosing 2")
+
+	got := recordFor(t, records(), "action finished")
+	assert.Contains(t, got, "weave.action.stdout", "the structured log carries the stream that actually failed")
+}
+
+// TestActionDetailCapsOutputAndNamesTheLogPath covers the string that becomes a panel
+// banner, capped to a size a banner can hold with the cap allocated to stderr first so a
+// chatty stdout cannot push the line that actually says what went wrong out of what
+// survives.
+func TestActionDetailCapsOutputAndNamesTheLogPath(t *testing.T) {
+	long := strings.Repeat("x", actionDetailCap+50)
+
+	tests := []struct {
+		name         string
+		stdout       string
+		stderr       string
+		logPath      string
+		want         string
+		wantCut      bool
+		wantSurvives string
+	}{
+		{
+			name:         "a short stderr survives a stdout too chatty to fit alongside it",
+			stdout:       long,
+			stderr:       "fatal: dirty worktree",
+			logPath:      "/logs/a1-setup.log",
+			wantCut:      true,
+			wantSurvives: "fatal: dirty worktree",
+		},
+		{
+			name:    "stdout alone past the cap names where the rest went",
+			stdout:  long,
+			logPath: "/logs/a1-setup.log",
+			wantCut: true,
+		},
+		{
+			name:    "stdout alone past the cap with nowhere to point says so plainly",
+			stdout:  long,
+			wantCut: true,
+		},
+		{
+			name:   "output inside the cap passes through untouched",
+			stderr: "fatal: dirty worktree",
+			want:   ": fatal: dirty worktree",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := actionDetail([]byte(tt.stdout), []byte(tt.stderr), tt.logPath)
+
+			if !tt.wantCut {
+				assert.Equal(t, tt.want, got)
+
+				return
+			}
+
+			kept, _, found := strings.Cut(strings.TrimPrefix(got, ": ..."), " (")
+			require.True(t, found, "the cut carries a parenthetical saying what happened to the rest")
+			assert.LessOrEqual(t, len(kept), actionDetailCap+1, "one byte of slack for the newline joining both streams")
+			if tt.wantSurvives != "" {
+				assert.Contains(t, got, tt.wantSurvives, "stderr keeps its own room rather than losing it to stdout")
+			} else {
+				assert.NotContains(t, got, tt.stdout, "the full tail does not reach the banner")
+			}
+			if tt.logPath != "" {
+				assert.Contains(t, got, tt.logPath, "says where the rest went rather than only that it was cut")
+			} else {
+				assert.Contains(t, got, "not kept", "says why nothing is named rather than silently capping")
+			}
+		})
+	}
+}
+
+func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
+	tests := []struct {
+		name       string
+		gitAskpass string
+		sshAskpass string
+	}{
+		{name: "nothing configured gets the full guard"},
+		{
+			name:       "a user-configured askpass survives untouched",
+			gitAskpass: "/usr/local/bin/my-askpass",
+			sshAskpass: "/usr/local/bin/my-ssh-askpass",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.gitAskpass != "" {
+				t.Setenv("GIT_ASKPASS", tt.gitAskpass)
+			} else {
+				t.Setenv("GIT_ASKPASS", "")
+				require.NoError(t, os.Unsetenv("GIT_ASKPASS"))
+			}
+			if tt.sshAskpass != "" {
+				t.Setenv("SSH_ASKPASS", tt.sshAskpass)
+			} else {
+				t.Setenv("SSH_ASKPASS", "")
+				require.NoError(t, os.Unsetenv("SSH_ASKPASS"))
+			}
+
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte(
+				"#!/bin/sh\n"+
+					"echo \"GIT_TERMINAL_PROMPT=$GIT_TERMINAL_PROMPT\"\n"+
+					"echo \"GCM_INTERACTIVE=$GCM_INTERACTIVE\"\n"+
+					"echo \"GIT_ASKPASS=$GIT_ASKPASS\"\n"+
+					"echo \"SSH_ASKPASS=$SSH_ASKPASS\"\n",
+			), 0o755))
+
+			logsDir := t.TempDir()
+			svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+			done := make(chan error, 1)
+			require.NoError(t, svc.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+				done <- err
+			}))
+
+			select {
+			case err := <-done:
+				require.NoError(t, err)
+			case <-time.After(5 * time.Second):
+				t.Fatal("the cleanup action never reported finishing")
+			}
+
+			persisted, readErr := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogTeardown))
+			require.NoError(t, readErr)
+			output := string(persisted)
+
+			assert.Contains(t, output, "GIT_TERMINAL_PROMPT=0")
+			assert.Contains(t, output, "GCM_INTERACTIVE=never")
+			assert.Contains(t, output, "GIT_ASKPASS="+tt.gitAskpass)
+			assert.Contains(t, output, "SSH_ASKPASS="+tt.sshAskpass)
+		})
+	}
+}
+
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 	t.Helper()
 

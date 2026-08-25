@@ -47,6 +47,7 @@ const (
 	ActionAgentID  = "weave.action.agent.id"
 	ActionAgentCwd = "weave.action.agent.cwd"
 
+	ActionStdout = "weave.action.stdout"
 	ActionStderr = "weave.action.stderr"
 
 	MailID     = "weave.mail.id"

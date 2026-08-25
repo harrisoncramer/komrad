@@ -182,6 +182,8 @@ const setupTimeout = 10 * time.Minute
 
 const maxSetupDir = 4096
 
+const actionDetailCap = 400
+
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
 // RunSetupAction runs a setup action before creating an agent.
@@ -239,13 +241,13 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 			Env:     env,
 			Timeout: timeout,
 		})
-		writeActionLog(ctx, logPath, result.Stderr)
+		writeActionLog(ctx, logPath, combinedOutput(result.Stdout, result.Stderr))
 	}
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 
 	if err != nil {
-		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, stderrDetail(result.Stderr))
+		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
 	}
 
 	named, err := os.ReadFile(dirPath)
@@ -519,7 +521,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 
 		Timeout: p.action.Header.TimeoutOr(0),
 		Done: func(result actions.Result, err error) {
-			writeActionLog(ctx, p.logPath, result.Stderr)
+			writeActionLog(ctx, p.logPath, combinedOutput(result.Stdout, result.Stderr))
 
 			if err != nil {
 				logger.LogAttrs(ctx, slog.LevelError, "action failed",
@@ -561,17 +563,22 @@ func finishedAction(result actions.Result, began time.Time) []slog.Attr {
 		slog.Int64(logging.DurationMS, elapsedMS(began)),
 	}
 
-	if said := bytes.TrimSpace(result.Stderr); len(said) > 0 {
-		attrs = append(attrs, slog.String(logging.ActionStderr, string(said)))
-	}
-
-	return attrs
+	return append(attrs, outputAttrs(result)...)
 }
 
 func failedAction(result actions.Result, err error) []slog.Attr {
 	attrs := []slog.Attr{slog.Int(logging.ExitCode, result.ExitCode)}
 	attrs = append(attrs, logging.Err(err)...)
 
+	return append(attrs, outputAttrs(result)...)
+}
+
+func outputAttrs(result actions.Result) []slog.Attr {
+	var attrs []slog.Attr
+
+	if said := bytes.TrimSpace(result.Stdout); len(said) > 0 {
+		attrs = append(attrs, slog.String(logging.ActionStdout, string(said)))
+	}
 	if said := bytes.TrimSpace(result.Stderr); len(said) > 0 {
 		attrs = append(attrs, slog.String(logging.ActionStderr, string(said)))
 	}
@@ -579,13 +586,38 @@ func failedAction(result actions.Result, err error) []slog.Attr {
 	return attrs
 }
 
-func stderrDetail(stderr []byte) string {
-	trimmed := bytes.TrimSpace(stderr)
-	if len(trimmed) == 0 {
-		return ""
+func combinedOutput(stdout, stderr []byte) []byte {
+	if len(stdout) == 0 {
+		return stderr
+	}
+	if len(stderr) == 0 {
+		return stdout
 	}
 
-	return ": " + string(trimmed)
+	return bytes.Join([][]byte{stdout, stderr}, []byte("\n"))
+}
+
+func actionDetail(stdout, stderr []byte, logPath string) string {
+	stdout = bytes.TrimSpace(stdout)
+	stderr = bytes.TrimSpace(stderr)
+	total := len(stdout) + len(stderr)
+	if total == 0 {
+		return ""
+	}
+	if total <= actionDetailCap {
+		return ": " + string(combinedOutput(stdout, stderr))
+	}
+
+	keptStderr := tailBytes(stderr, actionDetailCap)
+	keptStdout := tailBytes(stdout, actionDetailCap-len(keptStderr))
+	kept := string(combinedOutput(keptStdout, keptStderr))
+	cut := total - len(keptStdout) - len(keptStderr)
+
+	if logPath == "" {
+		return fmt.Sprintf(": ...%s (%d earlier bytes cut, the rest was not kept)", kept, cut)
+	}
+
+	return fmt.Sprintf(": ...%s (%d earlier bytes cut, kept in %s)", kept, cut, logPath)
 }
 
 type prepareParams struct {
@@ -716,6 +748,8 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
 	}
 
+	env = append(env, gitPromptGuardEnv()...)
+
 	if workflow != nil && workflow.Worktree.Enabled {
 		worktreeEnv, err := s.worktreeEnv(*workflow)
 		if err != nil {
@@ -726,6 +760,22 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 	}
 
 	return env, nil
+}
+
+func gitPromptGuardEnv() []string {
+	guard := []string{
+		"GIT_TERMINAL_PROMPT=0",
+		"GCM_INTERACTIVE=never",
+	}
+
+	if _, set := config.LookupEnv("GIT_ASKPASS"); !set {
+		guard = append(guard, "GIT_ASKPASS=")
+	}
+	if _, set := config.LookupEnv("SSH_ASKPASS"); !set {
+		guard = append(guard, "SSH_ASKPASS=")
+	}
+
+	return guard
 }
 
 func workflowName(workflow *workflowstore.Workflow) string {
