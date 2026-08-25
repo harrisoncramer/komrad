@@ -213,43 +213,29 @@ func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 	assert.Equal(t, "AFTER=1\n", string(after))
 }
 
-// TestBuiltinWorktreeSetupCopiesOverATrackedPath covers a copy path that git tracks, so
-// the fresh worktree already holds a checkout of it: the copy has to replace that checkout
-// rather than land inside it, and the agent has to end up with the repo's copy of the path
-// rather than the committed one.
-func TestBuiltinWorktreeSetupCopiesOverATrackedPath(t *testing.T) {
+func TestBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
 	repo := initRepo(t)
-	require.NoError(t, os.Mkdir(filepath.Join(repo, "config"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(repo, "config", "app.toml"), []byte("committed\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("committed\n"), 0o644))
 	commitAll(t, repo)
-	require.NoError(t, os.WriteFile(filepath.Join(repo, "config", "app.toml"), []byte("local\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("local\n"), 0o644))
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-tracked-copy",
+		agentID:      "agent-tracked-skip",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
-		copyPaths:    []string{"config", "settings.json"},
+		copyPaths:    []string{"settings.json"},
 	})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
 	tree := strings.TrimSpace(string(result.Stdout))
-	assert.NoDirExists(t, filepath.Join(tree, "config", "config"), "the copy replaces the checked-out directory rather than nesting inside it")
+	assert.Contains(t, string(result.Stderr), "settings.json is tracked, skipping copy")
 
-	dir, err := os.ReadFile(filepath.Join(tree, "config", "app.toml"))
+	content, err := os.ReadFile(filepath.Join(tree, "settings.json"))
 	require.NoError(t, err)
-	assert.Equal(t, "local\n", string(dir), "the agent gets the repo's copy of a tracked directory")
-
-	file, err := os.ReadFile(filepath.Join(tree, "settings.json"))
-	require.NoError(t, err)
-	assert.Equal(t, "local\n", string(file), "the agent gets the repo's copy of a tracked file")
+	assert.Equal(t, "committed\n", string(content), "a tracked path is left as git checked it out rather than copied over")
 }
 
-// TestBuiltinWorktreeSetupSymlinksOverATrackedPath covers the symlink arm of the same case:
-// ln into an existing directory makes the link a level down, which leaves the agent with
-// the committed contents and a stray link nobody asked for.
-func TestBuiltinWorktreeSetupSymlinksOverATrackedPath(t *testing.T) {
+func TestBuiltinWorktreeSetupSkipsATrackedSymlinkPath(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "vendor"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "vendor", "lib.txt"), []byte("dep\n"), 0o644))
@@ -264,11 +250,11 @@ func TestBuiltinWorktreeSetupSymlinksOverATrackedPath(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
 	tree := strings.TrimSpace(string(result.Stdout))
-	assert.NoFileExists(t, filepath.Join(tree, "vendor", "vendor"), "the link replaces the checked-out directory rather than being made inside it")
+	assert.Contains(t, string(result.Stderr), "vendor is tracked, skipping symlink")
 
-	link, err := os.Readlink(filepath.Join(tree, "vendor"))
+	content, err := os.ReadFile(filepath.Join(tree, "vendor", "lib.txt"))
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(repo, "vendor"), link)
+	assert.Equal(t, "dep\n", string(content), "a tracked path is left as git checked it out rather than symlinked over")
 }
 
 // TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree covers what clearing a destination
