@@ -45,6 +45,34 @@ const patchFrame = "• Added note.txt (+1 -0)\n" +
 	"\n" +
 	"  Press enter to confirm or esc to cancel"
 
+const questionFrame = "  Question 1/1 (1 unanswered)\n" +
+	"  Which filename should I use for the new file?\n" +
+	"\n" +
+	"  › 1. a.txt (Recommended)  Creates the new file as a.txt.\n" +
+	"    2. b.txt                Creates the new file as b.txt.\n" +
+	"    3. None of the above    Optionally, add details in notes (tab).\n" +
+	"\n" +
+	"  tab to add notes | enter to submit answer | esc to interrupt"
+
+const questionNotesFrame = "  Question 1/1 (1 unanswered)\n" +
+	"  Which filename should I use for the new file?\n" +
+	"\n" +
+	"  › 1. a.txt (Recommended)  Creates the new file as a.txt.\n" +
+	"    2. b.txt                Creates the new file as b.txt.\n" +
+	"\n" +
+	"  › Add notes\n" +
+	"\n" +
+	"  tab or esc to clear notes | enter to submit answer"
+
+const questionsFrame = "  Question 1/3 (3 unanswered)\n" +
+	"  Which filename should I use?\n" +
+	"\n" +
+	"  › 1. probe.txt (Recommended)  Use a simple text file named probe.txt.\n" +
+	"    2. output.txt               Use a generic output.txt filename.\n" +
+	"    3. None of the above        Optionally, add details in notes (tab).\n" +
+	"\n" +
+	"  tab to add notes | enter to submit answer | ←/→ to navigate questions | esc to interrupt"
+
 const trustFrame = "> You are in /repo/worktree\n" +
 	"\n" +
 	"  Do you trust the contents of this directory?\n" +
@@ -133,6 +161,16 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWorking,
 		},
 		{
+			name:  "an approval phrase just above a live status line",
+			frame: "• The prompt says press enter to continue.\n\n• Working (4s • esc to interrupt)\n\n› Improve documentation in @filename\n\n  gpt-5.6-sol default fast · /repo/worktree",
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "an answered question is work again",
+			frame: "    answer: a.txt (Recommended)\n\n• Working (4s • esc to interrupt)\n\n› Summarize recent commits\n\n  gpt-5.6-sol medium fast · /repo/worktree",
+			want:  harness.ActivityWorking,
+		},
+		{
 			name:  "a command approval is waiting",
 			frame: approvalFrame,
 			want:  harness.ActivityWaiting,
@@ -140,6 +178,21 @@ func TestReadActivity(t *testing.T) {
 		{
 			name:  "an edit approval is waiting",
 			frame: patchFrame,
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "a question Codex asked with its own tool is waiting",
+			frame: questionFrame,
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "one of several questions is waiting",
+			frame: questionsFrame,
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "a question with the notes field open is waiting",
+			frame: questionNotesFrame,
 			want:  harness.ActivityWaiting,
 		},
 		{
@@ -176,6 +229,10 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 		{
 			name:  "an approval phrase a dozen lines up",
 			frame: "I wrote that it says \"Press enter to confirm or esc to cancel\"." + strings.Repeat("\n", 12) + idleFrame,
+		},
+		{
+			name:  "a question footer a dozen lines up",
+			frame: "I wrote that it ends with \"enter to submit answer\"." + strings.Repeat("\n", 12) + idleFrame,
 		},
 	}
 
