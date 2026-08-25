@@ -11,6 +11,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/rpcapi"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/spf13/cobra"
 )
@@ -91,6 +92,10 @@ func stopHookCmd(state *app) *cobra.Command {
 			return nil
 		}
 
+		if err := recordTurnBoundary(cmd.Context(), state); err != nil {
+			reportHookProblem(cmd, "weave did not record the turn boundary", err)
+		}
+
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {
 			reportHookProblem(cmd, "weave could not be reached, so any mail is still waiting to be read", err)
@@ -135,6 +140,20 @@ func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
 	}
 
 	return &payload, nil
+}
+
+func recordTurnBoundary(ctx context.Context, state *app) error {
+	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
+	defer cancel()
+
+	_, err := callRPC(ctx, callRPCParams{
+		Addr:    state.env.Addr,
+		Path:    agentv1connect.AgentServiceRecordTurnBoundaryProcedure,
+		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+		Request: map[string]any{},
+	})
+
+	return err
 }
 
 func readMail(ctx context.Context, state *app) (*deliveredMail, error) {

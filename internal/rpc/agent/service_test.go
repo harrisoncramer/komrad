@@ -30,6 +30,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 const missingID = "00000000-0000-0000-0000-000000000000"
@@ -735,6 +736,56 @@ func TestLog(t *testing.T) {
 			assert.Equal(t, id, record[logging.TargetAgentID])
 			assert.Equal(t, "/repo", record[logging.ActionAgentCwd])
 			assert.NotContains(t, record, logging.ActionName, "no action was given")
+		})
+	}
+}
+
+type fakeReconciler struct {
+	recorded []string
+}
+
+func (f *fakeReconciler) RecordTurnBoundary(agentID string) {
+	f.recorded = append(f.recorded, agentID)
+}
+
+func TestRecordTurnBoundary(t *testing.T) {
+	tests := []struct {
+		name string
+
+		callerID string
+
+		wantCode connect.Code
+	}{
+		{
+			name:     "no caller identity is refused",
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "the boundary is recorded against the caller",
+			callerID: "agent-a",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reconciler := &fakeReconciler{}
+			svc := NewService(NewServiceParams{Reconciler: reconciler})
+
+			ctx := t.Context()
+			if tt.callerID != "" {
+				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerID})
+			}
+
+			_, err := svc.RecordTurnBoundary(ctx, connect.NewRequest(&emptypb.Empty{}))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+				assert.Empty(t, reconciler.recorded)
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, []string{tt.callerID}, reconciler.recorded)
 		})
 	}
 }

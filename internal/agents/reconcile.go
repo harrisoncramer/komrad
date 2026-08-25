@@ -69,6 +69,11 @@ type Reconciler struct {
 	rateLimitMu      sync.Mutex
 	rateLimitedUntil map[string]time.Time
 
+	// boundaries is written from whatever goroutine handles the Stop hook's RPC, so it
+	// needs its own lock for the same reason rateLimitedUntil does.
+	boundaryMu sync.Mutex
+	boundaries map[string]time.Time
+
 	now func() time.Time
 }
 
@@ -82,8 +87,35 @@ func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) 
 		misses:           map[string]int{},
 		shells:           map[string]time.Time{},
 		rateLimitedUntil: map[string]time.Time{},
+		boundaries:       map[string]time.Time{},
 		now:              time.Now,
 	}
+}
+
+// RecordTurnBoundary notes that agentID's own CLI reported its turn ending. The next pass
+// that reads the pane as idle on its own skips the miss counter instead of accruing one; a
+// pass that still reads the pane as busy is unaffected, since the pane is what decides.
+func (r *Reconciler) RecordTurnBoundary(agentID string) {
+	r.boundaryMu.Lock()
+	defer r.boundaryMu.Unlock()
+
+	r.boundaries[agentID] = r.now()
+}
+
+func (r *Reconciler) hasFreshTurnBoundary(agentID string, since time.Time) bool {
+	r.boundaryMu.Lock()
+	defer r.boundaryMu.Unlock()
+
+	boundary, ok := r.boundaries[agentID]
+
+	return ok && boundary.After(since)
+}
+
+func (r *Reconciler) clearTurnBoundary(agentID string) {
+	r.boundaryMu.Lock()
+	defer r.boundaryMu.Unlock()
+
+	delete(r.boundaries, agentID)
 }
 
 // WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its
@@ -132,6 +164,14 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		}
 	}
 	r.rateLimitMu.Unlock()
+
+	r.boundaryMu.Lock()
+	for id := range r.boundaries {
+		if _, ok := listed[id]; !ok {
+			delete(r.boundaries, id)
+		}
+	}
+	r.boundaryMu.Unlock()
 
 	return nil
 }
@@ -191,6 +231,12 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 			return
 		}
 
+		if r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
+			r.apply(ctx, agent, agentstore.StateIdle)
+
+			return
+		}
+
 		r.misses[agent.ID]++
 		if r.misses[agent.ID] >= reconcileMisses {
 			r.apply(ctx, agent, agentstore.StateIdle)
@@ -219,6 +265,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {
 	delete(r.misses, agent.ID)
 	delete(r.shells, agent.ID)
+	r.clearTurnBoundary(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
 	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
 		return

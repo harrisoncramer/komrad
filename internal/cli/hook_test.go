@@ -10,6 +10,7 @@ import (
 
 	"weave/config"
 	"weave/internal/caller"
+	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -17,12 +18,13 @@ import (
 
 func TestStopHookDeliversMail(t *testing.T) {
 	tests := []struct {
-		name     string
-		agentID  string
-		payload  string
-		mail     []mailItem
-		wantSent bool
-		wantText []string
+		name         string
+		agentID      string
+		payload      string
+		mail         []mailItem
+		wantSent     bool
+		wantBoundary bool
+		wantText     []string
 	}{
 		{
 			name:    "a hook already running is not answered again",
@@ -38,10 +40,11 @@ func TestStopHookDeliversMail(t *testing.T) {
 			mail:    []mailItem{{ID: "mail-1", Body: "hello"}},
 		},
 		{
-			name:     "an empty mailbox lets the turn end",
-			agentID:  "agent-a",
-			payload:  `{"stop_hook_active":false}`,
-			wantSent: true,
+			name:         "an empty mailbox lets the turn end",
+			agentID:      "agent-a",
+			payload:      `{"stop_hook_active":false}`,
+			wantSent:     true,
+			wantBoundary: true,
 		},
 		{
 			name:    "mail is handed back as context",
@@ -51,7 +54,8 @@ func TestStopHookDeliversMail(t *testing.T) {
 				{ID: "mail-1", FromAgent: "agent-b", FromName: "migrations", Body: "refunded_cents"},
 				{ID: "mail-2", FromAgent: "agent-b", FromName: "migrations", Body: "and it is not null", ReplyTo: "mail-0"},
 			},
-			wantSent: true,
+			wantSent:     true,
+			wantBoundary: true,
 			wantText: []string{
 				"From migrations (agent-b), mail mail-1",
 				"refunded_cents",
@@ -61,12 +65,13 @@ func TestStopHookDeliversMail(t *testing.T) {
 			},
 		},
 		{
-			name:     "mail from the panel names it as the sender",
-			agentID:  "agent-a",
-			payload:  `{"stop_hook_active":false}`,
-			mail:     []mailItem{{ID: "mail-1", Body: "stand down"}},
-			wantSent: true,
-			wantText: []string{"From the panel, mail mail-1"},
+			name:         "mail from the panel names it as the sender",
+			agentID:      "agent-a",
+			payload:      `{"stop_hook_active":false}`,
+			mail:         []mailItem{{ID: "mail-1", Body: "stand down"}},
+			wantSent:     true,
+			wantBoundary: true,
+			wantText:     []string{"From the panel, mail mail-1"},
 		},
 		{
 			name:    "a lifecycle notice from weave is not framed as the user talking",
@@ -75,8 +80,9 @@ func TestStopHookDeliversMail(t *testing.T) {
 			mail: []mailItem{
 				{ID: "mail-1", FromName: "weave", Body: `Your delegate "child" (agent-c) was archived.`},
 			},
-			wantSent: true,
-			wantText: []string{"From weave, mail mail-1", "Weave sent this itself"},
+			wantSent:     true,
+			wantBoundary: true,
+			wantText:     []string{"From weave, mail mail-1", "Weave sent this itself"},
 		},
 	}
 
@@ -84,7 +90,8 @@ func TestStopHookDeliversMail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var asked caller.Caller
 			var logged []string
-			addr := fakeMailServer(t, fakeMailParams{mail: tt.mail, asked: &asked, logged: &logged})
+			var boundaries []string
+			addr := fakeMailServer(t, fakeMailParams{mail: tt.mail, asked: &asked, logged: &logged, boundaries: &boundaries})
 
 			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
 
@@ -96,6 +103,10 @@ func TestStopHookDeliversMail(t *testing.T) {
 
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, tt.wantSent, asked.AgentID != "", "the mailbox is only read when there is one to read")
+			assert.Equal(t, tt.wantBoundary, len(boundaries) == 1, "a turn boundary is recorded whenever the turn actually ends")
+			if tt.wantBoundary {
+				assert.Equal(t, tt.agentID, boundaries[0])
+			}
 
 			if len(tt.wantText) == 0 {
 				assert.Empty(t, out.String(), "nothing is printed, so the turn ends")
@@ -186,9 +197,10 @@ func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 }
 
 type fakeMailParams struct {
-	mail   []mailItem
-	asked  *caller.Caller
-	logged *[]string
+	mail       []mailItem
+	asked      *caller.Caller
+	logged     *[]string
+	boundaries *[]string
 }
 
 func fakeMailServer(t *testing.T, params fakeMailParams) string {
@@ -206,6 +218,13 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Mail: params.mail}))
+	})
+
+	mux.HandleFunc(agentv1connect.AgentServiceRecordTurnBoundaryProcedure, func(w http.ResponseWriter, r *http.Request) {
+		*params.boundaries = append(*params.boundaries, caller.FromHeader(r.Header).AgentID)
+
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
 	})
 
 	mux.HandleFunc(logPath, func(w http.ResponseWriter, r *http.Request) {
