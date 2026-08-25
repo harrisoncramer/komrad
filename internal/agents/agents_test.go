@@ -958,6 +958,80 @@ func TestDeleteAgentUnarchivesOnAFailedTeardown(t *testing.T) {
 	assert.Nil(t, live[0].ArchivedAt)
 }
 
+// TestDeleteAgentRetryRecordsTheLatestReasonOnly covers retrying a delete whose cleanup
+// keeps failing, for a different reason each time. There is one "error" metadata slot per
+// agent, not a history of them, so a second failure overwrites the first rather than
+// appending to it — the row only ever shows why the most recent attempt didn't work.
+func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:          "backend",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	agent, err := manager.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
+
+	agents, err := st.List(t.Context())
+	require.NoError(t, err)
+	require.Len(t, agents, 1)
+	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
+
+	lifecycle.cleanupRunErr = errors.New("network unreachable")
+	require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
+
+	agents, err = st.List(t.Context())
+	require.NoError(t, err)
+	require.Len(t, agents, 1, "still failing, so still here")
+	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
+	assert.Contains(t, metadataValue(agents[0].Metadata), "network unreachable")
+	assert.NotContains(t, metadataValue(agents[0].Metadata), "worktree is dirty", "the stale reason does not linger alongside the new one")
+}
+
+// TestDeleteAgentsHandlesMixedCleanupOutcomes covers a batch where one agent's cleanup
+// succeeds and another's fails: each agent's outcome has to land on that agent alone, not on
+// the batch as a whole. One failure must not block the other's removal, and one success
+// must not silently drop the other's failure.
+func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+	workflows := workflowsFor(st, tmux)
+
+	backend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	require.NoError(t, err)
+	frontend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
+	require.NoError(t, err)
+
+	ok, err := manager.NewAgent(t.Context(), NewAgentParams{Title: "ok", Dir: t.TempDir(), WorkflowID: backend.ID})
+	require.NoError(t, err)
+	bad, err := manager.NewAgent(t.Context(), NewAgentParams{Title: "bad", Dir: t.TempDir(), WorkflowID: frontend.ID})
+	require.NoError(t, err)
+
+	lifecycle.cleanupRunErrByAgent = map[string]error{bad.ID: errors.New("container is still running")}
+
+	require.NoError(t, manager.DeleteAgents(t.Context(), []string{ok.ID, bad.ID}))
+
+	agents, err := st.List(t.Context())
+	require.NoError(t, err)
+	require.Len(t, agents, 1, "the one that succeeded is gone, the one that failed is left")
+	assert.Equal(t, bad.ID, agents[0].ID)
+	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
+	assert.Contains(t, metadataValue(agents[0].Metadata), "container is still running")
+}
+
 // TestDeleteAgentRemovesItsActionLogs covers the other half of a delete: the setup and
 // teardown logs an agent left on disk have nowhere else to be cleaned up from, so a delete
 // that actually removes the row takes them with it. One whose cleanup fails is not removed,

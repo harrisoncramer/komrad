@@ -409,17 +409,18 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleAction
 }
 
 type fakeLifecycle struct {
-	dir             string
-	resumeDir       string
-	setupErr        error
-	resumeErr       error
-	cleanupStartErr error
-	cleanupRunErr   error
-	setup           []string
-	setupPane       []string
-	resumed         []string
-	cleanup         []string
-	cleanupCwd      []string
+	dir                  string
+	resumeDir            string
+	setupErr             error
+	resumeErr            error
+	cleanupStartErr      error
+	cleanupRunErr        error
+	cleanupRunErrByAgent map[string]error
+	setup                []string
+	setupPane            []string
+	resumed              []string
+	cleanup              []string
+	cleanupCwd           []string
 }
 
 func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
@@ -453,7 +454,11 @@ func (f *fakeLifecycle) RunCleanupAction(_ context.Context, agent agentstore.Age
 	}
 
 	if done != nil {
-		done(f.cleanupRunErr)
+		runErr := f.cleanupRunErr
+		if byAgent, ok := f.cleanupRunErrByAgent[agent.ID]; ok {
+			runErr = byAgent
+		}
+		done(runErr)
 	}
 
 	return nil
