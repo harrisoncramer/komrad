@@ -425,6 +425,7 @@ type fakeLifecycle struct {
 	resumed              []string
 	cleanup              []string
 	cleanupCwd           []string
+	cleanupCtxErr        []error
 }
 
 func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
@@ -449,9 +450,10 @@ func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, n
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunCleanupAction(_ context.Context, agent agentstore.Agent, name string, done func(error)) error {
+func (f *fakeLifecycle) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	f.cleanup = append(f.cleanup, name)
 	f.cleanupCwd = append(f.cleanupCwd, agent.Cwd)
+	f.cleanupCtxErr = append(f.cleanupCtxErr, ctx.Err())
 
 	if f.cleanupStartErr != nil {
 		return f.cleanupStartErr
