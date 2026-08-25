@@ -1,4 +1,4 @@
-package jobs
+package internaljobs
 
 import (
 	"context"
@@ -15,6 +15,10 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// attempts is how many tries a job in these tests is given. River hands the worker the
+// real number at run time, and what the worker does with it is the same whatever it is.
+const attempts = 5
 
 // TestLaunchAgentWorker covers what a fired schedule does, and the two ways a
 // firing stops. A schedule that is gone or paused cancels, since retrying finds
@@ -87,7 +91,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
 			launchErr:        errors.New("no server running"),
 			attempt:          1,
-			maxAttempts:      maxAttempts,
+			maxAttempts:      attempts,
 			wantErr:          true,
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultRetrying,
@@ -96,8 +100,8 @@ func TestLaunchAgentWorker(t *testing.T) {
 			name:             "the same transient failure on the last attempt is recorded as terminal, not retrying",
 			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
 			launchErr:        errors.New("no server running"),
-			attempt:          maxAttempts,
-			maxAttempts:      maxAttempts,
+			attempt:          attempts,
+			maxAttempts:      attempts,
 			wantErr:          true,
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultCannotLaunch,

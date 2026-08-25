@@ -283,6 +283,10 @@ type ArchiveKeys struct {
 	// Destroy the agent under the cursor for good, with its transcript. This is
 	// the one thing in the panel nothing undoes, so it asks first.
 	Delete []string `mapstructure:"delete"`
+	// Destroy every archived agent for good, however many there are. The panel hands
+	// the work to a background job, since tearing down that many agents takes a while.
+	// It asks first.
+	Empty []string `mapstructure:"empty"`
 	// Open the archive from the agents list.
 	Open []string `mapstructure:"open"`
 	// Quit the panel.
@@ -617,6 +621,7 @@ func DefaultKeybindings() Keybindings {
 		Archive: ArchiveKeys{
 			Back:    []string{"esc"},
 			Delete:  []string{"d"},
+			Empty:   []string{"D"},
 			Open:    []string{"Z"},
 			Quit:    []string{"ctrl+c"},
 			Restore: []string{"r"},

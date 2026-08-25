@@ -16,6 +16,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
+	"weave/internal/jobs/internaljobs"
 	"weave/internal/mcp"
 	rpcaction "weave/internal/rpc/action"
 	rpcagent "weave/internal/rpc/agent"
@@ -243,7 +244,9 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Pool:      pool.GetRawPool(),
 		Schedules: scheduleStore,
 		Results:   scheduleStore,
-		Agents:    agentService,
+		Launcher:  agentService,
+		Deleter:   agentService,
+		Archived:  agentStore,
 		Running:   agentStore,
 		Logger:    p.Logger,
 	})
@@ -277,6 +280,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Mail:        mailService,
 			Launcher:    agentService,
 			Reconciler:  reconciler,
+			Archive:     jobs.NewEnqueuer(srv.Jobs),
 		}), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(workflowStore, workflowService), options...))
@@ -307,7 +311,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv.ScheduleReconcile = Loop{
 		Name:     "schedule reconcile",
 		Interval: ScheduleReconcileInterval,
-		Pass:     jobs.NewScheduler(scheduleStore, srv.Periodic).Reconcile,
+		Pass:     internaljobs.NewScheduler(scheduleStore, srv.Periodic).Reconcile,
 	}
 	srv.Reconcile = Loop{
 		Name:     "reconcile",

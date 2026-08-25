@@ -1,16 +1,16 @@
+// Package jobs owns the queue weave's background work runs on: the River client, the
+// settings every job shares, and the ways of putting work on it. The jobs themselves live
+// in internaljobs.
 package jobs
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"weave/db"
-	"weave/internal/agents"
-	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
+	"weave/internal/jobs/internaljobs"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -24,19 +24,22 @@ const jobTimeout = 2 * time.Minute
 
 type ClientParams struct {
 	Pool      *pgxpool.Pool
-	Schedules ScheduleReader
-	Results   LaunchResultRecorder
-	Agents    AgentLauncher
-	Running   RunningAgentCounter
+	Schedules internaljobs.ScheduleGetter
+	Results   internaljobs.LaunchResultRecorder
+	Launcher  internaljobs.AgentLauncher
+	Deleter   internaljobs.AgentDeleter
+	Archived  internaljobs.ArchivedAgentLister
+	Running   internaljobs.RunningAgentCounter
 	Logger    *slog.Logger
 }
 
-// NewClient builds the River client with the launch worker registered. It starts
+// NewClient builds the River client with the workers registered. It starts
 // no periodic jobs. Those are added by the reconciler from the schedules table,
 // since which ones exist is a question only the database can answer.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running, p.Results, p.Logger))
+	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Launcher, p.Running, p.Results, p.Logger))
+	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Deleter))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      db.RiverSchema,
@@ -53,21 +56,4 @@ func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	}
 
 	return client, nil
-}
-
-type ScheduleReader interface {
-	List(ctx context.Context) ([]schedulestore.Schedule, error)
-	Get(ctx context.Context, id string) (*schedulestore.Schedule, error)
-}
-
-type AgentLauncher interface {
-	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
-}
-
-type RunningAgentCounter interface {
-	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
-}
-
-type LaunchResultRecorder interface {
-	RecordLaunchResult(ctx context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) error
 }

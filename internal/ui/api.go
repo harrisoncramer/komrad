@@ -144,6 +144,15 @@ func (a api) deleteAgents(ids []string) error {
 	return err
 }
 
+func (a api) emptyArchive() error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.agents.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
+
+	return err
+}
+
 func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
 	defer cancel()

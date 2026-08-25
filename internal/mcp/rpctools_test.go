@@ -17,7 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-var noToolSurface = map[protoreflect.Name]bool{"EditAction": true, "RecordTurnBoundary": true}
+var noToolSurface = map[protoreflect.Name]bool{"EditAction": true, "EmptyArchive": true, "RecordTurnBoundary": true}
 
 // TestEveryMethodIsAnnotated confirms the tool surface keeps up with the
 // services. A new RPC added without a tool annotation is invisible to a model,

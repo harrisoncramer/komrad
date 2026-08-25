@@ -192,8 +192,13 @@ func (m model) wasConfirmed() bool {
 }
 
 func confirmForm(title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
-	confirmed := true
+	return confirmFormStartingOn(true, title, description, affirmative, keys)
+}
 
+// confirmFormStartingOn builds a confirmation sitting on one of its two answers. Most of the
+// panel's prompts start on the affirmative, since the key was pressed to do the thing, but a
+// prompt nothing undoes starts on Cancel so a stray return costs nothing.
+func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
 	form := huh.NewForm(
 		huh.NewGroup(
 			huh.NewConfirm().
@@ -296,7 +301,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 func (s screen) isForm() bool {
 	switch s {
 	case screenForm, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
-		screenScheduleForm, screenScheduleArchive, screenArchiveDelete:
+		screenScheduleForm, screenScheduleArchive, screenArchiveDelete, screenArchiveEmpty:
 		return true
 	default:
 		return false
@@ -312,6 +317,17 @@ func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.For
 	}
 
 	return confirmForm(title, warning, "Delete", keys)
+}
+
+func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
+	title := fmt.Sprintf("Permanently delete all %d archived agents?", count)
+	warning := "Their transcripts go with them and search will not find the conversations again."
+	if count == 1 {
+		title = "Permanently delete the one archived agent?"
+		warning = "Its transcript goes with it and search will not find the conversation again."
+	}
+
+	return confirmFormStartingOn(false, title, warning, "Empty", keys)
 }
 
 type archiveChoice string

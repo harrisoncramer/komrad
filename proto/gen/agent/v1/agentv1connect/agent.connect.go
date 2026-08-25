@@ -79,6 +79,9 @@ const (
 	// AgentServiceGetTranscriptProcedure is the fully-qualified name of the AgentService's
 	// GetTranscript RPC.
 	AgentServiceGetTranscriptProcedure = "/agent.v1.AgentService/GetTranscript"
+	// AgentServiceEmptyArchiveProcedure is the fully-qualified name of the AgentService's EmptyArchive
+	// RPC.
+	AgentServiceEmptyArchiveProcedure = "/agent.v1.AgentService/EmptyArchive"
 	// AgentServiceRecordTurnBoundaryProcedure is the fully-qualified name of the AgentService's
 	// RecordTurnBoundary RPC.
 	AgentServiceRecordTurnBoundaryProcedure = "/agent.v1.AgentService/RecordTurnBoundary"
@@ -104,6 +107,7 @@ type AgentServiceClient interface {
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
+	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordTurnBoundary(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -240,6 +244,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		emptyArchive: connect.NewClient[emptypb.Empty, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceEmptyArchiveProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("EmptyArchive")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		recordTurnBoundary: connect.NewClient[emptypb.Empty, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceRecordTurnBoundaryProcedure,
@@ -270,6 +281,7 @@ type agentServiceClient struct {
 	updateAgent        *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
 	searchTranscripts  *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
 	getTranscript      *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
+	emptyArchive       *connect.Client[emptypb.Empty, emptypb.Empty]
 	recordTurnBoundary *connect.Client[emptypb.Empty, emptypb.Empty]
 }
 
@@ -363,6 +375,11 @@ func (c *agentServiceClient) GetTranscript(ctx context.Context, req *connect.Req
 	return c.getTranscript.CallUnary(ctx, req)
 }
 
+// EmptyArchive calls agent.v1.AgentService.EmptyArchive.
+func (c *agentServiceClient) EmptyArchive(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return c.emptyArchive.CallUnary(ctx, req)
+}
+
 // RecordTurnBoundary calls agent.v1.AgentService.RecordTurnBoundary.
 func (c *agentServiceClient) RecordTurnBoundary(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	return c.recordTurnBoundary.CallUnary(ctx, req)
@@ -388,6 +405,7 @@ type AgentServiceHandler interface {
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
+	EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 	RecordTurnBoundary(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
@@ -520,6 +538,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceEmptyArchiveHandler := connect.NewUnaryHandler(
+		AgentServiceEmptyArchiveProcedure,
+		svc.EmptyArchive,
+		connect.WithSchema(agentServiceMethods.ByName("EmptyArchive")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceRecordTurnBoundaryHandler := connect.NewUnaryHandler(
 		AgentServiceRecordTurnBoundaryProcedure,
 		svc.RecordTurnBoundary,
@@ -565,6 +590,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSearchTranscriptsHandler.ServeHTTP(w, r)
 		case AgentServiceGetTranscriptProcedure:
 			agentServiceGetTranscriptHandler.ServeHTTP(w, r)
+		case AgentServiceEmptyArchiveProcedure:
+			agentServiceEmptyArchiveHandler.ServeHTTP(w, r)
 		case AgentServiceRecordTurnBoundaryProcedure:
 			agentServiceRecordTurnBoundaryHandler.ServeHTTP(w, r)
 		default:
@@ -646,6 +673,10 @@ func (UnimplementedAgentServiceHandler) SearchTranscripts(context.Context, *conn
 
 func (UnimplementedAgentServiceHandler) GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetTranscript is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.EmptyArchive is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) RecordTurnBoundary(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {

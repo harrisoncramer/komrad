@@ -124,6 +124,8 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 
 		return m.deleteFromArchiveConfirm([]agentstore.Agent{agent})
+	case isBound(k, m.keys.Archive.Empty):
+		return m.emptyArchiveConfirm()
 	}
 
 	return m, nil
@@ -227,6 +229,40 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 	m.screen = screenArchiveDelete
 
 	return m, m.form.Init()
+}
+
+func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
+	if len(m.archive.agents) == 0 {
+		return m, nil
+	}
+
+	m.form, m.values.confirmed = emptyArchiveForm(len(m.archive.agents), m.keys.Form)
+	m.screen = screenArchiveEmpty
+
+	return m, m.form.Init()
+}
+
+func (m model) updateArchiveEmpty(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m.updateConfirmForm(msg, confirmFormActions{
+		write: func(m model) (model, tea.Cmd) {
+			if !m.wasConfirmed() {
+				return m, nil
+			}
+
+			return m, m.writeCmd(
+				"Could not empty the archive",
+				func(a api) error { return a.emptyArchive() },
+			)
+		},
+		clear: func(m model) model {
+			m.values.confirmed = nil
+
+			return m
+		},
+		returnTo: func(m model) (tea.Model, tea.Cmd) {
+			return m.enterArchive()
+		},
+	})
 }
 
 func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {

@@ -27,3 +27,5 @@ Archiving an agent (the `z` key by default) stops the agent, kills its pane, and
 The prompt that key opens offers archiving and "Archive and delete", which archives and then destroys the agent outright.
 
 To see the full archive press the `Z` key. You can restore agents from the archive, or permanently delete them. Be careful: deletion destroys the row, the metadata, the flattened transcript, and its search index, and it fires the workflow's cleanup action, so a delete can tear down real directories on disk. Search will never find that conversation again. All actions can also be done in bulk via API, or via the panel, by selecting multiple agents with the `v` or `V` keys.
+
+To clear the whole archive at once press `D`. It asks first, and then hands the work to a background job rather than holding the panel open, since deleting that many agents means running a cleanup action apiece. Rows whose cleanup is still running are left behind until it finishes, so press it again if anything is still there.
