@@ -39,6 +39,8 @@ const (
 
 	AgentState = "weave.agent.state"
 
+	UnrecognizedFrameCount = "weave.agent.unrecognized_frame_count"
+
 	MCPTool = "mcp.tool.name"
 
 	ActionName    = "weave.action.name"

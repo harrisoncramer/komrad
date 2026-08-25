@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -425,6 +426,93 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 
 // TestReconcileWithoutTmux covers a pass that could not read tmux at all, where treating
 // the failure as an answer would clear every pane and demote every agent at once.
+func TestReconcileUnrecognizedFrameDemotesWhenStatic(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	for range reconcileMisses - 1 {
+		require.NoError(t, rec.Reconcile(ctx))
+		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+	}
+
+	require.NoError(t, rec.Reconcile(ctx))
+	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+}
+
+func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+
+	tmux.captures["%1"] = unrecognizedFrame + "-0"
+	require.NoError(t, rec.Reconcile(ctx))
+
+	for i := 1; i <= reconcileMisses+2; i++ {
+		tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, i)
+		require.NoError(t, rec.Reconcile(ctx))
+		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+		assert.Zero(t, rec.misses[agent.ID])
+	}
+}
+
+func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+
+	tmux.captures["%1"] = unrecognizedFrame + "-0"
+	require.NoError(t, rec.Reconcile(ctx))
+
+	for i := 1; i <= unrecognizedHoldLimit; i++ {
+		tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, i)
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	for i := 1; i < reconcileMisses; i++ {
+		tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, unrecognizedHoldLimit+i)
+		require.NoError(t, rec.Reconcile(ctx))
+		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
+			"a still-changing frame past the cap must not restart the hold")
+	}
+
+	tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, unrecognizedHoldLimit+reconcileMisses)
+	require.NoError(t, rec.Reconcile(ctx))
+	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"),
+		"the accrued misses, not a restarted hold, are what finally demote it")
+}
+
+func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	require.NoError(t, rec.Reconcile(ctx))
+	require.NoError(t, rec.Reconcile(ctx))
+
+	assert.Equal(t, 2, rec.unrecognizedTotal)
+}
+
 func TestReconcileWithoutTmux(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

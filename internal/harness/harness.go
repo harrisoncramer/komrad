@@ -63,7 +63,12 @@ const (
 
 	ActivityWaiting
 
+	// ActivityIdle is a frame the harness positively recognises as the input box.
 	ActivityIdle
+
+	// ActivityUnrecognized is a frame that matched none of a harness's patterns, which is
+	// not the same claim as ActivityIdle even though both leave an agent idle today.
+	ActivityUnrecognized
 )
 
 type Turn struct {

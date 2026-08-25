@@ -196,7 +196,7 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 		line = workingLine
 	case harness.ActivityWaiting:
 		line = waitingLine
-	case harness.ActivityIdle, harness.ActivityUnknown:
+	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityUnrecognized:
 	}
 
 	path := filepath.Join(h.root, "state", agentID)
@@ -237,7 +237,7 @@ func Frame(activity harness.Activity) string {
 		return workingLine
 	case harness.ActivityWaiting:
 		return waitingLine
-	case harness.ActivityIdle, harness.ActivityUnknown:
+	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityUnrecognized:
 		return idleLine
 	}
 
