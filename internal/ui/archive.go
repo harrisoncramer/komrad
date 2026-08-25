@@ -231,13 +231,13 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 
 func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) tea.Cmd {
+		write: func(m model) (model, tea.Cmd) {
 			target := m.target.deleteAgents
 			if len(target) == 0 || !m.wasConfirmed() {
-				return nil
+				return m, nil
 			}
 
-			return m.writeCmd(
+			return m, m.writeCmd(
 				fmt.Sprintf("Could not delete %s", describeAgents(target)),
 				func(a api) error { return a.deleteAgents(agentIDs(target)) },
 			)

@@ -760,6 +760,26 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
 }
 
+// TestConfirmingArchiveTracksTheWriteAsPending covers the model a confirm form hands back
+// right after it fires the write, before that write has answered. The write is issued on a
+// value receiver, so if the model it mutates is not the one the confirm form returns, the
+// pending count never moves and a refresh lands mid-archive instead of waiting for it.
+func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
+	sent := &formRecorder{}
+
+	opened, _ := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+	m := asModel(t, opened)
+	*m.values.archive = archiveChoiceArchive
+	m.form.State = huh.StateCompleted
+
+	submitted, cmd := m.updateAgentArchive(keyMsg("enter"))
+	got := asModel(t, submitted)
+
+	assert.Greater(t, got.pending, 0, "the in-flight write is tracked on the model that comes back")
+	assert.Nil(t, got.refreshCmd(), "a refresh mid-write is held off rather than racing it")
+	require.NotNil(t, cmd)
+}
+
 func deliver(t *testing.T, m model, msg tea.Msg) model {
 	t.Helper()
 

@@ -128,6 +128,42 @@ func TestApplyAgents(t *testing.T) {
 	}
 }
 
+// TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved covers archiving the last agent
+// under a workflow. Reusing the old numeric cursor position on its own can land on
+// the following workflow's header purely because it now sits at that index, which
+// isn't a header the user asked to hover.
+func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
+	m := model{
+		screen: screenAgents,
+		listing: listing{
+			workflows: []workflowstore.Workflow{
+				{ID: "w1", Name: "backend"},
+				{ID: "w2", Name: "frontend"},
+			},
+			agents: []agentItem{
+				{agent: agentstore.Agent{ID: "a1", Name: "a1", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{ID: "a2", Name: "a2", WorkflowID: "w2"}},
+				{agent: agentstore.Agent{ID: "a3", Name: "a3", WorkflowID: "w2"}},
+			},
+		},
+		tree: treeState{rowCursor: rowCursor{cursor: 1}, placed: true},
+		keys: config.DefaultKeybindings(),
+	}
+
+	was := rowKeyAt(m.agentRows(), m.tree.cursor)
+	require.Equal(t, "agent:a1", was)
+
+	m.applyAgents([]agentItem{
+		{agent: agentstore.Agent{ID: "a2", Name: "a2", WorkflowID: "w2"}},
+		{agent: agentstore.Agent{ID: "a3", Name: "a3", WorkflowID: "w2"}},
+	})
+	m.placeTreeCursor(was)
+
+	selected, ok := m.selectedAgent()
+	require.True(t, ok, "the cursor lands on an agent, not the next workflow's header")
+	assert.Equal(t, "a2", selected.agent.Name)
+}
+
 const testWorkflowID = "w1"
 
 func items(names ...string) []agentItem {

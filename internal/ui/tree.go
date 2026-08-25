@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"strings"
+
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
@@ -101,6 +103,29 @@ func firstAgentRowIndex(rows []agentRow) int {
 	return 0
 }
 
+// nearestAgentRowIndex steers an index off a header when the row it used to point at
+// was an agent that just vanished, so the cursor doesn't jump to an unrelated workflow's
+// header just because that header now sits at the same numeric position.
+func nearestAgentRowIndex(rows []agentRow, idx int) int {
+	row, ok := rowAt(rows, idx)
+	if !ok || !row.header {
+		return idx
+	}
+
+	for i := idx + 1; i < len(rows); i++ {
+		if !rows[i].header {
+			return i
+		}
+	}
+	for i := idx - 1; i >= 0; i-- {
+		if !rows[i].header {
+			return i
+		}
+	}
+
+	return idx
+}
+
 func rowIndexOfAgentID(rows []agentRow, id string) int {
 	for i, r := range rows {
 		if !r.header && r.item.agent.ID == id {
@@ -189,7 +214,12 @@ func (m *model) placeTreeCursor(selected string) {
 	case !placed:
 		m.tree.cursor = firstAgentRowIndex(rows)
 	default:
-		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
+		clamped := clampCursor(m.tree.cursor, len(rows))
+		if strings.HasPrefix(selected, "agent:") {
+			clamped = nearestAgentRowIndex(rows, clamped)
+		}
+
+		m.tree.cursor = clamped
 	}
 
 	m.tree.placed = true

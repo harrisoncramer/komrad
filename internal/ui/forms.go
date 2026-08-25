@@ -257,7 +257,7 @@ func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.
 }
 
 type confirmFormActions struct {
-	write    func(model) tea.Cmd
+	write    func(model) (model, tea.Cmd)
 	clear    func(model) model
 	returnTo func(model) (tea.Model, tea.Cmd)
 }
@@ -270,8 +270,8 @@ func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.M
 
 	switch m.form.State {
 	case huh.StateCompleted:
-		writeCmd := actions.write(m)
-		next, refresh := actions.returnTo(actions.clear(m))
+		written, writeCmd := actions.write(m)
+		next, refresh := actions.returnTo(actions.clear(written))
 
 		return next, tea.Batch(writeCmd, refresh)
 	case huh.StateAborted:
