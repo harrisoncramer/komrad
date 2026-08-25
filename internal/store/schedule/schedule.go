@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"time"
+	"unicode/utf8"
 
 	"weave/db"
 	"weave/db/models"
@@ -25,8 +26,33 @@ type Schedule struct {
 
 	WorkflowID string
 
+	LastResultStatus  LaunchResultStatus
+	LastResultMessage string
+	LastResultAt      *time.Time
+
 	UpdatedAt time.Time
 }
+
+// LaunchResultStatus is what happened the last time a schedule fired. Empty means it has
+// never fired.
+type LaunchResultStatus string
+
+const (
+	// LaunchResultScheduleNotFound: the schedule was deleted between the firing being queued
+	// and it running.
+	LaunchResultScheduleNotFound LaunchResultStatus = "schedule_not_found"
+	// LaunchResultSchedulePaused: the schedule was disabled by the time it ran.
+	LaunchResultSchedulePaused LaunchResultStatus = "schedule_paused"
+	// LaunchResultAlreadyRunning: the schedule's last agent was still live, so this firing
+	// was skipped rather than launching a second one.
+	LaunchResultAlreadyRunning LaunchResultStatus = "already_running"
+	// LaunchResultRetrying: the launch failed on an attempt that River will still retry.
+	LaunchResultRetrying LaunchResultStatus = "retrying"
+	// LaunchResultCannotLaunch: launching the agent failed for a reason retrying will not fix.
+	LaunchResultCannotLaunch LaunchResultStatus = "cannot_launch"
+	// LaunchResultLaunched: the agent launched.
+	LaunchResultLaunched LaunchResultStatus = "launched"
+)
 
 type Config struct {
 	Name       string
@@ -180,6 +206,45 @@ func (s *Store) SetEnabled(ctx context.Context, id string, enabled bool) error {
 	return nil
 }
 
+// maxLaunchResultMessage caps what a launch failure can push into the schedules screen. The
+// message can carry an arbitrary error's text, so it is capped on the way in rather than at
+// render time.
+const maxLaunchResultMessage = 500
+
+// RecordLaunchResult writes what happened the last time this schedule fired, overwriting
+// whatever the firing before it recorded.
+func (s *Store) RecordLaunchResult(ctx context.Context, id string, status LaunchResultStatus, message string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	statusValue := string(status)
+	messageValue := truncateResultMessage(message)
+
+	if err := s.queries.RecordScheduleLaunchResult(ctx, models.RecordScheduleLaunchResultParams{
+		ID:                id,
+		LastResultStatus:  &statusValue,
+		LastResultMessage: &messageValue,
+	}); err != nil {
+		return fmt.Errorf("failed to record the launch result for schedule %q: %w", id, err)
+	}
+
+	return nil
+}
+
+func truncateResultMessage(message string) string {
+	if len(message) <= maxLaunchResultMessage {
+		return message
+	}
+
+	cut := message[:maxLaunchResultMessage]
+	for len(cut) > 0 && !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+
+	return cut + "…"
+}
+
 // Archive hides a schedule from the panel without dropping the row, so the
 // agents it launched still point at the schedule that made them.
 func (s *Store) Archive(ctx context.Context, id string) error {
@@ -211,6 +276,16 @@ func (s *Store) CountLive(ctx context.Context, workflowID string) (int64, error)
 }
 
 func scheduleFromRow(s models.Schedule) Schedule {
+	var status LaunchResultStatus
+	if s.LastResultStatus != nil {
+		status = LaunchResultStatus(*s.LastResultStatus)
+	}
+
+	var message string
+	if s.LastResultMessage != nil {
+		message = *s.LastResultMessage
+	}
+
 	return Schedule{
 		ID:         s.ID,
 		Name:       s.Name,
@@ -220,6 +295,11 @@ func scheduleFromRow(s models.Schedule) Schedule {
 		HideAgents: s.HideAgents,
 		Prompt:     s.Prompt,
 		WorkflowID: s.WorkflowID,
-		UpdatedAt:  s.UpdatedAt,
+
+		LastResultStatus:  status,
+		LastResultMessage: message,
+		LastResultAt:      s.LastResultAt,
+
+		UpdatedAt: s.UpdatedAt,
 	}
 }

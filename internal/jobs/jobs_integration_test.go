@@ -30,9 +30,12 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
+	schedules := &fakeSchedules{}
+
 	client, err := NewClient(ClientParams{
 		Pool:      stores.Pool.GetRawPool(),
-		Schedules: &fakeSchedules{},
+		Schedules: schedules,
+		Results:   schedules,
 		Agents:    &fakeLauncher{},
 		Running:   &fakeRunning{},
 	})
@@ -239,7 +242,7 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 				WorkflowID: workflow.ID,
 			})
 
-			worker := NewLaunchAgentWorker(stores.Schedules, newAgentService(t, stores), stores.Agents)
+			worker := NewLaunchAgentWorker(stores.Schedules, newAgentService(t, stores), stores.Agents, stores.Schedules, nil)
 
 			for i, occurrence := range tt.occurrences {
 				err := worker.Work(t.Context(), &river.Job[LaunchAgentArgs]{
@@ -354,10 +357,12 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
+	schedules := &fakeSchedules{schedule: &schedulestore.Schedule{ID: "s1", Name: "nightly", Enabled: true}}
 
 	client, err := NewClient(ClientParams{
 		Pool:      stores.Pool.GetRawPool(),
-		Schedules: &fakeSchedules{schedule: &schedulestore.Schedule{ID: "s1", Name: "nightly", Enabled: true}},
+		Schedules: schedules,
+		Results:   schedules,
 		Agents:    launcher,
 		Running:   &fakeRunning{},
 	})

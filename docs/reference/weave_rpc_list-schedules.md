@@ -1,10 +1,10 @@
 ## weave rpc list-schedules
 
-List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time.
+List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing.
 
 ### Synopsis
 
-List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.
+List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.
 
 ```
 weave rpc list-schedules [flags]

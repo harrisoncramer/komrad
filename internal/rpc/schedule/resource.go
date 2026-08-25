@@ -22,18 +22,24 @@ func (s schedule) Cursor() (schedulestore.Cursor, error) {
 
 func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
 	rendered := &schedulev1.Schedule{
-		Id:         s.ID,
-		Name:       s.Name,
-		Cron:       s.Cron,
-		Timezone:   s.Timezone,
-		Enabled:    s.Enabled,
-		HideAgents: s.HideAgents,
-		Prompt:     s.Prompt,
-		WorkflowId: s.WorkflowID,
+		Id:                s.ID,
+		Name:              s.Name,
+		Cron:              s.Cron,
+		Timezone:          s.Timezone,
+		Enabled:           s.Enabled,
+		HideAgents:        s.HideAgents,
+		Prompt:            s.Prompt,
+		WorkflowId:        s.WorkflowID,
+		LastResultStatus:  string(s.LastResultStatus),
+		LastResultMessage: s.LastResultMessage,
 	}
 
 	if next := agents.CalculateNextRun(s, now); !next.IsZero() {
 		rendered.NextRunAt = timestamppb.New(next)
+	}
+
+	if s.LastResultAt != nil {
+		rendered.LastResultAt = timestamppb.New(*s.LastResultAt)
 	}
 
 	return schedule{

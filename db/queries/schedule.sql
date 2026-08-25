@@ -75,6 +75,17 @@ WHERE
     id = @id
     AND archived_at IS NULL;
 
+-- name: RecordScheduleLaunchResult :exec
+UPDATE
+    schedules
+SET
+    last_result_status = @last_result_status,
+    last_result_message = @last_result_message,
+    last_result_at = NOW()
+WHERE
+    id = @id
+    AND archived_at IS NULL;
+
 -- name: MarkScheduleArchived :exec
 UPDATE
     schedules

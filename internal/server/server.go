@@ -239,6 +239,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv.Jobs, err = jobs.NewClient(jobs.ClientParams{
 		Pool:      pool.GetRawPool(),
 		Schedules: scheduleStore,
+		Results:   scheduleStore,
 		Agents:    agentService,
 		Running:   agentStore,
 		Logger:    p.Logger,

@@ -9,6 +9,7 @@ import (
 	paginationv1 "weave/proto/gen/pagination/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 
+	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -215,6 +216,29 @@ func TestGetSchedule(t *testing.T) {
 			assert.Equal(t, "morning-ci", got.Msg.GetSchedule().GetName())
 		})
 	}
+}
+
+// TestGetScheduleLastResult covers that a schedule's last firing outcome reaches the RPC layer.
+func TestGetScheduleLastResult(t *testing.T) {
+	st := storetest.Open(t)
+	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	svc := NewService(st.Schedules, manager)
+	workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
+
+	id := createSchedule(t, svc, workflow, "morning-ci")
+
+	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+	require.NoError(t, err)
+	assert.Empty(t, got.Msg.GetSchedule().GetLastResultStatus(), "a schedule that has never fired carries no result")
+	assert.Nil(t, got.Msg.GetSchedule().GetLastResultAt())
+
+	require.NoError(t, st.Schedules.RecordLaunchResult(t.Context(), id, schedulestore.LaunchResultCannotLaunch, "bad directory"))
+
+	got, err = svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+	require.NoError(t, err)
+	assert.Equal(t, "cannot_launch", got.Msg.GetSchedule().GetLastResultStatus())
+	assert.Equal(t, "bad directory", got.Msg.GetSchedule().GetLastResultMessage())
+	require.NotNil(t, got.Msg.GetSchedule().GetLastResultAt())
 }
 
 func TestUpdateSchedule(t *testing.T) {

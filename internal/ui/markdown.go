@@ -149,6 +149,9 @@ func scheduleMarkdown(item scheduleItem) string {
 	if sched.Enabled {
 		notice = fmt.Sprintf("_next run %s_", orDash(dates.Friendly(item.nextRun)))
 	}
+	if result := lastResultNotice(sched); result != "" {
+		notice += "\n" + result
+	}
 
 	prose := "_no prompt set_"
 	if strings.TrimSpace(sched.Prompt) != "" {
@@ -161,6 +164,19 @@ func scheduleMarkdown(item scheduleItem) string {
 	}
 
 	return renderDocument(sched.Name, notice, prose, footer)
+}
+
+func lastResultNotice(sched schedulestore.Schedule) string {
+	if sched.LastResultStatus == "" || sched.LastResultAt == nil {
+		return ""
+	}
+
+	notice := fmt.Sprintf("_last result %s: %s_", dates.Friendly(*sched.LastResultAt), sched.LastResultStatus)
+	if sched.LastResultMessage != "" {
+		notice += ", " + sched.LastResultMessage
+	}
+
+	return notice
 }
 
 const emptyArchiveMarkdown = "# Archive\n\n_nothing archived_\n\nAgents archived from the panel are kept here until you delete them.\n"
