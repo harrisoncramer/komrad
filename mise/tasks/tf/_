@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Isolates this module's AWS credentials from ~/.aws/config, which the chariot
+# monorepo's `mise aws:configure` fully overwrites (backup-and-replace, not a
+# merge) on every run. Set unconditionally rather than only filling gaps with
+# `:=` - a stray AWS_PROFILE/AWS_CONFIG_FILE/AWS_SHARED_CREDENTIALS_FILE
+# already exported in the caller's shell (a leftover export, a different
+# project's .envrc) would otherwise silently win and point terraform/aws at
+# the wrong credentials instead of failing loudly. This only ever affects the
+# process running a tf:* task, never the caller's own shell.
+export AWS_CONFIG_FILE="$HOME/.aws/weave/config"
+export AWS_SHARED_CREDENTIALS_FILE="$HOME/.aws/weave/credentials"
+export AWS_PROFILE=weave

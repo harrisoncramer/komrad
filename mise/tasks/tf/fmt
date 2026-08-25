@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+#MISE description="Format every Terraform file under infra/."
+set -euo pipefail
+cd "$MISE_CONFIG_ROOT/infra"
+exec terraform fmt -recursive "$@"

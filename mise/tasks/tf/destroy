@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Destroy the EC2 Terraform module's resources (infra/aws/ec2-weave)."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/tf/_"
+
+cd "$MISE_CONFIG_ROOT/infra/aws/ec2-weave"
+exec terraform destroy "$@"

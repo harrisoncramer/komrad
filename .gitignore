@@ -1,3 +1,10 @@
 bin/
 local/
 dist/
+
+# Terraform state and per-checkout inputs. The lock file is committed.
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example

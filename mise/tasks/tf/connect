@@ -1,0 +1,18 @@
+#!/usr/bin/env bash
+#MISE description="Connect to the EC2 instance via SSM Session Manager, as the ubuntu user (infra/aws/ec2-weave)."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/tf/_"
+
+cd "$MISE_CONFIG_ROOT/infra/aws/ec2-weave"
+instance_id="$(terraform output -raw instance_id)"
+
+# Session Manager's default session lands as ssm-user, a different account
+# from ubuntu - different home, and none of the /etc/environment values a
+# plain sudo login picks up. AWS-StartInteractiveCommand runs a command
+# first and then hands over the interactive shell, so this lands directly as
+# the user everything else in this module (Postgres role, tmux config,
+# WEAVE_DATABASE_URL) was actually set up for.
+exec aws ssm start-session --target "$instance_id" \
+	--document-name AWS-StartInteractiveCommand \
+	--parameters 'command=sudo -u ubuntu -i' \
+	"$@"

@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+#MISE description="Plan the EC2 Terraform module (infra/aws/ec2-weave)."
+set -euo pipefail
+source "$MISE_CONFIG_ROOT/mise/tasks/tf/_"
+
+cd "$MISE_CONFIG_ROOT/infra/aws/ec2-weave"
+exec terraform plan "$@"
