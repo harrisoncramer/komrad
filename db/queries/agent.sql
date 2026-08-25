@@ -219,7 +219,7 @@ WHERE
     AND archived_at IS NULL
     AND (nudged_at IS NULL
         OR state_changed_at > nudged_at
-        OR nudged_at < @nudged_before)
+        OR nudged_at < NOW() - interval '1 microsecond' * @retry_micros::bigint)
 RETURNING
     id;
 

@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	"time"
 )
 
 const activeNameExists = `-- name: ActiveNameExists :one
@@ -63,18 +62,18 @@ WHERE
     AND archived_at IS NULL
     AND (nudged_at IS NULL
         OR state_changed_at > nudged_at
-        OR nudged_at < $2)
+        OR nudged_at < NOW() - interval '1 microsecond' * $2::bigint)
 RETURNING
     id
 `
 
 type ClaimAgentNudgeParams struct {
-	ID           string
-	NudgedBefore *time.Time
+	ID          string
+	RetryMicros int64
 }
 
 func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, claimAgentNudge, arg.ID, arg.NudgedBefore)
+	rows, err := q.db.Query(ctx, claimAgentNudge, arg.ID, arg.RetryMicros)
 	if err != nil {
 		return nil, err
 	}

@@ -42,7 +42,7 @@ type paneTyper interface {
 
 type nudgeClaimer interface {
 	agentFinder
-	ClaimNudge(ctx context.Context, id string, nudgedBefore time.Time) (bool, error)
+	ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error)
 }
 
 type mailboxReader interface {
@@ -126,7 +126,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	}
 
-	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID, time.Now().Add(-nudgeRetryAfter))
+	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID, nudgeRetryAfter)
 	if err != nil {
 		return DeliveryLater, err
 	}
