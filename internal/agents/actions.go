@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -257,17 +258,16 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
 	}
 
-	named, err := os.ReadFile(dirPath)
+	named, err := readSetupDir(dirPath)
 	if err != nil {
 		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrSetupFailed, p.name, err)
 	}
 
-	answered := string(bytes.TrimSpace(named))
-	if len(answered) > maxSetupDir {
-		return "", fmt.Errorf("%w: %s wrote %d bytes to %s, where a directory to run in was expected", ErrSetupFailed, p.name, len(answered), setupDirFileVar)
+	if len(named) > maxSetupDir {
+		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrSetupFailed, p.name, maxSetupDir, setupDirFileVar)
 	}
 
-	return answered, nil
+	return string(bytes.TrimSpace(named)), nil
 }
 
 const setupPaneOutputLimit = 64 << 10
@@ -485,6 +485,16 @@ func writeActionLog(ctx context.Context, path string, content []byte) {
 	if err := os.WriteFile(path, content, 0o644); err != nil {
 		logging.From(ctx).Warn("failed to write action log", "path", path, "error", err)
 	}
+}
+
+func readSetupDir(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return io.ReadAll(io.LimitReader(file, maxSetupDir+1))
 }
 
 // RunCleanupAction starts a cleanup action without waiting for it to finish. done, when
