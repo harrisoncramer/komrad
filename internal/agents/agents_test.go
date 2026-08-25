@@ -817,6 +817,85 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 	assert.Empty(t, lifecycle.cleanup)
 }
 
+// cancellingSetupLifecycle stands in for the caller going away while a setup action is
+// running: the create's own context is dead by the time the launch tries to write anything.
+type cancellingSetupLifecycle struct {
+	*fakeLifecycle
+	cancel context.CancelFunc
+}
+
+func (c *cancellingSetupLifecycle) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+	c.cancel()
+
+	return c.fakeLifecycle.RunSetupAction(ctx, agent, name, pane)
+}
+
+// TestNewAgentClosesOutACreateTheCallerAbandoned covers a create whose caller disconnects
+// mid-setup. Nothing else in the system moves a row out of setting_up, so the bookkeeping
+// that marks it failed has to outlive the request that asked for it.
+func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+
+	lifecycle := &cancellingSetupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}, cancel: cancel}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:          "backend",
+		SetupAction:   "make-worktree",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	_, err = manager.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.Error(t, err)
+
+	agents, listErr := st.List(t.Context())
+	require.NoError(t, listErr)
+	require.Len(t, agents, 1)
+	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
+	assert.NotEmpty(t, metadataValue(agents[0].Metadata), "the row says why it failed")
+
+	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup, "what setup built is taken back")
+	assert.Equal(t, []error{nil}, lifecycle.cleanupCtxErr, "cleanup gets a context it can still read the workflow on")
+}
+
+// TestNewAgentCleansUpAFailedCreateWithNoSetupAction pins the deliberate reading of a
+// workflow that declares cleanup but no setup: a failed create still hands the row to
+// cleanup, against the dir it was going to run in, the same way deleting such an agent does.
+func TestNewAgentCleansUpAFailedCreateWithNoSetupAction(t *testing.T) {
+	tmux := newFakeTmux()
+	tmux.newWindowErr = errors.New("tmux refused the window")
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:          "backend",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	dir := t.TempDir()
+	_, err = manager.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        dir,
+		WorkflowID: created.ID,
+	})
+	require.Error(t, err)
+
+	assert.Empty(t, lifecycle.setup)
+	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
+	assert.Equal(t, []string{dir}, lifecycle.cleanupCwd)
+}
+
 // TestDeleteAgentRunsWorkflowCleanup covers cleanup firing on the irreversible half only.
 func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	tests := []struct {

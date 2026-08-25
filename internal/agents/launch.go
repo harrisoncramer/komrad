@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/harness"
@@ -135,26 +136,32 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	}
 
 	var pane string
-	setupRan := false
+	pastSetup := false
 	launched := false
 	defer func() {
 		if launched {
 			return
 		}
+
+		// Nothing else in weave moves a row out of setting_up, so closing out a failed
+		// create cannot depend on the caller still being around to see it happen.
+		teardown, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
+		defer cancel()
+
 		if pane != "" {
 			s.tmux.KillPane(pane)
 		}
-		if setupRan {
-			s.runCleanup(ctx, agent, plan.cleanupAction, nil)
+		if pastSetup {
+			s.runCleanup(teardown, agent, plan.cleanupAction, nil)
 		}
-		s.failCreate(ctx, agent, launchErr)
+		s.failCreate(teardown, agent, launchErr)
 	}()
 
 	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
 	if err != nil {
 		return nil, err
 	}
-	setupRan = true
+	pastSetup = true
 
 	dir, err := s.setupDir(plan.dir, setupName)
 	if err != nil {
@@ -208,6 +215,10 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 }
 
 const maxFailureReasonLen = 480
+
+// teardownTimeout stands in for the caller's own deadline once that no longer applies, so a
+// wedged database cannot hold a failed create open indefinitely.
+const teardownTimeout = 30 * time.Second
 
 func (s *AgentService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
 	s.failAs(ctx, agent, agentstore.StateFailedToCreate, "create", cause)
