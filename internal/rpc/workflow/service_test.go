@@ -562,6 +562,7 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 		Tmux:         idlePanes{},
 		Tx:           st.Pool,
 	})
+	deleter.WithWorkflowEmptyDeleter(manager)
 
 	return NewService(st.Workflows, manager), st
 }

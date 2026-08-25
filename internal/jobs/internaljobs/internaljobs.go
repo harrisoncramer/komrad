@@ -35,12 +35,6 @@ type ArchivedAgentLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 }
 
-// EmptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it,
-// and does nothing to one that still holds agents or was never archived itself.
-type EmptyWorkflowDeleter interface {
-	DeleteIfEmpty(ctx context.Context, workflowID string) error
-}
-
 type RunningAgentCounter interface {
 	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
 }

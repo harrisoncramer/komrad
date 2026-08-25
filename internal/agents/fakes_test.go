@@ -479,16 +479,21 @@ func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *Workfl
 }
 
 func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier parentNotifier) *WorkflowService {
-	return NewWorkflowService(WorkflowParams{
+	deleter := s.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}, addr: "127.0.0.1:9999"})
+
+	workflows := NewWorkflowService(WorkflowParams{
 		Workflows:    s.Workflows,
 		Agents:       s.Agents,
-		AgentDeleter: s.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}, addr: "127.0.0.1:9999"}),
+		AgentDeleter: deleter,
 		Schedules:    s.Schedules,
 		Tmux:         tmux,
 		Tx:           s.Pool,
 		MaxAgents:    maxAgents,
 		Notifier:     notifier,
 	})
+	deleter.WithWorkflowEmptyDeleter(workflows)
+
+	return workflows
 }
 
 func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {

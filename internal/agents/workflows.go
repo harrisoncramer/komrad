@@ -378,8 +378,11 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 // are still inside it. Archiving a workflow archives every agent in it too, so there is never
 // a live agent to refuse here. The cascade goes through DeleteAgents rather than a raw store
 // delete, so an agent whose cleanup action is still running, or whose cleanup failed, is left
-// behind exactly as it would be from a direct delete — and the workflow row is left with it,
-// to be tried again the same way once nothing remains.
+// behind exactly as it would be from a direct delete, and the workflow row goes with it: a
+// delete that actually removes an agent checks the workflow it leaves behind for itself,
+// synchronously or from a cleanup action's own completion, so there is nothing left to check
+// here once agents are cascaded to. A workflow with nothing left to cascade is the exception,
+// since no delete runs to check it, so that case is still checked directly.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
@@ -393,13 +396,11 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if len(inside) > 0 {
-		if err := w.agentDeleter.DeleteAgents(ctx, agentIDs(inside)); err != nil {
-			return err
-		}
+	if len(inside) == 0 {
+		return w.deleteIfEmpty(ctx, existing)
 	}
 
-	return w.deleteIfEmpty(ctx, existing)
+	return w.agentDeleter.DeleteAgents(ctx, agentIDs(inside))
 }
 
 // DeleteIfEmpty permanently removes a workflow if it is archived and now holds no agents at

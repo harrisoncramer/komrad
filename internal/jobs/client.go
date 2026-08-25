@@ -30,7 +30,6 @@ type ClientParams struct {
 	Deleter   internaljobs.AgentDeleter
 	Archived  internaljobs.ArchivedAgentLister
 	Running   internaljobs.RunningAgentCounter
-	Workflows internaljobs.EmptyWorkflowDeleter
 	Logger    *slog.Logger
 }
 
@@ -40,7 +39,7 @@ type ClientParams struct {
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Launcher, p.Running, p.Results, p.Logger))
-	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Deleter, p.Workflows))
+	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Deleter))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      db.RiverSchema,
