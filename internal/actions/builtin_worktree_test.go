@@ -286,6 +286,53 @@ func TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testing.T) {
 	assert.True(t, info.IsDir(), "a path naming the worktree itself is refused rather than replacing it")
 }
 
+func TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.MkdirAll(filepath.Join(repo, "local", "bin"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "local", "bin", "tool"), []byte("tool\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(repo, ".gitignore"), []byte("local/\n"), 0o644))
+	commitAll(t, repo)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-nested-link",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		symlinkPaths: []string{"local", "local/bin"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "local/bin is not a path inside the worktree")
+
+	content, err := os.ReadFile(filepath.Join(repo, "local", "bin", "tool"))
+	require.NoError(t, err, "the repo's own copy of the path survives")
+	assert.Equal(t, "tool\n", string(content))
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	link, err := os.Readlink(filepath.Join(tree, "local"))
+	require.NoError(t, err, "the entry that was inside the worktree is still applied")
+	assert.Equal(t, filepath.Join(repo, "local"), link)
+}
+
+func TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
+	repo := initRepo(t)
+	outside := t.TempDir()
+	require.NoError(t, os.MkdirAll(filepath.Join(outside, "cache"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(outside, "cache", "keep.txt"), []byte("keep\n"), 0o644))
+	require.NoError(t, os.Symlink(outside, filepath.Join(repo, "shared")))
+	commitAll(t, repo)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-tracked-symlink",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		copyPaths:    []string{"shared/cache"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "shared/cache is not a path inside the worktree")
+	assert.FileExists(t, filepath.Join(outside, "cache", "keep.txt"), "the directory outside the repo survives")
+}
+
 // TestBuiltinWorktreeCleanupRefusesAPlainCheckout covers WEAVE_AGENT_CWD pointing at a
 // checkout that is not a linked worktree at all, such as the repo weave itself lives in:
 // cleanup must not run worktree remove or branch -D against it.

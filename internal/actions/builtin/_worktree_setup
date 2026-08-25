@@ -8,6 +8,7 @@ tree="$WEAVE_WORKTREES_DIR/$WEAVE_AGENT_ID"
 apply_paths() {
 	list="$1"
 	kind="$2"
+	root=$(cd "$tree" && pwd -P)
 	printf '%s\n' "$list" | while IFS= read -r p; do
 		if [ -z "$p" ]; then
 			continue
@@ -19,17 +20,22 @@ apply_paths() {
 			continue
 		fi
 
-		# The destination is cleared before it is applied, so a path that names something other
-		# than a place inside the worktree is refused rather than removed. The worktree's own
-		# link to the repo is inside it and would be cleared like anything else, which is what
-		# would take the worktree with it.
 		outside=
 		case "/$p/" in
-		*/../*) outside=yes ;;
-		*/.git/*) outside=yes ;;
-		*[!/.]*) ;;
-		*) outside=yes ;;
+		*/./* | */../* | */.git/*) outside=yes ;;
 		esac
+
+		if [ -z "$outside" ]; then
+			existing=$(dirname "$dest")
+			while [ ! -d "$existing" ]; do
+				existing=$(dirname "$existing")
+			done
+			existing=$(cd "$existing" && pwd -P)
+			case "$existing" in
+			"$root" | "$root"/*) ;;
+			*) outside=yes ;;
+			esac
+		fi
 		if [ -n "$outside" ]; then
 			echo "worktree setup: $p is not a path inside the worktree, skipping $kind" >&2
 			continue
