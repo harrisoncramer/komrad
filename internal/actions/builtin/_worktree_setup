@@ -35,11 +35,15 @@ apply_paths() {
 			continue
 		fi
 
+		if git -C "$repo" ls-files --error-unmatch -- "$p" >/dev/null 2>&1; then
+			echo "worktree setup: $p is tracked, skipping $kind" >&2
+			continue
+		fi
+
 		mkdir -p "$(dirname "$dest")"
 
-		# git worktree add has already checked out every tracked path, so a
-		# destination that is a directory would swallow the copy or the symlink
-		# a level down instead of becoming it.
+		# A path applied earlier in this run leaves a directory that cp and ln would nest inside
+		# rather than replace.
 		if ! rm -rf "$dest"; then
 			echo "worktree setup: could not clear $dest, skipping $kind of $p" >&2
 			continue

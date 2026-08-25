@@ -123,4 +123,5 @@ Weave ships some actions by default.
 
 Action names starting with underscores like these are left out of the panel's action list. Add your own to override the builtins.
 
+`_worktree_setup` and `_worktree_cleanup` back a workflow's `worktree.enabled` toggle. Setup copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it.
 
