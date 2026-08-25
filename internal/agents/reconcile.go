@@ -69,8 +69,6 @@ type Reconciler struct {
 	rateLimitMu      sync.Mutex
 	rateLimitedUntil map[string]time.Time
 
-	// boundaries is written from whatever goroutine handles the Stop hook's RPC, so it
-	// needs its own lock for the same reason rateLimitedUntil does.
 	boundaryMu sync.Mutex
 	boundaries map[string]time.Time
 
@@ -92,9 +90,7 @@ func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) 
 	}
 }
 
-// RecordTurnBoundary notes that agentID's own CLI reported its turn ending. The next pass
-// that reads the pane as idle on its own skips the miss counter instead of accruing one; a
-// pass that still reads the pane as busy is unaffected, since the pane is what decides.
+// RecordTurnBoundary notes that agentID's own CLI reported its turn ending.
 func (r *Reconciler) RecordTurnBoundary(agentID string) {
 	r.boundaryMu.Lock()
 	defer r.boundaryMu.Unlock()

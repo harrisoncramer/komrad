@@ -92,9 +92,7 @@ func stopHookCmd(state *app) *cobra.Command {
 			return nil
 		}
 
-		if err := recordTurnBoundary(cmd.Context(), state); err != nil {
-			reportHookProblem(cmd, "weave did not record the turn boundary", err)
-		}
+		_ = recordTurnBoundary(cmd.Context(), state) //nolint:errcheck // a lost boundary only costs an acceleration, and the mail path below already reports weave being unreachable
 
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {

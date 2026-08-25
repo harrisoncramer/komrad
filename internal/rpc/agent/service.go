@@ -262,9 +262,7 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending. The id
-// always comes from the caller rather than the request, so nothing can record a boundary for
-// an agent other than itself.
+// RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending.
 func (s *Service) RecordTurnBoundary(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
