@@ -262,6 +262,10 @@ func (m model) rowHelp() []key.Binding {
 		rows = append(rows, binding(m.keys.Agents.OpenPR, "open pr"))
 	}
 
+	if item, ok := m.selectedAgent(); ok && m.isReviewable(item.agent) {
+		rows = append(rows, binding(m.keys.Agents.Diff, "review diff"))
+	}
+
 	return append(rows,
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),

@@ -52,6 +52,7 @@ type uiTmux interface {
 	GetClientPath(client string) string
 	SetInfoPane(pane string)
 	OpenWindow(client, name, dir string, argv ...string) error
+	DisplayPopup(pane string, argv ...string) error
 }
 
 type Deps struct {
@@ -84,6 +85,10 @@ type Deps struct {
 	StartupFindings []errui.Finding
 
 	Pane string
+
+	Self string
+
+	ConfigPaths []string
 }
 
 type model struct {
@@ -149,6 +154,10 @@ type model struct {
 	processViewer string
 	actionLogsDir string
 
+	pane        string
+	self        string
+	configPaths []string
+
 	clip clipboardWriter
 }
 
@@ -165,6 +174,9 @@ func newModel(deps Deps) model {
 		logViewer:       deps.LogViewer,
 		processViewer:   deps.ProcessViewer,
 		actionLogsDir:   deps.ActionLogsDir,
+		pane:            deps.Pane,
+		self:            deps.Self,
+		configPaths:     deps.ConfigPaths,
 		keys:            deps.Keys,
 		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,

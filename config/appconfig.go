@@ -218,6 +218,10 @@ type AgentsKeys struct {
 	Archive []string `mapstructure:"archive"`
 	// Step out of a workflow scope, or quit at the root.
 	Back []string `mapstructure:"back"`
+	// Review what the hovered agent has changed in its worktree, in a popup over the panel. The
+	// key does nothing for an agent whose workflow does not make worktrees, since there is no
+	// base branch to measure one against, and the legend leaves it off there.
+	Diff []string `mapstructure:"diff"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide"`
 	// Move the hovered agent to the next tag in the tags list, and past the last
@@ -608,6 +612,7 @@ func DefaultKeybindings() Keybindings {
 		Agents: AgentsKeys{
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},
+			Diff:       []string{"d"},
 			Hide:       []string{"h"},
 			Tag:        []string{"t"},
 			New:        []string{"n"},

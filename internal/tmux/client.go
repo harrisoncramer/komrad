@@ -20,6 +20,11 @@ const queryTimeout = 5 * time.Second
 
 const killDelay = 100 * time.Millisecond
 
+const (
+	popupWidth  = "90%"
+	popupHeight = "90%"
+)
+
 type Client struct {
 	server []string
 }
@@ -344,6 +349,26 @@ func (c *Client) KillPane(pane string) {
 	if _, err := c.query("kill-pane", "-t", pane); err != nil && !strings.Contains(err.Error(), "can't find pane") {
 		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
 	}
+}
+
+// DisplayPopup opens a popup over the client watching a pane and runs a command in it,
+// returning once the popup has closed.
+//
+// It does not go through query, which gives a tmux command five seconds: a popup is up for as
+// long as whoever opened it is reading, and a timeout would take it away mid-sentence. The
+// pane has to be named, since a command run from inside one resolves no current client of its
+// own, and tmux hands keys to the popup while it is up, so the program in the pane underneath
+// neither sees them nor has to give up the terminal.
+func (c *Client) DisplayPopup(pane string, argv ...string) error {
+	args := slices.Concat(c.server,
+		[]string{"display-popup", "-t", pane, "-w", popupWidth, "-h", popupHeight, "-x", "C", "-y", "C", "-E"},
+		argv)
+
+	if out, err := exec.Command("tmux", args...).CombinedOutput(); err != nil {
+		return fmt.Errorf("failed to open a popup: %w: %s", err, strings.TrimSpace(string(out)))
+	}
+
+	return nil
 }
 
 // BindKey binds a key in the prefix table to a tmux command, replacing whatever it was bound to.

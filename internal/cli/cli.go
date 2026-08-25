@@ -128,6 +128,7 @@ func NewRootCommand() *cobra.Command {
 		hookCmd(app),
 		traceCmd(app),
 		paletteCmd(app),
+		diffCmd(app),
 	)
 
 	return root

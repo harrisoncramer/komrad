@@ -73,6 +73,8 @@ func panelCmd(state *app) *cobra.Command {
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
 				Pane:            state.env.TmuxPane,
+				Self:            getSelfPath(),
+				ConfigPaths:     state.configPaths,
 			})
 		},
 	}

@@ -125,6 +125,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyWrite(msg)
 
 		return next, cmd, true
+	case diffClosedMsg:
+		m.report("Could not open the diff", msg.err)
+
+		return m, nil, true
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg), true
 	case searchResult:
