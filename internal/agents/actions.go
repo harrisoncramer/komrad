@@ -711,6 +711,10 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 		"WEAVE_SHELL=" + s.tmux.DefaultShell(),
 	}
 
+	for _, entry := range agent.Metadata {
+		env = append(env, metadataVar(entry.Key)+"="+entry.Value)
+	}
+
 	if s.binPath != "" {
 		existing, _ := config.LookupEnv("PATH")
 		env = append(env, "PATH="+filepath.Dir(s.binPath)+string(os.PathListSeparator)+existing)
@@ -726,6 +730,13 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 	}
 
 	return env, nil
+}
+
+// metadataVar is the name one metadata entry reaches a script under. A key is lowercase
+// letters, digits, underscores and dashes, and a dash is the one of those an environment
+// name cannot hold.
+func metadataVar(key string) string {
+	return "WEAVE_AGENT_METADATA_" + strings.ToUpper(strings.ReplaceAll(key, "-", "_"))
 }
 
 func workflowName(workflow *workflowstore.Workflow) string {

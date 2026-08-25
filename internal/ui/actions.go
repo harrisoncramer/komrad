@@ -136,6 +136,17 @@ func (m model) runSelectedAction() (tea.Model, tea.Cmd) {
 	)
 }
 
+const openPRAction = "_open_pr"
+
+func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	agentID := agent.ID
+
+	return m, m.writeCmd(
+		"Could not open the pull request",
+		func(a api) error { return a.runAction(agentID, openPRAction) },
+	)
+}
+
 func (m model) editSelectedAction() (tea.Model, tea.Cmd) {
 	action, ok := m.selectedAction()
 	if !ok {

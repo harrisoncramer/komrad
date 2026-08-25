@@ -140,6 +140,8 @@ func TestRunActionPayload(t *testing.T) {
 	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
 	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
 	assert.Equal(t, "/bin/zsh", values["WEAVE_SHELL"], "the shell tmux itself opens a pane with")
+	assert.Equal(t, "https://example.test/1", values["WEAVE_AGENT_METADATA_PR"],
+		"a script reaches one metadata entry without parsing the payload")
 	assert.True(t, strings.HasPrefix(values["PATH"], "/opt/weave/bin"+string(os.PathListSeparator)),
 		"a script that shells out to weave finds this build's own binary first")
 

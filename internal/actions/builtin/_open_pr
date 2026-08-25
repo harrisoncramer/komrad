@@ -1,0 +1,20 @@
+#!/bin/sh
+#WEAVE description="Open the pull request an agent recorded, in your browser. What the agents list's pull request key runs."
+set -eu
+
+url="${WEAVE_AGENT_METADATA_PR:-}"
+
+if [ -z "$url" ]; then
+	# Nothing is watching stdout, so say it where the person is looking.
+	tmux -L "$WEAVE_HOST_TMUX_SOCKET" display-message \
+		-c "$WEAVE_HOST_CLIENT" "no pr recorded on this agent"
+	exit 1
+fi
+
+# xdg-open is asked for first because a Linux `open` is openvt, which would take over a
+# virtual terminal rather than open anything.
+if command -v xdg-open >/dev/null 2>&1; then
+	exec xdg-open "$url"
+fi
+
+exec open "$url"

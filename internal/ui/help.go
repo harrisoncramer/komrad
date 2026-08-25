@@ -256,6 +256,7 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Actions.Open, "actions"),
+		binding(m.keys.Agents.OpenPR, "open pr"),
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),

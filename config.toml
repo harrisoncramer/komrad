@@ -83,6 +83,9 @@ tag         = ["t"]
 new         = ["n"]
 # Attach to the hovered agent.
 open        = ["enter"]
+# Open the pull request the hovered agent recorded, in your browser. An agent
+# with none recorded says so rather than opening anything.
+open_pr     = ["o"]
 # Quit the panel.
 quit        = ["ctrl+c"]
 # Rename the hovered agent.
