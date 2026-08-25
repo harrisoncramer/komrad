@@ -1004,11 +1004,11 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
 }
 
-// TestArchiveAndDeleteStaysArchivedOnAFailedTeardown covers "archive and delete", the panel's
-// own convenience path: it archives first, then deletes. If the delete's cleanup then fails
-// the row is left in the archive, since the user asked for the agent to be gone from the live
-// list and only the destroying half of that did not happen.
-func TestArchiveAndDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
+// TestDeleteStaysArchivedOnAFailedTeardown covers both ways a delete reaches an archived row
+// — "archive and delete" on a live agent, and a delete out of the archive — which are the
+// same two calls. A cleanup that fails leaves the row in the archive rather than back on the
+// live list, since the archive is where the user was working and so where the failure shows.
+func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
@@ -1777,37 +1777,4 @@ func TestResumeRefusesArchived(t *testing.T) {
 	require.ErrorIs(t, err, ErrAgentArchived)
 	assert.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.newWindows, "and opens no window")
-}
-
-// TestDeleteFromTheArchiveStaysArchivedOnAFailedTeardown covers deleting a row the user
-// archived themselves, which is where the whole archive is destroyed from too. A cleanup that
-// fails leaves the row where the delete found it: taking it back to the live list would report
-// an archive emptied of rows nothing destroyed, filed where nobody asked for them.
-func TestDeleteFromTheArchiveStaysArchivedOnAFailedTeardown(t *testing.T) {
-	tmux := newFakeTmux()
-	st := newStore(t)
-	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
-
-	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		CleanupAction: "drop-worktree",
-	})
-	require.NoError(t, err)
-
-	agent, err := manager.NewAgent(t.Context(), NewAgentParams{
-		Title:      "agent",
-		Dir:        t.TempDir(),
-		WorkflowID: created.ID,
-	})
-	require.NoError(t, err)
-
-	require.NoError(t, manager.ArchiveAgents(t.Context(), []string{agent.ID}))
-	require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
-
-	all, listErr := st.ListAll(t.Context())
-	require.NoError(t, listErr)
-	require.Len(t, all, 1, "a failed teardown leaves the row rather than dropping it")
-	assert.Equal(t, agentstore.StateFailedToCleanup, all[0].State)
-	assert.NotNil(t, all[0].ArchivedAt, "the user archived it, so a failed delete leaves it there")
 }
