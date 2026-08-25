@@ -515,10 +515,30 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	_, err = NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, ErrNotStartable)
 	assert.Contains(t, err.Error(), "bad-shebang", "the refusal names the action")
+	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
+}
+
+func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	found, err := Discover(dir)
+	require.NoError(t, err)
+	require.Len(t, found, 1)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	result, err := NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir, Timeout: time.Minute})
+
+	require.ErrorIs(t, err, context.Canceled)
+	assert.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")
+	assert.Contains(t, err.Error(), "gave up after 1m0s", "the refusal names the limit it was given")
+	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
 func write(t *testing.T, path string, mode os.FileMode) {

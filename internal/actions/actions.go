@@ -204,7 +204,12 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	cmd.WaitDelay = killDelay
 
 	if err := cmd.Start(); err != nil {
-		return Result{}, fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
+		result := Result{ExitCode: r.exitCode(cmd.ProcessState)}
+		if expired := ctx.Err(); expired != nil {
+			return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
+		}
+
+		return result, fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
 	}
 
 	waitErr := cmd.Wait()
