@@ -78,12 +78,15 @@ type Params struct {
 	FallbackResumeRoot string
 }
 
+// mailConfig reads the mail settings for the send path, fresh on every send. A config it
+// cannot read is an error rather than the built-in defaults, since a deadline somebody
+// wrote and weave quietly ignored is worse than a send that refuses and says why.
 type mailConfig func() (*config.Config, error)
 
 func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
 	cfg, err := load()
 	if err != nil {
-		return config.Mail{}.GetDeliveryDeadline()
+		return 0, fmt.Errorf("failed to read the config: %w", err)
 	}
 
 	return cfg.Mail.GetDeliveryDeadline()
@@ -92,7 +95,7 @@ func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
 func (load mailConfig) GetMaxHops() (int, error) {
 	cfg, err := load()
 	if err != nil {
-		return config.Mail{}.GetMaxHops()
+		return 0, fmt.Errorf("failed to read the config: %w", err)
 	}
 
 	return cfg.Mail.GetMaxHops()
