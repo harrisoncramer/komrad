@@ -7,7 +7,6 @@ package models
 
 import (
 	"context"
-	"time"
 )
 
 const claimMail = `-- name: ClaimMail :many
@@ -192,19 +191,19 @@ VALUES (
     $4,
     $5,
     $6,
-    $7)
+    NOW() + interval '1 microsecond' * $7::bigint)
 RETURNING
     id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
 `
 
 type InsertMailParams struct {
-	FromAgentID *string
-	FromName    string
-	ToAgentID   string
-	Body        string
-	ReplyTo     *string
-	Hops        int32
-	ExpiresAt   time.Time
+	FromAgentID    *string
+	FromName       string
+	ToAgentID      string
+	Body           string
+	ReplyTo        *string
+	Hops           int32
+	DeadlineMicros int64
 }
 
 func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, error) {
@@ -215,7 +214,7 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		arg.Body,
 		arg.ReplyTo,
 		arg.Hops,
-		arg.ExpiresAt,
+		arg.DeadlineMicros,
 	)
 	var i Mail
 	err := row.Scan(

@@ -304,7 +304,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",
-		ExpiresAt: time.Now().Add(time.Hour),
+		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -352,7 +352,7 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",
-		ExpiresAt: time.Now().Add(time.Hour),
+		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
 
@@ -411,7 +411,7 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 		FromName:  "somebody",
 		ToAgentID: agent.ID,
 		Body:      "please read this",
-		ExpiresAt: time.Now().Add(time.Hour),
+		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
 
