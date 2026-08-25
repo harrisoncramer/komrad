@@ -250,7 +250,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Deleter:   agentService,
 		Archived:  agentStore,
 		Running:   agentStore,
-		Workflows: workflowService,
 		Logger:    p.Logger,
 	})
 	if err != nil {

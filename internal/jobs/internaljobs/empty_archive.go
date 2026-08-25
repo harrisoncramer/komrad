@@ -46,15 +46,15 @@ func (EmptyArchiveArgs) InsertOpts() river.InsertOpts {
 
 type EmptyArchiveWorker struct {
 	river.WorkerDefaults[EmptyArchiveArgs]
-	archived  ArchivedAgentLister
-	agents    AgentDeleter
-	workflows EmptyWorkflowDeleter
+	archived ArchivedAgentLister
+	agents   AgentDeleter
 }
 
-// NewEmptyArchiveWorker builds the worker over the archive it reads, the service that deletes
-// agents, and the service that deletes a workflow a batch leaves with nothing in it.
-func NewEmptyArchiveWorker(archived ArchivedAgentLister, deleter AgentDeleter, workflows EmptyWorkflowDeleter) *EmptyArchiveWorker {
-	return &EmptyArchiveWorker{archived: archived, agents: deleter, workflows: workflows}
+// NewEmptyArchiveWorker builds the worker over the archive it reads and the service that
+// deletes agents. That service is what also deletes a workflow a delete leaves with nothing
+// left in it, so the sweep does not check for that itself.
+func NewEmptyArchiveWorker(archived ArchivedAgentLister, deleter AgentDeleter) *EmptyArchiveWorker {
+	return &EmptyArchiveWorker{archived: archived, agents: deleter}
 }
 
 // Work deletes the archive a page at a time, walking it by cursor rather than re-reading the
@@ -66,10 +66,6 @@ func NewEmptyArchiveWorker(archived ArchivedAgentLister, deleter AgentDeleter, w
 // An agent whose cleanup action is still running, or whose cleanup failed, is left behind by
 // the delete rather than failing it, so a sweep can finish with rows in the archive and no
 // error to show for it.
-//
-// Once a batch is gone, every archived workflow it touched is checked for agents left inside
-// it; a workflow the batch emptied out is deleted too, so an archived workflow does not sit
-// there forever once nothing is left in it.
 func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchiveArgs]) error {
 	var (
 		failures []error
@@ -92,13 +88,6 @@ func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchi
 		ids := xslice.Map(batch, func(agent agentstore.Agent) string { return agent.ID })
 		if err := w.agents.DeleteAgents(ctx, ids); err != nil {
 			failures = append(failures, fmt.Errorf("failed to delete %d archived agents: %w", len(ids), err))
-		}
-
-		touched := xslice.UniqueBy(batch, func(agent agentstore.Agent) string { return agent.WorkflowID })
-		for _, agent := range touched {
-			if err := w.workflows.DeleteIfEmpty(ctx, agent.WorkflowID); err != nil {
-				failures = append(failures, fmt.Errorf("failed to delete workflow %q: %w", agent.WorkflowID, err))
-			}
 		}
 	}
 }
