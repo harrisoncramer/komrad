@@ -296,7 +296,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 func (s screen) isForm() bool {
 	switch s {
 	case screenForm, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
-		screenScheduleForm, screenScheduleArchive, screenArchiveDelete:
+		screenScheduleForm, screenScheduleArchive, screenArchiveDelete, screenArchiveEmpty:
 		return true
 	default:
 		return false
@@ -312,6 +312,17 @@ func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.For
 	}
 
 	return confirmForm(title, warning, "Delete", keys)
+}
+
+func emptyArchiveForm(count int, keys config.FormKeys) (*huh.Form, *bool) {
+	title := fmt.Sprintf("Permanently delete all %d archived agents?", count)
+	warning := "Their transcripts go with them and search will not find the conversations again."
+	if count == 1 {
+		title = "Permanently delete the one archived agent?"
+		warning = "Its transcript goes with it and search will not find the conversation again."
+	}
+
+	return confirmForm(title, warning, "Empty", keys)
 }
 
 type archiveChoice string

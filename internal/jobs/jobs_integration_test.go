@@ -37,6 +37,7 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 		Schedules: schedules,
 		Results:   schedules,
 		Agents:    &fakeLauncher{},
+		Archived:  &fakeArchive{},
 		Running:   &fakeRunning{},
 	})
 	require.NoError(t, err)
@@ -348,6 +349,10 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
 }
 
+func (b *blockingLauncher) DeleteAgents(context.Context, []string) error {
+	return nil
+}
+
 // TestStopWaitsForALaunchInFlight is the guarantee the shutdown path is built on. A
 // process killed partway through a launch leaves the firing marked running, and River's
 // rescuer does not come back for it for over an hour, so the stop has to wait rather
@@ -364,6 +369,7 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 		Schedules: schedules,
 		Results:   schedules,
 		Agents:    launcher,
+		Archived:  &fakeArchive{},
 		Running:   &fakeRunning{},
 	})
 	require.NoError(t, err)

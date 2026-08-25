@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/db"
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/harness"
@@ -54,7 +55,8 @@ type Instance struct {
 
 	URL string
 
-	server *server.Server
+	server  *server.Server
+	working bool
 }
 
 type Params struct {
@@ -146,6 +148,29 @@ func Start(t *testing.T, p Params) *Instance {
 		URL:           url,
 		server:        built,
 	}
+}
+
+// WorkQueue starts the job runner and waits for the queue to drain, so a test can assert on
+// what a background job did rather than on the insert that asked for it. The runner keeps
+// running afterwards, since a job may queue more work.
+func (i *Instance) WorkQueue() {
+	i.t.Helper()
+
+	if !i.working {
+		require.NoError(i.t, i.server.Jobs.Start(context.WithoutCancel(i.t.Context())))
+		i.working = true
+		i.t.Cleanup(func() { i.server.Stop(context.Background()) })
+	}
+
+	require.Eventually(i.t, func() bool {
+		var unfinished int64
+		err := i.Stores.Pool.GetRawPool().QueryRow(i.t.Context(),
+			fmt.Sprintf("SELECT count(*) FROM %q.river_job WHERE finalized_at IS NULL", db.RiverSchema),
+		).Scan(&unfinished)
+		require.NoError(i.t, err)
+
+		return unfinished == 0
+	}, settleTimeout, 10*time.Millisecond, "the queue never drained")
 }
 
 // Reconcile runs one pass of the loop that writes agent state.

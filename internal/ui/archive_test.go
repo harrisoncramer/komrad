@@ -98,6 +98,23 @@ func TestArchiveKeys(t *testing.T) {
 			key:        "d",
 			wantScreen: screenArchive,
 		},
+		{
+			name:       "empty opens the confirm prompt rather than sweeping",
+			key:        "D",
+			cursor:     1,
+			wantScreen: screenArchiveEmpty,
+		},
+		{
+			name:       "empty on a header opens it too, since it is the whole archive it acts on",
+			key:        "D",
+			wantScreen: screenArchiveEmpty,
+		},
+		{
+			name:       "empty on an empty archive opens no prompt",
+			empty:      true,
+			key:        "D",
+			wantScreen: screenArchive,
+		},
 	}
 
 	for _, tt := range tests {
@@ -292,6 +309,75 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			assert.Nil(t, got.target.deleteAgents)
 		})
 	}
+}
+
+// TestArchiveEmptyConfirm covers the sweep behind the confirm. Emptying the archive destroys
+// every agent in it at once, so the panel must ask for the whole thing the same way it asks
+// for one agent, and a decline must queue nothing.
+func TestArchiveEmptyConfirm(t *testing.T) {
+	tests := []struct {
+		name        string
+		confirm     bool
+		wantEmptied int
+	}{
+		{
+			name:        "confirming queues the sweep",
+			confirm:     true,
+			wantEmptied: 1,
+		},
+		{
+			name:    "declining queues nothing",
+			confirm: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client := &fakeArchiveAgents{}
+			m := archiveModel(client, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+
+			opened, _ := m.emptyArchiveConfirm()
+			m, ok := opened.(model)
+			require.True(t, ok)
+			require.Equal(t, screenArchiveEmpty, m.screen)
+
+			answer := "n"
+			if tt.confirm {
+				answer = "y"
+			}
+
+			got := answerEmptyPrompt(t, m, answer)
+
+			assert.Equal(t, tt.wantEmptied, client.emptied)
+			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
+			assert.Nil(t, got.values.confirmed)
+		})
+	}
+}
+
+func answerEmptyPrompt(t *testing.T, m model, key string) model {
+	t.Helper()
+
+	var msg tea.Msg = keyMsg(key)
+	for range 8 {
+		updated, cmd := m.updateArchiveEmpty(msg)
+		next, ok := updated.(model)
+		require.True(t, ok)
+
+		m = next
+		if cmd == nil {
+			return m
+		}
+		if m.screen != screenArchiveEmpty {
+			return settle(t, m, cmd)
+		}
+
+		msg = cmd()
+	}
+
+	t.Fatal("the empty prompt never closed")
+
+	return m
 }
 
 func answerPrompt(t *testing.T, m model, key string) model {
@@ -605,6 +691,7 @@ type fakeArchiveAgents struct {
 	err            error
 	restored       []string
 	deleted        []string
+	emptied        int
 	listedArchived []bool
 }
 
@@ -634,6 +721,15 @@ func (f *fakeArchiveAgents) RestoreAgents(_ context.Context, req *connect.Reques
 	}
 
 	return connect.NewResponse(response), nil
+}
+
+func (f *fakeArchiveAgents) EmptyArchive(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.emptied++
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 func (f *fakeArchiveAgents) DeleteAgents(_ context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {

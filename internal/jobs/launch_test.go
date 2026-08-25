@@ -298,9 +298,10 @@ func (f *fakeSchedules) RecordLaunchResult(_ context.Context, scheduleID string,
 }
 
 type fakeLauncher struct {
-	got   agents.NewAgentParams
-	calls int
-	err   error
+	got     agents.NewAgentParams
+	calls   int
+	err     error
+	deleted [][]string
 }
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
@@ -311,6 +312,12 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	}
 
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
+}
+
+func (f *fakeLauncher) DeleteAgents(_ context.Context, ids []string) error {
+	f.deleted = append(f.deleted, ids)
+
+	return f.err
 }
 
 type fakeRunning struct {

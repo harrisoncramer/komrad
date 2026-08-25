@@ -169,6 +169,8 @@ func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateScheduleArchive(msg)
 	case screenArchiveDelete:
 		return m.updateArchiveDelete(msg)
+	case screenArchiveEmpty:
+		return m.updateArchiveEmpty(msg)
 	default:
 		return m, nil
 	}

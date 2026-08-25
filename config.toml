@@ -102,6 +102,10 @@ back    = ["esc"]
 # Destroy the agent under the cursor for good, with its transcript. This is
 # the one thing in the panel nothing undoes, so it asks first.
 delete  = ["d"]
+# Destroy every archived agent for good, however many there are. The panel hands
+# the work to a background job, since tearing down that many agents takes a while.
+# It asks first.
+empty   = ["D"]
 # Open the archive from the agents list.
 open    = ["Z"]
 # Quit the panel.

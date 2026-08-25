@@ -47,6 +47,10 @@ type agentReadWriter interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
+type archiveEmptier interface {
+	EmptyArchive(ctx context.Context) error
+}
+
 type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
@@ -66,6 +70,7 @@ type Service struct {
 	mail        mailer
 	launcher    agentLauncher
 	reconciler  turnBoundaryRecorder
+	archive     archiveEmptier
 }
 
 type NewServiceParams struct {
@@ -74,6 +79,7 @@ type NewServiceParams struct {
 	Mail        mailer
 	Launcher    agentLauncher
 	Reconciler  turnBoundaryRecorder
+	Archive     archiveEmptier
 }
 
 // NewService constructs the handler from the stores it reads and the manager that launches
@@ -85,6 +91,7 @@ func NewService(p NewServiceParams) *Service {
 		mail:        p.Mail,
 		launcher:    p.Launcher,
 		reconciler:  p.Reconciler,
+		archive:     p.Archive,
 	}
 }
 
@@ -383,6 +390,17 @@ func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete agents: %w", err))
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// EmptyArchive queues the sweep that deletes the whole archive. Deleting that many agents
+// runs a cleanup action apiece and takes as long as it takes, so the work is handed to a
+// background job rather than held open on the request.
+func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	if err := s.archive.EmptyArchive(ctx); err != nil {
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to empty the archive: %w", err))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

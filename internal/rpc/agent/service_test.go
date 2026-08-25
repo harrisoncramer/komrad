@@ -1782,6 +1782,60 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	}), st, launcher
 }
 
+// TestEmptyArchiveQueuesTheSweep covers the handler over the job. Deleting the whole archive
+// runs a cleanup action apiece, so the request has to come back once the work is queued
+// rather than once it is done, and a queue that refuses has to say so rather than read as a
+// sweep under way.
+func TestEmptyArchiveQueuesTheSweep(t *testing.T) {
+	tests := []struct {
+		name string
+
+		err error
+
+		wantCode connect.Code
+	}{
+		{
+			name: "a queued sweep answers straight away",
+		},
+		{
+			name:     "a queue that refuses is reported",
+			err:      errors.New("the database is gone"),
+			wantCode: connect.CodeInternal,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			archive := &fakeArchiveEmptier{err: tt.err}
+			svc := NewService(NewServiceParams{Archive: archive})
+
+			_, err := svc.EmptyArchive(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+
+			assert.Equal(t, 1, archive.calls, "the handler queues the sweep either way")
+
+			if tt.wantCode == 0 {
+				require.NoError(t, err)
+
+				return
+			}
+
+			require.Error(t, err)
+			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+		})
+	}
+}
+
+type fakeArchiveEmptier struct {
+	calls int
+	err   error
+}
+
+func (f *fakeArchiveEmptier) EmptyArchive(context.Context) error {
+	f.calls++
+
+	return f.err
+}
+
 // TestBatchLifecycleErrorsMapToCodes covers what a caller sees when a batch is refused.
 // All three are all or nothing, so the code has to say which condition stopped it and the
 // message has to name what is in the way, or a caller has nothing to fix before retrying.

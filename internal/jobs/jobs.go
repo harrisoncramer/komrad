@@ -26,17 +26,19 @@ type ClientParams struct {
 	Pool      *pgxpool.Pool
 	Schedules ScheduleReader
 	Results   LaunchResultRecorder
-	Agents    AgentLauncher
+	Agents    AgentService
+	Archived  ArchivedAgentLister
 	Running   RunningAgentCounter
 	Logger    *slog.Logger
 }
 
-// NewClient builds the River client with the launch worker registered. It starts
+// NewClient builds the River client with the workers registered. It starts
 // no periodic jobs. Those are added by the reconciler from the schedules table,
 // since which ones exist is a question only the database can answer.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running, p.Results, p.Logger))
+	river.AddWorker(workers, NewEmptyArchiveWorker(p.Archived, p.Agents))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      db.RiverSchema,
@@ -62,6 +64,20 @@ type ScheduleReader interface {
 
 type AgentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+}
+
+type AgentDeleter interface {
+	DeleteAgents(ctx context.Context, ids []string) error
+}
+
+// AgentService is what the workers need of the service that owns agents.
+type AgentService interface {
+	AgentLauncher
+	AgentDeleter
+}
+
+type ArchivedAgentLister interface {
+	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 }
 
 type RunningAgentCounter interface {

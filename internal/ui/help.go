@@ -347,6 +347,7 @@ func (m model) archiveRowHelp() []key.Binding {
 		binding(m.keys.Archive.Restore, "restore"),
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Archive.Delete, "delete for good"),
+		binding(m.keys.Archive.Empty, "empty the archive"),
 	}
 }
 

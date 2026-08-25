@@ -244,6 +244,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Schedules: scheduleStore,
 		Results:   scheduleStore,
 		Agents:    agentService,
+		Archived:  agentStore,
 		Running:   agentStore,
 		Logger:    p.Logger,
 	})
@@ -277,6 +278,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Mail:        mailService,
 			Launcher:    agentService,
 			Reconciler:  reconciler,
+			Archive:     jobs.NewEnqueuer(srv.Jobs),
 		}), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(workflowStore, workflowService), options...))
