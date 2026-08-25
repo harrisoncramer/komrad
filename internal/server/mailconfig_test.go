@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/config"
 
@@ -22,7 +23,7 @@ func TestMailConfigReadsWhatTheFileSays(t *testing.T) {
 
 	deadline, err := load.GetDeliveryDeadline()
 	require.NoError(t, err)
-	assert.Equal(t, "45m0s", deadline.String())
+	assert.Equal(t, 45*time.Minute, deadline)
 
 	hops, err := load.GetMaxHops()
 	require.NoError(t, err)
