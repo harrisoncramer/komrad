@@ -62,8 +62,9 @@ func NewEmptyArchiveWorker(archived ArchivedAgentLister, deleter AgentDeleter) *
 // retry, and a retry reads the archive fresh rather than carrying ids in the job so it asks
 // only for what is still there.
 //
-// An agent whose cleanup action is still running is left behind by the delete rather than
-// failing it, so a sweep can finish with rows in the archive and no error to show for it.
+// An agent whose cleanup action is still running, or whose cleanup failed, is left behind by
+// the delete rather than failing it, so a sweep can finish with rows in the archive and no
+// error to show for it.
 func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchiveArgs]) error {
 	var (
 		failures []error

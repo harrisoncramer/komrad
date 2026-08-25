@@ -1004,11 +1004,11 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
 }
 
-// TestDeleteAgentUnarchivesOnAFailedTeardown covers "archive and delete" in one action, the
-// panel's own convenience path: it archives first, then deletes. If the delete's cleanup
-// then fails, the row must not be left archived — archived is where nobody is looking, and a
-// failed_to_cleanup row that stays invisible there is exactly the bug this state exists to fix.
-func TestDeleteAgentUnarchivesOnAFailedTeardown(t *testing.T) {
+// TestDeleteStaysArchivedOnAFailedTeardown covers both ways a delete reaches an archived row
+// — "archive and delete" on a live agent, and a delete out of the archive — which are the
+// same two calls. A cleanup that fails leaves the row in the archive rather than back on the
+// live list, since the archive is where the user was working and so where the failure shows.
+func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
@@ -1032,9 +1032,13 @@ func TestDeleteAgentUnarchivesOnAFailedTeardown(t *testing.T) {
 
 	live, listErr := st.List(t.Context())
 	require.NoError(t, listErr)
-	require.Len(t, live, 1, "back in the live list, not stuck in the archive")
-	assert.Equal(t, agentstore.StateFailedToCleanup, live[0].State)
-	assert.Nil(t, live[0].ArchivedAt)
+	assert.Empty(t, live, "a teardown that failed does not put the agent back on the live list")
+
+	all, listErr := st.ListAll(t.Context())
+	require.NoError(t, listErr)
+	require.Len(t, all, 1, "a failed teardown leaves the row rather than dropping it")
+	assert.Equal(t, agentstore.StateFailedToCleanup, all[0].State)
+	assert.NotNil(t, all[0].ArchivedAt)
 }
 
 // TestDeleteAgentRetryRecordsTheLatestReasonOnly covers retrying a delete whose cleanup

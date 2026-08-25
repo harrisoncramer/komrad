@@ -262,3 +262,31 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	withoutLog := m.failedPlaceholder(agent)
 	assert.Contains(t, withoutLog, "tmux refused", "nothing else is left to say why, so the reason falls back to here")
 }
+
+// TestLogKeysFollowTheArchiveCursor covers the log keys on the archive screen. The archive
+// keeps a cursor of its own, so a row a delete could not destroy pages its own teardown log
+// rather than whatever the agents list was last left pointing at.
+func TestLogKeysFollowTheArchiveCursor(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.archive = archiveState{
+		agents:    []agentstore.Agent{{ID: "a2", Name: "api-refactor", WorkflowID: "w1", State: agentstore.StateFailedToCleanup}},
+		rowCursor: rowCursor{cursor: 1},
+	}
+
+	for _, id := range []string{"a1", "a2"} {
+		path := config.ActionLogPath(m.actionLogsDir, id, config.ActionLogTeardown)
+		require.NoError(t, os.WriteFile(path, []byte("boom\n"), 0o644))
+	}
+
+	assert.Contains(t, m.actionLogContent(config.ActionLogTeardown).Key, "a1", "the agents screen reads its own cursor")
+
+	m.screen = screenArchive
+
+	assert.Contains(t, m.actionLogContent(config.ActionLogTeardown).Key, "a2")
+
+	argv, ok := m.agentLogContent().Render(layout.Target{})
+	require.True(t, ok)
+	require.Len(t, argv, 3)
+	assert.Contains(t, argv[2], "export WEAVE_AGENT_ID='a2'; ", "the panel's own log is filtered to the archived agent")
+}

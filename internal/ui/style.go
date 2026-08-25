@@ -71,6 +71,16 @@ func stateColor(state string) lipgloss.Color {
 	}
 }
 
+// failedMark is the archive's only state icon. An archived agent is not running, so its last
+// live state says nothing, but a create or cleanup that failed is why the row is still here.
+func failedMark(agent agentstore.Agent) string {
+	if !agentstore.IsFailed(agent.State) {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(stateColor(agent.State)).Render(stateIcon(agent.State))
+}
+
 const workflowIcon = "⧉"
 
 func archivedTag(w workflowstore.Workflow) string {
