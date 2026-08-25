@@ -1,13 +1,11 @@
 #!/bin/sh
-#WEAVE description="Open the pull request an agent recorded, in your browser. What the agents list's pull request key runs."
+#WEAVE description="Open the pull request an agent recorded, in your browser. What the agents list's pull request key runs, on the agents that have one."
 set -eu
 
 url="${WEAVE_AGENT_METADATA_PR:-}"
 
 if [ -z "$url" ]; then
-	# Nothing is watching stdout, so say it where the person is looking.
-	tmux -L "$WEAVE_HOST_TMUX_SOCKET" display-message \
-		-c "$WEAVE_HOST_CLIENT" "no pr recorded on this agent"
+	echo "no pull request is recorded on this agent" >&2
 	exit 1
 fi
 

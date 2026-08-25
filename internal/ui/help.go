@@ -252,17 +252,23 @@ func (m model) rowHelp() []key.Binding {
 		}
 	}
 
-	return []key.Binding{
+	rows := []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Actions.Open, "actions"),
-		binding(m.keys.Agents.OpenPR, "open pr"),
+	}
+
+	if item, ok := m.selectedAgent(); ok && hasPR(item.agent) {
+		rows = append(rows, binding(m.keys.Agents.OpenPR, "open pr"))
+	}
+
+	return append(rows,
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
 		binding(m.keys.Agents.Rename, "rename"),
 		m.archiveBinding(m.keys.Agents.Archive),
-	}
+	)
 }
 
 func (m model) screenHelp() []key.Binding {

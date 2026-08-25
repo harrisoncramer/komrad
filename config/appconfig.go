@@ -227,8 +227,8 @@ type AgentsKeys struct {
 	New []string `mapstructure:"new"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
-	// Open the pull request the hovered agent recorded, in your browser. An agent
-	// with none recorded says so rather than opening anything.
+	// Open the pull request the hovered agent recorded, in your browser. The key does
+	// nothing on an agent with none recorded, and the legend leaves it off there.
 	OpenPR []string `mapstructure:"open_pr"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
