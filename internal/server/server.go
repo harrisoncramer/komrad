@@ -262,6 +262,8 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		interceptors.NewRecovery(),
 	}
 
+	reconciler := agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).WithPRFinder(agents.NewGHPRFinder())
+
 	srv.Mux = http.NewServeMux()
 	srv.handle(HealthPath, newHealthHandler(pool.GetRawPool()))
 	srv.handle(StopPath, interceptors.NewLoggingHandler(p.Logger, newStopHandler(srv.stopRequested)))
@@ -271,6 +273,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Transcripts: transcriptStore,
 			Mail:        mailService,
 			Launcher:    agentService,
+			Reconciler:  reconciler,
 		}), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(workflowStore, workflowService), options...))
@@ -306,7 +309,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	srv.Reconcile = Loop{
 		Name:     "reconcile",
 		Interval: ReconcileInterval,
-		Pass:     agents.NewReconciler(p.Tmux, p.Harnesses, agentStore).WithPRFinder(agents.NewGHPRFinder()).Reconcile,
+		Pass:     reconciler.Reconcile,
 	}
 	srv.MailDelivery = Loop{
 		Name:     "mail delivery",

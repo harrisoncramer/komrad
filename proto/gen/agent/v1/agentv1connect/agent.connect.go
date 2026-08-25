@@ -79,6 +79,9 @@ const (
 	// AgentServiceGetTranscriptProcedure is the fully-qualified name of the AgentService's
 	// GetTranscript RPC.
 	AgentServiceGetTranscriptProcedure = "/agent.v1.AgentService/GetTranscript"
+	// AgentServiceRecordTurnBoundaryProcedure is the fully-qualified name of the AgentService's
+	// RecordTurnBoundary RPC.
+	AgentServiceRecordTurnBoundaryProcedure = "/agent.v1.AgentService/RecordTurnBoundary"
 )
 
 // AgentServiceClient is a client for the agent.v1.AgentService service.
@@ -101,6 +104,7 @@ type AgentServiceClient interface {
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
+	RecordTurnBoundary(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewAgentServiceClient constructs a client for the agent.v1.AgentService service. By default, it
@@ -236,29 +240,37 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		recordTurnBoundary: connect.NewClient[emptypb.Empty, emptypb.Empty](
+			httpClient,
+			baseURL+AgentServiceRecordTurnBoundaryProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("RecordTurnBoundary")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // agentServiceClient implements AgentServiceClient.
 type agentServiceClient struct {
-	listAgents        *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
-	getAgent          *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
-	createAgent       *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
-	setTags           *connect.Client[v1.SetTagsRequest, emptypb.Empty]
-	setHidden         *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
-	setMetadata       *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
-	log               *connect.Client[v1.LogRequest, emptypb.Empty]
-	sendMail          *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
-	readMail          *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
-	listMail          *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
-	deleteMail        *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
-	archiveAgents     *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
-	restoreAgents     *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
-	resumeAgent       *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
-	deleteAgents      *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
-	updateAgent       *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
-	searchTranscripts *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
-	getTranscript     *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
+	listAgents         *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
+	getAgent           *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
+	createAgent        *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
+	setTags            *connect.Client[v1.SetTagsRequest, emptypb.Empty]
+	setHidden          *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
+	setMetadata        *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
+	log                *connect.Client[v1.LogRequest, emptypb.Empty]
+	sendMail           *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
+	readMail           *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
+	listMail           *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
+	deleteMail         *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
+	archiveAgents      *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
+	restoreAgents      *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
+	resumeAgent        *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
+	deleteAgents       *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
+	updateAgent        *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
+	searchTranscripts  *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
+	getTranscript      *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
+	recordTurnBoundary *connect.Client[emptypb.Empty, emptypb.Empty]
 }
 
 // ListAgents calls agent.v1.AgentService.ListAgents.
@@ -351,6 +363,11 @@ func (c *agentServiceClient) GetTranscript(ctx context.Context, req *connect.Req
 	return c.getTranscript.CallUnary(ctx, req)
 }
 
+// RecordTurnBoundary calls agent.v1.AgentService.RecordTurnBoundary.
+func (c *agentServiceClient) RecordTurnBoundary(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return c.recordTurnBoundary.CallUnary(ctx, req)
+}
+
 // AgentServiceHandler is an implementation of the agent.v1.AgentService service.
 type AgentServiceHandler interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
@@ -371,6 +388,7 @@ type AgentServiceHandler interface {
 	UpdateAgent(context.Context, *connect.Request[v1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error)
 	SearchTranscripts(context.Context, *connect.Request[v1.SearchTranscriptsRequest]) (*connect.Response[v1.SearchTranscriptsResponse], error)
 	GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error)
+	RecordTurnBoundary(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewAgentServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -502,6 +520,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceRecordTurnBoundaryHandler := connect.NewUnaryHandler(
+		AgentServiceRecordTurnBoundaryProcedure,
+		svc.RecordTurnBoundary,
+		connect.WithSchema(agentServiceMethods.ByName("RecordTurnBoundary")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/agent.v1.AgentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AgentServiceListAgentsProcedure:
@@ -540,6 +565,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceSearchTranscriptsHandler.ServeHTTP(w, r)
 		case AgentServiceGetTranscriptProcedure:
 			agentServiceGetTranscriptHandler.ServeHTTP(w, r)
+		case AgentServiceRecordTurnBoundaryProcedure:
+			agentServiceRecordTurnBoundaryHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -619,4 +646,8 @@ func (UnimplementedAgentServiceHandler) SearchTranscripts(context.Context, *conn
 
 func (UnimplementedAgentServiceHandler) GetTranscript(context.Context, *connect.Request[v1.GetTranscriptRequest]) (*connect.Response[v1.GetTranscriptResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.GetTranscript is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) RecordTurnBoundary(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RecordTurnBoundary is not implemented"))
 }

@@ -23,6 +23,10 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
+type turnBoundaryRecorder interface {
+	RecordTurnBoundary(agentID string)
+}
+
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
 	IsAgentRunning(agent agentstore.Agent) bool
@@ -61,6 +65,7 @@ type Service struct {
 	transcripts transcriptReader
 	mail        mailer
 	launcher    agentLauncher
+	reconciler  turnBoundaryRecorder
 }
 
 type NewServiceParams struct {
@@ -68,6 +73,7 @@ type NewServiceParams struct {
 	Transcripts transcriptReader
 	Mail        mailer
 	Launcher    agentLauncher
+	Reconciler  turnBoundaryRecorder
 }
 
 // NewService constructs the handler from the stores it reads and the manager that launches
@@ -78,6 +84,7 @@ func NewService(p NewServiceParams) *Service {
 		transcripts: p.Transcripts,
 		mail:        p.Mail,
 		launcher:    p.Launcher,
+		reconciler:  p.Reconciler,
 	}
 }
 
@@ -251,6 +258,18 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), attrs...)
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending.
+func (s *Service) RecordTurnBoundary(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	id := caller.From(ctx).AgentID
+	if id == "" {
+		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the caller has no agent id of its own"))
+	}
+
+	s.reconciler.RecordTurnBoundary(id)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

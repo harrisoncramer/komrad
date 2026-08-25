@@ -364,6 +364,65 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	assert.Empty(t, rec.misses, "an unread frame is not an idle observation")
 }
 
+func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
+	tests := []struct {
+		name string
+
+		frame string
+		want  string
+	}{
+		{
+			name:  "a boundary against a frame still showing work does not move it",
+			frame: busyFrame,
+			want:  agentstore.StateThinking,
+		},
+		{
+			name:  "a boundary against an idle frame skips the miss counter",
+			frame: idleFrame,
+			want:  agentstore.StateIdle,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+			tmux := newFakeTmux()
+			tmux.owners["%1"] = agent.ID
+			tmux.captures["%1"] = tt.frame
+
+			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+			rec.RecordTurnBoundary(agent.ID)
+
+			require.NoError(t, rec.Reconcile(ctx))
+			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
+			assert.Zero(t, rec.misses[agent.ID], "the boundary settles it in one pass rather than accruing a miss")
+		})
+	}
+}
+
+func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = idleFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec.now = func() time.Time { return agent.StateSeenAt.Add(-time.Second) }
+	rec.RecordTurnBoundary(agent.ID)
+	rec.now = time.Now
+
+	require.NoError(t, rec.Reconcile(ctx))
+	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
+	assert.Equal(t, 1, rec.misses[agent.ID], "the pass still counted as an ordinary miss")
+}
+
 // TestReconcileWithoutTmux covers a pass that could not read tmux at all, where treating
 // the failure as an answer would clear every pane and demote every agent at once.
 func TestReconcileWithoutTmux(t *testing.T) {
