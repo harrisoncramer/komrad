@@ -340,6 +340,7 @@ func deleteWorkflowForm(workflow workflowstore.Workflow, agentCount int, keys co
 	} else if agentCount > 1 {
 		warning = fmt.Sprintf("The %d agents still archived inside it go with it, their transcripts included.", agentCount)
 	}
+	warning += " Any archived schedule that launched into it goes too."
 
 	return confirmForm(title, warning, "Delete", keys)
 }

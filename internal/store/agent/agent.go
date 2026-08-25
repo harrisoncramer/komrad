@@ -558,6 +558,26 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 	return count, nil
 }
 
+// NamesHoldingSchedule returns the names of the agents outside a workflow that still
+// point at a schedule, live or archived. Deleting a workflow clears the schedules
+// inside it, and agents in the workflow going with them are no obstacle, so only the
+// ones a schedule moved between workflows left behind are named.
+func (s *Store) NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
+	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
+		return nil, nil
+	}
+
+	names, err := s.queries.ListScheduleAgentNamesOutsideWorkflow(ctx, models.ListScheduleAgentNamesOutsideWorkflowParams{
+		ScheduleID: &scheduleID,
+		WorkflowID: workflowID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents of schedule %q: %w", scheduleID, err)
+	}
+
+	return names, nil
+}
+
 // Delete removes live or archived agents by ID.
 func (s *Store) Delete(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)

@@ -103,3 +103,17 @@ FROM
 WHERE
     workflow_id = @workflow_id
     AND archived_at IS NULL;
+
+-- name: ListWorkflowSchedules :many
+SELECT
+    sqlc.embed(s)
+FROM
+    schedules s
+WHERE
+    s.workflow_id = @workflow_id
+ORDER BY
+    s.id DESC;
+
+-- name: DeleteSchedule :exec
+DELETE FROM schedules
+WHERE id = @id;

@@ -259,6 +259,42 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
+// ListInWorkflow returns every schedule pointing at a workflow, archived ones
+// included, since an archived schedule still pins the workflow row through its
+// foreign key and has to be cleared with it.
+func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
+	if !store.IsID(workflowID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListWorkflowSchedules(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the schedules of workflow %q: %w", workflowID, err)
+	}
+
+	schedules := make([]Schedule, 0, len(rows))
+	for _, row := range rows {
+		schedules = append(schedules, scheduleFromRow(row.Schedule))
+	}
+
+	return schedules, nil
+}
+
+// Delete permanently removes a schedule, which is what a workflow delete does to
+// the schedules inside it. Agents the schedule launched hold a foreign key to it,
+// so the caller clears them first.
+func (s *Store) Delete(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.DeleteSchedule(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete schedule %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // CountLive reports how many live schedules launch into a workflow. Deleting a
 // workflow while any do would leave them with nowhere to run, so the caller
 // checks here first rather than discovering it when one next fires.

@@ -751,9 +751,10 @@ func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
 		name string
 
-		create   bool
-		archive  bool
-		addAgent bool
+		create      bool
+		archive     bool
+		addAgent    bool
+		addSchedule bool
 
 		wantErrIs error
 	}{
@@ -777,6 +778,12 @@ func TestDeleteWorkflow(t *testing.T) {
 			addAgent: true,
 			archive:  true,
 		},
+		{
+			name:        "its archived schedules go with it",
+			create:      true,
+			addSchedule: true,
+			archive:     true,
+		},
 	}
 
 	for _, tt := range tests {
@@ -796,6 +803,13 @@ func TestDeleteWorkflow(t *testing.T) {
 			if tt.addAgent {
 				_, err := manager.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: id})
 				require.NoError(t, err)
+			}
+			var scheduleID string
+			if tt.addSchedule {
+				schedule, err := st.Schedules.Create(ctx, schedulestore.Config{Name: "nightly", Cron: "0 3 * * *", WorkflowID: id})
+				require.NoError(t, err)
+				require.NoError(t, st.Schedules.Archive(ctx, schedule.ID))
+				scheduleID = schedule.ID
 			}
 			if tt.archive {
 				require.NoError(t, workflows.ArchiveWorkflow(ctx, id))
@@ -819,8 +833,64 @@ func TestDeleteWorkflow(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, all, "its agent goes with it")
 			}
+
+			if tt.addSchedule {
+				schedule, err := st.Schedules.Get(ctx, scheduleID)
+				require.NoError(t, err)
+				assert.Nil(t, schedule, "its archived schedule goes with it")
+			}
 		})
 	}
+}
+
+// TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold covers a schedule moved between
+// workflows: the agents it launched stay behind in the workflow it came from and still point at
+// it, so deleting the workflow it moved to cannot clear it and names what is holding it. The
+// refusal lands before the agents inside are cascaded to, so they are still there afterwards.
+func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	manager := newManager(tmux, st, "")
+	workflows := workflowsFor(st, tmux)
+	ctx := t.Context()
+
+	launcher, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "launcher"})
+	require.NoError(t, err)
+	moved, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "moved"})
+	require.NoError(t, err)
+
+	schedule, err := st.Schedules.Create(ctx, schedulestore.Config{Name: "nightly", Cron: "0 3 * * *", WorkflowID: launcher.ID})
+	require.NoError(t, err)
+
+	_, err = manager.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: launcher.ID,
+		ScheduleID: &schedule.ID,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, st.Schedules.Update(ctx, schedule.ID, schedulestore.Config{
+		Name:       "nightly",
+		Cron:       "0 3 * * *",
+		WorkflowID: moved.ID,
+	}))
+	require.NoError(t, st.Schedules.Archive(ctx, schedule.ID))
+
+	_, err = manager.NewAgent(ctx, NewAgentParams{Title: "inside", Dir: t.TempDir(), WorkflowID: moved.ID})
+	require.NoError(t, err)
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, moved.ID))
+
+	require.ErrorIs(t, workflows.DeleteWorkflow(ctx, moved.ID), ErrScheduleHasAgents)
+
+	got, err := st.Workflows.GetIncludingArchived(ctx, moved.ID)
+	require.NoError(t, err)
+	assert.NotNil(t, got, "the workflow stays archived to be tried again")
+
+	all, err := st.ListAll(ctx)
+	require.NoError(t, err)
+	assert.Len(t, all, 2, "the agents inside it are left alone")
 }
 
 // TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a cleanup action that will
