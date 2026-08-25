@@ -124,4 +124,45 @@ func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 	live, err := instance.Stores.Agents.ListPage(ctx, 100, nil, false)
 	require.NoError(t, err)
 	assert.Empty(t, live, "a teardown that failed does not put the row back on the live list")
+
+	stillArchived, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflow.Msg.GetWorkflow().GetId())
+	require.NoError(t, err)
+	assert.NotNil(t, stillArchived, "the workflow the straggler is still in stays archived rather than deleted")
+}
+
+// TestEmptyArchiveDeletesAWorkflowItEmptiesOut covers the other half of the sweep's promise:
+// an archived workflow it leaves with nothing inside it does not sit there forever either.
+func TestEmptyArchiveDeletesAWorkflowItEmptiesOut(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+	workflowID := workflow.Msg.GetWorkflow().GetId()
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflowID,
+	}))
+	require.NoError(t, err)
+
+	_, err = instance.Workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: workflowID}))
+	require.NoError(t, err)
+
+	_, err = instance.Agents.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	instance.WorkQueue()
+
+	agent, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
+	require.NoError(t, err)
+	assert.Nil(t, agent, "its agent is gone along with the workflow")
+
+	got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
+	require.NoError(t, err)
+	assert.Nil(t, got, "the workflow the sweep emptied out is deleted too")
 }

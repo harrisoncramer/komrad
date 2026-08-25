@@ -387,6 +387,68 @@ func TestRestoreWorkflow(t *testing.T) {
 	}
 }
 
+// TestDeleteWorkflow covers the handler's codes: not found for a missing or a live
+// workflow, since only an archived one is deletable this way, and the agents inside an
+// archived workflow going with it otherwise.
+func TestDeleteWorkflow(t *testing.T) {
+	tests := []struct {
+		name     string
+		create   bool
+		archive  bool
+		wantCode connect.Code
+	}{
+		{
+			name:     "an id nobody holds",
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:     "a workflow that is not archived",
+			create:   true,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name:    "an archived workflow is destroyed along with its agents",
+			create:  true,
+			archive: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, st := service(t)
+			ctx := t.Context()
+
+			id := missingID
+			if tt.create {
+				id = createWorkflow(t, svc, "backend")
+				st.SeedAgent(t, agentstore.Agent{Name: "agent", WorkflowID: id})
+			}
+			if tt.archive {
+				_, err := svc.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
+				require.NoError(t, err)
+			}
+
+			_, err := svc.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+
+			got, err := svc.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
+			assert.Nil(t, got)
+			assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+
+			all, err := st.Agents.ListAll(ctx)
+			require.NoError(t, err)
+			assert.Empty(t, all, "its agent is destroyed too")
+		})
+	}
+}
+
 func TestListWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -477,17 +539,28 @@ type idlePanes struct{}
 
 func (idlePanes) GetPanes() (map[string]tmux.PaneStatus, error) { return nil, nil }
 func (idlePanes) KillPane(string)                               {}
+func (idlePanes) NewWindow(_, _, _ string) (string, error)      { return "", nil }
+func (idlePanes) SetPaneOwner(_, _ string) error                { return nil }
+func (idlePanes) GetPaneOwner(string) string                    { return "" }
+func (idlePanes) GetClientPath(string) string                   { return "" }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	manager := agents.NewWorkflowService(agents.WorkflowParams{
-		Workflows: st.Workflows,
-		Agents:    st.Agents,
-		Schedules: st.Schedules,
+	deleter := agents.NewAgentService(agents.NewAgentServiceParams{
 		Tmux:      idlePanes{},
+		Agents:    st.Agents,
+		Workflows: st.Workflows,
 		Tx:        st.Pool,
+	})
+	manager := agents.NewWorkflowService(agents.WorkflowParams{
+		Workflows:    st.Workflows,
+		Agents:       st.Agents,
+		AgentDeleter: deleter,
+		Schedules:    st.Schedules,
+		Tmux:         idlePanes{},
+		Tx:           st.Pool,
 	})
 
 	return NewService(st.Workflows, manager), st

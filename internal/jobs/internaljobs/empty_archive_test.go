@@ -61,7 +61,7 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			archive := newFakeArchive(tt.archived)
 			archive.failOn = tt.failOn
 			archive.keepRows = tt.keepRows
-			worker := NewEmptyArchiveWorker(archive, archive)
+			worker := NewEmptyArchiveWorker(archive, archive, &fakeWorkflowDeleter{})
 
 			err := worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}})
 
@@ -74,6 +74,51 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 			assert.Equal(t, tt.wantDeleted, archive.deleted, "how many archived agents the sweep deleted")
 		})
 	}
+}
+
+// TestEmptyArchiveTellsTheWorkflowsItTouched covers the other half of a sweep: it does not
+// decide for itself whether a workflow is now empty, it hands every workflow a deleted batch
+// touched to what does, once per distinct id rather than once per agent.
+func TestEmptyArchiveTellsTheWorkflowsItTouched(t *testing.T) {
+	archive := newFakeArchive(0)
+	archive.agents = []agentstore.Agent{
+		{ID: "1", WorkflowID: "w1"},
+		{ID: "2", WorkflowID: "w1"},
+		{ID: "3", WorkflowID: "w2"},
+	}
+	workflows := &fakeWorkflowDeleter{}
+	worker := NewEmptyArchiveWorker(archive, archive, workflows)
+
+	err := worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}})
+	require.NoError(t, err)
+
+	assert.ElementsMatch(t, []string{"w1", "w2"}, workflows.checked)
+}
+
+// TestEmptyArchiveKeepsGoingWhenAWorkflowWontDelete covers a workflow delete failing, a
+// schedule still pointing at it for instance, the same way a page that will not delete does:
+// the failure is reported rather than swallowed, but it does not stop the rest of the sweep.
+func TestEmptyArchiveKeepsGoingWhenAWorkflowWontDelete(t *testing.T) {
+	archive := newFakeArchive(0)
+	archive.agents = []agentstore.Agent{{ID: "1", WorkflowID: "w1"}}
+	workflows := &fakeWorkflowDeleter{err: errors.New("a schedule still points at it")}
+	worker := NewEmptyArchiveWorker(archive, archive, workflows)
+
+	err := worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}})
+
+	require.Error(t, err)
+	assert.Equal(t, 1, archive.deleted, "the agent delete still went through")
+}
+
+type fakeWorkflowDeleter struct {
+	checked []string
+	err     error
+}
+
+func (f *fakeWorkflowDeleter) DeleteIfEmpty(_ context.Context, workflowID string) error {
+	f.checked = append(f.checked, workflowID)
+
+	return f.err
 }
 
 type fakeArchive struct {

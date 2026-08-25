@@ -273,6 +273,34 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 	return nil
 }
 
+// Delete permanently removes a workflow row along with the config rows it alone owns, which
+// nothing else references once the workflow itself is gone. An agent or a schedule still
+// pointing at the workflow blocks the delete at the database level, since both hold it with a
+// restricting foreign key.
+func (s *Store) Delete(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	ids, err := s.queries.DeleteWorkflow(ctx, id)
+	if db.IsNoRows(err) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("failed to delete workflow %q: %w", id, err)
+	}
+
+	if err := s.queries.DeleteWorkflowConfig(ctx, ids.WorkflowConfigID); err != nil {
+		return fmt.Errorf("failed to delete config for workflow %q: %w", id, err)
+	}
+
+	if err := s.queries.DeleteWorkflowActionConfig(ctx, ids.ActionConfigID); err != nil {
+		return fmt.Errorf("failed to delete action config for workflow %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // GetIncludingArchived reads a workflow by id whether or not it is archived, nil when
 // none has that id. It is for the reads that only want what the row says, since the
 // listings the panel builds are what archiving is meant to hide it from.

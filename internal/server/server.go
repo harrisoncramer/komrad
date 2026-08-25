@@ -163,15 +163,6 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		AgentFinder:    agentStore,
 		Config:         mailConfig(loadConfig),
 	})
-	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
-		Workflows: workflowStore,
-		Agents:    agentStore,
-		Schedules: scheduleStore,
-		Tmux:      p.Tmux,
-		Tx:        pool,
-		MaxAgents: p.MaxAgents,
-		Notifier:  mailService,
-	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
 		Workflows: workflowStore,
@@ -226,6 +217,16 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Notifier:           mailService,
 		LogsDir:            actionLogsDir,
 	})
+	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
+		Workflows:    workflowStore,
+		Agents:       agentStore,
+		AgentDeleter: agentService,
+		Schedules:    scheduleStore,
+		Tmux:         p.Tmux,
+		Tx:           pool,
+		MaxAgents:    p.MaxAgents,
+		Notifier:     mailService,
+	})
 
 	srv.Delivery = agents.NewDeliveryService(agents.NewDeliveryServiceParams{
 		MailboxReader: mailStore,
@@ -248,6 +249,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Deleter:   agentService,
 		Archived:  agentStore,
 		Running:   agentStore,
+		Workflows: workflowService,
 		Logger:    p.Logger,
 	})
 	if err != nil {

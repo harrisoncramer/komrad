@@ -30,8 +30,9 @@ import (
 // that needs a row must do nothing at all on an empty list.
 //
 // The keys read the row under the cursor, so each one is pressed on a header as well as
-// on an agent. Restore means the folder on one and the agent on the other, and delete is
-// an agent key that a header has to swallow rather than act on.
+// on an agent. Restore and delete both mean the folder on an archived header and the agent
+// on any other row; a header for a workflow that is not itself archived swallows both rather
+// than acting on it.
 func TestArchiveKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
@@ -81,10 +82,15 @@ func TestArchiveKeys(t *testing.T) {
 			wantScreen: screenArchive,
 		},
 		{
-			name:           "delete on a folder opens no prompt, since nothing hard-deletes one",
+			name:           "delete on an archived folder opens the confirm prompt",
 			archivedFolder: true,
 			key:            "d",
-			wantScreen:     screenArchive,
+			wantScreen:     screenArchiveDelete,
+		},
+		{
+			name:       "delete on a live folder's header asks for no write",
+			key:        "d",
+			wantScreen: screenArchive,
 		},
 		{
 			name:       "restore on an empty archive asks for no write",
@@ -307,6 +313,50 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
 			assert.Nil(t, got.target.deleteAgents)
+		})
+	}
+}
+
+// TestArchiveDeleteWorkflowConfirm covers the confirm behind deleting a workflow out of the
+// archive, the same shape as deleting a single agent: a decline destroys nothing, a confirm
+// asks for the workflow by id and clears the target either way.
+func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
+	tests := []struct {
+		name        string
+		confirm     bool
+		wantDeleted []string
+	}{
+		{
+			name:        "confirming destroys the workflow it was opened on",
+			confirm:     true,
+			wantDeleted: []string{"w1"},
+		},
+		{
+			name:    "declining destroys nothing",
+			confirm: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			workflows := &fakeArchiveWorkflows{}
+			m := archiveModel(&fakeArchiveAgents{}, workflows, config.DefaultKeybindings())
+
+			opened, _ := m.deleteWorkflowConfirm(archivedWorkflow("w1", "backend"))
+			m, ok := opened.(model)
+			require.True(t, ok)
+			require.Equal(t, screenArchiveDelete, m.screen)
+
+			answer := "n"
+			if tt.confirm {
+				answer = "y"
+			}
+
+			got := answerPrompt(t, m, answer)
+
+			assert.Equal(t, tt.wantDeleted, workflows.deleted)
+			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
+			assert.Nil(t, got.target.deleteWorkflow)
 		})
 	}
 }
@@ -707,6 +757,7 @@ type fakeArchiveWorkflows struct {
 	err      error
 	archived []*workflowv1.Workflow
 	restored []string
+	deleted  []string
 	listed   []bool
 }
 
@@ -729,6 +780,15 @@ func (f *fakeArchiveWorkflows) RestoreWorkflow(_ context.Context, req *connect.R
 	f.restored = append(f.restored, req.Msg.GetId())
 
 	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{}), nil
+}
+
+func (f *fakeArchiveWorkflows) DeleteWorkflow(_ context.Context, req *connect.Request[workflowv1.DeleteWorkflowRequest]) (*connect.Response[emptypb.Empty], error) {
+	if f.err != nil {
+		return nil, f.err
+	}
+	f.deleted = append(f.deleted, req.Msg.GetId())
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 type fakeArchiveAgents struct {

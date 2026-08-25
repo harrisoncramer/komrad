@@ -9,6 +9,46 @@ import (
 	"context"
 )
 
+const deleteWorkflow = `-- name: DeleteWorkflow :one
+DELETE FROM workflows
+WHERE id = $1
+RETURNING
+    workflow_config_id,
+    action_config_id
+`
+
+type DeleteWorkflowRow struct {
+	WorkflowConfigID string
+	ActionConfigID   string
+}
+
+func (q *Queries) DeleteWorkflow(ctx context.Context, id string) (*DeleteWorkflowRow, error) {
+	row := q.db.QueryRow(ctx, deleteWorkflow, id)
+	var i DeleteWorkflowRow
+	err := row.Scan(&i.WorkflowConfigID, &i.ActionConfigID)
+	return &i, err
+}
+
+const deleteWorkflowActionConfig = `-- name: DeleteWorkflowActionConfig :exec
+DELETE FROM workflow_action_configs
+WHERE id = $1
+`
+
+func (q *Queries) DeleteWorkflowActionConfig(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteWorkflowActionConfig, id)
+	return err
+}
+
+const deleteWorkflowConfig = `-- name: DeleteWorkflowConfig :exec
+DELETE FROM workflow_configs
+WHERE id = $1
+`
+
+func (q *Queries) DeleteWorkflowConfig(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, deleteWorkflowConfig, id)
+	return err
+}
+
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.action_config_id, w.archived_at, w.created_at, w.updated_at,

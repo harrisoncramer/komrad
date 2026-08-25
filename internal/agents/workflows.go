@@ -35,47 +35,56 @@ type workflowReadWriter interface {
 	List(ctx context.Context) ([]workflowstore.Workflow, error)
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type scheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
 }
 
-type workflowAgentReader interface {
+type workflowAgentLister interface {
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
+	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
+}
+
+type workflowAgentDeleter interface {
+	DeleteAgents(ctx context.Context, ids []string) error
 }
 
 type WorkflowService struct {
-	store     workflowReadWriter
-	agents    workflowAgentReader
-	schedules scheduleCounter
-	tmux      paneKiller
-	tx        txRunner
+	store        workflowReadWriter
+	agents       workflowAgentLister
+	agentDeleter workflowAgentDeleter
+	schedules    scheduleCounter
+	tmux         paneKiller
+	tx           txRunner
 
 	maxAgents int
 	notifier  parentNotifier
 }
 
 type WorkflowParams struct {
-	Workflows workflowReadWriter
-	Agents    workflowAgentReader
-	Schedules scheduleCounter
-	Tmux      paneKiller
-	Tx        txRunner
-	MaxAgents int
-	Notifier  parentNotifier
+	Workflows    workflowReadWriter
+	Agents       workflowAgentLister
+	AgentDeleter workflowAgentDeleter
+	Schedules    scheduleCounter
+	Tmux         paneKiller
+	Tx           txRunner
+	MaxAgents    int
+	Notifier     parentNotifier
 }
 
 // NewWorkflowService builds the service from its dependencies.
 func NewWorkflowService(p WorkflowParams) *WorkflowService {
 	return &WorkflowService{
-		store:     p.Workflows,
-		agents:    p.Agents,
-		schedules: p.Schedules,
-		tmux:      p.Tmux,
-		tx:        p.Tx,
-		maxAgents: p.MaxAgents,
-		notifier:  p.Notifier,
+		store:        p.Workflows,
+		agents:       p.Agents,
+		agentDeleter: p.AgentDeleter,
+		schedules:    p.Schedules,
+		tmux:         p.Tmux,
+		tx:           p.Tx,
+		maxAgents:    p.MaxAgents,
+		notifier:     p.Notifier,
 	}
 }
 
@@ -363,6 +372,66 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 	}
 
 	return w.store.Get(ctx, id)
+}
+
+// DeleteWorkflow permanently removes an archived workflow along with whatever archived agents
+// are still inside it. Archiving a workflow archives every agent in it too, so there is never
+// a live agent to refuse here. The cascade goes through DeleteAgents rather than a raw store
+// delete, so an agent whose cleanup action is still running, or whose cleanup failed, is left
+// behind exactly as it would be from a direct delete — and the workflow row is left with it,
+// to be tried again the same way once nothing remains.
+func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
+	existing, err := w.store.GetIncludingArchived(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil || existing.ArchivedAt == nil {
+		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+	}
+
+	inside, err := w.agents.ListArchivedInWorkflow(ctx, id)
+	if err != nil {
+		return err
+	}
+	if len(inside) > 0 {
+		if err := w.agentDeleter.DeleteAgents(ctx, agentIDs(inside)); err != nil {
+			return err
+		}
+	}
+
+	return w.deleteIfEmpty(ctx, existing)
+}
+
+// DeleteIfEmpty permanently removes a workflow if it is archived and now holds no agents at
+// all, and does nothing otherwise. It is the other half of emptying the archive: a batch
+// delete of archived agents can leave one of their workflows with nothing left in it, and
+// this is what turns that into the workflow row disappearing too.
+func (w *WorkflowService) DeleteIfEmpty(ctx context.Context, id string) error {
+	existing, err := w.store.GetIncludingArchived(ctx, id)
+	if err != nil {
+		return err
+	}
+	if existing == nil || existing.ArchivedAt == nil {
+		return nil
+	}
+
+	return w.deleteIfEmpty(ctx, existing)
+}
+
+func (w *WorkflowService) deleteIfEmpty(ctx context.Context, existing *workflowstore.Workflow) error {
+	remaining, err := w.agents.ListArchivedInWorkflow(ctx, existing.ID)
+	if err != nil {
+		return err
+	}
+	if len(remaining) > 0 {
+		return nil
+	}
+
+	if err := w.store.Delete(ctx, existing.ID); err != nil {
+		return fmt.Errorf("failed to delete workflow %q: %w", existing.Name, err)
+	}
+
+	return nil
 }
 
 func requireNamesFree(ctx context.Context, agents agentManager, archived []agentstore.Agent) error {

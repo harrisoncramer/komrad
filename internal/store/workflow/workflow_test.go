@@ -480,3 +480,55 @@ func TestListPageArchived(t *testing.T) {
 		})
 	}
 }
+
+// TestDelete covers the hard delete, keyed by id whether or not the row is archived. It
+// takes the config rows a workflow alone owns with it, since nothing else ever references
+// them once the workflow itself is gone.
+func TestDelete(t *testing.T) {
+	tests := []struct {
+		name   string
+		create bool
+	}{
+		{
+			name: "an id nobody holds is not an error",
+		},
+		{
+			name:   "a workflow row and its config rows are all removed",
+			create: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pool, err := store.Open(t.Context(), pgtest.URL(t))
+			require.NoError(t, err)
+			t.Cleanup(func() { _ = pool.Close() })
+
+			st := New(pool.GetDB())
+			ctx := t.Context()
+
+			id := missingID
+			if tt.create {
+				created, err := st.Create(ctx, Config{Name: "backend"})
+				require.NoError(t, err)
+				id = created.ID
+			}
+
+			require.NoError(t, st.Delete(ctx, id))
+
+			got, err := st.GetIncludingArchived(ctx, id)
+			require.NoError(t, err)
+			assert.Nil(t, got, "the row is gone")
+
+			if !tt.create {
+				return
+			}
+
+			var configs, actionConfigs int
+			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_configs").Scan(&configs))
+			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_action_configs").Scan(&actionConfigs))
+			assert.Zero(t, configs, "its config row goes with it")
+			assert.Zero(t, actionConfigs, "and its action config row too")
+		})
+	}
+}

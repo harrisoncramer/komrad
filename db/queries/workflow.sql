@@ -175,6 +175,21 @@ SET
 WHERE
     id = @id;
 
+-- name: DeleteWorkflow :one
+DELETE FROM workflows
+WHERE id = @id
+RETURNING
+    workflow_config_id,
+    action_config_id;
+
+-- name: DeleteWorkflowConfig :exec
+DELETE FROM workflow_configs
+WHERE id = @id;
+
+-- name: DeleteWorkflowActionConfig :exec
+DELETE FROM workflow_action_configs
+WHERE id = @id;
+
 -- name: GetWorkflowIncludingArchived :one
 SELECT
     sqlc.embed(w),

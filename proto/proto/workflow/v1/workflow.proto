@@ -142,6 +142,10 @@ message RestoreWorkflowResponse {
   Workflow workflow = 1;
 }
 
+message DeleteWorkflowRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
 service WorkflowService {
   rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
@@ -186,6 +190,14 @@ service WorkflowService {
       tool_name: "restore_workflow"
       description: "Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename."
       destructive: false
+    };
+  }
+  rpc DeleteWorkflow(DeleteWorkflowRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "delete_workflow"
+      description: "Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same cleanup-action handling a direct agent delete uses. Returns not_found if the workflow does not exist or is not archived. An agent whose cleanup action is still running, or whose cleanup failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again."
+      destructive: true
     };
   }
 }
