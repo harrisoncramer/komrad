@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -21,6 +22,8 @@ const (
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
 
 var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd naming the repo")
+
+var ErrWorktreeCwdNotPrimaryCheckout = errors.New("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
 var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setup_action and cleanup_action at the built-in pair itself, so both must be blank")
 
@@ -258,9 +261,21 @@ func setWorktreeActions(cfg *workflowstore.Config) error {
 	if cfg.CleanupAction != "" && cfg.CleanupAction != worktreeCleanupAction {
 		return ErrWorktreeOwnsActions
 	}
+	if err := requirePrimaryCheckout(cfg.Cwd); err != nil {
+		return err
+	}
 
 	cfg.SetupAction = worktreeSetupAction
 	cfg.CleanupAction = worktreeCleanupAction
+
+	return nil
+}
+
+func requirePrimaryCheckout(cwd string) error {
+	info, err := os.Stat(filepath.Join(cwd, ".git"))
+	if err != nil || !info.IsDir() {
+		return fmt.Errorf("%w: %q", ErrWorktreeCwdNotPrimaryCheckout, cwd)
+	}
 
 	return nil
 }

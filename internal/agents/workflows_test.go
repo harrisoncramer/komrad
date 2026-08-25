@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"path/filepath"
 	"testing"
 
 	"weave/internal/store"
@@ -98,6 +99,8 @@ func TestUpdateWorkflow(t *testing.T) {
 // TestNewWorkflowWithWorktree covers the validation a worktree-enabled create is held to,
 // and that enabling it points setup and cleanup at the built-in pair.
 func TestNewWorkflowWithWorktree(t *testing.T) {
+	repo := initRepo(t)
+
 	tests := []struct {
 		name        string
 		cfg         workflowstore.Config
@@ -134,7 +137,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			name: "enabling it points setup and cleanup at the built-in pair",
 			cfg: workflowstore.Config{
 				Name:     "backend",
-				Cwd:      "/repo",
+				Cwd:      repo,
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{".env"}},
 			},
 			wantSetup:   worktreeSetupAction,
@@ -180,7 +183,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			name: "a path nested inside the repo is kept",
 			cfg: workflowstore.Config{
 				Name:     "backend",
-				Cwd:      "/repo",
+				Cwd:      repo,
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"config/local.env"}},
 			},
 			wantSetup:   worktreeSetupAction,
@@ -215,6 +218,41 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 	}
 }
 
+func TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout(t *testing.T) {
+	tests := []struct {
+		name string
+		cwd  func(t *testing.T) string
+	}{
+		{
+			name: "cwd is not a git repository at all",
+			cwd: func(t *testing.T) string {
+				return t.TempDir()
+			},
+		},
+		{
+			name: "cwd is a linked worktree rather than the primary checkout",
+			cwd: func(t *testing.T) string {
+				repo := initRepo(t)
+				tree := filepath.Join(t.TempDir(), "tree")
+				runGit(t, repo, "worktree", "add", "--quiet", "-b", "feature", tree)
+
+				return tree
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := workflowsFor(newStore(t), newFakeTmux()).NewWorkflow(t.Context(), workflowstore.Config{
+				Name:     "backend",
+				Cwd:      tt.cwd(t),
+				Worktree: workflowstore.WorktreeConfig{Enabled: true},
+			})
+			require.ErrorIs(t, err, ErrWorktreeCwdNotPrimaryCheckout)
+		})
+	}
+}
+
 // TestUpdateWorkflowRefusesAnUnsafeWorktreePath covers the same validation on the update
 // path, since a workflow created without paths can be given them afterwards and the two
 // entry points would otherwise disagree about what a path may be.
@@ -224,7 +262,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      "/repo",
+		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -250,7 +288,7 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:     "backend",
-		Cwd:      "/repo",
+		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -280,7 +318,7 @@ func TestUpdateWorkflowWorktreeRoundTripsTheBuiltinActions(t *testing.T) {
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      "/repo",
+		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
@@ -313,9 +351,11 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 		SymlinkPaths: []string{"node_modules"},
 	}
 
+	repo := initRepo(t)
+
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      "/repo",
+		Cwd:      repo,
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: details.BaseBranch, CopyPaths: details.CopyPaths, SymlinkPaths: details.SymlinkPaths},
 	})
 	require.NoError(t, err)
@@ -334,7 +374,7 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 
 	enabledDetails := details
 	enabledDetails.Enabled = true
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: "/repo", Worktree: enabledDetails})
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: repo, Worktree: enabledDetails})
 	require.NoError(t, err)
 
 	reenabled, err := st.GetWorkflow(t.Context(), created.ID)
@@ -371,7 +411,7 @@ func TestUpdateWorkflowWorktreeDisableKeepsAHandWrittenOverride(t *testing.T) {
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:     "backend",
-		Cwd:      "/repo",
+		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
