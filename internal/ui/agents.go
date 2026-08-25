@@ -222,9 +222,22 @@ func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd
 	)
 }
 
-func (m model) releasePanes(agents []agentstore.Agent) {
+// releasePanes swaps the given agents' real panes out of the stage and marks them locally as
+// no longer alive. The mark matters because returnToAgents calls stageSelection synchronously,
+// before any refresh has told the model these agents are gone; without it, stageSelection sees
+// the cursor still on a just-released row and swaps the same pane straight back in, right as
+// the delete that follows kills it out from under the frame.
+func (m *model) releasePanes(agents []agentstore.Agent) {
+	released := make(map[string]bool, len(agents))
 	for _, agent := range agents {
 		m.frame.ReleaseGuest(agent.Pane)
+		released[agent.ID] = true
+	}
+
+	for i, item := range m.listing.agents {
+		if released[item.agent.ID] {
+			m.listing.agents[i].alive = false
+		}
 	}
 }
 
