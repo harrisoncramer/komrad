@@ -115,8 +115,11 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applySchedules(result.schedules)
 	}
 
-	if result.archivedListed && result.archivedErr == nil {
+	switch {
+	case result.archivedListed && result.archivedErr == nil:
 		m.applyArchive(result.archived, archiveRow)
+	case result.archivedWorkflowsErr == nil:
+		m.placeArchiveCursor(archiveRow)
 	}
 
 	switch m.screen {

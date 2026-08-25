@@ -332,6 +332,40 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	assert.Equal(t, "infra-audit", selected.Name)
 }
 
+// TestArchiveCursorHoldsOnAFolderOnlyPass covers a pass whose archived agents did not answer.
+// The folders did, and they are half of what the archive draws, so the cursor still has to be
+// put back on a row that exists rather than left past the end of a shorter list.
+func TestArchiveCursorHoldsOnAFolderOnlyPass(t *testing.T) {
+	agents := []agentstore.Agent{
+		{ID: "x1", Name: "api-spike", WorkflowID: "w1"},
+		{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
+	}
+
+	m := model{
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenArchive,
+		listing: listing{archivedWorkflows: []workflowstore.Workflow{
+			archivedWorkflow("w1", "api"),
+			archivedWorkflow("w2", "infra"),
+		}},
+		archive: archiveState{agents: agents, rowCursor: rowCursor{cursor: 3}},
+	}
+
+	m.applyRefresh(refreshResult{
+		archivedWorkflows: []workflowstore.Workflow{archivedWorkflow("w1", "api")},
+		archivedListed:    true,
+		archivedErr:       errors.New("the archive did not answer"),
+	})
+
+	rows := m.archiveRows()
+	require.Less(t, m.archive.cursor, len(rows), "the cursor is on a row the shorter list still has")
+
+	selected, ok := m.selectedArchived()
+	require.True(t, ok)
+	assert.Equal(t, "api-spike", selected.Name, "and the archived agents the pass could not refresh are kept")
+}
+
 type emptyLists struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient

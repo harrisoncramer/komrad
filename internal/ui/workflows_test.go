@@ -128,6 +128,70 @@ func TestAgentsViewMarksALeftoverArchivedWorkflow(t *testing.T) {
 	assert.Contains(t, view, "left-behind")
 }
 
+// TestArchivedHeaderTakesNoWorkflowKeys covers the header the tree draws for an archived
+// workflow. It is there to carry the row left inside it, and every write the workflow keys
+// make is refused for an archived workflow, so none of them are offered on it.
+func TestArchivedHeaderTakesNoWorkflowKeys(t *testing.T) {
+	tests := []struct {
+		name       string
+		key        string
+		wantBanner bool
+	}{
+		{name: "rename", key: "r"},
+		{name: "edit", key: "e"},
+		{name: "archive", key: "z"},
+		{name: "new agent", key: "n", wantBanner: true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := leftoverTree()
+
+			updated, _ := m.updateAgents(keyMsg(tt.key))
+			got, ok := updated.(model)
+			require.True(t, ok)
+
+			assert.Equal(t, screenAgents, got.screen, "no form is opened on an archived folder")
+			assert.Nil(t, got.form)
+
+			if tt.wantBanner {
+				require.NotNil(t, got.banner, "starting an agent in an archived folder says why it cannot")
+
+				return
+			}
+
+			assert.Nil(t, got.banner)
+		})
+	}
+}
+
+// TestArchivedHeaderHelp covers the legend under that header, which has to match: the keys
+// that act on a live folder are not drawn, and what is left is the movement between rows.
+func TestArchivedHeaderHelp(t *testing.T) {
+	m := leftoverTree()
+
+	help := ansi.Strip(m.renderHelp(m.agentHelp()))
+	assert.NotContains(t, help, "rename")
+	assert.NotContains(t, help, "edit")
+	assert.Contains(t, help, "select folder")
+}
+
+func leftoverTree() model {
+	tmux := &recordingTmux{}
+
+	return model{
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+		listing: listing{
+			archivedWorkflows: []workflowstore.Workflow{archivedWorkflow("w1", "simplify")},
+			agents:            []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "left-behind", WorkflowID: "w1"}}},
+		},
+	}
+}
+
 // TestHoveredWorkflow checks the cursor reports a real workflow only when it
 // sits on that workflow's header, since the workflow keys act on what is hovered.
 func TestHoveredWorkflow(t *testing.T) {

@@ -88,8 +88,16 @@ func (m model) selectedAgent() (agentItem, bool) {
 	return row.item, true
 }
 
+// hoveredWorkflow is the workflow the workflow keys act on, which an archived header is not.
+// That header is drawn only to carry a row left behind in it, and everything those keys do —
+// starting an agent, renaming, editing, archiving again — is refused for an archived workflow.
 func (m model) hoveredWorkflow() (workflowstore.Workflow, bool) {
-	return hoveredHeader(m.agentRows(), m.tree.cursor)
+	workflow, ok := hoveredHeader(m.agentRows(), m.tree.cursor)
+	if !ok || workflow.ArchivedAt != nil {
+		return workflowstore.Workflow{}, false
+	}
+
+	return workflow, true
 }
 
 func hoveredHeader(rows []agentRow, cursor int) (workflowstore.Workflow, bool) {
@@ -103,7 +111,7 @@ func hoveredHeader(rows []agentRow, cursor int) (workflowstore.Workflow, bool) {
 
 func (m model) enclosingWorkflow() *workflowstore.Workflow {
 	row, ok := rowAt(m.agentRows(), m.tree.cursor)
-	if !ok {
+	if !ok || row.workflow.ArchivedAt != nil {
 		return nil
 	}
 

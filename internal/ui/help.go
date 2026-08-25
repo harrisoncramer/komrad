@@ -252,6 +252,14 @@ func (m model) rowHelp() []key.Binding {
 		}
 	}
 
+	if row, ok := m.hoveredRow(); ok && row.header {
+		return []key.Binding{
+			binding(m.keys.Selection.Toggle, "select folder"),
+			binding(m.keys.Archive.Open, "archived agents"),
+			m.showHiddenBinding(),
+		}
+	}
+
 	rows := []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),

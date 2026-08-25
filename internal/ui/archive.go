@@ -57,22 +57,31 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 func (m *model) applyArchive(agents []agentstore.Agent, selected string) {
 	m.archive.agents = agents
 
-	m.archive.selected = m.archive.selected.pruned(m.allArchiveRows())
-
 	focus := m.archive.focus
 	m.archive.focus = ""
 
-	rows := m.archiveRows()
-	if focus != "" {
-		if idx := rowIndexOfAgentID(rows, focus); idx >= 0 {
-			m.archive.cursor = idx
+	m.placeArchiveCursor(selected)
 
-			return
-		}
-
-		m.reportMissingRow()
+	if focus == "" {
+		return
 	}
 
+	if idx := rowIndexOfAgentID(m.archiveRows(), focus); idx >= 0 {
+		m.archive.cursor = idx
+
+		return
+	}
+
+	m.reportMissingRow()
+}
+
+// placeArchiveCursor keeps the cursor on the row it was on. The headers are drawn from a
+// listing of their own, so they can move under the cursor on a pass that brought no archived
+// agents with it at all.
+func (m *model) placeArchiveCursor(selected string) {
+	m.archive.selected = m.archive.selected.pruned(m.allArchiveRows())
+
+	rows := m.archiveRows()
 	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
 		m.archive.cursor = idx
 
