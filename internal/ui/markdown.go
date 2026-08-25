@@ -85,6 +85,10 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 		fields = append(fields, recordField{"tag", *agent.Tag})
 	}
 	for _, entry := range agent.Metadata {
+		if entry.Key == failureReasonKey {
+			continue
+		}
+
 		fields = append(fields, recordField{entry.Key, entry.Value})
 	}
 

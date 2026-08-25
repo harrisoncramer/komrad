@@ -139,7 +139,7 @@ toggle = ["?"]
 # The key that pages the service's log, shared by every screen since the log is
 # about the service rather than about anything a screen lists.
 [keybindings.logs]
-# Show the background service's log in the info pane.
+# Cycle the hovered agent's logs in the info pane.
 open = ["l"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
@@ -224,9 +224,12 @@ max_hops          = 20
 # The log the background service writes, which the panel's log key pages.
 [log]
 # How much is written, one of debug, info, warn, or error.
-level  = "info"
+level          = "info"
 # The default log viewer. Switch with fzf, rg, etc.
-viewer = "less -R +F \"$WEAVE_LOG\""
+viewer         = "tail -n +1 -F \"$WEAVE_LOG\" | grep --line-buffered \"$WEAVE_AGENT_ID\" | less -R +F"
+# The viewer for a setup or teardown action's own output, plain text rather than the
+# structured log's JSON lines.
+process_viewer = "less -R -X \"$WEAVE_LOG\""
 
 # Which weave this is: the database, the address, the tmux socket, the cache.
 [connection]

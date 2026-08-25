@@ -86,7 +86,8 @@ SELECT
 FROM
     agents
 WHERE
-    archived_at IS NULL;
+    archived_at IS NULL
+    AND state NOT IN ('failed_to_create', 'failed_to_cleanup');
 
 -- name: LockAgentSlots :exec
 SELECT

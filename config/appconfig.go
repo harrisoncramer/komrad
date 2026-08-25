@@ -37,10 +37,13 @@ const (
 // service works.
 const DefaultLogLevel = "info"
 
-// DefaultLogViewer is what the log key opens the log in when the config names nothing: a
-// pager on the file itself, opened in the pager's own follow so the log is watched rather
-// than read once.
-const DefaultLogViewer = `less -R +F "$WEAVE_LOG"`
+// DefaultLogViewer is what the agent-log stop opens the log in when the config names
+// nothing: filtered to the lines naming the agent WEAVE_AGENT_ID carries, followed live
+// rather than read once. An empty WEAVE_AGENT_ID matches every line, which is what running
+// this outside that stop degrades to.
+const DefaultLogViewer = `tail -n +1 -F "$WEAVE_LOG" | grep --line-buffered "$WEAVE_AGENT_ID" | less -R +F`
+
+const DefaultProcessViewer = `less -R -X "$WEAVE_LOG"`
 
 // DefaultDeliveryDeadline is how long mail stays deliverable when the config names no
 // duration. Long enough that an agent left alone over lunch still gets its mail, short
@@ -167,11 +170,11 @@ type DetailsKeys struct {
 	Focus []string `mapstructure:"focus"`
 }
 
-// LogsKeys is the binding that pages the background service's log. It is its own group
-// rather than one of a screen's, since the log is about the service and is wanted from
-// wherever the panel is when the service misbehaves.
+// LogsKeys is the binding that cycles the hovered agent's own logs through the info pane:
+// its setup log, its teardown log, then the background service's own log filtered to
+// that agent, and a press past the last one closes the pane.
 type LogsKeys struct {
-	// Show the background service's log in the info pane.
+	// Cycle the hovered agent's logs in the info pane.
 	Open []string `mapstructure:"open"`
 }
 
@@ -428,6 +431,9 @@ type Log struct {
 	Level string `mapstructure:"level"`
 	// The default log viewer. Switch with fzf, rg, etc.
 	Viewer string `mapstructure:"viewer"`
+	// The viewer for a setup or teardown action's own output, plain text rather than the
+	// structured log's JSON lines.
+	ProcessViewer string `mapstructure:"process_viewer"`
 }
 
 // Connection is which weave you are talking to: the database it writes, the address it
@@ -501,7 +507,7 @@ func Defaults() *Config {
 		Tags:           DefaultTags(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
-		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer},
+		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer, ProcessViewer: DefaultProcessViewer},
 		Connection:     DefaultConnection(),
 	}
 }
@@ -1014,6 +1020,9 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if strings.TrimSpace(c.Log.Viewer) == "" {
 		c.Log.Viewer = DefaultLogViewer
+	}
+	if strings.TrimSpace(c.Log.ProcessViewer) == "" {
+		c.Log.ProcessViewer = DefaultProcessViewer
 	}
 }
 

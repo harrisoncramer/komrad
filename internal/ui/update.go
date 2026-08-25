@@ -85,7 +85,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if !m.isQueryOpen() && isBound(key.String(), m.keys.Logs.Open) {
-		return m.openLogs()
+		return m.cycleLogs()
 	}
 
 	if !m.isQueryOpen() && m.detailsScreen() {

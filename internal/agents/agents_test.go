@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"weave/config"
 	"weave/internal/actions"
 	"weave/internal/caller"
 	"weave/internal/store"
@@ -37,6 +38,7 @@ func TestNewAgent(t *testing.T) {
 		wantErr     string
 
 		wantPaneKilled bool
+		wantsFailedRow bool
 	}{
 		{
 			name:      "a directory nobody can enter",
@@ -63,11 +65,12 @@ func TestNewAgent(t *testing.T) {
 			wantErrIs:   ErrWorkflowNotFound,
 		},
 		{
-			name:      "a window tmux refuses",
-			dir:       func(t *testing.T) string { return t.TempDir() },
-			title:     "doomed",
-			windowErr: errors.New("tmux refused the window name"),
-			wantErr:   "failed to open a window",
+			name:           "a window tmux refuses",
+			dir:            func(t *testing.T) string { return t.TempDir() },
+			title:          "doomed",
+			windowErr:      errors.New("tmux refused the window name"),
+			wantErr:        "failed to open a window",
+			wantsFailedRow: true,
 		},
 		{
 			name:           "a pane tmux refuses to stamp",
@@ -76,6 +79,7 @@ func TestNewAgent(t *testing.T) {
 			setOwnerErr:    errors.New("tmux refused the option"),
 			wantErr:        "failed to stamp the pane",
 			wantPaneKilled: true,
+			wantsFailedRow: true,
 		},
 		{
 			name:           "a launch that never reaches the pane's shell",
@@ -84,6 +88,7 @@ func TestNewAgent(t *testing.T) {
 			sendKeysErr:    errors.New("tmux dropped the keys"),
 			wantErr:        "failed to launch the agent",
 			wantPaneKilled: true,
+			wantsFailedRow: true,
 		},
 		{
 			name:  "a launch that works",
@@ -127,7 +132,14 @@ func TestNewAgent(t *testing.T) {
 
 				agents, listErr := st.List(t.Context())
 				require.NoError(t, listErr)
-				assert.Empty(t, agents, "a refused launch records nothing")
+
+				if tt.wantsFailedRow {
+					require.Len(t, agents, 1, "a launch that had already claimed a slot leaves a row to look at")
+					assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+					assert.Contains(t, metadataValue(agents[0].Metadata), tt.wantErr, "and why, for the row that is left")
+				} else {
+					assert.Empty(t, agents, "a refused launch before any slot was claimed records nothing")
+				}
 
 				if tt.wantPaneKilled {
 					assert.NotEmpty(t, tmux.killedPanes, "the open pane goes with the record")
@@ -155,6 +167,16 @@ func TestNewAgent(t *testing.T) {
 			assert.True(t, manager.IsAgentRunning(*stored), "and the agent reads as running in it")
 		})
 	}
+}
+
+func metadataValue(md []agentstore.Metadata) string {
+	for _, entry := range md {
+		if entry.Key == "error" {
+			return entry.Value
+		}
+	}
+
+	return ""
 }
 
 // TestNewAgentIdempotency covers the key that makes a launch repeatable. A
@@ -501,7 +523,9 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 
 				stored, getErr := st.Get(t.Context(), "agent")
 				require.NoError(t, getErr)
-				assert.Nil(t, stored, "a refused setup leaves no row behind")
+				require.NotNil(t, stored, "a refused setup leaves a row to look at rather than none")
+				assert.Equal(t, agentstore.StateFailedToCreate, stored.State)
+				assert.NotEmpty(t, metadataValue(stored.Metadata), "and why")
 				assert.Empty(t, h.launches, "and launches nothing")
 
 				return
@@ -760,7 +784,9 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 
 			agents, listErr := st.List(t.Context())
 			require.NoError(t, listErr)
-			assert.Empty(t, agents, "and no row is left behind")
+			require.Len(t, agents, 1, "the row stays, marked failed, rather than vanishing")
+			assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
+			assert.NotEmpty(t, metadataValue(agents[0].Metadata))
 		})
 	}
 }
@@ -868,14 +894,141 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
 }
 
+// TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown:
+// a delete whose cleanup action fails leaves the row behind, marked so, rather than
+// dropping it the moment the delete was asked for and losing the only place left to see why.
+func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:          "backend",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	agent, err := manager.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
+
+	agents, listErr := st.List(t.Context())
+	require.NoError(t, listErr)
+	require.Len(t, agents, 1, "a failed teardown leaves the row rather than dropping it")
+	assert.Equal(t, agentstore.StateFailedToCleanup, agents[0].State)
+	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
+}
+
+// TestDeleteAgentUnarchivesOnAFailedTeardown covers "archive and delete" in one action, the
+// panel's own convenience path: it archives first, then deletes. If the delete's cleanup
+// then fails, the row must not be left archived — archived is where nobody is looking, and a
+// failed_to_cleanup row that stays invisible there is exactly the bug this state exists to fix.
+func TestDeleteAgentUnarchivesOnAFailedTeardown(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:          "backend",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	agent, err := manager.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, manager.ArchiveAgents(t.Context(), []string{agent.ID}))
+	require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
+
+	live, listErr := st.List(t.Context())
+	require.NoError(t, listErr)
+	require.Len(t, live, 1, "back in the live list, not stuck in the archive")
+	assert.Equal(t, agentstore.StateFailedToCleanup, live[0].State)
+	assert.Nil(t, live[0].ArchivedAt)
+}
+
+// TestDeleteAgentRemovesItsActionLogs covers the other half of a delete: the setup and
+// teardown logs an agent left on disk have nowhere else to be cleaned up from, so a delete
+// that actually removes the row takes them with it. One whose cleanup fails is not removed,
+// so its logs are left in place — they are what the failure is left to be read from.
+func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
+	tests := []struct {
+		name        string
+		cleanupErr  error
+		wantRemoved bool
+	}{
+		{name: "no cleanup configured", wantRemoved: true},
+		{name: "cleanup succeeds", wantRemoved: true},
+		{name: "cleanup fails", cleanupErr: errors.New("worktree is dirty")},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			lifecycle := &fakeLifecycle{cleanupRunErr: tt.cleanupErr}
+			logsDir := t.TempDir()
+			manager := st.agentService(agentServiceOptions{
+				tmux:      tmux,
+				harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				addr:      "127.0.0.1:9999",
+				lifecycle: lifecycle,
+				logsDir:   logsDir,
+			})
+
+			cfg := workflowstore.Config{Name: "backend"}
+			if tt.name != "no cleanup configured" {
+				cfg.CleanupAction = "drop-worktree"
+			}
+			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), cfg)
+			require.NoError(t, err)
+
+			agent, err := manager.NewAgent(t.Context(), NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: created.ID,
+			})
+			require.NoError(t, err)
+
+			setupPath := config.ActionLogPath(logsDir, agent.ID, config.ActionLogSetup)
+			teardownPath := config.ActionLogPath(logsDir, agent.ID, config.ActionLogTeardown)
+			require.NoError(t, os.WriteFile(setupPath, []byte("cloning\n"), 0o644))
+			require.NoError(t, os.WriteFile(teardownPath, []byte("dropping\n"), 0o644))
+
+			require.NoError(t, manager.DeleteAgents(t.Context(), []string{agent.ID}))
+
+			_, setupErr := os.Stat(setupPath)
+			_, teardownErr := os.Stat(teardownPath)
+			if tt.wantRemoved {
+				assert.True(t, os.IsNotExist(setupErr), "the setup log goes with a row that is really gone")
+				assert.True(t, os.IsNotExist(teardownErr), "so does the teardown log")
+			} else {
+				assert.NoError(t, setupErr, "the row is still here to read the failure from, so its logs stay too")
+				assert.NoError(t, teardownErr)
+			}
+		})
+	}
+}
+
 // TestRunCleanupLogsOneThatWouldNotStart covers the cleanup that never becomes a process at
 // all, which is what a renamed script leaves behind.
 func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
-	lifecycle := &fakeLifecycle{cleanupErr: actions.ErrActionNotFound}
+	lifecycle := &fakeLifecycle{cleanupStartErr: actions.ErrActionNotFound}
 	manager := NewAgentService(NewAgentServiceParams{Lifecycle: lifecycle})
 	ctx, records := loggedContext(t)
 
-	manager.runCleanup(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed")
+	manager.runCleanup(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed", nil)
 
 	got := recordFor(t, records(), "the cleanup action would not start")
 	assert.Equal(t, "ERROR", got["severity_text"])

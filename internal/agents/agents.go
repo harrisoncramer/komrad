@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"strings"
 
+	"weave/config"
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/store"
@@ -59,8 +61,10 @@ type agentManager interface {
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
 	Archive(ctx context.Context, ids []string) error
+	Restore(ctx context.Context, ids []string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 	LockSlots(ctx context.Context) error
+	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
 type paneKiller interface {
@@ -96,7 +100,7 @@ type harnessGetter interface {
 type lifecycleActioner interface {
 	RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
 	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
-	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error
+	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
 }
 
 type parentNotifier interface {
@@ -116,6 +120,7 @@ type AgentService struct {
 	maxAgents          int
 	fallbackResumeRoot string
 	notifier           parentNotifier
+	logsDir            string
 }
 
 type NewAgentServiceParams struct {
@@ -131,6 +136,7 @@ type NewAgentServiceParams struct {
 	MaxAgents          int
 	FallbackResumeRoot string
 	Notifier           parentNotifier
+	LogsDir            string
 }
 
 // NewAgentService builds the service from its dependencies.
@@ -152,6 +158,7 @@ func NewAgentService(p NewAgentServiceParams) *AgentService {
 		maxAgents:          p.MaxAgents,
 		fallbackResumeRoot: p.FallbackResumeRoot,
 		notifier:           p.Notifier,
+		logsDir:            p.LogsDir,
 	}
 }
 
@@ -237,7 +244,10 @@ func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, erro
 	return spawner, nil
 }
 
-// DeleteAgents stops and permanently removes agents by ID.
+// DeleteAgents stops agents and removes those with nothing left to tear down. An agent whose
+// cleanup action is still running is left in place until that action finishes: only then, in
+// the background, does it either get removed (the action succeeded) or get marked
+// failed_to_cleanup (it did not) — the row is never dropped ahead of knowing which.
 func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -245,15 +255,46 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 	}
 
 	killOwnedPanes(ctx, s.tmux, agents)
+
+	bg := context.WithoutCancel(ctx)
+
+	var immediate []agentstore.Agent
 	for _, agent := range agents {
-		s.runCleanup(ctx, agent, s.getCleanupAction(ctx, agent))
+		name := s.getCleanupAction(ctx, agent)
+		if s.lifecycle == nil || name == "" {
+			immediate = append(immediate, agent)
+
+			continue
+		}
+
+		agent := agent
+		s.runCleanup(ctx, agent, name, func(cleanupErr error) {
+			if cleanupErr != nil {
+				s.failCleanup(bg, agent, cleanupErr)
+
+				return
+			}
+
+			if err := s.removeAgents(bg, []string{agent.ID}); err != nil {
+				logging.From(bg).LogAttrs(bg, slog.LevelError, "failed to remove an agent whose cleanup finished",
+					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+				return
+			}
+
+			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, "deleted")
+		})
 	}
 
-	if err := s.removeAgents(ctx, ids); err != nil {
+	if len(immediate) == 0 {
+		return nil
+	}
+
+	if err := s.removeAgents(ctx, agentIDs(immediate)); err != nil {
 		return err
 	}
 
-	notifyParents(ctx, s.notifier, agents, "deleted")
+	notifyParents(ctx, s.notifier, immediate, "deleted")
 
 	return nil
 }
@@ -423,13 +464,38 @@ func (s *AgentService) getByID(ctx context.Context, id string) (*agentstore.Agen
 }
 
 func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
-	return s.tx.InTx(ctx, func(db store.DBTX) error {
+	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
 		if err := agentstore.New(db).Delete(ctx, ids); err != nil {
 			return err
 		}
 
 		return transcriptstore.New(db).Delete(ctx, ids)
-	})
+	}); err != nil {
+		return err
+	}
+
+	s.removeActionLogs(ctx, ids)
+
+	return nil
+}
+
+// removeActionLogs drops the durable setup/teardown logs an agent leaves on disk, once its
+// row is really gone. Best-effort: a leftover file costs nothing an agent removed a second
+// time won't also clean up, so a failure here is logged rather than turned into an error the
+// caller has to do anything about.
+func (s *AgentService) removeActionLogs(ctx context.Context, ids []string) {
+	if s.logsDir == "" {
+		return
+	}
+
+	for _, id := range ids {
+		for _, kind := range []string{config.ActionLogSetup, config.ActionLogTeardown} {
+			path := config.ActionLogPath(s.logsDir, id, kind)
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				logging.From(ctx).Warn("failed to remove an agent's action log", "path", path, "agent_id", id, "error", err)
+			}
+		}
+	}
 }
 
 func (s *AgentService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
@@ -441,22 +507,31 @@ func (s *AgentService) runResumeSetup(ctx context.Context, agent agentstore.Agen
 	return s.lifecycle.RunResumeAction(ctx, agent, name)
 }
 
-func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string) {
+// runCleanup starts a cleanup action. done, when given, is called exactly once with the
+// action's outcome: nil if it is not configured at all, or once RunCleanupAction's own done
+// callback reports how the run went — including a refusal to even start, which is reported
+// here rather than left for the caller to notice only via the log.
+func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string, done func(error)) {
 	if s.lifecycle == nil || name == "" {
+		if done != nil {
+			done(nil)
+		}
+
 		return
 	}
 
-	err := s.lifecycle.RunCleanupAction(ctx, agent, name)
-	if err == nil {
-		return
-	}
+	if err := s.lifecycle.RunCleanupAction(ctx, agent, name, done); err != nil {
+		attrs := []slog.Attr{
+			slog.String(logging.ActionName, name),
+			slog.String(logging.ActionAgentID, agent.ID),
+			slog.String(logging.ActionAgentCwd, agent.Cwd),
+		}
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
 
-	attrs := []slog.Attr{
-		slog.String(logging.ActionName, name),
-		slog.String(logging.ActionAgentID, agent.ID),
-		slog.String(logging.ActionAgentCwd, agent.Cwd),
+		if done != nil {
+			done(err)
+		}
 	}
-	logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
 }
 
 func (s *AgentService) getCleanupAction(ctx context.Context, agent agentstore.Agent) string {

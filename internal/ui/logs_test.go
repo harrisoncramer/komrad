@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"weave/config"
+	agentstore "weave/internal/store/agent"
+	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/stretchr/testify/assert"
@@ -20,6 +22,8 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 
 	m := infoModel(tmux)
 	m.logPath = path
+	m.actionLogsDir = t.TempDir()
+	m.listing.agents[0].agent.ID = "a1"
 
 	return m, path
 }
@@ -34,134 +38,83 @@ func pressLogs(t *testing.T, m model) model {
 	return panel
 }
 
-// TestLogsOpenBelowTheStagedAgent covers the log key. The cursor is on a live agent, whose
-// own pane is swapped into the stage, and the log opens under it rather than over it, so
-// the agent stays on screen while the log is read.
-func TestLogsOpenBelowTheStagedAgent(t *testing.T) {
+func TestCycleLogsWalksTheStops(t *testing.T) {
 	tmux := &recordingTmux{}
-	m, path := logsModel(t, tmux)
+	m, _ := logsModel(t, tmux)
 
 	m.stageSelection()
 	require.Equal(t, 1, tmux.swaps, "the live agent is staged to begin with")
-	require.Empty(t, tmux.respawns, "nothing is open below it")
 
-	shown := pressLogs(t, m)
-
-	assert.Equal(t, infoLogs, shown.info.kind)
-	assert.Nil(t, shown.banner)
+	first := pressLogs(t, m)
+	assert.Equal(t, infoSetupLog, first.info.kind)
 	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
 	require.Len(t, tmux.respawns, 1)
 	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
-	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
-	assert.Contains(t, tmux.respawns[0], config.DefaultLogViewer)
+
+	second := pressLogs(t, first)
+	assert.Equal(t, infoTeardownLog, second.info.kind)
+
+	third := pressLogs(t, second)
+	assert.Equal(t, infoAgentLog, third.info.kind)
+
+	fourth := pressLogs(t, third)
+	assert.Equal(t, infoNothing, fourth.info.kind)
+	assert.Contains(t, tmux.killed, "%2", "the log's own pane goes with it")
+
+	fifth := pressLogs(t, fourth)
+	assert.Equal(t, infoSetupLog, fifth.info.kind, "cycling past closed reopens at the first stop")
+	assert.Len(t, tmux.respawns, 4, "one respawn per stop already visited, plus the reopened one")
 }
 
-// TestLogsToggleClosesThePane covers the second press. The key is the way out as well as the
-// way in, and the log is the only thing that pane holds, so the way out takes the pane with it.
-func TestLogsToggleClosesThePane(t *testing.T) {
+func TestCycleLogsDoesNothingWithoutASelectedAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
+	m.tree = treeState{}
 
-	m.stageSelection()
+	shown := pressLogs(t, m)
 
-	hidden := pressLogs(t, pressLogs(t, m))
-
-	assert.Equal(t, infoNothing, hidden.info.kind)
-	assert.Contains(t, tmux.killed, "%2", "the log's own pane goes with it")
+	assert.Equal(t, infoNothing, shown.info.kind)
+	assert.Empty(t, tmux.respawns)
 }
 
-// TestLogsSurviveACursorMove covers moving off the row the log was opened from. The log is
-// about the service rather than the row, so it stays where it is and the stage above it
-// follows the cursor on its own.
-func TestLogsSurviveACursorMove(t *testing.T) {
+func TestCycleLogsBlockedWhileASetupIsStreaming(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.info.kind = infoSetup
+	m.setupPending = true
+
+	shown := pressLogs(t, m)
+
+	assert.Equal(t, infoSetup, shown.info.kind, "the live pane is left alone rather than hijacked")
+	assert.Empty(t, tmux.respawns)
+}
+
+func TestCycleLogsWorksAfterASetupHasResolved(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.info.kind = infoSetup
+	m.setupPending = false
+
+	shown := pressLogs(t, m)
+
+	assert.Equal(t, infoSetupLog, shown.info.kind, "a resolved create no longer blocks the key, even though the crash pane is still up")
+}
+
+func TestCycleLogsSurvivesACursorMove(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
 	shown := pressLogs(t, m)
-	require.Equal(t, infoLogs, shown.info.kind)
+	require.Equal(t, infoSetupLog, shown.info.kind)
 
 	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, infoLogs, panel.info.kind)
+	assert.Equal(t, infoSetupLog, panel.info.kind)
 }
 
-// TestLogsSurviveARefresh covers the pass that restages every second the panel is open.
-// The stage compares what it is asked for against what it is already showing, so a log
-// left up is not respawned under the person reading it.
-func TestLogsSurviveARefresh(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, _ := logsModel(t, tmux)
-
-	shown := pressLogs(t, m)
-	require.Len(t, tmux.respawns, 1)
-
-	shown.stageSelection()
-	shown.stageSelection()
-
-	assert.Len(t, tmux.respawns, 1, "the pager is left alone")
-}
-
-// TestLogsWithNoLogFile covers the key pressed before the service has ever written
-// anything. less given a path it cannot open exits at once and takes the stage pane down
-// with it, which reads as a key that did nothing, so the panel says so itself instead.
-func TestLogsWithNoLogFile(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, path := logsModel(t, tmux)
-	m.logPath = filepath.Join(filepath.Dir(path), "absent.log")
-
-	shown := pressLogs(t, m)
-
-	assert.NotNil(t, shown.banner)
-	assert.Equal(t, infoNothing, shown.info.kind)
-	assert.Empty(t, tmux.respawns)
-}
-
-// TestLogsShowOnAnEmptyList covers the log asked for with nothing to list, which is one of
-// the moments it is worth the most: an empty panel is what a service that cannot answer
-// looks like, and the reason why is in the file.
-func TestLogsShowOnAnEmptyList(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, path := logsModel(t, tmux)
-	m.tree = treeState{}
-
-	shown := pressLogs(t, m)
-
-	assert.Equal(t, infoLogs, shown.info.kind)
-	require.Len(t, tmux.respawns, 1)
-	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
-}
-
-// TestLogsOpenFromEveryScreen covers the key on the screens that list something other than
-// agents. The log is about the service, which is as likely to be doubted from the schedules
-// or the archive as from the agents list.
-func TestLogsOpenFromEveryScreen(t *testing.T) {
-	screens := map[string]screen{
-		"schedules": screenSchedules,
-		"archive":   screenArchive,
-		"actions":   screenActions,
-	}
-
-	for name, from := range screens {
-		t.Run(name, func(t *testing.T) {
-			tmux := &recordingTmux{}
-			m, path := logsModel(t, tmux)
-			m.screen = from
-
-			shown := pressLogs(t, m)
-
-			assert.Equal(t, infoLogs, shown.info.kind)
-			assert.Equal(t, from, shown.screen, "the key opens the log without leaving the screen")
-			require.Len(t, tmux.respawns, 1)
-			assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
-		})
-	}
-}
-
-// TestLogsTypeIntoAnOpenQuery covers the key while the search screen's query line has it,
-// where a key bound to something has to type rather than act.
-func TestLogsTypeIntoAnOpenQuery(t *testing.T) {
+func TestCycleLogsTypeIntoAnOpenQuery(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 	m.screen = screenSearch
@@ -174,16 +127,59 @@ func TestLogsTypeIntoAnOpenQuery(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
-// TestLogArgv covers the command the log key runs, which is the user's rather than the
-// panel's. The command's inputs are exported into its environment rather than substituted
-// into its text, so a tool's own placeholders stay its own: fzf's "{}" means the selected
-// line, and a panel that rewrote it before fzf saw it would break half of fzf's manual.
+func TestActionLogContentPlaceholdersWhenEmpty(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	content := m.actionLogContent(config.ActionLogSetup)
+
+	assert.Contains(t, content.Key, "no setup log yet")
+}
+
+func TestActionLogContentPagesTheDurableFile(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	path := config.ActionLogPath(m.actionLogsDir, "a1", config.ActionLogSetup)
+	require.NoError(t, os.WriteFile(path, []byte("cloning worktree\n"), 0o644))
+
+	content := m.actionLogContent(config.ActionLogSetup)
+	argv, ok := content.Render(layout.Target{})
+
+	require.True(t, ok)
+	assert.Contains(t, argv[2], "export WEAVE_LOG='"+path+"'")
+	assert.Contains(t, argv[2], config.DefaultProcessViewer)
+}
+
+func TestActionLogContentWithNoAgentSelected(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.tree = treeState{}
+
+	content := m.actionLogContent(config.ActionLogSetup)
+
+	assert.Contains(t, content.Key, "select an agent")
+}
+
+func TestAgentLogContentExportsTheAgentID(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, path := logsModel(t, tmux)
+
+	content := m.agentLogContent()
+	argv, ok := content.Render(layout.Target{})
+
+	require.True(t, ok)
+	assert.Contains(t, argv[2], "export WEAVE_LOG='"+path+"'")
+	assert.Contains(t, argv[2], "export WEAVE_AGENT_ID='a1'")
+}
+
 func TestLogArgv(t *testing.T) {
 	tests := []struct {
-		name   string
-		viewer string
-		path   string
-		want   string
+		name    string
+		viewer  string
+		path    string
+		agentID string
+		want    string
 	}{
 		{
 			name: "nothing configured falls back to a pager on the file",
@@ -191,10 +187,11 @@ func TestLogArgv(t *testing.T) {
 			want: config.DefaultLogViewer,
 		},
 		{
-			name:   "a pipeline is left exactly as it was written",
-			viewer: `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
-			path:   "/tmp/weave.log",
-			want:   `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
+			name:    "a pipeline is left exactly as it was written",
+			viewer:  `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
+			path:    "/tmp/weave.log",
+			agentID: "a1",
+			want:    `jq -c . "$WEAVE_LOG" | fzf --ansi --preview 'echo {}'`,
 		},
 		{
 			name:   "a viewer that is only whitespace is no viewer at all",
@@ -206,35 +203,62 @@ func TestLogArgv(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			argv := logArgv(tt.viewer, tt.path)
+			argv := logArgv(tt.viewer, tt.path, tt.agentID)
 
 			require.Len(t, argv, 3)
 			assert.Equal(t, []string{"sh", "-c"}, argv[:2], "a pipeline needs a shell to read it")
 			assert.Contains(t, argv[2], tt.want)
 			assert.Contains(t, argv[2], "export WEAVE_LOG='"+tt.path+"'; ")
+			if tt.agentID != "" {
+				assert.Contains(t, argv[2], "export WEAVE_AGENT_ID='"+tt.agentID+"'; ")
+			} else {
+				assert.NotContains(t, argv[2], "export WEAVE_AGENT_ID")
+			}
 		})
 	}
 }
 
-// TestLogArgvQuotesTheEnvironment covers a path the shell would otherwise read as two
-// words, or as the end of a quoted string.
 func TestLogArgvQuotesTheEnvironment(t *testing.T) {
-	argv := logArgv("", "/Users/a b/it's.log")
+	argv := logArgv("", "/Users/a b/it's.log", "")
 
 	assert.Contains(t, argv[2], `export WEAVE_LOG='/Users/a b/it'\''s.log'`)
 }
 
-// TestLogsUseTheConfiguredViewer covers the key itself running what the config named,
-// rather than the panel's own default reaching the pane whatever the user asked for.
-func TestLogsUseTheConfiguredViewer(t *testing.T) {
+func TestProcessLogArgvFallsBackToTheDefault(t *testing.T) {
+	argv := processLogArgv("", "/tmp/setup.log")
+
+	require.Len(t, argv, 3)
+	assert.Contains(t, argv[2], config.DefaultProcessViewer)
+	assert.Contains(t, argv[2], "export WEAVE_LOG='/tmp/setup.log'; ")
+	assert.NotContains(t, argv[2], "WEAVE_AGENT_ID")
+}
+
+// TestFailedPlaceholderPointsAtTheLogWhenThereIsOne covers the two ways a failed agent's
+// placeholder can go: when its action left a durable log, the placeholder just points at
+// it, since repeating the reason there too would be the same failure shown twice; when there
+// is no log to point at — a failure that never reached an action at all, like a tmux refusal
+// — the reason is the only place left to read it, so it is shown inline instead.
+func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	tmux := &recordingTmux{}
-	m, path := logsModel(t, tmux)
-	m.logViewer = `jq -c . "$WEAVE_LOG" | fzf --ansi --tac`
+	m, _ := logsModel(t, tmux)
 
-	shown := pressLogs(t, m)
+	agent := agentstore.Agent{
+		ID:    "a1",
+		State: agentstore.StateFailedToCreate,
+		Metadata: []agentstore.Metadata{
+			{Key: "error", Value: "failed to open a window: tmux refused"},
+		},
+	}
 
-	require.Equal(t, infoLogs, shown.info.kind)
-	require.Len(t, tmux.respawns, 1)
-	assert.Contains(t, tmux.respawns[0], `jq -c . "$WEAVE_LOG" | fzf --ansi --tac`)
-	assert.Contains(t, tmux.respawns[0], "export WEAVE_LOG='"+path+"'")
+	path := config.ActionLogPath(m.actionLogsDir, agent.ID, config.ActionLogSetup)
+	require.NoError(t, os.WriteFile(path, []byte("cloning worktree\n"), 0o644))
+
+	withLog := m.failedPlaceholder(agent)
+	assert.Contains(t, withLog, `Press "l"`)
+	assert.NotContains(t, withLog, "tmux refused", "the log already says why, so the reason is not repeated here")
+
+	require.NoError(t, os.Remove(path))
+
+	withoutLog := m.failedPlaceholder(agent)
+	assert.Contains(t, withoutLog, "tmux refused", "nothing else is left to say why, so the reason falls back to here")
 }

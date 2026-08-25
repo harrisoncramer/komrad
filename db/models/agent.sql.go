@@ -107,6 +107,7 @@ FROM
     agents
 WHERE
     archived_at IS NULL
+    AND state NOT IN ('failed_to_create', 'failed_to_cleanup')
 `
 
 func (q *Queries) CountLiveAgents(ctx context.Context) (int64, error) {

@@ -513,7 +513,7 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's cleanup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				return s.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
+				return s.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", nil)
 			},
 			wantTrigger: TriggerCleanup,
 		},
@@ -575,7 +575,7 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		script := filepath.Join(dir, "ok")
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho \"working in $FOO\" >&2\n"), 0o755))
 
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, []string{"FOO=api-auth"}, pane, 2*time.Second)
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, []string{"FOO=api-auth"}, pane, "", 2*time.Second)
 
 		require.NoError(t, err)
 		assert.Equal(t, 0, result.ExitCode)
@@ -587,7 +587,7 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		script := filepath.Join(dir, "bad")
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'fatal: already checked out' >&2\nexit 7\n"), 0o755))
 
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "bad", Path: script, Executable: true}, nil, pane, 2*time.Second)
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "bad", Path: script, Executable: true}, nil, pane, "", 2*time.Second)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, actions.ErrFailed)
@@ -600,15 +600,38 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		server.Run("send-keys", "-t", pane, "Enter")
 	})
 
+	t.Run("a script that only ever writes to stdout", func(t *testing.T) {
+		pane := freshPane(t)
+		script := filepath.Join(dir, "stdout-only")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'hello 1'\necho 'hello 2'\nexit 1\n"), 0o755))
+		logPath := filepath.Join(t.TempDir(), "setup.log")
+
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "stdout-only", Path: script, Executable: true}, nil, pane, logPath, 2*time.Second)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, actions.ErrFailed)
+		assert.Contains(t, string(result.Stderr), "hello 1")
+		assert.Contains(t, string(result.Stderr), "hello 2")
+		persisted, readErr := os.ReadFile(logPath)
+		require.NoError(t, readErr)
+		assert.Contains(t, string(persisted), "hello 1", "stdout is what most scripts fail through, not just stderr")
+		assert.Contains(t, string(persisted), "hello 2")
+	})
+
 	t.Run("a script that outlives its timeout", func(t *testing.T) {
 		pane := freshPane(t)
 		script := filepath.Join(dir, "slow")
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
+		logPath := filepath.Join(t.TempDir(), "setup.log")
 
-		_, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, 200*time.Millisecond)
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, logPath, 200*time.Millisecond)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		assert.Contains(t, string(result.Stderr), "gave up after 200ms", "the reason is not silently lost")
+		persisted, readErr := os.ReadFile(logPath)
+		require.NoError(t, readErr)
+		assert.Contains(t, string(persisted), "gave up after 200ms", "and it lands in the durable log a person cycles to later")
 	})
 
 	t.Run("a pane that is already gone", func(t *testing.T) {
@@ -616,10 +639,34 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		server.Run("kill-pane", "-t", pane)
 
 		script := filepath.Join(dir, "ok")
-		_, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, nil, pane, time.Second)
+		_, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, nil, pane, "", time.Second)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, actions.ErrNotStartable)
+	})
+
+	t.Run("a pane killed while it is running", func(t *testing.T) {
+		pane := freshPane(t)
+		script := filepath.Join(dir, "slow")
+		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
+		logPath := filepath.Join(t.TempDir(), "setup.log")
+
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			server.Run("kill-pane", "-t", pane)
+		}()
+
+		began := time.Now()
+		result, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, logPath, 30*time.Second)
+		elapsed := time.Since(began)
+
+		require.Error(t, err)
+		assert.ErrorIs(t, err, errPaneDied)
+		assert.Less(t, elapsed, 5*time.Second, "noticed the pane dying rather than waiting out the full timeout")
+		assert.Contains(t, string(result.Stderr), "pane closed before the action finished")
+		persisted, readErr := os.ReadFile(logPath)
+		require.NoError(t, readErr)
+		assert.Contains(t, string(persisted), "pane closed before the action finished", "left for a person cycling to the setup log to read")
 	})
 }
 
@@ -638,7 +685,7 @@ func (realPaneRunner) DefaultShell() string       { return "" }
 // is still removable.
 func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
 	err := actionService(t, t.TempDir(), &recordingRunner{}).
-		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed")
+		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
 
 	require.ErrorIs(t, err, actions.ErrActionNotFound)
 }
@@ -791,13 +838,20 @@ func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
 	ctx, records := loggedContext(t)
 
 	gone := "/repo/.worktrees/removed"
+	var doneErr error
+	var doneCalled bool
 	require.NoError(t, actionService(t, dir, runner).
-		RunCleanupAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup"))
+		RunCleanupAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup", func(err error) {
+			doneCalled = true
+			doneErr = err
+		}))
 
 	got := recordFor(t, records(), "action failed")
 	assert.Equal(t, TriggerCleanup, got["weave.action.trigger"])
 	assert.Equal(t, "a2", got["weave.action.agent.id"])
 	assert.Equal(t, gone, got["weave.action.agent.cwd"], "the row is gone, so the record is what names the directory")
+	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")
+	assert.ErrorIs(t, doneErr, actions.ErrFailed)
 }
 
 // TestRunCleanupActionLogsWhatAZeroExitSaid covers the only record a refusal leaves. The
@@ -812,12 +866,51 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	runner := &recordingRunner{results: map[string]runResult{"cleanup": {stderr: declined}}}
 	ctx, records := loggedContext(t)
 
+	var doneErr error
+	var doneCalled bool
 	require.NoError(t, actionService(t, dir, runner).
-		RunCleanupAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup"))
+		RunCleanupAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup", func(err error) {
+			doneCalled = true
+			doneErr = err
+		}))
 
 	got := recordFor(t, records(), "action finished")
 	assert.Equal(t, float64(0), got["process.exit.code"], "the action succeeded")
 	assert.Equal(t, declined, got["weave.action.stderr"], "what it declined to do is kept")
+	assert.True(t, doneCalled)
+	assert.NoError(t, doneErr)
+}
+
+// TestRunCleanupActionPersistsStdoutOnAFailure is the real-runner regression for the durable
+// teardown log: a cleanup action runs headless, with nothing attached to read its output live,
+// so the only account of a failure is what gets captured into the durable log. Most scripts —
+// this one included — fail through a plain echo on stdout and a bare exit, never touching
+// stderr at all; before Run() captured stdout too, that failure left the log on disk empty.
+func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte(
+		"#!/bin/sh\necho tearing down 1\necho tearing down 2\nexit 1\n",
+	), 0o755))
+
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	done := make(chan error, 1)
+	require.NoError(t, svc.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+		done <- err
+	}))
+
+	select {
+	case err := <-done:
+		require.Error(t, err)
+	case <-time.After(5 * time.Second):
+		t.Fatal("the cleanup action never reported finishing")
+	}
+
+	persisted, err := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogTeardown))
+	require.NoError(t, err)
+	assert.Contains(t, string(persisted), "tearing down 1")
+	assert.Contains(t, string(persisted), "tearing down 2")
 }
 
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
@@ -1009,7 +1102,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a cleanup that declares nothing is unbounded too",
 			action: "bare",
 			fire: func(s *ActionService, name string) error {
-				return s.RunCleanupAction(context.Background(), agent, name)
+				return s.RunCleanupAction(context.Background(), agent, name, nil)
 			},
 			want: 0,
 		},
@@ -1073,6 +1166,12 @@ func TestActionTimeouts(t *testing.T) {
 func actionService(t *testing.T, dir string, runner actionRunner) *ActionService {
 	t.Helper()
 
+	return actionServiceWithLogsDir(t, dir, runner, "")
+}
+
+func actionServiceWithLogsDir(t *testing.T, dir string, runner actionRunner, logsDir string) *ActionService {
+	t.Helper()
+
 	tag := "✓"
 
 	return NewActionService(ActionParams{
@@ -1104,6 +1203,7 @@ func actionService(t *testing.T, dir string, runner actionRunner) *ActionService
 		Socket:  "weave",
 		Editor:  "nvim",
 		BinPath: "/opt/weave/bin/weave",
+		LogsDir: logsDir,
 	})
 }
 

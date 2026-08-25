@@ -116,7 +116,7 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 	}
 }
 
-func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (*agentstore.Agent, error) {
+func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
 	plan, err := s.planLaunch(ctx, p)
 	if err != nil {
 		return nil, err
@@ -145,12 +145,9 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 			s.tmux.KillPane(pane)
 		}
 		if setupRan {
-			s.runCleanup(ctx, agent, plan.cleanupAction)
+			s.runCleanup(ctx, agent, plan.cleanupAction, nil)
 		}
-		if err := s.removeAgents(ctx, []string{id}); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to remove an agent that did not finish launching",
-				append([]slog.Attr{slog.String(logging.AgentID, id)}, logging.Err(err)...)...)
-		}
+		s.failCreate(ctx, agent, launchErr)
 	}()
 
 	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
@@ -208,6 +205,54 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	launched = true
 
 	return created, nil
+}
+
+const maxFailureReasonLen = 480
+
+func (s *AgentService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
+	s.failAs(ctx, agent, agentstore.StateFailedToCreate, "create", cause)
+}
+
+func (s *AgentService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
+	s.failAs(ctx, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
+}
+
+// failAs marks an agent as having failed create or cleanup, and un-archives it: a delete
+// whose cleanup action fails has already archived the row as its first step (that is what
+// "archive and delete" does), and a failed row left archived is invisible in the one place
+// its failure state is meant to be seen — the live list, not the archive.
+func (s *AgentService) failAs(ctx context.Context, agent agentstore.Agent, state, verb string, cause error) {
+	agent.State = state
+	if err := s.agents.Update(ctx, agent); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+		return
+	}
+
+	if err := s.agents.Restore(ctx, []string{agent.ID}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to un-archive an agent left failed",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+
+	reason := failureReason(cause)
+	if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: "error", Value: &reason}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+}
+
+func failureReason(cause error) string {
+	if cause == nil {
+		return ""
+	}
+
+	text := strings.Join(strings.Fields(cause.Error()), " ")
+	if len(text) > maxFailureReasonLen {
+		text = text[:maxFailureReasonLen]
+	}
+
+	return text
 }
 
 func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {

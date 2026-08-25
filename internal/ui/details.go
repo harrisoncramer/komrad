@@ -164,7 +164,7 @@ func (m model) detailsView() string {
 
 	return m.detailsRule() +
 		m.detailsTitle(held) +
-		renderList(rows, cursor, lines) +
+		padRows(renderList(rows, cursor, lines), lines) +
 		m.detailsRule()
 }
 

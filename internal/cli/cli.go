@@ -79,6 +79,7 @@ func NewRootCommand() *cobra.Command {
 			app.layout = cfg.Layout
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer
+			app.processViewer = cfg.Log.ProcessViewer
 			app.configPaths = configPaths
 			app.env = env
 			app.configSources = report.Sources

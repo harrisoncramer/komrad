@@ -125,7 +125,7 @@ func TestListKnownKeys(t *testing.T) {
 		{
 			name:  "a table one level down",
 			table: "log",
-			want:  []string{"level", "viewer"},
+			want:  []string{"level", "viewer", "process_viewer"},
 		},
 		{
 			name:  "a table two levels down",

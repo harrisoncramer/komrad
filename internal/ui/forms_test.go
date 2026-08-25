@@ -539,7 +539,8 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 // setup action can run for minutes, and a person is better served by the agents list than
 // by a frozen form for that long. A workflow with a setup action also gets a pane opened
 // for it before the write goes out, closed again once a create lands and left up, showing
-// whatever the action printed, when one is refused.
+// whatever the action printed, when the setup action itself is what failed — that failure
+// is not also flashed as a banner, since the pane and the persisted setup log already say why.
 func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -549,10 +550,9 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}{
 		{name: "a create that lands"},
 		{
-			name:       "a setup action that fails",
-			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("the setup action failed: exit 7")),
-			wantOpen:   true,
-			wantDetail: "the setup action failed: exit 7",
+			name:     "a setup action that fails",
+			refuse:   connect.NewError(connect.CodeFailedPrecondition, errors.New("the setup action failed: exit 7")),
+			wantOpen: true,
 		},
 		{
 			name:       "a create refused before setup ever ran",
@@ -587,11 +587,12 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			got := settle(t, m, cmd)
 
 			if tt.refuse != nil {
-				require.NotNil(t, got.banner, "a refused create is reported")
-				assert.Equal(t, tt.wantDetail, got.banner.Detail)
 				if tt.wantOpen {
+					assert.Nil(t, got.banner, "a setup failure is left to the setup log, not flashed again")
 					assert.Equal(t, infoSetup, got.info.kind, "left up so what the setup action printed can still be read")
 				} else {
+					require.NotNil(t, got.banner, "a refused create is reported")
+					assert.Equal(t, tt.wantDetail, got.banner.Detail)
 					assert.Equal(t, infoNothing, got.info.kind, "nothing ran in it, so it closes with the refusal")
 				}
 

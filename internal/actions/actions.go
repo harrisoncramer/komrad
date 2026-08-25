@@ -108,10 +108,12 @@ type Result struct {
 // finished. What it does report is a failure to start, which is otherwise
 // indistinguishable from a keypress that did nothing.
 //
-// Stdin and stdout are left nil, which os/exec maps to the null device: an inherited stdin
-// would let a script read keystrokes meant for the panel, and inherited output would paint
-// over the frame it is drawing. The file is executed directly rather than through a shell,
-// so nothing in the environment is ever parsed as a command line.
+// Stdin is left nil, which os/exec maps to the null device: an inherited stdin would let a
+// script read keystrokes meant for the panel. Stdout and stderr are captured together into
+// one buffer rather than shown live, since nothing in this path is attached to a pane a
+// person is watching — most scripts fail through a plain echo on stdout, not stderr, and a
+// capture that only kept stderr would miss that. The file is executed directly rather than
+// through a shell, so nothing in the environment is ever parsed as a command line.
 func (r Runner) Run(p RunParams) error {
 	if !p.Action.Executable {
 		return fmt.Errorf("failed to run action %s: %w", p.Action.Name, ErrNotExecutable)
@@ -121,7 +123,7 @@ func (r Runner) Run(p RunParams) error {
 		return fmt.Errorf("failed to run action %s in %s: %w", p.Action.Name, p.Dir, ErrDirMissing)
 	}
 
-	var stderr tail
+	var output tail
 
 	ctx := context.Background()
 	cancel := func() {}
@@ -132,7 +134,8 @@ func (r Runner) Run(p RunParams) error {
 	cmd := exec.CommandContext(ctx, p.Action.Path)
 	cmd.Dir = p.Dir
 	cmd.Env = append(os.Environ(), p.Env...)
-	cmd.Stderr = &stderr
+	cmd.Stdout = &output
+	cmd.Stderr = &output
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = killGroup(cmd)
 	cmd.WaitDelay = killDelay
@@ -159,7 +162,7 @@ func (r Runner) Run(p RunParams) error {
 		p.Done(r.outcome(outcomeParams{
 			action:  p.Action,
 			state:   cmd.ProcessState,
-			stderr:  stderr.kept(),
+			stderr:  output.kept(),
 			waitErr: waitErr,
 		}))
 	}()

@@ -14,60 +14,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBranchMark covers the git branch shown beside an agent's row: nothing for one the
-// branch syncer has not found a branch for, and just the icon, no branch name, for one it
-// has.
-func TestBranchMark(t *testing.T) {
-	tests := []struct {
-		name   string
-		branch *string
-		want   bool
-	}{
-		{
-			name: "no branch found is drawn as nothing",
-		},
-		{
-			name:   "a found branch is drawn with the icon alone",
-			branch: xptr.Ptr("feature/worktrees"),
-			want:   true,
-		},
+// TestAgentsViewRowWidthIsStableRegardlessOfBranch covers the fixed slot left where the
+// branch glyph used to draw: an agent with a branch and one without must produce rows of
+// the same width, so nothing jitters as the branch syncer catches up.
+func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
+	withBranch := model{
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:    config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", Branch: xptr.Ptr("agent/a1")}}}},
 	}
+	withoutBranch := withBranch
+	withoutBranch.listing.agents = []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1"}}}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := branchMark(agentstore.Agent{Branch: tt.branch})
-			if !tt.want {
-				assert.Empty(t, got)
-				return
-			}
-
-			assert.Contains(t, got, branchIcon)
-			assert.NotContains(t, got, "feature/worktrees", "the branch name itself is not drawn, only the icon")
-		})
-	}
-}
-
-// TestAgentsViewShowsBranch covers the row itself: an agent the branch syncer found a
-// branch for shows the icon beside its name, and one it has not draws the row without it.
-func TestAgentsViewShowsBranch(t *testing.T) {
-	m := model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", Branch: xptr.Ptr("agent/a1")}},
-			{agent: agentstore.Agent{ID: "a2", Name: "reviewer", WorkflowID: "w1"}},
-		}},
-	}
-
-	rows := strings.Split(m.agentsView(), "\n")
-	worker, ok := rowNamed(rows, "worker")
+	rowWithBranch, ok := rowNamed(strings.Split(withBranch.agentsView(), "\n"), "worker")
 	require.True(t, ok)
-	assert.Contains(t, worker, branchIcon)
-	assert.NotContains(t, worker, "agent/a1", "the branch name itself is not drawn, only the icon")
+	assert.NotContains(t, rowWithBranch, "agent/a1", "the branch name itself is never drawn")
 
-	reviewer, ok := rowNamed(rows, "reviewer")
+	rowWithoutBranch, ok := rowNamed(strings.Split(withoutBranch.agentsView(), "\n"), "worker")
 	require.True(t, ok)
-	assert.NotContains(t, reviewer, branchIcon)
+
+	assert.Equal(t, len(rowWithBranch), len(rowWithoutBranch))
 }
 
 // TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree

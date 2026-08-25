@@ -83,6 +83,15 @@ func drawWindow(rows []string, start, visible int) string {
 	return b.String()
 }
 
+func padRows(rendered string, lines int) string {
+	got := strings.Count(rendered, "\n")
+	if got >= lines {
+		return rendered
+	}
+
+	return rendered + strings.Repeat("\n", lines-got)
+}
+
 func windowStart(cursor, total, visible int) int {
 	if visible >= total {
 		return 0

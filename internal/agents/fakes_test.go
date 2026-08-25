@@ -369,6 +369,7 @@ type agentServiceOptions struct {
 	lifecycle lifecycleActioner
 	maxAgents int
 	notifier  parentNotifier
+	logsDir   string
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *AgentService {
@@ -384,6 +385,7 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
 		Notifier:           options.notifier,
+		LogsDir:            options.logsDir,
 	})
 }
 
@@ -407,16 +409,17 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleAction
 }
 
 type fakeLifecycle struct {
-	dir        string
-	resumeDir  string
-	setupErr   error
-	resumeErr  error
-	cleanupErr error
-	setup      []string
-	setupPane  []string
-	resumed    []string
-	cleanup    []string
-	cleanupCwd []string
+	dir             string
+	resumeDir       string
+	setupErr        error
+	resumeErr       error
+	cleanupStartErr error
+	cleanupRunErr   error
+	setup           []string
+	setupPane       []string
+	resumed         []string
+	cleanup         []string
+	cleanupCwd      []string
 }
 
 func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
@@ -441,11 +444,19 @@ func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, n
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunCleanupAction(_ context.Context, agent agentstore.Agent, name string) error {
+func (f *fakeLifecycle) RunCleanupAction(_ context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	f.cleanup = append(f.cleanup, name)
 	f.cleanupCwd = append(f.cleanupCwd, agent.Cwd)
 
-	return f.cleanupErr
+	if f.cleanupStartErr != nil {
+		return f.cleanupStartErr
+	}
+
+	if done != nil {
+		done(f.cleanupRunErr)
+	}
+
+	return nil
 }
 
 func (s *testStore) workflowService(tmux *fakeTmux) *WorkflowService {

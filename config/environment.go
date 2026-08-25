@@ -68,3 +68,19 @@ func LookupEnv(name string) (string, bool) {
 func (e *Environment) LogPath() string {
 	return filepath.Join(e.CacheDir, "weave.log")
 }
+
+// ActionLogsDir is where a setup or teardown action's own output is kept, one file per
+// agent per kind, so it is still there to read after the pane it ran in has closed.
+func (e *Environment) ActionLogsDir() string {
+	return filepath.Join(e.CacheDir, "weave-action-logs")
+}
+
+const (
+	ActionLogSetup    = "setup"
+	ActionLogTeardown = "teardown"
+)
+
+// ActionLogPath is where one agent's setup or teardown log lives under dir.
+func ActionLogPath(dir, agentID, kind string) string {
+	return filepath.Join(dir, agentID+"-"+kind+".log")
+}

@@ -1,15 +1,21 @@
 package ui
 
-import "weave/internal/ui/layout"
+import (
+	"weave/config"
+	"weave/internal/ui/layout"
+)
 
 type infoKind int
 
 const (
 	infoNothing infoKind = iota
-	infoLogs
 
 	infoEdit
 	infoSetup
+
+	infoSetupLog
+	infoTeardownLog
+	infoAgentLog
 )
 
 type infoState struct {
@@ -48,8 +54,12 @@ func (m *model) forgetInfo() {
 
 func (m *model) stageInfo() {
 	switch m.info.kind {
-	case infoLogs:
-		m.frame.Show(layout.RegionInfo, newLogContent(m.logPath, logArgv(m.logViewer, m.logPath)))
+	case infoSetupLog:
+		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogSetup))
+	case infoTeardownLog:
+		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogTeardown))
+	case infoAgentLog:
+		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoNothing, infoEdit, infoSetup:
 	}
 }

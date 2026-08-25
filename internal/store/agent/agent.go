@@ -23,11 +23,17 @@ const maxMetadataKeys = 32
 const slotsLock int64 = 7_240_116
 
 const (
-	StateThinking  = "thinking"
-	StateWaiting   = "waiting"
-	StateIdle      = "idle"
-	StateSettingUp = "setting_up"
+	StateThinking        = "thinking"
+	StateWaiting         = "waiting"
+	StateIdle            = "idle"
+	StateSettingUp       = "setting_up"
+	StateFailedToCreate  = "failed_to_create"
+	StateFailedToCleanup = "failed_to_cleanup"
 )
+
+func IsFailed(state string) bool {
+	return state == StateFailedToCreate || state == StateFailedToCleanup
+}
 
 type Metadata struct {
 	Key   string

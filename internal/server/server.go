@@ -2,8 +2,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -178,6 +180,13 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 
+	actionLogsDir := p.Env.ActionLogsDir()
+	if err := os.MkdirAll(actionLogsDir, 0o755); err != nil {
+		srv.Close()
+
+		return nil, fmt.Errorf("failed to create %s: %w", actionLogsDir, err)
+	}
+
 	actionService := agents.NewActionService(agents.ActionParams{
 		Agents:     agentStore,
 		Workflows:  workflowStore,
@@ -187,6 +196,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Addr:       p.Addr,
 		Socket:     p.Env.TmuxSocket,
 		BuiltinDir: builtinActionsDir,
+		LogsDir:    actionLogsDir,
 		Editor:     p.Env.Editor,
 		BinPath:    p.HookCommand,
 	})
@@ -210,6 +220,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: p.FallbackResumeRoot,
 		Notifier:           mailService,
+		LogsDir:            actionLogsDir,
 	})
 
 	srv.Delivery = agents.NewDeliveryService(agents.NewDeliveryServiceParams{

@@ -229,7 +229,13 @@ func (m *model) beginWrite() {
 
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
-	m.report(result.summary, result.err)
+
+	setupFailed := result.setupPane && connect.CodeOf(result.err) == connect.CodeFailedPrecondition
+	if setupFailed {
+		m.report(result.summary, nil)
+	} else {
+		m.report(result.summary, result.err)
+	}
 
 	if result.written != nil {
 		m.enterScreen(screenAgents)
@@ -240,8 +246,12 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if result.setupPane && m.info.kind == infoSetup && connect.CodeOf(result.err) != connect.CodeFailedPrecondition {
-		m = m.closeInfo()
+	if result.setupPane {
+		m.setupPending = false
+
+		if m.info.kind == infoSetup && !setupFailed {
+			m = m.closeInfo()
+		}
 	}
 
 	if m.pendingForm {

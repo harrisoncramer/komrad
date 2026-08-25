@@ -65,6 +65,7 @@ type ActionService struct {
 	addr       string
 	socket     string
 	builtinDir string
+	logsDir    string
 	editor     string
 	binPath    string
 
@@ -80,6 +81,7 @@ type ActionParams struct {
 	Addr       string
 	Socket     string
 	BuiltinDir string
+	LogsDir    string
 	Editor     string
 	BinPath    string
 }
@@ -95,6 +97,7 @@ func NewActionService(p ActionParams) *ActionService {
 		addr:       p.Addr,
 		socket:     p.Socket,
 		builtinDir: p.BuiltinDir,
+		logsDir:    p.LogsDir,
 		editor:     p.Editor,
 		binPath:    p.BinPath,
 		catalog:    actions.NewCatalog(),
@@ -224,10 +227,11 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	began := time.Now()
 
 	timeout := action.Header.TimeoutOr(setupTimeout)
+	logPath := s.actionLogPath(p.agent.ID, config.ActionLogSetup)
 
 	var result actions.Result
 	if pane != "" {
-		result, err = s.runInPane(ctx, action, env, pane, timeout)
+		result, err = s.runInPane(ctx, action, env, pane, logPath, timeout)
 	} else {
 		result, err = s.runner.RunAndWait(ctx, actions.RunParams{
 			Action:  action,
@@ -235,6 +239,7 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 			Env:     env,
 			Timeout: timeout,
 		})
+		writeActionLog(ctx, logPath, result.Stderr)
 	}
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
@@ -262,7 +267,7 @@ const setupPaneWrapper = `
 mkfifo "$6"
 tee "$5" >&2 <"$6" &
 teepid=$!
-"$1" 2>"$6"
+"$1" >"$6" 2>&1
 ec=$?
 wait "$teepid"
 rm -f "$6"
@@ -279,7 +284,38 @@ printf '\n[setup action %s: gave up after %s]\n' "$1" "$2"
 exec "$3"
 `
 
-func (s *ActionService) runInPane(ctx context.Context, action actions.Action, env []string, pane string, timeout time.Duration) (actions.Result, error) {
+var errPaneDied = errors.New("the pane closed before it finished")
+
+const panePollInterval = 500 * time.Millisecond
+
+func (s *ActionService) waitForPane(ctx context.Context, pane, channel string) error {
+	done := make(chan error, 1)
+	go func() { done <- s.tmux.WaitFor(ctx, channel) }()
+
+	ticker := time.NewTicker(panePollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case err := <-done:
+			return err
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-ticker.C:
+			select {
+			case err := <-done:
+				return err
+			default:
+			}
+
+			if !s.tmux.IsPaneAlive(pane) {
+				return errPaneDied
+			}
+		}
+	}
+}
+
+func (s *ActionService) runInPane(ctx context.Context, action actions.Action, env []string, pane, logPath string, timeout time.Duration) (actions.Result, error) {
 	if !action.Executable {
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, ErrActionNotExecutable)
 	}
@@ -300,12 +336,16 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 	exitFile.Close()
 	defer removeTemp(ctx, exitFile.Name())
 
-	errFile, err := os.CreateTemp("", "weave-setup-err-")
-	if err != nil {
-		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
+	errPath := logPath
+	if errPath == "" {
+		errFile, err := os.CreateTemp("", "weave-setup-err-")
+		if err != nil {
+			return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
+		}
+		errFile.Close()
+		errPath = errFile.Name()
+		defer removeTemp(ctx, errPath)
 	}
-	errFile.Close()
-	defer removeTemp(ctx, errFile.Name())
 
 	fifoFile, err := os.CreateTemp("", "weave-setup-fifo-")
 	if err != nil {
@@ -328,28 +368,38 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 	argv := append([]string{"env", "-i"}, os.Environ()...)
 	argv = append(argv, env...)
 	argv = append(argv, "sh", "-c", setupPaneWrapper, "sh",
-		action.Path, s.socket, channel, exitFile.Name(), errFile.Name(), fifoPath)
+		action.Path, s.socket, channel, exitFile.Name(), errPath, fifoPath)
 	s.tmux.RespawnPane(pane, dir, argv...)
 
-	waitErr := s.tmux.WaitFor(waitCtx, channel)
+	waitErr := s.waitForPane(waitCtx, pane, channel)
 
-	stderr, readErr := os.ReadFile(errFile.Name())
+	stderr, readErr := os.ReadFile(errPath)
 	if readErr != nil {
-		logging.From(ctx).Warn("failed to read setup pane stderr", "path", errFile.Name(), "error", readErr)
+		logging.From(ctx).Warn("failed to read setup pane stderr", "path", errPath, "error", readErr)
 	}
 	stderr = tailBytes(stderr, setupPaneOutputLimit)
 
 	if waitErr != nil {
+		if errors.Is(waitErr, errPaneDied) {
+			stderr = appendNote(ctx, errPath, stderr, "the pane closed before the action finished")
+
+			return actions.Result{Stderr: stderr, ExitCode: -1},
+				fmt.Errorf("failed to run action %s: %w: %w", action.Name, actions.ErrNotStartable, errPaneDied)
+		}
+
 		if waitCtx.Err() != nil {
 			shell := s.tmux.DefaultShell()
 			if shell == "" {
 				shell = "/bin/sh"
 			}
 			s.tmux.RespawnPane(pane, dir, "sh", "-c", setupPaneGaveUpWrapper, "sh", action.Name, timeout.String(), shell)
+			stderr = appendNote(ctx, errPath, stderr, fmt.Sprintf("gave up after %s", timeout))
 
 			return actions.Result{Stderr: stderr, ExitCode: -1},
 				fmt.Errorf("failed to run action %s: %w: gave up after %s", action.Name, waitCtx.Err(), timeout)
 		}
+
+		stderr = appendNote(ctx, errPath, stderr, "could not tell whether it finished: "+waitErr.Error())
 
 		return actions.Result{Stderr: stderr, ExitCode: -1},
 			fmt.Errorf("failed to run action %s: could not tell whether it finished: %w", action.Name, waitErr)
@@ -389,8 +439,50 @@ func tailBytes(b []byte, limit int) []byte {
 	return b[len(b)-limit:]
 }
 
-// RunCleanupAction starts a cleanup action without waiting for it to finish.
-func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string) error {
+func (s *ActionService) actionLogPath(agentID, kind string) string {
+	if s.logsDir == "" || agentID == "" {
+		return ""
+	}
+
+	return config.ActionLogPath(s.logsDir, agentID, kind)
+}
+
+func appendNote(ctx context.Context, path string, stderr []byte, note string) []byte {
+	line := []byte("[" + note + "]\n")
+	if len(stderr) > 0 && stderr[len(stderr)-1] != '\n' {
+		line = append([]byte("\n"), line...)
+	}
+
+	if path != "" {
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			logging.From(ctx).Warn("failed to append to action log", "path", path, "error", err)
+		} else {
+			if _, err := f.Write(line); err != nil {
+				logging.From(ctx).Warn("failed to append to action log", "path", path, "error", err)
+			}
+			f.Close()
+		}
+	}
+
+	return tailBytes(append(stderr, line...), setupPaneOutputLimit)
+}
+
+func writeActionLog(ctx context.Context, path string, content []byte) {
+	if path == "" {
+		return
+	}
+
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		logging.From(ctx).Warn("failed to write action log", "path", path, "error", err)
+	}
+}
+
+// RunCleanupAction starts a cleanup action without waiting for it to finish. done, when
+// given, fires exactly once with the action's outcome once it actually finishes — nil for
+// success, the failure otherwise — but never for a refusal to start, which the return error
+// already reports.
+func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	action, env, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
 	if err != nil {
 		return err
@@ -401,6 +493,8 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 		env:     env,
 		agent:   agent,
 		trigger: TriggerCleanup,
+		logPath: s.actionLogPath(agent.ID, config.ActionLogTeardown),
+		done:    done,
 	})
 }
 
@@ -409,6 +503,8 @@ type startParams struct {
 	env     []string
 	agent   agentstore.Agent
 	trigger string
+	logPath string
+	done    func(error)
 }
 
 func (s *ActionService) start(ctx context.Context, p startParams) error {
@@ -423,14 +519,18 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 
 		Timeout: p.action.Header.TimeoutOr(0),
 		Done: func(result actions.Result, err error) {
+			writeActionLog(ctx, p.logPath, result.Stderr)
+
 			if err != nil {
 				logger.LogAttrs(ctx, slog.LevelError, "action failed",
 					append(failedAction(result, err), slog.Int64(logging.DurationMS, elapsedMS(began)))...)
-
-				return
+			} else {
+				logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 			}
 
-			logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
+			if p.done != nil {
+				p.done(err)
+			}
 		},
 	})
 	if err != nil {

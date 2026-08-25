@@ -89,7 +89,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus) {
-	if agent.State == agentstore.StateSettingUp {
+	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
 		return
 	}
 

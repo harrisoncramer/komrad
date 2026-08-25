@@ -53,6 +53,8 @@ func stateIcon(state string) string {
 		return "…"
 	case agentstore.StateSettingUp:
 		return "○"
+	case agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
+		return "✗"
 	default:
 		return "•"
 	}
@@ -60,7 +62,7 @@ func stateIcon(state string) string {
 
 func stateColor(state string) lipgloss.Color {
 	switch state {
-	case agentstore.StateWaiting:
+	case agentstore.StateWaiting, agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		return colorDanger
 	case agentstore.StateThinking:
 		return colorWarning
@@ -115,16 +117,6 @@ func hiddenTally(count int, showing bool) string {
 	}
 
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
-}
-
-const branchIcon = "⎇"
-
-func branchMark(agent agentstore.Agent) string {
-	if agent.Branch == nil {
-		return ""
-	}
-
-	return " " + dimStyle.Render(branchIcon) + " "
 }
 
 const worktreeRemovedIcon = "⊘"

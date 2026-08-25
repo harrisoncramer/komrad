@@ -312,7 +312,12 @@ func TestRunReportsTheOutcome(t *testing.T) {
 }
 
 // TestRunLeavesStdoutAlone covers the half of the streams that is still the null device.
-func TestRunLeavesStdoutAlone(t *testing.T) {
+// TestRunCapturesStdoutToo covers the fire-and-forget path, which nothing is watching live:
+// most scripts fail through a plain echo on stdout rather than a write to stderr, and a
+// cleanup action that only kept stderr would leave its durable log empty on exactly that
+// failure. Stdout is folded into Stderr rather than kept separately, since nothing downstream
+// distinguishes the two for a run nobody is attached to.
+func TestRunCapturesStdoutToo(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "chatty"), []byte(
 		"#!/bin/sh\necho an answer nobody asked for\n",
@@ -331,7 +336,9 @@ func TestRunLeavesStdoutAlone(t *testing.T) {
 		},
 	}))
 
-	assert.Empty(t, await(t, reported).result.Stdout)
+	result := await(t, reported).result
+	assert.Empty(t, result.Stdout, "Result.Stdout stays unused for this path")
+	assert.Contains(t, string(result.Stderr), "an answer nobody asked for")
 }
 
 type outcomeReport struct {

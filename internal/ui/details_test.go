@@ -271,10 +271,10 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 	}
 }
 
-// TestDetailsShrinksToAShortRecord covers a record shorter than the section's configured
-// share: the block draws only the fields the record has, rather than padding out to fill
-// the share it was given.
-func TestDetailsShrinksToAShortRecord(t *testing.T) {
+// TestDetailsPadsToItsShare covers a record shorter than the section's configured share: the
+// block fills the rest of its share with blank lines rather than shrinking, so the list above
+// it does not reflow as the cursor moves between records with different field counts.
+func TestDetailsPadsToItsShare(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	held := m.hoveredDetails()
 
@@ -282,7 +282,7 @@ func TestDetailsShrinksToAShortRecord(t *testing.T) {
 
 	fieldLines := strings.Count(m.detailsView(), "\n") - detailsChromeLines
 
-	assert.Equal(t, len(held.fields), fieldLines)
+	assert.Equal(t, m.detailsLines(), fieldLines)
 }
 
 // TestDetailsNeedsRoomForChromeAndAField covers the guard that closes the section entirely
@@ -381,6 +381,15 @@ func TestAgentFields(t *testing.T) {
 			},
 			wantLabels: []string{"branch", "pr"},
 			wantValues: []string{"harry/rate-limits", "https://github.com/o/r/pull/312"},
+		},
+		{
+			name: "why a create or cleanup failed is left to the failed placeholder, not repeated here",
+			metadata: []agentstore.Metadata{
+				{Key: "error", Value: "the setup action failed: exited 1"},
+				{Key: "branch", Value: "harry/rate-limits"},
+			},
+			wantLabels: []string{"branch"},
+			wantAbsent: []string{"error"},
 		},
 	}
 

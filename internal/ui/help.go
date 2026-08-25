@@ -124,7 +124,7 @@ func (m model) helpBinding() key.Binding {
 }
 
 func (m model) globalHelp() []key.Binding {
-	return []key.Binding{binding(m.keys.Logs.Open, m.logsDesc()), m.helpBinding()}
+	return []key.Binding{m.helpBinding()}
 }
 
 func (m model) agentHelp() keyMap {
@@ -144,7 +144,7 @@ func (m model) agentHelp() keyMap {
 	full := slices.Concat(
 		rows,
 		m.screenHelp(),
-		[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+		[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding(), binding(m.keys.Logs.Open, m.logsDesc())},
 		m.editFilterBinding(m.keys.Agents.Back),
 		m.globalHelp(),
 	)

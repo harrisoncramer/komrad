@@ -72,6 +72,10 @@ type Deps struct {
 
 	LogPath string
 
+	ProcessViewer string
+
+	ActionLogsDir string
+
 	ConfigErr error
 
 	StartupErr error
@@ -129,6 +133,8 @@ type model struct {
 
 	pendingForm bool
 
+	setupPending bool
+
 	helpExpanded bool
 
 	topHeld bool
@@ -138,6 +144,9 @@ type model struct {
 
 	logPath   string
 	logViewer string
+
+	processViewer string
+	actionLogsDir string
 
 	clip clipboardWriter
 }
@@ -153,6 +162,8 @@ func newModel(deps Deps) model {
 		addr:            deps.Addr,
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,
+		processViewer:   deps.ProcessViewer,
+		actionLogsDir:   deps.ActionLogsDir,
 		keys:            deps.Keys,
 		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,

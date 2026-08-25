@@ -256,7 +256,7 @@ func (m model) jumpCursor(idx int) model {
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
-		if item.alive || item.agent.State == agentstore.StateSettingUp {
+		if item.alive || item.agent.State == agentstore.StateSettingUp || agentstore.IsFailed(item.agent.State) {
 			return m, nil
 		}
 
@@ -349,6 +349,8 @@ func (m *model) stageSelection() {
 		m.stageDocument(workflowContextMarkdown(r.workflow))
 	case r.item.agent.State == agentstore.StateSettingUp:
 		m.stageDocument(settingUpPlaceholder)
+	case agentstore.IsFailed(r.item.agent.State):
+		m.stageDocument(m.failedPlaceholder(r.item.agent))
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)
 	default:
@@ -422,6 +424,34 @@ const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 const settingUpPlaceholder = "_setting up…_\n\nRunning the setup action. This agent has no pane yet."
 
+// failureReasonKey is the metadata key a failed create or cleanup records its reason under.
+// Excluded from the generic metadata dump in agentFields, since failedPlaceholder is
+// responsible for surfacing it — never both at once.
+const failureReasonKey = "error"
+
+func (m model) failedPlaceholder(agent agentstore.Agent) string {
+	label, kind := "setup", config.ActionLogSetup
+	if agent.State == agentstore.StateFailedToCleanup {
+		label, kind = "teardown", config.ActionLogTeardown
+	}
+
+	if m.hasActionLog(agent.ID, kind) {
+		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see the %s log.", label, label)
+	}
+
+	reason := ""
+	for _, entry := range agent.Metadata {
+		if entry.Key == failureReasonKey {
+			reason = entry.Value
+		}
+	}
+	if reason == "" {
+		reason = "no reason was recorded"
+	}
+
+	return fmt.Sprintf("_%s failed_\n\n%s", label, reason)
+}
+
 func (m model) agentsView() string {
 	below := m.detailsView() + "\n" + m.renderHelp(m.agentHelp())
 
@@ -443,13 +473,13 @@ func (m model) agentsView() string {
 
 		item := r.item
 		state := item.agent.State
-		if !item.alive && state != agentstore.StateSettingUp {
+		if !item.alive && state != agentstore.StateSettingUp && !agentstore.IsFailed(state) {
 			state = agentstore.StateIdle
 		}
 
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
 		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+branchMark(item.agent)+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
+		rows = append(rows, prefix+"  "+icon+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
@@ -508,10 +538,11 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	}
 
 	var pane string
-	if effectiveSetup != "" {
+	if effectiveSetup != "" && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
+			m.setupPending = true
 		}
 	}
 

@@ -22,6 +22,8 @@ type app struct {
 
 	logViewer string
 
+	processViewer string
+
 	logLevel string
 
 	layout config.Layout

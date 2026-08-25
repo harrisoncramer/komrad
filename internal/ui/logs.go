@@ -3,52 +3,115 @@ package ui
 import (
 	"fmt"
 	"os"
+	"slices"
 	"strings"
 
 	"weave/config"
+	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 const logEnvPath = "WEAVE_LOG"
 
-func logArgv(viewer, path string) []string {
+const agentIDEnvVar = "WEAVE_AGENT_ID"
+
+func viewerArgv(viewer, fallback, path, agentID string) []string {
 	command := strings.TrimSpace(viewer)
 	if command == "" {
-		command = config.DefaultLogViewer
+		command = fallback
 	}
 
 	exports := fmt.Sprintf("export %s=%s; ", logEnvPath, shellQuote(path))
+	if agentID != "" {
+		exports += fmt.Sprintf("export %s=%s; ", agentIDEnvVar, shellQuote(agentID))
+	}
 
 	return []string{"sh", "-c", exports + command}
+}
+
+func logArgv(viewer, path, agentID string) []string {
+	return viewerArgv(viewer, config.DefaultLogViewer, path, agentID)
+}
+
+func processLogArgv(viewer, path string) []string {
+	return viewerArgv(viewer, config.DefaultProcessViewer, path, "")
 }
 
 func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
-func (m model) logsDesc() string {
-	if m.info.kind == infoLogs {
-		return "hide server log"
-	}
+var logCycle = []infoKind{infoSetupLog, infoTeardownLog, infoAgentLog}
 
-	return "server log"
+func (m model) logsDesc() string {
+	switch m.info.kind {
+	case infoSetupLog:
+		return "teardown log"
+	case infoTeardownLog:
+		return "agent log"
+	case infoAgentLog:
+		return "hide logs"
+	default:
+		return "setup log"
+	}
 }
 
-func (m model) openLogs() (tea.Model, tea.Cmd) {
-	if m.info.kind == infoLogs {
-		return m.closeInfo(), nil
-	}
-
-	if _, err := os.Stat(m.logPath); err != nil {
-		m.report("Could not read the server log", err)
-
+func (m model) cycleLogs() (tea.Model, tea.Cmd) {
+	if m.setupPending {
 		return m, nil
 	}
 
-	m.info.kind = infoLogs
-	m.info.action = ""
+	if _, ok := m.selectedAgent(); !ok {
+		return m, nil
+	}
+
+	idx := slices.Index(logCycle, m.info.kind)
+	if idx == len(logCycle)-1 {
+		return m.closeInfo(), nil
+	}
+
+	if !m.claimInfo(logCycle[idx+1], "") {
+		return m, nil
+	}
 	m.stageInfo()
 
 	return m, nil
+}
+
+func (m model) actionLogContent(kind string) layout.Content {
+	agent, ok := m.selectedAgent()
+	if !ok {
+		return newTextContent("select an agent to see its " + kind + " log")
+	}
+
+	if !m.hasActionLog(agent.agent.ID, kind) {
+		return newTextContent("no " + kind + " log yet")
+	}
+
+	path := config.ActionLogPath(m.actionLogsDir, agent.agent.ID, kind)
+
+	return newLogContent(path, processLogArgv(m.processViewer, path))
+}
+
+// hasActionLog reports whether a setup or teardown action left anything to read for an
+// agent. Used both to page the log in and to decide whether a failed agent's placeholder can
+// point at it, rather than falling back to repeating the reason inline.
+func (m model) hasActionLog(agentID, kind string) bool {
+	if m.actionLogsDir == "" {
+		return false
+	}
+
+	info, err := os.Stat(config.ActionLogPath(m.actionLogsDir, agentID, kind))
+
+	return err == nil && info.Size() > 0
+}
+
+func (m model) agentLogContent() layout.Content {
+	agent, ok := m.selectedAgent()
+	if !ok {
+		return newTextContent("select an agent to see its log")
+	}
+
+	return newLogContent(m.logPath, logArgv(m.logViewer, m.logPath, agent.agent.ID))
 }
