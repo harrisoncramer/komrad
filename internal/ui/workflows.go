@@ -147,13 +147,13 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 
 func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) tea.Cmd {
+		write: func(m model) (model, tea.Cmd) {
 			target := m.target.archiveWorkflow
 			if target == nil || !m.wasConfirmed() {
-				return nil
+				return m, nil
 			}
 
-			return m.writeCmd(
+			return m, m.writeCmd(
 				fmt.Sprintf("Could not archive workflow %q", target.Name),
 				func(a api) error { return a.archiveWorkflow(target.ID) },
 			)

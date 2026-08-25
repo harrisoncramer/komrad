@@ -213,13 +213,13 @@ func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
 
 func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) tea.Cmd {
+		write: func(m model) (model, tea.Cmd) {
 			target := m.target.archiveSchedule
 			if target == nil || !m.wasConfirmed() {
-				return nil
+				return m, nil
 			}
 
-			return m.writeCmd(
+			return m, m.writeCmd(
 				fmt.Sprintf("Could not archive schedule %q", target.Name),
 				func(a api) error { return a.archiveSchedule(target.ID) },
 			)

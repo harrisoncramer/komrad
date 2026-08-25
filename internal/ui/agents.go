@@ -157,26 +157,22 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 
 func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) tea.Cmd {
+		write: func(m model) (model, tea.Cmd) {
 			target := m.target.archiveAgents
 			if len(target) == 0 {
-				return nil
+				return m, nil
 			}
 
 			switch m.archiveAnswer() {
 			case archiveChoiceArchive:
-				_, write := m.archiveAgents(target)
-
-				return write
+				return m.archiveAgents(target)
 			case archiveChoiceArchiveDelete:
-				_, write := m.archiveAndDeleteAgents(target)
-
-				return write
+				return m.archiveAndDeleteAgents(target)
 			case archiveChoiceCancel:
-				return nil
+				return m, nil
 			}
 
-			return nil
+			return m, nil
 		},
 		clear: func(m model) model {
 			m.target.archiveAgents = nil
@@ -190,7 +186,7 @@ func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 	})
 }
 
-func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) archiveAgents(agents []agentstore.Agent) (model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
@@ -203,7 +199,7 @@ func (m model) archiveAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
 	)
 }
 
-func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
+func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd) {
 	if len(agents) == 0 {
 		return m, nil
 	}
