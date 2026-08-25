@@ -50,6 +50,11 @@ func TestRunActionCodes(t *testing.T) {
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
+			name:     "the same action already running for the same agent",
+			err:      agents.ErrActionAlreadyRunning,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
 			name:     "anything else is ours rather than theirs",
 			err:      errors.New("the config would not parse"),
 			wantCode: connect.CodeInternal,
@@ -120,6 +125,11 @@ func TestEditActionCodes(t *testing.T) {
 		{
 			name:     "an editing action the user has not made executable",
 			err:      agents.ErrActionNotExecutable,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "the editing action already running for the same agent",
+			err:      agents.ErrActionAlreadyRunning,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
