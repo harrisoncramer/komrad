@@ -118,7 +118,7 @@ func (m *model) applyRefresh(result refreshResult) {
 	switch {
 	case result.archivedListed && result.archivedErr == nil:
 		m.applyArchive(result.archived, archiveRow)
-	case result.archivedWorkflowsErr == nil:
+	case result.workflowsErr == nil, result.archivedWorkflowsErr == nil:
 		m.placeArchiveCursor(archiveRow)
 	}
 

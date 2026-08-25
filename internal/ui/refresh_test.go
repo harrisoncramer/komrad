@@ -333,37 +333,69 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 }
 
 // TestArchiveCursorHoldsOnAFolderOnlyPass covers a pass whose archived agents did not answer.
-// The folders did, and they are half of what the archive draws, so the cursor still has to be
-// put back on a row that exists rather than left past the end of a shorter list.
+// The archive draws its headers from both listings of folders, either of which can land on
+// its own, so the cursor still has to be put back on a row that exists rather than left past
+// the end of a shorter list.
 func TestArchiveCursorHoldsOnAFolderOnlyPass(t *testing.T) {
-	agents := []agentstore.Agent{
-		{ID: "x1", Name: "api-spike", WorkflowID: "w1"},
-		{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
+	tests := []struct {
+		name    string
+		live    []workflowstore.Workflow
+		result  refreshResult
+		wantRow string
+	}{
+		{
+			name: "only the archived folders answered",
+			result: refreshResult{
+				archivedWorkflows: []workflowstore.Workflow{archivedWorkflow("w1", "api")},
+				archivedListed:    true,
+				archivedErr:       errors.New("the archive did not answer"),
+			},
+			wantRow: "api-spike",
+		},
+		{
+			name: "only the live folders answered",
+			live: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
+			result: refreshResult{
+				workflows:            []workflowstore.Workflow{{ID: "w1", Name: "api"}},
+				archivedListed:       true,
+				archivedErr:          errors.New("the archive did not answer"),
+				archivedWorkflowsErr: errors.New("neither did its folders"),
+			},
+			wantRow: "api-spike",
+		},
 	}
 
-	m := model{
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:   config.DefaultKeybindings(),
-		screen: screenArchive,
-		listing: listing{archivedWorkflows: []workflowstore.Workflow{
-			archivedWorkflow("w1", "api"),
-			archivedWorkflow("w2", "infra"),
-		}},
-		archive: archiveState{agents: agents, rowCursor: rowCursor{cursor: 3}},
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var archived []workflowstore.Workflow
+			if tt.live == nil {
+				archived = []workflowstore.Workflow{archivedWorkflow("w1", "api"), archivedWorkflow("w2", "infra")}
+			}
+
+			m := model{
+				frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
+				keys:    config.DefaultKeybindings(),
+				screen:  screenArchive,
+				listing: listing{workflows: tt.live, archivedWorkflows: archived},
+				archive: archiveState{
+					agents: []agentstore.Agent{
+						{ID: "x1", Name: "api-spike", WorkflowID: "w1"},
+						{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
+					},
+					rowCursor: rowCursor{cursor: 3},
+				},
+			}
+
+			m.applyRefresh(tt.result)
+
+			rows := m.archiveRows()
+			require.Less(t, m.archive.cursor, len(rows), "the cursor is on a row the shorter list still has")
+
+			selected, ok := m.selectedArchived()
+			require.True(t, ok)
+			assert.Equal(t, tt.wantRow, selected.Name, "and the archived agents the pass could not refresh are kept")
+		})
 	}
-
-	m.applyRefresh(refreshResult{
-		archivedWorkflows: []workflowstore.Workflow{archivedWorkflow("w1", "api")},
-		archivedListed:    true,
-		archivedErr:       errors.New("the archive did not answer"),
-	})
-
-	rows := m.archiveRows()
-	require.Less(t, m.archive.cursor, len(rows), "the cursor is on a row the shorter list still has")
-
-	selected, ok := m.selectedArchived()
-	require.True(t, ok)
-	assert.Equal(t, "api-spike", selected.Name, "and the archived agents the pass could not refresh are kept")
 }
 
 type emptyLists struct {
