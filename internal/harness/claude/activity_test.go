@@ -22,9 +22,7 @@ const toolBlock = "\n" +
 	"      … +1 pending\n\n" +
 	"────────────────\n❯ \n────────────────\n   ~/dir  main\n  -- INSERT --"
 
-// TestReadActivity covers the verdict a single captured frame settles on. Only a frame
-// that actually shows the empty input box reads as idle, and anything else that is
-// neither working nor a live prompt reads as unrecognized instead of being assumed idle.
+// TestReadActivity covers the verdict a single captured frame settles on.
 func TestReadActivity(t *testing.T) {
 	tests := []struct {
 		name  string

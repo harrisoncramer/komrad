@@ -466,10 +466,6 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	}
 }
 
-// TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped guards the way the cap has
-// to be released: a capped agent must accrue a miss on every subsequent pass rather than
-// settle once and re-arm a fresh hold, since re-arming would erase that miss before a second
-// one could ever accrue and a continuously changing frame would never converge.
 func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
