@@ -25,6 +25,7 @@ const jobTimeout = 2 * time.Minute
 type ClientParams struct {
 	Pool      *pgxpool.Pool
 	Schedules ScheduleReader
+	Results   LaunchResultRecorder
 	Agents    AgentLauncher
 	Running   RunningAgentCounter
 	Logger    *slog.Logger
@@ -35,7 +36,7 @@ type ClientParams struct {
 // since which ones exist is a question only the database can answer.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running))
+	river.AddWorker(workers, NewLaunchAgentWorker(p.Schedules, p.Agents, p.Running, p.Results, p.Logger))
 
 	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
 		Schema:      db.RiverSchema,
@@ -65,4 +66,8 @@ type AgentLauncher interface {
 
 type RunningAgentCounter interface {
 	CountLiveForSchedule(ctx context.Context, scheduleID string) (int64, error)
+}
+
+type LaunchResultRecorder interface {
+	RecordLaunchResult(ctx context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) error
 }

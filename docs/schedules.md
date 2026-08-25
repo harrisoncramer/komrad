@@ -2,7 +2,7 @@
 
 A schedule is a durable timer that launches an [agent](agents.md) into a [workflow](workflows.md) on a cron expression. It is a row in Postgres rather than a crontab entry, and the service reconciles the table onto a job queue every ten seconds, so a schedule survives restarts.
 
-Schedules hold a name, cron expression, an optional timezone, a prompt, the workflow it fires into, whether it is enabled, and whether its agents start hidden.
+Schedules hold a name, cron expression, an optional timezone, a prompt, the workflow it fires into, whether it is enabled, and whether its agents start hidden. Each also carries the outcome of its last firing, shown on the schedules screen beside the next run. That outcome is a status, a message, and when it happened.
 
 There is no directory or flags on it, which are read off the workflow every time.
 
@@ -14,7 +14,7 @@ There are a few important things to consider with weave's schedules:
 - A late firing still counts, up to an hour past due, and runs once under the right name. Past an hour it is given up on.
 - One run at a time. If the last agent is still thinking or waiting when the next tick comes, the tick is skipped. An idle agent does not hold the schedule back.
 - Launches are serialized, since each one opens a tmux window and types into it. Transient failures retry up to five times.
-- A firing that hits `max_agents` is cancelled rather than retried. Keep an armed schedule and never archive its runs and it will eventually fill your ceiling and quietly stop.
+- A firing that hits `max_agents` is cancelled rather than retried. Keep an armed schedule and never archive its runs and it will eventually fill your ceiling and stop launching. Its last result on the schedules screen is where you would see that, rather than a next-run time that keeps advancing regardless.
 
 ## Disabled versus archived
 

@@ -28,7 +28,7 @@ func (q *Queries) CountLiveWorkflowSchedules(ctx context.Context, workflowID str
 
 const getSchedule = `-- name: GetSchedule :one
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
 FROM
     schedules s
 WHERE
@@ -56,6 +56,9 @@ func (q *Queries) GetSchedule(ctx context.Context, id string) (*GetScheduleRow, 
 		&i.Schedule.ArchivedAt,
 		&i.Schedule.CreatedAt,
 		&i.Schedule.UpdatedAt,
+		&i.Schedule.LastResultStatus,
+		&i.Schedule.LastResultMessage,
+		&i.Schedule.LastResultAt,
 	)
 	return &i, err
 }
@@ -78,7 +81,7 @@ VALUES (
     $6,
     $7)
 RETURNING
-    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at
+    id, name, cron, timezone, enabled, hide_agents, prompt, workflow_id, archived_at, created_at, updated_at, last_result_status, last_result_message, last_result_at
 `
 
 type InsertScheduleParams struct {
@@ -114,13 +117,16 @@ func (q *Queries) InsertSchedule(ctx context.Context, arg InsertScheduleParams) 
 		&i.ArchivedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.LastResultStatus,
+		&i.LastResultMessage,
+		&i.LastResultAt,
 	)
 	return &i, err
 }
 
 const listSchedules = `-- name: ListSchedules :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
 FROM
     schedules s
 WHERE
@@ -154,6 +160,9 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
+			&i.Schedule.LastResultStatus,
+			&i.Schedule.LastResultMessage,
+			&i.Schedule.LastResultAt,
 		); err != nil {
 			return nil, err
 		}
@@ -167,7 +176,7 @@ func (q *Queries) ListSchedules(ctx context.Context) ([]*ListSchedulesRow, error
 
 const listSchedulesPage = `-- name: ListSchedulesPage :many
 SELECT
-    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at
+    s.id, s.name, s.cron, s.timezone, s.enabled, s.hide_agents, s.prompt, s.workflow_id, s.archived_at, s.created_at, s.updated_at, s.last_result_status, s.last_result_message, s.last_result_at
 FROM
     schedules s
 WHERE
@@ -209,6 +218,9 @@ func (q *Queries) ListSchedulesPage(ctx context.Context, arg ListSchedulesPagePa
 			&i.Schedule.ArchivedAt,
 			&i.Schedule.CreatedAt,
 			&i.Schedule.UpdatedAt,
+			&i.Schedule.LastResultStatus,
+			&i.Schedule.LastResultMessage,
+			&i.Schedule.LastResultAt,
 		); err != nil {
 			return nil, err
 		}
@@ -232,6 +244,29 @@ WHERE
 
 func (q *Queries) MarkScheduleArchived(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markScheduleArchived, id)
+	return err
+}
+
+const recordScheduleLaunchResult = `-- name: RecordScheduleLaunchResult :exec
+UPDATE
+    schedules
+SET
+    last_result_status = $1,
+    last_result_message = $2,
+    last_result_at = NOW()
+WHERE
+    id = $3
+    AND archived_at IS NULL
+`
+
+type RecordScheduleLaunchResultParams struct {
+	LastResultStatus  *string
+	LastResultMessage *string
+	ID                string
+}
+
+func (q *Queries) RecordScheduleLaunchResult(ctx context.Context, arg RecordScheduleLaunchResultParams) error {
+	_, err := q.db.Exec(ctx, recordScheduleLaunchResult, arg.LastResultStatus, arg.LastResultMessage, arg.ID)
 	return err
 }
 

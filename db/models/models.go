@@ -82,17 +82,20 @@ type Mail struct {
 
 // A cron-driven agent launch: when to fire and what to ask for.
 type Schedule struct {
-	ID         string
-	Name       string
-	Cron       string
-	Timezone   string
-	Enabled    bool
-	HideAgents bool
-	Prompt     string
-	WorkflowID string
-	ArchivedAt *time.Time
-	CreatedAt  time.Time
-	UpdatedAt  time.Time
+	ID                string
+	Name              string
+	Cron              string
+	Timezone          string
+	Enabled           bool
+	HideAgents        bool
+	Prompt            string
+	WorkflowID        string
+	ArchivedAt        *time.Time
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	LastResultStatus  *string
+	LastResultMessage *string
+	LastResultAt      *time.Time
 }
 
 // A named bucket of related agents. Pure organization; runs nothing.

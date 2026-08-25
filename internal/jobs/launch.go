@@ -1,12 +1,15 @@
 package jobs
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"weave/internal/agents"
+	schedulestore "weave/internal/store/schedule"
 	"weave/lib/xptr"
 
 	"github.com/riverqueue/river"
@@ -47,36 +50,44 @@ type LaunchAgentWorker struct {
 	schedules ScheduleReader
 	agents    AgentLauncher
 	running   RunningAgentCounter
+	results   LaunchResultRecorder
+	logger    *slog.Logger
 }
 
 // NewLaunchAgentWorker builds the worker over the schedules it reads and the service that
 // launches an agent.
-func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher, running RunningAgentCounter) *LaunchAgentWorker {
-	return &LaunchAgentWorker{schedules: schedules, agents: launcher, running: running}
+func NewLaunchAgentWorker(schedules ScheduleReader, launcher AgentLauncher, running RunningAgentCounter, results LaunchResultRecorder, logger *slog.Logger) *LaunchAgentWorker {
+	return &LaunchAgentWorker{
+		schedules: schedules,
+		agents:    launcher,
+		running:   running,
+		results:   results,
+		logger:    cmp.Or(logger, slog.Default()),
+	}
 }
 
-// Work launches the agent the schedule describes. A schedule deleted or paused since the
-// job was queued cancels rather than fails, since retrying would find the same answer.
-// Anything else is returned as an error so River retries it, since a tmux server that is
-// briefly gone is the common case and it comes back.
+// Work launches the agent the schedule describes and records what happened on every path.
 func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgentArgs]) error {
 	schedule, err := w.schedules.Get(ctx, job.Args.ScheduleID)
 	if err != nil {
-		return fmt.Errorf("failed to read schedule %q: %w", job.Args.ScheduleID, err)
+		return w.retry(ctx, job, fmt.Errorf("failed to read schedule %q: %w", job.Args.ScheduleID, err))
 	}
 	if schedule == nil {
-		return river.JobCancel(fmt.Errorf("schedule %q no longer exists", job.Args.ScheduleID))
+		return w.cancel(ctx, job.Args.ScheduleID, schedulestore.LaunchResultScheduleNotFound,
+			fmt.Errorf("schedule %q no longer exists", job.Args.ScheduleID))
 	}
 	if !schedule.Enabled {
-		return river.JobCancel(fmt.Errorf("schedule %q is paused", job.Args.ScheduleID))
+		return w.cancel(ctx, schedule.ID, schedulestore.LaunchResultSchedulePaused,
+			fmt.Errorf("schedule %q is paused", schedule.Name))
 	}
 
 	running, err := w.running.CountLiveForSchedule(ctx, schedule.ID)
 	if err != nil {
-		return fmt.Errorf("failed to check what schedule %q is already running: %w", schedule.Name, err)
+		return w.retry(ctx, job, fmt.Errorf("failed to check what schedule %q is already running: %w", schedule.Name, err))
 	}
 	if running > 0 {
-		return river.JobCancel(fmt.Errorf("schedule %q still has %d agent(s) running", schedule.Name, running))
+		return w.cancel(ctx, schedule.ID, schedulestore.LaunchResultAlreadyRunning,
+			fmt.Errorf("schedule %q still has %d agent(s) running", schedule.Name, running))
 	}
 
 	_, err = w.agents.NewAgent(ctx, agents.NewAgentParams{
@@ -93,13 +104,42 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		errors.Is(err, agents.ErrWorkflowNotFound) ||
 		errors.Is(err, agents.ErrSetupFailed) ||
 		errors.Is(err, agents.ErrTooManyAgents) {
-		return river.JobCancel(fmt.Errorf("schedule %q cannot launch: %w", schedule.Name, err))
+		return w.cancel(ctx, schedule.ID, schedulestore.LaunchResultCannotLaunch,
+			fmt.Errorf("schedule %q cannot launch: %w", schedule.Name, err))
 	}
 	if err != nil {
-		return fmt.Errorf("failed to launch the agent for schedule %q: %w", schedule.Name, err)
+		return w.retry(ctx, job, fmt.Errorf("failed to launch the agent for schedule %q: %w", schedule.Name, err))
 	}
 
+	w.record(ctx, schedule.ID, schedulestore.LaunchResultLaunched, "")
+
 	return nil
+}
+
+// cancel records why a firing declined to launch and returns the cancel error for Work to
+// return.
+func (w *LaunchAgentWorker) cancel(ctx context.Context, scheduleID string, status schedulestore.LaunchResultStatus, err error) error {
+	w.record(ctx, scheduleID, status, err.Error())
+
+	return river.JobCancel(err)
+}
+
+// retry records a retryable failure, promoting it to a terminal status once no attempts remain.
+func (w *LaunchAgentWorker) retry(ctx context.Context, job *river.Job[LaunchAgentArgs], err error) error {
+	status := schedulestore.LaunchResultRetrying
+	if job.Attempt >= job.MaxAttempts {
+		status = schedulestore.LaunchResultCannotLaunch
+	}
+
+	w.record(ctx, job.Args.ScheduleID, status, err.Error())
+
+	return err
+}
+
+func (w *LaunchAgentWorker) record(ctx context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) {
+	if err := w.results.RecordLaunchResult(ctx, scheduleID, status, message); err != nil {
+		w.logger.Error("failed to record a schedule's launch result", "schedule_id", scheduleID, "status", status, "error", err)
+	}
 }
 
 // LaunchKey identifies one firing of one schedule: the schedule says which recurring

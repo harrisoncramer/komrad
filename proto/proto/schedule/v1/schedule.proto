@@ -21,6 +21,9 @@ message Schedule {
   string prompt = 6;
   string workflow_id = 7;
   optional google.protobuf.Timestamp next_run_at = 10;
+  string last_result_status = 11;
+  string last_result_message = 12;
+  optional google.protobuf.Timestamp last_result_at = 13;
 }
 
 message ListSchedulesRequest {
@@ -111,7 +114,7 @@ service ScheduleService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_schedules"
-      description: "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next."
+      description: "List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next."
     };
   }
   rpc GetSchedule(GetScheduleRequest) returns (GetScheduleResponse) {

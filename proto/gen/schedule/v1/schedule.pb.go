@@ -28,18 +28,21 @@ const (
 )
 
 type Schedule struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Name          string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
-	Cron          string                 `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
-	Timezone      string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
-	Enabled       bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
-	HideAgents    bool                   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
-	Prompt        string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	WorkflowId    string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	NextRunAt     *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	Id                string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	Name              string                 `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Cron              string                 `protobuf:"bytes,3,opt,name=cron,proto3" json:"cron,omitempty"`
+	Timezone          string                 `protobuf:"bytes,4,opt,name=timezone,proto3" json:"timezone,omitempty"`
+	Enabled           bool                   `protobuf:"varint,5,opt,name=enabled,proto3" json:"enabled,omitempty"`
+	HideAgents        bool                   `protobuf:"varint,8,opt,name=hide_agents,json=hideAgents,proto3" json:"hide_agents,omitempty"`
+	Prompt            string                 `protobuf:"bytes,6,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	WorkflowId        string                 `protobuf:"bytes,7,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	NextRunAt         *timestamppb.Timestamp `protobuf:"bytes,10,opt,name=next_run_at,json=nextRunAt,proto3,oneof" json:"next_run_at,omitempty"`
+	LastResultStatus  string                 `protobuf:"bytes,11,opt,name=last_result_status,json=lastResultStatus,proto3" json:"last_result_status,omitempty"`
+	LastResultMessage string                 `protobuf:"bytes,12,opt,name=last_result_message,json=lastResultMessage,proto3" json:"last_result_message,omitempty"`
+	LastResultAt      *timestamppb.Timestamp `protobuf:"bytes,13,opt,name=last_result_at,json=lastResultAt,proto3,oneof" json:"last_result_at,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Schedule) Reset() {
@@ -131,6 +134,27 @@ func (x *Schedule) GetWorkflowId() string {
 func (x *Schedule) GetNextRunAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.NextRunAt
+	}
+	return nil
+}
+
+func (x *Schedule) GetLastResultStatus() string {
+	if x != nil {
+		return x.LastResultStatus
+	}
+	return ""
+}
+
+func (x *Schedule) GetLastResultMessage() string {
+	if x != nil {
+		return x.LastResultMessage
+	}
+	return ""
+}
+
+func (x *Schedule) GetLastResultAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.LastResultAt
 	}
 	return nil
 }
@@ -655,7 +679,7 @@ var File_schedule_v1_schedule_proto protoreflect.FileDescriptor
 
 const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\n" +
-	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xa3\x02\n" +
+	"\x1aschedule/v1/schedule.proto\x12\vschedule.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xdb\x03\n" +
 	"\bSchedule\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x12\n" +
@@ -668,8 +692,12 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\vworkflow_id\x18\a \x01(\tR\n" +
 	"workflowId\x12?\n" +
 	"\vnext_run_at\x18\n" +
-	" \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tnextRunAt\x88\x01\x01B\x0e\n" +
-	"\f_next_run_at\"e\n" +
+	" \x01(\v2\x1a.google.protobuf.TimestampH\x00R\tnextRunAt\x88\x01\x01\x12,\n" +
+	"\x12last_result_status\x18\v \x01(\tR\x10lastResultStatus\x12.\n" +
+	"\x13last_result_message\x18\f \x01(\tR\x11lastResultMessage\x12E\n" +
+	"\x0elast_result_at\x18\r \x01(\v2\x1a.google.protobuf.TimestampH\x01R\flastResultAt\x88\x01\x01B\x0e\n" +
+	"\f_next_run_atB\x11\n" +
+	"\x0f_last_result_at\"e\n" +
 	"\x14ListSchedulesRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -712,10 +740,10 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"1\n" +
 	"\x16ArchiveScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xfe\x10\n" +
-	"\x0fScheduleService\x12\xd5\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xfc\x01\x9a\xb5\x18\xf4\x01\n" +
-	"\x0elist_schedules\x12\xe1\x01List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, and next run time. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x9e\x11\n" +
+	"\x0fScheduleService\x12\xf5\x02\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\x9c\x02\x9a\xb5\x18\x94\x02\n" +
+	"\x0elist_schedules\x12\x81\x02List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"^\x9a\xb5\x18W\n" +
 	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xc3\x04\n" +
 	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xe7\x03\x9a\xb5\x18\xe2\x03\n" +
@@ -757,27 +785,28 @@ var file_schedule_v1_schedule_proto_goTypes = []any{
 }
 var file_schedule_v1_schedule_proto_depIdxs = []int32{
 	10, // 0: schedule.v1.Schedule.next_run_at:type_name -> google.protobuf.Timestamp
-	11, // 1: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 2: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
-	0,  // 3: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	0,  // 4: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
-	1,  // 5: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
-	3,  // 6: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
-	5,  // 7: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
-	7,  // 8: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
-	8,  // 9: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
-	9,  // 10: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
-	2,  // 11: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
-	4,  // 12: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
-	6,  // 13: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
-	12, // 14: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
-	12, // 15: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
-	12, // 16: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
-	11, // [11:17] is the sub-list for method output_type
-	5,  // [5:11] is the sub-list for method input_type
-	5,  // [5:5] is the sub-list for extension type_name
-	5,  // [5:5] is the sub-list for extension extendee
-	0,  // [0:5] is the sub-list for field type_name
+	10, // 1: schedule.v1.Schedule.last_result_at:type_name -> google.protobuf.Timestamp
+	11, // 2: schedule.v1.ListSchedulesRequest.pagination:type_name -> pagination.v1.Pagination
+	0,  // 3: schedule.v1.ListSchedulesResponse.schedules:type_name -> schedule.v1.Schedule
+	0,  // 4: schedule.v1.GetScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	0,  // 5: schedule.v1.CreateScheduleResponse.schedule:type_name -> schedule.v1.Schedule
+	1,  // 6: schedule.v1.ScheduleService.ListSchedules:input_type -> schedule.v1.ListSchedulesRequest
+	3,  // 7: schedule.v1.ScheduleService.GetSchedule:input_type -> schedule.v1.GetScheduleRequest
+	5,  // 8: schedule.v1.ScheduleService.CreateSchedule:input_type -> schedule.v1.CreateScheduleRequest
+	7,  // 9: schedule.v1.ScheduleService.UpdateSchedule:input_type -> schedule.v1.UpdateScheduleRequest
+	8,  // 10: schedule.v1.ScheduleService.SetScheduleEnabled:input_type -> schedule.v1.SetScheduleEnabledRequest
+	9,  // 11: schedule.v1.ScheduleService.ArchiveSchedule:input_type -> schedule.v1.ArchiveScheduleRequest
+	2,  // 12: schedule.v1.ScheduleService.ListSchedules:output_type -> schedule.v1.ListSchedulesResponse
+	4,  // 13: schedule.v1.ScheduleService.GetSchedule:output_type -> schedule.v1.GetScheduleResponse
+	6,  // 14: schedule.v1.ScheduleService.CreateSchedule:output_type -> schedule.v1.CreateScheduleResponse
+	12, // 15: schedule.v1.ScheduleService.UpdateSchedule:output_type -> google.protobuf.Empty
+	12, // 16: schedule.v1.ScheduleService.SetScheduleEnabled:output_type -> google.protobuf.Empty
+	12, // 17: schedule.v1.ScheduleService.ArchiveSchedule:output_type -> google.protobuf.Empty
+	12, // [12:18] is the sub-list for method output_type
+	6,  // [6:12] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_schedule_v1_schedule_proto_init() }

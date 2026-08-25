@@ -237,6 +237,34 @@ func TestScheduleMarkdown(t *testing.T) {
 			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "quiet", Enabled: true, HideAgents: true}},
 			wants: []string{"quiet", "start hidden"},
 		},
+		{
+			name: "a schedule that has never fired says nothing about a result",
+			item: scheduleItem{
+				schedule: schedulestore.Schedule{Name: "fresh", Enabled: true, Prompt: "go"},
+			},
+			notWants: []string{"last result"},
+		},
+		{
+			name: "a status without a time does not render rather than guess one",
+			item: scheduleItem{
+				schedule: schedulestore.Schedule{
+					Name: "odd", Enabled: true, Prompt: "go",
+					LastResultStatus: schedulestore.LaunchResultLaunched,
+				},
+			},
+			notWants: []string{"last result"},
+		},
+		{
+			name: "a schedule that failed to launch shows what happened and why",
+			item: scheduleItem{
+				schedule: schedulestore.Schedule{
+					Name: "flaky", Enabled: true, Prompt: "go",
+					LastResultStatus: schedulestore.LaunchResultCannotLaunch, LastResultMessage: "bad directory",
+					LastResultAt: &next,
+				},
+			},
+			wants: []string{"last result", "cannot_launch", "bad directory"},
+		},
 	}
 
 	for _, tt := range tests {

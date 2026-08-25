@@ -38,6 +38,18 @@ table "schedules" {
     null = false
     type = uuid
   }
+  column "last_result_status" {
+    null = true
+    type = text
+  }
+  column "last_result_message" {
+    null = true
+    type = text
+  }
+  column "last_result_at" {
+    null = true
+    type = timestamptz
+  }
   column "archived_at" {
     null = true
     type = timestamptz
