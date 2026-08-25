@@ -332,13 +332,18 @@ func (c *Client) BreakPane(pane string) {
 	c.run("break-pane", "-d", "-s", pane)
 }
 
-// KillPane tears down a single pane.
+// KillPane tears down a single pane. Two teardown paths can race the same
+// pane (a delete and an archive, or two deletes, both reading it as owned
+// before either kills it), so a pane already gone by the time this runs is
+// the outcome asked for, not a failure worth a WARN.
 func (c *Client) KillPane(pane string) {
 	if pane == "" {
 		return
 	}
 
-	c.run("kill-pane", "-t", pane)
+	if _, err := c.query("kill-pane", "-t", pane); err != nil && !strings.Contains(err.Error(), "can't find pane") {
+		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
+	}
 }
 
 // BindKey binds a key in the prefix table to a tmux command, replacing whatever it was bound to.

@@ -1,6 +1,8 @@
 package tmux
 
 import (
+	"bytes"
+	"log/slog"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -110,6 +112,42 @@ func fakeTmux(t *testing.T, script string) string {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "tmux"), []byte(script), 0o755))
 
 	return dir
+}
+
+func captureDefaultLog(t *testing.T) *bytes.Buffer {
+	t.Helper()
+
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+
+	return &buf
+}
+
+// TestKillPaneIsQuietWhenThePaneIsAlreadyGone covers the race two teardown paths can hit:
+// a delete and an archive, or two deletes, both read a pane as owned before either kills
+// it, so the loser's kill-pane targets a pane already gone. That is the outcome the loser
+// asked for, not a failure, and used to log a WARN that read like one.
+func TestKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
+	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho \"can't find pane: %13\" >&2\nexit 1\n"))
+	buf := captureDefaultLog(t)
+
+	(&Client{}).KillPane("%13")
+
+	assert.Empty(t, buf.String(), "the pane being already gone is the wanted outcome, not a WARN")
+}
+
+// TestKillPaneStillWarnsOnARealFailure guards the quiet case above from swallowing
+// everything: a failure that is not the pane being gone still has nobody watching it but
+// the log.
+func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
+	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho 'error connecting to /tmp/tmux-501/weave (No such file or directory)' >&2\nexit 1\n"))
+	buf := captureDefaultLog(t)
+
+	(&Client{}).KillPane("%13")
+
+	assert.Contains(t, buf.String(), "a tmux command failed", "a real failure is not silenced")
 }
 
 // TestRunsShellReadsMeasuredCommands pins the allowlist to what the CLIs actually report.
