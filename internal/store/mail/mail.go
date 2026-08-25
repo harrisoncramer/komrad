@@ -54,18 +54,20 @@ type SendParams struct {
 	Body        string
 	ReplyTo     *string
 	Hops        int32
-	ExpiresAt   time.Time
+	// How long the mail stays deliverable, counted from the database's clock rather than
+	// the caller's, since every read of expires_at compares it against NOW().
+	Deadline time.Duration
 }
 
 func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
-		FromAgentID: params.FromAgentID,
-		FromName:    params.FromName,
-		ToAgentID:   params.ToAgentID,
-		Body:        params.Body,
-		ReplyTo:     params.ReplyTo,
-		Hops:        params.Hops,
-		ExpiresAt:   params.ExpiresAt,
+		FromAgentID:    params.FromAgentID,
+		FromName:       params.FromName,
+		ToAgentID:      params.ToAgentID,
+		Body:           params.Body,
+		ReplyTo:        params.ReplyTo,
+		Hops:           params.Hops,
+		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)

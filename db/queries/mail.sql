@@ -14,7 +14,7 @@ VALUES (
     @body,
     sqlc.narg('reply_to'),
     @hops,
-    @expires_at)
+    NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 RETURNING
     *;
 

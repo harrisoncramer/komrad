@@ -143,7 +143,7 @@ func (s *MailService) send(ctx context.Context, params SendMailParams, system bo
 		Body:      params.Body,
 		ReplyTo:   params.ReplyTo,
 		Hops:      hops,
-		ExpiresAt: time.Now().Add(deadline),
+		Deadline:  deadline,
 	}
 	if sender != nil {
 		send.FromAgentID = &sender.ID
