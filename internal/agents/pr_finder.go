@@ -3,8 +3,10 @@ package agents
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os/exec"
+	"strings"
 )
 
 // GHPRFinder answers prFinder using the gh CLI, which infers the repository from the
@@ -26,7 +28,7 @@ func (GHPRFinder) FindPR(ctx context.Context, dir, branch string) (string, error
 
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("gh pr list --head %s: %w", branch, err)
+		return "", fmt.Errorf("gh pr list --head %s: %w%s", branch, err, ghStderrDetail(err))
 	}
 
 	var prs []struct {
@@ -40,4 +42,33 @@ func (GHPRFinder) FindPR(ctx context.Context, dir, branch string) (string, error
 	}
 
 	return prs[0].URL, nil
+}
+
+func ghStderrDetail(err error) string {
+	var exitErr *exec.ExitError
+	if !errors.As(err, &exitErr) {
+		return ""
+	}
+
+	detail := strings.TrimSpace(string(exitErr.Stderr))
+	if detail == "" {
+		return ""
+	}
+
+	return ": " + detail
+}
+
+// isGHRateLimitError reports whether a failed gh call was GitHub turning it away for rate
+// limiting, primary or secondary, rather than some other failure (gh missing, no network,
+// no such repository). gh's own wording for both is inconsistent across its subcommands and
+// GitHub's own API versions, so this matches loosely on purpose rather than pinning to one
+// exact phrase.
+func isGHRateLimitError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	return strings.Contains(msg, "rate limit") || strings.Contains(msg, "abuse detection")
 }

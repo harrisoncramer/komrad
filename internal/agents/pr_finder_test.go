@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -42,7 +43,7 @@ func TestGHPRFinder(t *testing.T) {
 			name:      "gh itself fails",
 			script:    "#!/bin/sh\necho 'not a git repository' >&2\nexit 1\n",
 			wantErr:   true,
-			wantErrIn: "gh pr list",
+			wantErrIn: "not a git repository",
 		},
 	}
 
@@ -53,13 +54,56 @@ func TestGHPRFinder(t *testing.T) {
 			url, err := GHPRFinder{}.FindPR(t.Context(), t.TempDir(), "harry-fix")
 			if tt.wantErr {
 				require.Error(t, err)
-				assert.Contains(t, err.Error(), tt.wantErrIn)
+				assert.Contains(t, err.Error(), tt.wantErrIn, "gh's own stderr rides along, not just the exit status")
 
 				return
 			}
 
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantURL, url)
+		})
+	}
+}
+
+// TestGHPRFinderClassifiesARateLimit covers the shape a real rate limit takes coming back
+// through FindPR: gh's stderr has to survive being wrapped for isGHRateLimitError to see it.
+func TestGHPRFinderClassifiesARateLimit(t *testing.T) {
+	t.Setenv("PATH", fakeGH(t, "#!/bin/sh\necho 'API rate limit exceeded for installation ID 123.' >&2\nexit 1\n"))
+
+	_, err := GHPRFinder{}.FindPR(t.Context(), t.TempDir(), "harry-fix")
+	require.Error(t, err)
+	assert.True(t, isGHRateLimitError(err), "gh's rate-limit wording is recognised")
+}
+
+func TestIsGHRateLimitError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{name: "nil is not a rate limit", err: nil, want: false},
+		{
+			name: "the primary rate limit",
+			err:  errors.New("gh pr list: API rate limit exceeded for installation ID 123."),
+			want: true,
+		},
+		{
+			name: "the secondary rate limit",
+			err:  errors.New("You have exceeded a secondary rate limit. Please wait a few minutes."),
+			want: true,
+		},
+		{
+			name: "abuse detection wording",
+			err:  errors.New("You have triggered an abuse detection mechanism."),
+			want: true,
+		},
+		{name: "not a git repository is unrelated", err: errors.New("not a git repository"), want: false},
+		{name: "a permission error is unrelated", err: errors.New("HTTP 403: Resource not accessible"), want: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, isGHRateLimitError(tt.err))
 		})
 	}
 }

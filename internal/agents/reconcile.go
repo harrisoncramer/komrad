@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"slices"
+	"sync"
 	"time"
 
 	"weave/internal/harness"
@@ -22,6 +23,12 @@ const stateSeenCoalesce = 30 * time.Second
 const stateSeenBound = 2 * time.Minute
 
 const prLookupTimeout = 15 * time.Second
+
+// prRateLimitBackoff is how long a rate-limited agent is left alone before another pull
+// request check is attempted for it. This is a single, infrequent check per agent rather
+// than a poll loop, so a long, simple pause is worth more than the queueing and per-window
+// budget a real poller needs.
+const prRateLimitBackoff = 15 * time.Minute
 
 // prMetadataKey is the metadata key a found pull request is recorded under, the same key
 // weave's own agents have been asked to record it under by hand.
@@ -54,6 +61,12 @@ type Reconciler struct {
 	misses    map[string]int
 	shells    map[string]time.Time
 
+	// rateLimitedUntil is written from the goroutine a pull request check runs on, so it
+	// is the one piece of state here that is not confined to the single-threaded
+	// reconcile pass and needs its own lock.
+	rateLimitMu      sync.Mutex
+	rateLimitedUntil map[string]time.Time
+
 	now func() time.Time
 }
 
@@ -61,12 +74,13 @@ type Reconciler struct {
 // captures, and the state store.
 func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) *Reconciler {
 	return &Reconciler{
-		tmux:      t,
-		harnesses: harnesses,
-		store:     s,
-		misses:    map[string]int{},
-		shells:    map[string]time.Time{},
-		now:       time.Now,
+		tmux:             t,
+		harnesses:        harnesses,
+		store:            s,
+		misses:           map[string]int{},
+		shells:           map[string]time.Time{},
+		rateLimitedUntil: map[string]time.Time{},
+		now:              time.Now,
 	}
 }
 
@@ -108,6 +122,14 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 			delete(r.shells, id)
 		}
 	}
+
+	r.rateLimitMu.Lock()
+	for id := range r.rateLimitedUntil {
+		if _, ok := listed[id]; !ok {
+			delete(r.rateLimitedUntil, id)
+		}
+	}
+	r.rateLimitMu.Unlock()
 
 	return nil
 }
@@ -226,6 +248,9 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 	if slices.ContainsFunc(agent.Metadata, func(m agentstore.Metadata) bool { return m.Key == prMetadataKey }) {
 		return
 	}
+	if r.isRateLimited(agent.ID) {
+		return
+	}
 
 	bg := context.WithoutCancel(ctx)
 	branch := *agent.Branch
@@ -236,6 +261,10 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 
 		url, err := r.prFinder.FindPR(lookupCtx, agent.Cwd, branch)
 		if err != nil {
+			if isGHRateLimitError(err) {
+				r.backOff(agent.ID)
+			}
+
 			logging.From(bg).LogAttrs(bg, slog.LevelDebug, "failed to check for a pull request",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 
@@ -250,6 +279,22 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}
 	}()
+}
+
+func (r *Reconciler) isRateLimited(agentID string) bool {
+	r.rateLimitMu.Lock()
+	defer r.rateLimitMu.Unlock()
+
+	until, ok := r.rateLimitedUntil[agentID]
+
+	return ok && r.now().Before(until)
+}
+
+func (r *Reconciler) backOff(agentID string) {
+	r.rateLimitMu.Lock()
+	defer r.rateLimitMu.Unlock()
+
+	r.rateLimitedUntil[agentID] = r.now().Add(prRateLimitBackoff)
 }
 
 func isStateUnconfirmed(agent agentstore.Agent) bool {

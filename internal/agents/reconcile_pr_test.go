@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -13,47 +14,49 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// fakePRFinder is read from the test goroutine and written from the goroutine checkPR
+// spawns, so its call count is atomic: nothing else here crosses goroutines.
 type fakePRFinder struct {
 	url   string
 	err   error
-	calls int
+	calls atomic.Int64
 }
 
 func (f *fakePRFinder) FindPR(context.Context, string, string) (string, error) {
-	f.calls++
+	f.calls.Add(1)
 
 	return f.url, f.err
 }
 
-func seedWithBranch(t *testing.T, st *testStore, name, pane, state, branch string) agentstore.Agent {
+func seedWithBranch(t *testing.T, st *testStore, state string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 	workflowID := seedWorkflow(t, st)
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:       name,
-		Pane:       pane,
+		Name:       "agent",
+		Pane:       "%1",
 		State:      state,
 		WorkflowID: workflowID,
 		Cwd:        t.TempDir(),
 	}))
 
-	got, err := st.Agents.GetInWorkflow(ctx, workflowID, name)
+	got, err := st.Agents.GetInWorkflow(ctx, workflowID, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
-	require.NoError(t, st.Agents.SetBranchByID(ctx, got.ID, xptr.Ptr(branch)))
+	require.NoError(t, st.Agents.SetBranchByID(ctx, got.ID, xptr.Ptr("harry-fix")))
 
-	got, err = st.Agents.GetInWorkflow(ctx, workflowID, name)
+	got, err = st.Agents.GetInWorkflow(ctx, workflowID, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
 	return *got
 }
 
-func metadataOf(t *testing.T, st *testStore, name string) []agentstore.Metadata {
+func metadataOf(t *testing.T, st *testStore) []agentstore.Metadata {
 	t.Helper()
-	got, err := st.Get(context.Background(), name)
+	got, err := st.Get(context.Background(), "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -65,7 +68,7 @@ func metadataOf(t *testing.T, st *testStore, name string) []agentstore.Metadata 
 // otherwise have recorded it.
 func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 	st := newStore(t)
-	seedWithBranch(t, st, "agent", "%1", agentstore.StateThinking, "harry-fix")
+	seedWithBranch(t, st, agentstore.StateThinking)
 
 	tmux := newFakeTmux() // pane not owned, so the agent settles idle in this one pass
 	finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
@@ -75,10 +78,10 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 	require.Eventually(t, func() bool {
-		return len(metadataOf(t, st, "agent")) == 1
+		return len(metadataOf(t, st)) == 1
 	}, time.Second, 5*time.Millisecond, "the found pull request is recorded")
 
-	metadata := metadataOf(t, st, "agent")
+	metadata := metadataOf(t, st)
 	assert.Equal(t, "pr", metadata[0].Key)
 	assert.Equal(t, finder.url, metadata[0].Value)
 }
@@ -89,7 +92,7 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 	t.Run("a pull request already recorded is not looked up again", func(t *testing.T) {
 		st := newStore(t)
-		agent := seedWithBranch(t, st, "agent", "%1", agentstore.StateThinking, "harry-fix")
+		agent := seedWithBranch(t, st, agentstore.StateThinking)
 		_, err := st.Agents.SetMetadata(context.Background(), agentstore.SetMetadataParams{
 			ID: agent.ID, Key: "pr", Value: xptr.Ptr("https://github.com/harrisoncramer/weave/pull/1"),
 		})
@@ -103,7 +106,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 		time.Sleep(50 * time.Millisecond) // give a wrongly-fired lookup a chance to land
-		assert.Equal(t, 0, finder.calls, "an already-recorded pull request is not re-checked")
+		assert.Equal(t, int64(0), finder.calls.Load(), "an already-recorded pull request is not re-checked")
 	})
 
 	t.Run("an agent with no branch is never asked", func(t *testing.T) {
@@ -118,12 +121,12 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 		time.Sleep(50 * time.Millisecond)
-		assert.Equal(t, 0, finder.calls, "an agent weave never recorded a branch for is not asked")
+		assert.Equal(t, int64(0), finder.calls.Load(), "an agent weave never recorded a branch for is not asked")
 	})
 
 	t.Run("settling on idle again does not ask twice", func(t *testing.T) {
 		st := newStore(t)
-		agent := seedWithBranch(t, st, "agent", "%1", agentstore.StateIdle, "harry-fix")
+		agent := seedWithBranch(t, st, agentstore.StateIdle)
 		backdateStateSeen(t, st, agent.ID, stateSeenCoalesce+time.Second)
 
 		tmux := newFakeTmux() // still not owned: reconcile re-confirms idle, a heartbeat, not a transition
@@ -133,19 +136,19 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		require.NoError(t, rec.Reconcile(context.Background()))
 
 		time.Sleep(50 * time.Millisecond)
-		assert.Equal(t, 0, finder.calls, "re-confirming idle is not the transition into it")
+		assert.Equal(t, int64(0), finder.calls.Load(), "re-confirming idle is not the transition into it")
 	})
 
 	t.Run("no finder wired means nothing is ever asked", func(t *testing.T) {
 		st := newStore(t)
-		seedWithBranch(t, st, "agent", "%1", agentstore.StateThinking, "harry-fix")
+		seedWithBranch(t, st, agentstore.StateThinking)
 
 		tmux := newFakeTmux()
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 		require.NoError(t, rec.Reconcile(context.Background()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
-		assert.Empty(t, metadataOf(t, st, "agent"))
+		assert.Empty(t, metadataOf(t, st))
 	})
 }
 
@@ -153,7 +156,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 // nobody asked for should not spam the log at a level anyone is paged on.
 func TestReconcileSwallowsALookupFailure(t *testing.T) {
 	st := newStore(t)
-	seedWithBranch(t, st, "agent", "%1", agentstore.StateThinking, "harry-fix")
+	seedWithBranch(t, st, agentstore.StateThinking)
 
 	tmux := newFakeTmux()
 	finder := &fakePRFinder{err: errors.New("gh: command not found")}
@@ -161,6 +164,36 @@ func TestReconcileSwallowsALookupFailure(t *testing.T) {
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(context.Background()))
 
-	require.Eventually(t, func() bool { return finder.calls == 1 }, time.Second, 5*time.Millisecond)
-	assert.Empty(t, metadataOf(t, st, "agent"), "a failed lookup records nothing")
+	require.Eventually(t, func() bool { return finder.calls.Load() == 1 }, time.Second, 5*time.Millisecond)
+	assert.Empty(t, metadataOf(t, st), "a failed lookup records nothing")
+}
+
+// TestReconcileBacksOffAfterARateLimitedLookup covers what a real GitHub rate limit does:
+// this only ever runs once per idle transition, so the failure mode to guard is an agent
+// that cycles through work and idle often, hitting gh again on every cycle rather than
+// waiting the failure out.
+func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
+	st := newStore(t)
+	agent := seedWithBranch(t, st, agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	finder := &fakePRFinder{err: errors.New("API rate limit exceeded for installation ID 123.")}
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
+	at := time.Now()
+	rec.now = func() time.Time { return at }
+
+	require.NoError(t, rec.Reconcile(context.Background()))
+	require.Eventually(t, func() bool { return finder.calls.Load() == 1 }, time.Second, 5*time.Millisecond)
+
+	require.NoError(t, st.Agents.SetStateByID(context.Background(), agent.ID, agentstore.StateThinking))
+	require.NoError(t, rec.Reconcile(context.Background()))
+	time.Sleep(50 * time.Millisecond)
+	assert.Equal(t, int64(1), finder.calls.Load(), "still inside the backoff window, so not asked again")
+
+	at = at.Add(prRateLimitBackoff + time.Second)
+	require.NoError(t, st.Agents.SetStateByID(context.Background(), agent.ID, agentstore.StateThinking))
+	require.NoError(t, rec.Reconcile(context.Background()))
+	require.Eventually(t, func() bool { return finder.calls.Load() == 2 }, time.Second, 5*time.Millisecond,
+		"the backoff window has passed")
 }
