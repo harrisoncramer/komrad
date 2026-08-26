@@ -15,13 +15,24 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
 // The panel is the sidebar, the resource it hovers is shown in a sibling stage pane, and
 // focus moves between the two with the user's own tmux bindings.
+//
+// The terminal's background is settled here, before the program takes the terminal over, and
+// then pinned. Asking is not a read: lipgloss writes an OSC query to the tty and blocks on the
+// reply with no deadline, having turned off ECHO and ICANON on the way. Once bubbletea owns the
+// input that reply is read by bubbletea instead, so the ask never returns and the panel hangs
+// with whatever it last drew still on screen. Pinning the answer means no adaptive colour can
+// ask again later, from any goroutine, on any screen.
 func Run(deps Deps) error {
-	if _, err := tea.NewProgram(newModel(deps), tea.WithAltScreen()).Run(); err != nil {
+	isDark := lipgloss.HasDarkBackground()
+	lipgloss.SetHasDarkBackground(isDark)
+
+	if _, err := tea.NewProgram(newModel(deps, isDark), tea.WithAltScreen()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 
@@ -45,6 +56,7 @@ const (
 	screenArchiveDelete
 	screenArchiveEmpty
 	screenActions
+	screenReview
 )
 
 type uiTmux interface {
@@ -124,6 +136,7 @@ type model struct {
 	schedules scheduleState
 	archive   archiveState
 	search    searchState
+	review    reviewState
 	actions   actionState
 
 	filter filterState
@@ -149,11 +162,18 @@ type model struct {
 	processViewer string
 	actionLogsDir string
 
+	pane string
+
 	clip clipboardWriter
+
+	// isDark is the terminal's background, settled before the program started. Nothing may ask
+	// lipgloss for it again while the panel is running: see Run.
+	isDark bool
 }
 
-func newModel(deps Deps) model {
+func newModel(deps Deps, isDark bool) model {
 	m := model{
+		isDark:          isDark,
 		api:             api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
@@ -165,6 +185,7 @@ func newModel(deps Deps) model {
 		logViewer:       deps.LogViewer,
 		processViewer:   deps.ProcessViewer,
 		actionLogsDir:   deps.ActionLogsDir,
+		pane:            deps.Pane,
 		keys:            deps.Keys,
 		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,

@@ -21,7 +21,7 @@ func newNotifier(st *testStore) *MailService {
 	})
 }
 
-func newManagerWithNotifier(tmux *fakeTmux, st *testStore, notifier parentNotifier) *AgentService {
+func newManagerWithNotifier(tmux *fakeTmux, st *testStore, notifier systemMailSender) *AgentService {
 	return st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},

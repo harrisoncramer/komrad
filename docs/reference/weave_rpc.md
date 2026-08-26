@@ -25,6 +25,7 @@ flags, and the response is the API's own JSON on stdout.
 ### SEE ALSO
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
+* [weave rpc add-review-message](weave_rpc_add-review-message.md)	 - Say something in a review thread, which is how you answer feedback on your own diff.
 * [weave rpc archive-agents](weave_rpc_archive-agents.md)	 - Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts.
 * [weave rpc archive-schedule](weave_rpc_archive-schedule.md)	 - Hide a schedule from the panel so it stops firing, keeping its record.
 * [weave rpc archive-workflow](weave_rpc_archive-workflow.md)	 - Hide a workflow from the panel, archiving the agents inside it.
@@ -42,6 +43,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-actions](weave_rpc_list-actions.md)	 - List the actions the user has written, which are executable files in their actions directory.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
 * [weave rpc list-mail](weave_rpc_list-mail.md)	 - List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox.
+* [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of your own diff.
 * [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted.
 * [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.

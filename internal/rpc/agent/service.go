@@ -17,6 +17,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
@@ -71,6 +72,18 @@ type Service struct {
 	launcher    agentLauncher
 	reconciler  turnBoundaryRecorder
 	archive     archiveEmptier
+	review      reviewConversation
+}
+
+type reviewConversation interface {
+	ListReviewThreads(ctx context.Context, params agents.ListReviewThreadsParams) ([]agents.ReviewThreadWithMessages, error)
+	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
+	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
+	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
+	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
+	DeleteReviewThread(ctx context.Context, params agents.DeleteReviewThreadParams) error
+	DeleteReviewMessage(ctx context.Context, params agents.DeleteReviewMessageParams) error
+	NotifyReviewThreads(ctx context.Context, params agents.NotifyReviewThreadsParams) (*agents.NotifyReviewThreadsResult, error)
 }
 
 type NewServiceParams struct {
@@ -80,6 +93,7 @@ type NewServiceParams struct {
 	Launcher    agentLauncher
 	Reconciler  turnBoundaryRecorder
 	Archive     archiveEmptier
+	Review      reviewConversation
 }
 
 // NewService constructs the handler from the stores it reads and the manager that launches
@@ -92,6 +106,7 @@ func NewService(p NewServiceParams) *Service {
 		launcher:    p.Launcher,
 		reconciler:  p.Reconciler,
 		archive:     p.Archive,
+		review:      p.Review,
 	}
 }
 

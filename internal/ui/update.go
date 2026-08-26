@@ -84,7 +84,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.isQueryOpen() && isBound(key.String(), m.keys.Logs.Open) {
+	if !m.isQueryOpen() && m.screen != screenReview && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}
 
@@ -106,6 +106,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateArchive(key)
 	case screenActions:
 		return m.updateActions(key)
+	case screenReview:
+		return m.updateReview(key)
 	case screenAgents:
 		return m.updateAgents(key)
 	default:
@@ -125,6 +127,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyWrite(msg)
 
 		return next, cmd, true
+	case reviewLoadedMsg:
+		m.applyReviewLoaded(msg)
+
+		return m, nil, true
+	case reviewWroteMsg:
+		m.applyReviewWrote(msg)
+
+		return m, nil, true
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg), true
 	case searchResult:

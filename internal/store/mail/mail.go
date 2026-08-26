@@ -26,12 +26,25 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
+// Kind is what a piece of mail is. Everything an agent sends is KindPlain; a kind other
+// than that marks a notice weave raises itself, of which an agent holds at most one
+// unclaimed at a time.
+type Kind string
+
+const (
+	// KindPlain is ordinary mail, never deduplicated.
+	KindPlain Kind = Kind(models.MailKindPlain)
+	// KindReviewActivity says the agent's diff has review it has not read.
+	KindReviewActivity Kind = Kind(models.MailKindReviewActivity)
+)
+
 type Mail struct {
 	ID          string
 	FromAgentID *string
 	FromName    string
 	ToAgentID   string
 	Body        string
+	Kind        Kind
 	ReplyTo     *string
 	Hops        int32
 	ClaimedAt   *time.Time
@@ -52,23 +65,39 @@ type SendParams struct {
 	FromName    string
 	ToAgentID   string
 	Body        string
-	ReplyTo     *string
-	Hops        int32
+	// Kind decides whether a second copy can queue up behind the first. A kind other than
+	// KindPlain is refused while one of the same kind is still unclaimed, since a notice
+	// waiting to be read already says what another copy of it would say.
+	Kind    Kind
+	ReplyTo *string
+	Hops    int32
 	// How long the mail stays deliverable, counted from the database's clock rather than
 	// the caller's, since every read of expires_at compares it against NOW().
 	Deadline time.Duration
 }
 
+// Send writes one piece of mail. It answers nil when the recipient is already holding an
+// unclaimed notice of this kind, which is not a failure: the thing that would have been
+// said is already waiting to be read.
 func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
+	kind := params.Kind
+	if kind == "" {
+		kind = KindPlain
+	}
+
 	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
 		FromAgentID:    params.FromAgentID,
 		FromName:       params.FromName,
 		ToAgentID:      params.ToAgentID,
 		Body:           params.Body,
+		Kind:           models.MailKind(kind),
 		ReplyTo:        params.ReplyTo,
 		Hops:           params.Hops,
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
+	if db.IsNoRows(err) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
 	}
@@ -242,6 +271,7 @@ func mailFromRow(row models.Mail) Mail {
 		FromName:    row.FromName,
 		ToAgentID:   row.ToAgentID,
 		Body:        row.Body,
+		Kind:        Kind(row.Kind),
 		ReplyTo:     row.ReplyTo,
 		Hops:        row.Hops,
 		ClaimedAt:   row.ClaimedAt,

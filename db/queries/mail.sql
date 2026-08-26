@@ -4,6 +4,7 @@ INSERT INTO mail(
     from_name,
     to_agent_id,
     body,
+    kind,
     reply_to,
     hops,
     expires_at)
@@ -12,11 +13,19 @@ VALUES (
     @from_name,
     @to_agent_id,
     @body,
+    @kind,
     sqlc.narg('reply_to'),
     @hops,
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
-RETURNING
-    *;
+ON CONFLICT (
+    to_agent_id,
+    kind)
+WHERE
+    claimed_at IS NULL
+    AND kind <> 'plain' ::mail_kind
+        DO NOTHING
+    RETURNING
+        *;
 
 -- name: GetMail :one
 SELECT

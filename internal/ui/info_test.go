@@ -68,7 +68,8 @@ type recordingTmux struct {
 	swaps    int
 	respawns []string
 
-	width int
+	width  int
+	height int
 
 	windows       []string
 	openWindowErr error
@@ -94,6 +95,7 @@ func (t *recordingTmux) GetClientPath(string) string              { return t.pat
 func (t *recordingTmux) SendKeys(string, ...string) error         { return nil }
 func (t *recordingTmux) IsPaneAlive(pane string) bool             { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int                  { return t.width }
+func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }
 func (t *recordingTmux) CapturePane(string) string                { return "" }
 func (t *recordingTmux) SplitRight(string, string, string) string { return "%1" }
 func (t *recordingTmux) SplitLeft(string, string, string) string  { return "%1" }

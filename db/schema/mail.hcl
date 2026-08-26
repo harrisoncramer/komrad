@@ -1,3 +1,8 @@
+enum "mail_kind" {
+  schema = schema.public
+  values = ["plain", "review_activity"]
+}
+
 table "mail" {
   schema  = schema.public
   comment = "One piece of mail from one agent to another, held until the recipient claims it."
@@ -22,6 +27,12 @@ table "mail" {
   column "body" {
     null = false
     type = text
+  }
+  column "kind" {
+    null    = false
+    type    = enum.mail_kind
+    default = "plain"
+    comment = "What the mail is, which is what lets a notice that only says there is something to look at be sent again without stacking up. Ordinary mail is plain and never deduplicated, since two agents saying the same thing twice are two things to read."
   }
   column "reply_to" {
     null = true
@@ -78,6 +89,12 @@ table "mail" {
   index "mail_pending" {
     columns = [column.to_agent_id, column.id]
     where   = "claimed_at IS NULL"
+  }
+  index "mail_pending_kind" {
+    unique  = true
+    columns = [column.to_agent_id, column.kind]
+    where   = "claimed_at IS NULL AND kind <> 'plain'::mail_kind"
+    comment = "At most one unclaimed notice of a given kind per agent. A doorbell that is still waiting to be read is already saying what a second one would say, so pressing the key again must not stack another copy behind it."
   }
   index "mail_from_agent_id" {
     columns = [column.from_agent_id]

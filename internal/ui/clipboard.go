@@ -47,6 +47,8 @@ func (m *model) restageScreen() {
 		m.stageSchedule()
 	case screenArchive:
 		m.stageArchive()
+	case screenReview:
+		m.stageReview()
 	default:
 	}
 }

@@ -385,7 +385,8 @@ func newProbe(key string, wraps bool, got *Target) Content {
 }
 
 type recordingTmux struct {
-	width int
+	width  int
+	height int
 
 	splits []string
 
@@ -409,6 +410,7 @@ type recordingTmux struct {
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
+func (t *recordingTmux) GetPaneHeight(string) int     { return t.height }
 
 func (t *recordingTmux) SplitRight(anchor, _, size string) string {
 	return t.recordSplit("right", anchor, size)

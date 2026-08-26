@@ -5,8 +5,94 @@
 package models
 
 import (
+	"database/sql/driver"
+	"fmt"
 	"time"
 )
+
+type MailKind string
+
+const (
+	MailKindPlain          MailKind = "plain"
+	MailKindReviewActivity MailKind = "review_activity"
+)
+
+func (e *MailKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = MailKind(s)
+	case string:
+		*e = MailKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for MailKind: %T", src)
+	}
+	return nil
+}
+
+type NullMailKind struct {
+	MailKind MailKind
+	Valid    bool // Valid is true if MailKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullMailKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.MailKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.MailKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullMailKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.MailKind), nil
+}
+
+type ReviewAuthorKind string
+
+const (
+	ReviewAuthorKindHuman ReviewAuthorKind = "human"
+	ReviewAuthorKindAgent ReviewAuthorKind = "agent"
+)
+
+func (e *ReviewAuthorKind) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReviewAuthorKind(s)
+	case string:
+		*e = ReviewAuthorKind(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReviewAuthorKind: %T", src)
+	}
+	return nil
+}
+
+type NullReviewAuthorKind struct {
+	ReviewAuthorKind ReviewAuthorKind
+	Valid            bool // Valid is true if ReviewAuthorKind is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReviewAuthorKind) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReviewAuthorKind, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReviewAuthorKind.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReviewAuthorKind) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReviewAuthorKind), nil
+}
 
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
@@ -78,6 +164,50 @@ type Mail struct {
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// What the mail is, which is what lets a notice that only says there is something to look at be sent again without stacking up. Ordinary mail is plain and never deduplicated, since two agents saying the same thing twice are two things to read.
+	Kind MailKind
+}
+
+// One message in a review thread, written either by the person reviewing or by the agent replying.
+type ReviewMessage struct {
+	ID       string
+	ThreadID string
+	// The type of the author who wrote the message.
+	AuthorKind ReviewAuthorKind
+	// The agent that wrote this message, if relevant, kept as a link to who it was.
+	AuthorAgentID *string
+	// What was written, as markdown.
+	Body      string
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+// One conversation pinned to a place in an agent's diff.
+type ReviewThread struct {
+	ID      string
+	AgentID string
+	// The file the thread is pinned to, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
+	FilePath string
+	// First line of the range on the old side of the diff, or zero for a thread pinned to lines that exist only on the new side.
+	OldStart int32
+	// Last line of the range on the old side, equal to old_start for a thread on a single line.
+	OldEnd int32
+	// First line of the range on the new side of the diff, or zero for a thread pinned to lines the change deleted.
+	NewStart int32
+	// Last line of the range on the new side, equal to new_start for a thread on a single line.
+	NewEnd int32
+	// The diff lines the thread was written against. They say what the thread was about once the agent has rewritten that code, and are what the viewer compares the file against to decide whether the anchor still holds.
+	QuotedLines []string
+	// When the person reviewing last wrote or rewrote a message here, null until they have written one. Compared against agent_read_at to decide what the agent has not been told, so that rewriting a message counts as activity rather than hiding behind its original created_at.
+	LastHumanActivityAt *time.Time
+	// When the agent last read this thread, stamped from the last_human_activity_at of the row it was shown rather than from the clock, so a message written mid-read is not marked read without being returned.
+	AgentReadAt *time.Time
+	// When the person reviewing last read this thread, stamped from last_agent_activity_at the same way, which is what says whether the agent has replied since they looked.
+	HumanReadAt *time.Time
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	// The mirror of last_human_activity_at for the agent's side, null until the agent has written. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see.
+	LastAgentActivityAt *time.Time
 }
 
 // A cron-driven agent launch: when to fire and what to ask for.

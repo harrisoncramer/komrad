@@ -115,6 +115,7 @@ func (f *Frame) Show(region Region, content Content) {
 	target := Target{Region: region}
 	if content.Wraps {
 		target.Width = f.tmux.GetPaneWidth(pane)
+		target.Height = f.tmux.GetPaneHeight(pane)
 	}
 
 	if f.isShowing(region, content, target.Width) {

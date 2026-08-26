@@ -12,6 +12,7 @@ const (
 type Tmux interface {
 	IsPaneAlive(pane string) bool
 	GetPaneWidth(pane string) int
+	GetPaneHeight(pane string) int
 	SplitRight(anchorPane, dir, size string) string
 	SplitLeft(anchorPane, dir, size string) string
 	SplitBelow(anchorPane, dir, size string) string
@@ -28,7 +29,8 @@ type Tmux interface {
 type Target struct {
 	Region Region
 
-	Width int
+	Width  int
+	Height int
 }
 
 type Content struct {

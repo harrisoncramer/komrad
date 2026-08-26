@@ -65,6 +65,26 @@ func (c *Client) GetPaneWidth(pane string) int {
 	return width
 }
 
+// GetPaneHeight is how many rows a pane has, which is what a pager needs to place a line on a
+// particular row of it.
+func (c *Client) GetPaneHeight(pane string) int {
+	if pane == "" {
+		return 0
+	}
+
+	out, err := c.query("display-message", "-p", "-t", pane, "#{pane_height}")
+	if err != nil {
+		return 0
+	}
+
+	height, err := strconv.Atoi(out)
+	if err != nil {
+		return 0
+	}
+
+	return height
+}
+
 // SetPaneOwner stamps a pane with the id of the agent running in it.
 func (c *Client) SetPaneOwner(pane, agentID string) error {
 	if pane == "" || agentID == "" {

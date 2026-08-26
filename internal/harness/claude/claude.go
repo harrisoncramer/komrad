@@ -35,6 +35,11 @@ func (h *Harness) GetID() string { return binary }
 // GetBinary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) GetBinary() string { return binary }
 
+// GetInterruptKeys stops Claude where it stands. Escape interrupts what it is doing, and the
+// second one dismisses the prompt the first can leave behind, so a message typed after them
+// lands in the composer rather than in whatever was on screen.
+func (h *Harness) GetInterruptKeys() []string { return []string{"Escape", "Escape"} }
+
 // MintSessionID names the conversation a fresh launch will hold. Claude takes one on
 // the command line, so the panel names it before it exists, and every later resume,
 // log lookup, and relocation keys on the name it chose.
