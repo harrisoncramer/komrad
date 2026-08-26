@@ -32,17 +32,29 @@ func diffCmd(state *app) *cobra.Command {
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			patch, err := loadAgentDiff(cmd.Context(), state, args[0])
+			loaded, err := loadAgentDiff(cmd.Context(), state, args[0])
 			if err != nil {
 				return err
 			}
 
-			return review.Run(review.RunParams{Patch: patch})
+			return review.Run(review.RunParams{
+				Patch:     loaded.patch,
+				AgentName: loaded.agentName,
+				Threads:   loaded.threads,
+			})
 		},
 	}
 }
 
-func loadAgentDiff(ctx context.Context, state *app, agentID string) (*diff.Patch, error) {
+type loadedDiff struct {
+	patch *diff.Patch
+
+	agentName string
+
+	threads review.ThreadClient
+}
+
+func loadAgentDiff(ctx context.Context, state *app, agentID string) (*loadedDiff, error) {
 	base := "http://" + state.env.Addr
 
 	agents := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
@@ -75,5 +87,9 @@ func loadAgentDiff(ctx context.Context, state *app, agentID string) (*diff.Patch
 		return nil, err
 	}
 
-	return patch, nil
+	return &loadedDiff{
+		patch:     patch,
+		agentName: agent.GetName(),
+		threads:   newReviewThreadClient(agents, agentID),
+	}, nil
 }

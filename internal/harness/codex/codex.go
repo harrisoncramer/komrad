@@ -62,6 +62,11 @@ func (h *Harness) GetID() string { return binary }
 // GetBinary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) GetBinary() string { return binary }
 
+// GetInterruptKeys stops Codex where it stands. It reads one Escape as an interrupt and has
+// no second prompt to dismiss, unlike Claude, which is the reason these keys are per-harness
+// rather than one pair the panel sends to everything.
+func (h *Harness) GetInterruptKeys() []string { return []string{"Escape"} }
+
 // MintSessionID returns empty, since Codex takes no session id on the command line and
 // names the conversation itself, which the panel adopts afterwards through FindSession.
 func (h *Harness) MintSessionID() string { return "" }

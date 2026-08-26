@@ -2,6 +2,7 @@ package review
 
 import (
 	"weave/internal/diff"
+	agentv1 "weave/proto/gen/agent/v1"
 )
 
 type rowKind uint8
@@ -13,8 +14,10 @@ const (
 	lineRow
 )
 
-// row is one drawable line of the review. The patch is flattened into these once, so moving
-// the cursor is walking a slice rather than walking the patch.
+// row is one drawable line of the diff. The patch is flattened into these once, so moving the
+// cursor is walking a slice rather than walking the patch. Threads are not rows: they are
+// drawn as a mark in the gutter and read on a screen of their own, which is what keeps this
+// list fixed for the life of the viewer.
 type row struct {
 	kind rowKind
 
@@ -32,9 +35,9 @@ type fileSource struct {
 	new []styledLine
 }
 
-// Anchor is a place in the diff, lifted off the cursor. It is what a review comment is
-// attached to and what gets handed to an agent: the file, where the lines sit on each side,
-// and the lines themselves so the comment can be shown with the code it is about.
+// Anchor is a place in the diff, lifted off the cursor. It is what a review thread is pinned
+// to: the file, where the lines sit on each side, and the lines themselves, so the thread
+// still says what it was about once the agent has rewritten that code.
 type Anchor struct {
 	FilePath string
 
@@ -52,10 +55,15 @@ type view struct {
 
 	rows    []row
 	sources []fileSource
+
+	// pinned is the thread anchored at each place, keyed by file and line. Only threads whose
+	// quoted line still matches the diff are in here, so a mark is never drawn against code
+	// that has changed since the thread was written.
+	pinned map[anchorKey]*agentv1.ReviewThread
 }
 
 func newView(patch *diff.Patch, isDark bool) *view {
-	v := &view{patch: patch, sources: make([]fileSource, len(patch.Files))}
+	v := &view{patch: patch, sources: make([]fileSource, len(patch.Files)), pinned: map[anchorKey]*agentv1.ReviewThread{}}
 
 	highlight := newHighlighter(isDark)
 	for fileIndex := range patch.Files {
@@ -82,15 +90,68 @@ func newView(patch *diff.Patch, isDark bool) *view {
 	return v
 }
 
-// isCommentable reports whether a row is one the cursor can rest on, which is a row that
-// stands for a real line of a file rather than a header.
-func (v *view) isCommentable(y int) bool {
+// pinThreads works out which threads still point at the code they were written against.
+//
+// A thread carries the line it was about, so the check is that quote against the line now at
+// those coordinates. Matching pins the thread and the gutter marks it. Not matching leaves it
+// unpinned: the agent has rewritten that code, and marking the line anyway would point at
+// something the thread never mentioned. An unpinned thread is not lost, it is simply read on
+// the thread screen under the place it was written rather than against the diff.
+func (v *view) pinThreads(threads []*agentv1.ReviewThread) {
+	v.pinned = map[anchorKey]*agentv1.ReviewThread{}
+
+	quoted := map[anchorKey]string{}
+	for _, current := range v.rows {
+		if current.kind != lineRow {
+			continue
+		}
+
+		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+		quoted[anchorKey{
+			filePath: v.patch.Files[current.file].Path(),
+			newLine:  int32(line.NewNumber),
+			oldLine:  int32(line.OldNumber),
+		}] = markerFor(line.Kind) + line.Text
+	}
+
+	for _, thread := range threads {
+		key := keyForThread(thread)
+
+		here, ok := quoted[key]
+		if !ok || len(thread.GetQuotedLines()) == 0 || thread.GetQuotedLines()[0] != here {
+			continue
+		}
+
+		v.pinned[key] = thread
+	}
+}
+
+// getThread is the thread pinned to the line a row stands for, if the anchor still holds.
+func (v *view) getThread(y int) (*agentv1.ReviewThread, bool) {
+	key, ok := v.getKey(y)
+	if !ok {
+		return nil, false
+	}
+
+	thread, ok := v.pinned[key]
+
+	return thread, ok
+}
+
+// isPinnable reports whether a row is one the cursor can rest on, which is a row standing for
+// a real line of a file rather than a header.
+func (v *view) isPinnable(y int) bool {
 	return y >= 0 && y < len(v.rows) && v.rows[y].kind == lineRow
 }
 
 // findFirst is where the cursor starts: the first row that stands for a line.
 func (v *view) findFirst() int {
-	return v.scan(-1, 1)
+	return max(v.scan(-1, 1), 0)
+}
+
+// findLast is the last row the cursor can rest on.
+func (v *view) findLast() int {
+	return max(v.scan(len(v.rows), -1), 0)
 }
 
 // move walks to the next row the cursor can rest on, and stays put when there is none.
@@ -104,7 +165,7 @@ func (v *view) move(y, direction int) int {
 
 func (v *view) scan(from, direction int) int {
 	for y := from + direction; y >= 0 && y < len(v.rows); y += direction {
-		if v.isCommentable(y) {
+		if v.isPinnable(y) {
 			return y
 		}
 	}
@@ -133,12 +194,52 @@ func (v *view) jumpFile(y, direction int) int {
 	return y
 }
 
+// jumpThread moves to the next or previous line carrying a thread.
+func (v *view) jumpThread(y, direction int) int {
+	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
+		if _, ok := v.getThread(next); ok {
+			return next
+		}
+	}
+
+	return y
+}
+
+// findAnchor is where a thread sits in the diff, so the cursor can be taken to it from the
+// thread screen. It answers -1 for a thread whose anchor no longer holds.
+func (v *view) findAnchor(thread *agentv1.ReviewThread) int {
+	key := keyForThread(thread)
+	for index := range v.rows {
+		if found, ok := v.getKey(index); ok && found == key {
+			return index
+		}
+	}
+
+	return -1
+}
+
 func (v *view) getRow(y int) (row, bool) {
 	if y < 0 || y >= len(v.rows) {
 		return row{}, false
 	}
 
 	return v.rows[y], true
+}
+
+// getKey is where the line under a row sits, which is what a thread is pinned to.
+func (v *view) getKey(y int) (anchorKey, bool) {
+	current, ok := v.getRow(y)
+	if !ok || current.kind != lineRow {
+		return anchorKey{}, false
+	}
+
+	line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+
+	return anchorKey{
+		filePath: v.patch.Files[current.file].Path(),
+		newLine:  int32(line.NewNumber),
+		oldLine:  int32(line.OldNumber),
+	}, true
 }
 
 // getFile is the file the cursor is inside, header rows included.
@@ -161,8 +262,7 @@ func (v *view) getLine(y int) (diff.Line, bool) {
 	return v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line], true
 }
 
-// GetAnchor lifts the cursor's row into an anchor. This is the seam review comments hang off:
-// everything above it draws, and everything after it is about sending what this returns.
+// GetAnchor lifts the cursor's row into an anchor, which is what a new thread is pinned to.
 func (v *view) GetAnchor(y int) (*Anchor, bool) {
 	file, fileOK := v.getFile(y)
 	line, lineOK := v.getLine(y)
@@ -170,16 +270,14 @@ func (v *view) GetAnchor(y int) (*Anchor, bool) {
 		return nil, false
 	}
 
-	anchor := &Anchor{
+	return &Anchor{
 		FilePath:    file.Path(),
 		OldStart:    line.OldNumber,
 		OldEnd:      line.OldNumber,
 		NewStart:    line.NewNumber,
 		NewEnd:      line.NewNumber,
 		QuotedLines: []string{markerFor(line.Kind) + line.Text},
-	}
-
-	return anchor, true
+	}, true
 }
 
 func markerFor(kind diff.LineKind) string {

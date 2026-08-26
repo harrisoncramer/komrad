@@ -66,7 +66,7 @@ type WorkflowService struct {
 	tx           txRunner
 
 	maxAgents int
-	notifier  parentNotifier
+	notifier  systemMailSender
 }
 
 type WorkflowParams struct {
@@ -77,7 +77,7 @@ type WorkflowParams struct {
 	Tmux         paneKiller
 	Tx           txRunner
 	MaxAgents    int
-	Notifier     parentNotifier
+	Notifier     systemMailSender
 }
 
 // NewWorkflowService builds the service from its dependencies.

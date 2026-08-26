@@ -103,7 +103,7 @@ type lifecycleActioner interface {
 	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
 }
 
-type parentNotifier interface {
+type systemMailSender interface {
 	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
@@ -128,7 +128,7 @@ type AgentService struct {
 	userDefaultFlags   map[string]string
 	maxAgents          int
 	fallbackResumeRoot string
-	notifier           parentNotifier
+	notifier           systemMailSender
 	logsDir            string
 }
 
@@ -144,7 +144,7 @@ type NewAgentServiceParams struct {
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
 	FallbackResumeRoot string
-	Notifier           parentNotifier
+	Notifier           systemMailSender
 	LogsDir            string
 }
 
@@ -356,7 +356,7 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-func notifyParents(ctx context.Context, notifier parentNotifier, agents []agentstore.Agent, reason string) {
+func notifyParents(ctx context.Context, notifier systemMailSender, agents []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
 	for _, agent := range agents {

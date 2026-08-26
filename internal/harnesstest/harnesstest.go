@@ -138,6 +138,9 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command + " " + harness.QuoteArg(h.binary) + " " + agentArg + " " + harness.QuoteArg(h.script), nil
 }
 
+// GetInterruptKeys is what the panel would send to stop this harness where it stands.
+func (h *Harness) GetInterruptKeys() []string { return []string{"Escape"} }
+
 // ReadActivity reads the bottom of a captured frame. Only the last line the agent printed
 // is its current state; anything above it is one it has already left, and a frame ending
 // in something else is a capture landing mid-write rather than a verdict.

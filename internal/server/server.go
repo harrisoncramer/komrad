@@ -26,6 +26,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	reviewstore "weave/internal/store/review"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
@@ -155,6 +156,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	scheduleStore := schedulestore.New(pool.GetDB())
 	transcriptStore := transcriptstore.New(pool.GetDB())
 	mailStore := mailstore.New(pool.GetDB())
+	reviewStore := reviewstore.New(pool.GetDB())
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
@@ -162,6 +164,13 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		MailReadWriter: mailStore,
 		AgentFinder:    agentStore,
 		Config:         mailConfig(loadConfig),
+	})
+	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
+		Reviews:   reviewStore,
+		Mailer:    mailService,
+		Agents:    agentStore,
+		Harnesses: p.Harnesses,
+		Panes:     p.Tmux,
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
@@ -283,6 +292,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Launcher:    agentService,
 			Reconciler:  reconciler,
 			Archive:     jobs.NewEnqueuer(srv.Jobs),
+			Review:      reviewService,
 		}), options...))
 	srv.handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(workflowStore, workflowService), options...))

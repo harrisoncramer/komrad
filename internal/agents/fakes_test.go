@@ -240,6 +240,8 @@ func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 
 func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
 
+func (f *fakeHarness) GetInterruptKeys() []string { return []string{"Escape"} }
+
 func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == busyFrame:
@@ -372,7 +374,7 @@ type agentServiceOptions struct {
 	flags     string
 	lifecycle lifecycleActioner
 	maxAgents int
-	notifier  parentNotifier
+	notifier  systemMailSender
 	logsDir   string
 }
 
@@ -478,7 +480,7 @@ func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *Workfl
 	return s.workflowServiceWithNotifier(tmux, maxAgents, nil)
 }
 
-func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier parentNotifier) *WorkflowService {
+func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier systemMailSender) *WorkflowService {
 	deleter := s.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}, addr: "127.0.0.1:9999"})
 
 	workflows := NewWorkflowService(WorkflowParams{

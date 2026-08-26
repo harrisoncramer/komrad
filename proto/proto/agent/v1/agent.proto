@@ -3,6 +3,7 @@ syntax = "proto3";
 package agent.v1;
 
 import "agent/v1/mail.proto";
+import "agent/v1/review.proto";
 import "agent/v1/transcript.proto";
 import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
@@ -367,4 +368,35 @@ service AgentService {
   rpc RecordTurnBoundary(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
+  rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "list_review_threads"
+      description: "Read the review conversations pinned to the lines of your own diff. Each thread names a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. This is where a person's feedback on your work actually lives: mail only tells you there is activity, it does not carry it. Set markRead to claim what you are shown, which is what stops the same threads being announced again, and leave it unset to look without claiming. Reply with add_review_message once you have made the change, saying what you did, and resolve_review_thread when the thread is settled. id defaults to your own agent; give another agent's id to read the review of its work instead."
+    };
+  }
+  rpc CreateReviewThread(CreateReviewThreadRequest) returns (CreateReviewThreadResponse) {}
+  rpc AddReviewMessage(AddReviewMessageRequest) returns (AddReviewMessageResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "add_review_message"
+      description: "Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. The message is attributed to you rather than to the person reviewing, and it reopens a thread that had been resolved, since a settled thread somebody is still talking in was not settled. Each call adds another message, so do not retry a call that may have succeeded."
+      destructive: false
+      idempotent: false
+    };
+  }
+  rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {}
+  rpc ResolveReviewThread(ResolveReviewThreadRequest) returns (ResolveReviewThreadResponse) {
+    option idempotency_level = IDEMPOTENT;
+    option (annotation.v1.tool) = {
+      tool_name: "resolve_review_thread"
+      description: "Settle a review thread once you have done what it asked, or reopen one by passing resolved false. Resolving is a claim that the feedback has been acted on, so say what you did with add_review_message first: a thread that closes with no answer in it tells the person reviewing nothing. A later message in the thread reopens it on its own."
+      destructive: false
+    };
+  }
+  rpc DeleteReviewThread(DeleteReviewThreadRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc DeleteReviewMessage(DeleteReviewMessageRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc NotifyReviewThreads(NotifyReviewThreadsRequest) returns (NotifyReviewThreadsResponse) {}
 }
