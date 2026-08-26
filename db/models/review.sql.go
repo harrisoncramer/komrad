@@ -10,6 +10,97 @@ import (
 	"time"
 )
 
+const claimReviewThreadsForAgent = `-- name: ClaimReviewThreadsForAgent :many
+WITH BEFORE AS (
+    SELECT
+        t.id,
+        t.agent_read_at,
+        t.human_read_at,
+        t.last_human_activity_at,
+        t.last_agent_activity_at
+    FROM
+        review_threads t
+    WHERE
+        t.agent_id = $1
+    ORDER BY
+        t.id
+    FOR UPDATE
+),
+claimed AS (
+    UPDATE
+        review_threads t
+    SET
+        agent_read_at = before.last_human_activity_at
+    FROM
+        BEFORE
+    WHERE
+        t.id = before.id
+        AND before.last_human_activity_at IS NOT NULL
+    RETURNING
+        t.id
+)
+SELECT
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.resolved_at, t.last_human_activity_at, t.last_agent_activity_at, t.agent_read_at, t.human_read_at, t.created_at, t.updated_at,
+(before.last_human_activity_at IS NOT NULL
+        AND (before.agent_read_at IS NULL
+            OR before.last_human_activity_at > before.agent_read_at)) AS unread_by_agent,
+(before.last_agent_activity_at IS NOT NULL
+        AND (before.human_read_at IS NULL
+            OR before.last_agent_activity_at > before.human_read_at)) AS unread_by_human
+FROM
+    review_threads t
+    JOIN BEFORE ON before.id = t.id
+ORDER BY
+    t.file_path,
+    t.new_start,
+    t.old_start,
+    t.id
+`
+
+type ClaimReviewThreadsForAgentRow struct {
+	ReviewThread  ReviewThread
+	UnreadByAgent *bool
+	UnreadByHuman *bool
+}
+
+func (q *Queries) ClaimReviewThreadsForAgent(ctx context.Context, agentID string) ([]*ClaimReviewThreadsForAgentRow, error) {
+	rows, err := q.db.Query(ctx, claimReviewThreadsForAgent, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ClaimReviewThreadsForAgentRow
+	for rows.Next() {
+		var i ClaimReviewThreadsForAgentRow
+		if err := rows.Scan(
+			&i.ReviewThread.ID,
+			&i.ReviewThread.AgentID,
+			&i.ReviewThread.FilePath,
+			&i.ReviewThread.OldStart,
+			&i.ReviewThread.OldEnd,
+			&i.ReviewThread.NewStart,
+			&i.ReviewThread.NewEnd,
+			&i.ReviewThread.QuotedLines,
+			&i.ReviewThread.ResolvedAt,
+			&i.ReviewThread.LastHumanActivityAt,
+			&i.ReviewThread.LastAgentActivityAt,
+			&i.ReviewThread.AgentReadAt,
+			&i.ReviewThread.HumanReadAt,
+			&i.ReviewThread.CreatedAt,
+			&i.ReviewThread.UpdatedAt,
+			&i.UnreadByAgent,
+			&i.UnreadByHuman,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countUnreadReviewThreads = `-- name: CountUnreadReviewThreads :one
 SELECT
     COUNT(*)
@@ -18,6 +109,7 @@ FROM
 WHERE
     t.agent_id = $1
     AND t.resolved_at IS NULL
+    AND t.last_human_activity_at IS NOT NULL
     AND (t.agent_read_at IS NULL
         OR t.last_human_activity_at > t.agent_read_at)
 `
@@ -30,8 +122,38 @@ func (q *Queries) CountUnreadReviewThreads(ctx context.Context, agentID string) 
 }
 
 const deleteReviewMessage = `-- name: DeleteReviewMessage :exec
-DELETE FROM review_messages
-WHERE id = $1
+WITH deleted AS (
+    DELETE FROM review_messages m
+    WHERE m.id = $1
+    RETURNING
+        m.thread_id
+),
+remaining AS (
+    SELECT
+        deleted.thread_id,
+        MAX(
+            CASE WHEN m.author_kind = 'human' THEN
+                GREATEST(m.created_at, m.updated_at)
+            END) AS human_activity_at,
+        MAX(
+            CASE WHEN m.author_kind = 'agent' THEN
+                GREATEST(m.created_at, m.updated_at)
+            END) AS agent_activity_at
+    FROM
+        deleted
+        LEFT JOIN review_messages m ON m.thread_id = deleted.thread_id
+            AND m.id <> $1
+    GROUP BY
+        deleted.thread_id)
+UPDATE
+    review_threads t
+SET
+    last_human_activity_at = remaining.human_activity_at,
+    last_agent_activity_at = remaining.agent_activity_at
+FROM
+    remaining
+WHERE
+    t.id = remaining.thread_id
 `
 
 func (q *Queries) DeleteReviewMessage(ctx context.Context, id string) error {
@@ -75,48 +197,91 @@ func (q *Queries) GetReviewMessage(ctx context.Context, id string) (*ReviewMessa
 
 const getReviewThread = `-- name: GetReviewThread :one
 SELECT
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, resolved_at, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.resolved_at, t.last_human_activity_at, t.last_agent_activity_at, t.agent_read_at, t.human_read_at, t.created_at, t.updated_at,
+(t.last_human_activity_at IS NOT NULL
+        AND (t.agent_read_at IS NULL
+            OR t.last_human_activity_at > t.agent_read_at)) AS unread_by_agent,
+(t.last_agent_activity_at IS NOT NULL
+        AND (t.human_read_at IS NULL
+            OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
 WHERE
     t.id = $1
 `
 
-func (q *Queries) GetReviewThread(ctx context.Context, id string) (*ReviewThread, error) {
+type GetReviewThreadRow struct {
+	ReviewThread  ReviewThread
+	UnreadByAgent *bool
+	UnreadByHuman *bool
+}
+
+func (q *Queries) GetReviewThread(ctx context.Context, id string) (*GetReviewThreadRow, error) {
 	row := q.db.QueryRow(ctx, getReviewThread, id)
-	var i ReviewThread
+	var i GetReviewThreadRow
 	err := row.Scan(
-		&i.ID,
-		&i.AgentID,
-		&i.FilePath,
-		&i.OldStart,
-		&i.OldEnd,
-		&i.NewStart,
-		&i.NewEnd,
-		&i.QuotedLines,
-		&i.ResolvedAt,
-		&i.LastHumanActivityAt,
-		&i.AgentReadAt,
-		&i.HumanReadAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
+		&i.ReviewThread.ID,
+		&i.ReviewThread.AgentID,
+		&i.ReviewThread.FilePath,
+		&i.ReviewThread.OldStart,
+		&i.ReviewThread.OldEnd,
+		&i.ReviewThread.NewStart,
+		&i.ReviewThread.NewEnd,
+		&i.ReviewThread.QuotedLines,
+		&i.ReviewThread.ResolvedAt,
+		&i.ReviewThread.LastHumanActivityAt,
+		&i.ReviewThread.LastAgentActivityAt,
+		&i.ReviewThread.AgentReadAt,
+		&i.ReviewThread.HumanReadAt,
+		&i.ReviewThread.CreatedAt,
+		&i.ReviewThread.UpdatedAt,
+		&i.UnreadByAgent,
+		&i.UnreadByHuman,
 	)
 	return &i, err
 }
 
 const insertReviewMessage = `-- name: InsertReviewMessage :one
-INSERT INTO review_messages(
-    thread_id,
-    author_kind,
-    author_agent_id,
-    body)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4)
+WITH inserted AS (
+    INSERT INTO review_messages(
+        thread_id,
+        author_kind,
+        author_agent_id,
+        body)
+    VALUES (
+        $1,
+        $2,
+        $3,
+        $4)
 RETURNING
     id, thread_id, author_kind, author_agent_id, body, created_at, updated_at
+),
+touched AS (
+    UPDATE
+        review_threads t
+    SET
+        last_human_activity_at = CASE WHEN inserted.author_kind = 'human' THEN
+            inserted.created_at
+        ELSE
+            t.last_human_activity_at
+        END,
+        last_agent_activity_at = CASE WHEN inserted.author_kind = 'agent' THEN
+            inserted.created_at
+        ELSE
+            t.last_agent_activity_at
+        END,
+        resolved_at = NULL
+    FROM
+        inserted
+    WHERE
+        t.id = inserted.thread_id
+    RETURNING
+        t.id
+)
+SELECT
+    inserted.id, inserted.thread_id, inserted.author_kind, inserted.author_agent_id, inserted.body, inserted.created_at, inserted.updated_at
+FROM
+    inserted
 `
 
 type InsertReviewMessageParams struct {
@@ -126,14 +291,24 @@ type InsertReviewMessageParams struct {
 	Body          string
 }
 
-func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessageParams) (*ReviewMessage, error) {
+type InsertReviewMessageRow struct {
+	ID            string
+	ThreadID      string
+	AuthorKind    ReviewAuthorKind
+	AuthorAgentID *string
+	Body          string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessageParams) (*InsertReviewMessageRow, error) {
 	row := q.db.QueryRow(ctx, insertReviewMessage,
 		arg.ThreadID,
 		arg.AuthorKind,
 		arg.AuthorAgentID,
 		arg.Body,
 	)
-	var i ReviewMessage
+	var i InsertReviewMessageRow
 	err := row.Scan(
 		&i.ID,
 		&i.ThreadID,
@@ -146,39 +321,117 @@ func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessa
 	return &i, err
 }
 
-const insertReviewThread = `-- name: InsertReviewThread :one
-INSERT INTO review_threads(
-    agent_id,
-    file_path,
-    old_start,
-    old_end,
-    new_start,
-    new_end,
-    quoted_lines)
-VALUES (
-    $1,
-    $2,
-    $3,
-    $4,
-    $5,
-    $6,
-    $7)
+const insertReviewThreadWithMessage = `-- name: InsertReviewThreadWithMessage :one
+WITH thread AS (
+    INSERT INTO review_threads(
+        agent_id,
+        file_path,
+        old_start,
+        old_end,
+        new_start,
+        new_end,
+        quoted_lines,
+        last_human_activity_at,
+        last_agent_activity_at)
+    VALUES (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        CASE WHEN $8::review_author_kind = 'human' THEN
+            NOW()
+        END,
+        CASE WHEN $8::review_author_kind = 'agent' THEN
+            NOW()
+        END)
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, resolved_at, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, resolved_at, last_human_activity_at, last_agent_activity_at, agent_read_at, human_read_at, created_at, updated_at
+),
+message AS (
+    INSERT INTO review_messages(
+        thread_id,
+        author_kind,
+        author_agent_id,
+        body)
+    SELECT
+        t.id,
+        $8,
+        $9,
+        $10
+    FROM
+        thread t
+    RETURNING
+        id, thread_id, author_kind, author_agent_id, body, created_at, updated_at
+)
+SELECT
+    t.id,
+    t.agent_id,
+    t.file_path,
+    t.old_start,
+    t.old_end,
+    t.new_start,
+    t.new_end,
+    t.quoted_lines,
+    t.resolved_at,
+    t.last_human_activity_at,
+    t.last_agent_activity_at,
+    t.agent_read_at,
+    t.human_read_at,
+    t.created_at,
+    t.updated_at,
+    m.id AS message_id,
+    m.author_kind AS message_author_kind,
+    m.author_agent_id AS message_author_agent_id,
+    m.body AS message_body,
+    m.created_at AS message_created_at,
+    m.updated_at AS message_updated_at
+FROM
+    thread t,
+    message m
 `
 
-type InsertReviewThreadParams struct {
-	AgentID     string
-	FilePath    string
-	OldStart    int32
-	OldEnd      int32
-	NewStart    int32
-	NewEnd      int32
-	QuotedLines []string
+type InsertReviewThreadWithMessageParams struct {
+	AgentID       string
+	FilePath      string
+	OldStart      int32
+	OldEnd        int32
+	NewStart      int32
+	NewEnd        int32
+	QuotedLines   []string
+	AuthorKind    ReviewAuthorKind
+	AuthorAgentID *string
+	Body          string
 }
 
-func (q *Queries) InsertReviewThread(ctx context.Context, arg InsertReviewThreadParams) (*ReviewThread, error) {
-	row := q.db.QueryRow(ctx, insertReviewThread,
+type InsertReviewThreadWithMessageRow struct {
+	ID                   string
+	AgentID              string
+	FilePath             string
+	OldStart             int32
+	OldEnd               int32
+	NewStart             int32
+	NewEnd               int32
+	QuotedLines          []string
+	ResolvedAt           *time.Time
+	LastHumanActivityAt  *time.Time
+	LastAgentActivityAt  *time.Time
+	AgentReadAt          *time.Time
+	HumanReadAt          *time.Time
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	MessageID            string
+	MessageAuthorKind    ReviewAuthorKind
+	MessageAuthorAgentID *string
+	MessageBody          string
+	MessageCreatedAt     time.Time
+	MessageUpdatedAt     time.Time
+}
+
+func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
+	row := q.db.QueryRow(ctx, insertReviewThreadWithMessage,
 		arg.AgentID,
 		arg.FilePath,
 		arg.OldStart,
@@ -186,8 +439,11 @@ func (q *Queries) InsertReviewThread(ctx context.Context, arg InsertReviewThread
 		arg.NewStart,
 		arg.NewEnd,
 		arg.QuotedLines,
+		arg.AuthorKind,
+		arg.AuthorAgentID,
+		arg.Body,
 	)
-	var i ReviewThread
+	var i InsertReviewThreadWithMessageRow
 	err := row.Scan(
 		&i.ID,
 		&i.AgentID,
@@ -199,12 +455,51 @@ func (q *Queries) InsertReviewThread(ctx context.Context, arg InsertReviewThread
 		&i.QuotedLines,
 		&i.ResolvedAt,
 		&i.LastHumanActivityAt,
+		&i.LastAgentActivityAt,
 		&i.AgentReadAt,
 		&i.HumanReadAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.MessageID,
+		&i.MessageAuthorKind,
+		&i.MessageAuthorAgentID,
+		&i.MessageBody,
+		&i.MessageCreatedAt,
+		&i.MessageUpdatedAt,
 	)
 	return &i, err
+}
+
+const listAgentsWithUnreadReviewThreads = `-- name: ListAgentsWithUnreadReviewThreads :many
+SELECT DISTINCT
+    t.agent_id
+FROM
+    review_threads t
+WHERE
+    t.resolved_at IS NULL
+    AND t.last_human_activity_at IS NOT NULL
+    AND (t.agent_read_at IS NULL
+        OR t.last_human_activity_at > t.agent_read_at)
+`
+
+func (q *Queries) ListAgentsWithUnreadReviewThreads(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listAgentsWithUnreadReviewThreads)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var agent_id string
+		if err := rows.Scan(&agent_id); err != nil {
+			return nil, err
+		}
+		items = append(items, agent_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listReviewMessagesByThreads = `-- name: ListReviewMessagesByThreads :many
@@ -249,19 +544,13 @@ func (q *Queries) ListReviewMessagesByThreads(ctx context.Context, threadIds []s
 
 const listReviewThreads = `-- name: ListReviewThreads :many
 SELECT
-    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.resolved_at, t.last_human_activity_at, t.agent_read_at, t.human_read_at, t.created_at, t.updated_at,
-(t.agent_read_at IS NULL
-        OR t.last_human_activity_at > t.agent_read_at) AS unread_by_agent,
-    EXISTS (
-        SELECT
-            1
-        FROM
-            review_messages m
-        WHERE
-            m.thread_id = t.id
-            AND m.author_kind = 'agent'
-            AND (t.human_read_at IS NULL
-                OR m.created_at > t.human_read_at)) AS unread_by_human
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.resolved_at, t.last_human_activity_at, t.last_agent_activity_at, t.agent_read_at, t.human_read_at, t.created_at, t.updated_at,
+(t.last_human_activity_at IS NOT NULL
+        AND (t.agent_read_at IS NULL
+            OR t.last_human_activity_at > t.agent_read_at)) AS unread_by_agent,
+(t.last_agent_activity_at IS NOT NULL
+        AND (t.human_read_at IS NULL
+            OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
 WHERE
@@ -274,22 +563,9 @@ ORDER BY
 `
 
 type ListReviewThreadsRow struct {
-	ID                  string
-	AgentID             string
-	FilePath            string
-	OldStart            int32
-	OldEnd              int32
-	NewStart            int32
-	NewEnd              int32
-	QuotedLines         []string
-	ResolvedAt          *time.Time
-	LastHumanActivityAt time.Time
-	AgentReadAt         *time.Time
-	HumanReadAt         *time.Time
-	CreatedAt           time.Time
-	UpdatedAt           time.Time
-	UnreadByAgent       *bool
-	UnreadByHuman       bool
+	ReviewThread  ReviewThread
+	UnreadByAgent *bool
+	UnreadByHuman *bool
 }
 
 func (q *Queries) ListReviewThreads(ctx context.Context, agentID string) ([]*ListReviewThreadsRow, error) {
@@ -302,20 +578,21 @@ func (q *Queries) ListReviewThreads(ctx context.Context, agentID string) ([]*Lis
 	for rows.Next() {
 		var i ListReviewThreadsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.AgentID,
-			&i.FilePath,
-			&i.OldStart,
-			&i.OldEnd,
-			&i.NewStart,
-			&i.NewEnd,
-			&i.QuotedLines,
-			&i.ResolvedAt,
-			&i.LastHumanActivityAt,
-			&i.AgentReadAt,
-			&i.HumanReadAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
+			&i.ReviewThread.ID,
+			&i.ReviewThread.AgentID,
+			&i.ReviewThread.FilePath,
+			&i.ReviewThread.OldStart,
+			&i.ReviewThread.OldEnd,
+			&i.ReviewThread.NewStart,
+			&i.ReviewThread.NewEnd,
+			&i.ReviewThread.QuotedLines,
+			&i.ReviewThread.ResolvedAt,
+			&i.ReviewThread.LastHumanActivityAt,
+			&i.ReviewThread.LastAgentActivityAt,
+			&i.ReviewThread.AgentReadAt,
+			&i.ReviewThread.HumanReadAt,
+			&i.ReviewThread.CreatedAt,
+			&i.ReviewThread.UpdatedAt,
 			&i.UnreadByAgent,
 			&i.UnreadByHuman,
 		); err != nil {
@@ -329,42 +606,38 @@ func (q *Queries) ListReviewThreads(ctx context.Context, agentID string) ([]*Lis
 	return items, nil
 }
 
-const markReviewThreadsReadByAgent = `-- name: MarkReviewThreadsReadByAgent :exec
+const markReviewThreadReadByHuman = `-- name: MarkReviewThreadReadByHuman :one
 UPDATE
-    review_threads
+    review_threads t
 SET
-    agent_read_at = $1
+    human_read_at = t.last_agent_activity_at
 WHERE
-    id = ANY ($2::uuid[])
+    t.id = $1
+RETURNING
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, resolved_at, last_human_activity_at, last_agent_activity_at, agent_read_at, human_read_at, created_at, updated_at
 `
 
-type MarkReviewThreadsReadByAgentParams struct {
-	ReadAt *time.Time
-	Ids    []string
-}
-
-func (q *Queries) MarkReviewThreadsReadByAgent(ctx context.Context, arg MarkReviewThreadsReadByAgentParams) error {
-	_, err := q.db.Exec(ctx, markReviewThreadsReadByAgent, arg.ReadAt, arg.Ids)
-	return err
-}
-
-const markReviewThreadsReadByHuman = `-- name: MarkReviewThreadsReadByHuman :exec
-UPDATE
-    review_threads
-SET
-    human_read_at = $1
-WHERE
-    id = ANY ($2::uuid[])
-`
-
-type MarkReviewThreadsReadByHumanParams struct {
-	ReadAt *time.Time
-	Ids    []string
-}
-
-func (q *Queries) MarkReviewThreadsReadByHuman(ctx context.Context, arg MarkReviewThreadsReadByHumanParams) error {
-	_, err := q.db.Exec(ctx, markReviewThreadsReadByHuman, arg.ReadAt, arg.Ids)
-	return err
+func (q *Queries) MarkReviewThreadReadByHuman(ctx context.Context, id string) (*ReviewThread, error) {
+	row := q.db.QueryRow(ctx, markReviewThreadReadByHuman, id)
+	var i ReviewThread
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.FilePath,
+		&i.OldStart,
+		&i.OldEnd,
+		&i.NewStart,
+		&i.NewEnd,
+		&i.QuotedLines,
+		&i.ResolvedAt,
+		&i.LastHumanActivityAt,
+		&i.LastAgentActivityAt,
+		&i.AgentReadAt,
+		&i.HumanReadAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return &i, err
 }
 
 const setReviewThreadResolved = `-- name: SetReviewThreadResolved :one
@@ -375,7 +648,7 @@ SET
 WHERE
     id = $2
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, resolved_at, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, resolved_at, last_human_activity_at, last_agent_activity_at, agent_read_at, human_read_at, created_at, updated_at
 `
 
 type SetReviewThreadResolvedParams struct {
@@ -397,6 +670,7 @@ func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThre
 		&i.QuotedLines,
 		&i.ResolvedAt,
 		&i.LastHumanActivityAt,
+		&i.LastAgentActivityAt,
 		&i.AgentReadAt,
 		&i.HumanReadAt,
 		&i.CreatedAt,
@@ -405,39 +679,43 @@ func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThre
 	return &i, err
 }
 
-const touchReviewThread = `-- name: TouchReviewThread :exec
-UPDATE
-    review_threads
-SET
-    last_human_activity_at = CASE WHEN $1::boolean THEN
-        NOW()
-    ELSE
-        last_human_activity_at
-    END,
-    resolved_at = NULL
-WHERE
-    id = $2
-`
-
-type TouchReviewThreadParams struct {
-	Human bool
-	ID    string
-}
-
-func (q *Queries) TouchReviewThread(ctx context.Context, arg TouchReviewThreadParams) error {
-	_, err := q.db.Exec(ctx, touchReviewThread, arg.Human, arg.ID)
-	return err
-}
-
 const updateReviewMessageBody = `-- name: UpdateReviewMessageBody :one
-UPDATE
-    review_messages
-SET
-    body = $1
-WHERE
-    id = $2
-RETURNING
-    id, thread_id, author_kind, author_agent_id, body, created_at, updated_at
+WITH updated AS (
+    UPDATE
+        review_messages m
+    SET
+        body = $1
+    WHERE
+        m.id = $2
+    RETURNING
+        id, thread_id, author_kind, author_agent_id, body, created_at, updated_at
+),
+touched AS (
+    UPDATE
+        review_threads t
+    SET
+        last_human_activity_at = CASE WHEN updated.author_kind = 'human' THEN
+            updated.updated_at
+        ELSE
+            t.last_human_activity_at
+        END,
+        last_agent_activity_at = CASE WHEN updated.author_kind = 'agent' THEN
+            updated.updated_at
+        ELSE
+            t.last_agent_activity_at
+        END,
+        resolved_at = NULL
+    FROM
+        updated
+    WHERE
+        t.id = updated.thread_id
+    RETURNING
+        t.id
+)
+SELECT
+    updated.id, updated.thread_id, updated.author_kind, updated.author_agent_id, updated.body, updated.created_at, updated.updated_at
+FROM
+    updated
 `
 
 type UpdateReviewMessageBodyParams struct {
@@ -445,9 +723,19 @@ type UpdateReviewMessageBodyParams struct {
 	ID   string
 }
 
-func (q *Queries) UpdateReviewMessageBody(ctx context.Context, arg UpdateReviewMessageBodyParams) (*ReviewMessage, error) {
+type UpdateReviewMessageBodyRow struct {
+	ID            string
+	ThreadID      string
+	AuthorKind    ReviewAuthorKind
+	AuthorAgentID *string
+	Body          string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+}
+
+func (q *Queries) UpdateReviewMessageBody(ctx context.Context, arg UpdateReviewMessageBodyParams) (*UpdateReviewMessageBodyRow, error) {
 	row := q.db.QueryRow(ctx, updateReviewMessageBody, arg.Body, arg.ID)
-	var i ReviewMessage
+	var i UpdateReviewMessageBodyRow
 	err := row.Scan(
 		&i.ID,
 		&i.ThreadID,

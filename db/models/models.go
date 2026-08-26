@@ -122,6 +122,8 @@ type Mail struct {
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
+	// What sort of notice this is, for the mail weave sends itself and only wants one of waiting at a time, such as the review doorbell. Null is ordinary mail, of which an agent may hold many.
+	Kind *string
 }
 
 // One message in a review thread, written either by the person reviewing or by the agent replying.
@@ -142,7 +144,7 @@ type ReviewMessage struct {
 type ReviewThread struct {
 	ID      string
 	AgentID string
-	// The file the thread is pinned to, named the way the diff names it: relative to the repository root, and where the change left the file rather than where it found it.
+	// The file the thread is pinned to, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
 	FilePath string
 	// First line of the range on the old side of the diff, or zero for a thread pinned to lines that exist only on the new side.
 	OldStart int32
@@ -152,15 +154,17 @@ type ReviewThread struct {
 	NewStart int32
 	// Last line of the range on the new side, equal to new_start for a thread on a single line.
 	NewEnd int32
-	// The diff lines the thread was written against, each keeping its leading marker. They say what the thread was about once the agent has rewritten that code, and are what the viewer compares the file against to decide whether the anchor still holds.
+	// The diff lines the thread was written against. They say what the thread was about once the agent has rewritten that code, and are what the viewer compares the file against to decide whether the anchor still holds.
 	QuotedLines []string
 	// When the thread was settled. A message written afterwards reopens it, since late activity in a closed thread would otherwise be hidden.
 	ResolvedAt *time.Time
-	// When the person reviewing last wrote or rewrote a message here. Compared against agent_read_at to decide what the agent has not been told, so that rewriting a message counts as activity rather than hiding behind its original created_at.
-	LastHumanActivityAt time.Time
-	// When the agent last read this thread, stamped to the newest activity it was actually shown rather than to the clock, so a message written mid-read is not marked read without being returned.
+	// When the person reviewing last wrote or rewrote a message here, taken from that message's own timestamp so the watermark the agent reads can equal it exactly. Null means they have said nothing here yet.
+	LastHumanActivityAt *time.Time
+	// When the agent last wrote or rewrote a message here, the mirror of last_human_activity_at, so what the person has left to read is read off the thread rather than by searching its messages.
+	LastAgentActivityAt *time.Time
+	// The value of last_human_activity_at the agent was last shown, stamped from that column rather than from the clock, so activity written mid-read stays unread instead of being marked read without being returned.
 	AgentReadAt *time.Time
-	// When the person reviewing last read this thread, which is what says whether the agent has replied since they looked.
+	// The value of last_agent_activity_at the person reviewing was last shown, which is what says whether the agent has replied since they opened the thread.
 	HumanReadAt *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time

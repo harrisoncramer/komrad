@@ -48,6 +48,11 @@ const ScheduleReconcileInterval = 10 * time.Second
 
 const MailDeliveryInterval = 2 * time.Second
 
+// ReviewDoorbellInterval is how often an unread review with no notice waiting is given one
+// again. It is slow because it is the safety net rather than the announcement: ringing the
+// doorbell is what tells an agent promptly, and this only covers the notice being lost.
+const ReviewDoorbellInterval = 30 * time.Second
+
 const TranscriptSyncInterval = 15 * time.Second
 
 const BranchSyncInterval = 15 * time.Second
@@ -125,6 +130,9 @@ type Server struct {
 	BranchSync Loop
 
 	WorktreeSync Loop
+	// ReviewDoorbell puts the notice back when review activity is still unread and the mail
+	// saying so was claimed or expired without the agent acting on it.
+	ReviewDoorbell Loop
 
 	logger        *slog.Logger
 	stopRequested chan struct{}
@@ -133,7 +141,15 @@ type Server struct {
 }
 
 func (s *Server) loops() []Loop {
-	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync, s.WorktreeSync}
+	return []Loop{
+		s.ScheduleReconcile,
+		s.Reconcile,
+		s.MailDelivery,
+		s.TranscriptSync,
+		s.BranchSync,
+		s.WorktreeSync,
+		s.ReviewDoorbell,
+	}
 }
 
 // New builds the service. Nothing is listening and no loop is running when it returns; the
@@ -156,7 +172,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 	scheduleStore := schedulestore.New(pool.GetDB())
 	transcriptStore := transcriptstore.New(pool.GetDB())
 	mailStore := mailstore.New(pool.GetDB())
-	reviewStore := reviewstore.New(pool.GetDB())
+	reviewRepo := reviewstore.NewRepository(pool)
 
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
@@ -166,11 +182,14 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Config:         mailConfig(loadConfig),
 	})
 	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
-		Reviews:   reviewStore,
-		Mailer:    mailService,
-		Agents:    agentStore,
-		Harnesses: p.Harnesses,
-		Panes:     p.Tmux,
+		Reviews: reviewRepo,
+		Notices: mailService,
+		Agents:  agentStore,
+		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
+			Agents:    agentStore,
+			Harnesses: p.Harnesses,
+			Panes:     p.Tmux,
+		}),
 	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: scheduleStore,
@@ -353,6 +372,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Name:     "worktree sync",
 		Interval: WorktreeSyncInterval,
 		Pass:     agents.NewWorktreeSyncer(agentStore).Sync,
+	}
+	srv.ReviewDoorbell = Loop{
+		Name:     "review doorbell",
+		Interval: ReviewDoorbellInterval,
+		Pass:     reviewService.ReconcileDoorbells,
 	}
 
 	return srv, nil

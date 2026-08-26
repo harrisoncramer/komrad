@@ -14,7 +14,14 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// ListReviewThreads reads the review pinned to an agent's diff.
+// errAgentCaller is what an agent is told when it reaches for the reviewer's half of the
+// conversation. Opening a thread, rewriting the feedback, deleting it, or ringing the doorbell
+// are the person's to do; the agent's half is reading, replying and resolving.
+var errAgentCaller = errors.New("only the person reviewing can do that")
+
+// ListReviewThreads reads the review pinned to an agent's diff. An agent may look at another
+// agent's review, but claiming it is refused: the service checks that, since a claim is what
+// decides whether the owning agent is told about the activity again.
 func (s *Service) ListReviewThreads(
 	ctx context.Context,
 	req *connect.Request[agentv1.ListReviewThreadsRequest],
@@ -32,7 +39,7 @@ func (s *Service) ListReviewThreads(
 
 	threads, err := s.review.ListReviewThreads(ctx, agents.ListReviewThreadsParams{
 		AgentID:  agentID,
-		Reader:   author.Kind,
+		Reader:   author,
 		MarkRead: req.Msg.GetMarkRead(),
 	})
 	if err != nil {
@@ -48,10 +55,16 @@ func (s *Service) ListReviewThreads(
 }
 
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message.
+// Opening a thread is the reviewer's, so an agent cannot leave notes on its own work.
 func (s *Service) CreateReviewThread(
 	ctx context.Context,
 	req *connect.Request[agentv1.CreateReviewThreadRequest],
 ) (*connect.Response[agentv1.CreateReviewThreadResponse], error) {
+	author, err := requireHuman(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	thread, err := s.review.CreateReviewThread(ctx, agents.CreateReviewThreadParams{
 		AgentID:     req.Msg.GetAgentId(),
 		FilePath:    req.Msg.GetFilePath(),
@@ -61,7 +74,7 @@ func (s *Service) CreateReviewThread(
 		NewEnd:      req.Msg.GetNewEnd(),
 		QuotedLines: req.Msg.GetQuotedLines(),
 		Body:        req.Msg.GetBody(),
-		Author:      reviewAuthorFrom(ctx),
+		Author:      author,
 	})
 	if err != nil {
 		return nil, reviewError(err)
@@ -70,7 +83,8 @@ func (s *Service) CreateReviewThread(
 	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: toReviewThread(*thread)}), nil
 }
 
-// AddReviewMessage says something in an existing thread, as whoever is calling.
+// AddReviewMessage says something in an existing thread, as whoever is calling. An agent may
+// only speak in the conversation about its own diff.
 func (s *Service) AddReviewMessage(
 	ctx context.Context,
 	req *connect.Request[agentv1.AddReviewMessageRequest],
@@ -87,12 +101,17 @@ func (s *Service) AddReviewMessage(
 	return connect.NewResponse(&agentv1.AddReviewMessageResponse{Message: toReviewMessage(*message)}), nil
 }
 
-// EditReviewMessage rewrites what was said.
+// EditReviewMessage rewrites what was said. The service refuses a caller that did not write
+// the message, so neither side can rewrite the other's words.
 func (s *Service) EditReviewMessage(
 	ctx context.Context,
 	req *connect.Request[agentv1.EditReviewMessageRequest],
 ) (*connect.Response[agentv1.EditReviewMessageResponse], error) {
-	message, err := s.review.EditReviewMessage(ctx, req.Msg.GetId(), req.Msg.GetBody(), reviewAuthorFrom(ctx))
+	message, err := s.review.EditReviewMessage(ctx, agents.EditReviewMessageParams{
+		ID:     req.Msg.GetId(),
+		Body:   req.Msg.GetBody(),
+		Author: reviewAuthorFrom(ctx),
+	})
 	if err != nil {
 		return nil, reviewError(err)
 	}
@@ -100,26 +119,51 @@ func (s *Service) EditReviewMessage(
 	return connect.NewResponse(&agentv1.EditReviewMessageResponse{Message: toReviewMessage(*message)}), nil
 }
 
+// MarkReviewThreadRead is the person reviewing acknowledging one conversation, which is what
+// opening it means. An agent claims its review by listing with markRead instead.
+func (s *Service) MarkReviewThreadRead(
+	ctx context.Context,
+	req *connect.Request[agentv1.MarkReviewThreadReadRequest],
+) (*connect.Response[agentv1.MarkReviewThreadReadResponse], error) {
+	if _, err := requireHuman(ctx); err != nil {
+		return nil, err
+	}
+
+	thread, err := s.review.MarkReviewThreadRead(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, reviewError(err)
+	}
+
+	return connect.NewResponse(&agentv1.MarkReviewThreadReadResponse{
+		Thread: toReviewThread(reviewstore.ThreadWithMessages{Thread: *thread}),
+	}), nil
+}
+
 // ResolveReviewThread settles a thread or reopens it.
 func (s *Service) ResolveReviewThread(
 	ctx context.Context,
 	req *connect.Request[agentv1.ResolveReviewThreadRequest],
 ) (*connect.Response[agentv1.ResolveReviewThreadResponse], error) {
-	thread, err := s.review.ResolveReviewThread(ctx, req.Msg.GetId(), req.Msg.GetResolved())
+	thread, err := s.review.ResolveReviewThread(ctx, req.Msg.GetId(), req.Msg.GetResolved(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, reviewError(err)
 	}
 
 	return connect.NewResponse(&agentv1.ResolveReviewThreadResponse{
-		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
+		Thread: toReviewThread(reviewstore.ThreadWithMessages{Thread: *thread}),
 	}), nil
 }
 
-// DeleteReviewThread removes a thread and everything said in it.
+// DeleteReviewThread removes a thread and everything said in it, which is the reviewer's to do
+// with their own notes.
 func (s *Service) DeleteReviewThread(
 	ctx context.Context,
 	req *connect.Request[agentv1.DeleteReviewThreadRequest],
 ) (*connect.Response[emptypb.Empty], error) {
+	if _, err := requireHuman(ctx); err != nil {
+		return nil, err
+	}
+
 	if err := s.review.DeleteReviewThread(ctx, req.Msg.GetId()); err != nil {
 		return nil, reviewError(err)
 	}
@@ -127,24 +171,30 @@ func (s *Service) DeleteReviewThread(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteReviewMessage removes one message, leaving the thread it was in.
+// DeleteReviewMessage removes one message, leaving the thread it was in. The service refuses a
+// caller that did not write it.
 func (s *Service) DeleteReviewMessage(
 	ctx context.Context,
 	req *connect.Request[agentv1.DeleteReviewMessageRequest],
 ) (*connect.Response[emptypb.Empty], error) {
-	if err := s.review.DeleteReviewMessage(ctx, req.Msg.GetId()); err != nil {
+	if err := s.review.DeleteReviewMessage(ctx, req.Msg.GetId(), reviewAuthorFrom(ctx)); err != nil {
 		return nil, reviewError(err)
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// NotifyReviewThreads tells an agent its diff has been reviewed.
+// NotifyReviewThreads tells an agent its diff has been reviewed, and answers what that
+// achieved rather than assuming it landed.
 func (s *Service) NotifyReviewThreads(
 	ctx context.Context,
 	req *connect.Request[agentv1.NotifyReviewThreadsRequest],
 ) (*connect.Response[agentv1.NotifyReviewThreadsResponse], error) {
-	unread, err := s.review.NotifyReviewThreads(ctx, agents.NotifyReviewThreadsParams{
+	if _, err := requireHuman(ctx); err != nil {
+		return nil, err
+	}
+
+	notified, err := s.review.NotifyReviewThreads(ctx, agents.NotifyReviewThreadsParams{
 		AgentID:   req.Msg.GetAgentId(),
 		Interrupt: req.Msg.GetInterrupt(),
 	})
@@ -152,33 +202,54 @@ func (s *Service) NotifyReviewThreads(
 		return nil, reviewError(err)
 	}
 
-	return connect.NewResponse(&agentv1.NotifyReviewThreadsResponse{Unread: int32(unread)}), nil
+	return connect.NewResponse(&agentv1.NotifyReviewThreadsResponse{
+		Unread:      int32(notified.Unread),
+		Rang:        notified.Rang,
+		Interrupted: notified.Interrupted,
+		Waiting:     notified.Waiting,
+	}), nil
 }
 
 // reviewAuthorFrom decides who a write belongs to from the identity on the call rather than
 // from anything the caller asked for. The panel names no agent and writes as the person; an
 // agent names itself and writes as itself, so it cannot post as the reviewer.
-func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
+func reviewAuthorFrom(ctx context.Context) reviewstore.Author {
 	from := caller.From(ctx)
 	if from.AgentID == "" {
-		return agents.ReviewAuthor{Kind: reviewstore.ReviewAuthorHuman}
+		return reviewstore.Author{Kind: reviewstore.ReviewAuthorHuman}
 	}
 
 	agentID := from.AgentID
 
-	return agents.ReviewAuthor{Kind: reviewstore.ReviewAuthorAgent, AgentID: &agentID}
+	return reviewstore.Author{Kind: reviewstore.ReviewAuthorAgent, AgentID: &agentID}
+}
+
+// requireHuman refuses the calls that are the reviewer's alone. An agent header the panel
+// never sets is what tells the two apart, so this is the check that keeps an agent from
+// leaving itself feedback or ringing its own doorbell.
+func requireHuman(ctx context.Context) (reviewstore.Author, error) {
+	author := reviewAuthorFrom(ctx)
+	if author.Kind != reviewstore.ReviewAuthorHuman {
+		return author, connect.NewError(connect.CodePermissionDenied, errAgentCaller)
+	}
+
+	return author, nil
 }
 
 func reviewError(err error) error {
 	switch {
 	case errors.Is(err, agents.ErrReviewThreadNotFound), errors.Is(err, agents.ErrReviewMessageNotFound):
 		return connect.NewError(connect.CodeNotFound, err)
+	case errors.Is(err, agents.ErrReviewNotOwner), errors.Is(err, reviewstore.ErrNotAuthor):
+		return connect.NewError(connect.CodePermissionDenied, err)
+	case errors.Is(err, agents.ErrAgentNotFound):
+		return connect.NewError(connect.CodeNotFound, err)
 	default:
 		return connect.NewError(connect.CodeInternal, err)
 	}
 }
 
-func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThread {
+func toReviewThread(thread reviewstore.ThreadWithMessages) *agentv1.ReviewThread {
 	answered := &agentv1.ReviewThread{
 		Id:            thread.Thread.ID,
 		AgentId:       thread.Thread.AgentID,

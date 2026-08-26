@@ -56,20 +56,24 @@ table "review_threads" {
     comment = "When the thread was settled. A message written afterwards reopens it, since late activity in a closed thread would otherwise be hidden."
   }
   column "last_human_activity_at" {
-    null    = false
+    null    = true
     type    = timestamptz
-    default = sql("now()")
-    comment = "When the person reviewing last wrote or rewrote a message here. Compared against agent_read_at to decide what the agent has not been told, so that rewriting a message counts as activity rather than hiding behind its original created_at."
+    comment = "When the person reviewing last wrote or rewrote a message here, taken from that message's own timestamp so the watermark the agent reads can equal it exactly. Null means they have said nothing here yet."
+  }
+  column "last_agent_activity_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the agent last wrote or rewrote a message here, the mirror of last_human_activity_at, so what the person has left to read is read off the thread rather than by searching its messages."
   }
   column "agent_read_at" {
     null    = true
     type    = timestamptz
-    comment = "When the agent last read this thread, stamped to the newest activity it was actually shown rather than to the clock, so a message written mid-read is not marked read without being returned."
+    comment = "The value of last_human_activity_at the agent was last shown, stamped from that column rather than from the clock, so activity written mid-read stays unread instead of being marked read without being returned."
   }
   column "human_read_at" {
     null    = true
     type    = timestamptz
-    comment = "When the person reviewing last read this thread, which is what says whether the agent has replied since they looked."
+    comment = "The value of last_agent_activity_at the person reviewing was last shown, which is what says whether the agent has replied since they opened the thread."
   }
   column "created_at" {
     null    = false
@@ -110,12 +114,12 @@ table "review_messages" {
   column "author_kind" {
     null    = false
     type    = enum.review_author_kind
-    comment = "The type of the author who wrote the message."
+    comment = "Its own column rather than being read off a null author_agent_id, since deleting an agent nulls that column and would otherwise turn the agent's reply into the reviewer's."
   }
   column "author_agent_id" {
     null    = true
     type    = uuid
-    comment = "The agent that wrote this message, if relevant, kept as a link to who it was."
+    comment = "The agent that wrote this message, kept as a link to who it was and nulled if that agent is deleted. Null does not mean the person reviewing wrote it; author_kind says that."
   }
   column "body" {
     null    = false

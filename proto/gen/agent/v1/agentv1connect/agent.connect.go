@@ -97,6 +97,9 @@ const (
 	// AgentServiceEditReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// EditReviewMessage RPC.
 	AgentServiceEditReviewMessageProcedure = "/agent.v1.AgentService/EditReviewMessage"
+	// AgentServiceMarkReviewThreadReadProcedure is the fully-qualified name of the AgentService's
+	// MarkReviewThreadRead RPC.
+	AgentServiceMarkReviewThreadReadProcedure = "/agent.v1.AgentService/MarkReviewThreadRead"
 	// AgentServiceResolveReviewThreadProcedure is the fully-qualified name of the AgentService's
 	// ResolveReviewThread RPC.
 	AgentServiceResolveReviewThreadProcedure = "/agent.v1.AgentService/ResolveReviewThread"
@@ -137,6 +140,7 @@ type AgentServiceClient interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
+	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	ResolveReviewThread(context.Context, *connect.Request[v1.ResolveReviewThreadRequest]) (*connect.Response[v1.ResolveReviewThreadResponse], error)
 	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
@@ -314,6 +318,13 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("EditReviewMessage")),
 			connect.WithClientOptions(opts...),
 		),
+		markReviewThreadRead: connect.NewClient[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse](
+			httpClient,
+			baseURL+AgentServiceMarkReviewThreadReadProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("MarkReviewThreadRead")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
 		resolveReviewThread: connect.NewClient[v1.ResolveReviewThreadRequest, v1.ResolveReviewThreadResponse](
 			httpClient,
 			baseURL+AgentServiceResolveReviewThreadProcedure,
@@ -346,34 +357,35 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 
 // agentServiceClient implements AgentServiceClient.
 type agentServiceClient struct {
-	listAgents          *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
-	getAgent            *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
-	createAgent         *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
-	setTags             *connect.Client[v1.SetTagsRequest, emptypb.Empty]
-	setHidden           *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
-	setMetadata         *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
-	log                 *connect.Client[v1.LogRequest, emptypb.Empty]
-	sendMail            *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
-	readMail            *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
-	listMail            *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
-	deleteMail          *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
-	archiveAgents       *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
-	restoreAgents       *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
-	resumeAgent         *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
-	deleteAgents        *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
-	updateAgent         *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
-	searchTranscripts   *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
-	getTranscript       *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
-	emptyArchive        *connect.Client[emptypb.Empty, emptypb.Empty]
-	recordTurnBoundary  *connect.Client[emptypb.Empty, emptypb.Empty]
-	listReviewThreads   *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
-	createReviewThread  *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
-	addReviewMessage    *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
-	editReviewMessage   *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
-	resolveReviewThread *connect.Client[v1.ResolveReviewThreadRequest, v1.ResolveReviewThreadResponse]
-	deleteReviewThread  *connect.Client[v1.DeleteReviewThreadRequest, emptypb.Empty]
-	deleteReviewMessage *connect.Client[v1.DeleteReviewMessageRequest, emptypb.Empty]
-	notifyReviewThreads *connect.Client[v1.NotifyReviewThreadsRequest, v1.NotifyReviewThreadsResponse]
+	listAgents           *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
+	getAgent             *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
+	createAgent          *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
+	setTags              *connect.Client[v1.SetTagsRequest, emptypb.Empty]
+	setHidden            *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
+	setMetadata          *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
+	log                  *connect.Client[v1.LogRequest, emptypb.Empty]
+	sendMail             *connect.Client[v1.SendMailRequest, v1.SendMailResponse]
+	readMail             *connect.Client[v1.ReadMailRequest, v1.ReadMailResponse]
+	listMail             *connect.Client[v1.ListMailRequest, v1.ListMailResponse]
+	deleteMail           *connect.Client[v1.DeleteMailRequest, emptypb.Empty]
+	archiveAgents        *connect.Client[v1.ArchiveAgentsRequest, emptypb.Empty]
+	restoreAgents        *connect.Client[v1.RestoreAgentsRequest, v1.RestoreAgentsResponse]
+	resumeAgent          *connect.Client[v1.ResumeAgentRequest, v1.ResumeAgentResponse]
+	deleteAgents         *connect.Client[v1.DeleteAgentsRequest, emptypb.Empty]
+	updateAgent          *connect.Client[v1.UpdateAgentRequest, emptypb.Empty]
+	searchTranscripts    *connect.Client[v1.SearchTranscriptsRequest, v1.SearchTranscriptsResponse]
+	getTranscript        *connect.Client[v1.GetTranscriptRequest, v1.GetTranscriptResponse]
+	emptyArchive         *connect.Client[emptypb.Empty, emptypb.Empty]
+	recordTurnBoundary   *connect.Client[emptypb.Empty, emptypb.Empty]
+	listReviewThreads    *connect.Client[v1.ListReviewThreadsRequest, v1.ListReviewThreadsResponse]
+	createReviewThread   *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
+	addReviewMessage     *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
+	editReviewMessage    *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
+	markReviewThreadRead *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
+	resolveReviewThread  *connect.Client[v1.ResolveReviewThreadRequest, v1.ResolveReviewThreadResponse]
+	deleteReviewThread   *connect.Client[v1.DeleteReviewThreadRequest, emptypb.Empty]
+	deleteReviewMessage  *connect.Client[v1.DeleteReviewMessageRequest, emptypb.Empty]
+	notifyReviewThreads  *connect.Client[v1.NotifyReviewThreadsRequest, v1.NotifyReviewThreadsResponse]
 }
 
 // ListAgents calls agent.v1.AgentService.ListAgents.
@@ -496,6 +508,11 @@ func (c *agentServiceClient) EditReviewMessage(ctx context.Context, req *connect
 	return c.editReviewMessage.CallUnary(ctx, req)
 }
 
+// MarkReviewThreadRead calls agent.v1.AgentService.MarkReviewThreadRead.
+func (c *agentServiceClient) MarkReviewThreadRead(ctx context.Context, req *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {
+	return c.markReviewThreadRead.CallUnary(ctx, req)
+}
+
 // ResolveReviewThread calls agent.v1.AgentService.ResolveReviewThread.
 func (c *agentServiceClient) ResolveReviewThread(ctx context.Context, req *connect.Request[v1.ResolveReviewThreadRequest]) (*connect.Response[v1.ResolveReviewThreadResponse], error) {
 	return c.resolveReviewThread.CallUnary(ctx, req)
@@ -542,6 +559,7 @@ type AgentServiceHandler interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
+	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	ResolveReviewThread(context.Context, *connect.Request[v1.ResolveReviewThreadRequest]) (*connect.Response[v1.ResolveReviewThreadResponse], error)
 	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
@@ -715,6 +733,13 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("EditReviewMessage")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceMarkReviewThreadReadHandler := connect.NewUnaryHandler(
+		AgentServiceMarkReviewThreadReadProcedure,
+		svc.MarkReviewThreadRead,
+		connect.WithSchema(agentServiceMethods.ByName("MarkReviewThreadRead")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceResolveReviewThreadHandler := connect.NewUnaryHandler(
 		AgentServiceResolveReviewThreadProcedure,
 		svc.ResolveReviewThread,
@@ -792,6 +817,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceAddReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
+		case AgentServiceMarkReviewThreadReadProcedure:
+			agentServiceMarkReviewThreadReadHandler.ServeHTTP(w, r)
 		case AgentServiceResolveReviewThreadProcedure:
 			agentServiceResolveReviewThreadHandler.ServeHTTP(w, r)
 		case AgentServiceDeleteReviewThreadProcedure:
@@ -903,6 +930,10 @@ func (UnimplementedAgentServiceHandler) AddReviewMessage(context.Context, *conne
 
 func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.EditReviewMessage is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.MarkReviewThreadRead is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) ResolveReviewThread(context.Context, *connect.Request[v1.ResolveReviewThreadRequest]) (*connect.Response[v1.ResolveReviewThreadResponse], error) {

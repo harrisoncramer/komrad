@@ -33,6 +33,8 @@ const WeaveSenderName = "weave"
 
 type mailReadWriter interface {
 	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
+	SendNotice(ctx context.Context, params mailstore.SendNoticeParams) (*mailstore.Mail, error)
+	DeleteExpiredNotices(ctx context.Context, toAgentID, kind string) error
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
@@ -83,6 +85,40 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 // does: archived, mailbox full, hop cap.
 func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
 	return s.send(ctx, SendMailParams{ToAgentID: toAgentID, Body: body}, true)
+}
+
+// SendSystemNotice puts weave's one notice of a kind in an agent's mailbox, replacing any
+// that expired unclaimed first. It answers nil when the agent is already holding one, which is
+// the point of a notice: the doorbell says there is something to read, so ringing it again
+// while nobody has answered adds nothing to read.
+func (s *MailService) SendSystemNotice(ctx context.Context, toAgentID, kind, body string) (*mailstore.Mail, error) {
+	recipient, err := s.agentFinder.GetByID(ctx, toAgentID)
+	if err != nil {
+		return nil, err
+	}
+	if recipient == nil {
+		return nil, fmt.Errorf("%w: %q", ErrRecipientNotFound, toAgentID)
+	}
+	if recipient.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, toAgentID)
+	}
+
+	if err := s.mailReadWriter.DeleteExpiredNotices(ctx, recipient.ID, kind); err != nil {
+		return nil, err
+	}
+
+	deadline, err := s.config.GetDeliveryDeadline()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.mailReadWriter.SendNotice(ctx, mailstore.SendNoticeParams{
+		FromName:  WeaveSenderName,
+		ToAgentID: recipient.ID,
+		Body:      body,
+		Kind:      kind,
+		Deadline:  deadline,
+	})
 }
 
 func (s *MailService) send(ctx context.Context, params SendMailParams, system bool) (*mailstore.Mail, error) {

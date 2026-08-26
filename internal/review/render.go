@@ -5,7 +5,6 @@ import (
 	"strings"
 
 	"weave/internal/diff"
-	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
@@ -148,14 +147,13 @@ func describeAnchor(anchor Anchor) string {
 	return fmt.Sprintf("%s:%s", anchor.FilePath, side)
 }
 
-func describeThread(thread *agentv1.ReviewThread) string {
-	line := thread.GetNewStart()
-	side := "new"
+func describeThread(thread Thread) string {
+	line, side := thread.NewStart, "new"
 	if line == 0 {
-		line, side = thread.GetOldStart(), "old"
+		line, side = thread.OldStart, "old"
 	}
 
-	return fmt.Sprintf("%s:%s %d", thread.GetFilePath(), side, line)
+	return fmt.Sprintf("%s:%s %d", thread.FilePath, side, line)
 }
 
 // renderComposer draws the box a message is typed into, with the line it is about above it so
@@ -177,88 +175,141 @@ func (m model) renderComposer() string {
 		threadMarkStyle.Render(title) + "\n" + m.editor.View())
 }
 
-// renderThreads lists every thread on the diff, pinned or not. A thread whose code has been
-// rewritten has no mark in the gutter to find it by, so this is where it stays readable.
+// renderThreads lists the threads on the diff, pinned or not. A thread whose code has been
+// rewritten has no mark in the gutter to find it by, so this is where it stays readable. It is
+// windowed onto the screen rather than drawn whole, since a review longer than the popup would
+// otherwise put its last threads and this screen's own footer past the bottom edge.
 func (m model) renderThreads() string {
-	var out strings.Builder
+	title := fmt.Sprintf("%d review thread(s)", len(m.shown))
+	if m.scoped {
+		title = fmt.Sprintf("%d thread(s) on this line", len(m.shown))
+	}
 
-	out.WriteString(headerStyle.Render(fmt.Sprintf("%d review thread(s)", len(m.loaded))) + "\n\n")
+	lines := make([]string, 0, len(m.shown))
+	for row, position := range m.shown {
+		thread := m.loaded[position]
 
-	for index, thread := range m.loaded {
 		prefix := "  "
-		if index == m.picked {
+		if row == m.picked {
 			prefix = "> "
 		}
 
 		style := threadStyle
-		if thread.GetResolvedAt() != "" {
+		if thread.Resolved {
 			style = resolvedStyle
 		}
 
-		first := ""
-		if messages := thread.GetMessages(); len(messages) > 0 {
-			first = strings.ReplaceAll(strings.TrimSpace(messages[0].GetBody()), "\n", " ")
-		}
-
 		mark := " "
-		if thread.GetUnreadByHuman() {
+		if thread.UnreadByHuman {
 			mark = unreadMark
 		}
 
-		line := fmt.Sprintf("%s%s %s  %s", prefix, mark, describeThread(thread), first)
-		if index == m.picked {
-			out.WriteString(selectedStyle.Render(ansi.Truncate(line, m.width, "…")) + "\n")
+		first := ""
+		if len(thread.Messages) > 0 {
+			first = strings.ReplaceAll(strings.TrimSpace(thread.Messages[0].Body), "\n", " ")
+		}
+
+		text := ansi.Truncate(fmt.Sprintf("%s%s %s  %s", prefix, mark, describeThread(thread), first), m.width, "…")
+		if row == m.picked {
+			lines = append(lines, selectedStyle.Render(text))
 
 			continue
 		}
 
-		out.WriteString(style.Render(ansi.Truncate(line, m.width, "…")) + "\n")
+		lines = append(lines, style.Render(text))
 	}
 
-	out.WriteString("\n" + footerStyle.Render("enter open  d go to the line  esc back"))
-
-	return out.String()
+	return m.renderScreen(title, lines, windowFrom(len(lines), m.getScreenHeight(), m.picked),
+		"enter open  d go to the line  esc back")
 }
 
-// renderThread draws one conversation, oldest message first.
+// renderThread draws one conversation, oldest message first, windowed the same way the thread
+// list is: a conversation is as long as the two sides made it, and the keys under it have to
+// stay on screen whatever that came to.
 func (m model) renderThread() string {
 	thread := m.getPicked()
 	if thread == nil {
 		return ""
 	}
 
-	var out strings.Builder
-
-	title := describeThread(thread)
-	if thread.GetResolvedAt() != "" {
+	title := describeThread(*thread)
+	if thread.Resolved {
 		title += "  resolved"
 	}
-	out.WriteString(headerStyle.Render(title) + "\n")
 
-	for _, quoted := range thread.GetQuotedLines() {
-		out.WriteString(quotedStyle.Render(ansi.Truncate(quoted, m.width, "…")) + "\n")
+	lines := m.conversationLines(*thread)
+
+	return m.renderScreen(title, lines, clampTop(len(lines), m.getScreenHeight(), m.conversationTop),
+		"r reply  x resolve  D delete  j/k scroll  esc back")
+}
+
+// conversationLines is the whole conversation as drawn lines: what the thread was written
+// against, then each message under whoever wrote it. Scrolling reads the same list the
+// drawing does, so a held-down key cannot run the offset past the end of it.
+func (m model) conversationLines(thread Thread) []string {
+	var lines []string
+	for _, quoted := range thread.QuotedLines {
+		lines = append(lines, quotedStyle.Render(ansi.Truncate(quoted, m.width, "…")))
 	}
-	out.WriteString("\n")
+	lines = append(lines, "")
 
-	for _, message := range thread.GetMessages() {
+	for _, message := range thread.Messages {
 		who, style := "you", humanStyle
-		if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
+		if message.ByAgent {
 			who, style = m.agentName, agentStyle
 			if who == "" {
 				who = "the agent"
 			}
 		}
 
-		out.WriteString(style.Render(who) + "\n")
-		for _, line := range strings.Split(ansi.Wordwrap(strings.TrimSpace(message.GetBody()), max(20, m.width-2), ""), "\n") {
-			out.WriteString("  " + line + "\n")
+		lines = append(lines, style.Render(who))
+		for _, line := range strings.Split(ansi.Wordwrap(strings.TrimSpace(message.Body), max(20, m.width-2), ""), "\n") {
+			lines = append(lines, "  "+line)
 		}
-		out.WriteString("\n")
+		lines = append(lines, "")
 	}
 
-	out.WriteString(footerStyle.Render("r reply  x resolve  D delete  esc back"))
+	return lines
+}
+
+// renderScreen draws a titled screen with a windowed body and its keys along the bottom, which
+// is the shape both thread screens have.
+func (m model) renderScreen(title string, lines []string, top int, keys string) string {
+	var out strings.Builder
+
+	out.WriteString(headerStyle.Render(ansi.Truncate(title, m.width, "…")) + "\n\n")
+
+	height := m.getScreenHeight()
+	for index := top; index < min(top+height, len(lines)); index++ {
+		out.WriteString(lines[index] + "\n")
+	}
+
+	scrolled := ""
+	if len(lines) > height {
+		scrolled = fmt.Sprintf("  %d-%d of %d", top+1, min(top+height, len(lines)), len(lines))
+	}
+
+	out.WriteString("\n" + footerStyle.Render(ansi.Truncate(keys+scrolled, m.width, "…")))
 
 	return out.String()
+}
+
+// getScreenHeight is how many body lines a thread screen has room for: everything but its
+// title, the blank line under it, and the keys at the bottom with its own blank line.
+func (m model) getScreenHeight() int {
+	return max(1, m.height-4)
+}
+
+// windowFrom keeps a selected row on screen by holding it near the middle, so moving down a
+// long list scrolls rather than walking off the bottom edge.
+func windowFrom(count, height, selected int) int {
+	return clampTop(count, height, selected-height/2)
+}
+
+// clampTop pins a scroll offset inside a list, so neither key repeat nor a shorter list can
+// scroll past what there is to read.
+func clampTop(count, height, top int) int {
+	return max(0, min(top, max(0, count-height)))
 }
 
 // renderNotify is the menu that tells the agent there is something to read. The threads are
@@ -318,10 +369,12 @@ func (m model) renderRow(y int) string {
 // from one you are still waiting on.
 func (m model) renderGutter(y int, line diff.Line, background lipgloss.TerminalColor) string {
 	mark := " "
-	if thread, ok := m.view.getThread(y); ok {
+	if here := m.view.getThreads(y); len(here) > 0 {
 		mark = threadMark
-		if thread.GetUnreadByHuman() {
-			mark = unreadMark
+		for _, thread := range here {
+			if thread.UnreadByHuman {
+				mark = unreadMark
+			}
 		}
 	}
 

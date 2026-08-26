@@ -76,14 +76,15 @@ type Service struct {
 }
 
 type reviewConversation interface {
-	ListReviewThreads(ctx context.Context, params agents.ListReviewThreadsParams) ([]agents.ReviewThreadWithMessages, error)
-	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
+	ListReviewThreads(ctx context.Context, params agents.ListReviewThreadsParams) ([]reviewstore.ThreadWithMessages, error)
+	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*reviewstore.ThreadWithMessages, error)
 	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.ReviewMessage, error)
-	EditReviewMessage(ctx context.Context, id, body string, author agents.ReviewAuthor) (*reviewstore.ReviewMessage, error)
-	ResolveReviewThread(ctx context.Context, id string, resolved bool) (*reviewstore.ReviewThread, error)
+	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.ReviewMessage, error)
+	MarkReviewThreadRead(ctx context.Context, id string) (*reviewstore.ReviewThread, error)
+	ResolveReviewThread(ctx context.Context, id string, resolved bool, author reviewstore.Author) (*reviewstore.ReviewThread, error)
 	DeleteReviewThread(ctx context.Context, id string) error
-	DeleteReviewMessage(ctx context.Context, id string) error
-	NotifyReviewThreads(ctx context.Context, params agents.NotifyReviewThreadsParams) (int64, error)
+	DeleteReviewMessage(ctx context.Context, id string, author reviewstore.Author) error
+	NotifyReviewThreads(ctx context.Context, params agents.NotifyReviewThreadsParams) (agents.ReviewNotification, error)
 }
 
 type NewServiceParams struct {

@@ -2,7 +2,6 @@ package review
 
 import (
 	"weave/internal/diff"
-	agentv1 "weave/proto/gen/agent/v1"
 )
 
 type rowKind uint8
@@ -56,14 +55,15 @@ type view struct {
 	rows    []row
 	sources []fileSource
 
-	// pinned is the thread anchored at each place, keyed by file and line. Only threads whose
+	// pinned is the threads anchored at each place, keyed by file and line. Only threads whose
 	// quoted line still matches the diff are in here, so a mark is never drawn against code
-	// that has changed since the thread was written.
-	pinned map[anchorKey]*agentv1.ReviewThread
+	// that has changed since the thread was written. A line can hold more than one, since
+	// nothing stops a second thread being opened on a line that already has one.
+	pinned map[anchorKey][]Thread
 }
 
 func newView(patch *diff.Patch, isDark bool) *view {
-	v := &view{patch: patch, sources: make([]fileSource, len(patch.Files)), pinned: map[anchorKey]*agentv1.ReviewThread{}}
+	v := &view{patch: patch, sources: make([]fileSource, len(patch.Files)), pinned: map[anchorKey][]Thread{}}
 
 	highlight := newHighlighter(isDark)
 	for fileIndex := range patch.Files {
@@ -97,8 +97,8 @@ func newView(patch *diff.Patch, isDark bool) *view {
 // unpinned: the agent has rewritten that code, and marking the line anyway would point at
 // something the thread never mentioned. An unpinned thread is not lost, it is simply read on
 // the thread screen under the place it was written rather than against the diff.
-func (v *view) pinThreads(threads []*agentv1.ReviewThread) {
-	v.pinned = map[anchorKey]*agentv1.ReviewThread{}
+func (v *view) pinThreads(threads []Thread) {
+	v.pinned = map[anchorKey][]Thread{}
 
 	quoted := map[anchorKey]string{}
 	for _, current := range v.rows {
@@ -109,8 +109,8 @@ func (v *view) pinThreads(threads []*agentv1.ReviewThread) {
 		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
 		quoted[anchorKey{
 			filePath: v.patch.Files[current.file].Path(),
-			newLine:  int32(line.NewNumber),
-			oldLine:  int32(line.OldNumber),
+			newLine:  line.NewNumber,
+			oldLine:  line.OldNumber,
 		}] = markerFor(line.Kind) + line.Text
 	}
 
@@ -118,24 +118,24 @@ func (v *view) pinThreads(threads []*agentv1.ReviewThread) {
 		key := keyForThread(thread)
 
 		here, ok := quoted[key]
-		if !ok || len(thread.GetQuotedLines()) == 0 || thread.GetQuotedLines()[0] != here {
+		if !ok || len(thread.QuotedLines) == 0 || thread.QuotedLines[0] != here {
 			continue
 		}
 
-		v.pinned[key] = thread
+		v.pinned[key] = append(v.pinned[key], thread)
 	}
 }
 
-// getThread is the thread pinned to the line a row stands for, if the anchor still holds.
-func (v *view) getThread(y int) (*agentv1.ReviewThread, bool) {
+// getThreads is every thread pinned to the line a row stands for, in the order they were
+// listed. More than one is ordinary: pressing c twice on a line opens two conversations about
+// it, and both have to be reachable.
+func (v *view) getThreads(y int) []Thread {
 	key, ok := v.getKey(y)
 	if !ok {
-		return nil, false
+		return nil
 	}
 
-	thread, ok := v.pinned[key]
-
-	return thread, ok
+	return v.pinned[key]
 }
 
 // isPinnable reports whether a row is one the cursor can rest on, which is a row standing for
@@ -197,7 +197,7 @@ func (v *view) jumpFile(y, direction int) int {
 // jumpThread moves to the next or previous line carrying a thread.
 func (v *view) jumpThread(y, direction int) int {
 	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
-		if _, ok := v.getThread(next); ok {
+		if len(v.getThreads(next)) > 0 {
 			return next
 		}
 	}
@@ -206,12 +206,22 @@ func (v *view) jumpThread(y, direction int) int {
 }
 
 // findAnchor is where a thread sits in the diff, so the cursor can be taken to it from the
-// thread screen. It answers -1 for a thread whose anchor no longer holds.
-func (v *view) findAnchor(thread *agentv1.ReviewThread) int {
+// thread screen. It looks for that thread among the pinned ones rather than for its
+// coordinates, since a stale thread's line number now belongs to whatever the agent wrote
+// there instead, and taking the cursor to unrelated code is worse than not moving. It answers
+// -1 for a thread whose anchor no longer holds.
+func (v *view) findAnchor(thread Thread) int {
 	key := keyForThread(thread)
 	for index := range v.rows {
-		if found, ok := v.getKey(index); ok && found == key {
-			return index
+		found, ok := v.getKey(index)
+		if !ok || found != key {
+			continue
+		}
+
+		for _, pinned := range v.pinned[key] {
+			if pinned.ID == thread.ID {
+				return index
+			}
 		}
 	}
 
@@ -237,8 +247,8 @@ func (v *view) getKey(y int) (anchorKey, bool) {
 
 	return anchorKey{
 		filePath: v.patch.Files[current.file].Path(),
-		newLine:  int32(line.NewNumber),
-		oldLine:  int32(line.OldNumber),
+		newLine:  line.NewNumber,
+		oldLine:  line.OldNumber,
 	}, true
 }
 

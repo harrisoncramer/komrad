@@ -97,8 +97,6 @@ type Harness interface {
 
 	ReadActivity(frame string) Activity
 
-	GetInterruptKeys() []string
-
 	GetLogPath(sessionID string) string
 
 	ReadLog(path string, offset int64) (LogRead, error)

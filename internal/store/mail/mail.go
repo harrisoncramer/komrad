@@ -34,9 +34,12 @@ type Mail struct {
 	Body        string
 	ReplyTo     *string
 	Hops        int32
-	ClaimedAt   *time.Time
-	ExpiresAt   time.Time
-	CreatedAt   time.Time
+	// Kind is set on the notices weave sends itself and only wants one of waiting at a time,
+	// such as the review doorbell, and unset on the mail agents write to each other.
+	Kind      *string
+	ClaimedAt *time.Time
+	ExpiresAt time.Time
+	CreatedAt time.Time
 }
 
 type Store struct {
@@ -76,6 +79,62 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	sent := mailFromRow(*row)
 
 	return &sent, nil
+}
+
+type SendNoticeParams struct {
+	FromName  string
+	ToAgentID string
+	Body      string
+	// Kind is what makes the notice one of a kind: an agent holds at most one unclaimed
+	// notice of each, so the tenth edit to a review does not become the tenth doorbell.
+	Kind string
+	// Deadline is how long the notice stays deliverable, counted from the database's clock.
+	Deadline time.Duration
+}
+
+// SendNotice puts one notice of a kind in an agent's mailbox, and answers nil when the agent
+// is already holding an unclaimed one. The uniqueness is the partial index's rather than a
+// read followed by a write, so two callers racing produce one notice instead of two.
+func (s *Store) SendNotice(ctx context.Context, params SendNoticeParams) (*Mail, error) {
+	if !store.IsID(params.ToAgentID) {
+		return nil, nil
+	}
+
+	row, err := s.queries.InsertMailNotice(ctx, models.InsertMailNoticeParams{
+		FromName:       params.FromName,
+		ToAgentID:      params.ToAgentID,
+		Body:           params.Body,
+		Kind:           &params.Kind,
+		DeadlineMicros: params.Deadline.Microseconds(),
+	})
+	if db.IsNoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to send a %q notice to agent %q: %w", params.Kind, params.ToAgentID, err)
+	}
+
+	sent := mailFromRow(*row)
+
+	return &sent, nil
+}
+
+// DeleteExpiredNotices clears the notices of a kind an agent never claimed and can no longer
+// be delivered, which is what lets the next one be created: an expired doorbell still holds
+// the one unclaimed slot its kind is allowed.
+func (s *Store) DeleteExpiredNotices(ctx context.Context, toAgentID, kind string) error {
+	if !store.IsID(toAgentID) {
+		return nil
+	}
+
+	if err := s.queries.DeleteExpiredMailNotices(ctx, models.DeleteExpiredMailNoticesParams{
+		ToAgentID: toAgentID,
+		Kind:      &kind,
+	}); err != nil {
+		return fmt.Errorf("failed to clear the expired %q notices of agent %q: %w", kind, toAgentID, err)
+	}
+
+	return nil
 }
 
 func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
@@ -244,6 +303,7 @@ func mailFromRow(row models.Mail) Mail {
 		Body:        row.Body,
 		ReplyTo:     row.ReplyTo,
 		Hops:        row.Hops,
+		Kind:        row.Kind,
 		ClaimedAt:   row.ClaimedAt,
 		ExpiresAt:   row.ExpiresAt,
 		CreatedAt:   row.CreatedAt,

@@ -27,6 +27,11 @@ table "mail" {
     null = true
     type = uuid
   }
+  column "kind" {
+    null    = true
+    type    = text
+    comment = "What sort of notice this is, for the mail weave sends itself and only wants one of waiting at a time, such as the review doorbell. Null is ordinary mail, of which an agent may hold many."
+  }
   column "hops" {
     null    = false
     type    = int
@@ -78,6 +83,12 @@ table "mail" {
   index "mail_pending" {
     columns = [column.to_agent_id, column.id]
     where   = "claimed_at IS NULL"
+  }
+  index "mail_pending_kind" {
+    unique  = true
+    columns = [column.to_agent_id, column.kind]
+    where   = "claimed_at IS NULL AND kind IS NOT NULL"
+    comment = "At most one unclaimed notice of a kind per agent, so a hundred edits to a review do not queue a hundred doorbells the agent has to read through."
   }
   index "mail_from_agent_id" {
     columns = [column.from_agent_id]

@@ -384,6 +384,9 @@ service AgentService {
     };
   }
   rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {}
+  rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
   rpc ResolveReviewThread(ResolveReviewThreadRequest) returns (ResolveReviewThreadResponse) {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {

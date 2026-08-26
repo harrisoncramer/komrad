@@ -4,16 +4,20 @@ package review
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"weave/internal/diff"
-	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
+
+// ErrNoThreadClient is answered rather than falling back to something that looks like a
+// review and is thrown away when the popup closes.
+var ErrNoThreadClient = errors.New("the diff viewer needs a review thread client")
 
 // chromeHeight is the header above the diff and the footer under it.
 const chromeHeight = 2
@@ -39,13 +43,17 @@ type RunParams struct {
 
 	AgentName string
 
-	// Threads reaches the review threads on this agent. Left unset the viewer runs against an
-	// in-memory store, which is the shape of the API rather than the API.
+	// Threads reaches the review threads on this agent, and is required: a review that lived
+	// in the process drawing it would look saved and be gone when the popup closed.
 	Threads ThreadClient
 }
 
 // Run draws the diff and returns once the viewer has been closed.
 func Run(params RunParams) error {
+	if params.Threads == nil {
+		return ErrNoThreadClient
+	}
+
 	program := tea.NewProgram(newModel(params), tea.WithAltScreen())
 	if _, err := program.Run(); err != nil {
 		return fmt.Errorf("failed to draw the diff: %w", err)
@@ -55,8 +63,13 @@ func Run(params RunParams) error {
 }
 
 type threadsLoadedMsg struct {
-	threads []*agentv1.ReviewThread
+	threads []Thread
 	err     error
+}
+
+type noticeMsg struct {
+	text string
+	err  error
 }
 
 type model struct {
@@ -66,7 +79,22 @@ type model struct {
 	agentName string
 	threads   ThreadClient
 
-	loaded []*agentv1.ReviewThread
+	loaded []Thread
+
+	// shown is which of the loaded threads the thread screen lists, as indices into loaded.
+	// It is every thread most of the time, and one line's threads when the cursor was on a
+	// line holding several and you asked to choose between them.
+	shown []int
+	// scoped says shown is one line's threads rather than all of them, which is only worth
+	// knowing so the screen can say so.
+	scoped bool
+
+	// picked is which of shown the thread screen has selected.
+	picked int
+
+	// conversationTop is how far the open conversation is scrolled, since a long one does not
+	// fit and every message has to be reachable.
+	conversationTop int
 
 	mode mode
 
@@ -74,9 +102,6 @@ type model struct {
 	// editing is the thread a composed message is going into, empty when the message will
 	// open a new thread on the line under the cursor.
 	editing string
-
-	// picked is the row of the thread screen, and the thread the thread screen is showing.
-	picked int
 
 	notice string
 
@@ -92,11 +117,6 @@ type model struct {
 }
 
 func newModel(params RunParams) model {
-	threads := params.Threads
-	if threads == nil {
-		threads = newMemoryThreadClient()
-	}
-
 	v := newView(params.Patch, lipgloss.HasDarkBackground())
 
 	editor := textarea.New()
@@ -108,7 +128,7 @@ func newModel(params RunParams) model {
 		patch:     params.Patch,
 		view:      v,
 		agentName: params.AgentName,
-		threads:   threads,
+		threads:   params.Threads,
 		editor:    editor,
 		cursor:    v.findFirst(),
 	}
@@ -143,9 +163,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		m.err = nil
-		m.loaded = msg.threads
-		m.view.pinThreads(msg.threads)
-		m.picked = min(m.picked, max(0, len(msg.threads)-1))
+
+		return m.adopt(msg.threads), nil
+	case noticeMsg:
+		if msg.err != nil {
+			m.err = msg.err
+
+			return m, nil
+		}
+
+		m.err = nil
+		m.notice = msg.text
 
 		return m, nil
 	case tea.KeyMsg:
@@ -153,6 +181,70 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// adopt takes a freshly read review and keeps the screens pointing where they were: the same
+// thread stays selected across a reload, and a line's chooser goes on showing that line.
+func (m model) adopt(threads []Thread) model {
+	selected := ""
+	if picked := m.getPicked(); picked != nil {
+		selected = picked.ID
+	}
+
+	m.loaded = threads
+	m.view.pinThreads(threads)
+
+	if m.scoped {
+		m = m.scopeTo(m.anchorOf(selected))
+	} else {
+		m = m.scopeToAll()
+	}
+
+	m.picked = 0
+	for index, position := range m.shown {
+		if m.loaded[position].ID == selected {
+			m.picked = index
+		}
+	}
+
+	return m
+}
+
+// anchorOf is where a thread was pinned, used to rebuild a line's chooser after a reload.
+func (m model) anchorOf(threadID string) anchorKey {
+	for _, thread := range m.loaded {
+		if thread.ID == threadID {
+			return keyForThread(thread)
+		}
+	}
+
+	if key, ok := m.view.getKey(m.cursor); ok {
+		return key
+	}
+
+	return anchorKey{}
+}
+
+func (m model) scopeToAll() model {
+	m.shown = make([]int, 0, len(m.loaded))
+	for index := range m.loaded {
+		m.shown = append(m.shown, index)
+	}
+	m.scoped = false
+
+	return m
+}
+
+func (m model) scopeTo(key anchorKey) model {
+	m.shown = nil
+	for index, thread := range m.loaded {
+		if keyForThread(thread) == key {
+			m.shown = append(m.shown, index)
+		}
+	}
+	m.scoped = true
+
+	return m
 }
 
 func (m model) handleKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -213,11 +305,9 @@ func (m model) handleDiffKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "c":
 		return m.compose("")
 	case "enter":
-		return m.openThreadUnderCursor()
+		return m.openThreadsUnderCursor()
 	case "C":
-		m.mode = modeThreads
-
-		return m, nil
+		return m.openAllThreads()
 	case "S":
 		return m.beginNotify()
 	}
@@ -275,16 +365,9 @@ func (m model) saveMessage() (tea.Model, tea.Cmd) {
 	if threadID != "" {
 		m.notice = "replied"
 
-		return m, tea.Sequence(
-			func() tea.Msg {
-				if _, err := threads.AddReviewMessage(context.Background(), threadID, body); err != nil {
-					return threadsLoadedMsg{err: err}
-				}
-
-				return nil
-			},
-			m.loadThreads(),
-		)
+		return m, m.write(func(ctx context.Context) error {
+			return threads.AddReviewMessage(ctx, threadID, body)
+		})
 	}
 
 	anchor, ok := m.view.GetAnchor(m.cursor)
@@ -294,9 +377,17 @@ func (m model) saveMessage() (tea.Model, tea.Cmd) {
 
 	m.notice = "thread opened"
 
-	return m, tea.Sequence(
+	return m, m.write(func(ctx context.Context) error {
+		return threads.CreateReviewThread(ctx, *anchor, body)
+	})
+}
+
+// write runs one change against the service and then reads the review back, since the viewer
+// keeps no copy it could update itself.
+func (m model) write(change func(context.Context) error) tea.Cmd {
+	return tea.Sequence(
 		func() tea.Msg {
-			if _, err := threads.CreateReviewThread(context.Background(), *anchor, body); err != nil {
+			if err := change(context.Background()); err != nil {
 				return threadsLoadedMsg{err: err}
 			}
 
@@ -306,21 +397,60 @@ func (m model) saveMessage() (tea.Model, tea.Cmd) {
 	)
 }
 
-func (m model) openThreadUnderCursor() (tea.Model, tea.Cmd) {
-	thread, ok := m.view.getThread(m.cursor)
+// openThreadsUnderCursor opens what is pinned to the line the cursor is on. One thread opens
+// straight into the conversation; several open the list of them, since the gutter mark cannot
+// say which of them you meant.
+func (m model) openThreadsUnderCursor() (tea.Model, tea.Cmd) {
+	here := m.view.getThreads(m.cursor)
+	if len(here) == 0 {
+		return m, nil
+	}
+
+	key, ok := m.view.getKey(m.cursor)
 	if !ok {
 		return m, nil
 	}
 
-	for index, candidate := range m.loaded {
-		if candidate.GetId() == thread.GetId() {
-			m.picked = index
-		}
+	m = m.scopeTo(key)
+	m.picked = 0
+
+	if len(here) > 1 {
+		m.mode = modeThreads
+
+		return m, nil
+	}
+
+	return m.openConversation()
+}
+
+func (m model) openAllThreads() (tea.Model, tea.Cmd) {
+	m = m.scopeToAll()
+	m.picked = 0
+	m.mode = modeThreads
+
+	return m, nil
+}
+
+// openConversation shows the selected thread and tells the service it has been read, which is
+// what stops a thread the agent replied in from being marked unread for ever.
+func (m model) openConversation() (tea.Model, tea.Cmd) {
+	thread := m.getPicked()
+	if thread == nil {
+		return m, nil
 	}
 
 	m.mode = modeThread
+	m.conversationTop = 0
 
-	return m, nil
+	if !thread.UnreadByHuman {
+		return m, nil
+	}
+
+	threads, id := m.threads, thread.ID
+
+	return m, m.write(func(ctx context.Context) error {
+		return threads.MarkReviewThreadRead(ctx, id)
+	})
 }
 
 func (m model) handleThreadsKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -330,13 +460,15 @@ func (m model) handleThreadsKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "ctrl+c":
 		return m, tea.Quit
 	case "j", "down":
-		m.picked = min(m.picked+1, max(0, len(m.loaded)-1))
+		m.picked = min(m.picked+1, max(0, len(m.shown)-1))
 	case "k", "up":
 		m.picked = max(0, m.picked-1)
+	case "g":
+		m.picked = 0
+	case "G":
+		m.picked = max(0, len(m.shown)-1)
 	case "enter":
-		if len(m.loaded) > 0 {
-			m.mode = modeThread
-		}
+		return m.openConversation()
 	case "d":
 		return m.jumpToPicked()
 	}
@@ -352,7 +484,7 @@ func (m model) jumpToPicked() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	found := m.view.findAnchor(thread)
+	found := m.view.findAnchor(*thread)
 	if found < 0 {
 		m.notice = "that line is not in the diff any more"
 
@@ -367,65 +499,65 @@ func (m model) jumpToPicked() (tea.Model, tea.Cmd) {
 
 func (m model) handleThreadKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	thread := m.getPicked()
+	if thread == nil {
+		m.mode = modeThreads
+
+		return m, nil
+	}
+
+	height := m.getScreenHeight()
+	lines := len(m.conversationLines(*thread))
 
 	switch key.String() {
 	case "esc", "q":
 		m.mode = modeThreads
 	case "ctrl+c":
 		return m, tea.Quit
+	case "j", "down":
+		m.conversationTop = clampTop(lines, height, m.conversationTop+1)
+	case "k", "up":
+		m.conversationTop = clampTop(lines, height, m.conversationTop-1)
+	case "ctrl+d", "pgdown":
+		m.conversationTop = clampTop(lines, height, m.conversationTop+height)
+	case "ctrl+u", "pgup":
+		m.conversationTop = clampTop(lines, height, m.conversationTop-height)
+	case "g":
+		m.conversationTop = 0
+	case "G":
+		m.conversationTop = clampTop(lines, height, lines)
 	case "r":
-		if thread != nil {
-			return m.compose(thread.GetId())
-		}
+		return m.compose(thread.ID)
 	case "x":
-		if thread != nil {
-			return m.resolvePicked(thread)
-		}
+		return m.resolvePicked(*thread)
 	case "D":
-		if thread != nil {
-			return m.deletePicked(thread)
-		}
+		return m.deletePicked(*thread)
 	}
 
 	return m, nil
 }
 
-func (m model) resolvePicked(thread *agentv1.ReviewThread) (tea.Model, tea.Cmd) {
-	threads, id, resolved := m.threads, thread.GetId(), thread.GetResolvedAt() == ""
+func (m model) resolvePicked(thread Thread) (tea.Model, tea.Cmd) {
+	threads, id, resolved := m.threads, thread.ID, !thread.Resolved
 
 	m.notice = "resolved"
 	if !resolved {
 		m.notice = "reopened"
 	}
 
-	return m, tea.Sequence(
-		func() tea.Msg {
-			if _, err := threads.ResolveReviewThread(context.Background(), id, resolved); err != nil {
-				return threadsLoadedMsg{err: err}
-			}
-
-			return nil
-		},
-		m.loadThreads(),
-	)
+	return m, m.write(func(ctx context.Context) error {
+		return threads.ResolveReviewThread(ctx, id, resolved)
+	})
 }
 
-func (m model) deletePicked(thread *agentv1.ReviewThread) (tea.Model, tea.Cmd) {
-	threads, id := m.threads, thread.GetId()
+func (m model) deletePicked(thread Thread) (tea.Model, tea.Cmd) {
+	threads, id := m.threads, thread.ID
 
 	m.mode = modeThreads
 	m.notice = "thread deleted"
 
-	return m, tea.Sequence(
-		func() tea.Msg {
-			if err := threads.DeleteReviewThread(context.Background(), id); err != nil {
-				return threadsLoadedMsg{err: err}
-			}
-
-			return nil
-		},
-		m.loadThreads(),
-	)
+	return m, m.write(func(ctx context.Context) error {
+		return threads.DeleteReviewThread(ctx, id)
+	})
 }
 
 func (m model) beginNotify() (tea.Model, tea.Cmd) {
@@ -457,33 +589,62 @@ func (m model) handleNotifyKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// notify tells the agent there is something to read and says what that achieved. Whether the
+// agent has actually been reached is worth reporting: one already waiting on an unread notice
+// is not told twice, and one sitting at a prompt of its own is not typed through.
 func (m model) notify(interrupt bool) (tea.Model, tea.Cmd) {
 	threads := m.threads
 
 	m.mode = modeDiff
-	m.notice = "told the agent"
-	if interrupt {
-		m.notice = "interrupted the agent and told it"
-	}
 
 	return m, tea.Sequence(
 		func() tea.Msg {
-			if _, err := threads.NotifyReviewThreads(context.Background(), interrupt); err != nil {
-				return threadsLoadedMsg{err: err}
+			notified, err := threads.NotifyReviewThreads(context.Background(), interrupt)
+			if err != nil {
+				return noticeMsg{err: err}
 			}
 
-			return nil
+			return noticeMsg{text: describeNotification(notified, interrupt)}
 		},
 		m.loadThreads(),
 	)
 }
 
-func (m model) getPicked() *agentv1.ReviewThread {
-	if m.picked < 0 || m.picked >= len(m.loaded) {
+func describeNotification(notified Notification, interrupt bool) string {
+	if notified.Unread == 0 {
+		return "the agent has already read everything here"
+	}
+
+	said := fmt.Sprintf("told the agent about %d thread(s)", notified.Unread)
+	if !notified.Rang {
+		said = fmt.Sprintf("the agent was already holding a notice about %d thread(s)", notified.Unread)
+	}
+
+	switch {
+	case notified.Waiting:
+		return said + ", but it is waiting at a prompt and will not be told until it answers"
+	case interrupt && !notified.Interrupted:
+		return said + ", but it could not be stopped where it stands"
+	case notified.Interrupted:
+		return said + " and stopped it where it stood"
+	}
+
+	return said
+}
+
+// getPicked is the thread the thread screens are showing, which is the selected row of
+// whichever set of threads is being listed.
+func (m model) getPicked() *Thread {
+	if m.picked < 0 || m.picked >= len(m.shown) {
 		return nil
 	}
 
-	return m.loaded[m.picked]
+	position := m.shown[m.picked]
+	if position < 0 || position >= len(m.loaded) {
+		return nil
+	}
+
+	return &m.loaded[position]
 }
 
 // pageBy moves the cursor a screenful at a time. The jump is measured in drawn rows rather

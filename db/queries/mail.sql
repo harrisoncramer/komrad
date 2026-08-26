@@ -18,6 +18,38 @@ VALUES (
 RETURNING
     *;
 
+-- name: InsertMailNotice :one
+INSERT INTO mail(
+    from_name,
+    to_agent_id,
+    body,
+    hops,
+    kind,
+    expires_at)
+VALUES (
+    @from_name,
+    @to_agent_id,
+    @body,
+    1,
+    @kind,
+    NOW() + interval '1 microsecond' * @deadline_micros::bigint)
+ON CONFLICT (
+    to_agent_id,
+    kind)
+WHERE
+    claimed_at IS NULL
+    AND kind IS NOT NULL
+        DO NOTHING
+    RETURNING
+        *;
+
+-- name: DeleteExpiredMailNotices :exec
+DELETE FROM mail m
+WHERE m.to_agent_id = @to_agent_id
+    AND m.kind = @kind
+    AND m.claimed_at IS NULL
+    AND m.expires_at <= NOW();
+
 -- name: GetMail :one
 SELECT
     *

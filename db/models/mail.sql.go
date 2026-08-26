@@ -35,7 +35,7 @@ WHERE
         FROM
             pending)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 type ClaimMailParams struct {
@@ -65,6 +65,7 @@ func (q *Queries) ClaimMail(ctx context.Context, arg ClaimMailParams) ([]*Mail, 
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -94,6 +95,24 @@ func (q *Queries) CountPendingMail(ctx context.Context, toAgentID string) (int64
 	return count, err
 }
 
+const deleteExpiredMailNotices = `-- name: DeleteExpiredMailNotices :exec
+DELETE FROM mail m
+WHERE m.to_agent_id = $1
+    AND m.kind = $2
+    AND m.claimed_at IS NULL
+    AND m.expires_at <= NOW()
+`
+
+type DeleteExpiredMailNoticesParams struct {
+	ToAgentID string
+	Kind      *string
+}
+
+func (q *Queries) DeleteExpiredMailNotices(ctx context.Context, arg DeleteExpiredMailNoticesParams) error {
+	_, err := q.db.Exec(ctx, deleteExpiredMailNotices, arg.ToAgentID, arg.Kind)
+	return err
+}
+
 const deleteMailByID = `-- name: DeleteMailByID :exec
 DELETE FROM mail
 WHERE id = ANY ($1::uuid[])
@@ -106,7 +125,7 @@ func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
 
 const getMail = `-- name: GetMail :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 FROM
     mail m
 WHERE
@@ -129,13 +148,14 @@ func (q *Queries) GetMail(ctx context.Context, id string) (*Mail, error) {
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
 	)
 	return &i, err
 }
 
 const getMailByID = `-- name: GetMailByID :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 FROM
     mail m
 WHERE
@@ -164,6 +184,7 @@ func (q *Queries) GetMailByID(ctx context.Context, ids []string) ([]*Mail, error
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -193,7 +214,7 @@ VALUES (
     $6,
     NOW() + interval '1 microsecond' * $7::bigint)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 type InsertMailParams struct {
@@ -230,13 +251,75 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		&i.ExpiresAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
+	)
+	return &i, err
+}
+
+const insertMailNotice = `-- name: InsertMailNotice :one
+INSERT INTO mail(
+    from_name,
+    to_agent_id,
+    body,
+    hops,
+    kind,
+    expires_at)
+VALUES (
+    $1,
+    $2,
+    $3,
+    1,
+    $4,
+    NOW() + interval '1 microsecond' * $5::bigint)
+ON CONFLICT (
+    to_agent_id,
+    kind)
+WHERE
+    claimed_at IS NULL
+    AND kind IS NOT NULL
+        DO NOTHING
+    RETURNING
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+`
+
+type InsertMailNoticeParams struct {
+	FromName       string
+	ToAgentID      string
+	Body           string
+	Kind           *string
+	DeadlineMicros int64
+}
+
+func (q *Queries) InsertMailNotice(ctx context.Context, arg InsertMailNoticeParams) (*Mail, error) {
+	row := q.db.QueryRow(ctx, insertMailNotice,
+		arg.FromName,
+		arg.ToAgentID,
+		arg.Body,
+		arg.Kind,
+		arg.DeadlineMicros,
+	)
+	var i Mail
+	err := row.Scan(
+		&i.ID,
+		&i.FromAgentID,
+		&i.FromName,
+		&i.ToAgentID,
+		&i.Body,
+		&i.ReplyTo,
+		&i.Hops,
+		&i.ClaimedAt,
+		&i.ReportedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Kind,
 	)
 	return &i, err
 }
 
 const listMailPage = `-- name: ListMailPage :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 FROM
     mail m
 WHERE
@@ -276,6 +359,7 @@ func (q *Queries) ListMailPage(ctx context.Context, arg ListMailPageParams) ([]*
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -374,7 +458,7 @@ WHERE
         FROM
             unreported)
     RETURNING
-        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
@@ -399,6 +483,7 @@ func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*M
 			&i.ExpiresAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
 		); err != nil {
 			return nil, err
 		}

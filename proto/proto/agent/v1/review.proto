@@ -103,6 +103,17 @@ message EditReviewMessageResponse {
   ReviewMessage message = 1;
 }
 
+// MarkReviewThreadReadRequest is the person reviewing acknowledging one conversation, which
+// is what opening it on the thread screen means. It is one thread rather than the whole list
+// because they have not read the whole list.
+message MarkReviewThreadReadRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message MarkReviewThreadReadResponse {
+  ReviewThread thread = 1;
+}
+
 message ResolveReviewThreadRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   bool resolved = 2;
@@ -133,4 +144,13 @@ message NotifyReviewThreadsRequest {
 message NotifyReviewThreadsResponse {
   // How many threads the agent was told about, which is zero when it was already up to date.
   int32 unread = 1;
+  // Whether this call is what put the notice in the mailbox. False means one was already
+  // waiting there unread, so the agent has been told and has not looked yet.
+  bool rang = 2;
+  // Whether the agent's harness was stopped where it stood, which is only attempted when
+  // interrupt was asked for and only possible for an agent with a pane still running.
+  bool interrupted = 3;
+  // Whether the agent is sitting at a prompt of its own. Weave will not type through one, so
+  // the notice waits in the mailbox until the agent answers whatever it is asking.
+  bool waiting = 4;
 }

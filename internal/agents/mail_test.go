@@ -236,11 +236,46 @@ func (f fakeMailConfig) GetMaxHops() (int, error) {
 
 type fakeMailbox struct {
 	sent       []mailstore.SendParams
+	notices    []mailstore.SendNoticeParams
+	waiting    map[string]bool
+	expiredOf  []string
 	pending    int64
 	claimed    []mailstore.Mail
 	claimLimit int32
 	byID       map[string]mailstore.Mail
 	deleted    []string
+}
+
+// SendNotice keeps the one-unclaimed-notice-per-kind rule the partial unique index enforces,
+// so a caller that rings twice sees the second ring answered with nothing here too.
+func (f *fakeMailbox) SendNotice(_ context.Context, params mailstore.SendNoticeParams) (*mailstore.Mail, error) {
+	key := params.ToAgentID + "\x00" + params.Kind
+	if f.waiting[key] {
+		return nil, nil
+	}
+
+	if f.waiting == nil {
+		f.waiting = map[string]bool{}
+	}
+	f.waiting[key] = true
+	f.notices = append(f.notices, params)
+
+	kind := params.Kind
+	sent := mailstore.Mail{
+		ID:        fmt.Sprintf("notice-%d", len(f.notices)),
+		FromName:  params.FromName,
+		ToAgentID: params.ToAgentID,
+		Body:      params.Body,
+		Kind:      &kind,
+	}
+
+	return &sent, nil
+}
+
+func (f *fakeMailbox) DeleteExpiredNotices(_ context.Context, toAgentID, kind string) error {
+	f.expiredOf = append(f.expiredOf, toAgentID+"\x00"+kind)
+
+	return nil
 }
 
 func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mailstore.Mail, error) {

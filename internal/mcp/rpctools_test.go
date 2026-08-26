@@ -22,14 +22,15 @@ import (
 // said, and telling the agent to go and read it. An agent's half is list_review_threads,
 // add_review_message and resolve_review_thread, which it does have.
 var noToolSurface = map[protoreflect.Name]bool{
-	"EditAction":          true,
-	"EmptyArchive":        true,
-	"RecordTurnBoundary":  true,
-	"CreateReviewThread":  true,
-	"EditReviewMessage":   true,
-	"DeleteReviewThread":  true,
-	"DeleteReviewMessage": true,
-	"NotifyReviewThreads": true,
+	"EditAction":           true,
+	"EmptyArchive":         true,
+	"RecordTurnBoundary":   true,
+	"CreateReviewThread":   true,
+	"EditReviewMessage":    true,
+	"MarkReviewThreadRead": true,
+	"DeleteReviewThread":   true,
+	"DeleteReviewMessage":  true,
+	"NotifyReviewThreads":  true,
 }
 
 // TestEveryMethodIsAnnotated confirms the tool surface keeps up with the
