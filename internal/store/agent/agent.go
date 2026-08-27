@@ -328,6 +328,33 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 	return nil
 }
 
+// UpdateIfLive rewrites an agent's row and reports whether it did, refusing one that is
+// archived or already gone. It is for the resume, whose write lands seconds after it decided
+// to go ahead, long enough for an archive or a delete to have taken the row in between. Those
+// two carry no compare-and-set of their own and kill the pane a row names, which for a resume
+// mid-flight is no pane at all, so the resume is the side that has to notice and clean up.
+func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
+	if !store.IsID(agent.ID) {
+		return false, nil
+	}
+
+	updated, err := s.queries.UpdateAgentIfLive(ctx, models.UpdateAgentIfLiveParams{
+		ID:         agent.ID,
+		Cwd:        agent.Cwd,
+		Flags:      agent.Flags,
+		Prompt:     agent.Prompt,
+		PaneID:     agent.Pane,
+		State:      agent.State,
+		SessionID:  agent.SessionID,
+		WorkflowID: agent.WorkflowID,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to update agent %q: %w", agent.Name, err)
+	}
+
+	return len(updated) > 0, nil
+}
+
 // ClaimNudge takes the right to tell an agent about waiting mail. An agent that has moved
 // since it was told is told again, and so is one told longer ago than retryAfter, since a
 // nudge that stood that long against unread mail went nowhere. Its caller decides how long
