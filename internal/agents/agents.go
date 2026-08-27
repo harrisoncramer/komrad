@@ -648,9 +648,19 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	}
 
 	// A resume only gets this far for an agent whose pane has gone, so a turn the store still
-	// has running went with it. The reconciler records that when it watches a pane go, but a
-	// tmux server killed whole takes every pane and the reconciler's view of them at once.
-	interrupted := agent.InterruptedAt != nil || agent.State == agentstore.StateThinking
+	// has running went with it. The reconciler stamps that when it watches a pane go, but a
+	// tmux server killed whole takes every pane and the reconciler's view of them at once, so
+	// the stamp is written here too rather than the state being read instead of it. The write
+	// comes before the state is overwritten, so a relaunch that fails leaves the turn to be
+	// asked about by the resume after it.
+	if agent.InterruptedAt == nil && turnUnfinished(agent.State) {
+		at := time.Now()
+		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
+			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
+		}
+
+		agent.InterruptedAt = &at
+	}
 
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
@@ -666,7 +676,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	resuming := agent.SessionID != ""
 
 	prompt := ""
-	if resuming && interrupted {
+	if resuming && agent.InterruptedAt != nil {
 		prompt = interruptedPrompt
 	}
 

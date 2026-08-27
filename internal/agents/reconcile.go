@@ -319,9 +319,9 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 
-	// A pane that goes while its agent was thinking took an unfinished turn with it, and
-	// nothing brings that turn back, so the resume has to be told to ask for it again.
-	if agent.State != agentstore.StateThinking {
+	// A pane that goes part-way through a turn took that turn with it, and nothing brings it
+	// back, so the resume has to be told to ask for it again.
+	if !turnUnfinished(agent.State) {
 		return
 	}
 

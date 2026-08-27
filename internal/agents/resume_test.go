@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -129,21 +130,44 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		assert.Nil(t, agentByID(t, st, agent.ID).InterruptedAt, "the ask is made once, not on every resume after it")
 	})
 
+	t.Run("a pane that goes while its agent waits on a person leaves the turn recorded as cut off", func(t *testing.T) {
+		_, st, _, agent := cut(t, agentstore.StateWaiting, sessionID)
+		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
+			"an unanswered tool call is no more finished than a turn still being thought about")
+	})
+
 	// What `mise run restart` does: the tmux server goes whole and weave's own server goes
 	// with it, so no reconcile pass ever watches the panes go and the store is left holding
 	// a turn that is already over.
-	t.Run("a turn the store still has running is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
+	unwatched := func(t *testing.T, state string) (*AgentService, *testStore, *fakeHarness, agentstore.Agent) {
+		t.Helper()
+
 		st := newStore(t)
-		agent := seed(t, st, "cut", "%1", agentstore.StateThinking)
+		agent := seed(t, st, "cut", "%1", state)
 		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
 		service, h := newManagerWithHarness(newFakeTmux(), st, "")
+		require.Nil(t, agentByID(t, st, agent.ID).InterruptedAt, "no pass looked, so nothing recorded the turn")
 
-		require.Nil(t, agentByID(t, st, agent.ID).InterruptedAt)
+		return service, st, h, agent
+	}
+
+	t.Run("a turn the store still has running is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
+		service, _, h, agent := unwatched(t, agentstore.StateThinking)
 
 		_, err := service.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
+	})
+
+	t.Run("a relaunch that fails leaves the turn for the resume after it", func(t *testing.T) {
+		service, st, h, agent := unwatched(t, agentstore.StateThinking)
+		h.commandErr = errors.New("no")
+
+		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		require.Error(t, err)
+		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
+			"the state it was read from is gone, so the turn only survives as the stamp")
 	})
 
 	t.Run("an agent that finished its turn resumes without being told anything", func(t *testing.T) {
