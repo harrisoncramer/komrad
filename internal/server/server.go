@@ -234,6 +234,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		NudgeClaimer:  agentStore,
 		PaneReader:    agentService,
 		PaneTyper:     p.Tmux,
+		Harnesses:     p.Harnesses,
 	})
 
 	if err := db.MigrateRiver(ctx, pool.GetRawPool()); err != nil {
