@@ -124,12 +124,39 @@ else
 		base=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
 	fi
 
-	point="$base"
+	# A fetch by branch name always writes FETCH_HEAD but only updates the tracking ref when the
+	# remote's refspec maps that branch, which a single-branch clone's does not, so exiting zero
+	# is no proof of origin/$base. FETCH_HEAD is the obvious place to read what was fetched
+	# instead and is one file the whole repo shares, so concurrent setups would read each
+	# other's, and the fetch is made again under a name belonging to this agent alone.
+	staged="refs/weave/base/$WEAVE_AGENT_ID"
+	point=
 	if [ -n "$origin" ]; then
 		echo "fetching $base from origin" >&2
 		if git -C "$repo" fetch --quiet origin "$base" >&2; then
-			point="origin/$base"
+			if has_ref "refs/remotes/origin/$base"; then
+				point="origin/$base"
+			elif git -C "$repo" fetch --quiet --no-tags origin "+$base:$staged" >&2; then
+				point="$staged"
+			fi
 		fi
+	fi
+
+	# Either there is no origin or it could not be reached. What git cached the last time it
+	# could is the better of the two guesses left, since the local branch is where the human's
+	# own unpushed work sits.
+	if [ -z "$point" ]; then
+		for candidate in "refs/remotes/origin/$base" "refs/heads/$base"; do
+			if has_ref "$candidate"; then
+				point="$candidate"
+				break
+			fi
+		done
+	fi
+
+	if [ -z "$point" ]; then
+		echo "worktree setup: $base is not a branch $repo can reach, so set the workflow's base branch to one it has" >&2
+		exit 1
 	fi
 
 	mkdir -p "$WEAVE_WORKTREES_DIR"
@@ -146,6 +173,12 @@ else
 		echo "worktree setup: pruning stale worktree registrations and trying once more" >&2
 		git -C "$repo" worktree prune 2>/dev/null || true
 		git -C "$repo" worktree add --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
+	fi
+
+	# The branch the add just made holds the commit now, so a ref that named the branch point
+	# for one command is not left behind in the human's repo.
+	if [ "$point" = "$staged" ]; then
+		git -C "$repo" update-ref -d "$staged" 2>/dev/null || true
 	fi
 
 	# With no upstream, a plain push has nothing to push to until this is set. --local in a
