@@ -56,6 +56,13 @@ type WorktreeConfig struct {
 	ArchiveOnPRClosed bool
 }
 
+// ArchivesOnPRClosed reports whether a workflow's agents are archived once their pull requests
+// finish. The setting is kept as it was when worktree support is turned off, the same as the
+// other worktree details, so it only counts while that is on.
+func (w WorktreeConfig) ArchivesOnPRClosed() bool {
+	return w.Enabled && w.ArchiveOnPRClosed
+}
+
 type Store struct {
 	queries *models.Queries
 }

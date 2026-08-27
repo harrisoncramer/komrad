@@ -964,6 +964,45 @@ func (q *Queries) LockAgentSlots(ctx context.Context, key int64) error {
 	return err
 }
 
+const markAgentArchivedIfUnchanged = `-- name: MarkAgentArchivedIfUnchanged :many
+UPDATE
+    agents
+SET
+    archived_at = NOW(),
+    pane_id = ''
+WHERE
+    id = $1
+    AND archived_at IS NULL
+    AND updated_at = $2
+RETURNING
+    id
+`
+
+type MarkAgentArchivedIfUnchangedParams struct {
+	ID        string
+	UpdatedAt time.Time
+}
+
+func (q *Queries) MarkAgentArchivedIfUnchanged(ctx context.Context, arg MarkAgentArchivedIfUnchangedParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, markAgentArchivedIfUnchanged, arg.ID, arg.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAgentsArchived = `-- name: MarkAgentsArchived :exec
 UPDATE
     agents

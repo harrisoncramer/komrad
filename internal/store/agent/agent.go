@@ -453,6 +453,31 @@ func (s *Store) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, 
 	return len(forgotten) > 0, nil
 }
 
+type ArchiveIfUnchangedParams struct {
+	ID string
+
+	UpdatedAt time.Time
+}
+
+// ArchiveIfUnchanged archives one agent only while its row still reads as it was observed,
+// and reports whether it did. A resume writes the pane it opened onto the row, so an archive
+// decided from an older read is one that would hide an agent that has since come back.
+func (s *Store) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchangedParams) (bool, error) {
+	if !store.IsID(params.ID) {
+		return false, nil
+	}
+
+	archived, err := s.queries.MarkAgentArchivedIfUnchanged(ctx, models.MarkAgentArchivedIfUnchangedParams{
+		ID:        params.ID,
+		UpdatedAt: params.UpdatedAt,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to archive id %q: %w", params.ID, err)
+	}
+
+	return len(archived) > 0, nil
+}
+
 // SetTags updates the tag on the given agents and returns the number changed.
 func (s *Store) SetTags(ctx context.Context, ids []string, tag *string) (int, error) {
 	storable := keepStorableIDs(ids)

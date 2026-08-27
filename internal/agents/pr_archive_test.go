@@ -8,15 +8,19 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type fakePRStates struct {
-	state string
-	err   error
-	refs  []string
+	state  string
+	branch string
+	repo   string
+	origin string
+	err    error
+	refs   []string
 }
 
 func (f *fakePRStates) Resolve(_ context.Context, _, ref string) (*PullRequest, error) {
@@ -25,7 +29,13 @@ func (f *fakePRStates) Resolve(_ context.Context, _, ref string) (*PullRequest, 
 		return nil, f.err
 	}
 
-	return &PullRequest{URL: ref, State: f.state}, nil
+	return &PullRequest{URL: ref, State: f.state, Branch: f.branch, Repository: f.repo}, nil
+}
+
+// Repository stands in for the workflow's own origin, which is what a resolved pull request is
+// checked against.
+func (f *fakePRStates) Repository(context.Context, string) (string, error) {
+	return f.origin, nil
 }
 
 type fakeArchiver struct {
@@ -33,10 +43,18 @@ type fakeArchiver struct {
 	err      error
 }
 
-func (f *fakeArchiver) ArchiveAgents(_ context.Context, ids []string) error {
-	f.archived = append(f.archived, ids...)
+// ArchiveUnchangedAgents stands in for the guarded archive, which the real one performs one
+// row at a time.
+func (f *fakeArchiver) ArchiveUnchangedAgents(_ context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
+	if f.err != nil {
+		return nil, f.err
+	}
 
-	return f.err
+	for _, agent := range observed {
+		f.archived = append(f.archived, agent.ID)
+	}
+
+	return observed, nil
 }
 
 func seedPRWorkflow(t *testing.T, st *testStore, archiveOnPRClosed, worktree bool) string {
@@ -56,6 +74,10 @@ func seedPRWorkflow(t *testing.T, st *testStore, archiveOnPRClosed, worktree boo
 	return created.ID
 }
 
+const prBranch = "harry-fix"
+
+const prRepo = "harrisoncramer/weave"
+
 func seedPRAgent(t *testing.T, st *testStore, workflowID, state, pane, url string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
@@ -72,6 +94,8 @@ func seedPRAgent(t *testing.T, st *testStore, workflowID, state, pane, url strin
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
+	require.NoError(t, st.Agents.SetBranchByID(ctx, got.ID, xptr.Ptr(prBranch)))
+
 	if url != "" {
 		_, err = st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: got.ID, Key: prMetadataKey, Value: &url})
 		require.NoError(t, err)
@@ -82,6 +106,26 @@ func seedPRAgent(t *testing.T, st *testStore, workflowID, state, pane, url strin
 	}
 
 	return *got
+}
+
+func reread(t *testing.T, st *testStore) agentstore.Agent {
+	t.Helper()
+
+	got, err := st.Agents.GetByID(t.Context(), agentIDOf(t, st))
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return *got
+}
+
+func agentIDOf(t *testing.T, st *testStore) string {
+	t.Helper()
+
+	agents, err := st.Agents.ListAll(t.Context())
+	require.NoError(t, err)
+	require.Len(t, agents, 1)
+
+	return agents[0].ID
 }
 
 func newPRArchiver(st *testStore, prs prStateResolver, archiver prArchiveAgentArchiver) *PRArchiver {
@@ -200,7 +244,7 @@ func TestPRArchiverSync(t *testing.T) {
 			workflowID := seedPRWorkflow(t, st, tt.archiveOnPRClosed, !tt.worktreeDisabled)
 			agent := seedPRAgent(t, st, workflowID, tt.agentState, tt.pane, tt.url)
 
-			prs := &fakePRStates{state: tt.prState}
+			prs := &fakePRStates{state: tt.prState, branch: prBranch, repo: prRepo, origin: prRepo}
 			archiver := &fakeArchiver{}
 
 			require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -224,7 +268,7 @@ func TestPRArchiverSyncLeavesAnAgentAloneWhenTheLookupFails(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{err: errors.New("gh: no network")}
+	prs := &fakePRStates{err: errors.New("gh: no network"), branch: prBranch, repo: prRepo, origin: prRepo}
 	archiver := &fakeArchiver{}
 
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -241,7 +285,7 @@ func TestPRArchiverSyncBacksOffAfterARateLimit(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{err: errors.New("gh: API rate limit exceeded")}
+	prs := &fakePRStates{err: errors.New("gh: API rate limit exceeded"), branch: prBranch, repo: prRepo, origin: prRepo}
 	archiver := &fakeArchiver{}
 	archiverUnderTest := newPRArchiver(st, prs, archiver)
 
@@ -252,7 +296,7 @@ func TestPRArchiverSyncBacksOffAfterARateLimit(t *testing.T) {
 	require.NoError(t, archiverUnderTest.Sync(t.Context()))
 	assert.Len(t, prs.refs, 1, "the second pass is still inside the backoff")
 
-	now = now.Add(prStateBackoff + time.Minute)
+	now = now.Add(prStateQuiet + time.Minute)
 	prs.err = nil
 	prs.state = "MERGED"
 
@@ -270,13 +314,123 @@ func TestPRArchiverSyncSkipsArchivedAgents(t *testing.T) {
 	agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 	require.NoError(t, st.Agents.Archive(t.Context(), []string{agent.ID}))
 
-	prs := &fakePRStates{state: "MERGED"}
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
 	archiver := &fakeArchiver{}
 
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
 
 	assert.Empty(t, prs.refs)
 	assert.Empty(t, archiver.archived)
+}
+
+// TestPRArchiverSyncLeavesARestoredAgentAlone covers the reason an archive is stamped at all.
+// Archiving clears the pane and restoring only clears archived_at, so a restored agent reads
+// idle and dormant with the same pull request still on it. Without the stamp the next pass
+// archives it again, two minutes after somebody deliberately brought it back.
+func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
+	st := newStore(t)
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	archiver := &fakeArchiver{}
+	archiverUnderTest := newPRArchiver(st, prs, archiver)
+
+	require.NoError(t, archiverUnderTest.Sync(t.Context()))
+	require.Equal(t, []string{agent.ID}, archiver.archived)
+	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey), "the archive says which pull request it was for")
+
+	require.NoError(t, st.Agents.Archive(t.Context(), []string{agent.ID}))
+	require.NoError(t, st.Agents.Restore(t.Context(), []string{agent.ID}))
+
+	require.NoError(t, archiverUnderTest.Sync(t.Context()))
+
+	assert.Len(t, prs.refs, 1, "the restored agent is not asked about again")
+	assert.Len(t, archiver.archived, 1, "and it is not archived again")
+}
+
+// TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn covers the recorded pull request
+// being a snapshot nothing refreshes. An agent that closed one and opened another from the same
+// branch still carries the first, and archiving on that hides an agent whose real pull request
+// is open.
+func TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn(t *testing.T) {
+	tests := []struct {
+		name   string
+		branch string
+		repo   string
+	}{
+		{
+			name:   "a closed pull request on some other branch is not this agent's",
+			branch: "somebody-elses-branch",
+			repo:   prRepo,
+		},
+		{
+			name:   "a closed pull request in some other repository is not this agent's",
+			branch: prBranch,
+			repo:   "harrisoncramer/other",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+
+			workflowID := seedPRWorkflow(t, st, true, true)
+			seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+			prs := &fakePRStates{state: "MERGED", branch: tt.branch, repo: tt.repo, origin: prRepo}
+			archiver := &fakeArchiver{}
+
+			require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
+
+			assert.Empty(t, archiver.archived)
+		})
+	}
+}
+
+// TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL covers what agents actually write
+// under the key. A bare number is a reference gh resolves against whichever repository it runs
+// in, so it names some unrelated pull request that is very likely long merged.
+func TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL(t *testing.T) {
+	st := newStore(t)
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", "42")
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	archiver := &fakeArchiver{}
+
+	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
+
+	assert.Empty(t, prs.refs, "nothing is asked about a reference weave cannot check")
+	assert.Empty(t, archiver.archived)
+}
+
+// TestPRArchiverSyncGoesQuietOnAnOpenPullRequest covers the cost of an agent that sits idle for
+// days on an open pull request: without a pause it is asked about on every pass forever.
+func TestPRArchiverSyncGoesQuietOnAnOpenPullRequest(t *testing.T) {
+	st := newStore(t)
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	prs := &fakePRStates{state: "OPEN", branch: prBranch, repo: prRepo, origin: prRepo}
+	archiver := &fakeArchiver{}
+	archiverUnderTest := newPRArchiver(st, prs, archiver)
+
+	now := time.Now()
+	archiverUnderTest.now = func() time.Time { return now }
+
+	require.NoError(t, archiverUnderTest.Sync(t.Context()))
+	require.NoError(t, archiverUnderTest.Sync(t.Context()))
+	assert.Len(t, prs.refs, 1, "the second pass is still inside the pause")
+
+	now = now.Add(prStateQuiet + time.Minute)
+	prs.state = "MERGED"
+
+	require.NoError(t, archiverUnderTest.Sync(t.Context()))
+	assert.Len(t, archiver.archived, 1, "once the pause is over the merge is noticed")
 }
 
 // TestPRArchiverSyncReportsAFailedArchive covers the pass surfacing what it could not do,
@@ -287,10 +441,11 @@ func TestPRArchiverSyncReportsAFailedArchive(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{state: "MERGED"}
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
 	archiver := &fakeArchiver{err: errors.New("nope")}
 
 	err := newPRArchiver(st, prs, archiver).Sync(t.Context())
 
 	require.ErrorContains(t, err, "failed to archive 1 agents whose pull requests closed")
+	assert.Empty(t, metadataFor(reread(t, st), prArchivedMetadataKey), "an archive that failed stamps nothing, so a later pass tries again")
 }

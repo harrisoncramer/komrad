@@ -380,6 +380,19 @@ WHERE
     id = ANY (@ids::uuid[])
     AND archived_at IS NULL;
 
+-- name: MarkAgentArchivedIfUnchanged :many
+UPDATE
+    agents
+SET
+    archived_at = NOW(),
+    pane_id = ''
+WHERE
+    id = @id
+    AND archived_at IS NULL
+    AND updated_at = @updated_at
+RETURNING
+    id;
+
 -- name: RestoreAgents :exec
 UPDATE
     agents
