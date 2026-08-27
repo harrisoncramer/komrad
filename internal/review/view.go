@@ -162,6 +162,66 @@ func (v *View) First() int {
 	return max(v.scan(-1, 1), 0)
 }
 
+// Place is a spot in the diff worth returning to, taken off the cursor before the patch is
+// read again so the reader is not thrown back to the top of it.
+type Place struct {
+	FilePath string
+
+	NewLine int
+	OldLine int
+}
+
+// GetPlace is where the cursor is standing, in terms that survive the patch being reloaded.
+func (v *View) GetPlace(y int) (Place, bool) {
+	key, ok := v.getKey(y)
+	if !ok {
+		return Place{}, false
+	}
+
+	return Place{FilePath: key.filePath, NewLine: int(key.newLine), OldLine: int(key.oldLine)}, true
+}
+
+// Locate is the row standing where place was, in a patch that has since been read again.
+//
+// The exact line is preferred, but a commit or an edit moves lines around, so a file that is
+// still in the diff falls back to whichever of its rows is nearest the line the reader left.
+// That is a guess, and it is a better one than the top of the diff.
+func (v *View) Locate(place Place) (int, bool) {
+	exact, nearest, distance := -1, -1, 0
+
+	for y, current := range v.rows {
+		if current.kind != lineRow || v.patch.Files[current.file].Path() != place.FilePath {
+			continue
+		}
+
+		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
+		if line.NewNumber == place.NewLine && line.OldNumber == place.OldLine {
+			exact = y
+
+			break
+		}
+
+		gap := abs(line.NewNumber - place.NewLine)
+		if nearest < 0 || gap < distance {
+			nearest, distance = y, gap
+		}
+	}
+
+	if exact >= 0 {
+		return exact, true
+	}
+
+	return nearest, nearest >= 0
+}
+
+func abs(n int) int {
+	if n < 0 {
+		return -n
+	}
+
+	return n
+}
+
 // Last is the last row the cursor can rest on.
 func (v *View) Last() int {
 	return max(v.scan(len(v.rows), -1), 0)
@@ -326,4 +386,39 @@ func (v *View) getStyledLine(current row, line diff.Line) styledLine {
 	}
 
 	return lineAt(source.new, line.NewNumber)
+}
+
+// EditTarget is the file the cursor is standing in and the line to open it on. A deleted line
+// has no place in the file as it stands, so it answers with the nearest line that does, and a
+// deleted file answers with nothing to open at all.
+func (v *View) EditTarget(y int) (string, int, bool) {
+	file, ok := v.getFile(y)
+	if !ok || file.NewPath == "" {
+		return "", 0, false
+	}
+
+	return file.NewPath, v.nearestNewLine(y), true
+}
+
+// nearestNewLine walks out from a row to the closest line that still exists on the new side,
+// looking back before forward so a run of deletions lands on the code above it.
+func (v *View) nearestNewLine(y int) int {
+	if line, ok := v.getLine(y); ok && line.NewNumber > 0 {
+		return line.NewNumber
+	}
+
+	current, ok := v.getRow(y)
+	if !ok {
+		return 1
+	}
+
+	for _, direction := range []int{-1, 1} {
+		for next := y + direction; next >= 0 && next < len(v.rows) && v.rows[next].file == current.file; next += direction {
+			if line, ok := v.getLine(next); ok && line.NewNumber > 0 {
+				return line.NewNumber
+			}
+		}
+	}
+
+	return 1
 }

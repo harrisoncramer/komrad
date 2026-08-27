@@ -26,6 +26,8 @@ type LoadParams struct {
 	// Base is the branch the worktree was cut from. Empty means ask the repository for its
 	// default branch.
 	Base string
+	// Exclude is the paths and globs to leave out, relative to the repository root.
+	Exclude []string
 }
 
 // Load reads everything an agent has changed in its worktree, measured against the point its
@@ -45,7 +47,9 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
 	}
 
-	raw, err := runGitBytes(ctx, root, diffArgs(commit)...)
+	exclude := excludePathspecs(params.Exclude)
+
+	raw, err := runGitBytes(ctx, root, diffArgs(commit, exclude)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %q against %s: %w", root, commit, err)
 	}
@@ -55,7 +59,7 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, err
 	}
 
-	untracked, err := loadUntracked(ctx, root)
+	untracked, err := loadUntracked(ctx, root, exclude)
 	if err != nil {
 		return nil, err
 	}
@@ -63,14 +67,33 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	return &Patch{Root: root, Base: base, Commit: commit, Files: append(files, untracked...)}, nil
 }
 
-func diffArgs(commit string) []string {
-	return []string{
+func diffArgs(commit string, exclude []string) []string {
+	args := []string{
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",
 		"--no-pager", "diff",
 		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3",
-		commit, "--",
+		commit, "--", ".",
 	}
+
+	return append(args, exclude...)
+}
+
+// excludePathspecs turns the workflow's paths into pathspecs git will subtract. The user
+// writes a path or a glob, such as proto/gen or *.pb.go, and the magic that makes it an
+// exclusion is added here rather than being something they have to know.
+func excludePathspecs(paths []string) []string {
+	specs := make([]string, 0, len(paths))
+	for _, path := range paths {
+		path = strings.TrimSpace(path)
+		if path == "" {
+			continue
+		}
+
+		specs = append(specs, ":(exclude)"+path)
+	}
+
+	return specs
 }
 
 // resolveBase turns a configured base branch into something git can name. A remote-tracking
@@ -167,8 +190,10 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 
 // loadUntracked builds an add-only file for everything git is not tracking yet, since an
 // agent that has written a new file and not staged it has done work no diff will show.
-func loadUntracked(ctx context.Context, root string) ([]File, error) {
-	out, err := runGitBytes(ctx, root, "ls-files", "--others", "--exclude-standard", "-z")
+func loadUntracked(ctx context.Context, root string, exclude []string) ([]File, error) {
+	args := append([]string{"ls-files", "--others", "--exclude-standard", "-z", "--", "."}, exclude...)
+
+	out, err := runGitBytes(ctx, root, args...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list untracked files in %q: %w", root, err)
 	}

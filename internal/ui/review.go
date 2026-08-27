@@ -11,6 +11,7 @@ import (
 	"weave/internal/diff"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
@@ -36,8 +37,10 @@ type reviewState struct {
 	agentID   string
 	agentName string
 
-	dir  string
-	base string
+	dir     string
+	root    string
+	base    string
+	exclude []string
 
 	view    *review.View
 	threads []*agentv1.ReviewThread
@@ -60,6 +63,10 @@ type reviewState struct {
 	loading bool
 	notice  string
 	err     error
+
+	// restore is where the cursor was standing when the patch was read again, so a reload lands
+	// the reader back where they left rather than at the top of the diff.
+	restore *review.Place
 }
 
 // reviewFrames is the size of the pane the diff is being drawn into. Only the frame knows it,
@@ -123,6 +130,8 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	worktree := m.worktreeFor(agent)
+
 	editor := textarea.New()
 	editor.Placeholder = "what should the agent change here?"
 	editor.ShowLineNumbers = false
@@ -133,24 +142,25 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		agentID:   agent.ID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
-		base:      m.baseBranchFor(agent),
+		base:      worktree.BaseBranch,
+		exclude:   worktree.DiffExclude,
 		frames:    &reviewFrames{},
 		editor:    editor,
 		loading:   true,
 	}
 	m.frame.Show(layout.RegionStage, newTextContent("_loading the diff…_"))
 
-	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base)
+	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
 }
 
-func (m model) loadReviewCmd(agentID, dir, base string) tea.Cmd {
+func (m model) loadReviewCmd(agentID, dir, base string, exclude []string) tea.Cmd {
 	agents := m.api.agents
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		patch, err := diff.Load(ctx, diff.LoadParams{Dir: dir, Base: base})
+		patch, err := diff.Load(ctx, diff.LoadParams{Dir: dir, Base: base, Exclude: exclude})
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
@@ -187,10 +197,18 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 		return
 	}
 
+	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.PinThreads(msg.threads)
 	m.review.threads = msg.threads
 	m.review.cursor = m.review.view.First()
+	if place := m.review.restore; place != nil {
+		if found, ok := m.review.view.Locate(*place); ok {
+			m.review.cursor = found
+		}
+
+		m.review.restore = nil
+	}
 	m.review.frames = &reviewFrames{}
 
 	m.stageReview()
@@ -340,11 +358,13 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.panReview(-m.reviewPanStep())
 	case k == "0":
 		return m.panReview(-m.review.pan)
+	case k == "e":
+		return m.editReviewFile()
 	case k == "c":
 		return m.composeReview()
 	case k == "D":
 		return m.deleteReviewThread()
-	case k == "s":
+	case isBound(k, m.keys.Form.Submit):
 		return m.notifyReview()
 	}
 
@@ -361,6 +381,24 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	}
 
 	return m.review.view.ThreadAt(m.review.cursor)
+}
+
+// reloadReview reads the worktree again, holding the place the cursor is standing so the diff
+// comes back under it. The editor is where files get changed and commits get made, so what the
+// panel is drawing is stale the moment it closes.
+//
+// The old diff stays on screen until the new one arrives rather than blanking to a loading
+// line: the read is quick and the reader is mid-thought.
+func (m model) reloadReview() (model, tea.Cmd) {
+	if m.review.view == nil {
+		return m, nil
+	}
+
+	if place, ok := m.review.view.GetPlace(m.review.cursor); ok {
+		m.review.restore = &place
+	}
+
+	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
 }
 
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
@@ -485,15 +523,17 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 }
 
 func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch key.String() {
-	case "esc":
+	k := key.String()
+
+	switch {
+	case k == "esc":
 		m.review.editor.Blur()
 		m.review.composing = false
 
 		return m, nil
-	case "ctrl+c":
+	case k == "ctrl+c":
 		return m, m.hide()
-	case "ctrl+s":
+	case isBound(k, m.keys.Form.Submit):
 		return m.saveReviewMessage()
 	}
 
@@ -515,7 +555,9 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 
 	agents, agentID, threadID := m.api.agents, m.review.agentID, m.review.editing
 	if threadID != "" {
-		return m, m.reviewWriteCmd("replied", func(ctx context.Context) error {
+		// Nothing is said back: the reply is drawn in the thread it went into, which is already on
+		// the screen the moment it lands.
+		return m, m.reviewWriteCmd("", func(ctx context.Context) error {
 			_, err := agents.AddReviewMessage(ctx, connect.NewRequest(&agentv1.AddReviewMessageRequest{
 				ThreadId: threadID,
 				Body:     body,
@@ -570,7 +612,9 @@ func (m model) deleteReviewThread() (tea.Model, tea.Cmd) {
 func (m model) notifyReview() (tea.Model, tea.Cmd) {
 	agents, agentID := m.api.agents, m.review.agentID
 
-	return m, m.reviewWriteCmd("agent told", func(ctx context.Context) error {
+	// Nothing is said back: the doorbell landing in the agent's mailbox is what the conversation
+	// state at the top of the sidebar reads, and it says so until the agent picks it up.
+	return m, m.reviewWriteCmd("", func(ctx context.Context) error {
 		_, err := agents.NotifyReviewThreads(ctx, connect.NewRequest(&agentv1.NotifyReviewThreadsRequest{
 			AgentId: agentID,
 		}))
@@ -597,12 +641,12 @@ func (m model) reviewWriteCmd(notice string, write func(context.Context) error) 
 	}
 }
 
-func (m model) baseBranchFor(agent agentstore.Agent) string {
+func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig {
 	for _, workflow := range m.listing.workflows {
 		if workflow.ID == agent.WorkflowID {
-			return workflow.Worktree.BaseBranch
+			return workflow.Worktree
 		}
 	}
 
-	return ""
+	return workflowstore.WorktreeConfig{}
 }

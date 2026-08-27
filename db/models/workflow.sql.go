@@ -60,7 +60,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -82,6 +83,7 @@ type GetWorkflowRow struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 }
 
 func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
@@ -105,6 +107,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.WorktreeBaseBranch,
 		&i.WorktreeCopyPaths,
 		&i.WorktreeSymlinkPaths,
+		&i.WorktreeDiffExclude,
 	)
 	return &i, err
 }
@@ -120,7 +123,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -141,6 +145,7 @@ type GetWorkflowIncludingArchivedRow struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 }
 
 func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (*GetWorkflowIncludingArchivedRow, error) {
@@ -164,6 +169,7 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.WorktreeBaseBranch,
 		&i.WorktreeCopyPaths,
 		&i.WorktreeSymlinkPaths,
+		&i.WorktreeDiffExclude,
 	)
 	return &i, err
 }
@@ -218,14 +224,16 @@ INSERT INTO workflow_action_configs(
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
-    worktree_symlink_paths)
+    worktree_symlink_paths,
+    worktree_diff_exclude)
 VALUES (
     $1,
     $2,
     $3,
     $4,
     $5,
-    $6)
+    $6,
+    $7)
 RETURNING
     id
 `
@@ -237,6 +245,7 @@ type InsertWorkflowActionConfigParams struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 }
 
 func (q *Queries) InsertWorkflowActionConfig(ctx context.Context, arg InsertWorkflowActionConfigParams) (string, error) {
@@ -247,6 +256,7 @@ func (q *Queries) InsertWorkflowActionConfig(ctx context.Context, arg InsertWork
 		arg.WorktreeBaseBranch,
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
+		arg.WorktreeDiffExclude,
 	)
 	var id string
 	err := row.Scan(&id)
@@ -290,7 +300,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -312,6 +323,7 @@ type ListWorkflowsRow struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 }
 
 func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error) {
@@ -341,6 +353,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.WorktreeBaseBranch,
 			&i.WorktreeCopyPaths,
 			&i.WorktreeSymlinkPaths,
+			&i.WorktreeDiffExclude,
 		); err != nil {
 			return nil, err
 		}
@@ -363,7 +376,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -393,6 +407,7 @@ type ListWorkflowsPageRow struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
@@ -422,6 +437,7 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.WorktreeBaseBranch,
 			&i.WorktreeCopyPaths,
 			&i.WorktreeSymlinkPaths,
+			&i.WorktreeDiffExclude,
 		); err != nil {
 			return nil, err
 		}
@@ -490,7 +506,8 @@ SET
     worktree_enabled = $3,
     worktree_base_branch = $4,
     worktree_copy_paths = $5,
-    worktree_symlink_paths = $6
+    worktree_symlink_paths = $6,
+    worktree_diff_exclude = $7
 WHERE
     id =(
         SELECT
@@ -498,7 +515,7 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $7)
+            workflows.id = $8)
 `
 
 type SetWorkflowActionsParams struct {
@@ -508,6 +525,7 @@ type SetWorkflowActionsParams struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 	WorkflowID           string
 }
 
@@ -519,6 +537,7 @@ func (q *Queries) SetWorkflowActions(ctx context.Context, arg SetWorkflowActions
 		arg.WorktreeBaseBranch,
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
+		arg.WorktreeDiffExclude,
 		arg.WorkflowID,
 	)
 	return err

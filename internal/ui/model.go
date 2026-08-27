@@ -63,6 +63,7 @@ type uiTmux interface {
 	layout.Tmux
 	GetClientPath(client string) string
 	SetInfoPane(pane string)
+	SelectPane(pane string)
 	OpenWindow(client, name, dir string, argv ...string) error
 	SendKeys(target string, keys ...string) error
 }
@@ -87,6 +88,8 @@ type Deps struct {
 	LogPath string
 
 	ProcessViewer string
+
+	Editor string
 
 	ActionLogsDir string
 
@@ -164,6 +167,8 @@ type model struct {
 	logViewer string
 
 	processViewer string
+
+	editor        string
 	actionLogsDir string
 
 	pane string
@@ -190,6 +195,7 @@ func newModel(deps Deps, isDark bool) model {
 		logPath:         deps.LogPath,
 		logViewer:       deps.LogViewer,
 		processViewer:   deps.ProcessViewer,
+		editor:          deps.Editor,
 		actionLogsDir:   deps.ActionLogsDir,
 		pane:            deps.Pane,
 		self:            deps.Self,

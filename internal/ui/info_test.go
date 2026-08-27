@@ -60,7 +60,50 @@ func TestWorkflowFields(t *testing.T) {
 		{"flags", "--model opus"},
 		{"setup", "bootstrap"},
 		{"cleanup", "teardown"},
+		{"workflow_id", "w1"},
 	}, fields)
+}
+
+// TestWorkflowFieldsWorktree covers a worktree workflow, whose setup and cleanup are scripts
+// weave generated rather than actions the user picked. Showing those names says nothing, so
+// the details draw the worktree settings the user actually chose instead.
+func TestWorkflowFieldsWorktree(t *testing.T) {
+	workflow := workflowstore.Workflow{
+		ID:            "w1",
+		Name:          "api",
+		Harness:       "codex",
+		Cwd:           "/repo/api",
+		SetupAction:   "weave-worktree-setup-w1",
+		CleanupAction: "weave-worktree-cleanup-w1",
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   "main",
+			CopyPaths:    []string{".env", ".envrc"},
+			SymlinkPaths: []string{"node_modules"},
+		},
+	}
+
+	assert.Equal(t, []recordField{
+		{"agents", "3"},
+		{"default agent", "codex"},
+		{"directory", "/repo/api"},
+		{"flags", "—"},
+		{"worktree", "on"},
+		{"base branch", "main"},
+		{"copy", ".env, .envrc"},
+		{"symlink", "node_modules"},
+		{"workflow_id", "w1"},
+	}, workflowFields(workflow, 3))
+
+	workflow.Worktree.CopyPaths = nil
+	workflow.Worktree.SymlinkPaths = nil
+	workflow.Worktree.BaseBranch = ""
+
+	fields := workflowFields(workflow, 3)
+
+	assert.Contains(t, fields, recordField{"base branch", "—"})
+	assert.NotContains(t, fields, recordField{"copy", ""})
+	assert.NotContains(t, fields, recordField{"setup", "weave-worktree-setup-w1"})
 }
 
 type recordingTmux struct {
@@ -83,6 +126,8 @@ type recordingTmux struct {
 	globals      map[string]string
 
 	infoPane string
+
+	selected []string
 
 	respawnPanes []string
 
@@ -120,6 +165,10 @@ func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 
 func (t *recordingTmux) SetInfoPane(pane string) {
 	t.infoPane = pane
+}
+
+func (t *recordingTmux) SelectPane(pane string) {
+	t.selected = append(t.selected, pane)
 }
 
 func (t *recordingTmux) SetGlobal(name, value string) {

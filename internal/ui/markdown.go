@@ -41,17 +41,38 @@ func renderDocument(title, notice, prose, footer string) string {
 }
 
 func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
-	return append([]recordField{{"agents", fmt.Sprintf("%d", agentCount)}}, workflowConfigFields(w)...)
+	fields := []recordField{{"agents", fmt.Sprintf("%d", agentCount)}}
+	fields = append(fields, workflowConfigFields(w)...)
+
+	return append(fields, recordField{"workflow_id", orDash(w.ID)})
 }
 
 func workflowConfigFields(w workflowstore.Workflow) []recordField {
-	return []recordField{
+	fields := []recordField{
 		{"default agent", orDash(w.Harness)},
 		{"directory", orDash(w.Cwd)},
 		{"flags", orDash(w.Flags)},
-		{"setup", orDash(w.SetupAction)},
-		{"cleanup", orDash(w.CleanupAction)},
 	}
+
+	if !w.Worktree.Enabled {
+		return append(fields,
+			recordField{"setup", orDash(w.SetupAction)},
+			recordField{"cleanup", orDash(w.CleanupAction)},
+		)
+	}
+
+	fields = append(fields,
+		recordField{"worktree", "on"},
+		recordField{"base branch", orDash(w.Worktree.BaseBranch)},
+	)
+	if len(w.Worktree.CopyPaths) > 0 {
+		fields = append(fields, recordField{"copy", strings.Join(w.Worktree.CopyPaths, ", ")})
+	}
+	if len(w.Worktree.SymlinkPaths) > 0 {
+		fields = append(fields, recordField{"symlink", strings.Join(w.Worktree.SymlinkPaths, ", ")})
+	}
+
+	return fields
 }
 
 func workflowContextMarkdown(w workflowstore.Workflow) string {

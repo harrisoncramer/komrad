@@ -28,8 +28,18 @@ type fakeReviewAgents struct {
 
 	threads []*agentv1.ReviewThread
 
-	created *agentv1.CreateReviewThreadRequest
-	replied *agentv1.AddReviewMessageRequest
+	created  *agentv1.CreateReviewThreadRequest
+	replied  *agentv1.AddReviewMessageRequest
+	notified *agentv1.NotifyReviewThreadsRequest
+}
+
+func (f *fakeReviewAgents) NotifyReviewThreads(
+	_ context.Context,
+	req *connect.Request[agentv1.NotifyReviewThreadsRequest],
+) (*connect.Response[agentv1.NotifyReviewThreadsResponse], error) {
+	f.notified = req.Msg
+
+	return connect.NewResponse(&agentv1.NotifyReviewThreadsResponse{Unread: 1}), nil
 }
 
 func (f *fakeReviewAgents) AddReviewMessage(
@@ -603,4 +613,73 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	// Until the pane has been measured there is nothing to take a third of.
 	m.review.frames = &reviewFrames{}
 	assert.Equal(t, reviewPanStep, m.reviewPanStep())
+}
+
+// TestReviewConversationStateSaysWhoseTurnItIs covers the line at the top of the sidebar. It is
+// the one place the review says where it stands, so every way it can stand is named here.
+func TestReviewConversationStateSaysWhoseTurnItIs(t *testing.T) {
+	tests := []struct {
+		name       string
+		threads    []*agentv1.ReviewThread
+		unreadMail bool
+		want       string
+	}{
+		{name: "a review with nothing in it", want: "nothing said yet"},
+		{
+			name:    "an answer the reviewer has not read comes before anything else",
+			threads: []*agentv1.ReviewThread{{Id: "t1", UnreadByAgent: true, UnreadByHuman: true}},
+			want:    "the agent has replied",
+		},
+		{
+			name:    "everything read on both sides",
+			threads: []*agentv1.ReviewThread{{Id: "t1"}},
+			want:    "the agent is up to date",
+		},
+		{
+			name:       "written, told, and not picked up yet",
+			threads:    []*agentv1.ReviewThread{{Id: "t1", UnreadByAgent: true}},
+			unreadMail: true,
+			want:       "waiting on the agent",
+		},
+		{
+			name:    "written and the agent never told",
+			threads: []*agentv1.ReviewThread{{Id: "t1", UnreadByAgent: true}},
+			want:    "not sent yet",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := model{
+				review: reviewState{agentID: "a1", threads: tt.threads},
+				listing: listing{agents: []agentItem{
+					{agent: agentstore.Agent{ID: "a1"}, unreadMail: tt.unreadMail},
+					{agent: agentstore.Agent{ID: "a2"}, unreadMail: true},
+				}},
+			}
+
+			assert.Equal(t, tt.want, m.reviewConversationState())
+		})
+	}
+}
+
+// TestReviewNotifyIsTheSubmitKey covers telling the agent its review is waiting. It is the same
+// key that submits everywhere else, since sending is what it does here too.
+func TestReviewNotifyIsTheSubmitKey(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.NotNil(t, cmd, "the key tells the agent")
+	require.False(t, m.review.composing, "and does not open the editor on the way")
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+
+	require.NotNil(t, agents.notified)
+	assert.Equal(t, "a1", agents.notified.GetAgentId())
 }

@@ -4,7 +4,7 @@ Create a workflow to group agents under.
 
 ### Synopsis
 
-Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set.
+Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch.
 
 ```
 weave rpc create-workflow [flags]
@@ -26,6 +26,7 @@ weave rpc create-workflow [flags]
       --timeout duration                 how long to wait for the call (default 30s)
       --worktree.base-branch string      string, at most 255 characters
       --worktree.copy-paths strings      string, repeatable
+      --worktree.diff-exclude strings    string, repeatable
       --worktree.enabled                 bool
       --worktree.symlink-paths strings   string, repeatable
 ```

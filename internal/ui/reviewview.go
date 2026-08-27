@@ -26,7 +26,8 @@ var (
 // conversation pinned there. The diff itself is in the stage, so this side is only ever the
 // thread and the line it hangs off.
 func (m model) reviewView() string {
-	header := m.titleStyle().Render("Review · "+m.review.agentName) + "\n\n"
+	header := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
+		dimStyle.Render("Conversation state: "+m.reviewConversationState()) + "\n\n"
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
@@ -59,7 +60,7 @@ func (m model) reviewRestView() string {
 
 	if m.review.composing {
 		return "\n" + m.review.editor.View() + "\n" +
-			dimStyle.Render("  ctrl+s save · esc cancel") + "\n"
+			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · esc cancel") + "\n"
 	}
 
 	out := "\n" + m.reviewThreadView()
@@ -89,7 +90,7 @@ func (m model) reviewAnchorView() string {
 func (m model) reviewThreadView() string {
 	thread, ok := m.reviewThreadAtCursor()
 	if !ok {
-		return dimStyle.Render("  no thread here yet") + "\n" + m.reviewCountsView() + m.reviewDriftedView()
+		return dimStyle.Render("  no thread here yet") + "\n" + m.reviewDriftedView()
 	}
 
 	var out strings.Builder
@@ -98,7 +99,7 @@ func (m model) reviewThreadView() string {
 		out.WriteString(m.reviewMessageView(message))
 	}
 
-	return out.String() + m.reviewCountsView() + m.reviewDriftedView()
+	return out.String() + m.reviewDriftedView()
 }
 
 // reviewDriftedView lists the threads the cursor can never reach, because the code they were
@@ -164,20 +165,46 @@ func reviewWhere(filePath string, oldStart, newStart int) string {
 	return fmt.Sprintf("%s:%d (removed)", filePath, oldStart)
 }
 
-func (m model) reviewCountsView() string {
-	unread := 0
-	for _, thread := range m.review.threads {
-		if thread.GetUnreadByAgent() {
-			unread++
-		}
+// reviewConversationState is whose turn it is, in one phrase at the top of the sidebar. Whether
+// the agent has read the review, whether it has been told to, and whether it has answered are
+// all the same question asked from different sides, so they are answered once and in one place.
+//
+// The order is what to do about it: an answer to read comes before work to send, and work to
+// send before waiting on somebody else to do it.
+func (m model) reviewConversationState() string {
+	switch {
+	case len(m.review.threads) == 0:
+		return "nothing said yet"
+	case m.reviewUnreadByHuman():
+		return "the agent has replied"
+	case !m.reviewUnreadByAgent():
+		return "the agent is up to date"
+	case m.reviewAgentHasMail():
+		return "waiting on the agent"
 	}
 
-	counts := fmt.Sprintf("%d thread(s)", len(m.review.threads))
-	if unread > 0 {
-		counts += fmt.Sprintf(" · %d not yet sent", unread)
-	}
+	return "not sent yet"
+}
 
-	return dimStyle.Render("  "+counts) + "\n"
+func (m model) reviewUnreadByHuman() bool {
+	return slices.ContainsFunc(m.review.threads, func(thread *agentv1.ReviewThread) bool {
+		return thread.GetUnreadByHuman()
+	})
+}
+
+func (m model) reviewUnreadByAgent() bool {
+	return slices.ContainsFunc(m.review.threads, func(thread *agentv1.ReviewThread) bool {
+		return thread.GetUnreadByAgent()
+	})
+}
+
+// reviewAgentHasMail reads the doorbell off the agents list rather than the review, since that
+// is the one thing on this screen that refreshes on its own: a notice the agent picks up stops
+// being drawn without a keypress.
+func (m model) reviewAgentHasMail() bool {
+	return slices.ContainsFunc(m.listing.agents, func(item agentItem) bool {
+		return item.agent.ID == m.review.agentID && item.unreadMail
+	})
 }
 
 func (m model) reviewWrap(body string) string {
@@ -219,8 +246,9 @@ func (m model) reviewHelp() keyMap {
 				binding([]string{"]", "["}, "next/previous file"),
 				binding([]string{"n", "N"}, "next/previous thread"),
 				binding([]string{"h", "l"}, "pan sideways"),
+				binding([]string{"e"}, m.reviewEditorDesc()),
 				binding([]string{"D"}, "delete the thread"),
-				binding([]string{"s"}, "tell the agent"),
+				binding(m.keys.Form.Submit, "tell the agent"),
 				binding(m.keys.Agents.Back, "back to the agents"),
 			},
 			m.globalHelp(),

@@ -40,6 +40,7 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 				BaseBranch:   w.Worktree.BaseBranch,
 				CopyPaths:    w.Worktree.CopyPaths,
 				SymlinkPaths: w.Worktree.SymlinkPaths,
+				DiffExclude:  w.Worktree.DiffExclude,
 			},
 		},
 		cursor: workflowstore.Cursor{ID: w.ID},

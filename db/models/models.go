@@ -251,6 +251,7 @@ type WorkflowActionConfig struct {
 	WorktreeSymlinkPaths []string
 	CreatedAt            time.Time
 	UpdatedAt            time.Time
+	WorktreeDiffExclude  []string
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.

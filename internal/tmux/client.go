@@ -273,6 +273,12 @@ func (c *Client) split(anchorPane, dir, size string, flags ...string) string {
 	return c.value(argv...)
 }
 
+// SelectPane moves focus to a pane, which is how something the user has to type into gets the
+// keyboard once it is up.
+func (c *Client) SelectPane(pane string) {
+	c.run("select-pane", "-t", pane)
+}
+
 // ResizePane sets a pane's width, as a count of columns or a percentage of the window.
 func (c *Client) ResizePane(pane, width string) {
 	c.run("resize-pane", "-t", pane, "-x", width)
