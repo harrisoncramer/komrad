@@ -66,7 +66,7 @@ type SendParams struct {
 	ToAgentID   string
 	Body        string
 	// Kind decides whether a second copy can queue up behind the first. A kind other than
-	// KindPlain is refused while one of the same kind is still unclaimed, since a notice
+	// KindPlain is refused while one of the same kind is still deliverable, since a notice
 	// waiting to be read already says what another copy of it would say.
 	Kind    Kind
 	ReplyTo *string
@@ -76,9 +76,11 @@ type SendParams struct {
 	Deadline time.Duration
 }
 
-// Send writes one piece of mail. It answers nil when the recipient is already holding an
-// unclaimed notice of this kind, which is not a failure: the thing that would have been
-// said is already waiting to be read.
+// Send writes one piece of mail. It answers nil when the recipient is already holding a
+// notice of this kind it can still claim, which is not a failure: the thing that would have
+// been said is already waiting to be read. A notice that ran out of time unread is not
+// waiting to be read, so that one is rung again in place rather than refused, which is what
+// keeps a slot from being held for good by mail nobody can ever be handed.
 func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	kind := params.Kind
 	if kind == "" {

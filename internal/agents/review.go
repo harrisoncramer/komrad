@@ -338,8 +338,9 @@ func (s *ReviewService) DeleteReviewMessage(ctx context.Context, params DeleteRe
 type NotifyReviewThreadsResult struct {
 	// Unread is how many open threads hold activity the agent has not read.
 	Unread int64
-	// AlreadyWaiting says a doorbell the agent has not claimed was already in its mailbox, so
-	// none was raised. Pressing the key again is not a second thing to read.
+	// AlreadyWaiting says the agent already holds a doorbell of this kind it can still claim,
+	// so none was raised. Pressing the key again is not a second thing to read. One that ran
+	// out of time before the agent read it does not count, since nothing will ever hand it over.
 	AlreadyWaiting bool
 }
 

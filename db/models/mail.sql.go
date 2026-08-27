@@ -203,9 +203,18 @@ ON CONFLICT (
 WHERE
     claimed_at IS NULL
     AND kind <> 'plain' ::mail_kind
-        DO NOTHING
-    RETURNING
-        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+        DO UPDATE SET
+            from_agent_id = excluded.from_agent_id,
+            from_name = excluded.from_name,
+            body = excluded.body,
+            reply_to = excluded.reply_to,
+            hops = excluded.hops,
+            expires_at = excluded.expires_at,
+            reported_at = NULL
+        WHERE
+            mail.expires_at <= NOW()
+        RETURNING
+            id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 type InsertMailParams struct {

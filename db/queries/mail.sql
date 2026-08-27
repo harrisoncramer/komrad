@@ -23,9 +23,18 @@ ON CONFLICT (
 WHERE
     claimed_at IS NULL
     AND kind <> 'plain' ::mail_kind
-        DO NOTHING
-    RETURNING
-        *;
+        DO UPDATE SET
+            from_agent_id = excluded.from_agent_id,
+            from_name = excluded.from_name,
+            body = excluded.body,
+            reply_to = excluded.reply_to,
+            hops = excluded.hops,
+            expires_at = excluded.expires_at,
+            reported_at = NULL
+        WHERE
+            mail.expires_at <= NOW()
+        RETURNING
+            *;
 
 -- name: GetMail :one
 SELECT
