@@ -160,6 +160,15 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
 	})
 
+	t.Run("a turn left waiting on a person is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
+		service, _, h, agent := unwatched(t, agentstore.StateWaiting)
+
+		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		require.NoError(t, err)
+		require.Len(t, h.launches, 1)
+		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
+	})
+
 	t.Run("a relaunch that fails leaves the turn for the resume after it", func(t *testing.T) {
 		service, st, h, agent := unwatched(t, agentstore.StateThinking)
 		h.commandErr = errors.New("no")
