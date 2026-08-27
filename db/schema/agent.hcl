@@ -82,7 +82,7 @@ table "workflow_action_configs" {
     type    = sql("text[]")
     default = sql("'{}'")
   }
-  column "worktree_archive_on_pr_closed" {
+  column "archive_on_pr_closed" {
     null    = false
     type    = boolean
     default = false

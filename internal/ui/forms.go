@@ -82,7 +82,7 @@ type workflowFormValues struct {
 	WorktreeSymlinkPaths string
 	WorktreeDiffExclude  string
 
-	WorktreeArchiveOnPRClosed bool
+	ArchiveOnPRClosed bool
 }
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
@@ -92,19 +92,19 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 	}
 
 	return workflowFormValues{
-		Name:                      cfg.Name,
-		Context:                   cfg.Context,
-		Harness:                   cfg.Harness,
-		Cwd:                       cfg.Cwd,
-		Flags:                     cfg.Flags,
-		SetupType:                 setupType,
-		SetupAction:               cfg.SetupAction,
-		CleanupAction:             cfg.CleanupAction,
-		WorktreeBaseBranch:        cfg.Worktree.BaseBranch,
-		WorktreeCopyPaths:         strings.Join(cfg.Worktree.CopyPaths, "\n"),
-		WorktreeSymlinkPaths:      strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
-		WorktreeDiffExclude:       strings.Join(cfg.Worktree.DiffExclude, "\n"),
-		WorktreeArchiveOnPRClosed: cfg.Worktree.ArchiveOnPRClosed,
+		Name:                 cfg.Name,
+		Context:              cfg.Context,
+		Harness:              cfg.Harness,
+		Cwd:                  cfg.Cwd,
+		Flags:                cfg.Flags,
+		SetupType:            setupType,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
+		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
+		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
+		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	}
 }
 
@@ -116,13 +116,13 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 		Cwd:     v.Cwd,
 		Flags:   v.Flags,
 		Worktree: workflowstore.WorktreeConfig{
-			Enabled:           v.SetupType == setupTypeWorktree,
-			BaseBranch:        v.WorktreeBaseBranch,
-			CopyPaths:         splitLines(v.WorktreeCopyPaths),
-			SymlinkPaths:      splitLines(v.WorktreeSymlinkPaths),
-			DiffExclude:       splitLines(v.WorktreeDiffExclude),
-			ArchiveOnPRClosed: v.WorktreeArchiveOnPRClosed,
+			Enabled:      v.SetupType == setupTypeWorktree,
+			BaseBranch:   v.WorktreeBaseBranch,
+			CopyPaths:    splitLines(v.WorktreeCopyPaths),
+			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
+			DiffExclude:  splitLines(v.WorktreeDiffExclude),
 		},
+		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
 
 	if v.SetupType == setupTypeCustom {
@@ -471,6 +471,8 @@ func workflowConfigForm(nameTitle string, values workflowFormValues, available [
 		fields = append(fields, worktreeDetailFields(&values)...)
 	}
 
+	fields = append(fields, archiveOnPRClosedField(&values))
+
 	built := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
 	return built, &values, toggleIndex
@@ -489,11 +491,14 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 		huh.NewText().Key("worktree_diff_exclude").Title("Diff excludes").
 			Description("one path or glob per line, left out of the diff the review screen draws, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
-		huh.NewConfirm().Key("worktree_archive_on_pr_closed").Title("Archive once the pull request closes?").
-			Description("an idle agent is archived when the pull request on its branch merges or closes; nothing is deleted").
-			Affirmative("Archive").Negative("Leave").Value(&values.WorktreeArchiveOnPRClosed).
-			WithButtonAlignment(lipgloss.Left),
 	}
+}
+
+func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
+	return huh.NewConfirm().Key("archive_on_pr_closed").Title("Archive once the pull request closes?").
+		Description("an idle agent is archived when the pull request on its branch merges or closes; nothing is deleted").
+		Affirmative("Archive").Negative("Leave").Value(&values.ArchiveOnPRClosed).
+		WithButtonAlignment(lipgloss.Left)
 }
 
 type actionChoice struct {

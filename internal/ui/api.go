@@ -265,37 +265,36 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 	w := resp.Msg.GetWorkflow()
 
 	return &workflowstore.Workflow{
-		ID:            w.GetId(),
-		Name:          w.GetName(),
-		Context:       w.GetContext(),
-		Harness:       w.GetHarness(),
-		Cwd:           w.GetCwd(),
-		Flags:         w.GetFlags(),
-		SetupAction:   w.GetSetupAction(),
-		CleanupAction: w.GetCleanupAction(),
-		Worktree:      worktreeConfigFromProto(w.GetWorktree()),
+		ID:                w.GetId(),
+		Name:              w.GetName(),
+		Context:           w.GetContext(),
+		Harness:           w.GetHarness(),
+		Cwd:               w.GetCwd(),
+		Flags:             w.GetFlags(),
+		SetupAction:       w.GetSetupAction(),
+		CleanupAction:     w.GetCleanupAction(),
+		Worktree:          worktreeConfigFromProto(w.GetWorktree()),
+		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
 	}, nil
 }
 
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
 	return workflowstore.WorktreeConfig{
-		Enabled:           w.GetEnabled(),
-		BaseBranch:        w.GetBaseBranch(),
-		CopyPaths:         w.GetCopyPaths(),
-		SymlinkPaths:      w.GetSymlinkPaths(),
-		DiffExclude:       w.GetDiffExclude(),
-		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
+		Enabled:      w.GetEnabled(),
+		BaseBranch:   w.GetBaseBranch(),
+		CopyPaths:    w.GetCopyPaths(),
+		SymlinkPaths: w.GetSymlinkPaths(),
+		DiffExclude:  w.GetDiffExclude(),
 	}
 }
 
 func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
 	return &workflowv1.WorktreeConfig{
-		Enabled:           w.Enabled,
-		BaseBranch:        w.BaseBranch,
-		CopyPaths:         w.CopyPaths,
-		SymlinkPaths:      w.SymlinkPaths,
-		DiffExclude:       w.DiffExclude,
-		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
+		Enabled:      w.Enabled,
+		BaseBranch:   w.BaseBranch,
+		CopyPaths:    w.CopyPaths,
+		SymlinkPaths: w.SymlinkPaths,
+		DiffExclude:  w.DiffExclude,
 	}
 }
 
@@ -309,14 +308,15 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 	defer cancel()
 
 	resp, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:          name,
-		Context:       cfg.Context,
-		Harness:       cfg.Harness,
-		Cwd:           cfg.Cwd,
-		Flags:         cfg.Flags,
-		SetupAction:   cfg.SetupAction,
-		CleanupAction: cfg.CleanupAction,
-		Worktree:      worktreeConfigToProto(cfg.Worktree),
+		Name:              name,
+		Context:           cfg.Context,
+		Harness:           cfg.Harness,
+		Cwd:               cfg.Cwd,
+		Flags:             cfg.Flags,
+		SetupAction:       cfg.SetupAction,
+		CleanupAction:     cfg.CleanupAction,
+		Worktree:          worktreeConfigToProto(cfg.Worktree),
+		ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
 	}))
 	if err != nil {
 		return nil, err
@@ -335,15 +335,16 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 	defer cancel()
 
 	_, err := a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-		Id:            w.ID,
-		Name:          name,
-		Context:       w.Context,
-		Harness:       w.Harness,
-		Cwd:           w.Cwd,
-		Flags:         w.Flags,
-		SetupAction:   w.SetupAction,
-		CleanupAction: w.CleanupAction,
-		Worktree:      worktreeConfigToProto(w.Worktree),
+		Id:                w.ID,
+		Name:              name,
+		Context:           w.Context,
+		Harness:           w.Harness,
+		Cwd:               w.Cwd,
+		Flags:             w.Flags,
+		SetupAction:       w.SetupAction,
+		CleanupAction:     w.CleanupAction,
+		Worktree:          worktreeConfigToProto(w.Worktree),
+		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 	}))
 
 	return err

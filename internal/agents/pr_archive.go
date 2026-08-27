@@ -60,7 +60,7 @@ type PRArchiverParams struct {
 }
 
 // PRArchiver archives an agent once the pull request it recorded has merged or closed, for
-// the worktree workflows that asked for it.
+// the workflows that asked for it.
 type PRArchiver struct {
 	agents       prArchiveAgentStore
 	workflows    prArchiveWorkflowGetter
@@ -256,7 +256,7 @@ func (a *PRArchiver) workflow(ctx context.Context, seen map[string]prArchiveWork
 		return prArchiveWorkflow{}, fmt.Errorf("failed to read workflow %q for pull request archiving: %w", workflowID, err)
 	}
 
-	answer := prArchiveWorkflow{archives: wf != nil && wf.Worktree.ArchivesOnPRClosed()}
+	answer := prArchiveWorkflow{archives: wf != nil && wf.ArchiveOnPRClosed}
 	if answer.archives {
 		answer.repo = a.repositoryOf(ctx, wf.Cwd)
 	}
@@ -342,7 +342,7 @@ func metadataFor(agent agentstore.Agent, key string) string {
 	return agent.Metadata[i].Value
 }
 
-// prLookupDir is where gh runs, which is the agent's own worktree while it still exists.
+// prLookupDir is where gh runs, which is the agent's own directory while it still exists.
 // A worktree already removed leaves the lookup to run wherever weave itself is, since the
 // pull request URL names its own repository.
 func prLookupDir(agent agentstore.Agent) string {

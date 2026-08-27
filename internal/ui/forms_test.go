@@ -134,7 +134,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				m.values.workflow.WorktreeCopyPaths = ".env\n\nconfig/local.json\n"
 				m.values.workflow.WorktreeSymlinkPaths = "node_modules"
 				m.values.workflow.WorktreeDiffExclude = "proto/gen\n*.pb.go"
-				m.values.workflow.WorktreeArchiveOnPRClosed = true
+				m.values.workflow.ArchiveOnPRClosed = true
 
 				return m
 			},
@@ -148,7 +148,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, []string{".env", "config/local.json"}, worktree.GetCopyPaths(), "a blank line between two paths is dropped rather than sent as an entry")
 				assert.Equal(t, []string{"node_modules"}, worktree.GetSymlinkPaths())
 				assert.Equal(t, []string{"proto/gen", "*.pb.go"}, worktree.GetDiffExclude())
-				assert.True(t, worktree.GetArchiveOnPrClosed())
+				assert.True(t, sent.createdWorkflow.GetArchiveOnPrClosed())
 			},
 		},
 		{
