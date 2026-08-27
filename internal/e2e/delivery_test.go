@@ -176,3 +176,47 @@ func TestExpiredMailIsGivenUpOn(t *testing.T) {
 	assert.Empty(t, instance.Typed(migrations.GetId()))
 	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
 }
+
+// TestDeliveryWaitsForAPaneToDrawItsPrompt is the resume race. A CLI still coming up holds
+// the keys typed at it in the terminal buffer and reads them once it is ready, but the
+// newline that submits them does not survive the wait: the line lands in the prompt and sits
+// there unsent until the retry a minute later. The pane owning its process says nothing about
+// any of that, so delivery waits for the prompt itself before typing.
+func TestDeliveryWaitsForAPaneToDrawItsPrompt(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "checkout",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	api := createAgent(t, instance, workflow.Msg.GetWorkflow().GetId(), "api")
+	migrations := createAgent(t, instance, workflow.Msg.GetWorkflow().GetId(), "migrations")
+
+	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+
+	req := connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: migrations.GetId(),
+		Body:      "what is the refund column called?",
+	})
+	callAs(req, api.GetId())
+	_, err = instance.Agents.SendMail(ctx, req)
+	require.NoError(t, err)
+
+	require.NoError(t, instance.Harness.Show(migrations.GetId(), "fake:coming-up"))
+	instance.WaitForActivity(migrations.GetId(), harness.ActivityUnknown)
+
+	assert.Equal(t, agents.DeliveryLater, instance.Deliver(migrations.GetId()))
+	assert.Empty(t, instance.Typed(migrations.GetId()),
+		"a pane yet to draw its prompt is never typed at, however idle the row still reads")
+
+	instance.Settle(migrations.GetId(), harness.ActivityIdle, agentstore.StateIdle)
+
+	assert.Equal(t, agents.DeliverySoon, instance.Deliver(migrations.GetId()))
+
+	typed := instance.WaitForTyped(migrations.GetId(), 1)
+	require.Len(t, typed, 1, "the agent is told once its prompt is there to take the line")
+	assert.Contains(t, typed[0], "read_mail")
+}

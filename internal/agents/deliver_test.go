@@ -27,6 +27,7 @@ func TestDeliver(t *testing.T) {
 		pending   int64
 		alive     bool
 		inMode    bool
+		frame     string
 		claimed   bool
 		want      Delivery
 		wantClaim bool
@@ -117,6 +118,14 @@ func TestDeliver(t *testing.T) {
 			wantNudge: true,
 		},
 		{
+			name:    "an agent whose pane has opened but whose CLI has not finished coming up",
+			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle, StateChangedAt: idleSince},
+			pending: 1,
+			alive:   true,
+			frame:   unrecognizedFrame,
+			want:    DeliveryLater,
+		},
+		{
 			name:      "an idle agent never told before",
 			agent:     &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle, StateChangedAt: idleSince},
 			pending:   1,
@@ -129,13 +138,19 @@ func TestDeliver(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			frame := tt.frame
+			if frame == "" {
+				frame = idleFrame
+			}
+
 			agents := &fakeAgents{agent: tt.agent, claimed: tt.claimed}
-			panes := &fakePanes{alive: tt.alive, inMode: tt.inMode}
+			panes := &fakePanes{alive: tt.alive, inMode: tt.inMode, frame: frame}
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: tt.pending},
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
 				PaneTyper:     panes,
+				Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 			})
 
 			got, err := svc.Deliver(t.Context(), "agent-a")
@@ -162,13 +177,14 @@ func TestDeliver(t *testing.T) {
 func TestDeliverReportsExpiredMail(t *testing.T) {
 	agents := &fakeAgents{agent: &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle}}
 	mailbox := &fakeMailboxReader{expired: []mailstore.Mail{{ID: "mail-1"}}}
-	panes := &fakePanes{alive: true}
+	panes := &fakePanes{alive: true, frame: idleFrame}
 
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: mailbox,
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
 		PaneTyper:     panes,
+		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	got, err := svc.Deliver(t.Context(), "agent-a")
@@ -218,6 +234,7 @@ func (f *fakeAgents) ClaimNudge(context.Context, string, time.Duration) (bool, e
 type fakePanes struct {
 	alive  bool
 	inMode bool
+	frame  string
 	text   []string
 	keys   []string
 }
@@ -225,6 +242,8 @@ type fakePanes struct {
 func (f *fakePanes) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
 func (f *fakePanes) IsPaneInMode(string) bool { return f.inMode }
+
+func (f *fakePanes) CapturePane(string) string { return f.frame }
 
 func (f *fakePanes) SendText(_, text string) error {
 	f.text = append(f.text, text)
@@ -240,7 +259,7 @@ func (f *fakePanes) SendKeys(_ string, keys ...string) error {
 
 func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 	agents := &fakeAgents{}
-	panes := &fakePanes{}
+	panes := &fakePanes{frame: idleFrame}
 	mailbox := &fakeMailboxReader{mailboxes: []string{"agent-a", "agent-b"}}
 
 	svc := NewDeliveryService(NewDeliveryServiceParams{
@@ -248,6 +267,7 @@ func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
 		PaneTyper:     panes,
+		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
@@ -263,6 +283,7 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 		NudgeClaimer:  agents,
 		PaneReader:    panes,
 		PaneTyper:     panes,
+		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	require.NoError(t, svc.DeliverAll(t.Context()))
@@ -308,12 +329,13 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	panes := &fakePanes{alive: true}
+	panes := &fakePanes{alive: true, frame: idleFrame}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
 		PaneTyper:     panes,
+		Harnesses:     fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
@@ -356,12 +378,13 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	panes := &fakePanes{alive: true}
+	panes := &fakePanes{alive: true, frame: idleFrame}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
 		PaneTyper:     panes,
+		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)
@@ -415,12 +438,13 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	panes := &fakePanes{alive: true}
+	panes := &fakePanes{alive: true, frame: idleFrame}
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: st.Mail,
 		NudgeClaimer:  st.Agents,
 		PaneReader:    panes,
 		PaneTyper:     panes,
+		Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
 	})
 
 	got, err := svc.Deliver(ctx, agent.ID)

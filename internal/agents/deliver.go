@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"time"
 
+	"weave/internal/harness"
 	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -36,6 +37,7 @@ type paneReader interface {
 
 type paneTyper interface {
 	IsPaneInMode(pane string) bool
+	CapturePane(pane string) string
 	SendText(target, text string) error
 	SendKeys(target string, keys ...string) error
 }
@@ -56,6 +58,7 @@ type DeliveryService struct {
 	nudgeClaimer  nudgeClaimer
 	paneReader    paneReader
 	paneTyper     paneTyper
+	harnesses     harnessGetter
 }
 
 type NewDeliveryServiceParams struct {
@@ -63,6 +66,7 @@ type NewDeliveryServiceParams struct {
 	NudgeClaimer  nudgeClaimer
 	PaneReader    paneReader
 	PaneTyper     paneTyper
+	Harnesses     harnessGetter
 }
 
 // NewDeliveryService builds the service from its dependencies.
@@ -72,6 +76,7 @@ func NewDeliveryService(p NewDeliveryServiceParams) *DeliveryService {
 		nudgeClaimer:  p.NudgeClaimer,
 		paneReader:    p.PaneReader,
 		paneTyper:     p.PaneTyper,
+		harnesses:     p.Harnesses,
 	}
 }
 
@@ -124,6 +129,8 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	case s.paneTyper.IsPaneInMode(agent.Pane):
 
 		return DeliveryLater, nil
+	case !s.canPaneTakeKeys(*agent):
+		return DeliveryLater, nil
 	}
 
 	claimed, err := s.nudgeClaimer.ClaimNudge(ctx, agent.ID, nudgeRetryAfter)
@@ -139,6 +146,24 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	}
 
 	return DeliverySoon, nil
+}
+
+// canPaneTakeKeys reports whether the pane is showing the harness's own idle prompt, which is
+// the only frame that has been seen to take both the line and the newline that submits it. A
+// CLI still coming up holds keys typed at it in the terminal buffer and reads them once it is
+// ready, but the newline does not survive that wait: the line lands in the prompt and sits
+// there unsent until the retry a minute later. The pane owning its process says nothing about
+// this, since the pane is there from the moment it opens.
+//
+// A harness this binary cannot read is let through, since no frame of its can ever be
+// recognised and mail to it would otherwise never go anywhere.
+func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
+	hn, err := s.harnesses.GetByID(agent.Harness)
+	if err != nil {
+		return true
+	}
+
+	return hn.ReadActivity(s.paneTyper.CapturePane(agent.Pane)) == harness.ActivityIdle
 }
 
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) error {
