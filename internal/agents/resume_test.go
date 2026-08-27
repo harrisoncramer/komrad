@@ -146,7 +146,31 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.Len(t, h.launches, 1)
 		assert.Empty(t, h.launches[0].Prompt, "a fresh conversation cannot be asked to read back over itself")
 		assert.False(t, h.launches[0].Resume, "there is no conversation to reopen")
-		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
-			"the turn stays recorded until the ask reaches the conversation that holds it")
+		assert.Nil(t, agentByID(t, st, agent.ID).InterruptedAt,
+			"the conversation that held the turn is gone, so nothing is left to ask about it")
+	})
+
+	t.Run("a turn cut off before its conversation was named is not asked about after a fresh one is", func(t *testing.T) {
+		service, st, h, agent := cut(t, agentstore.StateThinking, "")
+
+		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		require.NoError(t, err)
+		require.Len(t, h.launches, 1)
+		require.Empty(t, h.launches[0].Prompt)
+
+		// What a Codex agent does on the way back in: the fresh conversation it started is
+		// matched to its rollout file, and the panel adopts that id as the agent's own.
+		const learned = "9a1c7f10-2b3d-4e5f-8a9b-0c1d2e3f4a5b"
+		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, learned))
+		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateIdle))
+
+		tmux := newFakeTmux()
+		require.NoError(t, NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents).Reconcile(t.Context()))
+
+		_, err = service.ResumeAgent(t.Context(), agent.ID)
+		require.NoError(t, err)
+		require.Len(t, h.launches, 2)
+		assert.True(t, h.launches[1].Resume, "the conversation it learned is what this reopens")
+		assert.Empty(t, h.launches[1].Prompt, "the conversation this reopens ran its turn to the end")
 	})
 }
