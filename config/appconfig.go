@@ -230,9 +230,6 @@ type AgentsKeys struct {
 	Tag []string `mapstructure:"tag"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
-	// Put an agent on a branch or a pull request that already exists, in the
-	// workflow under the cursor.
-	Adopt []string `mapstructure:"adopt"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
 	// Open the pull request the hovered agent recorded, in your browser. The key does
@@ -251,6 +248,9 @@ type AgentsKeys struct {
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
 // edit, and archive apply while the cursor is on a workflow header.
 type WorkflowsKeys struct {
+	// Put an agent on a branch or a pull request that already exists, in the
+	// workflow under the cursor.
+	Adopt []string `mapstructure:"adopt"`
 	// Archive the workflow under the cursor, which archives the agents inside it.
 	Archive []string `mapstructure:"archive"`
 	// Edit the workflow under the cursor.
@@ -614,7 +614,6 @@ func DefaultKeybindings() Keybindings {
 			Run:    []string{"enter"},
 		},
 		Agents: AgentsKeys{
-			Adopt:      []string{"a"},
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},
 			Review:     []string{"d"},
@@ -675,6 +674,7 @@ func DefaultKeybindings() Keybindings {
 			Toggle: []string{"v"},
 		},
 		Workflows: WorkflowsKeys{
+			Adopt:   []string{"a"},
 			Archive: []string{"z"},
 			Edit:    []string{"e"},
 			New:     []string{"w"},

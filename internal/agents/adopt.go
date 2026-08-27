@@ -303,7 +303,8 @@ func adoptTitle(title string, pr *PullRequest, branch string) string {
 
 // adoptPrompt puts what the agent is walking into in front of whatever it was asked to do.
 // An agent that does not know the branch is somebody else's treats the commits on it as its
-// own and rewrites them.
+// own and rewrites them. With nothing asked of it, it is told that rather than given work of
+// weave's invention: what to do with the branch is the next thing the human will say.
 func adoptPrompt(pr *PullRequest, branch, prompt string) string {
 	var b strings.Builder
 
@@ -316,7 +317,7 @@ func adoptPrompt(pr *PullRequest, branch, prompt string) string {
 	b.WriteString("\nThe branch is not yours. Do not force-push it, do not rebase it, and do not delete it.\n")
 
 	if strings.TrimSpace(prompt) == "" {
-		b.WriteString("\nSay what state the work is in and what you would do next, then wait.")
+		b.WriteString("\nNothing has been asked of you yet. Say when you are ready and wait.")
 
 		return b.String()
 	}

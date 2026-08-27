@@ -1153,16 +1153,30 @@ func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	assert.Nil(t, sent.createdAgent, "adoption does not go through create")
 }
 
-// TestAdoptKeyOpensTheForm covers the binding, since the key that used to open the actions
-// list is the one adoption now answers to.
+// TestAdoptKeyOpensTheForm covers the binding, which acts on a workflow header: adoption
+// goes into a workflow, so the row it answers on is the workflow rather than an agent
+// already inside it.
 func TestAdoptKeyOpensTheForm(t *testing.T) {
 	m := infoModel(&recordingTmux{})
 	m.api = api{agents: &formRecorder{}}
+	m.tree.cursor = 0
 
 	entered, _ := m.updateAgents(keyMsg("a"))
 	opened := asModel(t, entered)
 
 	require.Equal(t, screenAdopt, opened.screen)
 	require.NotNil(t, opened.values.adopt)
-	assert.Equal(t, "w1", opened.target.newAgentWorkflow.ID, "it adopts into the workflow the cursor is inside")
+	assert.Equal(t, "w1", opened.target.newAgentWorkflow.ID, "it adopts into the workflow under the cursor")
+}
+
+// TestAdoptKeyDoesNothingOnAnAgentRow covers the other half of that: the key is the
+// workflow's, so a row inside one is not what adoption is asked for.
+func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
+	m := infoModel(&recordingTmux{})
+	m.api = api{agents: &formRecorder{}}
+
+	entered, _ := m.updateAgents(keyMsg("a"))
+	opened := asModel(t, entered)
+
+	assert.Equal(t, screenAgents, opened.screen)
 }

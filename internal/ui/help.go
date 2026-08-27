@@ -277,7 +277,7 @@ func (m model) rowHelp() []key.Binding {
 	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
 		return []key.Binding{
 			m.newBinding(),
-			binding(m.keys.Agents.Adopt, "adopt a branch or pr"),
+			binding(m.keys.Workflows.Adopt, "adopt a branch or pr"),
 			binding(m.keys.Selection.Toggle, "select folder"),
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
@@ -297,7 +297,6 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
-		binding(m.keys.Agents.Adopt, "adopt a branch or pr"),
 		binding(m.keys.Agents.Rename, "rename"),
 		m.archiveBinding(m.keys.Agents.Archive),
 	}

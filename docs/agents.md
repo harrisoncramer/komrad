@@ -16,7 +16,7 @@ Separately from state, an agent is either running or dormant. Dormant agents' pa
 
 ## Adopting work that already exists
 
-Adoption puts an agent on a branch somebody else made. Press `a` inside a worktree-enabled workflow and give it a pull request URL, a pull request number, or a branch name.
+Adoption puts an agent on a branch somebody else made. Hover a worktree-enabled workflow's header, press `a`, and give it a pull request URL, a pull request number, or a branch name. It is the workflow's key rather than an agent's, since what you are adopting into is the workflow.
 
 The workflow decides the repository, so a pull request has to be one opened against the repository its directory points at, and a pull request from a fork is refused: its branch is not on that repository's origin.
 
@@ -24,7 +24,7 @@ Where the agent runs depends on what is already there. When nothing has the bran
 
 The branch belongs to whoever made it. Weave never resets it, and deleting an adopted agent removes the worktree but leaves the branch alone. Adopting the same branch twice hands back the agent already on it rather than starting a second one, which git would refuse anyway.
 
-The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. A pull request is recorded on the agent as it starts, so the `o` key opens it straight away.
+The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. Leave the prompt blank and it is told nothing has been asked of it yet, and to say when it is ready and wait. A pull request is recorded on the agent as it starts, so the `o` key opens it straight away.
 
 Agents can adopt too, through `adopt` over [MCP](mcp.md).
 

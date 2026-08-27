@@ -77,8 +77,6 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(m.enclosingWorkflow())
-	case isBound(k, m.keys.Agents.Adopt):
-		return m.openAdopt(m.enclosingWorkflow())
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):

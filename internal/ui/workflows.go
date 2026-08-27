@@ -30,6 +30,8 @@ func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Work
 		}
 	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(&workflow)
+	case isBound(k, m.keys.Workflows.Adopt):
+		return m.openAdopt(&workflow)
 	case isBound(k, m.keys.Workflows.Rename):
 		return m.renameWorkflowForm(workflow)
 	case isBound(k, m.keys.Workflows.Edit):

@@ -177,7 +177,7 @@ func adoptAgentForm(keys config.FormKeys, prefill adoptFormValues) (*huh.Form, *
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a pull request url or number, or a branch already pushed or on disk").Value(&values.Ref),
 		huh.NewText().Key("prompt").Title("Prompt").
-			Description(fmt.Sprintf("what to do with it; blank asks for a report. ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Description("blank names it after the pull request or branch").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),

@@ -86,9 +86,6 @@ hide        = ["h"]
 tag         = ["t"]
 # Start a new agent.
 new         = ["c"]
-# Put an agent on a branch or a pull request that already exists, in the
-# workflow under the cursor.
-adopt       = ["a"]
 # Attach to the hovered agent.
 open        = ["enter"]
 # Open the pull request the hovered agent recorded, in your browser. The key does
@@ -197,6 +194,9 @@ toggle = ["v"]
 
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
+# Put an agent on a branch or a pull request that already exists, in the
+# workflow under the cursor.
+adopt   = ["a"]
 # Archive the workflow under the cursor, which archives the agents inside it.
 archive = ["z"]
 # Edit the workflow under the cursor.
