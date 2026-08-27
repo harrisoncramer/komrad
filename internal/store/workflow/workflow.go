@@ -1,8 +1,10 @@
 package workflow
 
 import (
+	"cmp"
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"weave/db"
@@ -92,6 +94,17 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 			WorktreeArchiveOnPRClosed: row.WorktreeArchiveOnPrClosed,
 		})
 	}), nil
+}
+
+// ByName is the order every workflow listing is read in, and it is written twice: here in
+// Go and as the ORDER BY in db/queries/workflow.sql. The database's own collation ignores
+// punctuation, which no Go comparison does, so the query folds case and sorts under the C
+// collation to say exactly what this says.
+func ByName(a, b Workflow) int {
+	return cmp.Or(
+		strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
+		strings.Compare(a.ID, b.ID),
+	)
 }
 
 type Cursor struct {
