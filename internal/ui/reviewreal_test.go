@@ -38,7 +38,9 @@ func TestReviewAgainstARealWorktree(t *testing.T) {
 		{Type: tea.KeyRunes, Runes: []rune("[")},
 		{Type: tea.KeyRunes, Runes: []rune("l")},
 		{Type: tea.KeyRunes, Runes: []rune("h")},
-		{Type: tea.KeyRunes, Runes: []rune("n")},
+		{Type: tea.KeyRunes, Runes: []rune("t")},
+		{Type: tea.KeyRunes, Runes: []rune("}")},
+		{Type: tea.KeyRunes, Runes: []rune("{")},
 		{Type: tea.KeyRunes, Runes: []rune("g")},
 	} {
 		next, _ := m.updateReview(key)
