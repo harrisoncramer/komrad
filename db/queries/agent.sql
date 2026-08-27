@@ -239,6 +239,23 @@ SET
 WHERE
     id = @id;
 
+-- name: MarkAgentSettingUpIfLive :many
+UPDATE
+    agents
+SET
+    state = 'setting_up',
+    state_changed_at = CASE WHEN state IS DISTINCT FROM 'setting_up' THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    state_seen_at = NOW()
+WHERE
+    id = @id
+    AND archived_at IS NULL
+RETURNING
+    id;
+
 -- name: SetAgentBranchByID :exec
 UPDATE
     agents
