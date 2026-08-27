@@ -106,21 +106,34 @@ func (s *AgentService) AdoptAgent(ctx context.Context, p AdoptParams) (*agentsto
 		AdoptedBranch:  branch,
 	}
 
-	holder, err := worktreeOnBranch(ctx, repo, branch)
+	trees, err := readWorktrees(ctx, repo, branch)
+	if err != nil {
+		return nil, err
+	}
+
+	owner, err := s.agentIn(ctx, trees.holder)
 	if err != nil {
 		return nil, err
 	}
 
 	switch {
-	case holder == "":
-	case sameDir(holder, repo):
-		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, repo)
+	case trees.holder == "":
+	case sameDir(trees.holder, trees.main):
+		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
+	case owner != nil && owner.WorktreeRemoved:
+		// Git still has the registration but the directory is gone, so there is nothing to
+		// launch into. A worktree of this agent's own is made instead, which the add's
+		// prune-and-retry is what gets past the registration left behind.
+	case owner != nil && adopted(*owner, branch):
+		return owner, nil
+	case owner != nil:
+		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
 	default:
 		// The checkout is somebody else's work, made by hand or by another tool, so the agent
 		// is launched into it as it stands rather than provisioned one. Blanking both actions
 		// is what stops the workflow's worktree pair from making a second checkout and, on
 		// delete, from removing a directory weave never created.
-		params.Dir = holder
+		params.Dir = trees.holder
 		params.SetupAction = xptr.Ptr("")
 		params.CleanupAction = xptr.Ptr("")
 	}
@@ -181,7 +194,7 @@ func (s *AgentService) agentOnBranch(ctx context.Context, workflowID, branch str
 	}
 
 	for _, agent := range agents {
-		if agent.WorkflowID == workflowID && agent.AdoptedBranch == branch {
+		if agent.WorkflowID == workflowID && adopted(agent, branch) {
 			return &agent, nil
 		}
 	}
@@ -189,31 +202,76 @@ func (s *AgentService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, nil
 }
 
-// worktreeOnBranch reports the directory of the checkout holding a branch, blank when none
-// does. Git refuses to check a branch out twice, so this is what tells an adoption that has
-// a worktree to make from one that has a directory to be launched into.
-func worktreeOnBranch(ctx context.Context, repo, branch string) (string, error) {
+// adopted reports whether an agent is the one working on a branch right now. An agent whose
+// worktree has since been removed is not: it has no directory to be working in, and holding
+// the branch against it would leave nothing able to take the work on but a delete. Nor is an
+// archived one, which has been stopped: its worktree is still its own to be torn down with,
+// so it is something to be refused over rather than handed back as the agent on the job.
+func adopted(agent agentstore.Agent, branch string) bool {
+	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
+}
+
+// agentIn returns the agent whose cwd is a directory, archived ones included, since an
+// archived agent's worktree is still on disk and still that agent's to be torn down with.
+// Launching a second agent into it would have the first one's cleanup remove the directory
+// out from under it.
+func (s *AgentService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
+	if dir == "" {
+		return nil, nil
+	}
+
+	agents, err := s.agents.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	for _, agent := range agents {
+		if agent.Cwd != "" && sameDir(agent.Cwd, dir) {
+			return &agent, nil
+		}
+	}
+
+	return nil, nil
+}
+
+// worktrees is what one listing of a repository's checkouts says about a branch: the main
+// worktree, which is the checkout a human works in, and whichever checkout holds the branch.
+type worktrees struct {
+	main   string
+	holder string
+}
+
+// readWorktrees reports the checkout holding a branch, blank when none does. Git refuses to
+// check a branch out twice, so this is what tells an adoption that has a worktree to make
+// from one that has a directory to be launched into. The main worktree is read from the same
+// listing rather than taken to be the directory git was asked from, since git answers from
+// anywhere inside a checkout and reports roots.
+func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) {
 	listCtx, cancel := context.WithTimeout(ctx, worktreeListTimeout)
 	defer cancel()
 
 	out, err := exec.CommandContext(listCtx, "git", "-C", repo, "worktree", "list", "--porcelain").Output()
 	if err != nil {
-		return "", fmt.Errorf("git -C %s worktree list: %w", repo, err)
+		return worktrees{}, fmt.Errorf("git -C %s worktree list: %w", repo, err)
 	}
 
-	want := "refs/heads/" + branch
+	want := "branch refs/heads/" + branch
 
+	var found worktrees
 	var dir string
 	for line := range strings.SplitSeq(string(out), "\n") {
 		switch {
 		case strings.HasPrefix(line, "worktree "):
 			dir = strings.TrimPrefix(line, "worktree ")
-		case line == "branch "+want:
-			return dir, nil
+			if found.main == "" {
+				found.main = dir
+			}
+		case line == want:
+			found.holder = dir
 		}
 	}
 
-	return "", nil
+	return found, nil
 }
 
 // sameDir compares two paths as the filesystem sees them, since a worktree listing reports

@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"strconv"
 	"strings"
 )
 
@@ -82,15 +81,26 @@ func (GHPullRequests) Repository(ctx context.Context, dir string) (string, error
 
 // looksLikePullRequest reports whether a reference names a pull request rather than a
 // branch. A branch may be called anything, so the two are told apart by the shapes a pull
-// request comes in: a GitHub URL, a bare number, or a number behind a hash.
+// request comes in: a GitHub URL, a bare number, or a number behind a hash. Digits alone,
+// with no sign and nothing else, since a signed number reaches gh as a flag rather than as
+// the pull request somebody meant.
 func looksLikePullRequest(ref string) bool {
 	if strings.Contains(ref, "/pull/") {
 		return true
 	}
 
-	_, err := strconv.Atoi(strings.TrimPrefix(ref, "#"))
+	digits := strings.TrimPrefix(ref, "#")
+	if digits == "" {
+		return false
+	}
 
-	return err == nil
+	for _, r := range digits {
+		if r < '0' || r > '9' {
+			return false
+		}
+	}
+
+	return true
 }
 
 // repositoryFromURL pulls owner/name out of a pull request URL.
@@ -111,6 +121,9 @@ func repositoryFromURL(url string) string {
 // two segments of somebody's home directory.
 func repositoryFromRemote(remote string) string {
 	trimmed := strings.TrimSuffix(remote, ".git")
+	if strings.HasPrefix(trimmed, "file://") {
+		return ""
+	}
 	if !strings.Contains(trimmed, "://") && !strings.Contains(trimmed, "@") && !strings.Contains(trimmed, ":") {
 		return ""
 	}

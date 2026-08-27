@@ -116,6 +116,83 @@ func TestAdoptAgentPlacesTheAgent(t *testing.T) {
 	}
 }
 
+// TestAdoptAgentRefusesADirectoryAnotherAgentHolds covers what would otherwise hand one
+// worktree to two agents. The branch a weave agent cut for itself is a branch like any
+// other, and adopting it would put a second agent in the first one's directory: deleting
+// either then runs a cleanup that removes the tree out from under the other, uncommitted
+// work included.
+func TestAdoptAgentRefusesADirectoryAnotherAgentHolds(t *testing.T) {
+	tests := []struct {
+		name string
+		// branch is what the sitting agent's worktree is on, and what the adoption asks for.
+		branch string
+		// adoptedBranch is what that agent recorded, blank for one that cut its own branch.
+		adoptedBranch string
+		archived      bool
+	}{
+		{
+			name:   "a branch a weave agent cut for itself",
+			branch: "agent/01a04396-15f9-7d80-be65-c197f03c8b52",
+		},
+		{
+			name:          "a branch an archived agent adopted, whose worktree is still on disk",
+			branch:        "someones/work",
+			adoptedBranch: "someones/work",
+			archived:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+
+			repo := initRepo(t)
+			workflow := seedWorktreeWorkflow(t, st, repo)
+
+			sitting := filepath.Join(t.TempDir(), "sitting")
+			runGit(t, repo, "worktree", "add", "--quiet", "-b", tt.branch, sitting)
+
+			require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+				Name: "sitting", Cwd: sitting, State: agentstore.StateIdle,
+				WorkflowID: workflow, AdoptedBranch: tt.adoptedBranch,
+			}))
+			if tt.archived {
+				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
+			}
+
+			_, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
+
+			require.ErrorIs(t, err, ErrAdoptBranchInUse)
+			assert.ErrorContains(t, err, "sitting", "the refusal names the agent already in the directory")
+		})
+	}
+}
+
+// TestAdoptAgentTakesOverFromAnAgentWhoseWorktreeIsGone covers the branch nothing can be
+// working in any more. The agent recorded against it has no directory left, so holding the
+// branch for it would leave no way onto the work but deleting that agent first.
+func TestAdoptAgentTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	repo := initRepo(t)
+	runGit(t, repo, "branch", "someones/work")
+	workflow := seedWorktreeWorkflow(t, st, repo)
+
+	first, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.NoError(t, err)
+	require.NoError(t, st.Agents.SetWorktreeRemovedByID(t.Context(), first.ID, true))
+
+	second, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.NoError(t, err)
+
+	assert.NotEqual(t, first.ID, second.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
+	assert.Equal(t, "someones/work", agentByID(t, st, second.ID).AdoptedBranch)
+}
+
 // TestAdoptAgentRefusesWithoutAWorktreeWorkflow covers the workflow whose agents all share
 // one checkout. Adoption there would put an agent on a branch in the directory somebody is
 // working in.
@@ -281,6 +358,9 @@ func TestLooksLikePullRequest(t *testing.T) {
 		{ref: "harry/eng-3518-logo-upload"},
 		{ref: "main"},
 		{ref: "release/2026-08-27"},
+		{ref: "1069-fix"},
+		{ref: "-1"},
+		{ref: "+1"},
 	}
 
 	for _, tt := range tests {
@@ -302,6 +382,7 @@ func TestRepositoryFromRemote(t *testing.T) {
 		{remote: "https://github.com/chariot-giving/admin", want: "chariot-giving/admin"},
 		{remote: "ssh://git@github.com/chariot-giving/admin.git", want: "chariot-giving/admin"},
 		{remote: "/some/local/clone", want: ""},
+		{remote: "file:///some/local/clone", want: ""},
 	}
 
 	for _, tt := range tests {
