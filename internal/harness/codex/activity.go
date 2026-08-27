@@ -30,8 +30,8 @@ var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 // the composer is idle, so a pane whose Codex has not drawn its input box yet is
 // ActivityUnrecognized rather than an agent ready to be typed at.
 //
-// An interrupted turn still reads as finished, since escaping leaves the live line gone
-// and the typed prompt sitting in the composer, which the composer match accepts.
+// An interrupted turn still reads as finished, since escaping clears the live line but
+// leaves the composer drawn, which the composer match accepts.
 //
 // The bottom line is read first because the question Codex asks with its own tool offers
 // to interrupt the turn on the same line as the key that answers it.
