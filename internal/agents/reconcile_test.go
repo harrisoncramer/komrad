@@ -8,6 +8,7 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
+	"weave/internal/tmux"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -651,4 +652,72 @@ func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	stamped := agentByID(t, st, agent.ID)
 	assert.True(t, stamped.StateSeenAt.After(fresh.StateSeenAt), "once it has gone stale it is written")
 	assert.Equal(t, agent.StateChangedAt, stamped.StateChangedAt, "and the state itself never moved")
+}
+
+// resumeAfterSnapshot is a pane probe that lets the test move the world on once a pass has
+// taken everything it will go on. Reconcile lists the agents and then reads the panes, so
+// this is the last moment before the walk, and the window a resume lands in.
+type resumeAfterSnapshot struct {
+	paneObserver
+	resume func()
+}
+
+func (p *resumeAfterSnapshot) GetPanes() (map[string]tmux.PaneStatus, error) {
+	panes, err := p.paneObserver.GetPanes()
+	if err != nil {
+		return nil, err
+	}
+
+	p.resume()
+
+	return panes, nil
+}
+
+// TestReconcileLeavesARowAResumeHasMovedOn covers the pane a pass is holding when it
+// decides an agent is dormant. A restart resumes agents one at a time while passes keep
+// running, so a pass routinely walks a row that has been given a live pane since it looked,
+// and writing its own conclusion over that leaves an agent alive in a pane nothing knows
+// about. The reused pane id is the same race on the same path: a tmux server hands out pane
+// ids from a counter that restarts with it, so an agent resumed into the fresh server can
+// land back on the id its dead row is still carrying.
+func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
+	tests := []struct {
+		name string
+		pane string
+	}{
+		{
+			name: "a resume into a new pane",
+			pane: "%2",
+		},
+		{
+			name: "a resume into a pane id the restarted server handed out again",
+			pane: "%1",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+			tmux := newFakeTmux()
+
+			resumed := agent
+			resumed.Pane = tt.pane
+			resumed.State = agentstore.StateIdle
+
+			observer := &resumeAfterSnapshot{paneObserver: tmux, resume: func() {
+				require.NoError(t, tmux.SetPaneOwner(tt.pane, agent.ID))
+				require.NoError(t, st.Agents.Update(ctx, resumed))
+			}}
+
+			rec := NewReconciler(observer, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			require.NoError(t, rec.Reconcile(ctx))
+
+			after := agentByID(t, st, agent.ID)
+			assert.Equal(t, tt.pane, after.Pane, "a pass holding a stale row does not forget the pane a resume just wrote")
+			assert.Nil(t, after.InterruptedAt, "a resumed agent's turn was not cut off by the pass that was mid-walk")
+		})
+	}
 }
