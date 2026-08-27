@@ -33,6 +33,15 @@ func TestBuildCommand(t *testing.T) {
 			wantAbsent: []string{"$(cat "},
 		},
 		{
+			name:   "a resume carries an opening prompt after the id, so it is not read as one",
+			launch: harness.Launch{SessionID: "019fb3e7-2cb6", Prompt: "carry on", Resume: true},
+			wantContain: []string{
+				"codex resume",
+				"'019fb3e7-2cb6' -- \"$(cat ",
+				"; rm ",
+			},
+		},
+		{
 			name:       "a fresh launch pins no id",
 			launch:     harness.Launch{Prompt: "do the thing"},
 			wantAbsent: []string{"resume", "--session-id"},

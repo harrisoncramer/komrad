@@ -70,6 +70,8 @@ type Agent struct {
 	Branch *string
 
 	WorktreeRemoved bool
+
+	InterruptedAt *time.Time
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -382,6 +384,21 @@ func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed b
 
 	if err := s.queries.SetAgentWorktreeRemovedByID(ctx, models.SetAgentWorktreeRemovedByIDParams{ID: id, WorktreeRemoved: removed}); err != nil {
 		return fmt.Errorf("failed to set worktree_removed for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetInterruptedAtByID records when an agent's conversation was cut off part-way through a
+// turn, or clears it with nil. A resume reads this to decide whether to say anything on the
+// way back in.
+func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
+	if !store.IsID(id) {
+		return nil
+	}
+
+	if err := s.queries.SetAgentInterruptedAtByID(ctx, models.SetAgentInterruptedAtByIDParams{ID: id, InterruptedAt: at}); err != nil {
+		return fmt.Errorf("failed to set interrupted_at for id %q: %w", id, err)
 	}
 
 	return nil
@@ -706,5 +723,6 @@ func agentFromRow(agent models.Agent) Agent {
 		UpdatedAt:        agent.UpdatedAt,
 		Branch:           agent.Branch,
 		WorktreeRemoved:  agent.WorktreeRemoved,
+		InterruptedAt:    agent.InterruptedAt,
 	}
 }

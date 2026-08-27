@@ -12,9 +12,10 @@ import (
 // directly: it is typed into a pane and parsed by the shell running there, which is
 // why everything interpolated into it is either generated here or quoted.
 //
-// A resume reopens the prior conversation by id. Otherwise it starts a new one,
-// with the opening prompt passed through a temp file so multi-line markdown
-// survives, removed as the command runs.
+// A resume reopens the prior conversation by id, carrying an opening prompt only when
+// there is something to say on the way back in. Otherwise it starts a new one, with the
+// opening prompt passed through a temp file so multi-line markdown survives, removed as
+// the command runs.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	if err := h.trustDir(launch.Dir); err != nil {
 		return "", err
@@ -41,7 +42,17 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	if resuming {
-		return command + " " + harness.QuoteArg(launch.SessionID), nil
+		command += " " + harness.QuoteArg(launch.SessionID)
+		if launch.Prompt == "" {
+			return command, nil
+		}
+
+		path, err := harness.WriteTempText(launch.CacheDir, "codex-prompt-*.md", launch.Prompt)
+		if err != nil {
+			return "", err
+		}
+
+		return command + fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path), nil
 	}
 
 	prompt := h.openingPrompt(launch)
