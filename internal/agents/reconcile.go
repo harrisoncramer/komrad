@@ -53,6 +53,7 @@ type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
 	ClearPane(ctx context.Context, id string) error
+	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
@@ -315,6 +316,18 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 
 	if err := r.store.ClearPane(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to forget a dormant agent's pane",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+
+	// A pane that goes while its agent was thinking took an unfinished turn with it, and
+	// nothing brings that turn back, so the resume has to be told to ask for it again.
+	if agent.State != agentstore.StateThinking {
+		return
+	}
+
+	at := r.now()
+	if err := r.store.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record that an agent's turn was cut off",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }

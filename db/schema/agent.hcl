@@ -384,6 +384,10 @@ table "agents" {
     type    = boolean
     default = false
   }
+  column "interrupted_at" {
+    null = true
+    type = timestamptz
+  }
   column "tag" {
     null = true
     type = text

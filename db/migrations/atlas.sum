@@ -1,4 +1,4 @@
-h1:ujVuQJ1QaeQpYbGT2Ln7ivVvMw0IDS7bM94KIAJW2lc=
+h1:oeguVdmofIvZ0CFkCn2G+6qAte3RQyLWtKhxbPHZ34o=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -6,3 +6,4 @@ h1:ujVuQJ1QaeQpYbGT2Ln7ivVvMw0IDS7bM94KIAJW2lc=
 20260826121814_review_activity_and_mail_kind.sql h1:sLWVaacpzhu5mMdClcnTr67HoK3D/y9h6T+HDHifsO8=
 20260826125143_review_drop_resolved.sql h1:SMog76jQPrN9J/J5mj1W4nn6pGgj8HcWQc3QqdPM4BA=
 20260827042307_worktree_diff_exclude.sql h1:o+ejJH/JJa3zRZDHREh3kksqYd+7uI/C0WyyfW/SU8M=
+20260827045153_add_interrupted_at.sql h1:FaJp6yWGqTQLxWJ/+VWRClge5hhsWdgsITgGImTIItg=

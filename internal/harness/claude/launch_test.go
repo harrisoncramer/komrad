@@ -115,6 +115,12 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			wantAbsent: []string{"--append-system-prompt"},
 		},
 		{
+			name:        "a resume carries an opening prompt, which is how an unfinished turn is asked for again",
+			launch:      harness.Launch{SessionID: "sess", Prompt: "carry on", Resume: true},
+			wantContain: []string{"--resume 'sess'", ` -- "$(cat `, "; rm "},
+			wantAbsent:  []string{"--session-id"},
+		},
+		{
 			name:        "a multi-line prompt is fenced off from the variadic config flag",
 			launch:      harness.Launch{SessionID: "sess", Prompt: "line one\nline two"},
 			wantContain: []string{"--session-id 'sess'", "$(cat ", "; rm ", ` -- "$(cat `},

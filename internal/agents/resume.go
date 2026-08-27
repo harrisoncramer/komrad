@@ -11,6 +11,15 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
+// interruptedPrompt is what a resumed agent is asked on the way back in, when its previous
+// turn was cut off by the pane going. No CLI carries an unfinished turn across a relaunch:
+// what comes back is the conversation and an empty prompt, so the only way to have the work
+// picked up again is to ask for it as an ordinary message.
+const interruptedPrompt = "Your last turn was cut off part-way through when your pane was stopped, " +
+	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
+	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
+	"say so rather than doing it again."
+
 type harnessRelocator interface {
 	Relocate(sessionID, dir string) error
 }

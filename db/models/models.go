@@ -121,6 +121,7 @@ type Agent struct {
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	StateSeenAt      time.Time
+	InterruptedAt    *time.Time
 }
 
 // Key/value facts an agent recorded about its own work.
