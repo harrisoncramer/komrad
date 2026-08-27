@@ -1,12 +1,15 @@
 package agents
 
 import (
+	"context"
 	"errors"
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -252,4 +255,129 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, h.launches, 2)
 	assert.Empty(t, h.launches[1].Prompt, "the ask is made once, and the row it was read from now says idle")
+}
+
+// blockingLifecycle holds a resume inside its setup action until the test lets it go, which
+// is the window a background pass has to land in to reach a row a resume is already working
+// on.
+type blockingLifecycle struct {
+	fakeLifecycle
+
+	entered chan struct{}
+	release chan struct{}
+}
+
+func (b *blockingLifecycle) RunResumeAction(context.Context, agentstore.Agent, string) (string, error) {
+	close(b.entered)
+	<-b.release
+
+	return "", nil
+}
+
+// TestAResumeInItsSetupIsNotArchivedOutFromUnderItself covers the whole of a resume before its
+// first write to the row. A worktree setup action is seconds of work, and for all of it the row
+// used to read as an untouched dormant agent, which is exactly what the pull request pass
+// archives. Its compare-and-set did not help, since nothing had changed for it to notice.
+func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:        "worktrees",
+		Cwd:         t.TempDir(),
+		SetupAction: "worktree-setup",
+		Worktree:    workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+	})
+	require.NoError(t, err)
+
+	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
+
+	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	done := make(chan error, 1)
+	go func() {
+		_, resumeErr := manager.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		done <- resumeErr
+	}()
+
+	<-lifecycle.entered
+
+	assert.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State,
+		"the row says a resume is in flight before the resume does any work")
+
+	prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
+	require.NoError(t, newPRArchiver(st, prs, manager).Sync(ctx))
+
+	assert.Nil(t, agentByID(t, st, agent.ID).ArchivedAt, "a pass landing in the window leaves the resume alone")
+
+	close(lifecycle.release)
+	select {
+	case resumeErr := <-done:
+		require.NoError(t, resumeErr)
+	case <-time.After(10 * time.Second):
+		t.Fatal("the resume never finished")
+	}
+
+	after := agentByID(t, st, agent.ID)
+	require.Nil(t, after.ArchivedAt)
+	require.NotEmpty(t, after.Pane)
+	assert.Equal(t, agentstore.StateIdle, after.State)
+
+	live, err := st.List(ctx)
+	require.NoError(t, err)
+	assert.Len(t, live, 1, "the agent whose CLI is running is one a listing shows")
+}
+
+// TestAPassArchivesAResumeThatFinishedFirst covers the other side of the same window. A resume
+// that got all the way through before the pass ran is an agent sitting idle in a pane, and a
+// merged pull request is reason enough to archive it, pane and all.
+func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:     "worktrees",
+		Cwd:      t.TempDir(),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+	})
+	require.NoError(t, err)
+
+	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
+
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	resumed, err := manager.ResumeAgent(ctx, agent.ID)
+	require.NoError(t, err)
+	require.NotEmpty(t, resumed.Pane)
+
+	prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
+	require.NoError(t, newPRArchiver(st, prs, manager).Sync(ctx))
+
+	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
+	assert.Equal(t, []string{resumed.Pane}, tmux.killedPanes, "the pane goes with the archive it belongs to")
+}
+
+// TestAResumeThatGivesUpPutsTheStateBack covers a resume that never reaches its first write to
+// the row. Nothing else in weave moves a row out of setting_up, so a row left there is one no
+// later resume and no pass will touch again.
+func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
+
+	lifecycle := &fakeLifecycle{resumeErr: errors.New("git worktree add: already checked out")}
+	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{Name: "workflow", SetupAction: "worktree-setup"}))
+
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	_, err := manager.ResumeAgent(ctx, agent.ID)
+	require.Error(t, err)
+
+	assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
+		"a resume that gave up leaves the row reading as it found it")
 }
