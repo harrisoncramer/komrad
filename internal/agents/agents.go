@@ -647,6 +647,11 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
+	// A resume only gets this far for an agent whose pane has gone, so a turn the store still
+	// has running went with it. The reconciler records that when it watches a pane go, but a
+	// tmux server killed whole takes every pane and the reconciler's view of them at once.
+	interrupted := agent.InterruptedAt != nil || agent.State == agentstore.StateThinking
+
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
 	agent.Cwd = dir
@@ -661,7 +666,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	resuming := agent.SessionID != ""
 
 	prompt := ""
-	if resuming && agent.InterruptedAt != nil {
+	if resuming && interrupted {
 		prompt = interruptedPrompt
 	}
 

@@ -129,6 +129,23 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		assert.Nil(t, agentByID(t, st, agent.ID).InterruptedAt, "the ask is made once, not on every resume after it")
 	})
 
+	// What `mise run restart` does: the tmux server goes whole and weave's own server goes
+	// with it, so no reconcile pass ever watches the panes go and the store is left holding
+	// a turn that is already over.
+	t.Run("a turn the store still has running is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
+		st := newStore(t)
+		agent := seed(t, st, "cut", "%1", agentstore.StateThinking)
+		require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
+		service, h := newManagerWithHarness(newFakeTmux(), st, "")
+
+		require.Nil(t, agentByID(t, st, agent.ID).InterruptedAt)
+
+		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		require.NoError(t, err)
+		require.Len(t, h.launches, 1)
+		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
+	})
+
 	t.Run("an agent that finished its turn resumes without being told anything", func(t *testing.T) {
 		service, _, h, agent := cut(t, agentstore.StateIdle, sessionID)
 
