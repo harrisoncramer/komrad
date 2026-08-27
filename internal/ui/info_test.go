@@ -71,6 +71,8 @@ type recordingTmux struct {
 	width  int
 	height int
 
+	sentKeys []string
+
 	windows       []string
 	openWindowErr error
 
@@ -87,12 +89,16 @@ type recordingTmux struct {
 	deadPanes map[string]bool
 }
 
-func (t *recordingTmux) ShowGlobal(string) string                 { return "" }
-func (t *recordingTmux) SetSessionOption(string, string, string)  {}
-func (t *recordingTmux) DetachSession(string)                     { t.detaches++ }
-func (t *recordingTmux) BindKey(string, ...string)                {}
-func (t *recordingTmux) GetClientPath(string) string              { return t.path }
-func (t *recordingTmux) SendKeys(string, ...string) error         { return nil }
+func (t *recordingTmux) ShowGlobal(string) string                { return "" }
+func (t *recordingTmux) SetSessionOption(string, string, string) {}
+func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
+func (t *recordingTmux) BindKey(string, ...string)               {}
+func (t *recordingTmux) GetClientPath(string) string             { return t.path }
+func (t *recordingTmux) SendKeys(target string, keys ...string) error {
+	t.sentKeys = append(t.sentKeys, strings.Join(append([]string{target}, keys...), " "))
+
+	return nil
+}
 func (t *recordingTmux) IsPaneAlive(pane string) bool             { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int                  { return t.width }
 func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }

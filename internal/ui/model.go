@@ -64,6 +64,7 @@ type uiTmux interface {
 	GetClientPath(client string) string
 	SetInfoPane(pane string)
 	OpenWindow(client, name, dir string, argv ...string) error
+	SendKeys(target string, keys ...string) error
 }
 
 type Deps struct {
@@ -96,6 +97,9 @@ type Deps struct {
 	StartupFindings []errui.Finding
 
 	Pane string
+
+	// Self is the weave binary, which the panel runs in the stage pane to draw into it.
+	Self string
 }
 
 type model struct {
@@ -163,6 +167,8 @@ type model struct {
 	actionLogsDir string
 
 	pane string
+	// self is the weave binary, which the panel runs in the stage pane to draw into it.
+	self string
 
 	clip clipboardWriter
 
@@ -186,6 +192,7 @@ func newModel(deps Deps, isDark bool) model {
 		processViewer:   deps.ProcessViewer,
 		actionLogsDir:   deps.ActionLogsDir,
 		pane:            deps.Pane,
+		self:            deps.Self,
 		keys:            deps.Keys,
 		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,

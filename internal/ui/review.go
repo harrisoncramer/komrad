@@ -43,6 +43,10 @@ type reviewState struct {
 
 	cursor int
 	pan    int
+	// top is the first row of the diff the pane is showing. It is held rather than derived from
+	// the cursor because deriving it centres the cursor, which scrolls the whole pane on every
+	// move and repaints every row of it. Holding it means an ordinary move changes two rows.
+	top int
 
 	frames *reviewFrames
 
@@ -57,17 +61,23 @@ type reviewState struct {
 	err     error
 }
 
-// reviewFrames is the whole diff drawn once. Drawing every row costs real time on a large
-// patch, so it is done when the width changes rather than on every cursor move, and moving
-// redraws only the row the cursor left and the one it landed on.
+// reviewFrames is the whole diff drawn once, and the size of the pane it is being drawn into.
+// Drawing every row costs real time on a large patch, so it is done when the pane or the
+// horizontal offset changes rather than on every cursor move.
 type reviewFrames struct {
-	width int
-	pan   int
-	rows  []string
+	width  int
+	height int
+	pan    int
+	rows   []string
 }
 
-func (f *reviewFrames) ensure(view *review.View, width, pan int) {
-	if f.rows != nil && f.width == width && f.pan == pan {
+// invalidate throws the drawn rows away while keeping the size they were drawn at, so the next
+// repaint draws them again. The size is kept because only the frame reports it, and the frame
+// reports it when it starts the drawer rather than on every repaint.
+func (f *reviewFrames) invalidate() { f.rows = nil }
+
+func (f *reviewFrames) ensure(view *review.View, width, height, pan int) {
+	if f.rows != nil && f.width == width && f.height == height && f.pan == pan {
 		return
 	}
 
@@ -76,19 +86,35 @@ func (f *reviewFrames) ensure(view *review.View, width, pan int) {
 		rows[y] = view.RenderRow(y, false, width, pan)
 	}
 
-	f.width, f.pan, f.rows = width, pan, rows
+	f.width, f.height, f.pan, f.rows = width, height, pan, rows
 }
 
-func (f *reviewFrames) body(view *review.View, cursor int) string {
-	if cursor < 0 || cursor >= len(f.rows) {
-		return strings.Join(f.rows, "\n")
+// window is the screenful starting at top, with the cursor's own row drawn as the cursor. The
+// panel scrolls the diff itself rather than asking the pager to, which is what lets the pager
+// stay running: it is handed exactly one screen, already positioned.
+func (f *reviewFrames) window(view *review.View, top, cursor int) string {
+	height := max(f.height, 1)
+
+	start := max(min(top, len(f.rows)-height), 0)
+
+	rows := make([]string, 0, height)
+	for y := start; y < min(start+height, len(f.rows)); y++ {
+		if y == cursor {
+			rows = append(rows, view.RenderRow(y, true, f.width, f.pan))
+
+			continue
+		}
+
+		rows = append(rows, f.rows[y])
 	}
 
-	rows := make([]string, len(f.rows))
-	copy(rows, f.rows)
-	rows[cursor] = view.RenderRow(cursor, true, f.width, f.pan)
+	// Padded out rather than left short, so a diff smaller than the pane is followed by blank
+	// lines instead of the pager's end-of-file markers.
+	for len(rows) < height {
+		rows = append(rows, "")
+	}
 
-	return strings.Join(rows, "\n")
+	return strings.Join(rows, "\n") + "\n"
 }
 
 type reviewLoadedMsg struct {
@@ -207,7 +233,7 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 	m.review.threads = msg.threads
 	m.review.view.PinThreads(msg.threads)
 	// A gutter mark appearing or going means the rows themselves changed, not just the cursor.
-	m.review.frames = &reviewFrames{}
+	m.review.frames.invalidate()
 
 	m.stageReview()
 }
@@ -217,46 +243,77 @@ func (m *model) stageReview() {
 		return
 	}
 
+	// Showing is what measures the pane, so the window is only settled afterwards.
 	m.frame.Show(layout.RegionStage, m.reviewContent())
+	m.scrollReviewToCursor()
+
+	if err := m.repaintReview(); err != nil {
+		m.report("Could not draw the diff", err)
+	}
 }
 
-// reviewContent draws the diff into the stage. The whole patch is written out and the pager is
-// opened centred on the cursor, so the row under the cursor is redrawn and repositioned in one
-// respawn rather than the stage holding a program of its own.
+// repaintReview rewrites the screenful the stage is showing and tells the pager to re-read it.
+//
+// The pager is deliberately left running. Restarting it for every cursor move made it paint the
+// whole stage from scratch, and tmux forwarded that to the client as a dozen partial writes
+// spread over twenty milliseconds, which is what read as a flicker while scrolling. Re-reading
+// one already-positioned screen changes two rows, so that is all that reaches the client.
+func (m model) repaintReview() error {
+	pane := m.frame.Pane(layout.RegionStage)
+	frames := m.review.frames
+
+	// Nothing to draw against until the frame has started the drawer and told us how big its pane
+	// is. Everything after that is drawn here, including the rows themselves: the drawer is only
+	// started once, so nothing else runs again to draw them.
+	if pane == "" || m.review.view == nil || frames.width == 0 {
+		return nil
+	}
+
+	frames.ensure(m.review.view, frames.width, frames.height, m.review.pan)
+
+	if !writeStageFile(reviewStagePath, m.review.frames.window(m.review.view, m.review.top, m.review.cursor)) {
+		return fmt.Errorf("failed to write the diff to %s", reviewStagePath)
+	}
+
+	// Any key tells the drawer the file has changed; it holds the pane and re-reads on one.
+	return m.tmux.SendKeys(pane, "R")
+}
+
+// reviewContent starts the pager on the diff. The key names only the agent, so moving the
+// cursor does not restart it: the pane is respawned when the review opens or the pane changes
+// size, and every move after that is a repaint. The pane's size is measured here, since this is
+// where the frame reports it, and held for the repaints to draw against.
 func (m model) reviewContent() layout.Content {
 	state := m.review
 
 	return layout.Content{
-		Key:   fmt.Sprintf("review:%s:%d:%d", state.agentID, state.cursor, state.pan),
+		Key:   "review:" + state.agentID,
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
 			width := max(target.Width, review.GutterWidth+20)
-			state.frames.ensure(state.view, width, state.pan)
+			state.frames.ensure(state.view, width, max(target.Height, 1), state.pan)
 
-			if !writeStageFile(reviewStagePath, state.frames.body(state.view, state.cursor)) {
+			if !writeStageFile(reviewStagePath, state.frames.window(state.view, state.top, state.cursor)) {
 				return nil, false
 			}
 
-			return reviewPagerArgv(reviewStagePath, state.cursor+1, target.Height), true
+			return m.reviewStageArgv(reviewStagePath), true
 		},
 	}
 }
 
-// reviewPagerArgv opens the pager with the cursor's row held half way down the pane, so moving
-// the cursor scrolls the diff under it rather than walking it off the bottom.
-//
-// The row is named absolutely rather than as a fraction, because a fraction asks for the line
-// to be centred even when there is nothing above it to show: the pager honours that by padding
-// the top of the pane with tildes, which wastes half the stage on the first screen of every
-// diff. Naming the row lets the target sit where it naturally falls until the diff is deep
-// enough to scroll.
-func reviewPagerArgv(path string, line, height int) []string {
-	row := line
-	if middle := height / 2; middle > 0 && row > middle {
-		row = middle
+// reviewStageArgv runs weave's own drawer in the stage rather than a pager. A pager repaints its
+// whole screen for any change, which reaches the client in installments and reads as a flicker on
+// every cursor move; the drawer holds the frame in a bubbletea model, whose renderer writes only
+// the rows that differ. There is nothing to position either: the file is exactly one screen with
+// the cursor already on the right row of it.
+func (m model) reviewStageArgv(path string) []string {
+	self := m.self
+	if self == "" {
+		self = "weave"
 	}
 
-	return []string{"less", "-R", "-X", "-Ps", fmt.Sprintf("-j%d", max(row, 1)), fmt.Sprintf("+%d", line), path}
+	return []string{self, "stage", path}
 }
 
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -288,9 +345,9 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveReviewCursor(m.review.view.First())
 	case isBound(k, m.keys.Nav.Bottom):
 		return m.moveReviewCursor(m.review.view.Last())
-	case k == "pgdown", k == "ctrl+f", k == " ":
+	case k == "pgdown", k == "ctrl+n", k == "ctrl+f", k == " ":
 		return m.pageReview(m.reviewPage())
-	case k == "pgup", k == "ctrl+b":
+	case k == "pgup", k == "ctrl+p", k == "ctrl+b":
 		return m.pageReview(-m.reviewPage())
 	case k == "ctrl+d":
 		return m.pageReview(max(1, m.reviewPage()/2))
@@ -350,6 +407,30 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 	return m, m.markReviewThreadReadCmd()
 }
 
+// reviewScrollMargin is how close to the edge of the pane the cursor gets before the diff
+// scrolls under it, so there is always some of what is coming into view.
+const reviewScrollMargin = 4
+
+// scrollReviewToCursor moves the window only when the cursor is about to leave it. Scrolling on
+// every move would be simpler, and is what centring the cursor amounts to, but it repaints every
+// row of the pane for a one-line move and that is what reads as a flicker.
+func (m *model) scrollReviewToCursor() {
+	height := m.review.frames.height
+	if height <= 0 {
+		return
+	}
+
+	margin := min(reviewScrollMargin, max((height-1)/2, 0))
+
+	if low := m.review.cursor - margin; low < m.review.top {
+		m.review.top = max(low, 0)
+	}
+
+	if high := m.review.cursor - height + 1 + margin; high > m.review.top {
+		m.review.top = high
+	}
+}
+
 // markReviewThreadReadCmd claims the thread the cursor has just landed on, and only that one.
 // Nothing else advances the human side of the watermark, so without this a thread the agent
 // has replied in stays marked unread for good. Marking the whole list instead would claim
@@ -381,9 +462,14 @@ func (m model) pageReview(delta int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(m.review.view.Page(m.review.cursor, delta))
 }
 
-// reviewPage is how many rows a page is. The stage is the pane beside the panel in the same
-// split, so it is as tall as the panel, less the pager's own prompt line.
+// reviewPage is how many rows a page is, which is the pane the diff is drawn into once that has
+// been measured, and the panel's own height until then, since the stage is its sibling in the
+// same split and as tall as it.
 func (m model) reviewPage() int {
+	if height := m.review.frames.height; height > 0 {
+		return height
+	}
+
 	return max(1, m.height-1)
 }
 

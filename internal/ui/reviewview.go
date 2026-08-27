@@ -206,18 +206,23 @@ func (m model) reviewComposeDesc() string {
 func (m model) reviewHelp() keyMap {
 	move := m.moveBinding()
 	compose := binding([]string{"c"}, m.reviewComposeDesc())
-	threads := binding([]string{"n", "N"}, "next/previous thread")
-	files := binding([]string{"]", "["}, "next/previous file")
-	page := binding([]string{"pgup", "pgdown"}, "page")
-	pan := binding([]string{"h", "l"}, "pan sideways")
-	remove := binding([]string{"D"}, "delete the thread")
-	send := binding([]string{"s"}, "tell the agent")
-	back := binding(m.keys.Agents.Back, "back to the agents")
 
+	// Only the three things the screen is for are on the strip. Reviewing is reading, and a
+	// legend of ten keys is in the way of that; the rest are a ? away.
 	return keyMap{
-		short: []key.Binding{move, page, compose, threads, m.helpBinding()},
+		short: []key.Binding{move, compose, m.helpBinding()},
 		full: slices.Concat(
-			[]key.Binding{move, page, files, threads, pan, compose, remove, send, back},
+			[]key.Binding{
+				move,
+				compose,
+				binding([]string{"ctrl+n", "ctrl+p", "pgdown", "pgup"}, "page"),
+				binding([]string{"]", "["}, "next/previous file"),
+				binding([]string{"n", "N"}, "next/previous thread"),
+				binding([]string{"h", "l"}, "pan sideways"),
+				binding([]string{"D"}, "delete the thread"),
+				binding([]string{"s"}, "tell the agent"),
+				binding(m.keys.Agents.Back, "back to the agents"),
+			},
 			m.globalHelp(),
 		),
 	}

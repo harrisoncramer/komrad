@@ -16,7 +16,9 @@ import (
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -27,6 +29,18 @@ type fakeReviewAgents struct {
 	threads []*agentv1.ReviewThread
 
 	created *agentv1.CreateReviewThreadRequest
+	replied *agentv1.AddReviewMessageRequest
+}
+
+func (f *fakeReviewAgents) AddReviewMessage(
+	_ context.Context,
+	req *connect.Request[agentv1.AddReviewMessageRequest],
+) (*connect.Response[agentv1.AddReviewMessageResponse], error) {
+	f.replied = req.Msg
+
+	return connect.NewResponse(&agentv1.AddReviewMessageResponse{
+		Message: &agentv1.ReviewMessage{Id: "m2", ThreadId: req.Msg.GetThreadId(), Body: req.Msg.GetBody()},
+	}), nil
 }
 
 func (f *fakeReviewAgents) ListReviewThreads(
@@ -77,7 +91,9 @@ func reviewRepo(t *testing.T) string {
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
 	t.Helper()
 
-	tmux := &recordingTmux{}
+	// The stage's own geometry, which is what the diff is drawn against and what the panel writes
+	// a screenful of.
+	tmux := &recordingTmux{width: 120, height: 24}
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.width, m.height = 40, 30
@@ -123,36 +139,70 @@ func TestEnterReviewStagesTheDiff(t *testing.T) {
 	require.NotNil(t, m.review.view)
 
 	last := tmux.respawns[len(tmux.respawns)-1]
-	assert.Contains(t, last, "less -R -X -Ps -j")
-	assert.Contains(t, last, reviewStagePath)
+	assert.Equal(t, "weave stage "+reviewStagePath, last,
+		"the stage draws the written screen, with nothing to position")
 
-	body, err := os.ReadFile(reviewStagePath)
-	require.NoError(t, err)
-
-	rows := strings.Split(string(body), "\n")
-	require.Equal(t, m.review.view.Len(), len(rows))
-	assert.Contains(t, ansi.Strip(strings.Join(rows, "\n")), "greet.go")
-
-	// The pager is opened on the cursor's own row, one-based.
-	assert.Contains(t, last, "+"+strconv.Itoa(m.review.cursor+1))
+	// The panel writes exactly the screenful the pane can hold, cursor already placed, so the
+	// pager has no scrolling of its own to do.
+	assert.Equal(t, tmux.height, reviewStageRows(t))
+	assert.Contains(t, reviewStageText(t), "greet.go")
 }
 
-func TestReviewCursorMovesTheStage(t *testing.T) {
+// TestReviewCursorRepaintsWithoutRestartingThePager is the flicker fix. Restarting the pager for
+// every cursor move made it paint the whole stage from scratch, which reached the client as a
+// dozen partial writes and read as a flicker. A move now rewrites the screen and reloads it.
+func TestReviewCursorRepaintsWithoutRestartingThePager(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	before := m.review.cursor
-	respawns := len(tmux.respawns)
+	// Without a colour profile the cursor row paints as bare text, so moving it would change
+	// nothing in the file. The panel runs against a real terminal, so the test does too.
+	restore := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+
+	m.stageReview()
+
+	before, respawns := m.review.cursor, len(tmux.respawns)
+	was := reviewStageRaw(t)
+	tmux.sentKeys = nil
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	m = next.(model)
 
 	require.Greater(t, m.review.cursor, before)
-	require.Greater(t, len(tmux.respawns), respawns)
+	assert.Len(t, tmux.respawns, respawns, "the pager is left running")
+	assert.Equal(t, []string{"%1 R"}, tmux.sentKeys, "and told to re-read the screen")
 
-	last := tmux.respawns[len(tmux.respawns)-1]
-	assert.Contains(t, last, "+"+strconv.Itoa(m.review.cursor+1))
+	// Compared raw: a diff that fits the pane does not scroll, so the only thing a move changes is
+	// which row is painted as the cursor.
+	assert.NotEqual(t, was, reviewStageRaw(t), "the cursor moved, so the screen changed")
+	assert.Equal(t, tmux.height, reviewStageRows(t))
+}
+
+func reviewStageText(t *testing.T) string {
+	t.Helper()
+
+	return ansi.Strip(reviewStageRaw(t))
+}
+
+func reviewStageRaw(t *testing.T) string {
+	t.Helper()
+
+	body, err := os.ReadFile(reviewStagePath)
+	require.NoError(t, err)
+
+	return string(body)
+}
+
+func reviewStageRows(t *testing.T) int {
+	t.Helper()
+
+	body, err := os.ReadFile(reviewStagePath)
+	require.NoError(t, err)
+
+	return strings.Count(string(body), "\n")
 }
 
 // TestReviewComposeOpensAThread covers the write path: c opens the editor on the line under
@@ -252,6 +302,26 @@ func TestReviewPagingSettlesOnALine(t *testing.T) {
 	assert.True(t, ok)
 }
 
+// TestReviewPagesOnCtrlNAndCtrlP covers the readline pair, which pages the diff the same way the
+// page keys do.
+func TestReviewPagesOnCtrlNAndCtrlP(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	first := m.review.cursor
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlN})
+	m = next.(model)
+
+	assert.Greater(t, m.review.cursor, first)
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlP})
+	m = next.(model)
+
+	assert.Equal(t, first, m.review.cursor)
+}
+
 // TestReviewJumpsToASingleThread covers what happens with one thread in the diff: n has to
 // reach it from anywhere, including from the thread itself, or it reads as a dead key.
 func TestReviewJumpsToASingleThread(t *testing.T) {
@@ -278,7 +348,7 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 	m = next.(model)
 	require.Equal(t, m.review.view.Last(), m.review.cursor, "n should reach the only thread")
 
-	// Standing on it, n has nowhere forward to go and has to come back round to it.
+	// Standing on it, n has nowhere forward to go and has to stay put.
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
 	m = next.(model)
 	assert.Equal(t, m.review.view.Last(), m.review.cursor)
@@ -385,8 +455,7 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 	require.True(t, m.review.loading)
 	require.Nil(t, m.review.view, "the view only exists once the patch has arrived")
 
-	// The legend asks what the compose key would do, which asks the view where the cursor is, so
-	// it is drawn expanded here rather than collapsed to a strip that elides it.
+	// The legend asks what the compose key would do, which asks the view where the cursor is.
 	m.helpExpanded = true
 	m.height = 40
 
@@ -417,11 +486,104 @@ func TestReviewSurvivesAFailedLoad(t *testing.T) {
 	for _, key := range []tea.KeyMsg{
 		{Type: tea.KeyRunes, Runes: []rune("j")},
 		{Type: tea.KeyRunes, Runes: []rune("c")},
-		{Type: tea.KeyRunes, Runes: []rune("n")},
+		{Type: tea.KeyRunes, Runes: []rune("c")},
 		{Type: tea.KeyRunes, Runes: []rune("D")},
 		{Type: tea.KeyPgDown},
 	} {
 		next, _ := m.updateReview(key)
 		_ = next.(model).reviewView()
 	}
+}
+
+// TestReviewKeepsDrawingAfterAWrite is the bug that saving a comment introduced. The drawer is
+// started once and never restarted, so nothing but a repaint ever draws the rows again: throwing
+// the drawn rows away without drawing them again froze the stage while the sidebar carried on
+// following the cursor.
+func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, tmux := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	// What saving a comment does to the screen: the threads come back and the rows are dropped,
+	// since a gutter mark may have appeared.
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", notice: "thread opened"})
+
+	respawns := len(tmux.respawns)
+	tmux.sentKeys = nil
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = next.(model)
+
+	assert.Len(t, tmux.respawns, respawns, "the drawer is still the one that was started")
+	assert.Equal(t, []string{"%1 R"}, tmux.sentKeys, "and it is still being told to redraw")
+	assert.NotEmpty(t, m.review.frames.rows, "the rows are drawn again rather than left thrown away")
+	assert.Contains(t, reviewStageText(t), "greet.go")
+}
+
+// TestReviewPanRedrawsTheRows covers the same seam sideways: panning changes what every row
+// looks like, so the rows have to be drawn again for it to show.
+func TestReviewPanRedrawsTheRows(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	was := reviewStageText(t)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	m = next.(model)
+
+	require.Positive(t, m.review.pan)
+	assert.NotEqual(t, was, reviewStageText(t), "panning moves the text under the gutter")
+}
+
+// TestReviewRepliesInAThread covers the other half of the compose key. On a line that already
+// carries a thread it answers that thread rather than opening a second one on the same line, and
+// the legend says which it will do before it is pressed.
+func TestReviewRepliesInAThread(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	require.True(t, ok)
+
+	agents.threads = []*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    anchor.FilePath,
+		OldStart:    int32(anchor.OldStart),
+		NewStart:    int32(anchor.NewStart),
+		QuotedLines: anchor.QuotedLines,
+		Messages: []*agentv1.ReviewMessage{{
+			Id:         "m1",
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+			Body:       "renamed it, is that what you meant?",
+		}},
+	}}
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+
+	m.helpExpanded, m.height = true, 40
+	assert.Contains(t, ansi.Strip(m.reviewView()), "reply in this thread",
+		"the legend says what the key will do on a line that already has a thread")
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = next.(model)
+	require.True(t, m.review.composing)
+	require.Equal(t, "t1", m.review.editing, "the reply goes into the thread under the cursor")
+
+	m.review.editor.SetValue("yes, that is it")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+
+	require.NotNil(t, agents.replied, "a line with a thread replies")
+	assert.Equal(t, "t1", agents.replied.GetThreadId())
+	assert.Equal(t, "yes, that is it", agents.replied.GetBody())
+	assert.Nil(t, agents.created, "and does not open a second thread on the same line")
 }
