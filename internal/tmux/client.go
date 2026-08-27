@@ -65,6 +65,26 @@ func (c *Client) GetPaneWidth(pane string) int {
 	return width
 }
 
+// GetPaneHeight is how many rows a pane has, which is what a pager needs to place a line on a
+// particular row of it.
+func (c *Client) GetPaneHeight(pane string) int {
+	if pane == "" {
+		return 0
+	}
+
+	out, err := c.query("display-message", "-p", "-t", pane, "#{pane_height}")
+	if err != nil {
+		return 0
+	}
+
+	height, err := strconv.Atoi(out)
+	if err != nil {
+		return 0
+	}
+
+	return height
+}
+
 // SetPaneOwner stamps a pane with the id of the agent running in it.
 func (c *Client) SetPaneOwner(pane, agentID string) error {
 	if pane == "" || agentID == "" {
@@ -251,6 +271,12 @@ func (c *Client) split(anchorPane, dir, size string, flags ...string) string {
 	argv = append(argv, "-d", "-t", anchorPane, "-c", dir, "-l", size, "-P", "-F", "#{pane_id}")
 
 	return c.value(argv...)
+}
+
+// SelectPane moves focus to a pane, which is how something the user has to type into gets the
+// keyboard once it is up.
+func (c *Client) SelectPane(pane string) {
+	c.run("select-pane", "-t", pane)
 }
 
 // ResizePane sets a pane's width, as a count of columns or a percentage of the window.

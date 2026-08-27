@@ -60,7 +60,50 @@ func TestWorkflowFields(t *testing.T) {
 		{"flags", "--model opus"},
 		{"setup", "bootstrap"},
 		{"cleanup", "teardown"},
+		{"workflow_id", "w1"},
 	}, fields)
+}
+
+// TestWorkflowFieldsWorktree covers a worktree workflow, whose setup and cleanup are scripts
+// weave generated rather than actions the user picked. Showing those names says nothing, so
+// the details draw the worktree settings the user actually chose instead.
+func TestWorkflowFieldsWorktree(t *testing.T) {
+	workflow := workflowstore.Workflow{
+		ID:            "w1",
+		Name:          "api",
+		Harness:       "codex",
+		Cwd:           "/repo/api",
+		SetupAction:   "weave-worktree-setup-w1",
+		CleanupAction: "weave-worktree-cleanup-w1",
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   "main",
+			CopyPaths:    []string{".env", ".envrc"},
+			SymlinkPaths: []string{"node_modules"},
+		},
+	}
+
+	assert.Equal(t, []recordField{
+		{"agents", "3"},
+		{"default agent", "codex"},
+		{"directory", "/repo/api"},
+		{"flags", "—"},
+		{"worktree", "on"},
+		{"base branch", "main"},
+		{"copy", ".env, .envrc"},
+		{"symlink", "node_modules"},
+		{"workflow_id", "w1"},
+	}, workflowFields(workflow, 3))
+
+	workflow.Worktree.CopyPaths = nil
+	workflow.Worktree.SymlinkPaths = nil
+	workflow.Worktree.BaseBranch = ""
+
+	fields := workflowFields(workflow, 3)
+
+	assert.Contains(t, fields, recordField{"base branch", "—"})
+	assert.NotContains(t, fields, recordField{"copy", ""})
+	assert.NotContains(t, fields, recordField{"setup", "weave-worktree-setup-w1"})
 }
 
 type recordingTmux struct {
@@ -68,7 +111,10 @@ type recordingTmux struct {
 	swaps    int
 	respawns []string
 
-	width int
+	width  int
+	height int
+
+	sentKeys []string
 
 	windows       []string
 	openWindowErr error
@@ -81,19 +127,26 @@ type recordingTmux struct {
 
 	infoPane string
 
+	selected []string
+
 	respawnPanes []string
 
 	deadPanes map[string]bool
 }
 
-func (t *recordingTmux) ShowGlobal(string) string                 { return "" }
-func (t *recordingTmux) SetSessionOption(string, string, string)  {}
-func (t *recordingTmux) DetachSession(string)                     { t.detaches++ }
-func (t *recordingTmux) BindKey(string, ...string)                {}
-func (t *recordingTmux) GetClientPath(string) string              { return t.path }
-func (t *recordingTmux) SendKeys(string, ...string) error         { return nil }
+func (t *recordingTmux) ShowGlobal(string) string                { return "" }
+func (t *recordingTmux) SetSessionOption(string, string, string) {}
+func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
+func (t *recordingTmux) BindKey(string, ...string)               {}
+func (t *recordingTmux) GetClientPath(string) string             { return t.path }
+func (t *recordingTmux) SendKeys(target string, keys ...string) error {
+	t.sentKeys = append(t.sentKeys, strings.Join(append([]string{target}, keys...), " "))
+
+	return nil
+}
 func (t *recordingTmux) IsPaneAlive(pane string) bool             { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int                  { return t.width }
+func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }
 func (t *recordingTmux) CapturePane(string) string                { return "" }
 func (t *recordingTmux) SplitRight(string, string, string) string { return "%1" }
 func (t *recordingTmux) SplitLeft(string, string, string) string  { return "%1" }
@@ -112,6 +165,10 @@ func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 
 func (t *recordingTmux) SetInfoPane(pane string) {
 	t.infoPane = pane
+}
+
+func (t *recordingTmux) SelectPane(pane string) {
+	t.selected = append(t.selected, pane)
 }
 
 func (t *recordingTmux) SetGlobal(name, value string) {

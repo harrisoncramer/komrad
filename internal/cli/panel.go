@@ -68,11 +68,13 @@ func panelCmd(state *app) *cobra.Command {
 				LogPath:         logPath,
 				LogViewer:       state.logViewer,
 				ProcessViewer:   state.processViewer,
+				Editor:          state.env.Editor,
 				ActionLogsDir:   state.env.ActionLogsDir(),
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
 				Pane:            state.env.TmuxPane,
+				Self:            getSelfPath(),
 			})
 		},
 	}

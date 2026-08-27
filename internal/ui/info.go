@@ -16,6 +16,8 @@ const (
 	infoSetupLog
 	infoTeardownLog
 	infoAgentLog
+
+	infoEditFile
 )
 
 type infoState struct {
@@ -60,14 +62,20 @@ func (m *model) stageInfo() {
 		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogTeardown))
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
-	case infoNothing, infoEdit, infoSetup:
+	case infoNothing, infoEdit, infoSetup, infoEditFile:
 	}
 }
 
-func (m *model) reconcileInfo() {
+// reconcileInfo catches the pane going away on its own, which is what an editor quitting does,
+// and reports whether what went was the editor: the file may have been changed or committed
+// while it was up, so the diff behind it is stale.
+func (m *model) reconcileInfo() bool {
 	if m.info.kind == infoNothing || m.frame.IsOpen(layout.RegionInfo) {
-		return
+		return false
 	}
 
+	edited := m.info.kind == infoEditFile
 	m.forgetInfo()
+
+	return edited
 }

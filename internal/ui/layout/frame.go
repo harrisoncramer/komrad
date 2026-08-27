@@ -20,8 +20,9 @@ type Frame struct {
 }
 
 type shown struct {
-	key   string
-	width int
+	key    string
+	width  int
+	height int
 }
 
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
@@ -115,9 +116,10 @@ func (f *Frame) Show(region Region, content Content) {
 	target := Target{Region: region}
 	if content.Wraps {
 		target.Width = f.tmux.GetPaneWidth(pane)
+		target.Height = f.tmux.GetPaneHeight(pane)
 	}
 
-	if f.isShowing(region, content, target.Width) {
+	if f.isShowing(region, content, target) {
 		return
 	}
 
@@ -127,7 +129,7 @@ func (f *Frame) Show(region Region, content Content) {
 	}
 
 	f.run(pane, argv...)
-	f.shown[region] = shown{key: content.Key, width: target.Width}
+	f.shown[region] = shown{key: content.Key, width: target.Width, height: target.Height}
 }
 
 // ShowGuest swaps a pane somebody else owns into the stage.
@@ -151,14 +153,20 @@ func (f *Frame) ReleaseGuest(pane string) {
 	}
 }
 
-func (f *Frame) isShowing(region Region, content Content, width int) bool {
+func (f *Frame) isShowing(region Region, content Content, target Target) bool {
 	if content.Key == "" {
 		return false
 	}
 
 	was := f.shown[region]
+	if was.key != content.Key {
+		return false
+	}
 
-	return was.key == content.Key && (!content.Wraps || was.width == width)
+	// A pane that has changed size is not showing what it was asked for, whichever way it moved.
+	// Height matters as much as width: a region gives rows up to a split under it and takes them
+	// back when that goes, and content drawn to a stale height leaves rows the pane never fills.
+	return !content.Wraps || (was.width == target.Width && was.height == target.Height)
 }
 
 func (f *Frame) getDisplayedPane() string {

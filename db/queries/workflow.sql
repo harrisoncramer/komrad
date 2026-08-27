@@ -9,7 +9,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -32,7 +33,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -53,7 +55,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -82,14 +85,16 @@ INSERT INTO workflow_action_configs(
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
-    worktree_symlink_paths)
+    worktree_symlink_paths,
+    worktree_diff_exclude)
 VALUES (
     @setup_action,
     @cleanup_action,
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_copy_paths,
-    @worktree_symlink_paths)
+    @worktree_symlink_paths,
+    @worktree_diff_exclude)
 RETURNING
     id;
 
@@ -132,7 +137,8 @@ SET
     worktree_enabled = @worktree_enabled,
     worktree_base_branch = @worktree_base_branch,
     worktree_copy_paths = @worktree_copy_paths,
-    worktree_symlink_paths = @worktree_symlink_paths
+    worktree_symlink_paths = @worktree_symlink_paths,
+    worktree_diff_exclude = @worktree_diff_exclude
 WHERE
     id =(
         SELECT
@@ -201,7 +207,8 @@ SELECT
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
-    ac.worktree_symlink_paths
+    ac.worktree_symlink_paths,
+    ac.worktree_diff_exclude
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id

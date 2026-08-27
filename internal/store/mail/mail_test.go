@@ -476,3 +476,64 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 
 	return got.ID
 }
+
+// TestOneUnclaimedNoticePerKind proves the doorbell cannot stack. Pressing notify again while
+// the agent still has not read the first one used to insert another identical row every time.
+func TestOneUnclaimedNoticePerKind(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	first, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "weave: 1 review thread(s) have activity",
+		Kind:      KindReviewActivity,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	again, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "weave: 2 review thread(s) have activity",
+		Kind:      KindReviewActivity,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+	assert.Nil(t, again, "a doorbell still waiting to be read is not rung again")
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), pending)
+
+	claimed, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+
+	after, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "weave: 3 review thread(s) have activity",
+		Kind:      KindReviewActivity,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+	assert.NotNil(t, after, "once it has been read, the doorbell rings again")
+}
+
+// TestOrdinaryMailIsNeverDeduplicated keeps the dedupe to notices weave raises itself. Two
+// agents saying the same thing twice are two things to read.
+func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	for range 3 {
+		sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "same thing", Deadline: time.Hour})
+		require.NoError(t, err)
+		require.NotNil(t, sent)
+	}
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	assert.Equal(t, int64(3), pending)
+}

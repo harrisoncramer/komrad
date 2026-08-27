@@ -71,6 +71,7 @@ type workflowFormValues struct {
 
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
+	WorktreeDiffExclude  string
 }
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
@@ -91,6 +92,7 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
+		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 	}
 }
 
@@ -106,6 +108,7 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			BaseBranch:   v.WorktreeBaseBranch,
 			CopyPaths:    splitLines(v.WorktreeCopyPaths),
 			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
+			DiffExclude:  splitLines(v.WorktreeDiffExclude),
 		},
 	}
 
@@ -448,6 +451,9 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 		huh.NewText().Key("worktree_symlink_paths").Title("Worktree symlink paths").
 			Description("one repo-relative path per line, symlinked back instead of duplicated, such as node_modules").
 			Lines(2).Value(&values.WorktreeSymlinkPaths),
+		huh.NewText().Key("worktree_diff_exclude").Title("Diff excludes").
+			Description("one path or glob per line, left out of the diff the review screen draws, such as proto/gen or *.pb.go").
+			Lines(2).Value(&values.WorktreeDiffExclude),
 	}
 }
 

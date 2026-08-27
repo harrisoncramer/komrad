@@ -78,17 +78,24 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateFilterInput(key)
 	}
 
-	if !m.isQueryOpen() && isBound(key.String(), m.keys.Help.Toggle) {
+	// Something being typed into owns the keyboard. Every global key is also a character
+	// somebody means to type, so none of them are bound until the input closes and the screen
+	// gets the keys on its own terms.
+	if m.isTyping() {
+		return m.routeScreenKey(key)
+	}
+
+	if isBound(key.String(), m.keys.Help.Toggle) {
 		m.helpExpanded = !m.helpExpanded
 
 		return m, nil
 	}
 
-	if !m.isQueryOpen() && isBound(key.String(), m.keys.Logs.Open) {
+	if m.screen != screenReview && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}
 
-	if !m.isQueryOpen() && m.detailsScreen() {
+	if m.detailsScreen() {
 		if m.detailsFocused() {
 			return m.updateDetails(key)
 		}
@@ -97,6 +104,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	return m.routeScreenKey(key)
+}
+
+func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case screenSearch:
 		return m.updateSearch(key)
@@ -106,6 +117,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateArchive(key)
 	case screenActions:
 		return m.updateActions(key)
+	case screenReview:
+		return m.updateReview(key)
 	case screenAgents:
 		return m.updateAgents(key)
 	default:
@@ -118,13 +131,25 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	case refreshTickMsg:
 		return m, tea.Batch(m.refreshCmd(), refreshTick()), true
 	case refreshResult:
-		m.applyRefresh(msg)
+		if m.applyRefresh(msg) {
+			next, cmd := m.reloadReview()
+
+			return next, cmd, true
+		}
 
 		return m, nil, true
 	case writeResult:
 		next, cmd := m.applyWrite(msg)
 
 		return next, cmd, true
+	case reviewLoadedMsg:
+		m.applyReviewLoaded(msg)
+
+		return m, nil, true
+	case reviewWroteMsg:
+		m.applyReviewWrote(msg)
+
+		return m, nil, true
 	case searchSettledMsg:
 		return m, m.runSettledSearch(msg), true
 	case searchResult:
@@ -174,6 +199,12 @@ func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		return m, nil
 	}
+}
+
+// isTyping reports whether the panel's own bindings are off: a text input is up taking
+// characters, or a key prefix is waiting on the key that completes it.
+func (m model) isTyping() bool {
+	return m.isQueryOpen() || (m.screen == screenReview && m.review.takesEveryKey())
 }
 
 func (m model) isQueryOpen() bool {

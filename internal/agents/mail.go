@@ -29,6 +29,8 @@ var ErrReplyToNotFound = errors.New("no mail holds that id")
 
 var ErrMailNotFound = errors.New("no mail holds that id, deleting nothing")
 
+var ErrNoticeKindMissing = errors.New("a notice must name a kind other than plain")
+
 const WeaveSenderName = "weave"
 
 type mailReadWriter interface {
@@ -75,17 +77,63 @@ type SendMailParams struct {
 }
 
 func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mailstore.Mail, error) {
-	return s.send(ctx, params, false)
+	return s.send(ctx, sendParams{
+		From:      params.From,
+		ToAgentID: params.ToAgentID,
+		Body:      params.Body,
+		ReplyTo:   params.ReplyTo,
+		Kind:      mailstore.KindPlain,
+	})
 }
 
 // SendSystemMail sends mail as weave itself, for a lifecycle notice no RPC surface asks
 // for on a caller's behalf. The recipient still goes through every check an ordinary send
 // does: archived, mailbox full, hop cap.
 func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
-	return s.send(ctx, SendMailParams{ToAgentID: toAgentID, Body: body}, true)
+	return s.send(ctx, sendParams{
+		ToAgentID: toAgentID,
+		Body:      body,
+		Kind:      mailstore.KindPlain,
+		System:    true,
+	})
 }
 
-func (s *MailService) send(ctx context.Context, params SendMailParams, system bool) (*mailstore.Mail, error) {
+type SendNoticeParams struct {
+	ToAgentID string
+	Body      string
+	// Kind is what the notice is about, and is what stops a second copy queueing up behind
+	// the first. Sending KindPlain here would defeat that, so it is refused.
+	Kind mailstore.Kind
+}
+
+// SendNotice sends mail as weave itself under a kind the recipient holds at most one
+// unclaimed copy of. It answers nil, and no error, when one is already waiting: a doorbell
+// still unread is already saying what pressing it again would say.
+func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
+	if params.Kind == "" || params.Kind == mailstore.KindPlain {
+		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be deduplicated by", ErrNoticeKindMissing)
+	}
+
+	return s.send(ctx, sendParams{
+		ToAgentID: params.ToAgentID,
+		Body:      params.Body,
+		Kind:      params.Kind,
+		System:    true,
+	})
+}
+
+type sendParams struct {
+	From      string
+	ToAgentID string
+	Body      string
+	ReplyTo   *string
+	Kind      mailstore.Kind
+	// System marks mail weave raises itself rather than on a caller's behalf, which is what
+	// puts weave's own name on it instead of a sender's.
+	System bool
+}
+
+func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.Mail, error) {
 	recipient, err := s.agentFinder.GetByID(ctx, params.ToAgentID)
 	if err != nil {
 		return nil, err
@@ -141,6 +189,7 @@ func (s *MailService) send(ctx context.Context, params SendMailParams, system bo
 	send := mailstore.SendParams{
 		ToAgentID: recipient.ID,
 		Body:      params.Body,
+		Kind:      params.Kind,
 		ReplyTo:   params.ReplyTo,
 		Hops:      hops,
 		Deadline:  deadline,
@@ -148,7 +197,7 @@ func (s *MailService) send(ctx context.Context, params SendMailParams, system bo
 	if sender != nil {
 		send.FromAgentID = &sender.ID
 		send.FromName = sender.Name
-	} else if system {
+	} else if params.System {
 		send.FromName = WeaveSenderName
 	}
 

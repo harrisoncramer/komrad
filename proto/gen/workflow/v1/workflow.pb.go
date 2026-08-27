@@ -148,6 +148,7 @@ type WorktreeConfig struct {
 	BaseBranch    string                 `protobuf:"bytes,2,opt,name=base_branch,json=baseBranch,proto3" json:"base_branch,omitempty"`
 	CopyPaths     []string               `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
 	SymlinkPaths  []string               `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
+	DiffExclude   []string               `protobuf:"bytes,5,rep,name=diff_exclude,json=diffExclude,proto3" json:"diff_exclude,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -206,6 +207,13 @@ func (x *WorktreeConfig) GetCopyPaths() []string {
 func (x *WorktreeConfig) GetSymlinkPaths() []string {
 	if x != nil {
 		return x.SymlinkPaths
+	}
+	return nil
+}
+
+func (x *WorktreeConfig) GetDiffExclude() []string {
+	if x != nil {
+		return x.DiffExclude
 	}
 	return nil
 }
@@ -848,14 +856,15 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"archivedAt\x88\x01\x01\x127\n" +
 	"\bworktree\x18\n" +
 	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktreeB\x0e\n" +
-	"\f_archived_at\"\xc7\x01\n" +
+	"\f_archived_at\"\x81\x02\n" +
 	"\x0eWorktreeConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12-\n" +
 	"\vbase_branch\x18\x02 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xff\x01R\n" +
 	"baseBranch\x122\n" +
 	"\n" +
 	"copy_paths\x18\x03 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\tcopyPaths\x128\n" +
-	"\rsymlink_paths\x18\x04 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\fsymlinkPaths\"\x81\x01\n" +
+	"\rsymlink_paths\x18\x04 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\fsymlinkPaths\x128\n" +
+	"\fdiff_exclude\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\x102\"\vr\tл\x18\x01\x10\x01\x18\xff\x01R\vdiffExclude\"\x81\x01\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -900,16 +909,16 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xca\x1f\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xfe\"\n" +
 	"\x0fWorkflowService\x12\x9c\x04\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xc3\x03\x9a\xb5\x18\xbb\x03\n" +
 	"\x0elist_workflows\x12\xa8\x03List the workflows agents are grouped into, most recently updated first, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\x80\x06\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xa4\x05\x9a\xb5\x18\x9f\x05\n" +
-	"\x0fcreate_workflow\x12\x89\x05Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set. \x00\x12\x91\x06\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xc2\x05\x9a\xb5\x18\xba\x05\n" +
-	"\x0fupdate_workflow\x12\xa4\x05Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. \x00\x90\x02\x02\x12\xff\x02\n" +
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xda\a\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xfe\x06\x9a\xb5\x18\xf9\x06\n" +
+	"\x0fcreate_workflow\x12\xe3\x06Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. \x00\x12\xeb\a\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x9c\a\x9a\xb5\x18\x94\a\n" +
+	"\x0fupdate_workflow\x12\xfe\x06Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
 	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xd6\x04\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xf7\x03\x9a\xb5\x18\xef\x03\n" +

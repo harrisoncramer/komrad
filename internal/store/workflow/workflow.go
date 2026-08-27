@@ -50,6 +50,8 @@ type WorktreeConfig struct {
 	CopyPaths []string
 
 	SymlinkPaths []string
+
+	DiffExclude []string
 }
 
 type Store struct {
@@ -77,6 +79,7 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+			WorktreeDiffExclude:  row.WorktreeDiffExclude,
 		})
 	}), nil
 }
@@ -115,6 +118,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+			WorktreeDiffExclude:  row.WorktreeDiffExclude,
 		})
 	}), nil
 }
@@ -141,6 +145,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+		WorktreeDiffExclude:  row.WorktreeDiffExclude,
 	})
 	return &workflow, nil
 }
@@ -166,6 +171,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert action config for workflow %q: %w", cfg.Name, err)
@@ -188,6 +194,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 	})
 	return &workflow, nil
 }
@@ -231,6 +238,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 	}); err != nil {
 		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
 	}
@@ -324,6 +332,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+		WorktreeDiffExclude:  row.WorktreeDiffExclude,
 	})
 
 	return &workflow, nil
@@ -350,6 +359,7 @@ type actionConfigFields struct {
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
 }
 
 func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {
@@ -367,6 +377,7 @@ func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfi
 			BaseBranch:   ac.WorktreeBaseBranch,
 			CopyPaths:    ac.WorktreeCopyPaths,
 			SymlinkPaths: ac.WorktreeSymlinkPaths,
+			DiffExclude:  ac.WorktreeDiffExclude,
 		},
 		ArchivedAt: w.ArchivedAt,
 		UpdatedAt:  w.UpdatedAt,

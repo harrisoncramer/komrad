@@ -120,12 +120,6 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) clearFilter() (tea.Model, tea.Cmd) {
-	m.filter.typing = false
-
-	return m.typeIntoFilter("")
-}
-
 func (m *model) enterScreen(next screen) {
 	if m.screen != next && !m.screen.isForm() {
 		m.filter = filterState{}
@@ -134,30 +128,39 @@ func (m *model) enterScreen(next screen) {
 	m.screen = next
 }
 
-func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+// takeKey applies one keypress to a filter that is being typed at, and reports whether the
+// keypress was one of the filter's. Every screen with a filter shares this, since a filter is
+// the same input wherever it is drawn.
+func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	switch k := key.String(); {
 	case k == "esc":
-		return m.clearFilter()
+		f.typing = false
+		f.setQuery("")
 	case k == "enter":
-		m.filter.typing = false
-
-		return m, nil
-	case k == "ctrl+c":
-		return m, m.hide()
+		f.typing = false
 	case k == "backspace":
-		return m.typeIntoFilter(trimLastRune(m.filter.query))
+		f.setQuery(trimLastRune(f.query))
 	case key.Type == tea.KeySpace:
-		return m.typeIntoFilter(m.filter.query + " ")
+		f.setQuery(f.query + " ")
 	case key.Type == tea.KeyRunes:
-		return m.typeIntoFilter(m.filter.query + string(key.Runes))
+		f.setQuery(f.query + string(key.Runes))
+	default:
+		return false
 	}
 
-	return m, nil
+	return true
 }
 
-func (m model) typeIntoFilter(query string) (tea.Model, tea.Cmd) {
+func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if key.String() == "ctrl+c" {
+		return m, m.hide()
+	}
+
 	hovered := m.hoveredFilterKey()
-	m.filter.setQuery(query)
+	if !m.filter.takeKey(key) {
+		return m, nil
+	}
+
 	m.placeFilteredCursor(hovered)
 
 	return m, nil
@@ -226,17 +229,21 @@ func placeCursor(found, cursor, length int) int {
 }
 
 func (m model) filterView() string {
-	if !m.filter.typing && !m.filter.standing() {
+	return m.filter.view()
+}
+
+func (f filterState) view() string {
+	if !f.typing && !f.standing() {
 		return ""
 	}
 
-	query := m.filter.query
-	if m.filter.broken {
+	query := f.query
+	if f.broken {
 		query = brokenStyle.Render(query)
 	}
 
 	line := cursorStyle.Render("/") + " " + query
-	if m.filter.typing {
+	if f.typing {
 		line += cursorStyle.Render("▏")
 	}
 

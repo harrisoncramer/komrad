@@ -253,6 +253,7 @@ func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.Worktre
 		BaseBranch:   w.GetBaseBranch(),
 		CopyPaths:    w.GetCopyPaths(),
 		SymlinkPaths: w.GetSymlinkPaths(),
+		DiffExclude:  w.GetDiffExclude(),
 	}
 }
 
@@ -262,6 +263,7 @@ func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeC
 		BaseBranch:   w.BaseBranch,
 		CopyPaths:    w.CopyPaths,
 		SymlinkPaths: w.SymlinkPaths,
+		DiffExclude:  w.DiffExclude,
 	}
 }
 

@@ -33,6 +33,37 @@ func TestFrameSizesTheNavPane(t *testing.T) {
 	assert.Equal(t, []string{"%0 40%"}, tmux.resizes, "the sidebar is what is put at the configured width")
 }
 
+// TestFrameRedrawsWhenOnlyTheHeightMoves covers a region that keeps its width and changes
+// height, which is what the stage does when a split opens under it and goes again. Content is
+// drawn to exactly one screenful, so a height the frame never re-read leaves rows the pane
+// cannot fill, and they stay blank because nothing asks again.
+func TestFrameRedrawsWhenOnlyTheHeightMoves(t *testing.T) {
+	tmux := &recordingTmux{width: 80, height: 40}
+	frame := New(tmux, config.DefaultLayout())
+	frame.Attach("%0")
+
+	var heights []int
+	content := Content{
+		Key:   "diff",
+		Wraps: true,
+		Render: func(target Target) ([]string, bool) {
+			heights = append(heights, target.Height)
+
+			return []string{"draw"}, true
+		},
+	}
+
+	frame.Show(RegionStage, content)
+	frame.Show(RegionStage, content)
+	tmux.height = 24
+	frame.Show(RegionStage, content)
+	tmux.height = 40
+	frame.Show(RegionStage, content)
+
+	assert.Equal(t, []int{40, 24, 40}, heights,
+		"the same content at an unchanged size is left alone, and every height change is redrawn")
+}
+
 // TestFrameOpenLeavesAStandingFrameAlone covers asking for a region that is already there,
 // which is what lets anything that suspects the frame has moved just ask for it rather than
 // working out whether it needs to.
@@ -385,7 +416,8 @@ func newProbe(key string, wraps bool, got *Target) Content {
 }
 
 type recordingTmux struct {
-	width int
+	width  int
+	height int
 
 	splits []string
 
@@ -409,6 +441,7 @@ type recordingTmux struct {
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
+func (t *recordingTmux) GetPaneHeight(string) int     { return t.height }
 
 func (t *recordingTmux) SplitRight(anchor, _, size string) string {
 	return t.recordSplit("right", anchor, size)

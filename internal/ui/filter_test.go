@@ -10,6 +10,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -255,9 +256,7 @@ func TestFilterCursor(t *testing.T) {
 			m := filterModel()
 			m.tree.cursor = tt.start
 
-			updated, _ := m.typeIntoFilter(tt.query)
-			got, ok := updated.(model)
-			require.True(t, ok)
+			got := typeIntoFilter(m, tt.query)
 
 			rows := got.agentRows()
 			require.Less(t, got.tree.cursor, len(rows))
@@ -273,9 +272,7 @@ func TestFilterKeepsSelection(t *testing.T) {
 	m := filterModel()
 	m.tree.selected = selection{ids: []string{"a1", "a2"}}
 
-	updated, _ := m.typeIntoFilter("payouts")
-	got, ok := updated.(model)
-	require.True(t, ok)
+	got := typeIntoFilter(m, "payouts")
 
 	assert.Equal(t, []string{"payouts"}, rowNames(got.agentRows())[1:], "the tree is narrowed")
 	assert.Len(t, chosenAgents(got.tree.selected, got.allAgentRows()), 2, "both chosen agents are still acted on")
@@ -374,6 +371,17 @@ func TestFilterViewLine(t *testing.T) {
 			assert.Equal(t, tt.want, strings.TrimSpace(ansi.Strip(m.filterView())))
 		})
 	}
+}
+
+// typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.
+func typeIntoFilter(m model, query string) model {
+	m.filter.typing = true
+	for _, r := range query {
+		next, _ := m.updateFilterInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = next.(model)
+	}
+
+	return m
 }
 
 func filterModel() model {

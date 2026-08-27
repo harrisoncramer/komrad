@@ -296,7 +296,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 		{
 			name:   "an empty config stores disabled with empty lists",
 			create: Config{Name: "backend"},
-			want:   WorktreeConfig{CopyPaths: []string{}, SymlinkPaths: []string{}},
+			want:   WorktreeConfig{CopyPaths: []string{}, SymlinkPaths: []string{}, DiffExclude: []string{}},
 		},
 		{
 			name: "every field is carried",
@@ -307,6 +307,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 					BaseBranch:   "develop",
 					CopyPaths:    []string{".env", "config/local.json"},
 					SymlinkPaths: []string{"node_modules"},
+					DiffExclude:  []string{"proto/gen", "*.pb.go"},
 				},
 			},
 			want: WorktreeConfig{
@@ -314,6 +315,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 				BaseBranch:   "develop",
 				CopyPaths:    []string{".env", "config/local.json"},
 				SymlinkPaths: []string{"node_modules"},
+				DiffExclude:  []string{"proto/gen", "*.pb.go"},
 			},
 		},
 		{
@@ -327,7 +329,7 @@ func TestWorktreeConfigRoundTrip(t *testing.T) {
 				},
 			},
 			update: &Config{Name: "backend"},
-			want:   WorktreeConfig{CopyPaths: []string{}, SymlinkPaths: []string{}},
+			want:   WorktreeConfig{CopyPaths: []string{}, SymlinkPaths: []string{}, DiffExclude: []string{}},
 		},
 	}
 

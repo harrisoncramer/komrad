@@ -47,6 +47,16 @@ message WorktreeConfig {
       }
     }
   }];
+  repeated string diff_exclude = 5 [(buf.validate.field).repeated = {
+    max_items: 50
+    items: {
+      string: {
+        min_len: 1
+        max_len: 255
+        [rules.v1.relative_path]: true
+      }
+    }
+  }];
 }
 
 message ListWorkflowsRequest {
@@ -164,7 +174,7 @@ service WorkflowService {
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch."
       destructive: false
     };
   }
@@ -172,7 +182,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_workflow"
-      description: "Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts."
+      description: "Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch."
       destructive: false
     };
   }

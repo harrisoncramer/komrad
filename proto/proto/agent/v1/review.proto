@@ -1,0 +1,152 @@
+syntax = "proto3";
+
+package agent.v1;
+
+import "buf/validate/validate.proto";
+
+option go_package = "weave/proto/gen/agent/v1;agentv1";
+
+// ReviewAuthorKind is who wrote a review message.
+enum ReviewAuthorKind {
+  REVIEW_AUTHOR_KIND_UNSPECIFIED = 0;
+  REVIEW_AUTHOR_KIND_HUMAN = 1;
+  REVIEW_AUTHOR_KIND_AGENT = 2;
+}
+
+// ReviewThread is one conversation pinned to a place in an agent's diff.
+message ReviewThread {
+  string id = 1;
+  string agent_id = 2;
+  string file_path = 3;
+  int32 old_start = 4;
+  int32 old_end = 5;
+  int32 new_start = 6;
+  int32 new_end = 7;
+  // The diff lines the thread was written against, each keeping its leading marker.
+  repeated string quoted_lines = 8;
+  // When the person reviewing settled this thread, empty while it is still owed an answer.
+  // Whether a thread is settled is a different question from whether the code under it has
+  // moved, and it is this one that decides whether the thread is still asking for something.
+  string resolved_at = 9;
+  // Whether the person reviewing has written something the agent has not been shown.
+  bool unread_by_agent = 10;
+  // Whether the agent has replied since the person reviewing last looked.
+  bool unread_by_human = 11;
+  repeated ReviewMessage messages = 12;
+  string created_at = 13;
+  string updated_at = 14;
+}
+
+// ReviewMessage is one thing said in a review thread.
+message ReviewMessage {
+  string id = 1;
+  string thread_id = 2;
+  ReviewAuthorKind author_kind = 3;
+  // The agent that wrote it, absent for the person reviewing and cleared if that agent is
+  // deleted. author_kind, not this, is what says who wrote it.
+  optional string author_agent_id = 4;
+  string body = 5;
+  string created_at = 6;
+  string updated_at = 7;
+}
+
+message ListReviewThreadsRequest {
+  // The agent whose diff is being reviewed. An agent reading its own threads may leave this
+  // unset, since the call already carries which agent is asking.
+  optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether reading marks the threads read. An agent reading to act on the feedback should,
+  // so the same threads are not announced again; the panel drawing a diff should not.
+  bool mark_read = 2;
+}
+
+message ListReviewThreadsResponse {
+  repeated ReviewThread threads = 1;
+}
+
+message CreateReviewThreadRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string file_path = 2 [(buf.validate.field).string.min_len = 1];
+  int32 old_start = 3;
+  int32 old_end = 4;
+  int32 new_start = 5;
+  int32 new_end = 6;
+  repeated string quoted_lines = 7;
+  // The first thing said, which is the thread's reason for existing.
+  string body = 8 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10000
+  }];
+}
+
+message CreateReviewThreadResponse {
+  ReviewThread thread = 1;
+}
+
+message AddReviewMessageRequest {
+  string thread_id = 1 [(buf.validate.field).string.min_len = 1];
+  string body = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10000
+  }];
+}
+
+message AddReviewMessageResponse {
+  ReviewMessage message = 1;
+}
+
+message EditReviewMessageRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  string body = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 10000
+  }];
+}
+
+message EditReviewMessageResponse {
+  ReviewMessage message = 1;
+}
+
+message MarkReviewThreadReadRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message MarkReviewThreadReadResponse {
+  ReviewThread thread = 1;
+}
+
+message SetReviewThreadResolvedRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether the thread is settled. Unsetting it reopens the thread, which is what a person
+  // does when the answer was not the end of it.
+  bool resolved = 2;
+}
+
+message SetReviewThreadResolvedResponse {
+  ReviewThread thread = 1;
+}
+
+message DeleteReviewThreadRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message DeleteReviewMessageRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+// NotifyReviewThreadsRequest tells an agent it has review activity waiting. The threads
+// themselves are not sent: the agent is handed one piece of mail and looks the conversation
+// up for itself, so a message rewritten afterwards is simply read as it now stands.
+message NotifyReviewThreadsRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Stop the agent where it stands before telling it, so it reads now rather than at the end
+  // of whatever it is doing.
+  bool interrupt = 2;
+}
+
+message NotifyReviewThreadsResponse {
+  // How many threads the agent was told about, which is zero when it was already up to date.
+  int32 unread = 1;
+  // Whether a doorbell the agent has not read was already in its mailbox, in which case none
+  // was raised. Pressing the key again is not a second thing for it to read.
+  bool already_waiting = 2;
+}

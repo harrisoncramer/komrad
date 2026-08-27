@@ -66,7 +66,7 @@ type WorkflowService struct {
 	tx           txRunner
 
 	maxAgents int
-	notifier  parentNotifier
+	notifier  systemMailSender
 }
 
 type WorkflowParams struct {
@@ -77,7 +77,7 @@ type WorkflowParams struct {
 	Tmux         paneKiller
 	Tx           txRunner
 	MaxAgents    int
-	Notifier     parentNotifier
+	Notifier     systemMailSender
 }
 
 // NewWorkflowService builds the service from its dependencies.
@@ -215,6 +215,7 @@ func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
 	cfg.Worktree.CopyPaths = trimPaths(cfg.Worktree.CopyPaths)
 	cfg.Worktree.SymlinkPaths = trimPaths(cfg.Worktree.SymlinkPaths)
+	cfg.Worktree.DiffExclude = trimPaths(cfg.Worktree.DiffExclude)
 }
 
 func trimPaths(paths []string) []string {
@@ -233,7 +234,7 @@ func trimPaths(paths []string) []string {
 }
 
 func validateWorktreePaths(cfg workflowstore.Config) error {
-	for _, list := range [][]string{cfg.Worktree.CopyPaths, cfg.Worktree.SymlinkPaths} {
+	for _, list := range [][]string{cfg.Worktree.CopyPaths, cfg.Worktree.SymlinkPaths, cfg.Worktree.DiffExclude} {
 		for _, path := range list {
 			if err := validateWorktreePath(path); err != nil {
 				return err

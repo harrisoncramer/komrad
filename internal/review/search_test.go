@@ -1,0 +1,124 @@
+package review
+
+import (
+	"regexp"
+	"testing"
+
+	"weave/internal/diff"
+	agentv1 "weave/proto/gen/agent/v1"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+func twoHunkView() *View {
+	return NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{
+			hunkOf(
+				diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
+				diff.Line{Kind: diff.Deletion, Text: "return \"hello\"", OldNumber: 4},
+				diff.Line{Kind: diff.Addition, Text: "return \"Hello\"", NewNumber: 4},
+			),
+			hunkOf(
+				diff.Line{Kind: diff.Context, Text: "func Other() {", OldNumber: 20, NewNumber: 20},
+				diff.Line{Kind: diff.Addition, Text: "\treturn nil", NewNumber: 21},
+			),
+		},
+	}), false)
+}
+
+// TestSearchMatchesTheLineAsDrawn covers what a pattern is matched against, which is the line
+// with the marker the diff put in front of it, so anchoring at an added line works.
+func TestSearchMatchesTheLineAsDrawn(t *testing.T) {
+	view := twoHunkView()
+
+	assert.Equal(t, 2, view.SetPattern(regexp.MustCompile(`^\+`)), "the marker is part of what is searched")
+}
+
+// TestSearchWrapsAtTheEnds covers stepping through matches: forwards past the last one comes
+// back to the first, which is what a search does rather than stopping.
+func TestSearchWrapsAtTheEnds(t *testing.T) {
+	view := twoHunkView()
+
+	require.Equal(t, 3, view.SetPattern(regexp.MustCompile("return")))
+
+	first, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+
+	at, ok := view.MatchNumber(first)
+	require.True(t, ok)
+	assert.Equal(t, 1, at)
+
+	second, ok := view.JumpMatch(first, 1)
+	require.True(t, ok)
+	third, ok := view.JumpMatch(second, 1)
+	require.True(t, ok)
+
+	wrapped, ok := view.JumpMatch(third, 1)
+	require.True(t, ok)
+	assert.Equal(t, first, wrapped, "past the last match is the first again")
+
+	back, ok := view.JumpMatch(first, -1)
+	require.True(t, ok)
+	assert.Equal(t, third, back, "and before the first is the last")
+}
+
+// TestSearchingForNothingClearsIt covers the way a search is put away: no pattern at all.
+func TestSearchingForNothingClearsIt(t *testing.T) {
+	view := twoHunkView()
+
+	view.SetPattern(regexp.MustCompile("return"))
+
+	assert.Zero(t, view.SetPattern(nil))
+
+	_, ok := view.JumpMatch(0, 1)
+	assert.False(t, ok, "nothing to step through once it is cleared")
+}
+
+// TestSearchReachesTheThreadsAtTheFoot covers the rows that are not lines. The cursor can rest
+// on a thread that came adrift, so a search that could not reach it would be lying about what
+// it looked at.
+func TestSearchReachesTheThreadsAtTheFoot(t *testing.T) {
+	view := twoHunkView()
+
+	view.PinThreads([]*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    "gone.go",
+		NewStart:    12,
+		QuotedLines: []string{"+what this used to say"},
+		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
+	}})
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile("gone.go")))
+
+	at, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+	assert.Equal(t, view.Last(), at, "the match is the thread's own row")
+}
+
+// TestSearchIsRunAgainWhenTheRowsMove covers the coupling between the two. Pinning rebuilds the
+// section at the foot, so match rows recorded against the old one would point at the wrong
+// thread, or past the end of the list.
+func TestSearchIsRunAgainWhenTheRowsMove(t *testing.T) {
+	view := twoHunkView()
+
+	adriftThread := &agentv1.ReviewThread{
+		Id: "t1", FilePath: "gone.go", NewStart: 12,
+		QuotedLines: []string{"+gone"},
+		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
+	}
+
+	view.PinThreads([]*agentv1.ReviewThread{adriftThread})
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile("gone.go")))
+
+	view.PinThreads(nil)
+
+	assert.Zero(t, view.MatchCount(), "the row it matched is not there any more")
+
+	at, ok := view.JumpMatch(-1, 1)
+	assert.False(t, ok)
+	assert.LessOrEqual(t, at, view.Last())
+}

@@ -77,6 +77,11 @@ table "workflow_action_configs" {
     type    = sql("text[]")
     default = sql("'{}'")
   }
+  column "worktree_diff_exclude" {
+    null    = false
+    type    = sql("text[]")
+    default = sql("'{}'")
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
