@@ -65,6 +65,39 @@ func TestBuildCommand(t *testing.T) {
 	}
 }
 
+// TestBuildCommandFailsWhenThePromptCannotBeWritten covers the prompt going missing
+// rather than the launch failing. The caller clears an agent's interrupted turn on the
+// strength of this returning nil, so a command line built without the prompt it was
+// given loses the ask for good.
+func TestBuildCommandFailsWhenThePromptCannotBeWritten(t *testing.T) {
+	tests := []struct {
+		name   string
+		launch harness.Launch
+	}{
+		{
+			name:   "on the way back into a conversation",
+			launch: harness.Launch{SessionID: "sess-1", Prompt: "carry on", Resume: true},
+		},
+		{
+			name:   "and on a fresh one",
+			launch: harness.Launch{SessionID: "sess-2", Prompt: "get started"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			blocked := filepath.Join(t.TempDir(), "blocked")
+			require.NoError(t, os.Mkdir(blocked, 0o500))
+
+			launch := tt.launch
+			launch.CacheDir = filepath.Join(blocked, "cache")
+
+			_, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(launch)
+			require.Error(t, err)
+		})
+	}
+}
+
 // TestBuildCommandQuotesFlags confirms the quoting is actually applied on the path that
 // types into the pane, not just available to it.
 func TestBuildCommandQuotesFlags(t *testing.T) {
