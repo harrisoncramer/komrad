@@ -462,6 +462,207 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
+// TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch covers the repo
+// whose origin/HEAD was never written, which is every repo built with git init and a remote
+// added afterwards. The branch the human left checked out is not the repo's default, so
+// basing an agent on it starts every agent on top of somebody's unfinished work.
+func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+	runGit(t, repo, "remote", "set-head", "origin", "--delete")
+	runGit(t, repo, "checkout", "--quiet", "-b", "harry/wip")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "wip.txt"), []byte("unfinished\n"), 0o644))
+	commitAll(t, repo)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-remote-head",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
+	assert.NoFileExists(t, filepath.Join(tree, "wip.txt"), "the agent is not sitting on the checked out branch's work")
+	assert.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "the answer origin gave is recorded for next time")
+}
+
+// TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn covers the default branch
+// having been renamed on the forge. The remote-tracking ref origin/HEAD names survives that
+// rename until somebody prunes, so it still resolves locally while naming a branch origin no
+// longer has, and only origin can say so.
+func TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+
+	runGit(t, upstream, "branch", "--move", "main", "trunk")
+	runGit(t, upstream, "symbolic-ref", "HEAD", "refs/heads/trunk")
+	pushCommit(t, upstream, "trunk", "after-rename.txt")
+
+	require.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "origin/HEAD still names the branch that was renamed away")
+	require.True(t, hasRef(t, repo, "refs/remotes/origin/main"), "the tracking ref for it is still there, since nothing pruned it")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-moved-head",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Contains(t, string(result.Stderr), "fetching trunk from origin")
+	assert.FileExists(t, filepath.Join(tree, "after-rename.txt"), "the worktree is built from origin's branch rather than the stale tracking ref")
+}
+
+// TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable covers the same
+// repo offline. Asking origin is the only way to be sure, so when the answer cannot be had,
+// what git cached last time it could is the best guess left and beats refusing to launch.
+func TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+	runGit(t, repo, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-offline",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
+	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
+}
+
+// TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover covers the single-branch
+// clone, whose refspec maps only the branch it was cloned for. Fetching the default branch
+// there succeeds and writes no origin ref for it, so a fetch that exited zero is no proof of
+// the ref it is about to be branched from, and the add dies on a reference the clone has
+// never had.
+func TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(t *testing.T) {
+	upstream := initBareRepo(t)
+	pushBranch(t, upstream, "feature", "feature-only.txt")
+	repo := singleBranchClone(t, upstream, "feature")
+
+	require.False(t, hasRef(t, repo, "refs/remotes/origin/main"), "the clone's refspec covers only the branch it asked for")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-single-branch",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
+	assert.FileExists(t, filepath.Join(tree, "README.md"))
+	assert.NoFileExists(t, filepath.Join(tree, "feature-only.txt"), "the worktree is cut from origin's default branch rather than the one the clone happens to hold")
+	assert.False(t, hasRef(t, repo, "refs/remotes/origin/main"), "the human's remote refs are left as their refspec asked for")
+	assert.False(t, hasRef(t, repo, "refs/weave/base/agent-single-branch"), "the ref that named the branch point for one command is not left behind")
+}
+
+// TestBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll covers the repo wired to a
+// remote by hand rather than cloned, which has a URL to fetch from and no refspec to map
+// anything it fetches, so no fetch by branch name ever writes a tracking ref.
+func TestBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll(t *testing.T) {
+	upstream := initBareRepo(t)
+
+	repo := initRepo(t)
+	runGit(t, repo, "config", "remote.origin.url", upstream)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-no-refspec",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
+	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
+}
+
+// TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent covers two setups fetching different
+// bases into one repo at once, neither of them covered by its refspec. FETCH_HEAD is the
+// obvious place to read a fetch that wrote no tracking ref, and it is one file the whole repo
+// shares, so agents reading their branch point there land on each other's.
+func TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing.T) {
+	upstream := initBareRepo(t)
+	pushBranch(t, upstream, "other", "other-only.txt")
+	pushBranch(t, upstream, "feature", "feature-only.txt")
+	pushCommit(t, upstream, "main", "main-only.txt")
+	repo := singleBranchClone(t, upstream, "feature")
+
+	worktreesDir := t.TempDir()
+	outcomes := runBuiltinConcurrently(t, "_worktree_setup", []worktreeEnv{
+		{agentID: "agent-on-main", repo: repo, worktreesDir: worktreesDir, baseBranch: "main"},
+		{agentID: "agent-on-other", repo: repo, worktreesDir: worktreesDir, baseBranch: "other"},
+	})
+
+	wants := []struct {
+		agentID string
+		file    string
+		absent  string
+	}{
+		{agentID: "agent-on-main", file: "main-only.txt", absent: "other-only.txt"},
+		{agentID: "agent-on-other", file: "other-only.txt", absent: "main-only.txt"},
+	}
+
+	for i, want := range wants {
+		require.NoErrorf(t, outcomes[i].err, "%s: stderr: %s", want.agentID, outcomes[i].result.Stderr)
+
+		tree := filepath.Join(worktreesDir, want.agentID)
+		assert.FileExists(t, filepath.Join(tree, want.file), "%s is on the base its own workflow named", want.agentID)
+		assert.NoFileExists(t, filepath.Join(tree, want.absent), "%s did not read the other setup's branch point", want.agentID)
+	}
+}
+
+// TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach covers a workflow whose base branch
+// names something neither origin nor the repo has. Handing the add a branch point nothing
+// checked leaves git to fail with invalid reference, which reads as a broken repo rather than
+// as the one setting that is wrong.
+func TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+
+	worktreesDir := t.TempDir()
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-bad-base",
+		repo:         repo,
+		worktreesDir: worktreesDir,
+		baseBranch:   "no-such-branch",
+	})
+	require.Error(t, err, "the setup action fails rather than handing the add a reference nothing resolved")
+
+	assert.Contains(t, string(result.Stderr), "no-such-branch is not a branch")
+	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-bad-base"), "no worktree was made")
+}
+
+// TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase covers the repo that has a remote
+// nobody can reach right now and no main or master to fall back on. Refusing leaves the
+// agent unlaunched, which is the smaller loss: a worktree quietly based on whatever branch
+// the repo was on is work built on the wrong commit and nobody notices until review.
+func TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase(t *testing.T) {
+	hermeticGit(t)
+
+	repo := t.TempDir()
+	runGit(t, repo, "init", "--quiet", "-b", "trunk")
+	runGit(t, repo, "config", "user.email", "test@weave.test")
+	runGit(t, repo, "config", "user.name", "weave test")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "README.md"), []byte("hello\n"), 0o644))
+	commitAll(t, repo)
+	runGit(t, repo, "remote", "add", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	worktreesDir := t.TempDir()
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-no-base",
+		repo:         repo,
+		worktreesDir: worktreesDir,
+	})
+	require.Error(t, err, "the setup action fails rather than picking a branch of its own")
+
+	assert.Contains(t, string(result.Stderr), "could not work out which branch")
+	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-no-base"), "no worktree was made")
+}
+
 // TestBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both
 // exist, and cleanup removes both.
 func TestBuiltinWorktreeCleanup(t *testing.T) {
@@ -903,6 +1104,17 @@ func cloneRepo(t *testing.T, upstream string) string {
 	return dir
 }
 
+func singleBranchClone(t *testing.T, upstream, branch string) string {
+	t.Helper()
+
+	dir := t.TempDir()
+	runGitClone(t, "--quiet", "--single-branch", "--branch", branch, upstream, dir)
+	runGit(t, dir, "config", "user.email", "test@weave.test")
+	runGit(t, dir, "config", "user.name", "weave test")
+
+	return dir
+}
+
 func runGit(t *testing.T, dir string, args ...string) {
 	t.Helper()
 
@@ -938,6 +1150,41 @@ func readGitConfig(t *testing.T, dir, key string) string {
 
 		return ""
 	}
+
+	return strings.TrimSpace(string(out))
+}
+
+func hasRef(t *testing.T, repo, ref string) bool {
+	t.Helper()
+
+	return exec.Command("git", "-C", repo, "rev-parse", "--verify", "--quiet", ref).Run() == nil
+}
+
+func pushCommit(t *testing.T, upstream, branch, name string) {
+	t.Helper()
+
+	publisher := cloneRepo(t, upstream)
+	runGit(t, publisher, "checkout", "--quiet", branch)
+	require.NoError(t, os.WriteFile(filepath.Join(publisher, name), []byte("published\n"), 0o644))
+	commitAll(t, publisher)
+	runGit(t, publisher, "push", "--quiet", "origin", branch)
+}
+
+func pushBranch(t *testing.T, upstream, branch, name string) {
+	t.Helper()
+
+	publisher := cloneRepo(t, upstream)
+	runGit(t, publisher, "checkout", "--quiet", "-b", branch)
+	require.NoError(t, os.WriteFile(filepath.Join(publisher, name), []byte("published\n"), 0o644))
+	commitAll(t, publisher)
+	runGit(t, publisher, "push", "--quiet", "origin", branch)
+}
+
+func readSymbolicRef(t *testing.T, repo, ref string) string {
+	t.Helper()
+
+	out, err := exec.Command("git", "-C", repo, "symbolic-ref", "--quiet", ref).Output()
+	require.NoError(t, err)
 
 	return strings.TrimSpace(string(out))
 }

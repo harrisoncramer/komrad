@@ -16,16 +16,22 @@ var interruptTimer = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*\p{L}+\s*\(\s*\d+
 
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
 
+var idleComposer = regexp.MustCompile(`(?m)^\s*›`)
+
 const liveRegionLines = 30
 
 const waitingRegionLines = 8
 
+const idleRegionLines = 8
+
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Codex is doing. Anything neither
-// working nor blocked on the user is idle rather than unknown, which is also where an
-// interrupted turn lands: the live line vanishes and the typed prompt stays in the
-// input box, so an escaped agent reads as finished.
+// ReadActivity reads what a captured frame says Codex is doing. Only a frame that shows
+// the composer is idle, so a pane whose Codex has not drawn its input box yet is
+// ActivityUnrecognized rather than an agent ready to be typed at.
+//
+// An interrupted turn still reads as finished, since escaping leaves the live line gone
+// and the typed prompt sitting in the composer, which the composer match accepts.
 //
 // The bottom line is read first because the question Codex asks with its own tool offers
 // to interrupt the turn on the same line as the key that answers it.
@@ -39,8 +45,10 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 		return harness.ActivityWorking
 	case doesFrameShowWaiting(frame):
 		return harness.ActivityWaiting
-	default:
+	case doesFrameShowComposer(frame):
 		return harness.ActivityIdle
+	default:
+		return harness.ActivityUnrecognized
 	}
 }
 
@@ -62,6 +70,10 @@ func doesFrameShowWork(frame string) bool {
 
 func doesFrameShowWaiting(frame string) bool {
 	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
+}
+
+func doesFrameShowComposer(frame string) bool {
+	return idleComposer.MatchString(tailLines(frame, idleRegionLines))
 }
 
 func doesFrameShowPromptFooter(frame string) bool {

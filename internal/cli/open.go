@@ -15,7 +15,9 @@ import (
 )
 
 func openCmd(state *app) *cobra.Command {
-	return &cobra.Command{
+	var detach bool
+
+	cmd := &cobra.Command{
 		Use:   "open",
 		Short: "Open the panel popup, creating or attaching its persistent session",
 		Long: "Open the panel popup over the current tmux session.\n\n" +
@@ -25,7 +27,9 @@ func openCmd(state *app) *cobra.Command {
 			"The tmux plugin runs this as the popup's command, so it blocks until the client\n" +
 			"detaches, which is what closes the popup. Pressing the panel key again runs\n" +
 			"`weave hide`. Run by hand outside a popup it attaches the manager session in the\n" +
-			"terminal instead, which is the panel without the popup around it.",
+			"terminal instead, which is the panel without the popup around it.\n\n" +
+			"With --detach it creates the session and returns, which is what a script wants when\n" +
+			"it needs somewhere for agents to be put back into.",
 		Args:          cobra.ArbitraryArgs,
 		Hidden:        true,
 		SilenceUsage:  true,
@@ -33,6 +37,10 @@ func openCmd(state *app) *cobra.Command {
 		RunE: func(_ *cobra.Command, _ []string) error {
 			if err := ensureManagerSession(state); err != nil {
 				return err
+			}
+
+			if detach {
+				return nil
 			}
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)
@@ -52,6 +60,10 @@ func openCmd(state *app) *cobra.Command {
 			return attachManagerSession(state)
 		},
 	}
+
+	cmd.Flags().BoolVar(&detach, "detach", false, "create the manager session if it is not there, then return without attaching")
+
+	return cmd
 }
 
 func attachManagerSession(state *app) error {

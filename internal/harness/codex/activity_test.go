@@ -16,6 +16,8 @@ const idleFrame = "• ls returned no files. Total: 0.\n" +
 	"\n" +
 	"  gpt-5.6-sol default fast · /repo/worktree"
 
+const composerTail = "\n\n› Improve documentation in @filename\n\n  gpt-5.6-sol default fast · /repo/worktree"
+
 const workingFrame = "› list the files in this directory\n" +
 	"\n" +
 	"• Working (5s • esc to interrupt) · 1 background terminal running · /ps to view\n" +
@@ -122,22 +124,22 @@ func TestReadActivity(t *testing.T) {
 		},
 		{
 			name:  "a bulleted assistant message is not work",
-			frame: "• I'll run ls in the current directory and count what it lists.",
+			frame: "• I'll run ls in the current directory and count what it lists." + composerTail,
 			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "a bulleted tool line is not work",
-			frame: "• Running ls | tee /tmp/out.txt; wc -l < /tmp/out.txt",
+			frame: "• Running ls | tee /tmp/out.txt; wc -l < /tmp/out.txt" + composerTail,
 			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "a finished tool line is not work",
-			frame: "• Ran ls | tee /tmp/out.txt\n  └        0",
+			frame: "• Ran ls | tee /tmp/out.txt\n  └        0" + composerTail,
 			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "an approval the user already answered is not work",
-			frame: "✔ You approved codex to run ls this time",
+			frame: "✔ You approved codex to run ls this time" + composerTail,
 			want:  harness.ActivityIdle,
 		},
 		{
@@ -265,4 +267,33 @@ func TestReadActivityStripsANSI(t *testing.T) {
 	frame := "\x1b[38;5;39m•\x1b[39m \x1b[1mWorking\x1b[0m \x1b[2m(7s • esc to interrupt)\x1b[0m"
 
 	assert.Equal(t, harness.ActivityWorking, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadActivity(frame))
+}
+
+// TestReadActivityWithoutComposer covers frames captured from a pane whose Codex has not
+// drawn its input box yet. None of them is the idle prompt, and reading them as one is
+// what lets mail be typed at a pane that is not listening.
+func TestReadActivityWithoutComposer(t *testing.T) {
+	tests := []struct {
+		name  string
+		frame string
+	}{
+		{
+			name:  "the shell's echo of the launch command",
+			frame: "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc",
+		},
+		{
+			name:  "a startup banner with no composer",
+			frame: "  Welcome to Codex, OpenAI's command-line coding agent\n  Loading session 019abc",
+		},
+		{
+			name:  "a pane that has drawn nothing but blank lines",
+			frame: "\n\n\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, harness.ActivityUnrecognized, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadActivity(tt.frame))
+		})
+	}
 }

@@ -15,6 +15,9 @@ detaches, which is what closes the popup. Pressing the panel key again runs
 `weave hide`. Run by hand outside a popup it attaches the manager session in the
 terminal instead, which is the panel without the popup around it.
 
+With --detach it creates the session and returns, which is what a script wants when
+it needs somewhere for agents to be put back into.
+
 ```
 weave open [flags]
 ```
@@ -22,7 +25,8 @@ weave open [flags]
 ### Options
 
 ```
-  -h, --help   help for open
+      --detach   create the manager session if it is not there, then return without attaching
+  -h, --help     help for open
 ```
 
 ### Options inherited from parent commands
