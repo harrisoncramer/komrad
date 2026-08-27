@@ -331,10 +331,10 @@ func (s *testStore) Update(ctx context.Context, agent agentstore.Agent) error {
 	return s.Agents.Update(ctx, agent)
 }
 
-// ClearPane drops an agent's recorded pane, which is what the reconciler does to
-// a row whose pane is no longer its own.
-func (s *testStore) ClearPane(ctx context.Context, id string) error {
-	return s.Agents.ClearPane(ctx, id)
+// ForgetPane drops an agent's recorded pane, which is what the reconciler does to a row
+// whose pane is no longer its own.
+func (s *testStore) ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error) {
+	return s.Agents.ForgetPane(ctx, params)
 }
 
 func (s *testStore) List(ctx context.Context) ([]agentstore.Agent, error) {
