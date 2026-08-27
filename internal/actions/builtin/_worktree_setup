@@ -92,18 +92,18 @@ else
 
 	base="$WEAVE_WORKTREE_BASE_BRANCH"
 
-	if [ -z "$base" ]; then
-		head_ref=$(git -C "$repo" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null) || true
-		if [ -n "$head_ref" ] && has_ref "$head_ref"; then
-			base=${head_ref#refs/remotes/origin/}
-		fi
-	fi
-
 	if [ -z "$base" ] && [ -n "$origin" ]; then
 		remote_head=$(git -C "$repo" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ { sub("refs/heads/", "", $2); print $2; exit }') || true
 		if [ -n "$remote_head" ]; then
 			base="$remote_head"
 			git -C "$repo" remote set-head origin "$base" >/dev/null 2>&1 || true
+		fi
+	fi
+
+	if [ -z "$base" ]; then
+		head_ref=$(git -C "$repo" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null) || true
+		if [ -n "$head_ref" ] && has_ref "$head_ref"; then
+			base=${head_ref#refs/remotes/origin/}
 		fi
 	fi
 

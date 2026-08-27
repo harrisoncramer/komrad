@@ -487,24 +487,49 @@ func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *t
 	assert.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "the answer origin gave is recorded for next time")
 }
 
-// TestBuiltinWorktreeSetupIgnoresAnOriginHeadPointingAtNothing covers the default branch
-// having been renamed on the forge: origin/HEAD survives the rename still naming the old
-// branch, so it has to be verified before it is read rather than handed to worktree add.
-func TestBuiltinWorktreeSetupIgnoresAnOriginHeadPointingAtNothing(t *testing.T) {
+// TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn covers the default branch
+// having been renamed on the forge. The remote-tracking ref origin/HEAD names survives that
+// rename until somebody prunes, so it still resolves locally while naming a branch origin no
+// longer has, and only origin can say so.
+func TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
+
 	runGit(t, upstream, "branch", "--move", "main", "trunk")
 	runGit(t, upstream, "symbolic-ref", "HEAD", "refs/heads/trunk")
-	runGit(t, repo, "update-ref", "-d", "refs/remotes/origin/main")
+	pushCommit(t, upstream, "trunk", "after-rename.txt")
+
+	require.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "origin/HEAD still names the branch that was renamed away")
+	require.True(t, hasRef(t, repo, "refs/remotes/origin/main"), "the tracking ref for it is still there, since nothing pruned it")
 
 	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
-		agentID:      "agent-stale-head",
+		agentID:      "agent-moved-head",
 		repo:         repo,
 		worktreesDir: t.TempDir(),
 	})
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 
+	tree := strings.TrimSpace(string(result.Stdout))
 	assert.Contains(t, string(result.Stderr), "fetching trunk from origin")
+	assert.FileExists(t, filepath.Join(tree, "after-rename.txt"), "the worktree is built from origin's branch rather than the stale tracking ref")
+}
+
+// TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable covers the same
+// repo offline. Asking origin is the only way to be sure, so when the answer cannot be had,
+// what git cached last time it could is the best guess left and beats refusing to launch.
+func TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+	runGit(t, repo, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-offline",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
@@ -1013,6 +1038,22 @@ func readGitConfig(t *testing.T, dir, key string) string {
 	}
 
 	return strings.TrimSpace(string(out))
+}
+
+func hasRef(t *testing.T, repo, ref string) bool {
+	t.Helper()
+
+	return exec.Command("git", "-C", repo, "rev-parse", "--verify", "--quiet", ref).Run() == nil
+}
+
+func pushCommit(t *testing.T, upstream, branch, name string) {
+	t.Helper()
+
+	publisher := cloneRepo(t, upstream)
+	runGit(t, publisher, "checkout", "--quiet", branch)
+	require.NoError(t, os.WriteFile(filepath.Join(publisher, name), []byte("published\n"), 0o644))
+	commitAll(t, publisher)
+	runGit(t, publisher, "push", "--quiet", "origin", branch)
 }
 
 func readSymbolicRef(t *testing.T, repo, ref string) string {
