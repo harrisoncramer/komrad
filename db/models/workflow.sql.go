@@ -320,7 +320,8 @@ FROM
 WHERE
     w.archived_at IS NULL
 ORDER BY
-    w.name ASC,
+    LOWER(w.name)
+    COLLATE "C" ASC,
     w.id ASC
 `
 
@@ -399,11 +400,14 @@ FROM
     JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
     AND ($2::uuid IS NULL
-        OR (w.name,
-            w.id) >($3::text,
+        OR (LOWER(w.name)
+            COLLATE "C",
+            w.id) >(LOWER($3::text)
+            COLLATE "C",
             $2::uuid))
 ORDER BY
-    w.name ASC,
+    LOWER(w.name)
+    COLLATE "C" ASC,
     w.id ASC
 LIMIT $4
 `

@@ -1,10 +1,12 @@
 package workflow
 
 import (
+	"slices"
 	"testing"
 
 	"weave/internal/pgtest"
 	"weave/internal/store"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -518,6 +520,44 @@ func TestListPageIsAlphabetical(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{"Api", "backend", "backend", "frontend", "zebra"}, names)
+}
+
+// TestListPageOrderMatchesByName covers the one thing the panel needs of this order, which
+// is that Go can reproduce it. The archive screen merges the archived listing with the live
+// one and has to sort the result itself, so a name the database orders differently from
+// ByName puts the same folder in two places on two screens. Punctuation is where the two
+// used to part: the database's en_US collation ignores a hyphen and no Go comparison does.
+func TestListPageOrderMatchesByName(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	var want []Workflow
+	for _, name := range []string{"weavebot", "weave-bughunt", "weave", "Weave.Old", "weave_two"} {
+		created, err := st.Create(ctx, Config{Name: name})
+		require.NoError(t, err)
+		want = append(want, *created)
+	}
+	slices.SortStableFunc(want, ByName)
+
+	var (
+		got    []Workflow
+		cursor *Cursor
+	)
+	for range 10 {
+		page, err := st.ListPage(ctx, 2, cursor, false)
+		require.NoError(t, err)
+		if len(page) == 0 {
+			break
+		}
+
+		got = append(got, page...)
+
+		last := page[len(page)-1]
+		cursor = &Cursor{Name: last.Name, ID: last.ID}
+	}
+
+	assert.Equal(t, xslice.Map(want, func(w Workflow) string { return w.Name }),
+		xslice.Map(got, func(w Workflow) string { return w.Name }))
 }
 
 // TestDelete covers the hard delete, keyed by id whether or not the row is archived. It

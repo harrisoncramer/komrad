@@ -18,11 +18,14 @@ FROM
     JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE (@archived::boolean) =(w.archived_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
-        OR (w.name,
-            w.id) >(sqlc.narg('cursor_name')::text,
+        OR (LOWER(w.name)
+            COLLATE "C",
+            w.id) >(LOWER(sqlc.narg('cursor_name')::text)
+            COLLATE "C",
             sqlc.narg('cursor_id')::uuid))
 ORDER BY
-    w.name ASC,
+    LOWER(w.name)
+    COLLATE "C" ASC,
     w.id ASC
 LIMIT @lim;
 
@@ -47,7 +50,8 @@ FROM
 WHERE
     w.archived_at IS NULL
 ORDER BY
-    w.name ASC,
+    LOWER(w.name)
+    COLLATE "C" ASC,
     w.id ASC;
 
 -- name: GetWorkflow :one
