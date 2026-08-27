@@ -57,6 +57,8 @@ const (
 
 	WorkflowID = "weave.workflow.id"
 
+	PullRequestURL = "weave.pull_request.url"
+
 	ExitCode = "process.exit.code"
 
 	DurationMS = "duration_ms"

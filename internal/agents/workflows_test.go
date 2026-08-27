@@ -384,6 +384,33 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 	assert.Equal(t, []string{".env"}, reenabled.Worktree.CopyPaths, "re-enabling hands back what was there before")
 }
 
+// TestWorkflowWorktreeArchiveOnPRClosed covers the setting surviving a create and an update,
+// since it is the workflow row the archiving pass reads on every pass.
+func TestWorkflowWorktreeArchiveOnPRClosed(t *testing.T) {
+	st := newStore(t)
+	workflows := workflowsFor(st, newFakeTmux())
+	repo := initRepo(t)
+
+	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+		Name:     "backend",
+		Cwd:      repo,
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+	})
+	require.NoError(t, err)
+	assert.True(t, created.Worktree.ArchiveOnPRClosed)
+
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:     "backend",
+		Cwd:      repo,
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	})
+	require.NoError(t, err)
+
+	updated, err := st.GetWorkflow(t.Context(), created.ID)
+	require.NoError(t, err)
+	assert.False(t, updated.Worktree.ArchiveOnPRClosed)
+}
+
 // TestUpdateWorkflowRefusesTheReservedActionsWithoutTheToggle checks the same rule
 // TestNewWorkflowWithWorktree checks on create, this time on an update.
 func TestUpdateWorkflowRefusesTheReservedActionsWithoutTheToggle(t *testing.T) {

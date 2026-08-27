@@ -65,6 +65,7 @@ type agentManager interface {
 	Update(ctx context.Context, agent agentstore.Agent) error
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	Archive(ctx context.Context, ids []string) error
+	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
 	Restore(ctx context.Context, ids []string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 	LockSlots(ctx context.Context) error
@@ -360,6 +361,32 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	notifyParents(ctx, s.notifier, agents, "archived")
 
 	return nil
+}
+
+// ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed
+// them, and returns the ones it archived. It is for the background passes, which decide from
+// a snapshot: an agent resumed since that snapshot was taken is skipped rather than hidden
+// out from under the pane the resume just opened.
+func (s *AgentService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
+	var failures []error
+	var archived []agentstore.Agent
+
+	for _, agent := range observed {
+		applied, err := s.agents.ArchiveIfUnchanged(ctx, agentstore.ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
+		if err != nil {
+			failures = append(failures, err)
+
+			continue
+		}
+		if applied {
+			archived = append(archived, agent)
+		}
+	}
+
+	killOwnedPanes(ctx, s.tmux, archived)
+	notifyParents(ctx, s.notifier, archived, "archived")
+
+	return archived, errors.Join(failures...)
 }
 
 func notifyParents(ctx context.Context, notifier systemMailSender, agents []agentstore.Agent, reason string) {

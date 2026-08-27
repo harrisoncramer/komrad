@@ -17,6 +17,7 @@ type PullRequest struct {
 	BaseBranch      string
 	CrossRepository bool
 	Repository      string
+	State           string
 }
 
 // GHPullRequests answers pullRequestResolver using the gh CLI.
@@ -33,7 +34,7 @@ func NewGHPullRequests() *GHPullRequests {
 // about a repository the workflow knows nothing about, and the worktree it would then be
 // asked to make has no such branch.
 func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullRequest, error) {
-	fields := "url,number,title,headRefName,baseRefName,isCrossRepository,headRepositoryOwner"
+	fields := "url,number,title,headRefName,baseRefName,isCrossRepository,headRepositoryOwner,state"
 	cmd := exec.CommandContext(ctx, "gh", "pr", "view", ref, "--json", fields)
 	cmd.Dir = dir
 
@@ -49,6 +50,7 @@ func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullReques
 		HeadRefName string `json:"headRefName"`
 		BaseRefName string `json:"baseRefName"`
 		Cross       bool   `json:"isCrossRepository"`
+		State       string `json:"state"`
 	}
 	if err := json.Unmarshal(out, &view); err != nil {
 		return nil, fmt.Errorf("failed to parse gh's pull request: %w", err)
@@ -65,6 +67,7 @@ func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullReques
 		BaseBranch:      view.BaseRefName,
 		CrossRepository: view.Cross,
 		Repository:      repositoryFromURL(view.URL),
+		State:           view.State,
 	}, nil
 }
 

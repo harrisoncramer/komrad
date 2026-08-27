@@ -4,7 +4,7 @@ Replace a workflow's name, context, directory, flags, and the actions run around
 
 ### Synopsis
 
-Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch.
+Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. worktree.archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back. It is read only while worktree.enabled is set, since the pull request it follows is the one opened from the branch the worktree gave the agent.
 
 ```
 weave rpc update-workflow [flags]
@@ -25,6 +25,7 @@ weave rpc update-workflow [flags]
       --request-json string              the whole request as JSON, which the flags above are laid over
       --setup-action string              string, at most 255 characters
       --timeout duration                 how long to wait for the call (default 30s)
+      --worktree.archive-on-pr-closed    bool
       --worktree.base-branch string      string, at most 255 characters
       --worktree.copy-paths strings      string, repeatable
       --worktree.diff-exclude strings    string, repeatable

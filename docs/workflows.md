@@ -37,6 +37,16 @@ Archiving does not run the actions' cleanup actions, so whatever setup built is 
 
 Restoration from the archive is all or nothing. It is refused if the returning agents would not fit under your configured agent ceiling.
 
+## Archiving on a finished pull request
+
+A worktree workflow can archive its agents for you. Turn on "Archive once the pull request closes?" in the workflow form, under the worktree settings, and weave watches the pull request each of that workflow's agents recorded. Once one merges or closes, that agent is archived.
+
+Weave checks every couple of minutes, and only archives an agent that is idle or already dormant, so a merge never takes a pane away from an agent mid-turn. An agent that never opened a pull request is never touched, since there is nothing to watch, and neither is one whose recorded pull request turns out to belong to another branch or another repository.
+
+An agent archived this way carries a `pr_archived` metadata key naming the pull request it was archived for. That is what tells you why a row went away, and it is also what stops a restored agent from being archived again two minutes after you brought it back.
+
+Nothing is deleted. The record, the transcript, and the worktree all survive, exactly as if you had archived it by hand, and restoring the agent brings it back. If you want the disk back, delete the agent, which is what runs the cleanup action.
+
 ## Setting up your first one
 
 Open the panel with `prefix + g`. Press `w`, give it a name, leave everything else blank, and submit. Press `c` and give an agent a prompt. That is the whole minimum: a workflow with nothing but a name is just a folder.

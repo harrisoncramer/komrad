@@ -41,6 +41,34 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 	assert.Empty(t, live, "the batch spanned both workflows")
 }
 
+// TestArchiveUnchangedAgents covers the guard the background passes need. They decide from a
+// snapshot, and a resume writes the pane it opened onto the row without the row changing shape
+// first, so an archive decided from an older read would hide an agent that has just come back
+// and leave a live CLI in a pane no listing shows.
+func TestArchiveUnchangedAgents(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	settled := seedRunningIn(t, st, tmux, workflowID, "settled", "%1")
+	moved := seedInWorkflow(t, st, workflowID, "moved", "", agentstore.StateIdle)
+
+	observed := []agentstore.Agent{settled, moved}
+
+	require.NoError(t, st.Agents.SetStateByID(ctx, moved.ID, agentstore.StateThinking))
+
+	archived, err := manager.ArchiveUnchangedAgents(ctx, observed)
+	require.NoError(t, err)
+
+	require.Len(t, archived, 1)
+	assert.Equal(t, settled.ID, archived[0].ID, "only the row that still read as it was observed is archived")
+	assert.NotNil(t, agentByID(t, st, settled.ID).ArchivedAt)
+	assert.Nil(t, agentByID(t, st, moved.ID).ArchivedAt, "the row that moved since the snapshot is left for a later pass")
+	assert.Equal(t, []string{"%1"}, tmux.killedPanes, "the pane goes with the archive it belongs to")
+}
+
 // TestArchiveAgentsRefusesTheWholeBatch covers one id in a batch holding no agent. Acting
 // on the rest would leave the caller reading a success as having covered the whole list,
 // and there is nothing to undo the half that landed.
