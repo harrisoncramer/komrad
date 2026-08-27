@@ -212,16 +212,25 @@ func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, re
 // closed one and opened another from the same branch still carries the first. Archiving on
 // that would hide an agent whose real pull request is open, which is why a finished one is
 // only believed while it names the repository the workflow points at and the branch the agent
-// is on. A branch weave cannot read is one whose worktree has gone, and there is nothing left
-// to check it against.
+// is on.
+//
+// A blank branch is not evidence of anything on its own: a branch is read by running git in
+// the agent's cwd, and a timeout, a detached HEAD, and a directory that no longer exists all
+// come back the same way. Whether the worktree is really gone is recorded separately, off a
+// missing directory alone, so that is what an agent with nothing to check against is judged
+// by. The repository is compared the way adoption compares it, since one casing comes from a
+// pull request URL and the other from a git remote.
 func answersAbout(agent agentstore.Agent, pr PullRequest, repo string) bool {
-	if repo != "" && pr.Repository != "" && pr.Repository != repo {
+	if repo != "" && pr.Repository != "" && !strings.EqualFold(pr.Repository, repo) {
 		return false
 	}
 
 	branch := agentBranch(agent)
+	if branch == "" {
+		return agent.WorktreeRemoved
+	}
 
-	return branch == "" || pr.Branch == branch
+	return pr.Branch == branch
 }
 
 func agentBranch(agent agentstore.Agent) string {

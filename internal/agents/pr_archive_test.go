@@ -389,6 +389,67 @@ func TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn(t *testing.T) {
 	}
 }
 
+// TestPRArchiverSyncJudgesABlankBranchByTheWorktree covers a branch weave cannot read. It is
+// read by running git in the agent's cwd, so a timeout and a detached HEAD look exactly like a
+// directory that has gone, and treating all three as "nothing to check against" archives a live
+// agent on a stale closed pull request. Whether the worktree is really gone is recorded off a
+// missing directory alone, so that is what decides it.
+func TestPRArchiverSyncJudgesABlankBranchByTheWorktree(t *testing.T) {
+	tests := []struct {
+		name            string
+		worktreeRemoved bool
+		wantArchived    bool
+	}{
+		{
+			name:            "a worktree that is really gone leaves nothing to check, so the merge stands",
+			worktreeRemoved: true,
+			wantArchived:    true,
+		},
+		{
+			name:            "a worktree still on disk means git simply could not answer, so the agent is left alone",
+			worktreeRemoved: false,
+			wantArchived:    false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := t.Context()
+
+			workflowID := seedPRWorkflow(t, st, true, true)
+			agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+			require.NoError(t, st.Agents.SetBranchByID(ctx, agent.ID, nil))
+			require.NoError(t, st.Agents.SetWorktreeRemovedByID(ctx, agent.ID, tt.worktreeRemoved))
+
+			prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+			archiver := &fakeArchiver{}
+
+			require.NoError(t, newPRArchiver(st, prs, archiver).Sync(ctx))
+
+			assert.Equal(t, tt.wantArchived, len(archiver.archived) == 1)
+		})
+	}
+}
+
+// TestPRArchiverSyncMatchesTheRepositoryWhateverItsCasing covers the two casings meeting: one
+// comes from a pull request URL and the other from a git remote, so comparing them exactly
+// leaves an agent that is never archived and says nothing about why.
+func TestPRArchiverSyncMatchesTheRepositoryWhateverItsCasing(t *testing.T) {
+	st := newStore(t)
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: "HarrisonCramer/Weave"}
+	archiver := &fakeArchiver{}
+
+	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
+
+	assert.Len(t, archiver.archived, 1)
+}
+
 // TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL covers what agents actually write
 // under the key. A bare number is a reference gh resolves against whichever repository it runs
 // in, so it names some unrelated pull request that is very likely long merged.
