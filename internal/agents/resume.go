@@ -20,6 +20,14 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
+// turnUnfinished reports whether a state leaves a turn part-way through, which is what a
+// pane going takes with it. Thinking is the model still working. Waiting is a tool call it
+// made and a question nobody answered, which is no more finished; the resume asking about it
+// puts that question back in front of the person rather than losing the work behind it.
+func turnUnfinished(state string) bool {
+	return state == agentstore.StateThinking || state == agentstore.StateWaiting
+}
+
 type harnessRelocator interface {
 	Relocate(sessionID, dir string) error
 }
