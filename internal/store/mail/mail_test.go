@@ -537,3 +537,85 @@ func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, int64(3), pending)
 }
+
+// TestNoticeRingsAgainOnceItHasExpired proves the doorbell cannot jam. The index that holds
+// one notice per kind cannot ask that the notice still be deliverable, so a notice nobody
+// claimed before it ran out of time used to hold the slot for the life of the database.
+func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	first, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "weave: 1 review thread(s) have activity",
+		Kind:      KindReviewActivity,
+		Deadline:  -time.Hour,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, first)
+
+	pending, err := st.CountPending(ctx, recipient)
+	require.NoError(t, err)
+	require.Equal(t, int64(0), pending, "mail that ran out of time is not waiting for anyone")
+
+	again, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "weave: 2 review thread(s) have activity",
+		Kind:      KindReviewActivity,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, again, "a notice nobody could claim does not stand in for one that can be")
+
+	claimed, err := st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1, "the notice that replaced it is the only one, and it is deliverable")
+	assert.Equal(t, "weave: 2 review thread(s) have activity", claimed[0].Body)
+}
+
+// TestExpiredNoticeIsRungInPlace keeps the expired notice and the one replacing it as one row,
+// so a mailbox left alone for weeks holds one doorbell per kind rather than a row per press.
+func TestExpiredNoticeIsRungInPlace(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	for range 3 {
+		sent, err := st.Send(ctx, SendParams{
+			ToAgentID: recipient,
+			Body:      "weave: review thread(s) have activity",
+			Kind:      KindReviewActivity,
+			Deadline:  -time.Hour,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, sent)
+	}
+
+	page, err := st.ListPage(ctx, recipient, 10, nil)
+	require.NoError(t, err)
+	assert.Len(t, page, 1)
+}
+
+// TestExpiredNoticeIsReportableAgain proves a revived notice can expire a second time and
+// still be reported, since ListExpired hands back only what it has not reported before.
+func TestExpiredNoticeIsReportableAgain(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+
+	for range 2 {
+		sent, err := st.Send(ctx, SendParams{
+			ToAgentID: recipient,
+			Body:      "weave: review thread(s) have activity",
+			Kind:      KindReviewActivity,
+			Deadline:  -time.Hour,
+		})
+		require.NoError(t, err)
+		require.NotNil(t, sent)
+
+		expired, err := st.ListExpired(ctx, recipient)
+		require.NoError(t, err)
+		assert.Len(t, expired, 1)
+	}
+}

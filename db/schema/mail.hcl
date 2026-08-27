@@ -94,7 +94,7 @@ table "mail" {
     unique  = true
     columns = [column.to_agent_id, column.kind]
     where   = "claimed_at IS NULL AND kind <> 'plain'::mail_kind"
-    comment = "At most one unclaimed notice of a given kind per agent. A doorbell that is still waiting to be read is already saying what a second one would say, so pressing the key again must not stack another copy behind it."
+    comment = "At most one unclaimed notice of a given kind per agent. A doorbell that is still waiting to be read is already saying what a second one would say, so pressing the key again must not stack another copy behind it. The predicate cannot also ask that the notice still be deliverable, since Postgres will not index on NOW(), so InsertMail carries that half itself and rings the row again once it has expired."
   }
   index "mail_from_agent_id" {
     columns = [column.from_agent_id]
