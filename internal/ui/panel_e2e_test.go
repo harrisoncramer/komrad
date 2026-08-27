@@ -158,7 +158,7 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 	}, 5*time.Second, 10*time.Millisecond, "the pull request key never reached a process")
 
 	assert.Equal(t, created.Msg.GetAgent().GetId(), string(written), "the agent the script reads the pull request back for")
-	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr", "the legend offers the key on an agent that has one")
+	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr (if recorded)", "the legend carries the key")
 }
 
 // TestPanelLeavesThePullRequestKeyAloneWithoutOne covers the agents that never recorded one.
@@ -205,7 +205,7 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	panel.tree.cursor = 1
 
-	assert.NotContains(t, helpDescriptions(panel.rowHelp()), "open pr", "the legend offers only what the key does")
+	assert.Contains(t, helpDescriptions(panel.rowHelp()), "open pr (if recorded)", "the legend keeps one height, and says when the key answers")
 
 	updated, cmd := panel.Update(keyMsg(keys.Agents.OpenPR[0]))
 	pressed, ok := updated.(model)

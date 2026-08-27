@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
 	"weave/config"
@@ -8,6 +9,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -54,6 +56,30 @@ func TestHelpToggleOnSearch(t *testing.T) {
 
 	assert.False(t, searched.helpExpanded, "the help is left as it was")
 	assert.Equal(t, "?", searched.search.query, "the key is typed instead")
+}
+
+// TestHelpColumnsFollowTheWidth covers the expanded legend, which is laid out in as many
+// columns as the sidebar can hold. The rows it takes come off the list, so a sidebar wide
+// enough for two columns draws the same bindings in half the lines.
+func TestHelpColumnsFollowTheWidth(t *testing.T) {
+	narrow := helpModel()
+	narrow.helpExpanded = true
+
+	wide := narrow
+	wide.width = 74
+
+	bindings := byLabel(narrow.agentHelp().full)
+	require.Len(t, helpColumns(bindings, narrow.width), 1, "a narrow sidebar holds one column")
+	require.Len(t, helpColumns(bindings, wide.width), 2, "a wider one holds two")
+
+	narrowHelp := ansi.Strip(narrow.renderHelp(narrow.agentHelp()))
+	wideHelp := ansi.Strip(wide.renderHelp(wide.agentHelp()))
+
+	assert.Equal(t, len(bindings), strings.Count(narrowHelp, "\n"), "one binding a line down the one column")
+	assert.Less(t, strings.Count(wideHelp, "\n"), strings.Count(narrowHelp, "\n"), "two columns are shorter")
+	for _, binding := range bindings {
+		assert.Contains(t, wideHelp, binding.Help().Desc, "and drop nothing")
+	}
 }
 
 func helpModel() model {

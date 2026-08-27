@@ -7,22 +7,16 @@ import (
 
 	"github.com/charmbracelet/bubbles/help"
 	"github.com/charmbracelet/bubbles/key"
+	"github.com/charmbracelet/lipgloss"
 )
+
+// maxHelpColumns is the widest the expanded legend goes. A sidebar wide enough for a fourth
+// column is wide enough that the legend is already short.
+const maxHelpColumns = 3
 
 type keyMap struct {
 	short []key.Binding
 	full  []key.Binding
-}
-
-// ShortHelp is the collapsed help, the one line.
-func (k keyMap) ShortHelp() []key.Binding {
-	return byLabel(k.short)
-}
-
-// FullHelp is the expanded help as a single column, so the bindings run down the pane one
-// per line rather than side by side in a strip too narrow to hold them.
-func (k keyMap) FullHelp() [][]key.Binding {
-	return [][]key.Binding{byLabel(k.full)}
 }
 
 func byLabel(bindings []key.Binding) []key.Binding {
@@ -42,12 +36,51 @@ func (m model) renderHelp(k keyMap) string {
 		k = filterHelp()
 	}
 
+	view := helpView(m.width)
+	if !m.helpExpanded {
+		return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n"
+	}
+
+	return trimLines(view.FullHelpView(helpColumns(byLabel(k.full), m.width))) + "\n"
+}
+
+func helpView(width int) help.Model {
 	view := help.New()
 	view.Styles = helpStyles()
-	view.Width = m.width
-	view.ShowAll = m.helpExpanded
+	view.Width = width
 
-	return trimLines(view.View(k)) + "\n"
+	return view
+}
+
+// helpColumns lays the expanded legend out in as many columns as the sidebar can hold, because
+// the rows it takes are the list's. A column that does not fit is dropped whole rather than
+// wrapped, so the width is measured before the count is settled and one column is the fallback.
+func helpColumns(bindings []key.Binding, width int) [][]key.Binding {
+	for columns := maxHelpColumns; columns > 1; columns-- {
+		split := splitColumns(bindings, columns)
+		if helpWidth(split) <= width {
+			return split
+		}
+	}
+
+	return [][]key.Binding{bindings}
+}
+
+// helpWidth is what the legend wants, measured by the same code that draws it. A view with no
+// width of its own truncates nothing, so what comes back is the untruncated size.
+func helpWidth(columns [][]key.Binding) int {
+	return lipgloss.Width(helpView(0).FullHelpView(columns))
+}
+
+func splitColumns(bindings []key.Binding, columns int) [][]key.Binding {
+	rows := (len(bindings) + columns - 1) / columns
+
+	split := make([][]key.Binding, 0, columns)
+	for start := 0; start < len(bindings); start += rows {
+		split = append(split, bindings[start:min(start+rows, len(bindings))])
+	}
+
+	return split
 }
 
 func trimLines(rendered string) string {
@@ -252,27 +285,20 @@ func (m model) rowHelp() []key.Binding {
 		}
 	}
 
-	rows := []key.Binding{
+	// The pr and review keys answer for some agents and not others, and the caveats say which,
+	// so that the legend keeps one height as the cursor moves rather than shifting the list.
+	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Actions.Open, "actions"),
-	}
-
-	if item, ok := m.selectedAgent(); ok && hasPR(item.agent) {
-		rows = append(rows, binding(m.keys.Agents.OpenPR, "open pr"))
-	}
-
-	if item, ok := m.selectedAgent(); ok && m.isReviewable(item.agent) {
-		rows = append(rows, binding(m.keys.Agents.Review, "review the diff"))
-	}
-
-	return append(rows,
+		binding(m.keys.Agents.OpenPR, "open pr (if recorded)"),
+		binding(m.keys.Agents.Review, "review diff (worktree only)"),
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
 		binding(m.keys.Agents.Rename, "rename"),
 		m.archiveBinding(m.keys.Agents.Archive),
-	)
+	}
 }
 
 func (m model) screenHelp() []key.Binding {

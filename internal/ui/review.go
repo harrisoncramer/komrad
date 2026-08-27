@@ -209,7 +209,6 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 		m.review.restore = nil
 	}
-	m.review.frames = &reviewFrames{}
 
 	m.stageReview()
 }

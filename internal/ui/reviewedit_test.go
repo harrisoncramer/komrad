@@ -156,3 +156,32 @@ func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 		})
 	}
 }
+
+// TestReviewKeepsDrawingAfterAReload is what the reader sees when it goes wrong: the sidebar
+// still follows the cursor, because it is drawn by the panel itself, while the diff beside it
+// sits frozen with its highlight on the row the cursor left. The drawer is only ever handed a
+// screenful measured against the pane, so a reload that drops the measurement stops every
+// repaint after it.
+func TestReviewKeepsDrawingAfterAReload(t *testing.T) {
+	dir := reviewRepo(t)
+	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	reloaded, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+
+	m = reloaded
+	m.applyReviewLoaded(loaded)
+
+	require.NotZero(t, m.review.frames.width, "the stage is still measured")
+
+	before := len(tmux.sentKeys)
+	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+
+	assert.Greater(t, len(tmux.sentKeys), before, "the move tells the drawer to read the new screenful")
+	assert.NotEqual(t, m.review.cursor, moved.(model).review.cursor, "and the cursor actually moved")
+}
