@@ -656,6 +656,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	if agent.InterruptedAt == nil && turnUnfinished(agent.State) {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
+			s.tmux.KillPane(pane)
+
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
 		}
 
@@ -666,6 +668,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	agent.State = agentstore.StateIdle
 	agent.Cwd = dir
 	if err := s.agents.Update(ctx, agent); err != nil {
+		s.tmux.KillPane(pane)
+
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 
