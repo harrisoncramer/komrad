@@ -677,7 +677,10 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}
 
-	if prompt != "" {
+	// A recorded turn does not outlive the relaunch either way. A reopened conversation has
+	// just been asked about it, and a fresh one never can be, since the conversation that
+	// held the turn is gone and no later resume can reach it.
+	if agent.InterruptedAt != nil {
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
 		}
