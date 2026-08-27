@@ -90,12 +90,18 @@ func TestResumeDir(t *testing.T) {
 // Nothing about that turn survives the pane and no CLI resumes into one, so the work only
 // carries on if the resume asks for it as an ordinary message.
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
-	cut := func(t *testing.T, state string) (*AgentService, *testStore, *fakeHarness, agentstore.Agent) {
+	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
+
+	cut := func(t *testing.T, state, session string) (*AgentService, *testStore, *fakeHarness, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
 		tmux := newFakeTmux()
 		agent := seed(t, st, "cut", "%1", state)
+		if session != "" {
+			require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, session))
+			agent.SessionID = session
+		}
 		service, h := newManagerWithHarness(tmux, st, "")
 
 		require.NoError(t, NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents).Reconcile(t.Context()))
@@ -104,17 +110,17 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	}
 
 	t.Run("a pane that goes while its agent is thinking leaves the turn recorded as cut off", func(t *testing.T) {
-		_, st, _, agent := cut(t, agentstore.StateThinking)
+		_, st, _, agent := cut(t, agentstore.StateThinking, sessionID)
 		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt)
 	})
 
 	t.Run("a pane that goes while its agent is idle leaves nothing to pick back up", func(t *testing.T) {
-		_, st, _, agent := cut(t, agentstore.StateIdle)
+		_, st, _, agent := cut(t, agentstore.StateIdle, sessionID)
 		assert.Nil(t, agentByID(t, st, agent.ID).InterruptedAt)
 	})
 
 	t.Run("the resume opens with the ask, and does not carry it into a later one", func(t *testing.T) {
-		service, st, h, agent := cut(t, agentstore.StateThinking)
+		service, st, h, agent := cut(t, agentstore.StateThinking, sessionID)
 
 		_, err := service.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
@@ -124,11 +130,23 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 
 	t.Run("an agent that finished its turn resumes without being told anything", func(t *testing.T) {
-		service, _, h, agent := cut(t, agentstore.StateIdle)
+		service, _, h, agent := cut(t, agentstore.StateIdle, sessionID)
 
 		_, err := service.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Empty(t, h.launches[0].Prompt)
+	})
+
+	t.Run("an agent with no conversation to reopen is not asked about a turn it cannot read", func(t *testing.T) {
+		service, st, h, agent := cut(t, agentstore.StateThinking, "")
+
+		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		require.NoError(t, err)
+		require.Len(t, h.launches, 1)
+		assert.Empty(t, h.launches[0].Prompt, "a fresh conversation cannot be asked to read back over itself")
+		assert.False(t, h.launches[0].Resume, "there is no conversation to reopen")
+		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
+			"the turn stays recorded until the ask reaches the conversation that holds it")
 	})
 }

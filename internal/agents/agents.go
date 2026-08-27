@@ -654,8 +654,14 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 
+	// A stored conversation is what a resume reopens, and an agent may have none: Codex
+	// takes no session id on the command line, so its id is only learned later from its
+	// rollout file, and never at all if that file is not matched. Such a relaunch is a
+	// fresh conversation, which cannot be asked to read back over a turn it never held.
+	resuming := agent.SessionID != ""
+
 	prompt := ""
-	if agent.InterruptedAt != nil {
+	if resuming && agent.InterruptedAt != nil {
 		prompt = interruptedPrompt
 	}
 
@@ -666,12 +672,12 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		Prompt:    prompt,
 		SessionID: agent.SessionID,
 		AgentID:   agent.ID,
-		Resume:    true,
+		Resume:    resuming,
 	}); err != nil {
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}
 
-	if agent.InterruptedAt != nil {
+	if prompt != "" {
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
 		}

@@ -43,12 +43,6 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	switch {
 	case launch.Resume && launch.SessionID != "":
 		command += " --resume " + harness.QuoteArg(launch.SessionID)
-
-		if launch.Prompt != "" {
-			if path, err := harness.WriteTempText(launch.CacheDir, "claude-prompt-*.md", launch.Prompt); err == nil {
-				command += fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path)
-			}
-		}
 	default:
 		if launch.SessionID != "" {
 			command += " --session-id " + harness.QuoteArg(launch.SessionID)
@@ -59,12 +53,15 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", path, path)
 			}
 		}
+	}
 
-		if launch.Prompt != "" {
-			if path, err := harness.WriteTempText(launch.CacheDir, "claude-prompt-*.md", launch.Prompt); err == nil {
-				command += fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path)
-			}
+	if launch.Prompt != "" {
+		path, err := harness.WriteTempText(launch.CacheDir, "claude-prompt-*.md", launch.Prompt)
+		if err != nil {
+			return "", err
 		}
+
+		command += fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path)
 	}
 
 	return command, nil
