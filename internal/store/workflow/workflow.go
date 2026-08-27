@@ -73,7 +73,7 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// List returns every live workflow, newest first.
+// List returns every live workflow, by name.
 func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	rows, err := s.queries.ListWorkflows(ctx)
 	if err != nil {
@@ -95,10 +95,12 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 }
 
 type Cursor struct {
-	ID string `json:"i"`
+	Name string `json:"n"`
+	ID   string `json:"i"`
 }
 
-// Validate refuses a cursor holding anything but an id, which is what the listing pages by.
+// Validate refuses a cursor holding anything but an id. The name it pages by alongside
+// that id is whatever the workflow was called, so there is nothing to refuse in it.
 func (c Cursor) Validate() error {
 	if !store.IsID(c.ID) {
 		return fmt.Errorf("cursor id %q is not an id", c.ID)
@@ -107,11 +109,12 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-// ListPage returns one page of workflows, newest first, resuming after cursor when one is
+// ListPage returns one page of workflows by name, resuming after cursor when one is
 // given. archived picks the archived workflows or the live ones and never both.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Workflow, error) {
 	params := models.ListWorkflowsPageParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
+		params.CursorName = &cursor.Name
 		params.CursorID = &cursor.ID
 	}
 

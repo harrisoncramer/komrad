@@ -320,7 +320,8 @@ FROM
 WHERE
     w.archived_at IS NULL
 ORDER BY
-    w.id DESC
+    w.name ASC,
+    w.id ASC
 `
 
 type ListWorkflowsRow struct {
@@ -398,16 +399,20 @@ FROM
     JOIN workflow_action_configs ac ON ac.id = w.action_config_id
 WHERE ($1::boolean) =(w.archived_at IS NOT NULL)
     AND ($2::uuid IS NULL
-        OR w.id < $2)
+        OR (w.name,
+            w.id) >($3::text,
+            $2::uuid))
 ORDER BY
-    w.id DESC
-LIMIT $3
+    w.name ASC,
+    w.id ASC
+LIMIT $4
 `
 
 type ListWorkflowsPageParams struct {
-	Archived bool
-	CursorID *string
-	Lim      int32
+	Archived   bool
+	CursorID   *string
+	CursorName *string
+	Lim        int32
 }
 
 type ListWorkflowsPageRow struct {
@@ -426,7 +431,12 @@ type ListWorkflowsPageRow struct {
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
-	rows, err := q.db.Query(ctx, listWorkflowsPage, arg.Archived, arg.CursorID, arg.Lim)
+	rows, err := q.db.Query(ctx, listWorkflowsPage,
+		arg.Archived,
+		arg.CursorID,
+		arg.CursorName,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}

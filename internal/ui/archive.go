@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"cmp"
 	"fmt"
 	"slices"
 	"strings"
@@ -48,8 +49,14 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 		}
 	}
 
+	// The listing the server hands back is alphabetical, and folding case here keeps the
+	// merged headers in that same order rather than sinking every lowercase name below
+	// the uppercase ones.
 	slices.SortStableFunc(headers, func(a, b workflowstore.Workflow) int {
-		return strings.Compare(a.ID, b.ID)
+		return cmp.Or(
+			strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
+			strings.Compare(a.ID, b.ID),
+		)
 	})
 
 	return headers

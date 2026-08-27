@@ -44,6 +44,6 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 				ArchiveOnPrClosed: w.Worktree.ArchiveOnPRClosed,
 			},
 		},
-		cursor: workflowstore.Cursor{ID: w.ID},
+		cursor: workflowstore.Cursor{Name: w.Name, ID: w.ID},
 	}
 }
