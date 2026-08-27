@@ -1,6 +1,7 @@
 package agents
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -173,4 +174,38 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		assert.True(t, h.launches[1].Resume, "the conversation it learned is what this reopens")
 		assert.Empty(t, h.launches[1].Prompt, "the conversation this reopens ran its turn to the end")
 	})
+}
+
+// TestATurnCutOffWithNoTmuxServerIsAskedForAgain covers the restart path, where the tmux
+// server is killed before any agent is put back. Every reconcile pass fails on the first
+// thing it does, so nothing looks at a pane and nothing records the turn that was cut off.
+// The resume holds the same two facts a reconcile pass would have gone on, the pane being
+// gone and the row still saying thinking, so it makes the ask itself.
+func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
+	const sessionID = "1c7a3e8b-4d5f-4a6b-9c8d-7e6f5a4b3c21"
+
+	st := newStore(t)
+	tmux := newFakeTmux()
+	agent := seed(t, st, "cut", "%1", agentstore.StateThinking)
+	require.NoError(t, st.Agents.SetSessionID(t.Context(), agent.ID, sessionID))
+
+	service, h := newManagerWithHarness(tmux, st, "")
+
+	tmux.paneOwnersErr = errors.New("error connecting to /private/tmp/tmux-501/weave")
+	rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
+	require.Error(t, rec.Reconcile(t.Context()))
+	tmux.paneOwnersErr = nil
+
+	stored := agentByID(t, st, agent.ID)
+	require.Nil(t, stored.InterruptedAt, "no pass could look at a pane, so nothing recorded the turn")
+	require.Equal(t, agentstore.StateThinking, stored.State)
+
+	_, err := service.ResumeAgent(t.Context(), agent.ID)
+	require.NoError(t, err)
+	require.Len(t, h.launches, 1)
+	assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
+
+	_, err = service.ResumeAgent(t.Context(), agent.ID)
+	require.NoError(t, err)
+	require.Len(t, h.launches, 1, "the agent came back running, so there is nothing to resume")
 }
