@@ -20,6 +20,41 @@ fi
 
 if ! "$weave" start; then
 	echo "warning: the server did not come up, so open the panel to see why" >&2
+	echo "killed $agents panes; the server is not running, so nothing was resumed"
+	exit 1
 fi
 
-echo "killed $agents panes and restarted the server; press prefix+g for the panel"
+if ! "$weave" open --detach; then
+	echo "warning: the panel session did not come up, so nothing was resumed" >&2
+	exit 1
+fi
+
+resumed=0
+cursor=""
+while :; do
+	request=(rpc list-agents --pagination.limit 500 --compact)
+	if [ -n "$cursor" ]; then
+		request+=(--pagination.cursor "$cursor")
+	fi
+
+	page="$("$weave" "${request[@]}")"
+
+	while read -r id; do
+		[ -n "$id" ] || continue
+		if "$weave" rpc resume-agent --id "$id" --compact >/dev/null; then
+			resumed=$((resumed + 1))
+		else
+			echo "warning: $id did not come back; the log says why" >&2
+		fi
+	done < <(jq -r '.agents // [] | .[].id' <<<"$page")
+
+	cursor="$(jq -r '.nextPageToken // empty' <<<"$page")"
+	[ -n "$cursor" ] || break
+done
+
+noun=agents
+if [ "$resumed" -eq 1 ]; then
+	noun=agent
+fi
+
+echo "killed $agents panes, restarted the server, and resumed $resumed $noun; press prefix+g for the panel"
