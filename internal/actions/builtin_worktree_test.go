@@ -462,6 +462,104 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
+// TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch covers the repo
+// whose origin/HEAD was never written, which is every repo built with git init and a remote
+// added afterwards. The branch the human left checked out is not the repo's default, so
+// basing an agent on it starts every agent on top of somebody's unfinished work.
+func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+	runGit(t, repo, "remote", "set-head", "origin", "--delete")
+	runGit(t, repo, "checkout", "--quiet", "-b", "harry/wip")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "wip.txt"), []byte("unfinished\n"), 0o644))
+	commitAll(t, repo)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-remote-head",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
+	assert.NoFileExists(t, filepath.Join(tree, "wip.txt"), "the agent is not sitting on the checked out branch's work")
+	assert.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "the answer origin gave is recorded for next time")
+}
+
+// TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn covers the default branch
+// having been renamed on the forge. The remote-tracking ref origin/HEAD names survives that
+// rename until somebody prunes, so it still resolves locally while naming a branch origin no
+// longer has, and only origin can say so.
+func TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+
+	runGit(t, upstream, "branch", "--move", "main", "trunk")
+	runGit(t, upstream, "symbolic-ref", "HEAD", "refs/heads/trunk")
+	pushCommit(t, upstream, "trunk", "after-rename.txt")
+
+	require.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "origin/HEAD still names the branch that was renamed away")
+	require.True(t, hasRef(t, repo, "refs/remotes/origin/main"), "the tracking ref for it is still there, since nothing pruned it")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-moved-head",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Contains(t, string(result.Stderr), "fetching trunk from origin")
+	assert.FileExists(t, filepath.Join(tree, "after-rename.txt"), "the worktree is built from origin's branch rather than the stale tracking ref")
+}
+
+// TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable covers the same
+// repo offline. Asking origin is the only way to be sure, so when the answer cannot be had,
+// what git cached last time it could is the best guess left and beats refusing to launch.
+func TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+	runGit(t, repo, "remote", "set-url", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-offline",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
+	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
+}
+
+// TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase covers the repo that has a remote
+// nobody can reach right now and no main or master to fall back on. Refusing leaves the
+// agent unlaunched, which is the smaller loss: a worktree quietly based on whatever branch
+// the repo was on is work built on the wrong commit and nobody notices until review.
+func TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase(t *testing.T) {
+	hermeticGit(t)
+
+	repo := t.TempDir()
+	runGit(t, repo, "init", "--quiet", "-b", "trunk")
+	runGit(t, repo, "config", "user.email", "test@weave.test")
+	runGit(t, repo, "config", "user.name", "weave test")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "README.md"), []byte("hello\n"), 0o644))
+	commitAll(t, repo)
+	runGit(t, repo, "remote", "add", "origin", filepath.Join(t.TempDir(), "gone.git"))
+
+	worktreesDir := t.TempDir()
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-no-base",
+		repo:         repo,
+		worktreesDir: worktreesDir,
+	})
+	require.Error(t, err, "the setup action fails rather than picking a branch of its own")
+
+	assert.Contains(t, string(result.Stderr), "could not work out which branch")
+	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-no-base"), "no worktree was made")
+}
+
 // TestBuiltinWorktreeCleanup covers the ordinary case: the worktree and its branch both
 // exist, and cleanup removes both.
 func TestBuiltinWorktreeCleanup(t *testing.T) {
@@ -938,6 +1036,31 @@ func readGitConfig(t *testing.T, dir, key string) string {
 
 		return ""
 	}
+
+	return strings.TrimSpace(string(out))
+}
+
+func hasRef(t *testing.T, repo, ref string) bool {
+	t.Helper()
+
+	return exec.Command("git", "-C", repo, "rev-parse", "--verify", "--quiet", ref).Run() == nil
+}
+
+func pushCommit(t *testing.T, upstream, branch, name string) {
+	t.Helper()
+
+	publisher := cloneRepo(t, upstream)
+	runGit(t, publisher, "checkout", "--quiet", branch)
+	require.NoError(t, os.WriteFile(filepath.Join(publisher, name), []byte("published\n"), 0o644))
+	commitAll(t, publisher)
+	runGit(t, publisher, "push", "--quiet", "origin", branch)
+}
+
+func readSymbolicRef(t *testing.T, repo, ref string) string {
+	t.Helper()
+
+	out, err := exec.Command("git", "-C", repo, "symbolic-ref", "--quiet", ref).Output()
+	require.NoError(t, err)
 
 	return strings.TrimSpace(string(out))
 }
