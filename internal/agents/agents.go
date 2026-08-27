@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/caller"
@@ -60,6 +61,7 @@ type agentManager interface {
 	Create(ctx context.Context, agent agentstore.Agent) error
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
+	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	Archive(ctx context.Context, ids []string) error
 	Restore(ctx context.Context, ids []string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
@@ -652,15 +654,27 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 
+	prompt := ""
+	if agent.InterruptedAt != nil {
+		prompt = interruptedPrompt
+	}
+
 	if err := s.launcher.launch(hn, launchParams{
 		Pane:      pane,
 		Dir:       dir,
 		Flags:     agent.Flags,
+		Prompt:    prompt,
 		SessionID: agent.SessionID,
 		AgentID:   agent.ID,
 		Resume:    true,
 	}); err != nil {
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
+	}
+
+	if agent.InterruptedAt != nil {
+		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
+			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
+		}
 	}
 
 	return nil

@@ -253,6 +253,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentInterruptedAtByID :exec
+UPDATE
+    agents
+SET
+    interrupted_at = sqlc.narg('interrupted_at')
+WHERE
+    id = @id;
+
 -- name: SetAgentSessionID :exec
 UPDATE
     agents
