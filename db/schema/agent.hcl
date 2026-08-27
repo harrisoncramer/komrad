@@ -379,6 +379,11 @@ table "agents" {
     null = true
     type = text
   }
+  column "adopted_branch" {
+    null    = false
+    type    = text
+    default = ""
+  }
   column "worktree_removed" {
     null    = false
     type    = boolean

@@ -114,7 +114,8 @@ INSERT INTO agents(
     is_hidden,
     setup_action,
     cleanup_action,
-    spawned_by_agent_id)
+    spawned_by_agent_id,
+    adopted_branch)
 VALUES (
     @id,
     @name,
@@ -131,7 +132,8 @@ VALUES (
     @is_hidden,
     sqlc.narg('setup_action'),
     sqlc.narg('cleanup_action'),
-    sqlc.narg('spawned_by_agent_id'))
+    sqlc.narg('spawned_by_agent_id'),
+    @adopted_branch)
 RETURNING
     id;
 

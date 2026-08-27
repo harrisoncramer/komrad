@@ -26,6 +26,7 @@ flags, and the response is the API's own JSON on stdout.
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
 * [weave rpc add-review-message](weave_rpc_add-review-message.md)	 - Say something in a review thread, which is how you answer feedback on your own diff.
+* [weave rpc adopt](weave_rpc_adopt.md)	 - Put an agent on work that already exists, naming a pull request by URL or number or naming a branch.
 * [weave rpc archive-agents](weave_rpc_archive-agents.md)	 - Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts.
 * [weave rpc archive-schedule](weave_rpc_archive-schedule.md)	 - Hide a schedule from the panel so it stops firing, keeping its record.
 * [weave rpc archive-workflow](weave_rpc_archive-workflow.md)	 - Hide a workflow from the panel, archiving the agents inside it.

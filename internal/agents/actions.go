@@ -812,7 +812,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 	env = append(env, gitPromptGuardEnv()...)
 
 	if workflow != nil && workflow.Worktree.Enabled {
-		worktreeEnv, err := s.worktreeEnv(*workflow)
+		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {
 			return nil, err
 		}
@@ -847,7 +847,7 @@ func workflowName(workflow *workflowstore.Workflow) string {
 	return workflow.Name
 }
 
-func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, error) {
+func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow, agent agentstore.Agent) ([]string, error) {
 	loaded, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
@@ -866,6 +866,7 @@ func (s *ActionService) worktreeEnv(workflow workflowstore.Workflow) ([]string, 
 		"WEAVE_WORKTREE_BASE_BRANCH=" + cfg.BaseBranch,
 		"WEAVE_WORKTREE_COPY_PATHS=" + strings.Join(cfg.CopyPaths, "\n"),
 		"WEAVE_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
+		"WEAVE_WORKTREE_ADOPT_BRANCH=" + agent.AdoptedBranch,
 	}, nil
 }
 

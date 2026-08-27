@@ -77,6 +77,8 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, m.hide()
 	case isBound(k, m.keys.Agents.New):
 		return m.openNewAgent(m.enclosingWorkflow())
+	case isBound(k, m.keys.Agents.Adopt):
+		return m.openAdopt(m.enclosingWorkflow())
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
@@ -517,6 +519,63 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 	m.screen = screenForm
 
 	return m, m.form.Init()
+}
+
+func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
+	if workflow == nil {
+		m.report("Could not adopt", errNoWorkflow)
+
+		return m, nil
+	}
+
+	m.target.newAgentWorkflow = workflow
+	prefill := adoptFormValues{Harness: workflow.Harness, Flags: workflow.Flags}
+	m.form, m.values.adopt = adoptAgentForm(m.keys.Form, prefill)
+	m.screen = screenAdopt
+
+	return m, m.form.Init()
+}
+
+func (m model) updateAdopt(msg tea.Msg) (tea.Model, tea.Cmd) {
+	return m.updateSubmitForm(msg, model.submitAdopt)
+}
+
+func (m model) submitAdopt() (tea.Model, tea.Cmd) {
+	if m.target.newAgentWorkflow == nil || m.values.adopt == nil {
+		m.report("Could not adopt", errNoWorkflow)
+
+		return m.closeForm()
+	}
+
+	// Adoption runs the workflow's setup action for the worktree it makes, and runs none at all
+	// when it lands in a checkout that already exists. Which of the two it will be is the
+	// service's to work out, so the pane is claimed on the strength of the workflow alone.
+	var pane string
+	if m.target.newAgentWorkflow.SetupAction != "" && !m.setupPending {
+		m = m.closeInfo()
+		if m.claimInfo(infoSetup, "") {
+			pane = m.frame.Pane(layout.RegionInfo)
+			m.setupPending = true
+		}
+	}
+
+	cmd := m.adoptCmd(adoptParams{
+		Ref:        m.values.adopt.Ref,
+		Prompt:     m.values.adopt.Prompt,
+		Title:      m.values.adopt.Title,
+		Harness:    m.values.adopt.Harness,
+		Flags:      m.values.adopt.Flags,
+		WorkflowID: m.target.newAgentWorkflow.ID,
+		SetupPane:  pane,
+	})
+
+	if pane == "" {
+		return m, tea.Batch(cmd, m.holdForm())
+	}
+
+	next, closeCmd := m.closeForm()
+
+	return next, tea.Batch(cmd, closeCmd)
 }
 
 func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {

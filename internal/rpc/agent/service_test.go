@@ -126,6 +126,86 @@ func TestCreateAgent(t *testing.T) {
 	}
 }
 
+func TestAdopt(t *testing.T) {
+	workflow := "wf-1"
+
+	tests := []struct {
+		name     string
+		req      *agentv1.AdoptRequest
+		adoptErr error
+		wantCode connect.Code
+		check    func(t *testing.T, got agents.AdoptParams)
+	}{
+		{
+			name:     "a workflow whose agents share one checkout is a precondition",
+			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
+			adoptErr: agents.ErrAdoptNeedsWorktree,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "a branch something else has checked out is a precondition too",
+			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
+			adoptErr: agents.ErrAdoptBranchInUse,
+			wantCode: connect.CodeFailedPrecondition,
+		},
+		{
+			name:     "a pull request on another repository is the caller's mistake",
+			req:      &agentv1.AdoptRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
+			adoptErr: agents.ErrAdoptRepoMismatch,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "a pull request from a fork is refused the same way",
+			req:      &agentv1.AdoptRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
+			adoptErr: agents.ErrAdoptForkBranch,
+			wantCode: connect.CodeInvalidArgument,
+		},
+		{
+			name:     "an unknown workflow is not found",
+			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
+			adoptErr: agents.ErrWorkflowNotFound,
+			wantCode: connect.CodeNotFound,
+		},
+		{
+			name: "every field reaches the launcher",
+			req: &agentv1.AdoptRequest{
+				Ref:        "https://github.com/o/r/pull/1069",
+				Prompt:     "pick it up",
+				Title:      "logo",
+				Flags:      "--model opus",
+				Harness:    "claude",
+				WorkflowId: workflow,
+			},
+			check: func(t *testing.T, got agents.AdoptParams) {
+				assert.Equal(t, "https://github.com/o/r/pull/1069", got.Ref)
+				assert.Equal(t, "pick it up", got.Prompt)
+				assert.Equal(t, "logo", got.Title)
+				assert.Equal(t, "--model opus", got.Flags)
+				assert.Equal(t, "claude", got.Harness)
+				assert.Equal(t, workflow, got.WorkflowID)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			svc, _, launcher := serviceWithLauncher(t)
+			launcher.err = tt.adoptErr
+
+			adopted, err := svc.Adopt(t.Context(), connect.NewRequest(tt.req))
+			if tt.wantCode != 0 {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, "spawned", adopted.Msg.GetAgent().GetName())
+			tt.check(t, launcher.adopted)
+		})
+	}
+}
+
 func TestGetAgent(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1626,6 +1706,7 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 
 type fakeLauncher struct {
 	got        agents.NewAgentParams
+	adopted    agents.AdoptParams
 	created    *agentstore.Agent
 	err        error
 	alive      bool
@@ -1645,6 +1726,15 @@ type fakeLauncher struct {
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
 	f.got = p
+	if f.err != nil {
+		return nil, f.err
+	}
+
+	return f.created, nil
+}
+
+func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentstore.Agent, error) {
+	f.adopted = p
 	if f.err != nil {
 		return nil, f.err
 	}

@@ -30,6 +30,7 @@ type turnBoundaryRecorder interface {
 
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+	Adopt(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
 	IsAgentRunning(agent agentstore.Agent) bool
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
 	DeleteAgents(ctx context.Context, ids []string) error
@@ -140,6 +141,37 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	}
 
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
+}
+
+// Adopt puts an agent on a branch or pull request that already exists.
+func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptRequest]) (*connect.Response[agentv1.AdoptResponse], error) {
+	created, err := s.launcher.Adopt(ctx, agents.AdoptParams{
+		Ref:            req.Msg.GetRef(),
+		Title:          req.Msg.GetTitle(),
+		Flags:          req.Msg.GetFlags(),
+		Prompt:         req.Msg.GetPrompt(),
+		WorkflowID:     req.Msg.GetWorkflowId(),
+		Harness:        req.Msg.GetHarness(),
+		IdempotencyKey: req.Msg.GetIdempotencyKey(),
+		SetupPane:      req.Msg.GetSetupPane(),
+	})
+	switch {
+	case errors.Is(err, agents.ErrWorkflowNotFound):
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	case errors.Is(err, agents.ErrSetupFailed):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, agents.ErrAdoptNeedsWorktree), errors.Is(err, agents.ErrAdoptBranchInUse), errors.Is(err, agents.ErrWorktreeNeedsCwd):
+		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
+	case errors.Is(err, agents.ErrAdoptRepoMismatch), errors.Is(err, agents.ErrAdoptForkBranch), errors.Is(err, agents.ErrAdoptNoResolver),
+		errors.Is(err, agents.ErrBadDirectory), errors.Is(err, agents.ErrHarnessUnknown), errors.Is(err, agents.ErrSpawnerUnknown):
+		return nil, connect.NewError(connect.CodeInvalidArgument, err)
+	case errors.Is(err, agents.ErrTooManyAgents):
+		return nil, connect.NewError(connect.CodeResourceExhausted, err)
+	case err != nil:
+		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to adopt agent: %w", err))
+	}
+
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks which set

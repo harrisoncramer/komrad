@@ -19,6 +19,7 @@ import (
 
 type formValues struct {
 	agent     *agentFormValues
+	adopt     *adoptFormValues
 	rename    *string
 	workflow  *workflowFormValues
 	schedule  *schedulestore.Config
@@ -37,6 +38,14 @@ type formTarget struct {
 	deleteAgents     []agentstore.Agent
 	archiveAgents    []agentstore.Agent
 	deleteWorkflow   *workflowstore.Workflow
+}
+
+type adoptFormValues struct {
+	Ref     string
+	Prompt  string
+	Title   string
+	Harness string
+	Flags   string
 }
 
 type agentFormValues struct {
@@ -159,6 +168,26 @@ func newAgentForm(keys config.FormKeys, prefill agentFormValues, available []act
 	return form, values
 }
 
+// adoptAgentForm asks for the work to pick up and little else. Adoption works out where the
+// agent runs, so there is no directory to fill in and no setup action to pick.
+func adoptAgentForm(keys config.FormKeys, prefill adoptFormValues) (*huh.Form, *adoptFormValues) {
+	values := &prefill
+
+	fields := []huh.Field{
+		huh.NewInput().Key("ref").Title("Adopt").
+			Description("a pull request url or number, or a branch already pushed or on disk").Value(&values.Ref),
+		huh.NewText().Key("prompt").Title("Prompt").
+			Description(fmt.Sprintf("what to do with it; blank asks for a report. ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+		huh.NewInput().Key("title").Title("Title").Description("blank names it after the pull request or branch").Value(&values.Title),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
+	}
+
+	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+
+	return form, values
+}
+
 func renameForm(current, prefill string, keys config.FormKeys) (*huh.Form, *string) {
 	name := prefill
 
@@ -232,6 +261,8 @@ func (m *model) rebuildForm() tea.Cmd {
 	switch {
 	case m.screen == screenForm && m.values.agent != nil:
 		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, m.getAvailableActions())
+	case m.screen == screenAdopt && m.values.adopt != nil:
+		m.form, m.values.adopt = adoptAgentForm(m.keys.Form, *m.values.adopt)
 	case m.screen == screenRename && m.values.rename != nil:
 		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
 	case m.screen == screenWorkflowForm && m.values.workflow != nil:
@@ -304,7 +335,7 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 
 func (s screen) isForm() bool {
 	switch s {
-	case screenForm, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
+	case screenForm, screenAdopt, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
 		screenScheduleForm, screenScheduleArchive, screenArchiveDelete, screenArchiveEmpty:
 		return true
 	default:

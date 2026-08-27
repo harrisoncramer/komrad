@@ -138,7 +138,7 @@ func TestActionOpensOnTheHoveredAgent(t *testing.T) {
 	m := infoModel(tmux)
 	m.api = api{actions: &fakeActions{}}
 
-	entered, cmd := m.updateAgents(keyMsg("a"))
+	entered, cmd := m.updateAgents(keyMsg("x"))
 	opened, ok := entered.(model)
 	require.True(t, ok)
 	require.Equal(t, screenActions, opened.screen)
@@ -198,7 +198,7 @@ func TestActionOnAWorkflowHeaderDoesNothing(t *testing.T) {
 	m.api = api{actions: &fakeActions{}}
 	m.tree.cursor = 0
 
-	updated, _ := m.updateAgents(keyMsg("a"))
+	updated, _ := m.updateAgents(keyMsg("x"))
 	got, ok := updated.(model)
 	require.True(t, ok)
 

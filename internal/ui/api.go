@@ -85,6 +85,36 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	return resp.Msg.GetAgent(), nil
 }
 
+type adoptParams struct {
+	Ref        string
+	Prompt     string
+	Title      string
+	Harness    string
+	Flags      string
+	WorkflowID string
+	SetupPane  string
+}
+
+func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), createAgentTimeout)
+	defer cancel()
+
+	resp, err := a.agents.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
+		Ref:        params.Ref,
+		Prompt:     params.Prompt,
+		Title:      params.Title,
+		Harness:    params.Harness,
+		Flags:      params.Flags,
+		WorkflowId: params.WorkflowID,
+		SetupPane:  params.SetupPane,
+	}))
+	if err != nil {
+		return nil, err
+	}
+
+	return resp.Msg.GetAgent(), nil
+}
+
 func (a api) archiveAgents(ids []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()

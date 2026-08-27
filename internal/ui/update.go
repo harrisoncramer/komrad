@@ -180,6 +180,8 @@ func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch m.screen {
 	case screenForm:
 		return m.updateForm(msg)
+	case screenAdopt:
+		return m.updateAdopt(msg)
 	case screenRename:
 		return m.updateRename(msg)
 	case screenAgentArchive:

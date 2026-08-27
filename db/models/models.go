@@ -122,6 +122,7 @@ type Agent struct {
 	UpdatedAt        time.Time
 	StateSeenAt      time.Time
 	InterruptedAt    *time.Time
+	AdoptedBranch    string
 }
 
 // Key/value facts an agent recorded about its own work.

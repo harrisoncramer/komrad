@@ -8,11 +8,25 @@ An agent is just a managed claude or codex chat that you can step away from, reb
 
 ## Creating your first agent
 
-Press `n` in the sidebar. If you don't specify the agent, weave will use the default `default_harness` from your configuration. You can also create an agent via the CLI.
+Press `c` in the sidebar. If you don't specify the agent, weave will use the default `default_harness` from your configuration. You can also create an agent via the CLI.
 
 Agents can be thinking (generating or running a tool); waiting (blocked on a human confirmation or other interactive prompt); or idle (sitting with nothing to do).
 
 Separately from state, an agent is either running or dormant. Dormant agents' panes are closed because the CLI has exited, but can be restored, by resuming the session.
+
+## Adopting work that already exists
+
+Adoption puts an agent on a branch somebody else made. Press `a` inside a worktree-enabled workflow and give it a pull request URL, a pull request number, or a branch name.
+
+The workflow decides the repository, so a pull request has to be one opened against the repository its directory points at, and a pull request from a fork is refused: its branch is not on that repository's origin.
+
+Where the agent runs depends on what is already there. When nothing has the branch checked out, the agent gets a worktree of its own on it, fetched from origin first. When some other checkout already holds it, made by hand or by another tool, the agent is launched into that directory as it stands and provisions nothing. When the branch is checked out in the workflow's own directory, adoption refuses, since that is the checkout you are working in.
+
+The branch belongs to whoever made it. Weave never resets it, and deleting an adopted agent removes the worktree but leaves the branch alone. Adopting the same branch twice hands back the agent already on it rather than starting a second one, which git would refuse anyway.
+
+The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. A pull request is recorded on the agent as it starts, so the `o` key opens it straight away.
+
+Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
 ## Metadata
 
