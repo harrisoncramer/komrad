@@ -81,16 +81,58 @@ apply_paths() {
 if [ -d "$tree" ]; then
 	echo "worktree already exists at $tree" >&2
 else
+	has_ref() {
+		git -C "$repo" rev-parse --verify --quiet "$1" >/dev/null 2>&1
+	}
+
+	origin=
+	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
+		origin=yes
+	fi
+
 	base="$WEAVE_WORKTREE_BASE_BRANCH"
+
+	# A default branch renamed away leaves origin/HEAD pointing at a ref that is no longer
+	# there, so it is only worth reading once its target is.
 	if [ -z "$base" ]; then
-		base=$(git -C "$repo" symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null | sed 's@^origin/@@') || true
-		if [ -z "$base" ]; then
-			base=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
+		head_ref=$(git -C "$repo" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null) || true
+		if [ -n "$head_ref" ] && has_ref "$head_ref"; then
+			base=${head_ref#refs/remotes/origin/}
 		fi
 	fi
 
+	# Nothing local knows which branch the repo defaults to, and origin is the only thing that
+	# does. Recording the answer keeps every later create, and the human's own checkout, from
+	# having to ask again.
+	if [ -z "$base" ] && [ -n "$origin" ]; then
+		remote_head=$(git -C "$repo" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ { sub("refs/heads/", "", $2); print $2; exit }') || true
+		if [ -n "$remote_head" ]; then
+			base="$remote_head"
+			git -C "$repo" remote set-head origin "$base" >/dev/null 2>&1 || true
+		fi
+	fi
+
+	if [ -z "$base" ]; then
+		for candidate in refs/remotes/origin/main refs/remotes/origin/master refs/heads/main refs/heads/master; do
+			if has_ref "$candidate"; then
+				base=${candidate##*/}
+				break
+			fi
+		done
+	fi
+
+	# The branch the repo happens to be on is whatever the human left checked out, so it is the
+	# answer only where there is no remote to have a default branch at all.
+	if [ -z "$base" ]; then
+		if [ -n "$origin" ]; then
+			echo "worktree setup: could not work out which branch $repo defaults to, so set the workflow's base branch" >&2
+			exit 1
+		fi
+		base=$(git -C "$repo" rev-parse --abbrev-ref HEAD)
+	fi
+
 	point="$base"
-	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
+	if [ -n "$origin" ]; then
 		echo "fetching $base from origin" >&2
 		if git -C "$repo" fetch --quiet origin "$base" >&2; then
 			point="origin/$base"
