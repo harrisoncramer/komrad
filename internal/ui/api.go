@@ -85,7 +85,7 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	return resp.Msg.GetAgent(), nil
 }
 
-type adoptAgentParams struct {
+type adoptParams struct {
 	Ref        string
 	Prompt     string
 	Title      string
@@ -95,11 +95,11 @@ type adoptAgentParams struct {
 	SetupPane  string
 }
 
-func (a api) adoptAgent(params adoptAgentParams) (*agentv1.Agent, error) {
+func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), createAgentTimeout)
 	defer cancel()
 
-	resp, err := a.agents.AdoptAgent(ctx, connect.NewRequest(&agentv1.AdoptAgentRequest{
+	resp, err := a.agents.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 		Ref:        params.Ref,
 		Prompt:     params.Prompt,
 		Title:      params.Title,

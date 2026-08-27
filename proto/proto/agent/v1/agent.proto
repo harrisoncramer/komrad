@@ -98,7 +98,7 @@ message CreateAgentResponse {
   Agent agent = 1;
 }
 
-message AdoptAgentRequest {
+message AdoptRequest {
   string ref = 1 [(buf.validate.field).string = {
     min_len: 1
     max_len: 400
@@ -129,7 +129,7 @@ message AdoptAgentRequest {
   string setup_pane = 8 [(buf.validate.field).string.max_len = 20];
 }
 
-message AdoptAgentResponse {
+message AdoptResponse {
   Agent agent = 1;
 }
 
@@ -280,9 +280,9 @@ service AgentService {
       destructive: false
     };
   }
-  rpc AdoptAgent(AdoptAgentRequest) returns (AdoptAgentResponse) {
+  rpc Adopt(AdoptRequest) returns (AdoptResponse) {
     option (annotation.v1.tool) = {
-      tool_name: "adopt_agent"
+      tool_name: "adopt"
       description: "Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded."
       destructive: false
     };

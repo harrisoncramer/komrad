@@ -41,8 +41,8 @@ const (
 	// AgentServiceCreateAgentProcedure is the fully-qualified name of the AgentService's CreateAgent
 	// RPC.
 	AgentServiceCreateAgentProcedure = "/agent.v1.AgentService/CreateAgent"
-	// AgentServiceAdoptAgentProcedure is the fully-qualified name of the AgentService's AdoptAgent RPC.
-	AgentServiceAdoptAgentProcedure = "/agent.v1.AgentService/AdoptAgent"
+	// AgentServiceAdoptProcedure is the fully-qualified name of the AgentService's Adopt RPC.
+	AgentServiceAdoptProcedure = "/agent.v1.AgentService/Adopt"
 	// AgentServiceSetTagsProcedure is the fully-qualified name of the AgentService's SetTags RPC.
 	AgentServiceSetTagsProcedure = "/agent.v1.AgentService/SetTags"
 	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
@@ -121,7 +121,7 @@ type AgentServiceClient interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	AdoptAgent(context.Context, *connect.Request[v1.AdoptAgentRequest]) (*connect.Response[v1.AdoptAgentResponse], error)
+	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
 	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
@@ -181,10 +181,10 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("CreateAgent")),
 			connect.WithClientOptions(opts...),
 		),
-		adoptAgent: connect.NewClient[v1.AdoptAgentRequest, v1.AdoptAgentResponse](
+		adopt: connect.NewClient[v1.AdoptRequest, v1.AdoptResponse](
 			httpClient,
-			baseURL+AgentServiceAdoptAgentProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("AdoptAgent")),
+			baseURL+AgentServiceAdoptProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("Adopt")),
 			connect.WithClientOptions(opts...),
 		),
 		setTags: connect.NewClient[v1.SetTagsRequest, emptypb.Empty](
@@ -369,7 +369,7 @@ type agentServiceClient struct {
 	listAgents              *connect.Client[v1.ListAgentsRequest, v1.ListAgentsResponse]
 	getAgent                *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
 	createAgent             *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
-	adoptAgent              *connect.Client[v1.AdoptAgentRequest, v1.AdoptAgentResponse]
+	adopt                   *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
 	setTags                 *connect.Client[v1.SetTagsRequest, emptypb.Empty]
 	setHidden               *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata             *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
@@ -413,9 +413,9 @@ func (c *agentServiceClient) CreateAgent(ctx context.Context, req *connect.Reque
 	return c.createAgent.CallUnary(ctx, req)
 }
 
-// AdoptAgent calls agent.v1.AgentService.AdoptAgent.
-func (c *agentServiceClient) AdoptAgent(ctx context.Context, req *connect.Request[v1.AdoptAgentRequest]) (*connect.Response[v1.AdoptAgentResponse], error) {
-	return c.adoptAgent.CallUnary(ctx, req)
+// Adopt calls agent.v1.AgentService.Adopt.
+func (c *agentServiceClient) Adopt(ctx context.Context, req *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
+	return c.adopt.CallUnary(ctx, req)
 }
 
 // SetTags calls agent.v1.AgentService.SetTags.
@@ -553,7 +553,7 @@ type AgentServiceHandler interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
-	AdoptAgent(context.Context, *connect.Request[v1.AdoptAgentRequest]) (*connect.Response[v1.AdoptAgentResponse], error)
+	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
 	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
@@ -609,10 +609,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("CreateAgent")),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceAdoptAgentHandler := connect.NewUnaryHandler(
-		AgentServiceAdoptAgentProcedure,
-		svc.AdoptAgent,
-		connect.WithSchema(agentServiceMethods.ByName("AdoptAgent")),
+	agentServiceAdoptHandler := connect.NewUnaryHandler(
+		AgentServiceAdoptProcedure,
+		svc.Adopt,
+		connect.WithSchema(agentServiceMethods.ByName("Adopt")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceSetTagsHandler := connect.NewUnaryHandler(
@@ -797,8 +797,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceGetAgentHandler.ServeHTTP(w, r)
 		case AgentServiceCreateAgentProcedure:
 			agentServiceCreateAgentHandler.ServeHTTP(w, r)
-		case AgentServiceAdoptAgentProcedure:
-			agentServiceAdoptAgentHandler.ServeHTTP(w, r)
+		case AgentServiceAdoptProcedure:
+			agentServiceAdoptHandler.ServeHTTP(w, r)
 		case AgentServiceSetTagsProcedure:
 			agentServiceSetTagsHandler.ServeHTTP(w, r)
 		case AgentServiceSetHiddenProcedure:
@@ -872,8 +872,8 @@ func (UnimplementedAgentServiceHandler) CreateAgent(context.Context, *connect.Re
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.CreateAgent is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) AdoptAgent(context.Context, *connect.Request[v1.AdoptAgentRequest]) (*connect.Response[v1.AdoptAgentResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.AdoptAgent is not implemented"))
+func (UnimplementedAgentServiceHandler) Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Adopt is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {

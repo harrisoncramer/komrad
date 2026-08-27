@@ -32,11 +32,11 @@ func (f fakePullRequests) Repository(context.Context, string) (string, error) {
 	return f.repository, nil
 }
 
-// TestAdoptAgentPlacesTheAgent covers where an adoption lands, which is the whole of what
+// TestAdoptPlacesTheAgent covers where an adoption lands, which is the whole of what
 // adoption decides. Git only ever lets one checkout hold a branch, so what is already there
 // is what says whether the agent gets a worktree made for it or is launched into one that
 // exists.
-func TestAdoptAgentPlacesTheAgent(t *testing.T) {
+func TestAdoptPlacesTheAgent(t *testing.T) {
 	tests := []struct {
 		name string
 		// held says which checkout has the branch when adoption runs: none, one made
@@ -80,7 +80,7 @@ func TestAdoptAgentPlacesTheAgent(t *testing.T) {
 				runGit(t, repo, "checkout", "--quiet", "someones/work")
 			}
 
-			created, err := manager.AdoptAgent(t.Context(), AdoptParams{
+			created, err := manager.Adopt(t.Context(), AdoptParams{
 				Ref:        "someones/work",
 				Prompt:     "look at it",
 				WorkflowID: seedWorktreeWorkflow(t, st, repo),
@@ -116,12 +116,12 @@ func TestAdoptAgentPlacesTheAgent(t *testing.T) {
 	}
 }
 
-// TestAdoptAgentRefusesADirectoryAnotherAgentHolds covers what would otherwise hand one
+// TestAdoptRefusesADirectoryAnotherAgentHolds covers what would otherwise hand one
 // worktree to two agents. The branch a weave agent cut for itself is a branch like any
 // other, and adopting it would put a second agent in the first one's directory: deleting
 // either then runs a cleanup that removes the tree out from under the other, uncommitted
 // work included.
-func TestAdoptAgentRefusesADirectoryAnotherAgentHolds(t *testing.T) {
+func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 	tests := []struct {
 		name string
 		// branch is what the sitting agent's worktree is on, and what the adoption asks for.
@@ -162,7 +162,7 @@ func TestAdoptAgentRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
 			}
 
-			_, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
+			_, err := manager.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
 
 			require.ErrorIs(t, err, ErrAdoptBranchInUse)
 			assert.ErrorContains(t, err, "sitting", "the refusal names the agent already in the directory")
@@ -170,10 +170,10 @@ func TestAdoptAgentRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 	}
 }
 
-// TestAdoptAgentTakesOverFromAnAgentWhoseWorktreeIsGone covers the branch nothing can be
+// TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone covers the branch nothing can be
 // working in any more. The agent recorded against it has no directory left, so holding the
 // branch for it would leave no way onto the work but deleting that agent first.
-func TestAdoptAgentTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
+func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
@@ -182,26 +182,26 @@ func TestAdoptAgentTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	runGit(t, repo, "branch", "someones/work")
 	workflow := seedWorktreeWorkflow(t, st, repo)
 
-	first, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	first, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 	require.NoError(t, st.Agents.SetWorktreeRemovedByID(t.Context(), first.ID, true))
 
-	second, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	second, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, second.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
 	assert.Equal(t, "someones/work", agentByID(t, st, second.ID).AdoptedBranch)
 }
 
-// TestAdoptAgentRefusesWithoutAWorktreeWorkflow covers the workflow whose agents all share
+// TestAdoptRefusesWithoutAWorktreeWorkflow covers the workflow whose agents all share
 // one checkout. Adoption there would put an agent on a branch in the directory somebody is
 // working in.
-func TestAdoptAgentRefusesWithoutAWorktreeWorkflow(t *testing.T) {
+func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	_, err := manager.AdoptAgent(t.Context(), AdoptParams{
+	_, err := manager.Adopt(t.Context(), AdoptParams{
 		Ref:        "someones/work",
 		WorkflowID: seedWorkflow(t, st),
 	})
@@ -209,10 +209,10 @@ func TestAdoptAgentRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptNeedsWorktree)
 }
 
-// TestAdoptAgentTwiceHandsBackTheSameAgent covers asking for work that is already being
+// TestAdoptTwiceHandsBackTheSameAgent covers asking for work that is already being
 // done. Git cannot check the branch out twice, so a second agent could only fail; the one
 // already on it is the answer to the question that was asked.
-func TestAdoptAgentTwiceHandsBackTheSameAgent(t *testing.T) {
+func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
@@ -221,10 +221,10 @@ func TestAdoptAgentTwiceHandsBackTheSameAgent(t *testing.T) {
 	runGit(t, repo, "branch", "someones/work")
 	workflow := seedWorktreeWorkflow(t, st, repo)
 
-	first, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	first, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	second, err := manager.AdoptAgent(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	second, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
 	assert.Equal(t, first.ID, second.ID, "the agent already on the branch comes back")
@@ -234,10 +234,10 @@ func TestAdoptAgentTwiceHandsBackTheSameAgent(t *testing.T) {
 	assert.Len(t, agents, 1, "and no second one was started")
 }
 
-// TestAdoptAgentFromAPullRequest covers the reference a person actually has to hand, which
+// TestAdoptFromAPullRequest covers the reference a person actually has to hand, which
 // is a URL rather than a branch name. What weave gets out of it is the branch, and what it
 // records is the pull request, so the panel's open-pr key works from the first moment.
-func TestAdoptAgentFromAPullRequest(t *testing.T) {
+func TestAdoptFromAPullRequest(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "").WithPullRequests(fakePullRequests{
@@ -254,7 +254,7 @@ func TestAdoptAgentFromAPullRequest(t *testing.T) {
 
 	repo := initRepo(t)
 
-	created, err := manager.AdoptAgent(t.Context(), AdoptParams{
+	created, err := manager.Adopt(t.Context(), AdoptParams{
 		Ref:        "https://github.com/chariot-giving/admin/pull/1069",
 		WorkflowID: seedWorktreeWorkflow(t, st, repo),
 	})
@@ -267,9 +267,9 @@ func TestAdoptAgentFromAPullRequest(t *testing.T) {
 	assert.Equal(t, "https://github.com/chariot-giving/admin/pull/1069", prMetadata(stored), "the pull request is recorded as the agent starts")
 }
 
-// TestAdoptAgentRefusesAPullRequestItCannotWorkOn covers the two references that resolve
+// TestAdoptRefusesAPullRequestItCannotWorkOn covers the two references that resolve
 // perfectly well and still name a branch this repository does not have.
-func TestAdoptAgentRefusesAPullRequestItCannotWorkOn(t *testing.T) {
+func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 	tests := []struct {
 		name       string
 		resolver   fakePullRequests
@@ -317,7 +317,7 @@ func TestAdoptAgentRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 				manager = manager.WithPullRequests(tt.resolver)
 			}
 
-			_, err := manager.AdoptAgent(t.Context(), AdoptParams{
+			_, err := manager.Adopt(t.Context(), AdoptParams{
 				Ref:        "https://github.com/chariot-giving/admin/pull/1069",
 				WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
 			})
@@ -331,15 +331,15 @@ func TestAdoptAgentRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 	}
 }
 
-// TestAdoptAgentReportsAFailureToRead covers gh being unreachable, unauthenticated, or
+// TestAdoptReportsAFailureToRead covers gh being unreachable, unauthenticated, or
 // simply not installed, which must read as the lookup failing rather than as a branch by
 // that name.
-func TestAdoptAgentReportsAFailureToRead(t *testing.T) {
+func TestAdoptReportsAFailureToRead(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "").WithPullRequests(fakePullRequests{resolveErr: errors.New("gh: not logged in")})
 
-	_, err := manager.AdoptAgent(t.Context(), AdoptParams{
+	_, err := manager.Adopt(t.Context(), AdoptParams{
 		Ref:        "1069",
 		WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
 	})

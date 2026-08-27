@@ -30,7 +30,7 @@ type turnBoundaryRecorder interface {
 
 type agentLauncher interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
-	AdoptAgent(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
+	Adopt(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
 	IsAgentRunning(agent agentstore.Agent) bool
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
 	DeleteAgents(ctx context.Context, ids []string) error
@@ -143,9 +143,9 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
 }
 
-// AdoptAgent puts an agent on a branch or pull request that already exists.
-func (s *Service) AdoptAgent(ctx context.Context, req *connect.Request[agentv1.AdoptAgentRequest]) (*connect.Response[agentv1.AdoptAgentResponse], error) {
-	created, err := s.launcher.AdoptAgent(ctx, agents.AdoptParams{
+// Adopt puts an agent on a branch or pull request that already exists.
+func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptRequest]) (*connect.Response[agentv1.AdoptResponse], error) {
+	created, err := s.launcher.Adopt(ctx, agents.AdoptParams{
 		Ref:            req.Msg.GetRef(),
 		Title:          req.Msg.GetTitle(),
 		Flags:          req.Msg.GetFlags(),
@@ -171,7 +171,7 @@ func (s *Service) AdoptAgent(ctx context.Context, req *connect.Request[agentv1.A
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to adopt agent: %w", err))
 	}
 
-	return connect.NewResponse(&agentv1.AdoptAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first. The request picks which set

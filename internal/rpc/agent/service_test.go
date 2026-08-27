@@ -126,49 +126,49 @@ func TestCreateAgent(t *testing.T) {
 	}
 }
 
-func TestAdoptAgent(t *testing.T) {
+func TestAdopt(t *testing.T) {
 	workflow := "wf-1"
 
 	tests := []struct {
 		name     string
-		req      *agentv1.AdoptAgentRequest
+		req      *agentv1.AdoptRequest
 		adoptErr error
 		wantCode connect.Code
 		check    func(t *testing.T, got agents.AdoptParams)
 	}{
 		{
 			name:     "a workflow whose agents share one checkout is a precondition",
-			req:      &agentv1.AdoptAgentRequest{Ref: "main", WorkflowId: workflow},
+			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
 			adoptErr: agents.ErrAdoptNeedsWorktree,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "a branch something else has checked out is a precondition too",
-			req:      &agentv1.AdoptAgentRequest{Ref: "main", WorkflowId: workflow},
+			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
 			adoptErr: agents.ErrAdoptBranchInUse,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "a pull request on another repository is the caller's mistake",
-			req:      &agentv1.AdoptAgentRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
+			req:      &agentv1.AdoptRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
 			adoptErr: agents.ErrAdoptRepoMismatch,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "a pull request from a fork is refused the same way",
-			req:      &agentv1.AdoptAgentRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
+			req:      &agentv1.AdoptRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
 			adoptErr: agents.ErrAdoptForkBranch,
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
 			name:     "an unknown workflow is not found",
-			req:      &agentv1.AdoptAgentRequest{Ref: "main", WorkflowId: workflow},
+			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
 			adoptErr: agents.ErrWorkflowNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name: "every field reaches the launcher",
-			req: &agentv1.AdoptAgentRequest{
+			req: &agentv1.AdoptRequest{
 				Ref:        "https://github.com/o/r/pull/1069",
 				Prompt:     "pick it up",
 				Title:      "logo",
@@ -192,7 +192,7 @@ func TestAdoptAgent(t *testing.T) {
 			svc, _, launcher := serviceWithLauncher(t)
 			launcher.err = tt.adoptErr
 
-			adopted, err := svc.AdoptAgent(t.Context(), connect.NewRequest(tt.req))
+			adopted, err := svc.Adopt(t.Context(), connect.NewRequest(tt.req))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 
@@ -1733,7 +1733,7 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	return f.created, nil
 }
 
-func (f *fakeLauncher) AdoptAgent(_ context.Context, p agents.AdoptParams) (*agentstore.Agent, error) {
+func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentstore.Agent, error) {
 	f.adopted = p
 	if f.err != nil {
 		return nil, f.err

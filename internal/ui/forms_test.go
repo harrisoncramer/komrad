@@ -909,7 +909,7 @@ type formRecorder struct {
 	refuse error
 
 	createdAgent     *agentv1.CreateAgentRequest
-	adoptedAgent     *agentv1.AdoptAgentRequest
+	adoptedAgent     *agentv1.AdoptRequest
 	renamedAgent     *agentv1.UpdateAgentRequest
 	deletedAgents    *agentv1.DeleteAgentsRequest
 	archivedAgents   *agentv1.ArchiveAgentsRequest
@@ -945,14 +945,14 @@ func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agent
 	}}), nil
 }
 
-func (f *formRecorder) AdoptAgent(_ context.Context, req *connect.Request[agentv1.AdoptAgentRequest]) (*connect.Response[agentv1.AdoptAgentResponse], error) {
+func (f *formRecorder) Adopt(_ context.Context, req *connect.Request[agentv1.AdoptRequest]) (*connect.Response[agentv1.AdoptResponse], error) {
 	if f.refuse != nil {
 		return nil, f.refuse
 	}
 
 	f.adoptedAgent = req.Msg
 
-	return connect.NewResponse(&agentv1.AdoptAgentResponse{Agent: &agentv1.Agent{
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{
 		Id:         "adopted",
 		Name:       "pr-1069",
 		PaneId:     "%adopted",

@@ -554,7 +554,7 @@ func (x *CreateAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-type AdoptAgentRequest struct {
+type AdoptRequest struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Ref            string                 `protobuf:"bytes,1,opt,name=ref,proto3" json:"ref,omitempty"`
 	WorkflowId     string                 `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
@@ -568,20 +568,20 @@ type AdoptAgentRequest struct {
 	sizeCache      protoimpl.SizeCache
 }
 
-func (x *AdoptAgentRequest) Reset() {
-	*x = AdoptAgentRequest{}
+func (x *AdoptRequest) Reset() {
+	*x = AdoptRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AdoptAgentRequest) String() string {
+func (x *AdoptRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AdoptAgentRequest) ProtoMessage() {}
+func (*AdoptRequest) ProtoMessage() {}
 
-func (x *AdoptAgentRequest) ProtoReflect() protoreflect.Message {
+func (x *AdoptRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -593,88 +593,88 @@ func (x *AdoptAgentRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AdoptAgentRequest.ProtoReflect.Descriptor instead.
-func (*AdoptAgentRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use AdoptRequest.ProtoReflect.Descriptor instead.
+func (*AdoptRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *AdoptAgentRequest) GetRef() string {
+func (x *AdoptRequest) GetRef() string {
 	if x != nil {
 		return x.Ref
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetWorkflowId() string {
+func (x *AdoptRequest) GetWorkflowId() string {
 	if x != nil {
 		return x.WorkflowId
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetPrompt() string {
+func (x *AdoptRequest) GetPrompt() string {
 	if x != nil {
 		return x.Prompt
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetTitle() string {
+func (x *AdoptRequest) GetTitle() string {
 	if x != nil {
 		return x.Title
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetFlags() string {
+func (x *AdoptRequest) GetFlags() string {
 	if x != nil {
 		return x.Flags
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetHarness() string {
+func (x *AdoptRequest) GetHarness() string {
 	if x != nil {
 		return x.Harness
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetIdempotencyKey() string {
+func (x *AdoptRequest) GetIdempotencyKey() string {
 	if x != nil && x.IdempotencyKey != nil {
 		return *x.IdempotencyKey
 	}
 	return ""
 }
 
-func (x *AdoptAgentRequest) GetSetupPane() string {
+func (x *AdoptRequest) GetSetupPane() string {
 	if x != nil {
 		return x.SetupPane
 	}
 	return ""
 }
 
-type AdoptAgentResponse struct {
+type AdoptResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *AdoptAgentResponse) Reset() {
-	*x = AdoptAgentResponse{}
+func (x *AdoptResponse) Reset() {
+	*x = AdoptResponse{}
 	mi := &file_agent_v1_agent_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *AdoptAgentResponse) String() string {
+func (x *AdoptResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*AdoptAgentResponse) ProtoMessage() {}
+func (*AdoptResponse) ProtoMessage() {}
 
-func (x *AdoptAgentResponse) ProtoReflect() protoreflect.Message {
+func (x *AdoptResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -686,12 +686,12 @@ func (x *AdoptAgentResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use AdoptAgentResponse.ProtoReflect.Descriptor instead.
-func (*AdoptAgentResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use AdoptResponse.ProtoReflect.Descriptor instead.
+func (*AdoptResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{7}
 }
 
-func (x *AdoptAgentResponse) GetAgent() *Agent {
+func (x *AdoptResponse) GetAgent() *Agent {
 	if x != nil {
 		return x.Agent
 	}
@@ -1400,8 +1400,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\r_setup_actionB\x11\n" +
 	"\x0f_cleanup_action\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xd5\x03\n" +
-	"\x11AdoptAgentRequest\x12 \n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xd0\x03\n" +
+	"\fAdoptRequest\x12 \n" +
 	"\x03ref\x18\x01 \x01(\tB\x0e\xbaH\vr\t\xa0\xbb\x18\x01\x10\x01\x18\x90\x03R\x03ref\x12(\n" +
 	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
 	"workflowId\x12!\n" +
@@ -1414,8 +1414,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
 	"\n" +
 	"setup_pane\x18\b \x01(\tB\a\xbaH\x04r\x02\x18\x14R\tsetupPaneB\x12\n" +
-	"\x10_idempotency_key\";\n" +
-	"\x12AdoptAgentResponse\x12%\n" +
+	"\x10_idempotency_key\"6\n" +
+	"\rAdoptResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
@@ -1459,7 +1459,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xf9m\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xe4m\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1467,10 +1467,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
 	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xde\x04\n" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\x91\x04\x9a\xb5\x18\x8c\x04\n" +
-	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\xdb\x06\n" +
-	"\n" +
-	"AdoptAgent\x12\x1b.agent.v1.AdoptAgentRequest\x1a\x1c.agent.v1.AdoptAgentResponse\"\x91\x06\x9a\xb5\x18\x8c\x06\n" +
-	"\vadopt_agent\x12\xfa\x05Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xdf\x05\n" +
+	"\fcreate_agent\x12\xf9\x03Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. \x00\x12\xc6\x06\n" +
+	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\x8b\x06\x9a\xb5\x18\x86\x06\n" +
+	"\x05adopt\x12\xfa\x05Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xdf\x05\n" +
 	"\aSetTags\x12\x18.agent.v1.SetTagsRequest\x1a\x16.google.protobuf.Empty\"\xa1\x05\x9a\xb5\x18\x99\x05\n" +
 	"\x0eset_agent_tags\x12\x84\x05Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag. Every id given takes the same glyph, so tagging agents differently is a call each. A tag is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under tags, since the panel's tag key cycles through those and can only clear anything else. Archived agents have no row to draw a tag on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not tag that. \x00\x90\x02\x02\x12\xd3\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
@@ -1536,8 +1535,8 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*ListAgentsResponse)(nil),              // 3: agent.v1.ListAgentsResponse
 	(*CreateAgentRequest)(nil),              // 4: agent.v1.CreateAgentRequest
 	(*CreateAgentResponse)(nil),             // 5: agent.v1.CreateAgentResponse
-	(*AdoptAgentRequest)(nil),               // 6: agent.v1.AdoptAgentRequest
-	(*AdoptAgentResponse)(nil),              // 7: agent.v1.AdoptAgentResponse
+	(*AdoptRequest)(nil),                    // 6: agent.v1.AdoptRequest
+	(*AdoptResponse)(nil),                   // 7: agent.v1.AdoptResponse
 	(*GetAgentRequest)(nil),                 // 8: agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),                // 9: agent.v1.GetAgentResponse
 	(*SetTagsRequest)(nil),                  // 10: agent.v1.SetTagsRequest
@@ -1586,14 +1585,14 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	21, // 1: agent.v1.ListAgentsRequest.pagination:type_name -> pagination.v1.Pagination
 	0,  // 2: agent.v1.ListAgentsResponse.agents:type_name -> agent.v1.Agent
 	0,  // 3: agent.v1.CreateAgentResponse.agent:type_name -> agent.v1.Agent
-	0,  // 4: agent.v1.AdoptAgentResponse.agent:type_name -> agent.v1.Agent
+	0,  // 4: agent.v1.AdoptResponse.agent:type_name -> agent.v1.Agent
 	0,  // 5: agent.v1.GetAgentResponse.agent:type_name -> agent.v1.Agent
 	0,  // 6: agent.v1.RestoreAgentsResponse.agents:type_name -> agent.v1.Agent
 	0,  // 7: agent.v1.ResumeAgentResponse.agent:type_name -> agent.v1.Agent
 	2,  // 8: agent.v1.AgentService.ListAgents:input_type -> agent.v1.ListAgentsRequest
 	8,  // 9: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
 	4,  // 10: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
-	6,  // 11: agent.v1.AgentService.AdoptAgent:input_type -> agent.v1.AdoptAgentRequest
+	6,  // 11: agent.v1.AgentService.Adopt:input_type -> agent.v1.AdoptRequest
 	10, // 12: agent.v1.AgentService.SetTags:input_type -> agent.v1.SetTagsRequest
 	11, // 13: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
 	12, // 14: agent.v1.AgentService.SetMetadata:input_type -> agent.v1.SetMetadataRequest
@@ -1623,7 +1622,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	3,  // 38: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
 	9,  // 39: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
 	5,  // 40: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
-	7,  // 41: agent.v1.AgentService.AdoptAgent:output_type -> agent.v1.AdoptAgentResponse
+	7,  // 41: agent.v1.AgentService.Adopt:output_type -> agent.v1.AdoptResponse
 	28, // 42: agent.v1.AgentService.SetTags:output_type -> google.protobuf.Empty
 	28, // 43: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
 	28, // 44: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty

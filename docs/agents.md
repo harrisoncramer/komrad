@@ -26,7 +26,7 @@ The branch belongs to whoever made it. Weave never resets it, and deleting an ad
 
 The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. A pull request is recorded on the agent as it starts, so the `o` key opens it straight away.
 
-Agents can adopt too, through `adopt_agent` over [MCP](mcp.md).
+Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
 ## Metadata
 

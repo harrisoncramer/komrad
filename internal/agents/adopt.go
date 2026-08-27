@@ -57,10 +57,10 @@ type AdoptParams struct {
 	SetupPane      string
 }
 
-// AdoptAgent puts an agent on a branch weave did not make, named directly or through a pull
+// Adopt puts an agent on a branch weave did not make, named directly or through a pull
 // request. The workflow decides the repository, and weave decides where the agent runs: a
 // worktree of its own on that branch, or the checkout already holding it.
-func (s *AgentService) AdoptAgent(ctx context.Context, p AdoptParams) (*agentstore.Agent, error) {
+func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Agent, error) {
 	ref := strings.TrimSpace(p.Ref)
 	if ref == "" {
 		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)

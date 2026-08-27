@@ -559,7 +559,7 @@ func (m model) submitAdopt() (tea.Model, tea.Cmd) {
 		}
 	}
 
-	cmd := m.adoptCmd(adoptAgentParams{
+	cmd := m.adoptCmd(adoptParams{
 		Ref:        m.values.adopt.Ref,
 		Prompt:     m.values.adopt.Prompt,
 		Title:      m.values.adopt.Title,
