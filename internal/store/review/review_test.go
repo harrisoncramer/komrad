@@ -300,3 +300,90 @@ func catchUp(t *testing.T, st *fixture, agentID string) {
 		require.NoError(t, err)
 	}
 }
+
+// TestSettlingAThreadTakesItOutOfWhatIsOwed covers the state that decides whether a thread is
+// still asking for something. It is the reviewer's judgement and nothing else: the agent is
+// not told about a settled thread, however much it has been read or rewritten.
+func TestSettlingAThreadTakesItOutOfWhatIsOwed(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	thread := openThread(t, st, agentID, "this needs a nil check")
+
+	owed, err := st.CountUnreadForAgent(ctx, agentID)
+	require.NoError(t, err)
+	require.Equal(t, int64(1), owed)
+
+	settled, err := st.SetThreadResolved(ctx, thread.ID, true)
+	require.NoError(t, err)
+	require.NotNil(t, settled)
+	assert.NotNil(t, settled.ResolvedAt)
+
+	owed, err = st.CountUnreadForAgent(ctx, agentID)
+	require.NoError(t, err)
+	assert.Zero(t, owed, "a settled thread is not something the agent still owes an answer to")
+
+	// The panel draws from the list and nothing else, so a thread that is settled in the table
+	// and not settled in the list is settled nowhere that anybody can see.
+	listed, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorHuman})
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.NotNil(t, listed[0].ResolvedAt, "the list carries the settling")
+
+	// The doorbell and the agent's own listing have to agree. A thread the count has stopped
+	// mentioning but the list still flags as owed is one the agent answers anyway, and
+	// answering it reopens it, which quietly undoes the settling.
+	asAgent, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent})
+	require.NoError(t, err)
+	require.Len(t, asAgent, 1)
+	assert.False(t, asAgent[0].UnreadByAgent, "a settled thread is not owed an answer either way")
+
+	reopened, err := st.SetThreadResolved(ctx, thread.ID, false)
+	require.NoError(t, err)
+	require.NotNil(t, reopened)
+	assert.Nil(t, reopened.ResolvedAt)
+
+	owed, err = st.CountUnreadForAgent(ctx, agentID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), owed, "reopening puts it back")
+}
+
+// TestSayingSomethingElseReopensAThread covers the other way a settled thread comes back. A
+// settled conversation somebody has since written in is a conversation again, whichever side
+// wrote, since neither has seen what the other said after it was closed.
+func TestSayingSomethingElseReopensAThread(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	thread := openThread(t, st, agentID, "this needs a nil check")
+
+	_, err := st.SetThreadResolved(ctx, thread.ID, true)
+	require.NoError(t, err)
+
+	said, err := st.AddMessage(ctx, AddMessageParams{
+		ThreadID:   thread.ID,
+		Body:       "one more thing",
+		AuthorKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	again, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	require.NotNil(t, again)
+	assert.Nil(t, again.ResolvedAt)
+
+	// Rewriting a message is the same news to the other side as writing one, so it reopens the
+	// same way. Leaving it settled hides an edit nobody has read behind a finished thread.
+	_, err = st.SetThreadResolved(ctx, thread.ID, true)
+	require.NoError(t, err)
+
+	_, err = st.EditMessage(ctx, said.ID, "one more thing, rewritten")
+	require.NoError(t, err)
+
+	edited, err := st.GetThread(ctx, thread.ID)
+	require.NoError(t, err)
+	require.NotNil(t, edited)
+	assert.Nil(t, edited.ResolvedAt, "an edit reopens it too")
+}

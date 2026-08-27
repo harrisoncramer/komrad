@@ -166,8 +166,9 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Config:         mailConfig(loadConfig),
 	})
 	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
-		Reviews: reviewStore,
-		Mailer:  mailService,
+		Threads:  reviewStore,
+		Messages: reviewStore,
+		Mailer:   mailService,
 		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
 			Agents:    agentStore,
 			Harnesses: p.Harnesses,

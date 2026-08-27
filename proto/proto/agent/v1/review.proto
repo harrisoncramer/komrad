@@ -24,6 +24,10 @@ message ReviewThread {
   int32 new_end = 7;
   // The diff lines the thread was written against, each keeping its leading marker.
   repeated string quoted_lines = 8;
+  // When the person reviewing settled this thread, empty while it is still owed an answer.
+  // Whether a thread is settled is a different question from whether the code under it has
+  // moved, and it is this one that decides whether the thread is still asking for something.
+  string resolved_at = 9;
   // Whether the person reviewing has written something the agent has not been shown.
   bool unread_by_agent = 10;
   // Whether the agent has replied since the person reviewing last looked.
@@ -107,6 +111,17 @@ message MarkReviewThreadReadRequest {
 }
 
 message MarkReviewThreadReadResponse {
+  ReviewThread thread = 1;
+}
+
+message SetReviewThreadResolvedRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether the thread is settled. Unsetting it reopens the thread, which is what a person
+  // does when the answer was not the end of it.
+  bool resolved = 2;
+}
+
+message SetReviewThreadResolvedResponse {
   ReviewThread thread = 1;
 }
 

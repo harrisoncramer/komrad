@@ -19,18 +19,19 @@ import (
 
 // noToolSurface is the methods deliberately kept out of a model's reach. The review ones are
 // the reviewer's half of the conversation: opening a thread, rewriting or deleting what was
-// said, and telling the agent to go and read it. An agent's half is list_review_threads and
-// add_review_message, which it does have.
+// said, settling one, and telling the agent to go and read it. An agent's half is
+// list_review_threads and add_review_message, which it does have.
 var noToolSurface = map[protoreflect.Name]bool{
-	"EditAction":           true,
-	"EmptyArchive":         true,
-	"RecordTurnBoundary":   true,
-	"CreateReviewThread":   true,
-	"EditReviewMessage":    true,
-	"DeleteReviewThread":   true,
-	"DeleteReviewMessage":  true,
-	"MarkReviewThreadRead": true,
-	"NotifyReviewThreads":  true,
+	"EditAction":              true,
+	"EmptyArchive":            true,
+	"RecordTurnBoundary":      true,
+	"CreateReviewThread":      true,
+	"EditReviewMessage":       true,
+	"DeleteReviewThread":      true,
+	"DeleteReviewMessage":     true,
+	"MarkReviewThreadRead":    true,
+	"SetReviewThreadResolved": true,
+	"NotifyReviewThreads":     true,
 }
 
 // TestEveryMethodIsAnnotated confirms the tool surface keeps up with the

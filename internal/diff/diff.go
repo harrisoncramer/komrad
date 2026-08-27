@@ -68,3 +68,31 @@ type Patch struct {
 
 // IsEmpty reports whether the patch has nothing to show.
 func (p Patch) IsEmpty() bool { return len(p.Files) == 0 }
+
+// Stat is the size of a patch in the terms a reviewer reads first: how many files it touches,
+// and how many lines it puts in and takes out.
+type Stat struct {
+	Files   int
+	Added   int
+	Removed int
+}
+
+// Stat counts the patch up.
+func (p Patch) Stat() Stat {
+	stat := Stat{Files: len(p.Files)}
+	for _, file := range p.Files {
+		for _, hunk := range file.Hunks {
+			for _, line := range hunk.Lines {
+				switch line.Kind {
+				case Addition:
+					stat.Added++
+				case Deletion:
+					stat.Removed++
+				case Context:
+				}
+			}
+		}
+	}
+
+	return stat
+}

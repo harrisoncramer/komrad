@@ -81,6 +81,7 @@ type reviewConversation interface {
 	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
 	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
+	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
 	DeleteReviewThread(ctx context.Context, params agents.DeleteReviewThreadParams) error
 	DeleteReviewMessage(ctx context.Context, params agents.DeleteReviewMessageParams) error
 	NotifyReviewThreads(ctx context.Context, params agents.NotifyReviewThreadsParams) (*agents.NotifyReviewThreadsResult, error)

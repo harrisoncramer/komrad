@@ -28,6 +28,7 @@ type fakeReviewAgents struct {
 
 	threads []*agentv1.ReviewThread
 
+	settled  *agentv1.SetReviewThreadResolvedRequest
 	created  *agentv1.CreateReviewThreadRequest
 	replied  *agentv1.AddReviewMessageRequest
 	notified *agentv1.NotifyReviewThreadsRequest
@@ -51,6 +52,26 @@ func (f *fakeReviewAgents) AddReviewMessage(
 	return connect.NewResponse(&agentv1.AddReviewMessageResponse{
 		Message: &agentv1.ReviewMessage{Id: "m2", ThreadId: req.Msg.GetThreadId(), Body: req.Msg.GetBody()},
 	}), nil
+}
+
+func (f *fakeReviewAgents) SetReviewThreadResolved(
+	_ context.Context,
+	req *connect.Request[agentv1.SetReviewThreadResolvedRequest],
+) (*connect.Response[agentv1.SetReviewThreadResolvedResponse], error) {
+	f.settled = req.Msg
+
+	for _, thread := range f.threads {
+		if thread.GetId() != req.Msg.GetId() {
+			continue
+		}
+
+		thread.ResolvedAt = ""
+		if req.Msg.GetResolved() {
+			thread.ResolvedAt = "2026-08-27T12:00:00Z"
+		}
+	}
+
+	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{}), nil
 }
 
 func (f *fakeReviewAgents) ListReviewThreads(
@@ -276,6 +297,17 @@ func TestReviewSidebarShowsTheThread(t *testing.T) {
 	assert.Contains(t, shown, "you")
 }
 
+func TestReviewSidebarSizesTheDiff(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "1 file changed")
+	assert.Contains(t, shown, "+1")
+	assert.Contains(t, shown, "-1")
+}
+
 func TestReviewIsRefusedWithoutAWorktree(t *testing.T) {
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
 	m.listing.workflows[0].Worktree.Enabled = false
@@ -354,19 +386,20 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 	}}
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
-	require.Equal(t, m.review.view.Last(), m.review.cursor, "n should reach the only thread")
+	require.Equal(t, m.review.view.Last(), m.review.cursor, "t should reach the only thread")
 
-	// Standing on it, n has nowhere forward to go and has to stay put.
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	// Standing on it, t has nowhere forward to go and has to stay put.
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
 	assert.Equal(t, m.review.view.Last(), m.review.cursor)
 }
 
-// TestReviewDriftedThreadIsVisible covers a thread whose code has since changed. It cannot be
-// pinned to a row, so the cursor can never reach it, and the sidebar has to say it is there.
-func TestReviewDriftedThreadIsVisible(t *testing.T) {
+// TestReviewAdriftThreadIsReachable covers a thread whose file is not in the diff at all. It
+// gets a row of its own at the foot of the diff rather than a list in the sidebar, so the
+// cursor can still stand on it and the conversation can still be read and answered.
+func TestReviewAdriftThreadIsReachable(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
@@ -385,12 +418,43 @@ func TestReviewDriftedThreadIsVisible(t *testing.T) {
 	}}
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
 
-	_, pinned := m.review.view.ThreadAt(m.review.cursor)
-	require.False(t, pinned)
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = next.(model)
+
+	thread, ok := m.review.view.ThreadAt(m.review.cursor)
+	require.True(t, ok, "t should reach the thread that came adrift")
+	require.Equal(t, "t1", thread.GetId())
 
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "gone.go:12")
-	assert.Contains(t, shown, "moved")
+	assert.Contains(t, shown, "still worth reading", "the conversation is readable where it stands")
+	assert.Contains(t, shown, "gone.go:12", "and it says where it was written")
+	assert.Contains(t, shown, "+what this used to say", "carrying the line it was written against")
+}
+
+// TestReviewAdriftThreadTakesAReply is the point of keeping it: a question nobody has answered
+// is still a question, whatever happened to the code underneath it.
+func TestReviewAdriftThreadTakesAReply(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	agents.threads = []*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    "gone.go",
+		NewStart:    12,
+		QuotedLines: []string{"+what this used to say"},
+		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
+	}}
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = next.(model)
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("c")})
+	m = next.(model)
+	require.True(t, m.review.composing)
+	assert.Equal(t, "t1", m.review.editing, "composing answers the thread rather than opening a new one")
 }
 
 // TestReviewViewNeverOutgrowsThePane is the one invariant the sidebar has to hold: bubbletea
@@ -682,4 +746,392 @@ func TestReviewNotifyIsTheSubmitKey(t *testing.T) {
 
 	require.NotNil(t, agents.notified)
 	assert.Equal(t, "a1", agents.notified.GetAgentId())
+}
+
+// TestSettlingAThreadIsWhatQuietsIt covers the state that decides whether a conversation is
+// finished with. Nothing about the code moving says a question was answered, so settling is a
+// key the person reviewing presses and the only thing that closes a thread short of deleting.
+func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	require.True(t, ok)
+
+	agents.threads = []*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    anchor.FilePath,
+		OldStart:    int32(anchor.OldStart),
+		NewStart:    int32(anchor.NewStart),
+		QuotedLines: anchor.QuotedLines,
+		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this change?"}},
+	}}
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+	m.applyReviewWrote(wrote)
+
+	require.NotNil(t, agents.settled)
+	assert.Equal(t, "t1", agents.settled.GetId())
+	assert.True(t, agents.settled.GetResolved())
+
+	assert.Contains(t, ansi.Strip(m.reviewView()), "everything is settled",
+		"the state line is where settling is said, not a line above the messages")
+
+	// Pressing it again reopens, since an answer that was not the end of it has to be able to
+	// come back.
+	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	wrote, ok = cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	m.applyReviewWrote(wrote)
+
+	assert.False(t, agents.settled.GetResolved())
+}
+
+// TestSettlingSurvivesTheCodeMoving is the pair of rules working together: a settled thread
+// whose line has since been rewritten stays settled, and a question nobody answered stays
+// loud wherever it ends up.
+func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	agents.threads = []*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    "gone.go",
+		NewStart:    12,
+		QuotedLines: []string{"+what this used to say"},
+		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
+	}}
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = next.(model)
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	m.applyReviewWrote(wrote)
+
+	require.NotNil(t, agents.settled, "a thread that came adrift settles like any other")
+	assert.Equal(t, "t1", agents.settled.GetId())
+	assert.Contains(t, ansi.Strip(m.reviewView()), "everything is settled")
+}
+
+// TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff covers the one write that can pull a row
+// out from under the cursor: the section of threads with nowhere to stand is rebuilt on every
+// write, and deleting the thread the cursor is on takes its row away.
+func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	agents.threads = []*agentv1.ReviewThread{{
+		Id:          "t1",
+		FilePath:    "gone.go",
+		NewStart:    12,
+		QuotedLines: []string{"+what this used to say"},
+		Messages:    []*agentv1.ReviewMessage{{Id: "m1", Body: "why did this go?"}},
+	}}
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: agents.threads})
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = next.(model)
+	require.Equal(t, m.review.view.Last(), m.review.cursor)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
+
+	assert.LessOrEqual(t, m.review.cursor, m.review.view.Last(), "the cursor stays on a row that exists")
+	assert.NotPanics(t, func() { m.stageReview() })
+}
+
+// typeReview presses one key after another, through the panel's own routing, since the diff's
+// search is the panel's filter and the filter takes keys before any screen does.
+func typeReview(t *testing.T, m model, keys string) model {
+	t.Helper()
+
+	for _, r := range keys {
+		next, _ := m.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = next.(model)
+	}
+
+	return m
+}
+
+// TestReviewSearchFollowsThePatternAsItIsTyped covers the search prompt. The diff moves to
+// what the half-typed pattern matches, which is what makes typing one worth watching, and the
+// sidebar says where in the matches the cursor is standing.
+func TestReviewSearchFollowsThePatternAsItIsTyped(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	start := m.review.cursor
+
+	m = typeReview(t, m, "/")
+	require.True(t, m.review.filter.typing)
+
+	m = typeReview(t, m, "goodbye")
+
+	require.Equal(t, 1, m.review.view.MatchCount())
+	assert.NotEqual(t, start, m.review.cursor, "the diff moved to the match while it was typed")
+	assert.Contains(t, ansi.Strip(m.reviewView()), "1 of 1")
+
+	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(model)
+
+	require.False(t, m.review.filter.typing, "enter keeps the search and closes the prompt")
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "/ goodbye")
+	assert.Contains(t, shown, "1 of 1")
+}
+
+// TestReviewSearchCancelsBackToWhereItStarted covers esc at the prompt: the pattern goes, the
+// highlighting goes, and the cursor is put back where the reader was before they pressed /.
+func TestReviewSearchCancelsBackToWhereItStarted(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	start := m.review.cursor
+
+	m = typeReview(t, m, "/")
+	m = typeReview(t, m, "goodbye")
+	require.NotEqual(t, start, m.review.cursor)
+
+	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEsc})
+	m = next.(model)
+
+	assert.False(t, m.review.filter.typing)
+	assert.Zero(t, m.review.view.MatchCount(), "esc puts the search away")
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "/ goodbye", "and takes the pattern with it")
+}
+
+// TestReviewSearchStepsThroughMatches covers n and N, which are the search's now that threads
+// have t and T.
+func TestReviewSearchStepsThroughMatches(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = typeReview(t, m, "/")
+	m = typeReview(t, m, "return")
+
+	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(model)
+
+	require.Equal(t, 2, m.review.view.MatchCount(), "the line as it was and the line as it is")
+
+	first := m.review.cursor
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m = next.(model)
+	second := m.review.cursor
+	require.NotEqual(t, first, second)
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m = next.(model)
+	assert.Equal(t, first, m.review.cursor, "past the last match is the first again")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("N")})
+	m = next.(model)
+	assert.Equal(t, second, m.review.cursor)
+}
+
+// TestReviewSearchPaintsWhatItFound covers the highlighting: a match is drawn on its own
+// background, so the stage changes even though the cursor has not moved off the row.
+func TestReviewSearchPaintsWhatItFound(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	restore := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+
+	m.stageReview()
+	was := reviewStageRaw(t)
+
+	m = typeReview(t, m, "/")
+	m = typeReview(t, m, "package")
+
+	assert.NotEqual(t, was, reviewStageRaw(t), "the match is painted")
+	assert.Contains(t, reviewStageText(t), "package greet", "and the line still reads the same")
+}
+
+// TestReviewRecentringHoldsTheWindow covers zt. The scroll margin drags the window back to
+// keep the cursor clear of the edge, which is the one thing a recentring key must be able to
+// say no to.
+func TestReviewRecentringHoldsTheWindow(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	require.Positive(t, m.review.frames.height)
+
+	for range 3 {
+		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+		m = next.(model)
+	}
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("z")})
+	m = next.(model)
+	require.Equal(t, "z", m.review.pending, "z waits for the key that says where")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
+	m = next.(model)
+
+	assert.Empty(t, m.review.pending)
+	assert.Equal(t, m.review.cursor, m.review.top, "zt puts the cursor's row at the top")
+}
+
+// TestReviewComposerOwnsTheKeyboard covers typing a message: while the editor is up nothing
+// global is bound, so a key that means something on the screen behind it is just a character.
+func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing)
+
+	for _, pressed := range []string{"?", "l", "n"} {
+		next, _ = m.route(keyMsg(pressed))
+		m = next.(model)
+	}
+
+	assert.False(t, m.helpExpanded, "the help key is a character while typing")
+	assert.Equal(t, "?ln", m.review.editor.Value(), "and so is every other bound key")
+
+	next, _ = m.route(keyMsg("esc"))
+	m = next.(model)
+
+	assert.False(t, m.review.composing, "escape is the one key the editor gives up")
+}
+
+// TestReviewSearchPromptOwnsTheKeyboard is the same rule the composer has: while a pattern is
+// being typed, a key that is bound elsewhere in the panel is a character in the pattern. `?`
+// is the one that bites, since it toggles the help.
+func TestReviewSearchPromptOwnsTheKeyboard(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = typeReview(t, m, "/go?")
+	require.True(t, m.review.filter.typing)
+
+	assert.Equal(t, "go?", m.review.filter.query, "every key typed reaches the pattern")
+	assert.False(t, m.helpExpanded, "and none of them reaches the panel's own bindings")
+}
+
+// TestReviewSearchWithNoMatchesSaysSo covers the difference between a search that found
+// nothing and no search at all, which read the same before.
+func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m = next.(model)
+	assert.Equal(t, "nothing to search for yet", m.review.notice)
+
+	m = typeReview(t, m, "/")
+	m = typeReview(t, m, "wallaby")
+
+	next, _ = m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(model)
+
+	require.Zero(t, m.review.view.MatchCount())
+	assert.Contains(t, ansi.Strip(m.reviewView()), "wallaby", "the pattern is still standing")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("n")})
+	m = next.(model)
+	assert.Equal(t, "no matches", m.review.notice)
+}
+
+// TestReviewRecentringSurvivesARepaint is what zt is for. The scroll margin runs on every
+// repaint, not only on a move, so a recentred window used to be dragged back by the next pan
+// or by a write landing from the service.
+func TestReviewRecentringSurvivesARepaint(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	for range 6 {
+		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+		m = next.(model)
+	}
+
+	for _, key := range []string{"z", "t"} {
+		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+		m = next.(model)
+	}
+
+	require.Equal(t, m.review.cursor, m.review.top)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	m = next.(model)
+	assert.Equal(t, m.review.cursor, m.review.top, "panning redraws the same rows and must not move them")
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
+	assert.Equal(t, m.review.cursor, m.review.top, "and neither does a write landing")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = next.(model)
+	assert.Less(t, m.review.top, m.review.cursor, "moving the cursor hands the window back to the margin")
+}
+
+// TestReviewSearchLeavesTheAgentsListAlone is why the review keeps its own filter rather than
+// the model's. The agents list narrows itself by the model's filter whatever screen is up, and
+// the refresh that runs every couple of seconds re-places the tree cursor against those rows.
+// A code pattern matches no agent names, so sharing one filter emptied the list under the
+// cursor and dropped the reader back at the top when they left the review.
+func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.tree.cursor = 1
+	m.tree.placed = true
+
+	m = typeReview(t, m, "/")
+	m = typeReview(t, m, "goodbye")
+	require.Positive(t, m.review.view.MatchCount())
+
+	assert.Empty(t, m.filter.query, "the pattern is the review's, not the panel's")
+	require.Len(t, m.agentRows(), 2, "so the agents list is still whole behind it")
+
+	m.placeTreeCursor(rowKeyAt(m.agentRows(), m.tree.cursor))
+	assert.Equal(t, 1, m.tree.cursor, "and a refresh leaves the cursor where it was")
+
+	// Enter puts the prompt away and keeps the pattern, which is the state the bug needed: a
+	// search standing while the reader walks the diff and then leaves.
+	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(model)
+	require.False(t, m.review.filter.typing)
+	require.True(t, m.review.filter.standing())
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
+	m = next.(model)
+
+	assert.Equal(t, screenAgents, m.screen)
+	assert.Equal(t, 1, m.tree.cursor, "so esc lands back on the row it came from")
 }

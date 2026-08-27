@@ -47,6 +47,10 @@ type Thread struct {
 	AgentReadAt *time.Time
 	HumanReadAt *time.Time
 
+	// ResolvedAt is when the person reviewing settled the thread, nil while it is still owed an
+	// answer. Nothing about the code moving underneath touches it.
+	ResolvedAt *time.Time
+
 	UnreadByAgent bool
 	UnreadByHuman bool
 
@@ -128,6 +132,7 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		LastAgentActivityAt: row.LastAgentActivityAt,
 		AgentReadAt:         row.AgentReadAt,
 		HumanReadAt:         row.HumanReadAt,
+		ResolvedAt:          row.ResolvedAt,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}, nil
@@ -172,6 +177,7 @@ func (s *Store) ListThreads(ctx context.Context, params ListThreadsParams) ([]Th
 			LastAgentActivityAt: row.LastAgentActivityAt,
 			AgentReadAt:         row.AgentReadAt,
 			HumanReadAt:         row.HumanReadAt,
+			ResolvedAt:          row.ResolvedAt,
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
 		}
@@ -224,6 +230,28 @@ func (s *Store) MarkThreadRead(ctx context.Context, id string, reader AuthorKind
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to mark the review thread %q read: %w", id, err)
+	}
+
+	thread := threadFromRow(*row)
+
+	return &thread, nil
+}
+
+// SetThreadResolved settles a thread or reopens it.
+func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool) (*Thread, error) {
+	if !store.IsID(id) {
+		return nil, nil
+	}
+
+	row, err := s.queries.SetReviewThreadResolved(ctx, models.SetReviewThreadResolvedParams{
+		ID:       id,
+		Resolved: resolved,
+	})
+	if db.IsNoRows(err) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to settle the review thread %q: %w", id, err)
 	}
 
 	thread := threadFromRow(*row)
@@ -388,6 +416,7 @@ func threadFromRow(row models.ReviewThread) Thread {
 		LastAgentActivityAt: row.LastAgentActivityAt,
 		AgentReadAt:         row.AgentReadAt,
 		HumanReadAt:         row.HumanReadAt,
+		ResolvedAt:          row.ResolvedAt,
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	}

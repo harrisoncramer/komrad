@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"testing"
+	"time"
 
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
@@ -18,6 +19,8 @@ const (
 	agentMessageID  = "44444444-4444-4444-4444-444444444444"
 	reviewThreadID  = "55555555-5555-5555-5555-555555555555"
 )
+
+var settledAt = time.Date(2026, time.August, 27, 12, 0, 0, 0, time.UTC)
 
 // TestOnlyTheTargetAgentWritesToAReview covers the hole where any agent could reply in or
 // claim a conversation addressed to a different agent purely by naming its thread id.
@@ -111,6 +114,16 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			name: "an agent cannot delete the feedback on its own work",
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				return service.DeleteReviewThread(ctx, DeleteReviewThreadParams{ID: reviewThreadID, Author: author})
+			},
+		},
+		{
+			name: "an agent cannot settle the feedback on its own work",
+			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
+				_, err := service.SetReviewThreadResolved(ctx, SetReviewThreadResolvedParams{
+					ID: reviewThreadID, Resolved: true, Author: author,
+				})
+
+				return err
 			},
 		},
 		{
@@ -277,7 +290,7 @@ func agentAuthor(id string) ReviewAuthor {
 func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSender) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{Reviews: reviews, Mailer: notices})
+	return NewReviewService(ReviewServiceParams{Threads: reviews, Messages: reviews, Mailer: notices})
 }
 
 type fakeReviewStore struct {
@@ -342,6 +355,21 @@ func (f *fakeReviewStore) MarkThreadRead(
 	return &thread, nil
 }
 
+func (f *fakeReviewStore) SetThreadResolved(
+	_ context.Context,
+	_ string,
+	resolved bool,
+) (*reviewstore.Thread, error) {
+	f.thread.ResolvedAt = nil
+	if resolved {
+		f.thread.ResolvedAt = &settledAt
+	}
+
+	thread := f.thread
+
+	return &thread, nil
+}
+
 func (f *fakeReviewStore) CountUnreadForAgent(context.Context, string) (int64, error) {
 	return f.unread, nil
 }
@@ -396,4 +424,19 @@ func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams
 	f.sent = append(f.sent, params)
 
 	return f.answer, nil
+}
+
+// TestReviewThreadMustExist covers the lookup both settling and deleting do before they write.
+// Without it a bad id is a silent no-op rather than something the caller hears about.
+func TestReviewThreadMustExist(t *testing.T) {
+	service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
+	human := ReviewAuthor{Kind: reviewstore.AuthorHuman}
+
+	_, err := service.SetReviewThreadResolved(t.Context(), SetReviewThreadResolvedParams{
+		ID: otherAgentID, Resolved: true, Author: human,
+	})
+	require.ErrorIs(t, err, ErrReviewThreadNotFound)
+
+	err = service.DeleteReviewThread(t.Context(), DeleteReviewThreadParams{ID: otherAgentID, Author: human})
+	assert.ErrorIs(t, err, ErrReviewThreadNotFound)
 }

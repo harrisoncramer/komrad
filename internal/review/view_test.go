@@ -6,6 +6,7 @@ import (
 	"weave/internal/diff"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func patchWith(files ...diff.File) *diff.Patch {
@@ -109,4 +110,21 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 	assert.True(t, ok)
 	assert.Equal(t, "emptied.go", path)
 	assert.Equal(t, 1, line, "an emptied file opens at its top rather than at another file's line")
+}
+
+// TestJumpHunkWalksTheHunkBeforeLeavingIt covers the paragraph motion. Backwards from inside a
+// hunk goes to the top of that hunk first, and only past it once the cursor is already there.
+func TestJumpHunkWalksTheHunkBeforeLeavingIt(t *testing.T) {
+	view := twoHunkView()
+
+	first := view.First()
+
+	second := view.JumpHunk(first, 1)
+	require.Greater(t, second, first, "forwards is the next hunk")
+
+	inside := view.Move(second, 1)
+	require.Greater(t, inside, second)
+
+	assert.Equal(t, second, view.JumpHunk(inside, -1), "backwards is the top of this hunk")
+	assert.Equal(t, first, view.JumpHunk(second, -1), "and then the hunk before it")
 }

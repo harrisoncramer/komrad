@@ -209,6 +209,8 @@ type ReviewThread struct {
 	UpdatedAt   time.Time
 	// The mirror of last_human_activity_at for the agent's side, null until the agent has written. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see.
 	LastAgentActivityAt *time.Time
+	// When the person reviewing settled this thread, null while it is still owed an answer. It is what decides whether a thread is still asking for something, which is a different question from whether the code it was written against has moved since.
+	ResolvedAt *time.Time
 }
 
 // A cron-driven agent launch: when to fire and what to ask for.

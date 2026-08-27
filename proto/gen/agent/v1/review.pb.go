@@ -84,6 +84,10 @@ type ReviewThread struct {
 	NewEnd   int32                  `protobuf:"varint,7,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the thread was written against, each keeping its leading marker.
 	QuotedLines []string `protobuf:"bytes,8,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
+	// When the person reviewing settled this thread, empty while it is still owed an answer.
+	// Whether a thread is settled is a different question from whether the code under it has
+	// moved, and it is this one that decides whether the thread is still asking for something.
+	ResolvedAt string `protobuf:"bytes,9,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
 	// Whether the person reviewing has written something the agent has not been shown.
 	UnreadByAgent bool `protobuf:"varint,10,opt,name=unread_by_agent,json=unreadByAgent,proto3" json:"unread_by_agent,omitempty"`
 	// Whether the agent has replied since the person reviewing last looked.
@@ -179,6 +183,13 @@ func (x *ReviewThread) GetQuotedLines() []string {
 		return x.QuotedLines
 	}
 	return nil
+}
+
+func (x *ReviewThread) GetResolvedAt() string {
+	if x != nil {
+		return x.ResolvedAt
+	}
+	return ""
 }
 
 func (x *ReviewThread) GetUnreadByAgent() bool {
@@ -836,6 +847,104 @@ func (x *MarkReviewThreadReadResponse) GetThread() *ReviewThread {
 	return nil
 }
 
+type SetReviewThreadResolvedRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	Id    string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// Whether the thread is settled. Unsetting it reopens the thread, which is what a person
+	// does when the answer was not the end of it.
+	Resolved      bool `protobuf:"varint,2,opt,name=resolved,proto3" json:"resolved,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetReviewThreadResolvedRequest) Reset() {
+	*x = SetReviewThreadResolvedRequest{}
+	mi := &file_agent_v1_review_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetReviewThreadResolvedRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetReviewThreadResolvedRequest) ProtoMessage() {}
+
+func (x *SetReviewThreadResolvedRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetReviewThreadResolvedRequest.ProtoReflect.Descriptor instead.
+func (*SetReviewThreadResolvedRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *SetReviewThreadResolvedRequest) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *SetReviewThreadResolvedRequest) GetResolved() bool {
+	if x != nil {
+		return x.Resolved
+	}
+	return false
+}
+
+type SetReviewThreadResolvedResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Thread        *ReviewThread          `protobuf:"bytes,1,opt,name=thread,proto3" json:"thread,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *SetReviewThreadResolvedResponse) Reset() {
+	*x = SetReviewThreadResolvedResponse{}
+	mi := &file_agent_v1_review_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *SetReviewThreadResolvedResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*SetReviewThreadResolvedResponse) ProtoMessage() {}
+
+func (x *SetReviewThreadResolvedResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use SetReviewThreadResolvedResponse.ProtoReflect.Descriptor instead.
+func (*SetReviewThreadResolvedResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *SetReviewThreadResolvedResponse) GetThread() *ReviewThread {
+	if x != nil {
+		return x.Thread
+	}
+	return nil
+}
+
 type DeleteReviewThreadRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -845,7 +954,7 @@ type DeleteReviewThreadRequest struct {
 
 func (x *DeleteReviewThreadRequest) Reset() {
 	*x = DeleteReviewThreadRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[12]
+	mi := &file_agent_v1_review_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -857,7 +966,7 @@ func (x *DeleteReviewThreadRequest) String() string {
 func (*DeleteReviewThreadRequest) ProtoMessage() {}
 
 func (x *DeleteReviewThreadRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[12]
+	mi := &file_agent_v1_review_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -870,7 +979,7 @@ func (x *DeleteReviewThreadRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReviewThreadRequest.ProtoReflect.Descriptor instead.
 func (*DeleteReviewThreadRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{12}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *DeleteReviewThreadRequest) GetId() string {
@@ -889,7 +998,7 @@ type DeleteReviewMessageRequest struct {
 
 func (x *DeleteReviewMessageRequest) Reset() {
 	*x = DeleteReviewMessageRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[13]
+	mi := &file_agent_v1_review_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -901,7 +1010,7 @@ func (x *DeleteReviewMessageRequest) String() string {
 func (*DeleteReviewMessageRequest) ProtoMessage() {}
 
 func (x *DeleteReviewMessageRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[13]
+	mi := &file_agent_v1_review_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -914,7 +1023,7 @@ func (x *DeleteReviewMessageRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use DeleteReviewMessageRequest.ProtoReflect.Descriptor instead.
 func (*DeleteReviewMessageRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{13}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *DeleteReviewMessageRequest) GetId() string {
@@ -939,7 +1048,7 @@ type NotifyReviewThreadsRequest struct {
 
 func (x *NotifyReviewThreadsRequest) Reset() {
 	*x = NotifyReviewThreadsRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[14]
+	mi := &file_agent_v1_review_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -951,7 +1060,7 @@ func (x *NotifyReviewThreadsRequest) String() string {
 func (*NotifyReviewThreadsRequest) ProtoMessage() {}
 
 func (x *NotifyReviewThreadsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[14]
+	mi := &file_agent_v1_review_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -964,7 +1073,7 @@ func (x *NotifyReviewThreadsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotifyReviewThreadsRequest.ProtoReflect.Descriptor instead.
 func (*NotifyReviewThreadsRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{14}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *NotifyReviewThreadsRequest) GetAgentId() string {
@@ -994,7 +1103,7 @@ type NotifyReviewThreadsResponse struct {
 
 func (x *NotifyReviewThreadsResponse) Reset() {
 	*x = NotifyReviewThreadsResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[15]
+	mi := &file_agent_v1_review_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1006,7 +1115,7 @@ func (x *NotifyReviewThreadsResponse) String() string {
 func (*NotifyReviewThreadsResponse) ProtoMessage() {}
 
 func (x *NotifyReviewThreadsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[15]
+	mi := &file_agent_v1_review_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1019,7 +1128,7 @@ func (x *NotifyReviewThreadsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use NotifyReviewThreadsResponse.ProtoReflect.Descriptor instead.
 func (*NotifyReviewThreadsResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{15}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *NotifyReviewThreadsResponse) GetUnread() int32 {
@@ -1040,7 +1149,7 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xa8\x03\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc9\x03\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
@@ -1049,7 +1158,9 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\aold_end\x18\x05 \x01(\x05R\x06oldEnd\x12\x1b\n" +
 	"\tnew_start\x18\x06 \x01(\x05R\bnewStart\x12\x17\n" +
 	"\anew_end\x18\a \x01(\x05R\x06newEnd\x12!\n" +
-	"\fquoted_lines\x18\b \x03(\tR\vquotedLines\x12&\n" +
+	"\fquoted_lines\x18\b \x03(\tR\vquotedLines\x12\x1f\n" +
+	"\vresolved_at\x18\t \x01(\tR\n" +
+	"resolvedAt\x12&\n" +
 	"\x0funread_by_agent\x18\n" +
 	" \x01(\bR\runreadByAgent\x12&\n" +
 	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x123\n" +
@@ -1103,6 +1214,11 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1bMarkReviewThreadReadRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"N\n" +
 	"\x1cMarkReviewThreadReadResponse\x12.\n" +
+	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"U\n" +
+	"\x1eSetReviewThreadResolvedRequest\x12\x17\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1a\n" +
+	"\bresolved\x18\x02 \x01(\bR\bresolved\"Q\n" +
+	"\x1fSetReviewThreadResolvedResponse\x12.\n" +
 	"\x06thread\x18\x01 \x01(\v2\x16.agent.v1.ReviewThreadR\x06thread\"4\n" +
 	"\x19DeleteReviewThreadRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"5\n" +
@@ -1132,25 +1248,27 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 18)
 var file_agent_v1_review_proto_goTypes = []any{
-	(ReviewAuthorKind)(0),                // 0: agent.v1.ReviewAuthorKind
-	(*ReviewThread)(nil),                 // 1: agent.v1.ReviewThread
-	(*ReviewMessage)(nil),                // 2: agent.v1.ReviewMessage
-	(*ListReviewThreadsRequest)(nil),     // 3: agent.v1.ListReviewThreadsRequest
-	(*ListReviewThreadsResponse)(nil),    // 4: agent.v1.ListReviewThreadsResponse
-	(*CreateReviewThreadRequest)(nil),    // 5: agent.v1.CreateReviewThreadRequest
-	(*CreateReviewThreadResponse)(nil),   // 6: agent.v1.CreateReviewThreadResponse
-	(*AddReviewMessageRequest)(nil),      // 7: agent.v1.AddReviewMessageRequest
-	(*AddReviewMessageResponse)(nil),     // 8: agent.v1.AddReviewMessageResponse
-	(*EditReviewMessageRequest)(nil),     // 9: agent.v1.EditReviewMessageRequest
-	(*EditReviewMessageResponse)(nil),    // 10: agent.v1.EditReviewMessageResponse
-	(*MarkReviewThreadReadRequest)(nil),  // 11: agent.v1.MarkReviewThreadReadRequest
-	(*MarkReviewThreadReadResponse)(nil), // 12: agent.v1.MarkReviewThreadReadResponse
-	(*DeleteReviewThreadRequest)(nil),    // 13: agent.v1.DeleteReviewThreadRequest
-	(*DeleteReviewMessageRequest)(nil),   // 14: agent.v1.DeleteReviewMessageRequest
-	(*NotifyReviewThreadsRequest)(nil),   // 15: agent.v1.NotifyReviewThreadsRequest
-	(*NotifyReviewThreadsResponse)(nil),  // 16: agent.v1.NotifyReviewThreadsResponse
+	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
+	(*ReviewThread)(nil),                    // 1: agent.v1.ReviewThread
+	(*ReviewMessage)(nil),                   // 2: agent.v1.ReviewMessage
+	(*ListReviewThreadsRequest)(nil),        // 3: agent.v1.ListReviewThreadsRequest
+	(*ListReviewThreadsResponse)(nil),       // 4: agent.v1.ListReviewThreadsResponse
+	(*CreateReviewThreadRequest)(nil),       // 5: agent.v1.CreateReviewThreadRequest
+	(*CreateReviewThreadResponse)(nil),      // 6: agent.v1.CreateReviewThreadResponse
+	(*AddReviewMessageRequest)(nil),         // 7: agent.v1.AddReviewMessageRequest
+	(*AddReviewMessageResponse)(nil),        // 8: agent.v1.AddReviewMessageResponse
+	(*EditReviewMessageRequest)(nil),        // 9: agent.v1.EditReviewMessageRequest
+	(*EditReviewMessageResponse)(nil),       // 10: agent.v1.EditReviewMessageResponse
+	(*MarkReviewThreadReadRequest)(nil),     // 11: agent.v1.MarkReviewThreadReadRequest
+	(*MarkReviewThreadReadResponse)(nil),    // 12: agent.v1.MarkReviewThreadReadResponse
+	(*SetReviewThreadResolvedRequest)(nil),  // 13: agent.v1.SetReviewThreadResolvedRequest
+	(*SetReviewThreadResolvedResponse)(nil), // 14: agent.v1.SetReviewThreadResolvedResponse
+	(*DeleteReviewThreadRequest)(nil),       // 15: agent.v1.DeleteReviewThreadRequest
+	(*DeleteReviewMessageRequest)(nil),      // 16: agent.v1.DeleteReviewMessageRequest
+	(*NotifyReviewThreadsRequest)(nil),      // 17: agent.v1.NotifyReviewThreadsRequest
+	(*NotifyReviewThreadsResponse)(nil),     // 18: agent.v1.NotifyReviewThreadsResponse
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
 	2, // 0: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
@@ -1160,11 +1278,12 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	2, // 4: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
 	2, // 5: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
 	1, // 6: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
-	7, // [7:7] is the sub-list for method output_type
-	7, // [7:7] is the sub-list for method input_type
-	7, // [7:7] is the sub-list for extension type_name
-	7, // [7:7] is the sub-list for extension extendee
-	0, // [0:7] is the sub-list for field type_name
+	1, // 7: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
+	8, // [8:8] is the sub-list for method output_type
+	8, // [8:8] is the sub-list for method input_type
+	8, // [8:8] is the sub-list for extension type_name
+	8, // [8:8] is the sub-list for extension extendee
+	0, // [0:8] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }
@@ -1180,7 +1299,7 @@ func file_agent_v1_review_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   16,
+			NumMessages:   18,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

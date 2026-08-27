@@ -31,13 +31,20 @@ var ErrReviewNotYours = errors.New("that review belongs to another agent")
 // a review.
 var ErrReviewHumanOnly = errors.New("only the person reviewing can do that")
 
-type reviewReadWriter interface {
+// reviewThreadReadWriter is the half of the store that keeps conversations: where they are
+// pinned, who has read them, and whether they are still owed an answer.
+type reviewThreadReadWriter interface {
 	CreateThread(ctx context.Context, params reviewstore.CreateThreadParams) (*reviewstore.Thread, error)
 	ListThreads(ctx context.Context, params reviewstore.ListThreadsParams) ([]reviewstore.Thread, error)
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
 	MarkThreadRead(ctx context.Context, id string, reader reviewstore.AuthorKind) (*reviewstore.Thread, error)
+	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
 	CountUnreadForAgent(ctx context.Context, agentID string) (int64, error)
 	DeleteThread(ctx context.Context, id string) error
+}
+
+// reviewMessageReadWriter is the other half: what was said in those conversations.
+type reviewMessageReadWriter interface {
 	AddMessage(ctx context.Context, params reviewstore.AddMessageParams) (*reviewstore.Message, error)
 	EditMessage(ctx context.Context, id, body string) (*reviewstore.Message, error)
 	GetMessage(ctx context.Context, id string) (*reviewstore.Message, error)
@@ -73,7 +80,8 @@ type ReviewThreadWithMessages struct {
 }
 
 type ReviewServiceParams struct {
-	Reviews     reviewReadWriter
+	Threads     reviewThreadReadWriter
+	Messages    reviewMessageReadWriter
 	Mailer      reviewNoticeSender
 	Interrupter agentInterrupter
 }
@@ -82,7 +90,8 @@ type ReviewServiceParams struct {
 // only copy: mail carries no feedback, it only says there is some, so a message rewritten
 // after the agent has read it is simply read again as it now stands.
 type ReviewService struct {
-	reviews     reviewReadWriter
+	threads     reviewThreadReadWriter
+	messages    reviewMessageReadWriter
 	mailer      reviewNoticeSender
 	interrupter agentInterrupter
 }
@@ -90,7 +99,8 @@ type ReviewService struct {
 // NewReviewService builds the service over the review store and the things it tells.
 func NewReviewService(params ReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		reviews:     params.Reviews,
+		threads:     params.Threads,
+		messages:    params.Messages,
 		mailer:      params.Mailer,
 		interrupter: params.Interrupter,
 	}
@@ -118,7 +128,7 @@ func (s *ReviewService) ListReviewThreads(
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, params.AgentID)
 	}
 
-	threads, err := s.reviews.ListThreads(ctx, reviewstore.ListThreadsParams{
+	threads, err := s.threads.ListThreads(ctx, reviewstore.ListThreadsParams{
 		AgentID:  params.AgentID,
 		Reader:   params.Author.Kind,
 		MarkRead: params.MarkRead,
@@ -135,7 +145,7 @@ func (s *ReviewService) ListReviewThreads(
 		ids = append(ids, thread.ID)
 	}
 
-	messages, err := s.reviews.ListMessages(ctx, ids)
+	messages, err := s.messages.ListMessages(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +189,7 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, fmt.Errorf("%w: opening a review thread", ErrReviewHumanOnly)
 	}
 
-	thread, err := s.reviews.CreateThread(ctx, reviewstore.CreateThreadParams{
+	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
 		AgentID:       params.AgentID,
 		FilePath:      params.FilePath,
 		OldStart:      params.OldStart,
@@ -195,7 +205,7 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
-	messages, err := s.reviews.ListMessages(ctx, []string{thread.ID})
+	messages, err := s.messages.ListMessages(ctx, []string{thread.ID})
 	if err != nil {
 		return nil, err
 	}
@@ -218,7 +228,7 @@ func (s *ReviewService) AddReviewMessage(
 		return nil, err
 	}
 
-	return s.reviews.AddMessage(ctx, reviewstore.AddMessageParams{
+	return s.messages.AddMessage(ctx, reviewstore.AddMessageParams{
 		ThreadID:      params.ThreadID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
@@ -243,7 +253,7 @@ func (s *ReviewService) EditReviewMessage(
 		return nil, err
 	}
 
-	return s.reviews.EditMessage(ctx, params.ID, params.Body)
+	return s.messages.EditMessage(ctx, params.ID, params.Body)
 }
 
 type MarkReviewThreadReadParams struct {
@@ -262,7 +272,33 @@ func (s *ReviewService) MarkReviewThreadRead(
 		return nil, err
 	}
 
-	return s.reviews.MarkThreadRead(ctx, params.ID, params.Author.Kind)
+	return s.threads.MarkThreadRead(ctx, params.ID, params.Author.Kind)
+}
+
+type SetReviewThreadResolvedParams struct {
+	ID       string
+	Resolved bool
+	Author   ReviewAuthor
+}
+
+// SetReviewThreadResolved settles a thread or reopens it.
+//
+// Only the person reviewing does. An agent that could settle the feedback on its own work
+// would be answering the question and marking it answered in the same breath, which is the
+// one judgement the person asking has to keep.
+func (s *ReviewService) SetReviewThreadResolved(
+	ctx context.Context,
+	params SetReviewThreadResolvedParams,
+) (*reviewstore.Thread, error) {
+	if !params.Author.IsHuman() {
+		return nil, fmt.Errorf("%w: settling a review thread", ErrReviewHumanOnly)
+	}
+
+	if err := s.requireOwnThread(ctx, params.ID, params.Author); err != nil {
+		return nil, err
+	}
+
+	return s.threads.SetThreadResolved(ctx, params.ID, params.Resolved)
 }
 
 type DeleteReviewThreadParams struct {
@@ -277,15 +313,11 @@ func (s *ReviewService) DeleteReviewThread(ctx context.Context, params DeleteRev
 		return fmt.Errorf("%w: deleting a review thread", ErrReviewHumanOnly)
 	}
 
-	thread, err := s.reviews.GetThread(ctx, params.ID)
-	if err != nil {
+	if err := s.requireOwnThread(ctx, params.ID, params.Author); err != nil {
 		return err
 	}
-	if thread == nil {
-		return fmt.Errorf("%w: %q", ErrReviewThreadNotFound, params.ID)
-	}
 
-	return s.reviews.DeleteThread(ctx, params.ID)
+	return s.threads.DeleteThread(ctx, params.ID)
 }
 
 type DeleteReviewMessageParams struct {
@@ -299,7 +331,7 @@ func (s *ReviewService) DeleteReviewMessage(ctx context.Context, params DeleteRe
 		return err
 	}
 
-	return s.reviews.DeleteMessage(ctx, params.ID)
+	return s.messages.DeleteMessage(ctx, params.ID)
 }
 
 // NotifyReviewThreadsResult is what came of pressing the doorbell.
@@ -335,7 +367,7 @@ func (s *ReviewService) NotifyReviewThreads(
 		return nil, fmt.Errorf("%w: announcing a review", ErrReviewHumanOnly)
 	}
 
-	unread, err := s.reviews.CountUnreadForAgent(ctx, params.AgentID)
+	unread, err := s.threads.CountUnreadForAgent(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -380,7 +412,7 @@ func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 // requireOwnThread refuses an id that names no thread, and refuses an agent reaching into a
 // review addressed to a different agent.
 func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author ReviewAuthor) error {
-	thread, err := s.reviews.GetThread(ctx, id)
+	thread, err := s.threads.GetThread(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -396,7 +428,7 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 
 // requireOwnMessage refuses a caller rewriting or removing words it did not write.
 func (s *ReviewService) requireOwnMessage(ctx context.Context, id string, author ReviewAuthor) error {
-	message, err := s.reviews.GetMessage(ctx, id)
+	message, err := s.messages.GetMessage(ctx, id)
 	if err != nil {
 		return err
 	}

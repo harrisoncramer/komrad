@@ -52,7 +52,8 @@ FROM
 WITH shown AS (
     SELECT
         t.id,
-(t.last_human_activity_at IS NOT NULL
+(t.resolved_at IS NULL
+            AND t.last_human_activity_at IS NOT NULL
             AND (t.agent_read_at IS NULL
                 OR t.last_human_activity_at > t.agent_read_at)) AS unread_by_agent,
 (t.last_agent_activity_at IS NOT NULL
@@ -123,6 +124,20 @@ WHERE
 RETURNING
     *;
 
+-- name: SetReviewThreadResolved :one
+UPDATE
+    review_threads t
+SET
+    resolved_at = CASE WHEN @resolved::boolean THEN
+        NOW()
+    ELSE
+        NULL
+    END
+WHERE
+    t.id = @id
+RETURNING
+    *;
+
 -- name: CountUnreadReviewThreads :one
 SELECT
     COUNT(*)
@@ -130,6 +145,7 @@ FROM
     review_threads t
 WHERE
     t.agent_id = @agent_id
+    AND t.resolved_at IS NULL
     AND t.last_human_activity_at IS NOT NULL
     AND (t.agent_read_at IS NULL
         OR t.last_human_activity_at > t.agent_read_at);
@@ -166,7 +182,8 @@ touched AS (
             NOW()
         ELSE
             t.last_agent_activity_at
-        END
+        END,
+        resolved_at = NULL
     FROM
         written w
     WHERE
@@ -203,7 +220,8 @@ touched AS (
             NOW()
         ELSE
             t.last_agent_activity_at
-        END
+        END,
+        resolved_at = NULL
     FROM
         written w
     WHERE

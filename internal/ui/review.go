@@ -56,6 +56,19 @@ type reviewState struct {
 
 	composing bool
 	editor    textarea.Model
+
+	// filter is the pattern being searched for in the diff. It is the panel's filter input, kept
+	// here rather than shared with the screen behind it: the agents list filters its own rows by
+	// the model's filter, and a pattern meant for code would empty it.
+	filter filterState
+
+	// pending is a key waiting on the one after it, which is only ever z today.
+	pending string
+
+	// pinTop holds the window where a recentring key put it, until the cursor moves. Without it
+	// the next repaint drags the window back to keep the cursor a few rows clear of the edge,
+	// which is exactly what zt and zb are asking it not to do.
+	pinTop bool
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
@@ -225,9 +238,33 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 
 	m.review.notice = msg.notice
 	m.review.threads = msg.threads
+
+	// Where the cursor is standing is taken before the threads are pinned again, since pinning
+	// rebuilds the rows the threads with nowhere to stand are drawn on, and a thread settled or
+	// deleted takes one of those rows away from under the cursor.
+	place, ok := m.review.view.GetPlace(m.review.cursor)
 	m.review.view.PinThreads(msg.threads)
+	m.keepReviewCursor(place, ok)
 
 	m.stageReview()
+}
+
+// keepReviewCursor puts the cursor back on what it was standing on, and failing that, back
+// inside the diff. Only the rows past the end of the patch move, so this is the one write that
+// can leave the cursor pointing at a row that is no longer there.
+func (m *model) keepReviewCursor(place review.Place, ok bool) {
+	was := m.review.cursor
+
+	m.review.cursor = min(m.review.cursor, m.review.view.Last())
+	if ok {
+		if found, located := m.review.view.Locate(place); located {
+			m.review.cursor = found
+		}
+	}
+
+	if m.review.cursor != was {
+		m.review.pinTop = false
+	}
 }
 
 func (m *model) stageReview() {
@@ -306,12 +343,27 @@ func (m model) reviewStageArgv(path string) []string {
 	return []string{self, "stage", path}
 }
 
+// takesEveryKey reports whether the review is mid-input: a message being composed, a pattern
+// being typed, or a prefix waiting on the key after it. All three mean a key bound elsewhere in
+// the panel belongs here instead.
+func (r reviewState) takesEveryKey() bool {
+	return r.composing || r.filter.typing || r.pending != ""
+}
+
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.review.composing {
 		return m.updateReviewComposer(key)
 	}
 
+	if m.review.filter.typing {
+		return m.updateReviewFilter(key)
+	}
+
 	k := key.String()
+
+	if m.review.pending != "" {
+		return m.updateReviewPending(k)
+	}
 	if m.review.view == nil {
 		if k == "esc" || isBound(k, m.keys.Agents.Back) {
 			return m.leaveReview()
@@ -347,10 +399,26 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveReviewCursor(m.review.view.JumpFile(m.review.cursor, 1))
 	case k == "[":
 		return m.moveReviewCursor(m.review.view.JumpFile(m.review.cursor, -1))
-	case k == "n":
+	case k == "}":
+		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, 1))
+	case k == "{":
+		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, -1))
+	case k == "t":
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, 1))
-	case k == "N":
+	case k == "T":
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, -1))
+	case isBound(k, m.keys.Filter.Open):
+		m.review.filter.typing = true
+
+		return m, nil
+	case k == "n":
+		return m.jumpReviewMatch(1)
+	case k == "N":
+		return m.jumpReviewMatch(-1)
+	case k == "z":
+		m.review.pending = "z"
+
+		return m, nil
 	case k == "l", k == "right":
 		return m.panReview(m.reviewPanStep())
 	case k == "h", k == "left":
@@ -361,6 +429,8 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.editReviewFile()
 	case k == "c":
 		return m.composeReview()
+	case k == "r":
+		return m.resolveReviewThread()
 	case k == "D":
 		return m.deleteReviewThread()
 	case isBound(k, m.keys.Form.Submit):
@@ -370,10 +440,90 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// reviewThreadAtCursor is the thread the cursor is standing on, and the one place that asks.
-// It answers false while the diff is still loading, which is what a nil view stands for: the
-// sidebar and its legend are drawn on every frame, including the frames before the patch has
-// arrived, so anything reaching into the view has to survive not having one yet.
+// updateReviewPending answers the key after a prefix. Only z has one, and it decides where in
+// the pane the cursor's own row is put.
+func (m model) updateReviewPending(k string) (tea.Model, tea.Cmd) {
+	m.review.pending = ""
+
+	height := m.review.frames.height
+	if height <= 0 {
+		return m, nil
+	}
+
+	switch k {
+	case "z":
+		return m.putReviewWindow(m.review.cursor - height/2)
+	case "t":
+		return m.putReviewWindow(m.review.cursor)
+	case "b":
+		return m.putReviewWindow(m.review.cursor - height + 1)
+	}
+
+	return m, nil
+}
+
+// putReviewWindow scrolls the diff so the cursor's row lands where a recentring key asked for,
+// without moving the cursor itself.
+func (m model) putReviewWindow(top int) (tea.Model, tea.Cmd) {
+	m.review.top = max(min(top, m.review.view.Len()-1), 0)
+	m.review.pinTop = true
+	m.stageReview()
+
+	return m, nil
+}
+
+// updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn
+// in the review's own sidebar.
+func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if key.String() == "ctrl+c" {
+		return m, m.hide()
+	}
+
+	if !m.review.filter.takeKey(key) {
+		return m, nil
+	}
+
+	m.searchReview()
+
+	return m, nil
+}
+
+// searchReview runs the pattern over the diff and moves to the first thing it finds, which is
+// what makes typing one worth watching.
+func (m *model) searchReview() {
+	if m.review.view == nil {
+		return
+	}
+
+	found := m.review.view.SetPattern(m.review.filter.pattern)
+	if found > 0 {
+		if next, ok := m.review.view.JumpMatch(m.review.cursor-1, 1); ok {
+			m.review.cursor = next
+			m.review.pinTop = false
+		}
+	}
+
+	m.stageReview()
+}
+
+// jumpReviewMatch steps to the next or previous line the search found, wrapping at the ends.
+func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
+	next, ok := m.review.view.JumpMatch(m.review.cursor, direction)
+	if !ok {
+		m.review.notice = "nothing to search for yet"
+		if m.review.filter.standing() {
+			m.review.notice = "no matches"
+		}
+
+		return m, nil
+	}
+
+	return m.moveReviewCursor(next)
+}
+
+// reviewThreadAtCursor is the thread the cursor is standing on. It answers false while the
+// diff is still loading, since the sidebar and its legend are drawn on frames that arrive
+// before the patch does.
 func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	if m.review.view == nil {
 		return nil, false
@@ -412,6 +562,7 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.cursor = next
+	m.review.pinTop = false
 	m.stageReview()
 
 	return m, m.markReviewThreadReadCmd()
@@ -427,6 +578,13 @@ const reviewScrollMargin = 4
 func (m *model) scrollReviewToCursor() {
 	height := m.review.frames.height
 	if height <= 0 {
+		return
+	}
+
+	// A recentring key has already said where the window goes, and the margin below would drag
+	// it straight back off what it was asked to show. It holds until the cursor moves, since
+	// every repaint until then is drawing the same screen.
+	if m.review.pinTop {
 		return
 	}
 
@@ -504,13 +662,19 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 
 // composeReview opens the editor on the line under the cursor, replying in the thread already
 // there or opening a new one.
+//
+// A thread whose code is gone has no line left to open a new thread on, and answering it is
+// exactly what it is still on the screen for, so the anchor is only asked for when there is no
+// thread here to reply to.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok {
+	thread, replying := m.reviewThreadAtCursor()
+
+	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
 		return m, nil
 	}
 
 	m.review.editing = ""
-	if thread, ok := m.reviewThreadAtCursor(); ok {
+	if replying {
 		m.review.editing = thread.GetId()
 	}
 
@@ -581,6 +745,34 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 			NewEnd:      int32(anchor.NewEnd),
 			QuotedLines: anchor.QuotedLines,
 			Body:        body,
+		}))
+
+		return err
+	})
+}
+
+// resolveReviewThread settles the thread the cursor is standing on, or reopens one already
+// settled. It is the only thing that says a conversation is finished with.
+//
+// Nothing about where the thread is drawn touches this. Code moving under a question does not
+// answer it, and a thread that has come adrift is settled the same way as any other.
+func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
+	thread, ok := m.reviewThreadAtCursor()
+	if !ok {
+		return m, nil
+	}
+
+	agents, id, settling := m.api.agents, thread.GetId(), thread.GetResolvedAt() == ""
+
+	notice := "thread reopened"
+	if settling {
+		notice = "thread settled"
+	}
+
+	return m, m.reviewWriteCmd(notice, func(ctx context.Context) error {
+		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
+			Id:       id,
+			Resolved: settling,
 		}))
 
 		return err

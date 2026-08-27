@@ -387,6 +387,9 @@ service AgentService {
   rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
     option idempotency_level = IDEMPOTENT;
   }
+  rpc SetReviewThreadResolved(SetReviewThreadResolvedRequest) returns (SetReviewThreadResolvedResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
   rpc DeleteReviewThread(DeleteReviewThreadRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }

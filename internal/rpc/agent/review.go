@@ -122,6 +122,25 @@ func (s *Service) MarkReviewThreadRead(
 	}), nil
 }
 
+// SetReviewThreadResolved settles one conversation, or reopens it.
+func (s *Service) SetReviewThreadResolved(
+	ctx context.Context,
+	req *connect.Request[agentv1.SetReviewThreadResolvedRequest],
+) (*connect.Response[agentv1.SetReviewThreadResolvedResponse], error) {
+	thread, err := s.review.SetReviewThreadResolved(ctx, agents.SetReviewThreadResolvedParams{
+		ID:       req.Msg.GetId(),
+		Resolved: req.Msg.GetResolved(),
+		Author:   reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, reviewError(err)
+	}
+
+	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{
+		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
+	}), nil
+}
+
 // DeleteReviewThread removes a thread and everything said in it.
 func (s *Service) DeleteReviewThread(
 	ctx context.Context,
@@ -213,6 +232,10 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 		UnreadByHuman: thread.Thread.UnreadByHuman,
 		CreatedAt:     thread.Thread.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     thread.Thread.UpdatedAt.Format(time.RFC3339),
+	}
+
+	if at := thread.Thread.ResolvedAt; at != nil {
+		answered.ResolvedAt = at.Format(time.RFC3339)
 	}
 
 	for _, message := range thread.Messages {

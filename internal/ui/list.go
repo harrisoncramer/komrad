@@ -107,9 +107,15 @@ func tailRows(rendered string, lines int) string {
 	}
 
 	kept := rows[len(rows)-(lines-1):]
+	marker := dimStyle.Render(fmt.Sprintf("  ↑ %d more", len(rows)-len(kept))) + "\n"
 
-	return dimStyle.Render(fmt.Sprintf("  ↑ %d more", len(rows)-len(kept))) + "\n" +
-		strings.Join(kept, "\n") + "\n"
+	// A single line of room is the marker and nothing else. Joining an empty tail onto it still
+	// writes a newline, which is one row more than the pane has.
+	if len(kept) == 0 {
+		return marker
+	}
+
+	return marker + strings.Join(kept, "\n") + "\n"
 }
 
 func windowStart(cursor, total, visible int) int {

@@ -70,6 +70,11 @@ table "review_threads" {
     type    = timestamptz
     comment = "When the person reviewing last read this thread, stamped from last_agent_activity_at the same way, which is what says whether the agent has replied since they looked."
   }
+  column "resolved_at" {
+    null    = true
+    type    = timestamptz
+    comment = "When the person reviewing settled this thread, null while it is still owed an answer. It is what decides whether a thread is still asking for something, which is a different question from whether the code it was written against has moved since."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz

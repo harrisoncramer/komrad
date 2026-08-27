@@ -11,6 +11,7 @@ import (
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -247,4 +248,11 @@ func TestListLines(t *testing.T) {
 			assert.Equal(t, tt.want, m.listLines(header, help))
 		})
 	}
+}
+
+func TestTailRowsFitsASingleLineOfRoom(t *testing.T) {
+	out := tailRows("one\ntwo\nthree\n", 1)
+
+	assert.Equal(t, 1, strings.Count(out, "\n"))
+	assert.Contains(t, ansi.Strip(out), "↑ 3 more")
 }

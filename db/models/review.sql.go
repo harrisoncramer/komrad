@@ -17,6 +17,7 @@ FROM
     review_threads t
 WHERE
     t.agent_id = $1
+    AND t.resolved_at IS NULL
     AND t.last_human_activity_at IS NOT NULL
     AND (t.agent_read_at IS NULL
         OR t.last_human_activity_at > t.agent_read_at)
@@ -75,7 +76,7 @@ func (q *Queries) GetReviewMessage(ctx context.Context, id string) (*ReviewMessa
 
 const getReviewThread = `-- name: GetReviewThread :one
 SELECT
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at
 FROM
     review_threads t
 WHERE
@@ -100,6 +101,7 @@ func (q *Queries) GetReviewThread(ctx context.Context, id string) (*ReviewThread
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastAgentActivityAt,
+		&i.ResolvedAt,
 	)
 	return &i, err
 }
@@ -132,7 +134,8 @@ touched AS (
             NOW()
         ELSE
             t.last_agent_activity_at
-        END
+        END,
+        resolved_at = NULL
     FROM
         written w
     WHERE
@@ -210,7 +213,7 @@ WITH opened AS (
             NOW()
         END)
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at
 ),
 said AS (
     INSERT INTO review_messages(
@@ -229,7 +232,7 @@ said AS (
         id, thread_id, author_kind, author_agent_id, body, created_at, updated_at
 )
 SELECT
-    o.id, o.agent_id, o.file_path, o.old_start, o.old_end, o.new_start, o.new_end, o.quoted_lines, o.last_human_activity_at, o.agent_read_at, o.human_read_at, o.created_at, o.updated_at, o.last_agent_activity_at
+    o.id, o.agent_id, o.file_path, o.old_start, o.old_end, o.new_start, o.new_end, o.quoted_lines, o.last_human_activity_at, o.agent_read_at, o.human_read_at, o.created_at, o.updated_at, o.last_agent_activity_at, o.resolved_at
 FROM
     opened o
 `
@@ -262,6 +265,7 @@ type InsertReviewThreadWithMessageRow struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
+	ResolvedAt          *time.Time
 }
 
 func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
@@ -293,6 +297,7 @@ func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertR
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastAgentActivityAt,
+		&i.ResolvedAt,
 	)
 	return &i, err
 }
@@ -341,7 +346,8 @@ const listReviewThreads = `-- name: ListReviewThreads :many
 WITH shown AS (
     SELECT
         t.id,
-(t.last_human_activity_at IS NOT NULL
+(t.resolved_at IS NULL
+            AND t.last_human_activity_at IS NOT NULL
             AND (t.agent_read_at IS NULL
                 OR t.last_human_activity_at > t.agent_read_at)) AS unread_by_agent,
 (t.last_agent_activity_at IS NOT NULL
@@ -373,7 +379,7 @@ claimed AS (
         t.id
 )
 SELECT
-    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.last_human_activity_at, t.agent_read_at, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at,
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.last_human_activity_at, t.agent_read_at, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at,
     s.unread_by_agent,
     s.unread_by_human
 FROM
@@ -407,6 +413,7 @@ type ListReviewThreadsRow struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	LastAgentActivityAt *time.Time
+	ResolvedAt          *time.Time
 	UnreadByAgent       *bool
 	UnreadByHuman       *bool
 }
@@ -435,6 +442,7 @@ func (q *Queries) ListReviewThreads(ctx context.Context, arg ListReviewThreadsPa
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.LastAgentActivityAt,
+			&i.ResolvedAt,
 			&i.UnreadByAgent,
 			&i.UnreadByHuman,
 		); err != nil {
@@ -465,7 +473,7 @@ SET
 WHERE
     t.id = $2
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at
 `
 
 type MarkReviewThreadReadParams struct {
@@ -491,6 +499,50 @@ func (q *Queries) MarkReviewThreadRead(ctx context.Context, arg MarkReviewThread
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.LastAgentActivityAt,
+		&i.ResolvedAt,
+	)
+	return &i, err
+}
+
+const setReviewThreadResolved = `-- name: SetReviewThreadResolved :one
+UPDATE
+    review_threads t
+SET
+    resolved_at = CASE WHEN $1::boolean THEN
+        NOW()
+    ELSE
+        NULL
+    END
+WHERE
+    t.id = $2
+RETURNING
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, last_human_activity_at, agent_read_at, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at
+`
+
+type SetReviewThreadResolvedParams struct {
+	Resolved bool
+	ID       string
+}
+
+func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThreadResolvedParams) (*ReviewThread, error) {
+	row := q.db.QueryRow(ctx, setReviewThreadResolved, arg.Resolved, arg.ID)
+	var i ReviewThread
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.FilePath,
+		&i.OldStart,
+		&i.OldEnd,
+		&i.NewStart,
+		&i.NewEnd,
+		&i.QuotedLines,
+		&i.LastHumanActivityAt,
+		&i.AgentReadAt,
+		&i.HumanReadAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LastAgentActivityAt,
+		&i.ResolvedAt,
 	)
 	return &i, err
 }
@@ -519,7 +571,8 @@ touched AS (
             NOW()
         ELSE
             t.last_agent_activity_at
-        END
+        END,
+        resolved_at = NULL
     FROM
         written w
     WHERE
