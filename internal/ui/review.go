@@ -24,6 +24,7 @@ var reviewStagePath = filepath.Join(os.TempDir(), "weave-review.ansi")
 
 const reviewTimeout = 30 * time.Second
 
+// reviewPanStep is the smallest sideways jump, used until the pane has been measured.
 const reviewPanStep = 8
 
 const reviewEditorHeight = 4
@@ -61,55 +62,31 @@ type reviewState struct {
 	err     error
 }
 
-// reviewFrames is the whole diff drawn once, and the size of the pane it is being drawn into.
-// Drawing every row costs real time on a large patch, so it is done when the pane or the
-// horizontal offset changes rather than on every cursor move.
+// reviewFrames is the size of the pane the diff is being drawn into. Only the frame knows it,
+// and it says so when it starts the drawer rather than on every repaint, so it is kept here.
 type reviewFrames struct {
 	width  int
 	height int
-	pan    int
-	rows   []string
 }
 
-// invalidate throws the drawn rows away while keeping the size they were drawn at, so the next
-// repaint draws them again. The size is kept because only the frame reports it, and the frame
-// reports it when it starts the drawer rather than on every repaint.
-func (f *reviewFrames) invalidate() { f.rows = nil }
-
-func (f *reviewFrames) ensure(view *review.View, width, height, pan int) {
-	if f.rows != nil && f.width == width && f.height == height && f.pan == pan {
-		return
-	}
-
-	rows := make([]string, view.Len())
-	for y := range rows {
-		rows[y] = view.RenderRow(y, false, width, pan)
-	}
-
-	f.width, f.height, f.pan, f.rows = width, height, pan, rows
-}
-
-// window is the screenful starting at top, with the cursor's own row drawn as the cursor. The
-// panel scrolls the diff itself rather than asking the pager to, which is what lets the pager
-// stay running: it is handed exactly one screen, already positioned.
-func (f *reviewFrames) window(view *review.View, top, cursor int) string {
+// window is the screenful starting at top, with the cursor's own row drawn as the cursor.
+//
+// Only the rows the pane can show are drawn, and they are drawn afresh every time. Holding the
+// whole patch drawn instead buys nothing and costs a great deal: a screen is under a millisecond
+// whatever the patch's size, where a nine thousand row diff takes a tenth of a second to draw
+// whole, and the horizontal offset changes every row, so panning paid that on every keypress.
+func (f *reviewFrames) window(view *review.View, top, cursor, pan int) string {
 	height := max(f.height, 1)
 
-	start := max(min(top, len(f.rows)-height), 0)
+	start := max(min(top, view.Len()-height), 0)
 
 	rows := make([]string, 0, height)
-	for y := start; y < min(start+height, len(f.rows)); y++ {
-		if y == cursor {
-			rows = append(rows, view.RenderRow(y, true, f.width, f.pan))
-
-			continue
-		}
-
-		rows = append(rows, f.rows[y])
+	for y := start; y < min(start+height, view.Len()); y++ {
+		rows = append(rows, view.RenderRow(y, y == cursor, f.width, pan))
 	}
 
 	// Padded out rather than left short, so a diff smaller than the pane is followed by blank
-	// lines instead of the pager's end-of-file markers.
+	// lines instead of the drawer being handed fewer rows than it has.
 	for len(rows) < height {
 		rows = append(rows, "")
 	}
@@ -232,8 +209,6 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 	m.review.notice = msg.notice
 	m.review.threads = msg.threads
 	m.review.view.PinThreads(msg.threads)
-	// A gutter mark appearing or going means the rows themselves changed, not just the cursor.
-	m.review.frames.invalidate()
 
 	m.stageReview()
 }
@@ -263,15 +238,13 @@ func (m model) repaintReview() error {
 	frames := m.review.frames
 
 	// Nothing to draw against until the frame has started the drawer and told us how big its pane
-	// is. Everything after that is drawn here, including the rows themselves: the drawer is only
-	// started once, so nothing else runs again to draw them.
+	// is. Everything after that is drawn here, since the drawer is started once and nothing else
+	// runs again.
 	if pane == "" || m.review.view == nil || frames.width == 0 {
 		return nil
 	}
 
-	frames.ensure(m.review.view, frames.width, frames.height, m.review.pan)
-
-	if !writeStageFile(reviewStagePath, m.review.frames.window(m.review.view, m.review.top, m.review.cursor)) {
+	if !writeStageFile(reviewStagePath, frames.window(m.review.view, m.review.top, m.review.cursor, m.review.pan)) {
 		return fmt.Errorf("failed to write the diff to %s", reviewStagePath)
 	}
 
@@ -290,10 +263,10 @@ func (m model) reviewContent() layout.Content {
 		Key:   "review:" + state.agentID,
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			width := max(target.Width, review.GutterWidth+20)
-			state.frames.ensure(state.view, width, max(target.Height, 1), state.pan)
+			state.frames.width = max(target.Width, review.GutterWidth+20)
+			state.frames.height = max(target.Height, 1)
 
-			if !writeStageFile(reviewStagePath, state.frames.window(state.view, state.top, state.cursor)) {
+			if !writeStageFile(reviewStagePath, state.frames.window(state.view, state.top, state.cursor, state.pan)) {
 				return nil, false
 			}
 
@@ -362,9 +335,9 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case k == "N":
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, -1))
 	case k == "l", k == "right":
-		return m.panReview(reviewPanStep)
+		return m.panReview(m.reviewPanStep())
 	case k == "h", k == "left":
-		return m.panReview(-reviewPanStep)
+		return m.panReview(-m.reviewPanStep())
 	case k == "0":
 		return m.panReview(-m.review.pan)
 	case k == "c":
@@ -456,6 +429,13 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 
 		return reviewWroteMsg{agentID: agentID, threads: threads, err: err}
 	}
+}
+
+// reviewPanStep is how far sideways a press goes: a third of the pane, the way a page is a pane
+// of rows. A fixed few characters means forty presses to cross a wide diff, which is the sort of
+// slow that reads as the key not working.
+func (m model) reviewPanStep() int {
+	return max(m.review.frames.width/3, reviewPanStep)
 }
 
 func (m model) pageReview(delta int) (tea.Model, tea.Cmd) {

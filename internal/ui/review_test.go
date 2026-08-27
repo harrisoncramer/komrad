@@ -496,9 +496,8 @@ func TestReviewSurvivesAFailedLoad(t *testing.T) {
 }
 
 // TestReviewKeepsDrawingAfterAWrite is the bug that saving a comment introduced. The drawer is
-// started once and never restarted, so nothing but a repaint ever draws the rows again: throwing
-// the drawn rows away without drawing them again froze the stage while the sidebar carried on
-// following the cursor.
+// started once and never restarted, so nothing but a repaint ever draws the stage again, and a
+// repaint that gave up left the stage frozen while the sidebar carried on following the cursor.
 func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -517,8 +516,8 @@ func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 
 	assert.Len(t, tmux.respawns, respawns, "the drawer is still the one that was started")
 	assert.Equal(t, []string{"%1 R"}, tmux.sentKeys, "and it is still being told to redraw")
-	assert.NotEmpty(t, m.review.frames.rows, "the rows are drawn again rather than left thrown away")
-	assert.Contains(t, reviewStageText(t), "greet.go")
+	assert.Contains(t, reviewStageText(t), "greet.go", "and the screen is drawn again")
+	assert.Equal(t, tmux.height, reviewStageRows(t))
 }
 
 // TestReviewPanRedrawsTheRows covers the same seam sideways: panning changes what every row
@@ -586,4 +585,22 @@ func TestReviewRepliesInAThread(t *testing.T) {
 	assert.Equal(t, "t1", agents.replied.GetThreadId())
 	assert.Equal(t, "yes, that is it", agents.replied.GetBody())
 	assert.Nil(t, agents.created, "and does not open a second thread on the same line")
+}
+
+// TestReviewPanStepScalesWithThePane covers how far sideways a press goes. A fixed few characters
+// means dozens of presses to cross a wide diff.
+func TestReviewPanStepScalesWithThePane(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	assert.Equal(t, 40, m.reviewPanStep(), "a third of the 120 column pane")
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	m = next.(model)
+	assert.Equal(t, 40, m.review.pan)
+
+	// Until the pane has been measured there is nothing to take a third of.
+	m.review.frames = &reviewFrames{}
+	assert.Equal(t, reviewPanStep, m.reviewPanStep())
 }
