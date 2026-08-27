@@ -243,19 +243,6 @@ func (v *View) JumpThread(y, direction int) int {
 	return y
 }
 
-// FindAnchor is where a thread sits in the diff, so the cursor can be taken to it from the
-// thread screen. It answers -1 for a thread whose anchor no longer holds.
-func (v *View) FindAnchor(thread *agentv1.ReviewThread) int {
-	key := keyForThread(thread)
-	for index := range v.rows {
-		if found, ok := v.getKey(index); ok && found == key {
-			return index
-		}
-	}
-
-	return -1
-}
-
 func (v *View) getRow(y int) (row, bool) {
 	if y < 0 || y >= len(v.rows) {
 		return row{}, false
