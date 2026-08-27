@@ -162,7 +162,7 @@ service WorkflowService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_workflows"
-      description: "List the workflows agents are grouped into, most recently updated first, with each one\x27s shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next."
+      description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next."
     };
   }
   rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse) {

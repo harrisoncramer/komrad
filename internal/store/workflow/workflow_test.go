@@ -483,6 +483,43 @@ func TestListPageArchived(t *testing.T) {
 	}
 }
 
+// TestListPageIsAlphabetical covers the order the panel reads workflows in, and covers it
+// across a page boundary, since the cursor pages by name and id together. Two workflows
+// may share a name, so the id is what keeps a tie from serving the same row twice.
+func TestListPageIsAlphabetical(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	for _, name := range []string{"zebra", "backend", "backend", "Api", "frontend"} {
+		_, err := st.Create(ctx, Config{Name: name})
+		require.NoError(t, err)
+	}
+
+	var (
+		names  []string
+		ids    = map[string]bool{}
+		cursor *Cursor
+	)
+	for range 10 {
+		page, err := st.ListPage(ctx, 2, cursor, false)
+		require.NoError(t, err)
+		if len(page) == 0 {
+			break
+		}
+
+		for _, workflow := range page {
+			assert.False(t, ids[workflow.ID], "a workflow appears on one page only")
+			ids[workflow.ID] = true
+			names = append(names, workflow.Name)
+		}
+
+		last := page[len(page)-1]
+		cursor = &Cursor{Name: last.Name, ID: last.ID}
+	}
+
+	assert.Equal(t, []string{"Api", "backend", "backend", "frontend", "zebra"}, names)
+}
+
 // TestDelete covers the hard delete, keyed by id whether or not the row is archived. It
 // takes the config rows a workflow alone owns with it, since nothing else ever references
 // them once the workflow itself is gone.
