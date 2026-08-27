@@ -64,6 +64,7 @@ type agentManager interface {
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
 	SetStateByID(ctx context.Context, id, state string) error
+	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	Archive(ctx context.Context, ids []string) error
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
@@ -663,12 +664,22 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 
 	// A resume writes nothing to the row until its setup, its window and its stamp are all
 	// done, so for the whole of that the row reads as a dormant agent nobody is touching,
-	// which is exactly what a background pass archives. Saying setting_up first is what makes
-	// the resume visible: a pass reading the row after this skips it, and one deciding from a
-	// reading taken before it refuses on its own compare-and-set.
-	if err := s.agents.SetStateByID(ctx, agent.ID, agentstore.StateSettingUp); err != nil {
+	// which is exactly what a background pass archives. This one write is what settles that
+	// both ways. It says a resume is in flight, so a pass reading the row after it skips one
+	// being set up and a pass deciding from a reading taken before it refuses on its own
+	// compare-and-set. And it refuses an archived row, which is how a resume finds out about
+	// a pass that got the whole way through between the caller's read and here.
+	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
+	if err != nil {
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
 	}
+	if !live {
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	// Read before the resume starts overwriting the copy it was handed, since the restore
+	// below runs after those writes and is putting back what the resume found.
+	prior := agent.State
 
 	recorded := false
 	defer func() {
@@ -681,7 +692,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
 		defer cancel()
 
-		if err := s.agents.SetStateByID(restore, agent.ID, agent.State); err != nil {
+		if err := s.agents.SetStateByID(restore, agent.ID, prior); err != nil {
 			logging.From(restore).LogAttrs(restore, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}

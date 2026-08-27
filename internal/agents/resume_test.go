@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -380,4 +381,98 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 
 	assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
 		"a resume that gave up leaves the row reading as it found it")
+}
+
+// archivingTmux runs one pull request archiving pass the first time a resume asks whether the
+// agent is already running, which is the only call between the caller reading the row and the
+// resume marking it.
+type archivingTmux struct {
+	*fakeTmux
+
+	sync func()
+	once sync.Once
+}
+
+func (a *archivingTmux) GetPaneOwner(pane string) string {
+	a.once.Do(a.sync)
+
+	return a.fakeTmux.GetPaneOwner(pane)
+}
+
+// TestAPassThatArchivesBeforeTheMarkStopsTheResume covers the ordering the mark cannot skip
+// ahead of: a pass that gets the whole way through its archive between the caller reading the
+// row and the resume writing to it. The reading is fresh, so nothing in the pass refuses. The
+// mark is where the resume finds out, which is why it refuses an archived row rather than
+// going on to open a pane no listing would show.
+func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
+	st := newStore(t)
+	base := newFakeTmux()
+	ctx := t.Context()
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:     "worktrees",
+		Cwd:      t.TempDir(),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+	})
+	require.NoError(t, err)
+
+	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
+
+	tmux := &archivingTmux{fakeTmux: base}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	tmux.sync = func() {
+		prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
+		require.NoError(t, newPRArchiver(st, prs, manager).Sync(ctx))
+	}
+
+	_, err = manager.ResumeAgent(ctx, agent.ID)
+	require.ErrorIs(t, err, ErrAgentArchived)
+
+	after := agentByID(t, st, agent.ID)
+	require.NotNil(t, after.ArchivedAt, "the pass really did archive it")
+	assert.Empty(t, after.Pane, "and the resume wrote no pane onto the archived row")
+	assert.Empty(t, base.newWindows, "the resume gave up before it opened a window")
+
+	live, err := st.List(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, live, "nothing is left running that no listing shows")
+}
+
+// refusingUpdate is the store with its last write to the row taken away, which is the one step
+// a resume can fail at after it has started overwriting the copy of the agent it was handed.
+type refusingUpdate struct {
+	*agentstore.Store
+}
+
+func (refusingUpdate) Update(context.Context, agentstore.Agent) error {
+	return errors.New("the row would not take the write")
+}
+
+// TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound covers the state a resume restores
+// when it gives up at the only step that runs after it has begun rewriting the agent in
+// memory. What goes back is the state on the row when the resume started, not the idle the
+// resume was about to write.
+func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
+
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		agents:    refusingUpdate{Store: st.Agents},
+	})
+
+	_, err := manager.ResumeAgent(ctx, agent.ID)
+	require.Error(t, err)
+
+	after := agentByID(t, st, agent.ID)
+	assert.Equal(t, agentstore.StateThinking, after.State, "the row reads as the resume found it")
+	assert.Empty(t, after.Pane)
+	assert.Len(t, tmux.killedPanes, 1, "the window it opened goes with it")
 }

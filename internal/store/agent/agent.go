@@ -366,6 +366,23 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
+// MarkSettingUpIfLive says a resume is in flight on one agent, and reports whether it did.
+// It refuses a row that is already archived, which is what makes the mark the point a resume
+// notices an archive that landed while it was starting, rather than writing a pane onto a row
+// no listing will show.
+func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	marked, err := s.queries.MarkAgentSettingUpIfLive(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to mark id %q as setting up: %w", id, err)
+	}
+
+	return len(marked) > 0, nil
+}
+
 // SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
 // is nil. Written only by the branch syncer's periodic pass.
 func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {

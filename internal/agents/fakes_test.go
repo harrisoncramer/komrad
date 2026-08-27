@@ -368,7 +368,7 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 }
 
 type agentServiceOptions struct {
-	tmux      *fakeTmux
+	tmux      fakeTmuxController
 	harnesses fakeHarnesses
 	addr      string
 	flags     string
@@ -376,12 +376,18 @@ type agentServiceOptions struct {
 	maxAgents int
 	notifier  systemMailSender
 	logsDir   string
+	agents    agentManager
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *AgentService {
+	agents := options.agents
+	if agents == nil {
+		agents = s.Agents
+	}
+
 	return NewAgentService(NewAgentServiceParams{
 		Tmux:               options.tmux,
-		Agents:             s.Agents,
+		Agents:             agents,
 		Workflows:          s.Workflows,
 		Tx:                 s.Pool,
 		Launcher:           NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr}),
@@ -395,7 +401,14 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 	})
 }
 
-func (s *testStore) agentServiceWithLifecycle(tmux *fakeTmux, harnesses fakeHarnesses, lifecycle lifecycleActioner) *AgentService {
+// fakeTmuxController is what the test services take, so a test can wrap the fake to watch
+// one of its calls without every helper here having to know the wrapper's type.
+type fakeTmuxController interface {
+	paneController
+	paneWriter
+}
+
+func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle lifecycleActioner) *AgentService {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesses,
