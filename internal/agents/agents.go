@@ -618,6 +618,12 @@ func (s *AgentService) getWorkflowFor(ctx context.Context, agent agentstore.Agen
 }
 
 func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error {
+	// A resume only reaches an agent whose pane is already gone, so a row that still says
+	// thinking is one whose turn went with that pane. Those are the same two facts a
+	// reconcile pass goes on, and a restart kills the tmux server before any pass can read
+	// a pane, so this is the only place left to notice.
+	cutOff := agent.InterruptedAt != nil || agent.State == agentstore.StateThinking
+
 	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err
@@ -646,12 +652,6 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
-
-	// A resume only reaches an agent whose pane is already gone, so a row that still says
-	// thinking is one whose turn went with that pane. That is the pair of facts a reconcile
-	// pass records an interrupted turn from, and a restart kills the tmux server before any
-	// pass can read a pane, so the turn is only ever recorded here.
-	cutOff := agent.InterruptedAt != nil || agent.State == agentstore.StateThinking
 
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle

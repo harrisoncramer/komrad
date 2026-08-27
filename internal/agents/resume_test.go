@@ -205,7 +205,11 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	require.Len(t, h.launches, 1)
 	assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
 
+	stored = agentByID(t, st, agent.ID)
+	require.NoError(t, tmux.ClearPaneOwner(stored.Pane))
+
 	_, err = service.ResumeAgent(t.Context(), agent.ID)
 	require.NoError(t, err)
-	require.Len(t, h.launches, 1, "the agent came back running, so there is nothing to resume")
+	require.Len(t, h.launches, 2)
+	assert.Empty(t, h.launches[1].Prompt, "the ask is made once, and the row it was read from now says idle")
 }
