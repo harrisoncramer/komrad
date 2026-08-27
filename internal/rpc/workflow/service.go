@@ -127,11 +127,12 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
 	return workflowstore.WorktreeConfig{
-		Enabled:      w.GetEnabled(),
-		BaseBranch:   w.GetBaseBranch(),
-		CopyPaths:    w.GetCopyPaths(),
-		SymlinkPaths: w.GetSymlinkPaths(),
-		DiffExclude:  w.GetDiffExclude(),
+		Enabled:           w.GetEnabled(),
+		BaseBranch:        w.GetBaseBranch(),
+		CopyPaths:         w.GetCopyPaths(),
+		SymlinkPaths:      w.GetSymlinkPaths(),
+		DiffExclude:       w.GetDiffExclude(),
+		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
 	}
 }
 

@@ -279,21 +279,23 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
 	return workflowstore.WorktreeConfig{
-		Enabled:      w.GetEnabled(),
-		BaseBranch:   w.GetBaseBranch(),
-		CopyPaths:    w.GetCopyPaths(),
-		SymlinkPaths: w.GetSymlinkPaths(),
-		DiffExclude:  w.GetDiffExclude(),
+		Enabled:           w.GetEnabled(),
+		BaseBranch:        w.GetBaseBranch(),
+		CopyPaths:         w.GetCopyPaths(),
+		SymlinkPaths:      w.GetSymlinkPaths(),
+		DiffExclude:       w.GetDiffExclude(),
+		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
 	}
 }
 
 func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeConfig {
 	return &workflowv1.WorktreeConfig{
-		Enabled:      w.Enabled,
-		BaseBranch:   w.BaseBranch,
-		CopyPaths:    w.CopyPaths,
-		SymlinkPaths: w.SymlinkPaths,
-		DiffExclude:  w.DiffExclude,
+		Enabled:           w.Enabled,
+		BaseBranch:        w.BaseBranch,
+		CopyPaths:         w.CopyPaths,
+		SymlinkPaths:      w.SymlinkPaths,
+		DiffExclude:       w.DiffExclude,
+		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 	}
 }
 

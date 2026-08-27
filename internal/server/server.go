@@ -54,6 +54,11 @@ const BranchSyncInterval = 15 * time.Second
 
 const WorktreeSyncInterval = 15 * time.Second
 
+// PRArchiveInterval is how often the pull requests agents recorded are asked about. A merge
+// is not urgent and every pass spends somebody's GitHub quota, so this is minutes rather
+// than the seconds the local passes run at.
+const PRArchiveInterval = 2 * time.Minute
+
 type Params struct {
 	Env *config.Environment
 
@@ -126,6 +131,8 @@ type Server struct {
 
 	WorktreeSync Loop
 
+	PRArchive Loop
+
 	logger        *slog.Logger
 	stopRequested chan struct{}
 	background    *backgroundWork
@@ -133,7 +140,7 @@ type Server struct {
 }
 
 func (s *Server) loops() []Loop {
-	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync, s.WorktreeSync}
+	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync, s.WorktreeSync, s.PRArchive}
 }
 
 // New builds the service. Nothing is listening and no loop is running when it returns; the
@@ -357,6 +364,16 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Name:     "worktree sync",
 		Interval: WorktreeSyncInterval,
 		Pass:     agents.NewWorktreeSyncer(agentStore).Sync,
+	}
+	srv.PRArchive = Loop{
+		Name:     "pr archive",
+		Interval: PRArchiveInterval,
+		Pass: agents.NewPRArchiver(agents.PRArchiverParams{
+			Agents:       agentStore,
+			Workflows:    workflowStore,
+			Archiver:     agentService,
+			PullRequests: agents.NewGHPullRequests(),
+		}).Sync,
 	}
 
 	return srv, nil
