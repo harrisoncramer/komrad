@@ -417,17 +417,35 @@ func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
 	return nil
 }
 
-// ClearPane removes the pane ID stored for an agent.
-func (s *Store) ClearPane(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
+type ForgetPaneParams struct {
+	ID            string
+	Pane          string
+	UpdatedAt     time.Time
+	InterruptedAt *time.Time
+}
+
+// ForgetPane drops an agent's pane, recording an interrupted turn in the same write when
+// InterruptedAt is set, and reports whether it did. Both only happen while the row still
+// reads as it did when UpdatedAt was taken, so an observation is never written back over a
+// row that has moved on since. Matching on the pane alone would not do: a tmux server hands
+// out pane ids from a counter that restarts with it, and a restart is precisely when weave
+// resumes every agent at once.
+func (s *Store) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, error) {
+	if !store.IsID(params.ID) {
+		return false, nil
 	}
 
-	if err := s.queries.ClearAgentPane(ctx, id); err != nil {
-		return fmt.Errorf("failed to clear pane for id %q: %w", id, err)
+	forgotten, err := s.queries.ForgetAgentPane(ctx, models.ForgetAgentPaneParams{
+		ID:            params.ID,
+		PaneID:        params.Pane,
+		UpdatedAt:     params.UpdatedAt,
+		InterruptedAt: params.InterruptedAt,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to forget the pane for id %q: %w", params.ID, err)
 	}
 
-	return nil
+	return len(forgotten) > 0, nil
 }
 
 // SetTags updates the tag on the given agents and returns the number changed.

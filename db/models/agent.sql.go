@@ -93,20 +93,6 @@ func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams
 	return items, nil
 }
 
-const clearAgentPane = `-- name: ClearAgentPane :exec
-UPDATE
-    agents
-SET
-    pane_id = ''
-WHERE
-    id = $1
-`
-
-func (q *Queries) ClearAgentPane(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, clearAgentPane, id)
-	return err
-}
-
 const countLiveAgents = `-- name: CountLiveAgents :one
 SELECT
     COUNT(*)
@@ -213,6 +199,52 @@ WHERE agent_id = ANY ($1::uuid[])
 func (q *Queries) DeleteAgentsTranscriptChunks(ctx context.Context, agentIds []string) error {
 	_, err := q.db.Exec(ctx, deleteAgentsTranscriptChunks, agentIds)
 	return err
+}
+
+const forgetAgentPane = `-- name: ForgetAgentPane :many
+UPDATE
+    agents
+SET
+    pane_id = '',
+    interrupted_at = COALESCE($1, interrupted_at)
+WHERE
+    id = $2
+    AND pane_id = $3
+    AND updated_at = $4
+RETURNING
+    id
+`
+
+type ForgetAgentPaneParams struct {
+	InterruptedAt *time.Time
+	ID            string
+	PaneID        string
+	UpdatedAt     time.Time
+}
+
+func (q *Queries) ForgetAgentPane(ctx context.Context, arg ForgetAgentPaneParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, forgetAgentPane,
+		arg.InterruptedAt,
+		arg.ID,
+		arg.PaneID,
+		arg.UpdatedAt,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getAgentByID = `-- name: GetAgentByID :one

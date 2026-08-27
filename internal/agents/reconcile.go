@@ -52,8 +52,7 @@ type paneObserver interface {
 type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
-	ClearPane(ctx context.Context, id string) error
-	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
+	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
@@ -199,8 +198,9 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	}
 
 	if !isPaneOwnedBy(pane.Owner, agent.ID) {
-		r.forget(ctx, agent, false)
-		r.apply(ctx, agent, agentstore.StateIdle)
+		if r.forget(ctx, agent, false) {
+			r.apply(ctx, agent, agentstore.StateIdle)
+		}
 
 		return
 	}
@@ -216,8 +216,9 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 			return
 		}
 
-		r.forget(ctx, agent, true)
-		r.apply(ctx, agent, agentstore.StateIdle)
+		if r.forget(ctx, agent, true) {
+			r.apply(ctx, agent, agentstore.StateIdle)
+		}
 
 		return
 	}
@@ -302,9 +303,13 @@ func hashFrame(frame string) uint64 {
 	return h.Sum64()
 }
 
-func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bool) {
+// forget drops the pane an agent is no longer running in and reports whether the row it was
+// handed is still the row the store holds. A pass takes its snapshot before it walks the
+// agents, so a resume that lands mid-walk leaves it judging an agent by a pane that has
+// already been replaced, and everything it would conclude from that is about the old pane.
+func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bool) bool {
 	if agent.Pane == "" {
-		return
+		return true
 	}
 
 	if mine {
@@ -314,22 +319,28 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 		}
 	}
 
-	if err := r.store.ClearPane(ctx, agent.ID); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to forget a dormant agent's pane",
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-	}
-
 	// A pane that goes part-way through a turn took that turn with it, and nothing brings it
 	// back, so the resume has to be told to ask for it again.
-	if !turnUnfinished(agent.State) {
-		return
+	var interrupted *time.Time
+	if turnUnfinished(agent.State) {
+		at := r.now()
+		interrupted = &at
 	}
 
-	at := r.now()
-	if err := r.store.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record that an agent's turn was cut off",
+	forgotten, err := r.store.ForgetPane(ctx, agentstore.ForgetPaneParams{
+		ID:            agent.ID,
+		Pane:          agent.Pane,
+		UpdatedAt:     agent.UpdatedAt,
+		InterruptedAt: interrupted,
+	})
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to forget a dormant agent's pane",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+		return false
 	}
+
+	return forgotten
 }
 
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {

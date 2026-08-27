@@ -270,13 +270,18 @@ WHERE
     id = @id
     AND session_id = '';
 
--- name: ClearAgentPane :exec
+-- name: ForgetAgentPane :many
 UPDATE
     agents
 SET
-    pane_id = ''
+    pane_id = '',
+    interrupted_at = COALESCE(sqlc.narg('interrupted_at'), interrupted_at)
 WHERE
-    id = @id;
+    id = @id
+    AND pane_id = @pane_id
+    AND updated_at = @updated_at
+RETURNING
+    id;
 
 -- name: SetAgentTags :many
 UPDATE
