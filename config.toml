@@ -62,7 +62,7 @@ back   = ["esc"]
 editor = ["e"]
 # Open the actions list on the hovered agent. It acts on a row rather than on
 # the list, so this does nothing on a workflow header.
-open   = ["a"]
+open   = ["x"]
 # Quit the panel.
 quit   = ["ctrl+c"]
 # Run the script under the cursor on the agent the list was opened on.
@@ -85,7 +85,10 @@ hide        = ["h"]
 # one back to untagged. Nothing but you ever sets a tag.
 tag         = ["t"]
 # Start a new agent.
-new         = ["n"]
+new         = ["c"]
+# Put an agent on a branch or a pull request that already exists, in the
+# workflow under the cursor.
+adopt       = ["a"]
 # Attach to the hovered agent.
 open        = ["enter"]
 # Open the pull request the hovered agent recorded, in your browser. The key does

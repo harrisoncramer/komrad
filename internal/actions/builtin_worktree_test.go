@@ -936,6 +936,7 @@ type worktreeEnv struct {
 	repo         string
 	worktreesDir string
 	baseBranch   string
+	adoptBranch  string
 	copyPaths    []string
 	symlinkPaths []string
 
@@ -949,6 +950,7 @@ func (e worktreeEnv) toEnv() []string {
 		"WEAVE_WORKTREE_REPO=" + e.repo,
 		"WEAVE_WORKTREES_DIR=" + e.worktreesDir,
 		"WEAVE_WORKTREE_BASE_BRANCH=" + e.baseBranch,
+		"WEAVE_WORKTREE_ADOPT_BRANCH=" + e.adoptBranch,
 		"WEAVE_WORKTREE_COPY_PATHS=" + strings.Join(e.copyPaths, "\n"),
 		"WEAVE_WORKTREE_SYMLINK_PATHS=" + strings.Join(e.symlinkPaths, "\n"),
 	}
@@ -1204,4 +1206,105 @@ func assertBranch(t *testing.T, tree, want string) {
 	out, err := exec.Command("git", "-C", tree, "rev-parse", "--abbrev-ref", "HEAD").Output()
 	require.NoError(t, err)
 	assert.Equal(t, want, strings.TrimSpace(string(out)))
+}
+
+// TestBuiltinWorktreeSetupAdoptsALocalBranch covers the adoption case that has everything
+// already on disk. The branch is somebody else's, so setup has to check it out as it stands
+// rather than cut a branch of its own or reset the one it was given onto a base.
+func TestBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
+	repo := initRepo(t)
+	runGit(t, repo, "checkout", "--quiet", "-b", "someones/work")
+	require.NoError(t, os.WriteFile(filepath.Join(repo, "theirs.txt"), []byte("theirs\n"), 0o644))
+	commitAll(t, repo)
+	runGit(t, repo, "checkout", "--quiet", "main")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-adopt-local",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		adoptBranch:  "someones/work",
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assertIsDir(t, tree)
+	assertBranch(t, tree, "someones/work")
+	assert.FileExists(t, filepath.Join(tree, "theirs.txt"), "the commits already on the branch are what the agent is looking at")
+}
+
+// TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin covers adopting a pull request nobody
+// here has pulled yet, which is the ordinary case: the branch exists on the forge and not in
+// this checkout, so setup fetches it and git makes the local tracking branch as it adds the
+// worktree.
+func TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
+	upstream := initBareRepo(t)
+	author := cloneRepo(t, upstream)
+	runGit(t, author, "checkout", "--quiet", "-b", "feature/theirs")
+	require.NoError(t, os.WriteFile(filepath.Join(author, "theirs.txt"), []byte("theirs\n"), 0o644))
+	commitAll(t, author)
+	runGit(t, author, "push", "--quiet", "origin", "feature/theirs")
+
+	repo := cloneRepo(t, upstream)
+	require.False(t, hasRef(t, repo, "refs/heads/feature/theirs"), "the branch is not in this checkout before adoption")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-adopt-remote",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		adoptBranch:  "feature/theirs",
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+	assert.Contains(t, string(result.Stderr), "fetching feature/theirs from origin")
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assertBranch(t, tree, "feature/theirs")
+	assert.FileExists(t, filepath.Join(tree, "theirs.txt"))
+
+	out, err := exec.Command("git", "-C", tree, "rev-parse", "--abbrev-ref", "HEAD@{upstream}").Output()
+	require.NoError(t, err, "an adopted branch tracks the branch it was adopted from")
+	assert.Equal(t, "origin/feature/theirs", strings.TrimSpace(string(out)))
+}
+
+// TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach covers a branch name that is not a
+// branch anywhere. Making one up under that name would put the agent on an empty branch
+// wearing the name of the work it was supposed to pick up.
+func TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testing.T) {
+	repo := initRepo(t)
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-adopt-missing",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		adoptBranch:  "no/such/branch",
+	})
+	require.Error(t, err)
+	assert.Contains(t, string(result.Stderr), "no/such/branch is not a branch")
+}
+
+// TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch covers the one thing adoption's cleanup
+// must never do. The branch was somebody else's before the agent was on it, so removing the
+// worktree is the whole job.
+func TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
+	repo := initRepo(t)
+	runGit(t, repo, "branch", "someones/work")
+
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-adopt-cleanup",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		adoptBranch:  "someones/work",
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{
+		agentID:     "agent-adopt-cleanup",
+		agentCwd:    tree,
+		adoptBranch: "someones/work",
+	})
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+
+	_, statErr := os.Stat(tree)
+	assert.True(t, os.IsNotExist(statErr), "the worktree directory is gone")
+	assert.True(t, hasRef(t, repo, "refs/heads/someones/work"), "the branch outlives the agent that adopted it")
 }

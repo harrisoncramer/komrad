@@ -39,6 +39,6 @@ Restoration from the archive is all or nothing. It is refused if the returning a
 
 ## Setting up your first one
 
-Open the panel with `prefix + g`. Press `w`, give it a name, leave everything else blank, and submit. Press `n` and give an agent a prompt. That is the whole minimum: a workflow with nothing but a name is just a folder.
+Open the panel with `prefix + g`. Press `w`, give it a name, leave everything else blank, and submit. Press `c` and give an agent a prompt. That is the whole minimum: a workflow with nothing but a name is just a folder.
 
 Then add to it as you learn what the group needs. A default directory once you are tired of typing it. Context once you have told three agents the same thing. A setup action once you want them out of each other's way.

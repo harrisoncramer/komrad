@@ -114,6 +114,7 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		IdempotencyKey:   idempotencyKey(params.IdempotencyKey),
 		SpawnedByAgentID: spawnedBy,
 		Hidden:           params.Hidden,
+		AdoptedBranch:    params.AdoptedBranch,
 	}
 }
 

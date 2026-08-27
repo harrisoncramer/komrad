@@ -230,6 +230,9 @@ type AgentsKeys struct {
 	Tag []string `mapstructure:"tag"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
+	// Put an agent on a branch or a pull request that already exists, in the
+	// workflow under the cursor.
+	Adopt []string `mapstructure:"adopt"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
 	// Open the pull request the hovered agent recorded, in your browser. The key does
@@ -606,17 +609,18 @@ func DefaultKeybindings() Keybindings {
 		Actions: ActionsKeys{
 			Back:   []string{"esc"},
 			Editor: []string{"e"},
-			Open:   []string{"a"},
+			Open:   []string{"x"},
 			Quit:   []string{"ctrl+c"},
 			Run:    []string{"enter"},
 		},
 		Agents: AgentsKeys{
+			Adopt:      []string{"a"},
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},
 			Review:     []string{"d"},
 			Hide:       []string{"h"},
 			Tag:        []string{"t"},
-			New:        []string{"n"},
+			New:        []string{"c"},
 			Open:       []string{"enter"},
 			OpenPR:     []string{"o"},
 			Quit:       []string{"ctrl+c"},

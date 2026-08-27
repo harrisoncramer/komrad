@@ -69,6 +69,10 @@ type Agent struct {
 
 	Branch *string
 
+	// AdoptedBranch is the branch an agent was put on rather than one weave made for it,
+	// so it is what was asked for where Branch is what the cwd is on now.
+	AdoptedBranch string
+
 	WorktreeRemoved bool
 
 	InterruptedAt *time.Time
@@ -298,6 +302,7 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 		SetupAction:      agent.SetupAction,
 		CleanupAction:    agent.CleanupAction,
 		SpawnedByAgentID: agent.SpawnedByAgentID,
+		AdoptedBranch:    agent.AdoptedBranch,
 	}); err != nil {
 		return fmt.Errorf("failed to insert agent %q: %w", agent.Name, err)
 	}
@@ -722,6 +727,7 @@ func agentFromRow(agent models.Agent) Agent {
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
 		Branch:           agent.Branch,
+		AdoptedBranch:    agent.AdoptedBranch,
 		WorktreeRemoved:  agent.WorktreeRemoved,
 		InterruptedAt:    agent.InterruptedAt,
 	}

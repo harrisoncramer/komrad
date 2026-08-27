@@ -59,6 +59,7 @@ type agentManager interface {
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
+	List(ctx context.Context) ([]agentstore.Agent, error)
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
@@ -132,6 +133,7 @@ type AgentService struct {
 	fallbackResumeRoot string
 	notifier           systemMailSender
 	logsDir            string
+	pullRequests       pullRequestResolver
 }
 
 type NewAgentServiceParams struct {
@@ -222,6 +224,7 @@ type NewAgentParams struct {
 	Hidden         bool
 	IdempotencyKey string
 	SetupPane      string
+	AdoptedBranch  string
 }
 
 // NewAgent creates and launches a background agent.

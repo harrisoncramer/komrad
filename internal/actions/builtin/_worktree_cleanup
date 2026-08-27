@@ -4,6 +4,7 @@ set -eu
 
 tree="$WEAVE_AGENT_CWD"
 branch="agent/$WEAVE_AGENT_ID"
+adopted="${WEAVE_WORKTREE_ADOPT_BRANCH:-}"
 
 if [ ! -d "$tree" ] || [ ! -f "$tree/.git" ]; then
 	exit 0
@@ -56,6 +57,13 @@ fi
 if ! git -C "$repo" worktree remove --force "$tree" >&2; then
 	echo "worktree cleanup: could not remove $tree, so the branch $branch is being left with it" >&2
 	exit 1
+fi
+
+# An adopted branch was somebody else's before this agent was on it, so it outlives the agent
+# whatever state it is in. Nothing below this line runs for one.
+if [ -n "$adopted" ]; then
+	echo "worktree cleanup: kept the branch $adopted, which was adopted rather than made here" >&2
+	exit 0
 fi
 
 # Exit 1 is the only status that means the branch is not there; anything else is a git that

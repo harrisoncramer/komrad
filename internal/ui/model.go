@@ -44,6 +44,7 @@ type screen int
 const (
 	screenAgents screen = iota
 	screenForm
+	screenAdopt
 	screenRename
 	screenAgentArchive
 	screenWorkflowForm

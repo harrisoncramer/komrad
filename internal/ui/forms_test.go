@@ -909,6 +909,7 @@ type formRecorder struct {
 	refuse error
 
 	createdAgent     *agentv1.CreateAgentRequest
+	adoptedAgent     *agentv1.AdoptAgentRequest
 	renamedAgent     *agentv1.UpdateAgentRequest
 	deletedAgents    *agentv1.DeleteAgentsRequest
 	archivedAgents   *agentv1.ArchiveAgentsRequest
@@ -940,6 +941,21 @@ func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agent
 		Id:         "new",
 		Name:       req.Msg.GetTitle(),
 		PaneId:     "%new",
+		WorkflowId: req.Msg.GetWorkflowId(),
+	}}), nil
+}
+
+func (f *formRecorder) AdoptAgent(_ context.Context, req *connect.Request[agentv1.AdoptAgentRequest]) (*connect.Response[agentv1.AdoptAgentResponse], error) {
+	if f.refuse != nil {
+		return nil, f.refuse
+	}
+
+	f.adoptedAgent = req.Msg
+
+	return connect.NewResponse(&agentv1.AdoptAgentResponse{Agent: &agentv1.Agent{
+		Id:         "adopted",
+		Name:       "pr-1069",
+		PaneId:     "%adopted",
 		WorkflowId: req.Msg.GetWorkflowId(),
 	}}), nil
 }
@@ -1106,4 +1122,47 @@ func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
 		_, cmd := form.Update(queue[0])
 		queue = append(queue[1:], produced(cmd)...)
 	}
+}
+
+// TestAdoptFormSendsWhatWasTyped covers the adopt key's whole job: it asks for the work to
+// pick up and hands that to the service, which is what decides where the agent runs. The
+// form has no directory field for that reason.
+func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
+	sent := &formRecorder{}
+	m := formModel(sent)
+	workflow := m.listing.workflows[0]
+
+	opened, _ := m.openAdopt(&workflow)
+	adopting := asModel(t, opened)
+	require.Equal(t, screenAdopt, adopting.screen)
+	assert.Equal(t, "claude", adopting.values.adopt.Harness, "the workflow's harness and flags are prefilled")
+	assert.Equal(t, "--model opus", adopting.values.adopt.Flags)
+
+	adopting.values.adopt.Ref = "https://github.com/chariot-giving/admin/pull/1069"
+	adopting.values.adopt.Prompt = "pick it up"
+
+	updated, cmd := adopting.submitAdopt()
+	submitted, ok := updated.(model)
+	require.True(t, ok)
+	settle(t, submitted, cmd)
+
+	require.NotNil(t, sent.adoptedAgent)
+	assert.Equal(t, "https://github.com/chariot-giving/admin/pull/1069", sent.adoptedAgent.GetRef())
+	assert.Equal(t, "pick it up", sent.adoptedAgent.GetPrompt())
+	assert.Equal(t, "w1", sent.adoptedAgent.GetWorkflowId())
+	assert.Nil(t, sent.createdAgent, "adoption does not go through create")
+}
+
+// TestAdoptKeyOpensTheForm covers the binding, since the key that used to open the actions
+// list is the one adoption now answers to.
+func TestAdoptKeyOpensTheForm(t *testing.T) {
+	m := infoModel(&recordingTmux{})
+	m.api = api{agents: &formRecorder{}}
+
+	entered, _ := m.updateAgents(keyMsg("a"))
+	opened := asModel(t, entered)
+
+	require.Equal(t, screenAdopt, opened.screen)
+	require.NotNil(t, opened.values.adopt)
+	assert.Equal(t, "w1", opened.target.newAgentWorkflow.ID, "it adopts into the workflow the cursor is inside")
 }

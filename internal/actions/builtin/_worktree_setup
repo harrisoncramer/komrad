@@ -78,18 +78,46 @@ apply_paths() {
 	done
 }
 
-if [ -d "$tree" ]; then
-	echo "worktree already exists at $tree" >&2
-else
-	has_ref() {
-		git -C "$repo" rev-parse --verify --quiet "$1" >/dev/null 2>&1
-	}
+has_ref() {
+	git -C "$repo" rev-parse --verify --quiet "$1" >/dev/null 2>&1
+}
 
-	origin=
-	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
-		origin=yes
+# A directory removed without telling git leaves a registration behind that still claims the
+# branch. Pruning only once something is blocking this add keeps the blast radius small, since
+# a prune drops the registration of every worktree whose directory it cannot see, including one
+# on a volume that is merely unmounted right now.
+add_worktree() {
+	if ! git -C "$repo" worktree add "$@" >&2; then
+		echo "worktree setup: pruning stale worktree registrations and trying once more" >&2
+		git -C "$repo" worktree prune 2>/dev/null || true
+		git -C "$repo" worktree add "$@" >&2
+	fi
+}
+
+# The branch of an adopted agent belongs to whoever made it, so it is checked out as it
+# stands: no -B, which would reset it onto a base, and no branch of weave's own. A branch that
+# is only on origin is checked out by name too, which is git making the tracking branch here.
+adopt_worktree() {
+	branch="$WEAVE_WORKTREE_ADOPT_BRANCH"
+
+	if [ -n "$origin" ]; then
+		echo "fetching $branch from origin" >&2
+		git -C "$repo" fetch --quiet origin "$branch" >&2 || echo "worktree setup: could not fetch $branch from origin, using what is already here" >&2
 	fi
 
+	if ! has_ref "refs/heads/$branch" && ! has_ref "refs/remotes/origin/$branch"; then
+		echo "worktree setup: $branch is not a branch $repo can reach" >&2
+		exit 1
+	fi
+
+	mkdir -p "$WEAVE_WORKTREES_DIR"
+	echo "creating a worktree at $tree on $branch" >&2
+	add_worktree "$tree" "$branch"
+}
+
+# The worktree of an agent starting fresh work is its own branch cut from the base, named
+# after the agent so nothing else claims it.
+fresh_worktree() {
 	base="$WEAVE_WORKTREE_BASE_BRANCH"
 
 	if [ -z "$base" ] && [ -n "$origin" ]; then
@@ -165,20 +193,27 @@ else
 	# --no-track leaves the branch with no upstream, so git status inside the worktree measures
 	# the agent against nothing but its own branch, and the add writes no branch config, which
 	# is the shared lock every concurrent create would otherwise fail on.
-	if ! git -C "$repo" worktree add --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2; then
-		# A directory removed without telling git leaves a registration behind that still claims
-		# the branch. Pruning only once something is blocking this add keeps the blast radius
-		# small, since a prune drops the registration of every worktree whose directory it
-		# cannot see, including one on a volume that is merely unmounted right now.
-		echo "worktree setup: pruning stale worktree registrations and trying once more" >&2
-		git -C "$repo" worktree prune 2>/dev/null || true
-		git -C "$repo" worktree add --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point" >&2
-	fi
+	add_worktree --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point"
 
 	# The branch the add just made holds the commit now, so a ref that named the branch point
 	# for one command is not left behind in the human's repo.
 	if [ "$point" = "$staged" ]; then
 		git -C "$repo" update-ref -d "$staged" 2>/dev/null || true
+	fi
+}
+
+if [ -d "$tree" ]; then
+	echo "worktree already exists at $tree" >&2
+else
+	origin=
+	if git -C "$repo" remote get-url origin >/dev/null 2>&1; then
+		origin=yes
+	fi
+
+	if [ -n "$WEAVE_WORKTREE_ADOPT_BRANCH" ]; then
+		adopt_worktree
+	else
+		fresh_worktree
 	fi
 
 	# With no upstream, a plain push has nothing to push to until this is set. --local in a

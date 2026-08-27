@@ -228,7 +228,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		FallbackResumeRoot: p.FallbackResumeRoot,
 		Notifier:           mailService,
 		LogsDir:            actionLogsDir,
-	})
+	}).WithPullRequests(agents.NewGHPullRequests())
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows:    workflowStore,
 		Agents:       agentStore,
