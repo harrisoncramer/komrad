@@ -210,8 +210,7 @@ WHERE
             reply_to = excluded.reply_to,
             hops = excluded.hops,
             expires_at = excluded.expires_at,
-            reported_at = NULL,
-            updated_at = NOW()
+            reported_at = NULL
         WHERE
             mail.expires_at <= NOW()
         RETURNING
