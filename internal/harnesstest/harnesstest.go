@@ -202,6 +202,13 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityUnrecognized:
 	}
 
+	return h.Show(agentID, line)
+}
+
+// Show is the line an agent prints on its next tick, whatever it is. A harness only knows
+// its own prompt, so this is how a test leaves a pane showing something nothing recognises,
+// which is what a CLI still coming up looks like.
+func (h *Harness) Show(agentID, line string) error {
 	path := filepath.Join(h.root, "state", agentID)
 	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
 		return fmt.Errorf("failed to set the activity for agent %q: %w", agentID, err)

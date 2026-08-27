@@ -199,6 +199,7 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want string
 	i.t.Helper()
 
 	require.NoError(i.t, i.Harness.SetActivity(agentID, activity))
+	i.WaitForActivity(agentID, activity)
 
 	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
@@ -216,6 +217,27 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want string
 	}
 
 	i.t.Fatalf("agent %s never reached %q", agentID, want)
+}
+
+// WaitForActivity waits until an agent's own pane says it is doing something, which is a
+// tick behind the state being asked for and several ticks behind the pane opening. Anything
+// reading a frame to decide what to do with an agent races that first render otherwise.
+func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
+	i.t.Helper()
+
+	client := i.Tmux.Client()
+
+	deadline := time.Now().Add(settleTimeout)
+	for time.Now().Before(deadline) {
+		pane := i.GetOwnedPane(agentID)
+		if pane != "" && i.Harness.ReadActivity(client.CapturePane(pane)) == activity {
+			return
+		}
+
+		time.Sleep(50 * time.Millisecond)
+	}
+
+	i.t.Fatalf("agent %s never showed activity %v in its own pane", agentID, activity)
 }
 
 // Deliver runs one pass of the work the delivery queue does for an agent, which is what
