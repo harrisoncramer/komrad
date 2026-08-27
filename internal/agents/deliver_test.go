@@ -5,6 +5,9 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
+	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 
@@ -466,4 +469,47 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliverySoon, got)
 	assert.Len(t, panes.text, 2, "an agent back from the archive is told about the mail it never read")
+}
+
+type fixedHarnesses struct{ harness harness.Harness }
+
+func (f fixedHarnesses) GetByID(string) (harness.Harness, error) { return f.harness, nil }
+
+// TestDeliverDefersToARealHarnessStillComingUp wires the registered harnesses themselves
+// into the gate, rather than the fake whose frames the package writes. The fake answers
+// every question the gate asks correctly by construction, so it cannot say whether a
+// harness a live agent actually runs does.
+func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
+	shellEcho := "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc"
+
+	harnesses := []struct {
+		name    string
+		harness harness.Harness
+	}{
+		{name: "claude", harness: claude.NewHarness(claude.NewHarnessParams{})},
+		{name: "codex", harness: codex.NewHarness(codex.NewHarnessParams{SessionsDir: t.TempDir()})},
+	}
+
+	for _, hn := range harnesses {
+		t.Run(hn.name, func(t *testing.T) {
+			agents := &fakeAgents{
+				agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
+				claimed: true,
+			}
+			panes := &fakePanes{alive: true, frame: shellEcho}
+			svc := NewDeliveryService(NewDeliveryServiceParams{
+				MailboxReader: &fakeMailboxReader{pending: 1},
+				NudgeClaimer:  agents,
+				PaneReader:    panes,
+				PaneTyper:     panes,
+				Harnesses:     fixedHarnesses{harness: hn.harness},
+			})
+
+			got, err := svc.Deliver(t.Context(), "agent-a")
+			require.NoError(t, err)
+			assert.Equal(t, DeliveryLater, got)
+			assert.Empty(t, panes.text, "nothing is typed at a pane that is not listening")
+			assert.Empty(t, panes.keys)
+		})
+	}
 }
