@@ -181,14 +181,37 @@ func (q *Queries) DeleteAgentTranscripts(ctx context.Context, agentIds []string)
 	return err
 }
 
-const deleteAgentsByID = `-- name: DeleteAgentsByID :exec
+const deleteAgentsByID = `-- name: DeleteAgentsByID :many
 DELETE FROM agents
 WHERE id = ANY ($1::uuid[])
+RETURNING
+    id,
+    pane_id
 `
 
-func (q *Queries) DeleteAgentsByID(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, deleteAgentsByID, ids)
-	return err
+type DeleteAgentsByIDRow struct {
+	ID     string
+	PaneID string
+}
+
+func (q *Queries) DeleteAgentsByID(ctx context.Context, ids []string) ([]*DeleteAgentsByIDRow, error) {
+	rows, err := q.db.Query(ctx, deleteAgentsByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*DeleteAgentsByIDRow
+	for rows.Next() {
+		var i DeleteAgentsByIDRow
+		if err := rows.Scan(&i.ID, &i.PaneID); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const deleteAgentsTranscriptChunks = `-- name: DeleteAgentsTranscriptChunks :exec
@@ -1041,36 +1064,104 @@ func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id string) ([]st
 	return items, nil
 }
 
-const markAgentsArchived = `-- name: MarkAgentsArchived :exec
+const markAgentsArchived = `-- name: MarkAgentsArchived :many
+WITH prior AS (
+    SELECT
+        id,
+        pane_id
+    FROM
+        agents
+    WHERE
+        id = ANY ($1::uuid[])
+        AND archived_at IS NULL
+    FOR UPDATE)
 UPDATE
-    agents
+    agents a
 SET
     archived_at = NOW(),
     pane_id = ''
+FROM
+    prior
 WHERE
-    id = ANY ($1::uuid[])
-    AND archived_at IS NULL
+    a.id = prior.id
+RETURNING
+    a.id,
+    prior.pane_id
 `
 
-func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) error {
-	_, err := q.db.Exec(ctx, markAgentsArchived, ids)
-	return err
+type MarkAgentsArchivedRow struct {
+	ID     string
+	PaneID string
 }
 
-const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :exec
+func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*MarkAgentsArchivedRow, error) {
+	rows, err := q.db.Query(ctx, markAgentsArchived, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkAgentsArchivedRow
+	for rows.Next() {
+		var i MarkAgentsArchivedRow
+		if err := rows.Scan(&i.ID, &i.PaneID); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :many
+WITH prior AS (
+    SELECT
+        id,
+        pane_id
+    FROM
+        agents
+    WHERE
+        agents.workflow_id = $1
+        AND agents.archived_at IS NULL
+    FOR UPDATE)
 UPDATE
-    agents
+    agents a
 SET
     archived_at = NOW(),
     pane_id = ''
+FROM
+    prior
 WHERE
-    workflow_id = $1
-    AND archived_at IS NULL
+    a.id = prior.id
+RETURNING
+    a.id,
+    prior.pane_id
 `
 
-func (q *Queries) MarkWorkflowAgentsArchived(ctx context.Context, workflowID string) error {
-	_, err := q.db.Exec(ctx, markWorkflowAgentsArchived, workflowID)
-	return err
+type MarkWorkflowAgentsArchivedRow struct {
+	ID     string
+	PaneID string
+}
+
+func (q *Queries) MarkWorkflowAgentsArchived(ctx context.Context, workflowID string) ([]*MarkWorkflowAgentsArchivedRow, error) {
+	rows, err := q.db.Query(ctx, markWorkflowAgentsArchived, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*MarkWorkflowAgentsArchivedRow
+	for rows.Next() {
+		var i MarkWorkflowAgentsArchivedRow
+		if err := rows.Scan(&i.ID, &i.PaneID); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const markWorkflowAgentsRestored = `-- name: MarkWorkflowAgentsRestored :exec

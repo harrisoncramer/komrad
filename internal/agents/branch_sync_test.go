@@ -129,7 +129,8 @@ func TestBranchSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", WorkflowID: workflowID, Cwd: repo}))
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.Archive(ctx, []string{created.ID}))
+	_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})
+	require.NoError(t, archiveErr)
 
 	require.NoError(t, NewBranchSyncer(st.Agents).Sync(ctx))
 

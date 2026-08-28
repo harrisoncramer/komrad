@@ -247,7 +247,9 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	require.NotNil(t, child)
 	require.NotNil(t, child.SpawnedByAgentID)
 
-	require.NoError(t, f.Delete(ctx, []string{parent.ID}))
+	_, deleteErr := f.Delete(ctx, []string{parent.ID})
+
+	require.NoError(t, deleteErr)
 
 	stillThere, err := f.GetByID(ctx, child.ID)
 	require.NoError(t, err)
@@ -883,7 +885,9 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, changed)
 
-	require.NoError(t, st.Delete(ctx, []string{created.ID}))
+	_, deleteErr := st.Delete(ctx, []string{created.ID})
+
+	require.NoError(t, deleteErr)
 
 	orphaned, err := models.New(st.db).ListAgentMetadata(ctx, []string{created.ID})
 	require.NoError(t, err)
@@ -1088,7 +1092,8 @@ func TestActiveNameExists(t *testing.T) {
 				archived, err := st.GetInWorkflow(ctx, workflowID, "agent")
 				require.NoError(t, err)
 				require.NotNil(t, archived)
-				require.NoError(t, st.Archive(ctx, []string{archived.ID}))
+				_, archiveErr := st.Archive(ctx, []string{archived.ID})
+				require.NoError(t, archiveErr)
 			}
 
 			exists, err := st.ActiveNameExists(ctx, st.defaultWorkflow, "agent")
@@ -1146,7 +1151,8 @@ func TestRestore(t *testing.T) {
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
-			require.NoError(t, st.Archive(ctx, []string{original.ID}))
+			_, archiveErr := st.Archive(ctx, []string{original.ID})
+			require.NoError(t, archiveErr)
 
 			require.NoError(t, st.Restore(ctx, []string{original.ID}))
 			restored := *original
@@ -1205,7 +1211,9 @@ func TestDelete(t *testing.T) {
 				require.NoError(t, err)
 				require.NotNil(t, created)
 
-				require.NoError(t, st.Delete(ctx, []string{created.ID}))
+				_, deleteErr := st.Delete(ctx, []string{created.ID})
+
+				require.NoError(t, deleteErr)
 			} else {
 				require.NoError(t, st.archiveByName(ctx, "alpha"))
 			}
@@ -1283,7 +1291,9 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	require.NoError(t, st.archiveByName(ctx, "shared"))
 	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateIdle}))
 
-	require.NoError(t, st.Delete(ctx, []string{first.ID}))
+	_, deleteErr := st.Delete(ctx, []string{first.ID})
+
+	require.NoError(t, deleteErr)
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
@@ -1633,7 +1643,8 @@ func TestCountLive(t *testing.T) {
 					require.True(t, hidden)
 				}
 				if tt.archive {
-					require.NoError(t, st.Archive(ctx, []string{written.ID}))
+					_, archiveErr := st.Archive(ctx, []string{written.ID})
+					require.NoError(t, archiveErr)
 				}
 			}
 
@@ -1740,7 +1751,9 @@ func (f *fixture) archiveByName(ctx context.Context, name string) error {
 		return fmt.Errorf("no live agent called %q", name)
 	}
 
-	return f.Archive(ctx, []string{agent.ID})
+	_, err = f.Archive(ctx, []string{agent.ID})
+
+	return err
 }
 
 // Create fills in the default workflow when the test did not name one.
@@ -1895,6 +1908,106 @@ func TestListByIDCarriesMetadata(t *testing.T) {
 	assert.Empty(t, byID[api.ID], "an agent that recorded nothing carries nothing")
 }
 
+// TestArchiveAndDeleteReturnThePaneTheRowHeld covers what an archive and a delete report back
+// about the rows they wrote. An archive blanks the pane in the same statement, so what it has
+// to hand back is the pane as the row held it rather than the blank it just wrote: killing the
+// CLI is the caller's next step, and by then there is nowhere else the pane is written down.
+func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	seedPane := func(name, pane string) string {
+		t.Helper()
+		require.NoError(t, st.Create(ctx, Agent{Name: name, Pane: pane, State: StateIdle}))
+
+		created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, name)
+		require.NoError(t, err)
+		require.NotNil(t, created)
+
+		return created.ID
+	}
+
+	archiving := seedPane("archiving", "%4")
+	deleting := seedPane("deleting", "%5")
+
+	archived, err := st.Archive(ctx, []string{archiving})
+	require.NoError(t, err)
+	assert.Equal(t, []AgentPane{{AgentID: archiving, Pane: "%4"}}, archived)
+
+	deleted, err := st.Delete(ctx, []string{deleting})
+	require.NoError(t, err)
+	assert.Equal(t, []AgentPane{{AgentID: deleting, Pane: "%5"}}, deleted)
+}
+
+// TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind covers the archive against the write it
+// actually races: a resume or a create recording its pane in its own statement, uncommitted,
+// while the archive is already blocked on the row. Reading the pane from a plain join against
+// the table hands back the value from before that write, since only the row being updated is
+// re-read once the lock is released. The archive would then commit, blank the pane, and report
+// nothing to kill, which is the state it exists to prevent.
+func TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "dormant", State: StateIdle}))
+
+	created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "dormant")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	tx, err := st.pool.GetRawPool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	_, err = tx.Exec(ctx, `UPDATE agents SET pane_id = '%9' WHERE id = $1`, created.ID)
+	require.NoError(t, err)
+
+	type outcome struct {
+		taken []AgentPane
+		err   error
+	}
+
+	archived := make(chan outcome, 1)
+	go func() {
+		taken, archiveErr := st.Archive(context.WithoutCancel(ctx), []string{created.ID})
+		archived <- outcome{taken: taken, err: archiveErr}
+	}()
+
+	waitForBlockedArchive(t, st)
+	require.NoError(t, tx.Commit(ctx))
+
+	got := <-archived
+	require.NoError(t, got.err)
+	assert.Equal(t, []AgentPane{{AgentID: created.ID, Pane: "%9"}}, got.taken)
+}
+
+// waitForBlockedArchive blocks until an archive is waiting on a row lock, which is how the test
+// knows the archive has reached its write rather than not having started yet.
+func waitForBlockedArchive(t *testing.T, st *fixture) {
+	t.Helper()
+
+	for range 500 {
+		var waiting bool
+		require.NoError(t, st.pool.GetRawPool().QueryRow(context.Background(), `
+			SELECT EXISTS (
+				SELECT
+					1
+				FROM
+					pg_stat_activity
+				WHERE
+					wait_event_type = 'Lock'
+					AND query LIKE '%MarkAgentsArchived%')`).Scan(&waiting))
+
+		if waiting {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("no archive ever blocked on the row, so it never reached its write")
+}
+
 // TestArchiveAndRestoreInBatches covers the two writes a selection drives. Both are keyed
 // on a list of ids, so what they must not do is act on a row nobody named.
 func TestArchiveAndRestoreInBatches(t *testing.T) {
@@ -1915,7 +2028,9 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 		ids[name] = created.ID
 	}
 
-	require.NoError(t, st.Archive(ctx, []string{ids["auth"], ids["ui"]}))
+	_, archiveErr := st.Archive(ctx, []string{ids["auth"], ids["ui"]})
+
+	require.NoError(t, archiveErr)
 
 	live, err := st.List(ctx)
 	require.NoError(t, err)
@@ -1953,7 +2068,9 @@ func TestDeleteInBatches(t *testing.T) {
 		ids = append(ids, created.ID)
 	}
 
-	require.NoError(t, st.Delete(ctx, []string{ids[0], "not-an-id", ids[2]}))
+	_, deleteErr := st.Delete(ctx, []string{ids[0], "not-an-id", ids[2]})
+
+	require.NoError(t, deleteErr)
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)

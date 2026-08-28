@@ -415,7 +415,8 @@ func TestListAgentsArchived(t *testing.T) {
 			ctx := t.Context()
 
 			archived := st.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%1", State: agentstore.StateThinking})
-			require.NoError(t, st.Agents.Archive(ctx, []string{archived.ID}))
+			_, archiveErr := st.Agents.Archive(ctx, []string{archived.ID})
+			require.NoError(t, archiveErr)
 			st.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%2", State: agentstore.StateThinking})
 
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
@@ -1280,7 +1281,8 @@ func TestSearchTranscripts(t *testing.T) {
 			agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
 			content := seedTranscript(t, st, agent.ID, tt.turns)
 			if tt.archive {
-				require.NoError(t, st.Agents.Archive(ctx, []string{agent.ID}))
+				_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
+				require.NoError(t, archiveErr)
 			}
 
 			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{

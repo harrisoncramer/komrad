@@ -497,6 +497,13 @@ func (s *Store) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, 
 	return len(forgotten) > 0, nil
 }
 
+// AgentPane names a pane and the agent whose it is, which is all that killing one takes: the
+// owner has to be checked first, so a pane is never carried around without it.
+type AgentPane struct {
+	AgentID string
+	Pane    string
+}
+
 type ArchiveIfUnchangedParams struct {
 	ID string
 
@@ -690,17 +697,20 @@ func (s *Store) NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID
 }
 
 // Delete removes live or archived agents by ID.
-func (s *Store) Delete(ctx context.Context, ids []string) error {
+func (s *Store) Delete(ctx context.Context, ids []string) ([]AgentPane, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	if err := s.queries.DeleteAgentsByID(ctx, storable); err != nil {
-		return fmt.Errorf("failed to delete %d agents: %w", len(storable), err)
+	deleted, err := s.queries.DeleteAgentsByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to delete %d agents: %w", len(storable), err)
 	}
 
-	return nil
+	return xslice.Map(deleted, func(row *models.DeleteAgentsByIDRow) AgentPane {
+		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
+	}), nil
 }
 
 // Rename changes an agent's display name and reports whether a row changed.
@@ -720,18 +730,26 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 	return len(renamed) > 0, nil
 }
 
-// Archive moves agents out of live listings.
-func (s *Store) Archive(ctx context.Context, ids []string) error {
+// Archive moves agents out of live listings, returning the pane each row held as it was
+// archived rather than the one the caller last read. An archive is what stops the CLI in that
+// pane, and a resume or a create can record one between a caller's read and this write, so the
+// pane is read under the lock the archive itself takes. Reading it from the snapshot the
+// statement started on would not do: a write this one waited on is committed by the time the
+// row is written, and only the row being written is read again.
+func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
-		return nil
+		return nil, nil
 	}
 
-	if err := s.queries.MarkAgentsArchived(ctx, storable); err != nil {
-		return fmt.Errorf("failed to archive %d agents: %w", len(storable), err)
+	archived, err := s.queries.MarkAgentsArchived(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to archive %d agents: %w", len(storable), err)
 	}
 
-	return nil
+	return xslice.Map(archived, func(row *models.MarkAgentsArchivedRow) AgentPane {
+		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
+	}), nil
 }
 
 // Restore returns archived agents to live listings.
@@ -748,13 +766,17 @@ func (s *Store) Restore(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// ArchiveWorkflowAgents archives every live agent in a workflow.
-func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) error {
-	if err := s.queries.MarkWorkflowAgentsArchived(ctx, workflowID); err != nil {
-		return fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
+// ArchiveWorkflowAgents archives every live agent in a workflow, returning the pane each row
+// held as it was archived, for the same reason Archive does.
+func (s *Store) ArchiveWorkflowAgents(ctx context.Context, workflowID string) ([]AgentPane, error) {
+	archived, err := s.queries.MarkWorkflowAgentsArchived(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to archive agents of workflow %q: %w", workflowID, err)
 	}
 
-	return nil
+	return xslice.Map(archived, func(row *models.MarkWorkflowAgentsArchivedRow) AgentPane {
+		return AgentPane{AgentID: row.ID, Pane: row.PaneID}
+	}), nil
 }
 
 // RestoreWorkflowAgents restores every archived agent in a workflow.

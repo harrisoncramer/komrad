@@ -457,6 +457,32 @@ func TestUpdateWorkflowWorktreeDisableKeepsAHandWrittenOverride(t *testing.T) {
 	assert.Equal(t, "hand-written", got.SetupAction)
 }
 
+// TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite covers the same gap an archive of one
+// agent has, on the archive of a whole folder of them: the agents it read held no pane, so it
+// killed none, and the transaction that follows takes one off a row and hides it.
+func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
+
+	workflows := NewWorkflowService(WorkflowParams{
+		Workflows: st.Workflows,
+		Agents:    st.Agents,
+		Schedules: st.Schedules,
+		Tmux:      tmux,
+		Tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+	})
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, workflowID))
+
+	after := agentByID(t, st, agent.ID)
+	require.NotNil(t, after.ArchivedAt, "the agent really is archived with its workflow")
+	assert.Contains(t, tmux.killedPanes, "%9", "so the archive kills the pane its write took")
+}
+
 // TestArchiveWorkflow covers what becomes of the agents inside, and what stops
 // the archive. Both halves commit together, so an agent is never left pointing at
 // a workflow nothing lists, and the agents are stopped on the way rather than left
