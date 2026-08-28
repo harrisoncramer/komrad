@@ -291,7 +291,6 @@ func (m model) rowHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Actions.Open, "actions"),
 		binding(m.keys.Agents.OpenPR, "open pr (if recorded)"),
 		binding(m.keys.Agents.Review, "review diff (worktree only)"),
 		binding(m.keys.Agents.Tag, "cycle tag"),
@@ -379,38 +378,6 @@ func (m model) archiveRowHelp() []key.Binding {
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Archive.Delete, "delete for good"),
 		binding(m.keys.Archive.Empty, "empty the archive"),
-	}
-}
-
-func (m model) actionEditorDesc() string {
-	action, ok := m.selectedAction()
-	switch {
-	case ok && !action.text:
-		return "not a text file"
-	case ok && m.info.kind == infoEdit && m.info.action == action.name:
-		return "close editor"
-	default:
-		return "edit"
-	}
-}
-
-func (m model) actionHelp() keyMap {
-	runDesc := "run"
-	if action, ok := m.selectedAction(); ok && !action.executable {
-		runDesc = "chmod +x to run"
-	}
-
-	run := binding(m.keys.Actions.Run, runDesc)
-	editor := binding(m.keys.Actions.Editor, m.actionEditorDesc())
-	editFilter := m.editFilterBinding(m.keys.Actions.Back)
-
-	return keyMap{
-		short: slices.Concat([]key.Binding{run, editor}, editFilter, []key.Binding{m.helpBinding()}),
-		full: slices.Concat(
-			[]key.Binding{run, editor, m.filterBinding(), m.moveBinding()},
-			editFilter,
-			m.globalHelp(),
-		),
 	}
 }
 

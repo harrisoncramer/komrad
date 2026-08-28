@@ -53,21 +53,6 @@ details_height = 0.33
 
 # Panel keybindings, scoped to the screen each binding acts in.
 
-# The actions list, and the key that opens it on the hovered agent.
-[keybindings.actions]
-# Leave the actions list for the agents list.
-back   = ["esc"]
-# Open the script under the cursor in your editor, in the info pane, and
-# close that pane on a second press. A compiled program has nothing to edit.
-editor = ["e"]
-# Open the actions list on the hovered agent. It acts on a row rather than on
-# the list, so this does nothing on a workflow header.
-open   = ["x"]
-# Quit the panel.
-quit   = ["ctrl+c"]
-# Run the script under the cursor on the agent the list was opened on.
-run    = ["enter"]
-
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
@@ -206,7 +191,7 @@ new     = ["w"]
 # Rename the workflow under the cursor.
 rename  = ["r"]
 
-# Where the panel finds the scripts its action key runs.
+# Where weave finds the scripts a workflow, a schedule, or an agent runs.
 [actions]
 # Directory for actions: one executable file per action, named after the action.
 # Files here override built-in actions with the same name.

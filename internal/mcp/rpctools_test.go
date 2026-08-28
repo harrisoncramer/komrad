@@ -22,7 +22,6 @@ import (
 // said, settling one, and telling the agent to go and read it. An agent's half is
 // list_review_threads and add_review_message, which it does have.
 var noToolSurface = map[protoreflect.Name]bool{
-	"EditAction":              true,
 	"EmptyArchive":            true,
 	"RecordTurnBoundary":      true,
 	"CreateReviewThread":      true,

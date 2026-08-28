@@ -115,8 +115,6 @@ func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateSchedules(key)
 	case screenArchive:
 		return m.updateArchive(key)
-	case screenActions:
-		return m.updateActions(key)
 	case screenReview:
 		return m.updateReview(key)
 	case screenAgents:
@@ -154,10 +152,6 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return m, m.runSettledSearch(msg), true
 	case searchResult:
 		return m, m.applySearch(msg), true
-	case actionsResult:
-		m.applyActions(msg)
-
-		return m, nil, true
 	case previewResult:
 		m.applyPreview(msg)
 

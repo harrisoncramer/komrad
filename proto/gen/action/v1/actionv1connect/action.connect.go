@@ -39,16 +39,12 @@ const (
 	ActionServiceListActionsProcedure = "/action.v1.ActionService/ListActions"
 	// ActionServiceRunActionProcedure is the fully-qualified name of the ActionService's RunAction RPC.
 	ActionServiceRunActionProcedure = "/action.v1.ActionService/RunAction"
-	// ActionServiceEditActionProcedure is the fully-qualified name of the ActionService's EditAction
-	// RPC.
-	ActionServiceEditActionProcedure = "/action.v1.ActionService/EditAction"
 )
 
 // ActionServiceClient is a client for the action.v1.ActionService service.
 type ActionServiceClient interface {
 	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
 	RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error)
-	EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewActionServiceClient constructs a client for the action.v1.ActionService service. By default,
@@ -75,12 +71,6 @@ func NewActionServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			connect.WithSchema(actionServiceMethods.ByName("RunAction")),
 			connect.WithClientOptions(opts...),
 		),
-		editAction: connect.NewClient[v1.EditActionRequest, emptypb.Empty](
-			httpClient,
-			baseURL+ActionServiceEditActionProcedure,
-			connect.WithSchema(actionServiceMethods.ByName("EditAction")),
-			connect.WithClientOptions(opts...),
-		),
 	}
 }
 
@@ -88,7 +78,6 @@ func NewActionServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 type actionServiceClient struct {
 	listActions *connect.Client[emptypb.Empty, v1.ListActionsResponse]
 	runAction   *connect.Client[v1.RunActionRequest, emptypb.Empty]
-	editAction  *connect.Client[v1.EditActionRequest, emptypb.Empty]
 }
 
 // ListActions calls action.v1.ActionService.ListActions.
@@ -101,16 +90,10 @@ func (c *actionServiceClient) RunAction(ctx context.Context, req *connect.Reques
 	return c.runAction.CallUnary(ctx, req)
 }
 
-// EditAction calls action.v1.ActionService.EditAction.
-func (c *actionServiceClient) EditAction(ctx context.Context, req *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.editAction.CallUnary(ctx, req)
-}
-
 // ActionServiceHandler is an implementation of the action.v1.ActionService service.
 type ActionServiceHandler interface {
 	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
 	RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error)
-	EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewActionServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -133,20 +116,12 @@ func NewActionServiceHandler(svc ActionServiceHandler, opts ...connect.HandlerOp
 		connect.WithSchema(actionServiceMethods.ByName("RunAction")),
 		connect.WithHandlerOptions(opts...),
 	)
-	actionServiceEditActionHandler := connect.NewUnaryHandler(
-		ActionServiceEditActionProcedure,
-		svc.EditAction,
-		connect.WithSchema(actionServiceMethods.ByName("EditAction")),
-		connect.WithHandlerOptions(opts...),
-	)
 	return "/action.v1.ActionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ActionServiceListActionsProcedure:
 			actionServiceListActionsHandler.ServeHTTP(w, r)
 		case ActionServiceRunActionProcedure:
 			actionServiceRunActionHandler.ServeHTTP(w, r)
-		case ActionServiceEditActionProcedure:
-			actionServiceEditActionHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -162,8 +137,4 @@ func (UnimplementedActionServiceHandler) ListActions(context.Context, *connect.R
 
 func (UnimplementedActionServiceHandler) RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.RunAction is not implemented"))
-}
-
-func (UnimplementedActionServiceHandler) EditAction(context.Context, *connect.Request[v1.EditActionRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.EditAction is not implemented"))
 }

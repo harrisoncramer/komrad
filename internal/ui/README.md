@@ -31,8 +31,7 @@ the panel rather than to any one screen, because the schedule form and the archi
 the workflows the agents list happens to have fetched.
 
 Per-screen state is the rest of what a screen draws: its cursor, and whatever it has loaded
-that nothing else reads. treeState, detailsState, scheduleState, archiveState, searchState,
-actionState.
+that nothing else reads. treeState, detailsState, scheduleState, archiveState, searchState.
 
 Shared concerns are the things that sit across screens on purpose. The filter narrows
 whichever list is on screen, and there is one of it rather than one per screen, because only
@@ -84,7 +83,7 @@ its own window is nobody else's business.
 
 Screens, each holding its own rows, keys, and view: agents.go, with tree.go for the rows and
 the cursor, workflows.go for the keys that act on a folder header, and selection.go for the
-multi-select. Then archive.go, schedules.go, search.go, and actions.go.
+multi-select. Then archive.go, schedules.go, and search.go.
 
 Shared concerns: api.go, details.go, filter.go, forms.go, help.go, info.go, logs.go,
 refresh.go, keys.go, clipboard.go, report.go, convert.go.

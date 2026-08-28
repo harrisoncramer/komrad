@@ -12,6 +12,8 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	actionv1 "weave/proto/gen/action/v1"
+	"weave/proto/gen/action/v1/actionv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -342,4 +344,17 @@ func describeRows(rows []agentRow) []string {
 	}
 
 	return out
+}
+
+type fakeActions struct {
+	actionv1connect.ActionServiceClient
+}
+
+func (f *fakeActions) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
+	return connect.NewResponse(&actionv1.ListActionsResponse{Actions: []*actionv1.Action{
+		{Name: "open-pr", Executable: true},
+		{Name: "unrunnable"},
+		{Name: "compiled", Executable: true},
+		{Name: "_internal", Executable: true},
+	}}), nil
 }

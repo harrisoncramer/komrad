@@ -56,7 +56,6 @@ const (
 	screenArchive
 	screenArchiveDelete
 	screenArchiveEmpty
-	screenActions
 	screenReview
 )
 
@@ -145,7 +144,6 @@ type model struct {
 	archive   archiveState
 	search    searchState
 	review    reviewState
-	actions   actionState
 
 	filter filterState
 

@@ -32,8 +32,6 @@ type Action struct {
 	Path       string
 	Executable bool
 
-	Text bool
-
 	Header Header
 }
 
@@ -74,13 +72,11 @@ func Discover(dir string) ([]Action, error) {
 			continue
 		}
 
-		header, text := readHeader(path)
 		found = append(found, Action{
 			Name:       entry.Name(),
 			Path:       path,
 			Executable: info.Mode().Perm()&0o111 != 0,
-			Text:       text,
-			Header:     header,
+			Header:     readHeader(path),
 		})
 	}
 

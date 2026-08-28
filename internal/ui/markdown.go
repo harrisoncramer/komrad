@@ -116,34 +116,6 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 	return fields
 }
 
-func actionMarkdown(action actionItem) string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", action.name)
-	if !action.executable {
-		b.WriteString("_not executable — chmod +x to run it_\n\n")
-	}
-	if action.description != "" {
-		b.WriteString(action.description + "\n\n")
-	} else {
-		b.WriteString("_no description declared_\n\n")
-	}
-	b.WriteString("---\n\n")
-	if action.timeout > 0 {
-		fmt.Fprintf(&b, "- timeout: %s\n", action.timeout)
-	} else {
-		b.WriteString("- timeout: — (none declared)\n")
-	}
-
-	if len(action.problems) > 0 {
-		b.WriteString("\n_some of its header was not understood_\n\n")
-		for _, problem := range action.problems {
-			fmt.Fprintf(&b, "- %s\n", problem)
-		}
-	}
-
-	return b.String()
-}
-
 const noSchedulesMarkdown = "# Schedules\n\n" +
 	"A schedule launches an agent on a cron expression.\n\n" +
 	"Press the new key to write one.\n"

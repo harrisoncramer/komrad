@@ -115,23 +115,6 @@ func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	assert.Equal(t, Header{}, found[1].Header, "a file that declares nothing carries nothing")
 }
 
-// TestDiscoverSaysWhichFilesAreText covers the one thing about a file that is not read off
-// its header, which is whether there is text in it at all. An action is as readily a
-// compiled program as a script, and a caller offering to open one in an editor needs to
-// know which it has.
-func TestDiscoverSaysWhichFilesAreText(t *testing.T) {
-	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "script"), []byte("#!/bin/sh\n"), 0o755))
-
-	found, err := Discover(dir)
-	require.NoError(t, err)
-	require.Len(t, found, 2)
-
-	assert.False(t, found[0].Text, "a compiled program has nothing to read")
-	assert.True(t, found[1].Text)
-}
-
 // TestDiscoverMissingDirectory covers the ordinary case of never having written one.
 // Nothing is wrong, so nothing is reported: the panel says where it looked on screen.
 func TestDiscoverMissingDirectory(t *testing.T) {

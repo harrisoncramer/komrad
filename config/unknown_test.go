@@ -32,7 +32,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 		{
 			name: "a table the panel does not have",
 			file: "[keybindings.list]\nselect = [\"enter\"]\n",
-			want: []string{"keybindings.list is not a setting; [keybindings] takes actions, agents, archive"},
+			want: []string{"keybindings.list is not a setting; [keybindings] takes agents, archive, details"},
 		},
 		{
 			name: "a harness this binary cannot run",

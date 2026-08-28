@@ -16,7 +16,6 @@ message Action {
   string description = 3;
   optional google.protobuf.Duration timeout = 4;
   repeated string header_problems = 5;
-  bool text = 6;
 }
 
 message ListActionsResponse {
@@ -24,14 +23,6 @@ message ListActionsResponse {
 }
 
 message RunActionRequest {
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  string action = 2 [(buf.validate.field).string = {
-    max_len: 255
-    [rules.v1.action_name]: true
-  }];
-}
-
-message EditActionRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string action = 2 [(buf.validate.field).string = {
     max_len: 255
@@ -54,6 +45,4 @@ service ActionService {
       description: "Fire one of the user's actions on an agent, naming the action as list_actions reports it and the agent by id. The action is started and nothing waits for it, so a successful call means the process began and says nothing about what it did or whether it worked. Where its output goes is the action's own business. An error means it never started: no such action, no such agent, or a file the user has not made executable. Your own id is in the WEAVE_AGENT_ID environment variable."
     };
   }
-
-  rpc EditAction(EditActionRequest) returns (google.protobuf.Empty) {}
 }

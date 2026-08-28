@@ -145,43 +145,6 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	})
 }
 
-var ErrNotEditable = errors.New("the file is not text, so there is nothing to edit")
-
-const editActionName = "_edit_action"
-
-const editPathVar = "WEAVE_EDIT_PATH"
-
-// EditAction opens a text action in the configured editor.
-func (s *ActionService) EditAction(ctx context.Context, agentID, name string) error {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if err != nil {
-		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
-	}
-
-	target, err := s.find(name)
-	if err != nil {
-		return err
-	}
-	if !target.Text {
-		return fmt.Errorf("failed to edit action %s: %w", name, ErrNotEditable)
-	}
-
-	action, env, err := s.prepare(ctx, prepareParams{agent: *agent, name: editActionName, trigger: TriggerManual})
-	if err != nil {
-		return err
-	}
-
-	return s.start(ctx, startParams{
-		action:  action,
-		env:     append(env, editPathVar+"="+target.Path),
-		agent:   *agent,
-		trigger: TriggerManual,
-	})
-}
-
 var ErrSetupFailed = errors.New("the setup action failed")
 
 const setupTimeout = 10 * time.Minute

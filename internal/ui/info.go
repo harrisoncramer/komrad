@@ -10,7 +10,6 @@ type infoKind int
 const (
 	infoNothing infoKind = iota
 
-	infoEdit
 	infoSetup
 
 	infoSetupLog
@@ -62,7 +61,7 @@ func (m *model) stageInfo() {
 		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogTeardown))
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
-	case infoNothing, infoEdit, infoSetup, infoEditFile:
+	case infoNothing, infoSetup, infoEditFile:
 	}
 }
 

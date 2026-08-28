@@ -27,7 +27,7 @@ func settle(t *testing.T, m model, cmd tea.Cmd) model {
 
 	for _, msg := range produced(cmd) {
 		switch msg.(type) {
-		case writeResult, refreshResult, actionsResult:
+		case writeResult, refreshResult:
 		default:
 			continue
 		}
