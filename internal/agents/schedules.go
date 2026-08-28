@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 
 	"github.com/robfig/cron/v3"
@@ -73,11 +74,11 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 // blank one is given so the list never renders an unlabelled row.
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
 	}
 
 	normalized, err := normalize(cfg)
@@ -100,12 +101,12 @@ func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg sch
 
 // SetScheduleEnabled pauses or resumes a schedule, leaving everything else as it stands.
 func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, enabled bool) error {
-	existing, err := s.GetSchedule(ctx, id)
+	_, err := s.GetSchedule(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
 	}
 
 	if err := s.store.SetEnabled(ctx, id, enabled); err != nil {
@@ -118,12 +119,12 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 // ArchiveSchedule stops a schedule from firing again, leaving the agents it already launched
 // alone with their record of the schedule that made them.
 func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error {
-	existing, err := s.GetSchedule(ctx, id)
+	_, err := s.GetSchedule(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("%w: %q", ErrScheduleNotFound, id)
 	}
 
 	if err := s.store.Archive(ctx, id); err != nil {
@@ -134,12 +135,12 @@ func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error 
 }
 
 func (s *ScheduleService) requireWorkflow(ctx context.Context, workflowID string) error {
-	wf, err := s.workflows.Get(ctx, workflowID)
+	_, err := s.workflows.Get(ctx, workflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, workflowID)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to look up workflow %q: %w", workflowID, err)
-	}
-	if wf == nil {
-		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, workflowID)
 	}
 
 	return nil

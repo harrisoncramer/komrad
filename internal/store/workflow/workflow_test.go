@@ -55,10 +55,10 @@ func TestGet(t *testing.T) {
 			}
 
 			got, err := st.Get(ctx, id)
-			require.NoError(t, err)
 
 			if tt.wantName == "" {
-				assert.Nil(t, got)
+				assert.ErrorIs(t, err, store.ErrNotFound)
+
 				return
 			}
 
@@ -411,13 +411,14 @@ func TestGetIncludingArchived(t *testing.T) {
 			}
 
 			got, err := st.GetIncludingArchived(ctx, id)
-			require.NoError(t, err)
 
 			if !tt.wantHit {
-				assert.Nil(t, got)
+				assert.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
+
+			require.NoError(t, err)
 
 			require.NotNil(t, got)
 			assert.Equal(t, "drop-worktree", got.CleanupAction)
@@ -589,9 +590,8 @@ func TestDelete(t *testing.T) {
 
 			require.NoError(t, st.Delete(ctx, id))
 
-			got, err := st.GetIncludingArchived(ctx, id)
-			require.NoError(t, err)
-			assert.Nil(t, got, "the row is gone")
+			_, err = st.GetIncludingArchived(ctx, id)
+			assert.ErrorIs(t, err, store.ErrNotFound, "the row is gone")
 
 			if !tt.create {
 				return

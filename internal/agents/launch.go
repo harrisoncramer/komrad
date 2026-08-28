@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -29,11 +30,11 @@ type launchPlan struct {
 
 func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
 	wf, err := s.workflows.Get(ctx, p.WorkflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
-	}
-	if wf == nil {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
 	}
 
 	harnessID := strings.TrimSpace(p.Harness)
@@ -185,11 +186,11 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	}
 
 	created, err := s.agents.GetInWorkflow(ctx, p.WorkflowID, plan.name)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
-	}
-	if created == nil {
-		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
 	}
 
 	params := launchParams{

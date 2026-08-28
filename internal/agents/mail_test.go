@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	"weave/lib/xptr"
@@ -267,7 +268,7 @@ func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mai
 func (f *fakeMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail, error) {
 	found, ok := f.byID[id]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
 	}
 
 	return &found, nil
@@ -408,7 +409,7 @@ func newFakeDirectory() *fakeDirectory {
 func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
 	found, ok := f.byID[id]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	return &found, nil

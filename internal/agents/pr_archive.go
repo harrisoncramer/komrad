@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/internal/logging"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 )
@@ -242,11 +243,11 @@ func (a *PRArchiver) workflow(ctx context.Context, seen map[string]prArchiveWork
 	}
 
 	wf, err := a.workflows.Get(ctx, workflowID)
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return prArchiveWorkflow{}, fmt.Errorf("failed to read workflow %q for pull request archiving: %w", workflowID, err)
 	}
 
-	answer := prArchiveWorkflow{archives: wf != nil && wf.ArchiveOnPRClosed}
+	answer := prArchiveWorkflow{archives: err == nil && wf.ArchiveOnPRClosed}
 	if answer.archives {
 		answer.repo = a.repositoryOf(ctx, wf.Cwd)
 	}

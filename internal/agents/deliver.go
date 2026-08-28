@@ -2,12 +2,14 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
 
 	"weave/internal/harness"
 	"weave/internal/logging"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 )
@@ -99,10 +101,13 @@ func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 // what it managed, which is what the tests assert on.
 func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery, error) {
 	agent, err := s.nudgeClaimer.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return DeliveryDone, nil
+	}
 	if err != nil {
 		return DeliveryDone, err
 	}
-	if agent == nil || agent.ArchivedAt != nil {
+	if agent.ArchivedAt != nil {
 		return DeliveryDone, nil
 	}
 

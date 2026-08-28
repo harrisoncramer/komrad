@@ -242,10 +242,8 @@ type NewAgentParams struct {
 func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
 	if p.IdempotencyKey != "" {
 		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
-		if err != nil {
-			return nil, err
-		}
-		if existing != nil {
+		switch {
+		case err == nil:
 			// The row is written before the window is opened, so a create that failed leaves the
 			// key spent on an agent that never ran and a retry answered with a corpse.
 			released, err := s.releaseFailedLaunch(ctx, *existing, p.IdempotencyKey)
@@ -255,12 +253,18 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 			if !released {
 				return existing, ErrAlreadyLaunched
 			}
+		case !errors.Is(err, store.ErrNotFound):
+			return nil, err
 		}
 	}
 
-	spawner, err := s.findSpawner(ctx)
-	if err != nil {
-		return nil, err
+	var spawner *agentstore.Agent
+	if id := caller.From(ctx).AgentID; id != "" {
+		found, err := s.findSpawner(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		spawner = found
 	}
 
 	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
@@ -283,18 +287,13 @@ func (s *AgentService) releaseFailedLaunch(ctx context.Context, existing agentst
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
-func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, error) {
-	id := caller.From(ctx).AgentID
-	if id == "" {
-		return nil, nil
-	}
-
+func (s *AgentService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {
 	spawner, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrSpawnerUnknown, id)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if spawner == nil {
-		return nil, fmt.Errorf("%w: %q", ErrSpawnerUnknown, id)
 	}
 
 	return spawner, nil
@@ -574,11 +573,11 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 
 func (s *AgentService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrAgentNotFound
+	}
 	if err != nil {
 		return nil, err
-	}
-	if agent == nil {
-		return nil, ErrAgentNotFound
 	}
 
 	return agent, nil
@@ -685,6 +684,9 @@ func (s *AgentService) getSetupAction(ctx context.Context, agent agentstore.Agen
 
 func (s *AgentService) getWorkflowFor(ctx context.Context, agent agentstore.Agent) *workflowstore.Workflow {
 	wf, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		attrs := []slog.Attr{
 			slog.String(logging.WorkflowID, agent.WorkflowID),

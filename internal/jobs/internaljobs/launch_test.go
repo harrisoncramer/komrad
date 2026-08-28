@@ -3,10 +3,12 @@ package internaljobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 
@@ -287,7 +289,11 @@ type recordedResult struct {
 	message    string
 }
 
-func (f *fakeSchedules) Get(context.Context, string) (*schedulestore.Schedule, error) {
+func (f *fakeSchedules) Get(_ context.Context, id string) (*schedulestore.Schedule, error) {
+	if f.schedule == nil {
+		return nil, fmt.Errorf("%w: schedule %q", store.ErrNotFound, id)
+	}
+
 	return f.schedule, nil
 }
 

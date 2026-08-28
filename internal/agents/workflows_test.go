@@ -556,9 +556,8 @@ func TestArchiveWorkflow(t *testing.T) {
 			require.NoError(t, err)
 			assert.Empty(t, listed, "the workflow is hidden")
 
-			agent, err := st.Get(ctx, "agent")
-			require.NoError(t, err)
-			assert.Nil(t, agent, "the agent is hidden from the live listing")
+			_, err = st.Get(ctx, "agent")
+			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from the live listing")
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
@@ -871,9 +870,8 @@ func TestDeleteWorkflow(t *testing.T) {
 
 			require.NoError(t, err)
 
-			got, err := st.Workflows.GetIncludingArchived(ctx, id)
-			require.NoError(t, err)
-			assert.Nil(t, got, "the workflow row is gone")
+			_, err = st.Workflows.GetIncludingArchived(ctx, id)
+			assert.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
 
 			if tt.addAgent {
 				all, err := st.ListAll(ctx)
@@ -882,9 +880,8 @@ func TestDeleteWorkflow(t *testing.T) {
 			}
 
 			if tt.addSchedule {
-				schedule, err := st.Schedules.Get(ctx, scheduleID)
-				require.NoError(t, err)
-				assert.Nil(t, schedule, "its archived schedule goes with it")
+				_, err := st.Schedules.Get(ctx, scheduleID)
+				assert.ErrorIs(t, err, store.ErrNotFound, "its archived schedule goes with it")
 			}
 		})
 	}
@@ -1032,16 +1029,15 @@ func TestDeleteIfEmpty(t *testing.T) {
 			require.NoError(t, workflows.DeleteIfEmpty(ctx, id))
 
 			got, err := st.Workflows.GetIncludingArchived(ctx, id)
-			require.NoError(t, err)
 
-			if tt.wantGone {
-				assert.Nil(t, got, "the workflow row is gone")
+			if tt.wantGone || !tt.create {
+				assert.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
 
 				return
 			}
-			if tt.create {
-				assert.NotNil(t, got, "the workflow is left where it was")
-			}
+
+			require.NoError(t, err)
+			assert.NotNil(t, got, "the workflow is left where it was")
 		})
 	}
 }

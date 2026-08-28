@@ -69,11 +69,11 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 // GetWorkflow returns one workflow by id.
 func (s *Service) GetWorkflow(ctx context.Context, req *connect.Request[workflowv1.GetWorkflowRequest]) (*connect.Response[workflowv1.GetWorkflowResponse], error) {
 	found, err := s.workflows.GetWorkflow(ctx, req.Msg.GetId())
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))
+	}
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get workflow: %w", err))
-	}
-	if found == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no workflow with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found).Workflow}), nil

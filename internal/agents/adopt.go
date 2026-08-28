@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 	"weave/lib/xstr"
@@ -66,11 +67,11 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	}
 
 	wf, err := s.workflows.Get(ctx, p.WorkflowID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
-	}
-	if wf == nil {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
 	}
 	if !wf.Worktree.Enabled {
 		return nil, fmt.Errorf("%w: %q does not", ErrAdoptNeedsWorktree, wf.Name)
@@ -86,9 +87,11 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		return nil, err
 	}
 
-	if existing, err := s.agentOnBranch(ctx, p.WorkflowID, branch); err != nil {
+	existing, err := s.agentOnBranch(ctx, p.WorkflowID, branch)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
-	} else if existing != nil {
+	}
+	if err == nil {
 		return existing, nil
 	}
 
@@ -110,9 +113,13 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		return nil, err
 	}
 
-	owner, err := s.agentIn(ctx, trees.holder)
-	if err != nil {
-		return nil, err
+	var owner *agentstore.Agent
+	if trees.holder != "" {
+		found, err := s.agentIn(ctx, trees.holder)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return nil, err
+		}
+		owner = found
 	}
 
 	switch {
@@ -195,7 +202,7 @@ func (s *AgentService) agentOnBranch(ctx context.Context, workflowID, branch str
 		}
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: no agent in workflow %q is adopted onto %q", store.ErrNotFound, workflowID, branch)
 }
 
 // adopted reports whether an agent is the one working on a branch right now, which rules out an
@@ -207,10 +214,6 @@ func adopted(agent agentstore.Agent, branch string) bool {
 // agentIn returns the agent whose cwd is a directory, archived ones included, since the first
 // agent's cleanup would otherwise remove the directory out from under a second one.
 func (s *AgentService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
-	if dir == "" {
-		return nil, nil
-	}
-
 	agents, err := s.agents.ListAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
@@ -222,7 +225,7 @@ func (s *AgentService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 		}
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: no agent is working in %q", store.ErrNotFound, dir)
 }
 
 // worktrees is what one listing of a repository's checkouts says about a branch: the main

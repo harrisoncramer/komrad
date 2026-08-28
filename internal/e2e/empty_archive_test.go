@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -156,11 +157,9 @@ func TestEmptyArchiveDeletesAWorkflowItEmptiesOut(t *testing.T) {
 
 	instance.WorkQueue()
 
-	agent, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
-	require.NoError(t, err)
-	assert.Nil(t, agent, "its agent is gone along with the workflow")
+	_, err = instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
+	assert.ErrorIs(t, err, store.ErrNotFound, "its agent is gone along with the workflow")
 
-	got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
-	require.NoError(t, err)
-	assert.Nil(t, got, "the workflow the sweep emptied out is deleted too")
+	_, err = instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
+	assert.ErrorIs(t, err, store.ErrNotFound, "the workflow the sweep emptied out is deleted too")
 }

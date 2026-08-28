@@ -1478,9 +1478,8 @@ func TestArchiveAgent(t *testing.T) {
 			require.NoError(t, err)
 			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
 
-			stored, err := st.Get(t.Context(), tt.seed)
-			require.NoError(t, err)
-			assert.Nil(t, stored, "the agent is hidden from listings")
+			_, err = st.Get(t.Context(), tt.seed)
+			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
 		})
 	}
 }

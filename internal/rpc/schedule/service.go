@@ -71,11 +71,11 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 // GetSchedule returns one schedule by id.
 func (s *Service) GetSchedule(ctx context.Context, req *connect.Request[schedulev1.GetScheduleRequest]) (*connect.Response[schedulev1.GetScheduleResponse], error) {
 	found, err := s.schedules.GetSchedule(ctx, req.Msg.GetId())
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
+	}
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get schedule: %w", err))
-	}
-	if found == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&schedulev1.GetScheduleResponse{

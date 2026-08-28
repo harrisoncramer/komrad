@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 
 	"github.com/riverqueue/river"
@@ -241,8 +242,8 @@ func (l *listingSchedules) List(context.Context) ([]schedulestore.Schedule, erro
 	return l.schedules, l.err
 }
 
-func (l *listingSchedules) Get(context.Context, string) (*schedulestore.Schedule, error) {
-	return nil, nil
+func (l *listingSchedules) Get(_ context.Context, id string) (*schedulestore.Schedule, error) {
+	return nil, fmt.Errorf("%w: schedule %q", store.ErrNotFound, id)
 }
 
 type recordingPeriodic struct {

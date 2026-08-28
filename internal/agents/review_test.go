@@ -2,9 +2,11 @@ package agents
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 
@@ -337,7 +339,7 @@ func (f *fakeReviewStore) ListThreads(
 
 func (f *fakeReviewStore) GetThread(_ context.Context, id string) (*reviewstore.Thread, error) {
 	if id != f.thread.ID {
-		return nil, nil
+		return nil, fmt.Errorf("%w: review thread %q", store.ErrNotFound, id)
 	}
 
 	thread := f.thread
@@ -391,7 +393,7 @@ func (f *fakeReviewStore) AddMessage(
 func (f *fakeReviewStore) EditMessage(_ context.Context, id, body string) (*reviewstore.Message, error) {
 	message, ok := f.messages[id]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
 	}
 
 	message.Body = body
@@ -402,7 +404,7 @@ func (f *fakeReviewStore) EditMessage(_ context.Context, id, body string) (*revi
 func (f *fakeReviewStore) GetMessage(_ context.Context, id string) (*reviewstore.Message, error) {
 	message, ok := f.messages[id]
 	if !ok {
-		return nil, nil
+		return nil, fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
 	}
 
 	return &message, nil
@@ -422,6 +424,10 @@ type fakeNoticeSender struct {
 
 func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	f.sent = append(f.sent, params)
+
+	if f.answer == nil {
+		return nil, mailstore.ErrNoticePending
+	}
 
 	return f.answer, nil
 }

@@ -129,9 +129,8 @@ linters:
               - config/appconfig\.go$
           forbid_getenv:
             skip: false
-          # Off until the returns already written here have been given sentinel errors.
           forbid_nil_nil:
-            skip: true
+            skip: false
           comment_prefix:
             skip: false
   exclusions:
@@ -142,6 +141,12 @@ linters:
         linters:
           - agentslinter
         text: forbidgetenv
+      # A nil next-page token is the absence the proto field itself carries, and it is handed
+      # straight to the response rather than acted on, so there is nothing for a sentinel to say.
+      - path: ^lib/pagination/
+        linters:
+          - agentslinter
+        text: forbidnilnil
       # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
       # failure means the throwaway server or file is already gone.
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)

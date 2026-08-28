@@ -192,7 +192,7 @@ func TestCountUnreadForAgent(t *testing.T) {
 // TestMissingRowsAnswerNil keeps the store's promise that an id naming nothing is an empty
 // answer rather than an error, which is what lets the service above it say not found instead
 // of leaking an internal failure.
-func TestMissingRowsAnswerNil(t *testing.T) {
+func TestMissingRowsAnswerNotFound(t *testing.T) {
 	tests := []struct {
 		name string
 		id   string
@@ -212,21 +212,17 @@ func TestMissingRowsAnswerNil(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			thread, err := st.GetThread(ctx, tt.id)
-			require.NoError(t, err)
-			assert.Nil(t, thread)
+			_, err := st.GetThread(ctx, tt.id)
+			assert.ErrorIs(t, err, store.ErrNotFound)
 
-			message, err := st.GetMessage(ctx, tt.id)
-			require.NoError(t, err)
-			assert.Nil(t, message)
+			_, err = st.GetMessage(ctx, tt.id)
+			assert.ErrorIs(t, err, store.ErrNotFound)
 
-			marked, err := st.MarkThreadRead(ctx, tt.id, AuthorHuman)
-			require.NoError(t, err)
-			assert.Nil(t, marked)
+			_, err = st.MarkThreadRead(ctx, tt.id, AuthorHuman)
+			assert.ErrorIs(t, err, store.ErrNotFound)
 
-			edited, err := st.EditMessage(ctx, tt.id, "rewritten")
-			require.NoError(t, err)
-			assert.Nil(t, edited)
+			_, err = st.EditMessage(ctx, tt.id, "rewritten")
+			assert.ErrorIs(t, err, store.ErrNotFound)
 		})
 	}
 }

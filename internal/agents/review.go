@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/internal/store"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 )
@@ -368,16 +369,16 @@ func (s *ReviewService) NotifyReviewThreads(
 		"weave: %d review thread(s) on your diff have activity you have not read, call list_review_threads",
 		unread)
 
-	sent, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+	_, err = s.mailer.SendNotice(ctx, SendNoticeParams{
 		ToAgentID: params.AgentID,
 		Body:      body,
 		Kind:      mailstore.KindReviewActivity,
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, mailstore.ErrNoticePending) {
 		return nil, err
 	}
 
-	return &NotifyReviewThreadsResult{Unread: unread, AlreadyWaiting: sent == nil}, nil
+	return &NotifyReviewThreadsResult{Unread: unread, AlreadyWaiting: err != nil}, nil
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the
@@ -397,11 +398,11 @@ func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 // review addressed to a different agent.
 func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author ReviewAuthor) error {
 	thread, err := s.threads.GetThread(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrReviewThreadNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if thread == nil {
-		return fmt.Errorf("%w: %q", ErrReviewThreadNotFound, id)
 	}
 	if !author.IsHuman() && !doesOwnAgent(author, thread.AgentID) {
 		return fmt.Errorf("%w: %q", ErrReviewNotYours, id)
@@ -413,11 +414,11 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 // requireOwnMessage refuses a caller rewriting or removing words it did not write.
 func (s *ReviewService) requireOwnMessage(ctx context.Context, id string, author ReviewAuthor) error {
 	message, err := s.messages.GetMessage(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if message == nil {
-		return fmt.Errorf("%w: %q", ErrReviewMessageNotFound, id)
 	}
 
 	if author.IsHuman() {

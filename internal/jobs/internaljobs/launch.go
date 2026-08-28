@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 	"weave/lib/xptr"
 
@@ -63,12 +64,12 @@ func NewLaunchAgentWorker(schedules ScheduleGetter, launcher AgentLauncher, runn
 // Work launches the agent the schedule describes and records what happened on every path.
 func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgentArgs]) error {
 	schedule, err := w.schedules.Get(ctx, job.Args.ScheduleID)
-	if err != nil {
-		return w.retry(ctx, job, fmt.Errorf("failed to read schedule %q: %w", job.Args.ScheduleID, err))
-	}
-	if schedule == nil {
+	if errors.Is(err, store.ErrNotFound) {
 		return w.cancel(ctx, job.Args.ScheduleID, schedulestore.LaunchResultScheduleNotFound,
 			fmt.Errorf("schedule %q no longer exists", job.Args.ScheduleID))
+	}
+	if err != nil {
+		return w.retry(ctx, job, fmt.Errorf("failed to read schedule %q: %w", job.Args.ScheduleID, err))
 	}
 	if !schedule.Enabled {
 		return w.cancel(ctx, schedule.ID, schedulestore.LaunchResultSchedulePaused,

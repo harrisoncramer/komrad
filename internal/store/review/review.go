@@ -188,16 +188,16 @@ func (s *Store) ListThreads(ctx context.Context, params ListThreadsParams) ([]Th
 	return threads, nil
 }
 
-// GetThread is one thread without the read stamps resolved into unread flags, nil for an id
-// that names nothing.
+// GetThread is one thread without the read stamps resolved into unread flags, ErrNotFound
+// for an id that names nothing.
 func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, threadNotFound(id)
 	}
 
 	row, err := s.queries.GetReviewThread(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, threadNotFound(id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the review thread %q: %w", id, err)
@@ -212,7 +212,7 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 // is how a person opening a single conversation catches up on it without claiming the rest.
 func (s *Store) MarkThreadRead(ctx context.Context, id string, reader AuthorKind) (*Thread, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, threadNotFound(id)
 	}
 
 	row, err := s.queries.MarkReviewThreadRead(ctx, models.MarkReviewThreadReadParams{
@@ -220,7 +220,7 @@ func (s *Store) MarkThreadRead(ctx context.Context, id string, reader AuthorKind
 		Reader: models.ReviewAuthorKind(reader),
 	})
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, threadNotFound(id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to mark the review thread %q read: %w", id, err)
@@ -234,7 +234,7 @@ func (s *Store) MarkThreadRead(ctx context.Context, id string, reader AuthorKind
 // SetThreadResolved settles a thread or reopens it.
 func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool) (*Thread, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, threadNotFound(id)
 	}
 
 	row, err := s.queries.SetReviewThreadResolved(ctx, models.SetReviewThreadResolvedParams{
@@ -242,7 +242,7 @@ func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool)
 		Resolved: resolved,
 	})
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, threadNotFound(id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to settle the review thread %q: %w", id, err)
@@ -320,7 +320,7 @@ func (s *Store) AddMessage(ctx context.Context, params AddMessageParams) (*Messa
 // side sees a rewrite as something new rather than as the text it was already shown.
 func (s *Store) EditMessage(ctx context.Context, id, body string) (*Message, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, messageNotFound(id)
 	}
 
 	row, err := s.queries.UpdateReviewMessageBody(ctx, models.UpdateReviewMessageBodyParams{
@@ -328,7 +328,7 @@ func (s *Store) EditMessage(ctx context.Context, id, body string) (*Message, err
 		Body: body,
 	})
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, messageNotFound(id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to rewrite the review message %q: %w", id, err)
@@ -345,15 +345,15 @@ func (s *Store) EditMessage(ctx context.Context, id, body string) (*Message, err
 	}, nil
 }
 
-// GetMessage is one message, nil for an id that names nothing.
+// GetMessage is one message, ErrNotFound for an id that names nothing.
 func (s *Store) GetMessage(ctx context.Context, id string) (*Message, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, messageNotFound(id)
 	}
 
 	row, err := s.queries.GetReviewMessage(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, messageNotFound(id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the review message %q: %w", id, err)
@@ -426,4 +426,12 @@ func messageFromRow(row models.ReviewMessage) Message {
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
 	}
+}
+
+func threadNotFound(id string) error {
+	return fmt.Errorf("%w: review thread %q", store.ErrNotFound, id)
+}
+
+func messageNotFound(id string) error {
+	return fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
 }

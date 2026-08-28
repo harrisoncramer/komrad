@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"weave/config"
 	"weave/internal/actions"
 	"weave/internal/logging"
+	"weave/internal/store"
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
 
@@ -1405,7 +1407,7 @@ func (f fakeAgentReader) GetByID(_ context.Context, id string) (*agentstore.Agen
 		return f.agent, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 }
 
 type fakeWorkflowReader struct {
@@ -1415,7 +1417,7 @@ type fakeWorkflowReader struct {
 
 func (f fakeWorkflowReader) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	if f.archived {
-		return nil, nil
+		return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
 	}
 
 	return f.GetIncludingArchived(ctx, id)
@@ -1426,7 +1428,7 @@ func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (
 		return f.workflow, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: workflow %q", store.ErrNotFound, id)
 }
 
 type fakePaneOwner struct {

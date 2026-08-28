@@ -150,11 +150,11 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 // blank one is given so the list never renders an unlabelled bucket.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
 	}
 
 	cfg.Name = strings.TrimSpace(cfg.Name)
@@ -293,11 +293,11 @@ func requirePrimaryCheckout(cwd string) error {
 // behind without a workflow to belong to.
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
+	}
 	if err != nil {
 		return err
-	}
-	if existing == nil {
-		return fmt.Errorf("%w: %q", ErrWorkflowNotFound, id)
 	}
 
 	scheduled, err := w.schedules.CountLive(ctx, id)
@@ -345,10 +345,13 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 // dormant so a folder of twelve does not start twelve CLIs.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+	}
 	if err != nil {
 		return nil, err
 	}
-	if existing == nil || existing.ArchivedAt == nil {
+	if existing.ArchivedAt == nil {
 		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
 	}
 
@@ -389,10 +392,13 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 // and schedules are still inside it.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
+	}
 	if err != nil {
 		return err
 	}
-	if existing == nil || existing.ArchivedAt == nil {
+	if existing.ArchivedAt == nil {
 		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
 	}
 
@@ -420,10 +426,13 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 // which is what clears a workflow left empty by a batch delete of the agents inside it.
 func (w *WorkflowService) DeleteIfEmpty(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
 	if err != nil {
 		return err
 	}
-	if existing == nil || existing.ArchivedAt == nil {
+	if existing.ArchivedAt == nil {
 		return nil
 	}
 

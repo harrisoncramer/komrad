@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	"weave/lib/xslice"
@@ -106,7 +107,7 @@ type SendNoticeParams struct {
 }
 
 // SendNotice sends mail as weave itself under a kind the recipient holds at most one unclaimed
-// copy of, answering nil and no error when one is already waiting.
+// copy of, answering mailstore.ErrNoticePending when one is already waiting.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be deduplicated by", ErrNoticeKindMissing)
@@ -133,19 +134,23 @@ type sendParams struct {
 
 func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.Mail, error) {
 	recipient, err := s.agentFinder.GetByID(ctx, params.ToAgentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrRecipientNotFound, params.ToAgentID)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if recipient == nil {
-		return nil, fmt.Errorf("%w: %q", ErrRecipientNotFound, params.ToAgentID)
 	}
 	if recipient.ArchivedAt != nil {
 		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, params.ToAgentID)
 	}
 
-	sender, err := s.findSender(ctx, params.From)
-	if err != nil {
-		return nil, err
+	var sender *agentstore.Agent
+	if params.From != "" {
+		var err error
+		sender, err = s.findSender(ctx, params.From)
+		if err != nil {
+			return nil, err
+		}
 	}
 	if sender != nil && sender.ID == recipient.ID {
 		return nil, ErrSelfAddressed
@@ -162,11 +167,11 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	hops := int32(1)
 	if params.ReplyTo != nil {
 		parent, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo)
+		if errors.Is(err, store.ErrNotFound) {
+			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
+		}
 		if err != nil {
 			return nil, err
-		}
-		if parent == nil {
-			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
 		}
 		hops = parent.Hops + 1
 	}
@@ -209,11 +214,11 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 
 func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
 	agent, err := s.agentFinder.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if agent == nil {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
 	}
 
 	claimed, err := s.mailReadWriter.Claim(ctx, agent.ID, maxClaimedMail)
@@ -228,11 +233,11 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 // without claiming any of it.
 func (s *MailService) ListMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error) {
 	agent, err := s.agentFinder.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if agent == nil {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
 	}
 
 	listed, err := s.mailReadWriter.ListPage(ctx, agent.ID, limit, cursor)
@@ -280,16 +285,12 @@ func (s *MailService) ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
 func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {
-	if from == "" {
-		return nil, nil
-	}
-
 	sender, err := s.agentFinder.GetByID(ctx, from)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrSenderUnknown, from)
+	}
 	if err != nil {
 		return nil, err
-	}
-	if sender == nil {
-		return nil, fmt.Errorf("%w: %q", ErrSenderUnknown, from)
 	}
 
 	return sender, nil

@@ -122,15 +122,15 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 	return schedules, nil
 }
 
-// Get returns a schedule by id, nil when none exists, or an error for a real failure.
+// Get returns a schedule by id, or ErrNotFound when none has that id.
 func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: schedule %q", store.ErrNotFound, id)
 	}
 
 	row, err := s.queries.GetSchedule(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: schedule %q", store.ErrNotFound, id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
