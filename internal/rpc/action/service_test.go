@@ -103,77 +103,13 @@ func TestRunActionPassesWhatItWasAsked(t *testing.T) {
 	assert.Equal(t, "open-linear", manager.action)
 }
 
-// TestEditActionCodes covers what a caller is told when the editor cannot be opened. It
-// refuses what a run refuses, since it is a run of an action itself, plus the one refusal of
-// its own: a file with no text in it to change.
-func TestEditActionCodes(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		wantCode connect.Code
-	}{
-		{
-			name:     "an action the directory does not hold",
-			err:      agents.ErrActionNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a compiled program has nothing to edit",
-			err:      agents.ErrNotEditable,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "an editing action the user has not made executable",
-			err:      agents.ErrActionNotExecutable,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "the editing action already running for the same agent",
-			err:      agents.ErrActionAlreadyRunning,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "anything else is ours rather than theirs",
-			err:      errors.New("the config would not parse"),
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "an opened editor answers with nothing to say",
-			err:      nil,
-			wantCode: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			manager := &fakeActions{err: tt.err}
-
-			_, err := NewService(manager).EditAction(context.Background(), connect.NewRequest(&actionv1.EditActionRequest{
-				AgentId: "a1",
-				Action:  "open-pr",
-			}))
-
-			if tt.wantCode == 0 {
-				require.NoError(t, err)
-				assert.Equal(t, "a1", manager.agentID)
-				assert.Equal(t, "open-pr", manager.action)
-
-				return
-			}
-
-			require.Error(t, err)
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-		})
-	}
-}
-
 // TestListActions covers the listing rendered onto the wire. An action that declared no timeout
 // leaves the field unset rather than sending zero, which a caller would read as a run with no
 // time at all.
 func TestListActions(t *testing.T) {
 	manager := &fakeActions{listed: []agents.Action{
 		{
-			Name: "open-pr", Path: "/actions/open-pr", Executable: true, Text: true,
+			Name: "open-pr", Path: "/actions/open-pr", Executable: true,
 			Header: agents.ActionHeader{
 				Description: "Open the pull request this agent recorded.",
 				Timeout:     45 * time.Second,
@@ -194,10 +130,8 @@ func TestListActions(t *testing.T) {
 	assert.Equal(t, "Open the pull request this agent recorded.", listed[0].GetDescription())
 	assert.Equal(t, 45*time.Second, listed[0].GetTimeout().AsDuration())
 	assert.Equal(t, []string{"line 4: nope is not a directive weave knows"}, listed[0].GetHeaderProblems())
-	assert.True(t, listed[0].GetText())
 
 	assert.Empty(t, listed[1].GetDescription())
-	assert.False(t, listed[1].GetText(), "a compiled program is listed as what it is")
 	assert.Nil(t, listed[1].GetTimeout(), "a file that declared no timeout sends none")
 }
 
@@ -229,12 +163,6 @@ func (f *fakeActions) ListActions() ([]agents.Action, error) {
 }
 
 func (f *fakeActions) RunAction(_ context.Context, agentID, name string) error {
-	f.agentID, f.action = agentID, name
-
-	return f.err
-}
-
-func (f *fakeActions) EditAction(_ context.Context, agentID, name string) error {
 	f.agentID, f.action = agentID, name
 
 	return f.err

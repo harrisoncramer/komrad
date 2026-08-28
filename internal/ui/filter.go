@@ -176,10 +176,6 @@ func (m model) hoveredFilterKey() string {
 		if item, ok := m.selectedSchedule(); ok {
 			return item.schedule.ID
 		}
-	case screenActions:
-		if action, ok := m.selectedAction(); ok {
-			return action.name
-		}
 	default:
 	}
 
@@ -206,16 +202,6 @@ func (m *model) placeFilteredCursor(hovered string) {
 		}
 		m.schedules.cursor = placeCursor(found, m.schedules.cursor, len(rows))
 		m.stageSchedule()
-	case screenActions:
-		rows := m.actionRows()
-		found := -1
-		for i, action := range rows {
-			if action.name == hovered {
-				found = i
-			}
-		}
-		m.actions.cursor = placeCursor(found, m.actions.cursor, len(rows))
-		m.stageAction()
 	default:
 	}
 }

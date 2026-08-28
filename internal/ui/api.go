@@ -402,15 +402,3 @@ func (a api) runAction(agentID, name string) error {
 
 	return err
 }
-
-func (a api) editAction(agentID, name string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.actions.EditAction(ctx, connect.NewRequest(&actionv1.EditActionRequest{
-		AgentId: agentID,
-		Action:  name,
-	}))
-
-	return err
-}

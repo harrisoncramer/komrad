@@ -5,7 +5,6 @@ import (
 	"strings"
 	"time"
 
-	actionv1 "weave/proto/gen/action/v1"
 	agentv1 "weave/proto/gen/agent/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -52,23 +51,6 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 
 func isInternalAction(name string) bool {
 	return strings.HasPrefix(name, "_")
-}
-
-func actionItemsFrom(listed []*actionv1.Action) []actionItem {
-	external := xslice.Filter(listed, func(action *actionv1.Action) bool {
-		return !isInternalAction(action.GetName())
-	})
-
-	return xslice.Map(external, func(action *actionv1.Action) actionItem {
-		return actionItem{
-			name:        action.GetName(),
-			executable:  action.GetExecutable(),
-			description: action.GetDescription(),
-			timeout:     action.GetTimeout().AsDuration(),
-			problems:    action.GetHeaderProblems(),
-			text:        action.GetText(),
-		}
-	})
 }
 
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {

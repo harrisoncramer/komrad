@@ -83,8 +83,6 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveCursor(1), nil
 	case isBound(k, m.keys.Agents.Open):
 		return m.openAgent()
-	case isBound(k, m.keys.Actions.Open):
-		return m.enterActions()
 	}
 
 	return m.updateHoveredAgent(key)
@@ -649,4 +647,31 @@ func actionOverride(selected string) *string {
 
 func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m.updateSubmitForm(msg, model.submitAgent)
+}
+
+const openPRAction = "_open_pr"
+
+const prMetadataKey = "pr"
+
+func hasPR(agent agentstore.Agent) bool {
+	for _, entry := range agent.Metadata {
+		if entry.Key == prMetadataKey {
+			return entry.Value != ""
+		}
+	}
+
+	return false
+}
+
+func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	if !hasPR(agent) {
+		return m, nil
+	}
+
+	agentID := agent.ID
+
+	return m, m.writeCmd(
+		"Could not open the pull request",
+		func(a api) error { return a.runAction(agentID, openPRAction) },
+	)
 }
