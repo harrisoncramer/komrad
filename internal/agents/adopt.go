@@ -135,7 +135,7 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	}
 
 	created, err := s.NewAgent(ctx, params)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
 		return nil, err
 	}
 

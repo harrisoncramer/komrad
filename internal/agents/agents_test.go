@@ -187,12 +187,14 @@ func TestNewAgentIdempotency(t *testing.T) {
 		second string
 
 		wantSame bool
+		wantErr  error
 	}{
 		{
 			name:     "the same key returns the agent already created",
 			first:    "schedule:s1:2026-07-28T09:00:00Z",
 			second:   "schedule:s1:2026-07-28T09:00:00Z",
 			wantSame: true,
+			wantErr:  ErrAlreadyLaunched,
 		},
 		{
 			name:   "the next occurrence is a different agent",
@@ -221,8 +223,12 @@ func TestNewAgentIdempotency(t *testing.T) {
 
 			params.IdempotencyKey = tt.second
 			second, err := manager.NewAgent(t.Context(), params)
-			require.NoError(t, err)
-			require.NotNil(t, second)
+			if tt.wantErr != nil {
+				require.ErrorIs(t, err, tt.wantErr, "a key already spent says so rather than passing for a launch")
+			} else {
+				require.NoError(t, err)
+			}
+			require.NotNil(t, second, "the agent already under the key comes back either way")
 
 			agents, err := st.List(t.Context())
 			require.NoError(t, err)
@@ -237,6 +243,81 @@ func TestNewAgentIdempotency(t *testing.T) {
 
 			assert.NotEqual(t, first.ID, second.ID)
 			assert.Len(t, agents, 2)
+		})
+	}
+}
+
+// TestNewAgentRetriesUnderTheSameKey covers what a retry of one firing does about the agent
+// the previous attempt left behind, since answering it with a create that failed is what
+// turned one launch failure into an hourly run that silently never happened.
+func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
+	const key = "schedule:s1:2026-07-28T09:00:00Z"
+
+	tests := []struct {
+		name string
+
+		state string
+
+		wantRelaunch bool
+	}{
+		{
+			name:         "a create that failed is launched again",
+			state:        agentstore.StateFailedToCreate,
+			wantRelaunch: true,
+		},
+		{
+			name:  "a cleanup that failed belongs to an agent that ran, so the key stands",
+			state: agentstore.StateFailedToCleanup,
+		},
+		{
+			name:  "an agent still coming up is left alone",
+			state: agentstore.StateSettingUp,
+		},
+		{
+			name:  "a working agent is left alone",
+			state: agentstore.StateThinking,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+
+			params := NewAgentParams{
+				Title: "morning-ci", Dir: t.TempDir(), Prompt: "check CI",
+				WorkflowID: seedWorkflow(t, st), IdempotencyKey: key,
+			}
+
+			first, err := manager.NewAgent(t.Context(), params)
+			require.NoError(t, err)
+			require.NoError(t, st.Agents.SetStateByID(t.Context(), first.ID, tt.state))
+
+			second, err := manager.NewAgent(t.Context(), params)
+			require.NotNil(t, second)
+
+			all, listErr := st.ListAll(t.Context())
+			require.NoError(t, listErr)
+
+			if !tt.wantRelaunch {
+				require.ErrorIs(t, err, ErrAlreadyLaunched)
+				assert.Equal(t, first.ID, second.ID, "the retry is answered with the agent already under the key")
+				assert.Len(t, all, 1, "and records no second agent")
+				assert.Len(t, tmux.sent, 1, "nor starts one")
+
+				return
+			}
+
+			require.NoError(t, err, "a failed create never launched, so the retry is free to")
+			assert.NotEqual(t, first.ID, second.ID)
+			assert.Len(t, all, 2, "the agent that failed is kept, since it says why it failed")
+			assert.Len(t, tmux.sent, 2, "and the retry actually starts something")
+
+			held, err := st.Agents.GetByIdempotencyKey(t.Context(), key)
+			require.NoError(t, err)
+			require.NotNil(t, held)
+			assert.Equal(t, second.ID, held.ID, "the key moves to the agent that launched")
 		})
 	}
 }
@@ -701,7 +782,7 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	require.NotNil(t, first)
 
 	second, err := manager.NewAgent(t.Context(), params)
-	require.NoError(t, err)
+	require.ErrorIs(t, err, ErrAlreadyLaunched)
 	require.NotNil(t, second)
 	assert.Equal(t, first.ID, second.ID, "the retry finds the agent it already created")
 

@@ -1196,6 +1196,38 @@ func (q *Queries) NextTranscriptChunkSeq(ctx context.Context, agentID string) (i
 	return next, err
 }
 
+const releaseAgentIdempotencyKey = `-- name: ReleaseAgentIdempotencyKey :many
+UPDATE
+    agents
+SET
+    idempotency_key = NULL
+WHERE
+    idempotency_key = $1
+    AND state = 'failed_to_create'
+RETURNING
+    id
+`
+
+func (q *Queries) ReleaseAgentIdempotencyKey(ctx context.Context, idempotencyKey *string) ([]string, error) {
+	rows, err := q.db.Query(ctx, releaseAgentIdempotencyKey, idempotencyKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const renameAgent = `-- name: RenameAgent :many
 UPDATE
     agents

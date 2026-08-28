@@ -31,6 +31,11 @@ var ErrTooManyAgents = errors.New("too many agents")
 var ErrAgentArchived = errors.New("agent is archived")
 var ErrSpawnerUnknown = errors.New("the spawning agent is not one this panel knows")
 
+// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
+// is returned alongside that agent rather than instead of it, so that a caller which has to
+// know whether this call did the launching can tell.
+var ErrAlreadyLaunched = errors.New("this idempotency key already launched an agent")
+
 var (
 	ErrHarnessUnknown      = harness.ErrNotRegistered
 	ErrActionNotFound      = actions.ErrActionNotFound
@@ -57,6 +62,7 @@ type agentManager interface {
 	agentFinder
 	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
+	ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error)
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	Create(ctx context.Context, agent agentstore.Agent) error
 	List(ctx context.Context) ([]agentstore.Agent, error)
@@ -231,7 +237,8 @@ type NewAgentParams struct {
 	AdoptedBranch  string
 }
 
-// NewAgent creates and launches a background agent.
+// NewAgent creates and launches a background agent, answering a key already spent on a launch
+// with that agent and ErrAlreadyLaunched rather than a bare nil.
 func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
 	if p.IdempotencyKey != "" {
 		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
@@ -239,7 +246,15 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 			return nil, err
 		}
 		if existing != nil {
-			return existing, nil
+			// The row is written before the window is opened, so a create that failed leaves the
+			// key spent on an agent that never ran and a retry answered with a corpse.
+			released, err := s.releaseFailedLaunch(ctx, *existing, p.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+			if !released {
+				return existing, ErrAlreadyLaunched
+			}
 		}
 	}
 
@@ -253,6 +268,19 @@ func (s *AgentService) NewAgent(ctx context.Context, p NewAgentParams) (*agentst
 	}
 
 	return s.launchAgent(ctx, p, spawner)
+}
+
+// releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
+// attempt launches instead of being answered with the corpse.
+func (s *AgentService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key string) (bool, error) {
+	// A failed cleanup belongs to an agent that ran, so only a failed create launched nothing.
+	if existing.State != agentstore.StateFailedToCreate {
+		return false, nil
+	}
+
+	// The row is left where it stands rather than relaunched into, since its id names the
+	// worktree and branch the cleanup action is still tearing down in the background.
+	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
 func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, error) {
