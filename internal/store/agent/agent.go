@@ -731,9 +731,11 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 }
 
 // Archive moves agents out of live listings, returning the pane each row held as it was
-// archived rather than the one the caller last read. An archive is what stops the CLI in
-// that pane, and the row can take a pane between a caller's read and this write, so the
-// write is the only thing that can say which pane was really taken away.
+// archived rather than the one the caller last read. An archive is what stops the CLI in that
+// pane, and a resume or a create can record one between a caller's read and this write, so the
+// pane is read under the lock the archive itself takes. Reading it from the snapshot the
+// statement started on would not do: a write this one waited on is committed by the time the
+// row is written, and only the row being written is read again.
 func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {

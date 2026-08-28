@@ -1065,17 +1065,25 @@ func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id string) ([]st
 }
 
 const markAgentsArchived = `-- name: MarkAgentsArchived :many
+WITH prior AS (
+    SELECT
+        id,
+        pane_id
+    FROM
+        agents
+    WHERE
+        id = ANY ($1::uuid[])
+        AND archived_at IS NULL
+    FOR UPDATE)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
     pane_id = ''
 FROM
-    agents prior
+    prior
 WHERE
     a.id = prior.id
-    AND a.id = ANY ($1::uuid[])
-    AND a.archived_at IS NULL
 RETURNING
     a.id,
     prior.pane_id
@@ -1107,17 +1115,25 @@ func (q *Queries) MarkAgentsArchived(ctx context.Context, ids []string) ([]*Mark
 }
 
 const markWorkflowAgentsArchived = `-- name: MarkWorkflowAgentsArchived :many
+WITH prior AS (
+    SELECT
+        id,
+        pane_id
+    FROM
+        agents
+    WHERE
+        agents.workflow_id = $1
+        AND agents.archived_at IS NULL
+    FOR UPDATE)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
     pane_id = ''
 FROM
-    agents prior
+    prior
 WHERE
     a.id = prior.id
-    AND a.workflow_id = $1
-    AND a.archived_at IS NULL
 RETURNING
     a.id,
     prior.pane_id

@@ -1939,6 +1939,75 @@ func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 	assert.Equal(t, []AgentPane{{AgentID: deleting, Pane: "%5"}}, deleted)
 }
 
+// TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind covers the archive against the write it
+// actually races: a resume or a create recording its pane in its own statement, uncommitted,
+// while the archive is already blocked on the row. Reading the pane from a plain join against
+// the table hands back the value from before that write, since only the row being updated is
+// re-read once the lock is released. The archive would then commit, blank the pane, and report
+// nothing to kill, which is the state it exists to prevent.
+func TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "dormant", State: StateIdle}))
+
+	created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, "dormant")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	tx, err := st.pool.GetRawPool().Begin(ctx)
+	require.NoError(t, err)
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	_, err = tx.Exec(ctx, `UPDATE agents SET pane_id = '%9' WHERE id = $1`, created.ID)
+	require.NoError(t, err)
+
+	type outcome struct {
+		taken []AgentPane
+		err   error
+	}
+
+	archived := make(chan outcome, 1)
+	go func() {
+		taken, archiveErr := st.Archive(context.WithoutCancel(ctx), []string{created.ID})
+		archived <- outcome{taken: taken, err: archiveErr}
+	}()
+
+	waitForBlockedArchive(t, st)
+	require.NoError(t, tx.Commit(ctx))
+
+	got := <-archived
+	require.NoError(t, got.err)
+	assert.Equal(t, []AgentPane{{AgentID: created.ID, Pane: "%9"}}, got.taken)
+}
+
+// waitForBlockedArchive blocks until an archive is waiting on a row lock, which is how the test
+// knows the archive has reached its write rather than not having started yet.
+func waitForBlockedArchive(t *testing.T, st *fixture) {
+	t.Helper()
+
+	for range 500 {
+		var waiting bool
+		require.NoError(t, st.pool.GetRawPool().QueryRow(context.Background(), `
+			SELECT EXISTS (
+				SELECT
+					1
+				FROM
+					pg_stat_activity
+				WHERE
+					wait_event_type = 'Lock'
+					AND query LIKE '%MarkAgentsArchived%')`).Scan(&waiting))
+
+		if waiting {
+			return
+		}
+
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatal("no archive ever blocked on the row, so it never reached its write")
+}
+
 // TestArchiveAndRestoreInBatches covers the two writes a selection drives. Both are keyed
 // on a list of ids, so what they must not do is act on a row nobody named.
 func TestArchiveAndRestoreInBatches(t *testing.T) {

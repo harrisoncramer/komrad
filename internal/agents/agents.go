@@ -351,13 +351,11 @@ func (s *AgentService) cleanupEmptyWorkflows(ctx context.Context, removed []agen
 	}
 }
 
-// ArchiveAgents stops agents while preserving their records and workspaces. It kills twice
-// over, from what it read and then from what its own write took off the rows, because the two
-// reach different panes. Killing from the read first is what keeps a failed write from hiding
-// a CLI for good, since the row is left live for the reconciler to tidy. Killing from the
-// write is what reaches a pane recorded in between: a resume or a create opens its window and
-// then records it, and while the row is still live neither is refused, so a pane can land on
-// a row the read said held none.
+// ArchiveAgents stops agents while preserving their records and workspaces. It kills the panes
+// it read and then the ones its own write took off the rows, since the two reach different
+// panes. The first keeps a failed write from hiding a live CLI, leaving the row for the
+// reconciler to tidy. The second reaches a pane recorded in between, which a resume or a create
+// writes once its window is open and which nothing refuses while the row is still live.
 func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {

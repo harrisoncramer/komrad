@@ -196,17 +196,25 @@ RETURNING
     id;
 
 -- name: MarkWorkflowAgentsArchived :many
+WITH prior AS (
+    SELECT
+        id,
+        pane_id
+    FROM
+        agents
+    WHERE
+        agents.workflow_id = @workflow_id
+        AND agents.archived_at IS NULL
+    FOR UPDATE)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
     pane_id = ''
 FROM
-    agents prior
+    prior
 WHERE
     a.id = prior.id
-    AND a.workflow_id = @workflow_id
-    AND a.archived_at IS NULL
 RETURNING
     a.id,
     prior.pane_id;
@@ -422,17 +430,25 @@ RETURNING
     id;
 
 -- name: MarkAgentsArchived :many
+WITH prior AS (
+    SELECT
+        id,
+        pane_id
+    FROM
+        agents
+    WHERE
+        id = ANY (@ids::uuid[])
+        AND archived_at IS NULL
+    FOR UPDATE)
 UPDATE
     agents a
 SET
     archived_at = NOW(),
     pane_id = ''
 FROM
-    agents prior
+    prior
 WHERE
     a.id = prior.id
-    AND a.id = ANY (@ids::uuid[])
-    AND a.archived_at IS NULL
 RETURNING
     a.id,
     prior.pane_id;
