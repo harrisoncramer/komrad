@@ -51,6 +51,15 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantResultStatus: schedulestore.LaunchResultLaunched,
 		},
 		{
+			// The launcher hands this back only for an agent that actually came up, since a create
+			// that failed has its key taken off it and is launched again.
+			name:             "an occurrence whose agent is already up records that rather than retrying",
+			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "check CI", Enabled: true},
+			launchErr:        agents.ErrAlreadyLaunched,
+			wantLaunched:     true,
+			wantResultStatus: schedulestore.LaunchResultLaunched,
+		},
+		{
 			name:             "a schedule deleted since the job was queued cancels",
 			wantCancel:       true,
 			wantResultStatus: schedulestore.LaunchResultScheduleNotFound,

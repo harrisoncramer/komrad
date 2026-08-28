@@ -628,6 +628,22 @@ func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, er
 	return s.hydrateMetadataForAgent(ctx, row)
 }
 
+// ReleaseIdempotencyKey takes a key back off the failed create holding it and reports whether
+// it did, checking the state in the statement that clears the key so a caller which read the
+// row a moment ago cannot free one off an agent that has since launched.
+func (s *Store) ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error) {
+	if key == "" {
+		return false, nil
+	}
+
+	released, err := s.queries.ReleaseAgentIdempotencyKey(ctx, &key)
+	if err != nil {
+		return false, fmt.Errorf("failed to release idempotency key %q: %w", key, err)
+	}
+
+	return len(released) > 0, nil
+}
+
 // CountLive returns the number of unarchived agents.
 func (s *Store) CountLive(ctx context.Context) (int64, error) {
 	count, err := s.queries.CountLiveAgents(ctx)

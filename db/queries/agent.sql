@@ -146,6 +146,17 @@ WHERE
     s.idempotency_key = @idempotency_key
 LIMIT 1;
 
+-- name: ReleaseAgentIdempotencyKey :many
+UPDATE
+    agents
+SET
+    idempotency_key = NULL
+WHERE
+    idempotency_key = @idempotency_key
+    AND state = 'failed_to_create'
+RETURNING
+    id;
+
 -- name: UpdateAgent :exec
 UPDATE
     agents
