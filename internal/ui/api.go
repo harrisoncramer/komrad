@@ -262,20 +262,9 @@ func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	w := resp.Msg.GetWorkflow()
+	workflow := workflowFrom(resp.Msg.GetWorkflow())
 
-	return &workflowstore.Workflow{
-		ID:                w.GetId(),
-		Name:              w.GetName(),
-		Context:           w.GetContext(),
-		Harness:           w.GetHarness(),
-		Cwd:               w.GetCwd(),
-		Flags:             w.GetFlags(),
-		SetupAction:       w.GetSetupAction(),
-		CleanupAction:     w.GetCleanupAction(),
-		Worktree:          worktreeConfigFromProto(w.GetWorktree()),
-		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
-	}, nil
+	return &workflow, nil
 }
 
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {

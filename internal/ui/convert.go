@@ -60,25 +60,28 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 }
 
 func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
-	return xslice.Map(listed, func(w *workflowv1.Workflow) workflowstore.Workflow {
-		var archived *time.Time
-		if parsed, err := time.Parse(time.RFC3339, w.GetArchivedAt()); err == nil {
-			archived = &parsed
-		}
+	return xslice.Map(listed, workflowFrom)
+}
 
-		return workflowstore.Workflow{
-			ID:            w.GetId(),
-			Name:          w.GetName(),
-			Context:       w.GetContext(),
-			Harness:       w.GetHarness(),
-			Cwd:           w.GetCwd(),
-			Flags:         w.GetFlags(),
-			SetupAction:   w.GetSetupAction(),
-			CleanupAction: w.GetCleanupAction(),
-			Worktree:      worktreeConfigFromProto(w.GetWorktree()),
-			ArchivedAt:    archived,
-		}
-	})
+func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
+	var archived *time.Time
+	if parsed, err := time.Parse(time.RFC3339, w.GetArchivedAt()); err == nil {
+		archived = &parsed
+	}
+
+	return workflowstore.Workflow{
+		ID:                w.GetId(),
+		Name:              w.GetName(),
+		Context:           w.GetContext(),
+		Harness:           w.GetHarness(),
+		Cwd:               w.GetCwd(),
+		Flags:             w.GetFlags(),
+		SetupAction:       w.GetSetupAction(),
+		CleanupAction:     w.GetCleanupAction(),
+		Worktree:          worktreeConfigFromProto(w.GetWorktree()),
+		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
+		ArchivedAt:        archived,
+	}
 }
 
 func archivedAgentsFrom(listed []*agentv1.Agent) []agentstore.Agent {

@@ -8,6 +8,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
+	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -47,4 +48,48 @@ func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 	reviewer, ok := rowNamed(rows, "reviewer")
 	require.True(t, ok)
 	assert.NotContains(t, reviewer, worktreeRemovedIcon)
+}
+
+// TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.
+// Every screen that acts on a workflow reads it out of the listing and writes it back
+// whole, so a field the conversion drops is a field the next rename clears.
+func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
+	got := workflowsFrom([]*workflowv1.Workflow{{
+		Id:                "w1",
+		Name:              "api",
+		Context:           "shared notes",
+		Harness:           "claude",
+		Cwd:               "/work/api",
+		Flags:             "--model opus",
+		SetupAction:       "make-worktree",
+		CleanupAction:     "drop-worktree",
+		ArchiveOnPrClosed: true,
+		Worktree: &workflowv1.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   "develop",
+			CopyPaths:    []string{".env"},
+			SymlinkPaths: []string{"node_modules"},
+			DiffExclude:  []string{"proto/gen"},
+		},
+	}})
+
+	require.Len(t, got, 1)
+	assert.Equal(t, workflowstore.Workflow{
+		ID:                "w1",
+		Name:              "api",
+		Context:           "shared notes",
+		Harness:           "claude",
+		Cwd:               "/work/api",
+		Flags:             "--model opus",
+		SetupAction:       "make-worktree",
+		CleanupAction:     "drop-worktree",
+		ArchiveOnPRClosed: true,
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   "develop",
+			CopyPaths:    []string{".env"},
+			SymlinkPaths: []string{"node_modules"},
+			DiffExclude:  []string{"proto/gen"},
+		},
+	}, got[0])
 }

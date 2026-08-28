@@ -342,6 +342,67 @@ func describeRows(rows []agentRow) []string {
 	return out
 }
 
+// TestWorkflowEditFormRoundTripsTheStoredConfig covers the edit path whole, from the
+// workflow the service reports, through the form, to the update written back. An update
+// replaces every field, so a setting the form never learned about is one the next edit
+// turns off.
+func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
+	sent := &formRecorder{storedWorkflow: &workflowv1.Workflow{
+		Id:                "w1",
+		Name:              "api",
+		Harness:           "claude",
+		Cwd:               "/work/api",
+		Flags:             "--model opus",
+		ArchiveOnPrClosed: true,
+		Worktree:          &workflowv1.WorktreeConfig{Enabled: true, BaseBranch: "develop"},
+	}}
+
+	opened, _ := formModel(sent).editWorkflowForm(workflowstore.Workflow{ID: "w1", Name: "api"})
+	editing, ok := opened.(model)
+	require.True(t, ok)
+	require.NotNil(t, editing.values.workflow)
+	assert.True(t, editing.values.workflow.ArchiveOnPRClosed, "the form opens on what is stored")
+
+	editing.form.Init()
+	editing.values.workflow.Cwd = "/work/api-v2"
+
+	updated, cmd := editing.submitWorkflowForm()
+	submitted, ok := updated.(model)
+	require.True(t, ok)
+	require.Nil(t, settle(t, submitted, cmd).banner, "the service accepted the write")
+
+	require.NotNil(t, sent.updatedWorkflow)
+	assert.Equal(t, "/work/api-v2", sent.updatedWorkflow.GetCwd(), "the field that was edited")
+	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed(), "and the one that was not")
+}
+
+// TestWorkflowRenameKeepsTheRestOfTheConfig covers the rename path, which takes the
+// workflow out of the listing and writes it back whole under a new name.
+func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
+	sent := &formRecorder{}
+	m := formModel(sent)
+	m.listing.workflows = workflowsFrom([]*workflowv1.Workflow{{
+		Id:                "w1",
+		Name:              "api",
+		Cwd:               "/work/api",
+		ArchiveOnPrClosed: true,
+	}})
+
+	opened, _ := m.renameWorkflowForm(m.listing.workflows[0])
+	renaming, ok := opened.(model)
+	require.True(t, ok)
+	renaming.form.Init()
+	renaming.values.workflow.Name = "backend"
+
+	updated, cmd := renaming.submitWorkflowForm()
+	submitted, ok := updated.(model)
+	require.True(t, ok)
+	require.Nil(t, settle(t, submitted, cmd).banner, "the service accepted the write")
+
+	require.NotNil(t, sent.updatedWorkflow)
+	assert.Equal(t, "backend", sent.updatedWorkflow.GetName())
+	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd(), "a rename carries the config it is not changing")
+	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
 type fakeActions struct {
 	actionv1connect.ActionServiceClient
 }
