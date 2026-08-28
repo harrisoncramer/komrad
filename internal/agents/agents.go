@@ -63,6 +63,7 @@ type agentManager interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
+	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
 	SetStateByID(ctx context.Context, id, state string) error
 	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
@@ -739,10 +740,20 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
 	agent.Cwd = dir
-	if err := s.agents.Update(ctx, agent); err != nil {
+	// The mark says a resume is in flight, but an archive or a delete does not read it: both
+	// take the row anyway, and both kill only the pane the row named when they read it, which
+	// for a resume this far along is no pane at all. So this write is where the resume finds
+	// out it lost, and the pane it opened is its own to take away.
+	written, err := s.agents.UpdateIfLive(ctx, agent)
+	if err != nil {
 		s.tmux.KillPane(pane)
 
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
+	}
+	if !written {
+		s.tmux.KillPane(pane)
+
+		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
 	}
 	recorded = true
 

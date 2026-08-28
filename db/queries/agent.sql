@@ -169,6 +169,32 @@ SET
 WHERE
     id = @id;
 
+-- name: UpdateAgentIfLive :many
+UPDATE
+    agents
+SET
+    cwd = @cwd,
+    flags = @flags,
+    prompt = @prompt,
+    pane_id = @pane_id,
+    state = @state,
+    state_changed_at = CASE WHEN state IS DISTINCT FROM @state THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    session_id = CASE WHEN @session_id != '' THEN
+        @session_id
+    ELSE
+        session_id
+    END,
+    workflow_id = @workflow_id
+WHERE
+    id = @id
+    AND archived_at IS NULL
+RETURNING
+    id;
+
 -- name: MarkWorkflowAgentsArchived :exec
 UPDATE
     agents

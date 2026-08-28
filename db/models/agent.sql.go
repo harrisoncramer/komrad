@@ -1536,6 +1536,73 @@ func (q *Queries) UpdateAgent(ctx context.Context, arg UpdateAgentParams) error 
 	return err
 }
 
+const updateAgentIfLive = `-- name: UpdateAgentIfLive :many
+UPDATE
+    agents
+SET
+    cwd = $1,
+    flags = $2,
+    prompt = $3,
+    pane_id = $4,
+    state = $5,
+    state_changed_at = CASE WHEN state IS DISTINCT FROM $5 THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    session_id = CASE WHEN $6 != '' THEN
+        $6
+    ELSE
+        session_id
+    END,
+    workflow_id = $7
+WHERE
+    id = $8
+    AND archived_at IS NULL
+RETURNING
+    id
+`
+
+type UpdateAgentIfLiveParams struct {
+	Cwd        string
+	Flags      string
+	Prompt     string
+	PaneID     string
+	State      string
+	SessionID  interface{}
+	WorkflowID string
+	ID         string
+}
+
+func (q *Queries) UpdateAgentIfLive(ctx context.Context, arg UpdateAgentIfLiveParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, updateAgentIfLive,
+		arg.Cwd,
+		arg.Flags,
+		arg.Prompt,
+		arg.PaneID,
+		arg.State,
+		arg.SessionID,
+		arg.WorkflowID,
+		arg.ID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertTranscript = `-- name: UpsertTranscript :exec
 INSERT INTO agent_transcripts(
     agent_id,

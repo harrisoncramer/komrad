@@ -450,14 +450,119 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	assert.Empty(t, live, "nothing is left running that no listing shows")
 }
 
+// TestAnArchiveAfterTheMarkStopsTheResume covers the window on the far side of the mark. From
+// there to the resume's write is its setup action and a tmux window, seconds of real work for a
+// worktree workflow, and an archive landing in it is a person hitting a key rather than a pass
+// with a compare-and-set. It kills the pane the row names, which is none yet, so the resume is
+// the only side left that can take away the pane it went on to open.
+func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:        "worktrees",
+		Cwd:         t.TempDir(),
+		SetupAction: "worktree-setup",
+		Worktree:    workflowstore.WorktreeConfig{Enabled: true},
+	})
+	require.NoError(t, err)
+
+	agent := seedInWorkflow(t, st, created.ID, "cut", "", agentstore.StateIdle)
+
+	h := &fakeHarness{}
+	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+
+	done := make(chan error, 1)
+	go func() {
+		_, resumeErr := manager.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		done <- resumeErr
+	}()
+
+	<-lifecycle.entered
+
+	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
+	require.NoError(t, manager.ArchiveAgents(ctx, []string{agent.ID}))
+
+	close(lifecycle.release)
+	select {
+	case resumeErr := <-done:
+		require.ErrorIs(t, resumeErr, ErrAgentArchived)
+	case <-time.After(10 * time.Second):
+		t.Fatal("the resume never finished")
+	}
+
+	after := agentByID(t, st, agent.ID)
+	require.NotNil(t, after.ArchivedAt, "the archive really did land")
+	assert.Empty(t, after.Pane, "the resume wrote no pane onto the archived row")
+	assert.Equal(t, agentstore.StateIdle, after.State, "and the row reads as the resume found it rather than mid-setup")
+	assert.Len(t, tmux.killedPanes, 1, "the pane the resume opened goes with the resume that lost")
+	assert.Empty(t, h.launches, "and no CLI was launched into a pane no listing shows")
+
+	live, err := st.List(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, live, "nothing is left running that no listing shows")
+}
+
+// TestADeleteAfterTheMarkStopsTheResume is the same window reached by the worse of the two
+// ways out of it. A delete drops the row, so there is nothing left for the resume to write a
+// pane onto and nothing anybody could later archive: a CLI launched here would be attached to
+// an id no row holds.
+func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:        "worktrees",
+		Cwd:         t.TempDir(),
+		SetupAction: "worktree-setup",
+		Worktree:    workflowstore.WorktreeConfig{Enabled: true},
+	})
+	require.NoError(t, err)
+
+	agent := seedInWorkflow(t, st, created.ID, "cut", "", agentstore.StateIdle)
+
+	h := &fakeHarness{}
+	lifecycle := &blockingLifecycle{entered: make(chan struct{}), release: make(chan struct{})}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
+
+	done := make(chan error, 1)
+	go func() {
+		_, resumeErr := manager.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		done <- resumeErr
+	}()
+
+	<-lifecycle.entered
+
+	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
+	require.NoError(t, manager.DeleteAgents(ctx, []string{agent.ID}))
+
+	close(lifecycle.release)
+	select {
+	case resumeErr := <-done:
+		require.ErrorIs(t, resumeErr, ErrAgentArchived)
+	case <-time.After(10 * time.Second):
+		t.Fatal("the resume never finished")
+	}
+
+	assert.Len(t, tmux.killedPanes, 1, "the pane the resume opened goes with the resume that lost")
+	assert.Empty(t, h.launches, "no CLI was launched for an agent no row holds")
+
+	rows, err := st.ListAll(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, rows, "the delete really did take the row")
+}
+
 // refusingUpdate is the store with its last write to the row taken away, which is the one step
 // a resume can fail at after it has started overwriting the copy of the agent it was handed.
 type refusingUpdate struct {
 	*agentstore.Store
 }
 
-func (refusingUpdate) Update(context.Context, agentstore.Agent) error {
-	return errors.New("the row would not take the write")
+func (refusingUpdate) UpdateIfLive(context.Context, agentstore.Agent) (bool, error) {
+	return false, errors.New("the row would not take the write")
 }
 
 // TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound covers the state a resume restores
