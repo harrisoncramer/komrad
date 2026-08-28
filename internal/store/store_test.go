@@ -70,9 +70,8 @@ func TestUpdatedAtTriggers(t *testing.T) {
 			"end your migration with SELECT attach_updated_at_triggers()")
 }
 
-// TestUpdatedAtStamped is the trigger doing its work, on a write that names neither
-// updated_at nor the trigger. workflow_configs stands in for all of them because it
-// is the one table with no foreign key to satisfy first.
+// TestUpdatedAtStamped pins the trigger stamping a write that names neither updated_at nor
+// the trigger, using workflow_configs since it has no foreign key to satisfy first.
 func TestUpdatedAtStamped(t *testing.T) {
 	t.Parallel()
 

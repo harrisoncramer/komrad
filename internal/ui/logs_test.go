@@ -263,9 +263,8 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	assert.Contains(t, withoutLog, "tmux refused", "nothing else is left to say why, so the reason falls back to here")
 }
 
-// TestLogKeysFollowTheArchiveCursor covers the log keys on the archive screen. The archive
-// keeps a cursor of its own, so a row a delete could not destroy pages its own teardown log
-// rather than whatever the agents list was last left pointing at.
+// TestLogKeysFollowTheArchiveCursor pins that the archive's own cursor picks which teardown
+// log is paged, not whatever the agents list was last left pointing at.
 func TestLogKeysFollowTheArchiveCursor(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)

@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestNewSpecSizes covers the sizes tmux is handed. A share becomes a percentage, and the
-// stage takes what the sidebar leaves, so the two together are the whole window.
+// TestNewSpecSizes covers the sizes tmux is handed, where the stage takes what the sidebar
+// leaves so the two are the whole window.
 func TestNewSpecSizes(t *testing.T) {
 	tests := []struct {
 		name     string

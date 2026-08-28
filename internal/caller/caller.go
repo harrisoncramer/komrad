@@ -41,7 +41,7 @@ func expanded(value string) string {
 	return value
 }
 
-// SetHeader writes the identity onto a request going out. Nothing is written for a caller
+// SetHeader writes the identity onto a request going out, and nothing at all for a caller
 // that is not known, since an empty header reads as an answer.
 func (c Caller) SetHeader(header http.Header) {
 	if c.AgentID != "" {

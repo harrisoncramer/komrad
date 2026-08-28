@@ -32,8 +32,6 @@ type Action struct {
 	Path       string
 	Executable bool
 
-	Text bool
-
 	Header Header
 }
 
@@ -49,9 +47,8 @@ func NewRunner() Runner {
 	return Runner{}
 }
 
-// Discover lists the actions in dir by name, each with what its header declares. A
-// directory that does not exist yields no actions and no error, since not having written
-// one is the ordinary case.
+// Discover lists the actions in dir by name with what each header declares, treating a
+// missing directory as no actions rather than an error.
 func Discover(dir string) ([]Action, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -74,13 +71,11 @@ func Discover(dir string) ([]Action, error) {
 			continue
 		}
 
-		header, text := readHeader(path)
 		found = append(found, Action{
 			Name:       entry.Name(),
 			Path:       path,
 			Executable: info.Mode().Perm()&0o111 != 0,
-			Text:       text,
-			Header:     header,
+			Header:     readHeader(path),
 		})
 	}
 
@@ -104,16 +99,8 @@ type Result struct {
 	ExitCode int
 }
 
-// Run starts an action and returns once the process exists rather than once it has
-// finished. What it does report is a failure to start, which is otherwise
-// indistinguishable from a keypress that did nothing.
-//
-// Stdin is left nil, which os/exec maps to the null device: an inherited stdin would let a
-// script read keystrokes meant for the panel. Stdout and stderr are captured together into
-// one buffer rather than shown live, since nothing in this path is attached to a pane a
-// person is watching — most scripts fail through a plain echo on stdout, not stderr, and a
-// capture that only kept stderr would miss that. The file is executed directly rather than
-// through a shell, so nothing in the environment is ever parsed as a command line.
+// Run starts an action and returns once the process exists rather than once it has finished,
+// reporting only a failure to start.
 func (r Runner) Run(p RunParams) error {
 	if !p.Action.Executable {
 		return fmt.Errorf("failed to run action %s: %w", p.Action.Name, ErrNotExecutable)
@@ -131,9 +118,13 @@ func (r Runner) Run(p RunParams) error {
 		ctx, cancel = context.WithTimeout(ctx, p.Timeout)
 	}
 
+	// The file is executed directly rather than through a shell, so nothing in the environment
+	// is parsed as a command line.
 	cmd := exec.CommandContext(ctx, p.Action.Path)
 	cmd.Dir = p.Dir
 	cmd.Env = append(os.Environ(), p.Env...)
+	// Stdin stays nil so a script cannot read keystrokes meant for the panel, and stdout and
+	// stderr share one buffer since a script that fails usually does so through a plain echo.
 	cmd.Stdout = &output
 	cmd.Stderr = &output
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
@@ -170,13 +161,8 @@ func (r Runner) Run(p RunParams) error {
 	return nil
 }
 
-// RunAndWait runs an action and does not return until it has finished or ctx is done. It is for a caller with something downstream of the action, where Run is for one
-// with nothing waiting. The result comes back whether or not the action succeeded, since a
-// non-zero exit is exactly when its stderr is worth showing.
-//
-// It makes Run's refusals for Run's reasons, plus ErrFailed for a non-zero exit and ctx's
-// error for one that outlived its deadline. Cancelling kills the whole process group, so a
-// script that spawned a build does not leave it running.
+// RunAndWait runs an action and waits for it, returning the result whether or not the action
+// succeeded since a non-zero exit is when its stderr is worth showing.
 func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	if !p.Action.Executable {
 		return Result{}, fmt.Errorf("failed to run action %s: %w", p.Action.Name, ErrNotExecutable)
@@ -199,6 +185,8 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	cmd.Env = append(os.Environ(), p.Env...)
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
+	// Cancelling kills the whole process group, so a script that spawned a build does not leave
+	// it running.
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	cmd.Cancel = killGroup(cmd)
 	cmd.WaitDelay = killDelay

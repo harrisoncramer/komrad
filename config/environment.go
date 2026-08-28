@@ -11,8 +11,7 @@ import (
 const layerVariable = "WEAVE_CONFIG"
 
 // Environment is the process context weave receives from its shell, tmux, or a launched
-// agent. Its connection fields are copied from the values Viper already resolved; this
-// package does not apply a second configuration precedence scheme.
+// agent, with its connection fields copied from what Viper already resolved.
 type Environment struct {
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
@@ -56,8 +55,7 @@ func LoadEnvironment(connection Environment) *Environment {
 	return &connection
 }
 
-// LookupEnv reports an environment value and whether it is non-empty. Configuration
-// packages use this instead of reading the process environment outside this package.
+// LookupEnv reports an environment value and whether it is non-empty.
 func LookupEnv(name string) (string, bool) {
 	value, set := os.LookupEnv(name)
 

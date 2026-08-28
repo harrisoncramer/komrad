@@ -16,9 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestGetConfig covers what a caller is told for each state the user's file can be
-// in. A file that will not parse is the one worth watching. It answers with the
-// defaults the panel falls back to and the reason, rather than failing the call.
+// TestGetConfig covers each state the user's file can be in, and a file that will not parse
+// answering with the defaults and the reason rather than failing the call.
 func TestGetConfig(t *testing.T) {
 	tests := []struct {
 		name string
@@ -88,9 +87,8 @@ func TestGetConfig(t *testing.T) {
 	}
 }
 
-// TestGetConfigReportsTheBuild covers the one thing in the response that is not the user's
-// config. An agent reaches this server over MCP and has no build of its own to compare
-// against, so this answer is the only way it can say which server it was talking to.
+// TestGetConfigReportsTheBuild covers the build in the response, which is the only way an
+// agent reaching this server over MCP can say which one it was talking to.
 func TestGetConfigReportsTheBuild(t *testing.T) {
 	svc := NewService(func() (*weaveconfig.Config, error) { return weaveconfig.Defaults(), nil })
 
@@ -100,10 +98,8 @@ func TestGetConfigReportsTheBuild(t *testing.T) {
 	assert.Equal(t, version.Version(), resp.Msg.GetVersion())
 }
 
-// TestGetConfigKeysMatchTheFile pins the names the blob is keyed by, and that the
-// screens stay nested under keybindings rather than flattened. The names are the
-// only thing a caller has to go on, and a reader who sees one has to be able to
-// find the same setting in their own TOML file.
+// TestGetConfigKeysMatchTheFile pins the names the blob is keyed by, since a reader who sees
+// one has to be able to find the same setting in their own TOML file.
 func TestGetConfigKeysMatchTheFile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -197,9 +193,8 @@ func harnessFlags(t *testing.T, resp *configv1.GetConfigResponse, id string) any
 	return flags
 }
 
-// TestGetConfigRedactsTheConnectionStrings covers the one place the config becomes something a
-// caller sees. The file can hold a database password now, and this endpoint is exposed to the
-// MCP surface, so an unredacted answer hands that password to any model that asks.
+// TestGetConfigRedactsTheConnectionStrings covers the database password in the file, which an
+// unredacted answer would hand to any model reaching this endpoint over MCP.
 func TestGetConfigRedactsTheConnectionStrings(t *testing.T) {
 	for _, name := range []string{"WEAVE_DATABASE_URL", "WEAVE_READONLY_DATABASE_URL"} {
 		t.Setenv(name, "")

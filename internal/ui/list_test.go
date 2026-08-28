@@ -33,9 +33,8 @@ func lines(rendered string) []string {
 	return strings.Split(trimmed, "\n")
 }
 
-// TestRenderListFits covers the lists short enough to draw whole. Nothing is cut
-// and no counts are drawn, since a list that fits has nothing to say about what is
-// off screen.
+// TestRenderListFits pins that a list short enough to draw whole is not cut and draws no
+// counts.
 func TestRenderListFits(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -66,16 +65,14 @@ func TestRenderListFits(t *testing.T) {
 	}
 }
 
-// TestRenderListEmpty covers a list with no rows at all. It draws nothing rather
-// than a blank line, so the screen's own empty-state text is what shows.
+// TestRenderListEmpty pins that a list with no rows draws nothing rather than a blank line,
+// leaving the screen's own empty-state text to show.
 func TestRenderListEmpty(t *testing.T) {
 	assert.Empty(t, renderList(nil, 0, 10))
 }
 
-// TestRenderListWindow covers the window a clipped list draws. The row under the
-// cursor is always on screen, the list never scrolls past either end, and the
-// counts standing in for what was cut come out of the same budget, so the block is
-// never taller than the pane it was given.
+// TestRenderListWindow pins that a clipped list keeps the cursor's row on screen, never
+// scrolls past either end, and never grows taller than the pane it was given.
 func TestRenderListWindow(t *testing.T) {
 	const total = 20
 
@@ -120,11 +117,8 @@ func TestRenderListWindow(t *testing.T) {
 	}
 }
 
-// TestRenderListKeepsCursorVisible walks the cursor down the whole list at every
-// height a pane could give it. The row under the cursor has to be drawn and the
-// block has to fit, and both have to hold for every cursor rather than at the
-// edges alone, since the window is derived from the cursor and holds no offset of
-// its own.
+// TestRenderListKeepsCursorVisible walks the cursor down the list at every pane height,
+// since the window is derived from the cursor and holds no offset of its own.
 func TestRenderListKeepsCursorVisible(t *testing.T) {
 	rows := numbered(50)
 
@@ -138,15 +132,12 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 	}
 }
 
-// TestScreensFitThePane covers the whole screen rather than the list alone. The
-// header, the list, and the legend under it have to fit the pane together, since a
-// legend shoved off the bottom is the thing the clipping is there to save.
-//
-// The pane is taller than the tallest legend on purpose. A list keeps the row under the
-// cursor whatever is above it, so a pane too short for its own chrome overflows by
-// design, and measuring that says nothing about the clipping this is here for.
+// TestScreensFitThePane pins the header, the list, and the legend fitting the pane together,
+// since a legend shoved off the bottom is what the clipping is there to save.
 func TestScreensFitThePane(t *testing.T) {
 	const (
+		// Taller than the tallest legend on purpose, since a pane too short for its own chrome
+		// overflows by design.
 		height = 24
 		total  = 40
 	)
@@ -205,9 +196,8 @@ func TestScreensFitThePane(t *testing.T) {
 	}
 }
 
-// TestListLines covers the room a screen's list is left with. The chrome around it
-// and the banner over it both come off the pane, and a pane too short to hold even
-// that keeps one line for the hovered row.
+// TestListLines pins that the chrome and the banner come off the pane, and that a pane too
+// short to hold even those keeps one line for the hovered row.
 func TestListLines(t *testing.T) {
 	header := "Archive\n\n"
 	help := "\nrestore\ndelete\nback\n"

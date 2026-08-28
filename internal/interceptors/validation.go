@@ -13,10 +13,8 @@ type validationInterceptor struct {
 	validator protovalidate.Validator
 }
 
-// NewValidation builds the interceptor, failing if the validator cannot be
-// constructed. That only happens when a compiled-in constraint is malformed, which
-// is a programming error rather than a runtime condition, so the caller cannot
-// usefully continue without it.
+// NewValidation builds the interceptor, failing when a compiled-in constraint is malformed
+// and the caller cannot usefully continue.
 func NewValidation() (connect.Interceptor, error) {
 	validator, err := protovalidate.New()
 	if err != nil {
@@ -41,8 +39,7 @@ func (v *validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryF
 	}
 }
 
-// WrapStreamingClient passes through. The service is unary only, and the
-// streaming halves exist so the interceptor still satisfies the interface.
+// WrapStreamingClient passes through, since the service is unary only.
 func (v *validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }

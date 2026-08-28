@@ -31,14 +31,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestFormsSubmitWhatIsOnScreen covers every form the panel submits, from the values
-// it was opened with to the request that reaches the service.
-//
-// The cursor is never moved in any of these cases, which is the point. huh records a
-// field into the form's own results only as the cursor leaves it, so a form read that
-// way would send the fields below the cursor as blank, and the panel's submit key
-// submits from wherever the cursor happens to be. Each form binds its fields to values
-// the panel holds instead, so what is on screen is what is sent.
+// TestFormsSubmitWhatIsOnScreen covers every form binding its fields to values the panel
+// holds, since huh records a field into its own results only as the cursor leaves it.
 func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	tests := []struct {
 		name string
@@ -431,11 +425,8 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 	}
 }
 
-// TestActionSelectShowsTheCurrentChoiceOnOpen covers the option an action field opens on
-// actually being visible rather than scrolled out of the list. huh.Select only sizes its
-// viewport to the option a field's value matched when Options was called, so binding
-// Value after Options left the pointed-to option, and everything above it, off-screen even
-// though the field's own reported value was already correct.
+// TestActionSelectShowsTheCurrentChoiceOnOpen covers an action field opening on a visible
+// option, since huh.Select sizes its viewport when Options is called and not when Value is.
 func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
 
@@ -459,9 +450,8 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	assert.Contains(t, workflowView, "> drop-worktree", "editing a workflow opens with its own stored cleanup action marked as the one picked, not none")
 }
 
-// TestRefusedSubmitKeepsTheForm covers what a refused write leaves on screen. The form
-// stays up carrying what was filled in, since the field that caused the refusal is fixed
-// from there and closing would cost every other field with it.
+// TestRefusedSubmitKeepsTheForm covers a refused write leaving the form up with what was
+// filled in, since closing would cost every other field.
 func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	tests := []struct {
 		name string
@@ -556,13 +546,8 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
-// TestNewAgentSubmitClosesImmediately covers the new-agent form's own submit path, which
-// closes on submit rather than holding for the write the way every other form does: a
-// setup action can run for minutes, and a person is better served by the agents list than
-// by a frozen form for that long. A workflow with a setup action also gets a pane opened
-// for it before the write goes out, closed again once a create lands and left up, showing
-// whatever the action printed, when the setup action itself is what failed — that failure
-// is not also flashed as a banner, since the pane and the persisted setup log already say why.
+// TestNewAgentSubmitClosesImmediately covers the new-agent form closing on submit rather than
+// holding for the write, since a setup action can run for minutes.
 func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -671,11 +656,8 @@ func TestSetupTypeRebuildsTheForm(t *testing.T) {
 	assert.Contains(t, m.form.View(), "Worktree copy paths")
 }
 
-// TestSetupTypeSelectShowsBothOptionsOnOpen covers opening the edit form for a workflow
-// whose setup type is already custom, the non-default answer. huh scrolls a select's
-// viewport to the bound value's index as soon as it has both an accessor and an option
-// list, which hid the worktree option whenever custom was already selected until the
-// field started binding the value after the options instead of before.
+// TestSetupTypeSelectShowsBothOptionsOnOpen covers a select opening on the non-default answer,
+// since huh scrolls to the bound value's index once it has both an accessor and options.
 func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
 	form, _, toggleIndex := workflowConfigForm("Workflow name", workflowFormValues{SetupType: setupTypeCustom}, nil, config.DefaultKeybindings().Form)
 	form.Init()
@@ -693,9 +675,8 @@ func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
 	)
 }
 
-// TestArchivePromptChoices covers the three ways the archive prompt can be answered, driven
-// by the keys that answer it. It opens on archiving, which is reversible, so a submit alone
-// never destroys anything and the choice that does is a move away.
+// TestArchivePromptChoices covers the three ways the prompt can be answered, where it opens
+// on the reversible one so a submit alone never destroys anything.
 func TestArchivePromptChoices(t *testing.T) {
 	tests := []struct {
 		name string
@@ -741,9 +722,8 @@ func TestArchivePromptChoices(t *testing.T) {
 	}
 }
 
-// TestArchivePromptOpensOnArchive covers the prompt as it is first drawn. huh scrolls its
-// list to whatever value is bound, so a prompt that opened anywhere else would take a submit
-// for an answer nobody chose.
+// TestArchivePromptOpensOnArchive covers the prompt as first drawn, since huh scrolls its
+// list to whatever value is bound and a submit would otherwise answer for nobody.
 func TestArchivePromptOpensOnArchive(t *testing.T) {
 	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, config.DefaultKeybindings().Form)
 	form.Init()
@@ -763,9 +743,8 @@ func TestArchivePromptOpensOnArchive(t *testing.T) {
 	assert.Contains(t, rows, "Cancel")
 }
 
-// TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused covers the destructive answer
-// meeting a refusal. The delete only follows an archive that landed, so a refused archive
-// leaves an agent that is still there rather than one destroyed without being stopped.
+// TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused covers the delete only following an
+// archive that landed, so a refused archive leaves the agent there rather than destroyed.
 func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	sent := &formRecorder{refuse: connect.NewError(connect.CodeFailedPrecondition, errors.New("already archived"))}
 
@@ -782,10 +761,8 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
 }
 
-// TestConfirmingArchiveTracksTheWriteAsPending covers the model a confirm form hands back
-// right after it fires the write, before that write has answered. The write is issued on a
-// value receiver, so if the model it mutates is not the one the confirm form returns, the
-// pending count never moves and a refresh lands mid-archive instead of waiting for it.
+// TestConfirmingArchiveTracksTheWriteAsPending covers the write being issued on a value
+// receiver, so the model it mutates has to be the one the confirm form returns.
 func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 	sent := &formRecorder{}
 
@@ -829,9 +806,8 @@ func asModel(t *testing.T, updated tea.Model) model {
 	return m
 }
 
-// TestFormsSubmitNothingWithoutValues covers a submit reaching a panel holding no
-// bound values, which is a form that was never opened. Every submit path is a method
-// anything could call, so none of them may write on an empty form.
+// TestFormsSubmitNothingWithoutValues covers a submit reaching a panel with no bound values,
+// since every submit path is a method anything could call.
 func TestFormsSubmitNothingWithoutValues(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -870,10 +846,8 @@ func TestFormsSubmitNothingWithoutValues(t *testing.T) {
 	}
 }
 
-// TestFormResultsAreNotWhatIsSubmitted pins the reason every form binds its values. A
-// field only reaches huh's own results as the cursor leaves it, so a form read that way
-// arrives empty however it was prefilled, and the panel's submit key submits from
-// wherever the cursor is.
+// TestFormResultsAreNotWhatIsSubmitted pins why every form binds its values, since a field
+// only reaches huh's own results as the cursor leaves it.
 func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 	form, values := scheduleForm(schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
@@ -1080,10 +1054,8 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// TestOnlyTheSubmitKeySubmitsAForm covers the keymap every form uses. Enter would complete
-// a form on the spot, which huh cannot resume, so a refusal would have nowhere to come back
-// to. That risk is the same for a one-field form as a multi-field one, so enter never
-// submits either, only the configured key does.
+// TestOnlyTheSubmitKeySubmitsAForm covers enter never submitting, since it would complete a
+// form huh cannot resume and leave a refusal nowhere to come back to.
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
@@ -1136,9 +1108,8 @@ func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
 	}
 }
 
-// TestAdoptFormSendsWhatWasTyped covers the adopt key's whole job: it asks for the work to
-// pick up and hands that to the service, which is what decides where the agent runs. The
-// form has no directory field for that reason.
+// TestAdoptFormSendsWhatWasTyped covers the adopt form having no directory field, since the
+// service is what decides where the agent runs.
 func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)

@@ -75,9 +75,8 @@ func TestGet(t *testing.T) {
 	}
 }
 
-// TestCreate covers what a new schedule carries and the fields a caller may
-// leave out. Nothing about where or how an agent runs is stored here: that lives
-// on the workflow the schedule points at.
+// TestCreate covers what a new schedule carries and the fields a caller may leave out, none
+// of which say where or how an agent runs.
 func TestCreate(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -124,8 +123,8 @@ func TestCreate(t *testing.T) {
 	}
 }
 
-// TestNameTaken covers the unique index on live names. It is scoped to live
-// rows, so an archived schedule holds its name without blocking a new one.
+// TestNameTaken pins that the unique index is scoped to live rows, so an archived schedule
+// holds its name without blocking a new one.
 func TestNameTaken(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -278,10 +277,8 @@ func TestSetEnabled(t *testing.T) {
 	}
 }
 
-// TestHideAgents covers the flag deciding whether the agents a schedule launches start
-// hidden from the panel's sidebar. It is the schedule's answer for its runs and the only
-// hiding a schedule has a say in, so it has to survive a write and be editable back off
-// again.
+// TestHideAgents pins that the flag hiding a schedule's runs from the sidebar survives a
+// write and can be turned back off.
 func TestHideAgents(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

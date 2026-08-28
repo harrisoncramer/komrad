@@ -1,6 +1,5 @@
-// Package jobs owns the queue weave's background work runs on: the River client, the
-// settings every job shares, and the ways of putting work on it. The jobs themselves live
-// in internaljobs.
+// Package jobs owns the queue weave's background work runs on, with the jobs themselves in
+// internaljobs.
 package jobs
 
 import (
@@ -33,9 +32,8 @@ type ClientParams struct {
 	Logger    *slog.Logger
 }
 
-// NewClient builds the River client with the workers registered. It starts
-// no periodic jobs. Those are added by the reconciler from the schedules table,
-// since which ones exist is a question only the database can answer.
+// NewClient builds the River client with the workers registered, leaving the periodic jobs
+// to the reconciler that reads them out of the schedules table.
 func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Launcher, p.Running, p.Results, p.Logger))

@@ -77,9 +77,8 @@ func TestCreateAgentValidation(t *testing.T) {
 	}
 }
 
-// TestRequestValidation covers the constraints on the rest of the surface. They
-// live in the proto and run in the interceptor, so each case calls through a
-// real client rather than the service directly.
+// TestRequestValidation covers the proto constraints, which run in the interceptor and so
+// need a real client rather than the service directly.
 func TestRequestValidation(t *testing.T) {
 	tests := []struct {
 		name string

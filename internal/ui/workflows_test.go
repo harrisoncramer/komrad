@@ -12,6 +12,8 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	actionv1 "weave/proto/gen/action/v1"
+	"weave/proto/gen/action/v1/actionv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -160,8 +162,6 @@ func (r *refusingWorkflows) ArchiveWorkflow(context.Context, *connect.Request[wo
 }
 
 // TestWorkflowWrites covers each write handing its error back rather than discarding it.
-// The last case never reaches the service: a blank name is treated as an empty submit, not
-// a failure.
 func TestWorkflowWrites(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -247,8 +247,8 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
-// TestApplyWorkflows covers what the refresh does to the tree's folders. The
-// listing comes back newest first, so the fresh values are taken as they come.
+// TestApplyWorkflows pins the refresh taking the listed workflows as they come, newest
+// first.
 func TestApplyWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -291,10 +291,8 @@ func TestApplyWorkflows(t *testing.T) {
 	}
 }
 
-// TestRefreshRestagesWorkflowContext covers the reason the refresh carries workflows at
-// all. A context edited through the MCP tools or another panel only reaches this one through
-// the listing, and the stage has to redraw for it to be seen. Restaging identical text would
-// respawn the pane every tick, so that is checked not to happen.
+// TestRefreshRestagesWorkflowContext pins a context edited elsewhere reaching the stage,
+// without restaging identical text and respawning the pane every tick.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := layout.New(tmux, config.DefaultLayout())
@@ -405,4 +403,15 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	assert.Equal(t, "backend", sent.updatedWorkflow.GetName())
 	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd(), "a rename carries the config it is not changing")
 	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
+type fakeActions struct {
+	actionv1connect.ActionServiceClient
+}
+
+func (f *fakeActions) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
+	return connect.NewResponse(&actionv1.ListActionsResponse{Actions: []*actionv1.Action{
+		{Name: "open-pr", Executable: true},
+		{Name: "unrunnable"},
+		{Name: "compiled", Executable: true},
+		{Name: "_internal", Executable: true},
+	}}), nil
 }

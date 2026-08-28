@@ -16,14 +16,8 @@ import (
 
 const mcpBodyPeek = 64 << 10
 
-// NewLoggingHandler wraps an HTTP handler so every request through it is recorded, which
-// is how the MCP endpoint reaches the log. It is served as plain HTTP on the same mux as
-// the RPCs, so the connect interceptor beside this never sees it, and without this it is
-// the one surface a model can list, spawn, and delete agents through leaving no trace.
-//
-// Calls are written at info rather than at the debug the served RPCs get. Nothing polls
-// this, so a line here is a person or a model asking for something, and there are a
-// handful an hour rather than four a second.
+// NewLoggingHandler records every request to the MCP endpoint, which is served as plain HTTP
+// and so leaves no trace through the connect interceptor beside this.
 func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		trace := r.Header.Get(TraceHeader)
@@ -63,6 +57,8 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 			slog.Int64(logging.DurationMS, time.Since(start).Milliseconds()),
 		)
 
+		// Info rather than the debug a served RPC gets, since nothing polls this and a line
+		// here means somebody asked for something.
 		level := slog.LevelInfo
 		switch {
 		case recorder.status >= http.StatusInternalServerError:

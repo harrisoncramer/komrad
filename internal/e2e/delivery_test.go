@@ -15,9 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMailReachesAnAgentThatHadAlreadyStopped is the case the hooks alone cannot cover. The
-// recipient is sitting idle when the mail is sent, so no turn is ending and nothing runs
-// on its behalf. Delivery has to notice, type at it, and stand down once the mail is read.
+// TestMailReachesAnAgentThatHadAlreadyStopped covers a recipient sitting idle when the mail
+// is sent, where no turn is ending and nothing runs on its behalf.
 func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -86,8 +85,8 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 	})
 }
 
-// TestDeliveryLeavesABusyAgentAlone covers the other half of the ladder. An agent mid-turn
-// is about to run its own stop hook, so typing at it would cost a turn for nothing.
+// TestDeliveryLeavesABusyAgentAlone covers an agent mid-turn that is about to run its own
+// stop hook, so typing at it would cost a turn for nothing.
 func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -147,8 +146,8 @@ func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 	assert.Empty(t, instance.Typed(migrations.GetId()))
 }
 
-// TestExpiredMailIsGivenUpOn covers the deadline. Nothing is typed, nothing is readable, and
-// delivery finishes rather than chasing a recipient forever.
+// TestExpiredMailIsGivenUpOn covers delivery finishing at the deadline rather than chasing a
+// recipient forever.
 func TestExpiredMailIsGivenUpOn(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{DeliveryDeadline: "1ns"})
 	ctx := t.Context()
@@ -177,11 +176,8 @@ func TestExpiredMailIsGivenUpOn(t *testing.T) {
 	assert.Empty(t, instance.EndTurn(migrations.GetId()), "expired mail is not readable either")
 }
 
-// TestDeliveryWaitsForAPaneToDrawItsPrompt is the resume race. A CLI still coming up holds
-// the keys typed at it in the terminal buffer and reads them once it is ready, but the
-// newline that submits them does not survive the wait: the line lands in the prompt and sits
-// there unsent until the retry a minute later. The pane owning its process says nothing about
-// any of that, so delivery waits for the prompt itself before typing.
+// TestDeliveryWaitsForAPaneToDrawItsPrompt covers a CLI still coming up, which holds typed
+// keys in the terminal buffer but loses the newline that would submit them.
 func TestDeliveryWaitsForAPaneToDrawItsPrompt(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

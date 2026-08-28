@@ -24,10 +24,8 @@ func NewService(load loader) *Service {
 	return &Service{load: load}
 }
 
-// GetConfig returns the configuration in force, and the build answering. A file that
-// will not parse is answered with the built-in defaults and the reason it failed rather
-// than an error, since the defaults are what the panel falls back to as well, and a
-// caller told only that something is broken learns nothing about what is running.
+// GetConfig returns the configuration in force and the build answering, falling back to the
+// built-in defaults and the reason when the user's file will not parse.
 func (s *Service) GetConfig(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[configv1.GetConfigResponse], error) {
 	var configError *string
 

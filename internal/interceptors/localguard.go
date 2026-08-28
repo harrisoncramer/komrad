@@ -10,12 +10,8 @@ import (
 	"weave/internal/logging"
 )
 
-// NewLocalGuard wraps an HTTP handler so only a local caller reaches it. Nothing served
-// here asks for a credential, since the service listens on loopback, so the request that
-// was aimed somewhere else is refused before a handler sees it.
-//
-// This is to prevent DNS rebinding attacks, where an external source could arbitrarily
-// call to the ConnectRPC endpoint.
+// NewLocalGuard refuses a request that was aimed somewhere else before a handler sees it,
+// which is what stops a DNS rebinding attack reaching the ConnectRPC endpoint.
 func NewLocalGuard(logger *slog.Logger, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		reason := refusal(r)

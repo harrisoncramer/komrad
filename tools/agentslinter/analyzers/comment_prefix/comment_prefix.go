@@ -11,9 +11,8 @@ import (
 	"golang.org/x/tools/go/analysis"
 )
 
-// NewAnalyzer builds the comment-prefix analyzer. It does not require exported
-// functions to be documented, but when a doc comment exists it must start with
-// the identifier name so that an LSP rename keeps the comment in sync.
+// NewAnalyzer builds the comment-prefix analyzer, which holds any doc comment that exists to
+// starting with the identifier name so a rename keeps the two in sync.
 func NewAnalyzer(_ config.CommentPrefixConfig) *analysis.Analyzer {
 	return &analysis.Analyzer{
 		Name: "commentprefix",

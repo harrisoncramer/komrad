@@ -5,12 +5,8 @@ import (
 	"os"
 )
 
-// WriteTempText writes text to a file matching pattern under dir and returns its path. It
-// is how a harness gets multi-line markdown past send-keys, since the command it builds
-// sources the file in place and nothing in the text has to be escaped for a shell.
-//
-// The file is removed by the command that reads it rather than here, since nothing on this
-// side of send-keys knows when the shell has run it.
+// WriteTempText writes text to a file under dir so a harness can get multi-line markdown past
+// send-keys, left for the command that reads it to remove.
 func WriteTempText(dir, pattern, text string) (string, error) {
 	if dir != "" {
 		if err := os.MkdirAll(dir, 0o755); err != nil {

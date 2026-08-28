@@ -25,10 +25,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListActions covers the listing the panel and a model both read. A file that cannot be run
-// is still listed, since a script written and forgotten should show up wanting a chmod rather
-// than never appearing, and each carries what its own header declares so a caller showing one
-// needs no access to the file.
+// TestListActions pins that a file which cannot be run is still listed, since one written and
+// forgotten should show up wanting a chmod rather than never appearing.
 func TestListActions(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n#WEAVE description=\"open it\"\n"), 0o755))
@@ -46,8 +44,8 @@ func TestListActions(t *testing.T) {
 	assert.False(t, listed[1].Executable)
 }
 
-// TestListActionsWithNoDirectory covers never having written one, which is the ordinary case
-// rather than a failure. A caller says so on screen and needs nothing else from here.
+// TestListActionsWithNoDirectory pins that never having written one is the ordinary case
+// rather than a failure.
 func TestListActionsWithNoDirectory(t *testing.T) {
 	listed, err := actionService(t, filepath.Join(t.TempDir(), "never-created"), &recordingRunner{}).ListActions()
 
@@ -55,9 +53,8 @@ func TestListActionsWithNoDirectory(t *testing.T) {
 	assert.Empty(t, listed)
 }
 
-// TestRunActionRefusals covers everything that can go wrong, which is all of it from before the
-// process starts. Once an action is running nothing waits for it, so there is nothing else to
-// report.
+// TestRunActionRefusals covers everything that can go wrong, all of which is before the process
+// starts, since nothing waits for an action once it is running.
 func TestRunActionRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -106,11 +103,8 @@ func TestRunActionRefusals(t *testing.T) {
 	}
 }
 
-// TestRunActionPayload covers what a script is handed, which is the reason this lives in the
-// service rather than in the panel. The agent goes in as one JSON value under one name, with its
-// metadata as an object a script can index by key, and the two values beside it are what it
-// reaches back through. Without the socket, keys sent to the pane in the payload would go to the
-// user's own tmux server instead.
+// TestRunActionPayload covers what a script is handed, including the socket, without which keys
+// sent to the pane would go to the user's own tmux server.
 func TestRunActionPayload(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
@@ -246,9 +240,8 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 	}
 }
 
-// TestRunActionNamesAnArchivedWorkflow covers the label on an agent whose workflow has been
-// archived. The agent still belongs to it, and a script told nothing cannot tell that from a
-// workflow with no name.
+// TestRunActionNamesAnArchivedWorkflow pins an archived workflow still being named, since a
+// script told nothing cannot tell that from a workflow with no name.
 func TestRunActionNamesAnArchivedWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
@@ -272,9 +265,8 @@ func TestRunActionNamesAnArchivedWorkflow(t *testing.T) {
 	assert.Equal(t, "backend", payload.Workflow)
 }
 
-// TestRunActionBoundsALongPrompt covers the one field in the payload with no bound of its own.
-// Everything an exec is handed shares a kernel limit, and going past it fails the run with a
-// message naming the script, so a long prompt is cut here instead and the payload says it was.
+// TestRunActionBoundsALongPrompt pins a long prompt being cut, since everything an exec is
+// handed shares a kernel limit that would fail the run instead.
 func TestRunActionBoundsALongPrompt(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
@@ -361,9 +353,8 @@ func TestHead(t *testing.T) {
 	}
 }
 
-// TestRunActionOnADormantAgent covers the one field the payload works out rather than reads. A
-// pane that has been taken over or has died is not this agent's, so a script is told the agent is
-// not running rather than left to send keys into somebody else's pane.
+// TestRunActionOnADormantAgent pins a script being told the agent is not running, rather than
+// left to send keys into a pane somebody else has taken over.
 func TestRunActionOnADormantAgent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
@@ -384,10 +375,8 @@ func TestRunActionOnADormantAgent(t *testing.T) {
 	assert.False(t, payload.Alive)
 }
 
-// TestRunActionWithTheAgentDirectoryGone covers the agent an action is most wanted on. A worktree
-// removed out from under an agent leaves the row behind, and that row is the one a script is fired
-// on to tidy it, so where the agent used to be is a string in the payload and never somewhere the
-// action has to be able to stand.
+// TestRunActionWithTheAgentDirectoryGone pins the agent's directory being a string in the
+// payload, never somewhere the action has to be able to stand.
 func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
@@ -563,9 +552,8 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 	}
 }
 
-// TestRunSetupActionCarriesTheReason covers what a person sees when a setup action refuses. The
-// script's own stderr is the only thing that says why, so it travels with the refusal rather than
-// sitting somewhere only a log would show.
+// TestRunSetupActionCarriesTheReason pins the script's stderr travelling with the refusal,
+// since it is the only thing that says why.
 func TestRunSetupActionCarriesTheReason(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
@@ -711,9 +699,8 @@ func (realPaneRunner) GetInfoPane() string        { return "" }
 func (realPaneRunner) ShowGlobal(string) string   { return "" }
 func (realPaneRunner) DefaultShell() string       { return "" }
 
-// TestRunCleanupActionRefusesOneThatIsGone covers a cleanup naming a script that has been
-// renamed. It reports rather than pretending, and the caller is the one that decides an agent
-// is still removable.
+// TestRunCleanupActionRefusesOneThatIsGone pins a renamed script being reported rather than
+// pretended over, leaving the caller to decide the agent is still removable.
 func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
 	err := actionService(t, t.TempDir(), &recordingRunner{}).
 		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
@@ -793,9 +780,8 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 	}
 }
 
-// TestSetupActionLogsBothEnds covers the account of an action something is waiting on. The
-// refusal travels back to whoever asked for the launch, so the log's job here is saying a run
-// happened and what came of it, which is the half nothing else records.
+// TestSetupActionLogsBothEnds pins the log saying a run happened and what came of it, which is
+// the half nothing else records.
 func TestSetupActionLogsBothEnds(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -885,10 +871,8 @@ func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
 	assert.ErrorIs(t, doneErr, actions.ErrFailed)
 }
 
-// TestRunCleanupActionLogsWhatAZeroExitSaid covers the only record a refusal leaves. The
-// built-in worktree cleanup exits zero when it declines to remove something, since a delete
-// must not be blocked, and nothing waits on it to read what it said; a success that dropped
-// stderr left the tree on disk with no trace of why.
+// TestRunCleanupActionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
+// worktree cleanup declines that way and would otherwise leave a tree on disk with no trace.
 func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
@@ -912,11 +896,8 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	assert.NoError(t, doneErr)
 }
 
-// TestRunCleanupActionPersistsStdoutOnAFailure is the real-runner regression for the durable
-// teardown log: a cleanup action runs headless, with nothing attached to read its output live,
-// so the only account of a failure is what gets captured into the durable log. Most scripts —
-// this one included — fail through a plain echo on stdout and a bare exit, never touching
-// stderr at all; before Run() captured stdout too, that failure left the log on disk empty.
+// TestRunCleanupActionPersistsStdoutOnAFailure pins stdout being captured too, since a script
+// that fails through a plain echo and a bare exit would otherwise leave the log empty.
 func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte(
@@ -1142,9 +1123,8 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	return nil
 }
 
-// TestListActionsReadsTheUserOverTheBuiltins covers the two directories behind the list. A
-// file the user writes stands in for the one weave ships of the same name, which is how a
-// key is given different behaviour, and the rest of both sets is offered alongside.
+// TestListActionsReadsTheUserOverTheBuiltins pins a file the user writes standing in for the
+// one weave ships of the same name, with the rest of both sets offered alongside.
 func TestListActionsReadsTheUserOverTheBuiltins(t *testing.T) {
 	userDir, builtinDir := t.TempDir(), t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(userDir, "_editor"), []byte("#!/bin/sh\n# mine\n"), 0o755))
@@ -1168,9 +1148,8 @@ func TestListActionsReadsTheUserOverTheBuiltins(t *testing.T) {
 	assert.Equal(t, filepath.Join(userDir, "_editor"), listed[0].Path, "the user's file is the one on offer")
 }
 
-// TestRunActionRunsABuiltinAmongItsOwnSiblings covers firing a shipped action. It runs in the
-// directory it came out of rather than the user's, since that is where the scripts it sits
-// beside are.
+// TestRunActionRunsABuiltinAmongItsOwnSiblings pins a shipped action running in the directory
+// it came out of, where the scripts it sits beside are.
 func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
 	userDir, builtinDir := t.TempDir(), t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_terminal"), []byte("#!/bin/sh\n"), 0o755))
@@ -1186,93 +1165,8 @@ func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
 	assert.Contains(t, runner.env, "WEAVE_ACTIONS_DIR="+builtinDir)
 }
 
-// TestEditAction covers opening an action's own file. The editing action is what runs, since
-// the panel opens the pane and a script fills it, and the file it opens is named as a path,
-// which is the one part of this the panel cannot work out for itself.
-func TestEditAction(t *testing.T) {
-	userDir, builtinDir := t.TempDir(), t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, editActionName), []byte("#!/bin/sh\n"), 0o755))
-
-	runner := &recordingRunner{}
-	service := actionService(t, userDir, runner)
-	service.builtinDir = builtinDir
-
-	require.NoError(t, service.EditAction(context.Background(), "a1", "open-pr"))
-
-	require.Equal(t, []string{editActionName}, runner.ran)
-	assert.Equal(t, builtinDir, runner.dir, "the editing action runs among its own siblings")
-	assert.Contains(t, runner.env, editPathVar+"="+filepath.Join(userDir, "open-pr"))
-	assert.Contains(t, runner.env, "EDITOR=nvim", "the editor is the one the server was started with")
-}
-
-// TestEditActionRefusals covers what will not open. A compiled program is refused rather than
-// handed to an editor, which would show a screen of bytes and write back something that is no
-// longer a program.
-func TestEditActionRefusals(t *testing.T) {
-	tests := []struct {
-		name    string
-		agentID string
-		action  string
-		wantErr error
-	}{
-		{
-			name:    "an agent that is not there",
-			agentID: "gone",
-			action:  "open-pr",
-			wantErr: ErrAgentNotFound,
-		},
-		{
-			name:    "an action nobody wrote",
-			agentID: "a1",
-			action:  "never-written",
-			wantErr: actions.ErrActionNotFound,
-		},
-		{
-			name:    "a compiled program",
-			agentID: "a1",
-			action:  "compiled",
-			wantErr: ErrNotEditable,
-		},
-	}
-
-	userDir, builtinDir := t.TempDir(), t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(userDir, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, editActionName), []byte("#!/bin/sh\n"), 0o755))
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			runner := &recordingRunner{}
-			service := actionService(t, userDir, runner)
-			service.builtinDir = builtinDir
-
-			err := service.EditAction(context.Background(), tt.agentID, tt.action)
-
-			require.ErrorIs(t, err, tt.wantErr)
-			assert.Empty(t, runner.ran, "nothing is started for a refusal")
-		})
-	}
-}
-
-// TestEditActionWithoutTheEditingAction covers a build whose shipped actions are not installed
-// and a user who has written no _edit_action either. There is nothing to open the file with, so
-// the name that answers to nothing is the one reported.
-func TestEditActionWithoutTheEditingAction(t *testing.T) {
-	userDir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
-
-	runner := &recordingRunner{}
-	err := actionService(t, userDir, runner).EditAction(context.Background(), "a1", "open-pr")
-
-	require.ErrorIs(t, err, actions.ErrActionNotFound)
-	assert.Contains(t, err.Error(), editActionName)
-	assert.Empty(t, runner.ran)
-}
-
-// TestActionTimeouts covers how long a run gets. What the file declares wins wherever it was
-// fired from, and an action that declares nothing falls back to a ceiling only where a launch
-// is blocked on it.
+// TestActionTimeouts covers how long a run gets, where the file's own declaration wins and
+// only a launch blocked on the action falls back to a ceiling.
 func TestActionTimeouts(t *testing.T) {
 	agent := agentstore.Agent{ID: "a1", Cwd: "/repo"}
 

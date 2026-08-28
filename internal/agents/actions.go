@@ -145,43 +145,6 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	})
 }
 
-var ErrNotEditable = errors.New("the file is not text, so there is nothing to edit")
-
-const editActionName = "_edit_action"
-
-const editPathVar = "WEAVE_EDIT_PATH"
-
-// EditAction opens a text action in the configured editor.
-func (s *ActionService) EditAction(ctx context.Context, agentID, name string) error {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if err != nil {
-		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
-	}
-
-	target, err := s.find(name)
-	if err != nil {
-		return err
-	}
-	if !target.Text {
-		return fmt.Errorf("failed to edit action %s: %w", name, ErrNotEditable)
-	}
-
-	action, env, err := s.prepare(ctx, prepareParams{agent: *agent, name: editActionName, trigger: TriggerManual})
-	if err != nil {
-		return err
-	}
-
-	return s.start(ctx, startParams{
-		action:  action,
-		env:     append(env, editPathVar+"="+target.Path),
-		agent:   *agent,
-		trigger: TriggerManual,
-	})
-}
-
 var ErrSetupFailed = errors.New("the setup action failed")
 
 const setupTimeout = 10 * time.Minute
@@ -497,10 +460,8 @@ func readSetupDir(path string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(file, maxSetupDir+1))
 }
 
-// RunCleanupAction starts a cleanup action without waiting for it to finish. done, when
-// given, fires exactly once with the action's outcome once it actually finishes — nil for
-// success, the failure otherwise — but never for a refusal to start, which the return error
-// already reports.
+// RunCleanupAction starts a cleanup action without waiting for it to finish, calling done once
+// with nil on success or the failure otherwise, and never when the action refuses to start.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	action, env, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
 	if err != nil {

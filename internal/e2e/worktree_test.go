@@ -18,11 +18,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestWorktreeAgentsAreCreatedConcurrently covers a worktree workflow being fanned out over
-// the API, which is what an orchestrating agent spawning siblings does and what two schedules
-// matching the same minute do. The generated setup action runs for real here, so anything it
-// writes to the repo's shared git config puts every concurrent create on the same lock and
-// costs all but one of them their agent.
+// TestWorktreeAgentsAreCreatedConcurrently covers a worktree workflow fanned out over the
+// API, where anything the setup action writes to shared git config puts every create on one
+// lock.
 func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	hermeticGit(t)
 
@@ -80,9 +78,8 @@ func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	}
 }
 
-// TestWorktreeAgentCanPublishItsBranch covers the state the agent's own git is left in. An
-// agent that has finished its work reaches for `git push`, and a branch tracking the base it
-// was cut from refuses that outright, since the upstream's name is not the branch's.
+// TestWorktreeAgentCanPublishItsBranch covers the agent reaching for git push, which a branch
+// tracking the base it was cut from refuses outright.
 func TestWorktreeAgentCanPublishItsBranch(t *testing.T) {
 	hermeticGit(t)
 

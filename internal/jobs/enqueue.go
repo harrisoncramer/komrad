@@ -19,9 +19,8 @@ func NewEnqueuer(client *river.Client[pgx.Tx]) *Enqueuer {
 	return &Enqueuer{client: client}
 }
 
-// EmptyArchive queues the sweep that deletes every archived agent. It returns once the job
-// is recorded, since the sweep runs for as long as tearing down that many agents takes and
-// nobody is waiting on it.
+// EmptyArchive queues the sweep that deletes every archived agent and returns once the job
+// is recorded, since nobody is waiting on it.
 func (e *Enqueuer) EmptyArchive(ctx context.Context) error {
 	if _, err := e.client.Insert(ctx, internaljobs.EmptyArchiveArgs{}, nil); err != nil {
 		return fmt.Errorf("failed to queue emptying the archive: %w", err)

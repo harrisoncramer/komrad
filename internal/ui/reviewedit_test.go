@@ -100,9 +100,8 @@ func TestReviewEditorFollowsTheCursor(t *testing.T) {
 	assert.Contains(t, lastRespawnOf(t, tmux, "%2"), "vi +5 'greet.go'")
 }
 
-// TestReviewEditCloseReloadsTheDiff covers the point of opening an editor at all: the file is
-// changed while it is up, so the diff behind it no longer says what the worktree holds. Closing
-// the editor is the moment the panel can know that, and both ways it closes have to read again.
+// TestReviewEditCloseReloadsTheDiff pins both ways the editor closes reading the diff again,
+// since the file was changed while it was up.
 func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -157,11 +156,8 @@ func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 	}
 }
 
-// TestReviewKeepsDrawingAfterAReload is what the reader sees when it goes wrong: the sidebar
-// still follows the cursor, because it is drawn by the panel itself, while the diff beside it
-// sits frozen with its highlight on the row the cursor left. The drawer is only ever handed a
-// screenful measured against the pane, so a reload that drops the measurement stops every
-// repaint after it.
+// TestReviewKeepsDrawingAfterAReload pins the diff repainting after a reload, since a reload
+// that drops the pane measurement leaves it frozen while the sidebar keeps moving.
 func TestReviewKeepsDrawingAfterAReload(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)

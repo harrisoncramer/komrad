@@ -48,8 +48,8 @@ func TestMigrate(t *testing.T) {
 	}
 }
 
-// TestMigrateConcurrently is what the advisory lock is for. Without it a second
-// starter reads the same empty ledger and reapplies what the first already has.
+// TestMigrateConcurrently pins the advisory lock, without which a second starter reads the
+// same empty ledger and reapplies what the first already has.
 func TestMigrateConcurrently(t *testing.T) {
 	const racers = 8
 
@@ -81,6 +81,64 @@ func TestMigrateConcurrently(t *testing.T) {
 	}
 
 	assert.Equal(t, allVersions(t), appliedVersions(t, pools[0]))
+}
+
+// TestMigrateSharedDatabase is the guard against a checkout migrating the database a
+// running weave is serving from, which is what an agent's worktree does unless it was
+// pointed somewhere else.
+func TestMigrateSharedDatabase(t *testing.T) {
+	tests := []struct {
+		name    string
+		appName string
+		migrate bool
+		refused bool
+	}{
+		{
+			name:    "another weave on the database refuses a pass with migrations to apply",
+			appName: "weave/elsewhere/1",
+			refused: true,
+		},
+		{
+			name:    "a connection of this process's own is not another weave",
+			appName: AppName(),
+		},
+		{
+			name:    "anything else on the database is not a weave",
+			appName: "psql",
+		},
+		{
+			name:    "a database already up to date is left alone rather than refused",
+			appName: "weave/elsewhere/1",
+			migrate: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := pgtest.URL(t)
+			pool := openAt(t, url)
+			ctx := t.Context()
+
+			if tt.migrate {
+				require.NoError(t, Migrate(ctx, pool))
+			}
+
+			other := connect(t, url)
+			_, err := other.Exec(ctx, `SELECT set_config('application_name', $1, false)`, tt.appName)
+			require.NoError(t, err)
+
+			err = Migrate(ctx, pool)
+			if tt.refused {
+				require.ErrorIs(t, err, ErrDatabaseInUse)
+				assert.Empty(t, appliedVersions(t, pool), "and applied none of them")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, allVersions(t), appliedVersions(t, pool))
+		})
+	}
 }
 
 func TestMigrateFailure(t *testing.T) {
@@ -126,10 +184,9 @@ func TestMigrateFailure(t *testing.T) {
 	}
 }
 
-// TestMigrateResumes covers a pass that stops partway through a ledger of several
-// files, which is what a failure between two of them leaves behind. The set is
-// written for the test rather than taken from db/migrations, since how many files
-// ship there is up to whoever last squashed them.
+// TestMigrateResumes covers a pass that stops partway through a ledger of several files,
+// using a set written for the test since how many files ship in db/migrations is up to
+// whoever last squashed them.
 func TestMigrateResumes(t *testing.T) {
 	pool := open(t)
 	ctx := t.Context()
@@ -142,8 +199,8 @@ func TestMigrateResumes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, versions, 2)
 
-	// A ledger that accepts only the first version stops the pass at the second,
-	// leaving what the first one did in place. CREATE TABLE binds no parameters.
+	// A ledger that accepts only the first version stops the pass at the second, and the
+	// version is interpolated because CREATE TABLE binds no parameters.
 	_, err = pool.Exec(ctx, fmt.Sprintf(
 		`CREATE TABLE schema_migrations (version text PRIMARY KEY CHECK (version = '%s'))`, versions[0]))
 	require.NoError(t, err)

@@ -8,10 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgentCeilingUnderConcurrency drives more creates than fit, all at once, which is
-// how the panel is actually driven. An orchestrator issues several create_agent calls in
-// one turn. Each agent past the ceiling is a real CLI in a real pane nobody agreed to, so
-// what is asserted is the count rather than any one caller's answer.
+// TestNewAgentCeilingUnderConcurrency drives more creates than fit at once, since every
+// agent past the ceiling is a real CLI in a real pane nobody agreed to.
 func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 	t.Parallel()
 

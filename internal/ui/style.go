@@ -71,8 +71,8 @@ func stateColor(state string) lipgloss.Color {
 	}
 }
 
-// failedMark is the archive's only state icon. An archived agent is not running, so its last
-// live state says nothing, but a create or cleanup that failed is why the row is still here.
+// failedMark is the archive's only state icon, since an archived agent's last live state says
+// nothing but a failed create or cleanup is why the row is still there.
 func failedMark(agent agentstore.Agent) string {
 	if !agentstore.IsFailed(agent.State) {
 		return ""

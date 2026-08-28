@@ -22,9 +22,8 @@ type search struct {
 	rows []int
 }
 
-// SetPattern finds the rows a pattern matches and returns how many there are. The pattern is
-// compiled by the panel's own filter, which is where the case rules and the broken-pattern
-// message already live.
+// SetPattern finds the rows a pattern matches and returns how many there are, compiling it
+// through the panel's own filter so the case rules stay in one place.
 func (v *View) SetPattern(pattern *regexp.Regexp) int {
 	if pattern == nil {
 		v.ClearSearch()
@@ -56,8 +55,8 @@ func (v *View) SetPattern(pattern *regexp.Regexp) int {
 // ClearSearch forgets the pattern and everything it found.
 func (v *View) ClearSearch() { v.search = nil }
 
-// MatchCount is how many lines the pattern was found on. Several matches on one line are one
-// stop, since the cursor moves a line at a time and has nowhere finer to land.
+// MatchCount is how many lines the pattern was found on, counting several matches on one line
+// once since the cursor moves a line at a time.
 func (v *View) MatchCount() int {
 	if v.search == nil {
 		return 0
@@ -108,9 +107,8 @@ func (v *View) JumpMatch(y, direction int) (int, bool) {
 	return rows[len(rows)-1], true
 }
 
-// matchText is what a row offers to a search. A line offers itself as it is drawn, marker
-// included, so `^\+` finds additions; a thread that has come adrift offers where it was
-// written and what it opened with, which is all there is of it on that row.
+// matchText is what a row offers to a search, which for a line is the text as drawn with its
+// marker, so a pattern like `^\+` finds additions.
 func (v *View) matchText(y int) (string, bool) {
 	if current, ok := v.getRow(y); ok && current.kind == threadRow {
 		return WhereOf(current.thread) + " " + firstLine(current.thread), true

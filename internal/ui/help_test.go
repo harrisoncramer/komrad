@@ -42,9 +42,8 @@ func TestHelpToggle(t *testing.T) {
 	assert.False(t, collapsed.helpExpanded, "the key toggles rather than only expanding")
 }
 
-// TestHelpToggleOnSearch covers the help key while the search screen's query line is open.
-// Every key there goes into the query, so a question mark is a character to search transcripts
-// for rather than the key that draws the legend.
+// TestHelpToggleOnSearch pins that a question mark typed into the search query is a character
+// to search for rather than the key that draws the legend.
 func TestHelpToggleOnSearch(t *testing.T) {
 	m := helpModel()
 	m.screen = screenSearch
@@ -58,9 +57,8 @@ func TestHelpToggleOnSearch(t *testing.T) {
 	assert.Equal(t, "?", searched.search.query, "the key is typed instead")
 }
 
-// TestHelpColumnsFollowTheWidth covers the expanded legend, which is laid out in as many
-// columns as the sidebar can hold. The rows it takes come off the list, so a sidebar wide
-// enough for two columns draws the same bindings in half the lines.
+// TestHelpColumnsFollowTheWidth pins that a sidebar wide enough for two columns draws the
+// same bindings in half the lines.
 func TestHelpColumnsFollowTheWidth(t *testing.T) {
 	narrow := helpModel()
 	narrow.helpExpanded = true

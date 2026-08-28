@@ -13,16 +13,14 @@ import (
 // environment falls back to as well.
 const defaultEditor = "vi"
 
-// editorContent opens a file in the user's editor, on one line of it. The editor is left
-// unquoted so an EDITOR of several words is the words it is made of, and the file is opened
-// from the repository root rather than beside itself, since that is the project the editor is
-// being pointed at.
+// editorContent opens a file in the user's editor, on one line of it.
 func editorContent(editor, dir, path string, line int) layout.Content {
 	command := strings.TrimSpace(editor)
 	if command == "" {
 		command = defaultEditor
 	}
 
+	// The editor is left unquoted so an EDITOR of several words stays several words.
 	open := fmt.Sprintf("cd %s && exec %s +%d %s", shellQuote(dir), command, line, shellQuote(path))
 
 	return layout.Content{
@@ -64,9 +62,8 @@ func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	return m.reloadReview()
 }
 
-// remeasureReview draws the diff again at the size the stage is left with. The stage gives rows
-// up to a split under it and takes them back when it goes, and the drawer is handed exactly one
-// screenful, so a stale measurement is rows the pane cannot show.
+// remeasureReview draws the diff again at the size the stage is left with, since the drawer is
+// handed exactly one screenful and a stale size is rows the pane cannot show.
 func (m *model) remeasureReview() {
 	m.frame.Claimed(layout.RegionStage)
 	m.stageReview()

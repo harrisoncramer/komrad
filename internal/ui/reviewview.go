@@ -26,9 +26,8 @@ var (
 	reviewRemovedStyle = lipgloss.NewStyle().Foreground(colorDanger)
 )
 
-// reviewView draws the sidebar while the review is up: where the cursor is standing, and the
-// conversation pinned there. The diff itself is in the stage, so this side is only ever the
-// thread and the line it hangs off.
+// reviewView draws the sidebar while the review is up, which is the thread the cursor is
+// standing on and the line it hangs off, since the diff itself is in the stage.
 func (m model) reviewView() string {
 	header := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
 		m.reviewStatView() +
@@ -97,9 +96,8 @@ func (m model) reviewAnchorView() string {
 	return out
 }
 
-// reviewStatView is how big the change is, drawn above the conversation so the first thing the
-// sidebar says about a diff is its size. The counts are coloured the way the lines themselves
-// are, so which number is which is read rather than parsed.
+// reviewStatView is how big the change is, with the counts coloured the way the lines
+// themselves are so which number is which can be read at a glance.
 func (m model) reviewStatView() string {
 	if m.review.view == nil {
 		return ""
@@ -157,11 +155,8 @@ func (m model) reviewThreadView() string {
 	return out
 }
 
-// reviewOriginView is where a thread was written and the line it was written against, carried
-// with it so it still says what it was about once that code has changed.
-//
-// It is drawn only for a thread that has moved. Where the thread is still standing on its own
-// line, the diff beside the sidebar is already showing it, and saying it twice is noise.
+// reviewOriginView is where a thread was written and the line it was written against, drawn
+// only once that code has moved, since the diff alongside already shows a thread that has not.
 func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 	if !m.review.view.HasMoved(thread) {
 		return ""
@@ -189,12 +184,8 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n\n"
 }
 
-// reviewConversationState is whose turn it is, in one phrase at the top of the sidebar. Whether
-// the agent has read the review, whether it has been told to, and whether it has answered are
-// all the same question asked from different sides, so they are answered once and in one place.
-//
-// The order is what to do about it: an answer to read comes before work to send, and work to
-// send before waiting on somebody else to do it.
+// reviewConversationState is whose turn it is, in one phrase, ordered so that an answer to read
+// comes before work to send and work to send before waiting on somebody else.
 func (m model) reviewConversationState() string {
 	switch {
 	case len(m.review.threads) == 0:
@@ -277,8 +268,8 @@ func (m model) reviewHelp() keyMap {
 	move := m.moveBinding()
 	compose := binding([]string{"c"}, m.reviewComposeDesc())
 
-	// Only the three things the screen is for are on the strip. Reviewing is reading, and a
-	// legend of ten keys is in the way of that; the rest are a ? away.
+	// Only the three things the screen is for are on the strip, since reviewing is reading and
+	// the rest of the keys are behind the help key.
 	return keyMap{
 		short: []key.Binding{move, compose, m.helpBinding()},
 		full: slices.Concat(

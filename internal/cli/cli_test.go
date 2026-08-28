@@ -7,9 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestIsConfigFatal covers which commands a config that will not parse stops. It matters
-// because the file names the database: a command that carried on would fall back to the
-// built-in default and could write to the wrong database, with only a log line to say so.
+// TestIsConfigFatal covers which commands a broken config stops, since the file names the
+// database and carrying on could write to the wrong one.
 func TestIsConfigFatal(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -67,9 +66,8 @@ func TestIsConfigFatal(t *testing.T) {
 	}
 }
 
-// TestResolveConfigPaths covers the three ways a layer list is named. Each replaces the one
-// below it rather than adding to it, since a checkout that could not drop a layer the shell
-// exported would not be isolated from it, and that isolation is what mise.test.toml is for.
+// TestResolveConfigPaths covers each way of naming a layer list replacing the one below
+// rather than adding to it, which is what isolates a checkout from the shell.
 func TestResolveConfigPaths(t *testing.T) {
 	tests := []struct {
 		name     string

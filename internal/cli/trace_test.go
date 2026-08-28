@@ -36,8 +36,8 @@ const (
 	untraced = `{"timestamp":"2026-08-06T22:47:30.000Z","severity_text":"INFO","body":"the service is listening"}`
 )
 
-// TestShowTrace covers following one thing weave did. What matters is that the lines of one
-// trace come back whole and in order, and that no other trace's lines come with them.
+// TestShowTrace covers the lines of one trace coming back whole and in order with no other
+// trace's lines among them.
 func TestShowTrace(t *testing.T) {
 	path := writeLog(t, untraced, archiveStarted, otherRPC, archiveFailed, loopPass)
 
@@ -67,9 +67,8 @@ func TestShowTraceThatNamesNothing(t *testing.T) {
 	assert.Empty(t, out.String())
 }
 
-// TestListRecentTraces covers the way in for somebody who knows what they did but not what
-// it was called. Each trace is named by what it was and counted, and a line carrying no
-// trace at all is not one.
+// TestListRecentTraces covers each trace being named by what it was and counted, with a line
+// carrying no trace left out.
 func TestListRecentTraces(t *testing.T) {
 	path := writeLog(t, untraced, archiveStarted, otherRPC, archiveFailed, loopPass)
 

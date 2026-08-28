@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// maxHelpColumns is the widest the expanded legend goes. A sidebar wide enough for a fourth
-// column is wide enough that the legend is already short.
+// maxHelpColumns is the widest the expanded legend goes, since a sidebar wide enough for a
+// fourth column already has a short legend.
 const maxHelpColumns = 3
 
 type keyMap struct {
@@ -52,9 +52,8 @@ func helpView(width int) help.Model {
 	return view
 }
 
-// helpColumns lays the expanded legend out in as many columns as the sidebar can hold, because
-// the rows it takes are the list's. A column that does not fit is dropped whole rather than
-// wrapped, so the width is measured before the count is settled and one column is the fallback.
+// helpColumns lays the expanded legend out in as many columns as the sidebar can hold, dropping
+// a column that does not fit rather than wrapping it.
 func helpColumns(bindings []key.Binding, width int) [][]key.Binding {
 	for columns := maxHelpColumns; columns > 1; columns-- {
 		split := splitColumns(bindings, columns)
@@ -66,8 +65,8 @@ func helpColumns(bindings []key.Binding, width int) [][]key.Binding {
 	return [][]key.Binding{bindings}
 }
 
-// helpWidth is what the legend wants, measured by the same code that draws it. A view with no
-// width of its own truncates nothing, so what comes back is the untruncated size.
+// helpWidth is what the legend wants, measured by the same code that draws it at a width of
+// zero, which truncates nothing.
 func helpWidth(columns [][]key.Binding) int {
 	return lipgloss.Width(helpView(0).FullHelpView(columns))
 }
@@ -291,7 +290,6 @@ func (m model) rowHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Actions.Open, "actions"),
 		binding(m.keys.Agents.OpenPR, "open pr (if recorded)"),
 		binding(m.keys.Agents.Review, "review diff (worktree only)"),
 		binding(m.keys.Agents.Tag, "cycle tag"),
@@ -379,38 +377,6 @@ func (m model) archiveRowHelp() []key.Binding {
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Archive.Delete, "delete for good"),
 		binding(m.keys.Archive.Empty, "empty the archive"),
-	}
-}
-
-func (m model) actionEditorDesc() string {
-	action, ok := m.selectedAction()
-	switch {
-	case ok && !action.text:
-		return "not a text file"
-	case ok && m.info.kind == infoEdit && m.info.action == action.name:
-		return "close editor"
-	default:
-		return "edit"
-	}
-}
-
-func (m model) actionHelp() keyMap {
-	runDesc := "run"
-	if action, ok := m.selectedAction(); ok && !action.executable {
-		runDesc = "chmod +x to run"
-	}
-
-	run := binding(m.keys.Actions.Run, runDesc)
-	editor := binding(m.keys.Actions.Editor, m.actionEditorDesc())
-	editFilter := m.editFilterBinding(m.keys.Actions.Back)
-
-	return keyMap{
-		short: slices.Concat([]key.Binding{run, editor}, editFilter, []key.Binding{m.helpBinding()}),
-		full: slices.Concat(
-			[]key.Binding{run, editor, m.filterBinding(), m.moveBinding()},
-			editFilter,
-			m.globalHelp(),
-		),
 	}
 }
 

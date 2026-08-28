@@ -10,9 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLoadNamesWhatTheTableTakes covers the error a key nothing answers to produces. The
-// panel shows that error in place of itself and nothing else, so it is the whole of what
-// the reader has to work out which key to change and what to change it to.
+// TestLoadNamesWhatTheTableTakes covers the error a stray key produces, which the panel
+// shows in place of itself and is all the reader gets.
 func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 	tests := []struct {
 		name string
@@ -32,7 +31,7 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 		{
 			name: "a table the panel does not have",
 			file: "[keybindings.list]\nselect = [\"enter\"]\n",
-			want: []string{"keybindings.list is not a setting; [keybindings] takes actions, agents, archive"},
+			want: []string{"keybindings.list is not a setting; [keybindings] takes agents, archive, details"},
 		},
 		{
 			name: "a harness this binary cannot run",
@@ -70,9 +69,8 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 	}
 }
 
-// TestLoadStillRejectsAValueItCannotRead covers the check the unknown-key reporting sits
-// beside. The decoder is no longer told to fail on a key it did not use, and a value of the
-// wrong type is refused by the same call, so it is worth holding that it still is.
+// TestLoadStillRejectsAValueItCannotRead holds the type check in place, since the decoder is
+// no longer told to fail on a key it did not use.
 func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("max_agents = \"lots\"\n"), 0o644))
@@ -83,9 +81,8 @@ func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	assert.Contains(t, err.Error(), "max_agents")
 }
 
-// TestReportUnknownKeysSortsWhatItNames covers the order the keys are reported in. The
-// decoder reports them in whatever order it walked the file, so without sorting the same
-// broken file would name them differently from one run to the next.
+// TestReportUnknownKeysSortsWhatItNames covers the order keys are reported in, since the
+// decoder walks the file in whatever order it likes.
 func TestReportUnknownKeysSortsWhatItNames(t *testing.T) {
 	err := reportUnknownKeys([]string{"layout.splitt", "default_harnes"})
 

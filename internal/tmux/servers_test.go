@@ -10,11 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServersRouting drives two real tmux servers, standing in for the user's and
-// the manager's, and checks each call lands on the one that can answer it. Faking
-// this would only assert the routing table against itself, where the thing worth
-// proving is that a global option written through Servers is readable by a key
-// binding on the user's server and a key bound through it is not.
+// TestServersRouting drives two real tmux servers and checks each call lands on the one that
+// can answer it, which a fake could only assert against itself.
 func TestServersRouting(t *testing.T) {
 	hostSocket := newTestServer(t, "host")
 	managerSocket := newTestServer(t, "manager")
@@ -45,10 +42,8 @@ func TestServersRouting(t *testing.T) {
 	assert.NotEmpty(t, servers.GetClientPath(""), "the recorded host answers where its client sits")
 }
 
-// TestHostFallsBackToThisServer covers reaching the user's server with weave's own server gone,
-// which is what hiding the panel after that server died looks like. The socket a previous open
-// recorded is unreadable then, and it is the only route the flag the key binding branches on is
-// cleared through, so without a fallback that flag stays set and the panel key stops working.
+// TestHostFallsBackToThisServer covers hiding the panel after weave's own server died, where
+// without a fallback the flag the key binding reads stays set and the panel key stops working.
 func TestHostFallsBackToThisServer(t *testing.T) {
 	hostSocket := newTestServer(t, "fallback-host")
 	managerSocket := newTestServer(t, "fallback-manager")
@@ -65,8 +60,8 @@ func TestHostFallsBackToThisServer(t *testing.T) {
 }
 
 // TestHostDoesNotFallBackToTheManager covers the panel's own process, whose TMUX names weave's
-// own server rather than the user's. Falling back there would write the options the key binding
-// reads onto the one server nothing reads them from, which is worse than not writing them.
+// own server, where falling back would write the key binding's options onto the one server
+// nothing reads them from.
 func TestHostDoesNotFallBackToTheManager(t *testing.T) {
 	managerSocket := newTestServer(t, "no-fallback")
 
@@ -77,9 +72,8 @@ func TestHostDoesNotFallBackToTheManager(t *testing.T) {
 	assert.Empty(t, tmuxRun(t, managerSocket, "show-option", "-gqv", "@weave_open"))
 }
 
-// TestClientAtPath checks a client addressed by socket path reaches the same server
-// as one addressed by name. The user's server is only ever named by path, since that
-// is what tmux hands the popup.
+// TestClientAtPath checks a client addressed by socket path reaches the same server as one
+// addressed by name, which matters because tmux hands the popup only a path.
 func TestClientAtPath(t *testing.T) {
 	socket := newTestServer(t, "path")
 
@@ -90,10 +84,8 @@ func TestClientAtPath(t *testing.T) {
 	assert.Equal(t, "here", byPath.ShowGlobal("@probe"))
 }
 
-// TestFromEnv covers reading the user's server and session out of the TMUX variable
-// tmux sets in the popup. It is the only channel there is, so a value that is not the
-// three fields tmux writes yields nothing rather than a socket path made of whatever
-// was there.
+// TestFromEnv covers reading the user's server and session out of the TMUX variable tmux sets
+// in the popup, where a value that is not the three fields tmux writes must yield nothing.
 func TestFromEnv(t *testing.T) {
 	tests := []struct {
 		name        string

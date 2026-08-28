@@ -70,10 +70,8 @@ func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	assert.Equal(t, 1, strings.Count(string(listed), tree), "only one worktree exists after the resume")
 }
 
-// TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers the environment a resume
-// actually hands the setup action: the agent's cwd is the worktree by then, since setup
-// itself replaced it at creation. The repo has to come from the workflow instead, or a
-// symlink path resolves to the same file on both sides and is relinked to point at itself.
+// TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo covers a resume, where the agent's
+// cwd is already the worktree and a symlink would otherwise be relinked to point at itself.
 func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
@@ -103,10 +101,8 @@ func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	assert.Equal(t, "SECRET=1\n", string(content))
 }
 
-// TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers the copy and symlink lists
-// being applied only to a worktree this run created. Copying a directory over one that is
-// already there nests it a level deeper every time, and an agent's own edits to a copied
-// path are its work rather than something a resume gets to overwrite.
+// TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers copy and symlink lists being
+// applied only to a worktree this run created, since copying over a directory nests it deeper.
 func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "node_modules"), 0o755))
@@ -462,10 +458,8 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
-// TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch covers the repo
-// whose origin/HEAD was never written, which is every repo built with git init and a remote
-// added afterwards. The branch the human left checked out is not the repo's default, so
-// basing an agent on it starts every agent on top of somebody's unfinished work.
+// TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch covers a repo whose
+// origin/HEAD was never written, where the branch left checked out is somebody's unfinished work.
 func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -487,10 +481,8 @@ func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *t
 	assert.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "the answer origin gave is recorded for next time")
 }
 
-// TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn covers the default branch
-// having been renamed on the forge. The remote-tracking ref origin/HEAD names survives that
-// rename until somebody prunes, so it still resolves locally while naming a branch origin no
-// longer has, and only origin can say so.
+// TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn covers the default branch being
+// renamed on the forge, which origin/HEAD keeps naming until somebody prunes.
 func TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -514,9 +506,8 @@ func TestBuiltinWorktreeSetupIgnoresATrackingRefTheRemoteHasMovedOn(t *testing.T
 	assert.FileExists(t, filepath.Join(tree, "after-rename.txt"), "the worktree is built from origin's branch rather than the stale tracking ref")
 }
 
-// TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable covers the same
-// repo offline. Asking origin is the only way to be sure, so when the answer cannot be had,
-// what git cached last time it could is the best guess left and beats refusing to launch.
+// TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable covers the same repo
+// offline, where what git cached last time beats refusing to launch.
 func TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -533,11 +524,8 @@ func TestBuiltinWorktreeSetupFallsBackToTheCachedHeadWhenOriginIsUnreachable(t *
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
-// TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover covers the single-branch
-// clone, whose refspec maps only the branch it was cloned for. Fetching the default branch
-// there succeeds and writes no origin ref for it, so a fetch that exited zero is no proof of
-// the ref it is about to be branched from, and the add dies on a reference the clone has
-// never had.
+// TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover covers a single-branch clone,
+// where fetching the default branch exits zero and still writes no ref to branch from.
 func TestBuiltinWorktreeSetupBranchesFromABaseTheRefspecDoesNotCover(t *testing.T) {
 	upstream := initBareRepo(t)
 	pushBranch(t, upstream, "feature", "feature-only.txt")
@@ -581,9 +569,7 @@ func TestBuiltinWorktreeSetupBranchesFromABaseWithNoRefspecAtAll(t *testing.T) {
 }
 
 // TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent covers two setups fetching different
-// bases into one repo at once, neither of them covered by its refspec. FETCH_HEAD is the
-// obvious place to read a fetch that wrote no tracking ref, and it is one file the whole repo
-// shares, so agents reading their branch point there land on each other's.
+// bases at once, where the shared FETCH_HEAD would leave each reading the other's.
 func TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing.T) {
 	upstream := initBareRepo(t)
 	pushBranch(t, upstream, "other", "other-only.txt")
@@ -615,10 +601,8 @@ func TestBuiltinWorktreeSetupStagesAnUncoveredBasePerAgent(t *testing.T) {
 	}
 }
 
-// TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach covers a workflow whose base branch
-// names something neither origin nor the repo has. Handing the add a branch point nothing
-// checked leaves git to fail with invalid reference, which reads as a broken repo rather than
-// as the one setting that is wrong.
+// TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach covers a workflow naming a base nothing
+// has, where letting git fail with invalid reference reads as a broken repo instead.
 func TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -636,10 +620,8 @@ func TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-bad-base"), "no worktree was made")
 }
 
-// TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase covers the repo that has a remote
-// nobody can reach right now and no main or master to fall back on. Refusing leaves the
-// agent unlaunched, which is the smaller loss: a worktree quietly based on whatever branch
-// the repo was on is work built on the wrong commit and nobody notices until review.
+// TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase covers an unreachable remote with no
+// main or master to fall back on, where a wrong branch point goes unnoticed until review.
 func TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase(t *testing.T) {
 	hermeticGit(t)
 
@@ -691,11 +673,9 @@ func TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", result.Stderr)
 }
 
-// TestBuiltinWorktreeSetupDoesNotTrackTheBase covers the upstream the new branch is given.
-// Tracking the base makes git status inside the worktree report the agent as ahead of or
-// behind a branch it is not on, and makes a plain git push refuse, since the upstream's name
-// does not match the branch's. The branch is left with no upstream and push.autoSetupRemote
-// set instead, so the agent's first push creates a remote branch of its own.
+// TestBuiltinWorktreeSetupDoesNotTrackTheBase covers the new branch being left with no upstream,
+// since tracking the base makes git status report it against a branch it is not on and makes a
+// plain push refuse.
 func TestBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -714,11 +694,8 @@ func TestBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	assert.Equal(t, "true", readGitConfig(t, tree, "push.autoSetupRemote"), "a plain push can create the remote branch")
 }
 
-// TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo covers several agents being created in
-// one worktree workflow at once, which is what an orchestrating agent fanning out over the
-// API does, and what two schedules matching the same minute do. Anything setup writes to the
-// repo's shared config puts every concurrent run on the same lock, and git fails the add
-// outright rather than waiting for it.
+// TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo covers several agents created at once, where
+// anything setup writes to the repo's shared config makes git fail the add rather than wait.
 func TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -742,10 +719,8 @@ func TestBuiltinWorktreeSetupRunsConcurrentlyInOneRepo(t *testing.T) {
 	}
 }
 
-// TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright covers the directory
-// being removed without git being told, which is what an rm -rf does and what weave's own
-// worktree_removed column reports. The registration git keeps still claims the branch, so
-// rebuilding needs that stale entry pruned first.
+// TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright covers an rm -rf of the
+// worktree, whose stale registration still claims the branch until it is pruned.
 func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{agentID: "agent-rmrf", repo: repo, worktreesDir: t.TempDir()}
@@ -762,10 +737,8 @@ func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testin
 	assertBranch(t, tree, "agent/agent-rmrf")
 }
 
-// TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers WEAVE_AGENT_CWD pointing at
-// a linked worktree that is not this agent's. Being a worktree is not proof of being the one
-// weave made: a hand-made worktree passes the same check, and the launch path can reach
-// cleanup with the agent's cwd still set to whatever the workflow named.
+// TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn covers WEAVE_AGENT_CWD pointing at a
+// linked worktree weave did not make, which passes the same check a hand-made one does.
 func TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
 	repo := initRepo(t)
 	theirs := filepath.Join(t.TempDir(), "theirs")
@@ -779,9 +752,7 @@ func TestBuiltinWorktreeCleanupRefusesAWorktreeItDoesNotOwn(t *testing.T) {
 }
 
 // TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch covers an agent that committed work nobody
-// merged. The worktree goes, since a delete that leaves the directory behind leaves it
-// behind for good, but the branch is the one recoverable trace of that work and force
-// deleting it throws the commits away.
+// merged, where the branch is the one recoverable trace of it.
 func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-unmerged", repo: repo, worktreesDir: t.TempDir()})
@@ -800,10 +771,8 @@ func TestBuiltinWorktreeCleanupKeepsAnUnmergedBranch(t *testing.T) {
 	assert.Contains(t, string(cleanup.Stderr), "agent/agent-unmerged", "the branch that was kept is named")
 }
 
-// TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys covers a dirty worktree. Nobody
-// is left to ask by the time cleanup runs and the agent's row is already going, so the
-// removal is not blocked; what it threw away is written to stderr, which the action logger
-// keeps.
+// TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys covers a dirty worktree, where
+// nobody is left to ask so what was thrown away goes to stderr instead.
 func TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-dirty", repo: repo, worktreesDir: t.TempDir()})
@@ -820,9 +789,8 @@ func TestBuiltinWorktreeCleanupReportsUncommittedWorkItDestroys(t *testing.T) {
 }
 
 // TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother covers a worktree with another
-// registered worktree inside it, which an agent working on worktrees makes for itself.
-// worktree remove --force reads the inner one as an ordinary untracked directory, deletes
-// its files, and leaves git holding a registration for a checkout that is no longer there.
+// registered inside it, which worktree remove --force would delete while leaving git holding
+// its registration.
 func TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-nest", repo: repo, worktreesDir: t.TempDir()})
@@ -840,10 +808,8 @@ func TestBuiltinWorktreeCleanupRefusesAWorktreeHoldingAnother(t *testing.T) {
 	assert.NotEmpty(t, readBranchList(t, repo, "inner-branch"), "the inner worktree is left registered and intact")
 }
 
-// TestBuiltinWorktreeCleanupHandlesADetachedHead covers an agent that left its worktree on
-// something other than the branch it was given, which a checkout of a sha, an interrupted
-// rebase, or a bisect all do. The path weave chose is the proof of ownership for that reason:
-// the branch a tree happens to be on is not one the agent has to leave alone.
+// TestBuiltinWorktreeCleanupHandlesADetachedHead covers a worktree left off its branch by a
+// checkout, an interrupted rebase, or a bisect, where the path weave chose proves ownership.
 func TestBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-detached", repo: repo, worktreesDir: t.TempDir()})
@@ -859,10 +825,8 @@ func TestBuiltinWorktreeCleanupHandlesADetachedHead(t *testing.T) {
 	assert.Empty(t, readBranchList(t, repo, "agent/agent-detached"), "the branch goes with it")
 }
 
-// TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew covers the repo whose local base
-// is behind origin, which is most repos most of the time. The worktree's branch has no
-// upstream, so measuring it against the repo's own HEAD reads a branch cut from origin with
-// no commits of its own as unmerged, and keeping every one of those leaves a branch per agent.
+// TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew covers a local base behind origin,
+// where measuring against the repo's own HEAD would read every agent's branch as unmerged.
 func TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -890,9 +854,8 @@ func TestBuiltinWorktreeCleanupDeletesABranchHoldingNothingNew(t *testing.T) {
 	assert.Empty(t, readBranchList(t, repo, "agent/agent-nothing-new"), "a branch whose commits are all on origin is not worth keeping")
 }
 
-// TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead covers the listing the
-// nested-worktree guard is built on failing. An unreadable list is not proof that nothing is
-// nested, and reading it as one deletes the files of whatever was.
+// TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead covers the nested-worktree
+// guard failing, where an unreadable list is not proof that nothing is nested.
 func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing.T) {
 	repo := initRepo(t)
 	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{agentID: "agent-blind", repo: repo, worktreesDir: t.TempDir()})
@@ -1208,9 +1171,8 @@ func assertBranch(t *testing.T, tree, want string) {
 	assert.Equal(t, want, strings.TrimSpace(string(out)))
 }
 
-// TestBuiltinWorktreeSetupAdoptsALocalBranch covers the adoption case that has everything
-// already on disk. The branch is somebody else's, so setup has to check it out as it stands
-// rather than cut a branch of its own or reset the one it was given onto a base.
+// TestBuiltinWorktreeSetupAdoptsALocalBranch covers adoption with everything already on disk,
+// where somebody else's branch is checked out as it stands rather than cut or reset.
 func TestBuiltinWorktreeSetupAdoptsALocalBranch(t *testing.T) {
 	repo := initRepo(t)
 	runGit(t, repo, "checkout", "--quiet", "-b", "someones/work")
@@ -1266,8 +1228,7 @@ func TestBuiltinWorktreeSetupAdoptsABranchOnlyOnOrigin(t *testing.T) {
 }
 
 // TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach covers a branch name that is not a
-// branch anywhere. Making one up under that name would put the agent on an empty branch
-// wearing the name of the work it was supposed to pick up.
+// branch anywhere, where making one up would put the agent on an empty branch wearing its name.
 func TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testing.T) {
 	repo := initRepo(t)
 
@@ -1281,9 +1242,8 @@ func TestBuiltinWorktreeSetupRefusesAnAdoptionItCannotReach(t *testing.T) {
 	assert.Contains(t, string(result.Stderr), "no/such/branch is not a branch")
 }
 
-// TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch covers the one thing adoption's cleanup
-// must never do. The branch was somebody else's before the agent was on it, so removing the
-// worktree is the whole job.
+// TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch covers adoption's cleanup, where the branch was
+// somebody else's so removing the worktree is the whole job.
 func TestBuiltinWorktreeCleanupKeepsAnAdoptedBranch(t *testing.T) {
 	repo := initRepo(t)
 	runGit(t, repo, "branch", "someones/work")

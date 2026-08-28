@@ -14,9 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProtoToAgentCarriesTheSyncedColumns covers what the panel keeps of a listed agent.
-// The branch and the worktree removal flag are both written by a server-side pass and
-// drawn as glyphs, so a conversion that drops either leaves the row looking healthy.
+// TestProtoToAgentCarriesTheSyncedColumns pins the branch and the worktree removal flag,
+// since a conversion that drops either leaves the row looking healthy.
 func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	branch := "fix/thing"
 	converted := protoToAgent(&agentv1.Agent{Id: "a1", Branch: &branch, WorktreeRemoved: true})
@@ -26,9 +25,8 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	assert.True(t, converted.WorktreeRemoved)
 }
 
-// TestAgentsViewDrawsWorktreeRemovedFromTheWire covers the whole way in, from the proto a
-// listing returns to the row the panel prints. The glyph's own test starts from a store
-// agent, so it says nothing about what the wire carried.
+// TestAgentsViewDrawsWorktreeRemovedFromTheWire covers the way from the proto to the printed
+// row, since the glyph's own test starts from a store agent.
 func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),

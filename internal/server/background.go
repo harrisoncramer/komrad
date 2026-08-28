@@ -26,8 +26,8 @@ type Loop struct {
 	Pass     func(context.Context) error
 }
 
-// Start begins the job queue and the background loops. Nothing runs until this is called,
-// and the caller tears it down with Stop before Close.
+// Start begins the job queue and the background loops, which the caller tears down with
+// Stop before Close.
 func (s *Server) Start(ctx context.Context) error {
 	work, err := startBackground(ctx, s.Jobs, s.loops(), s.logger)
 	if err != nil {
@@ -40,7 +40,6 @@ func (s *Server) Start(ctx context.Context) error {
 }
 
 // Stop ends the loops before the job queue, so nothing enqueues more work while jobs drain.
-// It is a no-op on a server that was never started.
 func (s *Server) Stop(ctx context.Context) {
 	if s.background == nil {
 		return

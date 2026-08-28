@@ -6,6 +6,7 @@ package db
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 	"weave/internal/logging"
 	"weave/lib/xslice"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -25,16 +27,12 @@ var migrationsFS embed.FS
 //go:embed readonly_role.sql
 var readOnlyRoleSQL string
 
-// migrateLock is the advisory lock key migrations are applied under. Several
-// processes share the database and more than one can start at once, so without
-// it two of them can read the same empty schema_migrations and both try to
-// create the same table. The number is arbitrary but must never change.
+// migrateLock is the advisory lock key that stops two processes starting at once from
+// applying the same migration twice, and it must never change.
 const migrateLock int64 = 7_240_115
 
-// Migrate applies any migrations not yet recorded, in filename order. Each runs
-// in its own transaction alongside the row recording it, so a migration either
-// lands and is marked or does neither. The whole pass is serialized on an
-// advisory lock, which makes a concurrent start wait rather than race.
+// Migrate applies any migrations not yet recorded, in filename order, each in its own
+// transaction alongside the row recording it.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	files, err := openMigrationFiles()
 	if err != nil {
@@ -75,9 +73,8 @@ func openMigrationFiles() (fs.FS, error) {
 	return files, nil
 }
 
-// Pending lists the embedded migrations that have not run, in the order they would run in.
-// It is exported so a caller can report on a schema without being the caller that applies
-// it, and it writes nothing, so it is safe against a database opened read-only.
+// Pending lists the embedded migrations that have not run, in the order they would run in,
+// and writes nothing so it is safe against a database opened read-only.
 func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	files, err := openMigrationFiles()
 	if err != nil {
@@ -102,10 +99,17 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	return len(pending) > 0, nil
 }
 
-// pendingVersions is which of versions the database has no record of. A missing
-// schema_migrations table means it has no record of any of them.
-func pendingVersions(ctx context.Context, pool *pgxpool.Pool, versions []string) ([]string, error) {
-	rows, err := pool.Query(ctx,
+// queryer is what pendingVersions reads through, so the same walk of the ledger serves
+// the pass deciding whether to reach for the lock and the pass reading it again inside one,
+// where the reader is the locked connection rather than the pool.
+type queryer interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
+// pendingVersions is which of versions the database has no record of, which is all of them
+// when schema_migrations does not exist yet.
+func pendingVersions(ctx context.Context, q queryer, versions []string) ([]string, error) {
+	rows, err := q.Query(ctx,
 		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
 	if IsUndefinedTable(err) {
 		return versions, nil
@@ -163,16 +167,19 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)
 	}
 
-	for _, version := range set.versions {
-		var applied bool
-		if err := conn.QueryRow(ctx,
-			`SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&applied); err != nil {
-			return fmt.Errorf("failed to check migration %q: %w", version, err)
-		}
-		if applied {
-			continue
-		}
+	pending, err := pendingVersions(ctx, conn, set.versions)
+	if err != nil {
+		return err
+	}
+	if len(pending) == 0 {
+		return nil
+	}
 
+	if err := refuseSharedDatabase(ctx, conn, pending); err != nil {
+		return err
+	}
+
+	for _, version := range pending {
 		sqlText, err := fs.ReadFile(set.files, version)
 		if err != nil {
 			return fmt.Errorf("failed to read migration %q: %w", version, err)
@@ -197,6 +204,46 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 	}
 
 	return nil
+}
+
+// ErrDatabaseInUse is returned rather than migrating a database another weave is on.
+var ErrDatabaseInUse = errors.New("another weave is using this database")
+
+// Explainer: every pool connects under AppName, so a connection named after another process
+// is another weave, and that one is serving queries written against the schema it started
+// with. Applying migrations it has never seen breaks it until it restarts. The case this is
+// written for is a worktree whose WEAVE_DATABASE_URL still points at the panel's database
+// because nothing told it otherwise, where any command opens the store, the store migrates,
+// and the panel stops being able to read its own tables. A pass with nothing pending never
+// reaches here, so such a checkout is only refused once it holds a migration the panel does
+// not have.
+
+// refuseSharedDatabase stops a pass that would change the schema under a weave already
+// running against the same database.
+func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []string) error {
+	rows, err := conn.Query(ctx, `
+		SELECT DISTINCT application_name
+		FROM pg_stat_activity
+		WHERE datname = current_database()
+		  AND pid <> pg_backend_pid()
+		  AND application_name LIKE $1
+		  AND application_name <> $2
+		ORDER BY application_name`, appNamePrefix+"/%", AppName())
+	if err != nil {
+		return fmt.Errorf("failed to read who else is using the database: %w", err)
+	}
+
+	others, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return fmt.Errorf("failed to read who else is using the database: %w", err)
+	}
+	if len(others) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s is connected to it, and this build holds %d migration(s) it has not seen (%s). "+
+		"Stop that weave, or point WEAVE_DATABASE_URL at a database of this checkout's own",
+		ErrDatabaseInUse, strings.Join(others, ", "), len(pending), strings.Join(pending, ", "))
 }
 
 // unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.

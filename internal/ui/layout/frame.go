@@ -30,18 +30,16 @@ func New(tmux Tmux, layout config.Layout) *Frame {
 	return &Frame{tmux: tmux, spec: NewSpec(layout), shown: map[Region]shown{}}
 }
 
-// Attach anchors the frame to the pane the panel runs in and lays the regions out around it.
-// That pane is the one the panel was told it runs in rather than one read back from tmux,
-// which answers for whatever window the session is currently looking at.
+// Attach anchors the frame to the pane the panel was told it runs in, never one read back from
+// tmux, which answers for whatever window the session is looking at.
 func (f *Frame) Attach(sidebar string) {
 	f.sidebar = sidebar
 	f.reclaim()
 	f.claimStage()
 }
 
-// Pane is the pane the frame holds for a region, empty when the region is not open. The main
-// region answers with its own pane even while a guest is swapped into it, since a swap
-// exchanges where two panes sit rather than taking either away.
+// Pane is the pane the frame holds for a region, which for the stage is its own pane even while
+// a guest is swapped into it.
 func (f *Frame) Pane(region Region) string {
 	switch region {
 	case RegionSidebar:
@@ -59,8 +57,8 @@ func (f *Frame) Pane(region Region) string {
 // GuestPane is the pane somebody else owns currently swapped into the stage.
 func (f *Frame) GuestPane() string { return f.guest }
 
-// Open opens a region and returns the pane it landed in. Every region hangs off the main one,
-// so that is opened on the way to any of them.
+// Open opens a region and returns the pane it landed in, opening the stage on the way since
+// every region hangs off it.
 func (f *Frame) Open(region Region) string {
 	switch region {
 	case RegionStage:
@@ -82,8 +80,8 @@ func (f *Frame) IsOpen(region Region) bool {
 	return pane != "" && f.tmux.IsPaneAlive(pane)
 }
 
-// Close takes a region away. Only the info pane is ever closed, since the sidebar is
-// the panel itself and the stage is the frame the rest of it hangs off.
+// Close takes a region away, which is only ever the info pane, since the sidebar is the panel
+// and the stage is what the rest hangs off.
 func (f *Frame) Close(region Region) {
 	if region == RegionInfo {
 		f.closeInfo()
@@ -94,9 +92,8 @@ func (f *Frame) Close(region Region) {
 // rather than skipped as already shown.
 func (f *Frame) Claimed(region Region) { f.forget(region) }
 
-// Show draws content in a region, opening the region if it is not already there. The sidebar
-// is the panel's own pane and is refused, since filling it would replace the process asking
-// for it.
+// Show draws content in a region, opening it first when needed, and refuses the sidebar since
+// filling it would replace the panel itself.
 func (f *Frame) Show(region Region, content Content) {
 	if region != RegionStage && region != RegionInfo {
 		return
@@ -163,9 +160,8 @@ func (f *Frame) isShowing(region Region, content Content, target Target) bool {
 		return false
 	}
 
-	// A pane that has changed size is not showing what it was asked for, whichever way it moved.
-	// Height matters as much as width: a region gives rows up to a split under it and takes them
-	// back when that goes, and content drawn to a stale height leaves rows the pane never fills.
+	// Height matters as much as width, since a region gives rows to a split under it and takes
+	// them back, and content drawn to a stale height leaves rows the pane never fills.
 	return !content.Wraps || (was.width == target.Width && was.height == target.Height)
 }
 

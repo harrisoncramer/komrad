@@ -8,12 +8,8 @@ import (
 	"strings"
 )
 
-// reportUnknownKeys is the error for the keys in the file that no setting answers to, and
-// nil when there are none. Each one is named with the settings its table does take.
-//
-// Listing what the table holds rather than guessing at the key that was meant: every table
-// here is short enough to print, a list cannot point at the wrong thing the way a nearest
-// match can, and it answers what else can be set at that level, which a guess does not.
+// reportUnknownKeys is the error naming each key no setting answers to alongside the
+// settings its table does take, and nil when there are none.
 func reportUnknownKeys(unused []string) error {
 	if len(unused) == 0 {
 		return nil
@@ -32,9 +28,8 @@ func reportUnknownKeys(unused []string) error {
 	return errors.New(strings.Join(lines, "\n"))
 }
 
-// describeUnknownKey is the one line reporting a key nothing answers to. A path whose table
-// cannot be resolved is reported on its own, since a key under a table that does not exist
-// has nothing to be listed beside.
+// describeUnknownKey is the one line reporting a key nothing answers to, with a key under a
+// table that does not exist reported on its own.
 func describeUnknownKey(path string) string {
 	table := tableOf(path)
 
@@ -56,9 +51,8 @@ func tableOf(path string) string {
 	return path[:index]
 }
 
-// describeTable names a table the way the file writes it, so what the error says to look
-// for is what the reader is scanning for. A table reached through a list is named as one of
-// its entries, since the position the key was found at is already on the key itself.
+// describeTable names a table the way the file writes it, so the error says what the reader
+// is scanning for.
 func describeTable(table string) string {
 	if table == "" {
 		return "the top level"

@@ -31,11 +31,8 @@ func hiddenTree() model {
 	}
 }
 
-// TestAgentRowsHidden covers what the tree does with a hidden agent. It gives up its
-// row and is counted against its workflow's header instead, and showing the hidden
-// ones puts it back where it belongs rather than in a group of its own. The header's
-// count is the same either way, since it is a fact about the workflow rather than
-// about what is on screen.
+// TestAgentRowsHidden pins that a hidden agent gives up its row to its workflow's count and
+// returns to its own place among the others once the hidden ones are shown.
 func TestAgentRowsHidden(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -79,9 +76,8 @@ func TestAgentRowsHidden(t *testing.T) {
 	}
 }
 
-// TestToggleHiddenAgentsKeepsTheCursor covers where the cursor lands as rows appear
-// and vanish above it. It follows the agent it was on, since the rows it was counting
-// from are not the rows it is left with.
+// TestToggleHiddenAgentsKeepsTheCursor pins that the cursor follows the agent it was on,
+// since rows appearing above it change what it was counting from.
 func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
 	m.tree.cursor = 3
@@ -96,8 +92,8 @@ func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	assert.Equal(t, "ui", hovered.agent.Name)
 }
 
-// TestHiddenTally covers the count a workflow header carries. It stands in for the
-// rows the folder is not drawing, so it goes away once they are drawn.
+// TestHiddenTally pins that a workflow header's count stands in for the rows it is not
+// drawing and goes away once they are drawn.
 func TestHiddenTally(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -133,9 +129,8 @@ func TestHiddenTally(t *testing.T) {
 	}
 }
 
-// TestHiddenHelpIsOneLine covers the legend for the two hidden keys, which share a line on
-// an agent and name the direction each would go. A workflow header takes only the toggle,
-// since nothing hides a folder.
+// TestHiddenHelpIsOneLine pins the two hidden keys sharing a line on an agent and only the
+// toggle on a workflow header, since nothing hides a folder.
 func TestHiddenHelpIsOneLine(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -188,9 +183,8 @@ func TestHiddenMark(t *testing.T) {
 	assert.Contains(t, hiddenMark(true), hiddenIcon)
 }
 
-// TestAgentsViewHidden covers the rendered screen rather than the rows behind it. A
-// hidden agent is off it entirely while its workflow reports the count, and showing
-// the hidden ones puts the name on screen and the count away.
+// TestAgentsViewHidden pins the rendered screen, where a hidden agent is absent while its
+// workflow reports the count and present once the hidden ones are shown.
 func TestAgentsViewHidden(t *testing.T) {
 	m := hiddenTree()
 

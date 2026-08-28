@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLaunchTypesTheHarnessCommand covers the launcher's whole job: the command the
-// harness built is typed into the agent's pane and run. What that command says is
-// the harness's, and is covered where it is assembled.
+// TestLaunchTypesTheHarnessCommand covers the launcher's whole job, which is typing the
+// command the harness built into the agent's pane and running it.
 func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 	tests := []struct {
 		name string
@@ -62,9 +61,8 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 	}
 }
 
-// TestLaunchPassesWhatThePanelKnows covers what the launcher hands the harness.
-// The panel decides what an agent is told and which conversation it is; how any of
-// it reaches a command line is the harness's own business.
+// TestLaunchPassesWhatThePanelKnows covers what the launcher hands the harness, which is
+// what the agent is told and which conversation it is.
 func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	tmux := newFakeTmux()
 	h := &fakeHarness{}
@@ -93,9 +91,8 @@ func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 
 const briefedLogPath = "/var/cache/weave/weave.log"
 
-// TestAppendedSystemPrompt covers what a spawned agent is told. The buildBriefing
-// comes first so a workflow's own context reads as an addition to it rather than
-// being buried inside it.
+// TestAppendedSystemPrompt pins the buildBriefing coming first, so a workflow's own context
+// reads as an addition to it rather than being buried inside it.
 func TestAppendedSystemPrompt(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -150,9 +147,8 @@ func TestAppendedSystemPrompt(t *testing.T) {
 	}
 }
 
-// TestAppendedSystemPromptDelegateBriefing covers what a spawned agent is told about
-// whatever agent started it. weave writes this itself so every delegate gets the same
-// wording whether or not the agent that spawned it thought to say so in the prompt.
+// TestAppendedSystemPromptDelegateBriefing pins that weave writes the delegate briefing
+// itself, so the wording is the same whether or not the spawning agent thought to say it.
 func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -193,9 +189,8 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 	}
 }
 
-// TestAppendedSystemPromptGlobalContext covers the standing text the user keeps for every
-// agent. It sits between the buildBriefing and the workflow's own, so the three read general to
-// specific, and a file that is not there is the ordinary case rather than a failed launch.
+// TestAppendedSystemPromptGlobalContext pins the user's standing text sitting between the
+// buildBriefing and the workflow's own, with a missing file treated as ordinary.
 func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 	tests := []struct {
 		name string
@@ -262,9 +257,8 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 	}
 }
 
-// TestGlobalContextIsReadPerLaunch covers editing the file while the service runs. The
-// path is fixed at startup, so a launcher that read the text once would hand every later
-// agent whatever was there when the service came up.
+// TestGlobalContextIsReadPerLaunch pins the file being read at each launch, since one read
+// at startup would hand every later agent stale text.
 func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "context.md")
 	require.NoError(t, os.WriteFile(path, []byte("before-the-edit"), 0o600))

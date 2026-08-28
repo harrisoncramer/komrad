@@ -21,19 +21,16 @@ var ErrDirNotOurs = errors.New("the directory holds files weave did not write")
 //go:embed all:builtin
 var builtinFS embed.FS
 
-// InstallBuiltins writes the actions shipped with this build into dir. They land on disk
-// because running an action is an exec of a path, and the directory is emptied first so a
+// InstallBuiltins writes the actions shipped with this build into dir, emptying it first so a
 // script an older build shipped does not stay on offer.
-//
-// Emptying it is a recursive delete of a path that comes from the environment, so dir has
-// to be one weave owns. It has to be absolute, since a relative one names a different
-// directory every time the service is started somewhere new. It also has to be either
-// empty or carrying the marker a previous install left.
 func InstallBuiltins(dir string) error {
+	// A relative path names a different directory every time the service starts somewhere new.
 	if !filepath.IsAbs(dir) {
 		return fmt.Errorf("failed to install the built-in actions into %s: %w", dir, ErrDirNotAbsolute)
 	}
 
+	// Emptying is a recursive delete, so the directory has to be empty or carry the marker a
+	// previous install left.
 	if err := clearOwned(dir); err != nil {
 		return err
 	}

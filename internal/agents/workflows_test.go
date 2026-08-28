@@ -483,10 +483,8 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	assert.Contains(t, tmux.killedPanes, "%9", "so the archive kills the pane its write took")
 }
 
-// TestArchiveWorkflow covers what becomes of the agents inside, and what stops
-// the archive. Both halves commit together, so an agent is never left pointing at
-// a workflow nothing lists, and the agents are stopped on the way rather than left
-// running behind rows the panel no longer shows.
+// TestArchiveWorkflow pins both halves committing together, so no agent is left running
+// behind a workflow nothing lists.
 func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -572,9 +570,8 @@ func TestArchiveWorkflow(t *testing.T) {
 	}
 }
 
-// TestRestoreWorkflow covers taking a workflow out of the archive. Its agents come back
-// with it, as rows rather than as running CLIs, and a name a live agent has taken since
-// refuses the whole restore.
+// TestRestoreWorkflow covers a workflow coming back with its agents as rows, and a name a
+// live agent has taken since refusing the whole restore.
 func TestRestoreWorkflow(t *testing.T) {
 	tests := []struct {
 		name string
@@ -683,8 +680,8 @@ func TestRestoreWorkflow(t *testing.T) {
 	}
 }
 
-// TestRestoreWorkflowCeiling covers a folder that no longer fits. A restore without room
-// for every agent inside writes nothing.
+// TestRestoreWorkflowCeiling pins that a restore without room for every agent inside writes
+// nothing.
 func TestRestoreWorkflowCeiling(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -730,9 +727,8 @@ func workflowNames(listed []workflowstore.Workflow) []string {
 	return names
 }
 
-// TestRestoreAgentRestoresItsWorkflow covers the other direction. One agent out of an
-// archived workflow brings the workflow with it, or it is live under a header the tree
-// does not list and gets no row anywhere.
+// TestRestoreAgentRestoresItsWorkflow pins that one agent brings its archived workflow back
+// with it, or it would be live under a header the tree does not list.
 func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -764,9 +760,8 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	assert.Equal(t, other.ID, siblings[0].ID)
 }
 
-// TestRestoreWorkflowRefusesTwoArchivedNamesakes covers a collision between the returning
-// agents themselves. Archived rows sit outside the unique index, so one workflow can hold
-// two under a name, and checking live names alone leaves the caller a constraint error.
+// TestRestoreWorkflowRefusesTwoArchivedNamesakes pins the collision between returning agents,
+// which archived rows sitting outside the unique index make possible.
 func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -797,10 +792,8 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	assert.Len(t, archived, 2, "and both stay archived")
 }
 
-// TestDeleteWorkflow covers permanently removing an archived workflow, cascading through
-// DeleteAgents to whatever is still archived inside it. Only an archived workflow can be
-// deleted this way, and a straggler DeleteAgents cannot finish leaves both it and the
-// workflow behind rather than erroring, the same way emptying the archive does.
+// TestDeleteWorkflow covers permanently removing an archived workflow, where a straggler
+// DeleteAgents cannot finish leaves both it and the workflow behind rather than erroring.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
 		name string
@@ -897,10 +890,8 @@ func TestDeleteWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold covers a schedule moved between
-// workflows: the agents it launched stay behind in the workflow it came from and still point at
-// it, so deleting the workflow it moved to cannot clear it and names what is holding it. The
-// refusal lands before the agents inside are cascaded to, so they are still there afterwards.
+// TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold pins the refusal landing before
+// any agent is cascaded to, since agents left in the old workflow still point at the schedule.
 func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

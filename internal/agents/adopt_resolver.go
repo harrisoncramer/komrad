@@ -28,11 +28,8 @@ func NewGHPullRequests() *GHPullRequests {
 	return &GHPullRequests{}
 }
 
-// Resolve reads a pull request named by URL or number. It runs in dir, which is how gh
-// works out the repository when the reference is a bare number, and a reference that names
-// a repository of its own is checked against dir's rather than trusted: gh answers happily
-// about a repository the workflow knows nothing about, and the worktree it would then be
-// asked to make has no such branch.
+// Resolve reads a pull request named by URL or number, running in dir so that gh can work out
+// the repository when the reference is a bare number.
 func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullRequest, error) {
 	fields := "url,number,title,headRefName,baseRefName,isCrossRepository,headRepositoryOwner,state"
 	cmd := exec.CommandContext(ctx, "gh", "pr", "view", ref, "--json", fields)
@@ -82,11 +79,8 @@ func (GHPullRequests) Repository(ctx context.Context, dir string) (string, error
 	return repositoryFromRemote(strings.TrimSpace(string(out))), nil
 }
 
-// looksLikePullRequest reports whether a reference names a pull request rather than a
-// branch. A branch may be called anything, so the two are told apart by the shapes a pull
-// request comes in: a GitHub URL, a bare number, or a number behind a hash. Digits alone,
-// with no sign and nothing else, since a signed number reaches gh as a flag rather than as
-// the pull request somebody meant.
+// looksLikePullRequest reports whether a reference names a pull request rather than a branch,
+// which means a GitHub URL, a bare number, or a number behind a hash.
 func looksLikePullRequest(ref string) bool {
 	if strings.Contains(ref, "/pull/") {
 		return true
@@ -97,6 +91,8 @@ func looksLikePullRequest(ref string) bool {
 		return false
 	}
 
+	// A signed number reaches gh as a flag rather than as a pull request, so only plain digits
+	// count.
 	for _, r := range digits {
 		if r < '0' || r > '9' {
 			return false
@@ -118,12 +114,11 @@ func repositoryFromURL(url string) string {
 	return ""
 }
 
-// repositoryFromRemote pulls owner/name out of a git remote, which may be an SSH remote, an
-// HTTPS one, or either with a .git suffix. A remote naming a path rather than a host is not
-// a forge and has no owner and name to read, so it comes back blank rather than as the last
-// two segments of somebody's home directory.
+// repositoryFromRemote pulls owner/name out of a git remote, which may be SSH or HTTPS, with or
+// without a .git suffix.
 func repositoryFromRemote(remote string) string {
 	trimmed := strings.TrimSuffix(remote, ".git")
+	// A remote naming a path is not a forge, so it has no owner and name to read.
 	if strings.HasPrefix(trimmed, "file://") {
 		return ""
 	}

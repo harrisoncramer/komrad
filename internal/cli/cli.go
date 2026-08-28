@@ -16,8 +16,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// NewRootCommand builds the weave command tree. Running it with no
-// subcommand opens the panel.
+// NewRootCommand builds the weave command tree, which opens the panel when run with no
+// subcommand.
 func NewRootCommand() *cobra.Command {
 	app := &app{}
 

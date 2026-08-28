@@ -13,10 +13,9 @@ const InfoPaneOption = "@weave_info_pane"
 
 const tmuxEnvFields = 3
 
-// SocketFromEnv returns the socket path of the server a TMUX value names, empty when it
-// names none. It is how the popup finds the user's server, which cannot be passed in: tmux
-// expands no format in a popup's command or environment, and an unexpanded one at the
-// start of a shell word is a comment, so a value in the key binding never arrives.
+// SocketFromEnv returns the socket path of the server a TMUX value names, which is how the
+// popup finds the user's server, since tmux expands no format in a popup's command and an
+// unexpanded one reads as a shell comment rather than failing.
 func SocketFromEnv(value string) string {
 	fields := strings.Split(value, ",")
 	if len(fields) != tmuxEnvFields {
@@ -43,9 +42,8 @@ type Host struct {
 	pane string
 }
 
-// NewHost returns a Host that finds the user's server through the manager's, where its
-// socket path is recorded. tmuxEnv is this process's TMUX value, which names the server it
-// is a pane on.
+// NewHost returns a Host that finds the user's server through the manager's, reading tmuxEnv
+// for the server this process is a pane on.
 func NewHost(manager *Client, tmuxEnv string) *Host {
 	return &Host{manager: manager, pane: SocketFromEnv(tmuxEnv)}
 }
@@ -97,9 +95,8 @@ func (h *Host) SetGlobal(name, value string) {
 	}
 }
 
-// OpenWindow creates a window on the user's server for the client viewing the popup,
-// running argv in dir. It is the one thing the panel puts on that server rather than reads
-// off it, since that is where the sessions a person is looking at live.
+// OpenWindow creates a window on the user's server for the client viewing the popup, the one
+// thing the panel puts on that server rather than reads off it.
 func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
 	host := h.client()
 	if host == nil {
@@ -144,9 +141,8 @@ func (s *Servers) ShowGlobal(name string) string {
 	return s.host.ShowGlobal(name)
 }
 
-// GetHostSocket is the socket path of the user's server, which an action reaching that
-// server needs. It comes off the manager's own server, where the open command records it,
-// rather than through ShowGlobal above, which asks the user's.
+// GetHostSocket is the socket path of the user's server, read off the manager's own server
+// where the open command records it rather than through ShowGlobal above.
 func (s *Servers) GetHostSocket() string {
 	return s.Client.ShowGlobal(hostSocketOption)
 }

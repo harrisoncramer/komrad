@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRenderAgentCarriesWhatTheSyncersWrite covers the two columns no reconcile pass owns:
-// the branch syncer's branch and the worktree syncer's removal flag. Both are stored, so
-// both have to reach the caller, and a client that never sees them cannot draw them.
+// TestRenderAgentCarriesWhatTheSyncersWrite covers the branch and the worktree removal flag,
+// which a client cannot draw if the response never carries them.
 func TestRenderAgentCarriesWhatTheSyncersWrite(t *testing.T) {
 	rendered := renderAgent(agentstore.Agent{
 		ID:              "a1",

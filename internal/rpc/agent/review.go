@@ -193,9 +193,8 @@ func (s *Service) NotifyReviewThreads(
 	}), nil
 }
 
-// reviewAuthorFrom decides who a call belongs to from the identity on it rather than from
-// anything the caller asked for. The panel names no agent and acts as the person; an agent
-// names itself and acts as itself, so it cannot post as the reviewer.
+// reviewAuthorFrom reads who a call belongs to from the identity on it, so an agent cannot
+// post as the reviewer by asking to.
 func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
 	from := caller.From(ctx)
 	if from.AgentID == "" {

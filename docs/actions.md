@@ -45,9 +45,7 @@ Cleanup fires on delete, and on a failed launch. It does not fire on archive.
 
 ### On demand
 
-Press `x` on an agent in the panel to see every action (except for those prefixed with `_`), and press `enter` to fire the one under the cursor.
-
-You can also interact with actions via the [MCP](mcp.md) tools, `list_actions` and `run_action`, and via the CLI:
+Fire an action on an agent through the [MCP](mcp.md) tools, `list_actions` and `run_action`, or through the CLI:
 
 ```sh
 weave rpc list-actions
@@ -116,7 +114,7 @@ exec open "$url"
 
 Weave ships some actions by default.
 
-Action names starting with underscores like these are left out of the panel's action list. Add your own to override the builtins.
+Action names starting with underscores like these are left out of the workflow form's setup and cleanup fields. Add your own to override the builtins.
 
 `_worktree_setup` and `_worktree_cleanup` back a workflow's `worktree.enabled` toggle. Setup copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it.
 

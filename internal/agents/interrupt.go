@@ -12,8 +12,7 @@ type PaneInterrupterParams struct {
 }
 
 // PaneInterrupter stops an agent where it stands by typing whatever its own CLI reads as an
-// interrupt into its pane. It is the one place that knows an interrupt is three lookups and
-// a keystroke, so the things that only want an agent stopped can ask for exactly that.
+// interrupt into its pane.
 type PaneInterrupter struct {
 	agents    agentGetter
 	harnesses harnessGetter

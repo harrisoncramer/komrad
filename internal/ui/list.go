@@ -92,10 +92,8 @@ func padRows(rendered string, lines int) string {
 	return rendered + strings.Repeat("\n", lines-got)
 }
 
-// tailRows cuts a block down to what the pane can hold, keeping the end of it. bubbletea draws
-// whatever it is handed, and a view taller than the pane scrolls the pane out from under it, so
-// nothing may render a block it has not measured. The end is what is kept because the newest
-// thing said in a conversation is the thing being read.
+// tailRows cuts a block down to what the pane can hold, keeping the end, since bubbletea draws
+// whatever it is handed and a view taller than the pane scrolls the pane away.
 func tailRows(rendered string, lines int) string {
 	if lines <= 0 {
 		return ""
@@ -109,8 +107,8 @@ func tailRows(rendered string, lines int) string {
 	kept := rows[len(rows)-(lines-1):]
 	marker := dimStyle.Render(fmt.Sprintf("  ↑ %d more", len(rows)-len(kept))) + "\n"
 
-	// A single line of room is the marker and nothing else. Joining an empty tail onto it still
-	// writes a newline, which is one row more than the pane has.
+	// Joining an empty tail onto the marker still writes a newline, which is one row more than
+	// the pane has.
 	if len(kept) == 0 {
 		return marker
 	}

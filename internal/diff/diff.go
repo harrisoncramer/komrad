@@ -15,7 +15,7 @@ const (
 	Deletion
 )
 
-// Line is one line of a hunk. A number is zero on the side the line does not appear on.
+// Line is one line of a hunk, with a zero number on the side it does not appear on.
 type Line struct {
 	Kind LineKind
 
@@ -32,9 +32,8 @@ type Hunk struct {
 	Lines []Line
 }
 
-// File is one file's worth of change, along with both sides of its source. The sources are
-// carried whole rather than line by line because the highlighter reads them that way: a
-// language is lexed over a file, not over the fragments of it a patch happens to show.
+// File is one file's worth of change with both sides of its source carried whole, since the
+// highlighter lexes a language over a file rather than over the fragments a patch shows.
 type File struct {
 	OldPath string
 	NewPath string

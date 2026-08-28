@@ -28,8 +28,8 @@ func clearConnectionEnvironment(t *testing.T) {
 func TestLoad(t *testing.T) {
 	tests := []struct {
 		name string
-		// file is written to a temp path and passed to Load. Empty means no file is
-		// written and Load falls back to the default location under a bare HOME.
+		// file is written to a temp path and passed to Load, or when empty leaves Load to
+		// fall back to the default path under a bare HOME.
 		file      string
 		wantFlags string
 		wantNavUp []string
@@ -81,9 +81,8 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestLoadTags covers the tags list. A glyph goes into a rendered row, so it
-// cannot carry anything a terminal would read as an instruction, and a colour has to
-// be one lipgloss understands or the tag would quietly lose it.
+// TestLoadTags covers the tags list, where a glyph must carry nothing a terminal would read
+// as an instruction and a colour must be one lipgloss knows.
 func TestLoadTags(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -166,9 +165,8 @@ func TestLoadTags(t *testing.T) {
 	}
 }
 
-// TestLoadLayout covers the sizes and sides the panel lays its panes out at. A size that is
-// neither a share of what it divides nor a whole number of cells is the case worth watching,
-// since tmux is given one or the other.
+// TestLoadLayout covers the sizes and sides the panel lays its panes out at, since tmux is
+// given either a share of what it divides or a whole number of cells.
 func TestLoadLayout(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -365,9 +363,8 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	}
 }
 
-// TestLoadErrorNamesTheFile covers the path being carried in the error. The panel
-// shows that error and nothing else, so an error saying only that the config would
-// not parse leaves the reader with no file to go and open.
+// TestLoadErrorNamesTheFile covers the path being carried in the error, since the panel
+// shows that error and nothing else to say which file to open.
 func TestLoadErrorNamesTheFile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -400,11 +397,8 @@ func TestLoadErrorNamesTheFile(t *testing.T) {
 	}
 }
 
-// TestLoadDanglingSymlink covers a config path that is a symlink to nothing, which
-// reading fails at in the same way as a path with no file at it. A machine that was
-// never configured is meant to fall back quietly, but a broken link is a config the
-// user believes is in force, and defaulting on it silently is indistinguishable from
-// the config being honoured with those same values.
+// TestLoadDanglingSymlink covers a config path that is a symlink to nothing, where falling
+// back quietly would look exactly like the config being honoured.
 func TestLoadDanglingSymlink(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
@@ -430,9 +424,8 @@ func TestLoadAbsentFileDefaults(t *testing.T) {
 	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
 }
 
-// TestLoadLogLevel covers the level the service logs at. A word slog has no answer for
-// would decode as debug and turn the log all the way up, so it is refused here rather
-// than left to surprise somebody reading a file four times the size they expected.
+// TestLoadLogLevel covers the level the service logs at, since a word slog has no answer for
+// would decode as debug and turn the log all the way up.
 func TestLoadLogLevel(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -478,9 +471,8 @@ func TestLoadLogLevel(t *testing.T) {
 	}
 }
 
-// TestContextFile covers where the standing text every agent is started with is read from.
-// The default is filled in at read time rather than written into the generated config,
-// since one machine's home directory would be wrong on every other machine.
+// TestContextFile covers the default context path being filled in at read time, since one
+// machine's home directory would be wrong on every other machine.
 func TestContextFile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -529,9 +521,8 @@ func TestContextFile(t *testing.T) {
 	}
 }
 
-// TestLoadNamedFileMustExist covers a --config pointing at nothing. Falling back to the
-// defaults there runs the panel on settings nobody chose while the path the user typed says
-// otherwise, and every symptom of it looks like a config that was read and ignored.
+// TestLoadNamedFileMustExist covers a --config pointing at nothing, where falling back to
+// defaults would look exactly like a config that was read and ignored.
 func TestLoadNamedFileMustExist(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 
@@ -541,10 +532,8 @@ func TestLoadNamedFileMustExist(t *testing.T) {
 	assert.Contains(t, err.Error(), path, "the error names the file that is not there")
 }
 
-// TestConfiguredPathsExpandHome covers the ~ this file's own comments write their defaults
-// with, which is how anyone writing a path here spells one. Nothing below expands it. A
-// missing actions directory is no actions and a missing context file is no standing text,
-// neither an error, so a path left unexpanded is a setting that silently does nothing.
+// TestConfiguredPathsExpandHome covers the ~ a user writes a path with, which nothing below
+// expands and which silently does nothing when it is left as it was typed.
 func TestConfiguredPathsExpandHome(t *testing.T) {
 	tests := []struct {
 		name string
@@ -598,10 +587,8 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 	}
 }
 
-// TestLoadMergesLayers covers the merge rule per value kind, which is the whole of what
-// layering means to somebody writing two files. A table has to merge key by key or a local
-// file changing one thing would blank its neighbours, and a list has to be replaced whole or
-// there would be no way to drop an entry a lower layer put there.
+// TestLoadMergesLayers covers tables merging key by key and lists being replaced whole,
+// which is the whole of what layering means to somebody writing two files.
 func TestLoadMergesLayers(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -749,9 +736,8 @@ func TestLoadExplicitEmptyCollectionReplacesDefault(t *testing.T) {
 	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down)
 }
 
-// TestResolveLayers covers which files get read. Weave looks for exactly one, and naming any
-// replaces it rather than adding to it, since being able to say "this file and nothing else"
-// is what lets a second instance be isolated from the first one's config.
+// TestResolveLayers covers naming a config file replacing the default rather than adding to
+// it, which is what lets a second instance be isolated from the first one's config.
 func TestResolveLayers(t *testing.T) {
 	t.Run("no paths is the one default file", func(t *testing.T) {
 		home := t.TempDir()

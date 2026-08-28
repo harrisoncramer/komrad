@@ -89,10 +89,8 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	}
 }
 
-// TestExitedCLIStopsBeingANudgeTarget covers what getting liveness wrong costs. Mail is
-// delivered by typing at an agent that has gone quiet, so an agent whose CLI exited looks
-// exactly like one waiting to be told, and the line goes into the shell that outlived it.
-// The claim is spent either way, so that mail is not retried for this idle stretch.
+// TestExitedCLIStopsBeingANudgeTarget pins that mail is not typed at an agent whose CLI has
+// exited, since its pane looks just like one waiting to be told.
 func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()

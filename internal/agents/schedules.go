@@ -50,8 +50,8 @@ func (s *ScheduleService) GetSchedule(ctx context.Context, id string) (*schedule
 	return found, nil
 }
 
-// NewSchedule records a recurring launch. The cron expression is parsed before the write,
-// so a schedule that could never fire is refused at creation.
+// NewSchedule records a recurring launch, parsing the cron expression first so a schedule that
+// could never fire is refused.
 func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error) {
 	normalized, err := normalize(cfg)
 	if err != nil {
@@ -69,8 +69,8 @@ func (s *ScheduleService) NewSchedule(ctx context.Context, cfg schedulestore.Con
 	return created, nil
 }
 
-// UpdateSchedule replaces a schedule's editable fields. A blank name falls back to the one
-// it already has, so the list never renders an unlabelled row.
+// UpdateSchedule replaces a schedule's editable fields, keeping the name it already has when a
+// blank one is given so the list never renders an unlabelled row.
 func (s *ScheduleService) UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
@@ -115,9 +115,8 @@ func (s *ScheduleService) SetScheduleEnabled(ctx context.Context, id string, ena
 	return nil
 }
 
-// ArchiveSchedule stops a schedule from firing again. The agents it already launched are
-// left alone, since they are real conversations, each still recording the schedule that
-// made it.
+// ArchiveSchedule stops a schedule from firing again, leaving the agents it already launched
+// alone with their record of the schedule that made them.
 func (s *ScheduleService) ArchiveSchedule(ctx context.Context, id string) error {
 	existing, err := s.GetSchedule(ctx, id)
 	if err != nil {
@@ -159,17 +158,12 @@ func normalize(cfg schedulestore.Config) (schedulestore.Config, error) {
 	return cfg, nil
 }
 
-// ParseCron reads a cron expression in a zone and returns the schedule it describes. An
-// empty zone is the machine's local one, which is what a person writing "9am" on their
-// laptop means. The zone is checked before parsing, so an unknown one is reported as such
-// rather than as a syntax error about the TZ prefix it is read through.
-//
-// Syntax is not enough on its own. A date the calendar never reaches, such as February the
-// thirtieth, reads as cleanly as any other and then never comes round, which the library
-// reports as the zero time. Refusing it here catches it where it is written rather than
-// leaving it in the table for everything downstream to trip over.
+// ParseCron reads a cron expression in a zone and returns the schedule it describes, taking an
+// empty zone as the machine's local one.
 func ParseCron(expression, timezone string) (cron.Schedule, error) {
 	if timezone != "" {
+		// The zone is checked before parsing so an unknown one is reported as such rather than as
+		// a syntax error about the TZ prefix.
 		if _, err := time.LoadLocation(timezone); err != nil {
 			return nil, fmt.Errorf("%w: unknown timezone %q", ErrBadCron, timezone)
 		}
@@ -181,6 +175,8 @@ func ParseCron(expression, timezone string) (cron.Schedule, error) {
 		return nil, fmt.Errorf("%w: %q: %w", ErrBadCron, expression, err)
 	}
 
+	// A date the calendar never reaches, such as February the thirtieth, parses cleanly and then
+	// never comes round.
 	if parsed.Next(time.Now()).IsZero() {
 		return nil, fmt.Errorf("%w: %q never occurs", ErrBadCron, expression)
 	}

@@ -16,9 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRecoverRPCIsInternal covers what a caller is told when a handler panicked. The code is
-// internal because nothing the caller sent explains it, and the value is left out of the
-// message since a panic can be holding anything the handler was.
+// TestRecoverRPCIsInternal covers a panic answered as internal with the value left out, since
+// nothing the caller sent explains it and a panic can hold anything.
 func TestRecoverRPCIsInternal(t *testing.T) {
 	var out bytes.Buffer
 	ctx := logging.WithLogger(context.Background(), logging.New(&out, slog.LevelError))
@@ -36,10 +35,8 @@ func TestRecoverRPCIsInternal(t *testing.T) {
 		"the stack reaches back to what panicked")
 }
 
-// TestServeAndRecoverAnswers covers the MCP endpoint, which connect's own recovery never sees
-// because it is served as plain HTTP. A panicking call is answered and recorded rather than
-// dropping the connection, and one that had already written its status keeps it, since a
-// second status is a lie the client cannot read anyway.
+// TestServeAndRecoverAnswers covers a panicking MCP call being answered rather than dropped,
+// since connect's own recovery never sees an endpoint served as plain HTTP.
 func TestServeAndRecoverAnswers(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -85,9 +82,8 @@ func TestServeAndRecoverAnswers(t *testing.T) {
 	}
 }
 
-// TestServeAndRecoverPassesOnAnAbort covers net/http's own signal for a handler dropping a
-// request deliberately. The server above is the thing meant to see it, so recovering it here
-// would turn a stream the client hung up on into a failure of ours.
+// TestServeAndRecoverPassesOnAnAbort covers net/http's own signal for a deliberate drop,
+// which recovering here would turn into a failure of ours.
 func TestServeAndRecoverPassesOnAnAbort(t *testing.T) {
 	var out bytes.Buffer
 
@@ -105,9 +101,8 @@ func TestServeAndRecoverPassesOnAnAbort(t *testing.T) {
 	assert.Empty(t, out.String(), "an abort is not a failure to report")
 }
 
-// TestLoggingHandlerRecordsAPanickedCall covers the two records a panicking MCP call leaves:
-// what broke, with the stack, and the line saying the call ended in a 500. Without the
-// recovery the call would leave neither, since the line is written after the handler returns.
+// TestLoggingHandlerRecordsAPanickedCall covers a panicking MCP call leaving both the stack
+// and the line saying it ended in a 500, neither of which is written without the recovery.
 func TestLoggingHandlerRecordsAPanickedCall(t *testing.T) {
 	var out bytes.Buffer
 

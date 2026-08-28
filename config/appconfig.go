@@ -109,8 +109,6 @@ const DefaultTagColor = "yellow"
 // single key, leaving the alternatives to you. A binding left unset falls back to
 // its built-in default.
 type Keybindings struct {
-	// The actions list, and the key that opens it on the hovered agent.
-	Actions ActionsKeys `mapstructure:"actions"`
 	// The agents list, the panel's main screen.
 	Agents AgentsKeys `mapstructure:"agents"`
 	// The archive screen, and the key that opens it from the agents list.
@@ -303,25 +301,7 @@ type ArchiveKeys struct {
 	Restore []string `mapstructure:"restore"`
 }
 
-// ActionsKeys are the bindings for the actions list, the scripts you have written for
-// the panel to run. Open enters it on the hovered agent, and the rest act on the script
-// under the cursor once inside.
-type ActionsKeys struct {
-	// Leave the actions list for the agents list.
-	Back []string `mapstructure:"back"`
-	// Open the script under the cursor in your editor, in the info pane, and
-	// close that pane on a second press. A compiled program has nothing to edit.
-	Editor []string `mapstructure:"editor"`
-	// Open the actions list on the hovered agent. It acts on a row rather than on
-	// the list, so this does nothing on a workflow header.
-	Open []string `mapstructure:"open"`
-	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
-	// Run the script under the cursor on the agent the list was opened on.
-	Run []string `mapstructure:"run"`
-}
-
-// Actions is where the panel finds the scripts its action key runs.
+// Actions is where weave finds the scripts a workflow, a schedule, or an agent runs.
 type Actions struct {
 	// Directory for actions: one executable file per action, named after the action.
 	// Files here override built-in actions with the same name.
@@ -498,7 +478,7 @@ type Config struct {
 	Tags []Tag `mapstructure:"tags"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
-	// Where the panel finds the scripts its action key runs.
+	// Where weave finds the scripts a workflow, a schedule, or an agent runs.
 	Actions Actions `mapstructure:"actions"`
 	// Where a workflow's generated worktree setup action creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
@@ -606,13 +586,6 @@ func DefaultTags() []Tag {
 // DefaultKeybindings are the bindings used when the config omits them.
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
-		Actions: ActionsKeys{
-			Back:   []string{"esc"},
-			Editor: []string{"e"},
-			Open:   []string{"x"},
-			Quit:   []string{"ctrl+c"},
-			Run:    []string{"enter"},
-		},
 		Agents: AgentsKeys{
 			Archive:    []string{"z"},
 			Back:       []string{"esc"},

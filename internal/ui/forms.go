@@ -172,8 +172,8 @@ func newAgentForm(keys config.FormKeys, prefill agentFormValues, available []act
 	return form, values
 }
 
-// adoptAgentForm asks for the work to pick up and little else. Adoption works out where the
-// agent runs, so there is no directory to fill in and no setup action to pick.
+// adoptAgentForm asks for the work to pick up and little else, since adoption works out where
+// the agent runs.
 func adoptAgentForm(keys config.FormKeys, prefill adoptFormValues) (*huh.Form, *adoptFormValues) {
 	values := &prefill
 
@@ -232,9 +232,8 @@ func confirmForm(title, description, affirmative string, keys config.FormKeys) (
 	return confirmFormStartingOn(true, title, description, affirmative, keys)
 }
 
-// confirmFormStartingOn builds a confirmation sitting on one of its two answers. Most of the
-// panel's prompts start on the affirmative, since the key was pressed to do the thing, but a
-// prompt nothing undoes starts on Cancel so a stray return costs nothing.
+// confirmFormStartingOn builds a confirmation sitting on one of its two answers, so that a
+// prompt nothing undoes can start on Cancel and a stray return costs nothing.
 func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
 	form := huh.NewForm(
 		huh.NewGroup(

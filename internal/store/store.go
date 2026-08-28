@@ -23,16 +23,20 @@ type Pool struct {
 	pool *pgxpool.Pool
 }
 
-// Open connects to the Postgres at url and brings its schema up to date. The ping turns
-// an unreachable database into an error at startup rather than on the first query, which
-// for a tool launched from a tmux keybinding is the difference between a message and a
-// panel that renders empty.
+// Open connects to the Postgres at url and brings its schema up to date.
 func Open(ctx context.Context, url string) (*Pool, error) {
-	pool, err := pgxpool.New(ctx, url)
+	cfg, err := parseConfig(url)
+	if err != nil {
+		return nil, err
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
 
+	// The ping turns an unreachable database into an error at startup rather than a panel
+	// that renders empty on the first query.
 	if err := pool.Ping(ctx); err != nil {
 		pool.Close()
 		return nil, fmt.Errorf("failed to reach db: %w", err)
@@ -46,24 +50,21 @@ func Open(ctx context.Context, url string) (*Pool, error) {
 	return &Pool{pool: pool}, nil
 }
 
-// OpenReadOnly opens a pool for reading only, for surfaces that hand the database to
-// something that must never write, such as the MCP endpoint. The guard rides on the
-// connection rather than on each statement, so a write is refused by Postgres itself even
-// if it slips past the statement checks above it.
-//
-// What the url names matters as much as the flag on it. The read-only transaction stops
-// writes and only writes, so the privileges of the role it connects as are what decide
-// everything a statement can read. That is why this takes its own url rather than the
-// writable one.
+// OpenReadOnly opens a pool for reading only, for surfaces such as the MCP endpoint that
+// must never write.
 func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
+	// It takes a url of its own because a read-only transaction stops writes and nothing
+	// else, so the role that url connects as decides everything a statement can read.
 	if url == "" {
 		return nil, ErrNoReadOnlyURL
 	}
 
-	cfg, err := pgxpool.ParseConfig(url)
+	cfg, err := parseConfig(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse database url: %w", err)
+		return nil, err
 	}
+	// The guard rides on the connection rather than on each statement, so Postgres itself
+	// refuses a write that slips past the checks above it.
 	cfg.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
 
 	pool, err := pgxpool.NewWithConfig(ctx, cfg)
@@ -82,6 +83,18 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 
 	return pool, nil
+}
+
+// parseConfig reads url and names this process on every connection made from it, which is how
+// a migration pass tells its own connections from another weave's on the same database.
+func parseConfig(url string) (*pgxpool.Config, error) {
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database url: %w", err)
+	}
+	cfg.ConnConfig.RuntimeParams["application_name"] = db.AppName()
+
+	return cfg, nil
 }
 
 func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {
@@ -106,9 +119,8 @@ func (p *Pool) GetDB() DBTX {
 	return p.pool
 }
 
-// GetRawPool returns the underlying pgx pool. It exists for River, whose driver takes the
-// concrete pool rather than an interface. Nothing else should reach for it, since a
-// domain store takes DBTX so a transaction can be swapped in underneath it.
+// GetRawPool returns the underlying pgx pool for River, whose driver takes the concrete
+// pool rather than an interface, and nothing else should reach for it.
 func (p *Pool) GetRawPool() *pgxpool.Pool {
 	return p.pool
 }
@@ -119,9 +131,8 @@ func (p *Pool) Close() error {
 	return nil
 }
 
-// InTx runs fn inside a transaction, handing it the handle to build the domain stores
-// over, so an operation spanning two domains stays atomic without either of them knowing
-// about the other's tables. Returning an error rolls the whole thing back.
+// InTx runs fn inside a transaction, handing it the handle to build the domain stores over
+// so an operation spanning two domains stays atomic.
 func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	tx, err := p.pool.Begin(ctx)
 	if err != nil {
@@ -140,19 +151,15 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	return nil
 }
 
-// IsID reports whether a string could be one of the ids these stores hand out. The
-// columns are uuid, so a value that is not one is refused by Postgres with a parse error
-// rather than matching nothing, which would turn a caller's typo into a failure instead of
-// a miss.
+// IsID reports whether a string could be one of the ids these stores hand out, since the
+// columns are uuid and Postgres fails a query on anything else rather than matching nothing.
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil
 }
 
-// NewID mints a row id the same way the columns' own uuidv7() default does, for a caller
-// that needs the id before the row exists. The version matters rather than just the
-// uniqueness: a v7 carries its creation time in its leading bits, so the keyset pages and
-// the search tie-breaks that order by id read it as the order rows were written.
+// NewID mints a row id the same way the columns' own uuidv7() default does, where v7
+// matters because its leading bits carry the creation time that ordering by id relies on.
 func NewID() (string, error) {
 	id, err := uuid.NewV7()
 	if err != nil {

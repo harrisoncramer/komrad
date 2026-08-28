@@ -17,12 +17,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// noToolSurface is the methods deliberately kept out of a model's reach. The review ones are
-// the reviewer's half of the conversation: opening a thread, rewriting or deleting what was
-// said, settling one, and telling the agent to go and read it. An agent's half is
-// list_review_threads and add_review_message, which it does have.
+// noToolSurface is the methods deliberately kept out of a model's reach, which are the
+// reviewer's half of a review conversation rather than the agent's.
 var noToolSurface = map[protoreflect.Name]bool{
-	"EditAction":              true,
 	"EmptyArchive":            true,
 	"RecordTurnBoundary":      true,
 	"CreateReviewThread":      true,
@@ -34,11 +31,8 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"NotifyReviewThreads":     true,
 }
 
-// TestEveryMethodIsAnnotated confirms the tool surface keeps up with the
-// services. A new RPC added without a tool annotation is invisible to a model,
-// which is the safe default but is easy to do by accident, so this fails loudly
-// enough to be a decision rather than an oversight. Leaving one out means naming
-// it in noToolSurface, which is that decision written down.
+// TestEveryMethodIsAnnotated fails when an RPC carries no tool annotation, so leaving one out
+// of a model's reach has to be written down in noToolSurface rather than happening by accident.
 func TestEveryMethodIsAnnotated(t *testing.T) {
 	tests := []struct {
 		name string
@@ -71,9 +65,8 @@ func TestEveryMethodIsAnnotated(t *testing.T) {
 	}
 }
 
-// TestToolHints checks the hints each method advertises. They are what a client
-// uses to decide whether to confirm a call, so a read that looks destructive or
-// a delete that looks safe both matter.
+// TestToolHints checks the hints a client uses to decide whether to confirm a call, where a
+// read that looks destructive and a delete that looks safe both matter.
 func TestToolHints(t *testing.T) {
 	tests := []struct {
 		method          string
@@ -111,9 +104,8 @@ func TestToolHints(t *testing.T) {
 	}
 }
 
-// TestInputSchema confirms a request message is described in terms a client can
-// satisfy. What the service rejects empty is required, and everything else can
-// be left out.
+// TestInputSchema confirms what the service rejects empty is described as required and
+// everything else can be left out.
 func TestInputSchema(t *testing.T) {
 	tests := []struct {
 		method string

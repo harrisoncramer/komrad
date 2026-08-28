@@ -250,9 +250,8 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestArchiveWorkflow covers what goes with the workflow and what stops the
-// archive. The agents inside always go, since every agent belongs to a workflow
-// and there is nowhere to leave one.
+// TestArchiveWorkflow covers the agents inside always going with it, since every agent
+// belongs to a workflow and there is nowhere to leave one.
 func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -327,9 +326,8 @@ func TestArchiveWorkflow(t *testing.T) {
 	}
 }
 
-// TestRestoreWorkflow covers the handler's side of a restore, which is the codes it
-// answers with. A workflow that is not archived is not found, since there is nothing for
-// this call to do to it.
+// TestRestoreWorkflow covers the codes a restore answers with, where a workflow that is not
+// archived is not found because there is nothing to do to it.
 func TestRestoreWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -519,10 +517,8 @@ func TestListWorkflows(t *testing.T) {
 	}
 }
 
-// TestListWorkflowsRefusesAMangledToken covers a token that decodes into the right shape
-// while holding an id no row can have. The token is the server's own artifact handed back
-// verbatim, so one carrying an unusable value is the caller's mistake rather than a
-// database failure.
+// TestListWorkflowsRefusesAMangledToken covers a token that decodes but holds an id no row
+// can have, which is the caller's mistake rather than a database failure.
 func TestListWorkflowsRefusesAMangledToken(t *testing.T) {
 	svc, _ := service(t)
 

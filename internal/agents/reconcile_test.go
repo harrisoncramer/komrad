@@ -15,9 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReconcileSinglePass covers the state a single reconcile pass settles on for
-// one agent, given its prior state and what its pane shows. Multi-pass behaviour
-// like the idle debounce is covered separately.
+// TestReconcileSinglePass covers the state one pass settles on for an agent, given its prior
+// state and what its pane shows.
 func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -126,9 +125,8 @@ func TestReconcileSinglePass(t *testing.T) {
 	}
 }
 
-// TestReconcileForgetsAnAbandonedPane covers what a dormant agent leaves behind. Weave's
-// only liveness test is a pane lookup, so an agent that keeps a pane id it is not running
-// in cannot be resumed and is typed at as though it were listening.
+// TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id, which it
+// would otherwise be typed at through and could not be resumed from.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	tests := []struct {
 		name string
@@ -183,9 +181,8 @@ func waitOutTheShellGrace(rec *Reconciler) {
 	rec.now = func() time.Time { return at }
 }
 
-// TestReconcileWaitsOutALaunch covers the window a launch opens. Weave types the launch
-// command into the pane's shell, so a pane that has just been opened is a shell holding a
-// live agent, and reading that as an exit would forget an agent while it was starting.
+// TestReconcileWaitsOutALaunch pins that a just-opened pane is not read as an exit, since
+// weave types the launch command into a shell that is holding a live agent.
 func TestReconcileWaitsOutALaunch(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -213,9 +210,8 @@ func TestReconcileWaitsOutALaunch(t *testing.T) {
 	assert.Equal(t, agent.ID, tmux.owners["%1"], "the stamp is left where the launcher put it")
 }
 
-// TestReconcileLeavesTheTag pins who the tag belongs to. The reconciler writes
-// what it observes, and a tag is not something it can observe. The user sets it and
-// only the user clears it, so a pass that moves an agent's state leaves it standing.
+// TestReconcileLeavesTheTag pins that a pass moving an agent's state leaves its tag standing,
+// since only the user sets or clears one.
 func TestReconcileLeavesTheTag(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -336,10 +332,9 @@ func repeatFrame(frame string, n int) []string {
 	return frames
 }
 
-// TestReconcileLeavesAnUnknownHarnessAlone covers an agent recorded against a CLI
-// this binary does not run, which a removed harness looks like. Nothing here can
-// read its pane, so the only honest act is to leave the state it already holds:
-// demoting it would report work as finished off a frame nobody interpreted.
+// TestReconcileLeavesAnUnknownHarnessAlone pins that an agent whose CLI this binary cannot
+// run keeps the state it holds, since demoting it would report work finished off an unread
+// frame.
 func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -539,10 +534,8 @@ func TestReconcileWithoutTmux(t *testing.T) {
 	assert.Equal(t, agentstore.StateThinking, after.State, "and the state stands")
 }
 
-// TestReconcileStampsWhatItConfirmed pins which passes count as having confirmed a state.
-// A pass that read the frame did, whatever it read. A pass that could not read one leaves
-// the stamp where it was, so an agent nothing can observe is never mistaken for an
-// observed one.
+// TestReconcileStampsWhatItConfirmed pins that only a pass which read the frame moves the
+// stamp, so an agent nothing can observe is never mistaken for an observed one.
 func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	tests := []struct {
 		name string
@@ -625,10 +618,8 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	}
 }
 
-// TestReconcileCoalescesTheConfirmationStamp covers the cost of writing the stamp at all.
-// Every pass confirms every agent it can read, so a stamp written each time would be an
-// update per agent every couple of seconds, and the panel needs the fact far less precisely
-// than that.
+// TestReconcileCoalescesTheConfirmationStamp pins the stamp not being written every pass,
+// which would be an update per agent every couple of seconds.
 func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -654,9 +645,8 @@ func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	assert.Equal(t, agent.StateChangedAt, stamped.StateChangedAt, "and the state itself never moved")
 }
 
-// resumeAfterSnapshot is a pane probe that lets the test move the world on once a pass has
-// taken everything it will go on. Reconcile lists the agents and then reads the panes, so
-// this is the last moment before the walk, and the window a resume lands in.
+// resumeAfterSnapshot is a pane probe that moves the world on once a pass has read the panes,
+// which is the last moment before the walk and the window a resume lands in.
 type resumeAfterSnapshot struct {
 	paneObserver
 	resume func()
@@ -673,13 +663,8 @@ func (p *resumeAfterSnapshot) GetPanes() (map[string]tmux.PaneStatus, error) {
 	return panes, nil
 }
 
-// TestReconcileLeavesARowAResumeHasMovedOn covers the pane a pass is holding when it
-// decides an agent is dormant. A restart resumes agents one at a time while passes keep
-// running, so a pass routinely walks a row that has been given a live pane since it looked,
-// and writing its own conclusion over that leaves an agent alive in a pane nothing knows
-// about. The reused pane id is the same race on the same path: a tmux server hands out pane
-// ids from a counter that restarts with it, so an agent resumed into the fresh server can
-// land back on the id its dead row is still carrying.
+// TestReconcileLeavesARowAResumeHasMovedOn pins that a pass does not write its conclusion over
+// a row a resume has since given a live pane, including one on a reused pane id.
 func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 	tests := []struct {
 		name string

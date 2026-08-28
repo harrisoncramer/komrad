@@ -30,9 +30,8 @@ func TestMailConfigReadsWhatTheFileSays(t *testing.T) {
 	assert.Equal(t, 7, hops)
 }
 
-// TestMailConfigRefusesAConfigItCannotRead covers a typo in config.toml. The config is read
-// fresh on every send, so a file that stops loading under a running server must refuse the
-// send rather than swap in a deadline nobody wrote.
+// TestMailConfigRefusesAConfigItCannotRead covers a typo appearing in config.toml under a
+// running server, which must refuse the send rather than swap in a deadline nobody wrote.
 func TestMailConfigRefusesAConfigItCannotRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("[mail]\ndelivery_dedline = \"45m\"\n"), 0o600))

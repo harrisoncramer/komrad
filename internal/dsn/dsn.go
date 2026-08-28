@@ -6,12 +6,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 )
 
-// Redact is the connection string with the password taken out, keeping the login and the
-// address because those are the parts worth reading. Somebody diagnosing the wrong database
-// needs to know which host and which user, and never needs the secret.
-//
-// A string that will not parse is reported as such rather than passed through, since passing
-// it through would leak the password of anything this failed to understand.
+// Redact is the connection string with the password taken out, reporting a string it cannot
+// parse rather than passing it through and leaking the password.
 func Redact(url string) string {
 	if url == "" {
 		return ""

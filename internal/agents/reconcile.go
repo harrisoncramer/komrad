@@ -27,10 +27,9 @@ const stateSeenBound = 2 * time.Minute
 
 const prLookupTimeout = 15 * time.Second
 
-// prRateLimitBackoff is how long a rate-limited agent is left alone before another pull
-// request check is attempted for it. This is a single, infrequent check per agent rather
-// than a poll loop, so a long, simple pause is worth more than the queueing and per-window
-// budget a real poller needs.
+// prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
+// checked again, kept long because this is one infrequent check per agent rather than a poll
+// loop.
 const prRateLimitBackoff = 15 * time.Minute
 
 // prMetadataKey is the metadata key a found pull request is recorded under, the same key
@@ -123,9 +122,8 @@ func (r *Reconciler) clearTurnBoundary(agentID string) {
 	delete(r.boundaries, agentID)
 }
 
-// WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its
-// own, outside weave's own tools, so it never chases something nobody asked it to look
-// for. Left unset, an agent going idle is never checked.
+// WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its own,
+// and an agent going idle is never checked while it is unset.
 func (r *Reconciler) WithPRFinder(f prFinder) *Reconciler {
 	r.prFinder = f
 
@@ -304,9 +302,8 @@ func hashFrame(frame string) uint64 {
 }
 
 // forget drops the pane an agent is no longer running in and reports whether the row it was
-// handed is still the row the store holds. A pass takes its snapshot before it walks the
-// agents, so a resume that lands mid-walk leaves it judging an agent by a pane that has
-// already been replaced, and everything it would conclude from that is about the old pane.
+// handed is still the one the store holds, since a resume landing mid-pass replaces the pane
+// the walk is judging by.
 func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bool) bool {
 	if agent.Pane == "" {
 		return true
@@ -368,10 +365,8 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 	}
 }
 
-// checkPR looks for a pull request an agent opened on a branch weave already knows about,
-// the moment the agent goes idle rather than on every pass, so a long-idle agent is not
-// asked about over and over. Once one is found it is recorded for good: nothing here ever
-// checks whether it later merges or closes.
+// checkPR looks for a pull request an agent opened, once as the agent goes idle, and records
+// the first one it finds without ever checking whether it later merges or closes.
 func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 	if r.prFinder == nil || agent.Branch == nil || *agent.Branch == "" {
 		return

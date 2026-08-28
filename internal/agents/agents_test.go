@@ -21,10 +21,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgent covers a launch end to end. A refused launch has to record
-// nothing. A row pointing at a pane that does not exist reads as a live agent
-// forever, and tmux reads an empty pane target as whatever the user is
-// looking at.
+// TestNewAgent covers a launch end to end, where a refused one records nothing, since tmux
+// reads an empty pane target as whatever the user is looking at.
 func TestNewAgent(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -179,9 +177,8 @@ func metadataValue(md []agentstore.Metadata) string {
 	return ""
 }
 
-// TestNewAgentIdempotency covers the key that makes a launch repeatable. A
-// background job that retries after a launch half-succeeded has to find the
-// agent it already made, or the same prompt runs twice in two tmux windows.
+// TestNewAgentIdempotency pins a retry finding the agent it already made, or the same prompt
+// runs twice in two tmux windows.
 func TestNewAgentIdempotency(t *testing.T) {
 	tests := []struct {
 		name string
@@ -244,10 +241,8 @@ func TestNewAgentIdempotency(t *testing.T) {
 	}
 }
 
-// TestNewAgentRecordsWhoSpawnedIt covers the header a request calling create_agent
-// arrives with. An agent calling back through its own tools carries its own id in the
-// caller header, which weave records as the new agent's parent and repeats to it in its
-// launch context; the panel calls with no header at all, so what it creates has no parent.
+// TestNewAgentRecordsWhoSpawnedIt pins the caller header becoming the new agent's parent,
+// which the panel sends none of so what it creates has no parent.
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
 		name string
@@ -323,9 +318,8 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	}
 }
 
-// TestNewAgentGetsDirectory covers where an agent starts. tmux does no tilde
-// expansion, so a ~ path has to be absolute before the window is opened or the
-// stored cwd would not be where the agent is running.
+// TestNewAgentGetsDirectory pins a ~ path being made absolute before the window is opened,
+// since tmux does no tilde expansion.
 func TestNewAgentGetsDirectory(t *testing.T) {
 	tests := []struct {
 		name string
@@ -388,9 +382,8 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 	}
 }
 
-// TestNewAgentInsideWorkflow covers what an agent inherits from the bucket it is
-// created in. The context is a snapshot taken at launch, so a later edit reaches
-// only agents spawned after it.
+// TestNewAgentInsideWorkflow pins the workflow context being a snapshot taken at launch, so
+// a later edit reaches only agents spawned after it.
 func TestNewAgentInsideWorkflow(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -717,9 +710,8 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	require.ErrorIs(t, err, ErrTooManyAgents)
 }
 
-// TestNewAgentCleansUpAfterASetupThatRan covers a launch that refuses after its setup
-// action has already built something. A worktree no row names is never reached again, so
-// every refusal past the point the script ran has to undo it.
+// TestNewAgentCleansUpAfterASetupThatRan pins every refusal past the setup script undoing
+// its work, since a worktree no row names is never reached again.
 func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 	tests := []struct {
 		name string
@@ -791,9 +783,8 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 	}
 }
 
-// TestNewAgentDoesNotCleanUpASetupThatRefused covers the other side of it. A setup action
-// that refused is the script saying it did not get as far as doing anything, so firing
-// cleanup would be asking it to undo work nobody did.
+// TestNewAgentDoesNotCleanUpASetupThatRefused pins no cleanup after a setup that refused,
+// which would ask the script to undo work nobody did.
 func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -830,9 +821,8 @@ func (c *cancellingSetupLifecycle) RunSetupAction(ctx context.Context, agent age
 	return c.fakeLifecycle.RunSetupAction(ctx, agent, name, pane)
 }
 
-// TestNewAgentClosesOutACreateTheCallerAbandoned covers a create whose caller disconnects
-// mid-setup. Nothing else in the system moves a row out of setting_up, so the bookkeeping
-// that marks it failed has to outlive the request that asked for it.
+// TestNewAgentClosesOutACreateTheCallerAbandoned pins the write that marks a create failed
+// outliving the request, since nothing else moves a row out of setting_up.
 func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -1004,10 +994,8 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
 }
 
-// TestDeleteStaysArchivedOnAFailedTeardown covers both ways a delete reaches an archived row
-// — "archive and delete" on a live agent, and a delete out of the archive — which are the
-// same two calls. A cleanup that fails leaves the row in the archive rather than back on the
-// live list, since the archive is where the user was working and so where the failure shows.
+// TestDeleteStaysArchivedOnAFailedTeardown pins a failed cleanup leaving the row in the
+// archive, which is where the user was working and so where the failure shows.
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -1041,10 +1029,8 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	assert.NotNil(t, all[0].ArchivedAt)
 }
 
-// TestDeleteAgentRetryRecordsTheLatestReasonOnly covers retrying a delete whose cleanup
-// keeps failing, for a different reason each time. There is one "error" metadata slot per
-// agent, not a history of them, so a second failure overwrites the first rather than
-// appending to it — the row only ever shows why the most recent attempt didn't work.
+// TestDeleteAgentRetryRecordsTheLatestReasonOnly pins a second failure overwriting the first,
+// since there is one error slot per agent rather than a history of them.
 func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -1082,10 +1068,8 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	assert.NotContains(t, metadataValue(agents[0].Metadata), "worktree is dirty", "the stale reason does not linger alongside the new one")
 }
 
-// TestDeleteAgentsHandlesMixedCleanupOutcomes covers a batch where one agent's cleanup
-// succeeds and another's fails: each agent's outcome has to land on that agent alone, not on
-// the batch as a whole. One failure must not block the other's removal, and one success
-// must not silently drop the other's failure.
+// TestDeleteAgentsHandlesMixedCleanupOutcomes pins each agent's cleanup outcome landing on
+// that agent alone rather than on the batch.
 func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -1115,10 +1099,8 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	assert.Contains(t, metadataValue(agents[0].Metadata), "container is still running")
 }
 
-// TestDeleteAgentRemovesItsActionLogs covers the other half of a delete: the setup and
-// teardown logs an agent left on disk have nowhere else to be cleaned up from, so a delete
-// that actually removes the row takes them with it. One whose cleanup fails is not removed,
-// so its logs are left in place — they are what the failure is left to be read from.
+// TestDeleteAgentRemovesItsActionLogs pins a delete taking the agent's logs with it, and
+// leaving them in place where the cleanup failed and they are all there is to read.
 func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -1264,10 +1246,8 @@ func (b brokenWorkflowReader) GetIncludingArchived(context.Context, string) (*wo
 	return nil, b.err
 }
 
-// TestUniqueAgentName covers the name an agent ends up with. The store's unique
-// index is the authority, so a taken name has to be stepped past rather than
-// reused, which would clobber the agent holding it. The index is scoped to the
-// workflow, so a name is only taken when it is taken in the same one.
+// TestUniqueAgentName pins a taken name being stepped past rather than reused, counting only
+// names taken inside the same workflow.
 func TestUniqueAgentName(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -1373,8 +1353,8 @@ func TestNameTaken(t *testing.T) {
 	}
 }
 
-// TestArchiveAgent covers hiding an agent. The record and its transcript stay,
-// so search still reaches it, but the agent is stopped.
+// TestArchiveAgent pins the agent being stopped while its record and transcript stay, so
+// search still reaches it.
 func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1424,11 +1404,8 @@ func TestArchiveAgent(t *testing.T) {
 	}
 }
 
-// TestArchiveKillsAPaneWrittenBeforeItsOwnWrite covers the pane an archive would otherwise
-// never see. The row it read held nothing, so it kills nothing; the write that follows takes
-// a pane off the row and blanks it, and no listing shows the row afterwards. The CLI in that
-// pane is then holding the agent's directory with nothing left that would ever reach it, so
-// the archive has to kill what its own write took rather than what its read named.
+// TestArchiveKillsAPaneWrittenBeforeItsOwnWrite pins the archive killing the pane its own
+// write took, since the pane landed on the row after its read saw nothing there.
 func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -1476,10 +1453,8 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	assert.Contains(t, tmux.killedPanes, "%9", "so the delete kills the pane its write took")
 }
 
-// TestDeleteAgent covers destroying an agent for good, which is what emptying
-// the archive does. It is keyed by id rather than by name because the agents it
-// runs against are archived, and an archived name is not unique: the index that
-// makes a name identify one agent holds among live rows only.
+// TestDeleteAgent covers destroying an agent for good, keyed by id since the unique name
+// index holds among live rows only and these agents are archived.
 func TestDeleteAgent(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1548,12 +1523,8 @@ func TestDeleteAgent(t *testing.T) {
 	}
 }
 
-// TestAReissuedPaneIsNotTheAgents covers the whole point of stamping a pane. tmux
-// only promises a pane id is unique while the server that issued it lives, so a
-// dormant agent's recorded pane routinely names a pane the next server gave to a
-// different agent. Every read of a stored pane id has to survive that: the agent
-// must not read as running, and nothing may reach into the pane that is now
-// somebody else's.
+// TestAReissuedPaneIsNotTheAgents pins every read of a stored pane id surviving reissue,
+// since tmux only promises the id is unique while the server that issued it lives.
 func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	const shared = "%4"
 
@@ -1609,9 +1580,8 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	})
 }
 
-// TestRestore covers bringing an archived agent back. It returns as a row and nothing
-// else, and a name taken while it sat hidden is refused rather than worked around, since
-// which of the two agents keeps the name is the user's to decide.
+// TestRestore pins an agent returning as a row alone, with a name taken while it sat hidden
+// refused rather than worked around.
 func TestRestore(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1685,9 +1655,8 @@ func TestRestore(t *testing.T) {
 	}
 }
 
-// TestRestoreCeiling covers the ceiling on the way out of the archive. An unarchived
-// agent holds a slot whether or not anything is running in it, so a restore has to be
-// refused where a create would be, or the archive is a way around the limit.
+// TestRestoreCeiling pins a restore being refused where a create would be, or the archive is
+// a way around the limit.
 func TestRestoreCeiling(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -1711,10 +1680,8 @@ func TestRestoreCeiling(t *testing.T) {
 	require.NoError(t, err, "archiving one makes room again")
 }
 
-// TestResumeRunsTheSetupAction covers the workflow's setup action firing again on the way
-// back up. Archive leaves whatever setup built alone and a restore only takes the row out of
-// the archive, so resume is the moment a workspace has to exist again, and a script that
-// makes one is reached with the agent's recorded directory to work from.
+// TestResumeRunsTheSetupAction pins the setup action firing again on resume, which is the
+// moment a workspace has to exist since nothing before it rebuilds one.
 func TestResumeRunsTheSetupAction(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1813,8 +1780,8 @@ func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
 	assert.Empty(t, lifecycle.resumed)
 }
 
-// TestResumeRefusesArchived covers resuming an agent that is still in the archive. The
-// pane would sit behind a row nothing lists, so it is refused and names the way out.
+// TestResumeRefusesArchived pins the refusal naming the way out, since the pane would
+// otherwise sit behind a row nothing lists.
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

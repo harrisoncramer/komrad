@@ -21,14 +21,12 @@ var ErrReviewThreadNotFound = errors.New("review thread not found")
 // ErrReviewMessageNotFound is answered when a message id names nothing.
 var ErrReviewMessageNotFound = errors.New("review message not found")
 
-// ErrReviewNotYours is answered when a caller reaches for a review that is not its own.
-// Reading another agent's review is allowed; writing to it or claiming it is not, since the
-// agent the feedback is addressed to is the one it is about.
+// ErrReviewNotYours is answered when a caller writes to or claims another agent's review, which
+// it may still read.
 var ErrReviewNotYours = errors.New("that review belongs to another agent")
 
 // ErrReviewHumanOnly is answered when an agent asks for something only the person reviewing
-// does. An agent replies to feedback on its own work; it does not open, delete, or announce
-// a review.
+// does, such as opening, deleting, or announcing a review.
 var ErrReviewHumanOnly = errors.New("only the person reviewing can do that")
 
 // reviewThreadReadWriter is the half of the store that keeps conversations: where they are
@@ -86,9 +84,8 @@ type ReviewServiceParams struct {
 	Interrupter agentInterrupter
 }
 
-// ReviewService owns the conversations pinned to the lines of an agent's diff. It holds the
-// only copy: mail carries no feedback, it only says there is some, so a message rewritten
-// after the agent has read it is simply read again as it now stands.
+// ReviewService owns the conversations pinned to the lines of an agent's diff and holds the only
+// copy, since mail says feedback exists without carrying any of it.
 type ReviewService struct {
 	threads     reviewThreadReadWriter
 	messages    reviewMessageReadWriter
@@ -108,22 +105,20 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 
 type ListReviewThreadsParams struct {
 	AgentID string
-	// MarkRead claims what is returned. An agent reading in order to act should claim, so the
-	// same threads are not announced again; the panel drawing a diff should not.
+	// MarkRead claims what is returned, which an agent reading in order to act wants and the
+	// panel drawing a diff does not.
 	MarkRead bool
 
 	Author ReviewAuthor
 }
 
 // ListReviewThreads is every thread on an agent's diff with its messages.
-//
-// Anyone may read anyone's review, but only the side the threads are addressed to may claim
-// them. An agent claiming another agent's review would move a watermark on feedback that
-// agent has never been shown.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
 ) ([]ReviewThreadWithMessages, error) {
+	// Anyone may read anyone's review, but claiming another agent's would move a watermark on
+	// feedback that agent has never been shown.
 	if params.MarkRead && !params.Author.IsHuman() && !doesOwnAgent(params.Author, params.AgentID) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, params.AgentID)
 	}
@@ -178,9 +173,8 @@ type CreateReviewThreadParams struct {
 	Author ReviewAuthor
 }
 
-// CreateReviewThread pins a conversation to a place in a diff and writes its first message.
-// Only the person reviewing opens one: a thread is feedback on an agent's work, so an agent
-// opening one on itself would be talking to nobody.
+// CreateReviewThread pins a conversation to a place in a diff and writes its first message,
+// which only the person reviewing may do.
 func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
@@ -242,9 +236,8 @@ type EditReviewMessageParams struct {
 	Author ReviewAuthor
 }
 
-// EditReviewMessage rewrites what was said, which only the author of that message may do. A
-// rewrite counts as new activity, since the other side was shown the old text and the thread
-// now says something else.
+// EditReviewMessage rewrites what was said, which only its author may do and which counts as new
+// activity since the other side was shown the old text.
 func (s *ReviewService) EditReviewMessage(
 	ctx context.Context,
 	params EditReviewMessageParams,
@@ -261,9 +254,8 @@ type MarkReviewThreadReadParams struct {
 	Author ReviewAuthor
 }
 
-// MarkReviewThreadRead catches one side up on a single conversation, which is what opening a
-// thread does. Claiming the whole list instead would say the person had read threads they
-// never opened.
+// MarkReviewThreadRead catches one side up on a single conversation, since claiming the whole
+// list would say the person had read threads they never opened.
 func (s *ReviewService) MarkReviewThreadRead(
 	ctx context.Context,
 	params MarkReviewThreadReadParams,
@@ -281,11 +273,8 @@ type SetReviewThreadResolvedParams struct {
 	Author   ReviewAuthor
 }
 
-// SetReviewThreadResolved settles a thread or reopens it.
-//
-// Only the person reviewing does. An agent that could settle the feedback on its own work
-// would be answering the question and marking it answered in the same breath, which is the
-// one judgement the person asking has to keep.
+// SetReviewThreadResolved settles a thread or reopens it, which only the person reviewing may
+// do.
 func (s *ReviewService) SetReviewThreadResolved(
 	ctx context.Context,
 	params SetReviewThreadResolvedParams,
@@ -306,8 +295,8 @@ type DeleteReviewThreadParams struct {
 	Author ReviewAuthor
 }
 
-// DeleteReviewThread removes a thread and everything said in it. Only the person reviewing
-// does, since an agent deleting the feedback on its own work would be marking its own paper.
+// DeleteReviewThread removes a thread and everything said in it, which only the person reviewing
+// may do.
 func (s *ReviewService) DeleteReviewThread(ctx context.Context, params DeleteReviewThreadParams) error {
 	if !params.Author.IsHuman() {
 		return fmt.Errorf("%w: deleting a review thread", ErrReviewHumanOnly)
@@ -325,7 +314,8 @@ type DeleteReviewMessageParams struct {
 	Author ReviewAuthor
 }
 
-// DeleteReviewMessage removes one message, leaving the thread it was in. Only its author may.
+// DeleteReviewMessage removes one message, leaving the thread it was in, which only its author
+// may do.
 func (s *ReviewService) DeleteReviewMessage(ctx context.Context, params DeleteReviewMessageParams) error {
 	if err := s.requireOwnMessage(ctx, params.ID, params.Author); err != nil {
 		return err
@@ -334,13 +324,12 @@ func (s *ReviewService) DeleteReviewMessage(ctx context.Context, params DeleteRe
 	return s.messages.DeleteMessage(ctx, params.ID)
 }
 
-// NotifyReviewThreadsResult is what came of pressing the doorbell.
+// NotifyReviewThreadsResult reports what telling an agent about its review threads did.
 type NotifyReviewThreadsResult struct {
 	// Unread is how many open threads hold activity the agent has not read.
 	Unread int64
-	// AlreadyWaiting says the agent already holds a doorbell of this kind it can still claim,
-	// so none was raised. Pressing the key again is not a second thing to read. One that ran
-	// out of time before the agent read it does not count, since nothing will ever hand it over.
+	// AlreadyWaiting says the agent already holds an unread notice of this kind, so none was
+	// raised, and one that ran out of time before it was read does not count.
 	AlreadyWaiting bool
 }
 
@@ -353,13 +342,8 @@ type NotifyReviewThreadsParams struct {
 	Author ReviewAuthor
 }
 
-// NotifyReviewThreads tells an agent it has review activity waiting, as one piece of mail
-// carrying a count and the name of the tool that fetches the conversation. The feedback
-// itself is deliberately not sent: the threads are the record, and mail that quoted them
-// would be a second copy going stale the moment either side wrote again.
-//
-// An agent already up to date is told nothing, and an agent still holding a doorbell it has
-// not read is not handed a second one.
+// NotifyReviewThreads tells an agent it has review activity waiting, as one piece of mail that
+// carries a count and the name of the tool to fetch with rather than the feedback itself.
 func (s *ReviewService) NotifyReviewThreads(
 	ctx context.Context,
 	params NotifyReviewThreadsParams,
@@ -396,9 +380,8 @@ func (s *ReviewService) NotifyReviewThreads(
 	return &NotifyReviewThreadsResult{Unread: unread, AlreadyWaiting: sent == nil}, nil
 }
 
-// interrupt stops the agent where it stands. It is best effort: failing to interrupt is not a
-// reason to withhold the notification, since the mail still reaches the agent at the end of
-// what it is doing.
+// interrupt stops the agent where it stands, and failing to is no reason to withhold the
+// notification since the mail still reaches the agent later.
 func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 	if s.interrupter == nil {
 		return

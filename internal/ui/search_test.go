@@ -75,8 +75,8 @@ func TestApplySearchResults(t *testing.T) {
 	}
 }
 
-// TestUpdateSearchEditsQuery covers the keys that type into the query. It avoids
-// the nav and open keys, which stage a preview and so need tmux.
+// TestUpdateSearchEditsQuery covers the keys that type into the query, avoiding the nav and
+// open keys, which stage a preview and so need tmux.
 func TestUpdateSearchEditsQuery(t *testing.T) {
 	tests := []struct {
 		name string
@@ -212,9 +212,8 @@ func TestRenderSnippet(t *testing.T) {
 	}
 }
 
-// TestClipToMatch covers the clipping a result row depends on. The row gets one line
-// of a fixed width, and the match can sit anywhere in the snippet, so what has to
-// hold is that the match survives the cut and the row fits.
+// TestClipToMatch pins the match surviving the cut and the row still fitting, wherever the
+// match sits in the snippet.
 func TestClipToMatch(t *testing.T) {
 	const (
 		lead  = "the quick brown fox jumps over the lazy dog and keeps on running for a while "
@@ -280,8 +279,8 @@ func TestClipToMatch(t *testing.T) {
 	}
 }
 
-// TestLineAtOffset covers where the transcript preview is anchored. Line zero means
-// the top, which is where a preview with nothing to centre on belongs.
+// TestLineAtOffset pins line zero meaning the top, which is where a preview with nothing to
+// centre on belongs.
 func TestLineAtOffset(t *testing.T) {
 	const content = "line one\nline two has postgres in it\nline three"
 
@@ -333,9 +332,8 @@ func hits(names ...string) []searchHit {
 	return out
 }
 
-// TestJumpToSearchHit covers what enter on a result does. It goes to where the conversation
-// already is rather than changing anything about it, so a live one lands on the agents tree and
-// an archived one in the archive, and neither is resumed or taken out of the archive on the way.
+// TestJumpToSearchHit pins enter going to where the conversation already is, a live agent on
+// the tree and an archived one in the archive, without resuming or restoring either.
 func TestJumpToSearchHit(t *testing.T) {
 	tests := []struct {
 		name       string

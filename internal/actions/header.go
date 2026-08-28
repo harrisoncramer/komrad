@@ -47,20 +47,20 @@ func (h Header) TimeoutOr(fallback time.Duration) time.Duration {
 	}
 }
 
-func readHeader(path string) (Header, bool) {
+func readHeader(path string) Header {
 	file, err := os.Open(path)
 	if err != nil {
-		return Header{}, false
+		return Header{}
 	}
 	defer func() { _ = file.Close() }()
 
 	head := make([]byte, headerLimit)
 	read, err := io.ReadFull(file, head)
 	if err != nil && !errors.Is(err, io.EOF) && !errors.Is(err, io.ErrUnexpectedEOF) {
-		return Header{}, false
+		return Header{}
 	}
 
-	return scanHeader(head[:read]), isText(head[:read])
+	return scanHeader(head[:read])
 }
 
 func isText(head []byte) bool {

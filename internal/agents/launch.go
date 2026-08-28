@@ -229,10 +229,8 @@ func (s *AgentService) failCleanup(ctx context.Context, agent agentstore.Agent, 
 	s.failAs(ctx, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
 }
 
-// failAs marks an agent as having failed create or cleanup and leaves the row where it was. A
-// delete that cannot finish leaves an archived row archived: the archive is what the user was
-// clearing, so it is the archive that has to show what is left in it. "Archive and delete"
-// archives first, so a failure there stays there too rather than resurrecting the agent.
+// failAs marks an agent as having failed create or cleanup and leaves the row where it was, so
+// a delete that cannot finish leaves an archived row in the archive the user was clearing.
 func (s *AgentService) failAs(ctx context.Context, agent agentstore.Agent, state, verb string, cause error) {
 	agent.State = state
 	if err := s.agents.Update(ctx, agent); err != nil {

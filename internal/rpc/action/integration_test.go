@@ -25,10 +25,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestActionServiceOverHTTP drives the whole path a caller takes, over the wire, with the real
-// runner starting a real script. Everything else here stops at a seam, and the two things only
-// this can reach are the validation interceptor, which is what refuses a name before any handler
-// sees it, and the payload actually arriving in a process.
+// TestActionServiceOverHTTP drives the whole path over the wire with a real script, which is
+// the only way to reach the validation interceptor and the payload arriving in a process.
 func TestActionServiceOverHTTP(t *testing.T) {
 	dir := t.TempDir()
 
@@ -40,9 +38,6 @@ func TestActionServiceOverHTTP(t *testing.T) {
 	), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
 
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "_edit_action"), []byte(
-		"#!/bin/sh\nprintf '%s' \"$WEAVE_EDIT_PATH\" > edited.txt\n",
-	), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
 
 	client := actionClient(t, dir, work)
@@ -52,12 +47,10 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		require.NoError(t, err)
 
 		listed := resp.Msg.GetActions()
-		require.Len(t, listed, 4)
-		assert.Equal(t, []string{"_edit_action", "compiled", "record", "unrunnable"}, names(listed))
-		assert.True(t, listed[2].GetExecutable())
-		assert.True(t, listed[2].GetText())
-		assert.False(t, listed[1].GetText(), "a compiled program is listed as what it is")
-		assert.False(t, listed[3].GetExecutable(), "the file waiting on a chmod is listed too")
+		require.Len(t, listed, 3)
+		assert.Equal(t, []string{"compiled", "record", "unrunnable"}, names(listed))
+		assert.True(t, listed[1].GetExecutable())
+		assert.False(t, listed[2].GetExecutable(), "the file waiting on a chmod is listed too")
 	})
 
 	t.Run("a name reaching out of the directory is refused before the handler", func(t *testing.T) {
@@ -110,36 +103,6 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		assert.Contains(t, string(written), `"pane":"%9"`)
 
 		assert.Contains(t, string(written), `"cwd":"`+work+`"`)
-	})
-
-	t.Run("editing hands the editing action the path the name resolved to", func(t *testing.T) {
-		_, err := client.EditAction(context.Background(), connect.NewRequest(&actionv1.EditActionRequest{
-			AgentId: "a1",
-			Action:  "record",
-		}))
-		require.NoError(t, err)
-
-		edited := filepath.Join(dir, "edited.txt")
-
-		var written []byte
-		require.Eventually(t, func() bool {
-			read, err := os.ReadFile(edited)
-			written = read
-
-			return err == nil && len(read) > 0
-		}, 5*time.Second, 10*time.Millisecond, "the editing action never wrote %s", edited)
-
-		assert.Equal(t, filepath.Join(dir, "record"), string(written))
-	})
-
-	t.Run("a compiled program is refused rather than opened", func(t *testing.T) {
-		_, err := client.EditAction(context.Background(), connect.NewRequest(&actionv1.EditActionRequest{
-			AgentId: "a1",
-			Action:  "compiled",
-		}))
-
-		require.Error(t, err)
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 	})
 }
 
