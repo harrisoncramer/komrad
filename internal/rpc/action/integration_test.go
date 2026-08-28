@@ -2,6 +2,7 @@ package action
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -13,6 +14,7 @@ import (
 	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/interceptors"
+	"weave/internal/store"
 	actionv1 "weave/proto/gen/action/v1"
 	"weave/proto/gen/action/v1/actionv1connect"
 
@@ -154,7 +156,7 @@ type stubAgents struct {
 
 func (s stubAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
 	if id != "a1" {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	return &agentstore.Agent{

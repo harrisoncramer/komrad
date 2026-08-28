@@ -59,13 +59,14 @@ func TestGet(t *testing.T) {
 			}
 
 			got, err := st.Get(ctx, id)
-			require.NoError(t, err)
 
 			if tt.wantName == "" {
-				assert.Nil(t, got)
+				assert.ErrorIs(t, err, store.ErrNotFound)
+
 				return
 			}
 
+			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, tt.wantName, got.Name)
 			assert.Equal(t, "0 9 * * 1-5", got.Cron)

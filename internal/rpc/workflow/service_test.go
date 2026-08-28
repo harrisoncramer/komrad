@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/store"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -314,9 +315,8 @@ func TestArchiveWorkflow(t *testing.T) {
 
 			require.NoError(t, err)
 
-			agent, err := st.LiveAgentByName(ctx, "agent")
-			require.NoError(t, err)
-			assert.Nil(t, agent, "the agent is hidden alongside its workflow")
+			_, err = st.LiveAgentByName(ctx, "agent")
+			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden alongside its workflow")
 
 			all, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)

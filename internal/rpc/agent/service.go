@@ -216,11 +216,11 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 // GetAgent returns one agent by id, archived or not.
 func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.GetAgentRequest]) (*connect.Response[agentv1.GetAgentResponse], error) {
 	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
+	}
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
-	}
-	if agent == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
@@ -291,11 +291,11 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	}
 
 	agent, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", id))
+	}
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
-	}
-	if agent == nil {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", id))
 	}
 
 	attrs := []slog.Attr{

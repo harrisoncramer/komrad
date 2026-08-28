@@ -206,7 +206,7 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 		Name:       name,
 	})
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent %q in workflow %q", store.ErrNotFound, name, workflowID)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
@@ -218,12 +218,12 @@ func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Ag
 // GetByID returns a live or archived agent by ID.
 func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	row, err := s.queries.GetAgentByID(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
@@ -614,12 +614,12 @@ func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool
 // GetByIdempotencyKey returns the live or archived agent recorded under a key.
 func (s *Store) GetByIdempotencyKey(ctx context.Context, key string) (*Agent, error) {
 	if key == "" {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent for idempotency key %q", store.ErrNotFound, key)
 	}
 
 	row, err := s.queries.GetAgentByIdempotencyKey(ctx, &key)
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent for idempotency key %q", store.ErrNotFound, key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get the agent for idempotency key %q: %w", key, err)

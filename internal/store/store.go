@@ -14,6 +14,10 @@ import (
 
 var ErrNameTaken = errors.New("name already taken")
 
+// ErrNotFound is what a single-row lookup returns instead of a nil row and a nil error, so a
+// caller is told the row is absent rather than left to infer it.
+var ErrNotFound = errors.New("not found")
+
 var ErrNoReadOnlyURL = errors.New(
 	"no read-only database url: set WEAVE_READONLY_DATABASE_URL, or a DATABASE_URL one can be derived from")
 

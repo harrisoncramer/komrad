@@ -2,6 +2,7 @@ package mail
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"slices"
 	"strings"
@@ -74,8 +75,10 @@ type SendParams struct {
 	Deadline time.Duration
 }
 
-// Send writes one piece of mail, answering nil when a notice of this kind is already waiting
-// to be read, and ringing one again in place once it has expired unread.
+// ErrNoticePending is what Send answers when the recipient already holds an unclaimed notice of that kind.
+var ErrNoticePending = errors.New("a notice of this kind is already waiting")
+
+// Send writes one piece of mail, answering ErrNoticePending when a notice of this kind is already waiting to be read, and ringing one again in place once it has expired unread.
 func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	kind := params.Kind
 	if kind == "" {
@@ -93,7 +96,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: agent %q is already holding an unread %s notice", ErrNoticePending, params.ToAgentID, kind)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
@@ -106,12 +109,12 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 
 func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
 	if !store.IsID(id) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
 	}
 
 	row, err := s.queries.GetMail(ctx, id)
 	if db.IsNoRows(err) {
-		return nil, nil
+		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to get mail %q: %w", id, err)

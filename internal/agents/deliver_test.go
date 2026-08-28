@@ -2,12 +2,14 @@ package agents
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 
@@ -224,7 +226,11 @@ type fakeAgents struct {
 	taken   bool
 }
 
-func (f *fakeAgents) GetByID(context.Context, string) (*agentstore.Agent, error) {
+func (f *fakeAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
+	if f.agent == nil {
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
 	return f.agent, nil
 }
 

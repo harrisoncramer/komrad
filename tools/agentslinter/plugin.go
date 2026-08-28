@@ -4,6 +4,7 @@ import (
 	commentlength "agentslinter/analyzers/comment_length"
 	commentprefix "agentslinter/analyzers/comment_prefix"
 	forbidgetenv "agentslinter/analyzers/forbidgetenv"
+	forbidnilnil "agentslinter/analyzers/forbidnilnil"
 	"agentslinter/config"
 
 	"github.com/golangci/plugin-module-register/register"
@@ -39,6 +40,10 @@ func (a *agentsLinter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 
 	if !a.config.ForbidGetenv.Skip {
 		analyzers = append(analyzers, forbidgetenv.NewAnalyzer(a.config.ForbidGetenv))
+	}
+
+	if !a.config.ForbidNilNil.Skip {
+		analyzers = append(analyzers, forbidnilnil.NewAnalyzer(a.config.ForbidNilNil))
 	}
 
 	return analyzers, nil

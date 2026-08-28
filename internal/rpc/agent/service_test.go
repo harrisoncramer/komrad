@@ -497,9 +497,8 @@ func TestUpdateAgent(t *testing.T) {
 			require.NotNil(t, renamed)
 			assert.Equal(t, id, renamed.ID, "a rename preserves the id")
 
-			stale, err := st.LiveAgentByName(ctx, tt.rename)
-			require.NoError(t, err)
-			assert.Nil(t, stale, "the old name no longer finds anything")
+			_, err = st.LiveAgentByName(ctx, tt.rename)
+			assert.ErrorIs(t, err, store.ErrNotFound, "the old name no longer finds anything")
 		})
 	}
 }

@@ -20,6 +20,7 @@ import (
 	"weave/config"
 	"weave/internal/actions"
 	"weave/internal/logging"
+	"weave/internal/store"
 	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
@@ -125,11 +126,11 @@ func (s *ActionService) ListActions() ([]actions.Action, error) {
 // RunAction starts an action for an agent without waiting for it to finish.
 func (s *ActionService) RunAction(ctx context.Context, agentID, name string) error {
 	agent, err := s.agents.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return ErrAgentNotFound
+	}
 	if err != nil {
 		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
-	}
-	if agent == nil {
-		return ErrAgentNotFound
 	}
 
 	action, env, err := s.prepare(ctx, prepareParams{agent: *agent, name: name, trigger: TriggerManual})
@@ -715,7 +716,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 	agent, dir, trigger := p.agent, p.dir, p.trigger
 
 	workflow, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
-	if err != nil {
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("failed to read workflow %q: %w", agent.WorkflowID, err)
 	}
 

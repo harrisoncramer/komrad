@@ -13,6 +13,12 @@ custom linters in other ecosystems such as ESLint.
 `forbid_getenv` flags direct `os.Getenv` and `os.LookupEnv` calls so
 configuration flows through the config package instead of bare os calls.
 
+`forbid_nil_nil` flags a `return nil, nil` from a function whose last result is an
+error and which returns a pointer alongside it, since the caller is handed nothing
+and told nothing about why. A sentinel error the caller can match with `errors.Is`
+says which of the two happened. It is held to pointers, where nil carries no meaning
+of its own, rather than to a nil map or slice that already reads as empty.
+
 `comment_length` flags any comment that runs to more than one sentence, so a
 comment says one thing rather than narrating the change that made it. A comment
 that genuinely needs the room sets that reasoning aside in a paragraph starting

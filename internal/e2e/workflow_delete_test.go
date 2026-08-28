@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/store"
 	"weave/internal/weavetest"
 	agentv1 "weave/proto/gen/agent/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -52,12 +53,10 @@ func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 	assert.NotNil(t, got, "the workflow is not gone yet, since the cleanup action has not finished")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
-		agent, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
-		assert.NoError(c, err)
-		assert.Nil(c, agent, "its agent is gone once the cleanup action finishes")
+		_, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
+		assert.ErrorIs(c, err, store.ErrNotFound, "its agent is gone once the cleanup action finishes")
 
-		workflow, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
-		assert.NoError(c, err)
-		assert.Nil(c, workflow, "and the workflow it emptied out goes with it, with no second delete")
+		_, err = instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
+		assert.ErrorIs(c, err, store.ErrNotFound, "and the workflow it emptied out goes with it, with no second delete")
 	}, 5*time.Second, 20*time.Millisecond)
 }

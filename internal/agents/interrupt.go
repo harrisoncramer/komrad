@@ -2,7 +2,10 @@ package agents
 
 import (
 	"context"
+	"errors"
 	"fmt"
+
+	"weave/internal/store"
 )
 
 type PaneInterrupterParams struct {
@@ -31,11 +34,11 @@ func NewPaneInterrupter(params PaneInterrupterParams) *PaneInterrupter {
 // Interrupt sends the agent's harness the keys that stop it.
 func (i *PaneInterrupter) Interrupt(ctx context.Context, agentID string) error {
 	agent, err := i.agents.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
 	if err != nil {
 		return err
-	}
-	if agent == nil {
-		return fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
 	}
 	if agent.Pane == "" {
 		return fmt.Errorf("agent %q is not in a pane to interrupt", agentID)

@@ -307,10 +307,10 @@ func TestArchiveAndReuse(t *testing.T) {
 			}
 
 			got, err := st.Get(ctx, "agent")
-			require.NoError(t, err)
 			if !tt.wantVisible {
-				assert.Nil(t, got, "an archived row is hidden from Get")
+				assert.ErrorIs(t, err, store.ErrNotFound, "an archived row is hidden from Get")
 			} else {
+				require.NoError(t, err)
 				require.NotNil(t, got)
 			}
 
@@ -1326,14 +1326,14 @@ func TestGetByID(t *testing.T) {
 			}
 
 			got, err := st.GetByID(ctx, tt.lookFor(*created))
-			require.NoError(t, err)
 
 			if !tt.wantHit {
-				assert.Nil(t, got)
+				assert.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
 
+			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, created.ID, got.ID)
 			assert.Equal(t, "agent", got.Name)
@@ -1414,13 +1414,14 @@ func TestGetByIdempotencyKey(t *testing.T) {
 			}
 
 			got, err := st.GetByIdempotencyKey(ctx, tt.lookFor)
-			require.NoError(t, err)
 
 			if !tt.wantHit {
-				assert.Nil(t, got)
+				assert.ErrorIs(t, err, store.ErrNotFound)
+
 				return
 			}
 
+			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, "agent", got.Name)
 			require.NotNil(t, got.IdempotencyKey)
@@ -1708,9 +1709,6 @@ func (f *fixture) archiveByName(ctx context.Context, name string) error {
 	agent, err := f.GetInWorkflow(ctx, f.defaultWorkflow, name)
 	if err != nil {
 		return err
-	}
-	if agent == nil {
-		return fmt.Errorf("no live agent called %q", name)
 	}
 
 	_, err = f.Archive(ctx, []string{agent.ID})

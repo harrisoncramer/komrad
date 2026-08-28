@@ -178,13 +178,13 @@ func TestGetByID(t *testing.T) {
 			require.NoError(t, err)
 
 			got, err := st.GetByID(ctx, tt.lookup(*sent))
-			require.NoError(t, err)
 			if !tt.wantOK {
-				assert.Nil(t, got)
+				assert.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
 
+			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, sent.ID, got.ID)
 			assert.Equal(t, int32(3), got.Hops)
@@ -437,9 +437,8 @@ func TestDelete(t *testing.T) {
 
 	require.NoError(t, st.Delete(ctx, []string{sent.ID}))
 
-	got, err := st.GetByID(ctx, sent.ID)
-	require.NoError(t, err)
-	assert.Nil(t, got, "deleted mail is gone, not just claimed")
+	_, err = st.GetByID(ctx, sent.ID)
+	assert.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
 }
 
 type fixture struct {
@@ -490,14 +489,13 @@ func TestOneUnclaimedNoticePerKind(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
-	again, err := st.Send(ctx, SendParams{
+	_, err = st.Send(ctx, SendParams{
 		ToAgentID: recipient,
 		Body:      "weave: 2 review thread(s) have activity",
 		Kind:      KindReviewActivity,
 		Deadline:  time.Hour,
 	})
-	require.NoError(t, err)
-	assert.Nil(t, again, "a doorbell still waiting to be read is not rung again")
+	assert.ErrorIs(t, err, ErrNoticePending, "a doorbell still waiting to be read is not rung again")
 
 	pending, err := st.CountPending(ctx, recipient)
 	require.NoError(t, err)

@@ -2,6 +2,7 @@ package storetest
 
 import (
 	"context"
+	"fmt"
 	"net/url"
 	"testing"
 
@@ -104,7 +105,7 @@ func (s *Stores) LiveAgentByName(ctx context.Context, name string) (*agentstore.
 		}
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: no live agent named %q", store.ErrNotFound, name)
 }
 
 // SeedWorkflow creates a workflow and returns it, for the tests that only need
