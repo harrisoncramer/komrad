@@ -1003,6 +1003,44 @@ func (q *Queries) MarkAgentArchivedIfUnchanged(ctx context.Context, arg MarkAgen
 	return items, nil
 }
 
+const markAgentSettingUpIfLive = `-- name: MarkAgentSettingUpIfLive :many
+UPDATE
+    agents
+SET
+    state = 'setting_up',
+    state_changed_at = CASE WHEN state IS DISTINCT FROM 'setting_up' THEN
+        NOW()
+    ELSE
+        state_changed_at
+    END,
+    state_seen_at = NOW()
+WHERE
+    id = $1
+    AND archived_at IS NULL
+RETURNING
+    id
+`
+
+func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id string) ([]string, error) {
+	rows, err := q.db.Query(ctx, markAgentSettingUpIfLive, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAgentsArchived = `-- name: MarkAgentsArchived :exec
 UPDATE
     agents
@@ -1313,8 +1351,7 @@ WHERE
         FROM
             agents
         WHERE
-            id = $1
-            AND archived_at IS NULL)
+            id = $1)
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET

@@ -659,12 +659,16 @@ func TestSetMetadata(t *testing.T) {
 			value: xptr.Ptr("https://github.com/o/r/pull/1"),
 		},
 		{
-			name:    "an archived agent, which has no listing to show metadata in",
-			create:  true,
-			archive: true,
-			id:      func(created Agent) string { return created.ID },
-			key:     "pr",
-			value:   xptr.Ptr("https://github.com/o/r/pull/1"),
+			name:        "an archived agent, which is how an archive records what it was for",
+			create:      true,
+			archive:     true,
+			id:          func(created Agent) string { return created.ID },
+			key:         "pr",
+			value:       xptr.Ptr("https://github.com/o/r/pull/1"),
+			wantChanged: true,
+			wantStored: []Metadata{
+				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
+			},
 		},
 		{
 			name:   "clearing a key the agent never held",

@@ -63,6 +63,8 @@ type agentManager interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	CountLive(ctx context.Context) (int64, error)
 	Update(ctx context.Context, agent agentstore.Agent) error
+	SetStateByID(ctx context.Context, id, state string) error
+	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	Archive(ctx context.Context, ids []string) error
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
@@ -433,6 +435,9 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 		if err := agentStore.Restore(ctx, agentIDs(archived)); err != nil {
 			return err
 		}
+		if err := stampRestoredPRs(ctx, agentStore, archived); err != nil {
+			return err
+		}
 
 		for _, id := range workflowIDs(archived) {
 			if err := workflowStore.Restore(ctx, id); err != nil {
@@ -654,6 +659,42 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return err
 	}
 
+	// A resume writes nothing to the row until its setup, its window and its stamp are all
+	// done, so for the whole of that the row reads as a dormant agent nobody is touching,
+	// which is exactly what a background pass archives. This one write is what settles that
+	// both ways. It says a resume is in flight, so a pass reading the row after it skips one
+	// being set up and a pass deciding from a reading taken before it refuses on its own
+	// compare-and-set. And it refuses an archived row, which is how a resume finds out about
+	// a pass that got the whole way through between the caller's read and here.
+	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
+	if err != nil {
+		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
+	}
+	if !live {
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	// Read before the resume starts overwriting the copy it was handed, since the restore
+	// below runs after those writes and is putting back what the resume found.
+	prior := agent.State
+
+	recorded := false
+	defer func() {
+		if recorded {
+			return
+		}
+
+		// Nothing else in weave moves a row out of setting_up, so putting back the state a
+		// resume found cannot depend on the caller still being around to see it happen.
+		restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
+		defer cancel()
+
+		if err := s.agents.SetStateByID(restore, agent.ID, prior); err != nil {
+			logging.From(restore).LogAttrs(restore, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		}
+	}()
+
 	named, err := s.runResumeSetup(ctx, agent)
 	if err != nil {
 		return err
@@ -703,6 +744,7 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
+	recorded = true
 
 	// A stored conversation is what a resume reopens, and an agent may have none: Codex
 	// takes no session id on the command line, so its id is only learned later from its
