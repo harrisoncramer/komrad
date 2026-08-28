@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"weave/internal/harness"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
@@ -356,7 +357,9 @@ func (s *testStore) SoftDelete(ctx context.Context, name string) error {
 		return fmt.Errorf("no live agent called %q", name)
 	}
 
-	return s.Agents.Archive(ctx, []string{agent.ID})
+	_, err = s.Agents.Archive(ctx, []string{agent.ID})
+
+	return err
 }
 
 func (s *testStore) GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
@@ -377,6 +380,7 @@ type agentServiceOptions struct {
 	notifier  systemMailSender
 	logsDir   string
 	agents    agentManager
+	tx        txRunner
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *AgentService {
@@ -385,11 +389,16 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 		agents = s.Agents
 	}
 
+	tx := options.tx
+	if tx == nil {
+		tx = s.Pool
+	}
+
 	return NewAgentService(NewAgentServiceParams{
 		Tmux:               options.tmux,
 		Agents:             agents,
 		Workflows:          s.Workflows,
-		Tx:                 s.Pool,
+		Tx:                 tx,
 		Launcher:           NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr}),
 		Harnesses:          options.harnesses,
 		Lifecycle:          options.lifecycle,
@@ -537,6 +546,56 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state s
 	require.NotNil(t, got)
 
 	return *got
+}
+
+// writingPaneFirst is the store with a pane landing on the row in the one gap an archive or a
+// delete has: after the agents it is about to write have been read and killed from, and before
+// its own write commits. A resume or a create writes there, both of which open a window and
+// then record it, and neither of which is refused while the row is still live.
+type writingPaneFirst struct {
+	*agentstore.Store
+
+	inTheGap func()
+}
+
+func (s writingPaneFirst) Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error) {
+	s.inTheGap()
+
+	return s.Store.Archive(ctx, ids)
+}
+
+// txWritingPaneFirst is the same gap for the writes that go through a transaction, which is
+// where the delete's own removal and a workflow archive's both are.
+type txWritingPaneFirst struct {
+	txRunner
+
+	inTheGap func()
+}
+
+func (t txWritingPaneFirst) InTx(ctx context.Context, fn func(store.DBTX) error) error {
+	t.inTheGap()
+
+	return t.txRunner.InTx(ctx, fn)
+}
+
+// resumeInto writes a pane onto an agent's row and stamps that pane as its own, which is what
+// a resume does once its window is open. It runs once however often it is called, since the
+// write it stands for happens once.
+func resumeInto(t *testing.T, st *testStore, tmux *fakeTmux, agent agentstore.Agent, pane string) func() {
+	t.Helper()
+
+	done := false
+
+	return func() {
+		if done {
+			return
+		}
+		done = true
+
+		agent.Pane = pane
+		require.NoError(t, st.Agents.Update(t.Context(), agent))
+		require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
+	}
 }
 
 type paneStamper interface {

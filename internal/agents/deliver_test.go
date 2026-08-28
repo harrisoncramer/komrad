@@ -455,7 +455,9 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	assert.Equal(t, DeliverySoon, got)
 	require.Len(t, panes.text, 1)
 
-	require.NoError(t, st.Agents.Archive(ctx, []string{agent.ID}))
+	_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
+
+	require.NoError(t, archiveErr)
 
 	got, err = svc.Deliver(ctx, agent.ID)
 	require.NoError(t, err)

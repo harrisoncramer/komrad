@@ -195,15 +195,21 @@ WHERE
 RETURNING
     id;
 
--- name: MarkWorkflowAgentsArchived :exec
+-- name: MarkWorkflowAgentsArchived :many
 UPDATE
-    agents
+    agents a
 SET
     archived_at = NOW(),
     pane_id = ''
+FROM
+    agents prior
 WHERE
-    workflow_id = @workflow_id
-    AND archived_at IS NULL;
+    a.id = prior.id
+    AND a.workflow_id = @workflow_id
+    AND a.archived_at IS NULL
+RETURNING
+    a.id,
+    prior.pane_id;
 
 -- name: ListLiveWorkflowAgents :many
 SELECT
@@ -394,9 +400,12 @@ ORDER BY
     agent_id,
     KEY;
 
--- name: DeleteAgentsByID :exec
+-- name: DeleteAgentsByID :many
 DELETE FROM agents
-WHERE id = ANY (@ids::uuid[]);
+WHERE id = ANY (@ids::uuid[])
+RETURNING
+    id,
+    pane_id;
 
 -- name: DeleteAgentTranscripts :exec
 DELETE FROM agent_transcripts
@@ -412,15 +421,21 @@ WHERE
 RETURNING
     id;
 
--- name: MarkAgentsArchived :exec
+-- name: MarkAgentsArchived :many
 UPDATE
-    agents
+    agents a
 SET
     archived_at = NOW(),
     pane_id = ''
+FROM
+    agents prior
 WHERE
-    id = ANY (@ids::uuid[])
-    AND archived_at IS NULL;
+    a.id = prior.id
+    AND a.id = ANY (@ids::uuid[])
+    AND a.archived_at IS NULL
+RETURNING
+    a.id,
+    prior.pane_id;
 
 -- name: MarkAgentArchivedIfUnchanged :many
 UPDATE

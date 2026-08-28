@@ -310,7 +310,8 @@ func TestPRArchiverSyncSkipsArchivedAgents(t *testing.T) {
 
 	workflowID := seedPRWorkflow(t, st, true, true)
 	agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
-	require.NoError(t, st.Agents.Archive(t.Context(), []string{agent.ID}))
+	_, archiveErr := st.Agents.Archive(t.Context(), []string{agent.ID})
+	require.NoError(t, archiveErr)
 
 	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
 	archiver := &fakeArchiver{}
@@ -339,7 +340,9 @@ func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	require.Equal(t, []string{agent.ID}, archiver.archived)
 	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey), "the archive says which pull request it was for")
 
-	require.NoError(t, st.Agents.Archive(t.Context(), []string{agent.ID}))
+	_, archiveErr := st.Agents.Archive(t.Context(), []string{agent.ID})
+
+	require.NoError(t, archiveErr)
 	require.NoError(t, st.Agents.Restore(t.Context(), []string{agent.ID}))
 
 	require.NoError(t, archiverUnderTest.Sync(t.Context()))
@@ -378,7 +381,8 @@ func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	require.NoError(t, st.Agents.Archive(ctx, []string{agent.ID}))
+	_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
+	require.NoError(t, archiveErr)
 
 	restored, err := newManager(newFakeTmux(), st, "").RestoreAgents(ctx, []string{agent.ID})
 	require.NoError(t, err)

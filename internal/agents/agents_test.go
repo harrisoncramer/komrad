@@ -1424,6 +1424,58 @@ func TestArchiveAgent(t *testing.T) {
 	}
 }
 
+// TestArchiveKillsAPaneWrittenBeforeItsOwnWrite covers the pane an archive would otherwise
+// never see. The row it read held nothing, so it kills nothing; the write that follows takes
+// a pane off the row and blanks it, and no listing shows the row afterwards. The CLI in that
+// pane is then holding the agent's directory with nothing left that would ever reach it, so
+// the archive has to kill what its own write took rather than what its read named.
+func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	agent := seed(t, st, "dormant", "", agentstore.StateIdle)
+
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		agents:    writingPaneFirst{Store: st.Agents, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+	})
+
+	require.NoError(t, manager.ArchiveAgents(ctx, []string{agent.ID}))
+
+	after := agentByID(t, st, agent.ID)
+	require.NotNil(t, after.ArchivedAt, "the row really is archived")
+	assert.Empty(t, after.Pane, "and holds no pane for anything else to find it by")
+	assert.Contains(t, tmux.killedPanes, "%9", "so the archive kills the pane its write took")
+}
+
+// TestDeleteKillsAPaneWrittenBeforeItsOwnWrite is the same gap on the delete, whose row goes
+// entirely rather than being hidden, so a pane written into the gap is even further out of
+// reach afterwards.
+func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	agent := seed(t, st, "dormant", "", agentstore.StateIdle)
+
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		tx:        txWritingPaneFirst{txRunner: st.Pool, inTheGap: resumeInto(t, st, tmux, agent, "%9")},
+	})
+
+	require.NoError(t, manager.DeleteAgents(ctx, []string{agent.ID}))
+
+	all, err := st.ListAll(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, all, "the row really is gone")
+	assert.Contains(t, tmux.killedPanes, "%9", "so the delete kills the pane its write took")
+}
+
 // TestDeleteAgent covers destroying an agent for good, which is what emptying
 // the archive does. It is keyed by id rather than by name because the agents it
 // runs against are archived, and an archived name is not unique: the index that

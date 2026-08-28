@@ -67,7 +67,7 @@ type agentManager interface {
 	SetStateByID(ctx context.Context, id, state string) error
 	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
-	Archive(ctx context.Context, ids []string) error
+	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
 	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
 	Restore(ctx context.Context, ids []string) error
 	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
@@ -276,7 +276,10 @@ func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, erro
 // DeleteAgents stops agents and removes those with nothing left to tear down. An agent whose
 // cleanup action is still running is left in place until that action finishes: only then, in
 // the background, does it either get removed (the action succeeded) or get marked
-// failed_to_cleanup (it did not) — the row is never dropped ahead of knowing which.
+// failed_to_cleanup (it did not) — the row is never dropped ahead of knowing which. The kill
+// here is from what was read, which a cleanup action needs: it must not run against a
+// directory a CLI is still working in. A pane recorded after that read is killed by the
+// removal itself, whenever that turns out to be.
 func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -348,7 +351,13 @@ func (s *AgentService) cleanupEmptyWorkflows(ctx context.Context, removed []agen
 	}
 }
 
-// ArchiveAgents stops agents while preserving their records and workspaces.
+// ArchiveAgents stops agents while preserving their records and workspaces. It kills twice
+// over, from what it read and then from what its own write took off the rows, because the two
+// reach different panes. Killing from the read first is what keeps a failed write from hiding
+// a CLI for good, since the row is left live for the reconciler to tidy. Killing from the
+// write is what reaches a pane recorded in between: a resume or a create opens its window and
+// then records it, and while the row is still live neither is refused, so a pane can land on
+// a row the read said held none.
 func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -357,9 +366,11 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 
 	killOwnedPanes(ctx, s.tmux, agents)
 
-	if err := s.agents.Archive(ctx, ids); err != nil {
+	taken, err := s.agents.Archive(ctx, ids)
+	if err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
 	}
+	killPanes(ctx, s.tmux, taken)
 
 	notifyParents(ctx, s.notifier, agents, "archived")
 
@@ -521,10 +532,27 @@ func isPaneOwnedBy(owner, agentID string) bool {
 }
 
 func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Agent) {
-	running := getRunningAgents(ctx, tmux, agents)
-	for _, agent := range agents {
-		if running[agent.ID] {
-			tmux.KillPane(agent.Pane)
+	killPanes(ctx, tmux, xslice.Map(agents, func(agent agentstore.Agent) agentstore.AgentPane {
+		return agentstore.AgentPane{AgentID: agent.ID, Pane: agent.Pane}
+	}))
+}
+
+// killPanes kills each pane tmux still says belongs to the agent named beside it. The
+// ownership check is what stops it killing a window the named agent no longer holds: a tmux
+// server hands out pane ids from a counter that restarts with it, and a restart is precisely
+// when every recorded pane points somewhere new.
+func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPane) {
+	panes, err := tmux.GetPanes()
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelDebug, "failed to read panes, killing none of them",
+			logging.Err(err)...)
+
+		return
+	}
+
+	for _, owner := range owned {
+		if isPaneOwnedBy(panes[owner.Pane].Owner, owner.AgentID) {
+			tmux.KillPane(owner.Pane)
 		}
 	}
 }
@@ -542,16 +570,22 @@ func (s *AgentService) getByID(ctx context.Context, id string) (*agentstore.Agen
 }
 
 func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
+	// The delete is what says which pane each row really held, so a pane written after the
+	// caller read the rows is reached here and nowhere else.
+	var taken []agentstore.AgentPane
 	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		if err := agentstore.New(db).Delete(ctx, ids); err != nil {
+		deleted, err := agentstore.New(db).Delete(ctx, ids)
+		if err != nil {
 			return err
 		}
+		taken = deleted
 
 		return transcriptstore.New(db).Delete(ctx, ids)
 	}); err != nil {
 		return err
 	}
 
+	killPanes(ctx, s.tmux, taken)
 	s.removeActionLogs(ctx, ids)
 
 	return nil

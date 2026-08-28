@@ -299,9 +299,11 @@ func requirePrimaryCheckout(cwd string) error {
 // ArchiveWorkflow archives a workflow and the agents inside it, since every agent belongs to
 // a workflow and none can be left behind. Panes are killed before the transaction commits, so
 // a failed commit leaves rows the reconciler can still tidy rather than hiding a live CLI for
-// good. A workflow with live schedules is refused, since archiving it would strand or
-// silently kill them; they must be turned off first. The workflow and agent rows span
-// different domains, so both are archived in one transaction to avoid a half-applied archive.
+// good, and again from what the transaction took off the rows, since that is the only thing
+// that reaches a pane recorded after they were read. A workflow with live schedules is
+// refused, since archiving it would strand or silently kill them; they must be turned off
+// first. The workflow and agent rows span different domains, so both are archived in one
+// transaction to avoid a half-applied archive.
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
@@ -325,16 +327,21 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	}
 	killOwnedPanes(ctx, w.tmux, inside)
 
+	var taken []agentstore.AgentPane
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
 		if err := workflowstore.New(db).Archive(ctx, id); err != nil {
 			return err
 		}
 
-		return agentstore.New(db).ArchiveWorkflowAgents(ctx, id)
+		archived, err := agentstore.New(db).ArchiveWorkflowAgents(ctx, id)
+		taken = archived
+
+		return err
 	})
 	if err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
+	killPanes(ctx, w.tmux, taken)
 
 	notifyParents(ctx, w.notifier, inside, "archived")
 

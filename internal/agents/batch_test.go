@@ -314,7 +314,8 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 			batch := []string{archived.ID, other.ID}
 			if tt.secondNamesake {
 				second := seedInWorkflow(t, st, workflowID, "auth", "", agentstore.StateIdle)
-				require.NoError(t, st.Agents.Archive(ctx, []string{second.ID}))
+				_, archiveErr := st.Agents.Archive(ctx, []string{second.ID})
+				require.NoError(t, archiveErr)
 				batch = append(batch, second.ID)
 			}
 			if tt.liveNamesake {
@@ -342,7 +343,9 @@ func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	first := seedInWorkflow(t, st, backend, "auth", "", agentstore.StateIdle)
 	second := seedInWorkflow(t, st, frontend, "auth", "", agentstore.StateIdle)
 
-	require.NoError(t, st.Agents.Archive(ctx, []string{first.ID, second.ID}))
+	_, archiveErr := st.Agents.Archive(ctx, []string{first.ID, second.ID})
+
+	require.NoError(t, archiveErr)
 
 	restored, err := manager.RestoreAgents(ctx, []string{first.ID, second.ID})
 	require.NoError(t, err)
