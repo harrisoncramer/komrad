@@ -75,16 +75,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	}
 	m.target.editWorkflow = &workflow
 	m.target.renameWorkflow = nil
-	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValuesFrom(workflowstore.Config{
-		Name:          workflow.Name,
-		Context:       workflow.Context,
-		Harness:       workflow.Harness,
-		Cwd:           workflow.Cwd,
-		Flags:         workflow.Flags,
-		SetupAction:   workflow.SetupAction,
-		CleanupAction: workflow.CleanupAction,
-		Worktree:      workflow.Worktree,
-	}))
+	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValuesFrom(workflow.Config()))
 	m.screen = screenWorkflowForm
 
 	return m, m.form.Init()
@@ -224,18 +215,7 @@ func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
 			)
 		}
 	case m.target.editWorkflow != nil:
-		cfg := values.toConfig()
-		edited := workflowstore.Workflow{
-			ID:            m.target.editWorkflow.ID,
-			Name:          cfg.Name,
-			Context:       cfg.Context,
-			Harness:       cfg.Harness,
-			Cwd:           cfg.Cwd,
-			Flags:         cfg.Flags,
-			SetupAction:   cfg.SetupAction,
-			CleanupAction: cfg.CleanupAction,
-			Worktree:      cfg.Worktree,
-		}
+		edited := values.toConfig().Workflow(m.target.editWorkflow.ID)
 		write = m.writeCmd(
 			fmt.Sprintf("Could not save workflow %q", m.target.editWorkflow.Name),
 			func(a api) error { return a.updateWorkflow(edited) },

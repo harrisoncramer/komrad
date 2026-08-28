@@ -47,6 +47,37 @@ type Config struct {
 	ArchiveOnPRClosed bool
 }
 
+// Config is what an update writes, which is every field of a workflow but its id.
+func (w Workflow) Config() Config {
+	return Config{
+		Name:              w.Name,
+		Context:           w.Context,
+		Harness:           w.Harness,
+		Cwd:               w.Cwd,
+		Flags:             w.Flags,
+		SetupAction:       w.SetupAction,
+		CleanupAction:     w.CleanupAction,
+		Worktree:          w.Worktree,
+		ArchiveOnPRClosed: w.ArchiveOnPRClosed,
+	}
+}
+
+// Workflow is the config under an existing id, ready to be written back.
+func (c Config) Workflow(id string) Workflow {
+	return Workflow{
+		ID:                id,
+		Name:              c.Name,
+		Context:           c.Context,
+		Harness:           c.Harness,
+		Cwd:               c.Cwd,
+		Flags:             c.Flags,
+		SetupAction:       c.SetupAction,
+		CleanupAction:     c.CleanupAction,
+		Worktree:          c.Worktree,
+		ArchiveOnPRClosed: c.ArchiveOnPRClosed,
+	}
+}
+
 type WorktreeConfig struct {
 	Enabled bool
 
