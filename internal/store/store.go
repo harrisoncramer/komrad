@@ -28,7 +28,12 @@ type Pool struct {
 // for a tool launched from a tmux keybinding is the difference between a message and a
 // panel that renders empty.
 func Open(ctx context.Context, url string) (*Pool, error) {
-	pool, err := pgxpool.New(ctx, url)
+	cfg, err := parseConfig(url)
+	if err != nil {
+		return nil, err
+	}
+
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open db: %w", err)
 	}
@@ -60,9 +65,9 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 		return nil, ErrNoReadOnlyURL
 	}
 
-	cfg, err := pgxpool.ParseConfig(url)
+	cfg, err := parseConfig(url)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse database url: %w", err)
+		return nil, err
 	}
 	cfg.ConnConfig.RuntimeParams["default_transaction_read_only"] = "on"
 
@@ -82,6 +87,20 @@ func OpenReadOnly(ctx context.Context, url string) (*pgxpool.Pool, error) {
 	}
 
 	return pool, nil
+}
+
+// parseConfig reads url and names this process on every connection made from it. The name
+// is what a migration pass looks for: it is how the pass tells the connections of the weave
+// running it from those of another weave against the same database, which it refuses to
+// migrate under.
+func parseConfig(url string) (*pgxpool.Config, error) {
+	cfg, err := pgxpool.ParseConfig(url)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse database url: %w", err)
+	}
+	cfg.ConnConfig.RuntimeParams["application_name"] = db.AppName()
+
+	return cfg, nil
 }
 
 func refuseSuperuser(ctx context.Context, pool *pgxpool.Pool) error {

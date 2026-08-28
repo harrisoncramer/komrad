@@ -83,6 +83,64 @@ func TestMigrateConcurrently(t *testing.T) {
 	assert.Equal(t, allVersions(t), appliedVersions(t, pools[0]))
 }
 
+// TestMigrateSharedDatabase is the guard against a checkout migrating the database a
+// running weave is serving from, which is what an agent's worktree does unless it was
+// pointed somewhere else.
+func TestMigrateSharedDatabase(t *testing.T) {
+	tests := []struct {
+		name    string
+		appName string
+		migrate bool
+		refused bool
+	}{
+		{
+			name:    "another weave on the database refuses a pass with migrations to apply",
+			appName: "weave/elsewhere/1",
+			refused: true,
+		},
+		{
+			name:    "a connection of this process's own is not another weave",
+			appName: AppName(),
+		},
+		{
+			name:    "anything else on the database is not a weave",
+			appName: "psql",
+		},
+		{
+			name:    "a database already up to date is left alone rather than refused",
+			appName: "weave/elsewhere/1",
+			migrate: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			url := pgtest.URL(t)
+			pool := openAt(t, url)
+			ctx := t.Context()
+
+			if tt.migrate {
+				require.NoError(t, Migrate(ctx, pool))
+			}
+
+			other := connect(t, url)
+			_, err := other.Exec(ctx, `SELECT set_config('application_name', $1, false)`, tt.appName)
+			require.NoError(t, err)
+
+			err = Migrate(ctx, pool)
+			if tt.refused {
+				require.ErrorIs(t, err, ErrDatabaseInUse)
+				assert.Empty(t, appliedVersions(t, pool), "and applied none of them")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, allVersions(t), appliedVersions(t, pool))
+		})
+	}
+}
+
 func TestMigrateFailure(t *testing.T) {
 	tests := []struct {
 		name       string

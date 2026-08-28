@@ -6,6 +6,7 @@ package db
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -16,6 +17,7 @@ import (
 	"weave/internal/logging"
 	"weave/lib/xslice"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -102,10 +104,17 @@ func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool
 	return len(pending) > 0, nil
 }
 
+// queryer is what pendingVersions reads through, so the same walk of the ledger serves
+// the pass deciding whether to reach for the lock and the pass reading it again inside one,
+// where the reader is the locked connection rather than the pool.
+type queryer interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 // pendingVersions is which of versions the database has no record of. A missing
 // schema_migrations table means it has no record of any of them.
-func pendingVersions(ctx context.Context, pool *pgxpool.Pool, versions []string) ([]string, error) {
-	rows, err := pool.Query(ctx,
+func pendingVersions(ctx context.Context, q queryer, versions []string) ([]string, error) {
+	rows, err := q.Query(ctx,
 		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
 	if IsUndefinedTable(err) {
 		return versions, nil
@@ -163,16 +172,19 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)
 	}
 
-	for _, version := range set.versions {
-		var applied bool
-		if err := conn.QueryRow(ctx,
-			`SELECT EXISTS (SELECT 1 FROM schema_migrations WHERE version = $1)`, version).Scan(&applied); err != nil {
-			return fmt.Errorf("failed to check migration %q: %w", version, err)
-		}
-		if applied {
-			continue
-		}
+	pending, err := pendingVersions(ctx, conn, set.versions)
+	if err != nil {
+		return err
+	}
+	if len(pending) == 0 {
+		return nil
+	}
 
+	if err := refuseSharedDatabase(ctx, conn, pending); err != nil {
+		return err
+	}
+
+	for _, version := range pending {
 		sqlText, err := fs.ReadFile(set.files, version)
 		if err != nil {
 			return fmt.Errorf("failed to read migration %q: %w", version, err)
@@ -197,6 +209,48 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 	}
 
 	return nil
+}
+
+// ErrDatabaseInUse is returned rather than migrating a database another weave is on.
+var ErrDatabaseInUse = errors.New("another weave is using this database")
+
+// refuseSharedDatabase stops a pass that would change the schema under a weave already
+// running against the same database. Every pool connects under AppName, so a connection
+// named after another process is another weave, and that one is serving queries written
+// against the schema it started with: applying migrations it has never seen breaks it
+// until it restarts.
+//
+// The case this is written for is a checkout with a migration of its own, an agent's
+// worktree most of the time, whose WEAVE_DATABASE_URL is still the panel's database
+// because nothing told it otherwise. Any command there opens the store, the store
+// migrates, and the panel stops being able to read its own tables.
+//
+// A pass with nothing pending never reaches this, so working in such a checkout is only
+// refused once it is holding a migration the panel does not have.
+func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []string) error {
+	rows, err := conn.Query(ctx, `
+		SELECT DISTINCT application_name
+		FROM pg_stat_activity
+		WHERE datname = current_database()
+		  AND pid <> pg_backend_pid()
+		  AND application_name LIKE $1
+		  AND application_name <> $2
+		ORDER BY application_name`, appNamePrefix+"/%", AppName())
+	if err != nil {
+		return fmt.Errorf("failed to read who else is using the database: %w", err)
+	}
+
+	others, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return fmt.Errorf("failed to read who else is using the database: %w", err)
+	}
+	if len(others) == 0 {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %s is connected to it, and this build holds %d migration(s) it has not seen (%s). "+
+		"Stop that weave, or point WEAVE_DATABASE_URL at a database of this checkout's own",
+		ErrDatabaseInUse, strings.Join(others, ", "), len(pending), strings.Join(pending, ", "))
 }
 
 // unlockTimeout bounds the unlock so it cannot hang on a connection whose peer is gone.
