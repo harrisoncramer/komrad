@@ -30,10 +30,8 @@ type Detail struct {
 	Value string
 }
 
-// Render lays the screen out, separating sections only when they have content. Everything
-// is folded to the pane, prose included, since the renderer above the panel cuts a line
-// that overruns rather than wrapping it, and what's lost at the edge is the tail of the
-// line, which on a hint is the command it was naming.
+// Render lays the screen out folded to the pane, since the renderer above the panel cuts a
+// line that overruns and what is lost is the command a hint was naming.
 func (s Screen) Render() string {
 	width := foldWidth(s.Width)
 

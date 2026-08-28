@@ -38,14 +38,8 @@ func windowNames(t *testing.T, c *Client, session string) []string {
 	return strings.Split(out, "\n")
 }
 
-// TestNewWindowAlongsideASameNamedWindow is the case the panel actually runs in. The
-// manager session and its own window carry the same name, and tmux matches a bare target
-// against window names in preference to session names, so targeting the session by name
-// alone lands on that window and tmux then refuses to create at an index that is by
-// definition already taken.
-//
-// This needs a real tmux server: the target is a string the panel hands over and tmux
-// reads, so nothing standing in for tmux can disagree with it.
+// TestNewWindowAlongsideASameNamedWindow covers the panel's own case, where tmux matches a
+// bare target against window names before session names and lands on the wrong one.
 func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	client := testServer(t, "weave")
 
@@ -56,10 +50,8 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one"}, windowNames(t, client, "weave"))
 }
 
-// TestSessionClientWithNothingAttached covers looking for the client viewing a popup on a
-// server nobody is attached to, and on a session that is not there. Both answer nothing,
-// which is what leaves the panel saying it cannot reach the user's server rather than
-// opening a window against a target tmux picked.
+// TestSessionClientWithNothingAttached checks a server nobody is attached to and a session
+// that is not there both answer nothing, rather than a target tmux picked.
 func TestSessionClientWithNothingAttached(t *testing.T) {
 	client := testServer(t, "detached")
 
@@ -119,10 +111,8 @@ func TestPaneOwners(t *testing.T) {
 	assert.True(t, panes[stamped].RunsShell(), "a pane weave opened is a shell until something is launched in it")
 }
 
-// TestSiblingPanesFindsTheRestOfTheWindow covers the panel asking what else is sitting in
-// its window, which is how a restarted panel finds what the last one left. tmux is asked
-// with the panel's own pane as the target, so this needs a real server to confirm tmux
-// maps a pane id to the window holding it rather than refusing it.
+// TestSiblingPanesFindsTheRestOfTheWindow covers a restarted panel finding what the last one
+// left, which needs a real server to confirm tmux maps a pane id to the window holding it.
 func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	client := testServer(t, "weave")
 
@@ -140,18 +130,16 @@ func TestSiblingPanesFindsTheRestOfTheWindow(t *testing.T) {
 	assert.NotContains(t, siblings, panel, "the pane asked about is not its own sibling")
 }
 
-// TestSiblingPanesOfNothing covers the panel running outside tmux, where it has no pane to
-// ask about. Nothing is reclaimed rather than tmux being asked about the active pane,
-// which would be some other window entirely.
+// TestSiblingPanesOfNothing covers the panel running outside tmux, where nothing is reclaimed
+// rather than tmux being asked about the active pane in some other window.
 func TestSiblingPanesOfNothing(t *testing.T) {
 	client := testServer(t, "weave")
 
 	assert.Empty(t, client.GetSiblingPanes(""))
 }
 
-// TestBreakPaneKeepsTheID covers a staged agent being returned to a window of its own. The
-// panel records an agent by its pane id and reaches it by that id afterwards, so a break
-// that renamed the pane would lose the agent.
+// TestBreakPaneKeepsTheID covers a staged agent returning to its own window, where a break
+// that renamed the pane would lose the agent the panel tracks by that id.
 func TestBreakPaneKeepsTheID(t *testing.T) {
 	client := testServer(t, "weave")
 

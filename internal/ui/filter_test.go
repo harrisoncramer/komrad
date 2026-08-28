@@ -17,9 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFilterQuery covers what a typed pattern matches, which is the whole of what the filter
-// decides. A pattern that will not compile draws every row rather than none, since a list
-// emptied by a half-typed bracket reads as a list with nothing in it.
+// TestFilterQuery covers what a typed pattern matches, including a half-typed one that will
+// not compile and so draws every row rather than looking like an empty list.
 func TestFilterQuery(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -78,9 +77,8 @@ func TestFilterQuery(t *testing.T) {
 	}
 }
 
-// TestFilterAgentRows covers which rows of a tree survive a pattern. A folder is drawn whole
-// when the pattern names the folder, and keeps its header when it only holds a match, so an
-// agent left on screen is still under the folder it belongs to.
+// TestFilterAgentRows covers which rows survive a pattern, keeping folder headers so a matched
+// agent is still drawn under the folder it belongs to.
 func TestFilterAgentRows(t *testing.T) {
 	rows := []agentRow{
 		{header: true, workflow: workflowstore.Workflow{ID: "w1", Name: "api"}},
@@ -142,9 +140,8 @@ func TestFilterAgentRows(t *testing.T) {
 	}
 }
 
-// TestFilterInput covers the input over the list: what opens it, what a keypress does while it
-// is open, and what is left once it closes. The pattern outlives the input, which is the point
-// of it, so the keys that act on rows work against the narrowed list.
+// TestFilterInput covers the input over the list, where the pattern outlives the input itself
+// so the keys that act on rows work against the narrowed list.
 func TestFilterInput(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -228,8 +225,8 @@ func TestFilterInput(t *testing.T) {
 	}
 }
 
-// TestFilterCursor covers where the cursor lands as the tree narrows. It follows the row it
-// was on while that row is still drawn, since the row under it is what the next key acts on.
+// TestFilterCursor covers where the cursor lands as the tree narrows, since the row under it
+// is what the next key acts on.
 func TestFilterCursor(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -265,9 +262,8 @@ func TestFilterCursor(t *testing.T) {
 	}
 }
 
-// TestFilterKeepsSelection covers a selection made before the list narrowed. The filter changes
-// what is drawn rather than what exists, so an agent it holds back is still archived by a key
-// pressed on the selection.
+// TestFilterKeepsSelection covers a selection made before the list narrowed, since the filter
+// changes what is drawn rather than what exists.
 func TestFilterKeepsSelection(t *testing.T) {
 	m := filterModel()
 	m.tree.selected = selection{ids: []string{"a1", "a2"}}
@@ -293,9 +289,8 @@ func TestFilterDroppedLeavingScreen(t *testing.T) {
 	assert.Equal(t, "", got.filter.query)
 }
 
-// TestFilterHighlight covers the match drawn inside a row. The name is rendered in pieces so
-// the matched run can take its own colour, so what matters is that the pieces still add up to
-// the name.
+// TestFilterHighlight covers a row drawn in pieces so the matched run can take its own colour,
+// and checks the pieces still add up to the name.
 func TestFilterHighlight(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -336,8 +331,8 @@ func TestFilterHighlight(t *testing.T) {
 	}
 }
 
-// TestFilterViewLine covers the input drawn over the list. It stays up once the input closes,
-// since a list narrowed by a pattern nothing says is on reads as a list that lost rows.
+// TestFilterViewLine covers the input drawn over the list, which stays up after the input
+// closes so a narrowed list never looks like a list that lost rows.
 func TestFilterViewLine(t *testing.T) {
 	tests := []struct {
 		name   string

@@ -13,14 +13,8 @@ type NewHandlerParams struct {
 	BaseURL string
 }
 
-// NewHandler builds the MCP server and returns an HTTP handler for it, to mount
-// at a route such as /mcp. It exposes read-only SQL over the database alongside
-// the annotated RPCs, which can write.
-//
-// There is no auth on it. The server listens on loopback, and the reads are
-// already available to anyone who can reach the database. The writes are not. A
-// caller here can spawn and delete agents, so binding the server to a non-loopback
-// address would be a real change in exposure.
+// NewHandler builds the MCP server as an HTTP handler with no auth on it, which is safe only
+// while it listens on loopback, since a caller here can spawn and delete agents.
 func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "weave-db",

@@ -62,10 +62,8 @@ func TestUpsertAndGet(t *testing.T) {
 	}
 }
 
-// TestGetOfUnknownID covers the two ways an id can fail to name an agent. One
-// that is well-formed but unused, and one that is not an id at all. Both read as
-// the zero transcript rather than an error, so a caller that mistyped an id gets
-// an empty result instead of a failure.
+// TestGetOfUnknownID pins that an unused id and a string that is not an id both read as the
+// zero transcript rather than an error.
 func TestGetOfUnknownID(t *testing.T) {
 	tests := []struct {
 		name string
@@ -92,9 +90,8 @@ func TestGetOfUnknownID(t *testing.T) {
 	}
 }
 
-// TestSearch covers what a query matches and what a hit carries. Search spans
-// archived agents, since finding a conversation is the reason to look for one,
-// and each hit says whether the agent behind it is still listed.
+// TestSearch pins that a search spans archived agents and that each hit says whether the
+// agent behind it is still listed.
 func TestSearch(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -242,9 +239,8 @@ func TestSearch(t *testing.T) {
 	}
 }
 
-// TestSearchReturnsEveryMatchingTurn covers the shape a conversation matches in. A
-// subject that came up twice is two hits rather than one, each pointing at the turn
-// it was said in.
+// TestSearchReturnsEveryMatchingTurn pins that a subject which came up twice is two hits,
+// each pointing at the turn it was said in.
 func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -315,9 +311,8 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 	assert.Empty(t, none)
 }
 
-// TestSearchPages walks a result set the way the RPC does, following the cursor
-// until it runs dry. That covers both the ordering the cursor depends on and the
-// paging built on top of it.
+// TestSearchPages walks a result set the way the RPC does, covering both the ordering the
+// cursor depends on and the paging built on top of it.
 func TestSearchPages(t *testing.T) {
 	type seed struct {
 		name    string

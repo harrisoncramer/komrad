@@ -75,9 +75,8 @@ func TestSanitizeName(t *testing.T) {
 	}
 }
 
-// TestCreateAndUpdate covers what an agent carries in and out of the store,
-// including the config row it owns. An update has to rewrite that row rather than
-// leave the old one orphaned behind a new id.
+// TestCreateAndUpdate pins that an update rewrites the config row an agent owns rather than
+// orphaning it behind a new id.
 func TestCreateAndUpdate(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -180,9 +179,8 @@ func TestCreateWithActionOverride(t *testing.T) {
 	}
 }
 
-// TestSpawnedByAgentID covers the parent an agent records when another agent created it.
-// One a person started through the panel carries no caller header at all, so it has to
-// read back nil rather than some sentinel standing in for nobody.
+// TestSpawnedByAgentID pins that an agent a person started reads back a nil parent rather
+// than a sentinel standing in for nobody.
 func TestSpawnedByAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
@@ -229,9 +227,8 @@ func TestSpawnedByAgentID(t *testing.T) {
 	}
 }
 
-// TestDeleteNullsSpawnedByAgentID covers what happens to a child when its parent is
-// removed for good. Losing a parent must not take the work its children did with it, so
-// the reference is nulled rather than the child row going with it.
+// TestDeleteNullsSpawnedByAgentID pins that deleting a parent nulls the reference rather
+// than taking the work its children did with it.
 func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
@@ -257,10 +254,8 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
 }
 
-// TestArchiveAndReuse covers who a name belongs to over an agent's life. An
-// archived row keeps its name, so reusing it has to create a fresh row rather
-// than resurrect the dead one, and state events keyed by name must land on the
-// live row.
+// TestArchiveAndReuse pins that reusing an archived agent's name creates a fresh row and
+// that state events keyed by that name land on the live one.
 func TestArchiveAndReuse(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -372,10 +367,8 @@ func TestArchiveClearsPane(t *testing.T) {
 	assert.Empty(t, archived.Pane, "an archived agent claims no pane")
 }
 
-// TestSetStateByID guards the rule that a state write never creates a row. The
-// reconciler decides a state from a listing it took moments earlier, so it can
-// name an agent that has since been deleted, and that write has to find nothing
-// rather than put the row back.
+// TestSetStateByID pins that a state write finds nothing rather than putting back a row the
+// reconciler named after it was deleted.
 func TestSetStateByID(t *testing.T) {
 	tests := []struct {
 		name string
@@ -425,9 +418,8 @@ func TestSetStateByID(t *testing.T) {
 	}
 }
 
-// TestSetTags covers tagging, changing a tag, clearing one, and who may carry one,
-// over one agent and over several at once. A write that silently landed on nothing
-// would leave the caller believing they had tagged agents that show no tag.
+// TestSetTags pins that a tag write reports what it landed on, so a caller is never left
+// believing they tagged agents that show no tag.
 func TestSetTags(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -545,9 +537,8 @@ func TestSetTags(t *testing.T) {
 	}
 }
 
-// TestSetHidden covers hiding an agent, bringing it back, and who may be hidden at
-// all. A write that landed on nothing would leave the panel drawing a row the caller
-// believes it took away.
+// TestSetHidden pins that a hide write reports what it landed on, so the panel never draws
+// a row the caller believes it took away.
 func TestSetHidden(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -631,10 +622,8 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetMetadata covers what an agent may record against itself. The write has to
-// land on exactly one key, since an agent recording a second fact must not drop the
-// first, and it has to refuse an id belonging to no live agent rather than report a
-// success the agent would go on believing.
+// TestSetMetadata pins that a write lands on exactly one key and refuses an id belonging to
+// no live agent, rather than reporting a success the agent would go on believing.
 func TestSetMetadata(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -759,9 +748,8 @@ func TestSetMetadata(t *testing.T) {
 	}
 }
 
-// TestSetMetadataCeiling pins the cap on how many facts one agent may record. The
-// keys are the agent's own invention, so nothing else bounds them, but revising a
-// fact it already recorded has to keep working however full it is.
+// TestSetMetadataCeiling pins the cap on how many facts one agent may record, and that
+// revising a fact it already recorded keeps working however full it is.
 func TestSetMetadataCeiling(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -831,9 +819,7 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 }
 
 // TestListPageHydratesMetadata pins that a listing carries each agent's own facts and
-// nobody else's, in one pass over the page. The panel renders straight off the
-// listing, so metadata arriving only from a single-agent read would leave the info
-// view empty.
+// nobody else's, since the panel renders straight off the listing.
 func TestListPageHydratesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -869,9 +855,8 @@ func TestListPageHydratesMetadata(t *testing.T) {
 	assert.Empty(t, byName["second"], "an agent that recorded nothing carries nothing")
 }
 
-// TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it.
-// They hang off the agent by a cascading key, so nothing deletes them by hand and a
-// missing cascade would leave rows keyed to an id that no longer exists.
+// TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it, since
+// nothing deletes them by hand and a missing cascade would leave rows keyed to a dead id.
 func TestDeleteTakesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -894,9 +879,8 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	assert.Empty(t, orphaned)
 }
 
-// TestSetStateByIDKeepsTheTag pins that a state write is only a state write. The
-// tag belongs to the user and the reconciler writes state constantly, so the two
-// share a row without touching each other.
+// TestSetStateByIDKeepsTheTag pins that a state write leaves the tag alone, since the tag
+// belongs to the user and the reconciler writes state constantly.
 func TestSetStateByIDKeepsTheTag(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -919,10 +903,8 @@ func TestSetStateByIDKeepsTheTag(t *testing.T) {
 	assert.Equal(t, "●", *after.Tag, "a state write leaves the user's tag standing")
 }
 
-// TestSetStateByIDStampsOnlyOnAChange covers what state_changed_at means. The
-// reconciler writes the state it observed every pass, so a stamp that moved on every
-// write would say when the agent was last looked at rather than when it entered the
-// state it holds.
+// TestSetStateByIDStampsOnlyOnAChange pins that state_changed_at says when the agent
+// entered its state rather than when it was last looked at.
 func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -945,10 +927,8 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 	assert.Equal(t, moved.StateChangedAt, again.StateChangedAt, "observing the same state again leaves it")
 }
 
-// TestRename covers renaming by id, including the collision. A name is unique
-// among live agents only, so a rename onto one that a live agent holds has to come
-// back as the caller's mistake rather than as a driver error the handler would have
-// to read, and a rename onto a name only an archived row holds has to be allowed.
+// TestRename pins that a rename onto a live agent's name comes back as the caller's mistake
+// while a rename onto a name only an archived row holds is allowed.
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1037,9 +1017,8 @@ func TestRename(t *testing.T) {
 	}
 }
 
-// TestActiveNameExists covers who owns a name. The unique index is scoped to live rows in
-// one workflow, so an archived agent keeps its name without blocking a new one, and so
-// does a live agent in another workflow.
+// TestActiveNameExists pins that a name is taken only by a live agent in the same workflow,
+// so an archived one blocks nothing.
 func TestActiveNameExists(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1103,9 +1082,8 @@ func TestActiveNameExists(t *testing.T) {
 	}
 }
 
-// TestRestore mirrors the manager's restore ordering at the store layer:
-// undelete by id, then upsert the same id. It must not collide on the primary
-// key, and what the agent belonged to has to survive the round trip.
+// TestRestore pins that undeleting by id and then upserting the same id neither collides on
+// the primary key nor loses what the agent belonged to.
 func TestRestore(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1233,10 +1211,8 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-// TestListPageArchived covers the two sets a listing can ask for. They are what
-// the panel and its archive each show, and an agent in one must never appear in
-// the other: the tree would offer keys on a row that is gone, and the archive
-// would offer to destroy one that is running.
+// TestListPageArchived pins that an agent never appears in both listings, since the panel
+// would offer keys on a row that is gone and the archive would offer to destroy a live one.
 func TestListPageArchived(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -1275,10 +1251,8 @@ func TestListPageArchived(t *testing.T) {
 	}
 }
 
-// TestDeleteByIDPicksTheArchivedRow covers why a hard delete keys on the id. The
-// archive deletes through it, and the rows there are exactly the ones a name
-// cannot tell apart: the unique index holds among live rows only, so an archived
-// agent can share a name with a live one.
+// TestDeleteByIDPicksTheArchivedRow pins that a hard delete keys on the id, since an
+// archived agent can share a name with a live one.
 func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1302,11 +1276,8 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	assert.Equal(t, "%2", all[0].Pane)
 }
 
-// TestGetByID covers the lookup every call that keys on an id makes. It has to span
-// the archived agents: an id is the only handle an archived agent still answers to,
-// since its name may have been taken by a live one since. The ids that are not ids
-// matter because a restore or a delete asked for through the MCP tools arrives as
-// whatever string the caller typed.
+// TestGetByID pins that the lookup spans archived agents, whose id is the only handle they
+// still answer to once a live agent has taken the name.
 func TestGetByID(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1397,9 +1368,8 @@ func TestGetByIDCarriesMetadata(t *testing.T) {
 	assert.Equal(t, "https://github.com/o/r/pull/1", got.Metadata[0].Value)
 }
 
-// TestGetByIdempotencyKey covers the lookup a retried launch makes. It spans
-// archived agents on purpose: the key exists so a retry finds what it already
-// created, and an agent archived since is still that agent.
+// TestGetByIdempotencyKey pins that the lookup spans archived agents, since a retry has to
+// find what it already created however that agent ended up.
 func TestGetByIdempotencyKey(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1459,9 +1429,8 @@ func TestGetByIdempotencyKey(t *testing.T) {
 	}
 }
 
-// TestIdempotencyKeyIsUnique covers the index behind the lookup. Two agents
-// claiming one key is the duplicate the whole mechanism exists to stop, while
-// any number of agents claiming none is the ordinary case.
+// TestIdempotencyKeyIsUnique pins that two agents cannot claim one key while any number of
+// them may claim none.
 func TestIdempotencyKeyIsUnique(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1503,10 +1472,8 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 	}
 }
 
-// TestCountLiveForSchedule covers the count that stops a schedule lapping
-// itself. An agent working or waiting on a confirmation counts, since that is
-// work still owed. An idle one does not, and that includes one never seen working,
-// since nothing will ever move it and the schedule would be blocked for good.
+// TestCountLiveForSchedule pins that work still owed counts against a schedule while an
+// idle agent does not, since nothing will move it and the schedule would block for good.
 func TestCountLiveForSchedule(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1655,9 +1622,8 @@ func TestCountLive(t *testing.T) {
 	}
 }
 
-// TestANudgeIsHeldForTheRetryInterval covers what the interval buys. A nudge just taken
-// stands, and the same nudge left standing longer than the interval is there to be taken
-// again, which is the whole of what a caller asks for by passing one.
+// TestANudgeIsHeldForTheRetryInterval pins that a nudge just taken stands while one left
+// standing longer than the interval can be taken again.
 func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1681,12 +1647,8 @@ func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
 	assert.True(t, again, "a nudge older than the interval is spent")
 }
 
-// TestANudgeIsReclaimedOnTheDatabaseClock covers which clock the interval is counted on.
-// nudged_at is stamped by the database, so what it is compared against has to come from the
-// database too. Counted from the caller's clock the two agree only to within whatever the
-// clocks drift by, and inside a transaction they do not agree at all: NOW() stays at the
-// transaction's start while the caller's clock runs on, so a nudge taken moments ago reads
-// as one left standing for however long the transaction has been open.
+// TestANudgeIsReclaimedOnTheDatabaseClock pins that the interval is counted on the database
+// clock, since inside a transaction NOW() holds at the start while the caller's clock runs on.
 func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1799,9 +1761,8 @@ func seedSchedule(t *testing.T, st *fixture) string {
 	return created.ID
 }
 
-// TestListByID covers the read a batch does before it writes. It is the one lookup that
-// has to say which of the ids it was given found nothing, so what it leaves out matters as
-// much as what it returns.
+// TestListByID pins that a batch read says which of the ids it was given found nothing, so
+// what it leaves out matters as much as what it returns.
 func TestListByID(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1874,9 +1835,8 @@ func TestListByID(t *testing.T) {
 	}
 }
 
-// TestListByIDCarriesMetadata pins the metadata coming back with a batch read, the way it
-// does for one agent and for a page. A restore hands its agents straight to the caller, so
-// what this leaves off is what the panel draws.
+// TestListByIDCarriesMetadata pins the metadata coming back with a batch read, since a
+// restore hands its agents straight to the panel that draws them.
 func TestListByIDCarriesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1908,10 +1868,8 @@ func TestListByIDCarriesMetadata(t *testing.T) {
 	assert.Empty(t, byID[api.ID], "an agent that recorded nothing carries nothing")
 }
 
-// TestArchiveAndDeleteReturnThePaneTheRowHeld covers what an archive and a delete report back
-// about the rows they wrote. An archive blanks the pane in the same statement, so what it has
-// to hand back is the pane as the row held it rather than the blank it just wrote: killing the
-// CLI is the caller's next step, and by then there is nowhere else the pane is written down.
+// TestArchiveAndDeleteReturnThePaneTheRowHeld pins that an archive hands back the pane the
+// row held rather than the blank it just wrote, since nothing else records the pane to kill.
 func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -1939,12 +1897,9 @@ func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 	assert.Equal(t, []AgentPane{{AgentID: deleting, Pane: "%5"}}, deleted)
 }
 
-// TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind covers the archive against the write it
-// actually races: a resume or a create recording its pane in its own statement, uncommitted,
-// while the archive is already blocked on the row. Reading the pane from a plain join against
-// the table hands back the value from before that write, since only the row being updated is
-// re-read once the lock is released. The archive would then commit, blank the pane, and report
-// nothing to kill, which is the state it exists to prevent.
+// TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind pins that the archive hands back a pane
+// recorded by a write it was blocked on, which a plain join misses because only the row being
+// updated is re-read once the lock is released.
 func TestArchiveReturnsThePaneAWriteItWaitedOnLeftBehind(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -2008,8 +1963,8 @@ func waitForBlockedArchive(t *testing.T, st *fixture) {
 	t.Fatal("no archive ever blocked on the row, so it never reached its write")
 }
 
-// TestArchiveAndRestoreInBatches covers the two writes a selection drives. Both are keyed
-// on a list of ids, so what they must not do is act on a row nobody named.
+// TestArchiveAndRestoreInBatches pins that a write keyed on a list of ids never acts on a
+// row nobody named.
 func TestArchiveAndRestoreInBatches(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

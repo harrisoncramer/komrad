@@ -72,9 +72,8 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	assert.NotContains(t, header, "session_id", "a workflow has no session of its own")
 }
 
-// TestDetailsTitleNamesWhatItIsAbout covers the line over the fields. The same name can be an
-// agent on one row and the workflow it sits under on the next, so the title says which, and it
-// stands over a blank line the way a list's own title does.
+// TestDetailsTitleNamesWhatItIsAbout covers the line over the fields, which says whether the
+// name belongs to an agent or the workflow it sits under.
 func TestDetailsTitleNamesWhatItIsAbout(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
@@ -96,9 +95,8 @@ func TestDetailsFollowTheCursor(t *testing.T) {
 	assert.Equal(t, 0, moved.detailsCursor(moved.hoveredDetails()))
 }
 
-// TestDetailsFocusTakesTheKeys covers the focus key. The list keeps its cursor while the
-// section holds the keys, so the row being read stays marked, and movement runs down the
-// fields rather than the rows.
+// TestDetailsFocusTakesTheKeys covers the focus key, after which movement runs down the fields
+// while the list keeps its cursor on the row being read.
 func TestDetailsFocusTakesTheKeys(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
@@ -140,9 +138,8 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 	assert.Positive(t, panel.details.flashed, "the copied field flashes while the write runs")
 }
 
-// TestDetailsKeysStandDownForTheRow covers the keys that act on an agent while the section
-// below holds the cursor. The field under the cursor is not the agent, so a key that would
-// archive or rename one does nothing rather than acting on the row above.
+// TestDetailsKeysStandDownForTheRow covers a key that would archive or rename an agent while
+// the section holds the cursor, which does nothing rather than acting on the row above.
 func TestDetailsKeysStandDownForTheRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
@@ -178,9 +175,8 @@ func TestDetailsCursorHeldInsideTheRecord(t *testing.T) {
 	assert.Equal(t, len(held.fields)-1, m.detailsCursor(held))
 }
 
-// TestDetailsCursorStartsAtTheTopOfAnotherRow covers the cursor left partway down one
-// record while the row under it changes, which a refresh that reorders rows does without
-// anyone pressing a key. The field it was on belonged to the row it was set against.
+// TestDetailsCursorStartsAtTheTopOfAnotherRow covers the row changing under a cursor left
+// partway down the fields, which a refresh that reorders rows does with no key pressed.
 func TestDetailsCursorStartsAtTheTopOfAnotherRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.details.row, m.details.cursor = "another-agent", 4
@@ -188,10 +184,8 @@ func TestDetailsCursorStartsAtTheTopOfAnotherRow(t *testing.T) {
 	assert.Equal(t, 0, m.detailsCursor(m.hoveredDetails()))
 }
 
-// TestDetailsKeysActOnTheFieldOnScreen covers the row changing under a focused section, which
-// a refresh does when the agent the cursor was on is archived from somewhere else: the cursor
-// lands on whatever now sits at that index. The section draws that record from its top, so the
-// next key has to move from the top and the copy key has to take the field being pointed at.
+// TestDetailsKeysActOnTheFieldOnScreen covers the row changing under a focused section, where
+// the section redraws from its top and the next key has to act on the field now pointed at.
 func TestDetailsKeysActOnTheFieldOnScreen(t *testing.T) {
 	clip := &fakeClipboard{}
 	m := detailsModel(&recordingTmux{})
@@ -297,9 +291,8 @@ func TestDetailsNeedsRoomForChromeAndAField(t *testing.T) {
 	assert.NotEmpty(t, m.detailsView(), "half the pane now fits the chrome and one field")
 }
 
-// TestDetailsOnTheOtherLists covers the section under the two lists that are not the agents
-// tree. Each says what its own hovered row holds, and the section itself is the same one: the
-// focus key takes the keys the same way from wherever it is drawn.
+// TestDetailsOnTheOtherLists covers the same section drawn under the two lists that are not
+// the agents tree, where the focus key behaves the same wherever it is pressed.
 func TestDetailsOnTheOtherLists(t *testing.T) {
 	t.Run("a schedule shows when it fires and what its runs are launched with", func(t *testing.T) {
 		m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
@@ -440,9 +433,8 @@ func assertKeysWithTheList(t *testing.T, m model) {
 	assert.NotContains(t, m.renderHelp(m.agentHelp()), "back to the list", "and the legend is its own")
 }
 
-// TestDetailsFocusNeedsRoomToDrawIn covers the focus key pressed at a pane too short for the
-// section to be drawn at all. The keys stay with the list rather than going to a block that is
-// not on screen.
+// TestDetailsFocusNeedsRoomToDrawIn covers the focus key in a pane too short to draw the
+// section, where the keys stay with the list rather than going somewhere off screen.
 func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
 	m := strandedModel()
 	m.height = 8
@@ -450,9 +442,8 @@ func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
 	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
 }
 
-// TestDetailsFocusGivenUpWhenThePaneShrinks covers the terminal shrinking under a focused
-// section, which takes the section off screen without anyone pressing a key. The keys go back
-// to the list at once rather than a keypress being spent taking them back.
+// TestDetailsFocusGivenUpWhenThePaneShrinks covers the terminal shrinking a focused section
+// off screen, where the keys go back to the list without a keypress being spent on it.
 func TestDetailsFocusGivenUpWhenThePaneShrinks(t *testing.T) {
 	focused := send(t, strandedModel(), "ctrl+t")
 	require.NotEmpty(t, focused.detailsView())
@@ -470,9 +461,8 @@ func TestDetailsShareTooSmallToDrawAField(t *testing.T) {
 	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
 }
 
-// TestDetailsFocusReturnsWithTheSection covers the terminal shrinking and being pulled back
-// out. The keys go to the list while the section is off screen and come back to the section
-// with it, on the field they were left on, rather than the focus being spent by the resize.
+// TestDetailsFocusReturnsWithTheSection covers the terminal shrinking and growing again, where
+// the keys come back to the section on the field they were left on.
 func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
 	focused := send(t, send(t, strandedModel(), "ctrl+t"), "j")
 	require.Equal(t, 1, focused.details.cursor)

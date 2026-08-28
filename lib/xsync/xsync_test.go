@@ -7,9 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestWithinTimeoutGivesUp covers the teardown moving on from something that will not
-// finish. A pool waiting on a query that will not end, or a loop that missed its
-// cancellation, would otherwise hold the process open for good.
+// TestWithinTimeoutGivesUp pins that a hang is left behind rather than holding the process
+// open for good.
 func TestWithinTimeoutGivesUp(t *testing.T) {
 	assert.True(t, WithinTimeout(5*time.Second, func() {}), "work that finishes is waited for")
 

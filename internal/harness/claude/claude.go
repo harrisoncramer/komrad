@@ -35,22 +35,19 @@ func (h *Harness) GetID() string { return binary }
 // GetBinary is the CLI a pane's shell has to resolve to start an agent.
 func (h *Harness) GetBinary() string { return binary }
 
-// GetInterruptKeys stops Claude where it stands. Escape interrupts what it is doing, and the
-// second one dismisses the prompt the first can leave behind, so a message typed after them
-// lands in the composer rather than in whatever was on screen.
+// GetInterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the
+// first can leave behind so a later message lands in the composer.
 func (h *Harness) GetInterruptKeys() []string { return []string{"Escape", "Escape"} }
 
-// MintSessionID names the conversation a fresh launch will hold. Claude takes one on
-// the command line, so the panel names it before it exists, and every later resume,
-// log lookup, and relocation keys on the name it chose.
+// MintSessionID names the conversation a fresh launch will hold, since Claude takes one on the
+// command line and every later resume keys on it.
 func (h *Harness) MintSessionID() string { return uuid.NewString() }
 
-// FindSession has nothing to find. Claude is told the id of every conversation it
-// starts, so a session is never discovered after the fact. This is only relevant for Codex.
+// FindSession has nothing to find, since Claude is told the id of every conversation it starts.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
-// DefaultProjectsDir is where Claude Code writes its JSONL logs. A home that
-// cannot be read yields a relative path, which matches no logs rather than erroring.
+// DefaultProjectsDir is where Claude Code writes its JSONL logs, returning a relative path that
+// matches no logs when the home directory cannot be read.
 func DefaultProjectsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

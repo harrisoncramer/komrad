@@ -52,9 +52,8 @@ var (
 	settledMarkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 )
 
-// RenderRow draws one row of the diff at the width it is being shown at. The cursor is passed
-// in rather than held, since the row list is drawn once and only the row under the cursor is
-// redrawn as it moves.
+// RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
+// argument since only the row under it is redrawn as it moves.
 func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 	current, ok := v.getRow(y)
 	if !ok {
@@ -86,8 +85,7 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 }
 
 // renderGutter draws the line numbers, what the diff did to the line, and whether a thread is
-// pinned to it. A thread the agent has replied to since you last looked is marked differently
-// from one you are still waiting on.
+// pinned to it.
 func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalColor) string {
 	mark, markStyle := " ", threadMarkStyle
 	if thread, ok := v.ThreadAt(y); ok {
@@ -102,10 +100,8 @@ func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalC
 		gutterStyle.Background(background).Render(" ")
 }
 
-// markFor is the glyph a thread gets in the gutter. A reply you have not read outranks
-// everything, then whether the thread is settled, and last whether the line under it has
-// changed. A thread in the section at the foot needs none of that third one: the header there
-// already says its code is gone.
+// markFor is the glyph a thread gets in the gutter, ranking an unread reply first, then
+// whether the thread is settled, then whether the line under it has changed.
 func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	switch {
 	case thread.GetUnreadByHuman():
@@ -119,9 +115,8 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	return threadMark, threadMarkStyle
 }
 
-// renderThreadRow draws a thread that has no line left to stand on, in the section at the foot
-// of the diff. It says where it was written and what it opened with, which is enough to know
-// whether it is worth standing on to read the rest.
+// renderThreadRow draws a thread with no line left to stand on, saying where it was written
+// and what it opened with.
 func (v *View) renderThreadRow(current row, isCursor bool, width int) string {
 	background := getBackground(diff.Context, isCursor)
 	style := lipgloss.NewStyle().Background(background)
@@ -169,13 +164,8 @@ func getBackground(kind diff.LineKind, isCursor bool) lipgloss.TerminalColor {
 	return plainBackground
 }
 
-// renderTokens draws one lexed line on a background. The tokens are drawn one at a time
-// rather than through a chroma formatter, which is what lets the background survive: a
-// formatter resets after every token, and a reset drops whatever was painted behind it.
-//
-// Anything the search found is painted on its own background, so a token is cut at the edges
-// of a match and its pieces drawn separately. The lexer's colours are kept either way: a match
-// changes what is behind the text, never the text's own colour.
+// renderTokens draws one lexed line on a background, one token at a time rather than through
+// a chroma formatter, which resets after every token and drops the background behind it.
 func renderTokens(line styledLine, fallback string, background lipgloss.TerminalColor, found []span) string {
 	if len(line) == 0 {
 		line = styledLine{{text: fallback}}
@@ -190,6 +180,8 @@ func renderTokens(line styledLine, fallback string, background lipgloss.Terminal
 			style = style.Foreground(lipgloss.Color(current.foreground))
 		}
 
+		// A match is painted on its own background, so a token is cut at the edges of one and
+		// its pieces drawn separately.
 		for _, piece := range cutBy(current.text, at, found) {
 			pieceStyle := style
 			if piece.matched {
@@ -211,8 +203,8 @@ type piece struct {
 	matched bool
 }
 
-// cutBy splits a token at every edge of a match that falls inside it. The token's own offset
-// in the line is passed in, since a match is recorded against the line rather than the token.
+// cutBy splits a token at every edge of a match inside it, taking the token's offset in the
+// line since a match is recorded against the line.
 func cutBy(text string, at int, found []span) []piece {
 	if len(found) == 0 {
 		return []piece{{text: text}}

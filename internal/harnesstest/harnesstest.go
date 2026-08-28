@@ -75,8 +75,8 @@ type Harness struct {
 
 var _ harness.Harness = (*Harness)(nil)
 
-// New writes the agent script under root and returns a harness that runs it. Everything
-// this harness keeps lives under root, so a test's scratch directory is the whole of it.
+// New writes the agent script under root and returns a harness that runs it, keeping everything
+// it holds under root.
 func New(root string) (*Harness, error) {
 	for _, dir := range []string{"logs", "state"} {
 		if err := os.MkdirAll(filepath.Join(root, dir), 0o755); err != nil {
@@ -111,9 +111,8 @@ func (h *Harness) MintSessionID() string { return uuid.NewString() }
 // FindSession has nothing to find, since every conversation is named at launch.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
-// BuildCommand renders the command line that puts the fake agent up. It is typed into a
-// pane and parsed by the shell running there, so everything interpolated is quoted the way
-// a real harness has to quote it.
+// BuildCommand renders the command line that puts the fake agent up, quoting everything
+// interpolated the way a real harness has to.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	command := harness.EnvPrefix(launch) +
 		"FAKE_ROOT=" + harness.QuoteArg(h.root) +
@@ -141,9 +140,8 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 // GetInterruptKeys is what the panel would send to stop this harness where it stands.
 func (h *Harness) GetInterruptKeys() []string { return []string{"Escape"} }
 
-// ReadActivity reads the bottom of a captured frame. Only the last line the agent printed
-// is its current state; anything above it is one it has already left, and a frame ending
-// in something else is a capture landing mid-write rather than a verdict.
+// ReadActivity reads the bottom of a captured frame, where only the last line the agent
+// printed is its current state.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(lines) > tailLines {
@@ -179,19 +177,16 @@ func (h *Harness) GetLogPath(sessionID string) string {
 	return path
 }
 
-// ReadLog reads whatever the log holds past offset. Each turn is one line of a role and
-// what was said, which is enough for the syncer to have something to index and little
-// enough that a test can write one by hand.
+// ReadLog reads whatever the log holds past offset, one line per turn of a role and what was
+// said.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flatten)
 }
 
-// Relocate has nothing to carry. The log is keyed by session id alone, so an agent resumed
-// somewhere else finds it where it was.
+// Relocate has nothing to carry, since the log is keyed by session id alone.
 func (h *Harness) Relocate(string, string) error { return nil }
 
-// SetActivity is what the test writes to move an agent. The agent reads the file every
-// tick, so the change shows in its pane within one.
+// SetActivity is what the test writes to move an agent, which shows in its pane within a tick.
 func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 	line := idleLine
 	switch activity {
@@ -205,9 +200,8 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 	return h.Show(agentID, line)
 }
 
-// Show is the line an agent prints on its next tick, whatever it is. A harness only knows
-// its own prompt, so this is how a test leaves a pane showing something nothing recognises,
-// which is what a CLI still coming up looks like.
+// Show is the line an agent prints on its next tick, which is how a test leaves a pane showing
+// something nothing recognises.
 func (h *Harness) Show(agentID, line string) error {
 	path := filepath.Join(h.root, "state", agentID)
 	if err := os.WriteFile(path, []byte(line), 0o600); err != nil {
@@ -217,9 +211,8 @@ func (h *Harness) Show(agentID, line string) error {
 	return nil
 }
 
-// Typed is every line that has been typed at an agent's pane, oldest first. The agent reads
-// its own stdin, so this is what actually reached it rather than what tmux was asked to
-// send.
+// Typed is every line typed at an agent's pane, oldest first, as its own stdin received them
+// rather than what tmux was asked to send.
 func (h *Harness) Typed(agentID string) ([]string, error) {
 	raw, err := os.ReadFile(filepath.Join(h.root, "typed", agentID))
 	if os.IsNotExist(err) {
@@ -254,9 +247,8 @@ func Frame(activity harness.Activity) string {
 	return idleLine
 }
 
-// Say appends a turn to a conversation, standing in for the agent having said something.
-// The syncer reads the log rather than the pane, so this is how a test gives it text to
-// index without waiting on an agent that only ever prints its state.
+// Say appends a turn to a conversation, which is how a test gives the syncer text to index
+// without waiting on an agent.
 func (h *Harness) Say(sessionID, role, content string) error {
 	path := filepath.Join(h.root, "logs", sessionID+".jsonl")
 

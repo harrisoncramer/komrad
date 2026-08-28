@@ -162,8 +162,6 @@ func (r *refusingWorkflows) ArchiveWorkflow(context.Context, *connect.Request[wo
 }
 
 // TestWorkflowWrites covers each write handing its error back rather than discarding it.
-// The last case never reaches the service: a blank name is treated as an empty submit, not
-// a failure.
 func TestWorkflowWrites(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -249,8 +247,8 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
-// TestApplyWorkflows covers what the refresh does to the tree's folders. The
-// listing comes back newest first, so the fresh values are taken as they come.
+// TestApplyWorkflows pins the refresh taking the listed workflows as they come, newest
+// first.
 func TestApplyWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -293,10 +291,8 @@ func TestApplyWorkflows(t *testing.T) {
 	}
 }
 
-// TestRefreshRestagesWorkflowContext covers the reason the refresh carries workflows at
-// all. A context edited through the MCP tools or another panel only reaches this one through
-// the listing, and the stage has to redraw for it to be seen. Restaging identical text would
-// respawn the pane every tick, so that is checked not to happen.
+// TestRefreshRestagesWorkflowContext pins a context edited elsewhere reaching the stage,
+// without restaging identical text and respawning the pane every tick.
 func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := layout.New(tmux, config.DefaultLayout())

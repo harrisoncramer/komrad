@@ -38,9 +38,8 @@ func TestClientTarget(t *testing.T) {
 	}
 }
 
-// TestQueryCarriesStderr covers what a failed tmux call reports. These run on a loop with
-// nobody watching, so an exit status with neither the command nor tmux's own complaint in
-// it is the difference between a diagnosable failure and a mystery.
+// TestQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
+// complaint, since nobody is watching the loop these run on.
 func TestQueryCarriesStderr(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed")
@@ -54,14 +53,8 @@ func TestQueryCarriesStderr(t *testing.T) {
 	assert.Contains(t, err.Error(), "error connecting", "and tmux's own stderr comes through")
 }
 
-// TestQueryGivesUpOnWedgedTmux covers a tmux that never answers, which is the failure the
-// reconcile loop cannot survive. A pass runs to completion before the loop looks at its
-// context again, so a call that blocks forever stops every agent being observed and never
-// says why.
-//
-// The second case is why killing the process is not the whole fix. A tmux that leaves
-// something else holding the stdout it inherited keeps the read open past the kill, and a
-// real tmux daemonizes a server that does precisely that.
+// TestQueryGivesUpOnWedgedTmux covers a tmux that never answers, which would otherwise stall
+// a whole reconcile pass with no word of why.
 func TestQueryGivesUpOnWedgedTmux(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -72,6 +65,8 @@ func TestQueryGivesUpOnWedgedTmux(t *testing.T) {
 			script: "#!/bin/sh\nexec /bin/sleep 30\n",
 		},
 		{
+			// A real tmux daemonizes a server holding the stdout it inherited, which keeps the
+			// read open past the kill.
 			name:   "a tmux that leaves a child holding its output",
 			script: "#!/bin/sh\n/bin/sleep 30 &\nexec /bin/sleep 30\n",
 		},
@@ -125,10 +120,8 @@ func captureDefaultLog(t *testing.T) *bytes.Buffer {
 	return &buf
 }
 
-// TestKillPaneIsQuietWhenThePaneIsAlreadyGone covers the race two teardown paths can hit:
-// a delete and an archive, or two deletes, both read a pane as owned before either kills
-// it, so the loser's kill-pane targets a pane already gone. That is the outcome the loser
-// asked for, not a failure, and used to log a WARN that read like one.
+// TestKillPaneIsQuietWhenThePaneIsAlreadyGone covers a delete and an archive racing the same
+// pane, where the loser's kill-pane finds it gone and used to log a WARN.
 func TestKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
 	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho \"can't find pane: %13\" >&2\nexit 1\n"))
 	buf := captureDefaultLog(t)
@@ -138,9 +131,8 @@ func TestKillPaneIsQuietWhenThePaneIsAlreadyGone(t *testing.T) {
 	assert.Empty(t, buf.String(), "the pane being already gone is the wanted outcome, not a WARN")
 }
 
-// TestKillPaneStillWarnsOnARealFailure guards the quiet case above from swallowing
-// everything: a failure that is not the pane being gone still has nobody watching it but
-// the log.
+// TestKillPaneStillWarnsOnARealFailure guards the quiet case above from swallowing a failure
+// that is not the pane being gone.
 func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	t.Setenv("PATH", fakeTmux(t, "#!/bin/sh\necho 'error connecting to /tmp/tmux-501/weave (No such file or directory)' >&2\nexit 1\n"))
 	buf := captureDefaultLog(t)
@@ -150,17 +142,16 @@ func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	assert.Contains(t, buf.String(), "a tmux command failed", "a real failure is not silenced")
 }
 
-// TestRunsShellReadsMeasuredCommands pins the allowlist to what the CLIs actually report.
-// A pane running Claude reports its version string, because Claude sets its own process
-// title, and one running Codex reports the name of the wrapper script it was installed as.
-// Neither is the binary weave launched, so the test is only ever whether a pane is back at
-// a shell, and anything unrecognised has to read as a CLI still running.
+// TestRunsShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports,
+// since neither CLI reports the binary weave launched.
 func TestRunsShellReadsMeasuredCommands(t *testing.T) {
 	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
 	for _, command := range shells {
 		assert.True(t, PaneStatus{Command: command}.RunsShell(), "%q is a shell", command)
 	}
 
+	// Claude sets its own process title so a pane reports its version, and Codex reports the
+	// wrapper script it was installed as.
 	others := []string{"2.1.241", ".codex-wrapped", "codex", "claude", "node", "cat", ""}
 	for _, command := range others {
 		assert.False(t, PaneStatus{Command: command}.RunsShell(), "%q is not a shell", command)

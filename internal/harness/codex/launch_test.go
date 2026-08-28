@@ -12,9 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuildCommand covers the command typed into the pane. Every launch carries the
-// panel's MCP server, so each case states the part that distinguishes it rather than
-// the whole line.
+// TestBuildCommand covers the command typed into the pane, stating the distinguishing part
+// rather than the whole line since every launch carries the panel's MCP server.
 func TestBuildCommand(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -93,9 +92,8 @@ func TestBuildCommand(t *testing.T) {
 	}
 }
 
-// TestBuildCommandRegistersMCPServer covers how the panel's own server reaches an
-// agent. Codex takes MCP servers from its config rather than a flag, so the launch
-// overrides that config for itself alone and leaves the user's file untouched.
+// TestBuildCommandRegistersMCPServer covers Codex taking MCP servers from its config rather
+// than a flag, so the launch overrides that config and leaves the user's file untouched.
 func TestBuildCommandRegistersMCPServer(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -126,9 +124,8 @@ func TestBuildCommandRegistersMCPServer(t *testing.T) {
 	}
 }
 
-// TestBuildCommandQuotesFlags covers the injection this quoting exists to stop. Flags
-// reach the pane through send-keys, so anything a shell would act on has to come out
-// the far side as a literal argument.
+// TestBuildCommandQuotesFlags covers flags reaching the pane through send-keys, where anything
+// a shell would act on has to arrive as a literal argument.
 func TestBuildCommandQuotesFlags(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -161,9 +158,8 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 	}
 }
 
-// TestOpeningPrompt covers what a spawned agent is actually told. Codex has no way to
-// append to its system prompt, so the buildBriefing is the first thing said and arrives
-// ahead of the prompt the agent was created with.
+// TestOpeningPrompt covers the briefing arriving ahead of the prompt the agent was created
+// with, since Codex has no way to append to its system prompt.
 func TestOpeningPrompt(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -258,13 +254,8 @@ func TestTOMLString(t *testing.T) {
 	}
 }
 
-// TestMCPHeadersNameTheEnvironment covers how Codex is told to identify the agent on every
-// call it makes back to the panel. Codex takes its servers from config rather than a flag,
-// so this rides on the same per-invocation override the endpoint does.
-//
-// It names environment variables rather than this agent's ids, which is what Codex's
-// env_http_headers is for, and it means the override is the same for every agent while the
-// values still differ per agent.
+// TestMCPHeadersNameTheEnvironment covers Codex identifying the agent through env_http_headers,
+// which keeps the override the same for every agent while the values differ.
 func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{
 		CacheDir:    t.TempDir(),
@@ -281,9 +272,8 @@ func TestMCPHeadersNameTheEnvironment(t *testing.T) {
 	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
 }
 
-// TestMCPHeadersOnlyWithAnEndpoint covers a launch with no server to register. There is
-// nothing to put a header on, so no override is written rather than one pointing at
-// nothing.
+// TestMCPHeadersOnlyWithAnEndpoint covers a launch with no server to register, where no
+// override is written rather than one pointing at nothing.
 func TestMCPHeadersOnlyWithAnEndpoint(t *testing.T) {
 	command, err := NewHarness(NewHarnessParams{}).BuildCommand(harness.Launch{AgentID: "agent-1"})
 	require.NoError(t, err)

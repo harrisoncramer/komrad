@@ -7,15 +7,8 @@ import (
 	"strings"
 )
 
-// Relocate moves a conversation's log into the projects folder that belongs to
-// dir, so a claude started there resumes it rather than opening an empty session.
-// Claude keeps a conversation under a folder named after the directory it ran in
-// and matches --resume against that folder alone, so a session is otherwise only
-// reachable from the path the agent was created in.
-//
-// It moves rather than copies because a log is found by globbing for the session
-// id, and two files answering to the same id would leave that reading whichever
-// sorted first.
+// Relocate moves a conversation's log into the projects folder belonging to dir, since Claude
+// matches --resume against the folder named after the directory it ran in.
 func (h *Harness) Relocate(sessionID, dir string) error {
 	if h.projectsDir == "" || sessionID == "" {
 		return nil
@@ -31,6 +24,8 @@ func (h *Harness) Relocate(sessionID, dir string) error {
 		return fmt.Errorf("failed to create the projects folder for %q: %w", dir, err)
 	}
 
+	// A log is found by globbing the session id, so moving rather than copying keeps two files
+	// from answering to it.
 	if err := os.Rename(current, filepath.Join(target, sessionID+".jsonl")); err != nil {
 		return fmt.Errorf("failed to move the log for session %q: %w", sessionID, err)
 	}

@@ -77,8 +77,8 @@ type UpsertParams struct {
 	Offset  int64
 }
 
-// Upsert writes an agent's transcript, the whole copy the panel previews. What search
-// matches is the turns, written separately by AppendTurns.
+// Upsert writes an agent's transcript, the whole copy the panel previews, while the turns
+// search matches are written by AppendTurns.
 func (s *Store) Upsert(ctx context.Context, params UpsertParams) error {
 	if err := s.queries.UpsertTranscript(ctx, models.UpsertTranscriptParams{
 		AgentID:      params.AgentID,
@@ -98,8 +98,7 @@ type Turn struct {
 }
 
 // AppendTurns indexes newly-synced turns for an agent, numbering them after those already
-// stored. The search index lives on a generated column, so Postgres builds it as part of
-// this write and there is nothing separate to reindex.
+// stored, with Postgres building the search index as part of the write.
 func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) error {
 	if len(turns) == 0 {
 		return nil
@@ -128,9 +127,8 @@ func (s *Store) AppendTurns(ctx context.Context, agentID string, turns []Turn) e
 	return nil
 }
 
-// DeleteTurns drops every indexed turn for an agent. The syncer calls this when a log has
-// been rewritten shorter than what was read, so the stored turns no longer correspond to
-// the file and the whole transcript is read again.
+// DeleteTurns drops every indexed turn for an agent, which the syncer calls once a log has
+// been rewritten shorter than what was already read.
 func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
 	if err := s.queries.DeleteAgentTranscriptChunks(ctx, agentID); err != nil {
 		return fmt.Errorf("failed to delete transcript chunks for %q: %w", agentID, err)
@@ -139,8 +137,8 @@ func (s *Store) DeleteTurns(ctx context.Context, agentID string) error {
 	return nil
 }
 
-// Delete removes the transcripts belonging to agents, both the whole copies and the
-// indexed turns. It runs alongside the agents' own delete, in the same transaction.
+// Delete removes the transcripts belonging to agents, both the whole copies and the indexed
+// turns, in the same transaction as the agents' own delete.
 func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
 	if len(agentIDs) == 0 {
 		return nil
@@ -162,9 +160,8 @@ type Cursor struct {
 	Seq     int32   `json:"s"`
 }
 
-// Validate refuses a cursor holding anything but an agent id. The rank and the sequence
-// cannot arrive as anything but numbers, so either one out of place narrows the page
-// rather than failing the query.
+// Validate refuses a cursor holding anything but an agent id, since a rank or a sequence out
+// of place only narrows the page.
 func (c Cursor) Validate() error {
 	if !store.IsID(c.AgentID) {
 		return fmt.Errorf("cursor agent id %q is not an id", c.AgentID)
@@ -180,13 +177,9 @@ type SearchParams struct {
 	AgentID *string
 }
 
-// Search returns one page of the turns matching the query, most relevant first, resuming
-// after the cursor when one is given. A blank query returns no hits, and one agent can
-// appear more than once, since a conversation matches on each turn that did.
-//
-// A turn the word query matched arrives with its snippet already marked, since only the
-// database knows which lexemes it matched. A turn only the substring fallback found ranks
-// zero and arrives plain, so its literal match is marked here.
+// Search returns one page of the turns matching the query, most relevant first, where a word
+// match arrives already marked by the database and a substring fallback ranks zero and is
+// marked here.
 func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 	if strings.TrimSpace(query) == "" {

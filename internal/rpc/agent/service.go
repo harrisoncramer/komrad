@@ -112,8 +112,7 @@ func NewService(p NewServiceParams) *Service {
 	}
 }
 
-// CreateAgent launches a background agent and returns it as stored. A request reaching
-// here has already passed the constraints declared in the proto.
+// CreateAgent launches a background agent and returns it as stored.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
 	created, err := s.launcher.NewAgent(ctx, agents.NewAgentParams{
 		Title:          req.Msg.GetTitle(),
@@ -174,8 +173,7 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
 }
 
-// ListAgents returns one page of stored agents, newest first. The request picks which set
-// is listed, the live agents or the archived ones.
+// ListAgents returns one page of stored agents, newest first.
 func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
 	paginator, err := pagination.New[agentstore.Cursor, agent](req.Msg.GetPagination())
 	if err != nil {
@@ -231,18 +229,14 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent), hasUnread).Agent}), nil
 }
 
-// SetTags tags every agent named, and an unset tag clears the ones they carry. A
-// request that reached nothing at all is an error rather than a quiet success, which would
-// leave the caller believing in a tag it never made.
-//
-// One that reached some of its ids is not an error. A tag is drawn on a row and nothing
-// more, and an agent archived between the caller choosing it and the write landing has no
-// row left to draw one on.
+// SetTags tags every agent named, and an unset tag clears the ones they carry.
 func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
 	tagged, err := s.agents.SetTags(ctx, req.Msg.GetIds(), req.Msg.Tag)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the tag: %w", err))
 	}
+	// Reaching only some of the ids is fine, since an agent archived in the meantime has no
+	// row left to draw a tag on.
 	if tagged == 0 {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
 	}
@@ -250,8 +244,7 @@ func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetT
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SetHidden hides an agent from the panel's sidebar or brings it back. An id matching nothing
-// is an error, for the reason it is on a tag.
+// SetHidden hides an agent from the panel's sidebar or brings it back.
 func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
 	if err != nil {
@@ -265,8 +258,7 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 }
 
 // SetMetadata records one fact an agent found out about its own work, or clears the key
-// when the value is unset. An id matching nothing is an error, as it is on a tag, but
-// clearing a key nothing held is not: the agent asked for that key to be gone and it is.
+// when the value is unset.
 func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 		ID:    req.Msg.GetId(),
@@ -279,6 +271,7 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	case err != nil:
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the metadata: %w", err))
 	}
+	// Clearing a key nothing held is not an error, since the agent asked for it to be gone.
 	if !changed && req.Msg.Value != nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
@@ -286,10 +279,8 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// Log writes one line to weave's log, tagged to the given agent. It is the channel a
-// running action, or anything else acting on an agent's behalf, uses to say what it did on
-// purpose, since an action's own stdout goes nowhere and its stderr is read back only when
-// it fails.
+// Log writes one line to weave's log for an agent, which is how a running action says what
+// it did, since an action's own stdout goes nowhere.
 func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
 	id := callerScope(ctx, req.Msg.GetId())
 	if id == "" {
@@ -415,8 +406,8 @@ func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.Lis
 	return connect.NewResponse(response), nil
 }
 
-// DeleteMail permanently removes mail, keyed by id. It does not claim the mail as
-// read on the way out; the recipient simply never sees it.
+// DeleteMail permanently removes mail by id, so the recipient never sees it rather than
+// having it marked as read.
 func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.mail.DeleteMail(ctx, req.Msg.GetIds())
 	switch {
@@ -429,8 +420,7 @@ func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.D
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// DeleteAgents stops agents and removes them with their configs and transcripts. The
-// manager owns this rather than the store, since stopping an agent means killing its pane.
+// DeleteAgents stops agents and removes them with their configs and transcripts.
 func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.DeleteAgents(ctx, req.Msg.GetIds())
 	switch {
@@ -443,9 +433,8 @@ func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// EmptyArchive queues the sweep that deletes the whole archive. Deleting that many agents
-// runs a cleanup action apiece and takes as long as it takes, so the work is handed to a
-// background job rather than held open on the request.
+// EmptyArchive queues the sweep that deletes the whole archive as a background job, since
+// every agent in it runs its own cleanup action and the request would be held open too long.
 func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.archive.EmptyArchive(ctx); err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to empty the archive: %w", err))
@@ -454,8 +443,7 @@ func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.E
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// ArchiveAgents stops agents and hides them, keeping the records and transcripts. It is the
-// reversible half of removing agents, and DeleteAgents the other.
+// ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Service) ArchiveAgents(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	err := s.launcher.ArchiveAgents(ctx, req.Msg.GetIds())
 	switch {
@@ -522,9 +510,8 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed), hasUnread).Agent}), nil
 }
 
-// UpdateAgent renames the agent with the given id. A name a live agent already holds is a
-// conflict rather than a server fault, since reporting the unique index's refusal as
-// internal would leak a database message to a caller who picked a taken name.
+// UpdateAgent renames the agent with the given id, reporting a name another agent holds as
+// a conflict rather than leaking the database's own refusal.
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
 	switch {
@@ -539,18 +526,16 @@ func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SearchTranscripts runs a full-text search over stored transcripts and returns one page
-// of matching agents with a marked snippet, best match first. The page token encodes a
-// position in this query's ranking, so replaying it against another query means nothing.
-//
-// Scope is worked out per page rather than carried in the token, so a replayed cursor
-// cannot widen a search.
+// SearchTranscripts runs a full-text search over stored transcripts and returns one page of
+// matching agents with a marked snippet, best match first.
 func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
 	paginator, err := pagination.New[transcriptstore.Cursor, searchHit](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
 
+	// Scope is worked out per page rather than carried in the token, so a replayed cursor
+	// cannot widen a search.
 	scope := searchScope(ctx, req.Msg.GetAgentId())
 	if scope != nil {
 		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
@@ -580,11 +565,12 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 }
 
 // GetTranscript returns an agent's full stored transcript by id, so the search preview can
-// show a match in its surrounding conversation. An id that matches no agent is not_found
-// rather than empty content, which would read as an agent with nothing stored yet.
+// show a match in its surrounding conversation.
 func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
 	logCrossAgentRead(ctx, req.Msg.GetAgentId(), "agent read another agent's transcript")
 
+	// Empty content would read as an agent with nothing stored yet, so a missing one is
+	// not_found instead.
 	exists, err := s.agents.Exists(ctx, req.Msg.GetAgentId())
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up agent: %w", err))

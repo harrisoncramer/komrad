@@ -13,9 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEmptyArchiveSweepsEveryPage covers the walk. The archive is deleted a page at a time
-// and a page is read by cursor, so a sweep that asked the front of the archive twice, or
-// stopped at the first page, would leave agents behind and report nothing wrong.
+// TestEmptyArchiveSweepsEveryPage covers the walk by cursor, since asking the front of the
+// archive twice or stopping at the first page would leave agents behind and say nothing.
 func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 	tests := []struct {
 		name string
@@ -82,9 +81,8 @@ type fakeArchive struct {
 	deleted int
 	pages   int
 
-	// failOn is the page, counted from one, whose delete refuses. Zero is every page going
-	// through, which is what the zero value of this fake has to mean for the callers that
-	// only need an archive with nothing in it.
+	// failOn is the page, counted from one, whose delete refuses, and zero is every page
+	// going through.
 	failOn int
 
 	// keepRows is the delete succeeding while leaving the rows where they are, which is what

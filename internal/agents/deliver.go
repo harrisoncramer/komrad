@@ -24,11 +24,9 @@ const (
 
 const nudgeEnterDelay = 300 * time.Millisecond
 
-// nudgeRetryAfter is how long a nudge stands before the mail still being unread is taken as
-// evidence it went nowhere. Keys typed at a pane can be swallowed with nothing to say so, and
-// an agent that never saw the line has no reason to move, so an agent moving is not something
-// this can wait for. A nudge that landed is answered in seconds, so a minute is long enough
-// that mail outliving one means it was lost.
+// nudgeRetryAfter is how long a nudge stands before unread mail is taken as evidence it went
+// nowhere, since keys typed at a pane can be swallowed silently and a nudge that landed is
+// answered in seconds.
 const nudgeRetryAfter = time.Minute
 
 type paneReader interface {
@@ -80,9 +78,8 @@ func NewDeliveryService(p NewDeliveryServiceParams) *DeliveryService {
 	}
 }
 
-// DeliverAll is one pass over every mailbox holding mail. It re-derives what to do from the
-// rows each time rather than from anything it remembers, so a pass that was missed costs a
-// delay and nothing else.
+// DeliverAll is one pass over every mailbox holding mail, working from the rows each time so
+// that a missed pass costs a delay and nothing else.
 func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 	mailboxes, err := s.mailboxReader.ListPendingMailboxes(ctx)
 	if err != nil {
@@ -149,20 +146,17 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 }
 
 // canPaneTakeKeys reports whether the pane is showing the harness's own idle prompt, which is
-// the only frame that has been seen to take both the line and the newline that submits it. A
-// CLI still coming up holds keys typed at it in the terminal buffer and reads them once it is
-// ready, but the newline does not survive that wait: the line lands in the prompt and sits
-// there unsent until the retry a minute later. The pane owning its process says nothing about
-// this, since the pane is there from the moment it opens.
-//
-// A harness this binary cannot read is let through, since no frame of its can ever be
-// recognised and mail to it would otherwise never go anywhere.
+// the only frame seen to take both the line and the newline that submits it.
 func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
 	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
+		// No frame of an unknown harness can be recognised, so its mail would otherwise never go
+		// anywhere.
 		return true
 	}
 
+	// A CLI still starting up holds the line in the terminal buffer but loses the newline, so
+	// the line sits in the prompt unsent until the retry.
 	return hn.ReadActivity(s.paneTyper.CapturePane(agent.Pane)) == harness.ActivityIdle
 }
 

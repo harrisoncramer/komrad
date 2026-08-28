@@ -5,9 +5,8 @@ import "time"
 
 const friendlyLayout = "Jan 2 at 3:04pm"
 
-// Friendly renders a timestamp in the viewer's local time zone as
-// "Jul 2 at 2:30pm". Stored timestamps are UTC, so it converts first. A zero
-// time yields an empty string so callers can render "unknown" as blank.
+// Friendly renders a stored UTC timestamp in the viewer's local time zone as
+// "Jul 2 at 2:30pm", or an empty string when the time is zero.
 func Friendly(t time.Time) string {
 	if t.IsZero() {
 		return ""

@@ -128,9 +128,8 @@ func (m *model) enterScreen(next screen) {
 	m.screen = next
 }
 
-// takeKey applies one keypress to a filter that is being typed at, and reports whether the
-// keypress was one of the filter's. Every screen with a filter shares this, since a filter is
-// the same input wherever it is drawn.
+// takeKey applies one keypress to a filter being typed at, and reports whether the keypress was
+// one of the filter's.
 func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	switch k := key.String(); {
 	case k == "esc":

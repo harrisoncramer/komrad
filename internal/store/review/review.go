@@ -22,12 +22,9 @@ const (
 	AuthorAgent AuthorKind = AuthorKind(models.ReviewAuthorKindAgent)
 )
 
-// Thread is one conversation pinned to a place in an agent's diff.
-//
-// Each side has an activity stamp and a read stamp, and unread is the one compared against
-// the other. Reading stamps the read column from the activity column of the row that was
-// shown, never from the clock, so a message written between the read and the stamp stays
-// unread instead of being marked read without being handed over.
+// Thread is one conversation pinned to a place in an agent's diff, with a read stamp taken
+// from the activity of the row that was shown rather than from the clock, so a message
+// written in between stays unread.
 type Thread struct {
 	ID      string
 	AgentID string
@@ -48,7 +45,7 @@ type Thread struct {
 	HumanReadAt *time.Time
 
 	// ResolvedAt is when the person reviewing settled the thread, nil while it is still owed an
-	// answer. Nothing about the code moving underneath touches it.
+	// answer and untouched by the code moving underneath.
 	ResolvedAt *time.Time
 
 	UnreadByAgent bool
@@ -97,11 +94,8 @@ type CreateThreadParams struct {
 	AuthorAgentID *string
 }
 
-// CreateThread pins a conversation to a place in a diff and writes its first message.
-//
-// Both rows and the activity stamp are one statement, so there is no window where a thread
-// exists with nothing said in it, and the stamp is the same NOW() the message was written
-// at rather than a second clock reading that would always be later.
+// CreateThread pins a conversation to a place in a diff and writes its first message in one
+// statement, stamping activity at the same NOW() so no thread exists with nothing said in it.
 func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*Thread, error) {
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		AgentID:       params.AgentID,
@@ -142,8 +136,8 @@ type ListThreadsParams struct {
 	AgentID string
 	// Reader is the side asking, which decides whose read stamp MarkRead moves.
 	Reader AuthorKind
-	// MarkRead claims what is returned, in the same statement that returns it. The unread
-	// flags on the answer are the ones the caller was shown, not the ones left behind.
+	// MarkRead claims what is returned in the same statement, so the unread flags on the answer
+	// are the ones the caller was shown.
 	MarkRead bool
 }
 
@@ -194,8 +188,8 @@ func (s *Store) ListThreads(ctx context.Context, params ListThreadsParams) ([]Th
 	return threads, nil
 }
 
-// GetThread is one thread, without the read stamps resolved into unread flags. It answers
-// nil for an id that names nothing, which is what the caller turns into its own not found.
+// GetThread is one thread without the read stamps resolved into unread flags, nil for an id
+// that names nothing.
 func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 	if !store.IsID(id) {
 		return nil, nil
@@ -291,8 +285,8 @@ type AddMessageParams struct {
 	ThreadID string
 
 	AuthorKind AuthorKind
-	// AuthorAgentID is the agent that wrote it, set only when an agent did. It is a link to
-	// which agent rather than the record of who wrote it, since deleting an agent clears it.
+	// AuthorAgentID links to the agent that wrote it, which deleting that agent clears, so it
+	// is not a record of who wrote it.
 	AuthorAgentID *string
 
 	Body string
@@ -351,7 +345,7 @@ func (s *Store) EditMessage(ctx context.Context, id, body string) (*Message, err
 	}, nil
 }
 
-// GetMessage is one message. It answers nil for an id that names nothing.
+// GetMessage is one message, nil for an id that names nothing.
 func (s *Store) GetMessage(ctx context.Context, id string) (*Message, error) {
 	if !store.IsID(id) {
 		return nil, nil

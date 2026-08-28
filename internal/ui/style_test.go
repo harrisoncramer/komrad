@@ -95,9 +95,8 @@ func TestUnreadMailMark(t *testing.T) {
 	assert.Contains(t, unreadMailMark(true), unreadMailIcon)
 }
 
-// TestAgentsViewUnreadMail covers the rendered row. The glyph is observed per agent at
-// read time rather than stored, so one agent with mail waiting draws it and the other
-// beside it, with none, does not.
+// TestAgentsViewUnreadMail pins the mail glyph drawn per agent, so one with mail waiting
+// shows it and the one beside it does not.
 func TestAgentsViewUnreadMail(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -128,10 +127,8 @@ func rowNamed(rows []string, name string) (string, bool) {
 	return "", false
 }
 
-// TestFocusColours covers the accent moving between the two halves of the sidebar. Only one
-// of them has the keys, and the colour is what says which: the half that has them draws its
-// title and its cursor in the accent, and the other keeps both in place without it, its title
-// grey and its cursor in the terminal's own foreground.
+// TestFocusColours pins the accent marking which half of the sidebar has the keys, while the
+// other keeps its title grey and its cursor in the terminal's own foreground.
 func TestFocusColours(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 

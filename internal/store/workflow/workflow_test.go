@@ -117,8 +117,8 @@ func TestList(t *testing.T) {
 	}
 }
 
-// TestRename covers renaming by id. Nothing keys on the name, so a rename cannot
-// collide the way an agent's can.
+// TestRename pins that a rename cannot collide, since nothing keys on a workflow's name the
+// way it does on an agent's.
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -370,9 +370,8 @@ func open(t *testing.T) *Store {
 	return New(pool.GetDB())
 }
 
-// TestGetIncludingArchived covers the read that ignores the archive, which is what an
-// agent's cleanup gets its action through. It carries whether the workflow is
-// archived rather than filtering on it, since that is what a restore is refused by.
+// TestGetIncludingArchived pins that the read carries whether the workflow is archived rather
+// than filtering on it, since that is what a restore is refused by.
 func TestGetIncludingArchived(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -434,8 +433,8 @@ func TestGetIncludingArchived(t *testing.T) {
 	}
 }
 
-// TestListPageArchived covers the two sets a listing can ask for, which are what the panel
-// and its archive each draw their headers from. A workflow in one never shows up in the other.
+// TestListPageArchived pins that a workflow in one listing never shows up in the other, which
+// is what the panel and its archive each draw their headers from.
 func TestListPageArchived(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -485,9 +484,8 @@ func TestListPageArchived(t *testing.T) {
 	}
 }
 
-// TestListPageIsAlphabetical covers the order the panel reads workflows in, and covers it
-// across a page boundary, since the cursor pages by name and id together. Two workflows
-// may share a name, so the id is what keeps a tie from serving the same row twice.
+// TestListPageIsAlphabetical covers the order the panel reads workflows in across a page
+// boundary, where the id keeps two workflows sharing a name from serving the same row twice.
 func TestListPageIsAlphabetical(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -522,11 +520,8 @@ func TestListPageIsAlphabetical(t *testing.T) {
 	assert.Equal(t, []string{"Api", "backend", "backend", "frontend", "zebra"}, names)
 }
 
-// TestListPageOrderMatchesByName covers the one thing the panel needs of this order, which
-// is that Go can reproduce it. The archive screen merges the archived listing with the live
-// one and has to sort the result itself, so a name the database orders differently from
-// ByName puts the same folder in two places on two screens. Punctuation is where the two
-// used to part: the database's en_US collation ignores a hyphen and no Go comparison does.
+// TestListPageOrderMatchesByName pins that Go can reproduce the database's order, since the
+// archive screen sorts a merged listing itself and punctuation is where the two used to part.
 func TestListPageOrderMatchesByName(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -560,9 +555,8 @@ func TestListPageOrderMatchesByName(t *testing.T) {
 		xslice.Map(got, func(w Workflow) string { return w.Name }))
 }
 
-// TestDelete covers the hard delete, keyed by id whether or not the row is archived. It
-// takes the config rows a workflow alone owns with it, since nothing else ever references
-// them once the workflow itself is gone.
+// TestDelete pins that a hard delete keyed by id takes the config rows a workflow alone owns
+// with it.
 func TestDelete(t *testing.T) {
 	tests := []struct {
 		name   string

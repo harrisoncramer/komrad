@@ -18,10 +18,8 @@ import (
 
 var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
 
-// TestSchedulerReconcile covers which schedules a pass registers with River and
-// which it takes back off. Registering is not idempotent from River's side, so a
-// pass that re-adds a schedule nothing changed about would leave two jobs firing
-// on the same expression.
+// TestSchedulerReconcile covers which schedules a pass registers and which it takes off,
+// since re-adding one nothing changed about would leave two jobs on the same expression.
 func TestSchedulerReconcile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -119,9 +117,8 @@ func TestSchedulerReconcile(t *testing.T) {
 	}
 }
 
-// TestSchedulerReconcileFailure covers a listing the reconciler could not read.
-// It has to surface rather than be swallowed as an empty listing, which would
-// read as every schedule having been deleted and take them all off River.
+// TestSchedulerReconcileFailure covers a listing the reconciler could not read surfacing,
+// since an empty one would read as every schedule having been deleted.
 func TestSchedulerReconcileFailure(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -157,12 +154,8 @@ func TestSchedulerReconcileFailure(t *testing.T) {
 	}
 }
 
-// TestSchedulerReconcileSurvivesAFailedRegistration covers a pass where River
-// refuses one schedule. An unparseable expression is already skipped so that one
-// bad row cannot stop the others, and a registration that fails is the same
-// situation arriving from the other side: the rest of the listing still has to be
-// registered, and a schedule paused or deleted since the last pass still has to
-// come off, or it keeps firing.
+// TestSchedulerReconcileSurvivesAFailedRegistration covers River refusing one schedule while
+// the rest still register and a paused one still comes off.
 func TestSchedulerReconcileSurvivesAFailedRegistration(t *testing.T) {
 	tests := []struct {
 		name string
@@ -277,11 +270,8 @@ func (r *recordingPeriodic) Remove(id string) {
 	r.removed = append(r.removed, id)
 }
 
-// TestOccurrenceFor covers which firing a job is filed under. River builds the job
-// when its enqueuer gets to the schedule, which is not always promptly, and naming
-// the wrong firing is not a cosmetic error. The run either collides with the previous
-// one on the unique index and vanishes with nothing recorded, or takes the name of a
-// firing that has not happened yet and blocks the one that follows.
+// TestOccurrenceFor covers which firing a job is filed under, since River builds the job
+// whenever its enqueuer gets there and a wrong name either collides or blocks the next run.
 func TestOccurrenceFor(t *testing.T) {
 	minute := time.Date(2026, time.July, 28, 9, 34, 0, 0, time.UTC)
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
@@ -341,9 +331,8 @@ func TestOccurrenceFor(t *testing.T) {
 	}
 }
 
-// TestOccurrenceForNeverOccurs covers the walk over a schedule that has no occurrence.
-// Every step of it comes back as the zero time, which is never after the cutoff, so
-// without a stop the walk spins inside River's enqueuer and no schedule fires again.
+// TestOccurrenceForNeverOccurs covers a schedule with no occurrence, where every step comes
+// back as the zero time and without a stop the walk spins inside River's enqueuer.
 func TestOccurrenceForNeverOccurs(t *testing.T) {
 	for _, expression := range neverOccurring {
 		t.Run(expression, func(t *testing.T) {
@@ -363,8 +352,8 @@ func TestOccurrenceForNeverOccurs(t *testing.T) {
 	}
 }
 
-// TestLaunchArgsForNeverOccurs covers what such a schedule queues. Nothing, since nil
-// arguments are how River is told there is no job to insert.
+// TestLaunchArgsForNeverOccurs covers such a schedule queueing nothing, since nil arguments
+// are how River is told there is no job to insert.
 func TestLaunchArgsForNeverOccurs(t *testing.T) {
 	for _, expression := range neverOccurring {
 		t.Run(expression, func(t *testing.T) {

@@ -111,9 +111,8 @@ func TestCreateSchedule(t *testing.T) {
 	}
 }
 
-// TestScheduleWorkflowMustExist covers a caller naming a workflow that is not
-// there. It is the caller's mistake rather than a server fault, so it comes back
-// as not_found, the same code creating an agent into a missing workflow reports.
+// TestScheduleWorkflowMustExist covers a caller naming a workflow that is not there, which is
+// not_found rather than a server fault.
 func TestScheduleWorkflowMustExist(t *testing.T) {
 	svc, workflow := service(t)
 	existing := createSchedule(t, svc, workflow, "nightly")
@@ -469,10 +468,8 @@ func TestListSchedules(t *testing.T) {
 	}
 }
 
-// TestListSchedulesRefusesAMangledToken covers a token that decodes into the right shape
-// while holding an id no row can have. The token is the server's own artifact handed back
-// verbatim, so one carrying an unusable value is the caller's mistake rather than a
-// database failure.
+// TestListSchedulesRefusesAMangledToken covers a token that decodes but holds an id no row
+// can have, which is the caller's mistake rather than a database failure.
 func TestListSchedulesRefusesAMangledToken(t *testing.T) {
 	svc, _ := service(t)
 

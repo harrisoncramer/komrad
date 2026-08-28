@@ -8,9 +8,8 @@ import (
 	"weave/internal/harness"
 )
 
-// GetLogPath finds the JSONL log for a session id under Claude's projects dir, or ""
-// when no log exists. A glob on the id finds it without reproducing Claude's
-// version-specific directory-name encoding.
+// GetLogPath finds the JSONL log for a session id by globbing the id, which avoids reproducing
+// Claude's version-specific directory-name encoding.
 func (h *Harness) GetLogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
@@ -24,9 +23,8 @@ func (h *Harness) GetLogPath(sessionID string) string {
 	return matches[0]
 }
 
-// ReadLog reads whatever the log at path holds past offset and flattens it into turns.
-// Claude appends a record per line, and a shrunk file means it rewrote the log, which a
-// --resume can do.
+// ReadLog reads whatever the log at path holds past offset and flattens it into turns, treating
+// a shrunk file as a log Claude rewrote on a resume.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flattenTranscript)
 }

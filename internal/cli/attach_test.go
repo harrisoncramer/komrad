@@ -16,9 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAttachRefusesWithoutAPanel covers the one decision attach makes that open does not: it
-// shows a panel that is running and starts nothing. It runs against a real tmux server rather
-// than a fake, since what is checked is that no session appears as a side effect.
+// TestAttachRefusesWithoutAPanel runs against a real tmux server, since what is checked is
+// that no session appears as a side effect.
 func TestAttachRefusesWithoutAPanel(t *testing.T) {
 	tests := []struct {
 		name   string

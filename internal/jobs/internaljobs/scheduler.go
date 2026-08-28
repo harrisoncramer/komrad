@@ -38,13 +38,7 @@ func NewScheduler(schedules ScheduleLister, periodic periodicJobRegistrar) *Sche
 	}
 }
 
-// Reconcile makes River's periodic jobs match the schedules table. Enabled schedules are
-// registered, paused and deleted ones are removed, and a schedule whose expression changed
-// is re-registered against the new one.
-//
-// A row that cannot be parsed or that River refuses is gathered and the pass carries on,
-// since returning there would leave the schedules after it unregistered and skip the
-// removal below, which is what takes a paused schedule off.
+// Reconcile makes River's periodic jobs match the schedules table.
 func (s *Scheduler) Reconcile(ctx context.Context) error {
 	listed, err := s.schedules.List(ctx)
 	if err != nil {
@@ -59,6 +53,8 @@ func (s *Scheduler) Reconcile(ctx context.Context) error {
 			continue
 		}
 
+		// Returning on a bad row would leave the schedules after it unregistered and skip
+		// the removal below that takes a paused schedule off.
 		cron, err := agents.ParseCron(schedule.Cron, schedule.Timezone)
 		if err != nil {
 			continue

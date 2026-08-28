@@ -328,11 +328,8 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 	return nil
 }
 
-// UpdateIfLive rewrites an agent's row and reports whether it did, refusing one that is
-// archived or already gone. It is for the resume, whose write lands seconds after it decided
-// to go ahead, long enough for an archive or a delete to have taken the row in between. Those
-// two carry no compare-and-set of their own and kill the pane a row names, which for a resume
-// mid-flight is no pane at all, so the resume is the side that has to notice and clean up.
+// UpdateIfLive rewrites an agent's row and reports whether it did, refusing one that an
+// archive or a delete took while a resume was mid-flight.
 func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 	if !store.IsID(agent.ID) {
 		return false, nil
@@ -355,13 +352,8 @@ func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 	return len(updated) > 0, nil
 }
 
-// ClaimNudge takes the right to tell an agent about waiting mail. An agent that has moved
-// since it was told is told again, and so is one told longer ago than retryAfter, since a
-// nudge that stood that long against unread mail went nowhere. Its caller decides how long
-// one stands, since only the caller knows the mail is still unread, but how long has passed
-// is counted from the database's clock rather than the caller's, since nudged_at is stamped
-// on that clock. The check and the stamp are one statement, so two passes racing cannot both
-// go on to type.
+// ClaimNudge takes the right to tell an agent about waiting mail, checking and stamping in
+// one statement so two passes racing cannot both go on to type.
 func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -379,8 +371,7 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 }
 
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen
-// whether or not the value moved. Callers coalesce, since a stamp is worth writing far
-// less often than a pass runs.
+// whether or not the value moved.
 func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	if !store.IsID(id) {
 		return nil
@@ -393,10 +384,8 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// MarkSettingUpIfLive says a resume is in flight on one agent, and reports whether it did.
-// It refuses a row that is already archived, which is what makes the mark the point a resume
-// notices an archive that landed while it was starting, rather than writing a pane onto a row
-// no listing will show.
+// MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,
+// refusing an archived row so the resume notices rather than writing a pane onto a hidden one.
 func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
@@ -411,7 +400,7 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 }
 
 // SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
-// is nil. Written only by the branch syncer's periodic pass.
+// is nil, and is written only by the branch syncer's periodic pass.
 func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
 	if !store.IsID(id) {
 		return nil
@@ -424,7 +413,7 @@ func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) er
 	return nil
 }
 
-// SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk. Written
+// SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk, written
 // only by the worktree syncer's periodic pass.
 func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
 	if !store.IsID(id) {
@@ -439,8 +428,7 @@ func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed b
 }
 
 // SetInterruptedAtByID records when an agent's conversation was cut off part-way through a
-// turn, or clears it with nil. A resume reads this to decide whether to say anything on the
-// way back in.
+// turn, which a resume reads to decide whether to say anything on the way back in.
 func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
 	if !store.IsID(id) {
 		return nil
@@ -474,16 +462,15 @@ type ForgetPaneParams struct {
 }
 
 // ForgetPane drops an agent's pane, recording an interrupted turn in the same write when
-// InterruptedAt is set, and reports whether it did. Both only happen while the row still
-// reads as it did when UpdatedAt was taken, so an observation is never written back over a
-// row that has moved on since. Matching on the pane alone would not do: a tmux server hands
-// out pane ids from a counter that restarts with it, and a restart is precisely when weave
-// resumes every agent at once.
+// InterruptedAt is set, and reports whether it did.
 func (s *Store) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
 	}
 
+	// The write is guarded on UpdatedAt rather than on the pane, since a tmux server hands out
+	// pane ids from a counter that restarts with it and a restart is when weave resumes every
+	// agent at once.
 	forgotten, err := s.queries.ForgetAgentPane(ctx, models.ForgetAgentPaneParams{
 		ID:            params.ID,
 		PaneID:        params.Pane,
@@ -511,8 +498,7 @@ type ArchiveIfUnchangedParams struct {
 }
 
 // ArchiveIfUnchanged archives one agent only while its row still reads as it was observed,
-// and reports whether it did. A resume writes the pane it opened onto the row, so an archive
-// decided from an older read is one that would hide an agent that has since come back.
+// so an archive decided from an older read cannot hide an agent a resume has brought back.
 func (s *Store) ArchiveIfUnchanged(ctx context.Context, params ArchiveIfUnchangedParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
@@ -564,9 +550,8 @@ type SetMetadataParams struct {
 	Value *string
 }
 
-// SetMetadata sets or clears one metadata value and reports whether a row changed. An
-// archived agent takes metadata the same as a live one: the archive itself is recorded as
-// metadata, which is written once the row is already archived.
+// SetMetadata sets or clears one metadata value and reports whether a row changed, taking
+// an archived agent the same as a live one since the archive itself is recorded as metadata.
 func (s *Store) SetMetadata(ctx context.Context, params SetMetadataParams) (bool, error) {
 	if !store.IsID(params.ID) {
 		return false, nil
@@ -676,10 +661,8 @@ func (s *Store) CountLiveForSchedule(ctx context.Context, scheduleID string) (in
 	return count, nil
 }
 
-// NamesHoldingSchedule returns the names of the agents outside a workflow that still
-// point at a schedule, live or archived. Deleting a workflow clears the schedules
-// inside it, and agents in the workflow going with them are no obstacle, so only the
-// ones a schedule moved between workflows left behind are named.
+// NamesHoldingSchedule returns the names of the agents outside a workflow that still point
+// at a schedule, which is only the ones a schedule moved between workflows left behind.
 func (s *Store) NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
 	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
 		return nil, nil
@@ -731,17 +714,15 @@ func (s *Store) Rename(ctx context.Context, id, name string) (bool, error) {
 }
 
 // Archive moves agents out of live listings, returning the pane each row held as it was
-// archived rather than the one the caller last read. An archive is what stops the CLI in that
-// pane, and a resume or a create can record one between a caller's read and this write, so the
-// pane is read under the lock the archive itself takes. Reading it from the snapshot the
-// statement started on would not do: a write this one waited on is committed by the time the
-// row is written, and only the row being written is read again.
+// archived rather than the one the caller last read.
 func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
 		return nil, nil
 	}
 
+	// The pane is read under the lock the archive takes, since a resume or a create can
+	// record one between the caller's read and this write.
 	archived, err := s.queries.MarkAgentsArchived(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to archive %d agents: %w", len(storable), err)

@@ -322,10 +322,8 @@ func TestPRArchiverSyncSkipsArchivedAgents(t *testing.T) {
 	assert.Empty(t, archiver.archived)
 }
 
-// TestPRArchiverSyncLeavesARestoredAgentAlone covers the reason an archive is stamped at all.
-// Archiving clears the pane and restoring only clears archived_at, so a restored agent reads
-// idle and dormant with the same pull request still on it. Without the stamp the next pass
-// archives it again, two minutes after somebody deliberately brought it back.
+// TestPRArchiverSyncLeavesARestoredAgentAlone pins the reason an archive is stamped, which is
+// that a restored agent still reads idle with the same pull request on it.
 func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	st := newStore(t)
 
@@ -351,10 +349,8 @@ func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	assert.Len(t, archiver.archived, 1, "and it is not archived again")
 }
 
-// TestPRArchiverSyncStampsAnAgentItReallyArchived covers the stamp being written against a row
-// that is already archived, which is the order the loop does it in. The archive is the real one
-// here rather than a fake that only remembers it was asked, since a store that refuses metadata
-// to archived agents leaves every archive unstamped and every restore undone by the next pass.
+// TestPRArchiverSyncStampsAnAgentItReallyArchived drives the real archive, since a store that
+// refused metadata to archived rows would leave every archive unstamped.
 func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -370,10 +366,8 @@ func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
 	assert.Equal(t, prURL, metadataFor(archived, prArchivedMetadataKey), "and the archive says which pull request it was for")
 }
 
-// TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone covers the archive a person made
-// themselves, which the loop cannot tell from its own. An agent archived by hand with a
-// finished pull request on it carries no stamp, so without one written as it is restored the
-// next pass archives it again two minutes after somebody brought it back.
+// TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone pins the stamp being written on restore,
+// since an agent archived by hand carries none of its own.
 func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -397,9 +391,8 @@ func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
 	assert.Empty(t, archiver.archived, "and it is not archived again")
 }
 
-// TestRestoreWorkflowLeavesItsAgentsAlone covers the other way an agent comes back. A folder
-// restored brings its agents with it, and they are as deliberately back as one restored on
-// its own.
+// TestRestoreWorkflowLeavesItsAgentsAlone pins that agents brought back with their workflow
+// count as deliberately restored too.
 func TestRestoreWorkflowLeavesItsAgentsAlone(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -424,10 +417,8 @@ func TestRestoreWorkflowLeavesItsAgentsAlone(t *testing.T) {
 	assert.Empty(t, archiver.archived)
 }
 
-// TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn covers the recorded pull request
-// being a snapshot nothing refreshes. An agent that closed one and opened another from the same
-// branch still carries the first, and archiving on that hides an agent whose real pull request
-// is open.
+// TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn pins that a stale recorded URL
+// does not hide an agent whose real pull request is still open.
 func TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -463,11 +454,8 @@ func TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn(t *testing.T) {
 	}
 }
 
-// TestPRArchiverSyncJudgesABlankBranchByTheWorktree covers a branch weave cannot read. It is
-// read by running git in the agent's cwd, so a timeout and a detached HEAD look exactly like a
-// directory that has gone, and treating all three as "nothing to check against" archives a live
-// agent on a stale closed pull request. Whether the worktree is really gone is recorded off a
-// missing directory alone, so that is what decides it.
+// TestPRArchiverSyncJudgesABlankBranchByTheWorktree pins that a blank branch is judged by the
+// worktree, since a timeout and a detached HEAD read the same as a directory that has gone.
 func TestPRArchiverSyncJudgesABlankBranchByTheWorktree(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -524,9 +512,8 @@ func TestPRArchiverSyncMatchesTheRepositoryWhateverItsCasing(t *testing.T) {
 	assert.Len(t, archiver.archived, 1)
 }
 
-// TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL covers what agents actually write
-// under the key. A bare number is a reference gh resolves against whichever repository it runs
-// in, so it names some unrelated pull request that is very likely long merged.
+// TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL pins that a bare number is
+// ignored, since gh resolves it against whichever repository it runs in.
 func TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL(t *testing.T) {
 	st := newStore(t)
 

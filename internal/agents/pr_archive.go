@@ -16,16 +16,12 @@ import (
 
 const prStateTimeout = 15 * time.Second
 
-// prStateQuiet is how long an agent is left alone after a pass has asked about it and
-// learned nothing worth acting on, whether the pull request was open or GitHub refused to
-// answer. A merge nobody is waiting on is worth less than the quota, so the pause is long
-// and flat rather than a queue with a per-window budget.
+// prStateQuiet is how long an agent is left alone after a pass learned nothing worth acting
+// on, kept long and flat because a merge nobody is waiting on is not worth the GitHub quota.
 const prStateQuiet = 15 * time.Minute
 
-// prArchivedMetadataKey records the pull request an agent was archived for, written when the
-// loop archives one and again when somebody restores one. It is what stops an agent
-// deliberately brought back from being archived again by the next pass, and it is the only
-// thing on the row that says why the agent went away.
+// prArchivedMetadataKey records the pull request an agent was archived for, which is what stops
+// an agent somebody brought back from being archived again by the next pass.
 const prArchivedMetadataKey = "pr_archived"
 
 const (
@@ -68,9 +64,7 @@ type PRArchiver struct {
 	archiver     prArchiveAgentArchiver
 	pullRequests prStateResolver
 
-	// quiet is confined to the pass, which the loop runs one at a time, so it needs no lock
-	// of its own. Neither does now. Both would were a pass ever to look agents up
-	// concurrently.
+	// quiet and now need no lock, since the loop runs one pass at a time.
 	quiet map[string]time.Time
 
 	now func() time.Time
@@ -96,10 +90,8 @@ type prArchiveWorkflow struct {
 	repo     string
 }
 
-// Sync archives every agent whose recorded pull request has since merged or closed. An agent
-// still working is left for a later pass, since archiving kills its pane and a finished pull
-// request is no reason to take a turn away from it. Nothing is deleted: the record, the
-// transcript, and the worktree all survive, and restoring the agent brings it back.
+// Sync archives every agent whose recorded pull request has since merged or closed, leaving one
+// that is still working for a later pass rather than killing its pane mid-turn.
 func (a *PRArchiver) Sync(ctx context.Context) error {
 	agents, err := a.agents.List(ctx)
 	if err != nil {
@@ -156,8 +148,7 @@ func (a *PRArchiver) archive(ctx context.Context, finished []agentstore.Agent) (
 	return archived, nil
 }
 
-// stamp records which pull request each agent was archived for. An agent it cannot write is
-// one a later restore would archive again, so the failure is logged rather than swallowed.
+// stamp records which pull request each agent was archived for.
 func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 	for _, agent := range archived {
 		url, ok := recordedPR(agent)
@@ -179,9 +170,8 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 	}
 }
 
-// closed reports whether the pull request an agent recorded has merged or closed, and that it
-// is the pull request weave thinks it is. A lookup that fails leaves the agent alone: an agent
-// still worth having is a better outcome than one archived because gh could not answer.
+// closed reports whether the pull request an agent recorded has merged or closed and is still
+// the one weave thinks it is, leaving the agent alone when the lookup fails.
 func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, repo string) bool {
 	lookupCtx, cancel := context.WithTimeout(ctx, prStateTimeout)
 	defer cancel()
@@ -215,25 +205,17 @@ func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, re
 	return true
 }
 
-// answersAbout reports whether a finished pull request is the one this agent is on. The
-// recorded pull request is a snapshot taken once, and nothing refreshes it, so an agent that
-// closed one and opened another from the same branch still carries the first. Archiving on
-// that would hide an agent whose real pull request is open, which is why a finished one is
-// only believed while it names the repository the workflow points at and the branch the agent
-// is on.
-//
-// A blank branch is not evidence of anything on its own: a branch is read by running git in
-// the agent's cwd, and a timeout, a detached HEAD, and a directory that no longer exists all
-// come back the same way. Whether the worktree is really gone is recorded separately, off a
-// missing directory alone, so that is what an agent with nothing to check against is judged
-// by. The repository is compared the way adoption compares it, since one casing comes from a
-// pull request URL and the other from a git remote.
+// answersAbout reports whether a finished pull request is still the one this agent is on,
+// since nothing refreshes the recorded one.
 func answersAbout(agent agentstore.Agent, pr PullRequest, repo string) bool {
+	// One casing comes from a pull request URL and the other from a git remote.
 	if repo != "" && pr.Repository != "" && !strings.EqualFold(pr.Repository, repo) {
 		return false
 	}
 
 	branch := agentBranch(agent)
+	// A timeout, a detached HEAD, and a directory that is gone all read as a blank branch, so
+	// a removed worktree is what an agent with nothing to compare is judged by.
 	if branch == "" {
 		return agent.WorktreeRemoved
 	}
@@ -273,9 +255,8 @@ func (a *PRArchiver) workflow(ctx context.Context, seen map[string]prArchiveWork
 	return answer, nil
 }
 
-// repositoryOf names the repository a workflow's own checkout points at, blank when that
-// cannot be read. Blank leaves the branch to do the checking on its own rather than refusing
-// to archive anything.
+// repositoryOf names the repository a workflow's own checkout points at, blank when that cannot
+// be read, which leaves the branch to do the checking on its own.
 func (a *PRArchiver) repositoryOf(ctx context.Context, cwd string) string {
 	if cwd == "" {
 		return ""
@@ -313,9 +294,8 @@ func (a *PRArchiver) forgetExpiredQuiet() {
 	}
 }
 
-// readyToArchive reports whether an agent can lose its pane without losing work: one sitting
-// idle, or one already dormant with no pane to lose. An agent still being set up, or one that
-// failed, is not the pull request's to archive.
+// readyToArchive reports whether an agent can lose its pane without losing work, which means one
+// sitting idle or one already dormant with no pane to lose.
 func readyToArchive(agent agentstore.Agent) bool {
 	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
 		return false
@@ -324,13 +304,12 @@ func readyToArchive(agent agentstore.Agent) bool {
 	return agent.State == agentstore.StateIdle || agent.Pane == ""
 }
 
-// recordedPR reads the pull request an agent recorded, which agents write themselves and
-// weave writes for them. Only a pull request URL counts: a bare number is a reference gh
-// resolves against whichever repository it runs in, which is not something to archive an
-// agent on. An agent already archived for that same pull request is not offered again, which
-// is what leaves one somebody restored alone.
+// recordedPR reads the pull request an agent recorded, skipping one the agent has already been
+// archived for.
 func recordedPR(agent agentstore.Agent) (string, bool) {
 	url := metadataFor(agent, prMetadataKey)
+	// A bare number is a reference gh resolves against whichever repository it runs in, so only a
+	// full URL counts.
 	if url == "" || !strings.Contains(url, "/pull/") {
 		return "", false
 	}
@@ -351,9 +330,8 @@ func metadataFor(agent agentstore.Agent, key string) string {
 }
 
 // prLookupDir is where gh runs, which is the agent's own directory while it still exists.
-// A worktree already removed leaves the lookup to run wherever weave itself is, since the
-// pull request URL names its own repository.
 func prLookupDir(agent agentstore.Agent) string {
+	// The pull request URL names its own repository, so gh can run wherever weave itself is.
 	if agent.WorktreeRemoved {
 		return ""
 	}
@@ -366,17 +344,7 @@ type prStampStore interface {
 }
 
 // stampRestoredPRs records the pull request each restored agent carries as one already dealt
-// with, so a later pass leaves the agent alone. The loop stamps what it archives itself, but
-// it cannot tell that archive from one a person made by hand, and a hand-archived agent whose
-// pull request has since finished is archived again two minutes after somebody brought it
-// back. Restoring is that person deciding they want the agent, so the decision is written down
-// as they make it.
-//
-// It is written whatever state the pull request is in, since reading that means asking GitHub
-// and a restore is somebody waiting on a keypress. An agent restored while its pull request is
-// still open is therefore not archived when it later merges, which is the safe way round: the
-// person who pulled it back gets to keep it, and a pull request they open afterwards is a
-// different URL that archives normally.
+// with, so the next pass does not archive an agent somebody just brought back by hand.
 func stampRestoredPRs(ctx context.Context, store prStampStore, restored []agentstore.Agent) error {
 	var failures []error
 	for _, agent := range restored {
@@ -385,6 +353,8 @@ func stampRestoredPRs(ctx context.Context, store prStampStore, restored []agents
 			continue
 		}
 
+		// The pull request's state is not read, since that means asking GitHub while somebody
+		// waits on a keypress.
 		if _, err := store.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: prArchivedMetadataKey, Value: &url}); err != nil {
 			failures = append(failures, fmt.Errorf("failed to record the pull request agent %q was restored with: %w", agent.ID, err))
 		}

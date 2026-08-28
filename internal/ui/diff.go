@@ -7,9 +7,8 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// isReviewable reports whether an agent has a diff worth reviewing, which means a worktree of
-// its own that is still on disk. An agent sharing the user's checkout has no base branch to
-// be measured against.
+// isReviewable reports whether an agent has a worktree of its own still on disk, since an agent
+// sharing the user's checkout has no base branch to measure against.
 func (m model) isReviewable(agent agentstore.Agent) bool {
 	if agent.Cwd == "" || agent.WorktreeRemoved {
 		return false

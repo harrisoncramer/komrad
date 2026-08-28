@@ -14,11 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHideClearsTheOpenFlagWithoutTheManagerServer covers hiding the panel once weave's own
-// tmux server has gone; the flag the key binding branches on lives on the user's server, so
-// left set it makes the key take the hide branch on every press and the panel becomes
-// unreachable. It runs against a real tmux server, since what is checked is which server an
-// option landed on.
+// TestHideClearsTheOpenFlagWithoutTheManagerServer covers the flag living on the user's
+// server, where left set it makes every press take the hide branch and the panel unreachable.
 func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
 	hostSocket := throwawaySocket(t)
 	out, err := exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",

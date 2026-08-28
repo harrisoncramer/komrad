@@ -12,10 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestValidationRefusesControlCharacters covers the request fields that end up as a tmux
-// window name. A firing hands the schedule's name to the agent service as the title
-// without passing through the agent RPC, so the rule has to sit on the schedule messages
-// too or the schedule is the way around it.
+// TestValidationRefusesControlCharacters covers the fields that become a tmux window name,
+// where a firing hands a schedule's name straight to the agent service as the title.
 func TestValidationRefusesControlCharacters(t *testing.T) {
 	t.Parallel()
 

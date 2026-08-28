@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestInfoStaysShut covers the pane below the stage, which nothing about the row under the
-// cursor opens. Only the log key and an action's editor put anything down there.
+// TestInfoStaysShut pins that only the log key and an action's editor open the pane below
+// the stage.
 func TestInfoStaysShut(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := infoModel(tmux)
@@ -28,7 +28,7 @@ func TestInfoStaysShut(t *testing.T) {
 }
 
 // TestWorkflowContextMarkdown covers the document the stage pages for a workflow, which is
-// the context its agents inherit. Its fields are drawn in the details beside this.
+// the context its agents inherit.
 func TestWorkflowContextMarkdown(t *testing.T) {
 	workflow := workflowstore.Workflow{ID: "w1", Name: "api", Context: "shared notes"}
 
@@ -64,9 +64,8 @@ func TestWorkflowFields(t *testing.T) {
 	}, fields)
 }
 
-// TestWorkflowFieldsWorktree covers a worktree workflow, whose setup and cleanup are scripts
-// weave generated rather than actions the user picked. Showing those names says nothing, so
-// the details draw the worktree settings the user actually chose instead.
+// TestWorkflowFieldsWorktree pins that a worktree workflow's details draw the worktree
+// settings the user chose rather than the setup and cleanup scripts weave generated.
 func TestWorkflowFieldsWorktree(t *testing.T) {
 	workflow := workflowstore.Workflow{
 		ID:            "w1",

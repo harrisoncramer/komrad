@@ -12,8 +12,8 @@ func FirstLine(s string) string {
 	return s
 }
 
-// Slug turns s into a lowercase dash-separated token of at most maxLen runes,
-// keeping only letters and digits. It returns "" when nothing usable remains.
+// Slug turns s into a lowercase dash-separated token of at most maxLen runes, keeping only
+// letters and digits and returning "" when nothing usable remains.
 func Slug(s string, maxLen int) string {
 	var b strings.Builder
 	lastDash := true // avoid a leading dash

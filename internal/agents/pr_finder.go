@@ -19,10 +19,9 @@ func NewGHPRFinder() *GHPRFinder {
 }
 
 // FindPR returns the URL of a pull request for branch, or empty when gh reports none.
-// This only ever runs once per agent, right as it goes idle, so it asks for a pull
-// request in any state: one closed or merged in the moment between the agent opening it
-// and this check running still counts as found.
 func (GHPRFinder) FindPR(ctx context.Context, dir, branch string) (string, error) {
+	// This runs once per agent as it goes idle, so a pull request closed or merged in the
+	// meantime still counts as found.
 	cmd := exec.CommandContext(ctx, "gh", "pr", "list", "--head", branch, "--state", "all", "--json", "url", "--limit", "1")
 	cmd.Dir = dir
 
@@ -59,10 +58,7 @@ func ghStderrDetail(err error) string {
 }
 
 // isGHRateLimitError reports whether a failed gh call was GitHub turning it away for rate
-// limiting, primary or secondary, rather than some other failure (gh missing, no network,
-// no such repository). gh's own wording for both is inconsistent across its subcommands and
-// GitHub's own API versions, so this matches loosely on purpose rather than pinning to one
-// exact phrase.
+// limiting rather than some other failure.
 func isGHRateLimitError(err error) bool {
 	if err == nil {
 		return false
@@ -70,5 +66,7 @@ func isGHRateLimitError(err error) bool {
 
 	msg := strings.ToLower(err.Error())
 
+	// gh words both the primary and secondary limit differently across its subcommands and
+	// across API versions, so this matches loosely on purpose.
 	return strings.Contains(msg, "rate limit") || strings.Contains(msg, "abuse detection")
 }

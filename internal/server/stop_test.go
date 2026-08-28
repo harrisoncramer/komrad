@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestStopHandlerRefusesAnythingButPost covers the route being reachable by anything that
-// wanders over the address. A service that stops itself on a GET is one a link preview or
-// a crawler can take down.
+// TestStopHandlerRefusesAnythingButPost keeps the route shut against a GET, which would let
+// a link preview or a crawler take the service down.
 func TestStopHandlerRefusesAnythingButPost(t *testing.T) {
 	requested := make(chan struct{}, 1)
 	handler := newStopHandler(requested)
@@ -30,13 +29,8 @@ func TestStopHandlerRefusesAnythingButPost(t *testing.T) {
 	}
 }
 
-// TestStopHandlerAnswersBeforeStopping covers the handler saying it heard rather than
-// tearing down while the caller waits. Shutdown waits for the requests in flight and this
-// is one of them, so a handler that stopped from in here would wait on itself.
-//
-// It answers with its own pid, since that is what the caller waits on. The listener closes
-// at the top of the teardown, so an address that has stopped answering says only that the
-// shutdown started, not that it finished.
+// TestStopHandlerAnswersBeforeStopping covers a handler that would wait on itself, since
+// shutdown waits for the requests in flight and this is one of them.
 func TestStopHandlerAnswersBeforeStopping(t *testing.T) {
 	requested := make(chan struct{}, 1)
 	recorder := httptest.NewRecorder()
@@ -53,9 +47,8 @@ func TestStopHandlerAnswersBeforeStopping(t *testing.T) {
 	}
 }
 
-// TestStopHandlerDoesNotBlockOnASecondAsk covers an impatient caller asking twice. The
-// first ask is already being acted on and nothing is reading the channel any more, so a
-// second one has to be answered rather than left hanging on a send.
+// TestStopHandlerDoesNotBlockOnASecondAsk covers an impatient caller asking twice, where
+// nothing is reading the channel any more and a blocking send would hang.
 func TestStopHandlerDoesNotBlockOnASecondAsk(t *testing.T) {
 	requested := make(chan struct{}, 1)
 	handler := newStopHandler(requested)

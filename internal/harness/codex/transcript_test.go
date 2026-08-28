@@ -188,9 +188,8 @@ func TestReadLog(t *testing.T) {
 	}
 }
 
-// TestGetLogPath covers finding a conversation by the id Codex gave it. The id is
-// globbed for inside the filename rather than looked up through the SQLite index beside
-// the rollouts, so nothing here depends on that schema.
+// TestGetLogPath covers finding a conversation by globbing the id inside the filename, so
+// nothing here depends on the SQLite index schema.
 func TestGetLogPath(t *testing.T) {
 	sessions := t.TempDir()
 	const id = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"

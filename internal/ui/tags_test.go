@@ -23,8 +23,7 @@ var tags = []config.Tag{
 	{Glyph: "✓", Color: ""},
 }
 
-// TestNextTag walks the cycle the tag key drives. One key covers every tag and
-// clearing, so where it goes next is the whole behaviour.
+// TestNextTag walks the cycle the tag key drives, which covers every tag and clearing.
 func TestNextTag(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -81,9 +80,8 @@ func TestNextTag(t *testing.T) {
 	}
 }
 
-// TestTagColor covers which colour a glyph is drawn in, including the glyphs the
-// config has nothing to say about. A colour comes back as lipgloss reads it, so a
-// configured name arrives here as the index it draws as.
+// TestTagColor pins the colour of each glyph, including the ones the config never named, as
+// the index lipgloss reads it back as.
 func TestTagColor(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -130,10 +128,8 @@ func TestTagColor(t *testing.T) {
 	}
 }
 
-// TestTaggedGlyph covers what a row draws. The glyph is the tag itself, so an agent
-// carrying one the config never listed still shows it rather than vanishing. Which
-// colour it takes is TestTagColor's business, since lipgloss only writes the escape
-// when it decides the terminal has a profile.
+// TestTaggedGlyph pins the row drawing the tag itself, so an agent carrying one the config
+// never listed still shows it rather than vanishing.
 func TestTaggedGlyph(t *testing.T) {
 	tests := []struct {
 		name string
@@ -168,9 +164,8 @@ func TestTaggedGlyph(t *testing.T) {
 	}
 }
 
-// TestNextSelectionTag walks the cycle over a set of agents rather than one. A selection
-// carries no single tag to step from, so where the key goes is decided by whether the
-// agents in it agree.
+// TestNextSelectionTag walks the cycle over a set of agents, where the next tag is decided
+// by whether they already agree.
 func TestNextSelectionTag(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -224,9 +219,8 @@ func TestNextSelectionTag(t *testing.T) {
 	}
 }
 
-// TestTagSelection covers the tag key while a selection is up. Every chosen agent takes
-// the same glyph in one call, and the selection stays afterwards, since a cycle nobody can
-// press twice is not one.
+// TestTagSelection pins every chosen agent taking the same glyph in one call, with the
+// selection still up so the key can be pressed again.
 func TestTagSelection(t *testing.T) {
 	tests := []struct {
 		name string

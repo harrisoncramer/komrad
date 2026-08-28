@@ -1,6 +1,7 @@
 package plugin
 
 import (
+	commentlength "agentslinter/analyzers/comment_length"
 	commentprefix "agentslinter/analyzers/comment_prefix"
 	forbidgetenv "agentslinter/analyzers/forbidgetenv"
 	"agentslinter/config"
@@ -27,6 +28,10 @@ type agentsLinter struct {
 // BuildAnalyzers returns every analyzer this plugin contributes.
 func (a *agentsLinter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 	var analyzers []*analysis.Analyzer
+
+	if !a.config.CommentLength.Skip {
+		analyzers = append(analyzers, commentlength.NewAnalyzer(a.config.CommentLength))
+	}
 
 	if !a.config.CommentPrefix.Skip {
 		analyzers = append(analyzers, commentprefix.NewAnalyzer(a.config.CommentPrefix))

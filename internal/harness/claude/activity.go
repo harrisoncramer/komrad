@@ -24,9 +24,8 @@ const idleRegionLines = 6
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Claude is doing. Only a frame that
-// actually shows the empty input box counts as the recognised idle case, and anything
-// else that is neither working nor a live prompt is ActivityUnrecognized instead.
+// ReadActivity reads what a captured frame says Claude is doing, counting only a frame showing
+// the empty input box as idle and anything else unrecognised.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == "":

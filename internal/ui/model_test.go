@@ -53,10 +53,8 @@ func TestClampCursor(t *testing.T) {
 	}
 }
 
-// TestApplyAgents covers what a refresh does to the on-screen list. It takes the
-// listed order as it comes, since that order is by id and nothing an agent does
-// moves it. The cursor stays on the agent it was on rather than on an index, which a
-// newer agent arriving above it would shift.
+// TestApplyAgents pins that a refresh takes the listed order as it comes and leaves the
+// cursor on the agent it was on rather than on an index a newer agent would shift.
 func TestApplyAgents(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -128,10 +126,8 @@ func TestApplyAgents(t *testing.T) {
 	}
 }
 
-// TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved covers archiving the last agent
-// under a workflow. Reusing the old numeric cursor position on its own can land on
-// the following workflow's header purely because it now sits at that index, which
-// isn't a header the user asked to hover.
+// TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved pins that archiving the last agent under a
+// workflow leaves the cursor off the next workflow's header, which only moved into that index.
 func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	m := model{
 		screen: screenAgents,
@@ -175,9 +171,8 @@ func items(names ...string) []agentItem {
 	return out
 }
 
-// TestNewModelWiresTmux covers the wiring the panel cannot run without. The model
-// reaches for tmux only when a form opens with a blank directory, so a dependency
-// left unassigned here shows up as a panic on a keypress rather than as anything at
+// TestNewModelWiresTmux pins the tmux dependency, since the model reaches for it only when a
+// form opens with a blank directory and a missing one panics on a keypress rather than at
 // startup.
 func TestNewModelWiresTmux(t *testing.T) {
 	tests := []struct {

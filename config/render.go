@@ -20,9 +20,8 @@ const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 # is an error.
 `
 
-// RenderConfigTOML builds the documented config file from the Config struct. dir
-// is the directory holding this package's source, which the comment extractor
-// parses; callers running from the package directory pass ".".
+// RenderConfigTOML builds the documented config file from the Config struct, with dir naming
+// the package source the comment extractor reads.
 func RenderConfigTOML(dir string) ([]byte, error) {
 	schema, err := Schema(dir)
 	if err != nil {
@@ -46,11 +45,8 @@ type property struct {
 	schema *jsonschema.Schema
 }
 
-// renderSection writes one table and then descends into its sub-tables. A table
-// header is only emitted when the level has values of its own, so a struct that
-// exists purely to group other structs contributes its prose without an empty
-// [header] above it, and one with nothing to say contributes nothing at all
-// rather than a blank line where its prose would have gone.
+// renderSection writes one table and descends into its sub-tables, emitting a header only
+// when the level has values of its own.
 func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) error {
 	var values, tables []property
 
@@ -110,8 +106,7 @@ func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) 
 	return nil
 }
 
-// renderValue formats a default as TOML. Only the kinds the config actually
-// holds are supported, so a new field of some other type fails generation rather
+// renderValue formats a default as TOML, failing on a kind the config does not hold rather
 // than emitting something that will not parse.
 func renderValue(value any) (string, error) {
 	switch typed := value.(type) {
@@ -134,9 +129,8 @@ func renderValue(value any) (string, error) {
 
 		return "[" + strings.Join(quoted, ", ") + "]", nil
 	case []Tag:
-		// One inline table per line rather than a [[tags]] block each, so the tags
-		// stay one value in a file whose every other value is one line too. A reader
-		// who prefers the block form can write it and it parses the same.
+		// One inline table per line rather than a [[tags]] block each, so the tags stay one
+		// value in a file whose every other value is one line.
 		var buf strings.Builder
 		buf.WriteString("[\n")
 		for _, tag := range typed {
@@ -150,10 +144,8 @@ func renderValue(value any) (string, error) {
 	}
 }
 
-// writeComment emits text as TOML comment lines, one per line of the doc comment
-// it came from. The breaks are the author's rather than a width's, since where a
-// sentence ends is a decision about how the paragraph reads and re-flowing it
-// would take that decision away from the comment.
+// writeComment emits text as TOML comment lines, keeping the author's line breaks rather
+// than re-flowing them to a width.
 func writeComment(buf *bytes.Buffer, text string) {
 	documented := strings.TrimSpace(text)
 	if documented == "" {

@@ -58,9 +58,8 @@ func (m model) logsDesc() string {
 	}
 }
 
-// logTarget is the agent the log keys read. The archive keeps its own cursor, so a row a
-// delete could not destroy has to page its own teardown log rather than whatever the agents
-// list was last left pointing at.
+// logTarget is the agent the log keys read, which follows the archive's own cursor while that
+// screen is up rather than the agents list.
 func (m model) logTarget() (agentstore.Agent, bool) {
 	if m.screen == screenArchive {
 		return m.selectedArchived()
@@ -111,9 +110,7 @@ func (m model) actionLogContent(kind string) layout.Content {
 	return newLogContent(path, processLogArgv(m.processViewer, path))
 }
 
-// hasActionLog reports whether a setup or teardown action left anything to read for an
-// agent. Used both to page the log in and to decide whether a failed agent's placeholder can
-// point at it, rather than falling back to repeating the reason inline.
+// hasActionLog reports whether a setup or teardown action left anything to read for an agent.
 func (m model) hasActionLog(agentID, kind string) bool {
 	if m.actionLogsDir == "" {
 		return false

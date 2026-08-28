@@ -107,9 +107,8 @@ func (c *Client) GetPaneOwner(pane string) string {
 	return c.value("show-options", "-p", "-qv", "-t", pane, paneOwnerOption)
 }
 
-// IsPaneInMode reports whether a pane is in one of tmux's own modes, which is what scrolling
-// back through it puts it in. Keys sent to a pane in a mode reach the mode rather than the
-// program, so this says whether the pane can be typed at.
+// IsPaneInMode reports whether a pane is in one of tmux's own modes, such as the one scrolling
+// back puts it in, where keys reach the mode instead of the program running there.
 func (c *Client) IsPaneInMode(pane string) bool {
 	if pane == "" {
 		return false
@@ -194,10 +193,9 @@ func (c *Client) GetClientSession(client string) string {
 	return c.value(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{client_session}")...)...)
 }
 
-// OpenWindow creates a window in the session the given client is attached to, rooted at
-// dir and running argv, and leaves it current. It is how something is put in front of the
-// user on their own tmux server, where the client viewing the popup is the only handle on
-// a session, so the window is created attached rather than detached as NewWindow does.
+// OpenWindow creates a window in the session a client is attached to, attached rather than
+// detached like NewWindow, since that client is the only handle on a session on the user's
+// own server.
 func (c *Client) OpenWindow(client, name, dir string, argv ...string) error {
 	if client == "" {
 		return errors.New("refusing to open a window without a client to open it for")
@@ -229,14 +227,15 @@ func (c *Client) SendKeys(target string, keys ...string) error {
 	return nil
 }
 
-// SendText types a string into a pane as text. SendKeys looks each argument up as a key name
-// first, so a word naming a key arrives as that key, and -l is what turns the lookup off. It
-// does not rescue a pane in a mode, which reads literal keys through the mode's table too.
+// SendText types a string into a pane as text, which a pane in a mode still reads through the
+// mode's key table rather than as input.
 func (c *Client) SendText(target, text string) error {
 	if target == "" {
 		return errors.New("refusing to send text to an empty target")
 	}
 
+	// -l turns off the key-name lookup send-keys does first, which would otherwise turn a word
+	// naming a key into that key.
 	if _, err := c.query("send-keys", "-t", target, "-l", "--", text); err != nil {
 		return fmt.Errorf("failed to send text to %q: %w", target, err)
 	}
@@ -244,9 +243,8 @@ func (c *Client) SendText(target, text string) error {
 	return nil
 }
 
-// SplitRight splits a pane right of the anchor, rooted at dir and sized as tmux takes it,
-// either a count of cells or a percentage such as "40%". Focus stays where it was, since what
-// goes in the pane is decided after it exists and whoever put it there says whether to move.
+// SplitRight splits a pane right of the anchor, rooted at dir and sized in cells or as a
+// percentage like "40%", leaving focus where it was.
 func (c *Client) SplitRight(anchorPane, dir, size string) string {
 	return c.split(anchorPane, dir, size, "-h")
 }
@@ -304,8 +302,8 @@ func (c *Client) SwapPanes(src, dst string) {
 	c.run("swap-pane", "-d", "-s", src, "-t", dst)
 }
 
-// RespawnPane replaces a pane's process with argv, rooted at dir. With no command it
-// re-runs the default shell, blanking the pane.
+// RespawnPane replaces a pane's process with argv, or re-runs the default shell and blanks
+// the pane when argv is empty.
 func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
 	c.run("clear-history", "-t", pane)
@@ -358,10 +356,8 @@ func (c *Client) BreakPane(pane string) {
 	c.run("break-pane", "-d", "-s", pane)
 }
 
-// KillPane tears down a single pane. Two teardown paths can race the same
-// pane (a delete and an archive, or two deletes, both reading it as owned
-// before either kills it), so a pane already gone by the time this runs is
-// the outcome asked for, not a failure worth a WARN.
+// KillPane tears down a single pane, treating one already gone as the outcome asked for since
+// a delete and an archive can race the same pane.
 func (c *Client) KillPane(pane string) {
 	if pane == "" {
 		return
@@ -377,9 +373,8 @@ func (c *Client) BindKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", key}, command...)...)
 }
 
-// BindKeyChecked binds a key like BindKey and says why tmux refused. The panel binds keys on
-// its way past, where nothing can be done about a failure, while a person who typed a command
-// to bind one is reading its output and has to be told when the server it named is not there.
+// BindKeyChecked binds a key like BindKey but reports why tmux refused, for the person who
+// typed a command to bind one and is reading its output.
 func (c *Client) BindKeyChecked(key string, command ...string) error {
 	if _, err := c.query(append([]string{"bind-key", key}, command...)...); err != nil {
 		return fmt.Errorf("failed to bind %q: %w", key, err)
@@ -403,9 +398,8 @@ func (c *Client) SetGlobalChecked(name, value string) error {
 	return nil
 }
 
-// SocketPath is the path of the socket this client's server listens on, and an error when no
-// server is listening there. It is how a socket path read out of TMUX is told apart from the
-// server weave runs the panel on, which is otherwise the same server under two spellings.
+// SocketPath is the path of the socket this client's server listens on, which is how a server
+// named through TMUX is told apart from the one weave runs the panel on.
 func (c *Client) SocketPath() (string, error) {
 	path, err := c.query("display-message", "-p", "#{socket_path}")
 	if err != nil {
@@ -420,10 +414,8 @@ func (c *Client) ShowGlobal(name string) string {
 	return c.value("show-option", "-gqv", name)
 }
 
-// SetInfoPane records which pane the panel opened its info region in, and clears it when
-// given nothing, so the panel and the service agree on it through tmux rather than through
-// each other. It is written on the server the panel's panes live on, not the user's, where
-// Servers otherwise sends SetGlobal.
+// SetInfoPane records which pane the panel opened its info region in, on the server the
+// panel's panes live on rather than the user's, and clears it when given nothing.
 func (c *Client) SetInfoPane(pane string) {
 	c.SetGlobal(InfoPaneOption, pane)
 }
@@ -445,14 +437,14 @@ func (c *Client) DefaultShell() string {
 	return c.ShowGlobal("default-shell")
 }
 
-// DetachSession detaches every client attached to the named session, leaving its pane
-// processes running. It is how the manager popup is hidden, so reopening restores it.
+// DetachSession detaches every client from the named session, leaving its pane processes
+// running, which is how the manager popup is hidden and restored.
 func (c *Client) DetachSession(name string) {
 	c.run("detach-client", "-s", name)
 }
 
-// CapturePane returns the visible content of a pane with colors preserved. An agent CLI
-// drawing a TUI runs on the alternate screen, so the visible frame is all there is.
+// CapturePane returns the visible content of a pane with colors preserved, which for an agent
+// CLI drawing a TUI on the alternate screen is all there is.
 func (c *Client) CapturePane(pane string) string {
 	return c.value("capture-pane", "-p", "-e", "-t", pane)
 }

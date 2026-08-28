@@ -24,15 +24,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestArchiveKeys covers what a keypress in the archive does, which screen it lands
-// on and which write it asks for. Destroying an agent is the one thing the panel
-// cannot undo, so the key must open the prompt rather than act, and every key
-// that needs a row must do nothing at all on an empty list.
-//
-// The keys read the row under the cursor, so each one is pressed on a header as well as
-// on an agent. Restore and delete both mean the folder on an archived header and the agent
-// on any other row; a header for a workflow that is not itself archived swallows both rather
-// than acting on it.
+// TestArchiveKeys covers what each key does on a header and on an agent, where delete opens
+// the prompt rather than acting because the panel cannot undo it.
 func TestArchiveKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
@@ -151,9 +144,8 @@ func TestArchiveKeys(t *testing.T) {
 	}
 }
 
-// TestArchiveRows covers the shape the archive draws. A folder put away whole keeps a
-// header even with nothing under it, since that row is the only way to restore it, and a
-// folder still running gets one too, as the container for the agents put away out of it.
+// TestArchiveRows covers the shape the archive draws, where a folder keeps a header even
+// with nothing under it since that row is the only way to restore it.
 func TestArchiveRows(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -222,9 +214,8 @@ func TestArchiveRows(t *testing.T) {
 	}
 }
 
-// TestArchiveHelpSplitsOnTheRow covers the legend saying what the row under the cursor
-// takes. Restore means a different thing on a folder than on an agent, delete is not
-// offered on a folder at all, and a live folder's header takes no key of its own.
+// TestArchiveHelpSplitsOnTheRow covers the legend saying what the row under the cursor takes,
+// since restore means a different thing on a folder than on an agent.
 func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -273,9 +264,8 @@ func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 	}
 }
 
-// TestArchiveDeleteConfirm covers the prompt itself. Declining has to leave the
-// agent alone, since the prompt exists precisely because the write cannot be
-// taken back.
+// TestArchiveDeleteConfirm covers the prompt, where declining leaves the agent alone since
+// the write cannot be taken back.
 func TestArchiveDeleteConfirm(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -361,9 +351,8 @@ func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
 	}
 }
 
-// TestArchiveEmptyConfirm covers the sweep behind the confirm. Emptying the archive destroys
-// every agent in it at once, so the panel must ask for the whole thing the same way it asks
-// for one agent, and a decline must queue nothing.
+// TestArchiveEmptyConfirm covers the sweep behind the confirm, which destroys every archived
+// agent at once and so must queue nothing when it is declined.
 func TestArchiveEmptyConfirm(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -405,9 +394,8 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 	}
 }
 
-// TestEmptyArchivePromptStartsOnCancel covers submitting the prompt without answering it.
-// Nothing in the panel undoes emptying the archive, so the answer it opens on has to be the
-// one that costs nothing rather than the one that destroys every archived conversation.
+// TestEmptyArchivePromptStartsOnCancel covers the prompt opening on the answer that costs
+// nothing, since nothing in the panel undoes emptying the archive.
 func TestEmptyArchivePromptStartsOnCancel(t *testing.T) {
 	client := &fakeArchiveAgents{}
 	keys := config.DefaultKeybindings()
@@ -473,9 +461,8 @@ func answerPrompt(t *testing.T, m model, key string) model {
 	return m
 }
 
-// TestRefusedArchiveWritesAreReported covers the archive's writes failing. All of them
-// leave the row exactly where it was, so without the banner the keypress reads as one
-// that never registered.
+// TestRefusedArchiveWritesAreReported covers a failed write, which leaves the row where it
+// was and so needs the banner to look like anything happened at all.
 func TestRefusedArchiveWritesAreReported(t *testing.T) {
 	tests := []struct {
 		name string
@@ -542,10 +529,8 @@ func pressRestore(t *testing.T, m model) model {
 	return settle(t, pressed, cmd)
 }
 
-// TestArchiveView covers what the list renders. An empty archive has to say so rather
-// than drawing a blank pane, which reads as a screen that failed to load, and a folder
-// put away whole has to read differently from one that is still running, since restore
-// acts on only one of the two.
+// TestArchiveView covers what the list renders, where an empty archive says so rather than
+// drawing a blank pane that reads as a screen which failed to load.
 func TestArchiveView(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -597,8 +582,8 @@ func TestArchiveView(t *testing.T) {
 	}
 }
 
-// TestArchiveMarkdown covers the document the stage pages for an archived agent, which has no
-// pane of its own. It must not read as one that is merely dormant and waiting to be opened.
+// TestArchiveMarkdown covers the document the stage pages for an archived agent, which must
+// not read as one merely dormant and waiting to be opened.
 func TestArchiveMarkdown(t *testing.T) {
 	got := archiveMarkdown(agentstore.Agent{Name: "api-refactor"})
 
@@ -608,10 +593,8 @@ func TestArchiveMarkdown(t *testing.T) {
 	assert.NotContains(t, got, "dormant", "an archived agent is not one waiting to be opened")
 }
 
-// TestArchiveStagesWhyADeleteLeftARowBehind covers the stage for an archived agent whose
-// cleanup action failed. The generic archived blurb reads as a row waiting to be restored,
-// which is the wrong thing to say about one a delete could not destroy: the archive is where
-// the failure was left, so it is where the reason has to be legible.
+// TestArchiveStagesWhyADeleteLeftARowBehind covers the stage for an agent whose cleanup
+// action failed, since the archive is the only place that failure is legible.
 func TestArchiveStagesWhyADeleteLeftARowBehind(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
@@ -651,10 +634,8 @@ func TestArchiveFields(t *testing.T) {
 	assert.Contains(t, labels, "archived", "the record says when it was put away")
 }
 
-// TestArchiveIsOrderedByWhenAgentsWereArchived covers the order the archive reads
-// in. The listing arrives keyed on the id, which orders by when each agent was
-// created, so an agent archived long after it was made would otherwise sit below one
-// created after it.
+// TestArchiveIsOrderedByWhenAgentsWereArchived covers the archive's order, since the listing
+// arrives keyed on the id and would otherwise sort by when each agent was created.
 func TestArchiveIsOrderedByWhenAgentsWereArchived(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -700,9 +681,8 @@ func archivedProtoWorkflow(id, name, archivedAt string) *workflowv1.Workflow {
 	return &workflowv1.Workflow{Id: id, Name: name, ArchivedAt: &archivedAt}
 }
 
-// TestArchiveIsListedSeparatelyFromTheAgents covers the four listings staying apart. A
-// pass reads the archived agents and the archived folders through calls of their own, so
-// neither can ever appear as a row in the tree.
+// TestArchiveIsListedSeparatelyFromTheAgents covers the archived agents and folders arriving
+// through calls of their own, so neither can appear as a row in the tree.
 func TestArchiveIsListedSeparatelyFromTheAgents(t *testing.T) {
 	agents := &fakeArchiveAgents{}
 	workflows := &fakeArchiveWorkflows{

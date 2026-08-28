@@ -32,10 +32,8 @@ func (f fakePullRequests) Repository(context.Context, string) (string, error) {
 	return f.repository, nil
 }
 
-// TestAdoptPlacesTheAgent covers where an adoption lands, which is the whole of what
-// adoption decides. Git only ever lets one checkout hold a branch, so what is already there
-// is what says whether the agent gets a worktree made for it or is launched into one that
-// exists.
+// TestAdoptPlacesTheAgent covers where an adoption lands, which turns on git letting only
+// one checkout hold a branch.
 func TestAdoptPlacesTheAgent(t *testing.T) {
 	tests := []struct {
 		name string
@@ -116,11 +114,8 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 	}
 }
 
-// TestAdoptRefusesADirectoryAnotherAgentHolds covers what would otherwise hand one
-// worktree to two agents. The branch a weave agent cut for itself is a branch like any
-// other, and adopting it would put a second agent in the first one's directory: deleting
-// either then runs a cleanup that removes the tree out from under the other, uncommitted
-// work included.
+// TestAdoptRefusesADirectoryAnotherAgentHolds pins that two agents never share a worktree,
+// since deleting either would remove the tree out from under the other.
 func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 	tests := []struct {
 		name string
@@ -170,9 +165,8 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 	}
 }
 
-// TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone covers the branch nothing can be
-// working in any more. The agent recorded against it has no directory left, so holding the
-// branch for it would leave no way onto the work but deleting that agent first.
+// TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone pins that a branch is not held for an
+// agent with no directory left, which would leave no way onto the work.
 func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -193,9 +187,8 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	assert.Equal(t, "someones/work", agentByID(t, st, second.ID).AdoptedBranch)
 }
 
-// TestAdoptRefusesWithoutAWorktreeWorkflow covers the workflow whose agents all share
-// one checkout. Adoption there would put an agent on a branch in the directory somebody is
-// working in.
+// TestAdoptRefusesWithoutAWorktreeWorkflow pins that adoption is refused where agents share
+// one checkout, which would move a branch under somebody working in it.
 func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -209,9 +202,8 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptNeedsWorktree)
 }
 
-// TestAdoptTwiceHandsBackTheSameAgent covers asking for work that is already being
-// done. Git cannot check the branch out twice, so a second agent could only fail; the one
-// already on it is the answer to the question that was asked.
+// TestAdoptTwiceHandsBackTheSameAgent pins that asking again returns the agent already on
+// the branch, since git cannot check it out twice.
 func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -234,9 +226,8 @@ func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	assert.Len(t, agents, 1, "and no second one was started")
 }
 
-// TestAdoptFromAPullRequest covers the reference a person actually has to hand, which
-// is a URL rather than a branch name. What weave gets out of it is the branch, and what it
-// records is the pull request, so the panel's open-pr key works from the first moment.
+// TestAdoptFromAPullRequest covers adopting by URL, which records the pull request as well
+// as the branch so the panel's open-pr key works right away.
 func TestAdoptFromAPullRequest(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

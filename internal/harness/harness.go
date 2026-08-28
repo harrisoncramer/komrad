@@ -9,13 +9,8 @@ const AgentIDEnv = "WEAVE_AGENT_ID"
 
 const SessionIDEnv = "WEAVE_SESSION_ID"
 
-// EnvPrefix is the assignments that go ahead of the CLI on the command line, so an agent
-// runs knowing which agent it is and which conversation it is in. Every harness starts its
-// command with this, since what an agent knows about itself is the panel's business rather
-// than any one CLI's.
-//
-// The values are quoted like any other data reaching the pane's shell, and a launch
-// missing either leaves that variable unset rather than exported empty.
+// EnvPrefix is the assignments that go ahead of the CLI so an agent runs knowing which agent it
+// is and which conversation it is in.
 func EnvPrefix(launch Launch) string {
 	var assignments []string
 	if launch.AgentID != "" {

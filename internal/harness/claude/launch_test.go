@@ -15,9 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuildCommand covers the command typed into the pane. Every launch also carries
-// the MCP config, and a fresh one appends a system prompt, so each case states the
-// leading command rather than the whole line.
+// TestBuildCommand covers the command typed into the pane, stating the leading command rather
+// than the whole line since every launch also carries the MCP config.
 func TestBuildCommand(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -65,10 +64,8 @@ func TestBuildCommand(t *testing.T) {
 	}
 }
 
-// TestBuildCommandFailsWhenThePromptCannotBeWritten covers the prompt going missing
-// rather than the launch failing. The caller clears an agent's interrupted turn on the
-// strength of this returning nil, so a command line built without the prompt it was
-// given loses the ask for good.
+// TestBuildCommandFailsWhenThePromptCannotBeWritten covers a command line built without the
+// prompt it was given, which loses the ask for good once the caller clears the interrupted turn.
 func TestBuildCommandFailsWhenThePromptCannotBeWritten(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -132,9 +129,8 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 	}
 }
 
-// TestBuildCommandPassesTextThroughTempFiles covers the prompt and the appended system
-// prompt. Both are sourced from a file the shell cats and removes, so markdown
-// carrying quotes and newlines survives the trip.
+// TestBuildCommandPassesTextThroughTempFiles covers markdown carrying quotes and newlines
+// surviving the trip through a file the shell cats and removes.
 func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -188,10 +184,8 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 	}
 }
 
-// TestBuildCommandStagesTextUnderTheCacheDir covers where the files a launch passes text
-// through are written. They hold the agent's prompt and are removed by the command that
-// reads them, so they belong under the directory weave was told to keep what it generates
-// in rather than wherever the system temp directory happens to be.
+// TestBuildCommandStagesTextUnderTheCacheDir covers the prompt files landing under the directory
+// weave was told to keep what it generates in rather than the system temp directory.
 func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	cache := t.TempDir()
 
@@ -208,9 +202,8 @@ func TestBuildCommandStagesTextUnderTheCacheDir(t *testing.T) {
 	assert.Len(t, staged, 2, "one file for the appended system prompt and one for the opening prompt")
 }
 
-// TestBuildCommandRegistersMCPServer covers the config file every launch points claude
-// at. It is passed without --strict-mcp-config, so the agent gains this server on
-// top of whatever the user has registered rather than trading them for it.
+// TestBuildCommandRegistersMCPServer covers the config file passed without --strict-mcp-config,
+// so an agent gains this server on top of the user's rather than trading them for it.
 func TestBuildCommandRegistersMCPServer(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -286,13 +279,8 @@ func appendedPrompt(t *testing.T, command string) string {
 	return string(text)
 }
 
-// TestMCPConfigCarriesTheAgentsIdentity covers the headers every call an agent makes back
-// to the panel arrives with, which is how the service says which agent asked for something
-// rather than only that something on loopback did.
-//
-// They are written as variables rather than as this agent's ids, which is what lets every
-// agent share one config file: Claude expands them out of the environment the panel
-// launched that agent with, so each one calls back as itself.
+// TestMCPConfigCarriesTheAgentsIdentity covers the headers naming the agent behind a call back
+// to the panel, written as variables Claude expands so every agent can share one config file.
 func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("HOME", home)
@@ -384,10 +372,8 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 	}
 }
 
-// TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way
-// an agent spawns anything. A Claude subagent is a context inside the one conversation
-// rather than an agent the panel can show, so a launch carries the deny whether or not it
-// had a hook command to register alongside it, and a resume carries it too.
+// TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way an
+// agent spawns anything, since a Claude subagent is a context the panel cannot show.
 func TestBuildCommandDeniesSubagents(t *testing.T) {
 	tests := []struct {
 		name        string

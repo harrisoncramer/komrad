@@ -293,11 +293,8 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 	assert.False(t, agents.taken)
 }
 
-// TestDeliverToAnAgentNoPassCanRead is the case the confirmation stamp exists for. An agent
-// recorded against a harness this binary does not run is skipped by every pass, which is
-// right, since nothing here can read its frame. What is not right is deferring delivery on
-// the state it was left holding: that defers on every pass until the mail runs out of time,
-// so the agent is told once instead.
+// TestDeliverToAnAgentNoPassCanRead pins that an agent whose harness this binary cannot run
+// is told once, rather than deferred every pass until the mail runs out of time.
 func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -360,10 +357,8 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	assert.Len(t, panes.text, 1, "and told once, not once a pass")
 }
 
-// TestDeliverRetriesANudgeTheAgentNeverActedOn is what a lost keystroke leaves behind. tmux
-// takes the line and the agent never sees it, so the mail stays unread and the agent stays
-// exactly as it was. Nothing about the agent will ever move to say the line went nowhere, so
-// the mail still being unread is the only signal there is, and it is what puts the nudge back.
+// TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back,
+// since a line tmux took and the agent never saw leaves nothing about the agent changed.
 func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -420,10 +415,8 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	assert.Equal(t, int64(1), pending, "and the mail is still waiting")
 }
 
-// TestDeliverRetriesANudgeAcrossAnArchive is the same stranding reached another way. Archiving
-// an agent and restoring it leaves its state and its stamp alone, so an agent nudged before it
-// was put away comes back holding a spent nudge and mail nobody read. Coming back is not a
-// state change either, so only the unread mail can put the nudge back.
+// TestDeliverRetriesANudgeAcrossAnArchive pins the same retry across an archive, which leaves
+// the agent's state and its spent nudge exactly as they were.
 func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -477,10 +470,8 @@ type fixedHarnesses struct{ harness harness.Harness }
 
 func (f fixedHarnesses) GetByID(string) (harness.Harness, error) { return f.harness, nil }
 
-// TestDeliverDefersToARealHarnessStillComingUp wires the registered harnesses themselves
-// into the gate, rather than the fake whose frames the package writes. The fake answers
-// every question the gate asks correctly by construction, so it cannot say whether a
-// harness a live agent actually runs does.
+// TestDeliverDefersToARealHarnessStillComingUp wires the registered harnesses into the gate,
+// since the fake answers correctly by construction and so proves nothing about a real one.
 func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 	shellEcho := "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc"
 

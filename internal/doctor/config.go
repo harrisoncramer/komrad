@@ -24,10 +24,8 @@ var (
 	}
 )
 
-// Config asserts the user's config layers parse, and names them in the order they are
-// merged. An unknown key is an error rather than a dropped line, so a typo takes the whole
-// panel down to an error screen; naming the layers matters because with more than one file,
-// the loader is the only thing that knows which one a value came from.
+// Config asserts the user's config layers parse and names them in merge order, since with
+// more than one file the loader is the only thing that knows where a value came from.
 func Config() Check {
 	return Check{
 		Name:        "config",
@@ -118,10 +116,8 @@ func DefaultHarness() Check {
 	}
 }
 
-// HarnessBinary asserts one agent CLI is on PATH, the quietest way weave breaks: a missing
-// CLI leaves the pane printing "command not found" and going idle, which the reconciler
-// reads as an agent that finished. Only the CLI new agents actually run is a failure, since
-// nobody installs every harness.
+// HarnessBinary asserts one agent CLI is on PATH, since a missing one leaves the pane
+// printing "command not found" and going idle, which the reconciler reads as finished.
 func HarnessBinary(agent HarnessInfo) Check {
 	return Check{
 		Name:        agent.ID,

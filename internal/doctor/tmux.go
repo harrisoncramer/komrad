@@ -55,10 +55,8 @@ func TmuxBinary() Check {
 	}
 }
 
-// TmuxVersion asserts the installed tmux is new enough for the key binding. A version that
-// will not parse is a warning rather than a failure, since tmux forks spell it their own
-// way and OpenBSD's reports the OS release instead, and refusing to start over one of those
-// is worse than being wrong about a version that probably works.
+// TmuxVersion asserts the installed tmux is new enough for the key binding, warning rather
+// than failing on a version it cannot parse since forks and OpenBSD spell it their own way.
 func TmuxVersion() Check {
 	return Check{
 		Name:        "tmux version",
@@ -137,11 +135,8 @@ func parseTmuxVersion(reported string) (tmuxVersion, error) {
 	return tmuxVersion{major: majorNumber, minor: minorNumber}, nil
 }
 
-// TmuxShell asserts the shell tmux starts agent panes with can parse the command that
-// starts an agent; a shell that cannot leaves the agent as a syntax error, which the service
-// refuses to start over, so what a user sees is a panel that will not open. The option is
-// read off a server already running rather than one started to ask, since starting a server
-// would be doctor changing the machine it is describing.
+// TmuxShell asserts the shell tmux starts agent panes with can parse the command that starts
+// an agent, which otherwise fails as a syntax error and leaves the panel refusing to open.
 func TmuxShell() Check {
 	return Check{
 		Name:        "tmux shell",

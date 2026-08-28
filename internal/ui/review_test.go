@@ -179,16 +179,15 @@ func TestEnterReviewStagesTheDiff(t *testing.T) {
 	assert.Contains(t, reviewStageText(t), "greet.go")
 }
 
-// TestReviewCursorRepaintsWithoutRestartingThePager is the flicker fix. Restarting the pager for
-// every cursor move made it paint the whole stage from scratch, which reached the client as a
-// dozen partial writes and read as a flicker. A move now rewrites the screen and reloads it.
+// TestReviewCursorRepaintsWithoutRestartingThePager covers a cursor move rewriting the screen
+// and reloading it, since restarting the pager reached the client as a flicker.
 func TestReviewCursorRepaintsWithoutRestartingThePager(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	// Without a colour profile the cursor row paints as bare text, so moving it would change
-	// nothing in the file. The panel runs against a real terminal, so the test does too.
+	// Without a colour profile the cursor row paints as bare text and moving it would change
+	// nothing in the file.
 	restore := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
@@ -396,9 +395,8 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 	assert.Equal(t, m.review.view.Last(), m.review.cursor)
 }
 
-// TestReviewAdriftThreadIsReachable covers a thread whose file is not in the diff at all. It
-// gets a row of its own at the foot of the diff rather than a list in the sidebar, so the
-// cursor can still stand on it and the conversation can still be read and answered.
+// TestReviewAdriftThreadIsReachable covers a thread whose file is not in the diff, which gets
+// a row at the foot so the cursor can still stand on it and answer.
 func TestReviewAdriftThreadIsReachable(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -457,10 +455,8 @@ func TestReviewAdriftThreadTakesAReply(t *testing.T) {
 	assert.Equal(t, "t1", m.review.editing, "composing answers the thread rather than opening a new one")
 }
 
-// TestReviewViewNeverOutgrowsThePane is the one invariant the sidebar has to hold: bubbletea
-// draws whatever it is handed, so a view taller than the pane corrupts the frame and the
-// sidebar stops appearing at all. A long conversation and a pile of moved threads is the case
-// that breaks it.
+// TestReviewViewNeverOutgrowsThePane covers the sidebar staying inside the pane, since
+// bubbletea draws whatever it is handed and a taller view corrupts the frame.
 func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -515,10 +511,8 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 	}
 }
 
-// TestReviewRendersWhileLoading is the frame the panel drew before the patch arrived. The
-// sidebar and its legend are drawn on every frame, so anything reaching into the view has to
-// survive not having one yet: this panicked the whole panel, which took its pane with it and
-// left the stage's pager filling the window.
+// TestReviewRendersWhileLoading covers the frame drawn before the patch arrives, which used to
+// panic the whole panel and take its pane with it.
 func TestReviewRendersWhileLoading(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -569,9 +563,8 @@ func TestReviewSurvivesAFailedLoad(t *testing.T) {
 	}
 }
 
-// TestReviewKeepsDrawingAfterAWrite is the bug that saving a comment introduced. The drawer is
-// started once and never restarted, so nothing but a repaint ever draws the stage again, and a
-// repaint that gave up left the stage frozen while the sidebar carried on following the cursor.
+// TestReviewKeepsDrawingAfterAWrite covers the stage still repainting after a save, since the
+// drawer is started once and a repaint that gave up froze the stage.
 func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -610,9 +603,8 @@ func TestReviewPanRedrawsTheRows(t *testing.T) {
 	assert.NotEqual(t, was, reviewStageText(t), "panning moves the text under the gutter")
 }
 
-// TestReviewRepliesInAThread covers the other half of the compose key. On a line that already
-// carries a thread it answers that thread rather than opening a second one on the same line, and
-// the legend says which it will do before it is pressed.
+// TestReviewRepliesInAThread covers the compose key on a line that already carries a thread,
+// which answers it rather than opening a second one.
 func TestReviewRepliesInAThread(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -661,8 +653,8 @@ func TestReviewRepliesInAThread(t *testing.T) {
 	assert.Nil(t, agents.created, "and does not open a second thread on the same line")
 }
 
-// TestReviewPanStepScalesWithThePane covers how far sideways a press goes. A fixed few characters
-// means dozens of presses to cross a wide diff.
+// TestReviewPanStepScalesWithThePane covers how far sideways a press goes, since a fixed few
+// characters means dozens of presses to cross a wide diff.
 func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -679,8 +671,8 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	assert.Equal(t, reviewPanStep, m.reviewPanStep())
 }
 
-// TestReviewConversationStateSaysWhoseTurnItIs covers the line at the top of the sidebar. It is
-// the one place the review says where it stands, so every way it can stand is named here.
+// TestReviewConversationStateSaysWhoseTurnItIs covers the line at the top of the sidebar, which
+// is the one place the review says where it stands.
 func TestReviewConversationStateSaysWhoseTurnItIs(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -727,8 +719,8 @@ func TestReviewConversationStateSaysWhoseTurnItIs(t *testing.T) {
 	}
 }
 
-// TestReviewNotifyIsTheSubmitKey covers telling the agent its review is waiting. It is the same
-// key that submits everywhere else, since sending is what it does here too.
+// TestReviewNotifyIsTheSubmitKey covers telling the agent its review is waiting on the same key
+// that submits everywhere else.
 func TestReviewNotifyIsTheSubmitKey(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -748,9 +740,8 @@ func TestReviewNotifyIsTheSubmitKey(t *testing.T) {
 	assert.Equal(t, "a1", agents.notified.GetAgentId())
 }
 
-// TestSettlingAThreadIsWhatQuietsIt covers the state that decides whether a conversation is
-// finished with. Nothing about the code moving says a question was answered, so settling is a
-// key the person reviewing presses and the only thing that closes a thread short of deleting.
+// TestSettlingAThreadIsWhatQuietsIt covers settling being a key the reviewer presses, since
+// nothing about the code moving says a question was answered.
 func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -874,9 +865,8 @@ func typeReview(t *testing.T, m model, keys string) model {
 	return m
 }
 
-// TestReviewSearchFollowsThePatternAsItIsTyped covers the search prompt. The diff moves to
-// what the half-typed pattern matches, which is what makes typing one worth watching, and the
-// sidebar says where in the matches the cursor is standing.
+// TestReviewSearchFollowsThePatternAsItIsTyped covers the diff moving to what a half-typed
+// pattern matches, with the sidebar saying where in the matches the cursor stands.
 func TestReviewSearchFollowsThePatternAsItIsTyped(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -975,9 +965,8 @@ func TestReviewSearchPaintsWhatItFound(t *testing.T) {
 	assert.Contains(t, reviewStageText(t), "package greet", "and the line still reads the same")
 }
 
-// TestReviewRecentringHoldsTheWindow covers zt. The scroll margin drags the window back to
-// keep the cursor clear of the edge, which is the one thing a recentring key must be able to
-// say no to.
+// TestReviewRecentringHoldsTheWindow covers zt overriding the scroll margin, which otherwise
+// drags the window back to keep the cursor clear of the edge.
 func TestReviewRecentringHoldsTheWindow(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -1026,9 +1015,8 @@ func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
 	assert.False(t, m.review.composing, "escape is the one key the editor gives up")
 }
 
-// TestReviewSearchPromptOwnsTheKeyboard is the same rule the composer has: while a pattern is
-// being typed, a key that is bound elsewhere in the panel is a character in the pattern. `?`
-// is the one that bites, since it toggles the help.
+// TestReviewSearchPromptOwnsTheKeyboard covers a key bound elsewhere being a character in the
+// pattern while one is typed, which bites hardest on the help key.
 func TestReviewSearchPromptOwnsTheKeyboard(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -1066,9 +1054,8 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 	assert.Equal(t, "no matches", m.review.notice)
 }
 
-// TestReviewRecentringSurvivesARepaint is what zt is for. The scroll margin runs on every
-// repaint, not only on a move, so a recentred window used to be dragged back by the next pan
-// or by a write landing from the service.
+// TestReviewRecentringSurvivesARepaint covers a recentred window holding, since the scroll
+// margin runs on every repaint rather than only on a move.
 func TestReviewRecentringSurvivesARepaint(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -1099,11 +1086,8 @@ func TestReviewRecentringSurvivesARepaint(t *testing.T) {
 	assert.Less(t, m.review.top, m.review.cursor, "moving the cursor hands the window back to the margin")
 }
 
-// TestReviewSearchLeavesTheAgentsListAlone is why the review keeps its own filter rather than
-// the model's. The agents list narrows itself by the model's filter whatever screen is up, and
-// the refresh that runs every couple of seconds re-places the tree cursor against those rows.
-// A code pattern matches no agent names, so sharing one filter emptied the list under the
-// cursor and dropped the reader back at the top when they left the review.
+// TestReviewSearchLeavesTheAgentsListAlone covers the review keeping its own filter, since the
+// agents list narrows by the model's filter whatever screen is up.
 func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)

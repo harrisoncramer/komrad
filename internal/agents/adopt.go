@@ -36,8 +36,8 @@ type pullRequestResolver interface {
 	Repository(ctx context.Context, dir string) (string, error)
 }
 
-// WithPullRequests arms adoption's ability to take a pull request rather than a branch.
-// Without it a branch name still adopts, since nothing outside the repository is read.
+// WithPullRequests arms adoption's ability to take a pull request rather than a branch, and a
+// branch name still adopts without it.
 func (s *AgentService) WithPullRequests(r pullRequestResolver) *AgentService {
 	s.pullRequests = r
 
@@ -57,9 +57,8 @@ type AdoptParams struct {
 	SetupPane      string
 }
 
-// Adopt puts an agent on a branch weave did not make, named directly or through a pull
-// request. The workflow decides the repository, and weave decides where the agent runs: a
-// worktree of its own on that branch, or the checkout already holding it.
+// Adopt puts an agent on a branch weave did not make, named directly or through a pull request,
+// running it either in a worktree of its own or in the checkout already holding the branch.
 func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Agent, error) {
 	ref := strings.TrimSpace(p.Ref)
 	if ref == "" {
@@ -121,18 +120,15 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	case sameDir(trees.holder, trees.main):
 		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
 	case owner != nil && owner.WorktreeRemoved:
-		// Git still has the registration but the directory is gone, so there is nothing to
-		// launch into. A worktree of this agent's own is made instead, which the add's
-		// prune-and-retry is what gets past the registration left behind.
+		// Git still has the registration but the directory is gone, so a worktree of this agent's
+		// own is made instead.
 	case owner != nil && adopted(*owner, branch):
 		return owner, nil
 	case owner != nil:
 		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
 	default:
-		// The checkout is somebody else's work, made by hand or by another tool, so the agent
-		// is launched into it as it stands rather than provisioned one. Blanking both actions
-		// is what stops the workflow's worktree pair from making a second checkout and, on
-		// delete, from removing a directory weave never created.
+		// The checkout is somebody else's work, so both actions are blanked to stop the workflow
+		// making a second one and, on delete, removing a directory weave never created.
 		params.Dir = trees.holder
 		params.SetupAction = xptr.Ptr("")
 		params.CleanupAction = xptr.Ptr("")
@@ -202,19 +198,14 @@ func (s *AgentService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, nil
 }
 
-// adopted reports whether an agent is the one working on a branch right now. An agent whose
-// worktree has since been removed is not: it has no directory to be working in, and holding
-// the branch against it would leave nothing able to take the work on but a delete. Nor is an
-// archived one, which has been stopped: its worktree is still its own to be torn down with,
-// so it is something to be refused over rather than handed back as the agent on the job.
+// adopted reports whether an agent is the one working on a branch right now, which rules out an
+// agent whose worktree is gone and an archived one whose worktree is still its own to remove.
 func adopted(agent agentstore.Agent, branch string) bool {
 	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
 }
 
-// agentIn returns the agent whose cwd is a directory, archived ones included, since an
-// archived agent's worktree is still on disk and still that agent's to be torn down with.
-// Launching a second agent into it would have the first one's cleanup remove the directory
-// out from under it.
+// agentIn returns the agent whose cwd is a directory, archived ones included, since the first
+// agent's cleanup would otherwise remove the directory out from under a second one.
 func (s *AgentService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
 	if dir == "" {
 		return nil, nil
@@ -241,11 +232,8 @@ type worktrees struct {
 	holder string
 }
 
-// readWorktrees reports the checkout holding a branch, blank when none does. Git refuses to
-// check a branch out twice, so this is what tells an adoption that has a worktree to make
-// from one that has a directory to be launched into. The main worktree is read from the same
-// listing rather than taken to be the directory git was asked from, since git answers from
-// anywhere inside a checkout and reports roots.
+// readWorktrees reports the checkout holding a branch, blank when none does, since git refuses
+// to check the same branch out twice.
 func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) {
 	listCtx, cancel := context.WithTimeout(ctx, worktreeListTimeout)
 	defer cancel()
@@ -263,6 +251,8 @@ func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) 
 		switch {
 		case strings.HasPrefix(line, "worktree "):
 			dir = strings.TrimPrefix(line, "worktree ")
+			// git answers from anywhere inside a checkout and reports roots, so the main worktree is
+			// the first one listed rather than the directory git was asked from.
 			if found.main == "" {
 				found.main = dir
 			}
@@ -301,10 +291,8 @@ func adoptTitle(title string, pr *PullRequest, branch string) string {
 	return xstr.Slug(branch[strings.LastIndex(branch, "/")+1:], 40)
 }
 
-// adoptPrompt puts what the agent is walking into in front of whatever it was asked to do.
-// An agent that does not know the branch is somebody else's treats the commits on it as its
-// own and rewrites them. With nothing asked of it, it is told that rather than given work of
-// weave's invention: what to do with the branch is the next thing the human will say.
+// adoptPrompt puts what the agent is walking into in front of whatever it was asked to do, since
+// an agent that does not know the branch is somebody else's will rewrite the commits on it.
 func adoptPrompt(pr *PullRequest, branch, prompt string) string {
 	var b strings.Builder
 

@@ -72,10 +72,8 @@ func grantReadOnly(t *testing.T, pool *store.Pool, dbURL string) string {
 	return parsed.String()
 }
 
-// SeedAgent records an agent and returns it as stored, since a test usually
-// needs the generated id rather than the fields it just wrote. An agent with no
-// workflow set is filed under one created for it, since every agent belongs to
-// a workflow and most tests do not care which.
+// SeedAgent records an agent and returns it as stored, filing one with no workflow set under
+// a workflow created for it.
 func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Agent {
 	t.Helper()
 
@@ -92,9 +90,8 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 	return stored
 }
 
-// LiveAgentByName finds the one live agent holding a name, nil when none does. Nothing in
-// production reaches an agent this way, since a name is unique per workflow rather than
-// panel-wide. A test that chose the names itself knows they are unambiguous.
+// LiveAgentByName finds the one live agent holding a name, which only a test can ask for
+// since a name is unique per workflow rather than panel-wide.
 func (s *Stores) LiveAgentByName(ctx context.Context, name string) (*agentstore.Agent, error) {
 	listed, err := s.Agents.List(ctx)
 	if err != nil {
@@ -122,10 +119,8 @@ func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflows
 	return created
 }
 
-// SeedSchedule records a schedule and returns it, for the tests that need one
-// to aim at rather than one to inspect. A schedule with no workflow set is filed
-// under one created for it, since a schedule launches into a workflow and most
-// tests do not care which.
+// SeedSchedule records a schedule and returns it, filing one with no workflow set under a
+// workflow created for it.
 func (s *Stores) SeedSchedule(t *testing.T, cfg schedulestore.Config) *schedulestore.Schedule {
 	t.Helper()
 

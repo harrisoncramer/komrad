@@ -11,19 +11,15 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// interruptedPrompt is what a resumed agent is asked on the way back in, when its previous
-// turn was cut off by the pane going. No CLI carries an unfinished turn across a relaunch:
-// what comes back is the conversation and an empty prompt, so the only way to have the work
-// picked up again is to ask for it as an ordinary message.
+// interruptedPrompt is what a resumed agent is asked on the way back in, since no CLI carries
+// an unfinished turn across a relaunch and the work can only be picked up by asking for it.
 const interruptedPrompt = "Your last turn was cut off part-way through when your pane was stopped, " +
 	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// turnUnfinished reports whether a state leaves a turn part-way through, which is what a
-// pane going takes with it. Thinking is the model still working. Waiting is a tool call it
-// made and a question nobody answered, which is no more finished; the resume asking about it
-// puts that question back in front of the person rather than losing the work behind it.
+// turnUnfinished reports whether a state leaves a turn part-way through, which covers both the
+// model still working and a tool call whose question nobody answered.
 func turnUnfinished(state string) bool {
 	return state == agentstore.StateThinking || state == agentstore.StateWaiting
 }

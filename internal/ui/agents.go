@@ -222,11 +222,8 @@ func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd
 	)
 }
 
-// releasePanes swaps the given agents' real panes out of the stage and marks them locally as
-// no longer alive. The mark matters because returnToAgents calls stageSelection synchronously,
-// before any refresh has told the model these agents are gone; without it, stageSelection sees
-// the cursor still on a just-released row and swaps the same pane straight back in, right as
-// the delete that follows kills it out from under the frame.
+// releasePanes swaps the given agents' real panes out of the stage and marks them locally as no
+// longer alive, since stageSelection would otherwise swap a released pane straight back in.
 func (m *model) releasePanes(agents []agentstore.Agent) {
 	released := make(map[string]bool, len(agents))
 	for _, agent := range agents {
@@ -435,9 +432,8 @@ const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
 const settingUpPlaceholder = "_setting up…_\n\nRunning the setup action. This agent has no pane yet."
 
-// failureReasonKey is the metadata key a failed create or cleanup records its reason under.
-// Excluded from the generic metadata dump in agentFields, since failedPlaceholder is
-// responsible for surfacing it — never both at once.
+// failureReasonKey is the metadata key a failed create or cleanup records its reason under,
+// left out of agentFields since failedPlaceholder is what shows it.
 const failureReasonKey = "error"
 
 func (m model) failedPlaceholder(agent agentstore.Agent) string {
@@ -543,9 +539,8 @@ func (m model) submitAdopt() (tea.Model, tea.Cmd) {
 		return m.closeForm()
 	}
 
-	// Adoption runs the workflow's setup action for the worktree it makes, and runs none at all
-	// when it lands in a checkout that already exists. Which of the two it will be is the
-	// service's to work out, so the pane is claimed on the strength of the workflow alone.
+	// Which of those two adoption does is the service's to work out, so the pane is claimed on the
+	// strength of the workflow alone.
 	var pane string
 	if m.target.newAgentWorkflow.SetupAction != "" && !m.setupPending {
 		m = m.closeInfo()

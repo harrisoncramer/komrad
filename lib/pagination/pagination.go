@@ -1,17 +1,12 @@
-// Package pagination turns a request's page token and limit into the cursor and
-// bound a query runs with, and turns the records that come back into the token
-// for the next page.
+// Package pagination turns a request's page token and limit into the cursor and bound a
+// query runs with, and turns the records that come back into the token for the next page.
 //
-// Every listing pages the same way. A resource opts in by implementing
-// Cursorable, returning the cursor that locates it among its peers, and the
-// handler that lists it holds a Paginator over that pair. Nothing else about the
-// resource matters here, so a new list endpoint reuses this rather than growing
-// its own token format.
-//
-// The token is an opaque base64 of the JSON-encoded cursor. Callers hand it back
-// verbatim, and the shape inside it is the server's business and may change. A cursor
-// type says through Validate what it will take back, so a token holding something the
-// query cannot use is refused here rather than by the database.
+// Explainer: a resource opts in by implementing Cursorable, returning the cursor that
+// locates it among its peers, and the handler that lists it holds a Paginator over that
+// pair. The token is an opaque base64 of the JSON-encoded cursor, so callers hand it back
+// verbatim and the shape inside it stays the server's business. A cursor type says through
+// Validate what it will take back, so a token holding something the query cannot use is
+// refused here rather than by the database.
 package pagination
 
 import (
@@ -25,14 +20,13 @@ import (
 )
 
 // Cursor is a decoded cursor that can say whether it holds a position this server could
-// have handed out. One that cannot is a mangled token rather than a place in a listing.
+// have handed out.
 type Cursor interface {
 	Validate() error
 }
 
-// Cursorable is a resource that can say where it sits in a listing. C is the cursor
-// type, whatever the query orders by, which is a sort key plus an id for anything
-// whose sort key can tie.
+// Cursorable is a resource that can say where it sits in a listing, where C is the sort key
+// the query orders by plus an id to break ties.
 type Cursorable[C Cursor] interface {
 	Cursor() (C, error)
 }
@@ -44,20 +38,15 @@ type Paginator[C Cursor, M Cursorable[C]] struct {
 	cursor *C
 }
 
-// The limits a Paginator applies. The default is small enough that a caller who
-// asks for nothing gets a page it can read rather than the whole store, and the
-// ceiling is what one request may pull however large a limit it sends.
+// The limits a Paginator applies, so a caller that asks for nothing gets a readable page
+// and one that asks for too much is capped.
 const (
 	defaultLimit int64 = 50
 	maxLimit     int64 = 500
 )
 
-// New builds a Paginator from a request's pagination. A nil pagination is the
-// first page at the default size, so a caller that omits the field entirely is
-// served rather than refused. A malformed cursor is the caller's mistake and comes
-// back as InvalidArgument, whether it will not decode at all or decodes into a position
-// its own cursor type refuses. A limit past the ceiling is clamped, since a caller
-// asking for too much still wants a page.
+// New builds a Paginator from a request's pagination, which may be nil for the first page
+// at the default size.
 func New[C Cursor, M Cursorable[C]](p *paginationv1.Pagination) (*Paginator[C, M], error) {
 	cursor, err := decode[C](p.GetCursor())
 	if err != nil {
@@ -81,12 +70,10 @@ func (p *Paginator[C, M]) Limit() int64 { return p.limit }
 // Cursor is the decoded request cursor, nil on the first page.
 func (p *Paginator[C, M]) Cursor() *C { return p.cursor }
 
-// NextToken returns the token for the page after these records, or nil when
-// there is none. A page short of the limit is the last one, since the query
-// would have filled it had more rows matched. A page exactly at the limit
-// returns a token even when it happens to be the last, which costs the caller
-// one empty page rather than a count query on every request.
+// NextToken returns the token for the page after these records, or nil when there is none.
 func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
+	// A page short of the limit is the last one, so a page landing exactly on the limit costs
+	// the caller one empty page rather than a count query on every request.
 	if int64(len(resources)) < p.limit {
 		return nil, nil
 	}
@@ -105,8 +92,7 @@ func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
 	return &token, nil
 }
 
-// decode unpacks a base64 JSON token into a cursor, or nil when the token is
-// empty. A cursor that unpacks is put to its own Validate before it is handed on.
+// decode unpacks a base64 JSON token into a cursor, or nil when the token is empty.
 func decode[C Cursor](token string) (*C, error) {
 	if token == "" {
 		return nil, nil

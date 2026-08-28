@@ -26,25 +26,22 @@ const idleRegionLines = 8
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Codex is doing. Only a frame that shows
-// the composer is idle, so a pane whose Codex has not drawn its input box yet is
-// ActivityUnrecognized rather than an agent ready to be typed at.
-//
-// An interrupted turn still reads as finished, since escaping leaves the live line gone
-// and the typed prompt sitting in the composer, which the composer match accepts.
-//
-// The bottom line is read first because the question Codex asks with its own tool offers
-// to interrupt the turn on the same line as the key that answers it.
+// ReadActivity reads what a captured frame says Codex is doing, counting only a frame showing
+// the composer as idle.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == "":
 		return harness.ActivityUnknown
+	// The bottom line is read first because the question Codex asks with its own tool offers to
+	// interrupt the turn on the same line as the key that answers it.
 	case doesFrameShowPromptFooter(frame):
 		return harness.ActivityWaiting
 	case doesFrameShowWork(frame):
 		return harness.ActivityWorking
 	case doesFrameShowWaiting(frame):
 		return harness.ActivityWaiting
+	// An interrupted turn reads as finished, since escaping leaves the typed prompt sitting in
+	// the composer.
 	case doesFrameShowComposer(frame):
 		return harness.ActivityIdle
 	default:

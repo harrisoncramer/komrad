@@ -13,8 +13,7 @@ import (
 )
 
 // TestWorktreeRemovedReachesTheCaller covers the flag over the wire, which is all the panel
-// ever sees of it. The service and its store are real here, so nothing stands in for the
-// conversion the panel depends on.
+// ever sees of it.
 func TestWorktreeRemovedReachesTheCaller(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

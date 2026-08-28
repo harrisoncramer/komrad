@@ -103,9 +103,8 @@ const loginFrame = "  Welcome to Codex, OpenAI's command-line coding agent\n" +
 	"\n" +
 	"  Press enter to continue"
 
-// TestReadActivity covers the verdict one captured frame settles on. Codex prefixes its
-// own prose and every tool line with the same bullet the status line uses, so most of
-// these cases are about not reading ordinary transcript text as work.
+// TestReadActivity covers the verdict one captured frame settles on, mostly about not reading
+// prose as work since Codex prefixes it with the same bullet the status line uses.
 func TestReadActivity(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -231,9 +230,8 @@ func TestReadActivity(t *testing.T) {
 	}
 }
 
-// TestReadActivityIgnoresTranscriptProse checks that an agent discussing the markers is
-// not read as being at one. Only the bottom of the frame counts, and below the prose in
-// both cases is an idle input box.
+// TestReadActivityIgnoresTranscriptProse checks an agent discussing the markers is not read as
+// being at one, since only the bottom of the frame counts.
 func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -261,17 +259,16 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 	}
 }
 
-// TestReadActivityStripsANSI covers a frame captured with colours, which is how the
-// panel captures every pane. The status line comes back shredded by SGR codes.
+// TestReadActivityStripsANSI covers a frame captured with colours, where the status line comes
+// back shredded by SGR codes.
 func TestReadActivityStripsANSI(t *testing.T) {
 	frame := "\x1b[38;5;39m•\x1b[39m \x1b[1mWorking\x1b[0m \x1b[2m(7s • esc to interrupt)\x1b[0m"
 
 	assert.Equal(t, harness.ActivityWorking, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).ReadActivity(frame))
 }
 
-// TestReadActivityWithoutComposer covers frames captured from a pane whose Codex has not
-// drawn its input box yet. None of them is the idle prompt, and reading them as one is
-// what lets mail be typed at a pane that is not listening.
+// TestReadActivityWithoutComposer covers a pane whose Codex has not drawn its input box, where
+// reading it as idle would let mail be typed at a pane that is not listening.
 func TestReadActivityWithoutComposer(t *testing.T) {
 	tests := []struct {
 		name  string

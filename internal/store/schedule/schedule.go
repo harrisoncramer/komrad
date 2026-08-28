@@ -33,8 +33,7 @@ type Schedule struct {
 	UpdatedAt time.Time
 }
 
-// LaunchResultStatus is what happened the last time a schedule fired. Empty means it has
-// never fired.
+// LaunchResultStatus is what happened the last time a schedule fired, empty when it never has.
 type LaunchResultStatus string
 
 const (
@@ -123,8 +122,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor) ([]Sc
 	return schedules, nil
 }
 
-// Get returns a schedule by id, nil when none exists, or an error for a real
-// failure. No-rows is the nil case. Every other error is surfaced.
+// Get returns a schedule by id, nil when none exists, or an error for a real failure.
 func (s *Store) Get(ctx context.Context, id string) (*Schedule, error) {
 	if !store.IsID(id) {
 		return nil, nil
@@ -206,9 +204,8 @@ func (s *Store) SetEnabled(ctx context.Context, id string, enabled bool) error {
 	return nil
 }
 
-// maxLaunchResultMessage caps what a launch failure can push into the schedules screen. The
-// message can carry an arbitrary error's text, so it is capped on the way in rather than at
-// render time.
+// maxLaunchResultMessage caps what a launch failure can push into the schedules screen, cut
+// on the way in since the text is an arbitrary error's.
 const maxLaunchResultMessage = 500
 
 // RecordLaunchResult writes what happened the last time this schedule fired, overwriting
@@ -280,9 +277,8 @@ func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedu
 	return schedules, nil
 }
 
-// Delete permanently removes a schedule, which is what a workflow delete does to
-// the schedules inside it. Agents the schedule launched hold a foreign key to it,
-// so the caller clears them first.
+// Delete permanently removes a schedule, whose launched agents hold a foreign key to it so
+// the caller clears them first.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -295,9 +291,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// CountLive reports how many live schedules launch into a workflow. Deleting a
-// workflow while any do would leave them with nowhere to run, so the caller
-// checks here first rather than discovering it when one next fires.
+// CountLive reports how many live schedules launch into a workflow, so a caller deleting one
+// finds out before the schedules are left with nowhere to run.
 func (s *Store) CountLive(ctx context.Context, workflowID string) (int64, error) {
 	if !store.IsID(workflowID) {
 		return 0, nil

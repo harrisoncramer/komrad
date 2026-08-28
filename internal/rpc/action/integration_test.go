@@ -25,10 +25,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestActionServiceOverHTTP drives the whole path a caller takes, over the wire, with the real
-// runner starting a real script. Everything else here stops at a seam, and the two things only
-// this can reach are the validation interceptor, which is what refuses a name before any handler
-// sees it, and the payload actually arriving in a process.
+// TestActionServiceOverHTTP drives the whole path over the wire with a real script, which is
+// the only way to reach the validation interceptor and the payload arriving in a process.
 func TestActionServiceOverHTTP(t *testing.T) {
 	dir := t.TempDir()
 

@@ -13,9 +13,8 @@ const (
 	lightStyleName = "catppuccin-latte"
 )
 
-// token is one run of source text that shares a colour. The background is not decided here,
-// since the same source line is drawn on a different one depending on what the diff does to
-// it and whether the cursor is on it.
+// token is one run of source text that shares a colour, with no background, since the same
+// line is drawn on a different one depending on the diff and the cursor.
 type token struct {
 	text string
 
@@ -25,9 +24,8 @@ type token struct {
 // styledLine is one line of a file, already lexed.
 type styledLine []token
 
-// highlighter lexes whole files. Lexing a file rather than a line is what keeps a multi-line
-// string or block comment coloured correctly, which per-line lexing cannot do, and the line
-// count of the result matches the file's, so a diff line's number indexes straight into it.
+// highlighter lexes whole files, which is what keeps a multi-line string or block comment
+// coloured correctly where per-line lexing cannot.
 type highlighter struct {
 	style *chroma.Style
 
@@ -48,13 +46,14 @@ func newHighlighter(isDark bool) *highlighter {
 	return &highlighter{style: style, lexers: map[string]chroma.Lexer{}}
 }
 
-// splitLines lexes a file and returns it one line at a time. A file it cannot lex comes back
-// nil, and the caller draws the patch's own text instead.
+// splitLines lexes a file into one entry per line, so a diff line's number indexes straight
+// into the result.
 func (h *highlighter) splitLines(path, source string) []styledLine {
 	if source == "" {
 		return nil
 	}
 
+	// A file it cannot lex comes back nil, and the caller draws the patch's own text instead.
 	iterator, err := h.getLexer(path).Tokenise(nil, source)
 	if err != nil {
 		return nil

@@ -27,9 +27,8 @@ func TestRenderedConfigLoadsAsTheDefaults(t *testing.T) {
 	rendered, err := RenderConfigTOML(".")
 	require.NoError(t, err)
 
-	// Round-tripping the generated file through Load is what proves the renderer
-	// emits keys the decoder actually recognises. Comparing bytes against the
-	// committed file only proves the two agree with each other.
+	// Round-tripping through Load proves the renderer emits keys the decoder recognises,
+	// which comparing bytes against the committed file does not.
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, rendered, 0o644))
 

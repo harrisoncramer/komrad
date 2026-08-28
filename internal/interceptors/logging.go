@@ -68,8 +68,7 @@ func (l *loggingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc
 	}
 }
 
-// WrapStreamingClient and WrapStreamingHandler pass through, as the validation
-// interceptor's do. The service is unary only.
+// WrapStreamingClient and WrapStreamingHandler pass through, since the service is unary only.
 func (l *loggingInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }
@@ -78,9 +77,8 @@ func (l *loggingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerF
 	return next
 }
 
-// CallerAttrs name the agent a call came from, and nothing at all for a call from the
-// panel or from a person, which is unattributed rather than anonymous. Both edges of the
-// service log it the same way, so one agent's calls are one filter however they arrived.
+// CallerAttrs name the agent a call came from, and nothing at all for the panel or a person,
+// so one agent's calls are one filter however they arrived.
 func CallerAttrs(from caller.Caller) []slog.Attr {
 	attrs := make([]slog.Attr, 0, 2)
 	if from.AgentID != "" {

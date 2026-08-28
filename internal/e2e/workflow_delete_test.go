@@ -15,12 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDeleteWorkflowFinishesOnceCleanupCatchesUp covers a workflow whose one agent has a
-// cleanup action that succeeds but takes real time to run: a cleanup action is always
-// asynchronous, so the workflow's own agents are not gone by the time DeleteWorkflow's
-// request returns, and only checking once, right then, would leave the workflow archived
-// forever even though nothing failed. The delete must finish on its own once the cleanup
-// action catches up, without a second press.
+// TestDeleteWorkflowFinishesOnceCleanupCatchesUp covers a cleanup action that takes real
+// time, where checking only once would leave the workflow archived though nothing failed.
 func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

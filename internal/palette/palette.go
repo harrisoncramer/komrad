@@ -39,8 +39,8 @@ func newModel() model {
 
 func (m model) Init() tea.Cmd { return nil }
 
-// Update drives the palette. Every printable key types into the query, and nothing else is
-// bound, since what a query means is what is still to be written.
+// Update drives the palette, typing every printable key into the query and binding nothing
+// else.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
 		m.height = size.Height

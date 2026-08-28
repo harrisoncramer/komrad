@@ -6,12 +6,8 @@ type Finding struct {
 	Fix    string
 }
 
-// Config is shown instead of the panel when the user's config file could not be read.
-// Unlike the service being down, it can't fix itself, and the file it's complaining about
-// is the one holding the keys the panel would otherwise tell you to press.
-//
-// Printing to stderr and exiting instead would write to a popup tmux destroys in the same
-// instant, leaving the binary run by hand as the only way to read it.
+// Config is shown instead of the panel when the config file could not be read, since
+// printing to stderr would write to a popup tmux destroys in the same instant.
 func Config(width int, err error) string {
 	return Screen{
 		Width: width,
@@ -27,14 +23,8 @@ func Config(width int, err error) string {
 	}.Render()
 }
 
-// Startup is shown instead of the panel when the server it works through could not be
-// started. The reason the server gave is a log tail saying what failed rather than what to
-// do about it; the doctor's findings sit alongside it, naming the dependency and the
-// command that repairs it.
-//
-// It's a takeover rather than the unreachable screen, which waits for a server that's
-// coming back, since the panel starts a server only once and nothing retries if that
-// attempt failed.
+// Startup is shown instead of the panel when the server could not be started, as a takeover
+// rather than the unreachable screen since nothing retries a failed first attempt.
 func Startup(width int, err error, findings []Finding) string {
 	screen := Screen{
 		Width: width,
@@ -62,14 +52,8 @@ func Startup(width int, err error, findings []Finding) string {
 	return screen.Render()
 }
 
-// Unreachable is shown in place of every other screen while the service is not answering.
-// It takes over rather than sitting in a corner because the panel is a view onto the
-// service: with the service gone the agent list is a stale snapshot, the counts are wrong,
-// and every key that acts on an agent fails, so left on screen a dead service would read as
-// an empty store.
-//
-// There is nothing to press since the list keeps polling underneath, so the panel returns
-// to itself within a poll of the service coming back.
+// Unreachable takes over every other screen while the service is not answering, since a
+// stale agent list left on screen would read as an empty store.
 func Unreachable(width int, addr string, err error) string {
 	screen := Screen{
 		Width: width,

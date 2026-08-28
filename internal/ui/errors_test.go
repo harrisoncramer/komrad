@@ -43,9 +43,8 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// TestRefusedWriteIsReported covers the case the panel used to swallow. Every
-// write discarded its error, and since the list reloads straight after, a refused
-// archive looked exactly like a keypress that never registered.
+// TestRefusedWriteIsReported covers a refused write, which the reloading list would otherwise
+// make look exactly like a keypress that never registered.
 func TestRefusedWriteIsReported(t *testing.T) {
 	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}
 
@@ -83,9 +82,8 @@ func TestRefusedWriteIsReported(t *testing.T) {
 		"the service's message is shown rather than the connect code in front of it")
 }
 
-// TestRefusedResumeIsReported covers the other write the agents screen makes. A
-// refused resume leaves the row dormant, which is how it looked before the key was
-// pressed, so without the banner nothing on screen changed.
+// TestRefusedResumeIsReported covers a refused resume, which leaves the row dormant and so
+// changes nothing on screen without the banner.
 func TestRefusedResumeIsReported(t *testing.T) {
 	m := model{
 		api: api{
@@ -115,9 +113,8 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		"the wrapper the panel put around the call is not what the reader is shown")
 }
 
-// TestBannerSurvivesTheFormItWasReportedFrom covers a failure reported by a form,
-// which returns to the agents screen as it closes. The banner is chrome above
-// whatever screen the panel lands on, so it outlives the form that caused it.
+// TestBannerSurvivesTheFormItWasReportedFrom covers a failure reported by a form, since the
+// banner is chrome above whatever screen the panel lands on.
 func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
 		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
@@ -146,9 +143,8 @@ func (acceptingAgents) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// TestSuccessfulWriteClearsTheBanner covers the other half of report. Clearing is
-// folded into the same call that sets, so a write cannot succeed and leave the
-// previous failure sitting on screen.
+// TestSuccessfulWriteClearsTheBanner covers clearing being folded into the call that sets,
+// so a write cannot succeed and leave the previous failure on screen.
 func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
@@ -187,9 +183,8 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	assert.Nil(t, got.banner, "a write that succeeded clears the previous failure")
 }
 
-// TestBannerRendersOverTheList covers that a refused write reports without
-// taking the screen, unlike the config and unreachable screens. The row the error
-// is about is in the list underneath, so hiding the list would lose the context.
+// TestBannerRendersOverTheList covers a refused write reporting without taking the screen,
+// since the row the error is about is in the list underneath.
 func TestBannerRendersOverTheList(t *testing.T) {
 	m := model{
 		banner: &errui.Banner{Summary: `Could not archive agent "api-refactor"`, Detail: "already archived"},
@@ -208,9 +203,8 @@ func TestBannerRendersOverTheList(t *testing.T) {
 	assert.Contains(t, view, "api-refactor", "the list is still on screen under the banner")
 }
 
-// TestBannerYieldsToTakeoverScreens pins the precedence. A banner over a list
-// that cannot be trusted would be reporting one failed write while every row behind
-// it was stale.
+// TestBannerYieldsToTakeoverScreens pins the precedence, since a banner over a list that
+// cannot be trusted would report one failed write while every row behind it was stale.
 func TestBannerYieldsToTakeoverScreens(t *testing.T) {
 	tests := []struct {
 		name string
@@ -239,8 +233,8 @@ func TestBannerYieldsToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestBannerDismissal covers what clears the banner. It is chrome rather than
-// a screen, so esc dismisses it, but a form owns its own esc and has to keep it.
+// TestBannerDismissal covers esc clearing the banner, except in a form, which owns its own
+// esc and has to keep it.
 func TestBannerDismissal(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -292,10 +286,8 @@ func TestBannerDismissal(t *testing.T) {
 	}
 }
 
-// TestConfigErrorView covers the screen shown when the config file will not parse.
-// The panel does not start, so this screen is all the reader gets: it has to carry
-// the error itself, name the file to go and fix, and show nothing that would read
-// as a working panel.
+// TestConfigErrorView covers the screen shown when the config file will not parse, which is
+// all the reader gets and so has to carry the error and name the file to fix.
 func TestConfigErrorView(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -341,9 +333,8 @@ func TestConfigErrorView(t *testing.T) {
 	}
 }
 
-// TestConfigErrorScreenIsTerminal covers that nothing runs behind the screen and
-// that any key ends the process. A panel that never read its config has no list to
-// poll and nothing to come back to, so the screen is the whole life of the process.
+// TestConfigErrorScreenIsTerminal covers nothing running behind the screen, since a panel
+// that never read its config has no list to poll and nothing to come back to.
 func TestConfigErrorScreenIsTerminal(t *testing.T) {
 	m := model{configErr: errors.New("failed to parse config: bad")}
 
@@ -354,10 +345,8 @@ func TestConfigErrorScreenIsTerminal(t *testing.T) {
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
 
-// TestStartupErrorView covers the screen shown when the server could not be
-// started. The panel is the only thing on screen at that point, so a failure it does
-// not render is a failure nobody sees: the process is the command of the tmux
-// session behind the popup, and exiting takes the pane the message was on with it.
+// TestStartupErrorView covers the screen shown when the server could not be started, which
+// is the only thing on screen and so is the only place the failure can be read.
 func TestStartupErrorView(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -410,9 +399,8 @@ func TestStartupErrorView(t *testing.T) {
 	}
 }
 
-// TestStartupErrorScreenIsTerminal covers that nothing runs behind the screen and
-// that any key ends the process. A panel whose server never started has nothing to
-// poll: the server is started once, so there is nothing coming back to wait for.
+// TestStartupErrorScreenIsTerminal covers nothing running behind the screen, since the server
+// is started once and a panel whose server never started has nothing to wait for.
 func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	m := model{startupErr: errors.New("the agent server stopped during startup")}
 
@@ -423,9 +411,8 @@ func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	assert.Equal(t, tea.Quit(), cmd(), "and dismissing quits")
 }
 
-// TestUnreachableView covers what the panel shows when the service stops
-// answering. A swallowed poll would leave the last good list on screen, so a
-// dead server would read as a panel whose agents had all been archived.
+// TestUnreachableView covers the service no longer answering, where a swallowed poll would
+// leave the last good list up and read as a panel whose agents were all archived.
 func TestUnreachableView(t *testing.T) {
 	tests := []struct {
 		name         string

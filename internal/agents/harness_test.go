@@ -12,10 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgentGetsHarness covers which CLI a new agent lands on. It follows the
-// same precedence the directory and flags do, what the caller asked for ahead of the
-// workflow's default and the configured one, and the answer is recorded on the row
-// so every later pass gets the same harness.
+// TestNewAgentGetsHarness pins which CLI a new agent lands on, taking what the caller asked
+// for ahead of the workflow's default and the configured one.
 func TestNewAgentGetsHarness(t *testing.T) {
 	tests := []struct {
 		name string
@@ -73,9 +71,8 @@ func TestNewAgentGetsHarness(t *testing.T) {
 	}
 }
 
-// TestNewAgentRefusesUnknownHarness covers an agent naming a CLI this binary cannot
-// run. It is refused where the directory and the workflow are, before a window is
-// opened or a row written, since nothing about it gets better later.
+// TestNewAgentRefusesUnknownHarness pins that a CLI this binary cannot run is refused before
+// a window is opened or a row written.
 func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -100,9 +97,8 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 	assert.Empty(t, tmux.sent, "and types nothing")
 }
 
-// TestResumeRefusesUnknownHarness covers a dormant agent recorded against a CLI this
-// binary does not run. Bringing it back would put the wrong CLI on its conversation,
-// so the resume fails and says which harness is missing.
+// TestResumeRefusesUnknownHarness pins that a resume fails rather than putting the wrong CLI
+// on a dormant agent's conversation.
 func TestResumeRefusesUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -127,9 +123,8 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 	assert.Empty(t, tmux.newWindows, "nothing is opened for an agent that cannot be run")
 }
 
-// TestNewAgentFlagsFollowTheHarness covers where a new agent's default flags come
-// from. Flag vocabularies do not overlap between CLIs, so an agent inherits the
-// flags configured for the one it runs and nobody else's.
+// TestNewAgentFlagsFollowTheHarness pins that an agent inherits only the flags configured for
+// the CLI it runs, since flag vocabularies do not overlap.
 func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

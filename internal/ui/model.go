@@ -19,16 +19,9 @@ import (
 )
 
 // Run launches the panel and blocks for the life of the persistent manager tmux session.
-// The panel is the sidebar, the resource it hovers is shown in a sibling stage pane, and
-// focus moves between the two with the user's own tmux bindings.
-//
-// The terminal's background is settled here, before the program takes the terminal over, and
-// then pinned. Asking is not a read: lipgloss writes an OSC query to the tty and blocks on the
-// reply with no deadline, having turned off ECHO and ICANON on the way. Once bubbletea owns the
-// input that reply is read by bubbletea instead, so the ask never returns and the panel hangs
-// with whatever it last drew still on screen. Pinning the answer means no adaptive colour can
-// ask again later, from any goroutine, on any screen.
 func Run(deps Deps) error {
+	// Asking writes an OSC query to the tty and blocks on the reply with no deadline, so the
+	// answer is settled and pinned here before bubbletea owns the input and reads that reply.
 	isDark := lipgloss.HasDarkBackground()
 	lipgloss.SetHasDarkBackground(isDark)
 
@@ -176,8 +169,8 @@ type model struct {
 
 	clip clipboardWriter
 
-	// isDark is the terminal's background, settled before the program started. Nothing may ask
-	// lipgloss for it again while the panel is running: see Run.
+	// isDark is the terminal's background, settled before the program started and never asked of
+	// lipgloss again while the panel runs.
 	isDark bool
 }
 

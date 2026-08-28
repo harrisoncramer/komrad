@@ -8,10 +8,8 @@ import (
 	"weave/internal/harness"
 )
 
-// GetLogPath finds the rollout for a session id, or "" when none exists. Codex names
-// the file after the timestamp and the id both, under a year, month, and day of
-// directories, so a glob on the id finds it without reproducing that layout or
-// consulting the SQLite index beside it.
+// GetLogPath finds the rollout for a session id by globbing the id, which avoids reproducing
+// Codex's year, month, and day layout or consulting the SQLite index beside it.
 func (h *Harness) GetLogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
@@ -25,9 +23,8 @@ func (h *Harness) GetLogPath(sessionID string) string {
 	return matches[0]
 }
 
-// ReadLog reads whatever the rollout at path holds past offset and flattens it into
-// turns. Codex appends to a rollout and never rewrites one, so a file shorter than the
-// stored offset is a different conversation under the same path.
+// ReadLog reads whatever the rollout at path holds past offset and flattens it into turns,
+// where a file shorter than the stored offset is a different conversation under the same path.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flattenRollout)
 }

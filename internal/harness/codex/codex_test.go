@@ -7,16 +7,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMintSessionID pins the difference that shapes this harness. Codex takes no
-// session id on the command line, so the panel cannot name a conversation before it
-// exists and has to adopt the one Codex chose.
+// TestMintSessionID pins that Codex takes no session id on the command line, so the panel has
+// to adopt the conversation Codex chose.
 func TestMintSessionID(t *testing.T) {
 	assert.Empty(t, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).MintSessionID())
 }
 
-// TestFindSession covers adopting that conversation. A rollout is an agent's when it
-// carries the originator that agent's launch stamped on it, which is the one thing about
-// a rollout that a Codex someone started by hand cannot accidentally match.
+// TestFindSession covers adopting that conversation by the originator its launch stamped, the
+// one thing a hand-started Codex cannot accidentally match.
 func TestFindSession(t *testing.T) {
 	type rollout struct {
 		id         string
@@ -112,9 +110,8 @@ func TestFindSession(t *testing.T) {
 	}
 }
 
-// TestRelocate pins that a restore has nothing to move. Codex resumes by id from
-// anywhere, so an agent brought back in a stand-in directory keeps its conversation
-// without the panel carrying anything across.
+// TestRelocate pins that a restore has nothing to move, since Codex resumes by id from
+// anywhere.
 func TestRelocate(t *testing.T) {
 	assert.NoError(t, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).Relocate("sess-1", "/somewhere/else"))
 }

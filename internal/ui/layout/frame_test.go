@@ -10,10 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestFrameAttachAnchorsToTheGivenPane covers which pane the frame is laid out around. It is
-// the one the panel was told it runs in, never one read from tmux, which answers for
-// whatever window the session is currently looking at. A panel restarted while the session
-// sits on an agent would otherwise split its stage into that agent's window.
+// TestFrameAttachAnchorsToTheGivenPane covers a panel restarted while the session sits on an
+// agent, which would otherwise split its stage into that agent's window.
 func TestFrameAttachAnchorsToTheGivenPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -33,10 +31,8 @@ func TestFrameSizesTheNavPane(t *testing.T) {
 	assert.Equal(t, []string{"%0 40%"}, tmux.resizes, "the sidebar is what is put at the configured width")
 }
 
-// TestFrameRedrawsWhenOnlyTheHeightMoves covers a region that keeps its width and changes
-// height, which is what the stage does when a split opens under it and goes again. Content is
-// drawn to exactly one screenful, so a height the frame never re-read leaves rows the pane
-// cannot fill, and they stay blank because nothing asks again.
+// TestFrameRedrawsWhenOnlyTheHeightMoves covers the stage keeping its width while a split opens
+// under it, which leaves rows blank if the height is never re-read.
 func TestFrameRedrawsWhenOnlyTheHeightMoves(t *testing.T) {
 	tmux := &recordingTmux{width: 80, height: 40}
 	frame := New(tmux, config.DefaultLayout())
@@ -80,9 +76,8 @@ func TestFrameOpenLeavesAStandingFrameAlone(t *testing.T) {
 	assert.Empty(t, tmux.killed, "and nothing already standing is torn down")
 }
 
-// TestFrameLaysRegionsOutOnTheConfiguredSides covers a layout the user has turned around. The
-// stage goes on whichever side of the panel is left for it, and the info pane opens against
-// whichever side of the stage the config names.
+// TestFrameLaysRegionsOutOnTheConfiguredSides covers a layout the user has turned around, where
+// the stage and the info pane both follow the config.
 func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -134,10 +129,8 @@ func TestFrameSizesTheNavPaneInColumns(t *testing.T) {
 	assert.Equal(t, []string{"%0 40"}, tmux.resizes)
 }
 
-// TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild covers the stage losing its pane, which
-// a pager the user quit or a staged agent that exited does routinely. A rebuilt stage is split
-// evenly whatever the config says, so a width in columns only survives if the rebuild is sized
-// the same way the first stage was.
+// TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild covers the stage losing its pane, since a
+// rebuilt stage is split evenly unless it is sized the way the first one was.
 func TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
@@ -163,9 +156,8 @@ func TestFrameShowMeasuresThePane(t *testing.T) {
 	assert.Equal(t, Target{Region: RegionStage, Width: 216}, got)
 }
 
-// TestFrameShowSkipsTheWidthOfContentThatIgnoresIt covers a log or anything else that lays
-// itself out. The pane is not measured for it, since the answer would go nowhere, and it is
-// not redrawn when the pane changes width.
+// TestFrameShowSkipsTheWidthOfContentThatIgnoresIt covers a log that lays itself out, which is
+// neither measured nor redrawn when the pane changes width.
 func TestFrameShowSkipsTheWidthOfContentThatIgnoresIt(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
@@ -182,8 +174,7 @@ func TestFrameShowSkipsTheWidthOfContentThatIgnoresIt(t *testing.T) {
 }
 
 // TestFrameShowRedrawsContentThatWrapped covers a pane that has changed width under content
-// laid out to the width it used to be. The document has not changed, but what is on screen
-// is wrapped to a pane that is no longer there.
+// still wrapped to the width it used to be.
 func TestFrameShowRedrawsContentThatWrapped(t *testing.T) {
 	tmux := &recordingTmux{width: 216}
 	frame := New(tmux, config.DefaultLayout())
@@ -201,9 +192,8 @@ func TestFrameShowRedrawsContentThatWrapped(t *testing.T) {
 	assert.Equal(t, 100, got.Width, "and it is laid out to the pane as it is now")
 }
 
-// TestFrameShowLeavesThePagerAlone covers the pass that redraws the frame every second.
-// Content is compared against what its region is already showing, so a document left up is
-// not respawned under somebody reading it.
+// TestFrameShowLeavesThePagerAlone covers the pass that redraws the frame every second, which
+// must not respawn a document under somebody reading it.
 func TestFrameShowLeavesThePagerAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -231,9 +221,8 @@ func TestFrameShowKeylessContentAlwaysDraws(t *testing.T) {
 	assert.Len(t, tmux.respawns, 3)
 }
 
-// TestFrameShowLeavesAPaneItCouldNotRenderFor covers content that could not be prepared,
-// most often a temporary file that would not write. The pane keeps what it had rather than
-// being blanked, and it is not remembered as showing what never reached it.
+// TestFrameShowLeavesAPaneItCouldNotRenderFor covers content that would not prepare, where the
+// pane keeps what it had rather than being blanked.
 func TestFrameShowLeavesAPaneItCouldNotRenderFor(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -249,8 +238,8 @@ func TestFrameShowLeavesAPaneItCouldNotRenderFor(t *testing.T) {
 	assert.Len(t, tmux.respawns, 2, "and the document that failed is not held as shown")
 }
 
-// TestFrameShowRefusesTheNavRegion covers the one pane the frame will not fill. The panel
-// draws its own, and filling it would replace the process that asked.
+// TestFrameShowRefusesTheNavRegion covers the one pane the frame will not fill, since filling
+// it would replace the process that asked.
 func TestFrameShowRefusesTheNavRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -261,8 +250,8 @@ func TestFrameShowRefusesTheNavRegion(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
-// TestFrameBottomRegion covers the info pane. It is split beneath whatever fills
-// the stage, opened once however many times it is asked for, and taken away whole.
+// TestFrameBottomRegion covers the info pane, which opens once however many times it is asked
+// for and is taken away whole.
 func TestFrameBottomRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -284,9 +273,8 @@ func TestFrameBottomRegion(t *testing.T) {
 	assert.False(t, frame.IsOpen(RegionInfo))
 }
 
-// TestFrameBottomGoesWithARebuiltMain covers the stage losing its pane with the one
-// below still open. That pane hangs off the stage's own, so it cannot outlive it in a
-// window nothing will find again.
+// TestFrameBottomGoesWithARebuiltMain covers the stage losing its pane with the one below still
+// open, which would otherwise be left in a window nothing will find again.
 func TestFrameBottomGoesWithARebuiltMain(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -300,9 +288,8 @@ func TestFrameBottomGoesWithARebuiltMain(t *testing.T) {
 	assert.Contains(t, tmux.killed, "%2")
 }
 
-// TestFrameGuestHoldsTheMainRegion covers an agent's own pane swapped into the stage. It is
-// the pane the stage is showing while it is there, and the document that displaces it
-// puts it back.
+// TestFrameGuestHoldsTheMainRegion covers an agent's own pane swapped into the stage, which the
+// stage shows until a document displaces it.
 func TestFrameGuestHoldsTheMainRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -324,9 +311,8 @@ func TestFrameGuestHoldsTheMainRegion(t *testing.T) {
 	assert.Equal(t, []string{"%1"}, tmux.respawnPanes, "and is drawn in the region's own pane")
 }
 
-// TestFrameGuestDisplacesWhatWasDrawn covers a document that was on the stage before an
-// agent was swapped in. The swap took it off screen, so hovering back to it draws it again
-// rather than reading as the pane already having it.
+// TestFrameGuestDisplacesWhatWasDrawn covers a document that was on the stage before an agent
+// was swapped in, which has to be drawn again rather than read as still there.
 func TestFrameGuestDisplacesWhatWasDrawn(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -339,8 +325,8 @@ func TestFrameGuestDisplacesWhatWasDrawn(t *testing.T) {
 	assert.Len(t, tmux.respawns, 2)
 }
 
-// TestFrameReleaseGuest covers an agent about to be killed. Its pane leaves the stage first,
-// so the region is not left minding a pane that is going away.
+// TestFrameReleaseGuest covers an agent about to be killed, whose pane leaves the stage first
+// so the region is not left minding it.
 func TestFrameReleaseGuest(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -369,9 +355,7 @@ func TestFrameClaimedForgetsWhatWasDrawn(t *testing.T) {
 }
 
 // TestFrameAttachReclaimsTheWindow covers the panel starting into a window the last one left
-// panes in, which is what a reload or a panel that died leaves behind. An agent staged at the
-// time is sitting in that window as its own pane, so it goes back to a window of its own, and
-// the last frame's pane is killed rather than left for the new one to split beside.
+// panes in, where a staged agent goes back to its own window and the dead pane is killed.
 func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 	tmux := &recordingTmux{
 		siblings: []string{"%7", "%8"},
@@ -384,8 +368,8 @@ func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 	assert.Equal(t, []string{"%8"}, tmux.killed, "the last frame's own pane is not kept")
 }
 
-// TestFrameAttachLeavesAnEmptyWindowAlone covers the ordinary first start, where the panel is
-// the only pane. Nothing is reclaimed, since there is nothing there to reclaim.
+// TestFrameAttachLeavesAnEmptyWindowAlone covers the ordinary first start, where there is
+// nothing to reclaim.
 func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 

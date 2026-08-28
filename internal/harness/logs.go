@@ -7,20 +7,16 @@ import (
 	"strings"
 )
 
-// ReadAppendOnlyLog reads what the log at path holds past offset and hands those bytes
-// to flatten, which is the one part that differs by CLI. It suits any harness whose log
-// is written a record per line and never rewritten, which is what makes a byte offset a
-// safe place to resume from.
-//
-// A log shorter than the offset it was read at cannot be the same log, so the read
-// starts over and what is already indexed is dropped. A log that is not on disk yet is
-// not an error, since a conversation appears a moment after the launch.
+// ReadAppendOnlyLog reads what the log at path holds past offset and hands those bytes to
+// flatten, which suits any log written a record per line and never rewritten.
 func ReadAppendOnlyLog(path string, offset int64, flatten func([]byte) []Turn) (LogRead, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return LogRead{}, nil //nolint:nilerr // a log that is not on disk yet is not an error
 	}
 
+	// A log shorter than the offset it was read at cannot be the same log, so the read starts
+	// over and what is already indexed is dropped.
 	read := LogRead{Restart: info.Size() < offset}
 	if read.Restart {
 		offset = 0
@@ -65,13 +61,8 @@ func readCompleteLines(path string, offset int64) ([]byte, int64, error) {
 	return complete, int64(len(complete)), nil
 }
 
-// CleanText trims a turn's prose and drops the NUL the transcript columns cannot hold,
-// which a log written by another process may well carry and which would otherwise refuse
-// every write for that agent from then on.
-//
-// It is dropped as the prose is read rather than at the write, because the turns carry
-// the offset they sit at in the transcript text, so anything removed later would leave
-// every offset after it pointing a byte too far.
+// CleanText trims a turn's prose and drops the NUL the transcript columns cannot hold, doing it
+// as the prose is read since turns carry offsets that a later removal would shift.
 func CleanText(text string) string {
 	return strings.TrimSpace(strings.ReplaceAll(text, "\x00", ""))
 }
