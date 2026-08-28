@@ -343,9 +343,9 @@ func describeRows(rows []agentRow) []string {
 }
 
 // TestWorkflowEditFormRoundTripsTheStoredConfig covers the edit path whole, from the
-// workflow the service reports, through the form, to the update written back. An update
-// replaces every field, so a setting the form never learned about is one the next edit
-// turns off.
+// workflow the service reports through the form to the update written back, because an
+// update replaces every field and a setting the form never learned about is one the next
+// edit turns off.
 func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 	sent := &formRecorder{storedWorkflow: &workflowv1.Workflow{
 		Id:                "w1",
@@ -403,6 +403,8 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	assert.Equal(t, "backend", sent.updatedWorkflow.GetName())
 	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd(), "a rename carries the config it is not changing")
 	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
+}
+
 type fakeActions struct {
 	actionv1connect.ActionServiceClient
 }

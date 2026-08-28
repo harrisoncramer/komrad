@@ -50,9 +50,9 @@ func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 	assert.NotContains(t, reviewer, worktreeRemovedIcon)
 }
 
-// TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.
-// Every screen that acts on a workflow reads it out of the listing and writes it back
-// whole, so a field the conversion drops is a field the next rename clears.
+// TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field,
+// because every screen that acts on a workflow reads it out of the listing and writes it
+// back whole, so a field the conversion drops is a field the next rename clears.
 func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	got := workflowsFrom([]*workflowv1.Workflow{{
 		Id:                "w1",
