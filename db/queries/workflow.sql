@@ -11,7 +11,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -42,7 +42,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -67,7 +67,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -98,7 +98,7 @@ INSERT INTO workflow_action_configs(
     worktree_copy_paths,
     worktree_symlink_paths,
     worktree_diff_exclude,
-    worktree_archive_on_pr_closed)
+    archive_on_pr_closed)
 VALUES (
     @setup_action,
     @cleanup_action,
@@ -107,7 +107,7 @@ VALUES (
     @worktree_copy_paths,
     @worktree_symlink_paths,
     @worktree_diff_exclude,
-    @worktree_archive_on_pr_closed)
+    @archive_on_pr_closed)
 RETURNING
     id;
 
@@ -152,7 +152,7 @@ SET
     worktree_copy_paths = @worktree_copy_paths,
     worktree_symlink_paths = @worktree_symlink_paths,
     worktree_diff_exclude = @worktree_diff_exclude,
-    worktree_archive_on_pr_closed = @worktree_archive_on_pr_closed
+    archive_on_pr_closed = @archive_on_pr_closed
 WHERE
     id =(
         SELECT
@@ -223,7 +223,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id

@@ -294,10 +294,11 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:        "worktrees",
-		Cwd:         t.TempDir(),
-		SetupAction: "worktree-setup",
-		Worktree:    workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+		Name:              "worktrees",
+		Cwd:               t.TempDir(),
+		SetupAction:       "worktree-setup",
+		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
+		ArchiveOnPRClosed: true,
 	})
 	require.NoError(t, err)
 
@@ -349,9 +350,10 @@ func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:     "worktrees",
-		Cwd:      t.TempDir(),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+		Name:              "worktrees",
+		Cwd:               t.TempDir(),
+		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
+		ArchiveOnPRClosed: true,
 	})
 	require.NoError(t, err)
 
@@ -419,9 +421,10 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:     "worktrees",
-		Cwd:      t.TempDir(),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, ArchiveOnPRClosed: true},
+		Name:              "worktrees",
+		Cwd:               t.TempDir(),
+		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
+		ArchiveOnPRClosed: true,
 	})
 	require.NoError(t, err)
 

@@ -28,20 +28,23 @@ type Workflow struct {
 
 	Worktree WorktreeConfig
 
+	ArchiveOnPRClosed bool
+
 	ArchivedAt *time.Time
 
 	UpdatedAt time.Time
 }
 
 type Config struct {
-	Name          string
-	Context       string
-	Harness       string
-	Cwd           string
-	Flags         string
-	SetupAction   string
-	CleanupAction string
-	Worktree      WorktreeConfig
+	Name              string
+	Context           string
+	Harness           string
+	Cwd               string
+	Flags             string
+	SetupAction       string
+	CleanupAction     string
+	Worktree          WorktreeConfig
+	ArchiveOnPRClosed bool
 }
 
 type WorktreeConfig struct {
@@ -54,15 +57,6 @@ type WorktreeConfig struct {
 	SymlinkPaths []string
 
 	DiffExclude []string
-
-	ArchiveOnPRClosed bool
-}
-
-// ArchivesOnPRClosed reports whether a workflow's agents are archived once their pull requests
-// finish. The setting is kept as it was when worktree support is turned off, the same as the
-// other worktree details, so it only counts while that is on.
-func (w WorktreeConfig) ArchivesOnPRClosed() bool {
-	return w.Enabled && w.ArchiveOnPRClosed
 }
 
 type Store struct {
@@ -84,14 +78,14 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
 		return workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
-			SetupAction:               row.SetupAction,
-			CleanupAction:             row.CleanupAction,
-			WorktreeEnabled:           row.WorktreeEnabled,
-			WorktreeBaseBranch:        row.WorktreeBaseBranch,
-			WorktreeCopyPaths:         row.WorktreeCopyPaths,
-			WorktreeSymlinkPaths:      row.WorktreeSymlinkPaths,
-			WorktreeDiffExclude:       row.WorktreeDiffExclude,
-			WorktreeArchiveOnPRClosed: row.WorktreeArchiveOnPrClosed,
+			SetupAction:          row.SetupAction,
+			CleanupAction:        row.CleanupAction,
+			WorktreeEnabled:      row.WorktreeEnabled,
+			WorktreeBaseBranch:   row.WorktreeBaseBranch,
+			WorktreeCopyPaths:    row.WorktreeCopyPaths,
+			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+			WorktreeDiffExclude:  row.WorktreeDiffExclude,
+			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
 		})
 	}), nil
 }
@@ -138,14 +132,14 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
 		return workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
-			SetupAction:               row.SetupAction,
-			CleanupAction:             row.CleanupAction,
-			WorktreeEnabled:           row.WorktreeEnabled,
-			WorktreeBaseBranch:        row.WorktreeBaseBranch,
-			WorktreeCopyPaths:         row.WorktreeCopyPaths,
-			WorktreeSymlinkPaths:      row.WorktreeSymlinkPaths,
-			WorktreeDiffExclude:       row.WorktreeDiffExclude,
-			WorktreeArchiveOnPRClosed: row.WorktreeArchiveOnPrClosed,
+			SetupAction:          row.SetupAction,
+			CleanupAction:        row.CleanupAction,
+			WorktreeEnabled:      row.WorktreeEnabled,
+			WorktreeBaseBranch:   row.WorktreeBaseBranch,
+			WorktreeCopyPaths:    row.WorktreeCopyPaths,
+			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+			WorktreeDiffExclude:  row.WorktreeDiffExclude,
+			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
 		})
 	}), nil
 }
@@ -166,14 +160,14 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	}
 
 	workflow := workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
-		SetupAction:               row.SetupAction,
-		CleanupAction:             row.CleanupAction,
-		WorktreeEnabled:           row.WorktreeEnabled,
-		WorktreeBaseBranch:        row.WorktreeBaseBranch,
-		WorktreeCopyPaths:         row.WorktreeCopyPaths,
-		WorktreeSymlinkPaths:      row.WorktreeSymlinkPaths,
-		WorktreeDiffExclude:       row.WorktreeDiffExclude,
-		WorktreeArchiveOnPRClosed: row.WorktreeArchiveOnPrClosed,
+		SetupAction:          row.SetupAction,
+		CleanupAction:        row.CleanupAction,
+		WorktreeEnabled:      row.WorktreeEnabled,
+		WorktreeBaseBranch:   row.WorktreeBaseBranch,
+		WorktreeCopyPaths:    row.WorktreeCopyPaths,
+		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+		WorktreeDiffExclude:  row.WorktreeDiffExclude,
+		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
 	})
 	return &workflow, nil
 }
@@ -193,14 +187,14 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	}
 
 	actionConfigID, err := s.queries.InsertWorkflowActionConfig(ctx, models.InsertWorkflowActionConfigParams{
-		SetupAction:               cfg.SetupAction,
-		CleanupAction:             cfg.CleanupAction,
-		WorktreeEnabled:           cfg.Worktree.Enabled,
-		WorktreeBaseBranch:        cfg.Worktree.BaseBranch,
-		WorktreeCopyPaths:         orEmpty(cfg.Worktree.CopyPaths),
-		WorktreeSymlinkPaths:      orEmpty(cfg.Worktree.SymlinkPaths),
-		WorktreeDiffExclude:       orEmpty(cfg.Worktree.DiffExclude),
-		WorktreeArchiveOnPrClosed: cfg.Worktree.ArchiveOnPRClosed,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
+		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
+		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert action config for workflow %q: %w", cfg.Name, err)
@@ -217,14 +211,14 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	}
 
 	workflow := workflowFromRow(*row, workflowConfigFields{Harness: cfg.Harness, Cwd: cfg.Cwd, Flags: cfg.Flags}, actionConfigFields{
-		SetupAction:               cfg.SetupAction,
-		CleanupAction:             cfg.CleanupAction,
-		WorktreeEnabled:           cfg.Worktree.Enabled,
-		WorktreeBaseBranch:        cfg.Worktree.BaseBranch,
-		WorktreeCopyPaths:         orEmpty(cfg.Worktree.CopyPaths),
-		WorktreeSymlinkPaths:      orEmpty(cfg.Worktree.SymlinkPaths),
-		WorktreeDiffExclude:       orEmpty(cfg.Worktree.DiffExclude),
-		WorktreeArchiveOnPRClosed: cfg.Worktree.ArchiveOnPRClosed,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
+		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
+		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	})
 	return &workflow, nil
 }
@@ -261,15 +255,15 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	}
 
 	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{
-		WorkflowID:                id,
-		SetupAction:               cfg.SetupAction,
-		CleanupAction:             cfg.CleanupAction,
-		WorktreeEnabled:           cfg.Worktree.Enabled,
-		WorktreeBaseBranch:        cfg.Worktree.BaseBranch,
-		WorktreeCopyPaths:         orEmpty(cfg.Worktree.CopyPaths),
-		WorktreeSymlinkPaths:      orEmpty(cfg.Worktree.SymlinkPaths),
-		WorktreeDiffExclude:       orEmpty(cfg.Worktree.DiffExclude),
-		WorktreeArchiveOnPrClosed: cfg.Worktree.ArchiveOnPRClosed,
+		WorkflowID:           id,
+		SetupAction:          cfg.SetupAction,
+		CleanupAction:        cfg.CleanupAction,
+		WorktreeEnabled:      cfg.Worktree.Enabled,
+		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
+		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
+		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
+		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	}); err != nil {
 		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
 	}
@@ -357,14 +351,14 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	}
 
 	workflow := workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
-		SetupAction:               row.SetupAction,
-		CleanupAction:             row.CleanupAction,
-		WorktreeEnabled:           row.WorktreeEnabled,
-		WorktreeBaseBranch:        row.WorktreeBaseBranch,
-		WorktreeCopyPaths:         row.WorktreeCopyPaths,
-		WorktreeSymlinkPaths:      row.WorktreeSymlinkPaths,
-		WorktreeDiffExclude:       row.WorktreeDiffExclude,
-		WorktreeArchiveOnPRClosed: row.WorktreeArchiveOnPrClosed,
+		SetupAction:          row.SetupAction,
+		CleanupAction:        row.CleanupAction,
+		WorktreeEnabled:      row.WorktreeEnabled,
+		WorktreeBaseBranch:   row.WorktreeBaseBranch,
+		WorktreeCopyPaths:    row.WorktreeCopyPaths,
+		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
+		WorktreeDiffExclude:  row.WorktreeDiffExclude,
+		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
 	})
 
 	return &workflow, nil
@@ -393,7 +387,7 @@ type actionConfigFields struct {
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
 
-	WorktreeArchiveOnPRClosed bool
+	ArchiveOnPRClosed bool
 }
 
 func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {
@@ -407,14 +401,14 @@ func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfi
 		SetupAction:   ac.SetupAction,
 		CleanupAction: ac.CleanupAction,
 		Worktree: WorktreeConfig{
-			Enabled:           ac.WorktreeEnabled,
-			BaseBranch:        ac.WorktreeBaseBranch,
-			CopyPaths:         ac.WorktreeCopyPaths,
-			SymlinkPaths:      ac.WorktreeSymlinkPaths,
-			DiffExclude:       ac.WorktreeDiffExclude,
-			ArchiveOnPRClosed: ac.WorktreeArchiveOnPRClosed,
+			Enabled:      ac.WorktreeEnabled,
+			BaseBranch:   ac.WorktreeBaseBranch,
+			CopyPaths:    ac.WorktreeCopyPaths,
+			SymlinkPaths: ac.WorktreeSymlinkPaths,
+			DiffExclude:  ac.WorktreeDiffExclude,
 		},
-		ArchivedAt: w.ArchivedAt,
-		UpdatedAt:  w.UpdatedAt,
+		ArchiveOnPRClosed: ac.ArchiveOnPRClosed,
+		ArchivedAt:        w.ArchivedAt,
+		UpdatedAt:         w.UpdatedAt,
 	}
 }

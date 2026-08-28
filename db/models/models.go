@@ -246,17 +246,17 @@ type Workflow struct {
 
 // The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead.
 type WorkflowActionConfig struct {
-	ID                        string
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	CreatedAt                 time.Time
-	UpdatedAt                 time.Time
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
+	ID                   string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.

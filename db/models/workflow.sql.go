@@ -62,7 +62,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -74,18 +74,18 @@ LIMIT 1
 `
 
 type GetWorkflowRow struct {
-	Workflow                  Workflow
-	Harness                   string
-	Cwd                       string
-	Flags                     string
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }
 
 func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, error) {
@@ -110,7 +110,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.WorktreeCopyPaths,
 		&i.WorktreeSymlinkPaths,
 		&i.WorktreeDiffExclude,
-		&i.WorktreeArchiveOnPrClosed,
+		&i.ArchiveOnPrClosed,
 	)
 	return &i, err
 }
@@ -128,7 +128,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -139,18 +139,18 @@ LIMIT 1
 `
 
 type GetWorkflowIncludingArchivedRow struct {
-	Workflow                  Workflow
-	Harness                   string
-	Cwd                       string
-	Flags                     string
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }
 
 func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (*GetWorkflowIncludingArchivedRow, error) {
@@ -175,7 +175,7 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.WorktreeCopyPaths,
 		&i.WorktreeSymlinkPaths,
 		&i.WorktreeDiffExclude,
-		&i.WorktreeArchiveOnPrClosed,
+		&i.ArchiveOnPrClosed,
 	)
 	return &i, err
 }
@@ -232,7 +232,7 @@ INSERT INTO workflow_action_configs(
     worktree_copy_paths,
     worktree_symlink_paths,
     worktree_diff_exclude,
-    worktree_archive_on_pr_closed)
+    archive_on_pr_closed)
 VALUES (
     $1,
     $2,
@@ -247,14 +247,14 @@ RETURNING
 `
 
 type InsertWorkflowActionConfigParams struct {
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }
 
 func (q *Queries) InsertWorkflowActionConfig(ctx context.Context, arg InsertWorkflowActionConfigParams) (string, error) {
@@ -266,7 +266,7 @@ func (q *Queries) InsertWorkflowActionConfig(ctx context.Context, arg InsertWork
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,
-		arg.WorktreeArchiveOnPrClosed,
+		arg.ArchiveOnPrClosed,
 	)
 	var id string
 	err := row.Scan(&id)
@@ -312,7 +312,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -326,18 +326,18 @@ ORDER BY
 `
 
 type ListWorkflowsRow struct {
-	Workflow                  Workflow
-	Harness                   string
-	Cwd                       string
-	Flags                     string
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }
 
 func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error) {
@@ -368,7 +368,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.WorktreeCopyPaths,
 			&i.WorktreeSymlinkPaths,
 			&i.WorktreeDiffExclude,
-			&i.WorktreeArchiveOnPrClosed,
+			&i.ArchiveOnPrClosed,
 		); err != nil {
 			return nil, err
 		}
@@ -393,7 +393,7 @@ SELECT
     ac.worktree_copy_paths,
     ac.worktree_symlink_paths,
     ac.worktree_diff_exclude,
-    ac.worktree_archive_on_pr_closed
+    ac.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -420,18 +420,18 @@ type ListWorkflowsPageParams struct {
 }
 
 type ListWorkflowsPageRow struct {
-	Workflow                  Workflow
-	Harness                   string
-	Cwd                       string
-	Flags                     string
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
+	Workflow             Workflow
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }
 
 func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPageParams) ([]*ListWorkflowsPageRow, error) {
@@ -467,7 +467,7 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.WorktreeCopyPaths,
 			&i.WorktreeSymlinkPaths,
 			&i.WorktreeDiffExclude,
-			&i.WorktreeArchiveOnPrClosed,
+			&i.ArchiveOnPrClosed,
 		); err != nil {
 			return nil, err
 		}
@@ -538,7 +538,7 @@ SET
     worktree_copy_paths = $5,
     worktree_symlink_paths = $6,
     worktree_diff_exclude = $7,
-    worktree_archive_on_pr_closed = $8
+    archive_on_pr_closed = $8
 WHERE
     id =(
         SELECT
@@ -550,15 +550,15 @@ WHERE
 `
 
 type SetWorkflowActionsParams struct {
-	SetupAction               string
-	CleanupAction             string
-	WorktreeEnabled           bool
-	WorktreeBaseBranch        string
-	WorktreeCopyPaths         []string
-	WorktreeSymlinkPaths      []string
-	WorktreeDiffExclude       []string
-	WorktreeArchiveOnPrClosed bool
-	WorkflowID                string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
+	WorkflowID           string
 }
 
 func (q *Queries) SetWorkflowActions(ctx context.Context, arg SetWorkflowActionsParams) error {
@@ -570,7 +570,7 @@ func (q *Queries) SetWorkflowActions(ctx context.Context, arg SetWorkflowActions
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,
-		arg.WorktreeArchiveOnPrClosed,
+		arg.ArchiveOnPrClosed,
 		arg.WorkflowID,
 	)
 	return err

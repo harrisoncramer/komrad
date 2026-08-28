@@ -61,12 +61,10 @@ func seedPRWorkflow(t *testing.T, st *testStore, archiveOnPRClosed, worktree boo
 	t.Helper()
 
 	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
-		Name: "worktrees",
-		Cwd:  t.TempDir(),
-		Worktree: workflowstore.WorktreeConfig{
-			Enabled:           worktree,
-			ArchiveOnPRClosed: archiveOnPRClosed,
-		},
+		Name:              "worktrees",
+		Cwd:               t.TempDir(),
+		Worktree:          workflowstore.WorktreeConfig{Enabled: worktree},
+		ArchiveOnPRClosed: archiveOnPRClosed,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -215,15 +213,15 @@ func TestPRArchiverSync(t *testing.T) {
 			wantLookups:       0,
 		},
 		{
-			name:              "a workflow that is not a worktree one carries the setting dormant",
+			name:              "a workflow with no worktree archives on the branch its agent's own checkout is on",
 			worktreeDisabled:  true,
 			archiveOnPRClosed: true,
 			agentState:        agentstore.StateIdle,
 			pane:              "%1",
 			url:               prURL,
 			prState:           "MERGED",
-			wantArchived:      false,
-			wantLookups:       0,
+			wantArchived:      true,
+			wantLookups:       1,
 		},
 		{
 			name:              "an agent with no recorded pull request is nothing to ask about",
