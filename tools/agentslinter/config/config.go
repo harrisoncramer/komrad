@@ -4,6 +4,7 @@ type Config struct {
 	CommentLength CommentLengthConfig `json:"comment_length"`
 	CommentPrefix CommentPrefixConfig `json:"comment_prefix"`
 	ForbidGetenv  ForbidGetenvConfig  `json:"forbid_getenv"`
+	ForbidNilNil  ForbidNilNilConfig  `json:"forbid_nil_nil"`
 }
 
 type CommentLengthConfig struct {
@@ -16,5 +17,9 @@ type CommentPrefixConfig struct {
 }
 
 type ForbidGetenvConfig struct {
+	Skip bool `json:"skip"`
+}
+
+type ForbidNilNilConfig struct {
 	Skip bool `json:"skip"`
 }
