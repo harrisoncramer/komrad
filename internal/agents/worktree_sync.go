@@ -26,8 +26,8 @@ func NewWorktreeSyncer(agents worktreeRemovedSetter) *WorktreeSyncer {
 	return &WorktreeSyncer{agents: agents}
 }
 
-// Sync stats every live agent's cwd and writes what changed. A blank cwd is not reported
-// removed, since most workflows never set one.
+// Sync stats every live agent's cwd and writes what changed, leaving an agent with no cwd
+// alone rather than reporting it removed.
 func (ws *WorktreeSyncer) Sync(ctx context.Context) error {
 	agents, err := ws.agents.List(ctx)
 	if err != nil {

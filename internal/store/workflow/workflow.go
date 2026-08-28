@@ -90,10 +90,9 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	}), nil
 }
 
-// ByName is the order every workflow listing is read in, and it is written twice: here in
-// Go and as the ORDER BY in db/queries/workflow.sql. The database's own collation ignores
-// punctuation, which no Go comparison does, so the query folds case and sorts under the C
-// collation to say exactly what this says.
+// ByName is the order every workflow listing is read in, matched by the ORDER BY in
+// db/queries/workflow.sql, which sorts under the C collation because the database's own
+// ignores punctuation and no Go comparison does.
 func ByName(a, b Workflow) int {
 	return cmp.Or(
 		strings.Compare(strings.ToLower(a.Name), strings.ToLower(b.Name)),
@@ -106,8 +105,8 @@ type Cursor struct {
 	ID   string `json:"i"`
 }
 
-// Validate refuses a cursor holding anything but an id. The name it pages by alongside
-// that id is whatever the workflow was called, so there is nothing to refuse in it.
+// Validate refuses a cursor holding anything but an id, since the name it pages by alongside
+// is whatever the workflow was called.
 func (c Cursor) Validate() error {
 	if !store.IsID(c.ID) {
 		return fmt.Errorf("cursor id %q is not an id", c.ID)
@@ -116,8 +115,8 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-// ListPage returns one page of workflows by name, resuming after cursor when one is
-// given. archived picks the archived workflows or the live ones and never both.
+// ListPage returns one page of workflows by name, resuming after cursor when one is given,
+// over the archived workflows or the live ones and never both.
 func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Workflow, error) {
 	params := models.ListWorkflowsPageParams{Lim: int32(limit), Archived: archived}
 	if cursor != nil {
@@ -144,8 +143,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	}), nil
 }
 
-// Get returns a workflow by id, nil when none exists, or an error for a real
-// failure. No-rows is the nil case. Every other error is surfaced.
+// Get returns a workflow by id, nil when none exists, or an error for a real failure.
 func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	if !store.IsID(id) {
 		return nil, nil
@@ -172,10 +170,9 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	return &workflow, nil
 }
 
-// Create inserts a workflow together with the config row holding the harness, cwd, and
-// flags new agents inside it inherit, and the action config row holding its setup and
-// cleanup actions and worktree settings, and returns it. All three rows must land
-// together, so a caller outside a transaction gets one through InTx.
+// Create inserts a workflow together with the config rows holding what new agents inherit
+// and the actions around their lives, all of which must land together so a caller outside a
+// transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
@@ -223,8 +220,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	return &workflow, nil
 }
 
-// Rename changes a workflow's display name, keyed by id. Nothing keys on the
-// name, so this cannot collide.
+// Rename changes a workflow's display name, keyed by id, and cannot collide since nothing
+// keys on the name.
 func (s *Store) Rename(ctx context.Context, id, name string) error {
 	if !store.IsID(id) {
 		return nil
@@ -237,10 +234,8 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 	return nil
 }
 
-// Update rewrites a workflow's display name, its free-text context, the actions
-// around its agents' lives, and its linked config of harness, cwd, and flags, keyed
-// by id. The writes must land together, so a caller outside a transaction gets one
-// through InTx.
+// Update rewrites a workflow's name, context, actions, and linked config, keyed by id, and
+// the writes must land together so a caller outside a transaction gets one through InTx.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
 		return nil
@@ -275,10 +270,8 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	return nil
 }
 
-// Archive hides a workflow from the panel without dropping the row. What becomes
-// of the agents inside it is the caller's to decide, in the same transaction. They
-// are either unassigned or archived alongside it, so no agent is left stranded
-// behind a hidden workflow.
+// Archive hides a workflow from the panel without dropping the row, leaving the caller to
+// unassign or archive the agents inside it in the same transaction.
 func (s *Store) Archive(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -291,9 +284,8 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
-// Restore puts an archived workflow back in the panel. The agents inside it are the
-// caller's to bring back in the same transaction, since a workflow listed without them
-// would read as empty while the archive still holds its runs.
+// Restore puts an archived workflow back in the panel, leaving the caller to bring its agents
+// back in the same transaction so it does not read as empty.
 func (s *Store) Restore(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -307,9 +299,7 @@ func (s *Store) Restore(ctx context.Context, id string) error {
 }
 
 // Delete permanently removes a workflow row along with the config rows it alone owns, which
-// nothing else references once the workflow itself is gone. An agent or a schedule still
-// pointing at the workflow blocks the delete at the database level, since both hold it with a
-// restricting foreign key.
+// an agent or a schedule still pointing at it blocks at the database level.
 func (s *Store) Delete(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return nil
@@ -334,9 +324,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// GetIncludingArchived reads a workflow by id whether or not it is archived, nil when
-// none has that id. It is for the reads that only want what the row says, since the
-// listings the panel builds are what archiving is meant to hide it from.
+// GetIncludingArchived reads a workflow by id whether or not it is archived, nil when none
+// has that id.
 func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow, error) {
 	if !store.IsID(id) {
 		return nil, nil

@@ -49,9 +49,8 @@ func press(t *testing.T, m model, key tea.KeyMsg) model {
 	return updated
 }
 
-// TestToggleSelection covers what the select key does from each kind of row. An agent is a
-// plain toggle, and a header is a checkbox over the folder: not wholly selected takes the
-// whole of it, wholly selected drops it.
+// TestToggleSelection covers what the select key does from each kind of row, where a header
+// acts as a checkbox over the whole folder.
 func TestToggleSelection(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -100,7 +99,7 @@ func TestToggleSelection(t *testing.T) {
 	}
 }
 
-// TestToggleSelectionEmptyFolder covers the folder with no rows under it. Selecting it would
+// TestToggleSelectionEmptyFolder covers a folder with no rows under it, which would otherwise
 // read as wholly selected and put the panel in a mode holding nothing.
 func TestToggleSelectionEmptyFolder(t *testing.T) {
 	m := selectionTree()
@@ -112,10 +111,8 @@ func TestToggleSelectionEmptyFolder(t *testing.T) {
 	assert.False(t, after.tree.selected.active())
 }
 
-// TestSelectRange covers the key that takes in everything between the cursor and the
-// selection nearest it, which is how a run is chosen without pressing select down it. From
-// a list with nothing selected it is the select key, since a range has nothing to reach
-// back to until the mode is up.
+// TestSelectRange covers the key that takes in everything between the cursor and the nearest
+// selection, which from a list with nothing selected acts as the plain select key.
 func TestSelectRange(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -176,8 +173,8 @@ func TestSelectRange(t *testing.T) {
 	}
 }
 
-// TestSelectionKeysStandDown covers the mode itself. While a selection is up the keys with
-// nothing to say about a set of agents do nothing, and the clear key is the way back out.
+// TestSelectionKeysStandDown covers a selection being up, where the keys with nothing to say
+// about a set of agents do nothing and the clear key is the way out.
 func TestSelectionKeysStandDown(t *testing.T) {
 	m := selectionTree()
 	m.tree.cursor = 1
@@ -195,9 +192,8 @@ func TestSelectionKeysStandDown(t *testing.T) {
 	assert.False(t, cleared.tree.selected.active())
 }
 
-// TestPruneSelection covers a selected agent losing its row. Held on it would keep the panel
-// in multi-select mode over something nobody can see, so a listing that drops an agent and
-// the hidden toggle that puts one away both drop it from the selection.
+// TestPruneSelection covers a selected agent losing its row, which would otherwise hold the
+// panel in multi-select mode over something nobody can see.
 func TestPruneSelection(t *testing.T) {
 	t.Run("an agent gone from the listing drops", func(t *testing.T) {
 		m := selectionTree()
@@ -246,9 +242,8 @@ func pressArchive(t *testing.T, m model, key tea.KeyMsg) model {
 	return updated
 }
 
-// TestArchiveSelection covers the same gesture on the other tree. The archive runs the
-// selection through the same component, so what is worth checking here is that it is wired
-// to the archive's own rows and its own state rather than the agents tree's.
+// TestArchiveSelection covers the same gesture on the archive screen, which shares the
+// component and so is only worth checking for being wired to its own rows and state.
 func TestArchiveSelection(t *testing.T) {
 	t.Run("an agent is taken in and the archive enters the mode", func(t *testing.T) {
 		m := archiveSelectionTree()
@@ -358,9 +353,8 @@ func TestArchiveSelection(t *testing.T) {
 	})
 }
 
-// TestAgentsViewGutter covers the column down the left of the tree. It is drawn on every
-// row whether or not anything is selected, and the bar goes into the space a blank would
-// have taken, so taking a row in cannot shift the rows around it.
+// TestAgentsViewGutter covers the column down the left of the tree, drawn on every row so
+// taking a row in cannot shift the rows around it.
 func TestAgentsViewGutter(t *testing.T) {
 	m := selectionTree()
 
@@ -399,9 +393,8 @@ func countRows(view, marker string) int {
 	return n
 }
 
-// TestArchiveSelectionFromTheTree covers the agents tree's archive key over a selection.
-// The key only opens the confirm prompt; the whole set is not asked for archiving, nor
-// do any panes come out of the stage, until that prompt is answered yes.
+// TestArchiveSelectionFromTheTree covers the archive key over a selection, which only opens
+// the confirm prompt and archives nothing until that prompt is answered yes.
 func TestArchiveSelectionFromTheTree(t *testing.T) {
 	tests := []struct {
 		name     string

@@ -86,9 +86,8 @@ func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mai
 	})
 }
 
-// SendSystemMail sends mail as weave itself, for a lifecycle notice no RPC surface asks
-// for on a caller's behalf. The recipient still goes through every check an ordinary send
-// does: archived, mailbox full, hop cap.
+// SendSystemMail sends mail as weave itself, still running every check an ordinary send does
+// for an archived recipient, a full mailbox, and the hop cap.
 func (s *MailService) SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error) {
 	return s.send(ctx, sendParams{
 		ToAgentID: toAgentID,
@@ -102,13 +101,12 @@ type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
 	// Kind is what the notice is about, and is what stops a second copy queueing up behind
-	// the first. Sending KindPlain here would defeat that, so it is refused.
+	// the first.
 	Kind mailstore.Kind
 }
 
-// SendNotice sends mail as weave itself under a kind the recipient holds at most one
-// unclaimed copy of. It answers nil, and no error, when one is already waiting: a doorbell
-// still unread is already saying what pressing it again would say.
+// SendNotice sends mail as weave itself under a kind the recipient holds at most one unclaimed
+// copy of, answering nil and no error when one is already waiting.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be deduplicated by", ErrNoticeKindMissing)
@@ -245,8 +243,8 @@ func (s *MailService) ListMail(ctx context.Context, agentID string, limit int32,
 	return listed, nil
 }
 
-// DeleteMail permanently removes a batch of mail by id. The batch either goes whole or
-// does not go: every id must hold mail or nothing is deleted.
+// DeleteMail permanently removes a batch of mail by id, deleting nothing at all unless every
+// id holds mail.
 func (s *MailService) DeleteMail(ctx context.Context, ids []string) error {
 	found, err := s.mailReadWriter.ListByID(ctx, ids)
 	if err != nil {

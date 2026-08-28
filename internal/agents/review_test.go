@@ -426,8 +426,8 @@ func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams
 	return f.answer, nil
 }
 
-// TestReviewThreadMustExist covers the lookup both settling and deleting do before they write.
-// Without it a bad id is a silent no-op rather than something the caller hears about.
+// TestReviewThreadMustExist pins the lookup settling and deleting do first, since without it
+// a bad id is a silent no-op.
 func TestReviewThreadMustExist(t *testing.T) {
 	service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
 	human := ReviewAuthor{Kind: reviewstore.AuthorHuman}

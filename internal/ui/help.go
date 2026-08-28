@@ -10,8 +10,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// maxHelpColumns is the widest the expanded legend goes. A sidebar wide enough for a fourth
-// column is wide enough that the legend is already short.
+// maxHelpColumns is the widest the expanded legend goes, since a sidebar wide enough for a
+// fourth column already has a short legend.
 const maxHelpColumns = 3
 
 type keyMap struct {
@@ -52,9 +52,8 @@ func helpView(width int) help.Model {
 	return view
 }
 
-// helpColumns lays the expanded legend out in as many columns as the sidebar can hold, because
-// the rows it takes are the list's. A column that does not fit is dropped whole rather than
-// wrapped, so the width is measured before the count is settled and one column is the fallback.
+// helpColumns lays the expanded legend out in as many columns as the sidebar can hold, dropping
+// a column that does not fit rather than wrapping it.
 func helpColumns(bindings []key.Binding, width int) [][]key.Binding {
 	for columns := maxHelpColumns; columns > 1; columns-- {
 		split := splitColumns(bindings, columns)
@@ -66,8 +65,8 @@ func helpColumns(bindings []key.Binding, width int) [][]key.Binding {
 	return [][]key.Binding{bindings}
 }
 
-// helpWidth is what the legend wants, measured by the same code that draws it. A view with no
-// width of its own truncates nothing, so what comes back is the untruncated size.
+// helpWidth is what the legend wants, measured by the same code that draws it at a width of
+// zero, which truncates nothing.
 func helpWidth(columns [][]key.Binding) int {
 	return lipgloss.Width(helpView(0).FullHelpView(columns))
 }

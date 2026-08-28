@@ -12,8 +12,8 @@ import (
 
 const fixtureDir = "testfiles"
 
-// TestReadHeader covers what a file is taken to declare about itself. Each row names a file
-// in testfiles, and the last check refuses a fixture no row names.
+// TestReadHeader covers what a file is taken to declare about itself, with a last check that
+// refuses a fixture no row names.
 func TestReadHeader(t *testing.T) {
 	tests := []struct {
 		name string

@@ -10,9 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestJumpKeys covers the two keys that reach the ends of a tree. Top takes two presses the
-// way vim's gg does, so a single press has to leave the cursor alone, and a key pressed
-// between the two has to drop the first rather than being read as the second.
+// TestJumpKeys pins the two-press top key, where one press leaves the cursor alone and a key
+// pressed between the two drops the first.
 func TestJumpKeys(t *testing.T) {
 	tests := []struct {
 		name       string

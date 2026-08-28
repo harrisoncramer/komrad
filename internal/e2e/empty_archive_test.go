@@ -17,10 +17,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestEmptyArchiveDestroysTheWholeArchive is the panel's emptying gesture end to end. The
-// request only queues the sweep, so what the keypress promises holds or fails in the job
-// behind it: every archived agent gone, their panes with them, and the agents still running
-// left alone.
+// TestEmptyArchiveDestroysTheWholeArchive covers the emptying gesture end to end, since the
+// request only queues the sweep and what the keypress promises holds in the job behind it.
 func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

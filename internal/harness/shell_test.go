@@ -46,9 +46,8 @@ func TestSplitArgs(t *testing.T) {
 	}
 }
 
-// TestQuoteFlagsNeutralisesShellSyntax covers the injection this quoting exists
-// to stop. Flags reach the pane through send-keys, so anything a shell would act
-// on has to come out the far side as a literal argument.
+// TestQuoteFlagsNeutralisesShellSyntax covers flags reaching the pane through send-keys, where
+// anything a shell would act on has to arrive as a literal argument.
 func TestQuoteFlagsNeutralisesShellSyntax(t *testing.T) {
 	tests := []struct {
 		name  string

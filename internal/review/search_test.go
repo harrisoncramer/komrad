@@ -77,9 +77,8 @@ func TestSearchingForNothingClearsIt(t *testing.T) {
 	assert.False(t, ok, "nothing to step through once it is cleared")
 }
 
-// TestSearchReachesTheThreadsAtTheFoot covers the rows that are not lines. The cursor can rest
-// on a thread that came adrift, so a search that could not reach it would be lying about what
-// it looked at.
+// TestSearchReachesTheThreadsAtTheFoot covers the adrift threads, which the cursor can rest on
+// and a search that skipped them would be lying about what it looked at.
 func TestSearchReachesTheThreadsAtTheFoot(t *testing.T) {
 	view := twoHunkView()
 
@@ -98,9 +97,8 @@ func TestSearchReachesTheThreadsAtTheFoot(t *testing.T) {
 	assert.Equal(t, view.Last(), at, "the match is the thread's own row")
 }
 
-// TestSearchIsRunAgainWhenTheRowsMove covers the coupling between the two. Pinning rebuilds the
-// section at the foot, so match rows recorded against the old one would point at the wrong
-// thread, or past the end of the list.
+// TestSearchIsRunAgainWhenTheRowsMove covers pinning rebuilding the foot section, which leaves
+// old match rows pointing at the wrong thread or past the end of the list.
 func TestSearchIsRunAgainWhenTheRowsMove(t *testing.T) {
 	view := twoHunkView()
 

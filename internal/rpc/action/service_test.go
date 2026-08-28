@@ -15,9 +15,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestRunActionCodes covers the whole of what a caller can be told. An action is fired and
-// forgotten, so every failure is from before the process started, and the code has to say which
-// kind it was: a name that answers to nothing, or a file that is there and will not run.
+// TestRunActionCodes covers the codes telling a name that answers to nothing apart from a file
+// that is there and will not run.
 func TestRunActionCodes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -87,8 +86,7 @@ func TestRunActionCodes(t *testing.T) {
 	}
 }
 
-// TestRunActionPassesWhatItWasAsked covers the handler translating and nothing more. Which agent
-// and which action are the caller's to decide, and the service is where they mean anything.
+// TestRunActionPassesWhatItWasAsked covers the handler translating and nothing more.
 func TestRunActionPassesWhatItWasAsked(t *testing.T) {
 	manager := &fakeActions{}
 	service := NewService(manager)
@@ -103,9 +101,8 @@ func TestRunActionPassesWhatItWasAsked(t *testing.T) {
 	assert.Equal(t, "open-linear", manager.action)
 }
 
-// TestListActions covers the listing rendered onto the wire. An action that declared no timeout
-// leaves the field unset rather than sending zero, which a caller would read as a run with no
-// time at all.
+// TestListActions covers an action with no declared timeout leaving the field unset, since a
+// zero would read as a run with no time at all.
 func TestListActions(t *testing.T) {
 	manager := &fakeActions{listed: []agents.Action{
 		{

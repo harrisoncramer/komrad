@@ -35,8 +35,8 @@ func Count[T any](in []T, keep func(T) bool) int {
 	return n
 }
 
-// KeyBy indexes in by the key key returns for each element. If two elements share a key, the
-// later one wins.
+// KeyBy indexes in by the key key returns for each element, with the later element winning
+// when two share a key.
 func KeyBy[T any, K comparable](in []T, key func(T) K) map[K]T {
 	out := make(map[K]T, len(in))
 	for _, v := range in {

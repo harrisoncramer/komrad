@@ -128,9 +128,8 @@ func TestReadActivity(t *testing.T) {
 	}
 }
 
-// TestReadActivityIgnoresTranscriptProse checks that transcript text carrying a marker
-// phrase is not read as a live prompt or live work. Only the bottom of the frame
-// counts, and in both cases below it is an idle input box.
+// TestReadActivityIgnoresTranscriptProse checks transcript text carrying a marker phrase is not
+// read as a live prompt, since only the bottom of the frame counts.
 func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string

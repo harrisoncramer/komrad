@@ -20,10 +20,8 @@ const prStateTimeout = 15 * time.Second
 // on, kept long and flat because a merge nobody is waiting on is not worth the GitHub quota.
 const prStateQuiet = 15 * time.Minute
 
-// prArchivedMetadataKey records the pull request an agent was archived for, written when the
-// loop archives one and again when somebody restores one. It is what stops an agent
-// deliberately brought back from being archived again by the next pass, and it is the only
-// thing on the row that says why the agent went away.
+// prArchivedMetadataKey records the pull request an agent was archived for, which is what stops
+// an agent somebody brought back from being archived again by the next pass.
 const prArchivedMetadataKey = "pr_archived"
 
 const (
@@ -92,10 +90,8 @@ type prArchiveWorkflow struct {
 	repo     string
 }
 
-// Sync archives every agent whose recorded pull request has since merged or closed. An agent
-// still working is left for a later pass, since archiving kills its pane and a finished pull
-// request is no reason to take a turn away from it. Nothing is deleted: the record, the
-// transcript, and the worktree all survive, and restoring the agent brings it back.
+// Sync archives every agent whose recorded pull request has since merged or closed, leaving one
+// that is still working for a later pass rather than killing its pane mid-turn.
 func (a *PRArchiver) Sync(ctx context.Context) error {
 	agents, err := a.agents.List(ctx)
 	if err != nil {
@@ -174,9 +170,8 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 	}
 }
 
-// closed reports whether the pull request an agent recorded has merged or closed, and that it
-// is the pull request weave thinks it is. A lookup that fails leaves the agent alone: an agent
-// still worth having is a better outcome than one archived because gh could not answer.
+// closed reports whether the pull request an agent recorded has merged or closed and is still
+// the one weave thinks it is, leaving the agent alone when the lookup fails.
 func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, repo string) bool {
 	lookupCtx, cancel := context.WithTimeout(ctx, prStateTimeout)
 	defer cancel()
@@ -260,9 +255,8 @@ func (a *PRArchiver) workflow(ctx context.Context, seen map[string]prArchiveWork
 	return answer, nil
 }
 
-// repositoryOf names the repository a workflow's own checkout points at, blank when that
-// cannot be read. Blank leaves the branch to do the checking on its own rather than refusing
-// to archive anything.
+// repositoryOf names the repository a workflow's own checkout points at, blank when that cannot
+// be read, which leaves the branch to do the checking on its own.
 func (a *PRArchiver) repositoryOf(ctx context.Context, cwd string) string {
 	if cwd == "" {
 		return ""
@@ -300,9 +294,8 @@ func (a *PRArchiver) forgetExpiredQuiet() {
 	}
 }
 
-// readyToArchive reports whether an agent can lose its pane without losing work: one sitting
-// idle, or one already dormant with no pane to lose. An agent still being set up, or one that
-// failed, is not the pull request's to archive.
+// readyToArchive reports whether an agent can lose its pane without losing work, which means one
+// sitting idle or one already dormant with no pane to lose.
 func readyToArchive(agent agentstore.Agent) bool {
 	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
 		return false
@@ -311,13 +304,12 @@ func readyToArchive(agent agentstore.Agent) bool {
 	return agent.State == agentstore.StateIdle || agent.Pane == ""
 }
 
-// recordedPR reads the pull request an agent recorded, which agents write themselves and
-// weave writes for them. Only a pull request URL counts: a bare number is a reference gh
-// resolves against whichever repository it runs in, which is not something to archive an
-// agent on. An agent already archived for that same pull request is not offered again, which
-// is what leaves one somebody restored alone.
+// recordedPR reads the pull request an agent recorded, skipping one the agent has already been
+// archived for.
 func recordedPR(agent agentstore.Agent) (string, bool) {
 	url := metadataFor(agent, prMetadataKey)
+	// A bare number is a reference gh resolves against whichever repository it runs in, so only a
+	// full URL counts.
 	if url == "" || !strings.Contains(url, "/pull/") {
 		return "", false
 	}

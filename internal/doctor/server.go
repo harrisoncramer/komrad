@@ -42,10 +42,9 @@ type ServerStatus struct {
 	Current bool
 }
 
-// Server reports who holds the address the panel talks through. Nothing serving is the
-// ordinary state before the first open, so it is a note; the address held by something else
-// is worth catching, since the panel then fails to bind and reports a startup error naming
-// none of it.
+// Server reports who holds the address the panel talks through, since an address held by
+// something else leaves the panel failing to bind and reporting a startup error naming none
+// of it.
 func Server() Check {
 	return Check{
 		Name:        "server",

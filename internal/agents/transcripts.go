@@ -45,14 +45,8 @@ func NewTranscriptSyncer(p TranscriptSyncerParams) *TranscriptSyncer {
 	}
 }
 
-// Sync folds any new transcript text for every tracked agent into the store, reading only
-// the bytes appended since that agent's last sync.
-//
-// An agent that cannot be folded in does not stop the pass. These failures are properties
-// of one agent's log rather than of the machine, so they recur every pass, and the walk is
-// newest first: giving up at the first would leave every older agent behind it unindexed.
-// They are still returned together, so a log that never syncs shows up somewhere other
-// than a search that quietly finds nothing.
+// Sync folds any new transcript text for every tracked agent into the store, reading only the
+// bytes appended since that agent's last sync.
 func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 	agents, err := ts.agents.ListAll(ctx)
 	if err != nil {
@@ -65,6 +59,8 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 			continue
 		}
 		if err := ts.syncOne(ctx, agent); err != nil {
+			// A bad log fails every pass, so stopping at the first would leave every older
+			// agent behind it unindexed.
 			failures = append(failures, fmt.Errorf("failed to sync transcript for %q: %w", agent.Name, err))
 		}
 	}

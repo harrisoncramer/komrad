@@ -22,10 +22,8 @@ type Banner struct {
 
 const bannerIndent = "  "
 
-// Render draws the banner that sits above the active screen, folded to a pane of the given
-// width; zero means the panel hasn't been told its size yet. The reason the service gave is
-// the whole point of the banner and can run as long as the service made it, so it's folded
-// rather than cut at the pane edge.
+// Render draws the banner above the active screen folded to a pane of the given width, where
+// zero means the panel has not been told its size yet.
 func (b Banner) Render(width int) string {
 	folded := foldWidth(width)
 

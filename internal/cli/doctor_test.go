@@ -58,10 +58,8 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 	}
 }
 
-// TestDoctorSurvivesAnEmptyLayerElement covers doctor's place in commandsSurvivingBadConfig:
-// a layer list that will not resolve still has to reach a report rather than aborting RunE.
-// An empty element reaches ResolveLayers this way when WEAVE_CONFIG held one, which the
-// append idiom produces on an unset variable.
+// TestDoctorSurvivesAnEmptyLayerElement covers a layer list that will not resolve still
+// reaching a report, which an unset WEAVE_CONFIG produces through the append idiom.
 func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	t.Setenv("HOME", t.TempDir())
 

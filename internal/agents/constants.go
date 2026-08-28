@@ -9,10 +9,9 @@ const ManagerSession = "weave"
 
 const defaultServerAddr = "127.0.0.1:8787"
 
-// DefaultFallbackResumeRoot is where an agent runs when the directory it was created in
-// cannot be brought back. It sits beside Claude's own state rather than in the
-// system temp directory, so a stand-in an agent is still living in does not
-// vanish under it on the next cleanup sweep.
+// DefaultFallbackResumeRoot is where an agent runs when the directory it was created in cannot
+// be brought back, kept beside Claude's own state so that a sweep of the system temp directory
+// cannot delete it while an agent is still living there.
 func DefaultFallbackResumeRoot() string {
 	home, err := os.UserHomeDir()
 	if err != nil {

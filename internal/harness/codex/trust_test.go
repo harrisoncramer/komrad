@@ -12,9 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestTrustLaunchDirs covers answering Codex's directory-trust question in advance,
-// which it will only read from its own config file. The file belongs to the user, so
-// most of these cases are about not damaging it.
+// TestTrustLaunchDirs covers answering Codex's directory-trust question in its own config
+// file, which belongs to the user so most cases are about not damaging it.
 func TestTrustLaunchDirs(t *testing.T) {
 	tests := []struct {
 		name string

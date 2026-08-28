@@ -13,10 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUnreadClearsWhenTheAgentReads is the regression behind the whole watermark. Activity
-// used to be stamped by a second statement after the message went in, so the thread's
-// activity was always later than the message the read was stamped from and the thread stayed
-// unread no matter how many times the agent looked at it.
+// TestUnreadClearsWhenTheAgentReads pins that a thread stops reading as unread once the agent
+// looks, which a second statement stamping activity after the message used to make impossible.
 func TestUnreadClearsWhenTheAgentReads(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -40,9 +38,8 @@ func TestUnreadClearsWhenTheAgentReads(t *testing.T) {
 	assert.False(t, after[0].UnreadByAgent, "reading it clears it")
 }
 
-// TestRewritingAMessageIsNewActivity proves an edit reaches the other side. Comparing a read
-// stamp against the message's created_at could never see one, since rewriting a body does not
-// move when it was written.
+// TestRewritingAMessageIsNewActivity pins that an edit reaches the other side, which created_at
+// could never show since rewriting a body does not move when it was written.
 func TestRewritingAMessageIsNewActivity(t *testing.T) {
 	tests := []struct {
 		name              string
@@ -301,9 +298,8 @@ func catchUp(t *testing.T, st *fixture, agentID string) {
 	}
 }
 
-// TestSettlingAThreadTakesItOutOfWhatIsOwed covers the state that decides whether a thread is
-// still asking for something. It is the reviewer's judgement and nothing else: the agent is
-// not told about a settled thread, however much it has been read or rewritten.
+// TestSettlingAThreadTakesItOutOfWhatIsOwed pins that settling is the reviewer's judgement
+// alone, so the agent is not told about a settled thread however it has been read or rewritten.
 func TestSettlingAThreadTakesItOutOfWhatIsOwed(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -331,9 +327,8 @@ func TestSettlingAThreadTakesItOutOfWhatIsOwed(t *testing.T) {
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].ResolvedAt, "the list carries the settling")
 
-	// The doorbell and the agent's own listing have to agree. A thread the count has stopped
-	// mentioning but the list still flags as owed is one the agent answers anyway, and
-	// answering it reopens it, which quietly undoes the settling.
+	// The doorbell and the agent's own listing have to agree, since a thread the count has
+	// stopped mentioning but the list still flags as owed is one the agent answers and reopens.
 	asAgent, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent})
 	require.NoError(t, err)
 	require.Len(t, asAgent, 1)
@@ -349,9 +344,8 @@ func TestSettlingAThreadTakesItOutOfWhatIsOwed(t *testing.T) {
 	assert.Equal(t, int64(1), owed, "reopening puts it back")
 }
 
-// TestSayingSomethingElseReopensAThread covers the other way a settled thread comes back. A
-// settled conversation somebody has since written in is a conversation again, whichever side
-// wrote, since neither has seen what the other said after it was closed.
+// TestSayingSomethingElseReopensAThread pins that a settled conversation somebody has since
+// written in is a conversation again, whichever side wrote.
 func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -374,8 +368,8 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	require.NotNil(t, again)
 	assert.Nil(t, again.ResolvedAt)
 
-	// Rewriting a message is the same news to the other side as writing one, so it reopens the
-	// same way. Leaving it settled hides an edit nobody has read behind a finished thread.
+	// Rewriting a message is the same news to the other side as writing one, so leaving it
+	// settled would hide an edit nobody has read.
 	_, err = st.SetThreadResolved(ctx, thread.ID, true)
 	require.NoError(t, err)
 

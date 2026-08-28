@@ -63,10 +63,8 @@ func unaryRequest(procedure, trace string) connect.AnyRequest {
 	return &recordingRequest{AnyRequest: req, spec: spec, peer: peer}
 }
 
-// TestLoggingRecordsAServedCall covers the record a call that worked writes, which is one
-// record rather than one on the way in and another on the way out. It is a debug record:
-// the panel lists everything it draws every second it is open, so an info line per call
-// would be the whole file.
+// TestLoggingRecordsAServedCall covers one debug record per call, since the panel lists
+// everything it draws every second and an info line each would be the whole file.
 func TestLoggingRecordsAServedCall(t *testing.T) {
 	written, res, err := loggedCall(t, slog.LevelDebug, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
 
@@ -84,8 +82,8 @@ func TestLoggingRecordsAServedCall(t *testing.T) {
 	assert.NotEmpty(t, res.Header().Get(TraceHeader), "the caller is told the trace it can be found under")
 }
 
-// TestLoggingKeepsTheDefaultQuiet covers the level the file sits at. A served call writes
-// nothing at info, which is what leaves a failure the only thing in it.
+// TestLoggingKeepsTheDefaultQuiet covers a served call writing nothing at info, which is what
+// leaves a failure the only thing in the file.
 func TestLoggingKeepsTheDefaultQuiet(t *testing.T) {
 	written, _, err := loggedCall(t, slog.LevelInfo, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
 
@@ -93,9 +91,8 @@ func TestLoggingKeepsTheDefaultQuiet(t *testing.T) {
 	assert.Empty(t, written)
 }
 
-// TestLoggingRecordsAFailure covers a call the handler refused. The connect code is its
-// own field because it is what separates a caller sending something invalid from the
-// service itself breaking, and a log where both read the same cannot be triaged.
+// TestLoggingRecordsAFailure covers the connect code being its own field, since a log where a
+// bad request and a broken service read the same cannot be triaged.
 func TestLoggingRecordsAFailure(t *testing.T) {
 	refused := connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 
@@ -115,9 +112,8 @@ func TestLoggingRecordsAFailure(t *testing.T) {
 	assert.NotEmpty(t, connectErr.Meta().Get(TraceHeader), "a failure carries the trace back to whoever saw it")
 }
 
-// TestLoggingRecordsABareFailure covers a handler that returned something that is not a
-// connect error. Connect answers those as unknown, so that is what the record says rather
-// than leaving the field empty and the line unreadable.
+// TestLoggingRecordsABareFailure covers a handler returning something that is not a connect
+// error, which connect answers as unknown rather than leaving the field empty.
 func TestLoggingRecordsABareFailure(t *testing.T) {
 	written, _, err := loggedCall(t, slog.LevelInfo, unaryRequest("/agent.v1.AgentService/CreateAgent", ""), errors.New("boom"))
 
@@ -129,8 +125,7 @@ func TestLoggingRecordsABareFailure(t *testing.T) {
 	assert.Equal(t, "*errors.errorString", record[logging.ErrorType])
 }
 
-// TestLoggingKeepsTheCallersTrace covers a caller that already has a trace id. Its own id
-// is what the call is logged under, so a request crossing two processes is one search
+// TestLoggingKeepsTheCallersTrace covers a request crossing two processes being one search
 // rather than two.
 func TestLoggingKeepsTheCallersTrace(t *testing.T) {
 	written, res, err := loggedCall(t, slog.LevelDebug, unaryRequest("/agent.v1.AgentService/ListAgents", "abc-123"), nil)
@@ -176,9 +171,8 @@ func TestSplitProcedure(t *testing.T) {
 	}
 }
 
-// TestLoggingNamesTheCallingAgent covers a call from an agent the panel spawned. The panel
-// and every agent reach the service over the same loopback connection, so the address says
-// nothing about who called and the header is the only thing that does.
+// TestLoggingNamesTheCallingAgent covers the header being the only thing that says who
+// called, since the panel and every agent share one loopback address.
 func TestLoggingNamesTheCallingAgent(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
 	req.Header().Set(caller.AgentHeader, "agent-1")
@@ -192,9 +186,8 @@ func TestLoggingNamesTheCallingAgent(t *testing.T) {
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 }
 
-// TestLoggingLeavesThePanelUnattributed covers the panel's own calls, which are the user
-// rather than an agent. An empty field would read as an agent whose id nobody recorded, so
-// there is no field at all.
+// TestLoggingLeavesThePanelUnattributed covers the panel's own calls carrying no field at
+// all, since an empty one would read as an agent whose id nobody recorded.
 func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
 	written, _, err := loggedCall(t, slog.LevelDebug, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
 	require.NoError(t, err)
@@ -204,9 +197,8 @@ func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
 	assert.NotContains(t, record, logging.SessionID)
 }
 
-// TestLoggingHandsTheIdentityDown covers what the handler under the interceptor is left
-// with. An RPC that calls back out has to be able to say who it is acting for, which is
-// what keeps a call made on an agent's behalf attributed to that agent.
+// TestLoggingHandsTheIdentityDown covers an RPC that calls back out still being able to say
+// which agent it is acting for.
 func TestLoggingHandsTheIdentityDown(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
 	req.Header().Set(caller.AgentHeader, "agent-1")

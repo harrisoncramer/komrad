@@ -10,9 +10,8 @@ import (
 
 func keyMsg() tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")} }
 
-// TestViewNeverOutgrowsThePane is the invariant the drawer exists to hold. bubbletea draws what
-// it is handed, so a frame taller than the pane scrolls the pane out from under it and the
-// drawing stops making sense.
+// TestViewNeverOutgrowsThePane covers a frame taller than the pane, which bubbletea would draw
+// as given and scroll the pane out from under it.
 func TestViewNeverOutgrowsThePane(t *testing.T) {
 	tests := []struct {
 		name   string

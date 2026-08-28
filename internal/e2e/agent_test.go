@@ -15,10 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAgentLifecycle is the whole life of an agent: created into a workflow, worked,
-// renamed, put away, brought back, resumed, and destroyed. Each step is asserted against
-// the pane as well as the row, since the two parting company is the failure that shows up
-// as an agent nobody can reach or a pane nobody owns.
+// TestAgentLifecycle walks an agent from created to destroyed, asserting the pane alongside
+// the row since the two parting company leaves an agent nobody can reach.
 func TestAgentLifecycle(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -128,10 +126,8 @@ func TestAgentLifecycle(t *testing.T) {
 	})
 }
 
-// TestCreateAgentRecordsSpawnedBy covers the parent an agent records when another agent
-// calls create_agent, over the wire the way a real request carries it: in the caller
-// header a request from an agent's own CLI arrives with. A create with no such header,
-// which is every create the panel itself makes, records no parent.
+// TestCreateAgentRecordsSpawnedBy covers the parent recorded when one agent creates another,
+// which arrives in the caller header and is absent on every create the panel makes.
 func TestCreateAgentRecordsSpawnedBy(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

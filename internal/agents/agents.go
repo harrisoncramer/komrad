@@ -115,10 +115,9 @@ type systemMailSender interface {
 	SendSystemMail(ctx context.Context, toAgentID, body string) (*mailstore.Mail, error)
 }
 
-// workflowEmptyDeleter permanently removes a workflow left with nothing archived inside it.
-// It is wired in after construction, through WithWorkflowEmptyDeleter, because the service
-// that implements it takes this one as its own agent deleter — a plain constructor argument
-// here would make the two depend on each other before either exists.
+// workflowEmptyDeleter permanently removes a workflow left with nothing archived inside it, and
+// is wired in after construction because the service implementing it takes this one as its own
+// agent deleter.
 type workflowEmptyDeleter interface {
 	DeleteIfEmpty(ctx context.Context, workflowID string) error
 }
@@ -273,19 +272,15 @@ func (s *AgentService) findSpawner(ctx context.Context) (*agentstore.Agent, erro
 	return spawner, nil
 }
 
-// DeleteAgents stops agents and removes those with nothing left to tear down. An agent whose
-// cleanup action is still running is left in place until that action finishes: only then, in
-// the background, does it either get removed (the action succeeded) or get marked
-// failed_to_cleanup (it did not) — the row is never dropped ahead of knowing which. The kill
-// here is from what was read, which a cleanup action needs: it must not run against a
-// directory a CLI is still working in. A pane recorded after that read is killed by the
-// removal itself, whenever that turns out to be.
+// DeleteAgents stops agents and removes those with nothing left to tear down, holding back any
+// whose cleanup action is still running until it finishes.
 func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return err
 	}
 
+	// A cleanup action must not run against a directory a CLI is still working in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
 	bg := context.WithoutCancel(ctx)
@@ -300,6 +295,7 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 		}
 
 		agent := agent
+		// The row is never dropped before the action says whether it worked.
 		s.runCleanup(ctx, agent, name, func(cleanupErr error) {
 			if cleanupErr != nil {
 				s.failCleanup(bg, agent, cleanupErr)
@@ -333,10 +329,8 @@ func (s *AgentService) DeleteAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// cleanupEmptyWorkflows deletes whatever workflow among removed's each now holds nothing
-// archived inside it, once per distinct workflow rather than once per agent. A failure is
-// logged rather than returned, the same as a failed notification: the agents are already
-// gone, so there is nothing left for the caller to undo.
+// cleanupEmptyWorkflows deletes each workflow among removed's that now holds nothing archived
+// inside it, logging a failure rather than returning it since the agents are already gone.
 func (s *AgentService) cleanupEmptyWorkflows(ctx context.Context, removed []agentstore.Agent) {
 	if s.emptyWorkflows == nil {
 		return
@@ -351,23 +345,22 @@ func (s *AgentService) cleanupEmptyWorkflows(ctx context.Context, removed []agen
 	}
 }
 
-// ArchiveAgents stops agents while preserving their records and workspaces. It kills the panes
-// it read and then the ones its own write took off the rows, since the two reach different
-// panes. The first keeps a failed write from hiding a live CLI, leaving the row for the
-// reconciler to tidy. The second reaches a pane recorded in between, which a resume or a create
-// writes once its window is open and which nothing refuses while the row is still live.
+// ArchiveAgents stops agents while preserving their records and workspaces.
 func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	agents, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
 		return err
 	}
 
+	// Killing what was read first keeps a failed write from hiding a live CLI, leaving the row
+	// for the reconciler to tidy.
 	killOwnedPanes(ctx, s.tmux, agents)
 
 	taken, err := s.agents.Archive(ctx, ids)
 	if err != nil {
 		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
 	}
+	// A pane recorded in between only reaches here through what the write took off the rows.
 	killPanes(ctx, s.tmux, taken)
 
 	notifyParents(ctx, s.notifier, agents, "archived")
@@ -375,10 +368,8 @@ func (s *AgentService) ArchiveAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed
-// them, and returns the ones it archived. It is for the background passes, which decide from
-// a snapshot: an agent resumed since that snapshot was taken is skipped rather than hidden
-// out from under the pane the resume just opened.
+// ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed them
+// and returns the ones it archived, so an agent resumed since the snapshot is skipped.
 func (s *AgentService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
 	var failures []error
 	var archived []agentstore.Agent
@@ -535,10 +526,8 @@ func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Ag
 	}))
 }
 
-// killPanes kills each pane tmux still says belongs to the agent named beside it. The
-// ownership check is what stops it killing a window the named agent no longer holds: a tmux
-// server hands out pane ids from a counter that restarts with it, and a restart is precisely
-// when every recorded pane points somewhere new.
+// killPanes kills each pane tmux still says belongs to the agent named beside it, since a tmux
+// server restart reuses pane ids and leaves every recorded pane pointing somewhere new.
 func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPane) {
 	panes, err := tmux.GetPanes()
 	if err != nil {
@@ -589,10 +578,8 @@ func (s *AgentService) removeAgents(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// removeActionLogs drops the durable setup/teardown logs an agent leaves on disk, once its
-// row is really gone. Best-effort: a leftover file costs nothing an agent removed a second
-// time won't also clean up, so a failure here is logged rather than turned into an error the
-// caller has to do anything about.
+// removeActionLogs drops the setup and teardown logs an agent leaves on disk once its row is
+// gone, logging a failure rather than returning it since a leftover file costs nothing.
 func (s *AgentService) removeActionLogs(ctx context.Context, ids []string) {
 	if s.logsDir == "" {
 		return
@@ -617,10 +604,8 @@ func (s *AgentService) runResumeSetup(ctx context.Context, agent agentstore.Agen
 	return s.lifecycle.RunResumeAction(ctx, agent, name)
 }
 
-// runCleanup starts a cleanup action. done, when given, is called exactly once with the
-// action's outcome: nil if it is not configured at all, or once RunCleanupAction's own done
-// callback reports how the run went — including a refusal to even start, which is reported
-// here rather than left for the caller to notice only via the log.
+// runCleanup starts a cleanup action, calling done exactly once with the outcome, including a
+// refusal to start.
 func (s *AgentService) runCleanup(ctx context.Context, agent agentstore.Agent, name string, done func(error)) {
 	if s.lifecycle == nil || name == "" {
 		if done != nil {
@@ -692,13 +677,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return err
 	}
 
-	// A resume writes nothing to the row until its setup, its window and its stamp are all
-	// done, so for the whole of that the row reads as a dormant agent nobody is touching,
-	// which is exactly what a background pass archives. This one write is what settles that
-	// both ways. It says a resume is in flight, so a pass reading the row after it skips one
-	// being set up and a pass deciding from a reading taken before it refuses on its own
-	// compare-and-set. And it refuses an archived row, which is how a resume finds out about
-	// a pass that got the whole way through between the caller's read and here.
+	// Until this write the row reads as a dormant agent nobody is touching, which is exactly what
+	// a background pass archives.
 	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
 	if err != nil {
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
@@ -752,12 +732,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
-	// A resume only gets this far for an agent whose pane has gone, so a turn the store still
-	// has running went with it. The reconciler stamps that when it watches a pane go, but a
-	// tmux server killed whole takes every pane and the reconciler's view of them at once, so
-	// the stamp is written here too rather than the state being read instead of it. The write
-	// comes before the state is overwritten, so a relaunch that fails leaves the turn to be
-	// asked about by the resume after it.
+	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
+	// the interrupted turn is stamped here rather than left to the reconciler.
 	if agent.InterruptedAt == nil && turnUnfinished(agent.State) {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
@@ -772,10 +748,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	agent.Pane = pane
 	agent.State = agentstore.StateIdle
 	agent.Cwd = dir
-	// The mark says a resume is in flight, but an archive or a delete does not read it: both
-	// take the row anyway, and both kill only the pane the row named when they read it, which
-	// for a resume this far along is no pane at all. So this write is where the resume finds
-	// out it lost, and the pane it opened is its own to take away.
+	// An archive or a delete takes the row without reading the resume mark, so this write is where
+	// a resume finds out it lost and has to take away the pane it opened.
 	written, err := s.agents.UpdateIfLive(ctx, agent)
 	if err != nil {
 		s.tmux.KillPane(pane)
@@ -789,10 +763,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	}
 	recorded = true
 
-	// A stored conversation is what a resume reopens, and an agent may have none: Codex
-	// takes no session id on the command line, so its id is only learned later from its
-	// rollout file, and never at all if that file is not matched. Such a relaunch is a
-	// fresh conversation, which cannot be asked to read back over a turn it never held.
+	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
+	// a fresh conversation with no turn to read back over.
 	resuming := agent.SessionID != ""
 
 	prompt := ""
@@ -812,8 +784,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}
 
-	// A recorded turn does not outlive the relaunch. Either the conversation holding it has
-	// just been asked about it, or that conversation is gone and no later resume reaches it.
+	// A recorded turn does not outlive the relaunch, since the conversation holding it has either
+	// just been asked about it or is gone.
 	if agent.InterruptedAt != nil {
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)

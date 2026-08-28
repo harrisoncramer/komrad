@@ -16,11 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestResumeDir covers the directory a restore relaunches in, and whether the
-// harness is asked to carry the conversation there. A restore has to produce a
-// usable directory whatever became of the recorded one, since a harness may match
-// a resume against the path the agent ran in and the panel lists agents whose
-// worktree is long gone.
+// TestResumeDir pins that a restore produces a usable directory whatever became of the
+// recorded one, since a harness may match a resume against the path the agent ran in.
 func TestResumeDir(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
 
@@ -91,9 +88,8 @@ func TestResumeDir(t *testing.T) {
 	}
 }
 
-// TestAnInterruptedTurnIsAskedForAgain covers an agent stopped part-way through a turn.
-// Nothing about that turn survives the pane and no CLI resumes into one, so the work only
-// carries on if the resume asks for it as an ordinary message.
+// TestAnInterruptedTurnIsAskedForAgain pins the resume asking again as an ordinary message,
+// since nothing about a cut-off turn survives the pane.
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
@@ -229,11 +225,8 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 }
 
-// TestATurnCutOffWithNoTmuxServerIsAskedForAgain covers the restart path, where the tmux
-// server is killed before any agent is put back. Every reconcile pass fails on the first
-// thing it does, so nothing looks at a pane and nothing records the turn that was cut off.
-// The resume holds the same two facts a reconcile pass would have gone on, the pane being
-// gone and the row still saying thinking, so it makes the ask itself.
+// TestATurnCutOffWithNoTmuxServerIsAskedForAgain pins the resume making the ask itself when
+// no pass ever ran, since the tmux server was killed before any agent was put back.
 func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	const sessionID = "1c7a3e8b-4d5f-4a6b-9c8d-7e6f5a4b3c21"
 
@@ -284,10 +277,8 @@ func (b *blockingLifecycle) RunResumeAction(context.Context, agentstore.Agent, s
 	return "", nil
 }
 
-// TestAResumeInItsSetupIsNotArchivedOutFromUnderItself covers the whole of a resume before its
-// first write to the row. A worktree setup action is seconds of work, and for all of it the row
-// used to read as an untouched dormant agent, which is exactly what the pull request pass
-// archives. Its compare-and-set did not help, since nothing had changed for it to notice.
+// TestAResumeInItsSetupIsNotArchivedOutFromUnderItself pins that a resume still in its setup
+// is not archived, which its row used to read as an untouched dormant agent for seconds.
 func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -341,9 +332,8 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	assert.Len(t, live, 1, "the agent whose CLI is running is one a listing shows")
 }
 
-// TestAPassArchivesAResumeThatFinishedFirst covers the other side of the same window. A resume
-// that got all the way through before the pass ran is an agent sitting idle in a pane, and a
-// merged pull request is reason enough to archive it, pane and all.
+// TestAPassArchivesAResumeThatFinishedFirst covers the other side of that window, where a
+// resume finished first and a merged pull request is reason enough to archive it.
 func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -371,9 +361,8 @@ func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	assert.Equal(t, []string{resumed.Pane}, tmux.killedPanes, "the pane goes with the archive it belongs to")
 }
 
-// TestAResumeThatGivesUpPutsTheStateBack covers a resume that never reaches its first write to
-// the row. Nothing else in weave moves a row out of setting_up, so a row left there is one no
-// later resume and no pass will touch again.
+// TestAResumeThatGivesUpPutsTheStateBack pins the state going back, since nothing else in
+// weave moves a row out of setting_up.
 func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -410,11 +399,8 @@ func (a *archivingTmux) GetPaneOwner(pane string) string {
 	return a.fakeTmux.GetPaneOwner(pane)
 }
 
-// TestAPassThatArchivesBeforeTheMarkStopsTheResume covers the ordering the mark cannot skip
-// ahead of: a pass that gets the whole way through its archive between the caller reading the
-// row and the resume writing to it. The reading is fresh, so nothing in the pass refuses. The
-// mark is where the resume finds out, which is why it refuses an archived row rather than
-// going on to open a pane no listing would show.
+// TestAPassThatArchivesBeforeTheMarkStopsTheResume pins the mark refusing an archived row,
+// which is where a resume finds out about an archive that landed while it was reading.
 func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	st := newStore(t)
 	base := newFakeTmux()
@@ -450,11 +436,8 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	assert.Empty(t, live, "nothing is left running that no listing shows")
 }
 
-// TestAnArchiveAfterTheMarkStopsTheResume covers the window on the far side of the mark. From
-// there to the resume's write is its setup action and a tmux window, seconds of real work for a
-// worktree workflow, and an archive landing in it is a person hitting a key rather than a pass
-// with a compare-and-set. It kills the pane the row names, which is none yet, so the resume is
-// the only side left that can take away the pane it went on to open.
+// TestAnArchiveAfterTheMarkStopsTheResume covers the window past the mark, where the archive
+// kills a pane the row does not name yet and only the resume can take away the one it opened.
 func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -505,10 +488,8 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	assert.Empty(t, live, "nothing is left running that no listing shows")
 }
 
-// TestADeleteAfterTheMarkStopsTheResume is the same window reached by the worse of the two
-// ways out of it. A delete drops the row, so there is nothing left for the resume to write a
-// pane onto and nothing anybody could later archive: a CLI launched here would be attached to
-// an id no row holds.
+// TestADeleteAfterTheMarkStopsTheResume covers the same window ended by a delete, which drops
+// the row and would leave a launched CLI attached to an id nothing holds.
 func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -565,10 +546,8 @@ func (refusingUpdate) UpdateIfLive(context.Context, agentstore.Agent) (bool, err
 	return false, errors.New("the row would not take the write")
 }
 
-// TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound covers the state a resume restores
-// when it gives up at the only step that runs after it has begun rewriting the agent in
-// memory. What goes back is the state on the row when the resume started, not the idle the
-// resume was about to write.
+// TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound pins that the state on the row when
+// the resume started goes back, not the idle it was about to write.
 func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

@@ -39,9 +39,8 @@ func token(t *testing.T, raw string) string {
 	return base64.URLEncoding.EncodeToString([]byte(raw))
 }
 
-// TestNewCursor covers the three ways a page token can be wrong. Each of them is the
-// caller handing back something other than what it was given, so a cursor that decodes
-// into a value the query cannot use is refused like one that would not decode at all.
+// TestNewCursor covers the three ways a page token can be wrong, since a cursor that
+// decodes into a value the query cannot use is refused like one that would not decode.
 func TestNewCursor(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -91,8 +90,7 @@ func TestNewCursor(t *testing.T) {
 }
 
 // TestNewCursorErrorCarriesTheReason pins that the cursor's own complaint reaches the
-// caller. The token is opaque, so a caller told only that it is invalid has nothing to
-// work from.
+// caller, who has an opaque token and nothing else to work from.
 func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	cursor := token(t, `{"i":"not-an-id"}`)
 

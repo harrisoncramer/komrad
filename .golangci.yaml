@@ -122,7 +122,7 @@ linters:
           # Off until the comments already written here have been cut down, since it
           # finds around a thousand of them.
           comment_length:
-            skip: true
+            skip: false
             # Unanchored regexps over the file path. The config struct's doc comments
             # are the text of the generated config.toml, so they are prose on purpose.
             exclude:

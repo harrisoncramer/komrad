@@ -16,15 +16,8 @@ const mcpConfigJSON = `{"mcpServers":{"weave":{"type":"http","url":"http://%s/mc
 
 var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 
-// BuildCommand renders the command line that puts Claude up. It is not executed
-// directly: it is typed into a pane and parsed by the shell running there, which
-// is why everything interpolated into it is either generated here or quoted.
-//
-// A resume reopens the prior conversation by session id, carrying an opening prompt
-// only when there is something to say on the way back in. Otherwise it starts a new
-// conversation pinned to that id, with the appended system prompt and the opening
-// prompt passed through temp files so multi-line markdown survives, removed as the
-// command runs.
+// BuildCommand renders the command line that puts Claude up, quoting everything interpolated
+// since it is typed into a pane and parsed by the shell running there.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	command := harness.EnvPrefix(launch) + binary
 

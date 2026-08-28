@@ -104,14 +104,8 @@ func (w *WorkflowService) GetWorkflow(ctx context.Context, id string) (*workflow
 	return found, nil
 }
 
-// NewWorkflow creates a workflow, defaulting a blank name so the list always has
-// a label to render. The cwd is home-expanded so the stored blueprint matches
-// what an agent launch would use.
-//
-// The write spans three rows, the workflow itself plus its blueprint and its action
-// config, so it runs inside a transaction. A failure partway through must not leave a
-// workflow_configs or workflow_action_configs row with nothing pointing at it, or worse,
-// a workflow row half-built.
+// NewWorkflow creates a workflow, defaulting a blank name so the list always has a label to
+// render.
 func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error) {
 	cfg.Name = strings.TrimSpace(cfg.Name)
 	if cfg.Name == "" {
@@ -136,6 +130,8 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 		return nil, ErrWorktreeActionsReserved
 	}
 
+	// The workflow, its blueprint, and its action config are three rows, so a failure partway
+	// through must not leave any of them half-written.
 	var created *workflowstore.Workflow
 	err := w.tx.InTx(ctx, func(db store.DBTX) error {
 		var txErr error
@@ -150,13 +146,8 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	return created, nil
 }
 
-// UpdateWorkflow replaces a workflow's editable fields. A blank name falls back
-// to the one it already has, so the list never renders an unlabelled bucket. The write
-// touches the workflow row, its blueprint, and its action config together, so it runs
-// inside a transaction the same way NewWorkflow's does.
-//
-// Turning worktree support off clears the setup and cleanup actions only when they still
-// name the built-in pair, leaving alone anything a caller pointed at something else since.
+// UpdateWorkflow replaces a workflow's editable fields, keeping the name it already has when a
+// blank one is given so the list never renders an unlabelled bucket.
 func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
@@ -187,6 +178,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 			return err
 		}
 	case existing.Worktree.Enabled:
+		// Turning worktree support off clears only the built-in pair, leaving alone anything a
+		// caller has since pointed somewhere else.
 		if cfg.SetupAction == worktreeSetupAction {
 			cfg.SetupAction = ""
 		}
@@ -296,14 +289,8 @@ func requirePrimaryCheckout(cwd string) error {
 	return nil
 }
 
-// ArchiveWorkflow archives a workflow and the agents inside it, since every agent belongs to
-// a workflow and none can be left behind. Panes are killed before the transaction commits, so
-// a failed commit leaves rows the reconciler can still tidy rather than hiding a live CLI for
-// good, and again from what the transaction took off the rows, since that is the only thing
-// that reaches a pane recorded after they were read. A workflow with live schedules is
-// refused, since archiving it would strand or silently kill them; they must be turned off
-// first. The workflow and agent rows span different domains, so both are archived in one
-// transaction to avoid a half-applied archive.
+// ArchiveWorkflow archives a workflow and every agent inside it, since an agent cannot be left
+// behind without a workflow to belong to.
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if err != nil {
@@ -318,6 +305,8 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 		return err
 	}
 	if scheduled > 0 {
+		// Archiving would strand a live schedule or kill it silently, so it has to be turned off
+		// first.
 		return fmt.Errorf("%w: %q has %d", ErrWorkflowHasSchedules, existing.Name, scheduled)
 	}
 
@@ -325,6 +314,8 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	if err != nil {
 		return err
 	}
+	// Panes go before the commit, so a failed commit leaves rows the reconciler can still tidy
+	// rather than a live CLI hidden for good.
 	killOwnedPanes(ctx, w.tmux, inside)
 
 	var taken []agentstore.AgentPane
@@ -341,6 +332,8 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	if err != nil {
 		return fmt.Errorf("failed to archive workflow %q: %w", id, err)
 	}
+	// A pane recorded after inside was read only ever reaches here through what the transaction
+	// took off the rows.
 	killPanes(ctx, w.tmux, taken)
 
 	notifyParents(ctx, w.notifier, inside, "archived")
@@ -349,9 +342,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 }
 
 // RestoreWorkflow brings an archived workflow back with every agent inside it, landing them
-// dormant so a folder of twelve does not start twelve CLIs. It is all or nothing, under the
-// agent ceiling and against the names live agents hold, since a partial restore would read
-// as whole; a refusal names what is in the way so the user can clear it and retry.
+// dormant so a folder of twelve does not start twelve CLIs.
 func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
@@ -368,6 +359,8 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		if err != nil {
 			return err
 		}
+		// A partial restore would read as a whole one, so the ceiling and the names live agents
+		// hold are both checked before anything is written.
 		if err := claimRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
 			return err
 		}
@@ -393,14 +386,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 }
 
 // DeleteWorkflow permanently removes an archived workflow along with whatever archived agents
-// and schedules are still inside it. Archiving a workflow archives every agent in it too, so
-// there is never a live agent to refuse here. The cascade goes through DeleteAgents rather than
-// a raw store delete, so an agent whose cleanup action is still running, or whose cleanup
-// failed, is left behind exactly as it would be from a direct delete, and the workflow row goes
-// with it: a delete that actually removes an agent checks the workflow it leaves behind for
-// itself, synchronously or from a cleanup action's own completion, so there is nothing left to
-// check here once agents are cascaded to. A workflow with nothing left to cascade is the
-// exception, since no delete runs to check it, so that case is still checked directly.
+// and schedules are still inside it.
 func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
@@ -420,16 +406,18 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 		return err
 	}
 	if len(inside) == 0 {
+		// No agent delete runs to check an empty workflow, so this is the one case that removes
+		// the row here.
 		return w.deleteWithSchedules(ctx, existing, schedules)
 	}
 
+	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any
+	// agent whose cleanup is still running or has failed.
 	return w.agentDeleter.DeleteAgents(ctx, agentIDs(inside))
 }
 
-// DeleteIfEmpty permanently removes a workflow if it is archived and now holds no agents at
-// all, and does nothing otherwise. It is the other half of emptying the archive: a batch
-// delete of archived agents can leave one of their workflows with nothing left in it, and
-// this is what turns that into the workflow row disappearing too.
+// DeleteIfEmpty permanently removes a workflow once it is archived and holds no agents at all,
+// which is what clears a workflow left empty by a batch delete of the agents inside it.
 func (w *WorkflowService) DeleteIfEmpty(ctx context.Context, id string) error {
 	existing, err := w.store.GetIncludingArchived(ctx, id)
 	if err != nil {
@@ -459,12 +447,8 @@ func (w *WorkflowService) deleteIfEmpty(ctx context.Context, existing *workflows
 	return w.deleteWithSchedules(ctx, existing, schedules)
 }
 
-// heldSchedules returns the schedules pointing at a workflow, refusing if any is still held by
-// an agent outside it. Only archived schedules can be there, since a live one refuses the
-// archive and none can be created against an archived workflow, and nothing else ever removes
-// them, so a workflow that ever held one would stay pinned by its foreign key forever. The
-// refusal comes before the agents inside are cascaded to, so a workflow that cannot be emptied
-// is left exactly as it was rather than stripped of its agents and kept anyway.
+// heldSchedules returns the archived schedules pointing at a workflow, which have to go when it
+// does, refusing if any is still held by an agent outside it.
 func (w *WorkflowService) heldSchedules(ctx context.Context, existing *workflowstore.Workflow) ([]schedulestore.Schedule, error) {
 	schedules, err := w.schedules.ListInWorkflow(ctx, existing.ID)
 	if err != nil {

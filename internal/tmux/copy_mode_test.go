@@ -11,12 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPaneInAModeTakesNoKeys is why delivery asks about the mode before it types. What it
-// proves is that nothing sent to a pane in a mode arrives, which is the behaviour that
-// matters, rather than the route by which it is lost: with a client attached the mode's key
-// table eats the keys, and with none, as here, tmux refuses the send outright. Sending the
-// text literally does not help either way, since a mode reads literal keys through the same
-// table.
+// TestPaneInAModeTakesNoKeys proves that nothing sent to a pane in a mode arrives, literally
+// or not, which is why delivery asks about the mode before it types.
 func TestPaneInAModeTakesNoKeys(t *testing.T) {
 	client := testServer(t, "weave")
 
@@ -53,8 +49,8 @@ func TestPaneInAModeTakesNoKeys(t *testing.T) {
 		"nothing sent while the pane was in a mode reached the program")
 }
 
-// TestSendTextDoesNotLookUpKeyNames covers the other half of typing at a pane. Without -l
-// tmux reads each argument as a key name first, so a word naming a key arrives as that key.
+// TestSendTextDoesNotLookUpKeyNames covers typing a word that names a key, which without -l
+// tmux would deliver as that key.
 func TestSendTextDoesNotLookUpKeyNames(t *testing.T) {
 	client := testServer(t, "weave")
 

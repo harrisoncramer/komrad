@@ -42,10 +42,8 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 	return client
 }
 
-// TestFiringIsQueuedOnce covers River's side of the guarantee. A firing is
-// identified by its arguments, so two inserts naming the same occurrence of the
-// same schedule have to collapse into one job while everything else stays its
-// own.
+// TestFiringIsQueuedOnce covers two inserts naming the same occurrence of the same
+// schedule collapsing into one job while everything else stays its own.
 func TestFiringIsQueuedOnce(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
@@ -91,11 +89,8 @@ func TestFiringIsQueuedOnce(t *testing.T) {
 	}
 }
 
-// TestFiringIsQueuedOnceAfterAnAttemptEnded covers the same guarantee once the
-// first attempt is off the queue. Every way a firing declines to launch ends the
-// job rather than failing it, so if reaching one of those states frees the
-// occurrence to be queued again, the whole scheme only holds while a job is
-// still in flight.
+// TestFiringIsQueuedOnceAfterAnAttemptEnded covers the same guarantee once the first
+// attempt is off the queue, since every way a firing declines to launch ends the job.
 func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
@@ -135,9 +130,8 @@ func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 	}
 }
 
-// TestEmptyArchiveIsQueuedOnce covers River's side of it. The sweep takes as long as tearing
-// down that many agents takes, so a second press while one is under way has to collapse into
-// it rather than starting a second sweep over the same archive.
+// TestEmptyArchiveIsQueuedOnce covers a second press collapsing into the sweep already under
+// way rather than starting another over the same archive.
 func TestEmptyArchiveIsQueuedOnce(t *testing.T) {
 	client := newRiverClient(t)
 
@@ -151,9 +145,8 @@ func TestEmptyArchiveIsQueuedOnce(t *testing.T) {
 	assert.True(t, second.UniqueSkippedAsDuplicate, "a sweep already in flight is the one that runs")
 }
 
-// TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes is the other half of that. The archive
-// fills up again as agents are put away, so a sweep that has finished must not stand in the
-// way of the next one, however long River keeps the finished row around.
+// TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes covers a finished sweep not standing in
+// the way of the next one, however long River keeps the finished row.
 func TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes(t *testing.T) {
 	client := newRiverClient(t)
 	require.NoError(t, client.Start(t.Context()))
@@ -175,10 +168,8 @@ func TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes(t *testing.T) {
 	assert.False(t, second.UniqueSkippedAsDuplicate, "a finished sweep is not the one that runs next")
 }
 
-// TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration
-// under. The scheduler takes one off by the schedule's id and nothing else, so a
-// job filed under anything but the id it was added with could never be removed and
-// the schedule would fire forever.
+// TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration under,
+// since the scheduler takes one off by the schedule's id and nothing else.
 func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 	cron, err := agents.ParseCron("0 9 * * *", "")
 	require.NoError(t, err)
@@ -244,10 +235,8 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
 }
 
-// TestStopWaitsForALaunchInFlight is the guarantee the shutdown path is built on. A
-// process killed partway through a launch leaves the firing marked running, and River's
-// rescuer does not come back for it for over an hour, so the stop has to wait rather
-// than walk away.
+// TestStopWaitsForALaunchInFlight covers the stop waiting rather than walking away, since
+// River's rescuer does not come back for an abandoned firing for over an hour.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))

@@ -460,10 +460,8 @@ func readSetupDir(path string) ([]byte, error) {
 	return io.ReadAll(io.LimitReader(file, maxSetupDir+1))
 }
 
-// RunCleanupAction starts a cleanup action without waiting for it to finish. done, when
-// given, fires exactly once with the action's outcome once it actually finishes — nil for
-// success, the failure otherwise — but never for a refusal to start, which the return error
-// already reports.
+// RunCleanupAction starts a cleanup action without waiting for it to finish, calling done once
+// with nil on success or the failure otherwise, and never when the action refuses to start.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	action, env, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
 	if err != nil {

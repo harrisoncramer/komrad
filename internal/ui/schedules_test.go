@@ -24,10 +24,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestScheduleKeys covers what the schedules screen does with a keypress, which
-// screen it lands on and which write it asks the service for. A key that acts on a
-// hovered row must do nothing at all on an empty list rather than act on a row that
-// is not there.
+// TestScheduleKeys pins where each key lands and what it writes, including doing nothing at
+// all on an empty list.
 func TestScheduleKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
@@ -119,8 +117,8 @@ func TestScheduleKeys(t *testing.T) {
 	}
 }
 
-// TestSchedulesView covers what the list renders. A paused schedule keeps its
-// row, so the screen has to say which of the two states each one is in.
+// TestSchedulesView pins the row saying which of the two states a schedule is in, since a
+// paused one keeps its row.
 func TestSchedulesView(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -166,11 +164,8 @@ func TestSchedulesView(t *testing.T) {
 	}
 }
 
-// TestScheduleFormButtonsLineUp covers where the form draws its confirm buttons. huh
-// centres them under the field's own prompt, so a field carrying a description is as
-// wide as that sentence and its buttons come out indented from the ones above it by
-// however long it happens to be. The form pins them left instead, and this is what says
-// so, since nothing else in the panel reads a rendered column.
+// TestScheduleFormButtonsLineUp pins the confirm buttons left, since huh centres them under
+// the field's own prompt and a field carrying a description indents them by its length.
 func TestScheduleFormButtonsLineUp(t *testing.T) {
 	form, _ := scheduleForm(schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
@@ -326,9 +321,8 @@ func TestScheduleFields(t *testing.T) {
 	})
 }
 
-// TestApplySchedules covers what a refresh does to the cursor. A schedule
-// deleted from elsewhere shifts the rows below it up, so the cursor has to
-// follow the schedule it was on rather than the index it happened to be at.
+// TestApplySchedules pins the cursor following the schedule it was on, since one deleted
+// elsewhere shifts the rows below it up.
 func TestApplySchedules(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -373,9 +367,8 @@ func TestApplySchedules(t *testing.T) {
 	}
 }
 
-// TestScheduleWriteFailure covers a refused write. The list looks the same
-// either way, so a rejected cron expression has to reach the screen as a banner
-// or it reads as a form that quietly did nothing.
+// TestScheduleWriteFailure pins a rejected cron expression reaching the screen as a banner,
+// since the list looks the same either way.
 func TestScheduleWriteFailure(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -556,9 +549,8 @@ var namedKeys = map[string]tea.KeyType{
 	"ctrl+t": tea.KeyCtrlT,
 }
 
-// TestScheduledMark covers the clock the agents list puts beside a row a schedule
-// launched. Only scheduled agents carry it, since a person starting an agent is the
-// ordinary case and a marker on every row would say nothing.
+// TestScheduledMark pins the clock beside a scheduled agent's row and nowhere else, since a
+// person starting one is the ordinary case.
 func TestScheduledMark(t *testing.T) {
 	tests := []struct {
 		name  string

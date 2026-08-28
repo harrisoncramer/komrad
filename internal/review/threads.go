@@ -6,9 +6,8 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// anchorKey is where a thread is pinned, as the view looks it up: the file and the line on
-// whichever side the thread lives on. A thread on a deleted line has no new-side number, so
-// the side is part of the key rather than assumed.
+// anchorKey is the file and line a thread is pinned to, with the side included since a thread
+// on a deleted line has no new-side number.
 type anchorKey struct {
 	filePath string
 
@@ -32,8 +31,8 @@ const (
 	// pinned is a thread whose line still reads the way it did when it was written.
 	pinned placement = iota
 
-	// ghosted is a thread placed by its old-side line, which is fixed by the base commit, onto
-	// code that has changed since. The place is right and the content is not.
+	// ghosted is a thread placed by its old-side line onto code that has changed since, so the
+	// place is right and the content is not.
 	ghosted
 
 	// adrift is a thread with nothing left to stand on, which keeps a row of its own at the
@@ -88,15 +87,8 @@ func (v *View) indexLines() lineIndex {
 	return index
 }
 
-// rowFor is the row a thread is drawn on and what that placing is worth, Adrift meaning there
-// is no row for it at all.
-//
-// The order is strongest first: the coordinates it was written against, then its old-side
-// line, which the base commit holds still however much the agent rewrites the new side, then
-// its text found anywhere in the file, which catches a line that moved rather than changed.
-//
-// A quote found more than once places nothing. Guessing which of two identical lines was meant
-// is worse than saying the thread has come adrift, since the reader can see where it was.
+// rowFor is the row a thread is drawn on and what that placing is worth, trying the
+// coordinates it was written against, then its old-side line, then its text.
 func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, placement) {
 	quote := ""
 	if lines := thread.GetQuotedLines(); len(lines) > 0 {
@@ -107,12 +99,15 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 		return y, v.placementFor(y, quote)
 	}
 
+	// The base commit holds the old-side line still however much the agent rewrites the new one.
 	if old := int(thread.GetOldStart()); old > 0 {
 		if y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]; ok {
 			return y, v.placementFor(y, quote)
 		}
 	}
 
+	// Text catches a line that moved rather than changed, and two matches place nothing rather
+	// than guess between them.
 	if found := index.byQuote[quoteKey{filePath: thread.GetFilePath(), quote: quote}]; quote != "" && len(found) == 1 {
 		return found[0], pinned
 	}

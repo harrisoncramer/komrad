@@ -42,11 +42,8 @@ const (
 	palettePopupHeight = "60%"
 )
 
-// BindHide binds the panel key on the manager's own tmux server to hiding the
-// popup. The popup's client is attached to that server, so a keypress inside the
-// popup is read by its bindings rather than the user's. That server sources the
-// user's tmux config as any new server does, which binds the key to opening the
-// popup, and inside the popup that would stack a second one on top of itself.
+// BindHide binds the panel key on the manager's own tmux server to hiding the popup, since
+// that server sources the user's config too and would otherwise open a popup inside the popup.
 func (p *PopupWindow) BindHide() {
 	key := p.tmux.ShowGlobal(managerKeyOption)
 	if key == "" {
@@ -61,18 +58,16 @@ type BindPaletteParams struct {
 	ConfigPaths []string
 }
 
-// BindPalette binds the palette key on the manager's own tmux server to a popup running the
-// palette. It is bound there rather than on the user's server because an agent's pane is the
-// manager's, and the palette acts on the agent whose pane the key was pressed in.
-//
-// The pane is not passed on the command line, since tmux expands no format in a popup's
-// command. The palette reads it back off the server instead.
+// BindPalette binds the palette key on the manager's own tmux server, since an agent's pane
+// belongs to that server and the palette acts on the pane the key was pressed in.
 func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 	key := p.tmux.ShowGlobal(paletteKeyOption)
 	if key == "" {
 		key = defaultPaletteKey
 	}
 
+	// tmux expands no format in a popup's command, so the palette reads the pane off the server
+	// rather than being handed it here.
 	command := []string{
 		"display-popup",
 		"-w", palettePopupWidth,
@@ -99,25 +94,17 @@ type BindPanelKeyParams struct {
 	ConfigPaths []string
 }
 
+// Explainer: the panel runs in a tmux session of its own that stays alive between presses, so
+// hiding it detaches the popup's client and opening it attaches again, which is why reopening
+// lands on the exact view it left. The open command sets and clears the flag this binding
+// branches on. That session lives on a tmux server of its own, invisible to this one, so hiding
+// has to go through the weave binary, which knows the socket. Open finds this server from the
+// TMUX variable rather than being told, because tmux expands no #{format} inside a popup command
+// and the shell reads the unexpanded text as a comment. The popup opens with -EE rather than -E
+// so it closes on success but stays up with the error on screen when startup fails, and Escape
+// or C-c dismisses one held open that way.
+
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed.
-//
-// The manager lives in a persistent tmux session shown through a popup. Pressing the key while
-// the popup is up hides it by detaching that session's client, which leaves the panel running
-// so reopening restores the exact view. Pressing it while hidden opens the popup, attaching to
-// the persistent session. The open command owns the flag the binding branches on: it sets it
-// while the popup is up and clears it when the popup closes.
-//
-// That session lives on a tmux server of its own, so it stays out of this server's session
-// list and cannot be attached to outside the popup. Hiding therefore goes through the binary,
-// which knows that server's socket. Open finds this server for itself, out of the TMUX
-// variable tmux sets in the popup, because nothing can be handed over in the binding: tmux
-// does not expand a #{format} in a popup command, and the shell running the command reads the
-// unexpanded text as a comment.
-//
-// -EE, rather than -E, closes the popup only when the command succeeds. Detaching to hide the
-// panel is a success, so that still closes it, but a startup failure leaves the popup up with
-// its error on screen instead of destroying the popup in the same instant the message is
-// written. Dismiss a held-open popup with Escape or C-c.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 	key := t.ShowGlobal(managerKeyOption)
 	if key == "" {
@@ -157,8 +144,7 @@ func (p *PopupWindow) SetInvokingClient(client string) {
 	p.tmux.SetGlobal(managerClientFlag, client)
 }
 
-// Hide closes the popup by detaching the client viewing the persistent manager
-// session. The session stays alive, so the next open restores it.
+// Hide closes the popup by detaching its client, leaving the session alive for the next open.
 func (p *PopupWindow) Hide() { p.tmux.DetachSession(p.session) }
 
 // SilenceStatus turns off a session's tmux status bar, so the manager panel and

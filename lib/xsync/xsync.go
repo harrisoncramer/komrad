@@ -4,8 +4,7 @@ package xsync
 import "time"
 
 // WithinTimeout runs wait in its own goroutine and reports whether it finished before the
-// timeout. A goroutine that never returns is abandoned rather than waited on forever, which
-// leaks the goroutine but lets the caller move on.
+// timeout, leaking that goroutine if it never returns.
 func WithinTimeout(within time.Duration, wait func()) bool {
 	done := make(chan struct{})
 	go func() {

@@ -17,9 +17,8 @@ func hunkOf(lines ...diff.Line) diff.Hunk {
 	return diff.Hunk{Header: "@@ -1 +1 @@", Lines: lines}
 }
 
-// TestEditTargetIsWhereTheLineLivesNow covers what the editor key opens. A line the file still
-// has opens at its own number, and a deleted one at the closest line that survived it, since
-// there is nothing at its old number any more.
+// TestEditTargetIsWhereTheLineLivesNow covers a surviving line opening at its own number and a
+// deleted one at the closest line that survived it.
 func TestEditTargetIsWhereTheLineLivesNow(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -112,8 +111,8 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 	assert.Equal(t, 1, line, "an emptied file opens at its top rather than at another file's line")
 }
 
-// TestJumpHunkWalksTheHunkBeforeLeavingIt covers the paragraph motion. Backwards from inside a
-// hunk goes to the top of that hunk first, and only past it once the cursor is already there.
+// TestJumpHunkWalksTheHunkBeforeLeavingIt covers backwards from inside a hunk going to the top
+// of that hunk first and only past it once the cursor is already there.
 func TestJumpHunkWalksTheHunkBeforeLeavingIt(t *testing.T) {
 	view := twoHunkView()
 

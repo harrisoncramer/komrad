@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRelocate covers carrying a conversation to where the agent is about to be
-// resumed. Claude matches --resume against the folder named after the directory it
-// runs in, so a restore that had to move the agent has to move the log with it.
+// TestRelocate covers carrying a conversation to where the agent is about to be resumed, since
+// Claude matches --resume against the folder named after the directory it runs in.
 func TestRelocate(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
 
@@ -70,9 +69,8 @@ func TestRelocate(t *testing.T) {
 	}
 }
 
-// TestProjectFolder pins the encoding Claude uses to name the folder a
-// directory's conversations live in, taken from the folders it has actually
-// written. A wrong name here means a moved log a resume cannot find.
+// TestProjectFolder pins the encoding Claude uses to name a directory's folder, since a wrong
+// name means a moved log a resume cannot find.
 func TestProjectFolder(t *testing.T) {
 	tests := []struct {
 		dir  string

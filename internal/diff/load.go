@@ -15,25 +15,23 @@ import (
 
 const gitTimeout = 30 * time.Second
 
-// maxFileBytes is the point past which a file's source is not read for highlighting. The
-// patch still shows its hunks; only the syntax colouring is given up.
+// maxFileBytes is the point past which a file's source is not read, giving up the syntax
+// colouring while the patch still shows its hunks.
 const maxFileBytes = 2 << 20
 
 // LoadParams says which worktree to read and what to measure it against.
 type LoadParams struct {
 	// Dir is anywhere inside the agent's worktree.
 	Dir string
-	// Base is the branch the worktree was cut from. Empty means ask the repository for its
+	// Base is the branch the worktree was cut from, or empty to ask the repository for its
 	// default branch.
 	Base string
 	// Exclude is the paths and globs to leave out, relative to the repository root.
 	Exclude []string
 }
 
-// Load reads everything an agent has changed in its worktree, measured against the point its
-// branch left the base. Committed and uncommitted work arrive together, because a diff
-// against a commit compares the working tree to it, and untracked files are added on top,
-// since they are in no diff git will produce.
+// Load reads everything an agent has changed in its worktree, committed and uncommitted
+// alike, measured against the point its branch left the base.
 func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	root, err := runGit(ctx, params.Dir, "rev-parse", "--show-toplevel")
 	if err != nil {
@@ -59,6 +57,7 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, err
 	}
 
+	// Untracked files are added on top, since they are in no diff git will produce.
 	untracked, err := loadUntracked(ctx, root, exclude)
 	if err != nil {
 		return nil, err
@@ -79,9 +78,8 @@ func diffArgs(commit string, exclude []string) []string {
 	return append(args, exclude...)
 }
 
-// excludePathspecs turns the workflow's paths into pathspecs git will subtract. The user
-// writes a path or a glob, such as proto/gen or *.pb.go, and the magic that makes it an
-// exclusion is added here rather than being something they have to know.
+// excludePathspecs turns the workflow's paths into pathspecs git will subtract, adding the
+// exclusion magic so the user writes only a path or a glob such as proto/gen.
 func excludePathspecs(paths []string) []string {
 	specs := make([]string, 0, len(paths))
 	for _, path := range paths {
@@ -96,9 +94,8 @@ func excludePathspecs(paths []string) []string {
 	return specs
 }
 
-// resolveBase turns a configured base branch into something git can name. A remote-tracking
-// ref is preferred, since the worktree was cut from one, and a repository that names no base
-// at all falls back to whatever origin points its HEAD at.
+// resolveBase turns a configured base branch into something git can name, preferring a
+// remote-tracking ref since the worktree was cut from one.
 func resolveBase(ctx context.Context, root, base string) string {
 	base = strings.TrimSpace(base)
 	if base == "" {

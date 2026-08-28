@@ -180,9 +180,8 @@ func TestValidateReadOnly(t *testing.T) {
 	}
 }
 
-// TestQuery covers what a statement returns once it has passed validation. The
-// row cap is the one thing a caller cannot see coming, so a truncated result
-// says so rather than reading as the whole answer.
+// TestQuery covers a truncated result saying so, since the row cap is the one thing a caller
+// cannot see coming.
 func TestQuery(t *testing.T) {
 	const overCap = `
 WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1500)
@@ -244,10 +243,8 @@ SELECT i FROM n`
 	}
 }
 
-// TestQueryRejectsWrite confirms the connection itself refuses a write, so the
-// keyword check is not the only thing standing between a model and the database.
-// The pool defaults every session to a read-only transaction, so this fails in
-// Postgres rather than in the parsing above it.
+// TestQueryRejectsWrite confirms the pool's read-only session refuses a write in Postgres, so
+// the keyword check is not the only thing standing between a model and the database.
 func TestQueryRejectsWrite(t *testing.T) {
 	tests := []struct {
 		name string

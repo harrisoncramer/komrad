@@ -19,9 +19,8 @@ func (m model) fatal() error {
 	return m.startupErr
 }
 
-// Init starts the refresh loop, which is what fills the panel in and then keeps its
-// rows and states current. A startup failure means there is no list to refresh, so
-// nothing is started.
+// Init starts the refresh loop that fills the panel in and keeps it current, unless startup
+// failed and there is no list to refresh.
 func (m model) Init() tea.Cmd {
 	if m.fatal() != nil {
 		return nil
@@ -78,9 +77,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateFilterInput(key)
 	}
 
-	// Something being typed into owns the keyboard. Every global key is also a character
-	// somebody means to type, so none of them are bound until the input closes and the screen
-	// gets the keys on its own terms.
+	// Something being typed into owns the keyboard, since every global key is also a character
+	// somebody means to type.
 	if m.isTyping() {
 		return m.routeScreenKey(key)
 	}

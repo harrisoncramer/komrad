@@ -19,9 +19,8 @@ type Server struct {
 	socket string
 }
 
-// New starts a tmux server for this test and returns it, skipping the test when tmux is
-// not installed. A skipped run is not a passing one, so a suite that has to exercise tmux
-// checks that tmux is there rather than reading the skip as success.
+// New starts a tmux server for this test and returns it, skipping the test when tmux is not
+// installed.
 func New(t *testing.T) *Server {
 	t.Helper()
 

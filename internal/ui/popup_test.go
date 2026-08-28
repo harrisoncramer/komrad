@@ -50,10 +50,8 @@ func (t *panelKeyRecorder) BindKeyChecked(key string, command ...string) error {
 	return t.err
 }
 
-// TestBindPanelKey covers the binding weave is reached by, which a tmux config asks for and
-// nobody reads afterwards. It has to name this binary's own path, since a tmux server keeps
-// whatever PATH it started with for life, and it has to branch on the flag the popup sets so
-// the same key hides the panel rather than stacking a second popup on it.
+// TestBindPanelKey pins the binding naming this binary's own path, since a tmux server keeps
+// whatever PATH it started with for life.
 func TestBindPanelKey(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -111,18 +109,16 @@ func TestBindPanelKey(t *testing.T) {
 	}
 }
 
-// TestBindPanelKeyReportsRefusal covers a tmux that will not take the binding, which is what a
-// server that is not running looks like. The panel binds keys where nothing can be done about
-// a failure, but this one was asked for by somebody reading the output.
+// TestBindPanelKeyReportsRefusal pins the refusal reaching the person who asked for it, since
+// a tmux that is not running is what a rejected binding looks like.
 func TestBindPanelKeyReportsRefusal(t *testing.T) {
 	tmux := &panelKeyRecorder{err: assert.AnError}
 
 	assert.Error(t, BindPanelKey(tmux, BindPanelKeyParams{Self: "/usr/local/bin/weave"}))
 }
 
-// TestBindPalette covers the binding the palette is reached by, which is the only way in.
-// The command has to name the running binary and the config this process resolved, since the
-// popup is a new process that would otherwise read whatever the defaults are.
+// TestBindPalette pins the command naming the running binary and the config this process
+// resolved, since the popup is a new process that would otherwise read the defaults.
 func TestBindPalette(t *testing.T) {
 	tests := []struct {
 		name    string

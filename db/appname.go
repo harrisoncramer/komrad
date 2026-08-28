@@ -14,9 +14,8 @@ const appNamePrefix = "weave"
 // processes on a long hostname do not end up under the same truncated name.
 const maxAppName = 63
 
-// AppName is the application_name every weave pool connects under. It names the
-// process rather than the build, since what a migration pass needs to know is
-// whether the connections it can see belong to it.
+// AppName is the application_name every weave pool connects under, naming the process rather
+// than the build so a migration pass can tell which connections are its own.
 func AppName() string {
 	host, err := os.Hostname()
 	if err != nil {

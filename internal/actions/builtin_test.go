@@ -9,9 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestInstallBuiltins covers the actions weave ships reaching disk, which they have to do
-// because running one is an exec of a path. Every one is underscored, since they sit behind
-// the panel's own keys rather than in the list a person picks from.
+// TestInstallBuiltins covers the actions weave ships reaching disk, each underscored since
+// they sit behind the panel's own keys rather than in the list a person picks from.
 func TestInstallBuiltins(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "actions")
 
@@ -31,9 +30,8 @@ func TestInstallBuiltins(t *testing.T) {
 	assert.NotContains(t, names, markerName, "the file claiming the directory is not something to run")
 }
 
-// TestInstallBuiltinsReplacesWhatWasThere covers a build that no longer ships a script. The
-// directory is the service's own, so what an older build left in it is cleared rather than
-// staying on offer.
+// TestInstallBuiltinsReplacesWhatWasThere covers a build that no longer ships a script, where
+// what an older build left is cleared rather than staying on offer.
 func TestInstallBuiltinsReplacesWhatWasThere(t *testing.T) {
 	dir := filepath.Join(t.TempDir(), "actions")
 	require.NoError(t, InstallBuiltins(dir))

@@ -13,13 +13,8 @@ import (
 // comment map against.
 const pkgPath = "weave/config"
 
-// Schema reflects Config into a JSON schema, pulling each field's description
-// from its Go doc comment and each leaf's default from DefaultKeybindings. It is
-// what the generator renders config.toml from, so the struct is the only place a
-// binding or its documentation is written down.
-//
-// dir is the directory holding this package's source, which the comment
-// extractor parses. Callers running from the package directory pass ".".
+// Schema reflects Config into a JSON schema, taking each field's description from its Go doc
+// comment in dir and each leaf's default from DefaultKeybindings.
 func Schema(dir string) (*jsonschema.Schema, error) {
 	reflector := &jsonschema.Reflector{
 		FieldNameTag: "mapstructure",
@@ -42,9 +37,8 @@ func Schema(dir string) (*jsonschema.Schema, error) {
 	return schema, nil
 }
 
-// setDefaults walks the schema alongside the default value, stamping each leaf's
-// Default from the corresponding field. Walking the value rather than restating
-// the defaults keeps DefaultKeybindings the single source.
+// setDefaults walks the schema alongside the default value so DefaultKeybindings stays the
+// only place a default is written.
 func setDefaults(schema *jsonschema.Schema, value reflect.Value) error {
 	if schema.Properties == nil {
 		return nil

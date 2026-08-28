@@ -192,10 +192,8 @@ func TestGetByID(t *testing.T) {
 	}
 }
 
-// TestADeadlineIsMeasuredOnTheDatabaseClock covers which clock a deadline is counted from.
-// Every read of expires_at compares it against the database's NOW(), so a deadline counted
-// from the caller's clock is honoured only to within whatever the two clocks differ by, and
-// a short deadline is then live or expired depending on that drift.
+// TestADeadlineIsMeasuredOnTheDatabaseClock pins that expires_at is compared against the
+// database's NOW(), since one counted from the caller's clock holds only to within the drift.
 func TestADeadlineIsMeasuredOnTheDatabaseClock(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -207,9 +205,8 @@ func TestADeadlineIsMeasuredOnTheDatabaseClock(t *testing.T) {
 	assert.Equal(t, time.Hour, sent.ExpiresAt.Sub(sent.CreatedAt))
 }
 
-// TestMailPastItsDeadlineTheInstantItIsSentIsAlreadyExpired covers the shortest deadline
-// there is. A deadline below the database's microsecond resolution is nothing rather than
-// almost nothing, so the mail is expired from the moment it exists.
+// TestMailPastItsDeadlineTheInstantItIsSentIsAlreadyExpired pins that a deadline below the
+// database's microsecond resolution is nothing rather than almost nothing.
 func TestMailPastItsDeadlineTheInstantItIsSentIsAlreadyExpired(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -477,8 +474,8 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
-// TestOneUnclaimedNoticePerKind proves the doorbell cannot stack. Pressing notify again while
-// the agent still has not read the first one used to insert another identical row every time.
+// TestOneUnclaimedNoticePerKind pins that notifying again while the first notice is unread
+// inserts nothing, where it used to add an identical row every time.
 func TestOneUnclaimedNoticePerKind(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -520,8 +517,8 @@ func TestOneUnclaimedNoticePerKind(t *testing.T) {
 	assert.NotNil(t, after, "once it has been read, the doorbell rings again")
 }
 
-// TestOrdinaryMailIsNeverDeduplicated keeps the dedupe to notices weave raises itself. Two
-// agents saying the same thing twice are two things to read.
+// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices weave raises,
+// since two agents saying the same thing twice are two things to read.
 func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -538,9 +535,8 @@ func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	assert.Equal(t, int64(3), pending)
 }
 
-// TestNoticeRingsAgainOnceItHasExpired proves the doorbell cannot jam. The index that holds
-// one notice per kind cannot ask that the notice still be deliverable, so a notice nobody
-// claimed before it ran out of time used to hold the slot for the life of the database.
+// TestNoticeRingsAgainOnceItHasExpired pins that a notice nobody claimed before it ran out
+// of time frees its slot, where it used to hold one for the life of the database.
 func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

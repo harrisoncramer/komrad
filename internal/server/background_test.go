@@ -70,10 +70,8 @@ func drive(t *testing.T, level slog.Level, each []func(context.Context) error) s
 	return out.String()
 }
 
-// TestLoopLogsAFailureOnce covers a pass that keeps failing the same way, which is what a
-// database that is down or a schema that is behind looks like from in here. The loop runs
-// every couple of seconds, so writing every failure would be the same sentence a thousand
-// times over and every other line in the file buried under it.
+// TestLoopLogsAFailureOnce covers a pass failing the same way over and over, which a
+// two-second loop would otherwise write out a thousand times.
 func TestLoopLogsAFailureOnce(t *testing.T) {
 	down := errors.New("failed to list agents: connection refused")
 
@@ -86,9 +84,8 @@ func TestLoopLogsAFailureOnce(t *testing.T) {
 	assert.Contains(t, records[0][logging.ErrorMessage], "connection refused")
 }
 
-// TestLoopLogsEachDistinctFailure covers a loop failing two different ways. Only the
-// repeats are folded, since a second failure is news whether or not the first is still
-// happening.
+// TestLoopLogsEachDistinctFailure covers a loop failing two different ways, since a second
+// failure is news whether or not the first is still happening.
 func TestLoopLogsEachDistinctFailure(t *testing.T) {
 	first := errors.New("failed to list agents")
 	second := errors.New("failed to capture pane")
@@ -100,9 +97,8 @@ func TestLoopLogsEachDistinctFailure(t *testing.T) {
 	}, logtest.Bodies(t, written))
 }
 
-// TestLoopLogsTheRepeatsAtDebug covers somebody chasing a failure that comes and goes.
-// Turning the log up has to show every pass, since which passes failed is the question
-// being asked.
+// TestLoopLogsTheRepeatsAtDebug covers somebody chasing a failure that comes and goes, where
+// which passes failed is the whole question.
 func TestLoopLogsTheRepeatsAtDebug(t *testing.T) {
 	down := errors.New("failed to list agents")
 
@@ -116,9 +112,8 @@ func TestLoopLogsTheRepeatsAtDebug(t *testing.T) {
 	assert.EqualValues(t, 3, records[2][logging.Repeats])
 }
 
-// TestLoopLogsRecovery covers the pass that works after a run of failures. Nothing else
-// says the thing came back, and a log that only records failures reads as a service still
-// broken long after it recovered.
+// TestLoopLogsRecovery covers the first pass to work after a run of failures, since nothing
+// else says the loop came back.
 func TestLoopLogsRecovery(t *testing.T) {
 	down := errors.New("failed to list agents")
 
@@ -130,10 +125,8 @@ func TestLoopLogsRecovery(t *testing.T) {
 	assert.EqualValues(t, 2, records[1][logging.Repeats])
 }
 
-// TestLoopSurvivesAPanickingPass covers a pass that panics instead of returning. Go would
-// otherwise end the process over it, which freezes every agent's state at whatever the last
-// pass wrote, so the panic is taken as a failed pass and the next one runs. The stack is
-// asserted on because a panic value alone never says where it came from.
+// TestLoopSurvivesAPanickingPass covers a pass that panics instead of returning, which would
+// otherwise end the process and freeze every agent's state where the last pass left it.
 func TestLoopSurvivesAPanickingPass(t *testing.T) {
 	written := drive(t, slog.LevelInfo, []func(context.Context) error{
 		func(context.Context) error { panic("assignment to entry in nil map") },
@@ -148,10 +141,8 @@ func TestLoopSurvivesAPanickingPass(t *testing.T) {
 	assert.Equal(t, "loop recovered", records[1]["body"])
 }
 
-// TestLoopFoldsARepeatingPanic covers a pass panicking the same way every time, which is
-// what a frame or a log one agent keeps producing looks like from in here. It folds through
-// the same path a repeating error does, so a two-second loop does not write the same stack
-// a thousand times over.
+// TestLoopFoldsARepeatingPanic covers a pass panicking the same way every time, so a
+// two-second loop does not write the same stack a thousand times over.
 func TestLoopFoldsARepeatingPanic(t *testing.T) {
 	panics := func(context.Context) error { panic("index out of range [30] with length 6") }
 
@@ -162,10 +153,8 @@ func TestLoopFoldsARepeatingPanic(t *testing.T) {
 	}, logtest.Bodies(t, written))
 }
 
-// TestLoopSaysNothingOnceCancelled covers the shutdown reaching a pass that is partway
-// through. Every store call a pass makes takes the loop's context, so the pass fails the
-// moment it is cancelled, and reporting that would end a clean stop with an error naming
-// every agent the pass had left to do.
+// TestLoopSaysNothingOnceCancelled covers a shutdown reaching a pass partway through, where
+// reporting its cancelled store calls would end a clean stop with a page of errors.
 func TestLoopSaysNothingOnceCancelled(t *testing.T) {
 	var out bytes.Buffer
 
@@ -214,9 +203,8 @@ func (f *fakeRunner) Stop(ctx context.Context) error {
 	return nil
 }
 
-// TestBackgroundOutlivesTheSignal is the one that matters. River treats cancelling the
-// context it was started on as a hard stop, which would cut a launch off mid-flight
-// instead of waiting for it, so the signal must not reach that context.
+// TestBackgroundOutlivesTheSignal keeps the signal off River's own context, which River
+// treats as a hard stop that cuts a launch off mid-flight.
 func TestBackgroundOutlivesTheSignal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	runner := &fakeRunner{}
@@ -269,9 +257,8 @@ func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
 	assert.Contains(t, err.Error(), "river is unreachable")
 }
 
-// TestShutdownDeadlineOutlivesTheSignal covers each stage of the teardown getting a clock
-// of its own. The signal that started the shutdown is already cancelled by the time these
-// are made, so deriving from it directly would give every stage no time at all.
+// TestShutdownDeadlineOutlivesTheSignal covers each teardown stage getting a clock of its
+// own, since deriving from the already-cancelled signal would give them no time at all.
 func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -286,10 +273,8 @@ func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	assert.WithinDuration(t, time.Now().Add(jobStopTimeout), at, time.Second)
 }
 
-// TestEachPassIsTracedOnItsOwn covers what makes the log readable: one pass of a loop is one
-// trace, the way one request is, so following what a reconcile did is naming its id rather
-// than reading four loops interleaved. Two passes must not share an id, or the whole point
-// of following one is lost.
+// TestEachPassIsTracedOnItsOwn covers one pass of a loop being one trace, so following a
+// reconcile means naming its id rather than reading four loops interleaved.
 func TestEachPassIsTracedOnItsOwn(t *testing.T) {
 	var out bytes.Buffer
 	logger := logging.New(&out, slog.LevelInfo)
@@ -311,12 +296,8 @@ func TestEachPassIsTracedOnItsOwn(t *testing.T) {
 	assert.NotEqual(t, traces[0], traces[1], "two passes are two traces")
 }
 
-// TestAFailedPassIsLoggedOnItsOwnTrace is what following a loop failure with weave trace
-// rests on. The failure is the pass's outcome, so it belongs on the pass's id rather than
-// beside it: an id that shows what a pass said on its way but not how it ended answers the
-// question nobody asked. It is also the only line most passes write, since the reconciler
-// and the sync loops are quiet until they break, so a failure off the trace is a failing
-// loop that --recent cannot list at all.
+// TestAFailedPassIsLoggedOnItsOwnTrace pins the failure onto the pass's own id, since a
+// failure written beside it is a failing loop that weave trace --recent cannot list.
 func TestAFailedPassIsLoggedOnItsOwnTrace(t *testing.T) {
 	written := drive(t, slog.LevelInfo, []func(context.Context) error{
 		func(ctx context.Context) error {
@@ -336,9 +317,8 @@ func TestAFailedPassIsLoggedOnItsOwnTrace(t *testing.T) {
 	assert.Equal(t, trace, records[1][logging.TraceID], "the outcome is on the trace that produced it")
 }
 
-// TestEveryOutcomeCarriesTheTraceOfThePassItDescribes covers the other two outcomes. A
-// repeat and a recovery each describe a pass that ran under a trace of its own, so each is
-// written under that one, and none of the three shares an id with another.
+// TestEveryOutcomeCarriesTheTraceOfThePassItDescribes covers a repeat and a recovery each
+// being written under the trace of the pass it describes.
 func TestEveryOutcomeCarriesTheTraceOfThePassItDescribes(t *testing.T) {
 	down := errors.New("failed to list agents")
 

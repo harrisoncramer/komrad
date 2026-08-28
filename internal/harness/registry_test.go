@@ -23,8 +23,8 @@ func (s stub) GetLogPath(string) string               { return "" }
 func (s stub) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }
 func (s stub) Relocate(string, string) error          { return nil }
 
-// TestNewRegistry covers what a registry refuses to be built from. Both cases would
-// otherwise decide which harness an agent got by argument order.
+// TestNewRegistry covers what a registry refuses to be built from, both cases being ones that
+// would otherwise decide an agent's harness by argument order.
 func TestNewRegistry(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -66,9 +66,8 @@ func TestNewRegistry(t *testing.T) {
 	}
 }
 
-// TestRegistryGetByID covers looking up an id. An id nothing implements is an error
-// naming what is available rather than a nil the caller has to notice, since the
-// callers are loops that would otherwise dereference it.
+// TestRegistryGetByID covers an id nothing implements returning an error naming what is
+// available, since the callers are loops that would dereference a nil.
 func TestRegistryGetByID(t *testing.T) {
 	registry, err := NewRegistry(stub{id: "codex"}, stub{id: "claude"})
 	require.NoError(t, err)

@@ -26,9 +26,8 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-// Kind is what a piece of mail is. Everything an agent sends is KindPlain; a kind other
-// than that marks a notice weave raises itself, of which an agent holds at most one
-// unclaimed at a time.
+// Kind tells an agent's own mail, always KindPlain, from a notice weave raises itself and
+// holds at most one of unclaimed.
 type Kind string
 
 const (
@@ -65,9 +64,8 @@ type SendParams struct {
 	FromName    string
 	ToAgentID   string
 	Body        string
-	// Kind decides whether a second copy can queue up behind the first. A kind other than
-	// KindPlain is refused while one of the same kind is still deliverable, since a notice
-	// waiting to be read already says what another copy of it would say.
+	// Kind other than KindPlain is refused while one of the same kind is still deliverable,
+	// since a notice waiting to be read already says what another copy would.
 	Kind    Kind
 	ReplyTo *string
 	Hops    int32
@@ -76,11 +74,8 @@ type SendParams struct {
 	Deadline time.Duration
 }
 
-// Send writes one piece of mail. It answers nil when the recipient is already holding a
-// notice of this kind it can still claim, which is not a failure: the thing that would have
-// been said is already waiting to be read. A notice that ran out of time unread is not
-// waiting to be read, so that one is rung again in place rather than refused, which is what
-// keeps a slot from being held for good by mail nobody can ever be handed.
+// Send writes one piece of mail, answering nil when a notice of this kind is already waiting
+// to be read, and ringing one again in place once it has expired unread.
 func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	kind := params.Kind
 	if kind == "" {
@@ -151,8 +146,8 @@ func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mai
 	return claimed, nil
 }
 
-// ListPage returns one page of the mail addressed to an agent, newest first, whether or
-// not it has been claimed. Unlike Claim, this never marks anything as read.
+// ListPage returns one page of the mail addressed to an agent, newest first, and never marks
+// anything as read.
 func (s *Store) ListPage(ctx context.Context, toAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
@@ -173,8 +168,8 @@ func (s *Store) ListPage(ctx context.Context, toAgentID string, limit int32, cur
 	}), nil
 }
 
-// ListByID returns whichever of the given ids hold mail, in no particular order. A caller
-// checking a batch for completeness compares its length against the ids it asked for.
+// ListByID returns whichever of the given ids hold mail, so a caller checking a batch for
+// completeness compares the length against what it asked for.
 func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
@@ -191,8 +186,8 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 	}), nil
 }
 
-// Delete permanently removes mail by id. It does not check that every id given holds
-// mail; a caller that needs the batch to go whole or not at all checks with ListByID first.
+// Delete permanently removes mail by id without checking that every id holds any, so a
+// caller needing the batch to go whole checks with ListByID first.
 func (s *Store) Delete(ctx context.Context, ids []string) error {
 	storable := keepStorableIDs(ids)
 	if len(storable) == 0 {
@@ -220,10 +215,8 @@ func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, erro
 }
 
 // ListPendingMailboxes is every agent holding unclaimed mail, live or not yet reported as
-// expired, so the sweep finds a mailbox whose own delivery job is gone as well as one whose
-// only mail timed out unseen. Deliver tells the two cases apart itself via CountPending, which
-// excludes expired mail. Once ListExpired has reported a mailbox's expired mail, it drops out
-// of this list on its own.
+// expired, so the sweep finds a mailbox whose delivery job is gone as well as one whose mail
+// timed out unseen.
 func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithPendingMail(ctx)
 	if err != nil {
@@ -233,9 +226,8 @@ func (s *Store) ListPendingMailboxes(ctx context.Context) ([]string, error) {
 	return rows, nil
 }
 
-// ListUnreadMailboxes is every agent holding mail it could claim right now: unclaimed
-// and not yet expired. Unlike ListPendingMailboxes, a mailbox whose only mail has timed
-// out drops off this list, since read_mail could not hand that mail back either.
+// ListUnreadMailboxes is every agent holding mail it could claim right now, so a mailbox
+// whose only mail has timed out drops off it.
 func (s *Store) ListUnreadMailboxes(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListMailboxesWithUnreadMail(ctx)
 	if err != nil {

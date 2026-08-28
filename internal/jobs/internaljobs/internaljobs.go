@@ -1,6 +1,5 @@
-// Package internaljobs holds the jobs themselves: the arguments that identify a piece of
-// work and the workers that do it. The package around it owns the queue they run on, so a
-// new kind of job is a file here rather than a change to the client.
+// Package internaljobs holds the job arguments and the workers that do the work, so a new
+// kind of job is a file here rather than a change to the client.
 package internaljobs
 
 import (

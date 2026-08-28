@@ -15,10 +15,8 @@ import (
 
 var created atomic.Int64
 
-// URL creates an empty database and returns a connection string for it, dropping
-// it when the test ends. The schema is not applied here. The caller opens the
-// store against this url and the store migrates it, so the tests exercise the
-// same migration path a real start does.
+// URL creates an empty database and drops it when the test ends, leaving the store to
+// migrate it so the tests exercise the same path a real start does.
 func URL(t *testing.T) string {
 	t.Helper()
 

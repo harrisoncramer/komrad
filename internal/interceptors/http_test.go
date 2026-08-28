@@ -37,9 +37,8 @@ func servedCall(t *testing.T, body string, handler http.HandlerFunc) (string, st
 	return out.String(), seen
 }
 
-// TestHTTPLoggingNamesTheTool covers the field that makes an MCP line worth reading. Every
-// call arrives as a POST to the same path, so the path says nothing: the tool the model
-// asked for is the only part that does, and it is in the body rather than the request line.
+// TestHTTPLoggingNamesTheTool covers the only field worth reading on an MCP line, since every
+// call is a POST to the same path and the tool asked for is in the body.
 func TestHTTPLoggingNamesTheTool(t *testing.T) {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}`
 
@@ -59,11 +58,8 @@ func TestHTTPLoggingNamesTheTool(t *testing.T) {
 	assert.Equal(t, body, seen)
 }
 
-// TestHTTPLoggingRecordsAFailure covers what the status is read as, since nothing below
-// this layer returns an error to it. A 5xx is the service breaking. A 4xx is the caller
-// being told no, which is not the same thing: an MCP client probes this endpoint with a GET
-// on every connect and is answered 405, and logging that as a failure would put a red
-// herring in the file every time an agent starts.
+// TestHTTPLoggingRecordsAFailure separates a 5xx from a 4xx, since an MCP client probes this
+// endpoint with a GET on every connect and is answered 405.
 func TestHTTPLoggingRecordsAFailure(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -89,9 +85,8 @@ func TestHTTPLoggingRecordsAFailure(t *testing.T) {
 	}
 }
 
-// TestHTTPLoggingWithAnUnreadableBody covers a request that is not the envelope this knows
-// how to describe. A line naming the path alone is still worth writing, so the call is
-// logged without the fields that could not be worked out rather than not at all.
+// TestHTTPLoggingWithAnUnreadableBody covers a request that is not the envelope this knows,
+// which is logged without the fields it could not work out rather than not at all.
 func TestHTTPLoggingWithAnUnreadableBody(t *testing.T) {
 	written, seen := servedCall(t, "not json at all", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -103,9 +98,8 @@ func TestHTTPLoggingWithAnUnreadableBody(t *testing.T) {
 	assert.Equal(t, "not json at all", seen)
 }
 
-// TestHTTPLoggingKeepsTheHandlerFlushable covers the wrapper this puts around the response.
-// MCP streams, and a flush that cannot find the real writer through the wrapper leaves the
-// caller waiting on a response that has been written but never sent.
+// TestHTTPLoggingKeepsTheHandlerFlushable covers MCP streaming, where a flush that cannot
+// find the real writer leaves the caller waiting on a response already written.
 func TestHTTPLoggingKeepsTheHandlerFlushable(t *testing.T) {
 	flushed := false
 
@@ -138,9 +132,8 @@ func TestHTTPLoggingCarriesATrace(t *testing.T) {
 	assert.NotEmpty(t, logtest.Record(t, out.String())[logging.TraceID])
 }
 
-// TestHTTPLoggingNamesTheCallingAgent covers an agent calling a tool. This is the edge most
-// agent traffic arrives at, and the identity is read here exactly as it is on the RPC edge,
-// so following one agent is one filter however it called.
+// TestHTTPLoggingNamesTheCallingAgent covers the identity being read here exactly as it is on
+// the RPC edge, so following one agent is one filter however it called.
 func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 	var out bytes.Buffer
 
@@ -165,8 +158,7 @@ func TestHTTPLoggingNamesTheCallingAgent(t *testing.T) {
 }
 
 // TestHTTPLoggingIgnoresAnUnexpandedVariable covers a CLI that passed the config through
-// without filling it in. The header names a variable rather than a value, and recording it
-// would put an agent called ${WEAVE_AGENT_ID} in the log and in every filter built on it.
+// without filling it in, which would put an agent called ${WEAVE_AGENT_ID} in the log.
 func TestHTTPLoggingIgnoresAnUnexpandedVariable(t *testing.T) {
 	var out bytes.Buffer
 

@@ -61,8 +61,8 @@ func TestAppendTurns(t *testing.T) {
 	}
 }
 
-// TestTranscriptSyncer covers a sync pass end to end. What lands in the store,
-// and how a second pass treats a log that has moved on since the first.
+// TestTranscriptSyncer covers a sync pass end to end, including how a second pass treats a
+// log that has moved on since the first.
 func TestTranscriptSyncer(t *testing.T) {
 	tests := []struct {
 		name string
@@ -177,15 +177,8 @@ func TestTranscriptSyncer(t *testing.T) {
 	}
 }
 
-// TestSyncSurvivesOneUnsyncableAgent covers what a pass does with an agent it
-// cannot fold in.
-//
-// The syncer walks every agent newest first on a timer, and the failures that
-// reach it are properties of one agent's log rather than of the machine, so the
-// same agent fails on every pass. Giving up at it would leave every older agent
-// behind it never indexed again. The failure is injected here because the store
-// accepts everything the flattener now produces, and this is about the walk
-// rather than about any one reason a write is refused.
+// TestSyncSurvivesOneUnsyncableAgent pins that one agent's bad log does not strand every
+// older agent behind it, since the same agent would fail on every pass.
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -268,9 +261,8 @@ func appendToLog(t *testing.T, path, body string) {
 	require.NoError(t, f.Close())
 }
 
-// TestSyncReportsAnUnknownHarness covers an agent whose harness nothing implements.
-// Its transcript can never advance again, so the pass reports it rather than
-// skipping it: a search that quietly finds nothing is how that would go unnoticed.
+// TestSyncReportsAnUnknownHarness pins that an agent nothing can index is reported rather
+// than skipped, since a search that quietly finds nothing goes unnoticed.
 func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -294,9 +286,8 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	assert.Contains(t, err.Error(), "gemini", "and the harness it is waiting on")
 }
 
-// TestSyncAdoptsSessions covers a harness that names its own conversations. The panel
-// cannot tell codex which id to use, so the syncer asks afterwards which conversation
-// the CLI started for that agent and records it.
+// TestSyncAdoptsSessions pins that the syncer asks codex afterwards which conversation it
+// started, since the panel cannot hand it an id.
 func TestSyncAdoptsSessions(t *testing.T) {
 	tests := []struct {
 		name string
@@ -345,9 +336,8 @@ func TestSyncAdoptsSessions(t *testing.T) {
 	}
 }
 
-// TestSyncAdoptedSessionIsIndexed covers the pass after an adoption, driving the real
-// codex harness over a real rollout. Adopting is only worth anything if the transcript
-// that turns up under that id is then read.
+// TestSyncAdoptedSessionIsIndexed pins that the transcript turning up under an adopted id is
+// then read, driving the real codex harness over a real rollout.
 func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

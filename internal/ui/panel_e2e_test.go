@@ -23,10 +23,8 @@ import (
 
 const panelSession = "panel"
 
-// TestPanelArchivesThroughTheService covers a keypress reaching the database. Every other
-// test here answers the panel from a fake client, which says what the panel asked for and
-// nothing about whether asking for it does anything, so the archive key is exercised once
-// against the real service with a real agent running in a real pane behind it.
+// TestPanelArchivesThroughTheService takes the archive key all the way to the database, since
+// every other test here answers the panel from a fake client.
 func TestPanelArchivesThroughTheService(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -92,10 +90,8 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		"and the row goes off the panel's own list, leaving the folder it was in")
 }
 
-// TestPanelOpensThePullRequestKey covers the pull request key from the press through to a
-// process. The panel names an action nothing in its own list shows, so what proves the key is
-// wired is the script running, on the agent the cursor was on, since the shipped one reads the
-// pull request back out of the API by that id.
+// TestPanelOpensThePullRequestKey pins the pull request key by the script it starts on the
+// agent the cursor was on, since the action it names is not in the panel's own list.
 func TestPanelOpensThePullRequestKey(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -161,9 +157,8 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr (if recorded)", "the legend carries the key")
 }
 
-// TestPanelLeavesThePullRequestKeyAloneWithoutOne covers the agents that never recorded one.
-// The panel holds the metadata it is drawing from, so it answers this itself rather than
-// starting a script that has nothing to open.
+// TestPanelLeavesThePullRequestKeyAloneWithoutOne pins that an agent with no recorded pull
+// request starts no script, since the panel holds the metadata and answers this itself.
 func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -219,10 +214,8 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	}, time.Second, 10*time.Millisecond, "nothing is started for an agent with no pull request")
 }
 
-// TestStagedAgentArchivedElsewhere covers the panel losing the agent it is showing to
-// somebody else, the MCP server or the CLI or a second panel. Staging swaps the agent's pane
-// into the panel's own window, so whoever ends that agent ends it there, and the stage's own
-// pane is away in the agent's window where nothing on screen can reach it.
+// TestStagedAgentArchivedElsewhere covers somebody else ending a staged agent, whose pane
+// staging swapped into the panel's own window while the stage's pane sits in the agent's.
 func TestStagedAgentArchivedElsewhere(t *testing.T) {
 	staged := newStagedPanel(t)
 	stagePane := staged.panel.frame.Pane(layout.RegionStage)
@@ -257,9 +250,8 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 		"the next agent shows beside the panel rather than being swapped off screen")
 }
 
-// TestStagedAgentExitsOnItsOwn covers the same loss with nobody archiving anything. Agent
-// panes are opened without remain-on-exit, so a CLI that finishes takes its pane down, and
-// while that agent is staged the pane it takes down is in the panel's window.
+// TestStagedAgentExitsOnItsOwn covers the same loss with nobody archiving, since agent panes
+// are opened without remain-on-exit and a staged agent's pane is in the panel's window.
 func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
 	stagePane := staged.panel.frame.Pane(layout.RegionStage)

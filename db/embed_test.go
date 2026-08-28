@@ -48,8 +48,8 @@ func TestMigrate(t *testing.T) {
 	}
 }
 
-// TestMigrateConcurrently is what the advisory lock is for. Without it a second
-// starter reads the same empty ledger and reapplies what the first already has.
+// TestMigrateConcurrently pins the advisory lock, without which a second starter reads the
+// same empty ledger and reapplies what the first already has.
 func TestMigrateConcurrently(t *testing.T) {
 	const racers = 8
 
@@ -184,10 +184,9 @@ func TestMigrateFailure(t *testing.T) {
 	}
 }
 
-// TestMigrateResumes covers a pass that stops partway through a ledger of several
-// files, which is what a failure between two of them leaves behind. The set is
-// written for the test rather than taken from db/migrations, since how many files
-// ship there is up to whoever last squashed them.
+// TestMigrateResumes covers a pass that stops partway through a ledger of several files,
+// using a set written for the test since how many files ship in db/migrations is up to
+// whoever last squashed them.
 func TestMigrateResumes(t *testing.T) {
 	pool := open(t)
 	ctx := t.Context()
@@ -200,8 +199,8 @@ func TestMigrateResumes(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, versions, 2)
 
-	// A ledger that accepts only the first version stops the pass at the second,
-	// leaving what the first one did in place. CREATE TABLE binds no parameters.
+	// A ledger that accepts only the first version stops the pass at the second, and the
+	// version is interpolated because CREATE TABLE binds no parameters.
 	_, err = pool.Exec(ctx, fmt.Sprintf(
 		`CREATE TABLE schema_migrations (version text PRIMARY KEY CHECK (version = '%s'))`, versions[0]))
 	require.NoError(t, err)

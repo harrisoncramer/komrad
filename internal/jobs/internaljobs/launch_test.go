@@ -16,14 +16,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// attempts is how many tries a job in these tests is given. River hands the worker the
-// real number at run time, and what the worker does with it is the same whatever it is.
+// attempts is how many tries a job in these tests is given, which the worker treats the same
+// whatever number River hands it.
 const attempts = 5
 
-// TestLaunchAgentWorker covers what a fired schedule does, and the two ways a
-// firing stops. A schedule that is gone or paused cancels, since retrying finds
-// the same answer, while a launch that failed for a reason that might pass is
-// returned so River tries again.
+// TestLaunchAgentWorker covers a fired schedule cancelling when it is gone or paused, and
+// returning an error when the failure is one that might pass.
 func TestLaunchAgentWorker(t *testing.T) {
 	occurrence := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
@@ -143,9 +141,8 @@ func TestLaunchAgentWorker(t *testing.T) {
 	}
 }
 
-// TestLaunchAgentParams covers what the worker passes to the agent service. The
-// schedule is a blueprint, so everything the agent starts with comes off it,
-// and the idempotency key is what makes a retry safe.
+// TestLaunchAgentParams covers everything the agent starts with coming off the schedule,
+// with the idempotency key making a retry safe.
 func TestLaunchAgentParams(t *testing.T) {
 	occurrence := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
@@ -212,10 +209,8 @@ func TestLaunchAgentParams(t *testing.T) {
 	}
 }
 
-// TestLaunchKey covers the identity of one firing. A retry of the same
-// occurrence has to produce the same key, and a different occurrence or a
-// different schedule a different one, since that is the whole of what stops a
-// duplicate agent.
+// TestLaunchKey covers a retry of one occurrence producing the same key and a different
+// occurrence a different one, which is the whole of what stops a duplicate agent.
 func TestLaunchKey(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 

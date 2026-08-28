@@ -22,9 +22,8 @@ func threadAt(id, path string, oldStart, newStart int32, quote string) *agentv1.
 	}
 }
 
-// TestPinHoldsWhenLinesShiftBeneathIt is the case that made the old rule useless. The agent
-// adds a line at the top of the file, every new-side number below it moves by one, and the
-// code the thread was written against has not changed at all.
+// TestPinHoldsWhenLinesShiftBeneathIt covers a line added at the top of the file, which moves
+// every new-side number below it without changing the code a thread was written against.
 func TestPinHoldsWhenLinesShiftBeneathIt(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -44,8 +43,8 @@ func TestPinHoldsWhenLinesShiftBeneathIt(t *testing.T) {
 	assert.False(t, view.IsGhosted(thread))
 }
 
-// TestPinFollowsCodeThatMoved covers a thread on a line the agent moved rather than changed.
-// Neither side's numbers match any more, and the line reads exactly as it did.
+// TestPinFollowsCodeThatMoved covers a line the agent moved rather than changed, where neither
+// side's numbers match any more and the text reads exactly as it did.
 func TestPinFollowsCodeThatMoved(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -64,9 +63,8 @@ func TestPinFollowsCodeThatMoved(t *testing.T) {
 	assert.False(t, view.IsGhosted(thread))
 }
 
-// TestPinGhostsWhenTheLineChangedUnderIt covers the old-side anchor doing its job. The base
-// commit holds that line number still, so the thread lands where it belongs, and the code
-// there no longer says what the thread was about.
+// TestPinGhostsWhenTheLineChangedUnderIt covers the old-side anchor landing the thread where
+// it belongs on code that no longer says what the thread was about.
 func TestPinGhostsWhenTheLineChangedUnderIt(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -86,9 +84,8 @@ func TestPinGhostsWhenTheLineChangedUnderIt(t *testing.T) {
 	assert.True(t, view.IsGhosted(thread))
 }
 
-// TestPinRefusesToGuessBetweenIdenticalLines covers the ambiguous case. Two lines read the
-// same, so placing the thread on either is a guess, and a guess is worse than saying where it
-// was written and letting the reader look.
+// TestPinRefusesToGuessBetweenIdenticalLines covers two lines that read the same, where a
+// guess is worse than saying where the thread was written and letting the reader look.
 func TestPinRefusesToGuessBetweenIdenticalLines(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -105,8 +102,8 @@ func TestPinRefusesToGuessBetweenIdenticalLines(t *testing.T) {
 	assert.Equal(t, adrift, view.placed[thread.GetId()])
 }
 
-// TestAdriftThreadGetsItsOwnRow covers a thread whose file has left the diff. It keeps a row
-// at the foot, the cursor can rest on it, and the rows the patch produced do not move.
+// TestAdriftThreadGetsItsOwnRow covers a thread whose file has left the diff keeping a row at
+// the foot without moving the rows the patch produced.
 func TestAdriftThreadGetsItsOwnRow(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -158,9 +155,8 @@ func TestPinningTwiceLeavesOneSection(t *testing.T) {
 	assert.Equal(t, once, view.Len())
 }
 
-// TestMarkForSaysWhichThreadIsWhich covers the gutter's one glyph. A reply nobody has read
-// outranks everything, then settling, and only then whether the thread is still standing on
-// the code it was written against.
+// TestMarkForSaysWhichThreadIsWhich covers the gutter glyph ranking an unread reply first,
+// then settling, then whether the thread still stands on the code it was written against.
 func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -187,9 +183,8 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	assert.Equal(t, unreadMark, mark, "an unread reply outranks the settling")
 }
 
-// TestASecondThreadOnALineGetsItsOwnRow covers two conversations opened on the same line. Only
-// one of them can be the thread the cursor reaches there, so the other goes to the foot of the
-// diff rather than being drawn behind the first where nothing could answer it.
+// TestASecondThreadOnALineGetsItsOwnRow covers the second of two conversations on one line
+// going to the foot, since only one can be the thread the cursor reaches there.
 func TestASecondThreadOnALineGetsItsOwnRow(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -213,8 +208,8 @@ func TestASecondThreadOnALineGetsItsOwnRow(t *testing.T) {
 	assert.Equal(t, adrift, view.placed[second.GetId()])
 }
 
-// TestAdriftThreadsSortByLineNotByText covers the order of the foot section. Sorting the
-// formatted location put line 10 before line 9.
+// TestAdriftThreadsSortByLineNotByText covers the foot section's order, which put line 10
+// before line 9 while it sorted the formatted location.
 func TestAdriftThreadsSortByLineNotByText(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",

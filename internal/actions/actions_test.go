@@ -13,9 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDiscover covers what the directory offers as an action and what it passes over. A file
-// that cannot be run is still listed, because a script that was written and then never appears
-// reads as the panel being broken rather than as a file wanting chmod.
+// TestDiscover covers what the directory offers as an action, including a file that cannot be
+// run, since a script that never appears reads as the panel being broken.
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
@@ -115,8 +114,8 @@ func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	assert.Equal(t, Header{}, found[1].Header, "a file that declares nothing carries nothing")
 }
 
-// TestDiscoverMissingDirectory covers the ordinary case of never having written one.
-// Nothing is wrong, so nothing is reported: the panel says where it looked on screen.
+// TestDiscoverMissingDirectory covers never having written one, where nothing is wrong so
+// nothing is reported.
 func TestDiscoverMissingDirectory(t *testing.T) {
 	found, err := Discover(filepath.Join(t.TempDir(), "never-created"))
 
@@ -195,10 +194,8 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 	}
 }
 
-// TestRunRefusesAMissingDirectory covers an agent outliving the worktree it ran in, which is
-// ordinary once a worktree is cleaned up. The refusal has to name the directory: the exec failure
-// underneath it reports no such file against the script, which is the one thing here that is
-// fine.
+// TestRunRefusesAMissingDirectory covers an agent outliving its worktree, where the refusal has
+// to name the directory since the exec failure underneath blames the script instead.
 func TestRunRefusesAMissingDirectory(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
@@ -294,12 +291,8 @@ func TestRunReportsTheOutcome(t *testing.T) {
 	}
 }
 
-// TestRunLeavesStdoutAlone covers the half of the streams that is still the null device.
-// TestRunCapturesStdoutToo covers the fire-and-forget path, which nothing is watching live:
-// most scripts fail through a plain echo on stdout rather than a write to stderr, and a
-// cleanup action that only kept stderr would leave its durable log empty on exactly that
-// failure. Stdout is folded into Stderr rather than kept separately, since nothing downstream
-// distinguishes the two for a run nobody is attached to.
+// TestRunCapturesStdoutToo covers the fire-and-forget path, where a script that fails through a
+// plain echo on stdout would otherwise leave its log empty.
 func TestRunCapturesStdoutToo(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "chatty"), []byte(
@@ -360,9 +353,8 @@ func TestRunAndWaitReportsWhatTheActionSaid(t *testing.T) {
 	assert.Equal(t, "progress", strings.TrimSpace(string(result.Stderr)), "stderr stays separate from it")
 }
 
-// TestRunAndWaitRefusesANonZeroExit covers the case Run cannot have, an action that
-// started fine and then disagreed. The result still comes back, since a failing action's
-// stderr is the only thing that says why.
+// TestRunAndWaitRefusesANonZeroExit covers an action that started fine and then disagreed,
+// whose result still comes back since its stderr is the only thing that says why.
 func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install"), []byte(
@@ -380,8 +372,8 @@ func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	assert.Equal(t, "no lockfile", strings.TrimSpace(string(result.Stderr)))
 }
 
-// TestRunAndWaitStopsAtTheDeadline covers an action that hangs. Without the deadline the
-// launch waiting on it waits forever, which is worse than one that is refused.
+// TestRunAndWaitStopsAtTheDeadline covers an action that hangs, which without the deadline
+// leaves the launch waiting on it forever.
 func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
@@ -402,9 +394,8 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
 }
 
-// TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for. Run answers as
-// soon as the process exists, so the deadline is the run's own to enforce and what it did
-// reaches the outcome rather than a return value.
+// TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for, where what
+// happened reaches the outcome rather than a return value.
 func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "hangs"), []byte(
@@ -454,8 +445,8 @@ func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
 }
 
-// TestRunAndWaitKeepsTheTailOfALoudAction covers the cap. The end of a failing script's
-// output is the part that says why, so what survives truncation has to be the tail.
+// TestRunAndWaitKeepsTheTailOfALoudAction covers the output cap, where the end of a failing
+// script is the part that says why.
 func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "loud"), []byte(

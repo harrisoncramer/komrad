@@ -27,16 +27,12 @@ var migrationsFS embed.FS
 //go:embed readonly_role.sql
 var readOnlyRoleSQL string
 
-// migrateLock is the advisory lock key migrations are applied under. Several
-// processes share the database and more than one can start at once, so without
-// it two of them can read the same empty schema_migrations and both try to
-// create the same table. The number is arbitrary but must never change.
+// migrateLock is the advisory lock key that stops two processes starting at once from
+// applying the same migration twice, and it must never change.
 const migrateLock int64 = 7_240_115
 
-// Migrate applies any migrations not yet recorded, in filename order. Each runs
-// in its own transaction alongside the row recording it, so a migration either
-// lands and is marked or does neither. The whole pass is serialized on an
-// advisory lock, which makes a concurrent start wait rather than race.
+// Migrate applies any migrations not yet recorded, in filename order, each in its own
+// transaction alongside the row recording it.
 func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	files, err := openMigrationFiles()
 	if err != nil {
@@ -77,9 +73,8 @@ func openMigrationFiles() (fs.FS, error) {
 	return files, nil
 }
 
-// Pending lists the embedded migrations that have not run, in the order they would run in.
-// It is exported so a caller can report on a schema without being the caller that applies
-// it, and it writes nothing, so it is safe against a database opened read-only.
+// Pending lists the embedded migrations that have not run, in the order they would run in,
+// and writes nothing so it is safe against a database opened read-only.
 func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 	files, err := openMigrationFiles()
 	if err != nil {
@@ -111,8 +106,8 @@ type queryer interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
-// pendingVersions is which of versions the database has no record of. A missing
-// schema_migrations table means it has no record of any of them.
+// pendingVersions is which of versions the database has no record of, which is all of them
+// when schema_migrations does not exist yet.
 func pendingVersions(ctx context.Context, q queryer, versions []string) ([]string, error) {
 	rows, err := q.Query(ctx,
 		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
@@ -214,19 +209,17 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 // ErrDatabaseInUse is returned rather than migrating a database another weave is on.
 var ErrDatabaseInUse = errors.New("another weave is using this database")
 
+// Explainer: every pool connects under AppName, so a connection named after another process
+// is another weave, and that one is serving queries written against the schema it started
+// with. Applying migrations it has never seen breaks it until it restarts. The case this is
+// written for is a worktree whose WEAVE_DATABASE_URL still points at the panel's database
+// because nothing told it otherwise, where any command opens the store, the store migrates,
+// and the panel stops being able to read its own tables. A pass with nothing pending never
+// reaches here, so such a checkout is only refused once it holds a migration the panel does
+// not have.
+
 // refuseSharedDatabase stops a pass that would change the schema under a weave already
-// running against the same database. Every pool connects under AppName, so a connection
-// named after another process is another weave, and that one is serving queries written
-// against the schema it started with: applying migrations it has never seen breaks it
-// until it restarts.
-//
-// The case this is written for is a checkout with a migration of its own, an agent's
-// worktree most of the time, whose WEAVE_DATABASE_URL is still the panel's database
-// because nothing told it otherwise. Any command there opens the store, the store
-// migrates, and the panel stops being able to read its own tables.
-//
-// A pass with nothing pending never reaches this, so working in such a checkout is only
-// refused once it is holding a migration the panel does not have.
+// running against the same database.
 func refuseSharedDatabase(ctx context.Context, conn *pgxpool.Conn, pending []string) error {
 	rows, err := conn.Query(ctx, `
 		SELECT DISTINCT application_name

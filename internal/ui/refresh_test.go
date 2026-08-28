@@ -61,10 +61,8 @@ func produced(cmd tea.Cmd) []tea.Msg {
 	}
 }
 
-// TestRefreshAppliesWhatAnswered covers a pass where one listing failed. They all
-// go to the same server, so a failure is reported as the server not answering, but
-// the rows that did come back are still taken: throwing away a whole pass over one
-// listing is how a slow call ends up costing the lists it has nothing to do with.
+// TestRefreshAppliesWhatAnswered covers a pass where one listing failed, which still takes
+// the rows that did come back rather than throwing the whole pass away.
 func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -84,10 +82,8 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
-// TestStaleRefreshIsDropped covers the race the panel used to lose. A pass reads
-// the store a moment before a keypress writes to it and lands a moment after, so
-// taking it would put the hidden row, the deleted row, or the old mark back and read
-// as a keypress that did nothing.
+// TestStaleRefreshIsDropped covers a pass that read the store just before a keypress wrote
+// to it and landed just after, which would put the old row back.
 func TestStaleRefreshIsDropped(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -107,9 +103,8 @@ func TestStaleRefreshIsDropped(t *testing.T) {
 	assert.Empty(t, m.listing.agents, "a pass from before the write is not what the panel shows after it")
 }
 
-// TestWriteStandsTheRefreshDown covers the other half of that race. A pass started
-// while a write is on its way to the store would read the rows it is about to
-// replace, so the tick skips it and the write asks for one as it lands.
+// TestWriteStandsTheRefreshDown covers the other half of that race, where the tick skips a
+// pass while a write is on its way and the write asks for one as it lands.
 func TestWriteStandsTheRefreshDown(t *testing.T) {
 	m := model{api: api{agents: emptyLists{}, workflows: emptyLists{}, schedules: emptyLists{}}}
 
@@ -122,10 +117,8 @@ func TestWriteStandsTheRefreshDown(t *testing.T) {
 	assert.NotNil(t, settled.refreshCmd(), "and lists again once it has landed")
 }
 
-// TestFirstListingLandsOnTheFirstAgent covers where the cursor starts. Nothing is
-// listed when the panel paints its first frame, so the cursor is placed by the first
-// pass rather than at startup, and a cursor left where a never-listed one sits would
-// open on the workflow header above the agents.
+// TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass,
+// since one placed at startup would open on the workflow header above the agents.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -144,9 +137,8 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	assert.Equal(t, "api-refactor", selected.agent.Name)
 }
 
-// TestCreatedAgentReceivesFocus covers the write result carrying the created agent back
-// to the panel. Its row does not exist when the form closes, so the id has to survive until
-// the listing that includes it arrives.
+// TestCreatedAgentReceivesFocus covers the id of a created agent surviving until the listing
+// that holds its row arrives, since the row does not exist when the form closes.
 func TestCreatedAgentReceivesFocus(t *testing.T) {
 	agents := &formRecorder{}
 	tmux := &recordingTmux{}
@@ -209,9 +201,8 @@ func TestUnrelatedWriteDoesNotCloseTheSetupPane(t *testing.T) {
 	assert.Equal(t, infoSetup, got.info.kind, "a write that never touched the setup pane leaves it alone")
 }
 
-// TestCreatedWorkflowReceivesFocus covers the same for a folder. A workflow made from the
-// panel is the one the user is about to fill, so the cursor lands on its header rather than
-// staying on whatever it was hovering when the form opened.
+// TestCreatedWorkflowReceivesFocus covers the same for a folder, where the cursor lands on
+// the new header rather than staying where the form opened.
 func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	recorder := &formRecorder{}
 	m := model{
@@ -248,9 +239,8 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	assert.Equal(t, "new", hovered.ID)
 }
 
-// TestCursorHoldsItsFolderAcrossARefresh covers a folder archived from somewhere else
-// while the cursor sits on a folder below it. A header is a row like any other, so the
-// cursor has to follow the folder it names rather than the index it was drawn at.
+// TestCursorHoldsItsFolderAcrossARefresh covers a folder archived from somewhere else, after
+// which the cursor follows the folder it names rather than the index it was drawn at.
 func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 	m := model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -272,9 +262,8 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 	assert.Equal(t, "infra", hovered.Name)
 }
 
-// TestCursorHoldsItsAgentWhenAFolderArrives covers the other direction, a folder created
-// from somewhere else sorting in above the cursor. The folders land before the agents, so
-// a cursor read after they have is read against a tree that is half of each pass.
+// TestCursorHoldsItsAgentWhenAFolderArrives covers a folder sorting in above the cursor,
+// where the folders land before the agents and leave the tree half of each pass.
 func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 	m := model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -299,9 +288,8 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 	assert.Equal(t, "infra-upgrade", selected.agent.Name)
 }
 
-// TestArchiveCursorHoldsItsAgentWhenAFolderGoes covers the same shape on the archive. Its
-// folders are partly the live ones, which a pass replaces before the archive's own listings
-// land, so the row under the cursor has to be read before any of them do.
+// TestArchiveCursorHoldsItsAgentWhenAFolderGoes covers the same shape on the archive, whose
+// folders are replaced before its own listings land.
 func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),

@@ -309,8 +309,7 @@ func (s *testStore) Get(ctx context.Context, name string) (*agentstore.Agent, er
 }
 
 // Create records an agent, filing it under a workflow of its own when the test
-// did not name one. Every agent belongs to a workflow, and most tests here are
-// about something else entirely.
+// did not name one.
 func (s *testStore) Create(ctx context.Context, agent agentstore.Agent) error {
 	if agent.Harness == "" {
 		agent.Harness = testHarnessID
@@ -549,9 +548,7 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state s
 }
 
 // writingPaneFirst is the store with a pane landing on the row in the one gap an archive or a
-// delete has: after the agents it is about to write have been read and killed from, and before
-// its own write commits. A resume or a create writes there, both of which open a window and
-// then record it, and neither of which is refused while the row is still live.
+// delete has, after it has read and killed the agents and before its own write commits.
 type writingPaneFirst struct {
 	*agentstore.Store
 
@@ -578,9 +575,8 @@ func (t txWritingPaneFirst) InTx(ctx context.Context, fn func(store.DBTX) error)
 	return t.txRunner.InTx(ctx, fn)
 }
 
-// resumeInto writes a pane onto an agent's row and stamps that pane as its own, which is what
-// a resume does once its window is open. It runs once however often it is called, since the
-// write it stands for happens once.
+// resumeInto returns the write a resume does once its window is open, putting a pane on the
+// agent's row and stamping that pane as its own.
 func resumeInto(t *testing.T, st *testStore, tmux *fakeTmux, agent agentstore.Agent, pane string) func() {
 	t.Helper()
 

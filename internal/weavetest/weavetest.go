@@ -150,9 +150,8 @@ func Start(t *testing.T, p Params) *Instance {
 	}
 }
 
-// WorkQueue starts the job runner and waits for the queue to drain, so a test can assert on
-// what a background job did rather than on the insert that asked for it. The runner keeps
-// running afterwards, since a job may queue more work.
+// WorkQueue starts the job runner and waits for the queue to drain, then leaves it running
+// since a job may queue more work.
 func (i *Instance) WorkQueue() {
 	i.t.Helper()
 
@@ -192,9 +191,8 @@ func (i *Instance) ReconcileSchedules() {
 	require.NoError(i.t, i.server.ScheduleReconcile.Pass(i.t.Context()))
 }
 
-// Settle moves an agent to an activity and reconciles until the store agrees. The agent
-// prints its state on a tick and the reconciler needs several passes to demote one, so a
-// test says where an agent should end up rather than how many passes that takes.
+// Settle moves an agent to an activity and reconciles until the store agrees, so a test says
+// where an agent ends up rather than how many passes that takes.
 func (i *Instance) Settle(agentID string, activity harness.Activity, want string) {
 	i.t.Helper()
 
@@ -219,9 +217,8 @@ func (i *Instance) Settle(agentID string, activity harness.Activity, want string
 	i.t.Fatalf("agent %s never reached %q", agentID, want)
 }
 
-// WaitForActivity waits until an agent's own pane says it is doing something, which is a
-// tick behind the state being asked for and several ticks behind the pane opening. Anything
-// reading a frame to decide what to do with an agent races that first render otherwise.
+// WaitForActivity waits until an agent's own pane says it is doing something, which anything
+// reading a frame would otherwise race against the first render.
 func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 	i.t.Helper()
 
@@ -251,10 +248,8 @@ func (i *Instance) Deliver(agentID string) agents.Delivery {
 	return delivery
 }
 
-// EndTurn stands in for the stop hook an agent CLI runs as its turn ends: it takes whatever
-// mail is waiting, as that agent, and records it as something the agent was told. The real
-// hook is a subcommand of this binary calling the same endpoint, so what is exercised here
-// is the panel's half of it.
+// EndTurn stands in for the stop hook an agent CLI runs as its turn ends, taking whatever
+// mail is waiting as that agent.
 func (i *Instance) EndTurn(agentID string) []*agentv1.Mail {
 	i.t.Helper()
 
@@ -286,9 +281,8 @@ func (i *Instance) Typed(agentID string) []string {
 	return typed
 }
 
-// WaitForTyped waits for an agent to have received the given number of typed lines. Typing
-// at a pane and the agent reading its own stdin are two processes apart, so a test says what
-// it is waiting for rather than sleeping.
+// WaitForTyped waits for an agent to have received the given number of typed lines, since
+// typing at a pane and the agent reading its stdin are two processes apart.
 func (i *Instance) WaitForTyped(agentID string, lines int) []string {
 	i.t.Helper()
 
@@ -307,9 +301,8 @@ func (i *Instance) WaitForTyped(agentID string, lines int) []string {
 	return nil
 }
 
-// GetOwnedPane is the pane an agent is running in, empty when none on the server is stamped
-// with its id. It reads the stamp rather than the agent's recorded pane, so it answers
-// what is running rather than what the row claims.
+// GetOwnedPane is the pane stamped with an agent's id, which answers what is running rather
+// than what the row claims.
 func (i *Instance) GetOwnedPane(agentID string) string {
 	i.t.Helper()
 

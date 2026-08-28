@@ -251,9 +251,8 @@ func TestGetAgent(t *testing.T) {
 	}
 }
 
-// TestListAgents covers the listing and the liveness flag on it, which is
-// observed at read time so a client can tell a running agent from a dormant one
-// without tmux of its own.
+// TestListAgents covers the listing and its liveness flag, which is read at request time so
+// a client needs no tmux of its own.
 func TestListAgents(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -297,8 +296,8 @@ func TestListAgents(t *testing.T) {
 	}
 }
 
-// TestListAgentsReportsUnreadMail covers the unread flag, which is observed from the
-// mailbox at read time rather than stored on the row, the same as liveness.
+// TestListAgentsReportsUnreadMail covers the unread flag, which is read from the mailbox at
+// request time rather than stored on the row.
 func TestListAgentsReportsUnreadMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -322,8 +321,8 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
 }
 
-// TestGetAgentReportsUnreadMail mirrors TestListAgentsReportsUnreadMail for the single-agent
-// lookup, which reads the mailbox the same way rather than through a different path.
+// TestGetAgentReportsUnreadMail covers the single-agent lookup reading the mailbox the same
+// way the listing does.
 func TestGetAgentReportsUnreadMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -344,10 +343,8 @@ func TestGetAgentReportsUnreadMail(t *testing.T) {
 	assert.False(t, got.Msg.GetAgent().GetUnreadMail())
 }
 
-// TestListAgentsIdempotencyKey covers the creator's key reaching the listing. A
-// caller that dispatched a batch of work under keys of its own has nothing else to
-// match a listed agent back to the piece of work it covers, since the name is the
-// user's to rename at any time.
+// TestListAgentsIdempotencyKey covers the creator's key reaching the listing, which is all a
+// caller has to match an agent back to its work once the name can be renamed.
 func TestListAgentsIdempotencyKey(t *testing.T) {
 	tests := []struct {
 		name string
@@ -385,10 +382,8 @@ func TestListAgentsIdempotencyKey(t *testing.T) {
 	}
 }
 
-// TestListAgentsArchived covers the flag that swaps which set is listed. The
-// panel reads the live agents and its archive reads the archived ones through
-// the same call, so a request that ignored the flag would show one of them the
-// other's rows.
+// TestListAgentsArchived covers the flag that swaps which set is listed, since the panel and
+// its archive read their rows through the same call.
 func TestListAgentsArchived(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -443,9 +438,8 @@ func TestListAgentsArchived(t *testing.T) {
 	}
 }
 
-// TestUpdateAgent covers renaming by id. A name a live agent already holds is a
-// conflict rather than a server fault, and the driver's own message stays
-// server-side.
+// TestUpdateAgent covers renaming by id, where a name another agent holds comes back as a
+// conflict rather than as the driver's own message.
 func TestUpdateAgent(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -510,9 +504,8 @@ func TestUpdateAgent(t *testing.T) {
 	}
 }
 
-// TestSetHidden covers hiding over the wire. Hiding is the panel's own view of an
-// agent rather than anything about the agent, so what matters is that the flag comes
-// back on the agent the caller named and that naming nobody is refused.
+// TestSetHidden covers hiding over the wire, which must land on the agent the caller named
+// and refuse an id nobody holds.
 func TestSetHidden(t *testing.T) {
 	tests := []struct {
 		name string
@@ -569,10 +562,8 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
-// TestSetTags covers the tag over the wire, over one agent and over several. The
-// server writes the stamp, so the request carries only a direction. A call that reached
-// nothing is refused rather than reported as a tag that never landed, and one that
-// reached some of what it named is not, since the ids it missed have no row to draw on.
+// TestSetTags covers the tag over the wire, where a call that reached nothing is refused and
+// one that reached only some of its ids is not.
 func TestSetTags(t *testing.T) {
 	tests := []struct {
 		name string
@@ -749,9 +740,8 @@ func TestSetMetadata(t *testing.T) {
 	}
 }
 
-// TestLog covers the channel a running action, or anything else acting on an agent's
-// behalf, uses to say what it did on purpose. An id nobody holds is refused the same way
-// SetMetadata refuses one, rather than writing a line nobody can trace back to an agent.
+// TestLog covers the channel a running action uses to say what it did, and the refusal of an
+// id nobody holds.
 func TestLog(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1228,14 +1218,8 @@ func TestLogTagsTheAction(t *testing.T) {
 	assert.Equal(t, "create-worktree", record[logging.ActionName])
 }
 
-// TestSearchTranscripts covers what a hit carries back to the caller.
-//
-// Every field on it is load-bearing. The turn's position and its byte offset are
-// how the panel scrolls a match into view rather than hunting for the words
-// again, so two fields crossed on the way out send the reader somewhere else in
-// the conversation while still looking like a working search. Whether the agent is
-// archived decides how the hit is labelled, since search reaches agents the listing
-// does not.
+// TestSearchTranscripts covers every field on a hit, since two of them crossed on the way out
+// still look like a working search while sending the reader to the wrong place.
 func TestSearchTranscripts(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1383,10 +1367,8 @@ func TestSearchTranscriptsScope(t *testing.T) {
 	}
 }
 
-// TestPagedReadsRefuseAMangledToken covers what the two paged reads here answer a caller
-// whose token decodes into the right shape while holding an id no row can have. Both are
-// tools a model drives, and one that garbled or invented a token is told so rather than
-// handed the database's complaint about the value it sent.
+// TestPagedReadsRefuseAMangledToken covers a token that decodes but holds an id no row can
+// have, which is refused plainly rather than as the database's complaint.
 func TestPagedReadsRefuseAMangledToken(t *testing.T) {
 	const (
 		listToken   = "eyJpIjoibm90LWFuLWlkIn0="
@@ -1557,10 +1539,8 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 	}
 }
 
-// TestGetTranscript covers the one distinction this handler exists to make. An
-// agent nobody holds and an agent whose log has not been synced yet would both
-// read as empty content, which tells a caller nothing about which it got, so the
-// agent is looked up first and only the unknown one is refused.
+// TestGetTranscript covers the agent being looked up first, since an unknown agent and one
+// with nothing synced yet would both read as empty content.
 func TestGetTranscript(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1616,10 +1596,8 @@ func TestGetTranscript(t *testing.T) {
 	}
 }
 
-// TestAgentLifecycleGoesThroughTheService covers delete, archive, and restore.
-// All three hand off to the thing that can stop or relaunch an agent rather than
-// editing rows behind its back, which is what leaves an agent running with
-// nothing able to name it.
+// TestAgentLifecycleGoesThroughTheService covers delete, archive, and restore handing off to
+// the thing that can stop an agent rather than editing rows behind its back.
 func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -1744,8 +1722,7 @@ func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentsto
 	return f.created, nil
 }
 
-// IsAgentRunning answers for the fake's agents. Nothing here runs tmux, so an agent
-// is live exactly when the test says it is.
+// IsAgentRunning answers for the fake's agents, which are live exactly when the test says so.
 func (f *fakeLauncher) IsAgentRunning(agentstore.Agent) bool { return f.alive }
 
 // GetRunningAgents answers a whole listing the same way, recording the call so a test can
@@ -1874,10 +1851,8 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	}), st, launcher
 }
 
-// TestEmptyArchiveQueuesTheSweep covers the handler over the job. Deleting the whole archive
-// runs a cleanup action apiece, so the request has to come back once the work is queued
-// rather than once it is done, and a queue that refuses has to say so rather than read as a
-// sweep under way.
+// TestEmptyArchiveQueuesTheSweep covers the request coming back once the work is queued, and a
+// queue that refuses saying so rather than reading as a sweep under way.
 func TestEmptyArchiveQueuesTheSweep(t *testing.T) {
 	tests := []struct {
 		name string
@@ -1928,9 +1903,8 @@ func (f *fakeArchiveEmptier) EmptyArchive(context.Context) error {
 	return f.err
 }
 
-// TestBatchLifecycleErrorsMapToCodes covers what a caller sees when a batch is refused.
-// All three are all or nothing, so the code has to say which condition stopped it and the
-// message has to name what is in the way, or a caller has nothing to fix before retrying.
+// TestBatchLifecycleErrorsMapToCodes covers a refused batch naming which condition stopped it,
+// since all three are all or nothing and a caller has nothing to fix otherwise.
 func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1999,10 +1973,8 @@ func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 	}
 }
 
-// TestBatchLifecycleReachesTheService covers the whole list arriving at the thing that can
-// stop an agent, rather than the first id or the last. Each of the three is keyed on a
-// list now, so a handler dropping the tail would archive one agent out of twelve and
-// report success.
+// TestBatchLifecycleReachesTheService covers the whole list arriving rather than the first id,
+// since a handler dropping the tail would archive one agent out of twelve and report success.
 func TestBatchLifecycleReachesTheService(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -2054,9 +2026,8 @@ func TestBatchLifecycleReachesTheService(t *testing.T) {
 	}
 }
 
-// TestRestoreAgentsRendersEveryAgent covers the response a restore hands back. The panel
-// re-lists after a write, so what matters here is that the batch comes back whole rather
-// than as the first agent restored.
+// TestRestoreAgentsRendersEveryAgent covers the batch coming back whole rather than as the
+// first agent restored.
 func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 	svc, st, launcher := serviceWithLauncher(t)
 	ctx := t.Context()

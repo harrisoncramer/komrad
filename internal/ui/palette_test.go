@@ -11,11 +11,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStageStyleRendersEveryElement covers the markdown the stage renders through the
-// palette's own style. glamour hands the colours under CodeBlock.Chroma to chroma, which
-// reads hex alone and panics on anything else, so a fenced block is the case worth
-// holding onto: it took the whole panel down rather than falling back to the source text
-// the way a render error does.
+// TestStageStyleRendersEveryElement pins the fenced code block, since chroma reads the
+// colours under CodeBlock.Chroma as hex alone and panics on anything else, which took the
+// whole panel down.
 func TestStageStyleRendersEveryElement(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -51,10 +49,8 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 	}
 }
 
-// TestPaletteFollowsTheTerminal covers the whole point of the palette: every colour it
-// names has to come out as one of the sixteen a terminal's scheme maps, which is the
-// escape naming a colour by index. A hex value writes the channels instead, so it would
-// look the same on every machine and take nothing from the scheme.
+// TestPaletteFollowsTheTerminal pins every colour coming out as one of the sixteen the
+// terminal's scheme maps, since a hex value writes the channels and takes nothing from it.
 func TestPaletteFollowsTheTerminal(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })

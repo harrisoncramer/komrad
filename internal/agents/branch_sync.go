@@ -27,9 +27,8 @@ func NewBranchSyncer(agents branchSetter) *BranchSyncer {
 	return &BranchSyncer{agents: agents}
 }
 
-// Sync reads the branch at every live agent's cwd and writes what changed. An agent whose
-// cwd names no git checkout is not an error, since most workflows are not worktrees; its
-// branch is simply cleared if it carried one from a cwd that has since changed.
+// Sync reads the branch at every live agent's cwd and writes what changed, clearing the branch
+// when the cwd names no git checkout.
 func (bs *BranchSyncer) Sync(ctx context.Context) error {
 	agents, err := bs.agents.List(ctx)
 	if err != nil {

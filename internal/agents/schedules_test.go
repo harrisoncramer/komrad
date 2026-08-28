@@ -12,9 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseCron covers what the scheduler will accept. The proto checks that an
-// expression has five fields. This is the parse that decides whether those fields
-// mean anything.
+// TestParseCron covers what the scheduler accepts, which is whether the five fields the
+// proto counted mean anything.
 func TestParseCron(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -88,8 +87,8 @@ func TestParseCron(t *testing.T) {
 	}
 }
 
-// TestNextRun covers what the panel renders beside a schedule. A paused one has
-// no next run, and neither does one whose expression stopped parsing.
+// TestNextRun covers what the panel renders beside a schedule, including a paused one and
+// one whose expression stopped parsing.
 func TestNextRun(t *testing.T) {
 	from := time.Date(2026, time.July, 27, 10, 30, 0, 0, time.UTC)
 
@@ -132,9 +131,8 @@ func TestNextRun(t *testing.T) {
 	}
 }
 
-// TestNewSchedule covers what the service does to a config on the way in. It
-// trims, expands the launch directory, and refuses an expression that could never
-// fire.
+// TestNewSchedule covers what the service does to a config on the way in, trimming it,
+// expanding the launch directory, and refusing an expression that could never fire.
 func TestNewSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -196,9 +194,7 @@ func TestNewSchedule(t *testing.T) {
 	}
 }
 
-// TestScheduleWorkflowMustExist covers the workflow a schedule launches into. A
-// schedule reads its directory and flags off that workflow as it fires, so one
-// pointing at a workflow that is not there could never launch anything and is
+// TestScheduleWorkflowMustExist pins that a schedule pointing at a missing workflow is
 // refused when it is written rather than every time it fires.
 func TestScheduleWorkflowMustExist(t *testing.T) {
 	tests := []struct {
@@ -256,17 +252,8 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 	}
 }
 
-// TestScheduleIsNotBlockedByARunThatNeverStarted covers the count a firing
-// consults before it launches, driven through the reconciler that decides the
-// states it counts.
-//
-// A schedule runs one agent at a time, so a firing skips its tick while the last
-// run is still going. The trap is a run that never got going at all: an agent
-// exiting the moment it is typed leaves an ordinary shell in a pane that is still
-// the agent's own, so the reconciler observes an idle frame forever and the agent
-// keeps the state it was recorded with. Counting that as work in flight is what
-// turns one failed launch into a schedule that never fires again, and says
-// nothing about it anywhere.
+// TestScheduleIsNotBlockedByARunThatNeverStarted pins that a launch which died on the spot
+// is not counted as work in flight, which would stop the schedule ever firing again.
 func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	tests := []struct {
 		name string
@@ -331,9 +318,8 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 
 const missingWorkflowID = "00000000-0000-0000-0000-0000000000ff"
 
-// TestScheduleNotFound covers the ids the mutating methods refuse. An id nothing
-// holds is not-found rather than a silent success, so a caller editing a schedule
-// someone else deleted hears about it.
+// TestScheduleNotFound pins that an id nothing holds is not-found rather than a silent
+// success, so a caller editing a deleted schedule hears about it.
 func TestScheduleNotFound(t *testing.T) {
 	tests := []struct {
 		name string

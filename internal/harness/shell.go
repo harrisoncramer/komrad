@@ -62,9 +62,8 @@ func SplitArgs(flags string) []string {
 	return args
 }
 
-// QuoteArg wraps an argument in single quotes so the pane's shell takes it literally,
-// which matters because flags arrive over RPC and one holding $(...) or a semicolon would
-// otherwise run as a command.
+// QuoteArg wraps an argument in single quotes so the pane's shell takes it literally, since
+// flags arrive over RPC and one holding a command substitution would otherwise run.
 func QuoteArg(arg string) string {
 	return "'" + strings.ReplaceAll(arg, "'", `'\''`) + "'"
 }
@@ -80,11 +79,10 @@ func QuoteFlags(flags string) string {
 	return strings.Join(xslice.Map(args, QuoteArg), " ")
 }
 
-// RequirePOSIXShell refuses a shell that would leave a launch as a parse error in the
-// pane, taking the prompt temp file with it, since the rm that removes it sits inside the
-// substitution that never ran. An empty shell is accepted, since tmux declining to report
-// one is not evidence of a bad one.
+// RequirePOSIXShell refuses a shell that would leave a launch as a parse error in the pane,
+// taking the prompt temp file with it since the rm sits inside the substitution that never ran.
 func RequirePOSIXShell(shell string) error {
+	// An empty shell is accepted, since tmux declining to report one is not evidence of a bad one.
 	if shell == "" || posixShells[filepath.Base(shell)] {
 		return nil
 	}

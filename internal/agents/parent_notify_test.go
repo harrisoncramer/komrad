@@ -155,10 +155,8 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 	}
 }
 
-// TestNotifyParentsSkipsTheActorsOwnDelegate covers the noise case: a parent that archived
-// or deleted its own delegate already knows, since it just did it, so mailing it back would
-// spend a turn reading news it made happen. Anyone else acting on that delegate, including
-// the panel operator, still produces the notice.
+// TestNotifyParentsSkipsTheActorsOwnDelegate pins that a parent is not mailed news it made
+// itself, since reading it would spend a turn for nothing.
 func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -232,9 +230,8 @@ func TestArchiveWorkflowTellsAParentOutsideIt(t *testing.T) {
 	assert.Contains(t, claimed[0].Body, "archived")
 }
 
-// TestNotifyParentDoesNotBlockOnAFullMailbox covers the failure path: a person asked for
-// an agent to go away, and a parent's mailbox refusing the news is not a reason to undo
-// that. The failure is logged, not surfaced, and nothing sneaks a message in around it.
+// TestNotifyParentDoesNotBlockOnAFullMailbox pins that a parent's full mailbox does not undo
+// the archive or delete somebody asked for.
 func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 	tests := []struct {
 		name   string
