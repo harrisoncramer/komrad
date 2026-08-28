@@ -372,7 +372,11 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 			return err
 		}
 
-		return agents.RestoreWorkflowAgents(ctx, id)
+		if err := agents.RestoreWorkflowAgents(ctx, id); err != nil {
+			return err
+		}
+
+		return stampRestoredPRs(ctx, agents, archived)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)

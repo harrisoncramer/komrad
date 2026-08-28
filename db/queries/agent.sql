@@ -340,8 +340,7 @@ WHERE
         FROM
             agents
         WHERE
-            id = @agent_id
-            AND archived_at IS NULL)
+            id = @agent_id)
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET

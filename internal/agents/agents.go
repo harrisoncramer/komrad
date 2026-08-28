@@ -435,6 +435,9 @@ func (s *AgentService) RestoreAgents(ctx context.Context, ids []string) ([]agent
 		if err := agentStore.Restore(ctx, agentIDs(archived)); err != nil {
 			return err
 		}
+		if err := stampRestoredPRs(ctx, agentStore, archived); err != nil {
+			return err
+		}
 
 		for _, id := range workflowIDs(archived) {
 			if err := workflowStore.Restore(ctx, id); err != nil {

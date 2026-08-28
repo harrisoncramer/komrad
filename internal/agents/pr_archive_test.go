@@ -350,6 +350,78 @@ func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	assert.Len(t, archiver.archived, 1, "and it is not archived again")
 }
 
+// TestPRArchiverSyncStampsAnAgentItReallyArchived covers the stamp being written against a row
+// that is already archived, which is the order the loop does it in. The archive is the real one
+// here rather than a fake that only remembers it was asked, since a store that refuses metadata
+// to archived agents leaves every archive unstamped and every restore undone by the next pass.
+func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	require.NoError(t, newPRArchiver(st, prs, newManager(newFakeTmux(), st, "")).Sync(ctx))
+
+	archived := reread(t, st)
+	require.NotNil(t, archived.ArchivedAt, "the agent was archived")
+	assert.Equal(t, prURL, metadataFor(archived, prArchivedMetadataKey), "and the archive says which pull request it was for")
+}
+
+// TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone covers the archive a person made
+// themselves, which the loop cannot tell from its own. An agent archived by hand with a
+// finished pull request on it carries no stamp, so without one written as it is restored the
+// next pass archives it again two minutes after somebody brought it back.
+func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	require.NoError(t, st.Agents.Archive(ctx, []string{agent.ID}))
+
+	restored, err := newManager(newFakeTmux(), st, "").RestoreAgents(ctx, []string{agent.ID})
+	require.NoError(t, err)
+	require.Len(t, restored, 1)
+	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey), "the restore says which pull request it was for")
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	archiver := &fakeArchiver{}
+	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(ctx))
+
+	assert.Empty(t, prs.refs, "the restored agent is not asked about")
+	assert.Empty(t, archiver.archived, "and it is not archived again")
+}
+
+// TestRestoreWorkflowLeavesItsAgentsAlone covers the other way an agent comes back. A folder
+// restored brings its agents with it, and they are as deliberately back as one restored on
+// its own.
+func TestRestoreWorkflowLeavesItsAgentsAlone(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	workflows := workflowsFor(st, tmux)
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, workflowID))
+
+	restored, err := workflows.RestoreWorkflow(ctx, workflowID)
+	require.NoError(t, err)
+	require.NotNil(t, restored)
+
+	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey))
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	archiver := &fakeArchiver{}
+	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(ctx))
+
+	assert.Empty(t, archiver.archived)
+}
+
 // TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn covers the recorded pull request
 // being a snapshot nothing refreshes. An agent that closed one and opened another from the same
 // branch still carries the first, and archiving on that hides an agent whose real pull request

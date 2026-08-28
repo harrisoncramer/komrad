@@ -1351,8 +1351,7 @@ WHERE
         FROM
             agents
         WHERE
-            id = $1
-            AND archived_at IS NULL)
+            id = $1)
 ON CONFLICT (agent_id,
     KEY)
     DO UPDATE SET
