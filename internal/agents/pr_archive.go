@@ -22,8 +22,9 @@ const prStateTimeout = 15 * time.Second
 // and flat rather than a queue with a per-window budget.
 const prStateQuiet = 15 * time.Minute
 
-// prArchivedMetadataKey records the pull request an agent was archived for. It is what stops
-// an agent somebody restored from being archived again by the next pass, and it is the only
+// prArchivedMetadataKey records the pull request an agent was archived for, written when the
+// loop archives one and again when somebody restores one. It is what stops an agent
+// deliberately brought back from being archived again by the next pass, and it is the only
 // thing on the row that says why the agent went away.
 const prArchivedMetadataKey = "pr_archived"
 
@@ -351,4 +352,36 @@ func prLookupDir(agent agentstore.Agent) string {
 	}
 
 	return agent.Cwd
+}
+
+type prStampStore interface {
+	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
+}
+
+// stampRestoredPRs records the pull request each restored agent carries as one already dealt
+// with, so a later pass leaves the agent alone. The loop stamps what it archives itself, but
+// it cannot tell that archive from one a person made by hand, and a hand-archived agent whose
+// pull request has since finished is archived again two minutes after somebody brought it
+// back. Restoring is that person deciding they want the agent, so the decision is written down
+// as they make it.
+//
+// It is written whatever state the pull request is in, since reading that means asking GitHub
+// and a restore is somebody waiting on a keypress. An agent restored while its pull request is
+// still open is therefore not archived when it later merges, which is the safe way round: the
+// person who pulled it back gets to keep it, and a pull request they open afterwards is a
+// different URL that archives normally.
+func stampRestoredPRs(ctx context.Context, store prStampStore, restored []agentstore.Agent) error {
+	var failures []error
+	for _, agent := range restored {
+		url, ok := recordedPR(agent)
+		if !ok {
+			continue
+		}
+
+		if _, err := store.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: prArchivedMetadataKey, Value: &url}); err != nil {
+			failures = append(failures, fmt.Errorf("failed to record the pull request agent %q was restored with: %w", agent.ID, err))
+		}
+	}
+
+	return errors.Join(failures...)
 }
