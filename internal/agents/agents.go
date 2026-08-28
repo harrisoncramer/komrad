@@ -691,16 +691,22 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	// below runs after those writes and is putting back what the resume found.
 	prior := agent.State
 
-	recorded := false
+	var pane string
+	launched := false
 	defer func() {
-		if recorded {
+		if launched {
 			return
 		}
 
-		// Nothing else in weave moves a row out of setting_up, so putting back the state a
-		// resume found cannot depend on the caller still being around to see it happen.
+		// Nothing else in weave moves a row out of setting_up or takes away a window a resume
+		// opened, so both are put back here rather than depending on the caller still being
+		// around to see it happen.
 		restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
 		defer cancel()
+
+		if pane != "" {
+			s.tmux.KillPane(pane)
+		}
 
 		if err := s.agents.SetStateByID(restore, agent.ID, prior); err != nil {
 			logging.From(restore).LogAttrs(restore, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
@@ -722,13 +728,11 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 		dir = s.getResumeDir(ctx, agent, hn)
 	}
 
-	pane, err := s.tmux.NewWindow(ManagerSession, agent.Name, dir)
+	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
 	if err != nil {
 		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
 	}
 	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
-		s.tmux.KillPane(pane)
-
 		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
 	}
 
@@ -737,8 +741,6 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	if agent.InterruptedAt == nil && turnUnfinished(agent.State) {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
-			s.tmux.KillPane(pane)
-
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
 		}
 
@@ -752,16 +754,11 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	// a resume finds out it lost and has to take away the pane it opened.
 	written, err := s.agents.UpdateIfLive(ctx, agent)
 	if err != nil {
-		s.tmux.KillPane(pane)
-
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
 	if !written {
-		s.tmux.KillPane(pane)
-
 		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
 	}
-	recorded = true
 
 	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
 	// a fresh conversation with no turn to read back over.
@@ -783,6 +780,8 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	}); err != nil {
 		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
 	}
+
+	launched = true
 
 	// A recorded turn does not outlive the relaunch, since the conversation holding it has either
 	// just been asked about it or is gone.
