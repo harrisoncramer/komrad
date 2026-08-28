@@ -1,17 +1,35 @@
 package invalid
 
-// Two sentences here. This is the second one. // want `comment must be a single sentence unless it is prefixed with "Explainer:"`
+// A has two sentences. This is the second one. // want `doc comment must be a single sentence`
 func A() {}
 
-// The first sentence ends here. The second one has no period // want `comment must be a single sentence unless it is prefixed with "Explainer:"`
+// B ends its first sentence here. The second one has no period // want `doc comment must be a single sentence`
 func B() {}
 
-// This spans lines and says one thing. // want `comment must be a single sentence unless it is prefixed with "Explainer:"`
+// C spans lines and says one thing. // want `doc comment must be a single sentence`
 // Then it says another.
 func C() {}
 
-/* Block comments are caught too. Both of them. */ // want `comment must be a single sentence unless it is prefixed with "Explainer:"`
-func D()                                           {}
+/* D is caught in a block comment too. Both sentences. */ // want `doc comment must be a single sentence`
+func D()                                                  {}
 
-// An explainer that is not at the start. Explainer: does not help here. // want `comment must be a single sentence unless it is prefixed with "Explainer:"`
+// E says one thing up top. // want `doc comment must be a single sentence`
+//
+// A second paragraph is still part of the doc comment.
 func E() {}
+
+// F says one thing up top. // want `"Explainer:" is for the free paragraphs that explain a file, not for a doc comment`
+//
+// Explainer: a declaration does not get to set its reasoning aside. It is held to one
+// sentence whatever it starts with.
+func F() {}
+
+type T struct {
+	// Field is documented in two sentences. This is the second. // want `doc comment must be a single sentence`
+	Field int
+}
+
+func G() {
+	// A free paragraph is still one sentence by default. This one is not. // want `comment must be a single sentence unless the paragraph starts with "Explainer:"`
+	_ = 1
+}

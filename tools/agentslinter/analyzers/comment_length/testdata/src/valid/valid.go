@@ -1,26 +1,33 @@
+// Package valid is a package doc, which is the paragraph explaining a file rather than a
+// declaration.
+//
+// Explainer: a package doc may run long. It is the one place a file gets to explain itself
+// at length, and the prefix says that is deliberate.
 package valid
 
-// Single sentence with a period.
+// A is a single sentence with a period.
 func A() {}
 
-// Single sentence with no period
+// B is a single sentence with no period
 func B() {}
 
-// A sentence naming os.Getenv and a version like 1.5 stays one sentence.
+// C names os.Getenv and a version like 1.5 and stays one sentence.
 func C() {}
 
-// See https://example.com/a/b.html for the reason.
+// D points at https://example.com/a/b.html for the reason.
 func D() {}
 
-// A list of things, e.g. this one and that one, is still one sentence.
+// E lists things, e.g. this one and that one, in one sentence.
 func E() {}
 
-// Explainer: this one is allowed to run long. It has a second sentence. It even
-// has a third, because the prefix says it is deliberate.
+/* F is documented in a block comment. */
 func F() {}
 
-/* Block comments count the same way. */
+//go:generate echo hi
 func G() {}
 
-//go:generate echo hi
-func H() {}
+func H() {
+	// Explainer: a free paragraph inside a function may run long. It stands on its own
+	// rather than documenting a declaration, so it is allowed the room.
+	_ = 1
+}
