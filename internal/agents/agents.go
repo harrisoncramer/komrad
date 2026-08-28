@@ -741,13 +741,13 @@ func (s *AgentService) resume(ctx context.Context, agent agentstore.Agent) error
 	// take the row anyway, and both kill only the pane the row named when they read it, which
 	// for a resume this far along is no pane at all. So this write is where the resume finds
 	// out it lost, and the pane it opened is its own to take away.
-	live, err = s.agents.UpdateIfLive(ctx, agent)
+	written, err := s.agents.UpdateIfLive(ctx, agent)
 	if err != nil {
 		s.tmux.KillPane(pane)
 
 		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
 	}
-	if !live {
+	if !written {
 		s.tmux.KillPane(pane)
 
 		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
