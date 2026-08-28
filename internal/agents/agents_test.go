@@ -1780,6 +1780,75 @@ func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
 	assert.Empty(t, lifecycle.resumed)
 }
 
+// TestResumeGivesBackThePaneItOpened pins a resume that opens a window and then refuses giving
+// it up, since what it leaves behind is a bare shell with no CLI in it and a row saying the
+// agent is idle in that shell.
+func TestResumeGivesBackThePaneItOpened(t *testing.T) {
+	tests := []struct {
+		name string
+
+		setOwnerErr error
+		sendKeysErr error
+	}{
+		{
+			name:        "a pane tmux refuses to stamp",
+			setOwnerErr: errors.New("tmux refused the option"),
+		},
+		{
+			name:        "a relaunch that never reaches the pane's shell",
+			sendKeysErr: errors.New("tmux dropped the keys"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			tmux.setOwnerErr = tt.setOwnerErr
+			tmux.sendKeysErr = tt.sendKeysErr
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+			ctx := t.Context()
+
+			agent := seed(t, st, "auth", "", agentstore.StateThinking)
+
+			_, err := manager.ResumeAgent(ctx, agent.ID)
+
+			require.Error(t, err)
+			assert.Equal(t, []string{"%auth"}, tmux.killedPanes, "the window it opened is taken away")
+			assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
+				"and the row is left reading as the resume found it")
+		})
+	}
+}
+
+// TestResumeAfterARefusedRelaunchGetsThrough pins the recovery, since a pane left behind is
+// stamped with the agent's id and makes every resume after it report success having done nothing.
+func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
+	tmux := newFakeTmux()
+	tmux.sendKeysErr = errors.New("tmux dropped the keys")
+	st := newStore(t)
+	harness := &fakeHarness{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: harness},
+		lifecycle: &fakeLifecycle{},
+	})
+	ctx := t.Context()
+
+	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+
+	_, err := manager.ResumeAgent(ctx, agent.ID)
+	require.Error(t, err)
+
+	tmux.sendKeysErr = nil
+
+	resumed, err := manager.ResumeAgent(ctx, agent.ID)
+
+	require.NoError(t, err)
+	assert.Len(t, harness.launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
+	assert.Equal(t, agentstore.StateIdle, resumed.State)
+}
+
 // TestResumeRefusesArchived pins the refusal naming the way out, since the pane would
 // otherwise sit behind a row nothing lists.
 func TestResumeRefusesArchived(t *testing.T) {
