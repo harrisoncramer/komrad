@@ -20,13 +20,8 @@ const (
 	explainerOnDoc = `"Explainer:" is for the free paragraphs that explain a file, not for a doc comment`
 )
 
-// NewAnalyzer builds the comment-length analyzer. A comment says one thing, and a
-// comment that has grown to several sentences is usually narrating the change
-// rather than explaining the code, so anything longer has to set that reasoning
-// aside in a paragraph starting Explainer:. That prefix is for the free paragraphs
-// standing on their own in a file, and a doc comment on a declaration is held to
-// its one sentence whatever it starts with. Files whose path matches one of the
-// exclude patterns are left alone entirely.
+// NewAnalyzer builds the comment-length analyzer, which holds every comment to one sentence
+// unless it is a free paragraph setting its reasoning aside behind the Explainer prefix.
 func NewAnalyzer(cfg config.CommentLengthConfig) *analysis.Analyzer {
 	excluded, compileErr := compileExcludes(cfg.Exclude)
 
@@ -186,6 +181,9 @@ func endsSentence(field string) bool {
 		return false
 	}
 	word := strings.TrimRight(field, `)]}"'`+"`")
+	if strings.HasSuffix(word, "...") {
+		return false
+	}
 	if !strings.HasSuffix(word, ".") && !strings.HasSuffix(word, "!") && !strings.HasSuffix(word, "?") {
 		return false
 	}

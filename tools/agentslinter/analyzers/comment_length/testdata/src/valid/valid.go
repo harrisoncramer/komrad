@@ -20,6 +20,9 @@ func D() {}
 // E lists things, e.g. this one and that one, in one sentence.
 func E() {}
 
+// J quotes a $(...) command substitution without ending the sentence there.
+func J() {}
+
 /* F is documented in a block comment. */
 func F() {}
 
