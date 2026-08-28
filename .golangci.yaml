@@ -117,8 +117,16 @@ linters:
     custom:
       agentslinter:
         type: module
-        description: Chariot-style checks for this repo; forbids bare os environment access and keeps exported doc comments prefixed with the identifier name.
+        description: Chariot-style checks for this repo; forbids bare os environment access, keeps exported doc comments prefixed with the identifier name, and holds comments to a single sentence.
         settings:
+          # Off until the comments already written here have been cut down, since it
+          # finds around a thousand of them.
+          comment_length:
+            skip: true
+            # Unanchored regexps over the file path. The config struct's doc comments
+            # are the text of the generated config.toml, so they are prose on purpose.
+            exclude:
+              - config/appconfig\.go$
           forbid_getenv:
             skip: false
           comment_prefix:

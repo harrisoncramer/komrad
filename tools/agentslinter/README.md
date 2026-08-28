@@ -13,6 +13,12 @@ custom linters in other ecosystems such as ESLint.
 `forbid_getenv` flags direct `os.Getenv` and `os.LookupEnv` calls so
 configuration flows through the config package instead of bare os calls.
 
+`comment_length` flags any comment that runs to more than one sentence, so a
+comment says one thing rather than narrating the change that made it. A comment
+that genuinely needs the room says so by starting with `Explainer:`. Whole files
+are left alone by listing path patterns under `exclude`, which are unanchored
+regexps matched against the file path.
+
 `comment_prefix` checks that a doc comment on an exported function or method
 begins with the identifier name, so an LSP rename keeps the comment in sync. It
 does not require exported functions to be documented.

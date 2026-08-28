@@ -1,8 +1,14 @@
 package config
 
 type Config struct {
+	CommentLength CommentLengthConfig `json:"comment_length"`
 	CommentPrefix CommentPrefixConfig `json:"comment_prefix"`
 	ForbidGetenv  ForbidGetenvConfig  `json:"forbid_getenv"`
+}
+
+type CommentLengthConfig struct {
+	Skip    bool     `json:"skip"`
+	Exclude []string `json:"exclude"`
 }
 
 type CommentPrefixConfig struct {

@@ -215,25 +215,17 @@ func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, re
 	return true
 }
 
-// answersAbout reports whether a finished pull request is the one this agent is on. The
-// recorded pull request is a snapshot taken once, and nothing refreshes it, so an agent that
-// closed one and opened another from the same branch still carries the first. Archiving on
-// that would hide an agent whose real pull request is open, which is why a finished one is
-// only believed while it names the repository the workflow points at and the branch the agent
-// is on.
-//
-// A blank branch is not evidence of anything on its own: a branch is read by running git in
-// the agent's cwd, and a timeout, a detached HEAD, and a directory that no longer exists all
-// come back the same way. Whether the worktree is really gone is recorded separately, off a
-// missing directory alone, so that is what an agent with nothing to check against is judged
-// by. The repository is compared the way adoption compares it, since one casing comes from a
-// pull request URL and the other from a git remote.
+// answersAbout reports whether a finished pull request is still the one this agent is on,
+// since nothing refreshes the recorded one.
 func answersAbout(agent agentstore.Agent, pr PullRequest, repo string) bool {
+	// One casing comes from a pull request URL and the other from a git remote.
 	if repo != "" && pr.Repository != "" && !strings.EqualFold(pr.Repository, repo) {
 		return false
 	}
 
 	branch := agentBranch(agent)
+	// A timeout, a detached HEAD, and a directory that is gone all read as a blank branch, so
+	// a removed worktree is what an agent with nothing to compare is judged by.
 	if branch == "" {
 		return agent.WorktreeRemoved
 	}
