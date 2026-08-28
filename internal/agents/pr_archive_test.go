@@ -350,6 +350,25 @@ func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	assert.Len(t, archiver.archived, 1, "and it is not archived again")
 }
 
+// TestPRArchiverSyncStampsAnAgentItReallyArchived covers the stamp being written against a row
+// that is already archived, which is the order the loop does it in. The archive is the real one
+// here rather than a fake that only remembers it was asked, since a store that refuses metadata
+// to archived agents leaves every archive unstamped and every restore undone by the next pass.
+func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
+	st := newStore(t)
+	ctx := t.Context()
+
+	workflowID := seedPRWorkflow(t, st, true, true)
+	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
+
+	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	require.NoError(t, newPRArchiver(st, prs, newManager(newFakeTmux(), st, "")).Sync(ctx))
+
+	archived := reread(t, st)
+	require.NotNil(t, archived.ArchivedAt, "the agent was archived")
+	assert.Equal(t, prURL, metadataFor(archived, prArchivedMetadataKey), "and the archive says which pull request it was for")
+}
+
 // TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone covers the archive a person made
 // themselves, which the loop cannot tell from its own. An agent archived by hand with a
 // finished pull request on it carries no stamp, so without one written as it is restored the

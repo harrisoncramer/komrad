@@ -165,9 +165,16 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 			continue
 		}
 
-		if _, err := a.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: prArchivedMetadataKey, Value: &url}); err != nil {
+		written, err := a.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: prArchivedMetadataKey, Value: &url})
+		if err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent was archived",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+			continue
+		}
+		if !written {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "an agent was archived for a pull request without recording which one, so restoring it will archive it again",
+				slog.String(logging.AgentID, agent.ID))
 		}
 	}
 }
