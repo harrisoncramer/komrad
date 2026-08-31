@@ -57,6 +57,8 @@ var table = []mapping{
 	{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeOwnsActions, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeActionsReserved, connect.CodeInvalidArgument},
+	{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
+	{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 
 	{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
 	{agents.ErrMailboxFull, connect.CodeResourceExhausted},

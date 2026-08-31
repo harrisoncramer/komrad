@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"weave/internal/agents"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
 	"weave/lib/pagination"
@@ -105,6 +106,7 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to update schedule",
+			rpcerr.Saying(agents.ErrScheduleNotFound, "no schedule with id %q", req.Msg.GetId()),
 			rpcerr.Saying(store.ErrNameTaken, "a schedule named %q already exists", req.Msg.GetName()))
 	}
 
@@ -114,7 +116,8 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 // SetScheduleEnabled pauses or resumes a schedule.
 func (s *Service) SetScheduleEnabled(ctx context.Context, req *connect.Request[schedulev1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.schedules.SetScheduleEnabled(ctx, req.Msg.GetId(), req.Msg.GetEnabled()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to set schedule enabled")
+		return nil, rpcerr.Wrap(err, "failed to set schedule enabled",
+			rpcerr.Saying(agents.ErrScheduleNotFound, "no schedule with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -123,7 +126,8 @@ func (s *Service) SetScheduleEnabled(ctx context.Context, req *connect.Request[s
 // ArchiveSchedule stops a schedule from firing again.
 func (s *Service) ArchiveSchedule(ctx context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.schedules.ArchiveSchedule(ctx, req.Msg.GetId()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to archive schedule")
+		return nil, rpcerr.Wrap(err, "failed to archive schedule",
+			rpcerr.Saying(agents.ErrScheduleNotFound, "no schedule with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
