@@ -9,6 +9,7 @@ import (
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -79,6 +80,30 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
+// hoveredScheduleKey is the row the cursor is on, read before a filter narrows the list under it.
+func (m model) hoveredScheduleKey() string {
+	item, ok := m.selectedSchedule()
+	if !ok {
+		return ""
+	}
+
+	return item.schedule.ID
+}
+
+func (m *model) placeScheduleCursor(hovered string) {
+	rows := m.scheduleRows()
+
+	found := -1
+	for i, item := range rows {
+		if item.schedule.ID == hovered {
+			found = i
+		}
+	}
+
+	m.schedules.cursor = placeCursor(found, m.schedules.cursor, len(rows))
+	m.stageSchedule()
+}
+
 func (m model) schedulesDetails() details {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -137,14 +162,40 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.target.editSchedule = nil
-	m.form, m.values.schedule = scheduleForm(schedulestore.Config{
+	values := schedulestore.Config{
 		Enabled:    true,
 		WorkflowID: m.listing.workflows[0].ID,
-	}, m.listing.workflows, m.keys.Form)
-	m.screen = screenScheduleForm
+	}
 
-	return m, m.form.Init()
+	return m.openScheduleForm(&values, nil)
+}
+
+// openScheduleForm puts up the schedule form, creating a schedule when target is nil and saving
+// over the one it names otherwise.
+func (m model) openScheduleForm(values *schedulestore.Config, target *schedulestore.Schedule) (tea.Model, tea.Cmd) {
+	return m, m.openForm(formState{
+		kind:   formSchedule,
+		form:   scheduleForm(values, m.listing.workflows, m.keys.Form),
+		update: model.updateForm,
+		submit: func(m model) (tea.Model, tea.Cmd) {
+			var cmd tea.Cmd
+			if target == nil {
+				cmd = m.writeCmd("Could not create the schedule", func(a api) error { return a.createSchedule(*values) })
+			} else {
+				cmd = m.writeCmd(
+					fmt.Sprintf("Could not save schedule %q", target.Name),
+					func(a api) error { return a.updateSchedule(target.ID, *values) },
+				)
+			}
+
+			return m, tea.Batch(cmd, m.holdForm())
+		},
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt := scheduleForm(values, m.listing.workflows, m.keys.Form)
+
+			return rebuilt, rebuilt.Init()
+		},
+	})
 }
 
 func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
@@ -158,19 +209,22 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 		target = *fresh
 	}
 
-	m.target.editSchedule = &target
-	m.form, m.values.schedule = scheduleForm(schedulestore.Config{
-		Name:       target.Name,
-		Cron:       target.Cron,
-		Timezone:   target.Timezone,
-		Enabled:    target.Enabled,
-		HideAgents: target.HideAgents,
-		Prompt:     target.Prompt,
-		WorkflowID: target.WorkflowID,
-	}, m.listing.workflows, m.keys.Form)
-	m.screen = screenScheduleForm
+	values := schedulePrefill(target)
 
-	return m, m.form.Init()
+	return m.openScheduleForm(&values, &target)
+}
+
+// schedulePrefill is the schedule form as the stored schedule leaves it.
+func schedulePrefill(schedule schedulestore.Schedule) schedulestore.Config {
+	return schedulestore.Config{
+		Name:       schedule.Name,
+		Cron:       schedule.Cron,
+		Timezone:   schedule.Timezone,
+		Enabled:    schedule.Enabled,
+		HideAgents: schedule.HideAgents,
+		Prompt:     schedule.Prompt,
+		WorkflowID: schedule.WorkflowID,
+	}
 }
 
 func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
@@ -180,42 +234,15 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 	}
 
 	target := item.schedule
-	m.target.archiveSchedule = &target
-	m.form, m.values.confirmed = archiveScheduleForm(target.Name, m.keys.Form)
-	m.screen = screenScheduleArchive
 
-	return m, m.form.Init()
-}
+	form, confirmed := archiveScheduleForm(target.Name, m.keys.Form)
 
-func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateSubmitForm(msg, model.submitScheduleForm)
-}
-
-func (m model) submitScheduleForm() (tea.Model, tea.Cmd) {
-	if m.values.schedule == nil {
-		return m.closeForm()
-	}
-
-	cfg := *m.values.schedule
-
-	var write tea.Cmd
-	if target := m.target.editSchedule; target != nil {
-		write = m.writeCmd(
-			fmt.Sprintf("Could not save schedule %q", target.Name),
-			func(a api) error { return a.updateSchedule(target.ID, cfg) },
-		)
-	} else {
-		write = m.writeCmd("Could not create the schedule", func(a api) error { return a.createSchedule(cfg) })
-	}
-
-	return m, tea.Batch(write, m.holdForm())
-}
-
-func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) (model, tea.Cmd) {
-			target := m.target.archiveSchedule
-			if target == nil || !m.wasConfirmed() {
+	return m, m.openForm(formState{
+		kind:   formScheduleArchive,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
 				return m, nil
 			}
 
@@ -223,16 +250,7 @@ func (m model) updateScheduleArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
 				fmt.Sprintf("Could not archive schedule %q", target.Name),
 				func(a api) error { return a.archiveSchedule(target.ID) },
 			)
-		},
-		clear: func(m model) model {
-			m.target.archiveSchedule = nil
-			m.values.confirmed = nil
-
-			return m
-		},
-		returnTo: func(m model) (tea.Model, tea.Cmd) {
-			return m.enterSchedules()
-		},
+		}),
 	})
 }
 

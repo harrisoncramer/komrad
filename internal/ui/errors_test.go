@@ -68,9 +68,8 @@ func TestRefusedWriteIsReported(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
-	*pressed.values.archive = archiveChoiceArchive
-	pressed.form.State = huh.StateCompleted
-	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	pressed.form.form.State = huh.StateCompleted
+	updated, cmd := pressed.form.update(pressed, keyMsg("enter"))
 	pressed, ok = updated.(model)
 	require.True(t, ok)
 
@@ -118,11 +117,11 @@ func TestRefusedResumeIsReported(t *testing.T) {
 func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
 		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
-		screen: screenRename,
+		screen: screenAgents,
 		keys:   config.DefaultKeybindings(),
 	}
-	m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
-	m.form.Init()
+	opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
+	m = asModel(t, opened)
 
 	view := m.View()
 
@@ -172,9 +171,8 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
-	*pressed.values.archive = archiveChoiceArchive
-	pressed.form.State = huh.StateCompleted
-	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	pressed.form.form.State = huh.StateCompleted
+	updated, cmd := pressed.form.update(pressed, keyMsg("enter"))
 	pressed, ok = updated.(model)
 	require.True(t, ok)
 
@@ -239,6 +237,7 @@ func TestBannerDismissal(t *testing.T) {
 	tests := []struct {
 		name      string
 		screen    screen
+		withForm  bool
 		key       tea.KeyMsg
 		wantClear bool
 	}{
@@ -254,9 +253,10 @@ func TestBannerDismissal(t *testing.T) {
 			key:    tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}},
 		},
 		{
-			name:   "and a form keeps its own esc",
-			screen: screenRename,
-			key:    tea.KeyMsg{Type: tea.KeyEsc},
+			name:     "and a form keeps its own esc",
+			screen:   screenAgents,
+			withForm: true,
+			key:      tea.KeyMsg{Type: tea.KeyEsc},
 		},
 	}
 
@@ -269,8 +269,9 @@ func TestBannerDismissal(t *testing.T) {
 				tmux:   &recordingTmux{},
 				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
-			if tt.screen == screenRename {
-				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
+			if tt.withForm {
+				opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
+				m = asModel(t, opened)
 			}
 
 			updated, _ := m.Update(tt.key)

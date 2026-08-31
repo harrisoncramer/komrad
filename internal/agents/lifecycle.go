@@ -1,0 +1,295 @@
+package agents
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"os"
+
+	"weave/config"
+	"weave/internal/logging"
+	"weave/internal/store"
+	"weave/lib/xslice"
+
+	agentstore "weave/internal/store/agent"
+	transcriptstore "weave/internal/store/transcript"
+	workflowstore "weave/internal/store/workflow"
+)
+
+// lifecycleAgentStore is the slice of the agent store archiving, restoring and deleting write
+// to outside a transaction; the writes that have to be atomic go through the tx-scoped store.
+type lifecycleAgentStore interface {
+	agentFailWriter
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+	Archive(ctx context.Context, ids []string) ([]agentstore.AgentPane, error)
+	ArchiveIfUnchanged(ctx context.Context, params agentstore.ArchiveIfUnchangedParams) (bool, error)
+}
+
+// emptyWorkflowDeleter permanently removes a workflow left with nothing archived inside it.
+type emptyWorkflowDeleter interface {
+	DeleteIfEmpty(ctx context.Context, workflowID string) error
+}
+
+// LifecycleService moves agents between the live listing, the archive and gone, running the
+// cleanup action on the way out.
+type LifecycleService struct {
+	tmux           paneKiller
+	agents         lifecycleAgentStore
+	workflows      workflowReader
+	emptyWorkflows emptyWorkflowDeleter
+	tx             txRunner
+	actions        agentActions
+	notifier       systemMailSender
+	logsDir        string
+	maxAgents      int
+}
+
+type LifecycleServiceParams struct {
+	Tmux           paneKiller
+	Agents         lifecycleAgentStore
+	Workflows      workflowReader
+	EmptyWorkflows emptyWorkflowDeleter
+	Tx             txRunner
+	Actions        agentActions
+	Notifier       systemMailSender
+	LogsDir        string
+	MaxAgents      int
+}
+
+// NewLifecycleService builds the service from its dependencies.
+func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
+	return &LifecycleService{
+		tmux:           p.Tmux,
+		agents:         p.Agents,
+		workflows:      p.Workflows,
+		emptyWorkflows: p.EmptyWorkflows,
+		tx:             p.Tx,
+		actions:        p.Actions,
+		notifier:       p.Notifier,
+		logsDir:        p.LogsDir,
+		maxAgents:      p.MaxAgents,
+	}
+}
+
+// DeleteAgents stops agents and removes those with nothing left to tear down, holding back any
+// whose cleanup action is still running until it finishes.
+func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
+	agents, err := s.requireEveryAgent(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	// A cleanup action must not run against a directory a CLI is still working in.
+	killOwnedPanes(ctx, s.tmux, agents)
+
+	bg := context.WithoutCancel(ctx)
+
+	var immediate []agentstore.Agent
+	for _, agent := range agents {
+		name := cleanupActionFor(ctx, s.workflows, agent)
+		if s.actions == nil || name == "" {
+			immediate = append(immediate, agent)
+
+			continue
+		}
+
+		agent := agent
+		// The row is never dropped before the action says whether it worked.
+		runCleanup(ctx, s.actions, agent, name, func(cleanupErr error) {
+			if cleanupErr != nil {
+				s.failCleanup(bg, agent, cleanupErr)
+
+				return
+			}
+
+			if err := s.removeAgents(bg, []string{agent.ID}); err != nil {
+				logging.From(bg).LogAttrs(bg, slog.LevelError, "failed to remove an agent whose cleanup finished",
+					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+				return
+			}
+
+			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
+			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, "deleted")
+		})
+	}
+
+	if len(immediate) == 0 {
+		return nil
+	}
+
+	if err := s.removeAgents(ctx, agentIDs(immediate)); err != nil {
+		return err
+	}
+
+	s.cleanupEmptyWorkflows(ctx, immediate)
+	notifyParents(ctx, s.notifier, immediate, "deleted")
+
+	return nil
+}
+
+func (s *LifecycleService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
+	failAs(ctx, s.agents, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
+}
+
+// cleanupEmptyWorkflows deletes each workflow among removed's that now holds nothing archived
+// inside it, logging a failure rather than returning it since the agents are already gone.
+func (s *LifecycleService) cleanupEmptyWorkflows(ctx context.Context, removed []agentstore.Agent) {
+	touched := xslice.UniqueBy(removed, func(agent agentstore.Agent) string { return agent.WorkflowID })
+	for _, agent := range touched {
+		if err := s.emptyWorkflows.DeleteIfEmpty(ctx, agent.WorkflowID); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to delete a workflow a delete left with nothing in it",
+				append([]slog.Attr{slog.String(logging.WorkflowID, agent.WorkflowID)}, logging.Err(err)...)...)
+		}
+	}
+}
+
+// ArchiveAgents stops agents while preserving their records and workspaces.
+func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) error {
+	agents, err := s.requireEveryAgent(ctx, ids)
+	if err != nil {
+		return err
+	}
+
+	// Killing what was read first keeps a failed write from hiding a live CLI, leaving the row
+	// for the reconciler to tidy.
+	killOwnedPanes(ctx, s.tmux, agents)
+
+	taken, err := s.agents.Archive(ctx, ids)
+	if err != nil {
+		return fmt.Errorf("failed to archive %d agents: %w", len(ids), err)
+	}
+	// A pane recorded in between only reaches here through what the write took off the rows.
+	killPanes(ctx, s.tmux, taken)
+
+	notifyParents(ctx, s.notifier, agents, "archived")
+
+	return nil
+}
+
+// ArchiveUnchangedAgents archives the agents whose rows still read as the caller observed them
+// and returns the ones it archived, so an agent resumed since the snapshot is skipped.
+func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error) {
+	var failures []error
+	var archived []agentstore.Agent
+
+	for _, agent := range observed {
+		applied, err := s.agents.ArchiveIfUnchanged(ctx, agentstore.ArchiveIfUnchangedParams{ID: agent.ID, UpdatedAt: agent.UpdatedAt})
+		if err != nil {
+			failures = append(failures, err)
+
+			continue
+		}
+		if applied {
+			archived = append(archived, agent)
+		}
+	}
+
+	killOwnedPanes(ctx, s.tmux, archived)
+	notifyParents(ctx, s.notifier, archived, "archived")
+
+	return archived, errors.Join(failures...)
+}
+
+// RestoreAgents returns archived agents and their workflows to live listings.
+func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
+	agents, err := s.requireEveryAgent(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
+	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
+	if len(archived) == 0 {
+		return agents, nil
+	}
+
+	err = s.tx.InTx(ctx, func(db store.DBTX) error {
+		agentStore, workflowStore := agentstore.New(db), workflowstore.New(db)
+
+		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
+			return err
+		}
+		if err := requireNamesFree(ctx, agentStore, archived); err != nil {
+			return err
+		}
+		if err := agentStore.Restore(ctx, agentIDs(archived)); err != nil {
+			return err
+		}
+		if err := stampRestoredPRs(ctx, agentStore, archived); err != nil {
+			return err
+		}
+
+		for _, id := range workflowIDs(archived) {
+			if err := workflowStore.Restore(ctx, id); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
+	}
+
+	return s.agents.ListByID(ctx, ids)
+}
+
+func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) ([]agentstore.Agent, error) {
+	agents, err := s.agents.ListByID(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up %d agents: %w", len(ids), err)
+	}
+	if len(agents) == len(ids) {
+		return agents, nil
+	}
+
+	found := xslice.KeyBy(agents, func(agent agentstore.Agent) string { return agent.ID })
+
+	missing := xslice.Filter(ids, func(id string) bool {
+		_, ok := found[id]
+
+		return !ok
+	})
+
+	return nil, fmt.Errorf("%w: %s", ErrAgentNotFound, describeMissing(missing))
+}
+
+func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
+	// The delete is what says which pane each row really held, so a pane written after the
+	// caller read the rows is reached here and nowhere else.
+	var taken []agentstore.AgentPane
+	if err := s.tx.InTx(ctx, func(db store.DBTX) error {
+		deleted, err := agentstore.New(db).Delete(ctx, ids)
+		if err != nil {
+			return err
+		}
+		taken = deleted
+
+		return transcriptstore.New(db).Delete(ctx, ids)
+	}); err != nil {
+		return err
+	}
+
+	killPanes(ctx, s.tmux, taken)
+	s.removeActionLogs(ctx, ids)
+
+	return nil
+}
+
+// removeActionLogs drops the setup and teardown logs an agent leaves on disk once its row is
+// gone, logging a failure rather than returning it since a leftover file costs nothing.
+func (s *LifecycleService) removeActionLogs(ctx context.Context, ids []string) {
+	if s.logsDir == "" {
+		return
+	}
+
+	for _, id := range ids {
+		for _, kind := range []string{config.ActionLogSetup, config.ActionLogTeardown} {
+			path := config.ActionLogPath(s.logsDir, id, kind)
+			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+				logging.From(ctx).Warn("failed to remove an agent's action log", "path", path, "agent_id", id, "error", err)
+			}
+		}
+	}
+}

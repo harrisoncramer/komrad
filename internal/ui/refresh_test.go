@@ -154,11 +154,15 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	}
 
 	workflow := m.listing.workflows[0]
-	opened, _ := m.openNewAgent(&workflow)
+
+	values := agentPrefill(workflow)
+	values.Title = "api-tests"
+	values.Dir = "/work/api"
+
+	opened, _ := m.openAgentForm(workflow, &values)
 	m = asModel(t, opened)
-	m.values.agent.Title = "api-tests"
-	m.values.agent.Dir = "/work/api"
-	submitted, cmd := m.submitAgent()
+
+	submitted, cmd := m.answerForm()
 	m = asModel(t, submitted)
 
 	for _, msg := range produced(cmd) {
@@ -213,10 +217,12 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}}}, tree: treeState{placed: true},
 	}
 
-	opened, _ := m.newWorkflowForm()
+	values := workflowFormValues{Name: "web"}
+
+	opened, _ := m.openWorkflowConfigForm(&values, nil)
 	m = asModel(t, opened)
-	m.values.workflow.Name = "web"
-	submitted, cmd := m.submitWorkflowForm()
+
+	submitted, cmd := m.answerForm()
 	m = asModel(t, submitted)
 
 	for _, msg := range produced(cmd) {

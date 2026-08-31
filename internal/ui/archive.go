@@ -54,6 +54,17 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	return headers
 }
 
+// hoveredArchiveKey is the row the cursor is on, read before a filter narrows the list under it.
+func (m model) hoveredArchiveKey() string {
+	return rowKeyAt(m.archiveRows(), m.archive.cursor)
+}
+
+func (m *model) placeArchiveCursor(hovered string) {
+	rows := m.archiveRows()
+	m.archive.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.archive.cursor, len(rows))
+	m.stageArchive()
+}
+
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
@@ -227,19 +238,43 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 		return m, nil
 	}
 
-	m.target.deleteAgents = agents
-	m.form, m.values.confirmed = deleteAgentsForm(agents, m.keys.Form)
-	m.screen = screenArchiveDelete
+	form, confirmed := deleteAgentsForm(agents, m.keys.Form)
 
-	return m, m.form.Init()
+	return m, m.openForm(formState{
+		kind:   formArchiveDelete,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
+				return m, nil
+			}
+
+			return m, m.writeCmd(
+				fmt.Sprintf("Could not delete %s", describeAgents(agents)),
+				func(a api) error { return a.deleteAgents(agentIDs(agents)) },
+			)
+		}),
+	})
 }
 
 func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	m.target.deleteWorkflow = &workflow
-	m.form, m.values.confirmed = deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), m.keys.Form)
-	m.screen = screenArchiveDelete
+	form, confirmed := deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), m.keys.Form)
 
-	return m, m.form.Init()
+	return m, m.openForm(formState{
+		kind:   formArchiveDelete,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
+				return m, nil
+			}
+
+			return m, m.writeCmd(
+				fmt.Sprintf("Could not delete workflow %q", workflow.Name),
+				func(a api) error { return a.deleteWorkflow(workflow.ID) },
+			)
+		}),
+	})
 }
 
 func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
@@ -247,16 +282,14 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.form, m.values.confirmed = emptyArchiveForm(len(m.archive.agents), m.keys.Form)
-	m.screen = screenArchiveEmpty
+	form, confirmed := emptyArchiveForm(len(m.archive.agents), m.keys.Form)
 
-	return m, m.form.Init()
-}
-
-func (m model) updateArchiveEmpty(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) (model, tea.Cmd) {
-			if !m.wasConfirmed() {
+	return m, m.openForm(formState{
+		kind:   formArchiveEmpty,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
 				return m, nil
 			}
 
@@ -264,52 +297,7 @@ func (m model) updateArchiveEmpty(msg tea.Msg) (tea.Model, tea.Cmd) {
 				"Could not empty the archive",
 				func(a api) error { return a.emptyArchive() },
 			)
-		},
-		clear: func(m model) model {
-			m.values.confirmed = nil
-
-			return m
-		},
-		returnTo: func(m model) (tea.Model, tea.Cmd) {
-			return m.enterArchive()
-		},
-	})
-}
-
-func (m model) updateArchiveDelete(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) (model, tea.Cmd) {
-			if !m.wasConfirmed() {
-				return m, nil
-			}
-
-			if workflow := m.target.deleteWorkflow; workflow != nil {
-				return m, m.writeCmd(
-					fmt.Sprintf("Could not delete workflow %q", workflow.Name),
-					func(a api) error { return a.deleteWorkflow(workflow.ID) },
-				)
-			}
-
-			target := m.target.deleteAgents
-			if len(target) == 0 {
-				return m, nil
-			}
-
-			return m, m.writeCmd(
-				fmt.Sprintf("Could not delete %s", describeAgents(target)),
-				func(a api) error { return a.deleteAgents(agentIDs(target)) },
-			)
-		},
-		clear: func(m model) model {
-			m.target.deleteAgents = nil
-			m.target.deleteWorkflow = nil
-			m.values.confirmed = nil
-
-			return m
-		},
-		returnTo: func(m model) (tea.Model, tea.Cmd) {
-			return m.enterArchive()
-		},
+		}),
 	})
 }
 

@@ -7,6 +7,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -36,7 +37,7 @@ func (s *Service) ListReviewThreads(
 		Author:   author,
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to list the review threads")
 	}
 
 	answered := make([]*agentv1.ReviewThread, 0, len(threads))
@@ -64,7 +65,7 @@ func (s *Service) CreateReviewThread(
 		Author:      reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to create the review thread")
 	}
 
 	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: toReviewThread(*thread)}), nil
@@ -81,7 +82,7 @@ func (s *Service) AddReviewMessage(
 		Author:   reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to add the review message")
 	}
 
 	return connect.NewResponse(&agentv1.AddReviewMessageResponse{Message: toReviewMessage(*message)}), nil
@@ -98,7 +99,7 @@ func (s *Service) EditReviewMessage(
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to edit the review message")
 	}
 
 	return connect.NewResponse(&agentv1.EditReviewMessageResponse{Message: toReviewMessage(*message)}), nil
@@ -114,7 +115,7 @@ func (s *Service) MarkReviewThreadRead(
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to mark the review thread read")
 	}
 
 	return connect.NewResponse(&agentv1.MarkReviewThreadReadResponse{
@@ -133,7 +134,7 @@ func (s *Service) SetReviewThreadResolved(
 		Author:   reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to set the review thread resolved")
 	}
 
 	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{
@@ -151,7 +152,7 @@ func (s *Service) DeleteReviewThread(
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to delete the review thread")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -167,7 +168,7 @@ func (s *Service) DeleteReviewMessage(
 		Author: reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to delete the review message")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -184,7 +185,7 @@ func (s *Service) NotifyReviewThreads(
 		Author:    reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, reviewError(err)
+		return nil, rpcerr.Wrap(err, "failed to notify the review threads")
 	}
 
 	return connect.NewResponse(&agentv1.NotifyReviewThreadsResponse{
@@ -204,17 +205,6 @@ func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
 	agentID := from.AgentID
 
 	return agents.ReviewAuthor{Kind: reviewstore.AuthorAgent, AgentID: &agentID}
-}
-
-func reviewError(err error) error {
-	switch {
-	case errors.Is(err, agents.ErrReviewThreadNotFound), errors.Is(err, agents.ErrReviewMessageNotFound):
-		return connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrReviewNotYours), errors.Is(err, agents.ErrReviewHumanOnly):
-		return connect.NewError(connect.CodePermissionDenied, err)
-	default:
-		return connect.NewError(connect.CodeInternal, err)
-	}
 }
 
 func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThread {

@@ -544,21 +544,27 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	deleter := agents.NewAgentService(agents.NewAgentServiceParams{
-		Tmux:      idlePanes{},
-		Agents:    st.Agents,
+	emptied := agents.NewEmptyWorkflowDeleter(agents.EmptyWorkflowDeleterParams{
 		Workflows: st.Workflows,
-		Tx:        st.Pool,
+		Agents:    st.Agents,
+		Schedules: st.Schedules,
+	})
+	deleter := agents.NewLifecycleService(agents.LifecycleServiceParams{
+		Tmux:           idlePanes{},
+		Agents:         st.Agents,
+		Workflows:      st.Workflows,
+		EmptyWorkflows: emptied,
+		Tx:             st.Pool,
 	})
 	manager := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
 		AgentDeleter: deleter,
+		Emptied:      emptied,
 		Schedules:    st.Schedules,
 		Tmux:         idlePanes{},
 		Tx:           st.Pool,
 	})
-	deleter.WithWorkflowEmptyDeleter(manager)
 
 	return NewService(st.Workflows, manager), st
 }

@@ -33,20 +33,9 @@ func (m model) View() string {
 }
 
 func (m model) screenView() string {
-	if m.screen.isForm() {
-		return m.form.View()
+	if m.form.active() {
+		return m.form.form.View()
 	}
 
-	switch m.screen {
-	case screenSearch:
-		return m.searchView()
-	case screenSchedules:
-		return m.schedulesView()
-	case screenArchive:
-		return m.archiveView()
-	case screenReview:
-		return m.reviewView()
-	default:
-		return m.agentsView()
-	}
+	return m.screen.spec().view(m)
 }

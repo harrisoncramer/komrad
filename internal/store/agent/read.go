@@ -1,0 +1,171 @@
+package agent
+
+import (
+	"context"
+	"fmt"
+
+	"weave/db"
+	"weave/db/models"
+	"weave/internal/store"
+)
+
+// List returns every persisted agent, newest first.
+func (s *Store) List(ctx context.Context) ([]Agent, error) {
+	rows, err := s.queries.ListAgents(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list agents: %w", err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+type Cursor struct {
+	ID string `json:"i"`
+}
+
+// Validate checks that the cursor contains an agent ID.
+func (c Cursor) Validate() error {
+	if !store.IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
+// ListPage returns one page of live or archived agents, newest first.
+func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archived bool) ([]Agent, error) {
+	params := models.ListAgentsPageParams{Lim: int32(limit), Archived: archived}
+	if cursor != nil {
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListAgentsPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of agents: %w", err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+// ListAll returns every agent including archived ones, newest first, for search.
+func (s *Store) ListAll(ctx context.Context) ([]Agent, error) {
+	rows, err := s.queries.ListAllAgents(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list all agents: %w", err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+// GetInWorkflow returns a live agent by workflow and name.
+func (s *Store) GetInWorkflow(ctx context.Context, workflowID, name string) (*Agent, error) {
+	row, err := s.queries.GetAgentInWorkflow(ctx, models.GetAgentInWorkflowParams{
+		WorkflowID: workflowID,
+		Name:       name,
+	})
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: agent %q in workflow %q", store.ErrNotFound, name, workflowID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent %q in workflow %q: %w", name, workflowID, err)
+	}
+
+	return s.hydrateMetadataForAgent(ctx, row)
+}
+
+// GetByID returns a live or archived agent by ID.
+func (s *Store) GetByID(ctx context.Context, id string) (*Agent, error) {
+	if !store.IsID(id) {
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	row, err := s.queries.GetAgentByID(ctx, id)
+	if db.IsNoRows(err) {
+		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to get agent %q: %w", id, err)
+	}
+
+	return s.hydrateMetadataForAgent(ctx, row)
+}
+
+// ListByID returns live and archived agents matching the given IDs.
+func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
+	storable := keepStorableIDs(ids)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.GetAgentsByID(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get %d agents: %w", len(storable), err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+// Exists reports whether any agent holds the given id, including archived ones.
+func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
+	if !store.IsID(id) {
+		return false, nil
+	}
+
+	exists, err := s.queries.AgentExists(ctx, id)
+	if err != nil {
+		return false, fmt.Errorf("failed to check for agent %q: %w", id, err)
+	}
+
+	return exists, nil
+}
+
+// ActiveNameExists reports whether a live agent holds the name in a workflow.
+func (s *Store) ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error) {
+	exists, err := s.queries.ActiveNameExists(ctx, models.ActiveNameExistsParams{
+		WorkflowID: workflowID,
+		Name:       name,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to check active name %q in workflow %q: %w", name, workflowID, err)
+	}
+
+	return exists, nil
+}
+
+// NamesHoldingSchedule returns the names of the agents outside a workflow that still point
+// at a schedule, which is only the ones a schedule moved between workflows left behind.
+func (s *Store) NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
+	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
+		return nil, nil
+	}
+
+	names, err := s.queries.ListScheduleAgentNamesOutsideWorkflow(ctx, models.ListScheduleAgentNamesOutsideWorkflowParams{
+		ScheduleID: &scheduleID,
+		WorkflowID: workflowID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents of schedule %q: %w", scheduleID, err)
+	}
+
+	return names, nil
+}
+
+// ListLiveInWorkflow returns the live agents in a workflow.
+func (s *Store) ListLiveInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListLiveWorkflowAgents(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list live agents of workflow %q: %w", workflowID, err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+// ListArchivedInWorkflow returns the archived agents in a workflow.
+func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]Agent, error) {
+	rows, err := s.queries.ListArchivedWorkflowAgents(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list archived agents of workflow %q: %w", workflowID, err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}

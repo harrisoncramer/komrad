@@ -2,12 +2,16 @@ package agents
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
+	"time"
 
 	"weave/config"
 	"weave/internal/logging"
+	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -17,6 +21,218 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
+
+// resumeAgentStore is the slice of the agent store a resume writes to, which is the row's state
+// and the pane it comes back in.
+type resumeAgentStore interface {
+	agentGetter
+	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
+	SetStateByID(ctx context.Context, id, state string) error
+	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
+	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
+}
+
+type ResumeService struct {
+	tmux               paneController
+	agents             resumeAgentStore
+	workflows          workflowReader
+	launcher           *Launcher
+	harnesses          harnessGetter
+	actions            agentActions
+	fallbackResumeRoot string
+}
+
+type ResumeServiceParams struct {
+	Tmux               paneController
+	Agents             resumeAgentStore
+	Workflows          workflowReader
+	Launcher           *Launcher
+	Harnesses          harnessGetter
+	Actions            agentActions
+	FallbackResumeRoot string
+}
+
+// NewResumeService builds the service from its dependencies.
+func NewResumeService(p ResumeServiceParams) *ResumeService {
+	if p.FallbackResumeRoot == "" {
+		p.FallbackResumeRoot = DefaultFallbackResumeRoot()
+	}
+
+	return &ResumeService{
+		tmux:               p.Tmux,
+		agents:             p.Agents,
+		workflows:          p.Workflows,
+		launcher:           p.Launcher,
+		harnesses:          p.Harnesses,
+		actions:            p.Actions,
+		fallbackResumeRoot: p.FallbackResumeRoot,
+	}
+}
+
+// ResumeAgent relaunches a dormant agent in its previous conversation.
+func (s *ResumeService) ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error) {
+	agent, err := s.getByID(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	if agent.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q is archived, restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	if isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID) {
+		return agent, nil
+	}
+
+	if err := s.resume(ctx, *agent); err != nil {
+		return nil, err
+	}
+
+	return s.getByID(ctx, id)
+}
+
+func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Agent, error) {
+	agent, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrAgentNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return agent, nil
+}
+
+func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) error {
+	hn, err := s.harnesses.GetByID(agent.Harness)
+	if err != nil {
+		return err
+	}
+
+	// Until this write the row reads as a dormant agent nobody is touching, which is exactly what
+	// a background pass archives.
+	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
+	if err != nil {
+		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
+	}
+	if !live {
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	// Read before the resume starts overwriting the copy it was handed, since the restore
+	// below runs after those writes and is putting back what the resume found.
+	prior := agent.State
+
+	var pane string
+	launched := false
+	defer func() {
+		if launched {
+			return
+		}
+
+		// Nothing else in weave moves a row out of setting_up or takes away a window a resume
+		// opened, so both are put back here rather than depending on the caller still being
+		// around to see it happen.
+		restore, cancel := context.WithTimeout(context.WithoutCancel(ctx), teardownTimeout)
+		defer cancel()
+
+		if pane != "" {
+			s.tmux.KillPane(pane)
+		}
+
+		if err := s.agents.SetStateByID(restore, agent.ID, prior); err != nil {
+			logging.From(restore).LogAttrs(restore, slog.LevelError, "failed to put back the state of an agent whose resume gave up",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		}
+	}()
+
+	named, err := s.runResumeSetup(ctx, agent)
+	if err != nil {
+		return err
+	}
+
+	dir, err := namedDir(named)
+	if err != nil {
+		return err
+	}
+
+	if dir == "" {
+		dir = s.getResumeDir(ctx, agent, hn)
+	}
+
+	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
+	if err != nil {
+		return fmt.Errorf("failed to open a window for %q: %w", agent.Name, err)
+	}
+	if err := s.tmux.SetPaneOwner(pane, agent.ID); err != nil {
+		return fmt.Errorf("failed to stamp the pane for %q: %w", agent.Name, err)
+	}
+
+	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
+	// the interrupted turn is stamped here rather than left to the reconciler.
+	if agent.InterruptedAt == nil && turnUnfinished(agent.State) {
+		at := time.Now()
+		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
+			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
+		}
+
+		agent.InterruptedAt = &at
+	}
+
+	agent.Pane = pane
+	agent.State = agentstore.StateIdle
+	agent.Cwd = dir
+	// An archive or a delete takes the row without reading the resume mark, so this write is where
+	// a resume finds out it lost and has to take away the pane it opened.
+	written, err := s.agents.UpdateIfLive(ctx, agent)
+	if err != nil {
+		return fmt.Errorf("failed to resume agent %q: %w", agent.Name, err)
+	}
+	if !written {
+		return fmt.Errorf("%w: %q was archived or deleted while it was being resumed", ErrAgentArchived, agent.Name)
+	}
+
+	// Codex takes no session id on the command line, so an agent may have none and its relaunch is
+	// a fresh conversation with no turn to read back over.
+	resuming := agent.SessionID != ""
+
+	prompt := ""
+	if resuming && agent.InterruptedAt != nil {
+		prompt = interruptedPrompt
+	}
+
+	if err := s.launcher.launch(hn, launchParams{
+		Pane:      pane,
+		Dir:       dir,
+		Flags:     agent.Flags,
+		Prompt:    prompt,
+		SessionID: agent.SessionID,
+		AgentID:   agent.ID,
+		Resume:    resuming,
+	}); err != nil {
+		return fmt.Errorf("failed to relaunch the agent for %q: %w", agent.Name, err)
+	}
+
+	launched = true
+
+	// A recorded turn does not outlive the relaunch, since the conversation holding it has either
+	// just been asked about it or is gone.
+	if agent.InterruptedAt != nil {
+		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
+			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
+	name := setupActionFor(ctx, s.workflows, agent)
+	if s.actions == nil || name == "" {
+		return "", nil
+	}
+
+	return s.actions.RunResumeAction(ctx, agent, name)
+}
 
 // turnUnfinished reports whether a state leaves a turn part-way through, which covers both the
 // model still working and a tool call whose question nobody answered.
@@ -28,7 +244,7 @@ type harnessRelocator interface {
 	Relocate(sessionID, dir string) error
 }
 
-func (s *AgentService) getResumeDir(ctx context.Context, agent agentstore.Agent, h harnessRelocator) string {
+func (s *ResumeService) getResumeDir(ctx context.Context, agent agentstore.Agent, h harnessRelocator) string {
 	dir := config.ExpandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()

@@ -40,15 +40,7 @@ func flashRevertTick() tea.Cmd {
 }
 
 func (m *model) restageScreen() {
-	switch m.screen {
-	case screenAgents:
-		m.stageSelection()
-	case screenSchedules:
-		m.stageSchedule()
-	case screenArchive:
-		m.stageArchive()
-	case screenReview:
-		m.stageReview()
-	default:
+	if stage := m.screen.spec().stage; stage != nil {
+		stage(m)
 	}
 }

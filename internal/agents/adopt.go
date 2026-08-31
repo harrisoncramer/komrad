@@ -37,12 +37,40 @@ type pullRequestResolver interface {
 	Repository(ctx context.Context, dir string) (string, error)
 }
 
-// WithPullRequests arms adoption's ability to take a pull request rather than a branch, and a
-// branch name still adopts without it.
-func (s *AgentService) WithPullRequests(r pullRequestResolver) *AgentService {
-	s.pullRequests = r
+// adoptAgentStore is the slice of the agent store adoption reads, which is every agent the
+// panel holds, since the question is which of them already has the branch or the directory.
+type adoptAgentStore interface {
+	List(ctx context.Context) ([]agentstore.Agent, error)
+	ListAll(ctx context.Context) ([]agentstore.Agent, error)
+	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
+}
 
-	return s
+// AdoptService puts an agent on a branch somebody else made, working out which checkout is to
+// hold that branch before handing the launch itself over.
+type AdoptService struct {
+	agents       adoptAgentStore
+	workflows    workflowReader
+	launch       *LaunchService
+	pullRequests pullRequestResolver
+}
+
+type AdoptServiceParams struct {
+	Agents    adoptAgentStore
+	Workflows workflowReader
+	Launch    *LaunchService
+	// PullRequests arms adoption's ability to take a pull request rather than a branch, and a
+	// branch name still adopts without it.
+	PullRequests pullRequestResolver
+}
+
+// NewAdoptService builds the service from its dependencies.
+func NewAdoptService(p AdoptServiceParams) *AdoptService {
+	return &AdoptService{
+		agents:       p.Agents,
+		workflows:    p.Workflows,
+		launch:       p.Launch,
+		pullRequests: p.PullRequests,
+	}
 }
 
 type AdoptParams struct {
@@ -60,7 +88,7 @@ type AdoptParams struct {
 
 // Adopt puts an agent on a branch weave did not make, named directly or through a pull request,
 // running it either in a worktree of its own or in the checkout already holding the branch.
-func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Agent, error) {
+func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Agent, error) {
 	ref := strings.TrimSpace(p.Ref)
 	if ref == "" {
 		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
@@ -141,7 +169,7 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		params.CleanupAction = xptr.Ptr("")
 	}
 
-	created, err := s.NewAgent(ctx, params)
+	created, err := s.launch.NewAgent(ctx, params)
 	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
 		return nil, err
 	}
@@ -157,7 +185,7 @@ func (s *AgentService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 
 // resolveAdoption turns what was typed into the branch to adopt, reading the pull request
 // behind it when that is what it names.
-func (s *AgentService) resolveAdoption(ctx context.Context, repo, ref string) (*PullRequest, string, error) {
+func (s *AdoptService) resolveAdoption(ctx context.Context, repo, ref string) (*PullRequest, string, error) {
 	if !looksLikePullRequest(ref) {
 		return nil, ref, nil
 	}
@@ -190,7 +218,7 @@ func (s *AgentService) resolveAdoption(ctx context.Context, repo, ref string) (*
 // agentOnBranch returns the live agent already adopted onto a branch in this workflow, so
 // asking twice hands back the agent doing the work rather than fighting git over a branch
 // that can only be checked out once.
-func (s *AgentService) agentOnBranch(ctx context.Context, workflowID, branch string) (*agentstore.Agent, error) {
+func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch string) (*agentstore.Agent, error) {
 	agents, err := s.agents.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)
@@ -213,7 +241,7 @@ func adopted(agent agentstore.Agent, branch string) bool {
 
 // agentIn returns the agent whose cwd is a directory, archived ones included, since the first
 // agent's cleanup would otherwise remove the directory out from under a second one.
-func (s *AgentService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
+func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
 	agents, err := s.agents.ListAll(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list agents: %w", err)

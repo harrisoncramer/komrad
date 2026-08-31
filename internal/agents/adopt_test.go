@@ -78,7 +78,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 				runGit(t, repo, "checkout", "--quiet", "someones/work")
 			}
 
-			created, err := manager.Adopt(t.Context(), AdoptParams{
+			created, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        "someones/work",
 				Prompt:     "look at it",
 				WorkflowID: seedWorktreeWorkflow(t, st, repo),
@@ -157,7 +157,7 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 				require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
 			}
 
-			_, err := manager.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
+			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
 
 			require.ErrorIs(t, err, ErrAdoptBranchInUse)
 			assert.ErrorContains(t, err, "sitting", "the refusal names the agent already in the directory")
@@ -176,11 +176,11 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 	runGit(t, repo, "branch", "someones/work")
 	workflow := seedWorktreeWorkflow(t, st, repo)
 
-	first, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 	require.NoError(t, st.Agents.SetWorktreeRemovedByID(t.Context(), first.ID, true))
 
-	second, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
 	assert.NotEqual(t, first.ID, second.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
@@ -194,7 +194,7 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
 
-	_, err := manager.Adopt(t.Context(), AdoptParams{
+	_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:        "someones/work",
 		WorkflowID: seedWorkflow(t, st),
 	})
@@ -213,10 +213,10 @@ func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	runGit(t, repo, "branch", "someones/work")
 	workflow := seedWorktreeWorkflow(t, st, repo)
 
-	first, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	second, err := manager.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
 	assert.Equal(t, first.ID, second.ID, "the agent already on the branch comes back")
@@ -231,7 +231,7 @@ func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 func TestAdoptFromAPullRequest(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	manager := newManager(tmux, st, "").WithPullRequests(fakePullRequests{
+	manager := newManager(tmux, st, "").withPullRequests(fakePullRequests{
 		repository: "chariot-giving/admin",
 		pr: &PullRequest{
 			URL:        "https://github.com/chariot-giving/admin/pull/1069",
@@ -245,7 +245,7 @@ func TestAdoptFromAPullRequest(t *testing.T) {
 
 	repo := initRepo(t)
 
-	created, err := manager.Adopt(t.Context(), AdoptParams{
+	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:        "https://github.com/chariot-giving/admin/pull/1069",
 		WorkflowID: seedWorktreeWorkflow(t, st, repo),
 	})
@@ -305,10 +305,10 @@ func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 			st := newStore(t)
 			manager := newManager(tmux, st, "")
 			if !tt.noResolver {
-				manager = manager.WithPullRequests(tt.resolver)
+				manager = manager.withPullRequests(tt.resolver)
 			}
 
-			_, err := manager.Adopt(t.Context(), AdoptParams{
+			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 				Ref:        "https://github.com/chariot-giving/admin/pull/1069",
 				WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
 			})
@@ -328,9 +328,9 @@ func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 func TestAdoptReportsAFailureToRead(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	manager := newManager(tmux, st, "").WithPullRequests(fakePullRequests{resolveErr: errors.New("gh: not logged in")})
+	manager := newManager(tmux, st, "").withPullRequests(fakePullRequests{resolveErr: errors.New("gh: not logged in")})
 
-	_, err := manager.Adopt(t.Context(), AdoptParams{
+	_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
 		Ref:        "1069",
 		WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
 	})

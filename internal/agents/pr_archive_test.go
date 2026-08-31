@@ -359,7 +359,7 @@ func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
 	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
-	require.NoError(t, newPRArchiver(st, prs, newManager(newFakeTmux(), st, "")).Sync(ctx))
+	require.NoError(t, newPRArchiver(st, prs, newManager(newFakeTmux(), st, "").lifecycle).Sync(ctx))
 
 	archived := reread(t, st)
 	require.NotNil(t, archived.ArchivedAt, "the agent was archived")
@@ -378,7 +378,7 @@ func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
 	_, archiveErr := st.Agents.Archive(ctx, []string{agent.ID})
 	require.NoError(t, archiveErr)
 
-	restored, err := newManager(newFakeTmux(), st, "").RestoreAgents(ctx, []string{agent.ID})
+	restored, err := newManager(newFakeTmux(), st, "").lifecycle.RestoreAgents(ctx, []string{agent.ID})
 	require.NoError(t, err)
 	require.Len(t, restored, 1)
 	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey), "the restore says which pull request it was for")

@@ -148,7 +148,7 @@ func TestDetailsKeysStandDownForTheRow(t *testing.T) {
 		after := send(t, focused, key)
 
 		assert.Equal(t, screenAgents, after.screen, "%q opened something", key)
-		assert.Nil(t, after.form, "%q opened a form", key)
+		assert.False(t, after.form.active(), "%q opened a form", key)
 	}
 }
 

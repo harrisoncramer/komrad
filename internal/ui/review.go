@@ -59,7 +59,8 @@ type reviewState struct {
 	// filter so a pattern meant for code does not empty that list.
 	filter filterState
 
-	// pending is a key waiting on the one after it, which is only ever z today.
+	// pending is the recentring prefix waiting on the key that completes it, which is the one
+	// gesture in the panel a rebinding cannot reach, since a binding is one key and this is two.
 	pending string
 
 	// pinTop holds the window where zt or zb put it until the cursor moves, since the next repaint
@@ -343,8 +344,10 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.review.pending != "" {
 		return m.updateReviewPending(k)
 	}
+	keys := m.keys.Review
+
 	if m.review.view == nil {
-		if k == "esc" || isBound(k, m.keys.Agents.Back) {
+		if isBound(k, keys.Back) {
 			return m.leaveReview()
 		}
 
@@ -354,9 +357,9 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.review.notice = ""
 
 	switch {
-	case k == "esc", isBound(k, m.keys.Agents.Back):
+	case isBound(k, keys.Back):
 		return m.leaveReview()
-	case k == "ctrl+c":
+	case isBound(k, keys.Quit):
 		return m, m.hide()
 	case isBound(k, m.keys.Nav.Down):
 		return m.moveReviewCursor(m.review.view.Move(m.review.cursor, 1))
@@ -366,51 +369,51 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveReviewCursor(m.review.view.First())
 	case isBound(k, m.keys.Nav.Bottom):
 		return m.moveReviewCursor(m.review.view.Last())
-	case k == "pgdown", k == "ctrl+n", k == "ctrl+f", k == " ":
+	case isBound(k, keys.PageDown):
 		return m.pageReview(m.reviewPage())
-	case k == "pgup", k == "ctrl+p", k == "ctrl+b":
+	case isBound(k, keys.PageUp):
 		return m.pageReview(-m.reviewPage())
-	case k == "ctrl+d":
+	case isBound(k, keys.HalfPageDown):
 		return m.pageReview(max(1, m.reviewPage()/2))
-	case k == "ctrl+u":
+	case isBound(k, keys.HalfPageUp):
 		return m.pageReview(-max(1, m.reviewPage()/2))
-	case k == "]":
+	case isBound(k, keys.NextFile):
 		return m.moveReviewCursor(m.review.view.JumpFile(m.review.cursor, 1))
-	case k == "[":
+	case isBound(k, keys.PrevFile):
 		return m.moveReviewCursor(m.review.view.JumpFile(m.review.cursor, -1))
-	case k == "}":
+	case isBound(k, keys.NextHunk):
 		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, 1))
-	case k == "{":
+	case isBound(k, keys.PrevHunk):
 		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, -1))
-	case k == "t":
+	case isBound(k, keys.NextThread):
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, 1))
-	case k == "T":
+	case isBound(k, keys.PrevThread):
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, -1))
 	case isBound(k, m.keys.Filter.Open):
 		m.review.filter.typing = true
 
 		return m, nil
-	case k == "n":
+	case isBound(k, keys.NextMatch):
 		return m.jumpReviewMatch(1)
-	case k == "N":
+	case isBound(k, keys.PrevMatch):
 		return m.jumpReviewMatch(-1)
-	case k == "z":
-		m.review.pending = "z"
+	case k == recentrePrefix:
+		m.review.pending = recentrePrefix
 
 		return m, nil
-	case k == "l", k == "right":
+	case isBound(k, keys.PanRight):
 		return m.panReview(m.reviewPanStep())
-	case k == "h", k == "left":
+	case isBound(k, keys.PanLeft):
 		return m.panReview(-m.reviewPanStep())
-	case k == "0":
+	case isBound(k, keys.PanReset):
 		return m.panReview(-m.review.pan)
-	case k == "e":
+	case isBound(k, keys.EditFile):
 		return m.editReviewFile()
-	case k == "c":
+	case isBound(k, keys.Compose):
 		return m.composeReview()
-	case k == "r":
+	case isBound(k, keys.Resolve):
 		return m.resolveReviewThread()
-	case k == "D":
+	case isBound(k, keys.DeleteThread):
 		return m.deleteReviewThread()
 	case isBound(k, m.keys.Form.Submit):
 		return m.notifyReview()
@@ -419,8 +422,11 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// updateReviewPending answers the key after a z prefix, which decides where in the pane the
-// cursor's own row is put.
+// recentrePrefix opens the vim recentring chord, zz, zt and zb, which is left as vim spells it.
+const recentrePrefix = "z"
+
+// updateReviewPending answers the key after the recentring prefix, which decides where in the
+// pane the cursor's own row is put.
 func (m model) updateReviewPending(k string) (tea.Model, tea.Cmd) {
 	m.review.pending = ""
 
@@ -655,6 +661,8 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// Every other key is a character being typed into the message, so the two that put the
+	// editor away are fixed rather than configured.
 	switch {
 	case k == "esc":
 		m.review.editor.Blur()

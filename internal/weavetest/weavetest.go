@@ -172,23 +172,37 @@ func (i *Instance) WorkQueue() {
 	}, settleTimeout, 10*time.Millisecond, "the queue never drained")
 }
 
+func (i *Instance) runLoop(name string) {
+	i.t.Helper()
+
+	for _, loop := range i.server.Loops {
+		if loop.Name == name {
+			require.NoError(i.t, loop.Pass(i.t.Context()))
+
+			return
+		}
+	}
+
+	i.t.Fatalf("no loop named %q", name)
+}
+
 // Reconcile runs one pass of the loop that writes agent state.
 func (i *Instance) Reconcile() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.Reconcile.Pass(i.t.Context()))
+	i.runLoop(server.ReconcileLoop)
 }
 
 // SyncTranscripts runs one pass of the loop that folds what was said into the search index.
 func (i *Instance) SyncTranscripts() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.TranscriptSync.Pass(i.t.Context()))
+	i.runLoop(server.TranscriptSyncLoop)
 }
 
 // ReconcileSchedules runs one pass of the loop that makes River's registrations match the
 // schedules table.
 func (i *Instance) ReconcileSchedules() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.ScheduleReconcile.Pass(i.t.Context()))
+	i.runLoop(server.ScheduleReconcileLoop)
 }
 
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says

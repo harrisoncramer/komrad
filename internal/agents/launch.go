@@ -10,12 +10,146 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/internal/caller"
 	"weave/internal/harness"
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xstr"
 )
+
+// launchAgentStore is the slice of the agent store a launch writes to, from the key it spends
+// through to the row it reads back.
+type launchAgentStore interface {
+	agentGetter
+	agentCounter
+	nameChecker
+	agentFailWriter
+	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
+	ReleaseIdempotencyKey(ctx context.Context, key string) (bool, error)
+	GetInWorkflow(ctx context.Context, workflowID, name string) (*agentstore.Agent, error)
+}
+
+type LaunchService struct {
+	tmux               paneController
+	agents             launchAgentStore
+	workflows          workflowReader
+	tx                 txRunner
+	launcher           *Launcher
+	harnesses          harnessGetter
+	actions            agentActions
+	userDefaultHarness string
+	userDefaultFlags   map[string]string
+	maxAgents          int
+}
+
+type LaunchServiceParams struct {
+	Tmux               paneController
+	Agents             launchAgentStore
+	Workflows          workflowReader
+	Tx                 txRunner
+	Launcher           *Launcher
+	Harnesses          harnessGetter
+	Actions            agentActions
+	UserDefaultHarness string
+	UserDefaultFlags   map[string]string
+	MaxAgents          int
+}
+
+// NewLaunchService builds the service from its dependencies.
+func NewLaunchService(p LaunchServiceParams) *LaunchService {
+	return &LaunchService{
+		tmux:               p.Tmux,
+		agents:             p.Agents,
+		workflows:          p.Workflows,
+		tx:                 p.Tx,
+		launcher:           p.Launcher,
+		harnesses:          p.Harnesses,
+		actions:            p.Actions,
+		userDefaultHarness: p.UserDefaultHarness,
+		userDefaultFlags:   p.UserDefaultFlags,
+		maxAgents:          p.MaxAgents,
+	}
+}
+
+type NewAgentParams struct {
+	Client         string
+	Title          string
+	Dir            string
+	Flags          string
+	SetupAction    *string
+	CleanupAction  *string
+	Prompt         string
+	Harness        string
+	WorkflowID     string
+	ScheduleID     *string
+	Hidden         bool
+	IdempotencyKey string
+	SetupPane      string
+	AdoptedBranch  string
+}
+
+// NewAgent creates and launches a background agent, answering a key already spent on a launch
+// with that agent and ErrAlreadyLaunched rather than a bare nil.
+func (s *LaunchService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
+	if p.IdempotencyKey != "" {
+		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
+		switch {
+		case err == nil:
+			// The row is written before the window is opened, so a create that failed leaves the
+			// key spent on an agent that never ran and a retry answered with a corpse.
+			released, err := s.releaseFailedLaunch(ctx, *existing, p.IdempotencyKey)
+			if err != nil {
+				return nil, err
+			}
+			if !released {
+				return existing, ErrAlreadyLaunched
+			}
+		case !errors.Is(err, store.ErrNotFound):
+			return nil, err
+		}
+	}
+
+	var spawner *agentstore.Agent
+	if id := caller.From(ctx).AgentID; id != "" {
+		found, err := s.findSpawner(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		spawner = found
+	}
+
+	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
+		return nil, err
+	}
+
+	return s.launchAgent(ctx, p, spawner)
+}
+
+// releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
+// attempt launches instead of being answered with the corpse.
+func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agentstore.Agent, key string) (bool, error) {
+	// A failed cleanup belongs to an agent that ran, so only a failed create launched nothing.
+	if existing.State != agentstore.StateFailedToCreate {
+		return false, nil
+	}
+
+	// The row is left where it stands rather than relaunched into, since its id names the
+	// worktree and branch the cleanup action is still tearing down in the background.
+	return s.agents.ReleaseIdempotencyKey(ctx, key)
+}
+
+func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore.Agent, error) {
+	spawner, err := s.agents.GetByID(ctx, id)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrSpawnerUnknown, id)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return spawner, nil
+}
 
 type launchPlan struct {
 	name            string
@@ -28,7 +162,7 @@ type launchPlan struct {
 	cleanupAction   string
 }
 
-func (s *AgentService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
+func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
 	wf, err := s.workflows.Get(ctx, p.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
@@ -119,7 +253,7 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 	}
 }
 
-func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
+func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
 	plan, err := s.planLaunch(ctx, p)
 	if err != nil {
 		return nil, err
@@ -154,7 +288,7 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 			s.tmux.KillPane(pane)
 		}
 		if pastSetup {
-			s.runCleanup(teardown, agent, plan.cleanupAction, nil)
+			runCleanup(teardown, s.actions, agent, plan.cleanupAction, nil)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
@@ -216,60 +350,23 @@ func (s *AgentService) launchAgent(ctx context.Context, p NewAgentParams, spawne
 	return created, nil
 }
 
-const maxFailureReasonLen = 480
-
 // teardownTimeout stands in for the caller's own deadline once that no longer applies, so a
 // wedged database cannot hold a failed create open indefinitely.
 const teardownTimeout = 30 * time.Second
 
-func (s *AgentService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
-	s.failAs(ctx, agent, agentstore.StateFailedToCreate, "create", cause)
+func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
+	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
-func (s *AgentService) failCleanup(ctx context.Context, agent agentstore.Agent, cause error) {
-	s.failAs(ctx, agent, agentstore.StateFailedToCleanup, "cleanup", cause)
-}
-
-// failAs marks an agent as having failed create or cleanup and leaves the row where it was, so
-// a delete that cannot finish leaves an archived row in the archive the user was clearing.
-func (s *AgentService) failAs(ctx context.Context, agent agentstore.Agent, state, verb string, cause error) {
-	agent.State = state
-	if err := s.agents.Update(ctx, agent); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-
-		return
-	}
-
-	reason := failureReason(cause)
-	if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: "error", Value: &reason}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
-	}
-}
-
-func failureReason(cause error) string {
-	if cause == nil {
-		return ""
-	}
-
-	text := strings.Join(strings.Fields(cause.Error()), " ")
-	if len(text) > maxFailureReasonLen {
-		text = text[:maxFailureReasonLen]
-	}
-
-	return text
-}
-
-func (s *AgentService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
-	if s.lifecycle == nil || name == "" {
+func (s *LaunchService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
+	if s.actions == nil || name == "" {
 		return "", nil
 	}
 
-	return s.lifecycle.RunSetupAction(ctx, planned, name, pane)
+	return s.actions.RunSetupAction(ctx, planned, name, pane)
 }
 
-func (s *AgentService) setupDir(planned, named string) (string, error) {
+func (s *LaunchService) setupDir(planned, named string) (string, error) {
 	if named == "" {
 		return planned, nil
 	}
@@ -290,7 +387,7 @@ func namedDir(named string) (string, error) {
 	return dir, nil
 }
 
-func (s *AgentService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
+func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.New(db)
 
@@ -335,7 +432,7 @@ func claimRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want 
 	return requireRoomForAgents(ctx, agents, maxAgents, want)
 }
 
-func requireRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want int) error {
+func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
@@ -351,7 +448,7 @@ func requireRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, wan
 	return nil
 }
 
-func (s *AgentService) uniqueAgentName(ctx context.Context, workflowID, title, prompt string) string {
+func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID, title, prompt string) string {
 	base := agentstore.SanitizeName(strings.TrimSpace(title))
 	if base == "" {
 		base = xstr.Slug(xstr.FirstLine(prompt), 24)
@@ -368,7 +465,7 @@ func (s *AgentService) uniqueAgentName(ctx context.Context, workflowID, title, p
 	return name
 }
 
-func (s *AgentService) isNameTaken(ctx context.Context, workflowID, name string) bool {
+func (s *LaunchService) isNameTaken(ctx context.Context, workflowID, name string) bool {
 	taken, err := s.agents.ActiveNameExists(ctx, workflowID, name)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",

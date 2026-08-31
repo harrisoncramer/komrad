@@ -358,20 +358,22 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 	opened, _ := formModel(sent).editWorkflowForm(workflowstore.Workflow{ID: "w1", Name: "api"})
 	editing, ok := opened.(model)
 	require.True(t, ok)
-	require.NotNil(t, editing.values.workflow)
-	assert.True(t, editing.values.workflow.ArchiveOnPRClosed, "the form opens on what is stored")
+	require.Equal(t, formWorkflow, editing.form.kind)
 
-	editing.form.Init()
-	editing.values.workflow.Cwd = "/work/api-v2"
-
-	updated, cmd := editing.submitWorkflowForm()
+	// Submitting it untouched is what says the form opened on the stored config rather than on
+	// the thin row the key was pressed over.
+	updated, cmd := editing.answerForm()
 	submitted, ok := updated.(model)
 	require.True(t, ok)
 	require.Nil(t, settle(t, submitted, cmd).banner, "the service accepted the write")
 
 	require.NotNil(t, sent.updatedWorkflow)
-	assert.Equal(t, "/work/api-v2", sent.updatedWorkflow.GetCwd(), "the field that was edited")
-	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed(), "and the one that was not")
+	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd())
+	assert.Equal(t, "--model opus", sent.updatedWorkflow.GetFlags())
+	assert.Equal(t, "claude", sent.updatedWorkflow.GetHarness())
+	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
+	require.NotNil(t, sent.updatedWorkflow.GetWorktree())
+	assert.Equal(t, "develop", sent.updatedWorkflow.GetWorktree().GetBaseBranch())
 }
 
 // TestWorkflowRenameKeepsTheRestOfTheConfig covers the rename path, which takes the
@@ -386,13 +388,13 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 		ArchiveOnPrClosed: true,
 	}})
 
-	opened, _ := m.renameWorkflowForm(m.listing.workflows[0])
+	values := workflowFormValues{Name: "backend"}
+
+	opened, _ := m.openWorkflowRename(m.listing.workflows[0], &values)
 	renaming, ok := opened.(model)
 	require.True(t, ok)
-	renaming.form.Init()
-	renaming.values.workflow.Name = "backend"
 
-	updated, cmd := renaming.submitWorkflowForm()
+	updated, cmd := renaming.answerForm()
 	submitted, ok := updated.(model)
 	require.True(t, ok)
 	require.Nil(t, settle(t, submitted, cmd).banner, "the service accepted the write")

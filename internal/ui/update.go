@@ -48,7 +48,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.banner != nil && !m.screen.isForm() {
+	if m.banner != nil && !m.form.active() {
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
 			m.banner = nil
 
@@ -64,8 +64,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.screen.isForm() {
-		return m.routeFormMessage(msg)
+	if m.form.active() {
+		return m.form.update(m, msg)
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -106,20 +106,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.screen {
-	case screenSearch:
-		return m.updateSearch(key)
-	case screenSchedules:
-		return m.updateSchedules(key)
-	case screenArchive:
-		return m.updateArchive(key)
-	case screenReview:
-		return m.updateReview(key)
-	case screenAgents:
-		return m.updateAgents(key)
-	default:
-		return m, nil
-	}
+	return m.screen.spec().key(m, key)
 }
 
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
@@ -168,39 +155,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-func (m model) routeFormMessage(msg tea.Msg) (tea.Model, tea.Cmd) {
-	switch m.screen {
-	case screenForm:
-		return m.updateForm(msg)
-	case screenAdopt:
-		return m.updateAdopt(msg)
-	case screenRename:
-		return m.updateRename(msg)
-	case screenAgentArchive:
-		return m.updateAgentArchive(msg)
-	case screenWorkflowForm:
-		return m.updateWorkflowForm(msg)
-	case screenWorkflowArchive:
-		return m.updateWorkflowArchive(msg)
-	case screenScheduleForm:
-		return m.updateScheduleForm(msg)
-	case screenScheduleArchive:
-		return m.updateScheduleArchive(msg)
-	case screenArchiveDelete:
-		return m.updateArchiveDelete(msg)
-	case screenArchiveEmpty:
-		return m.updateArchiveEmpty(msg)
-	default:
-		return m, nil
-	}
-}
-
 // isTyping reports whether the panel's own bindings are off: a text input is up taking
 // characters, or a key prefix is waiting on the key that completes it.
 func (m model) isTyping() bool {
-	return m.isQueryOpen() || (m.screen == screenReview && m.review.takesEveryKey())
-}
+	typing := m.screen.spec().typing
 
-func (m model) isQueryOpen() bool {
-	return m.screen == screenSearch && m.search.typing
+	return typing != nil && typing(m)
 }

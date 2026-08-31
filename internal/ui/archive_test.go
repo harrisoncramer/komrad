@@ -39,6 +39,7 @@ func TestArchiveKeys(t *testing.T) {
 		cursor               int
 		key                  string
 		wantScreen           screen
+		wantForm             formKind
 		wantRestored         []string
 		wantRestoredWorkflow []string
 		wantDeleted          []string
@@ -60,7 +61,8 @@ func TestArchiveKeys(t *testing.T) {
 			name:       "delete opens the confirm prompt rather than destroying",
 			key:        "d",
 			cursor:     1,
-			wantScreen: screenArchiveDelete,
+			wantScreen: screenArchive,
+			wantForm:   formArchiveDelete,
 		},
 		{
 			name:                 "restore on an archived folder restores the workflow",
@@ -78,7 +80,8 @@ func TestArchiveKeys(t *testing.T) {
 			name:           "delete on an archived folder opens the confirm prompt",
 			archivedFolder: true,
 			key:            "d",
-			wantScreen:     screenArchiveDelete,
+			wantScreen:     screenArchive,
+			wantForm:       formArchiveDelete,
 		},
 		{
 			name:       "delete on a live folder's header asks for no write",
@@ -101,12 +104,14 @@ func TestArchiveKeys(t *testing.T) {
 			name:       "empty opens the confirm prompt rather than sweeping",
 			key:        "D",
 			cursor:     1,
-			wantScreen: screenArchiveEmpty,
+			wantScreen: screenArchive,
+			wantForm:   formArchiveEmpty,
 		},
 		{
 			name:       "empty on a header opens it too, since it is the whole archive it acts on",
 			key:        "D",
-			wantScreen: screenArchiveEmpty,
+			wantScreen: screenArchive,
+			wantForm:   formArchiveEmpty,
 		},
 		{
 			name:       "empty on an empty archive opens no prompt",
@@ -137,6 +142,7 @@ func TestArchiveKeys(t *testing.T) {
 			got := settle(t, pressed, cmd)
 
 			assert.Equal(t, tt.wantScreen, got.screen)
+			assert.Equal(t, tt.wantForm, got.form.kind, "the prompt that opened, if any")
 			assert.Equal(t, tt.wantRestored, agents.restored)
 			assert.Equal(t, tt.wantRestoredWorkflow, workflows.restored)
 			assert.Equal(t, tt.wantDeleted, agents.deleted)
@@ -291,7 +297,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 			opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
 			m, ok := opened.(model)
 			require.True(t, ok)
-			require.Equal(t, screenArchiveDelete, m.screen)
+			require.Equal(t, formArchiveDelete, m.form.kind)
 
 			answer := "n"
 			if tt.confirm {
@@ -302,7 +308,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.target.deleteAgents)
+			assert.False(t, got.form.active(), "the prompt is down")
 		})
 	}
 }
@@ -335,7 +341,7 @@ func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
 			opened, _ := m.deleteWorkflowConfirm(archivedWorkflow("w1", "backend"))
 			m, ok := opened.(model)
 			require.True(t, ok)
-			require.Equal(t, screenArchiveDelete, m.screen)
+			require.Equal(t, formArchiveDelete, m.form.kind)
 
 			answer := "n"
 			if tt.confirm {
@@ -346,7 +352,7 @@ func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, workflows.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.target.deleteWorkflow)
+			assert.False(t, got.form.active(), "the prompt is down")
 		})
 	}
 }
@@ -378,7 +384,7 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 			opened, _ := m.emptyArchiveConfirm()
 			m, ok := opened.(model)
 			require.True(t, ok)
-			require.Equal(t, screenArchiveEmpty, m.screen)
+			require.Equal(t, formArchiveEmpty, m.form.kind)
 
 			answer := "n"
 			if tt.confirm {
@@ -389,7 +395,7 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantEmptied, client.emptied)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.values.confirmed)
+			assert.False(t, got.form.active(), "the prompt is down")
 		})
 	}
 }
@@ -416,7 +422,7 @@ func answerEmptyPrompt(t *testing.T, m model, key string) model {
 
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
-		updated, cmd := m.updateArchiveEmpty(msg)
+		updated, cmd := m.form.update(m, msg)
 		next, ok := updated.(model)
 		require.True(t, ok)
 
@@ -424,7 +430,7 @@ func answerEmptyPrompt(t *testing.T, m model, key string) model {
 		if cmd == nil {
 			return m
 		}
-		if m.screen != screenArchiveEmpty {
+		if m.form.kind != formArchiveEmpty {
 			return settle(t, m, cmd)
 		}
 
@@ -441,7 +447,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
-		updated, cmd := m.updateArchiveDelete(msg)
+		updated, cmd := m.form.update(m, msg)
 		next, ok := updated.(model)
 		require.True(t, ok)
 
@@ -449,7 +455,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 		if cmd == nil {
 			return m
 		}
-		if m.screen != screenArchiveDelete {
+		if m.form.kind != formArchiveDelete {
 			return settle(t, m, cmd)
 		}
 

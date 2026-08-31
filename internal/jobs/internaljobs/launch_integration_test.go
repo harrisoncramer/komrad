@@ -99,13 +99,13 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 
 const claudeHarnessID = "claude"
 
-func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentService {
+func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchService {
 	t.Helper()
 
 	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 	require.NoError(t, err)
 
-	return agents.NewAgentService(agents.NewAgentServiceParams{
+	return agents.NewLaunchService(agents.LaunchServiceParams{
 		Tmux:               &stubTmux{},
 		Agents:             stores.Agents,
 		Workflows:          stores.Workflows,
@@ -113,7 +113,6 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.AgentServic
 		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),
 		Harnesses:          registry,
 		UserDefaultHarness: claudeHarnessID,
-		FallbackResumeRoot: t.TempDir(),
 	})
 }
 

@@ -37,7 +37,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	tests := []struct {
 		name string
 
-		open func(m model) model
+		open func(t *testing.T, m model) model
 
 		submit func(m model) (tea.Model, tea.Cmd)
 
@@ -45,19 +45,19 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	}{
 		{
 			name: "the new-agent form",
-			open: func(m model) model {
+			open: func(t *testing.T, m model) model {
 				workflow := m.listing.workflows[0]
-				m.target.newAgentWorkflow = &workflow
-				m.screen = screenForm
-				prefill := agentFormValues{Harness: workflow.Harness, Dir: workflow.Cwd, Flags: workflow.Flags, SetupAction: inheritAction, CleanupAction: inheritAction}
-				m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, nil)
-				m.values.agent.Prompt = "check CI"
-				m.values.agent.Title = "ci"
-				m.values.agent.Harness = "codex"
 
-				return m
+				values := agentPrefill(workflow)
+				values.Prompt = "check CI"
+				values.Title = "ci"
+				values.Harness = "codex"
+
+				opened, _ := m.openAgentForm(workflow, &values)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAgent() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.createdAgent)
 				assert.Equal(t, "check CI", sent.createdAgent.GetPrompt())
@@ -72,16 +72,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the rename form",
-			open: func(m model) model {
-				m.target.renameAgent = agentstore.Agent{ID: "a1", Name: "api-refactor"}
-				m.screen = screenRename
-				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
-				*m.values.rename = "api-v2"
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) model {
+				name := "api-v2"
 
-				return m
+				opened, _ := m.openRenameForm(agentstore.Agent{ID: "a1", Name: "api-refactor"}, &name)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateRename(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.renamedAgent)
 				assert.Equal(t, "a1", sent.renamedAgent.GetId())
@@ -90,23 +88,22 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form",
-			open: func(m model) model {
-				m.screen = screenWorkflowForm
-				m.form, m.values.workflow, _ = workflowConfigForm("New workflow name", workflowFormValues{}, []actionChoice{
-					{name: "make-worktree"},
-					{name: "drop-worktree"},
-				}, m.keys.Form)
-				m.values.workflow.Name = "web"
-				m.values.workflow.Context = "the frontend"
-				m.values.workflow.Cwd = "/work/web"
-				m.values.workflow.Flags = "--model sonnet"
-				m.values.workflow.SetupType = setupTypeCustom
-				m.values.workflow.SetupAction = "make-worktree"
-				m.values.workflow.CleanupAction = "drop-worktree"
+			open: func(t *testing.T, m model) model {
+				values := workflowFormValues{
+					Name:          "web",
+					Context:       "the frontend",
+					Cwd:           "/work/web",
+					Flags:         "--model sonnet",
+					SetupType:     setupTypeCustom,
+					SetupAction:   "make-worktree",
+					CleanupAction: "drop-worktree",
+				}
 
-				return m
+				opened, _ := m.openWorkflowConfigForm(&values, nil)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.createdWorkflow)
 				assert.Equal(t, "web", sent.createdWorkflow.GetName())
@@ -119,20 +116,22 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the new-workflow form with worktree enabled",
-			open: func(m model) model {
-				m.screen = screenWorkflowForm
-				m.form, m.values.workflow, _ = workflowConfigForm("New workflow name", workflowFormValues{}, nil, m.keys.Form)
-				m.values.workflow.Name = "web"
-				m.values.workflow.Cwd = "/work/web"
-				m.values.workflow.WorktreeBaseBranch = "develop"
-				m.values.workflow.WorktreeCopyPaths = ".env\n\nconfig/local.json\n"
-				m.values.workflow.WorktreeSymlinkPaths = "node_modules"
-				m.values.workflow.WorktreeDiffExclude = "proto/gen\n*.pb.go"
-				m.values.workflow.ArchiveOnPRClosed = true
+			open: func(t *testing.T, m model) model {
+				values := workflowFormValues{
+					Name:                 "web",
+					Cwd:                  "/work/web",
+					WorktreeBaseBranch:   "develop",
+					WorktreeCopyPaths:    ".env\n\nconfig/local.json\n",
+					WorktreeSymlinkPaths: "node_modules",
+					WorktreeDiffExclude:  "proto/gen\n*.pb.go",
+					ArchiveOnPRClosed:    true,
+				}
 
-				return m
+				opened, _ := m.openWorkflowConfigForm(&values, nil)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.createdWorkflow)
 				worktree := sent.createdWorkflow.GetWorktree()
@@ -147,22 +146,23 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the workflow edit form",
-			open: func(m model) model {
+			open: func(t *testing.T, m model) model {
 				target := m.listing.workflows[0]
-				m.target.editWorkflow = &target
-				m.screen = screenWorkflowForm
-				m.form, m.values.workflow, _ = workflowConfigForm("Workflow name", workflowFormValuesFrom(workflowstore.Config{
+
+				values := workflowFormValuesFrom(workflowstore.Config{
 					Name:        target.Name,
 					Context:     "shared notes",
 					Cwd:         target.Cwd,
 					Flags:       target.Flags,
 					SetupAction: "make-worktree",
-				}), []actionChoice{{name: "make-worktree"}}, m.keys.Form)
-				m.values.workflow.Cwd = "/work/api-v2"
+				})
+				values.Cwd = "/work/api-v2"
 
-				return m
+				opened, _ := m.openWorkflowConfigForm(&values, &target)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.updatedWorkflow)
 				assert.Equal(t, "w1", sent.updatedWorkflow.GetId())
@@ -175,16 +175,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the workflow rename form",
-			open: func(m model) model {
-				target := m.listing.workflows[0]
-				m.target.renameWorkflow = &target
-				m.screen = screenWorkflowForm
-				m.form, m.values.workflow = workflowForm("Rename \"api\" to", workflowFormValues{}, m.keys.Form)
-				m.values.workflow.Name = "backend"
+			open: func(t *testing.T, m model) model {
+				values := workflowFormValues{Name: "backend"}
 
-				return m
+				opened, _ := m.openWorkflowRename(m.listing.workflows[0], &values)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.updatedWorkflow)
 				assert.Equal(t, "backend", sent.updatedWorkflow.GetName())
@@ -193,20 +191,21 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the new-schedule form",
-			open: func(m model) model {
-				m.screen = screenScheduleForm
-				m.form, m.values.schedule = scheduleForm(schedulestore.Config{
+			open: func(t *testing.T, m model) model {
+				values := schedulestore.Config{
 					Enabled:    true,
 					WorkflowID: m.listing.workflows[0].ID,
-				}, m.listing.workflows, m.keys.Form)
-				m.values.schedule.Name = "sweeper"
-				m.values.schedule.Cron = "*/5 * * * *"
-				m.values.schedule.Prompt = "sweep"
-				m.values.schedule.HideAgents = true
+					Name:       "sweeper",
+					Cron:       "*/5 * * * *",
+					Prompt:     "sweep",
+					HideAgents: true,
+				}
 
-				return m
+				opened, _ := m.openScheduleForm(&values, nil)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitScheduleForm() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.createdSchedule)
 				assert.Equal(t, "sweeper", sent.createdSchedule.GetName())
@@ -218,18 +217,20 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the schedule edit form",
-			open: func(m model) model {
-				m.target.editSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
-				m.screen = screenScheduleForm
-				m.form, m.values.schedule = scheduleForm(schedulestore.Config{
-					Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
+			open: func(t *testing.T, m model) model {
+				target := schedulestore.Schedule{
+					ID: "s1", Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
 					Enabled: true, HideAgents: true, WorkflowID: "w1",
-				}, m.listing.workflows, m.keys.Form)
-				m.values.schedule.Prompt = "sweep harder"
+				}
 
-				return m
+				values := schedulePrefill(target)
+				values.Prompt = "sweep harder"
+
+				opened, _ := m.openScheduleForm(&values, &target)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitScheduleForm() },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.updatedSchedule)
 				assert.Equal(t, "s1", sent.updatedSchedule.GetId())
@@ -239,17 +240,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the workflow archive prompt",
-			open: func(m model) model {
-				target := m.listing.workflows[0]
-				m.target.archiveWorkflow = &target
-				m.screen = screenWorkflowArchive
-				m.form, m.values.confirmed = archiveWorkflowForm(target.Name, m.keys.Form)
-				*m.values.confirmed = true
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) model {
+				opened, _ := m.archiveWorkflowConfirm(m.listing.workflows[0])
 
-				return m
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateWorkflowArchive(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedWorkflow)
 				assert.Equal(t, "w1", sent.archivedWorkflow.GetId())
@@ -257,16 +253,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the agent archive prompt",
-			open: func(m model) model {
-				m.target.archiveAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.screen = screenAgentArchive
-				m.form, m.values.archive = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
-				*m.values.archive = archiveChoiceArchive
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) model {
+				opened, _ := m.archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
 
-				return m
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateAgentArchive(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedAgents)
 				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
@@ -275,16 +267,16 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the agent archive prompt answered archive and delete",
-			open: func(m model) model {
-				m.target.archiveAgents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.screen = screenAgentArchive
-				m.form, m.values.archive = archiveAgentsForm(m.target.archiveAgents, m.keys.Form)
-				*m.values.archive = archiveChoiceArchiveDelete
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) model {
+				opened, _ := m.archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
+				m = asModel(t, opened)
+
+				// The prompt opens on Archive, so the second answer is one step down the list.
+				pump(t, m.form.form, keyMsg("down"))
 
 				return m
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateAgentArchive(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedAgents)
 				assert.Equal(t, []string{"a1"}, sent.archivedAgents.GetIds())
@@ -294,16 +286,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the schedule delete prompt",
-			open: func(m model) model {
-				m.target.archiveSchedule = &schedulestore.Schedule{ID: "s1", Name: "sweeper"}
-				m.screen = screenScheduleArchive
-				m.form, m.values.confirmed = archiveScheduleForm("sweeper", m.keys.Form)
-				*m.values.confirmed = true
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) model {
+				m.schedules.items = []scheduleItem{{schedule: schedulestore.Schedule{ID: "s1", Name: "sweeper"}}}
 
-				return m
+				opened, _ := m.archiveScheduleConfirm()
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateScheduleArchive(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.archivedSchedule)
 				assert.Equal(t, "s1", sent.archivedSchedule.GetId())
@@ -311,17 +301,14 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the archive delete prompt",
-			open: func(m model) model {
+			open: func(t *testing.T, m model) model {
 				m.archive.agents = []agentstore.Agent{{ID: "a1", Name: "api-refactor"}}
-				m.target.deleteAgents = m.archive.agents
-				m.screen = screenArchiveDelete
-				m.form, m.values.confirmed = deleteAgentsForm(m.archive.agents, m.keys.Form)
-				*m.values.confirmed = true
-				m.form.State = huh.StateCompleted
 
-				return m
+				opened, _ := m.deleteFromArchiveConfirm(m.archive.agents)
+
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateArchiveDelete(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.deletedAgents)
 				assert.Equal(t, []string{"a1"}, sent.deletedAgents.GetIds())
@@ -329,17 +316,12 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 		},
 		{
 			name: "the workflow delete prompt",
-			open: func(m model) model {
-				workflow := archivedWorkflow("w1", "backend")
-				m.target.deleteWorkflow = &workflow
-				m.screen = screenArchiveDelete
-				m.form, m.values.confirmed = deleteWorkflowForm(workflow, 0, m.keys.Form)
-				*m.values.confirmed = true
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) model {
+				opened, _ := m.deleteWorkflowConfirm(archivedWorkflow("w1", "backend"))
 
-				return m
+				return asModel(t, opened)
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateArchiveDelete(keyMsg("enter")) },
+			submit: model.answerForm,
 			check: func(t *testing.T, sent *formRecorder) {
 				require.NotNil(t, sent.deletedWorkflow)
 				assert.Equal(t, "w1", sent.deletedWorkflow.GetId())
@@ -350,8 +332,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
-			m := tt.open(formModel(sent))
-			m.form.Init()
+			m := tt.open(t, formModel(sent))
 
 			updated, cmd := tt.submit(m)
 			submitted, ok := updated.(model)
@@ -360,7 +341,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			got := settle(t, submitted, cmd)
 
 			require.Nil(t, got.banner, "the service accepted the write")
-			assert.False(t, got.screen.isForm(), "a write the service took closes the form")
+			assert.False(t, got.form.active(), "a write the service took closes the form")
 			tt.check(t, sent)
 		})
 	}
@@ -408,12 +389,17 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 			m.listing.workflows[0].CleanupAction = "drop-worktree"
 			workflow := m.listing.workflows[0]
 
-			opened, _ := m.openNewAgent(&workflow)
-			m = asModel(t, opened)
-			m.values.agent.SetupAction = tt.setupAction
-			m.values.agent.CleanupAction = tt.cleanupAction
+			values := agentPrefill(workflow)
 
-			updated, cmd := m.submitAgent()
+			opened, _ := m.openAgentForm(workflow, &values)
+			m = asModel(t, opened)
+
+			// Chosen after the form is up, since huh clamps a select to the options it was given
+			// and the actions this panel lists are not among them.
+			values.SetupAction = tt.setupAction
+			values.CleanupAction = tt.cleanupAction
+
+			updated, cmd := m.answerForm()
 			submitted, ok := updated.(model)
 			require.True(t, ok)
 			settle(t, submitted, cmd)
@@ -430,8 +416,8 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
 
-	agentForm, _ := newAgentForm(config.DefaultKeybindings().Form,
-		agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
+	agentForm := newAgentForm(config.DefaultKeybindings().Form,
+		&agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
 		available,
 	)
 	agentForm.Init()
@@ -439,7 +425,7 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	assert.Contains(t, agentView, "> Same as workflow", "the setup field opens with what it inherits marked as picked")
 	assert.Contains(t, agentView, "> Same as workflow", "the cleanup field opens with what it inherits marked as picked")
 
-	workflowForm, _, _ := workflowConfigForm("Workflow name", workflowFormValues{
+	workflowForm, _ := workflowConfigForm("Workflow name", &workflowFormValues{
 		SetupType:     setupTypeCustom,
 		SetupAction:   "make-worktree",
 		CleanupAction: "drop-worktree",
@@ -456,80 +442,77 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	tests := []struct {
 		name string
 
-		open   func(t *testing.T, m model) model
+		open   func(t *testing.T, m model) (model, func() string)
 		submit func(m model) (tea.Model, tea.Cmd)
-		screen screen
+		form   formKind
 
 		typed string
-		held  func(m model) string
 	}{
 		{
 			name: "the new-agent form, with no setup action to run",
-			open: func(t *testing.T, m model) model {
+			open: func(t *testing.T, m model) (model, func() string) {
 				workflow := m.listing.workflows[0]
-				opened, _ := m.openNewAgent(&workflow)
-				m = asModel(t, opened)
-				m.values.agent.Prompt = "check CI"
 
-				return m
+				values := agentPrefill(workflow)
+				values.Prompt = "check CI"
+
+				opened, _ := m.openAgentForm(workflow, &values)
+
+				return asModel(t, opened), func() string { return values.Prompt }
 			},
 			submit: func(m model) (tea.Model, tea.Cmd) { return m.updateForm(keyMsg("ctrl+s")) },
-			screen: screenForm,
+			form:   formAgent,
 			typed:  "check CI",
-			held:   func(m model) string { return m.values.agent.Prompt },
 		},
 		{
 			name: "the rename form",
-			open: func(t *testing.T, m model) model {
-				m.target.renameAgent = agentstore.Agent{ID: "a1", Name: "api-refactor"}
-				m.screen = screenRename
-				m.form, m.values.rename = renameForm("api-refactor", "", m.keys.Form)
-				*m.values.rename = "api-v2"
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) (model, func() string) {
+				name := "api-v2"
 
-				return m
+				opened, _ := m.openRenameForm(agentstore.Agent{ID: "a1", Name: "api-refactor"}, &name)
+				m = asModel(t, opened)
+				m.form.form.State = huh.StateCompleted
+
+				return m, func() string { return name }
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename() },
-			screen: screenRename,
+			submit: model.answerForm,
+			form:   formRename,
 			typed:  "api-v2",
-			held:   func(m model) string { return *m.values.rename },
 		},
 		{
 			name: "the new-workflow form",
-			open: func(t *testing.T, m model) model {
-				opened, _ := m.newWorkflowForm()
-				m = asModel(t, opened)
-				m.values.workflow.Name = "web"
-				m.form.State = huh.StateCompleted
+			open: func(t *testing.T, m model) (model, func() string) {
+				values := workflowFormValues{Name: "web"}
 
-				return m
+				opened, _ := m.openWorkflowConfigForm(&values, nil)
+				m = asModel(t, opened)
+				m.form.form.State = huh.StateCompleted
+
+				return m, func() string { return values.Name }
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
-			screen: screenWorkflowForm,
+			submit: model.answerForm,
+			form:   formWorkflow,
 			typed:  "web",
-			held:   func(m model) string { return m.values.workflow.Name },
 		},
 		{
 			name: "the new-schedule form",
-			open: func(t *testing.T, m model) model {
-				opened, _ := m.newScheduleForm()
-				m = asModel(t, opened)
-				m.values.schedule.Cron = "*/5 * * * *"
+			open: func(t *testing.T, m model) (model, func() string) {
+				values := schedulestore.Config{Enabled: true, WorkflowID: "w1", Cron: "*/5 * * * *"}
 
-				return m
+				opened, _ := m.openScheduleForm(&values, nil)
+
+				return asModel(t, opened), func() string { return values.Cron }
 			},
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitScheduleForm() },
-			screen: screenScheduleForm,
+			submit: model.answerForm,
+			form:   formSchedule,
 			typed:  "*/5 * * * *",
-			held:   func(m model) string { return m.values.schedule.Cron },
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{refuse: connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed"))}
-			m := tt.open(t, formModel(sent))
-			m.form.Init()
+			m, held := tt.open(t, formModel(sent))
 
 			updated, cmd := tt.submit(m)
 			got := settle(t, asModel(t, updated), cmd)
@@ -537,10 +520,10 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			require.NotNil(t, got.banner, "a refused write is reported")
 			assert.Equal(t, "not allowed", got.banner.Detail)
 			assert.Equal(t, "fix and submit again", got.banner.Hint, "esc backs out of the form rather than clearing the banner")
-			assert.Equal(t, tt.screen, got.screen, "the form still owns the screen")
-			assert.Equal(t, tt.typed, tt.held(got), "and still holds what was filled in")
-			assert.NotEqual(t, huh.StateCompleted, got.form.State, "a completed form draws as nothing, so the form is built back")
-			assert.NotEmpty(t, got.form.View())
+			assert.Equal(t, tt.form, got.form.kind, "the form is still up and owns the keys")
+			assert.Equal(t, tt.typed, held(), "and still holds what was filled in")
+			assert.NotEqual(t, huh.StateCompleted, got.form.form.State, "a completed form draws as nothing, so the form is built back")
+			assert.NotEmpty(t, got.form.form.View())
 			assert.False(t, got.pendingForm, "and takes keys again, since the write it was waiting on has landed")
 		})
 	}
@@ -579,14 +562,18 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			m.listing.workflows[0].SetupAction = "make-worktree"
 
 			workflow := m.listing.workflows[0]
-			opened, _ := m.openNewAgent(&workflow)
-			m = asModel(t, opened)
-			m.values.agent.Prompt = "check CI"
 
-			updated, cmd := m.submitAgent()
+			values := agentPrefill(workflow)
+			values.Prompt = "check CI"
+
+			opened, _ := m.openAgentForm(workflow, &values)
+			m = asModel(t, opened)
+
+			updated, cmd := m.answerForm()
 			m = asModel(t, updated)
 
-			assert.Equal(t, screenAgents, m.screen, "the form is gone the moment it was submitted")
+			assert.False(t, m.form.active(), "the form is gone the moment it was submitted")
+			assert.Equal(t, screenAgents, m.screen, "and the list it was drawn over is back")
 			assert.False(t, m.pendingForm)
 			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the setup action to stream into")
 			assert.Equal(t, "%2", recorder.infoPane)
@@ -621,45 +608,46 @@ func TestSetupTypeRebuildsTheForm(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
 
-	form, values, toggleIndex := m.workflowFormFor(workflowFormValues{})
-	m.form = form
-	m.values.workflow = values
-	m.screen = screenWorkflowForm
-	m.form.Init()
+	values := workflowFormValues{}
+
+	opened, _ := m.openWorkflowConfigForm(&values, nil)
+	m = asModel(t, opened)
+
+	_, toggleIndex := workflowConfigForm("New workflow name", &values, nil, m.keys.Form)
 	for range toggleIndex {
-		m.form.NextField()
+		m.form.form.NextField()
 	}
 
-	worktreeView := m.form.View()
-	assert.Equal(t, setupTypeWorktree, m.values.workflow.SetupType, "worktree is the default")
+	worktreeView := m.form.form.View()
+	assert.Equal(t, setupTypeWorktree, values.SetupType, "worktree is the default")
 	assert.Contains(t, worktreeView, "Worktree base branch", "worktree is the default, so its fields are already on screen")
 	assert.Contains(t, worktreeView, "Worktree copy paths")
 	assert.Contains(t, worktreeView, "Worktree symlink paths")
 	assert.NotContains(t, worktreeView, "Setup action")
 
-	m.values.workflow.WorktreeCopyPaths = ".env"
+	values.WorktreeCopyPaths = ".env"
 
-	updated, _ := m.updateWorkflowForm(keyMsg("down"))
+	updated, _ := m.form.update(m, keyMsg("down"))
 	m = asModel(t, updated)
 
-	require.Equal(t, setupTypeCustom, m.values.workflow.SetupType, "the keypress switched it")
-	customView := m.form.View()
+	require.Equal(t, setupTypeCustom, values.SetupType, "the keypress switched it")
+	customView := m.form.form.View()
 	assert.NotContains(t, customView, "Worktree base branch", "switching to custom removes the worktree fields, not blanks them")
 	assert.Contains(t, customView, "Setup action", "and adds the action pickers instead")
 	assert.Contains(t, customView, "Cleanup action")
 
-	updated, _ = m.updateWorkflowForm(keyMsg("up"))
+	updated, _ = m.form.update(m, keyMsg("up"))
 	m = asModel(t, updated)
 
-	assert.Equal(t, setupTypeWorktree, m.values.workflow.SetupType)
-	assert.Equal(t, ".env", m.values.workflow.WorktreeCopyPaths, "switching back hands back what was typed before")
-	assert.Contains(t, m.form.View(), "Worktree copy paths")
+	assert.Equal(t, setupTypeWorktree, values.SetupType)
+	assert.Equal(t, ".env", values.WorktreeCopyPaths, "switching back hands back what was typed before")
+	assert.Contains(t, m.form.form.View(), "Worktree copy paths")
 }
 
 // TestSetupTypeSelectShowsBothOptionsOnOpen covers a select opening on the non-default answer,
 // since huh scrolls to the bound value's index once it has both an accessor and options.
 func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
-	form, _, toggleIndex := workflowConfigForm("Workflow name", workflowFormValues{SetupType: setupTypeCustom}, nil, config.DefaultKeybindings().Form)
+	form, toggleIndex := workflowConfigForm("Workflow name", &workflowFormValues{SetupType: setupTypeCustom}, nil, config.DefaultKeybindings().Form)
 	form.Init()
 	for range toggleIndex {
 		form.NextField()
@@ -750,10 +738,12 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 
 	opened, _ := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
 	m := asModel(t, opened)
-	*m.values.archive = archiveChoiceArchiveDelete
-	m.form.State = huh.StateCompleted
 
-	submitted, cmd := m.updateAgentArchive(keyMsg("enter"))
+	// The prompt opens on Archive, so archive-and-delete is one step down the list.
+	pump(t, m.form.form, keyMsg("down"))
+	m.form.form.State = huh.StateCompleted
+
+	submitted, cmd := m.form.update(m, keyMsg("enter"))
 	got := settle(t, asModel(t, submitted), cmd)
 
 	require.NotNil(t, got.banner, "the refusal is reported")
@@ -768,10 +758,9 @@ func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 
 	opened, _ := formModel(sent).archiveAgentsConfirm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}})
 	m := asModel(t, opened)
-	*m.values.archive = archiveChoiceArchive
-	m.form.State = huh.StateCompleted
+	m.form.form.State = huh.StateCompleted
 
-	submitted, cmd := m.updateAgentArchive(keyMsg("enter"))
+	submitted, cmd := m.form.update(m, keyMsg("enter"))
 	got := asModel(t, submitted)
 
 	assert.Greater(t, got.pending, 0, "the in-flight write is tracked on the model that comes back")
@@ -806,59 +795,20 @@ func asModel(t *testing.T, updated tea.Model) model {
 	return m
 }
 
-// TestFormsSubmitNothingWithoutValues covers a submit reaching a panel with no bound values,
-// since every submit path is a method anything could call.
-func TestFormsSubmitNothingWithoutValues(t *testing.T) {
-	tests := []struct {
-		name   string
-		submit func(m model) (tea.Model, tea.Cmd)
-	}{
-		{
-			name:   "the new-agent form",
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAgent() },
-		},
-		{
-			name:   "the workflow form",
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitWorkflowForm() },
-		},
-		{
-			name:   "the schedule form",
-			submit: func(m model) (tea.Model, tea.Cmd) { return m.submitScheduleForm() },
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sent := &formRecorder{}
-
-			m := formModel(sent)
-			updated, cmd := tt.submit(m)
-			submitted, ok := updated.(model)
-			require.True(t, ok)
-			settle(t, submitted, cmd)
-
-			assert.Nil(t, sent.createdAgent)
-			assert.Nil(t, sent.createdWorkflow)
-			assert.Nil(t, sent.updatedWorkflow)
-			assert.Nil(t, sent.createdSchedule)
-			assert.Nil(t, sent.updatedSchedule)
-		})
-	}
-}
-
 // TestFormResultsAreNotWhatIsSubmitted pins why every form binds its values, since a field
 // only reaches huh's own results as the cursor leaves it.
 func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
-	form, values := scheduleForm(schedulestore.Config{
+	values := schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
 		Enabled: true, HideAgents: true,
-	}, nil, config.DefaultKeybindings().Form)
+	}
+
+	form := scheduleForm(&values, nil, config.DefaultKeybindings().Form)
 	form.Init()
 
 	assert.Empty(t, form.GetString("name"), "huh has recorded nothing the cursor has not left")
 	assert.False(t, form.GetBool("hide_agents"))
 
-	require.NotNil(t, values)
 	assert.Equal(t, "sweeper", values.Name, "the bound values are what a submit reads")
 	assert.True(t, values.HideAgents)
 }
@@ -1059,7 +1009,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
-	agent, _ := newAgentForm(keys, agentFormValues{}, nil)
+	agent := newAgentForm(keys, &agentFormValues{}, nil)
 	agent.Init()
 	for range 6 {
 		agent.Update(huh.NextField())
@@ -1068,7 +1018,7 @@ func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	pump(t, agent, keyMsg("enter"))
 	assert.NotEqual(t, huh.StateCompleted, agent.State, "enter on the last field leaves the form alone")
 
-	rename, _ := renameForm("api-refactor", "", keys)
+	rename := renameForm("api-refactor", new(string), keys)
 	rename.Init()
 
 	pump(t, rename, keyMsg("enter"))
@@ -1085,17 +1035,20 @@ func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 
 	m := formModel(sent)
 	workflow := m.listing.workflows[0]
-	opened, _ := m.openNewAgent(&workflow)
+
+	values := agentPrefill(workflow)
+	values.Prompt = "check CI"
+
+	opened, _ := m.openAgentForm(workflow, &values)
 	m = asModel(t, opened)
-	m.values.agent.Prompt = "check CI"
 	m.pendingForm = true
 
 	updated, cmd := m.Update(keyMsg("ctrl+s"))
 	got := settle(t, asModel(t, updated), cmd)
 
 	assert.Nil(t, sent.createdAgent, "the key never reached the submit path")
-	assert.Equal(t, screenForm, got.screen)
-	assert.Equal(t, "check CI", got.values.agent.Prompt, "and the form is as it was")
+	assert.Equal(t, formAgent, got.form.kind, "the form is still up")
+	assert.Equal(t, "check CI", values.Prompt, "and the form is as it was")
 }
 
 func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
@@ -1115,16 +1068,18 @@ func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	m := formModel(sent)
 	workflow := m.listing.workflows[0]
 
-	opened, _ := m.openAdopt(&workflow)
+	values := adoptPrefill(workflow)
+	assert.Equal(t, "claude", values.Harness, "the workflow's harness and flags are prefilled")
+	assert.Equal(t, "--model opus", values.Flags)
+
+	values.Ref = "https://github.com/chariot-giving/admin/pull/1069"
+	values.Prompt = "pick it up"
+
+	opened, _ := m.openAdoptForm(workflow, &values)
 	adopting := asModel(t, opened)
-	require.Equal(t, screenAdopt, adopting.screen)
-	assert.Equal(t, "claude", adopting.values.adopt.Harness, "the workflow's harness and flags are prefilled")
-	assert.Equal(t, "--model opus", adopting.values.adopt.Flags)
+	require.Equal(t, formAdopt, adopting.form.kind)
 
-	adopting.values.adopt.Ref = "https://github.com/chariot-giving/admin/pull/1069"
-	adopting.values.adopt.Prompt = "pick it up"
-
-	updated, cmd := adopting.submitAdopt()
+	updated, cmd := adopting.answerForm()
 	submitted, ok := updated.(model)
 	require.True(t, ok)
 	settle(t, submitted, cmd)
@@ -1140,16 +1095,21 @@ func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 // goes into a workflow, so the row it answers on is the workflow rather than an agent
 // already inside it.
 func TestAdoptKeyOpensTheForm(t *testing.T) {
+	sent := &formRecorder{}
 	m := infoModel(&recordingTmux{})
-	m.api = api{agents: &formRecorder{}}
+	m.api = api{agents: sent}
 	m.tree.cursor = 0
 
 	entered, _ := m.updateAgents(keyMsg("a"))
 	opened := asModel(t, entered)
 
-	require.Equal(t, screenAdopt, opened.screen)
-	require.NotNil(t, opened.values.adopt)
-	assert.Equal(t, "w1", opened.target.newAgentWorkflow.ID, "it adopts into the workflow under the cursor")
+	require.Equal(t, formAdopt, opened.form.kind)
+
+	submitted, cmd := opened.answerForm()
+	settle(t, asModel(t, submitted), cmd)
+
+	require.NotNil(t, sent.adoptedAgent)
+	assert.Equal(t, "w1", sent.adoptedAgent.GetWorkflowId(), "it adopts into the workflow under the cursor")
 }
 
 // TestAdoptKeyDoesNothingOnAnAgentRow covers the other half of that: the key is the

@@ -27,7 +27,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 
 	ui := seedInWorkflow(t, st, frontend, "ui", "", agentstore.StateIdle)
 
-	require.NoError(t, manager.ArchiveAgents(ctx, []string{auth.ID, api.ID, ui.ID}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{auth.ID, api.ID, ui.ID}))
 
 	for _, agent := range []agentstore.Agent{auth, api, ui} {
 		assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt, "%s is archived", agent.Name)
@@ -56,7 +56,7 @@ func TestArchiveUnchangedAgents(t *testing.T) {
 
 	require.NoError(t, st.Agents.SetStateByID(ctx, moved.ID, agentstore.StateThinking))
 
-	archived, err := manager.ArchiveUnchangedAgents(ctx, observed)
+	archived, err := manager.lifecycle.ArchiveUnchangedAgents(ctx, observed)
 	require.NoError(t, err)
 
 	require.Len(t, archived, 1)
@@ -94,7 +94,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 			auth := seedRunning(t, st, tmux, "auth", "%1", agentstore.StateThinking)
 			api := seedRunning(t, st, tmux, "api", "%2", agentstore.StateThinking)
 
-			err := manager.ArchiveAgents(ctx, []string{auth.ID, tt.stray, api.ID})
+			err := manager.lifecycle.ArchiveAgents(ctx, []string{auth.ID, tt.stray, api.ID})
 
 			require.ErrorIs(t, err, ErrAgentNotFound)
 			assert.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
@@ -122,12 +122,12 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
 	require.NoError(t, err)
 
-	auth, err := manager.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: backend.ID})
+	auth, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: backend.ID})
 	require.NoError(t, err)
-	ui, err := manager.NewAgent(ctx, NewAgentParams{Title: "ui", Dir: t.TempDir(), WorkflowID: frontend.ID})
+	ui, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "ui", Dir: t.TempDir(), WorkflowID: frontend.ID})
 	require.NoError(t, err)
 
-	require.NoError(t, manager.DeleteAgents(ctx, []string{auth.ID, ui.ID}))
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, ui.ID}))
 
 	assert.ElementsMatch(t, []string{"drop-worktree", "drop-container"}, lifecycle.cleanup,
 		"which agent goes first is the listing's order rather than the caller's")
@@ -154,7 +154,7 @@ func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 		}))
 	}
 
-	require.NoError(t, manager.DeleteAgents(ctx, []string{auth.ID, api.ID}))
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, api.ID}))
 
 	for _, agent := range []agentstore.Agent{auth, api} {
 		stored, err := st.GetTranscript(ctx, agent.ID)
@@ -175,10 +175,10 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
 	require.NoError(t, err)
 
-	agent, err := manager.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: created.ID})
+	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: created.ID})
 	require.NoError(t, err)
 
-	err = manager.DeleteAgents(ctx, []string{agent.ID, uuid.NewString()})
+	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, uuid.NewString()})
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
 	assert.Empty(t, lifecycle.cleanup, "no workspace was torn down")
@@ -209,7 +209,7 @@ func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, backend.ID))
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, frontend.ID))
 
-	restored, err := manager.RestoreAgents(ctx, []string{auth.ID, ui.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{auth.ID, ui.ID})
 	require.NoError(t, err)
 	require.Len(t, restored, 2)
 
@@ -232,7 +232,7 @@ func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 	archived := seed(t, st, "auth", "", agentstore.StateIdle)
 	require.NoError(t, st.SoftDelete(ctx, "auth"))
 
-	_, err := manager.RestoreAgents(ctx, []string{archived.ID, uuid.NewString()})
+	_, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID, uuid.NewString()})
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
 	assert.NotNil(t, agentByID(t, st, archived.ID).ArchivedAt, "the agent stays in the archive")
@@ -257,14 +257,14 @@ func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 
 	seedInWorkflow(t, st, workflowID, "live", "%1", agentstore.StateThinking)
 
-	_, err := manager.RestoreAgents(ctx, archived)
+	_, err := manager.lifecycle.RestoreAgents(ctx, archived)
 	require.ErrorIs(t, err, ErrTooManyAgents, "three back into a panel of three holding one is refused")
 
 	for _, id := range archived {
 		assert.NotNil(t, agentByID(t, st, id).ArchivedAt, "the refused batch stays in the archive whole")
 	}
 
-	restored, err := manager.RestoreAgents(ctx, archived[:2])
+	restored, err := manager.lifecycle.RestoreAgents(ctx, archived[:2])
 	require.NoError(t, err, "what does fit comes back")
 	assert.Len(t, restored, 2)
 }
@@ -312,7 +312,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 				seedInWorkflow(t, st, workflowID, "auth", "%1", agentstore.StateThinking)
 			}
 
-			_, err := manager.RestoreAgents(ctx, batch)
+			_, err := manager.lifecycle.RestoreAgents(ctx, batch)
 
 			require.ErrorIs(t, err, store.ErrNameTaken)
 			assert.ErrorContains(t, err, "auth", "the refusal names what is in the way")
@@ -336,7 +336,7 @@ func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 
 	require.NoError(t, archiveErr)
 
-	restored, err := manager.RestoreAgents(ctx, []string{first.ID, second.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{first.ID, second.ID})
 	require.NoError(t, err)
 	assert.Len(t, restored, 2)
 
@@ -357,7 +357,7 @@ func TestRestoreAgentsPassesOverTheLiveOnes(t *testing.T) {
 	archived := seedInWorkflow(t, st, workflowID, "archived", "", agentstore.StateIdle)
 	require.NoError(t, st.SoftDelete(ctx, "archived"))
 
-	restored, err := manager.RestoreAgents(ctx, []string{live.ID, archived.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{live.ID, archived.ID})
 	require.NoError(t, err)
 	require.Len(t, restored, 2)
 
@@ -376,7 +376,7 @@ func TestRestoreAgentsWithNothingArchived(t *testing.T) {
 	first := seedInWorkflow(t, st, workflowID, "auth", "%1", agentstore.StateThinking)
 	second := seedInWorkflow(t, st, workflowID, "api", "%2", agentstore.StateThinking)
 
-	restored, err := manager.RestoreAgents(ctx, []string{first.ID, second.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{first.ID, second.ID})
 	require.NoError(t, err)
 	assert.Len(t, restored, 2)
 }
@@ -401,7 +401,7 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 		ids = append(ids, uuid.NewString())
 	}
 
-	err := manager.ArchiveAgents(t.Context(), ids)
+	err := manager.lifecycle.ArchiveAgents(t.Context(), ids)
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
 	assert.ErrorContains(t, err, ids[0], "the first few are named")
