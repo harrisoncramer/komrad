@@ -414,7 +414,7 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 type testAgentStore interface {
 	launchAgentStore
 	resumeAgentStore
-	adoptAgentStore
+	adoptionAgentStore
 	lifecycleAgentStore
 }
 

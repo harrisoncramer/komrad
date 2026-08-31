@@ -43,7 +43,7 @@ var table = []mapping{
 	{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
-	{agents.ErrSessionDirInUse, connect.CodeFailedPrecondition},
+	{agents.ErrAdoptDirInUse, connect.CodeFailedPrecondition},
 	{agents.ErrSessionIsWeaves, connect.CodeFailedPrecondition},
 	{agents.ErrSessionDirGone, connect.CodeFailedPrecondition},
 

@@ -10,7 +10,6 @@ import (
 	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	"weave/lib/xptr"
 	"weave/lib/xstr"
 )
 
@@ -18,17 +17,7 @@ var ErrSessionNotFound = errors.New("no conversation on disk holds that session 
 
 var ErrSessionIsWeaves = errors.New("that conversation is one of this panel's own agents")
 
-var ErrSessionDirInUse = errors.New("the directory that conversation was held in belongs to another agent")
-
 var ErrSessionDirGone = errors.New("the directory that conversation was held in is gone")
-
-// adoptSessionAgentStore is the slice of the agent store adopting a conversation reads, which is
-// every agent the panel holds, since the question is which of them already has the conversation
-// or the directory it was held in.
-type adoptSessionAgentStore interface {
-	List(ctx context.Context) ([]agentstore.Agent, error)
-	ListAll(ctx context.Context) ([]agentstore.Agent, error)
-}
 
 // harnessLister is the registry as adoption reads it, which needs every harness rather than one,
 // since the conversation's own log is what says which CLI held it.
@@ -40,14 +29,13 @@ type harnessLister interface {
 // AdoptAgentService puts an agent on a conversation somebody else started, working out which CLI
 // held it and where before handing the launch itself over.
 type AdoptAgentService struct {
-	agents    adoptSessionAgentStore
+	adopter
 	workflows workflowReader
-	launch    *LaunchService
 	harnesses harnessLister
 }
 
 type AdoptAgentServiceParams struct {
-	Agents    adoptSessionAgentStore
+	Agents    adoptionAgentStore
 	Workflows workflowReader
 	Launch    *LaunchService
 	Harnesses harnessLister
@@ -56,9 +44,8 @@ type AdoptAgentServiceParams struct {
 // NewAdoptAgentService builds the service from its dependencies.
 func NewAdoptAgentService(p AdoptAgentServiceParams) *AdoptAgentService {
 	return &AdoptAgentService{
-		agents:    p.Agents,
+		adopter:   adopter{agents: p.Agents, launch: p.Launch},
 		workflows: p.Workflows,
-		launch:    p.Launch,
 		harnesses: p.Harnesses,
 	}
 }
@@ -111,50 +98,49 @@ func (s *AdoptAgentService) AdoptAgent(ctx context.Context, p AdoptAgentParams) 
 		return nil, fmt.Errorf("failed to read the conversation %q: %w", sessionID, err)
 	}
 
-	dir := config.ExpandHome(session.Dir)
-	if err := requireUsableDir(dir); err != nil {
-		return nil, fmt.Errorf("%w: %s was held in %s: %w", ErrSessionDirGone, sessionID, dir, err)
-	}
-
-	if owner, err := s.agentIn(ctx, dir); err == nil {
-		return nil, fmt.Errorf("%w: %s is where agent %s works", ErrSessionDirInUse, dir, owner.Name)
-	} else if !errors.Is(err, store.ErrNotFound) {
+	where, err := s.placeOnSession(ctx, sessionID, session)
+	if err != nil {
 		return nil, err
 	}
 
-	params := NewAgentParams{
-		Client:     p.Client,
-		Title:      adoptSessionTitle(p.Title, sessionID),
-		Dir:        dir,
-		Flags:      p.Flags,
-		Prompt:     adoptSessionPrompt(sessionID, session, hn.ForksOnResume(), p.Prompt),
-		Harness:    harnessID,
-		WorkflowID: p.WorkflowID,
-		Hidden:     p.Hidden,
-		// The conversation was held in somebody's own checkout, so both actions are blanked to
-		// stop the workflow making a worktree the agent will not use and, on delete, removing a
-		// directory weave never created.
-		SetupAction:    xptr.Ptr(""),
-		CleanupAction:  xptr.Ptr(""),
+	plan := adoption{
+		Client:         p.Client,
+		Title:          adoptSessionTitle(p.Title, sessionID),
+		Flags:          p.Flags,
+		Prompt:         adoptSessionPrompt(sessionID, session, hn.ForksOnResume(), p.Prompt),
+		Harness:        harnessID,
+		WorkflowID:     p.WorkflowID,
+		Hidden:         p.Hidden,
 		IdempotencyKey: p.IdempotencyKey,
 		SetupPane:      p.SetupPane,
-		AdoptedBranch:  session.Branch,
-		AdoptedSession: sessionID,
+		Placement:      where,
+		Branch:         session.Branch,
+		Session:        sessionID,
 		ResumeFrom:     sessionID,
 	}
 
 	// A CLI that cannot fork writes on into the person's own conversation, so the agent holds
 	// their session id rather than one of weave's and the row says as much.
 	if !hn.ForksOnResume() {
-		params.SessionID = sessionID
+		plan.SessionID = sessionID
 	}
 
-	created, err := s.launch.NewAgent(ctx, params)
-	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
-		return nil, err
+	return s.start(ctx, plan)
+}
+
+// placeOnSession runs an adopted agent where its conversation was held, which is the one place
+// its own history describes.
+func (s *AdoptAgentService) placeOnSession(ctx context.Context, sessionID string, session harness.Session) (placement, error) {
+	dir := config.ExpandHome(session.Dir)
+	if err := requireUsableDir(dir); err != nil {
+		return placement{}, fmt.Errorf("%w: %s was held in %s: %w", ErrSessionDirGone, sessionID, dir, err)
 	}
 
-	return created, nil
+	if err := s.requireDirFree(ctx, dir); err != nil {
+		return placement{}, err
+	}
+
+	return placement{Dir: dir, Theirs: true}, nil
 }
 
 // findHarness works out which CLI held a conversation by asking each of them for its log, since
@@ -207,23 +193,6 @@ func (s *AdoptAgentService) agentOnSession(ctx context.Context, sessionID string
 	return nil, fmt.Errorf("%w: no agent is on conversation %q", store.ErrNotFound, sessionID)
 }
 
-// agentIn returns the agent whose cwd is a directory, archived ones included, since an archived
-// agent's cleanup may still be the thing that removes it.
-func (s *AdoptAgentService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
-	agents, err := s.agents.ListAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	for _, agent := range agents {
-		if agent.Cwd != "" && sameDir(agent.Cwd, dir) {
-			return &agent, nil
-		}
-	}
-
-	return nil, fmt.Errorf("%w: no agent is working in %q", store.ErrNotFound, dir)
-}
-
 func adoptSessionTitle(title, sessionID string) string {
 	if strings.TrimSpace(title) != "" {
 		return title
@@ -253,14 +222,5 @@ func adoptSessionPrompt(sessionID string, session harness.Session, forked bool, 
 	}
 	b.WriteString(". The work in it is real and it is not yours: read the log and the diff before you change anything, and do not force-push, rebase, or delete a branch you did not make.\n")
 
-	if strings.TrimSpace(prompt) == "" {
-		b.WriteString("\nNothing has been asked of you yet. Say where the conversation had got to and wait.")
-
-		return b.String()
-	}
-
-	b.WriteString("\n")
-	b.WriteString(prompt)
-
-	return b.String()
+	return closeAdoptionPrompt(&b, prompt, "Nothing has been asked of you yet. Say where the conversation had got to and wait.")
 }

@@ -5,14 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"weave/config"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	"weave/lib/xptr"
 	"weave/lib/xstr"
 )
 
@@ -37,25 +35,16 @@ type pullRequestResolver interface {
 	Repository(ctx context.Context, dir string) (string, error)
 }
 
-// adoptAgentStore is the slice of the agent store adoption reads, which is every agent the
-// panel holds, since the question is which of them already has the branch or the directory.
-type adoptAgentStore interface {
-	List(ctx context.Context) ([]agentstore.Agent, error)
-	ListAll(ctx context.Context) ([]agentstore.Agent, error)
-	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
-}
-
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch itself over.
 type AdoptService struct {
-	agents       adoptAgentStore
+	adopter
 	workflows    workflowReader
-	launch       *LaunchService
 	pullRequests pullRequestResolver
 }
 
 type AdoptServiceParams struct {
-	Agents    adoptAgentStore
+	Agents    adoptionAgentStore
 	Workflows workflowReader
 	Launch    *LaunchService
 	// PullRequests arms adoption's ability to take a pull request rather than a branch, and a
@@ -66,9 +55,8 @@ type AdoptServiceParams struct {
 // NewAdoptService builds the service from its dependencies.
 func NewAdoptService(p AdoptServiceParams) *AdoptService {
 	return &AdoptService{
-		agents:       p.Agents,
+		adopter:      adopter{agents: p.Agents, launch: p.Launch},
 		workflows:    p.Workflows,
-		launch:       p.Launch,
 		pullRequests: p.PullRequests,
 	}
 }
@@ -123,7 +111,20 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		return existing, nil
 	}
 
-	params := NewAgentParams{
+	where, adopted, err := s.placeOnBranch(ctx, repo, branch)
+	if err != nil {
+		return nil, err
+	}
+	if adopted != nil {
+		return adopted, nil
+	}
+
+	prURL := ""
+	if pr != nil {
+		prURL = pr.URL
+	}
+
+	return s.start(ctx, adoption{
 		Client:         p.Client,
 		Title:          adoptTitle(p.Title, pr, branch),
 		Flags:          p.Flags,
@@ -133,54 +134,45 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		Hidden:         p.Hidden,
 		IdempotencyKey: p.IdempotencyKey,
 		SetupPane:      p.SetupPane,
-		AdoptedBranch:  branch,
-	}
+		Placement:      where,
+		Branch:         branch,
+		PullRequest:    prURL,
+	})
+}
 
+// placeOnBranch works out which checkout is to hold a branch, since git refuses to check the
+// same branch out twice, and answers with the agent already on it where there is one.
+func (s *AdoptService) placeOnBranch(ctx context.Context, repo, branch string) (placement, *agentstore.Agent, error) {
 	trees, err := readWorktrees(ctx, repo, branch)
 	if err != nil {
-		return nil, err
+		return placement{}, nil, err
 	}
 
 	var owner *agentstore.Agent
 	if trees.holder != "" {
 		found, err := s.agentIn(ctx, trees.holder)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return nil, err
+			return placement{}, nil, err
 		}
 		owner = found
 	}
 
 	switch {
 	case trees.holder == "":
+		return placement{}, nil, nil
 	case sameDir(trees.holder, trees.main):
-		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
+		return placement{}, nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
 	case owner != nil && owner.WorktreeRemoved:
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
-	case owner != nil && adopted(*owner, branch):
-		return owner, nil
+		return placement{}, nil, nil
+	case owner != nil && adoptedOnto(*owner, branch):
+		return placement{}, owner, nil
 	case owner != nil:
-		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
+		return placement{}, nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptDirInUse, trees.holder, owner.Name)
 	default:
-		// The checkout is somebody else's work, so both actions are blanked to stop the workflow
-		// making a second one and, on delete, removing a directory weave never created.
-		params.Dir = trees.holder
-		params.SetupAction = xptr.Ptr("")
-		params.CleanupAction = xptr.Ptr("")
+		return placement{Dir: trees.holder, Theirs: true}, nil, nil
 	}
-
-	created, err := s.launch.NewAgent(ctx, params)
-	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
-		return nil, err
-	}
-
-	if pr != nil {
-		if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: created.ID, Key: prMetadataKey, Value: &pr.URL}); err != nil {
-			return nil, fmt.Errorf("failed to record the pull request %s was adopted from: %w", created.Name, err)
-		}
-	}
-
-	return created, nil
 }
 
 // resolveAdoption turns what was typed into the branch to adopt, reading the pull request
@@ -225,7 +217,7 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	}
 
 	for _, agent := range agents {
-		if agent.WorkflowID == workflowID && adopted(agent, branch) {
+		if agent.WorkflowID == workflowID && adoptedOnto(agent, branch) {
 			return &agent, nil
 		}
 	}
@@ -233,27 +225,10 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, fmt.Errorf("%w: no agent in workflow %q is adopted onto %q", store.ErrNotFound, workflowID, branch)
 }
 
-// adopted reports whether an agent is the one working on a branch right now, which rules out an
-// agent whose worktree is gone and an archived one whose worktree is still its own to remove.
-func adopted(agent agentstore.Agent, branch string) bool {
+// adoptedOnto reports whether an agent is the one working on a branch right now, which rules out
+// an agent whose worktree is gone and an archived one whose worktree is still its own to remove.
+func adoptedOnto(agent agentstore.Agent, branch string) bool {
 	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
-}
-
-// agentIn returns the agent whose cwd is a directory, archived ones included, since the first
-// agent's cleanup would otherwise remove the directory out from under a second one.
-func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
-	agents, err := s.agents.ListAll(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list agents: %w", err)
-	}
-
-	for _, agent := range agents {
-		if agent.Cwd != "" && sameDir(agent.Cwd, dir) {
-			return &agent, nil
-		}
-	}
-
-	return nil, fmt.Errorf("%w: no agent is working in %q", store.ErrNotFound, dir)
 }
 
 // worktrees is what one listing of a repository's checkouts says about a branch: the main
@@ -295,22 +270,6 @@ func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) 
 	return found, nil
 }
 
-// sameDir compares two paths as the filesystem sees them, since a worktree listing reports
-// resolved paths and a configured cwd is whatever somebody typed.
-func sameDir(a, b string) bool {
-	resolvedA, err := filepath.EvalSymlinks(a)
-	if err != nil {
-		resolvedA = a
-	}
-
-	resolvedB, err := filepath.EvalSymlinks(b)
-	if err != nil {
-		resolvedB = b
-	}
-
-	return filepath.Clean(resolvedA) == filepath.Clean(resolvedB)
-}
-
 func adoptTitle(title string, pr *PullRequest, branch string) string {
 	if strings.TrimSpace(title) != "" {
 		return title
@@ -335,14 +294,5 @@ func adoptPrompt(pr *PullRequest, branch, prompt string) string {
 
 	b.WriteString("\nThe branch is not yours. Do not force-push it, do not rebase it, and do not delete it.\n")
 
-	if strings.TrimSpace(prompt) == "" {
-		b.WriteString("\nNothing has been asked of you yet. Say when you are ready and wait.")
-
-		return b.String()
-	}
-
-	b.WriteString("\n")
-	b.WriteString(prompt)
-
-	return b.String()
+	return closeAdoptionPrompt(&b, prompt, "Nothing has been asked of you yet. Say when you are ready and wait.")
 }

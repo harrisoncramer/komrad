@@ -190,7 +190,7 @@ func TestAdoptAgentRefusesWhatItCannotRun(t *testing.T) {
 
 				return source
 			},
-			wantErrIs: ErrSessionDirInUse,
+			wantErrIs: ErrAdoptDirInUse,
 		},
 	}
 
