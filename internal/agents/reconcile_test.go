@@ -358,7 +358,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	}
 
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "orphan"))
-	assert.Zero(t, rec.missCount(agent.ID), "an unread frame is not an idle observation")
+	assert.Empty(t, rec.tracked, "an unread frame is not an idle observation")
 }
 
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
