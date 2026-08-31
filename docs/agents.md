@@ -28,18 +28,6 @@ The agent starts knowing what it walked into: the prompt it is given is prefixed
 
 Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
-## Adopting a conversation that already exists
-
-Weave can adopt agents as well as branches. Hover a workflow's header, press `A`, and give it the session id of a conversation somebody started outside the panel: what comes back is an ordinary agent, with a pane, a mailbox, and the whole conversation folded into the panel's search. Which CLI held it comes from where its log lives, and the working directory and branch out of the log itself.
-
-A Claude conversation is forked rather than continued: the panel mints a session of its own carrying the history, so the conversation in the person's own terminal is left as it stands. Codex has no fork, so adopting one appends to the person's own rollout, and the agent is told so.
-
-An adopted agent runs with no setup or teardown action, since the directory it works in is one somebody else made: nothing is provisioned for it, and deleting the agent leaves the checkout alone. Adoption refuses a directory another agent is working in, and a conversation one of the panel's own agents holds, since either would put two CLIs on one history. Adopting the same conversation twice hands back the agent already on it.
-
-The agent is told what it walked into, and a blank prompt asks it to say where the conversation had got to and wait.
-
-Agents can adopt a conversation too, through `adopt_agent` over [MCP](mcp.md).
-
 ## Metadata
 
 Metadata is how an agent records what a person would want to open later. It is a set of key/value rows on the agent, written by the agent.

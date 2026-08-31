@@ -48,11 +48,6 @@ func TestBuildCommand(t *testing.T) {
 			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-5", Resume: true},
 			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-5' claude --resume 'sess-5'",
 		},
-		{
-			name:        "an adoption forks the conversation it was pointed at into the id weave minted",
-			launch:      harness.Launch{SessionID: "mine", ResumeFrom: "theirs"},
-			wantCommand: "WEAVE_SESSION_ID='mine' claude --resume 'theirs' --fork-session --session-id 'mine'",
-		},
 	}
 
 	for _, tt := range tests {
@@ -163,11 +158,6 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 			name:        "the context the panel handed over is what gets appended",
 			launch:      harness.Launch{SessionID: "sess", Context: "the buildBriefing"},
 			wantContain: []string{"--append-system-prompt"},
-		},
-		{
-			name:        "an adoption is briefed, since the conversation it forks knows nothing of the panel",
-			launch:      harness.Launch{SessionID: "mine", ResumeFrom: "theirs", Context: "the buildBriefing"},
-			wantContain: []string{"--resume 'theirs'", "--fork-session --session-id 'mine'", "--append-system-prompt"},
 		},
 	}
 

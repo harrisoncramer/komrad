@@ -21,7 +21,6 @@ type services struct {
 	launch     *agents.LaunchService
 	resume     *agents.ResumeService
 	adopt      *agents.AdoptService
-	adoptAgent *agents.AdoptAgentService
 	lifecycle  *agents.LifecycleService
 	workflow   *agents.WorkflowService
 	delivery   *agents.DeliveryService
@@ -110,12 +109,6 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Launch:       launchService,
 		PullRequests: agents.NewGHPullRequests(),
 	})
-	adoptAgentService := agents.NewAdoptAgentService(agents.AdoptAgentServiceParams{
-		Agents:    st.agents,
-		Workflows: st.workflows,
-		Launch:    launchService,
-		Harnesses: p.Harnesses,
-	})
 	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.EmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
 		Agents:    st.agents,
@@ -154,7 +147,6 @@ func buildServices(p Params, st *stores) (*services, error) {
 		launch:     launchService,
 		resume:     resumeService,
 		adopt:      adoptService,
-		adoptAgent: adoptAgentService,
 		lifecycle:  lifecycleService,
 		workflow:   workflowService,
 		delivery: agents.NewDeliveryService(agents.NewDeliveryServiceParams{

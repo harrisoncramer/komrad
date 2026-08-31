@@ -44,7 +44,6 @@ const (
 	formNone formKind = iota
 	formAgent
 	formAdopt
-	formAdoptAgent
 	formRename
 	formAgentArchive
 	formWorkflow
@@ -86,14 +85,6 @@ type adoptFormValues struct {
 	Title   string
 	Harness string
 	Flags   string
-}
-
-type adoptAgentFormValues struct {
-	SessionID string
-	Prompt    string
-	Title     string
-	Harness   string
-	Flags     string
 }
 
 type agentFormValues struct {
@@ -226,22 +217,6 @@ func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) *huh.Form {
 			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Description("blank names it after the pull request or branch").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
-		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
-	}
-
-	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-}
-
-// adoptAgentSessionForm asks for the conversation to pick up, since where the agent runs and
-// which CLI held it are both read out of that conversation's own log.
-func adoptAgentSessionForm(keys config.FormKeys, values *adoptAgentFormValues) *huh.Form {
-	fields := []huh.Field{
-		huh.NewInput().Key("session_id").Title("Adopt agent").
-			Description("the session id of a conversation started outside the panel").Value(&values.SessionID),
-		huh.NewText().Key("prompt").Title("Prompt").
-			Description(fmt.Sprintf("what to do with it; blank asks it to report where the conversation had got to. ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
-		huh.NewInput().Key("title").Title("Title").Description("blank names it after the conversation").Value(&values.Title),
-		huh.NewInput().Key("harness").Title("Agent").Placeholder("read from the conversation's own log").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
 

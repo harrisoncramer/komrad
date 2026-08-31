@@ -37,10 +37,6 @@ type agentAdopter interface {
 	Adopt(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
 }
 
-type sessionAdopter interface {
-	AdoptAgent(ctx context.Context, p agents.AdoptAgentParams) (*agentstore.Agent, error)
-}
-
 type agentLiveness interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
@@ -89,7 +85,6 @@ type Service struct {
 	mail        mailer
 	creator     agentCreator
 	adopter     agentAdopter
-	sessions    sessionAdopter
 	liveness    agentLiveness
 	lifecycle   agentLifecycle
 	resumer     agentResumer
@@ -111,18 +106,17 @@ type reviewConversation interface {
 }
 
 type NewServiceParams struct {
-	Agents       agentReadWriter
-	Transcripts  transcriptReader
-	Mail         mailer
-	Creator      agentCreator
-	Adopter      agentAdopter
-	AgentAdopter sessionAdopter
-	Liveness     agentLiveness
-	Lifecycle    agentLifecycle
-	Resumer      agentResumer
-	Reconciler   turnBoundaryRecorder
-	Archive      archiveEmptier
-	Review       reviewConversation
+	Agents      agentReadWriter
+	Transcripts transcriptReader
+	Mail        mailer
+	Creator     agentCreator
+	Adopter     agentAdopter
+	Liveness    agentLiveness
+	Lifecycle   agentLifecycle
+	Resumer     agentResumer
+	Reconciler  turnBoundaryRecorder
+	Archive     archiveEmptier
+	Review      reviewConversation
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
@@ -134,7 +128,6 @@ func NewService(p NewServiceParams) *Service {
 		mail:        p.Mail,
 		creator:     p.Creator,
 		adopter:     p.Adopter,
-		sessions:    p.AgentAdopter,
 		liveness:    p.Liveness,
 		lifecycle:   p.Lifecycle,
 		resumer:     p.Resumer,
@@ -189,25 +182,6 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 	}
 
 	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.liveness.IsAgentRunning(*created), false).Agent}), nil
-}
-
-// AdoptAgent puts an agent on a CLI conversation that already exists.
-func (s *Service) AdoptAgent(ctx context.Context, req *connect.Request[agentv1.AdoptAgentRequest]) (*connect.Response[agentv1.AdoptAgentResponse], error) {
-	created, err := s.sessions.AdoptAgent(ctx, agents.AdoptAgentParams{
-		SessionID:      req.Msg.GetSessionId(),
-		Title:          req.Msg.GetTitle(),
-		Flags:          req.Msg.GetFlags(),
-		Prompt:         req.Msg.GetPrompt(),
-		WorkflowID:     req.Msg.GetWorkflowId(),
-		Harness:        req.Msg.GetHarness(),
-		IdempotencyKey: req.Msg.GetIdempotencyKey(),
-		SetupPane:      req.Msg.GetSetupPane(),
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to adopt agent")
-	}
-
-	return connect.NewResponse(&agentv1.AdoptAgentResponse{Agent: renderAgent(*created, s.liveness.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first.

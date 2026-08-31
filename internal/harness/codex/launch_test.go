@@ -41,14 +41,6 @@ func TestBuildCommand(t *testing.T) {
 			},
 		},
 		{
-			name:   "an adoption resumes the person's own rollout, since codex names its own conversations",
-			launch: harness.Launch{ResumeFrom: "019fb3e7-2cb6", Prompt: "carry on"},
-			wantContain: []string{
-				"codex resume",
-				"'019fb3e7-2cb6' -- \"$(cat ",
-			},
-		},
-		{
 			name:       "a fresh launch pins no id",
 			launch:     harness.Launch{Prompt: "do the thing"},
 			wantAbsent: []string{"resume", "--session-id"},

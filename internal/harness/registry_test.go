@@ -21,9 +21,6 @@ func (s stub) ReadActivity(string) Activity           { return ActivityUnknown }
 func (s stub) GetInterruptKeys() []string             { return nil }
 func (s stub) GetLogPath(string) string               { return "" }
 func (s stub) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }
-func (s stub) ForksOnResume() bool                    { return false }
-
-func (s stub) DescribeSession(string) (Session, error) { return Session{}, ErrSessionNotFound }
 
 // TestNewRegistry covers what a registry refuses to be built from, both cases being ones that
 // would otherwise decide an agent's harness by argument order.

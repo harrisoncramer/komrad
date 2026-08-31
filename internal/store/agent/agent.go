@@ -58,10 +58,6 @@ type Agent struct {
 	// so it is what was asked for where Branch is what the cwd is on now.
 	AdoptedBranch string
 
-	// AdoptedSession is the conversation an agent was put on rather than one weave started,
-	// which for a forked adoption is the person's own session and not the agent's.
-	AdoptedSession string
-
 	WorktreeRemoved bool
 
 	InterruptedAt *time.Time
@@ -131,7 +127,6 @@ func agentFromRow(agent models.Agent) Agent {
 		UpdatedAt:        agent.UpdatedAt,
 		Branch:           agent.Branch,
 		AdoptedBranch:    agent.AdoptedBranch,
-		AdoptedSession:   agent.AdoptedSession,
 		WorktreeRemoved:  agent.WorktreeRemoved,
 		InterruptedAt:    agent.InterruptedAt,
 	}

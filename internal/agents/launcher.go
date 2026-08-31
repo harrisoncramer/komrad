@@ -100,7 +100,6 @@ type launchParams struct {
 	Prompt          string
 	WorkflowContext string
 	SessionID       string
-	ResumeFrom      string
 	AgentID         string
 
 	SpawnedByAgentID string
@@ -115,7 +114,6 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		Dir:         params.Dir,
 		Context:     l.appendedSystemPrompt(params.WorkflowContext, params.SpawnedByAgentID, params.SpawnedByName),
 		SessionID:   params.SessionID,
-		ResumeFrom:  params.ResumeFrom,
 		AgentID:     params.AgentID,
 		MCPEndpoint: l.serverAddr,
 		CacheDir:    l.cacheDir,

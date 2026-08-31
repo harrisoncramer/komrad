@@ -1,7 +1,6 @@
 package harness
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 )
@@ -48,10 +47,6 @@ type Launch struct {
 	HookCommand string
 
 	Resume bool
-
-	// ResumeFrom is a conversation somebody else started, carried into SessionID rather than
-	// continued in place, which is what adopting an agent is.
-	ResumeFrom string
 }
 
 type Activity int
@@ -70,17 +65,6 @@ const (
 	// not the same claim as ActivityIdle even though both leave an agent idle today.
 	ActivityUnrecognized
 )
-
-// ErrSessionNotFound is what a harness answers when no conversation on disk holds an id.
-var ErrSessionNotFound = errors.New("no conversation found")
-
-// Session is what a harness can say about a conversation from its log alone, which is where it
-// was held and, when the log records one, the branch it was held on.
-type Session struct {
-	Dir string
-
-	Branch string
-}
 
 type Turn struct {
 	Role    string
@@ -105,10 +89,6 @@ type Harness interface {
 	MintSessionID() string
 
 	FindSession(agentID string) (string, error)
-
-	DescribeSession(sessionID string) (Session, error)
-
-	ForksOnResume() bool
 
 	ReadActivity(frame string) Activity
 

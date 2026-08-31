@@ -84,7 +84,6 @@ func DefaultSessionsDir() string {
 type sessionMeta struct {
 	ID         string `json:"id"`
 	Originator string `json:"originator"`
-	Cwd        string `json:"cwd"`
 }
 
 // FindSession returns the conversation Codex started for this agent, or empty when none has

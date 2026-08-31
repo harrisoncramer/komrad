@@ -87,9 +87,6 @@ type NewAgentParams struct {
 	IdempotencyKey string
 	SetupPane      string
 	AdoptedBranch  string
-	SessionID      string
-	ResumeFrom     string
-	AdoptedSession string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -253,7 +250,6 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		SpawnedByAgentID: spawnedBy,
 		Hidden:           params.Hidden,
 		AdoptedBranch:    params.AdoptedBranch,
-		AdoptedSession:   params.AdoptedSession,
 	}
 }
 
@@ -267,10 +263,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	if err != nil {
 		return nil, err
 	}
-	sessionID := p.SessionID
-	if sessionID == "" {
-		sessionID = plan.harness.MintSessionID()
-	}
+	sessionID := plan.harness.MintSessionID()
 	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
 	agent.State = agentstore.StateSettingUp
 
@@ -341,7 +334,6 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		Prompt:          p.Prompt,
 		WorkflowContext: plan.workflowContext,
 		SessionID:       sessionID,
-		ResumeFrom:      p.ResumeFrom,
 		AgentID:         id,
 	}
 	if spawner != nil {
