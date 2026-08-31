@@ -219,7 +219,6 @@ const testHarnessID = "claude"
 type fakeHarness struct {
 	mu         sync.Mutex
 	launches   []harness.Launch
-	relocated  [][2]string
 	commandErr error
 	found      string
 }
@@ -256,15 +255,6 @@ func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 	default:
 		return harness.ActivityIdle
 	}
-}
-
-func (f *fakeHarness) Relocate(sessionID, dir string) error {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	f.relocated = append(f.relocated, [2]string{sessionID, dir})
-
-	return nil
 }
 
 func (f *fakeHarness) GetLogPath(string) string { return "" }

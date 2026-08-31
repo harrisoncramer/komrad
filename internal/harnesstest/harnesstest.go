@@ -183,9 +183,6 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flatten)
 }
 
-// Relocate has nothing to carry, since the log is keyed by session id alone.
-func (h *Harness) Relocate(string, string) error { return nil }
-
 // SetActivity is what the test writes to move an agent, which shows in its pane within a tick.
 func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 	line := idleLine

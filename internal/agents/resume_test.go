@@ -17,7 +17,7 @@ import (
 )
 
 // TestResumeDir pins that a restore produces a usable directory whatever became of the
-// recorded one, since a harness may match a resume against the path the agent ran in.
+// recorded one, since a pane can only be opened somewhere that exists.
 func TestResumeDir(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
 
@@ -27,8 +27,6 @@ func TestResumeDir(t *testing.T) {
 		cwd func(t *testing.T, root string) string
 
 		wantDir func(root, fallbackResumeRoot string) string
-
-		wantMoved bool
 	}{
 		{
 			name: "a directory that is still there is used as it stands",
@@ -50,15 +48,14 @@ func TestResumeDir(t *testing.T) {
 			},
 		},
 		{
-			name: "a path that cannot be remade sends the agent and its log to a stand-in",
+			name: "a path that cannot be remade sends the agent to a stand-in",
 			cwd: func(t *testing.T, root string) string {
 				blocked := filepath.Join(root, "blocked")
 				require.NoError(t, os.WriteFile(blocked, []byte("not a directory"), 0o600))
 
 				return filepath.Join(blocked, "worktree")
 			},
-			wantDir:   func(_, fallbackResumeRoot string) string { return filepath.Join(fallbackResumeRoot, "agent-id") },
-			wantMoved: true,
+			wantDir: func(_, fallbackResumeRoot string) string { return filepath.Join(fallbackResumeRoot, "agent-id") },
 		},
 	}
 
@@ -69,21 +66,11 @@ func TestResumeDir(t *testing.T) {
 
 			cwd := tt.cwd(t, root)
 
-			h := &fakeHarness{}
 			service := NewResumeService(ResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
-			got := service.getResumeDir(t.Context(), agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID}, h)
+			got := service.getResumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID})
 
 			assert.Equal(t, tt.wantDir(root, fallbackResumeRoot), got)
 			require.NoError(t, requireUsableDir(got), "a restore always gets a directory it can start in")
-
-			if !tt.wantMoved {
-				assert.Empty(t, h.relocated, "a directory the agent can be started in leaves the conversation alone")
-
-				return
-			}
-
-			assert.Equal(t, [][2]string{{sessionID, got}}, h.relocated,
-				"the conversation is carried into the directory the agent resumes in")
 		})
 	}
 }

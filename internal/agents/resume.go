@@ -156,7 +156,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	}
 
 	if dir == "" {
-		dir = s.getResumeDir(ctx, agent, hn)
+		dir = s.getResumeDir(agent)
 	}
 
 	pane, err = s.tmux.NewWindow(ManagerSession, agent.Name, dir)
@@ -240,11 +240,7 @@ func turnUnfinished(state string) bool {
 	return state == agentstore.StateThinking || state == agentstore.StateWaiting
 }
 
-type harnessRelocator interface {
-	Relocate(sessionID, dir string) error
-}
-
-func (s *ResumeService) getResumeDir(ctx context.Context, agent agentstore.Agent, h harnessRelocator) string {
+func (s *ResumeService) getResumeDir(agent agentstore.Agent) string {
 	dir := config.ExpandHome(agent.Cwd)
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
@@ -262,14 +258,6 @@ func (s *ResumeService) getResumeDir(ctx context.Context, agent agentstore.Agent
 		home, _ := os.UserHomeDir()
 
 		return home
-	}
-
-	if err := h.Relocate(agent.SessionID, standIn); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to carry an agent's conversation to its stand-in directory",
-			append([]slog.Attr{
-				slog.String(logging.AgentID, agent.ID),
-				slog.String(logging.SessionID, agent.SessionID),
-			}, logging.Err(err)...)...)
 	}
 
 	return standIn

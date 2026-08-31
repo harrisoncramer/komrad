@@ -97,6 +97,4 @@ type Harness interface {
 	GetLogPath(sessionID string) string
 
 	ReadLog(path string, offset int64) (LogRead, error)
-
-	Relocate(sessionID, dir string) error
 }

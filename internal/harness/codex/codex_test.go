@@ -109,9 +109,3 @@ func TestFindSession(t *testing.T) {
 		})
 	}
 }
-
-// TestRelocate pins that a restore has nothing to move, since Codex resumes by id from
-// anywhere.
-func TestRelocate(t *testing.T) {
-	assert.NoError(t, NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).Relocate("sess-1", "/somewhere/else"))
-}
