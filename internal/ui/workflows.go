@@ -52,57 +52,105 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 }
 
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
-	m.target.renameWorkflow = nil
-	m.target.editWorkflow = nil
+	values := workflowFormValues{}
 
-	form, values, _ := m.workflowFormFor(workflowFormValues{})
-	m.values.workflow = values
-
-	return m, m.openForm(formWorkflow, form, model.updateWorkflowForm)
+	return m.openWorkflowConfigForm(&values, nil)
 }
 
 func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	m.target.renameWorkflow = &workflow
-	m.target.editWorkflow = nil
+	values := workflowFormValues{}
 
-	form, values, _ := m.workflowFormFor(workflowFormValues{})
-	m.values.workflow = values
+	return m.openWorkflowRename(workflow, &values)
+}
 
-	return m, m.openForm(formWorkflow, form, model.updateWorkflowForm)
+func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workflowFormValues) (tea.Model, tea.Cmd) {
+	title := fmt.Sprintf("Rename %q to", workflow.Name)
+
+	return m, m.openForm(formState{
+		kind:   formWorkflow,
+		form:   workflowForm(title, values, m.keys.Form),
+		update: model.updateForm,
+		submit: func(m model) (tea.Model, tea.Cmd) {
+			renamed := workflow
+
+			trimmed := strings.TrimSpace(values.Name)
+			if trimmed == "" || trimmed == workflow.Name {
+				return m.closeForm()
+			}
+
+			renamed.Name = trimmed
+			cmd := m.writeCmd(
+				fmt.Sprintf("Could not rename workflow %q", workflow.Name),
+				func(a api) error { return a.updateWorkflow(renamed) },
+			)
+
+			return m, tea.Batch(cmd, m.holdForm())
+		},
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt := workflowForm(title, values, m.keys.Form)
+
+			return rebuilt, rebuilt.Init()
+		},
+	})
 }
 
 func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	if fresh, err := m.api.getWorkflow(workflow.ID); err == nil && fresh != nil {
 		workflow = *fresh
 	}
-	m.target.editWorkflow = &workflow
-	m.target.renameWorkflow = nil
 
-	form, values, _ := m.workflowFormFor(workflowFormValuesFrom(workflow.Config()))
-	m.values.workflow = values
+	values := workflowFormValuesFrom(workflow.Config())
 
-	return m, m.openForm(formWorkflow, form, model.updateWorkflowForm)
+	return m.openWorkflowConfigForm(&values, &workflow)
 }
 
-func (m model) workflowFormFor(values workflowFormValues) (*huh.Form, *workflowFormValues, int) {
-	switch {
-	case m.target.renameWorkflow != nil:
-		form, out := workflowForm(fmt.Sprintf("Rename %q to", m.target.renameWorkflow.Name), values, m.keys.Form)
-
-		return form, out, -1
-	case m.target.editWorkflow != nil:
-		return workflowConfigForm("Workflow name", values, m.getAvailableActions(), m.keys.Form)
-	default:
-		return workflowConfigForm("New workflow name", values, m.getAvailableActions(), m.keys.Form)
+// openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one when
+// target is nil and saving over the workflow it names otherwise, and is the one form that redraws
+// itself as the setup type is switched under it.
+func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workflowstore.Workflow) (tea.Model, tea.Cmd) {
+	title := "New workflow name"
+	if target != nil {
+		title = "Workflow name"
 	}
+
+	build := func(m model) (*huh.Form, int) {
+		return workflowConfigForm(title, values, m.getAvailableActions(), m.keys.Form)
+	}
+
+	form, _ := build(m)
+
+	return m, m.openForm(formState{
+		kind: formWorkflow,
+		form: form,
+		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
+			return m.updateWorkflowForm(msg, values, build)
+		},
+		submit: func(m model) (tea.Model, tea.Cmd) {
+			var cmd tea.Cmd
+			if target == nil {
+				cmd = m.createWorkflowCmd(values.toConfig())
+			} else {
+				edited := values.toConfig().Workflow(target.ID)
+				cmd = m.writeCmd(
+					fmt.Sprintf("Could not save workflow %q", target.Name),
+					func(a api) error { return a.updateWorkflow(edited) },
+				)
+			}
+
+			return m, tea.Batch(cmd, m.holdForm())
+		},
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt, _ := build(m)
+
+			return rebuilt, rebuilt.Init()
+		},
+	})
 }
 
-func (m model) rebuildWorkflowForm() (model, tea.Cmd) {
-	if m.values.workflow == nil {
-		return m, nil
-	}
-
-	form, values, toggleIndex := m.workflowFormFor(*m.values.workflow)
+// swapSetupType redraws the form around the setup type just chosen and puts the cursor back on
+// the field that chose it, since the fields under it are not the ones that were there.
+func (m model) swapSetupType(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
+	form, toggleIndex := build(m)
 
 	cmds := []tea.Cmd{form.Init()}
 	for range toggleIndex {
@@ -110,7 +158,6 @@ func (m model) rebuildWorkflowForm() (model, tea.Cmd) {
 	}
 
 	m.form.form = form
-	m.values.workflow = values
 
 	return m, tea.Batch(cmds...)
 }
@@ -134,48 +181,33 @@ func (m model) getAvailableActions() []actionChoice {
 }
 
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	m.target.archiveWorkflow = &workflow
+	form, confirmed := archiveWorkflowForm(workflow.Name, m.keys.Form)
 
-	form, values := archiveWorkflowForm(workflow.Name, m.keys.Form)
-	m.values.confirmed = values
-
-	return m, m.openForm(formWorkflowArchive, form, model.updateWorkflowArchive)
-}
-
-func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) (model, tea.Cmd) {
-			target := m.target.archiveWorkflow
-			if target == nil || !m.wasConfirmed() {
+	return m, m.openForm(formState{
+		kind:   formWorkflowArchive,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			if !*confirmed {
 				return m, nil
 			}
 
 			return m, m.writeCmd(
-				fmt.Sprintf("Could not archive workflow %q", target.Name),
-				func(a api) error { return a.archiveWorkflow(target.ID) },
+				fmt.Sprintf("Could not archive workflow %q", workflow.Name),
+				func(a api) error { return a.archiveWorkflow(workflow.ID) },
 			)
-		},
-		clear: func(m model) model {
-			m.target.archiveWorkflow = nil
-			m.values.confirmed = nil
-
-			return m
-		},
-		returnTo: func(m model) (tea.Model, tea.Cmd) {
-			return m.returnToAgents()
-		},
+		}),
 	})
 }
 
-func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+// updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
+// setup type across the message that may have switched it.
+func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, int)) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
-		return m.submitWorkflowForm()
+		return m.answerForm()
 	}
 
-	if m.values.workflow == nil {
-		return m.closeForm()
-	}
-	wasSetupType := m.values.workflow.SetupType
+	was := values.SetupType
 
 	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -184,53 +216,17 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch m.form.form.State {
 	case huh.StateCompleted:
-		return m.submitWorkflowForm()
+		return m.answerForm()
 	case huh.StateAborted:
 		return m.closeForm()
 	case huh.StateNormal:
 	}
 
-	if m.values.workflow.SetupType != wasSetupType {
-		var rebuildCmd tea.Cmd
-		m, rebuildCmd = m.rebuildWorkflowForm()
-		cmd = tea.Batch(cmd, rebuildCmd)
+	if values.SetupType != was {
+		var swapped tea.Cmd
+		m, swapped = m.swapSetupType(build)
+		cmd = tea.Batch(cmd, swapped)
 	}
 
 	return m, cmd
-}
-
-func (m model) submitWorkflowForm() (tea.Model, tea.Cmd) {
-	if m.values.workflow == nil {
-		return m.closeForm()
-	}
-
-	values := *m.values.workflow
-
-	var write tea.Cmd
-	switch {
-	case m.target.renameWorkflow != nil:
-
-		target := *m.target.renameWorkflow
-		if trimmed := strings.TrimSpace(values.Name); trimmed != "" && trimmed != target.Name {
-			target.Name = trimmed
-			write = m.writeCmd(
-				fmt.Sprintf("Could not rename workflow %q", m.target.renameWorkflow.Name),
-				func(a api) error { return a.updateWorkflow(target) },
-			)
-		}
-	case m.target.editWorkflow != nil:
-		edited := values.toConfig().Workflow(m.target.editWorkflow.ID)
-		write = m.writeCmd(
-			fmt.Sprintf("Could not save workflow %q", m.target.editWorkflow.Name),
-			func(a api) error { return a.updateWorkflow(edited) },
-		)
-	default:
-		write = m.createWorkflowCmd(values.toConfig())
-	}
-
-	if write == nil {
-		return m.closeForm()
-	}
-
-	return m, tea.Batch(write, m.holdForm())
 }

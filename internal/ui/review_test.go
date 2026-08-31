@@ -235,6 +235,25 @@ func reviewStageRows(t *testing.T) int {
 	return strings.Count(string(body), "\n")
 }
 
+// TestReviewKeysFollowTheKeymap covers the review screen reading its keys from the config like
+// every other screen, since a binding some screens honour and others ignore is worse than one
+// nothing honours.
+func TestReviewKeysFollowTheKeymap(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.keys.Review.Compose = []string{"i"}
+	m = openReview(t, m)
+
+	rebound, _ := m.updateReview(keyMsg("i"))
+	assert.True(t, asModel(t, rebound).review.composing, "the rebound key opens the editor")
+
+	replaced, _ := m.updateReview(keyMsg("c"))
+	assert.False(t, asModel(t, replaced).review.composing, "and the key it replaced does nothing")
+
+	assert.Contains(t, m.reviewHelp().short, binding([]string{"i"}, m.reviewComposeDesc()),
+		"the legend names the key that is bound rather than the one that shipped")
+}
+
 // TestReviewComposeOpensAThread covers the write path: c opens the editor on the line under
 // the cursor, ctrl+s sends it, and what is sent is the anchor the cursor was standing on.
 func TestReviewComposeOpensAThread(t *testing.T) {

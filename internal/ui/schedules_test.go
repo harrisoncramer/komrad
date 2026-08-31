@@ -172,7 +172,7 @@ func TestSchedulesView(t *testing.T) {
 // TestScheduleFormButtonsLineUp pins the confirm buttons left, since huh centres them under
 // the field's own prompt and a field carrying a description indents them by its length.
 func TestScheduleFormButtonsLineUp(t *testing.T) {
-	form, _ := scheduleForm(schedulestore.Config{
+	form := scheduleForm(&schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
 	}, []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}, config.DefaultKeybindings().Form)
 	form.Init()
@@ -396,11 +396,12 @@ func TestScheduleWriteFailure(t *testing.T) {
 			name: "a refused create",
 			act: func(t *testing.T, m model) model {
 				t.Helper()
-				m.target.editSchedule = nil
-				form, values := scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, config.DefaultKeybindings().Form)
-				m.values.schedule = values
-				m.openForm(formSchedule, form, model.updateScheduleForm)
-				updated, cmd := m.submitScheduleForm()
+				values := schedulestore.Config{Name: "x", Cron: "0 9 * * *"}
+
+				opened, _ := m.openScheduleForm(&values, nil)
+				m = asModel(t, opened)
+
+				updated, cmd := m.answerForm()
 				submitted, ok := updated.(model)
 				require.True(t, ok)
 

@@ -13,6 +13,7 @@ import (
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -102,12 +103,7 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		case isBound(k, m.keys.Agents.Review):
 			return m.enterReview(item.agent)
 		case isBound(k, m.keys.Agents.Rename):
-			m.target.renameAgent = item.agent
-
-			form, values := renameForm(item.agent.Name, "", m.keys.Form)
-			m.values.rename = values
-
-			return m, m.openForm(formRename, form, model.updateRename)
+			return m.openRename(item.agent)
 		case isBound(k, m.keys.Agents.Archive):
 			return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
 		}
@@ -151,42 +147,24 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 		return m, nil
 	}
 
-	m.target.archiveAgents = agents
+	form, answer := archiveAgentsForm(agents, m.keys.Form)
 
-	form, values := archiveAgentsForm(agents, m.keys.Form)
-	m.values.archive = values
-
-	return m, m.openForm(formAgentArchive, form, model.updateAgentArchive)
-}
-
-func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateConfirmForm(msg, confirmFormActions{
-		write: func(m model) (model, tea.Cmd) {
-			target := m.target.archiveAgents
-			if len(target) == 0 {
-				return m, nil
-			}
-
-			switch m.archiveAnswer() {
+	return m, m.openForm(formState{
+		kind:   formAgentArchive,
+		form:   form,
+		update: model.updateForm,
+		submit: confirmSubmit(func(m model) (model, tea.Cmd) {
+			switch *answer {
 			case archiveChoiceArchive:
-				return m.archiveAgents(target)
+				return m.archiveAgents(agents)
 			case archiveChoiceArchiveDelete:
-				return m.archiveAndDeleteAgents(target)
+				return m.archiveAndDeleteAgents(agents)
 			case archiveChoiceCancel:
 				return m, nil
 			}
 
 			return m, nil
-		},
-		clear: func(m model) model {
-			m.target.archiveAgents = nil
-			m.values.archive = nil
-
-			return m
-		},
-		returnTo: func(m model) (tea.Model, tea.Cmd) {
-			return m.returnToAgents()
-		},
+		}),
 	})
 }
 
@@ -501,18 +479,52 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 		return m, nil
 	}
 
-	m.target.newAgentWorkflow = workflow
-	prefill := agentFormValues{
+	values := agentPrefill(*workflow)
+
+	return m.openAgentForm(*workflow, &values)
+}
+
+// agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
+func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
+	return agentFormValues{
 		Harness:       workflow.Harness,
 		Dir:           workflow.Cwd,
 		Flags:         workflow.Flags,
 		SetupAction:   inheritAction,
 		CleanupAction: inheritAction,
 	}
-	form, values := newAgentForm(m.keys.Form, prefill, m.getAvailableActions())
-	m.values.agent = values
+}
 
-	return m, m.openForm(formAgent, form, model.updateForm)
+func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
+	return m, m.openForm(formState{
+		kind:   formAgent,
+		form:   newAgentForm(m.keys.Form, values, m.getAvailableActions()),
+		update: model.updateForm,
+		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt := newAgentForm(m.keys.Form, values, m.getAvailableActions())
+
+			return rebuilt, rebuilt.Init()
+		},
+	})
+}
+
+func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
+	return m.openRenameForm(agent, new(string))
+}
+
+func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
+	return m, m.openForm(formState{
+		kind:   formRename,
+		form:   renameForm(agent.Name, name, m.keys.Form),
+		update: model.updateForm,
+		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt := renameForm(agent.Name, name, m.keys.Form)
+
+			return rebuilt, rebuilt.Init()
+		},
+	})
 }
 
 func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -522,29 +534,35 @@ func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) 
 		return m, nil
 	}
 
-	m.target.newAgentWorkflow = workflow
-	prefill := adoptFormValues{Harness: workflow.Harness, Flags: workflow.Flags}
-	form, values := adoptAgentForm(m.keys.Form, prefill)
-	m.values.adopt = values
+	values := adoptPrefill(*workflow)
 
-	return m, m.openForm(formAdopt, form, model.updateAdopt)
+	return m.openAdoptForm(*workflow, &values)
 }
 
-func (m model) updateAdopt(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateSubmitForm(msg, model.submitAdopt)
+// adoptPrefill is the adopt form as the workflow leaves it, before anything is typed.
+func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
+	return adoptFormValues{Harness: workflow.Harness, Flags: workflow.Flags}
 }
 
-func (m model) submitAdopt() (tea.Model, tea.Cmd) {
-	if m.target.newAgentWorkflow == nil || m.values.adopt == nil {
-		m.report("Could not adopt", errNoWorkflow)
+func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
+	return m, m.openForm(formState{
+		kind:   formAdopt,
+		form:   adoptAgentForm(m.keys.Form, values),
+		update: model.updateForm,
+		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt := adoptAgentForm(m.keys.Form, values)
 
-		return m.closeForm()
-	}
+			return rebuilt, rebuilt.Init()
+		},
+	})
+}
 
+func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
 	// Which of those two adoption does is the service's to work out, so the pane is claimed on the
 	// strength of the workflow alone.
 	var pane string
-	if m.target.newAgentWorkflow.SetupAction != "" && !m.setupPending {
+	if workflow.SetupAction != "" && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -553,12 +571,12 @@ func (m model) submitAdopt() (tea.Model, tea.Cmd) {
 	}
 
 	cmd := m.adoptCmd(adoptParams{
-		Ref:        m.values.adopt.Ref,
-		Prompt:     m.values.adopt.Prompt,
-		Title:      m.values.adopt.Title,
-		Harness:    m.values.adopt.Harness,
-		Flags:      m.values.adopt.Flags,
-		WorkflowID: m.target.newAgentWorkflow.ID,
+		Ref:        values.Ref,
+		Prompt:     values.Prompt,
+		Title:      values.Title,
+		Harness:    values.Harness,
+		Flags:      values.Flags,
+		WorkflowID: workflow.ID,
 		SetupPane:  pane,
 	})
 
@@ -571,33 +589,19 @@ func (m model) submitAdopt() (tea.Model, tea.Cmd) {
 	return next, tea.Batch(cmd, closeCmd)
 }
 
-func (m model) updateRename(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateSubmitForm(msg, model.submitRename)
-}
-
-func (m model) submitRename() (tea.Model, tea.Cmd) {
-	if m.values.rename == nil {
-		return m.closeForm()
-	}
-
-	target := m.target.renameAgent
-	name := strings.TrimSpace(*m.values.rename)
+func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, tea.Cmd) {
+	name := strings.TrimSpace(typed)
 	cmd := m.writeCmd(
-		fmt.Sprintf("Could not rename agent %q", target.Name),
-		func(a api) error { return a.renameAgent(target, name) },
+		fmt.Sprintf("Could not rename agent %q", agent.Name),
+		func(a api) error { return a.renameAgent(agent, name) },
 	)
+
 	return m, tea.Batch(cmd, m.holdForm())
 }
 
-func (m model) submitAgent() (tea.Model, tea.Cmd) {
-	if m.target.newAgentWorkflow == nil || m.values.agent == nil {
-		m.report("Could not start the agent", errNoWorkflow)
-
-		return m.closeForm()
-	}
-
-	setupAction := actionOverride(m.values.agent.SetupAction)
-	effectiveSetup := m.target.newAgentWorkflow.SetupAction
+func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
+	setupAction := actionOverride(values.SetupAction)
+	effectiveSetup := workflow.SetupAction
 	if setupAction != nil {
 		effectiveSetup = *setupAction
 	}
@@ -612,14 +616,14 @@ func (m model) submitAgent() (tea.Model, tea.Cmd) {
 	}
 
 	params := createAgentParams{
-		Prompt:        m.values.agent.Prompt,
-		Title:         m.values.agent.Title,
-		Harness:       m.values.agent.Harness,
-		Dir:           m.currentDir(m.values.agent.Dir),
-		Flags:         m.values.agent.Flags,
+		Prompt:        values.Prompt,
+		Title:         values.Title,
+		Harness:       values.Harness,
+		Dir:           m.currentDir(values.Dir),
+		Flags:         values.Flags,
 		SetupAction:   setupAction,
-		CleanupAction: actionOverride(m.values.agent.CleanupAction),
-		WorkflowID:    m.target.newAgentWorkflow.ID,
+		CleanupAction: actionOverride(values.CleanupAction),
+		WorkflowID:    workflow.ID,
 		SetupPane:     pane,
 	}
 
@@ -640,10 +644,6 @@ func actionOverride(selected string) *string {
 	}
 
 	return &selected
-}
-
-func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.updateSubmitForm(msg, model.submitAgent)
 }
 
 const openPRAction = "_open_pr"

@@ -265,8 +265,10 @@ func (m model) reviewResolveDesc() string {
 }
 
 func (m model) reviewHelp() keyMap {
+	keys := m.keys.Review
+
 	move := m.moveBinding()
-	compose := binding([]string{"c"}, m.reviewComposeDesc())
+	compose := binding(keys.Compose, m.reviewComposeDesc())
 
 	// Only the three things the screen is for are on the strip, since reviewing is reading and
 	// the rest of the keys are behind the help key.
@@ -276,19 +278,20 @@ func (m model) reviewHelp() keyMap {
 			[]key.Binding{
 				move,
 				compose,
-				binding([]string{"ctrl+n", "ctrl+p", "pgdown", "pgup"}, "page"),
-				binding([]string{"]", "["}, "next/previous file"),
-				binding([]string{"}", "{"}, "next/previous hunk"),
-				binding([]string{"t", "T"}, "next/previous thread"),
+				pairBinding(keys.PageDown, keys.PageUp, "page"),
+				pairBinding(keys.HalfPageDown, keys.HalfPageUp, "half a page"),
+				pairBinding(keys.NextFile, keys.PrevFile, "next/previous file"),
+				pairBinding(keys.NextHunk, keys.PrevHunk, "next/previous hunk"),
+				pairBinding(keys.NextThread, keys.PrevThread, "next/previous thread"),
 				binding(m.keys.Filter.Open, "search"),
-				binding([]string{"n", "N"}, "next/previous match"),
-				binding([]string{"zz", "zt", "zb"}, "recentre the view"),
-				binding([]string{"h", "l"}, "pan sideways"),
-				binding([]string{"e"}, m.reviewEditorDesc()),
-				binding([]string{"r"}, m.reviewResolveDesc()),
-				binding([]string{"D"}, "delete the thread"),
+				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),
+				binding([]string{recentrePrefix + "z", recentrePrefix + "t", recentrePrefix + "b"}, "recentre the view"),
+				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
+				binding(keys.EditFile, m.reviewEditorDesc()),
+				binding(keys.Resolve, m.reviewResolveDesc()),
+				binding(keys.DeleteThread, "delete the thread"),
 				binding(m.keys.Form.Submit, "tell the agent"),
-				binding(m.keys.Agents.Back, "back to the agents"),
+				binding(keys.Back, "back to the agents"),
 			},
 			m.globalHelp(),
 		),

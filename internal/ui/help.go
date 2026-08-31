@@ -95,6 +95,23 @@ func binding(keys []string, desc string) key.Binding {
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(keyLabel(keys), desc))
 }
 
+// pairBinding is a there-and-back gesture on one line of the legend, named by the first key of
+// each half since the legend has room for one way in rather than every alternative.
+func pairBinding(forward, back []string, desc string) key.Binding {
+	return key.NewBinding(
+		key.WithKeys(slices.Concat(forward, back)...),
+		key.WithHelp(headLabel(forward)+"/"+headLabel(back), desc),
+	)
+}
+
+func headLabel(keys []string) string {
+	if len(keys) == 0 {
+		return ""
+	}
+
+	return keyLabel(keys[:1])
+}
+
 func (m model) moveBinding() key.Binding {
 	keys := slices.Concat(m.keys.Nav.Up, m.keys.Nav.Down)
 

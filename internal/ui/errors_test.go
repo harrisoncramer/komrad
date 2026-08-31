@@ -68,9 +68,8 @@ func TestRefusedWriteIsReported(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
-	*pressed.values.archive = archiveChoiceArchive
 	pressed.form.form.State = huh.StateCompleted
-	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	updated, cmd := pressed.form.update(pressed, keyMsg("enter"))
 	pressed, ok = updated.(model)
 	require.True(t, ok)
 
@@ -121,9 +120,8 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 		screen: screenAgents,
 		keys:   config.DefaultKeybindings(),
 	}
-	form, values := renameForm("api-refactor", "", m.keys.Form)
-	m.values.rename = values
-	m.openForm(formRename, form, model.updateRename)
+	opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
+	m = asModel(t, opened)
 
 	view := m.View()
 
@@ -173,9 +171,8 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 	pressed, ok := opened.(model)
 	require.True(t, ok)
 
-	*pressed.values.archive = archiveChoiceArchive
 	pressed.form.form.State = huh.StateCompleted
-	updated, cmd := pressed.updateAgentArchive(keyMsg("enter"))
+	updated, cmd := pressed.form.update(pressed, keyMsg("enter"))
 	pressed, ok = updated.(model)
 	require.True(t, ok)
 
@@ -273,9 +270,8 @@ func TestBannerDismissal(t *testing.T) {
 				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 			}
 			if tt.withForm {
-				form, values := renameForm("api-refactor", "", m.keys.Form)
-				m.values.rename = values
-				m.openForm(formRename, form, model.updateRename)
+				opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
+				m = asModel(t, opened)
 			}
 
 			updated, _ := m.Update(tt.key)
