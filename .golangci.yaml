@@ -123,11 +123,12 @@ linters:
           # finds around a thousand of them.
           comment_length:
             skip: false
-            # Unanchored regexps over the file path. The config struct's doc comments
-            # are the text of the generated config.toml, and the defaults, validation and
-            # loading beside it are written in the same prose, so they are prose on purpose.
+            # Unanchored regexps over the file path. The config struct's doc comments are
+            # the text of the generated config.toml, so they are prose on purpose, and the
+            # defaults, validation and loading beside them are written to match.
             exclude:
               - config/types\.go$
+              - config/keybindings\.go$
               - config/defaults\.go$
               - config/validate\.go$
               - config/load\.go$
