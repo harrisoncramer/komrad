@@ -31,8 +31,25 @@ jobs:
     env:
       WEAVE_DATABASE_URL: postgres://weave:weave@localhost:5460/weave?sslmode=disable
 
+      # A warm build cache otherwise lets go test replay a package's last result
+      # instead of running it, and these tests reach a real Postgres and a real
+      # tmux that the cache cannot see. The compile is still cached; only the
+      # decision to skip running is turned off.
+      GOFLAGS: -count=1
+
     steps:
       - uses: actions/checkout@v4
+
+      # The Go build cache, the module cache, and golangci-lint's own cache are
+      # rebuilt from nothing on every run otherwise, about 1.6GB of it. These are
+      # volumes attached to the runner rather than archives to download, and they
+      # are shared across every branch of the repository, so a new branch starts
+      # warm where actions/cache would miss.
+      - name: Cache the Go and lint caches
+        uses: namespacelabs/nscloud-cache-action@v1
+        with:
+          cache: go
+          path: /home/runner/.cache/golangci-lint
 
       - name: Use Mise
         uses: ./.github/actions/use-mise
