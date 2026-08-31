@@ -32,4 +32,4 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-go run ./tools/structexpand -min "$MIN" ${WRITE[@]+"${WRITE[@]}"} .
+go run ./cmd/structexpand -min "$MIN" ${WRITE[@]+"${WRITE[@]}"} .
