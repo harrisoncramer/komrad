@@ -369,20 +369,41 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 	return s.Transcripts.Get(ctx, agentID)
 }
 
+// testAgentStore is the one store these tests hand to all four services at once, and no
+// production type is expected to satisfy the whole of it, since each service asks only for its
+// own slice.
+type testAgentStore interface {
+	launchAgentStore
+	resumeAgentStore
+	adoptAgentStore
+	lifecycleAgentStore
+}
+
+// testAgents is what a test drives instead of one service, holding the pieces an AgentService
+// used to be.
+type testAgents struct {
+	launch    *LaunchService
+	resume    *ResumeService
+	adopt     *AdoptService
+	lifecycle *LifecycleService
+	panes     *PaneLiveness
+	emptied   *EmptyWorkflowDeleter
+}
+
 type agentServiceOptions struct {
 	tmux      fakeTmuxController
 	harnesses fakeHarnesses
 	addr      string
 	flags     string
-	lifecycle lifecycleActioner
+	lifecycle agentActions
 	maxAgents int
 	notifier  systemMailSender
 	logsDir   string
-	agents    agentManager
+	agents    testAgentStore
 	tx        txRunner
 }
 
-func (s *testStore) agentService(options agentServiceOptions) *AgentService {
+func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	agents := options.agents
 	if agents == nil {
 		agents = s.Agents
@@ -393,20 +414,68 @@ func (s *testStore) agentService(options agentServiceOptions) *AgentService {
 		tx = s.Pool
 	}
 
-	return NewAgentService(NewAgentServiceParams{
+	launcher := NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr})
+	emptied := NewEmptyWorkflowDeleter(EmptyWorkflowDeleterParams{
+		Workflows: s.Workflows,
+		Agents:    s.Agents,
+		Schedules: s.Schedules,
+	})
+
+	launch := NewLaunchService(LaunchServiceParams{
 		Tmux:               options.tmux,
 		Agents:             agents,
 		Workflows:          s.Workflows,
 		Tx:                 tx,
-		Launcher:           NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr}),
+		Launcher:           launcher,
 		Harnesses:          options.harnesses,
-		Lifecycle:          options.lifecycle,
+		Actions:            options.lifecycle,
 		UserDefaultHarness: testHarnessID,
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
-		Notifier:           options.notifier,
-		LogsDir:            options.logsDir,
 	})
+
+	return &testAgents{
+		launch: launch,
+		resume: NewResumeService(ResumeServiceParams{
+			Tmux:      options.tmux,
+			Agents:    agents,
+			Workflows: s.Workflows,
+			Launcher:  launcher,
+			Harnesses: options.harnesses,
+			Actions:   options.lifecycle,
+		}),
+		adopt: NewAdoptService(AdoptServiceParams{
+			Agents:    agents,
+			Workflows: s.Workflows,
+			Launch:    launch,
+		}),
+		lifecycle: NewLifecycleService(LifecycleServiceParams{
+			Tmux:           options.tmux,
+			Agents:         agents,
+			Workflows:      s.Workflows,
+			EmptyWorkflows: emptied,
+			Tx:             tx,
+			Actions:        options.lifecycle,
+			Notifier:       options.notifier,
+			LogsDir:        options.logsDir,
+			MaxAgents:      options.maxAgents,
+		}),
+		panes:   NewPaneLiveness(options.tmux),
+		emptied: emptied,
+	}
+}
+
+// withPullRequests rebuilds the adopt service over a resolver, which is what a test adopting
+// by pull request rather than by branch needs.
+func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents {
+	a.adopt = NewAdoptService(AdoptServiceParams{
+		Agents:       a.adopt.agents,
+		Workflows:    a.adopt.workflows,
+		Launch:       a.adopt.launch,
+		PullRequests: resolver,
+	})
+
+	return a
 }
 
 // fakeTmuxController is what the test services take, so a test can wrap the fake to watch
@@ -416,7 +485,7 @@ type fakeTmuxController interface {
 	paneWriter
 }
 
-func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle lifecycleActioner) *AgentService {
+func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentActions) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesses,
@@ -425,7 +494,7 @@ func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses
 	})
 }
 
-func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle lifecycleActioner, maxAgents int) *AgentService {
+func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentActions, maxAgents int) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
@@ -504,19 +573,17 @@ func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *Workfl
 func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier systemMailSender) *WorkflowService {
 	deleter := s.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}, addr: "127.0.0.1:9999"})
 
-	workflows := NewWorkflowService(WorkflowParams{
+	return NewWorkflowService(WorkflowParams{
 		Workflows:    s.Workflows,
 		Agents:       s.Agents,
-		AgentDeleter: deleter,
+		AgentDeleter: deleter.lifecycle,
+		Emptied:      deleter.emptied,
 		Schedules:    s.Schedules,
 		Tmux:         tmux,
 		Tx:           s.Pool,
 		MaxAgents:    maxAgents,
 		Notifier:     notifier,
 	})
-	deleter.WithWorkflowEmptyDeleter(workflows)
-
-	return workflows
 }
 
 func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {
@@ -642,7 +709,7 @@ func stateOf(t *testing.T, st *testStore, name string) string {
 	return got.State
 }
 
-func newManager(tmux *fakeTmux, st *testStore, flags string) *AgentService {
+func newManager(tmux *fakeTmux, st *testStore, flags string) *testAgents {
 	service, _ := newManagerWithHarness(tmux, st, flags)
 
 	return service
@@ -652,7 +719,7 @@ func workflowsFor(st *testStore, tmux *fakeTmux) *WorkflowService {
 	return st.workflowService(tmux)
 }
 
-func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*AgentService, *fakeHarness) {
+func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*testAgents, *fakeHarness) {
 	h := &fakeHarness{}
 
 	return st.agentService(agentServiceOptions{

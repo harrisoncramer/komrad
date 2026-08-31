@@ -43,7 +43,7 @@ type paneTyper interface {
 }
 
 type nudgeClaimer interface {
-	agentFinder
+	agentGetter
 	ClaimNudge(ctx context.Context, id string, retryAfter time.Duration) (bool, error)
 }
 

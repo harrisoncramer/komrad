@@ -33,7 +33,7 @@ func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			_, err := manager.NewAgent(t.Context(), NewAgentParams{
+			_, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
 				Title:      fmt.Sprintf("racer-%d", i),
 				Dir:        dir,
 				WorkflowID: workflowID,

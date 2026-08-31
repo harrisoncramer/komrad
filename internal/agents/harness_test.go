@@ -55,7 +55,7 @@ func TestNewAgentGetsHarness(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			_, err = service.NewAgent(t.Context(), NewAgentParams{
+			_, err = service.launch.NewAgent(t.Context(), NewAgentParams{
 				Title:      "agent",
 				Dir:        t.TempDir(),
 				Harness:    tt.requested,
@@ -81,7 +81,7 @@ func TestNewAgentRefusesUnknownHarness(t *testing.T) {
 		harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}},
 	})
 
-	_, err := service.NewAgent(t.Context(), NewAgentParams{
+	_, err := service.launch.NewAgent(t.Context(), NewAgentParams{
 		Title:      "agent",
 		Dir:        t.TempDir(),
 		Harness:    "gemini",
@@ -116,7 +116,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 	stored, err := st.Get(t.Context(), "dormant")
 	require.NoError(t, err)
 
-	_, err = service.ResumeAgent(t.Context(), stored.ID)
+	_, err = service.resume.ResumeAgent(t.Context(), stored.ID)
 
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
 	assert.ErrorContains(t, err, "gemini")
@@ -129,7 +129,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 
-	service := NewAgentService(NewAgentServiceParams{
+	service := NewLaunchService(LaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
 		Workflows:          st.Workflows,

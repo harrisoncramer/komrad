@@ -27,10 +27,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-type agentGetter interface {
-	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
 type tmuxReader interface {
 	GetPaneOwner(pane string) string
 	GetHostSocket() string

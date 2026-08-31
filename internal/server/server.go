@@ -208,44 +208,74 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Editor:     p.Env.Editor,
 		BinPath:    p.HookCommand,
 	})
-	agentService := agents.NewAgentService(agents.NewAgentServiceParams{
-		Tmux:      p.Tmux,
-		Agents:    agentStore,
-		Workflows: workflowStore,
-		Tx:        pool,
-		Launcher: agents.NewLauncher(agents.LauncherParams{
-			Tmux:        p.Tmux,
-			Addr:        p.Addr,
-			CacheDir:    p.Env.CacheDir,
-			LogPath:     p.Env.LogPath(),
-			ContextPath: p.ContextPath,
-			HookCommand: p.HookCommand,
-		}),
+	harnessLauncher := agents.NewLauncher(agents.LauncherParams{
+		Tmux:        p.Tmux,
+		Addr:        p.Addr,
+		CacheDir:    p.Env.CacheDir,
+		LogPath:     p.Env.LogPath(),
+		ContextPath: p.ContextPath,
+		HookCommand: p.HookCommand,
+	})
+	paneLiveness := agents.NewPaneLiveness(p.Tmux)
+	launchService := agents.NewLaunchService(agents.LaunchServiceParams{
+		Tmux:               p.Tmux,
+		Agents:             agentStore,
+		Workflows:          workflowStore,
+		Tx:                 pool,
+		Launcher:           harnessLauncher,
 		Harnesses:          p.Harnesses,
-		Lifecycle:          actionService,
+		Actions:            actionService,
 		UserDefaultHarness: p.DefaultHarness,
 		UserDefaultFlags:   p.DefaultFlags,
 		MaxAgents:          p.MaxAgents,
+	})
+	resumeService := agents.NewResumeService(agents.ResumeServiceParams{
+		Tmux:               p.Tmux,
+		Agents:             agentStore,
+		Workflows:          workflowStore,
+		Launcher:           harnessLauncher,
+		Harnesses:          p.Harnesses,
+		Actions:            actionService,
 		FallbackResumeRoot: p.FallbackResumeRoot,
-		Notifier:           mailService,
-		LogsDir:            actionLogsDir,
-	}).WithPullRequests(agents.NewGHPullRequests())
+	})
+	adoptService := agents.NewAdoptService(agents.AdoptServiceParams{
+		Agents:       agentStore,
+		Workflows:    workflowStore,
+		Launch:       launchService,
+		PullRequests: agents.NewGHPullRequests(),
+	})
+	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.EmptyWorkflowDeleterParams{
+		Workflows: workflowStore,
+		Agents:    agentStore,
+		Schedules: scheduleStore,
+	})
+	lifecycleService := agents.NewLifecycleService(agents.LifecycleServiceParams{
+		Tmux:           p.Tmux,
+		Agents:         agentStore,
+		Workflows:      workflowStore,
+		EmptyWorkflows: emptyWorkflows,
+		Tx:             pool,
+		Actions:        actionService,
+		Notifier:       mailService,
+		LogsDir:        actionLogsDir,
+		MaxAgents:      p.MaxAgents,
+	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows:    workflowStore,
 		Agents:       agentStore,
-		AgentDeleter: agentService,
+		AgentDeleter: lifecycleService,
+		Emptied:      emptyWorkflows,
 		Schedules:    scheduleStore,
 		Tmux:         p.Tmux,
 		Tx:           pool,
 		MaxAgents:    p.MaxAgents,
 		Notifier:     mailService,
 	})
-	agentService.WithWorkflowEmptyDeleter(workflowService)
 
 	srv.Delivery = agents.NewDeliveryService(agents.NewDeliveryServiceParams{
 		MailboxReader: mailStore,
 		NudgeClaimer:  agentStore,
-		PaneReader:    agentService,
+		PaneReader:    paneLiveness,
 		PaneTyper:     p.Tmux,
 		Harnesses:     p.Harnesses,
 	})
@@ -260,8 +290,8 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Pool:      pool.GetRawPool(),
 		Schedules: scheduleStore,
 		Results:   scheduleStore,
-		Launcher:  agentService,
-		Deleter:   agentService,
+		Launcher:  launchService,
+		Deleter:   lifecycleService,
 		Archived:  agentStore,
 		Running:   agentStore,
 		Logger:    p.Logger,
@@ -294,7 +324,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Agents:      agentStore,
 			Transcripts: transcriptStore,
 			Mail:        mailService,
-			Launcher:    agentService,
+			Creator:     launchService,
+			Adopter:     adoptService,
+			Liveness:    paneLiveness,
+			Lifecycle:   lifecycleService,
+			Resumer:     resumeService,
 			Reconciler:  reconciler,
 			Archive:     jobs.NewEnqueuer(srv.Jobs),
 			Review:      reviewService,
@@ -360,7 +394,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		Pass: agents.NewPRArchiver(agents.PRArchiverParams{
 			Agents:       agentStore,
 			Workflows:    workflowStore,
-			Archiver:     agentService,
+			Archiver:     lifecycleService,
 			PullRequests: agents.NewGHPullRequests(),
 		}).Sync,
 	}

@@ -1683,6 +1683,8 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 	}
 }
 
+// fakeLauncher stands in for every service the handler talks to at once, so a test can wire one
+// fake into all five of its params rather than five.
 type fakeLauncher struct {
 	got        agents.NewAgentParams
 	adopted    agents.AdoptParams
@@ -1846,7 +1848,11 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
-		Launcher:    launcher,
+		Creator:     launcher,
+		Adopter:     launcher,
+		Liveness:    launcher,
+		Lifecycle:   launcher,
+		Resumer:     launcher,
 	}), st, launcher
 }
 

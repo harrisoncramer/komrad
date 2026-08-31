@@ -70,7 +70,7 @@ func TestResumeDir(t *testing.T) {
 			cwd := tt.cwd(t, root)
 
 			h := &fakeHarness{}
-			service := &AgentService{fallbackResumeRoot: fallbackResumeRoot}
+			service := NewResumeService(ResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
 			got := service.getResumeDir(t.Context(), agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID}, h)
 
 			assert.Equal(t, tt.wantDir(root, fallbackResumeRoot), got)
@@ -93,7 +93,7 @@ func TestResumeDir(t *testing.T) {
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
-	cut := func(t *testing.T, state, session string) (*AgentService, *testStore, *fakeHarness, agentstore.Agent) {
+	cut := func(t *testing.T, state, session string) (*testAgents, *testStore, *fakeHarness, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
@@ -123,7 +123,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("the resume opens with the ask, and does not carry it into a later one", func(t *testing.T) {
 		service, st, h, agent := cut(t, agentstore.StateThinking, sessionID)
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
@@ -139,7 +139,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	// What `mise run restart` does: the tmux server goes whole and weave's own server goes
 	// with it, so no reconcile pass ever watches the panes go and the store is left holding
 	// a turn that is already over.
-	unwatched := func(t *testing.T, state string) (*AgentService, *testStore, *fakeHarness, agentstore.Agent) {
+	unwatched := func(t *testing.T, state string) (*testAgents, *testStore, *fakeHarness, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
@@ -154,7 +154,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("a turn the store still has running is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
 		service, _, h, agent := unwatched(t, agentstore.StateThinking)
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
@@ -163,7 +163,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("a turn left waiting on a person is asked for again even if nothing recorded it as cut off", func(t *testing.T) {
 		service, _, h, agent := unwatched(t, agentstore.StateWaiting)
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
@@ -173,7 +173,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		service, st, h, agent := unwatched(t, agentstore.StateThinking)
 		h.commandErr = errors.New("no")
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.Error(t, err)
 		assert.NotNil(t, agentByID(t, st, agent.ID).InterruptedAt,
 			"the state it was read from is gone, so the turn only survives as the stamp")
@@ -182,7 +182,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("an agent that finished its turn resumes without being told anything", func(t *testing.T) {
 		service, _, h, agent := cut(t, agentstore.StateIdle, sessionID)
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Empty(t, h.launches[0].Prompt)
@@ -191,7 +191,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("an agent with no conversation to reopen is not asked about a turn it cannot read", func(t *testing.T) {
 		service, st, h, agent := cut(t, agentstore.StateThinking, "")
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		assert.Empty(t, h.launches[0].Prompt, "a fresh conversation cannot be asked to read back over itself")
@@ -203,7 +203,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	t.Run("a turn cut off before its conversation was named is not asked about after a fresh one is", func(t *testing.T) {
 		service, st, h, agent := cut(t, agentstore.StateThinking, "")
 
-		_, err := service.ResumeAgent(t.Context(), agent.ID)
+		_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 1)
 		require.Empty(t, h.launches[0].Prompt)
@@ -217,7 +217,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		tmux := newFakeTmux()
 		require.NoError(t, NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents).Reconcile(t.Context()))
 
-		_, err = service.ResumeAgent(t.Context(), agent.ID)
+		_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)
 		require.Len(t, h.launches, 2)
 		assert.True(t, h.launches[1].Resume, "the conversation it learned is what this reopens")
@@ -246,7 +246,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	require.Nil(t, stored.InterruptedAt, "no pass could look at a pane, so nothing recorded the turn")
 	require.Equal(t, agentstore.StateThinking, stored.State)
 
-	_, err := service.ResumeAgent(t.Context(), agent.ID)
+	_, err := service.resume.ResumeAgent(t.Context(), agent.ID)
 	require.NoError(t, err)
 	require.Len(t, h.launches, 1)
 	assert.Equal(t, interruptedPrompt, h.launches[0].Prompt)
@@ -254,7 +254,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	stored = agentByID(t, st, agent.ID)
 	require.NoError(t, tmux.ClearPaneOwner(stored.Pane))
 
-	_, err = service.ResumeAgent(t.Context(), agent.ID)
+	_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
 	require.NoError(t, err)
 	require.Len(t, h.launches, 2)
 	assert.Empty(t, h.launches[1].Prompt, "the ask is made once, and the row it was read from now says idle")
@@ -300,7 +300,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, resumeErr := manager.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
 		done <- resumeErr
 	}()
 
@@ -310,7 +310,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 		"the row says a resume is in flight before the resume does any work")
 
 	prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
-	require.NoError(t, newPRArchiver(st, prs, manager).Sync(ctx))
+	require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
 
 	assert.Nil(t, agentByID(t, st, agent.ID).ArchivedAt, "a pass landing in the window leaves the resume alone")
 
@@ -350,12 +350,12 @@ func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	agent := seedPRAgent(t, st, created.ID, agentstore.StateIdle, "", prURL)
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
-	resumed, err := manager.ResumeAgent(ctx, agent.ID)
+	resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
 	require.NoError(t, err)
 	require.NotEmpty(t, resumed.Pane)
 
 	prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
-	require.NoError(t, newPRArchiver(st, prs, manager).Sync(ctx))
+	require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
 
 	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
 	assert.Equal(t, []string{resumed.Pane}, tmux.killedPanes, "the pane goes with the archive it belongs to")
@@ -376,7 +376,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
-	_, err := manager.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
 	require.Error(t, err)
 
 	assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
@@ -420,10 +420,10 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
 	tmux.sync = func() {
 		prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
-		require.NoError(t, newPRArchiver(st, prs, manager).Sync(ctx))
+		require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
 	}
 
-	_, err = manager.ResumeAgent(ctx, agent.ID)
+	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
 	require.ErrorIs(t, err, ErrAgentArchived)
 
 	after := agentByID(t, st, agent.ID)
@@ -459,14 +459,14 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, resumeErr := manager.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
 		done <- resumeErr
 	}()
 
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.ArchiveAgents(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -511,14 +511,14 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 
 	done := make(chan error, 1)
 	go func() {
-		_, resumeErr := manager.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		_, resumeErr := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
 		done <- resumeErr
 	}()
 
 	<-lifecycle.entered
 
 	require.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State)
-	require.NoError(t, manager.DeleteAgents(ctx, []string{agent.ID}))
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{agent.ID}))
 
 	close(lifecycle.release)
 	select {
@@ -564,11 +564,198 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 		agents:    refusingUpdate{Store: st.Agents},
 	})
 
-	_, err := manager.ResumeAgent(ctx, agent.ID)
+	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
 	require.Error(t, err)
 
 	after := agentByID(t, st, agent.ID)
 	assert.Equal(t, agentstore.StateThinking, after.State, "the row reads as the resume found it")
 	assert.Empty(t, after.Pane)
 	assert.Len(t, tmux.killedPanes, 1, "the window it opened goes with it")
+}
+
+// TestResumeRunsTheSetupAction pins the setup action firing again on resume, which is the
+// moment a workspace has to exist since nothing before it rebuilds one.
+func TestResumeRunsTheSetupAction(t *testing.T) {
+	tests := []struct {
+		name string
+
+		named      string
+		resumeErr  error
+		wantWindow bool
+		wantErr    string
+	}{
+		{
+			name:      "an action that refuses keeps the agent dormant",
+			resumeErr: errors.New("fatal: 'auth' is already checked out"),
+			wantErr:   "already checked out",
+		},
+		{
+			name:    "an action naming somewhere that is not a directory is refused",
+			named:   "/definitely/not/here",
+			wantErr: "a setup action named",
+		},
+		{
+			name:       "an action naming nowhere leaves the recorded directory alone",
+			wantWindow: true,
+		},
+		{
+			name:       "an action naming a directory brings the agent back up in it",
+			named:      "named",
+			wantWindow: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			ctx := t.Context()
+
+			recorded := t.TempDir()
+			named := tt.named
+			if named == "named" {
+				named = t.TempDir()
+			}
+
+			lifecycle := &fakeLifecycle{resumeDir: named, resumeErr: tt.resumeErr}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := st.Workflows.Create(ctx, workflowstore.Config{
+				Name:        "resume-" + tt.name,
+				SetupAction: "make-worktree",
+			})
+			require.NoError(t, err)
+
+			agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+			agent.Cwd = recorded
+			require.NoError(t, st.Agents.Update(ctx, agent))
+
+			resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
+
+			assert.Equal(t, []string{"make-worktree"}, lifecycle.resumed, "the workflow's own action is what fired")
+
+			if tt.wantErr != "" {
+				require.Error(t, err)
+				assert.ErrorContains(t, err, tt.wantErr)
+				assert.Empty(t, tmux.newWindows, "a refused action opens no window")
+				assert.Equal(t, recorded, agentByID(t, st, agent.ID).Cwd, "and moves nobody")
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.True(t, tt.wantWindow)
+
+			want := recorded
+			if named != "" {
+				want = named
+			}
+
+			assert.Equal(t, want, resumed.Cwd)
+			assert.Equal(t, want, tmux.newWindows["auth"], "the window opens where the action said")
+		})
+	}
+}
+
+// TestResumeWithoutASetupActionFiresNothing covers the ordinary workflow, which names no
+// setup action and comes back up the way it always has.
+func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	agent := seed(t, st, "auth", "%0", agentstore.StateIdle)
+
+	_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+
+	require.NoError(t, err)
+	assert.Empty(t, lifecycle.resumed)
+}
+
+// TestResumeGivesBackThePaneItOpened pins a resume that opens a window and then refuses giving
+// it up, since what it leaves behind is a bare shell with no CLI in it and a row saying the
+// agent is idle in that shell.
+func TestResumeGivesBackThePaneItOpened(t *testing.T) {
+	tests := []struct {
+		name string
+
+		setOwnerErr error
+		sendKeysErr error
+	}{
+		{
+			name:        "a pane tmux refuses to stamp",
+			setOwnerErr: errors.New("tmux refused the option"),
+		},
+		{
+			name:        "a relaunch that never reaches the pane's shell",
+			sendKeysErr: errors.New("tmux dropped the keys"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			tmux.setOwnerErr = tt.setOwnerErr
+			tmux.sendKeysErr = tt.sendKeysErr
+			st := newStore(t)
+			manager := newManager(tmux, st, "")
+			ctx := t.Context()
+
+			agent := seed(t, st, "auth", "", agentstore.StateThinking)
+
+			_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+
+			require.Error(t, err)
+			assert.Equal(t, []string{"%auth"}, tmux.killedPanes, "the window it opened is taken away")
+			assert.Equal(t, agentstore.StateThinking, agentByID(t, st, agent.ID).State,
+				"and the row is left reading as the resume found it")
+		})
+	}
+}
+
+// TestResumeAfterARefusedRelaunchGetsThrough pins the recovery, since a pane left behind is
+// stamped with the agent's id and makes every resume after it report success having done nothing.
+func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
+	tmux := newFakeTmux()
+	tmux.sendKeysErr = errors.New("tmux dropped the keys")
+	st := newStore(t)
+	harness := &fakeHarness{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: harness},
+		lifecycle: &fakeLifecycle{},
+	})
+	ctx := t.Context()
+
+	agent := seed(t, st, "auth", "", agentstore.StateThinking)
+
+	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	require.Error(t, err)
+
+	tmux.sendKeysErr = nil
+
+	resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
+
+	require.NoError(t, err)
+	assert.Len(t, harness.launches, 2, "the second resume reaches the CLI rather than reporting a pane that is already running")
+	assert.Equal(t, agentstore.StateIdle, resumed.State)
+}
+
+// TestResumeRefusesArchived pins the refusal naming the way out, since the pane would
+// otherwise sit behind a row nothing lists.
+func TestResumeRefusesArchived(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	archived := seed(t, st, "archived", "%0", agentstore.StateIdle)
+	require.NoError(t, st.SoftDelete(ctx, "archived"))
+
+	_, err := manager.resume.ResumeAgent(ctx, archived.ID)
+
+	require.ErrorIs(t, err, ErrAgentArchived)
+	assert.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
+	assert.Empty(t, tmux.newWindows, "and opens no window")
 }

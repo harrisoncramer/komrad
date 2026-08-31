@@ -29,14 +29,26 @@ type turnBoundaryRecorder interface {
 	RecordTurnBoundary(agentID string)
 }
 
-type agentLauncher interface {
+type agentCreator interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+}
+
+type agentAdopter interface {
 	Adopt(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
+}
+
+type agentLiveness interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 	GetRunningAgents(ctx context.Context, agents []agentstore.Agent) map[string]bool
+}
+
+type agentLifecycle interface {
 	DeleteAgents(ctx context.Context, ids []string) error
 	ArchiveAgents(ctx context.Context, ids []string) error
 	RestoreAgents(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+}
+
+type agentResumer interface {
 	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
 }
 
@@ -71,7 +83,11 @@ type Service struct {
 	agents      agentReadWriter
 	transcripts transcriptReader
 	mail        mailer
-	launcher    agentLauncher
+	creator     agentCreator
+	adopter     agentAdopter
+	liveness    agentLiveness
+	lifecycle   agentLifecycle
+	resumer     agentResumer
 	reconciler  turnBoundaryRecorder
 	archive     archiveEmptier
 	review      reviewConversation
@@ -93,20 +109,28 @@ type NewServiceParams struct {
 	Agents      agentReadWriter
 	Transcripts transcriptReader
 	Mail        mailer
-	Launcher    agentLauncher
+	Creator     agentCreator
+	Adopter     agentAdopter
+	Liveness    agentLiveness
+	Lifecycle   agentLifecycle
+	Resumer     agentResumer
 	Reconciler  turnBoundaryRecorder
 	Archive     archiveEmptier
 	Review      reviewConversation
 }
 
-// NewService constructs the handler from the stores it reads and the manager that launches
-// agents.
+// NewService constructs the handler from the stores it reads and the services that move agents
+// through their life.
 func NewService(p NewServiceParams) *Service {
 	return &Service{
 		agents:      p.Agents,
 		transcripts: p.Transcripts,
 		mail:        p.Mail,
-		launcher:    p.Launcher,
+		creator:     p.Creator,
+		adopter:     p.Adopter,
+		liveness:    p.Liveness,
+		lifecycle:   p.Lifecycle,
+		resumer:     p.Resumer,
 		reconciler:  p.Reconciler,
 		archive:     p.Archive,
 		review:      p.Review,
@@ -115,7 +139,7 @@ func NewService(p NewServiceParams) *Service {
 
 // CreateAgent launches a background agent and returns it as stored.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
-	created, err := s.launcher.NewAgent(ctx, agents.NewAgentParams{
+	created, err := s.creator.NewAgent(ctx, agents.NewAgentParams{
 		Title:          req.Msg.GetTitle(),
 		Dir:            req.Msg.GetDir(),
 		Flags:          req.Msg.GetFlags(),
@@ -133,12 +157,12 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, rpcerr.Wrap(err, "failed to create agent")
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.liveness.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // Adopt puts an agent on a branch or pull request that already exists.
 func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptRequest]) (*connect.Response[agentv1.AdoptResponse], error) {
-	created, err := s.launcher.Adopt(ctx, agents.AdoptParams{
+	created, err := s.adopter.Adopt(ctx, agents.AdoptParams{
 		Ref:            req.Msg.GetRef(),
 		Title:          req.Msg.GetTitle(),
 		Flags:          req.Msg.GetFlags(),
@@ -157,7 +181,7 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 		return nil, rpcerr.Wrap(err, "failed to adopt agent")
 	}
 
-	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.liveness.IsAgentRunning(*created), false).Agent}), nil
 }
 
 // ListAgents returns one page of stored agents, newest first.
@@ -172,7 +196,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, rpcerr.Wrap(err, "failed to list agents")
 	}
 
-	running := s.launcher.GetRunningAgents(ctx, agents)
+	running := s.liveness.GetRunningAgents(ctx, agents)
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
 	if err != nil {
@@ -211,7 +235,7 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	}
 	hasUnread := slices.Contains(unreadMailboxes, agent.ID)
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.launcher.IsAgentRunning(*agent), hasUnread).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.liveness.IsAgentRunning(*agent), hasUnread).Agent}), nil
 }
 
 // SetTags tags every agent named, and an unset tag clears the ones they carry.
@@ -384,7 +408,7 @@ func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.D
 
 // DeleteAgents stops agents and removes them with their configs and transcripts.
 func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.launcher.DeleteAgents(ctx, req.Msg.GetIds()); err != nil {
+	if err := s.lifecycle.DeleteAgents(ctx, req.Msg.GetIds()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to delete agents")
 	}
 
@@ -403,7 +427,7 @@ func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.E
 
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Service) ArchiveAgents(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.launcher.ArchiveAgents(ctx, req.Msg.GetIds()); err != nil {
+	if err := s.lifecycle.ArchiveAgents(ctx, req.Msg.GetIds()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to archive agents")
 	}
 
@@ -412,12 +436,12 @@ func (s *Service) ArchiveAgents(ctx context.Context, req *connect.Request[agentv
 
 // RestoreAgents takes agents out of the archive and returns them as stored, dormant.
 func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
-	restored, err := s.launcher.RestoreAgents(ctx, req.Msg.GetIds())
+	restored, err := s.lifecycle.RestoreAgents(ctx, req.Msg.GetIds())
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to restore agents")
 	}
 
-	running := s.launcher.GetRunningAgents(ctx, restored)
+	running := s.liveness.GetRunningAgents(ctx, restored)
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
 	if err != nil {
@@ -438,7 +462,7 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
 func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
-	resumed, err := s.launcher.ResumeAgent(ctx, req.Msg.GetId())
+	resumed, err := s.resumer.ResumeAgent(ctx, req.Msg.GetId())
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to resume agent",
 			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()))
@@ -450,7 +474,7 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 	}
 	hasUnread := slices.Contains(unreadMailboxes, resumed.ID)
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.launcher.IsAgentRunning(*resumed), hasUnread).Agent}), nil
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.liveness.IsAgentRunning(*resumed), hasUnread).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as

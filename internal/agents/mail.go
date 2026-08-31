@@ -52,13 +52,13 @@ type mailConfigReader interface {
 
 type MailService struct {
 	mailReadWriter mailReadWriter
-	agentFinder    agentFinder
+	agentFinder    agentGetter
 	config         mailConfigReader
 }
 
 type NewMailServiceParams struct {
 	MailReadWriter mailReadWriter
-	AgentFinder    agentFinder
+	AgentFinder    agentGetter
 	Config         mailConfigReader
 }
 
