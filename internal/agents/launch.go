@@ -87,6 +87,18 @@ type NewAgentParams struct {
 	IdempotencyKey string
 	SetupPane      string
 	AdoptedBranch  string
+
+	// SessionID names the conversation the agent is to hold rather than one weave mints, which
+	// an adoption sets when the CLI cannot carry a conversation into an id of weave's choosing.
+	SessionID string
+
+	// ResumeFrom is a conversation somebody else started, which the launch picks up instead of
+	// opening one of its own.
+	ResumeFrom string
+
+	// AdoptedSession is recorded on the row as the conversation the agent was put on, whether
+	// the launch forked it or took it over.
+	AdoptedSession string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -250,6 +262,7 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		SpawnedByAgentID: spawnedBy,
 		Hidden:           params.Hidden,
 		AdoptedBranch:    params.AdoptedBranch,
+		AdoptedSession:   params.AdoptedSession,
 	}
 }
 
@@ -263,7 +276,10 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	if err != nil {
 		return nil, err
 	}
-	sessionID := plan.harness.MintSessionID()
+	sessionID := p.SessionID
+	if sessionID == "" {
+		sessionID = plan.harness.MintSessionID()
+	}
 	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
 	agent.State = agentstore.StateSettingUp
 
@@ -334,6 +350,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		Prompt:          p.Prompt,
 		WorkflowContext: plan.workflowContext,
 		SessionID:       sessionID,
+		ResumeFrom:      p.ResumeFrom,
 		AgentID:         id,
 	}
 	if spawner != nil {

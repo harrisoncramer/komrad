@@ -28,6 +28,20 @@ The agent starts knowing what it walked into: the prompt it is given is prefixed
 
 Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
+## Adopting a conversation that already exists
+
+Adoption of an agent puts the panel around a conversation somebody had outside it. Start `claude` by hand in a terminal, get an hour into a problem, and then hover a workflow's header, press `A`, and give it that conversation's session id. What comes back is an ordinary agent: a pane, a row, a mailbox, and the whole conversation folded into the panel's search.
+
+Nothing else has to be typed. Which CLI held the conversation is worked out from where its log lives, and the agent runs in the directory the conversation was held in, which the log records on every turn. The branch that log recorded comes along too, so pull request detection works from the first turn.
+
+A Claude conversation is forked rather than continued. The panel mints a session of its own carrying the whole history, so the conversation in the person's own terminal is left exactly as it stands and nothing the adopted agent does reaches it. Codex names its own conversations and has no fork, so adopting one appends to the person's own rollout: that is a takeover, and the agent is told so in its opening prompt.
+
+The directory belongs to whoever was working in it. Nothing is provisioned for it and nothing is torn down, so deleting an adopted agent leaves the checkout alone. Adoption refuses a directory another agent is already working in, and refuses a conversation one of the panel's own agents is holding, since either would put two CLIs on one history. Adopting the same conversation twice hands back the agent already on it.
+
+The agent starts knowing what it walked into: that the turns before it are somebody else's, whether it holds a copy or the person's own conversation, and where it is working. Leave the prompt blank and it is asked to say where the conversation had got to and wait.
+
+Agents can adopt a conversation too, through `adopt_agent` over [MCP](mcp.md).
+
 ## Metadata
 
 Metadata is how an agent records what a person would want to open later. It is a set of key/value rows on the agent, written by the agent.

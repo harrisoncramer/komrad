@@ -43,6 +43,9 @@ var table = []mapping{
 	{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
+	{agents.ErrSessionDirInUse, connect.CodeFailedPrecondition},
+	{agents.ErrSessionIsWeaves, connect.CodeFailedPrecondition},
+	{agents.ErrSessionDirGone, connect.CodeFailedPrecondition},
 
 	{agents.ErrBadCron, connect.CodeInvalidArgument},
 	{agents.ErrBadDirectory, connect.CodeInvalidArgument},
@@ -54,6 +57,7 @@ var table = []mapping{
 	{agents.ErrAdoptRepoMismatch, connect.CodeInvalidArgument},
 	{agents.ErrAdoptForkBranch, connect.CodeInvalidArgument},
 	{agents.ErrAdoptNoResolver, connect.CodeInvalidArgument},
+	{agents.ErrSessionNotFound, connect.CodeNotFound},
 	{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeOwnsActions, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeActionsReserved, connect.CodeInvalidArgument},

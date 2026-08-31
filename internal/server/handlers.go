@@ -56,17 +56,18 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(StopPath, interceptors.NewLoggingHandler(p.Logger, newStopHandler(p.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		rpcagent.NewService(rpcagent.NewServiceParams{
-			Agents:      p.Stores.agents,
-			Transcripts: p.Stores.transcripts,
-			Mail:        p.Services.mail,
-			Creator:     p.Services.launch,
-			Adopter:     p.Services.adopt,
-			Liveness:    p.Services.liveness,
-			Lifecycle:   p.Services.lifecycle,
-			Resumer:     p.Services.resume,
-			Reconciler:  p.Services.reconciler,
-			Archive:     jobs.NewEnqueuer(p.Jobs),
-			Review:      p.Services.review,
+			Agents:       p.Stores.agents,
+			Transcripts:  p.Stores.transcripts,
+			Mail:         p.Services.mail,
+			Creator:      p.Services.launch,
+			Adopter:      p.Services.adopt,
+			AgentAdopter: p.Services.adoptAgent,
+			Liveness:     p.Services.liveness,
+			Lifecycle:    p.Services.lifecycle,
+			Resumer:      p.Services.resume,
+			Reconciler:   p.Services.reconciler,
+			Archive:      jobs.NewEnqueuer(p.Jobs),
+			Review:       p.Services.review,
 		}), options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(p.Stores.workflows, p.Services.workflow), options...))

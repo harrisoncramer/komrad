@@ -17,7 +17,16 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 
 	command := harness.EnvPrefix(launch) + originatorPrefix(launch.AgentID) + binary
 
-	resuming := launch.Resume && launch.SessionID != ""
+	// Codex takes no session id of its own, so adopting a conversation resumes the person's
+	// rollout rather than a copy of it, and the briefing has to go in as an opening prompt
+	// because a resume carries no system prompt.
+	adopting := launch.ResumeFrom != ""
+	sessionID := launch.SessionID
+	if adopting {
+		sessionID = launch.ResumeFrom
+	}
+
+	resuming := adopting || (launch.Resume && launch.SessionID != "")
 	if resuming {
 		command += " resume"
 	}
@@ -36,12 +45,17 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	if resuming {
-		command += " " + harness.QuoteArg(launch.SessionID)
-		if launch.Prompt == "" {
+		command += " " + harness.QuoteArg(sessionID)
+
+		prompt := launch.Prompt
+		if adopting {
+			prompt = h.openingPrompt(launch)
+		}
+		if prompt == "" {
 			return command, nil
 		}
 
-		path, err := harness.WriteTempText(launch.CacheDir, "codex-prompt-*.md", launch.Prompt)
+		path, err := harness.WriteTempText(launch.CacheDir, "codex-prompt-*.md", prompt)
 		if err != nil {
 			return "", err
 		}

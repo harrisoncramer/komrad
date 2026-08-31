@@ -228,15 +228,18 @@ toggle = ["v"]
 [keybindings.workflows]
 # Put an agent on a branch or a pull request that already exists, in the
 # workflow under the cursor.
-adopt   = ["a"]
+adopt       = ["a"]
+# Put an agent on a CLI conversation that already exists, naming its session
+# id, in the workflow under the cursor.
+adopt_agent = ["A"]
 # Archive the workflow under the cursor, which archives the agents inside it.
-archive = ["z"]
+archive     = ["z"]
 # Edit the workflow under the cursor.
-edit    = ["e"]
+edit        = ["e"]
 # Create a workflow. Works from anywhere in the list.
-new     = ["w"]
+new         = ["w"]
 # Rename the workflow under the cursor.
-rename  = ["r"]
+rename      = ["r"]
 
 # Where weave finds the scripts a workflow, a schedule, or an agent runs.
 [actions]

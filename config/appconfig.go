@@ -252,6 +252,9 @@ type WorkflowsKeys struct {
 	// Put an agent on a branch or a pull request that already exists, in the
 	// workflow under the cursor.
 	Adopt []string `mapstructure:"adopt"`
+	// Put an agent on a CLI conversation that already exists, naming its session
+	// id, in the workflow under the cursor.
+	AdoptAgent []string `mapstructure:"adopt_agent"`
 	// Archive the workflow under the cursor, which archives the agents inside it.
 	Archive []string `mapstructure:"archive"`
 	// Edit the workflow under the cursor.
@@ -724,11 +727,12 @@ func DefaultKeybindings() Keybindings {
 			Toggle: []string{"v"},
 		},
 		Workflows: WorkflowsKeys{
-			Adopt:   []string{"a"},
-			Archive: []string{"z"},
-			Edit:    []string{"e"},
-			New:     []string{"w"},
-			Rename:  []string{"r"},
+			Adopt:      []string{"a"},
+			AdoptAgent: []string{"A"},
+			Archive:    []string{"z"},
+			Edit:       []string{"e"},
+			New:        []string{"w"},
+			Rename:     []string{"r"},
 		},
 	}
 }

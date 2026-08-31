@@ -294,6 +294,7 @@ func (m model) rowHelp() []key.Binding {
 		return []key.Binding{
 			m.newBinding(),
 			binding(m.keys.Workflows.Adopt, "adopt a branch or pr"),
+			binding(m.keys.Workflows.AdoptAgent, "adopt a conversation by session id"),
 			binding(m.keys.Selection.Toggle, "select folder"),
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
