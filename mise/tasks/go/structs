@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Expand single-line keyed struct literals onto one field per line."
+
+usage() {
+	echo "Usage: mise run go:structs [--fix] [--min N]"
+	echo
+	echo "Reports keyed composite literals written on a single line, which read"
+	echo "worse than one field per line. Without --fix it only reports and exits"
+	echo "non-zero, so the check task can call it without rewriting the tree."
+}
+
+WRITE=()
+MIN=3
+while [ $# -gt 0 ]; do
+	case "$1" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--fix)
+		WRITE=(-w)
+		;;
+	--min)
+		shift
+		MIN="$1"
+		;;
+	esac
+	shift
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+go run ./tools/structexpand -min "$MIN" ${WRITE[@]+"${WRITE[@]}"} .
