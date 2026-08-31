@@ -182,7 +182,7 @@ func TestSelectionKeysStandDown(t *testing.T) {
 
 	renamed := press(t, m, keyMsg("r"))
 	assert.Equal(t, screenAgents, renamed.screen, "rename does not open its form")
-	assert.Nil(t, renamed.form)
+	assert.False(t, renamed.form.active())
 
 	moved := press(t, m, keyMsg("j"))
 	assert.Equal(t, 2, moved.tree.cursor, "the cursor still moves")
@@ -294,7 +294,8 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.selected = selection{ids: []string{"a1", "a2"}}
 
 		opened := pressArchive(t, m, keyMsg("d"))
-		assert.Equal(t, screenArchiveDelete, opened.screen)
+		assert.Equal(t, formArchiveDelete, opened.form.kind)
+		assert.Equal(t, screenArchive, opened.screen, "the prompt is drawn over the archive it was opened from")
 		assert.Equal(t, []string{"a1", "a2"}, agentIDs(opened.target.deleteAgents))
 	})
 
@@ -439,12 +440,12 @@ func TestArchiveSelectionFromTheTree(t *testing.T) {
 			opened, _ := m.updateAgents(keyMsg("z"))
 			pressed, ok := opened.(model)
 			require.True(t, ok)
-			assert.Equal(t, screenAgentArchive, pressed.screen, "the key opens the prompt rather than archiving outright")
+			assert.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the prompt rather than archiving outright")
 			assert.Equal(t, tt.wantIDs, agentIDs(pressed.target.archiveAgents))
 			assert.Empty(t, agents.archived, "nothing is sent until the prompt is confirmed")
 
 			*pressed.values.archive = archiveChoiceArchive
-			pressed.form.State = huh.StateCompleted
+			pressed.form.form.State = huh.StateCompleted
 
 			next, cmd := pressed.updateAgentArchive(keyMsg("enter"))
 			require.NotNil(t, cmd)

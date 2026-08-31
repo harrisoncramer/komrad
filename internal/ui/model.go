@@ -14,7 +14,6 @@ import (
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
 )
 
@@ -31,26 +30,6 @@ func Run(deps Deps) error {
 
 	return nil
 }
-
-type screen int
-
-const (
-	screenAgents screen = iota
-	screenForm
-	screenAdopt
-	screenRename
-	screenAgentArchive
-	screenWorkflowForm
-	screenWorkflowArchive
-	screenSearch
-	screenSchedules
-	screenScheduleForm
-	screenScheduleArchive
-	screenArchive
-	screenArchiveDelete
-	screenArchiveEmpty
-	screenReview
-)
 
 type uiTmux interface {
 	layout.Tmux
@@ -140,7 +119,8 @@ type model struct {
 
 	filter filterState
 
-	form   *huh.Form
+	form formState
+
 	values formValues
 	target formTarget
 

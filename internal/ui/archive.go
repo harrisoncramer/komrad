@@ -54,6 +54,17 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	return headers
 }
 
+// hoveredArchiveKey is the row the cursor is on, read before a filter narrows the list under it.
+func (m model) hoveredArchiveKey() string {
+	return rowKeyAt(m.archiveRows(), m.archive.cursor)
+}
+
+func (m *model) placeArchiveCursor(hovered string) {
+	rows := m.archiveRows()
+	m.archive.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.archive.cursor, len(rows))
+	m.stageArchive()
+}
+
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
@@ -228,18 +239,20 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 	}
 
 	m.target.deleteAgents = agents
-	m.form, m.values.confirmed = deleteAgentsForm(agents, m.keys.Form)
-	m.screen = screenArchiveDelete
 
-	return m, m.form.Init()
+	form, values := deleteAgentsForm(agents, m.keys.Form)
+	m.values.confirmed = values
+
+	return m, m.openForm(formArchiveDelete, form, model.updateArchiveDelete)
 }
 
 func (m model) deleteWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.deleteWorkflow = &workflow
-	m.form, m.values.confirmed = deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), m.keys.Form)
-	m.screen = screenArchiveDelete
 
-	return m, m.form.Init()
+	form, values := deleteWorkflowForm(workflow, m.archivedCount(workflow.ID), m.keys.Form)
+	m.values.confirmed = values
+
+	return m, m.openForm(formArchiveDelete, form, model.updateArchiveDelete)
 }
 
 func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
@@ -247,10 +260,10 @@ func (m model) emptyArchiveConfirm() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.form, m.values.confirmed = emptyArchiveForm(len(m.archive.agents), m.keys.Form)
-	m.screen = screenArchiveEmpty
+	form, values := emptyArchiveForm(len(m.archive.agents), m.keys.Form)
+	m.values.confirmed = values
 
-	return m, m.form.Init()
+	return m, m.openForm(formArchiveEmpty, form, model.updateArchiveEmpty)
 }
 
 func (m model) updateArchiveEmpty(msg tea.Msg) (tea.Model, tea.Cmd) {

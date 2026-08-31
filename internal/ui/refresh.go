@@ -115,14 +115,10 @@ func (m *model) applyRefresh(result refreshResult) bool {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}
 
-	switch m.screen {
-	case screenAgents:
-		m.stageSelection()
-	case screenSchedules:
-		m.stageSchedule()
-	case screenArchive:
-		m.stageArchive()
-	default:
+	// A form drawn over the list holds the stage as it was when it went up, and the review
+	// draws a diff this pass knows nothing about.
+	if spec := m.screen.spec(); spec.fromListing && !m.form.active() {
+		spec.stage(m)
 	}
 
 	return editorClosed && m.screen == screenReview

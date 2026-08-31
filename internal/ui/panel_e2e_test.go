@@ -69,10 +69,11 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 	updated, _ := panel.Update(keyMsg(keys.Agents.Archive[0]))
 	pressed, ok := updated.(model)
 	require.True(t, ok)
-	require.Equal(t, screenAgentArchive, pressed.screen, "the key opens the confirm prompt rather than archiving outright")
+	require.Equal(t, formAgentArchive, pressed.form.kind, "the key opens the confirm prompt rather than archiving outright")
+	require.Equal(t, screenAgents, pressed.screen, "and it is drawn over the list it was opened from")
 
 	*pressed.values.archive = archiveChoiceArchive
-	pressed.form.State = huh.StateCompleted
+	pressed.form.form.State = huh.StateCompleted
 	confirmed, cmd := pressed.updateAgentArchive(keyMsg("enter"))
 	panel, ok = confirmed.(model)
 	require.True(t, ok)
