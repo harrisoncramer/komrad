@@ -293,7 +293,7 @@ func TestReconcileOverPasses(t *testing.T) {
 				last := i == len(tt.passes)-1
 				if last && tt.archiveBeforeLast {
 					require.NoError(t, st.SoftDelete(ctx, "agent"))
-					assert.NotZero(t, rec.misses[agent.ID], "the earlier idle pass should have recorded a miss")
+					assert.NotZero(t, rec.missCount(agent.ID), "the earlier idle pass should have recorded a miss")
 				}
 
 				tmux.captures["%1"] = frame
@@ -313,11 +313,11 @@ func TestReconcileOverPasses(t *testing.T) {
 			if !tt.archiveBeforeLast {
 				assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 			} else {
-				assert.Empty(t, rec.misses, "the miss map is reaped once the agent is gone")
+				assert.Empty(t, rec.tracked, "what was tracked is reaped once the agent is gone")
 			}
 
 			if tt.wantMisses != nil {
-				assert.Equal(t, *tt.wantMisses, rec.misses[agent.ID])
+				assert.Equal(t, *tt.wantMisses, rec.missCount(agent.ID))
 			}
 		})
 	}
@@ -358,7 +358,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	}
 
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "orphan"))
-	assert.Empty(t, rec.misses, "an unread frame is not an idle observation")
+	assert.Empty(t, rec.tracked, "an unread frame is not an idle observation")
 }
 
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
@@ -396,7 +396,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 
 			require.NoError(t, rec.Reconcile(ctx))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
-			assert.Zero(t, rec.misses[agent.ID], "the boundary settles it in one pass rather than accruing a miss")
+			assert.Zero(t, rec.missCount(agent.ID), "the boundary settles it in one pass rather than accruing a miss")
 		})
 	}
 }
@@ -417,7 +417,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
-	assert.Equal(t, 1, rec.misses[agent.ID], "the pass still counted as an ordinary miss")
+	assert.Equal(t, 1, rec.missCount(agent.ID), "the pass still counted as an ordinary miss")
 }
 
 // TestReconcileWithoutTmux covers a pass that could not read tmux at all, where treating
@@ -458,7 +458,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 		tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, i)
 		require.NoError(t, rec.Reconcile(ctx))
 		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
-		assert.Zero(t, rec.misses[agent.ID])
+		assert.Zero(t, rec.missCount(agent.ID))
 	}
 }
 
