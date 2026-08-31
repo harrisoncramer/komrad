@@ -50,9 +50,7 @@ const MailDeliveryInterval = 2 * time.Second
 
 const TranscriptSyncInterval = 15 * time.Second
 
-const BranchSyncInterval = 15 * time.Second
-
-const WorktreeSyncInterval = 15 * time.Second
+const CwdSyncInterval = 15 * time.Second
 
 // PRArchiveInterval is how often recorded pull requests are asked about, in minutes rather
 // than seconds because every pass spends somebody's GitHub quota.
@@ -125,9 +123,7 @@ type Server struct {
 
 	TranscriptSync Loop
 
-	BranchSync Loop
-
-	WorktreeSync Loop
+	CwdSync Loop
 
 	PRArchive Loop
 
@@ -138,7 +134,7 @@ type Server struct {
 }
 
 func (s *Server) loops() []Loop {
-	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.BranchSync, s.WorktreeSync, s.PRArchive}
+	return []Loop{s.ScheduleReconcile, s.Reconcile, s.MailDelivery, s.TranscriptSync, s.CwdSync, s.PRArchive}
 }
 
 // New builds the service, with nothing listening and no loop running until the caller says
@@ -353,15 +349,10 @@ func New(ctx context.Context, p Params) (*Server, error) {
 			Harnesses:   p.Harnesses,
 		}).Sync,
 	}
-	srv.BranchSync = Loop{
-		Name:     "branch sync",
-		Interval: BranchSyncInterval,
-		Pass:     agents.NewBranchSyncer(agentStore).Sync,
-	}
-	srv.WorktreeSync = Loop{
-		Name:     "worktree sync",
-		Interval: WorktreeSyncInterval,
-		Pass:     agents.NewWorktreeSyncer(agentStore).Sync,
+	srv.CwdSync = Loop{
+		Name:     "cwd sync",
+		Interval: CwdSyncInterval,
+		Pass:     agents.NewCwdSyncer(agentStore).Sync,
 	}
 	srv.PRArchive = Loop{
 		Name:     "pr archive",
