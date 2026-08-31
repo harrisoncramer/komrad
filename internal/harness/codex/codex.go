@@ -137,6 +137,3 @@ func readSessionMeta(path string) (sessionMeta, error) {
 
 	return record.Payload, nil
 }
-
-// Relocate has nothing to carry, since Codex resumes a conversation by id from anywhere.
-func (h *Harness) Relocate(string, string) error { return nil }
