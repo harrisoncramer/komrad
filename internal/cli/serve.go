@@ -29,14 +29,16 @@ func serveCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the weave service in the foreground",
-		Long: "Run the weave service in the foreground.\n\n" +
-			"It opens the database, mounts the Connect handlers and the MCP endpoint on one\n" +
-			"address, and runs the loops that read each pane's state, reconcile schedules, and\n" +
-			"sync transcripts. The panel and the rest of these commands are clients of it, so\n" +
-			"nothing works without it.\n\n" +
-			"`weave start` spawns this detached with its output going to the log file, which is\n" +
-			"how it usually runs. Run it here to watch that output directly. It stops on an\n" +
-			"interrupt, or when `weave stop` asks it to.",
+		Long: `Run the weave service in the foreground.
+
+It opens the database, mounts the Connect handlers and the MCP endpoint on one
+address, and runs the loops that read each pane's state, reconcile schedules, and
+sync transcripts. The panel and the rest of these commands are clients of it, so
+nothing works without it.
+
+` + "`weave start`" + ` spawns this detached with its output going to the log file, which is
+how it usually runs. Run it here to watch that output directly. It stops on an
+interrupt, or when ` + "`weave stop`" + ` asks it to.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logger, err := serveLogger(state.logLevel)
 			if err != nil {

@@ -27,16 +27,18 @@ func doctorCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Check that this machine has everything weave needs",
-		Long: "Check that this machine has everything weave needs, one line per dependency.\n\n" +
-			"It checks tmux and its version, the shell tmux starts panes with, whether the\n" +
-			"config file parses and names a harness that exists, the database and whether its\n" +
-			"schema is current, the read-only login the MCP query tools connect as, the service\n" +
-			"on its address, and the CLI binary behind each harness. It repairs nothing, since a\n" +
-			"command that changed what it was describing could not be trusted to say what is\n" +
-			"wrong.\n\n" +
-			"The exit status is non-zero when any check failed, so it can gate a script, and\n" +
-			"--json prints the report rather than the summary. Run this first when the panel is\n" +
-			"doing something that makes no sense.",
+		Long: `Check that this machine has everything weave needs, one line per dependency.
+
+It checks tmux and its version, the shell tmux starts panes with, whether the
+config file parses and names a harness that exists, the database and whether its
+schema is current, the read-only login the MCP query tools connect as, the service
+on its address, and the CLI binary behind each harness. It repairs nothing, since a
+command that changed what it was describing could not be trusted to say what is
+wrong.
+
+The exit status is non-zero when any check failed, so it can gate a script, and
+--json prints the report rather than the summary. Run this first when the panel is
+doing something that makes no sense.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

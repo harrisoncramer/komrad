@@ -10,9 +10,10 @@ func stageCmd(*app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "stage <file>",
 		Short: "Draw a file into the panel's stage pane",
-		Long: "Draw a file into the panel's stage pane, redrawing it whenever a key arrives.\n\n" +
-			"The panel runs this in the pane beside it and taps a key at it once it has rewritten\n" +
-			"the file. It is not meant to be run by hand.",
+		Long: `Draw a file into the panel's stage pane, redrawing it whenever a key arrives.
+
+The panel runs this in the pane beside it and taps a key at it once it has rewritten
+the file. It is not meant to be run by hand.`,
 		Hidden:        true,
 		Args:          cobra.ExactArgs(1),
 		SilenceUsage:  true,
