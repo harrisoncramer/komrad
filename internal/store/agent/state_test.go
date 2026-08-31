@@ -19,6 +19,7 @@ func TestSetStateByID(t *testing.T) {
 
 		target string
 
+		wantErr   error
 		wantState string
 	}{
 		{
@@ -29,6 +30,7 @@ func TestSetStateByID(t *testing.T) {
 		{
 			name:      "an id that is not an id",
 			target:    "not-a-uuid",
+			wantErr:   store.ErrNotFound,
 			wantState: StateIdle,
 		},
 		{
@@ -52,7 +54,11 @@ func TestSetStateByID(t *testing.T) {
 				target = created.ID
 			}
 
-			require.NoError(t, st.SetStateByID(ctx, target, StateThinking))
+			if tt.wantErr != nil {
+				assert.ErrorIs(t, st.SetStateByID(ctx, target, StateThinking), tt.wantErr)
+			} else {
+				require.NoError(t, st.SetStateByID(ctx, target, StateThinking))
+			}
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
@@ -108,6 +114,42 @@ func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, again)
 	assert.Equal(t, moved.StateChangedAt, again.StateChangedAt, "observing the same state again leaves it")
+}
+
+// TestSettersRefuseAnIDThatIsNotOne pins that the setters a reconcile or resume pass writes
+// through say so rather than reporting a write they never made.
+func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
+	tests := []struct {
+		name  string
+		write func(*Store, string) error
+	}{
+		{
+			name:  "the branch",
+			write: func(s *Store, id string) error { return s.SetBranchByID(t.Context(), id, xptr.Ptr("main")) },
+		},
+		{
+			name:  "the removed worktree",
+			write: func(s *Store, id string) error { return s.SetWorktreeRemovedByID(t.Context(), id, true) },
+		},
+		{
+			name:  "the cut-off turn",
+			write: func(s *Store, id string) error { return s.SetInterruptedAtByID(t.Context(), id, xptr.Ptr(time.Now())) },
+		},
+		{
+			name:  "the session",
+			write: func(s *Store, id string) error { return s.SetSessionID(t.Context(), id, "session") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+
+			assert.ErrorIs(t, tt.write(st.Store, "not-a-uuid"), store.ErrNotFound)
+			assert.NoError(t, tt.write(st.Store, "00000000-0000-0000-0000-0000000000ff"),
+				"an id no agent holds is not the same question")
+		})
+	}
 }
 
 // TestANudgeIsHeldForTheRetryInterval pins that a nudge just taken stands while one left

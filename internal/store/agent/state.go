@@ -31,7 +31,7 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 // whether or not the value moved.
 func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	if !store.IsID(id) {
-		return nil
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	if err := s.queries.SetAgentStateByID(ctx, models.SetAgentStateByIDParams{ID: id, State: state}); err != nil {
@@ -60,7 +60,7 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 // is nil, and is written only by the cwd syncer's periodic pass.
 func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
 	if !store.IsID(id) {
-		return nil
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	if err := s.queries.SetAgentBranchByID(ctx, models.SetAgentBranchByIDParams{ID: id, Branch: branch}); err != nil {
@@ -74,7 +74,7 @@ func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) er
 // only by the cwd syncer's periodic pass.
 func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
 	if !store.IsID(id) {
-		return nil
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	if err := s.queries.SetAgentWorktreeRemovedByID(ctx, models.SetAgentWorktreeRemovedByIDParams{ID: id, WorktreeRemoved: removed}); err != nil {
@@ -88,7 +88,7 @@ func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed b
 // turn, which a resume reads to decide whether to say anything on the way back in.
 func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error {
 	if !store.IsID(id) {
-		return nil
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	if err := s.queries.SetAgentInterruptedAtByID(ctx, models.SetAgentInterruptedAtByIDParams{ID: id, InterruptedAt: at}); err != nil {
@@ -101,7 +101,7 @@ func (s *Store) SetInterruptedAtByID(ctx context.Context, id string, at *time.Ti
 // SetSessionID records an agent's conversation when none is already stored.
 func (s *Store) SetSessionID(ctx context.Context, id, sessionID string) error {
 	if !store.IsID(id) {
-		return nil
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
 	if err := s.queries.SetAgentSessionID(ctx, models.SetAgentSessionIDParams{ID: id, SessionID: sessionID}); err != nil {
