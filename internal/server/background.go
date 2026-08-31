@@ -29,7 +29,7 @@ type Loop struct {
 // Start begins the job queue and the background loops, which the caller tears down with
 // Stop before Close.
 func (s *Server) Start(ctx context.Context) error {
-	work, err := startBackground(ctx, s.Jobs, s.loops(), s.logger)
+	work, err := startBackground(ctx, s.Jobs, s.Loops, s.logger)
 	if err != nil {
 		return err
 	}

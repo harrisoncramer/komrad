@@ -175,20 +175,20 @@ func (i *Instance) WorkQueue() {
 // Reconcile runs one pass of the loop that writes agent state.
 func (i *Instance) Reconcile() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.Reconcile.Pass(i.t.Context()))
+	require.NoError(i.t, i.server.RunLoop(i.t.Context(), server.ReconcileLoop))
 }
 
 // SyncTranscripts runs one pass of the loop that folds what was said into the search index.
 func (i *Instance) SyncTranscripts() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.TranscriptSync.Pass(i.t.Context()))
+	require.NoError(i.t, i.server.RunLoop(i.t.Context(), server.TranscriptSyncLoop))
 }
 
 // ReconcileSchedules runs one pass of the loop that makes River's registrations match the
 // schedules table.
 func (i *Instance) ReconcileSchedules() {
 	i.t.Helper()
-	require.NoError(i.t, i.server.ScheduleReconcile.Pass(i.t.Context()))
+	require.NoError(i.t, i.server.RunLoop(i.t.Context(), server.ScheduleReconcileLoop))
 }
 
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says
