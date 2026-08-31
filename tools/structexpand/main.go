@@ -23,6 +23,17 @@ var skipDirs = map[string]bool{
 	"node_modules": true,
 }
 
+type insert struct {
+	off  int
+	text string
+}
+
+type scanner struct {
+	fset *token.FileSet
+	file *ast.File
+	min  int
+}
+
 func main() {
 	min := flag.Int("min", 3, "expand literals with at least this many keyed fields")
 	write := flag.Bool("w", false, "write results back to the files")
@@ -86,11 +97,17 @@ func process(path string, min int, write bool) (int, error) {
 		return 0, err
 	}
 
+	scan := scanner{
+		fset: fset,
+		file: file,
+		min:  min,
+	}
+
 	var inserts []insert
 	count := 0
 	ast.Inspect(file, func(n ast.Node) bool {
 		lit, ok := n.(*ast.CompositeLit)
-		if !ok || !expandable(fset, file, lit, min) {
+		if !ok || !scan.shouldExpand(lit) {
 			return true
 		}
 		count++
@@ -128,16 +145,11 @@ func process(path string, min int, write bool) (int, error) {
 	return count, nil
 }
 
-type insert struct {
-	off  int
-	text string
-}
-
-func expandable(fset *token.FileSet, file *ast.File, lit *ast.CompositeLit, min int) bool {
-	if len(lit.Elts) < min {
+func (s scanner) shouldExpand(lit *ast.CompositeLit) bool {
+	if len(lit.Elts) < s.min {
 		return false
 	}
-	if fset.Position(lit.Lbrace).Line != fset.Position(lit.Rbrace).Line {
+	if s.fset.Position(lit.Lbrace).Line != s.fset.Position(lit.Rbrace).Line {
 		return false
 	}
 	for _, elt := range lit.Elts {
@@ -145,10 +157,11 @@ func expandable(fset *token.FileSet, file *ast.File, lit *ast.CompositeLit, min 
 			return false
 		}
 	}
-	for _, group := range file.Comments {
+	for _, group := range s.file.Comments {
 		if group.Pos() > lit.Lbrace && group.End() < lit.Rbrace {
 			return false
 		}
 	}
+
 	return true
 }
