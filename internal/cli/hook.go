@@ -53,10 +53,11 @@ func hookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "hook",
 		Short: "Run one of the agent CLI hooks weave installs",
-		Long: "Run one of the agent CLI hooks weave installs.\n\n" +
-			"An agent CLI runs these itself at a point in its own loop. They read the hook\n" +
-			"payload on stdin and write whatever that CLI expects on stdout. Nothing here is\n" +
-			"meant to be run by hand.",
+		Long: `Run one of the agent CLI hooks weave installs.
+
+An agent CLI runs these itself at a point in its own loop. They read the hook
+payload on stdin and write whatever that CLI expects on stdout. Nothing here is
+meant to be run by hand.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -71,11 +72,12 @@ func stopHookCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "stop",
 		Short: "Deliver an agent's unread mail as its turn ends",
-		Long: "Deliver an agent's unread mail as its turn ends.\n\n" +
-			"The agent CLI runs this on its Stop event. It reads the agent's mail and prints it\n" +
-			"back as additional context, which the CLI hands the model as another turn. An\n" +
-			"agent with no mail, or a panel that cannot be reached, prints nothing and lets the\n" +
-			"turn end.",
+		Long: `Deliver an agent's unread mail as its turn ends.
+
+The agent CLI runs this on its Stop event. It reads the agent's mail and prints it
+back as additional context, which the CLI hands the model as another turn. An
+agent with no mail, or a panel that cannot be reached, prints nothing and lets the
+turn end.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

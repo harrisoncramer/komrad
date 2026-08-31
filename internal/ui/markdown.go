@@ -116,9 +116,12 @@ func agentFields(agent agentstore.Agent, schedule string) []recordField {
 	return fields
 }
 
-const noSchedulesMarkdown = "# Schedules\n\n" +
-	"A schedule launches an agent on a cron expression.\n\n" +
-	"Press the new key to write one.\n"
+const noSchedulesMarkdown = `# Schedules
+
+A schedule launches an agent on a cron expression.
+
+Press the new key to write one.
+`
 
 func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workflow) []recordField {
 	fields := []recordField{

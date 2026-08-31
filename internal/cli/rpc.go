@@ -23,10 +23,11 @@ func rpcCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "rpc",
 		Short: "Call the service's endpoints, one subcommand per RPC",
-		Long: "Call the service's endpoints from a script.\n\n" +
-			"Every subcommand here is one RPC, named as the MCP tool surface names it, so a\n" +
-			"script and a model ask for the same operation by the same name. Request fields are\n" +
-			"flags, and the response is the API's own JSON on stdout.",
+		Long: `Call the service's endpoints from a script.
+
+Every subcommand here is one RPC, named as the MCP tool surface names it, so a
+script and a model ask for the same operation by the same name. Request fields are
+flags, and the response is the API's own JSON on stdout.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

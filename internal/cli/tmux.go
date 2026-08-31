@@ -14,15 +14,17 @@ func tmuxCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "tmux",
 		Short: "Bind the panel key on your tmux server",
-		Long: "Bind the panel key on your tmux server.\n\n" +
-			"This is what a tmux config runs, as `run-shell 'weave tmux'`, and it is where the\n" +
-			"key that opens and hides the panel comes from. The path of this binary is resolved\n" +
-			"once and written into the binding, so weave only has to be findable when tmux parses\n" +
-			"its config rather than for the life of the server.\n\n" +
-			"A tmux server has to be running, since binding a key does not start one. The binding\n" +
-			"belongs to the server rather than to a session, so it outlives the session it was\n" +
-			"made from and dies with the server, and running this again only replaces it. Run it\n" +
-			"by hand after changing @weave_key to bind the new one without restarting tmux.",
+		Long: `Bind the panel key on your tmux server.
+
+This is what a tmux config runs, as ` + "`run-shell 'weave tmux'`" + `, and it is where the
+key that opens and hides the panel comes from. The path of this binary is resolved
+once and written into the binding, so weave only has to be findable when tmux parses
+its config rather than for the life of the server.
+
+A tmux server has to be running, since binding a key does not start one. The binding
+belongs to the server rather than to a session, so it outlives the session it was
+made from and dies with the server, and running this again only replaces it. Run it
+by hand after changing @weave_key to bind the new one without restarting tmux.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
