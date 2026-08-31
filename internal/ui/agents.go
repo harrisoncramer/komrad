@@ -589,47 +589,6 @@ func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValu
 	return next, tea.Batch(cmd, closeCmd)
 }
 
-func (m model) openAdoptAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	if workflow == nil {
-		m.report("Could not adopt", errNoWorkflow)
-
-		return m, nil
-	}
-
-	values := adoptAgentFormValues{Harness: workflow.Harness, Flags: workflow.Flags}
-
-	return m.openAdoptAgentForm(*workflow, &values)
-}
-
-func (m model) openAdoptAgentForm(workflow workflowstore.Workflow, values *adoptAgentFormValues) (tea.Model, tea.Cmd) {
-	return m, m.openForm(formState{
-		kind:   formAdoptAgent,
-		form:   adoptAgentSessionForm(m.keys.Form, values),
-		update: model.updateForm,
-		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAdoptAgent(workflow, *values) },
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := adoptAgentSessionForm(m.keys.Form, values)
-
-			return rebuilt, rebuilt.Init()
-		},
-	})
-}
-
-// submitAdoptAgent claims no setup pane, since an adopted conversation is held in a directory
-// somebody else made and nothing is provisioned for it.
-func (m model) submitAdoptAgent(workflow workflowstore.Workflow, values adoptAgentFormValues) (tea.Model, tea.Cmd) {
-	cmd := m.adoptAgentCmd(adoptAgentParams{
-		SessionID:  values.SessionID,
-		Prompt:     values.Prompt,
-		Title:      values.Title,
-		Harness:    values.Harness,
-		Flags:      values.Flags,
-		WorkflowID: workflow.ID,
-	})
-
-	return m, tea.Batch(cmd, m.holdForm())
-}
-
 func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, tea.Cmd) {
 	name := strings.TrimSpace(typed)
 	cmd := m.writeCmd(

@@ -221,25 +221,6 @@ func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 	}
 }
 
-func (m *model) adoptAgentCmd(params adoptAgentParams) tea.Cmd {
-	clients := m.api
-	m.beginWrite()
-
-	return func() tea.Msg {
-		const summary = "Could not adopt the conversation"
-
-		agent, err := clients.adoptAgent(params)
-		if err != nil {
-			return writeResult{summary: summary, err: err}
-		}
-
-		return writeResult{
-			summary: summary,
-			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-		}
-	}
-}
-
 func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
 	clients := m.api
 	m.beginWrite()

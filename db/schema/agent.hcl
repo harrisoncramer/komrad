@@ -389,11 +389,6 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "adopted_session" {
-    null    = false
-    type    = text
-    default = ""
-  }
   column "worktree_removed" {
     null    = false
     type    = boolean

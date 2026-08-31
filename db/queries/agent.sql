@@ -115,8 +115,7 @@ INSERT INTO agents(
     setup_action,
     cleanup_action,
     spawned_by_agent_id,
-    adopted_branch,
-    adopted_session)
+    adopted_branch)
 VALUES (
     @id,
     @name,
@@ -134,8 +133,7 @@ VALUES (
     sqlc.narg('setup_action'),
     sqlc.narg('cleanup_action'),
     sqlc.narg('spawned_by_agent_id'),
-    @adopted_branch,
-    @adopted_session)
+    @adopted_branch)
 RETURNING
     id;
 

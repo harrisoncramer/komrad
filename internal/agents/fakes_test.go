@@ -221,14 +221,6 @@ type fakeHarness struct {
 	launches   []harness.Launch
 	commandErr error
 	found      string
-
-	// sessions are the conversations on disk this harness is pretending to hold, keyed by id,
-	// which is what there is for an adoption to find.
-	sessions map[string]harness.Session
-
-	// noFork makes this harness one that cannot carry a conversation into an id of weave's own,
-	// the way Codex cannot.
-	noFork bool
 }
 
 func (f *fakeHarness) GetID() string     { return testHarnessID }
@@ -265,40 +257,7 @@ func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-func (f *fakeHarness) GetLogPath(sessionID string) string {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if _, held := f.sessions[sessionID]; !held {
-		return ""
-	}
-
-	return "/logs/" + sessionID + ".jsonl"
-}
-
-func (f *fakeHarness) ForksOnResume() bool { return !f.noFork }
-
-func (f *fakeHarness) DescribeSession(sessionID string) (harness.Session, error) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	found, held := f.sessions[sessionID]
-	if !held {
-		return harness.Session{}, fmt.Errorf("%w for session %q", harness.ErrSessionNotFound, sessionID)
-	}
-
-	return found, nil
-}
-
-func (f *fakeHarness) seed(sessionID string, session harness.Session) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-
-	if f.sessions == nil {
-		f.sessions = map[string]harness.Session{}
-	}
-	f.sessions[sessionID] = session
-}
+func (f *fakeHarness) GetLogPath(string) string { return "" }
 
 func (f *fakeHarness) FindSession(string) (string, error) {
 	return f.found, nil
@@ -311,14 +270,6 @@ func (f *fakeHarness) ReadLog(string, int64) (harness.LogRead, error) {
 type fakeHarnesses struct {
 	harness *fakeHarness
 	only    []string
-}
-
-func (f fakeHarnesses) IDs() []string {
-	if len(f.only) > 0 {
-		return f.only
-	}
-
-	return []string{testHarnessID}
 }
 
 func (f fakeHarnesses) GetByID(id string) (harness.Harness, error) {
@@ -414,20 +365,19 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 type testAgentStore interface {
 	launchAgentStore
 	resumeAgentStore
-	adoptionAgentStore
+	adoptAgentStore
 	lifecycleAgentStore
 }
 
 // testAgents is what a test drives instead of one service, holding the pieces an AgentService
 // used to be.
 type testAgents struct {
-	launch     *LaunchService
-	resume     *ResumeService
-	adopt      *AdoptService
-	adoptAgent *AdoptAgentService
-	lifecycle  *LifecycleService
-	panes      *PaneLiveness
-	emptied    *EmptyWorkflowDeleter
+	launch    *LaunchService
+	resume    *ResumeService
+	adopt     *AdoptService
+	lifecycle *LifecycleService
+	panes     *PaneLiveness
+	emptied   *EmptyWorkflowDeleter
 }
 
 type agentServiceOptions struct {
@@ -488,12 +438,6 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Agents:    agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
-		}),
-		adoptAgent: NewAdoptAgentService(AdoptAgentServiceParams{
-			Agents:    agents,
-			Workflows: s.Workflows,
-			Launch:    launch,
-			Harnesses: options.harnesses,
 		}),
 		lifecycle: NewLifecycleService(LifecycleServiceParams{
 			Tmux:           options.tmux,
