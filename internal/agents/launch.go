@@ -87,17 +87,8 @@ type NewAgentParams struct {
 	IdempotencyKey string
 	SetupPane      string
 	AdoptedBranch  string
-
-	// SessionID names the conversation the agent is to hold rather than one weave mints, which
-	// an adoption sets when the CLI cannot carry a conversation into an id of weave's choosing.
-	SessionID string
-
-	// ResumeFrom is a conversation somebody else started, which the launch picks up instead of
-	// opening one of its own.
-	ResumeFrom string
-
-	// AdoptedSession is recorded on the row as the conversation the agent was put on, whether
-	// the launch forked it or took it over.
+	SessionID      string
+	ResumeFrom     string
 	AdoptedSession string
 }
 
