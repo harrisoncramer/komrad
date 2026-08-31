@@ -129,6 +129,9 @@ type Keybindings struct {
 	Logs LogsKeys `mapstructure:"logs"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
+	// The review screen, which draws an agent's diff in the stage and its review
+	// threads in the sidebar.
+	Review ReviewKeys `mapstructure:"review"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
@@ -257,6 +260,57 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename"`
+}
+
+// ReviewKeys are the bindings for the review screen, where the diff is in the stage and the
+// threads are in the sidebar. Paging and panning are the screen's own, since the shared
+// navigation keys move the cursor a row at a time. While a message is being composed or a
+// pattern typed, every other key is a character, so the keys that close those are fixed rather
+// than configured, as is the vim recentring chord zz, zt, zb.
+type ReviewKeys struct {
+	// Leave the review for the agents list.
+	Back []string `mapstructure:"back"`
+	// Write a message on the line under the cursor, replying in the thread already there
+	// or opening a new one.
+	Compose []string `mapstructure:"compose"`
+	// Delete the thread under the cursor, with every message in it.
+	DeleteThread []string `mapstructure:"delete_thread"`
+	// Open the file under the cursor in your editor, on the line the cursor is on.
+	EditFile []string `mapstructure:"edit_file"`
+	// Scroll down half a screen.
+	HalfPageDown []string `mapstructure:"half_page_down"`
+	// Scroll up half a screen.
+	HalfPageUp []string `mapstructure:"half_page_up"`
+	// Jump to the next file in the diff.
+	NextFile []string `mapstructure:"next_file"`
+	// Jump to the next hunk.
+	NextHunk []string `mapstructure:"next_hunk"`
+	// Jump to the next line matching the pattern the filter key searched for.
+	NextMatch []string `mapstructure:"next_match"`
+	// Jump to the next line carrying a review thread.
+	NextThread []string `mapstructure:"next_thread"`
+	// Scroll down a screen.
+	PageDown []string `mapstructure:"page_down"`
+	// Scroll up a screen.
+	PageUp []string `mapstructure:"page_up"`
+	// Pan the diff left, for a line wider than the pane.
+	PanLeft []string `mapstructure:"pan_left"`
+	// Pan back to the start of the line.
+	PanReset []string `mapstructure:"pan_reset"`
+	// Pan the diff right.
+	PanRight []string `mapstructure:"pan_right"`
+	// Jump to the previous file in the diff.
+	PrevFile []string `mapstructure:"prev_file"`
+	// Jump to the previous hunk.
+	PrevHunk []string `mapstructure:"prev_hunk"`
+	// Jump to the previous line matching the pattern.
+	PrevMatch []string `mapstructure:"prev_match"`
+	// Jump to the previous line carrying a review thread.
+	PrevThread []string `mapstructure:"prev_thread"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
+	// Settle the thread under the cursor, which marks it resolved without deleting it.
+	Resolve []string `mapstructure:"resolve"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
@@ -631,6 +685,29 @@ func DefaultKeybindings() Keybindings {
 			Down:   []string{"j"},
 			Top:    []string{"g"},
 			Up:     []string{"k"},
+		},
+		Review: ReviewKeys{
+			Back:         []string{"esc"},
+			Compose:      []string{"c"},
+			DeleteThread: []string{"D"},
+			EditFile:     []string{"e"},
+			HalfPageDown: []string{"ctrl+d"},
+			HalfPageUp:   []string{"ctrl+u"},
+			NextFile:     []string{"]"},
+			NextHunk:     []string{"}"},
+			NextMatch:    []string{"n"},
+			NextThread:   []string{"t"},
+			PageDown:     []string{"pgdown", "ctrl+n", "ctrl+f", " "},
+			PageUp:       []string{"pgup", "ctrl+p", "ctrl+b"},
+			PanLeft:      []string{"h", "left"},
+			PanReset:     []string{"0"},
+			PanRight:     []string{"l", "right"},
+			PrevFile:     []string{"["},
+			PrevHunk:     []string{"{"},
+			PrevMatch:    []string{"N"},
+			PrevThread:   []string{"T"},
+			Quit:         []string{"ctrl+c"},
+			Resolve:      []string{"r"},
 		},
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},
