@@ -11,6 +11,8 @@ const (
 	AgentHeader = "X-Weave-Agent-Id"
 
 	SessionHeader = "X-Weave-Session-Id"
+
+	SetupRanHeader = "X-Weave-Setup-Ran"
 )
 
 type Caller struct {

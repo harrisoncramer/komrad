@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"weave/internal/client"
+	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
-	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -248,9 +248,11 @@ func (m *model) beginWrite() {
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
-	setupFailed := result.setupPane && connect.CodeOf(result.err) == connect.CodeFailedPrecondition
-	if setupFailed {
-		m.report(result.summary, nil)
+	// Only an action that ran leaves its reason in the pane, and every other failure is left
+	// unexplained if the banner stays quiet on the strength of the pane being open.
+	setupRan := result.setupPane && errui.SetupRan(result.err)
+	if setupRan {
+		m.reportBrief(result.summary, "the setup action failed, and its output is in the pane it ran in", result.err)
 	} else {
 		m.report(result.summary, result.err)
 	}
@@ -267,7 +269,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	if result.setupPane {
 		m.setupPending = false
 
-		if m.info.kind == infoSetup && !setupFailed {
+		if m.info.kind == infoSetup && !setupRan {
 			m = m.closeInfo()
 		}
 	}

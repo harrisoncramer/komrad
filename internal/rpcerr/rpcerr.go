@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 
+	"weave/internal/actions"
 	"weave/internal/agents"
+	"weave/internal/caller"
 	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
@@ -98,12 +100,22 @@ func Wrap(err error, failure string, replacements ...Replacement) error {
 
 		for _, replacement := range replacements {
 			if errors.Is(err, replacement.sentinel) {
-				return connect.NewError(entry.code, errors.New(replacement.message))
+				return marked(err, connect.NewError(entry.code, errors.New(replacement.message)))
 			}
 		}
 
-		return connect.NewError(entry.code, err)
+		return marked(err, connect.NewError(entry.code, err))
 	}
 
-	return connect.NewError(connect.CodeInternal, fmt.Errorf("%s: %w", failure, err))
+	return marked(err, connect.NewError(connect.CodeInternal, fmt.Errorf("%s: %w", failure, err)))
+}
+
+// marked says an action ran and exited non-zero, which is the one failure whose output the
+// caller may already be watching in the pane it ran in.
+func marked(cause error, wrapped *connect.Error) error {
+	if errors.Is(cause, actions.ErrFailed) {
+		wrapped.Meta().Set(caller.SetupRanHeader, "true")
+	}
+
+	return wrapped
 }

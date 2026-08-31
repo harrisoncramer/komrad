@@ -16,6 +16,7 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
+	"weave/internal/caller"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -529,6 +530,15 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
+// refusedAfterSetup is the refusal a setup action that ran and failed comes back as, which the
+// service marks so the panel does not print what the pane is already showing.
+func refusedAfterSetup(message string) error {
+	refused := connect.NewError(connect.CodeFailedPrecondition, errors.New(message))
+	refused.Meta().Set(caller.SetupRanHeader, "true")
+
+	return refused
+}
+
 // TestNewAgentSubmitClosesImmediately covers the new-agent form closing on submit rather than
 // holding for the write, since a setup action can run for minutes.
 func TestNewAgentSubmitClosesImmediately(t *testing.T) {
@@ -540,14 +550,20 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}{
 		{name: "a create that lands"},
 		{
-			name:     "a setup action that fails",
-			refuse:   connect.NewError(connect.CodeFailedPrecondition, errors.New("the setup action failed: exit 7")),
-			wantOpen: true,
+			name:       "a setup action that fails",
+			refuse:     refusedAfterSetup("the setup action failed: exit 7"),
+			wantOpen:   true,
+			wantDetail: "the setup action failed, and its output is in the pane it ran in",
 		},
 		{
 			name:       "a create refused before setup ever ran",
 			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
 			wantDetail: "not allowed",
+		},
+		{
+			name:       "a refusal the setup action never got as far as",
+			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("that branch is already checked out")),
+			wantDetail: "that branch is already checked out",
 		},
 	}
 
@@ -581,12 +597,12 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			got := settle(t, m, cmd)
 
 			if tt.refuse != nil {
+				require.NotNil(t, got.banner, "a refused create is reported")
+				assert.Equal(t, tt.wantDetail, got.banner.Detail)
+
 				if tt.wantOpen {
-					assert.Nil(t, got.banner, "a setup failure is left to the setup log, not flashed again")
 					assert.Equal(t, infoSetup, got.info.kind, "left up so what the setup action printed can still be read")
 				} else {
-					require.NotNil(t, got.banner, "a refused create is reported")
-					assert.Equal(t, tt.wantDetail, got.banner.Detail)
 					assert.Equal(t, infoNothing, got.info.kind, "nothing ran in it, so it closes with the refusal")
 				}
 

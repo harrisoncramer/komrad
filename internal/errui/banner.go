@@ -58,6 +58,17 @@ func TraceOf(err error) string {
 	return ""
 }
 
+// SetupRan reports whether the failure was an action of the caller's own running and exiting
+// non-zero, which is the one failure whose output the caller is already looking at.
+func SetupRan(err error) bool {
+	var connectErr *connect.Error
+	if errors.As(err, &connectErr) {
+		return connectErr.Meta().Get(caller.SetupRanHeader) == "true"
+	}
+
+	return false
+}
+
 // Reason reduces a service error to the part worth reading: a connect error stringifies
 // with its code in front of the message, and the code says less to a person reading it
 // than the message does.

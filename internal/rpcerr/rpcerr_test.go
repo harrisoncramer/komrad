@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"testing"
 
+	"weave/internal/actions"
 	"weave/internal/agents"
+	"weave/internal/errui"
 	"weave/internal/rpcerr"
 	"weave/internal/store"
 
@@ -114,4 +116,26 @@ func TestWrapSayingLeavesOthers(t *testing.T) {
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
 	assert.Contains(t, err.Error(), "too many agents")
+}
+
+// TestWrapMarksAnActionThatRan covers the failure whose reason is already on screen, which the
+// panel is told about so it does not print the output the pane is showing.
+func TestWrapMarksAnActionThatRan(t *testing.T) {
+	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrSetupFailed, actions.ErrFailed)
+
+	err := rpcerr.Wrap(ran, "failed to create the agent")
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+	assert.True(t, errui.SetupRan(err))
+}
+
+// TestWrapLeavesRefusalsUnmarked covers a refusal reached before any action ran, which the panel
+// has to report itself since nothing else says what happened.
+func TestWrapLeavesRefusalsUnmarked(t *testing.T) {
+	err := rpcerr.Wrap(agents.ErrAdoptBranchInUse, "failed to adopt")
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+	assert.False(t, errui.SetupRan(err))
 }
