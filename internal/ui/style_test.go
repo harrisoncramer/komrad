@@ -16,7 +16,7 @@ import (
 
 // TestAgentsViewRowWidthIsStableRegardlessOfBranch covers the fixed slot left where the
 // branch glyph used to draw: an agent with a branch and one without must produce rows of
-// the same width, so nothing jitters as the branch syncer catches up.
+// the same width, so nothing jitters as the cwd syncer catches up.
 func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	withBranch := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -68,7 +68,7 @@ func TestWorktreeRemovedMark(t *testing.T) {
 	}
 }
 
-// TestAgentsViewShowsWorktreeRemoved covers the row itself: an agent the worktree syncer
+// TestAgentsViewShowsWorktreeRemoved covers the row itself: an agent the cwd syncer
 // found gone shows the icon beside its name, and one it has not draws the row without it.
 func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
 	m := model{
