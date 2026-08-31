@@ -118,7 +118,7 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	svc := NewDeliveryService(NewDeliveryServiceParams{
 		MailboxReader: &fakeMailboxReader{pending: 1},
 		NudgeClaimer:  &fakeAgents{agent: &after, claimed: true},
-		PaneReader:    NewAgentService(NewAgentServiceParams{Tmux: cli}),
+		PaneReader:    NewPaneLiveness(cli),
 		PaneTyper:     panes,
 	})
 

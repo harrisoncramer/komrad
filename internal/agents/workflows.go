@@ -11,7 +11,6 @@ import (
 	"weave/config"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 )
 
@@ -34,23 +33,13 @@ var ErrWorktreeActionsReserved = errors.New("setup_action and cleanup_action may
 
 var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
 
-type workflowReadWriter interface {
-	List(ctx context.Context) ([]workflowstore.Workflow, error)
-	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
-	Delete(ctx context.Context, id string) error
-}
-
-type workflowScheduleStore interface {
+type workflowScheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
-	ListInWorkflow(ctx context.Context, workflowID string) ([]schedulestore.Schedule, error)
-	Delete(ctx context.Context, id string) error
 }
 
 type workflowAgentLister interface {
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-	NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error)
 }
 
 type workflowAgentDeleter interface {
@@ -58,10 +47,11 @@ type workflowAgentDeleter interface {
 }
 
 type WorkflowService struct {
-	store        workflowReadWriter
+	store        workflowReader
 	agents       workflowAgentLister
 	agentDeleter workflowAgentDeleter
-	schedules    workflowScheduleStore
+	emptied      *EmptyWorkflowDeleter
+	schedules    workflowScheduleCounter
 	tmux         paneKiller
 	tx           txRunner
 
@@ -70,10 +60,11 @@ type WorkflowService struct {
 }
 
 type WorkflowParams struct {
-	Workflows    workflowReadWriter
+	Workflows    workflowReader
 	Agents       workflowAgentLister
 	AgentDeleter workflowAgentDeleter
-	Schedules    workflowScheduleStore
+	Emptied      *EmptyWorkflowDeleter
+	Schedules    workflowScheduleCounter
 	Tmux         paneKiller
 	Tx           txRunner
 	MaxAgents    int
@@ -86,6 +77,7 @@ func NewWorkflowService(p WorkflowParams) *WorkflowService {
 		store:        p.Workflows,
 		agents:       p.Agents,
 		agentDeleter: p.AgentDeleter,
+		emptied:      p.Emptied,
 		schedules:    p.Schedules,
 		tmux:         p.Tmux,
 		tx:           p.Tx,
@@ -402,7 +394,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 		return fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
 	}
 
-	schedules, err := w.heldSchedules(ctx, existing)
+	schedules, err := w.emptied.heldSchedules(ctx, existing)
 	if err != nil {
 		return err
 	}
@@ -414,7 +406,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	if len(inside) == 0 {
 		// No agent delete runs to check an empty workflow, so this is the one case that removes
 		// the row here.
-		return w.deleteWithSchedules(ctx, existing, schedules)
+		return w.emptied.deleteWithSchedules(ctx, existing, schedules)
 	}
 
 	// Deleting an agent checks the workflow it leaves behind for itself, and leaves behind any
@@ -422,76 +414,7 @@ func (w *WorkflowService) DeleteWorkflow(ctx context.Context, id string) error {
 	return w.agentDeleter.DeleteAgents(ctx, agentIDs(inside))
 }
 
-// DeleteIfEmpty permanently removes a workflow once it is archived and holds no agents at all,
-// which is what clears a workflow left empty by a batch delete of the agents inside it.
-func (w *WorkflowService) DeleteIfEmpty(ctx context.Context, id string) error {
-	existing, err := w.store.GetIncludingArchived(ctx, id)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil
-	}
-	if err != nil {
-		return err
-	}
-	if existing.ArchivedAt == nil {
-		return nil
-	}
-
-	return w.deleteIfEmpty(ctx, existing)
-}
-
-func (w *WorkflowService) deleteIfEmpty(ctx context.Context, existing *workflowstore.Workflow) error {
-	remaining, err := w.agents.ListArchivedInWorkflow(ctx, existing.ID)
-	if err != nil {
-		return err
-	}
-	if len(remaining) > 0 {
-		return nil
-	}
-
-	schedules, err := w.heldSchedules(ctx, existing)
-	if err != nil {
-		return err
-	}
-
-	return w.deleteWithSchedules(ctx, existing, schedules)
-}
-
-// heldSchedules returns the archived schedules pointing at a workflow, which have to go when it
-// does, refusing if any is still held by an agent outside it.
-func (w *WorkflowService) heldSchedules(ctx context.Context, existing *workflowstore.Workflow) ([]schedulestore.Schedule, error) {
-	schedules, err := w.schedules.ListInWorkflow(ctx, existing.ID)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, schedule := range schedules {
-		held, err := w.agents.NamesHoldingSchedule(ctx, schedule.ID, existing.ID)
-		if err != nil {
-			return nil, err
-		}
-		if len(held) > 0 {
-			return nil, fmt.Errorf("%w: %q is still held by %s", ErrScheduleHasAgents, schedule.Name, strings.Join(held, ", "))
-		}
-	}
-
-	return schedules, nil
-}
-
-func (w *WorkflowService) deleteWithSchedules(ctx context.Context, existing *workflowstore.Workflow, schedules []schedulestore.Schedule) error {
-	for _, schedule := range schedules {
-		if err := w.schedules.Delete(ctx, schedule.ID); err != nil {
-			return err
-		}
-	}
-
-	if err := w.store.Delete(ctx, existing.ID); err != nil {
-		return fmt.Errorf("failed to delete workflow %q: %w", existing.Name, err)
-	}
-
-	return nil
-}
-
-func requireNamesFree(ctx context.Context, agents agentManager, archived []agentstore.Agent) error {
+func requireNamesFree(ctx context.Context, agents nameChecker, archived []agentstore.Agent) error {
 	returning := make(map[agentName]int, len(archived))
 	for _, agent := range archived {
 		returning[agentName{workflowID: agent.WorkflowID, name: agent.Name}]++

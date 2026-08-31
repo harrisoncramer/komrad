@@ -523,7 +523,7 @@ func TestArchiveWorkflow(t *testing.T) {
 				require.NoError(t, err)
 				id = created.ID
 
-				_, err = manager.NewAgent(ctx, NewAgentParams{
+				_, err = manager.launch.NewAgent(ctx, NewAgentParams{
 					Title:      "agent",
 					Dir:        t.TempDir(),
 					WorkflowID: id,
@@ -615,7 +615,7 @@ func TestRestoreWorkflow(t *testing.T) {
 				require.NoError(t, err)
 				id = created.ID
 
-				_, err = manager.NewAgent(ctx, NewAgentParams{
+				_, err = manager.launch.NewAgent(ctx, NewAgentParams{
 					Title:      "agent",
 					Dir:        t.TempDir(),
 					WorkflowID: id,
@@ -692,7 +692,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, title := range []string{"one", "two"} {
-		_, err := manager.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: created.ID})
+		_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: created.ID})
 		require.NoError(t, err)
 	}
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
@@ -700,7 +700,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	elsewhere, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, err)
 	for _, title := range []string{"live-one", "live-two"} {
-		_, err := manager.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: elsewhere.ID})
+		_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: elsewhere.ID})
 		require.NoError(t, err)
 	}
 
@@ -738,14 +738,14 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
-	agent, err := manager.NewAgent(ctx, NewAgentParams{Title: "one", Dir: t.TempDir(), WorkflowID: created.ID})
+	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "one", Dir: t.TempDir(), WorkflowID: created.ID})
 	require.NoError(t, err)
-	other, err := manager.NewAgent(ctx, NewAgentParams{Title: "two", Dir: t.TempDir(), WorkflowID: created.ID})
+	other, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "two", Dir: t.TempDir(), WorkflowID: created.ID})
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
 
-	restored, err := manager.RestoreAgents(ctx, []string{agent.ID})
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{agent.ID})
 	require.NoError(t, err)
 	require.NotNil(t, restored)
 
@@ -847,7 +847,7 @@ func TestDeleteWorkflow(t *testing.T) {
 				id = created.ID
 			}
 			if tt.addAgent {
-				_, err := manager.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: id})
+				_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: id})
 				require.NoError(t, err)
 			}
 			var scheduleID string
@@ -904,7 +904,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	schedule, err := st.Schedules.Create(ctx, schedulestore.Config{Name: "nightly", Cron: "0 3 * * *", WorkflowID: launcher.ID})
 	require.NoError(t, err)
 
-	_, err = manager.NewAgent(ctx, NewAgentParams{
+	_, err = manager.launch.NewAgent(ctx, NewAgentParams{
 		Title:      "agent",
 		Dir:        t.TempDir(),
 		WorkflowID: launcher.ID,
@@ -919,7 +919,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	}))
 	require.NoError(t, st.Schedules.Archive(ctx, schedule.ID))
 
-	_, err = manager.NewAgent(ctx, NewAgentParams{Title: "inside", Dir: t.TempDir(), WorkflowID: moved.ID})
+	_, err = manager.launch.NewAgent(ctx, NewAgentParams{Title: "inside", Dir: t.TempDir(), WorkflowID: moved.ID})
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, moved.ID))
@@ -946,7 +946,8 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	workflows := NewWorkflowService(WorkflowParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
-		AgentDeleter: agentSvc,
+		AgentDeleter: agentSvc.lifecycle,
+		Emptied:      agentSvc.emptied,
 		Schedules:    st.Schedules,
 		Tmux:         tmux,
 		Tx:           st.Pool,
@@ -956,7 +957,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "teardown"})
 	require.NoError(t, err)
 
-	agent, err := agentSvc.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: created.ID})
+	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: created.ID})
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
@@ -968,76 +969,4 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	require.NotNil(t, got, "the workflow the straggler is still in stays archived")
 
 	assert.Equal(t, agentstore.StateFailedToCleanup, agentByID(t, st, agent.ID).State)
-}
-
-// TestDeleteIfEmpty covers the other caller of the same check, the sweep that empties the
-// whole archive: a workflow it never touched, or one it did not manage to empty out, is left
-// exactly where it was, and only an archived one with nothing left in it is destroyed.
-func TestDeleteIfEmpty(t *testing.T) {
-	tests := []struct {
-		name string
-
-		create   bool
-		archive  bool
-		addAgent bool
-
-		wantGone bool
-	}{
-		{
-			name: "an id nobody holds",
-		},
-		{
-			name:   "a live workflow is left alone even with nothing in it",
-			create: true,
-		},
-		{
-			name:     "an archived workflow still holding an agent is left alone",
-			create:   true,
-			addAgent: true,
-			archive:  true,
-		},
-		{
-			name:     "an archived workflow with nothing left is deleted",
-			create:   true,
-			archive:  true,
-			wantGone: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := newStore(t)
-			tmux := newFakeTmux()
-			manager := newManager(tmux, st, "")
-			workflows := workflowsFor(st, tmux)
-			ctx := t.Context()
-
-			id := "00000000-0000-0000-0000-000000000000"
-			if tt.create {
-				created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
-				require.NoError(t, err)
-				id = created.ID
-			}
-			if tt.addAgent {
-				_, err := manager.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: id})
-				require.NoError(t, err)
-			}
-			if tt.archive {
-				require.NoError(t, workflows.ArchiveWorkflow(ctx, id))
-			}
-
-			require.NoError(t, workflows.DeleteIfEmpty(ctx, id))
-
-			got, err := st.Workflows.GetIncludingArchived(ctx, id)
-
-			if tt.wantGone || !tt.create {
-				assert.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
-
-				return
-			}
-
-			require.NoError(t, err)
-			assert.NotNil(t, got, "the workflow is left where it was")
-		})
-	}
 }

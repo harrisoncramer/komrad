@@ -21,7 +21,7 @@ func newNotifier(st *testStore) *MailService {
 	})
 }
 
-func newManagerWithNotifier(tmux *fakeTmux, st *testStore, notifier systemMailSender) *AgentService {
+func newManagerWithNotifier(tmux *fakeTmux, st *testStore, notifier systemMailSender) *testAgents {
 	return st.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
@@ -73,7 +73,7 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 				ids = append(ids, child.ID)
 			}
 
-			require.NoError(t, manager.ArchiveAgents(ctx, ids))
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, ids))
 
 			if !tt.hasParent {
 				return
@@ -139,7 +139,7 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 				ids = append(ids, child.ID)
 			}
 
-			require.NoError(t, manager.DeleteAgents(ctx, ids))
+			require.NoError(t, manager.lifecycle.DeleteAgents(ctx, ids))
 
 			if !tt.hasParent || tt.deleteParentToo {
 				return
@@ -191,7 +191,7 @@ func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
 			child := seedSpawned(t, st, parent.ID)
 
 			ctx := caller.With(t.Context(), caller.Caller{AgentID: tt.actor(parent.ID, other.ID)})
-			require.NoError(t, manager.ArchiveAgents(ctx, []string{child.ID}))
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{child.ID}))
 
 			claimed, err := st.Mail.Claim(t.Context(), parent.ID, 10)
 			require.NoError(t, err)
@@ -235,18 +235,18 @@ func TestArchiveWorkflowTellsAParentOutsideIt(t *testing.T) {
 func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 	tests := []struct {
 		name   string
-		action func(manager *AgentService, ctx context.Context, id string) error
+		action func(lifecycle *LifecycleService, ctx context.Context, id string) error
 	}{
 		{
 			name: "archive",
-			action: func(manager *AgentService, ctx context.Context, id string) error {
-				return manager.ArchiveAgents(ctx, []string{id})
+			action: func(lifecycle *LifecycleService, ctx context.Context, id string) error {
+				return lifecycle.ArchiveAgents(ctx, []string{id})
 			},
 		},
 		{
 			name: "delete",
-			action: func(manager *AgentService, ctx context.Context, id string) error {
-				return manager.DeleteAgents(ctx, []string{id})
+			action: func(lifecycle *LifecycleService, ctx context.Context, id string) error {
+				return lifecycle.DeleteAgents(ctx, []string{id})
 			},
 		},
 	}
@@ -267,7 +267,7 @@ func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.NoError(t, tt.action(manager, ctx, child.ID))
+			require.NoError(t, tt.action(manager.lifecycle, ctx, child.ID))
 
 			pending, err := st.Mail.CountPending(ctx, parent.ID)
 			require.NoError(t, err)
