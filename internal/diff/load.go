@@ -63,7 +63,12 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, err
 	}
 
-	return &Patch{Root: root, Base: base, Commit: commit, Files: append(files, untracked...)}, nil
+	return &Patch{
+		Root:   root,
+		Base:   base,
+		Commit: commit,
+		Files:  append(files, untracked...),
+	}, nil
 }
 
 func diffArgs(commit string, exclude []string) []string {
@@ -168,13 +173,26 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 
 			switch line.Op {
 			case gitdiff.OpContext:
-				hunk.Lines = append(hunk.Lines, Line{Kind: Context, Text: text, OldNumber: oldNumber, NewNumber: newNumber})
+				hunk.Lines = append(hunk.Lines, Line{
+					Kind:      Context,
+					Text:      text,
+					OldNumber: oldNumber,
+					NewNumber: newNumber,
+				})
 				oldNumber, newNumber = oldNumber+1, newNumber+1
 			case gitdiff.OpAdd:
-				hunk.Lines = append(hunk.Lines, Line{Kind: Addition, Text: text, NewNumber: newNumber})
+				hunk.Lines = append(hunk.Lines, Line{
+					Kind:      Addition,
+					Text:      text,
+					NewNumber: newNumber,
+				})
 				newNumber++
 			case gitdiff.OpDelete:
-				hunk.Lines = append(hunk.Lines, Line{Kind: Deletion, Text: text, OldNumber: oldNumber})
+				hunk.Lines = append(hunk.Lines, Line{
+					Kind:      Deletion,
+					Text:      text,
+					OldNumber: oldNumber,
+				})
 				oldNumber++
 			}
 		}
@@ -237,7 +255,11 @@ func addedHunk(content string) Hunk {
 
 	lines := make([]Line, 0, len(sources))
 	for index, text := range sources {
-		lines = append(lines, Line{Kind: Addition, Text: text, NewNumber: index + 1})
+		lines = append(lines, Line{
+			Kind:      Addition,
+			Text:      text,
+			NewNumber: index + 1,
+		})
 	}
 
 	return Hunk{Header: fmt.Sprintf("@@ -0,0 +1,%d @@", len(lines)), Lines: lines}

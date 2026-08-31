@@ -77,7 +77,11 @@ func (f *requestFields) bind(cmd *cobra.Command, message protoreflect.MessageDes
 			continue
 		}
 
-		f.bound = append(f.bound, boundField{flag: flag, path: into.path, read: read})
+		f.bound = append(f.bound, boundField{
+			flag: flag,
+			path: into.path,
+			read: read,
+		})
 	}
 }
 

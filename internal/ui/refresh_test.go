@@ -106,7 +106,11 @@ func TestStaleRefreshIsDropped(t *testing.T) {
 // TestWriteStandsTheRefreshDown covers the other half of that race, where the tick skips a
 // pass while a write is on its way and the write asks for one as it lands.
 func TestWriteStandsTheRefreshDown(t *testing.T) {
-	m := model{api: api{agents: emptyLists{}, workflows: emptyLists{}, schedules: emptyLists{}}}
+	m := model{api: api{
+		agents:    emptyLists{},
+		workflows: emptyLists{},
+		schedules: emptyLists{},
+	}}
 
 	require.NotNil(t, m.refreshCmd(), "an idle panel lists on the tick")
 
@@ -176,8 +180,16 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 		epoch:     m.epoch,
 		workflows: m.listing.workflows,
 		agents: []agentItem{
-			{agent: agentstore.Agent{ID: "old", Name: "api-refactor", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{ID: "new", Name: "api-tests", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{
+				ID:         "old",
+				Name:       "api-refactor",
+				WorkflowID: "w1",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "new",
+				Name:       "api-tests",
+				WorkflowID: "w1",
+			}},
 		},
 	})
 
@@ -210,7 +222,11 @@ func TestUnrelatedWriteDoesNotCloseTheSetupPane(t *testing.T) {
 func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 	recorder := &formRecorder{}
 	m := model{
-		api:     api{agents: recorder, workflows: recorder, actions: recorder},
+		api: api{
+			agents:    recorder,
+			workflows: recorder,
+			actions:   recorder,
+		},
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),
 		screen:  screenAgents,
@@ -253,14 +269,26 @@ func TestCursorHoldsItsFolderAcrossARefresh(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}},
+			{agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "api-refactor",
+				WorkflowID: "w1",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a2",
+				Name:       "infra-audit",
+				WorkflowID: "w2",
+			}},
 		}}, tree: treeState{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
 	m.applyRefresh(refreshResult{
 		workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
-		agents:    []agentItem{{agent: agentstore.Agent{ID: "a2", Name: "infra-audit", WorkflowID: "w2"}}},
+		agents: []agentItem{{agent: agentstore.Agent{
+			ID:         "a2",
+			Name:       "infra-audit",
+			WorkflowID: "w2",
+		}}},
 	})
 
 	hovered, ok := m.hoveredWorkflow()
@@ -276,16 +304,32 @@ func TestCursorHoldsItsAgentWhenAFolderArrives(t *testing.T) {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w2", Name: "infra"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
-			{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
+			{agent: agentstore.Agent{
+				ID:         "b1",
+				Name:       "infra-audit",
+				WorkflowID: "w2",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "b2",
+				Name:       "infra-upgrade",
+				WorkflowID: "w2",
+			}},
 		}}, tree: treeState{rowCursor: rowCursor{cursor: 2}, placed: true},
 	}
 
 	m.applyRefresh(refreshResult{
 		workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}},
 		agents: []agentItem{
-			{agent: agentstore.Agent{ID: "b1", Name: "infra-audit", WorkflowID: "w2"}},
-			{agent: agentstore.Agent{ID: "b2", Name: "infra-upgrade", WorkflowID: "w2"}},
+			{agent: agentstore.Agent{
+				ID:         "b1",
+				Name:       "infra-audit",
+				WorkflowID: "w2",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "b2",
+				Name:       "infra-upgrade",
+				WorkflowID: "w2",
+			}},
 		},
 	})
 
@@ -304,9 +348,21 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "infra"}}},
 		archive: archiveState{
 			agents: []agentstore.Agent{
-				{ID: "x1", Name: "api-spike", WorkflowID: "w1"},
-				{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
-				{ID: "x3", Name: "infra-upgrade", WorkflowID: "w2"},
+				{
+					ID:         "x1",
+					Name:       "api-spike",
+					WorkflowID: "w1",
+				},
+				{
+					ID:         "x2",
+					Name:       "infra-audit",
+					WorkflowID: "w2",
+				},
+				{
+					ID:         "x3",
+					Name:       "infra-upgrade",
+					WorkflowID: "w2",
+				},
 			},
 			rowCursor: rowCursor{cursor: 3},
 		},
@@ -316,8 +372,16 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 		workflows:      []workflowstore.Workflow{{ID: "w2", Name: "infra"}},
 		archivedListed: true,
 		archived: []agentstore.Agent{
-			{ID: "x2", Name: "infra-audit", WorkflowID: "w2"},
-			{ID: "x3", Name: "infra-upgrade", WorkflowID: "w2"},
+			{
+				ID:         "x2",
+				Name:       "infra-audit",
+				WorkflowID: "w2",
+			},
+			{
+				ID:         "x3",
+				Name:       "infra-upgrade",
+				WorkflowID: "w2",
+			},
 		},
 	})
 

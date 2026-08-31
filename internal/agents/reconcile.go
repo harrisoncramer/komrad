@@ -453,7 +453,11 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 			return
 		}
 
-		if _, err := r.store.SetMetadata(bg, agentstore.SetMetadataParams{ID: agent.ID, Key: prMetadataKey, Value: &url}); err != nil {
+		if _, err := r.store.SetMetadata(bg, agentstore.SetMetadataParams{
+			ID:    agent.ID,
+			Key:   prMetadataKey,
+			Value: &url,
+		}); err != nil {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "failed to record a pull request found for an agent",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}

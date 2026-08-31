@@ -59,7 +59,11 @@ func TestDeleteIfEmpty(t *testing.T) {
 				id = created.ID
 			}
 			if tt.addAgent {
-				_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: id})
+				_, err := manager.launch.NewAgent(ctx, NewAgentParams{
+					Title:      "agent",
+					Dir:        t.TempDir(),
+					WorkflowID: id,
+				})
 				require.NoError(t, err)
 			}
 			if tt.archive {

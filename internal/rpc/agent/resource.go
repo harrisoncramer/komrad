@@ -131,6 +131,10 @@ func renderSearchHit(hit transcriptstore.SearchHit) searchHit {
 			Role:          hit.Role,
 			ContentOffset: hit.ContentOffset,
 		},
-		cursor: transcriptstore.Cursor{Rank: hit.Rank, AgentID: hit.AgentID, Seq: hit.Seq},
+		cursor: transcriptstore.Cursor{
+			Rank:    hit.Rank,
+			AgentID: hit.AgentID,
+			Seq:     hit.Seq,
+		},
 	}
 }

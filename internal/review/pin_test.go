@@ -29,8 +29,17 @@ func TestPinHoldsWhenLinesShiftBeneathIt(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Addition, Text: "// new", NewNumber: 1},
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 2},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "// new",
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 2,
+			},
 		)},
 	}), false)
 
@@ -50,7 +59,11 @@ func TestPinFollowsCodeThatMoved(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Addition, Text: "func Hello() string {", NewNumber: 40},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "func Hello() string {",
+				NewNumber: 40,
+			},
 		)},
 	}), false)
 
@@ -70,8 +83,16 @@ func TestPinGhostsWhenTheLineChangedUnderIt(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Deletion, Text: "return \"hello\"", OldNumber: 4},
-			diff.Line{Kind: diff.Addition, Text: "return \"hi\"", NewNumber: 4},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "return \"hello\"",
+				OldNumber: 4,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "return \"hi\"",
+				NewNumber: 4,
+			},
 		)},
 	}), false)
 
@@ -91,8 +112,16 @@ func TestPinRefusesToGuessBetweenIdenticalLines(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Addition, Text: "}", NewNumber: 8},
-			diff.Line{Kind: diff.Addition, Text: "}", NewNumber: 9},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "}",
+				NewNumber: 8,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "}",
+				NewNumber: 9,
+			},
 		)},
 	}), false)
 
@@ -109,7 +138,12 @@ func TestAdriftThreadGetsItsOwnRow(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
 		)},
 	}), false)
 
@@ -142,7 +176,12 @@ func TestPinningTwiceLeavesOneSection(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
 		)},
 	}), false)
 
@@ -162,7 +201,12 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
 		)},
 	}), false)
 
@@ -190,7 +234,12 @@ func TestASecondThreadOnALineGetsItsOwnRow(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
 		)},
 	}), false)
 
@@ -215,7 +264,12 @@ func TestAdriftThreadsSortByLineNotByText(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
 		)},
 	}), false)
 

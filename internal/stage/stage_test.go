@@ -19,10 +19,30 @@ func TestViewNeverOutgrowsThePane(t *testing.T) {
 		height int
 		want   int
 	}{
-		{name: "a frame shorter than the pane is drawn whole", frame: "a\nb\n", height: 10, want: 2},
-		{name: "a frame taller than the pane is clipped to it", frame: strings.Repeat("row\n", 40), height: 10, want: 10},
-		{name: "a frame exactly the height of the pane is left alone", frame: strings.Repeat("row\n", 10), height: 10, want: 10},
-		{name: "an unmeasured pane draws what it was given", frame: "a\nb\n", height: 0, want: 2},
+		{
+			name:   "a frame shorter than the pane is drawn whole",
+			frame:  "a\nb\n",
+			height: 10,
+			want:   2,
+		},
+		{
+			name:   "a frame taller than the pane is clipped to it",
+			frame:  strings.Repeat("row\n", 40),
+			height: 10,
+			want:   10,
+		},
+		{
+			name:   "a frame exactly the height of the pane is left alone",
+			frame:  strings.Repeat("row\n", 10),
+			height: 10,
+			want:   10,
+		},
+		{
+			name:   "an unmeasured pane draws what it was given",
+			frame:  "a\nb\n",
+			height: 0,
+			want:   2,
+		},
 	}
 
 	for _, tt := range tests {

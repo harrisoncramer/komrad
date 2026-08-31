@@ -30,11 +30,32 @@ func selectionTree() model {
 			{ID: "w1", Name: "backend"},
 			{ID: "w2", Name: "frontend"},
 		}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "auth", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{ID: "a2", Name: "api", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{ID: "a3", Name: "db", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{ID: "a5", Name: "sweep", WorkflowID: "w1", Hidden: true}},
-			{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}},
+			{agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "auth",
+				WorkflowID: "w1",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a2",
+				Name:       "api",
+				WorkflowID: "w1",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a3",
+				Name:       "db",
+				WorkflowID: "w1",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a5",
+				Name:       "sweep",
+				WorkflowID: "w1",
+				Hidden:     true,
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a4",
+				Name:       "ui",
+				WorkflowID: "w2",
+			}},
 		}},
 	}
 }
@@ -200,7 +221,11 @@ func TestPruneSelection(t *testing.T) {
 		m.tree.placed = true
 		m.tree.selected = selection{ids: []string{"a1", "a4"}}
 
-		m.applyAgents([]agentItem{{agent: agentstore.Agent{ID: "a4", Name: "ui", WorkflowID: "w2"}}})
+		m.applyAgents([]agentItem{{agent: agentstore.Agent{
+			ID:         "a4",
+			Name:       "ui",
+			WorkflowID: "w2",
+		}}})
 		m.placeTreeCursor("")
 
 		assert.Equal(t, []string{"a4"}, m.tree.selected.ids)
@@ -224,9 +249,21 @@ func archiveSelectionTree() model {
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
 		archive: archiveState{
 			agents: []agentstore.Agent{
-				{ID: "a1", Name: "auth", WorkflowID: "w1"},
-				{ID: "a2", Name: "api", WorkflowID: "w1"},
-				{ID: "a3", Name: "db", WorkflowID: "w1"},
+				{
+					ID:         "a1",
+					Name:       "auth",
+					WorkflowID: "w1",
+				},
+				{
+					ID:         "a2",
+					Name:       "api",
+					WorkflowID: "w1",
+				},
+				{
+					ID:         "a3",
+					Name:       "db",
+					WorkflowID: "w1",
+				},
 			},
 		},
 	}
@@ -339,7 +376,11 @@ func TestArchiveSelection(t *testing.T) {
 		m.archive.selected = selection{ids: []string{"a1", "a3"}}
 
 		m.applyArchive(
-			[]agentstore.Agent{{ID: "a3", Name: "db", WorkflowID: "w1"}},
+			[]agentstore.Agent{{
+				ID:         "a3",
+				Name:       "db",
+				WorkflowID: "w1",
+			}},
 			nil,
 			"",
 		)

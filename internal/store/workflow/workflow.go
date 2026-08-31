@@ -108,7 +108,11 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
-		return workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+		return workflowFromRow(row.Workflow, workflowConfigFields{
+			Harness: row.Harness,
+			Cwd:     row.Cwd,
+			Flags:   row.Flags,
+		}, actionConfigFields{
 			SetupAction:          row.SetupAction,
 			CleanupAction:        row.CleanupAction,
 			WorktreeEnabled:      row.WorktreeEnabled,
@@ -161,7 +165,11 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
-		return workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+		return workflowFromRow(row.Workflow, workflowConfigFields{
+			Harness: row.Harness,
+			Cwd:     row.Cwd,
+			Flags:   row.Flags,
+		}, actionConfigFields{
 			SetupAction:          row.SetupAction,
 			CleanupAction:        row.CleanupAction,
 			WorktreeEnabled:      row.WorktreeEnabled,
@@ -188,7 +196,11 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
+		Harness: row.Harness,
+		Cwd:     row.Cwd,
+		Flags:   row.Flags,
+	}, actionConfigFields{
 		SetupAction:          row.SetupAction,
 		CleanupAction:        row.CleanupAction,
 		WorktreeEnabled:      row.WorktreeEnabled,
@@ -238,7 +250,11 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
 
-	workflow := workflowFromRow(*row, workflowConfigFields{Harness: cfg.Harness, Cwd: cfg.Cwd, Flags: cfg.Flags}, actionConfigFields{
+	workflow := workflowFromRow(*row, workflowConfigFields{
+		Harness: cfg.Harness,
+		Cwd:     cfg.Cwd,
+		Flags:   cfg.Flags,
+	}, actionConfigFields{
 		SetupAction:          cfg.SetupAction,
 		CleanupAction:        cfg.CleanupAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
@@ -294,7 +310,12 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{WorkflowID: id, Harness: cfg.Harness, Cwd: cfg.Cwd, Flags: cfg.Flags}); err != nil {
+	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{
+		WorkflowID: id,
+		Harness:    cfg.Harness,
+		Cwd:        cfg.Cwd,
+		Flags:      cfg.Flags,
+	}); err != nil {
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}
 
@@ -370,7 +391,11 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
-	workflow := workflowFromRow(row.Workflow, workflowConfigFields{Harness: row.Harness, Cwd: row.Cwd, Flags: row.Flags}, actionConfigFields{
+	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
+		Harness: row.Harness,
+		Cwd:     row.Cwd,
+		Flags:   row.Flags,
+	}, actionConfigFields{
 		SetupAction:          row.SetupAction,
 		CleanupAction:        row.CleanupAction,
 		WorktreeEnabled:      row.WorktreeEnabled,

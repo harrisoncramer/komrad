@@ -17,13 +17,35 @@ func twoHunkView() *View {
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{
 			hunkOf(
-				diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
-				diff.Line{Kind: diff.Deletion, Text: "return \"hello\"", OldNumber: 4},
-				diff.Line{Kind: diff.Addition, Text: "return \"Hello\"", NewNumber: 4},
+				diff.Line{
+					Kind:      diff.Context,
+					Text:      "package greet",
+					OldNumber: 1,
+					NewNumber: 1,
+				},
+				diff.Line{
+					Kind:      diff.Deletion,
+					Text:      "return \"hello\"",
+					OldNumber: 4,
+				},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      "return \"Hello\"",
+					NewNumber: 4,
+				},
 			),
 			hunkOf(
-				diff.Line{Kind: diff.Context, Text: "func Other() {", OldNumber: 20, NewNumber: 20},
-				diff.Line{Kind: diff.Addition, Text: "\treturn nil", NewNumber: 21},
+				diff.Line{
+					Kind:      diff.Context,
+					Text:      "func Other() {",
+					OldNumber: 20,
+					NewNumber: 20,
+				},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      "\treturn nil",
+					NewNumber: 21,
+				},
 			),
 		},
 	}), false)

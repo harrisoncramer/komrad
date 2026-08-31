@@ -24,9 +24,22 @@ func TestEditTargetIsWhereTheLineLivesNow(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
-			diff.Line{Kind: diff.Deletion, Text: "old", OldNumber: 2},
-			diff.Line{Kind: diff.Addition, Text: "new", NewNumber: 2},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "old",
+				OldNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "new",
+				NewNumber: 2,
+			},
 		)},
 	}), false)
 
@@ -35,9 +48,21 @@ func TestEditTargetIsWhereTheLineLivesNow(t *testing.T) {
 		row  int
 		want int
 	}{
-		{name: "a line both sides have opens at its own number", row: 2, want: 1},
-		{name: "a deleted line opens at the line above it", row: 3, want: 1},
-		{name: "an added line opens at its own number", row: 4, want: 2},
+		{
+			name: "a line both sides have opens at its own number",
+			row:  2,
+			want: 1,
+		},
+		{
+			name: "a deleted line opens at the line above it",
+			row:  3,
+			want: 1,
+		},
+		{
+			name: "an added line opens at its own number",
+			row:  4,
+			want: 2,
+		},
 	}
 
 	for _, tt := range tests {
@@ -58,8 +83,17 @@ func TestEditTargetLooksForwardWhenNothingCameBefore(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Deletion, Text: "old", OldNumber: 1},
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 2, NewNumber: 1},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "old",
+				OldNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 2,
+				NewNumber: 1,
+			},
 		)},
 	}), false)
 
@@ -75,7 +109,11 @@ func TestEditTargetRefusesADeletedFile(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "gone.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Deletion, Text: "old", OldNumber: 1},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "old",
+				OldNumber: 1,
+			},
 		)},
 	}), false)
 
@@ -92,14 +130,22 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 			OldPath: "emptied.go",
 			NewPath: "emptied.go",
 			Hunks: []diff.Hunk{hunkOf(
-				diff.Line{Kind: diff.Deletion, Text: "old", OldNumber: 1},
+				diff.Line{
+					Kind:      diff.Deletion,
+					Text:      "old",
+					OldNumber: 1,
+				},
 			)},
 		},
 		diff.File{
 			OldPath: "other.go",
 			NewPath: "other.go",
 			Hunks: []diff.Hunk{hunkOf(
-				diff.Line{Kind: diff.Addition, Text: "new", NewNumber: 9},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      "new",
+					NewNumber: 9,
+				},
 			)},
 		},
 	), false)

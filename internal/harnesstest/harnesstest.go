@@ -94,7 +94,11 @@ func New(root string) (*Harness, error) {
 		return nil, fmt.Errorf("failed to find the test binary the fake agents run as: %w", err)
 	}
 
-	return &Harness{root: root, script: script, binary: binary}, nil
+	return &Harness{
+		root:   root,
+		script: script,
+		binary: binary,
+	}, nil
 }
 
 // GetID is the name an agent running this harness is recorded under.

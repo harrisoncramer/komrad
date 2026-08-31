@@ -561,7 +561,11 @@ func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *Workfl
 }
 
 func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier systemMailSender) *WorkflowService {
-	deleter := s.agentService(agentServiceOptions{tmux: tmux, harnesses: fakeHarnesses{harness: &fakeHarness{}}, addr: "127.0.0.1:9999"})
+	deleter := s.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+	})
 
 	return NewWorkflowService(WorkflowParams{
 		Workflows:    s.Workflows,

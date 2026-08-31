@@ -74,7 +74,11 @@ func (v *View) indexLines() lineIndex {
 		file := v.patch.Files[current.file].Path()
 		line := v.patch.Files[current.file].Hunks[current.hunk].Lines[current.line]
 
-		index.byKey[anchorKey{filePath: file, newLine: int32(line.NewNumber), oldLine: int32(line.OldNumber)}] = y
+		index.byKey[anchorKey{
+			filePath: file,
+			newLine:  int32(line.NewNumber),
+			oldLine:  int32(line.OldNumber),
+		}] = y
 
 		key := quoteKey{filePath: file, quote: quote}
 		index.byQuote[key] = append(index.byQuote[key], y)

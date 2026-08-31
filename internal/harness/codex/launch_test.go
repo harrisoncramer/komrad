@@ -32,8 +32,12 @@ func TestBuildCommand(t *testing.T) {
 			wantAbsent: []string{"$(cat "},
 		},
 		{
-			name:   "a resume carries an opening prompt after the id, so it is not read as one",
-			launch: harness.Launch{SessionID: "019fb3e7-2cb6", Prompt: "carry on", Resume: true},
+			name: "a resume carries an opening prompt after the id, so it is not read as one",
+			launch: harness.Launch{
+				SessionID: "019fb3e7-2cb6",
+				Prompt:    "carry on",
+				Resume:    true,
+			},
 			wantContain: []string{
 				"codex resume",
 				"'019fb3e7-2cb6' -- \"$(cat ",
@@ -56,8 +60,12 @@ func TestBuildCommand(t *testing.T) {
 			wantContain: []string{"WEAVE_AGENT_ID='id-1' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex"},
 		},
 		{
-			name:   "and it survives a resume",
-			launch: harness.Launch{AgentID: "id-1", SessionID: "sess", Resume: true},
+			name: "and it survives a resume",
+			launch: harness.Launch{
+				AgentID:   "id-1",
+				SessionID: "sess",
+				Resume:    true,
+			},
 			wantContain: []string{
 				"WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess' CODEX_INTERNAL_ORIGINATOR_OVERRIDE='weave-id-1' codex resume",
 			},
@@ -149,7 +157,11 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, Prompt: "go", CacheDir: t.TempDir()})
+			command, err := NewHarness(NewHarnessParams{SessionsDir: t.TempDir()}).BuildCommand(harness.Launch{
+				Flags:    tt.flags,
+				Prompt:   "go",
+				CacheDir: t.TempDir(),
+			})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")

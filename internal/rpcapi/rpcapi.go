@@ -51,7 +51,11 @@ func GetMethods() iter.Seq[Method] {
 						continue
 					}
 
-					if !yield(Method{Service: service, Method: method, Annotation: annotation}) {
+					if !yield(Method{
+						Service:    service,
+						Method:     method,
+						Annotation: annotation,
+					}) {
 						return
 					}
 				}

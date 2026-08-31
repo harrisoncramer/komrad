@@ -47,16 +47,26 @@ func TestLaunchAgentWorker(t *testing.T) {
 		wantResultStatus schedulestore.LaunchResultStatus
 	}{
 		{
-			name:             "an armed schedule launches its agent",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "check CI", Enabled: true},
+			name: "an armed schedule launches its agent",
+			schedule: &schedulestore.Schedule{
+				ID:      "s1",
+				Name:    "morning-ci",
+				Prompt:  "check CI",
+				Enabled: true,
+			},
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultLaunched,
 		},
 		{
 			// The launcher hands this back only for an agent that actually came up, since a create
 			// that failed has its key taken off it and is launched again.
-			name:             "an occurrence whose agent is already up records that rather than retrying",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "check CI", Enabled: true},
+			name: "an occurrence whose agent is already up records that rather than retrying",
+			schedule: &schedulestore.Schedule{
+				ID:      "s1",
+				Name:    "morning-ci",
+				Prompt:  "check CI",
+				Enabled: true,
+			},
 			launchErr:        agents.ErrAlreadyLaunched,
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultLaunched,
@@ -67,37 +77,62 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantResultStatus: schedulestore.LaunchResultScheduleNotFound,
 		},
 		{
-			name:             "a schedule paused since the job was queued cancels",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "check CI"},
+			name: "a schedule paused since the job was queued cancels",
+			schedule: &schedulestore.Schedule{
+				ID:     "s1",
+				Name:   "morning-ci",
+				Prompt: "check CI",
+			},
 			wantCancel:       true,
 			wantResultStatus: schedulestore.LaunchResultSchedulePaused,
 		},
 		{
-			name:             "a directory that cannot be opened cancels",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
+			name: "a directory that cannot be opened cancels",
+			schedule: &schedulestore.Schedule{
+				ID:      "s1",
+				Name:    "morning-ci",
+				Prompt:  "go",
+				Enabled: true,
+			},
 			launchErr:        agents.ErrBadDirectory,
 			wantCancel:       true,
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultCannotLaunch,
 		},
 		{
-			name:             "a setup action that refuses cancels",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
+			name: "a setup action that refuses cancels",
+			schedule: &schedulestore.Schedule{
+				ID:      "s1",
+				Name:    "morning-ci",
+				Prompt:  "go",
+				Enabled: true,
+			},
 			launchErr:        agents.ErrSetupFailed,
 			wantCancel:       true,
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultCannotLaunch,
 		},
 		{
-			name:             "a schedule whose last agent is still running skips this tick",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", WorkflowID: "w1", Enabled: true},
+			name: "a schedule whose last agent is still running skips this tick",
+			schedule: &schedulestore.Schedule{
+				ID:         "s1",
+				Name:       "morning-ci",
+				Prompt:     "go",
+				WorkflowID: "w1",
+				Enabled:    true,
+			},
 			running:          1,
 			wantCancel:       true,
 			wantResultStatus: schedulestore.LaunchResultAlreadyRunning,
 		},
 		{
-			name:             "a transient failure with attempts left is recorded as retrying, not terminal",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
+			name: "a transient failure with attempts left is recorded as retrying, not terminal",
+			schedule: &schedulestore.Schedule{
+				ID:      "s1",
+				Name:    "morning-ci",
+				Prompt:  "go",
+				Enabled: true,
+			},
 			launchErr:        errors.New("no server running"),
 			attempt:          1,
 			maxAttempts:      attempts,
@@ -106,8 +141,13 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantResultStatus: schedulestore.LaunchResultRetrying,
 		},
 		{
-			name:             "the same transient failure on the last attempt is recorded as terminal, not retrying",
-			schedule:         &schedulestore.Schedule{ID: "s1", Name: "morning-ci", Prompt: "go", Enabled: true},
+			name: "the same transient failure on the last attempt is recorded as terminal, not retrying",
+			schedule: &schedulestore.Schedule{
+				ID:      "s1",
+				Name:    "morning-ci",
+				Prompt:  "go",
+				Enabled: true,
+			},
 			launchErr:        errors.New("no server running"),
 			attempt:          attempts,
 			maxAttempts:      attempts,
@@ -306,7 +346,11 @@ func (f *fakeSchedules) List(context.Context) ([]schedulestore.Schedule, error) 
 }
 
 func (f *fakeSchedules) RecordLaunchResult(_ context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) error {
-	f.results = append(f.results, recordedResult{scheduleID: scheduleID, status: status, message: message})
+	f.results = append(f.results, recordedResult{
+		scheduleID: scheduleID,
+		status:     status,
+		message:    message,
+	})
 
 	return nil
 }

@@ -138,7 +138,11 @@ func TestSchedulesView(t *testing.T) {
 		{
 			name: "a schedule shows its name and its expression",
 			schedules: []scheduleItem{
-				{schedule: schedulestore.Schedule{Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true}},
+				{schedule: schedulestore.Schedule{
+					Name:    "morning-ci",
+					Cron:    "0 9 * * 1-5",
+					Enabled: true,
+				}},
 			},
 			wants: []string{"morning-ci", "0 9 * * 1-5", scheduleIcon(true)},
 		},
@@ -174,7 +178,11 @@ func TestSchedulesView(t *testing.T) {
 func TestScheduleFormButtonsLineUp(t *testing.T) {
 	form := scheduleForm(&schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
-	}, []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}, config.DefaultKeybindings().Form)
+	}, []workflowstore.Workflow{{
+		ID:   "w1",
+		Name: "api",
+		Cwd:  "/work/api",
+	}}, config.DefaultKeybindings().Form)
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 40})
 
@@ -215,8 +223,12 @@ func TestScheduleMarkdown(t *testing.T) {
 		{
 			name: "an armed schedule leads with when it next fires",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{Name: "morning-ci", Enabled: true, Prompt: "check CI"},
-				nextRun:  next,
+				schedule: schedulestore.Schedule{
+					Name:    "morning-ci",
+					Enabled: true,
+					Prompt:  "check CI",
+				},
+				nextRun: next,
 			},
 			wants:    []string{"morning-ci", "next run", "check CI"},
 			notWants: []string{"paused"},
@@ -233,14 +245,22 @@ func TestScheduleMarkdown(t *testing.T) {
 			wants: []string{"bare", "no prompt set"},
 		},
 		{
-			name:  "one whose runs start hidden says where they will not appear",
-			item:  scheduleItem{schedule: schedulestore.Schedule{Name: "quiet", Enabled: true, HideAgents: true}},
+			name: "one whose runs start hidden says where they will not appear",
+			item: scheduleItem{schedule: schedulestore.Schedule{
+				Name:       "quiet",
+				Enabled:    true,
+				HideAgents: true,
+			}},
 			wants: []string{"quiet", "start hidden"},
 		},
 		{
 			name: "a schedule that has never fired says nothing about a result",
 			item: scheduleItem{
-				schedule: schedulestore.Schedule{Name: "fresh", Enabled: true, Prompt: "go"},
+				schedule: schedulestore.Schedule{
+					Name:    "fresh",
+					Enabled: true,
+					Prompt:  "go",
+				},
 			},
 			notWants: []string{"last result"},
 		},
@@ -465,7 +485,11 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 		api:  api{schedules: client},
 		tmux: tmux,
 
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Cwd: "/work/api"}}},
+		listing: listing{workflows: []workflowstore.Workflow{{
+			ID:   "w1",
+			Name: "api",
+			Cwd:  "/work/api",
+		}}},
 
 		popup:  NewPopupWindow(tmux, "test-session"),
 		frame:  layout.New(tmux, config.DefaultLayout()),
@@ -473,7 +497,12 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 		screen: screenSchedules,
 		schedules: scheduleState{
 			items: []scheduleItem{
-				{schedule: schedulestore.Schedule{ID: "s1", Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true}},
+				{schedule: schedulestore.Schedule{
+					ID:      "s1",
+					Name:    "morning-ci",
+					Cron:    "0 9 * * 1-5",
+					Enabled: true,
+				}},
 			},
 		},
 	}
@@ -482,7 +511,11 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 func scheduleItems(names ...string) []scheduleItem {
 	out := make([]scheduleItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, scheduleItem{schedule: schedulestore.Schedule{ID: name, Name: name, Enabled: true}})
+		out = append(out, scheduleItem{schedule: schedulestore.Schedule{
+			ID:      name,
+			Name:    name,
+			Enabled: true,
+		}})
 	}
 
 	return out
@@ -500,7 +533,12 @@ func (f *fakeSchedules) ListSchedules(context.Context, *connect.Request[schedule
 
 func (f *fakeSchedules) GetSchedule(_ context.Context, req *connect.Request[schedulev1.GetScheduleRequest]) (*connect.Response[schedulev1.GetScheduleResponse], error) {
 	return connect.NewResponse(&schedulev1.GetScheduleResponse{
-		Schedule: &schedulev1.Schedule{Id: req.Msg.GetId(), Name: "morning-ci", Cron: "0 9 * * 1-5", Enabled: true},
+		Schedule: &schedulev1.Schedule{
+			Id:      req.Msg.GetId(),
+			Name:    "morning-ci",
+			Cron:    "0 9 * * 1-5",
+			Enabled: true,
+		},
 	}), nil
 }
 
