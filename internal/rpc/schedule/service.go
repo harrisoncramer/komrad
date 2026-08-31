@@ -2,11 +2,9 @@ package schedule
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"time"
 
-	"weave/internal/agents"
+	"weave/internal/rpcerr"
 	"weave/internal/store"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
@@ -50,7 +48,7 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 
 	page, err := s.lister.ListPage(ctx, paginator.Limit(), paginator.Cursor())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list schedules: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to list schedules")
 	}
 
 	now := time.Now()
@@ -59,7 +57,7 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to build the next page token")
 	}
 
 	response := &schedulev1.ListSchedulesResponse{NextPageToken: next}
@@ -71,11 +69,9 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 // GetSchedule returns one schedule by id.
 func (s *Service) GetSchedule(ctx context.Context, req *connect.Request[schedulev1.GetScheduleRequest]) (*connect.Response[schedulev1.GetScheduleResponse], error) {
 	found, err := s.schedules.GetSchedule(ctx, req.Msg.GetId())
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
-	}
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get schedule: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to get schedule",
+			rpcerr.Saying(store.ErrNotFound, "no schedule with id %q", req.Msg.GetId()))
 	}
 
 	return connect.NewResponse(&schedulev1.GetScheduleResponse{
@@ -86,15 +82,9 @@ func (s *Service) GetSchedule(ctx context.Context, req *connect.Request[schedule
 // CreateSchedule records a recurring launch and returns it as stored.
 func (s *Service) CreateSchedule(ctx context.Context, req *connect.Request[schedulev1.CreateScheduleRequest]) (*connect.Response[schedulev1.CreateScheduleResponse], error) {
 	created, err := s.schedules.NewSchedule(ctx, configFrom(req.Msg))
-	switch {
-	case errors.Is(err, agents.ErrBadCron):
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, agents.ErrWorkflowNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, store.ErrNameTaken):
-		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a schedule named %q already exists", req.Msg.GetName()))
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create schedule: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to create schedule",
+			rpcerr.Saying(store.ErrNameTaken, "a schedule named %q already exists", req.Msg.GetName()))
 	}
 
 	return connect.NewResponse(&schedulev1.CreateScheduleResponse{
@@ -113,17 +103,9 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 		Prompt:     req.Msg.GetPrompt(),
 		WorkflowID: req.Msg.GetWorkflowId(),
 	})
-	switch {
-	case errors.Is(err, agents.ErrScheduleNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
-	case errors.Is(err, agents.ErrBadCron):
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, agents.ErrWorkflowNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, store.ErrNameTaken):
-		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("a schedule named %q already exists", req.Msg.GetName()))
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update schedule: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to update schedule",
+			rpcerr.Saying(store.ErrNameTaken, "a schedule named %q already exists", req.Msg.GetName()))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -131,12 +113,8 @@ func (s *Service) UpdateSchedule(ctx context.Context, req *connect.Request[sched
 
 // SetScheduleEnabled pauses or resumes a schedule.
 func (s *Service) SetScheduleEnabled(ctx context.Context, req *connect.Request[schedulev1.SetScheduleEnabledRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.schedules.SetScheduleEnabled(ctx, req.Msg.GetId(), req.Msg.GetEnabled())
-	switch {
-	case errors.Is(err, agents.ErrScheduleNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set schedule enabled: %w", err))
+	if err := s.schedules.SetScheduleEnabled(ctx, req.Msg.GetId(), req.Msg.GetEnabled()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to set schedule enabled")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -144,12 +122,8 @@ func (s *Service) SetScheduleEnabled(ctx context.Context, req *connect.Request[s
 
 // ArchiveSchedule stops a schedule from firing again.
 func (s *Service) ArchiveSchedule(ctx context.Context, req *connect.Request[schedulev1.ArchiveScheduleRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.schedules.ArchiveSchedule(ctx, req.Msg.GetId())
-	switch {
-	case errors.Is(err, agents.ErrScheduleNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no schedule with id %q", req.Msg.GetId()))
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive schedule: %w", err))
+	if err := s.schedules.ArchiveSchedule(ctx, req.Msg.GetId()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to archive schedule")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
