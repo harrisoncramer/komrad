@@ -1,8 +1,6 @@
 package server
 
 import (
-	"context"
-	"fmt"
 	"time"
 
 	"weave/internal/agents"
@@ -86,16 +84,4 @@ func buildLoops(p buildLoopsParams) []Loop {
 			}).Sync,
 		},
 	}
-}
-
-// RunLoop runs one pass of the named loop, for a caller driving a loop by hand rather than
-// letting it tick.
-func (s *Server) RunLoop(ctx context.Context, name string) error {
-	for _, loop := range s.Loops {
-		if loop.Name == name {
-			return loop.Pass(ctx)
-		}
-	}
-
-	return fmt.Errorf("no loop named %q", name)
 }
