@@ -173,15 +173,23 @@ func TestArchiveRows(t *testing.T) {
 			wantRows: []string{"header:backend"},
 		},
 		{
-			name:     "an agent archived out of a live folder nests under it",
-			live:     []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents:   []agentstore.Agent{{ID: "a1", Name: "auth", WorkflowID: "w1"}},
+			name: "an agent archived out of a live folder nests under it",
+			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentstore.Agent{{
+				ID:         "a1",
+				Name:       "auth",
+				WorkflowID: "w1",
+			}},
 			wantRows: []string{"header:backend", "agent:auth"},
 		},
 		{
-			name:     "a live folder with nothing put away out of it gets no header",
-			live:     []workflowstore.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
-			agents:   []agentstore.Agent{{ID: "a1", Name: "auth", WorkflowID: "w1"}},
+			name: "a live folder with nothing put away out of it gets no header",
+			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}, {ID: "w2", Name: "frontend"}},
+			agents: []agentstore.Agent{{
+				ID:         "a1",
+				Name:       "auth",
+				WorkflowID: "w1",
+			}},
 			wantRows: []string{"header:backend", "agent:auth"},
 		},
 		{
@@ -189,8 +197,16 @@ func TestArchiveRows(t *testing.T) {
 			live:     []workflowstore.Workflow{{ID: "w2", Name: "frontend"}},
 			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend"), archivedWorkflow("w3", "infra")},
 			agents: []agentstore.Agent{
-				{ID: "a1", Name: "auth", WorkflowID: "w1"},
-				{ID: "a2", Name: "ui", WorkflowID: "w2"},
+				{
+					ID:         "a1",
+					Name:       "auth",
+					WorkflowID: "w1",
+				},
+				{
+					ID:         "a2",
+					Name:       "ui",
+					WorkflowID: "w2",
+				},
 			},
 			wantRows: []string{"header:backend", "agent:auth", "header:frontend", "agent:ui", "header:infra"},
 		},
@@ -198,7 +214,11 @@ func TestArchiveRows(t *testing.T) {
 			name:     "a folder in both listings is drawn once",
 			live:     []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 			archived: []workflowstore.Workflow{archivedWorkflow("w1", "backend")},
-			agents:   []agentstore.Agent{{ID: "a1", Name: "auth", WorkflowID: "w1"}},
+			agents: []agentstore.Agent{{
+				ID:         "a1",
+				Name:       "auth",
+				WorkflowID: "w1",
+			}},
 			wantRows: []string{"header:backend", "agent:auth"},
 		},
 	}
@@ -551,10 +571,14 @@ func TestArchiveView(t *testing.T) {
 			wants: []string{"Archive", "nothing archived"},
 		},
 		{
-			name:   "an archived agent shows its name under its folder",
-			live:   []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
-			wants:  []string{"backend", "api-refactor"},
+			name: "an archived agent shows its name under its folder",
+			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentstore.Agent{{
+				ID:         "a1",
+				Name:       "api-refactor",
+				WorkflowID: "w1",
+			}},
+			wants: []string{"backend", "api-refactor"},
 
 			wantsAbsent: []string{"archived"},
 		},
@@ -564,10 +588,15 @@ func TestArchiveView(t *testing.T) {
 			wants:    []string{"backend", "archived"},
 		},
 		{
-			name:   "a row a delete could not destroy is marked",
-			live:   []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents: []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1", State: agentstore.StateFailedToCleanup}},
-			wants:  []string{"api-refactor", "✗"},
+			name: "a row a delete could not destroy is marked",
+			live: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
+			agents: []agentstore.Agent{{
+				ID:         "a1",
+				Name:       "api-refactor",
+				WorkflowID: "w1",
+				State:      agentstore.StateFailedToCleanup,
+			}},
+			wants: []string{"api-refactor", "✗"},
 		},
 	}
 
@@ -684,7 +713,11 @@ func archivedProtoAgent(name, archivedAt string) *agentv1.Agent {
 }
 
 func archivedProtoWorkflow(id, name, archivedAt string) *workflowv1.Workflow {
-	return &workflowv1.Workflow{Id: id, Name: name, ArchivedAt: &archivedAt}
+	return &workflowv1.Workflow{
+		Id:         id,
+		Name:       name,
+		ArchivedAt: &archivedAt,
+	}
 }
 
 // TestArchiveIsListedSeparatelyFromTheAgents covers the archived agents and folders arriving
@@ -717,7 +750,11 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 	tmux := &recordingTmux{}
 
 	return model{
-		api:     api{agents: agents, workflows: workflows, schedules: emptyLists{}},
+		api: api{
+			agents:    agents,
+			workflows: workflows,
+			schedules: emptyLists{},
+		},
 		tmux:    tmux,
 		popup:   NewPopupWindow(tmux, "test-session"),
 		frame:   layout.New(tmux, config.DefaultLayout()),
@@ -725,7 +762,11 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 		screen:  screenArchive,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}},
 		archive: archiveState{
-			agents:    []agentstore.Agent{{ID: "a1", Name: "api-refactor", WorkflowID: "w1"}},
+			agents: []agentstore.Agent{{
+				ID:         "a1",
+				Name:       "api-refactor",
+				WorkflowID: "w1",
+			}},
 			rowCursor: rowCursor{cursor: 1},
 		},
 	}
@@ -734,7 +775,11 @@ func archiveModel(agents agentv1connect.AgentServiceClient, workflows workflowv1
 func archivedWorkflow(id, name string) workflowstore.Workflow {
 	at := time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC)
 
-	return workflowstore.Workflow{ID: id, Name: name, ArchivedAt: &at}
+	return workflowstore.Workflow{
+		ID:         id,
+		Name:       name,
+		ArchivedAt: &at,
+	}
 }
 
 type fakeArchiveWorkflows struct {

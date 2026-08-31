@@ -29,7 +29,12 @@ func (f *fakePRStates) Resolve(_ context.Context, _, ref string) (*PullRequest, 
 		return nil, f.err
 	}
 
-	return &PullRequest{URL: ref, State: f.state, Branch: f.branch, Repository: f.repo}, nil
+	return &PullRequest{
+		URL:        ref,
+		State:      f.state,
+		Branch:     f.branch,
+		Repository: f.repo,
+	}, nil
 }
 
 // Repository stands in for the workflow's own origin, which is what a resolved pull request is
@@ -95,7 +100,11 @@ func seedPRAgent(t *testing.T, st *testStore, workflowID, state, pane, url strin
 	require.NoError(t, st.Agents.SetBranchByID(ctx, got.ID, xptr.Ptr(prBranch)))
 
 	if url != "" {
-		_, err = st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: got.ID, Key: prMetadataKey, Value: &url})
+		_, err = st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+			ID:    got.ID,
+			Key:   prMetadataKey,
+			Value: &url,
+		})
 		require.NoError(t, err)
 
 		got, err = st.Agents.GetInWorkflow(ctx, workflowID, "agent")
@@ -242,7 +251,12 @@ func TestPRArchiverSync(t *testing.T) {
 			workflowID := seedPRWorkflow(t, st, tt.archiveOnPRClosed, !tt.worktreeDisabled)
 			agent := seedPRAgent(t, st, workflowID, tt.agentState, tt.pane, tt.url)
 
-			prs := &fakePRStates{state: tt.prState, branch: prBranch, repo: prRepo, origin: prRepo}
+			prs := &fakePRStates{
+				state:  tt.prState,
+				branch: prBranch,
+				repo:   prRepo,
+				origin: prRepo,
+			}
 			archiver := &fakeArchiver{}
 
 			require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -266,7 +280,12 @@ func TestPRArchiverSyncLeavesAnAgentAloneWhenTheLookupFails(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{err: errors.New("gh: no network"), branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		err:    errors.New("gh: no network"),
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -283,7 +302,12 @@ func TestPRArchiverSyncBacksOffAfterARateLimit(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{err: errors.New("gh: API rate limit exceeded"), branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		err:    errors.New("gh: API rate limit exceeded"),
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 	archiverUnderTest := newPRArchiver(st, prs, archiver)
 
@@ -313,7 +337,12 @@ func TestPRArchiverSyncSkipsArchivedAgents(t *testing.T) {
 	_, archiveErr := st.Agents.Archive(t.Context(), []string{agent.ID})
 	require.NoError(t, archiveErr)
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -330,7 +359,12 @@ func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	agent := seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 	archiverUnderTest := newPRArchiver(st, prs, archiver)
 
@@ -358,7 +392,12 @@ func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	require.NoError(t, newPRArchiver(st, prs, newManager(newFakeTmux(), st, "").lifecycle).Sync(ctx))
 
 	archived := reread(t, st)
@@ -383,7 +422,12 @@ func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
 	require.Len(t, restored, 1)
 	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey), "the restore says which pull request it was for")
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(ctx))
 
@@ -410,7 +454,12 @@ func TestRestoreWorkflowLeavesItsAgentsAlone(t *testing.T) {
 
 	assert.Equal(t, prURL, metadataFor(reread(t, st), prArchivedMetadataKey))
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(ctx))
 
@@ -444,7 +493,12 @@ func TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn(t *testing.T) {
 			workflowID := seedPRWorkflow(t, st, true, true)
 			seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-			prs := &fakePRStates{state: "MERGED", branch: tt.branch, repo: tt.repo, origin: prRepo}
+			prs := &fakePRStates{
+				state:  "MERGED",
+				branch: tt.branch,
+				repo:   tt.repo,
+				origin: prRepo,
+			}
 			archiver := &fakeArchiver{}
 
 			require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -485,7 +539,12 @@ func TestPRArchiverSyncJudgesABlankBranchByTheWorktree(t *testing.T) {
 			require.NoError(t, st.Agents.SetBranchByID(ctx, agent.ID, nil))
 			require.NoError(t, st.Agents.SetWorktreeRemovedByID(ctx, agent.ID, tt.worktreeRemoved))
 
-			prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+			prs := &fakePRStates{
+				state:  "MERGED",
+				branch: prBranch,
+				repo:   prRepo,
+				origin: prRepo,
+			}
 			archiver := &fakeArchiver{}
 
 			require.NoError(t, newPRArchiver(st, prs, archiver).Sync(ctx))
@@ -504,7 +563,12 @@ func TestPRArchiverSyncMatchesTheRepositoryWhateverItsCasing(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: "HarrisonCramer/Weave"}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: "HarrisonCramer/Weave",
+	}
 	archiver := &fakeArchiver{}
 
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -520,7 +584,12 @@ func TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", "42")
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 
 	require.NoError(t, newPRArchiver(st, prs, archiver).Sync(t.Context()))
@@ -537,7 +606,12 @@ func TestPRArchiverSyncGoesQuietOnAnOpenPullRequest(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{state: "OPEN", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "OPEN",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{}
 	archiverUnderTest := newPRArchiver(st, prs, archiver)
 
@@ -563,7 +637,12 @@ func TestPRArchiverSyncReportsAFailedArchive(t *testing.T) {
 	workflowID := seedPRWorkflow(t, st, true, true)
 	seedPRAgent(t, st, workflowID, agentstore.StateIdle, "%1", prURL)
 
-	prs := &fakePRStates{state: "MERGED", branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  "MERGED",
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	archiver := &fakeArchiver{err: errors.New("nope")}
 
 	err := newPRArchiver(st, prs, archiver).Sync(t.Context())

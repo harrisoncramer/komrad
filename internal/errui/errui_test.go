@@ -312,7 +312,11 @@ func tracedError(trace string) error {
 // TestBannerOffersTheTrace covers the banner naming the command that reads the failure,
 // rather than an id the reader has to know what to do with.
 func TestBannerOffersTheTrace(t *testing.T) {
-	traced := Banner{Summary: "Could not archive agent", Detail: "the pane was already gone", Trace: "abc-123"}
+	traced := Banner{
+		Summary: "Could not archive agent",
+		Detail:  "the pane was already gone",
+		Trace:   "abc-123",
+	}
 	assert.Contains(t, traced.Render(80), "weave trace abc-123")
 	assert.Contains(t, traced.Render(80), "esc to dismiss", "the way out is still said")
 

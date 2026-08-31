@@ -41,7 +41,11 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 
 	var rows []agentRow
 	for _, w := range workflows {
-		rows = append(rows, agentRow{header: true, workflow: w, hiddenCount: hiddenCounts[w.ID]})
+		rows = append(rows, agentRow{
+			header:      true,
+			workflow:    w,
+			hiddenCount: hiddenCounts[w.ID],
+		})
 		for _, it := range byWorkflow[w.ID] {
 			rows = append(rows, agentRow{item: it, workflow: w})
 		}

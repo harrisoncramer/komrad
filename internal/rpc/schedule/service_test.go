@@ -250,20 +250,32 @@ func TestUpdateSchedule(t *testing.T) {
 		wantCron string
 	}{
 		{
-			name:     "an id nobody holds",
-			target:   missingID,
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 9 * * *", Prompt: "go"},
+			name:   "an id nobody holds",
+			target: missingID,
+			req: &schedulev1.UpdateScheduleRequest{
+				Name:   "renamed",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			},
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:     "the editable fields are replaced",
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 17 * * 5", Prompt: "weekly"},
+			name: "the editable fields are replaced",
+			req: &schedulev1.UpdateScheduleRequest{
+				Name:   "renamed",
+				Cron:   "0 17 * * 5",
+				Prompt: "weekly",
+			},
 			wantName: "renamed",
 			wantCron: "0 17 * * 5",
 		},
 		{
-			name:     "an unparseable expression leaves the record alone",
-			req:      &schedulev1.UpdateScheduleRequest{Name: "renamed", Cron: "0 99 * * *", Prompt: "go"},
+			name: "an unparseable expression leaves the record alone",
+			req: &schedulev1.UpdateScheduleRequest{
+				Name:   "renamed",
+				Cron:   "0 99 * * *",
+				Prompt: "go",
+			},
 			wantCode: connect.CodeInvalidArgument,
 			wantName: "morning-ci",
 			wantCron: "0 9 * * 1-5",

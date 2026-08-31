@@ -31,7 +31,11 @@ func TestStopHookDeliversMail(t *testing.T) {
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":true}`,
 			mail: []mailItem{
-				{ID: "mail-1", FromName: "api", Body: "which column?"},
+				{
+					ID:       "mail-1",
+					FromName: "api",
+					Body:     "which column?",
+				},
 			},
 		},
 		{
@@ -51,8 +55,19 @@ func TestStopHookDeliversMail(t *testing.T) {
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":false}`,
 			mail: []mailItem{
-				{ID: "mail-1", FromAgent: "agent-b", FromName: "migrations", Body: "refunded_cents"},
-				{ID: "mail-2", FromAgent: "agent-b", FromName: "migrations", Body: "and it is not null", ReplyTo: "mail-0"},
+				{
+					ID:        "mail-1",
+					FromAgent: "agent-b",
+					FromName:  "migrations",
+					Body:      "refunded_cents",
+				},
+				{
+					ID:        "mail-2",
+					FromAgent: "agent-b",
+					FromName:  "migrations",
+					Body:      "and it is not null",
+					ReplyTo:   "mail-0",
+				},
 			},
 			wantSent:     true,
 			wantBoundary: true,
@@ -78,7 +93,11 @@ func TestStopHookDeliversMail(t *testing.T) {
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":false}`,
 			mail: []mailItem{
-				{ID: "mail-1", FromName: "weave", Body: `Your delegate "child" (agent-c) was archived.`},
+				{
+					ID:       "mail-1",
+					FromName: "weave",
+					Body:     `Your delegate "child" (agent-c) was archived.`,
+				},
 			},
 			wantSent:     true,
 			wantBoundary: true,
@@ -91,7 +110,12 @@ func TestStopHookDeliversMail(t *testing.T) {
 			var asked caller.Caller
 			var logged []string
 			var boundaries []string
-			addr := fakeMailServer(t, fakeMailParams{mail: tt.mail, asked: &asked, logged: &logged, boundaries: &boundaries})
+			addr := fakeMailServer(t, fakeMailParams{
+				mail:       tt.mail,
+				asked:      &asked,
+				logged:     &logged,
+				boundaries: &boundaries,
+			})
 
 			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
 
@@ -150,7 +174,11 @@ func TestMailPostamble(t *testing.T) {
 		},
 		{
 			name: "another agent, alone",
-			mail: []mailItem{{FromAgent: "agent-b", FromName: "migrations", Body: "hi"}},
+			mail: []mailItem{{
+				FromAgent: "agent-b",
+				FromName:  "migrations",
+				Body:      "hi",
+			}},
 			want: mailFromAgent,
 		},
 		{
@@ -166,7 +194,11 @@ func TestMailPostamble(t *testing.T) {
 			mail: []mailItem{
 				{FromName: "weave", Body: "your delegate was archived"},
 				{Body: "stand down"},
-				{FromAgent: "agent-b", FromName: "migrations", Body: "hi"},
+				{
+					FromAgent: "agent-b",
+					FromName:  "migrations",
+					Body:      "hi",
+				},
 			},
 			want: mailFromAgent,
 		},

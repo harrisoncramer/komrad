@@ -113,7 +113,11 @@ func TestListActions(t *testing.T) {
 				Problems:    []string{"line 4: nope is not a directive weave knows"},
 			},
 		},
-		{Name: "compiled", Path: "/actions/compiled", Executable: true},
+		{
+			Name:       "compiled",
+			Path:       "/actions/compiled",
+			Executable: true,
+		},
 	}}
 
 	resp, err := NewService(manager).ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))

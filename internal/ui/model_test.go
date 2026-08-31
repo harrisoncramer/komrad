@@ -137,9 +137,21 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 				{ID: "w2", Name: "frontend"},
 			},
 			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: "a1", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a2", Name: "a2", WorkflowID: "w2"}},
-				{agent: agentstore.Agent{ID: "a3", Name: "a3", WorkflowID: "w2"}},
+				{agent: agentstore.Agent{
+					ID:         "a1",
+					Name:       "a1",
+					WorkflowID: "w1",
+				}},
+				{agent: agentstore.Agent{
+					ID:         "a2",
+					Name:       "a2",
+					WorkflowID: "w2",
+				}},
+				{agent: agentstore.Agent{
+					ID:         "a3",
+					Name:       "a3",
+					WorkflowID: "w2",
+				}},
 			},
 		},
 		tree: treeState{rowCursor: rowCursor{cursor: 1}, placed: true},
@@ -150,8 +162,16 @@ func TestPlaceTreeCursorSkipsHeaderAfterAgentRemoved(t *testing.T) {
 	require.Equal(t, "agent:a1", was)
 
 	m.applyAgents([]agentItem{
-		{agent: agentstore.Agent{ID: "a2", Name: "a2", WorkflowID: "w2"}},
-		{agent: agentstore.Agent{ID: "a3", Name: "a3", WorkflowID: "w2"}},
+		{agent: agentstore.Agent{
+			ID:         "a2",
+			Name:       "a2",
+			WorkflowID: "w2",
+		}},
+		{agent: agentstore.Agent{
+			ID:         "a3",
+			Name:       "a3",
+			WorkflowID: "w2",
+		}},
 	})
 	m.placeTreeCursor(was)
 
@@ -165,7 +185,11 @@ const testWorkflowID = "w1"
 func items(names ...string) []agentItem {
 	out := make([]agentItem, 0, len(names))
 	for _, name := range names {
-		out = append(out, agentItem{agent: agentstore.Agent{ID: name, Name: name, WorkflowID: testWorkflowID}})
+		out = append(out, agentItem{agent: agentstore.Agent{
+			ID:         name,
+			Name:       name,
+			WorkflowID: testWorkflowID,
+		}})
 	}
 
 	return out

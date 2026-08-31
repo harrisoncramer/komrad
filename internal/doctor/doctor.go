@@ -67,11 +67,20 @@ func pass(detail string) Result {
 }
 
 func warn(err error, detail string) Result {
-	return Result{Status: StatusWarn, Detail: detail, Err: err}
+	return Result{
+		Status: StatusWarn,
+		Detail: detail,
+		Err:    err,
+	}
 }
 
 func fail(err error, detail, fix string) Result {
-	return Result{Status: StatusFail, Detail: detail, Err: err, Fix: fix}
+	return Result{
+		Status: StatusFail,
+		Detail: detail,
+		Err:    err,
+		Fix:    fix,
+	}
 }
 
 func skip(blocker string) Result {

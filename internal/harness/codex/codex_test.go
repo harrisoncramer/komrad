@@ -37,42 +37,68 @@ func TestFindSession(t *testing.T) {
 		{
 			name: "an agent with no id of its own matches nothing",
 			rollouts: []rollout{
-				{id: "sess-somebody", stamp: "12-05-00", originator: "weave-agent-1"},
+				{
+					id:         "sess-somebody",
+					stamp:      "12-05-00",
+					originator: "weave-agent-1",
+				},
 			},
 		},
 		{
 			name:    "a rollout a person started by hand carries Codex's own originator",
 			agentID: "agent-1",
 			rollouts: []rollout{
-				{id: "sess-theirs", stamp: "12-05-00", originator: "codex-tui"},
+				{
+					id:         "sess-theirs",
+					stamp:      "12-05-00",
+					originator: "codex-tui",
+				},
 			},
 		},
 		{
 			name:    "another agent's rollout carries another agent's stamp",
 			agentID: "agent-1",
 			rollouts: []rollout{
-				{id: "sess-theirs", stamp: "12-05-00", originator: "weave-agent-2"},
+				{
+					id:         "sess-theirs",
+					stamp:      "12-05-00",
+					originator: "weave-agent-2",
+				},
 			},
 		},
 		{
 			name:    "a rollout caught before its opening record is complete is not yet claimable",
 			agentID: "agent-1",
 			rollouts: []rollout{
-				{id: "sess-partial", stamp: "12-05-00", originator: "weave-agent-1", unparsed: true},
+				{
+					id:         "sess-partial",
+					stamp:      "12-05-00",
+					originator: "weave-agent-1",
+					unparsed:   true,
+				},
 			},
 		},
 		{
 			name:    "a file that opens with something other than a session_meta is not a conversation",
 			agentID: "agent-1",
 			rollouts: []rollout{
-				{id: "sess-headless", stamp: "12-05-00", originator: "weave-agent-1", noMeta: true},
+				{
+					id:         "sess-headless",
+					stamp:      "12-05-00",
+					originator: "weave-agent-1",
+					noMeta:     true,
+				},
 			},
 		},
 		{
 			name:    "the one this agent's launch stamped",
 			agentID: "agent-1",
 			rollouts: []rollout{
-				{id: "sess-mine", stamp: "12-05-00", originator: "weave-agent-1"},
+				{
+					id:         "sess-mine",
+					stamp:      "12-05-00",
+					originator: "weave-agent-1",
+				},
 			},
 			want: "sess-mine",
 		},
@@ -80,8 +106,16 @@ func TestFindSession(t *testing.T) {
 			name:    "a relaunch leaves two, and the live one is the newer",
 			agentID: "agent-1",
 			rollouts: []rollout{
-				{id: "sess-abandoned", stamp: "12-05-00", originator: "weave-agent-1"},
-				{id: "sess-live", stamp: "12-06-00", originator: "weave-agent-1"},
+				{
+					id:         "sess-abandoned",
+					stamp:      "12-05-00",
+					originator: "weave-agent-1",
+				},
+				{
+					id:         "sess-live",
+					stamp:      "12-06-00",
+					originator: "weave-agent-1",
+				},
 			},
 			want: "sess-live",
 		},

@@ -269,7 +269,12 @@ func TestLogKeysFollowTheArchiveCursor(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 	m.archive = archiveState{
-		agents:    []agentstore.Agent{{ID: "a2", Name: "api-refactor", WorkflowID: "w1", State: agentstore.StateFailedToCleanup}},
+		agents: []agentstore.Agent{{
+			ID:         "a2",
+			Name:       "api-refactor",
+			WorkflowID: "w1",
+			State:      agentstore.StateFailedToCleanup,
+		}},
 		rowCursor: rowCursor{cursor: 1},
 	}
 

@@ -211,9 +211,17 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	frontend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
 	require.NoError(t, err)
 
-	ok, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "ok", Dir: t.TempDir(), WorkflowID: backend.ID})
+	ok, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "ok",
+		Dir:        t.TempDir(),
+		WorkflowID: backend.ID,
+	})
 	require.NoError(t, err)
-	bad, err := manager.launch.NewAgent(t.Context(), NewAgentParams{Title: "bad", Dir: t.TempDir(), WorkflowID: frontend.ID})
+	bad, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "bad",
+		Dir:        t.TempDir(),
+		WorkflowID: frontend.ID,
+	})
 	require.NoError(t, err)
 
 	lifecycle.cleanupRunErrByAgent = map[string]error{bad.ID: errors.New("container is still running")}

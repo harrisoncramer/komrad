@@ -122,9 +122,17 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
 	require.NoError(t, err)
 
-	auth, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: backend.ID})
+	auth, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "auth",
+		Dir:        t.TempDir(),
+		WorkflowID: backend.ID,
+	})
 	require.NoError(t, err)
-	ui, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "ui", Dir: t.TempDir(), WorkflowID: frontend.ID})
+	ui, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "ui",
+		Dir:        t.TempDir(),
+		WorkflowID: frontend.ID,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, ui.ID}))
@@ -175,7 +183,11 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
 	require.NoError(t, err)
 
-	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "auth", Dir: t.TempDir(), WorkflowID: created.ID})
+	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "auth",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
 	require.NoError(t, err)
 
 	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, uuid.NewString()})

@@ -60,7 +60,11 @@ func unaryRequest(procedure, trace string) connect.AnyRequest {
 	spec := connect.Spec{Procedure: procedure, IsClient: false}
 	peer := connect.Peer{Addr: "127.0.0.1:54321", Protocol: connect.ProtocolConnect}
 
-	return &recordingRequest{AnyRequest: req, spec: spec, peer: peer}
+	return &recordingRequest{
+		AnyRequest: req,
+		spec:       spec,
+		peer:       peer,
+	}
 }
 
 // TestLoggingRecordsAServedCall covers one debug record per call, since the panel lists

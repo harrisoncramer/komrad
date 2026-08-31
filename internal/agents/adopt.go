@@ -175,7 +175,11 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	}
 
 	if pr != nil {
-		if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: created.ID, Key: prMetadataKey, Value: &pr.URL}); err != nil {
+		if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+			ID:    created.ID,
+			Key:   prMetadataKey,
+			Value: &pr.URL,
+		}); err != nil {
 			return nil, fmt.Errorf("failed to record the pull request %s was adopted from: %w", created.Name, err)
 		}
 	}

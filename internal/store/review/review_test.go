@@ -27,7 +27,11 @@ func TestUnreadClearsWhenTheAgentReads(t *testing.T) {
 	require.Len(t, looked, 1)
 	assert.True(t, looked[0].UnreadByAgent, "a thread the agent has never read is unread")
 
-	claimed, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent, MarkRead: true})
+	claimed, err := st.ListThreads(ctx, ListThreadsParams{
+		AgentID:  agentID,
+		Reader:   AuthorAgent,
+		MarkRead: true,
+	})
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 	assert.True(t, claimed[0].UnreadByAgent, "the claiming read is still shown what it claimed")
@@ -244,7 +248,11 @@ func open(t *testing.T) *fixture {
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.GetDB()), agents: agentstore.New(p.GetDB()), workflow: created.ID}
+	return &fixture{
+		Store:    New(p.GetDB()),
+		agents:   agentstore.New(p.GetDB()),
+		workflow: created.ID,
+	}
 }
 
 func seedAgent(t *testing.T, st *fixture) string {

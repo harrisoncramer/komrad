@@ -158,7 +158,11 @@ func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "idler", Pane: "%1", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{
+		Name:  "idler",
+		Pane:  "%1",
+		State: StateIdle,
+	}))
 	agent, err := st.Get(ctx, "idler")
 	require.NoError(t, err)
 
@@ -183,7 +187,11 @@ func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "idler", Pane: "%1", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{
+		Name:  "idler",
+		Pane:  "%1",
+		State: StateIdle,
+	}))
 	agent, err := st.Get(ctx, "idler")
 	require.NoError(t, err)
 

@@ -129,7 +129,11 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
 	}
 
-	action, env, err := s.prepare(ctx, prepareParams{agent: *agent, name: name, trigger: TriggerManual})
+	action, env, err := s.prepare(ctx, prepareParams{
+		agent:   *agent,
+		name:    name,
+		trigger: TriggerManual,
+	})
 	if err != nil {
 		return err
 	}
@@ -156,12 +160,20 @@ const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
 // RunSetupAction runs a setup action before creating an agent.
 func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
-	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerSetup}, pane)
+	return s.runAwaitedAction(ctx, prepareParams{
+		agent:   agent,
+		name:    name,
+		trigger: TriggerSetup,
+	}, pane)
 }
 
 // RunResumeAction reruns a setup action before resuming an agent.
 func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
-	return s.runAwaitedAction(ctx, prepareParams{agent: agent, name: name, trigger: TriggerResume}, "")
+	return s.runAwaitedAction(ctx, prepareParams{
+		agent:   agent,
+		name:    name,
+		trigger: TriggerResume,
+	}, "")
 }
 
 func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, pane string) (string, error) {
@@ -464,7 +476,11 @@ func readSetupDir(path string) ([]byte, error) {
 // RunCleanupAction starts a cleanup action without waiting for it to finish, calling done once
 // with nil on success or the failure otherwise, and never when the action refuses to start.
 func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
-	action, env, err := s.prepare(ctx, prepareParams{agent: agent, name: name, trigger: TriggerCleanup})
+	action, env, err := s.prepare(ctx, prepareParams{
+		agent:   agent,
+		name:    name,
+		trigger: TriggerCleanup,
+	})
 	if err != nil {
 		return err
 	}
@@ -655,7 +671,12 @@ func (s *ActionService) prepare(ctx context.Context, p prepareParams) (actions.A
 		return actions.Action{}, nil, err
 	}
 
-	env, err := s.env(ctx, actionEnvParams{agent: p.agent, dir: action.GetDir(), trigger: p.trigger, action: action.Name})
+	env, err := s.env(ctx, actionEnvParams{
+		agent:   p.agent,
+		dir:     action.GetDir(),
+		trigger: p.trigger,
+		action:  action.Name,
+	})
 	if err != nil {
 		return actions.Action{}, nil, err
 	}

@@ -390,8 +390,16 @@ func filterModel() model {
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
 		listing: listing{workflows: []workflowstore.Workflow{workflow}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "billing", WorkflowID: "w1"}},
-			{agent: agentstore.Agent{ID: "a2", Name: "payouts", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "billing",
+				WorkflowID: "w1",
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a2",
+				Name:       "payouts",
+				WorkflowID: "w1",
+			}},
 		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
 }

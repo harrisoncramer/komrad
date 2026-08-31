@@ -160,6 +160,10 @@ func (a *app) diagnose(ctx context.Context) []errui.Finding {
 	})
 
 	return xslice.Map(failed, func(finding doctor.Finding) errui.Finding {
-		return errui.Finding{Name: finding.Name, Reason: finding.Error, Fix: finding.Fix}
+		return errui.Finding{
+			Name:   finding.Name,
+			Reason: finding.Error,
+			Fix:    finding.Fix,
+		}
 	})
 }

@@ -115,7 +115,11 @@ func TestSetMetadata(t *testing.T) {
 				created = *got
 			}
 			for _, entry := range tt.before {
-				changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: entry.Key, Value: xptr.Ptr(entry.Value)})
+				changed, err := st.SetMetadata(ctx, SetMetadataParams{
+					ID:    created.ID,
+					Key:   entry.Key,
+					Value: xptr.Ptr(entry.Value),
+				})
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
@@ -123,7 +127,11 @@ func TestSetMetadata(t *testing.T) {
 				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 
-			changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: tt.id(created), Key: tt.key, Value: tt.value})
+			changed, err := st.SetMetadata(ctx, SetMetadataParams{
+				ID:    tt.id(created),
+				Key:   tt.key,
+				Value: tt.value,
+			})
 			require.NoError(t, err)
 			assert.Equal(t, tt.wantChanged, changed)
 
@@ -151,15 +159,27 @@ func TestSetMetadataCeiling(t *testing.T) {
 	require.NotNil(t, created)
 
 	for i := range maxMetadataKeys {
-		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("key-%d", i), Value: xptr.Ptr("v")})
+		changed, err := st.SetMetadata(ctx, SetMetadataParams{
+			ID:    created.ID,
+			Key:   fmt.Sprintf("key-%d", i),
+			Value: xptr.Ptr("v"),
+		})
 		require.NoError(t, err)
 		require.True(t, changed)
 	}
 
-	_, err = st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "one-too-many", Value: xptr.Ptr("v")})
+	_, err = st.SetMetadata(ctx, SetMetadataParams{
+		ID:    created.ID,
+		Key:   "one-too-many",
+		Value: xptr.Ptr("v"),
+	})
 	require.ErrorIs(t, err, ErrTooManyMetadataKeys)
 
-	changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "key-0", Value: xptr.Ptr("revised")})
+	changed, err := st.SetMetadata(ctx, SetMetadataParams{
+		ID:    created.ID,
+		Key:   "key-0",
+		Value: xptr.Ptr("revised"),
+	})
 	require.NoError(t, err, "revising a key the agent already holds is not a new key")
 	assert.True(t, changed)
 }
@@ -180,7 +200,11 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 	)
 
 	for i := range maxMetadataKeys - room {
-		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("key-%d", i), Value: xptr.Ptr("v")})
+		changed, err := st.SetMetadata(ctx, SetMetadataParams{
+			ID:    created.ID,
+			Key:   fmt.Sprintf("key-%d", i),
+			Value: xptr.Ptr("v"),
+		})
 		require.NoError(t, err)
 		require.True(t, changed)
 	}
@@ -190,7 +214,11 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 
 	for i := range writers {
 		wg.Go(func() {
-			_, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: fmt.Sprintf("racer-%d", i), Value: xptr.Ptr("v")})
+			_, err := st.SetMetadata(ctx, SetMetadataParams{
+				ID:    created.ID,
+				Key:   fmt.Sprintf("racer-%d", i),
+				Value: xptr.Ptr("v"),
+			})
 			errs[i] = err
 		})
 	}
@@ -225,7 +253,11 @@ func TestListPageHydratesMetadata(t *testing.T) {
 	}
 
 	for key, value := range map[string]string{"pr": "https://github.com/o/r/pull/1", "branch": "harry/x"} {
-		changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: ids["first"], Key: key, Value: xptr.Ptr(value)})
+		changed, err := st.SetMetadata(ctx, SetMetadataParams{
+			ID:    ids["first"],
+			Key:   key,
+			Value: xptr.Ptr(value),
+		})
 		require.NoError(t, err)
 		require.True(t, changed)
 	}

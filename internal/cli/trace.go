@@ -100,7 +100,11 @@ func listRecentTraces(out io.Writer, path string) error {
 
 		held, ok := seen[line.Trace]
 		if !ok {
-			held = &summary{trace: line.Trace, when: line.Time, what: describeTrace(line)}
+			held = &summary{
+				trace: line.Trace,
+				when:  line.Time,
+				what:  describeTrace(line),
+			}
 			seen[line.Trace] = held
 			order = append(order, line.Trace)
 		}

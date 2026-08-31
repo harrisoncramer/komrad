@@ -24,10 +24,26 @@ func TestParseLevel(t *testing.T) {
 		wantErr bool
 	}{
 		{name: "unset", want: slog.LevelInfo},
-		{name: "debug", level: "debug", want: slog.LevelDebug},
-		{name: "in capitals", level: "WARN", want: slog.LevelWarn},
-		{name: "padded, as a config file leaves it", level: " error ", want: slog.LevelError},
-		{name: "not a level", level: "verbose", wantErr: true},
+		{
+			name:  "debug",
+			level: "debug",
+			want:  slog.LevelDebug,
+		},
+		{
+			name:  "in capitals",
+			level: "WARN",
+			want:  slog.LevelWarn,
+		},
+		{
+			name:  "padded, as a config file leaves it",
+			level: " error ",
+			want:  slog.LevelError,
+		},
+		{
+			name:    "not a level",
+			level:   "verbose",
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

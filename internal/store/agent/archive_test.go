@@ -52,7 +52,11 @@ func TestArchiveAndReuse(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateThinking}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "agent",
+				Pane:  "%1",
+				State: StateThinking,
+			}))
 			first, err := st.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, first)
@@ -61,7 +65,11 @@ func TestArchiveAndReuse(t *testing.T) {
 				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
 			if tt.reuse {
-				require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%2", State: StateIdle}))
+				require.NoError(t, st.Create(ctx, Agent{
+					Name:  "agent",
+					Pane:  "%2",
+					State: StateIdle,
+				}))
 			}
 
 			got, err := st.Get(ctx, "agent")
@@ -112,7 +120,11 @@ func TestArchiveClearsPane(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateThinking}))
+	require.NoError(t, st.Create(ctx, Agent{
+		Name:  "agent",
+		Pane:  "%1",
+		State: StateThinking,
+	}))
 	created, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	require.NotNil(t, created)
@@ -154,7 +166,11 @@ func TestRestore(t *testing.T) {
 			workflows := st.workflows
 			ctx := t.Context()
 
-			agent := Agent{Name: "beta", State: StateThinking, SessionID: "sess-1"}
+			agent := Agent{
+				Name:      "beta",
+				State:     StateThinking,
+				SessionID: "sess-1",
+			}
 			scope := st.defaultWorkflow
 			if tt.withWorkflow {
 				workflow, err := workflows.Create(ctx, workflowstore.Config{Name: "backend"})
@@ -207,7 +223,11 @@ func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 
 	seedPane := func(name, pane string) string {
 		t.Helper()
-		require.NoError(t, st.Create(ctx, Agent{Name: name, Pane: pane, State: StateIdle}))
+		require.NoError(t, st.Create(ctx, Agent{
+			Name:  name,
+			Pane:  pane,
+			State: StateIdle,
+		}))
 
 		created, err := st.GetInWorkflow(ctx, st.defaultWorkflow, name)
 		require.NoError(t, err)
@@ -303,10 +323,19 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, err)
 
-	names := map[string]string{"auth": st.defaultWorkflow, "api": st.defaultWorkflow, "ui": other.ID}
+	names := map[string]string{
+		"auth": st.defaultWorkflow,
+		"api":  st.defaultWorkflow,
+		"ui":   other.ID,
+	}
 	ids := make(map[string]string, len(names))
 	for name, workflowID := range names {
-		require.NoError(t, st.Create(ctx, Agent{Name: name, Pane: "%1", State: StateIdle, WorkflowID: workflowID}))
+		require.NoError(t, st.Create(ctx, Agent{
+			Name:       name,
+			Pane:       "%1",
+			State:      StateIdle,
+			WorkflowID: workflowID,
+		}))
 
 		created, err := st.GetInWorkflow(ctx, workflowID, name)
 		require.NoError(t, err)

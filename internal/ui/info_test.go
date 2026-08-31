@@ -30,7 +30,11 @@ func TestInfoStaysShut(t *testing.T) {
 // TestWorkflowContextMarkdown covers the document the stage pages for a workflow, which is
 // the context its agents inherit.
 func TestWorkflowContextMarkdown(t *testing.T) {
-	workflow := workflowstore.Workflow{ID: "w1", Name: "api", Context: "shared notes"}
+	workflow := workflowstore.Workflow{
+		ID:      "w1",
+		Name:    "api",
+		Context: "shared notes",
+	}
 
 	assert.Contains(t, workflowContextMarkdown(workflow), "# api")
 	assert.Contains(t, workflowContextMarkdown(workflow), "shared notes")
@@ -216,7 +220,12 @@ func infoModel(tmux *recordingTmux) model {
 		screen:        screenAgents,
 		detailsHeight: config.DefaultDetailsHeight,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
-			{agent: agentstore.Agent{Name: "auth", Pane: "%9", Cwd: "/repo", WorkflowID: "w1"}, alive: true},
+			{agent: agentstore.Agent{
+				Name:       "auth",
+				Pane:       "%9",
+				Cwd:        "/repo",
+				WorkflowID: "w1",
+			}, alive: true},
 		}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
 }

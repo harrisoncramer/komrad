@@ -66,7 +66,11 @@ func TestCountLiveForSchedule(t *testing.T) {
 			schedule := seedSchedule(t, st)
 			for i, state := range tt.states {
 				name := fmt.Sprintf("agent-%d", i)
-				require.NoError(t, st.Create(ctx, Agent{Name: name, State: state, ScheduleID: &schedule}))
+				require.NoError(t, st.Create(ctx, Agent{
+					Name:       name,
+					State:      state,
+					ScheduleID: &schedule,
+				}))
 				if tt.archive {
 					require.NoError(t, st.archiveByName(ctx, name))
 				}

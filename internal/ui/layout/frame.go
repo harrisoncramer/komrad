@@ -27,7 +27,11 @@ type shown struct {
 
 // New builds the frame the panel lays out around itself, at the geometry the config asks for.
 func New(tmux Tmux, layout config.Layout) *Frame {
-	return &Frame{tmux: tmux, spec: NewSpec(layout), shown: map[Region]shown{}}
+	return &Frame{
+		tmux:  tmux,
+		spec:  NewSpec(layout),
+		shown: map[Region]shown{},
+	}
 }
 
 // Attach anchors the frame to the pane the panel was told it runs in, never one read back from
@@ -126,7 +130,11 @@ func (f *Frame) Show(region Region, content Content) {
 	}
 
 	f.run(pane, argv...)
-	f.shown[region] = shown{key: content.Key, width: target.Width, height: target.Height}
+	f.shown[region] = shown{
+		key:    content.Key,
+		width:  target.Width,
+		height: target.Height,
+	}
 }
 
 // ShowGuest swaps a pane somebody else owns into the stage.

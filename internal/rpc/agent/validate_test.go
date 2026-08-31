@@ -28,11 +28,19 @@ func TestCreateAgentValidation(t *testing.T) {
 	}{
 		{
 			name: "a prompt, a workflow, and an absolute directory are enough",
-			req:  &agentv1.CreateAgentRequest{Prompt: "audit the migrations", Dir: "/repo", WorkflowId: "wf-1"},
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "audit the migrations",
+				Dir:        "/repo",
+				WorkflowId: "wf-1",
+			},
 		},
 		{
 			name: "a home-relative directory is allowed, since the manager expands it",
-			req:  &agentv1.CreateAgentRequest{Prompt: "go", Dir: "~/repo", WorkflowId: "wf-1"},
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "go",
+				Dir:        "~/repo",
+				WorkflowId: "wf-1",
+			},
 		},
 		{
 			name: "no directory is allowed, since the workflow has one",
@@ -49,13 +57,22 @@ func TestCreateAgentValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "a relative directory would be read against whichever pane is current",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "repo", WorkflowId: "wf-1"},
+			name: "a relative directory would be read against whichever pane is current",
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "go",
+				Dir:        "repo",
+				WorkflowId: "wf-1",
+			},
 			wantErr: true,
 		},
 		{
-			name:    "flags carrying a shell metacharacter are refused rather than quoted and run",
-			req:     &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/repo", WorkflowId: "wf-1", Flags: "--model opus; rm -rf /"},
+			name: "flags carrying a shell metacharacter are refused rather than quoted and run",
+			req: &agentv1.CreateAgentRequest{
+				Prompt:     "go",
+				Dir:        "/repo",
+				WorkflowId: "wf-1",
+				Flags:      "--model opus; rm -rf /",
+			},
 			wantErr: true,
 		},
 	}

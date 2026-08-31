@@ -43,27 +43,46 @@ func TestDeliver(t *testing.T) {
 			want: DeliveryDone,
 		},
 		{
-			name:    "an agent archived since the mail was sent",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle, ArchivedAt: &archivedAt},
+			name: "an agent archived since the mail was sent",
+			agent: &agentstore.Agent{
+				ID:         "agent-a",
+				Pane:       "%1",
+				State:      agentstore.StateIdle,
+				ArchivedAt: &archivedAt,
+			},
 			pending: 1,
 			alive:   true,
 			want:    DeliveryDone,
 		},
 		{
-			name:  "an empty mailbox",
-			agent: &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
-			want:  DeliveryDone,
+			name: "an empty mailbox",
+			agent: &agentstore.Agent{
+				ID:    "agent-a",
+				Pane:  "%1",
+				State: agentstore.StateIdle,
+			},
+			want: DeliveryDone,
 		},
 		{
-			name:    "an agent mid-turn, which its own stop hook will catch",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateThinking, StateSeenAt: seenNow},
+			name: "an agent mid-turn, which its own stop hook will catch",
+			agent: &agentstore.Agent{
+				ID:          "agent-a",
+				Pane:        "%1",
+				State:       agentstore.StateThinking,
+				StateSeenAt: seenNow,
+			},
 			pending: 1,
 			alive:   true,
 			want:    DeliverySoon,
 		},
 		{
-			name:      "an agent mid-turn that no pass has confirmed since",
-			agent:     &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateThinking, StateSeenAt: seenLongAgo},
+			name: "an agent mid-turn that no pass has confirmed since",
+			agent: &agentstore.Agent{
+				ID:          "agent-a",
+				Pane:        "%1",
+				State:       agentstore.StateThinking,
+				StateSeenAt: seenLongAgo,
+			},
 			pending:   1,
 			alive:     true,
 			claimed:   true,
@@ -71,15 +90,25 @@ func TestDeliver(t *testing.T) {
 			wantNudge: true,
 		},
 		{
-			name:    "an agent sitting on a permission prompt is never typed at",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateWaiting, StateSeenAt: seenNow},
+			name: "an agent sitting on a permission prompt is never typed at",
+			agent: &agentstore.Agent{
+				ID:          "agent-a",
+				Pane:        "%1",
+				State:       agentstore.StateWaiting,
+				StateSeenAt: seenNow,
+			},
 			pending: 1,
 			alive:   true,
 			want:    DeliveryLater,
 		},
 		{
-			name:    "a prompt nothing has confirmed is still left alone, since keys typed at one answer it",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateWaiting, StateSeenAt: seenLongAgo},
+			name: "a prompt nothing has confirmed is still left alone, since keys typed at one answer it",
+			agent: &agentstore.Agent{
+				ID:          "agent-a",
+				Pane:        "%1",
+				State:       agentstore.StateWaiting,
+				StateSeenAt: seenLongAgo,
+			},
 			pending: 1,
 			alive:   true,
 			want:    DeliveryLater,
@@ -91,8 +120,12 @@ func TestDeliver(t *testing.T) {
 			want:    DeliveryLater,
 		},
 		{
-			name:    "an agent whose pane the user is scrolled back in",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
+			name: "an agent whose pane the user is scrolled back in",
+			agent: &agentstore.Agent{
+				ID:    "agent-a",
+				Pane:  "%1",
+				State: agentstore.StateIdle,
+			},
 			pending: 1,
 			alive:   true,
 			inMode:  true,
@@ -123,16 +156,26 @@ func TestDeliver(t *testing.T) {
 			wantNudge: true,
 		},
 		{
-			name:    "an agent whose pane has opened but whose CLI has not finished coming up",
-			agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle, StateChangedAt: idleSince},
+			name: "an agent whose pane has opened but whose CLI has not finished coming up",
+			agent: &agentstore.Agent{
+				ID:             "agent-a",
+				Pane:           "%1",
+				State:          agentstore.StateIdle,
+				StateChangedAt: idleSince,
+			},
 			pending: 1,
 			alive:   true,
 			frame:   unrecognizedFrame,
 			want:    DeliveryLater,
 		},
 		{
-			name:      "an idle agent never told before",
-			agent:     &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle, StateChangedAt: idleSince},
+			name: "an idle agent never told before",
+			agent: &agentstore.Agent{
+				ID:             "agent-a",
+				Pane:           "%1",
+				State:          agentstore.StateIdle,
+				StateChangedAt: idleSince,
+			},
 			pending:   1,
 			alive:     true,
 			claimed:   true,
@@ -149,7 +192,11 @@ func TestDeliver(t *testing.T) {
 			}
 
 			agents := &fakeAgents{agent: tt.agent, claimed: tt.claimed}
-			panes := &fakePanes{alive: tt.alive, inMode: tt.inMode, frame: frame}
+			panes := &fakePanes{
+				alive:  tt.alive,
+				inMode: tt.inMode,
+				frame:  frame,
+			}
 			svc := NewDeliveryService(NewDeliveryServiceParams{
 				MailboxReader: &fakeMailboxReader{pending: tt.pending},
 				NudgeClaimer:  agents,
@@ -180,7 +227,11 @@ func TestDeliver(t *testing.T) {
 }
 
 func TestDeliverReportsExpiredMail(t *testing.T) {
-	agents := &fakeAgents{agent: &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle}}
+	agents := &fakeAgents{agent: &agentstore.Agent{
+		ID:    "agent-a",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}}
 	mailbox := &fakeMailboxReader{expired: []mailstore.Mail{{ID: "mail-1"}}}
 	panes := &fakePanes{alive: true, frame: idleFrame}
 
@@ -369,7 +420,11 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "idler", Pane: "%1", State: agentstore.StateIdle}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:  "idler",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}))
 	agent, err := st.Get(ctx, "idler")
 	require.NoError(t, err)
 	backdateStateChanged(t, st, agent.ID, time.Hour)
@@ -427,7 +482,11 @@ func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
 
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: "sleeper", Pane: "%1", State: agentstore.StateIdle}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:  "sleeper",
+		Pane:  "%1",
+		State: agentstore.StateIdle,
+	}))
 	agent, err := st.Get(ctx, "sleeper")
 	require.NoError(t, err)
 	backdateStateChanged(t, st, agent.ID, time.Hour)
@@ -492,7 +551,11 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 	for _, hn := range harnesses {
 		t.Run(hn.name, func(t *testing.T) {
 			agents := &fakeAgents{
-				agent:   &agentstore.Agent{ID: "agent-a", Pane: "%1", State: agentstore.StateIdle},
+				agent: &agentstore.Agent{
+					ID:    "agent-a",
+					Pane:  "%1",
+					State: agentstore.StateIdle,
+				},
 				claimed: true,
 			}
 			panes := &fakePanes{alive: true, frame: shellEcho}

@@ -498,7 +498,11 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 		{
 			name: "the new-schedule form",
 			open: func(t *testing.T, m model) (model, func() string) {
-				values := schedulestore.Config{Enabled: true, WorkflowID: "w1", Cron: "*/5 * * * *"}
+				values := schedulestore.Config{
+					Enabled:    true,
+					WorkflowID: "w1",
+					Cron:       "*/5 * * * *",
+				}
 
 				opened, _ := m.openScheduleForm(&values, nil)
 
@@ -833,12 +837,23 @@ func formModel(sent *formRecorder) model {
 	tmux := &recordingTmux{}
 
 	return model{
-		api:     api{agents: sent, workflows: sent, schedules: sent, actions: sent},
-		tmux:    tmux,
-		popup:   NewPopupWindow(tmux, "test-session"),
-		frame:   layout.New(tmux, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "api", Harness: "claude", Cwd: "/work/api", Flags: "--model opus"}}},
+		api: api{
+			agents:    sent,
+			workflows: sent,
+			schedules: sent,
+			actions:   sent,
+		},
+		tmux:  tmux,
+		popup: NewPopupWindow(tmux, "test-session"),
+		frame: layout.New(tmux, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{
+			ID:      "w1",
+			Name:    "api",
+			Harness: "claude",
+			Cwd:     "/work/api",
+			Flags:   "--model opus",
+		}}},
 	}
 }
 

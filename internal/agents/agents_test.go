@@ -33,7 +33,11 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	workflows := brokenWorkflowReader{err: errors.New("connection refused")}
 	ctx, records := loggedContext(t)
 
-	agent := agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth", WorkflowID: "wf1"}
+	agent := agentstore.Agent{
+		ID:         "a1",
+		Cwd:        "/repo/.worktrees/auth",
+		WorkflowID: "wf1",
+	}
 	assert.Empty(t, cleanupActionFor(ctx, workflows, agent))
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
@@ -55,25 +59,41 @@ func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
 
 func TestCleanupActionOverridesTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}}
-	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("custom-cleanup")})
+	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:            "a1",
+		WorkflowID:    "wf1",
+		CleanupAction: xptr.Ptr("custom-cleanup"),
+	})
 	assert.Equal(t, "custom-cleanup", got)
 }
 
 func TestCleanupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}}
-	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("")})
+	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:            "a1",
+		WorkflowID:    "wf1",
+		CleanupAction: xptr.Ptr(""),
+	})
 	assert.Empty(t, got)
 }
 
 func TestSetupActionOverridesTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}}
-	got := setupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("custom-setup")})
+	got := setupActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:          "a1",
+		WorkflowID:  "wf1",
+		SetupAction: xptr.Ptr("custom-setup"),
+	})
 	assert.Equal(t, "custom-setup", got)
 }
 
 func TestSetupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}}
-	got := setupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("")})
+	got := setupActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:          "a1",
+		WorkflowID:  "wf1",
+		SetupAction: xptr.Ptr(""),
+	})
 	assert.Empty(t, got)
 }
 

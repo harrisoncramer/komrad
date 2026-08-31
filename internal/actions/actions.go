@@ -202,7 +202,11 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 
 	waitErr := cmd.Wait()
 	if expired := ctx.Err(); expired != nil {
-		result := Result{Stdout: stdout.kept(), Stderr: stderr.kept(), ExitCode: r.exitCode(cmd.ProcessState)}
+		result := Result{
+			Stdout:   stdout.kept(),
+			Stderr:   stderr.kept(),
+			ExitCode: r.exitCode(cmd.ProcessState),
+		}
 
 		return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
 	}
@@ -239,7 +243,11 @@ type outcomeParams struct {
 }
 
 func (r Runner) outcome(p outcomeParams) (Result, error) {
-	result := Result{Stdout: p.stdout, Stderr: p.stderr, ExitCode: r.exitCode(p.state)}
+	result := Result{
+		Stdout:   p.stdout,
+		Stderr:   p.stderr,
+		ExitCode: r.exitCode(p.state),
+	}
 	if result.ExitCode == 0 {
 		return result, nil
 	}

@@ -39,7 +39,11 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 			require.NoError(t, err)
 
-			state := &app{env: &config.Environment{}, harnesses: registry, configPaths: tt.configPaths}
+			state := &app{
+				env:         &config.Environment{},
+				harnesses:   registry,
+				configPaths: tt.configPaths,
+			}
 
 			env, _, err := state.buildDoctor()
 			require.NoError(t, err)
@@ -66,7 +70,11 @@ func TestDoctorSurvivesAnEmptyLayerElement(t *testing.T) {
 	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 	require.NoError(t, err)
 
-	state := &app{env: &config.Environment{}, harnesses: registry, configPaths: []string{"", "/no/such/config.toml"}}
+	state := &app{
+		env:         &config.Environment{},
+		harnesses:   registry,
+		configPaths: []string{"", "/no/such/config.toml"},
+	}
 
 	env, _, err := state.buildDoctor()
 	require.NoError(t, err, "doctor has to reach a report rather than aborting before any check runs")

@@ -229,7 +229,11 @@ func TestGetAgent(t *testing.T) {
 
 			lookup := missingID
 			if tt.seed != "" {
-				lookup = st.SeedAgent(t, agentstore.Agent{Name: tt.seed, Cwd: "/tmp", State: agentstore.StateThinking}).ID
+				lookup = st.SeedAgent(t, agentstore.Agent{
+					Name:  tt.seed,
+					Cwd:   "/tmp",
+					State: agentstore.StateThinking,
+				}).ID
 			}
 
 			got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: lookup}))
@@ -280,7 +284,11 @@ func TestListAgents(t *testing.T) {
 			launcher.alive = tt.alive
 
 			for _, name := range tt.seed {
-				st.SeedAgent(t, agentstore.Agent{Name: name, Pane: "%1", State: agentstore.StateThinking})
+				st.SeedAgent(t, agentstore.Agent{
+					Name:  name,
+					Pane:  "%1",
+					State: agentstore.StateThinking,
+				})
 			}
 
 			listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
@@ -300,8 +308,16 @@ func TestListAgents(t *testing.T) {
 // request time rather than stored on the row.
 func TestListAgentsReportsUnreadMail(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: beta.ID,
@@ -325,8 +341,16 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 // way the listing does.
 func TestGetAgentReportsUnreadMail(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	_, err := svc.SendMail(t.Context(), connect.NewRequest(&agentv1.SendMailRequest{
 		ToAgentId: beta.ID,
@@ -409,10 +433,18 @@ func TestListAgentsArchived(t *testing.T) {
 			svc, st, _ := serviceWithLauncher(t)
 			ctx := t.Context()
 
-			archived := st.SeedAgent(t, agentstore.Agent{Name: "archived", Pane: "%1", State: agentstore.StateThinking})
+			archived := st.SeedAgent(t, agentstore.Agent{
+				Name:  "archived",
+				Pane:  "%1",
+				State: agentstore.StateThinking,
+			})
 			_, archiveErr := st.Agents.Archive(ctx, []string{archived.ID})
 			require.NoError(t, archiveErr)
-			st.SeedAgent(t, agentstore.Agent{Name: "live", Pane: "%2", State: agentstore.StateThinking})
+			st.SeedAgent(t, agentstore.Agent{
+				Name:  "live",
+				Pane:  "%2",
+				State: agentstore.StateThinking,
+			})
 
 			listed, err := svc.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{Archived: tt.archived}))
 			require.NoError(t, err)
@@ -719,12 +751,20 @@ func TestSetMetadata(t *testing.T) {
 				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 			}
 			for _, entry := range tt.recordFirst {
-				changed, err := st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: id, Key: entry.Key, Value: xptr.Ptr(entry.Value)})
+				changed, err := st.Agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+					ID:    id,
+					Key:   entry.Key,
+					Value: xptr.Ptr(entry.Value),
+				})
 				require.NoError(t, err)
 				require.True(t, changed)
 			}
 
-			_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{Id: id, Key: tt.key, Value: tt.value}))
+			_, err := svc.SetMetadata(ctx, connect.NewRequest(&agentv1.SetMetadataRequest{
+				Id:    id,
+				Key:   tt.key,
+				Value: tt.value,
+			}))
 			if tt.wantCode != 0 {
 				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
 				return
@@ -777,7 +817,11 @@ func TestLog(t *testing.T) {
 
 			id := uuid.NewString()
 			if tt.seed {
-				id = st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateThinking}).ID
+				id = st.SeedAgent(t, agentstore.Agent{
+					Name:  "alpha",
+					Cwd:   "/repo",
+					State: agentstore.StateThinking,
+				}).ID
 			}
 
 			ctx := t.Context()
@@ -905,8 +949,16 @@ func TestSendMail(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, st := service(t)
-			alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-			beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+			alpha := st.SeedAgent(t, agentstore.Agent{
+				Name:  "alpha",
+				Cwd:   "/repo",
+				State: agentstore.StateIdle,
+			})
+			beta := st.SeedAgent(t, agentstore.Agent{
+				Name:  "beta",
+				Cwd:   "/repo",
+				State: agentstore.StateIdle,
+			})
 
 			to := tt.to
 			switch to {
@@ -958,10 +1010,22 @@ func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 		AgentFinder:    st.Agents,
 		Config:         stubMailConfig(1),
 	})
-	svc := NewService(NewServiceParams{Agents: st.Agents, Transcripts: st.Transcripts, Mail: mail})
+	svc := NewService(NewServiceParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Mail:        mail,
+	})
 
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	first, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
@@ -984,8 +1048,16 @@ func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 
 func TestReadMail(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
@@ -1031,7 +1103,11 @@ func TestReadMailScope(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, st := service(t)
-			seeded := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+			seeded := st.SeedAgent(t, agentstore.Agent{
+				Name:  "alpha",
+				Cwd:   "/repo",
+				State: agentstore.StateIdle,
+			})
 
 			ctx := t.Context()
 			if tt.callerIs {
@@ -1059,8 +1135,16 @@ func TestReadMailScope(t *testing.T) {
 
 func TestCrossAgentMailReadIsRecorded(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	var written strings.Builder
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
@@ -1076,8 +1160,16 @@ func TestCrossAgentMailReadIsRecorded(t *testing.T) {
 
 func TestListMail(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
@@ -1123,7 +1215,11 @@ func TestListMailScope(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			svc, st := service(t)
-			seeded := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
+			seeded := st.SeedAgent(t, agentstore.Agent{
+				Name:  "alpha",
+				Cwd:   "/repo",
+				State: agentstore.StateIdle,
+			})
 
 			ctx := t.Context()
 			if tt.callerIs {
@@ -1151,8 +1247,16 @@ func TestListMailScope(t *testing.T) {
 
 func TestCrossAgentMailListIsRecorded(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	var written strings.Builder
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
@@ -1168,8 +1272,16 @@ func TestCrossAgentMailListIsRecorded(t *testing.T) {
 
 func TestDeleteMail(t *testing.T) {
 	svc, st := service(t)
-	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
-	beta := st.SeedAgent(t, agentstore.Agent{Name: "beta", Cwd: "/repo", State: agentstore.StateIdle})
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 
 	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
 	sent, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
@@ -1204,13 +1316,21 @@ func TestDeleteMailUnknownIDIsNotFound(t *testing.T) {
 // message.
 func TestLogTagsTheAction(t *testing.T) {
 	svc, st := service(t)
-	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateThinking}).ID
+	id := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateThinking,
+	}).ID
 
 	var written strings.Builder
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
 
 	action := "create-worktree"
-	_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{Id: &id, Message: "preparing", Action: &action}))
+	_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{
+		Id:      &id,
+		Message: "preparing",
+		Action:  &action,
+	}))
 	require.NoError(t, err)
 
 	record := logtest.Record(t, written.String())
@@ -1836,7 +1956,12 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	t.Helper()
 
 	st := storetest.Open(t)
-	launcher := &fakeLauncher{created: &agentstore.Agent{ID: "id-1", Name: "spawned", Cwd: "/repo", State: agentstore.StateIdle}}
+	launcher := &fakeLauncher{created: &agentstore.Agent{
+		ID:    "id-1",
+		Name:  "spawned",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	}}
 
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,

@@ -94,16 +94,39 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 			new: highlight.splitLines(file.Path(), file.NewSource),
 		}
 
-		v.rows = append(v.rows, row{kind: fileRow, file: fileIndex, hunk: -1, line: -1, text: file.Path()})
+		v.rows = append(v.rows, row{
+			kind: fileRow,
+			file: fileIndex,
+			hunk: -1,
+			line: -1,
+			text: file.Path(),
+		})
 		for _, metadata := range file.Metadata {
-			v.rows = append(v.rows, row{kind: metadataRow, file: fileIndex, hunk: -1, line: -1, text: metadata})
+			v.rows = append(v.rows, row{
+				kind: metadataRow,
+				file: fileIndex,
+				hunk: -1,
+				line: -1,
+				text: metadata,
+			})
 		}
 
 		for hunkIndex := range file.Hunks {
 			hunk := &file.Hunks[hunkIndex]
-			v.rows = append(v.rows, row{kind: hunkRow, file: fileIndex, hunk: hunkIndex, line: -1, text: hunk.Header})
+			v.rows = append(v.rows, row{
+				kind: hunkRow,
+				file: fileIndex,
+				hunk: hunkIndex,
+				line: -1,
+				text: hunk.Header,
+			})
 			for lineIndex := range hunk.Lines {
-				v.rows = append(v.rows, row{kind: lineRow, file: fileIndex, hunk: hunkIndex, line: lineIndex})
+				v.rows = append(v.rows, row{
+					kind: lineRow,
+					file: fileIndex,
+					hunk: hunkIndex,
+					line: lineIndex,
+				})
 			}
 		}
 	}
@@ -165,10 +188,22 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 		)
 	})
 
-	v.rows = append(v.rows, row{kind: metadataRow, file: -1, hunk: -1, line: -1, text: adriftNotice})
+	v.rows = append(v.rows, row{
+		kind: metadataRow,
+		file: -1,
+		hunk: -1,
+		line: -1,
+		text: adriftNotice,
+	})
 
 	for _, thread := range threads {
-		v.rows = append(v.rows, row{kind: threadRow, file: -1, hunk: -1, line: -1, thread: thread})
+		v.rows = append(v.rows, row{
+			kind:   threadRow,
+			file:   -1,
+			hunk:   -1,
+			line:   -1,
+			thread: thread,
+		})
 		v.pinned[len(v.rows)-1] = thread
 		v.placed[thread.GetId()] = adrift
 	}
@@ -235,7 +270,11 @@ func (v *View) GetPlace(y int) (Place, bool) {
 		return Place{}, false
 	}
 
-	return Place{FilePath: key.filePath, NewLine: int(key.newLine), OldLine: int(key.oldLine)}, true
+	return Place{
+		FilePath: key.filePath,
+		NewLine:  int(key.newLine),
+		OldLine:  int(key.oldLine),
+	}, true
 }
 
 // Locate is the row standing where place was in a patch that has since been read again,

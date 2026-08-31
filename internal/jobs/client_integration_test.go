@@ -242,7 +242,11 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
-	schedules := &stubSchedules{schedule: &schedulestore.Schedule{ID: "s1", Name: "nightly", Enabled: true}}
+	schedules := &stubSchedules{schedule: &schedulestore.Schedule{
+		ID:      "s1",
+		Name:    "nightly",
+		Enabled: true,
+	}}
 
 	client, err := NewClient(ClientParams{
 		Pool:      stores.Pool.GetRawPool(),
