@@ -38,6 +38,8 @@ func openTools(t *testing.T) *dbTools {
 	return &dbTools{db: readOnly}
 }
 
+// TestValidateReadOnly pins which statements the read-only endpoint accepts, so a write or a
+// second statement is refused before it reaches the database.
 func TestValidateReadOnly(t *testing.T) {
 	tests := []struct {
 		name    string

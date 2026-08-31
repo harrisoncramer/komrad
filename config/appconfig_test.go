@@ -25,6 +25,8 @@ func clearConnectionEnvironment(t *testing.T) {
 	}
 }
 
+// TestLoad pins what each shape of config file yields, a missing file falling back to the
+// defaults included.
 func TestLoad(t *testing.T) {
 	tests := []struct {
 		name string
@@ -332,6 +334,8 @@ func TestLoadMaxAgents(t *testing.T) {
 	}
 }
 
+// TestLoadRejectsUnknownKeys pins that a misspelled key is refused rather than quietly
+// ignored, wherever in the file it sits.
 func TestLoadRejectsUnknownKeys(t *testing.T) {
 	tests := []struct {
 		name string
@@ -686,6 +690,8 @@ func TestLoadMergesLayers(t *testing.T) {
 	}
 }
 
+// TestLoadConnectionPrecedence pins the order a connection setting is taken from, and that
+// the report says which layer won.
 func TestLoadConnectionPrecedence(t *testing.T) {
 	clearConnectionEnvironment(t)
 	dir := t.TempDir()
@@ -702,6 +708,8 @@ func TestLoadConnectionPrecedence(t *testing.T) {
 	assert.Equal(t, SourceEnvironment, report.Sources["addr"])
 }
 
+// TestLoadDerivesConnectionValuesAfterPrecedence pins that a derived value is worked out from
+// the setting that won rather than from the one it replaced.
 func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	clearConnectionEnvironment(t)
 	path := filepath.Join(t.TempDir(), "config.toml")
@@ -724,6 +732,8 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 	assert.Equal(t, SourceDerived, report.Sources["cache_dir"])
 }
 
+// TestLoadExplicitEmptyCollectionReplacesDefault pins that writing an empty list clears the
+// default rather than leaving it in place.
 func TestLoadExplicitEmptyCollectionReplacesDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("tags = []\n[keybindings.nav]\nup = []\n"), 0o644))

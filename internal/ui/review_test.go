@@ -160,6 +160,8 @@ func openReview(t *testing.T, m model) model {
 	return m
 }
 
+// TestEnterReviewStagesTheDiff pins that opening a review moves to the review screen and
+// draws the diff through the stage pane.
 func TestEnterReviewStagesTheDiff(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -315,6 +317,8 @@ func TestReviewSidebarShowsTheThread(t *testing.T) {
 	assert.Contains(t, shown, "you")
 }
 
+// TestReviewSidebarSizesTheDiff pins the summary beside the diff, which is how many files
+// moved and by how many lines.
 func TestReviewSidebarSizesTheDiff(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -326,6 +330,8 @@ func TestReviewSidebarSizesTheDiff(t *testing.T) {
 	assert.Contains(t, shown, "-1")
 }
 
+// TestReviewIsRefusedWithoutAWorktree pins that an agent sharing a checkout has no diff of
+// its own to review, so the screen is left where it was.
 func TestReviewIsRefusedWithoutAWorktree(t *testing.T) {
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
 	m.listing.workflows[0].Worktree.Enabled = false

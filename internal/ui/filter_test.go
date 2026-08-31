@@ -286,7 +286,7 @@ func TestFilterDroppedLeavingScreen(t *testing.T) {
 	require.True(t, ok)
 
 	require.Equal(t, screenSchedules, got.screen)
-	assert.Equal(t, "", got.filter.query)
+	assert.Empty(t, got.filter.query)
 }
 
 // TestFilterHighlight covers a row drawn in pieces so the matched run can take its own colour,

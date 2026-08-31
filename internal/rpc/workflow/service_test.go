@@ -24,6 +24,8 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
+// TestCreateWorkflow pins what a workflow is stored as, a blank name falling back to a label
+// so the list never draws an empty row.
 func TestCreateWorkflow(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -138,6 +140,7 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 	}
 }
 
+// TestGetWorkflow pins that an id nobody holds is not found rather than an empty workflow.
 func TestGetWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -316,7 +319,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = st.LiveAgentByName(ctx, "agent")
-			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden alongside its workflow")
+			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden alongside its workflow")
 
 			all, err := st.Agents.ListAll(ctx)
 			require.NoError(t, err)
@@ -447,6 +450,8 @@ func TestDeleteWorkflow(t *testing.T) {
 	}
 }
 
+// TestListWorkflows pins how a listing pages, from an empty store to one holding more than a
+// page.
 func TestListWorkflows(t *testing.T) {
 	tests := []struct {
 		name      string

@@ -35,6 +35,8 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
+// TestCreateAgent pins the code each refusal the service can raise is answered with, and what
+// the handler passes down when the request is accepted.
 func TestCreateAgent(t *testing.T) {
 	workflow := "wf-1"
 
@@ -126,6 +128,8 @@ func TestCreateAgent(t *testing.T) {
 	}
 }
 
+// TestAdopt pins the code each adoption refusal is answered with, and what the handler passes
+// down when the request is accepted.
 func TestAdopt(t *testing.T) {
 	workflow := "wf-1"
 
@@ -206,6 +210,7 @@ func TestAdopt(t *testing.T) {
 	}
 }
 
+// TestGetAgent pins that an id nobody holds is not found rather than an empty agent.
 func TestGetAgent(t *testing.T) {
 	tests := []struct {
 		name string
@@ -818,6 +823,8 @@ func (f *fakeReconciler) RecordTurnBoundary(agentID string) {
 	f.recorded = append(f.recorded, agentID)
 }
 
+// TestRecordTurnBoundary pins that the boundary is recorded against the calling agent, and
+// that a caller with no identity of its own is refused.
 func TestRecordTurnBoundary(t *testing.T) {
 	tests := []struct {
 		name string
@@ -860,6 +867,8 @@ func TestRecordTurnBoundary(t *testing.T) {
 	}
 }
 
+// TestSendMail pins the code each way of addressing mail wrongly is answered with, a name in
+// place of an id included.
 func TestSendMail(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -951,6 +960,8 @@ func TestSendMail(t *testing.T) {
 	}
 }
 
+// TestSendMailPastTheHopLimitIsResourceExhausted pins that a thread run past its configured
+// hop limit is refused rather than allowed to keep going.
 func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 	st := storetest.Open(t)
 	mail := agents.NewMailService(agents.NewMailServiceParams{
@@ -982,6 +993,7 @@ func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 	assert.ErrorIs(t, err, agents.ErrThreadCapped)
 }
 
+// TestReadMail pins that an agent reading its own mailbox is handed what is waiting there.
 func TestReadMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -1006,6 +1018,8 @@ func TestReadMail(t *testing.T) {
 	assert.Empty(t, again.Msg.GetMail(), "claimed mail is not handed out twice")
 }
 
+// TestReadMailScope pins which mailbox a read lands on, and that neither a missing id nor an
+// id nobody holds passes quietly.
 func TestReadMailScope(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1057,6 +1071,8 @@ func TestReadMailScope(t *testing.T) {
 	}
 }
 
+// TestCrossAgentMailReadIsRecorded pins that reading somebody else's mailbox is written to
+// the log naming whose it was.
 func TestCrossAgentMailReadIsRecorded(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -1074,6 +1090,7 @@ func TestCrossAgentMailReadIsRecorded(t *testing.T) {
 	assert.Equal(t, beta.ID, record[logging.TargetAgentID])
 }
 
+// TestListMail pins that a listing shows what is in the mailbox without claiming it.
 func TestListMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -1098,6 +1115,8 @@ func TestListMail(t *testing.T) {
 	require.Len(t, again.Msg.GetMail(), 1, "listing twice still finds the mail, unlike reading")
 }
 
+// TestListMailScope pins which mailbox a listing lands on, and that neither a missing id nor
+// an id nobody holds passes quietly.
 func TestListMailScope(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1149,6 +1168,8 @@ func TestListMailScope(t *testing.T) {
 	}
 }
 
+// TestCrossAgentMailListIsRecorded pins that listing somebody else's mailbox is written to
+// the log naming whose it was.
 func TestCrossAgentMailListIsRecorded(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -1166,6 +1187,7 @@ func TestCrossAgentMailListIsRecorded(t *testing.T) {
 	assert.Equal(t, beta.ID, record[logging.TargetAgentID])
 }
 
+// TestDeleteMail pins that deleted mail is gone from the mailbox it was addressed to.
 func TestDeleteMail(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{Name: "alpha", Cwd: "/repo", State: agentstore.StateIdle})
@@ -1189,6 +1211,8 @@ func TestDeleteMail(t *testing.T) {
 	assert.Empty(t, read.Msg.GetMail(), "deleted mail is never delivered")
 }
 
+// TestDeleteMailUnknownIDIsNotFound pins that a delete naming mail nobody holds is refused
+// rather than reported as done.
 func TestDeleteMailUnknownIDIsNotFound(t *testing.T) {
 	svc, _ := service(t)
 

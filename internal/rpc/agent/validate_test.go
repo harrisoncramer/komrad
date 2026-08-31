@@ -20,6 +20,8 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// TestCreateAgentValidation pins which create requests the schema accepts and which it refuses
+// before a handler ever sees them.
 func TestCreateAgentValidation(t *testing.T) {
 	tests := []struct {
 		name    string

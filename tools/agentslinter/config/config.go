@@ -1,10 +1,17 @@
 package config
 
 type Config struct {
-	CommentLength CommentLengthConfig `json:"comment_length"`
-	CommentPrefix CommentPrefixConfig `json:"comment_prefix"`
-	ForbidGetenv  ForbidGetenvConfig  `json:"forbid_getenv"`
-	ForbidNilNil  ForbidNilNilConfig  `json:"forbid_nil_nil"`
+	CommentLength  CommentLengthConfig  `json:"comment_length"`
+	CommentPrefix  CommentPrefixConfig  `json:"comment_prefix"`
+	ContextTimeout ContextTimeoutConfig `json:"context_timeout"`
+	ForbidGetenv   ForbidGetenvConfig   `json:"forbid_getenv"`
+	ForbidNilNil   ForbidNilNilConfig   `json:"forbid_nil_nil"`
+}
+
+type ContextTimeoutConfig struct {
+	Skip bool `json:"skip"`
+
+	Include []string `json:"include"`
 }
 
 type CommentLengthConfig struct {
@@ -14,6 +21,8 @@ type CommentLengthConfig struct {
 
 type CommentPrefixConfig struct {
 	Skip bool `json:"skip"`
+
+	Require bool `json:"require"`
 }
 
 type ForbidGetenvConfig struct {

@@ -38,6 +38,8 @@ func pressLogs(t *testing.T, m model) model {
 	return panel
 }
 
+// TestCycleLogsWalksTheStops pins the order the logs key moves through, and that it pages
+// each one into the pane below rather than disturbing the agent's own.
 func TestCycleLogsWalksTheStops(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -66,6 +68,8 @@ func TestCycleLogsWalksTheStops(t *testing.T) {
 	assert.Len(t, tmux.respawns, 4, "one respawn per stop already visited, plus the reopened one")
 }
 
+// TestCycleLogsDoesNothingWithoutASelectedAgent pins that the key is inert when there is no
+// agent to show a log for.
 func TestCycleLogsDoesNothingWithoutASelectedAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -77,6 +81,8 @@ func TestCycleLogsDoesNothingWithoutASelectedAgent(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
+// TestCycleLogsBlockedWhileASetupIsStreaming pins that a setup still writing to the pane is
+// left alone rather than paged over.
 func TestCycleLogsBlockedWhileASetupIsStreaming(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -89,6 +95,8 @@ func TestCycleLogsBlockedWhileASetupIsStreaming(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
+// TestCycleLogsWorksAfterASetupHasResolved pins that a finished setup stops blocking the key,
+// even while its pane is still up.
 func TestCycleLogsWorksAfterASetupHasResolved(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -100,6 +108,8 @@ func TestCycleLogsWorksAfterASetupHasResolved(t *testing.T) {
 	assert.Equal(t, infoSetupLog, shown.info.kind, "a resolved create no longer blocks the key, even though the crash pane is still up")
 }
 
+// TestCycleLogsSurvivesACursorMove pins that moving the cursor leaves the staged log where it
+// is rather than resetting the stop.
 func TestCycleLogsSurvivesACursorMove(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -114,6 +124,8 @@ func TestCycleLogsSurvivesACursorMove(t *testing.T) {
 	assert.Equal(t, infoSetupLog, panel.info.kind)
 }
 
+// TestCycleLogsTypeIntoAnOpenQuery pins that the key is a character while a search is being
+// typed, so the query takes it instead of the stage.
 func TestCycleLogsTypeIntoAnOpenQuery(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -127,6 +139,8 @@ func TestCycleLogsTypeIntoAnOpenQuery(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
+// TestActionLogContentPlaceholdersWhenEmpty pins the placeholder shown before an action has
+// written any log at all.
 func TestActionLogContentPlaceholdersWhenEmpty(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -136,6 +150,8 @@ func TestActionLogContentPlaceholdersWhenEmpty(t *testing.T) {
 	assert.Contains(t, content.Key, "no setup log yet")
 }
 
+// TestActionLogContentPagesTheDurableFile pins that an action log on disk is paged through
+// the configured viewer with the path exported to it.
 func TestActionLogContentPagesTheDurableFile(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -151,6 +167,8 @@ func TestActionLogContentPagesTheDurableFile(t *testing.T) {
 	assert.Contains(t, argv[2], config.DefaultProcessViewer)
 }
 
+// TestActionLogContentWithNoAgentSelected pins the placeholder shown when there is no agent
+// whose action log could be read.
 func TestActionLogContentWithNoAgentSelected(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -161,6 +179,8 @@ func TestActionLogContentWithNoAgentSelected(t *testing.T) {
 	assert.Contains(t, content.Key, "select an agent")
 }
 
+// TestAgentLogContentExportsTheAgentID pins that the agent log viewer is handed both the log
+// path and the agent's id, which is what a filtering viewer needs.
 func TestAgentLogContentExportsTheAgentID(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, path := logsModel(t, tmux)
@@ -173,6 +193,8 @@ func TestAgentLogContentExportsTheAgentID(t *testing.T) {
 	assert.Contains(t, argv[2], "export WEAVE_AGENT_ID='a1'")
 }
 
+// TestLogArgv pins what the viewer command becomes for each configuration, from nothing set
+// at all to a pipeline that must be left exactly as written.
 func TestLogArgv(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -218,12 +240,16 @@ func TestLogArgv(t *testing.T) {
 	}
 }
 
+// TestLogArgvQuotesTheEnvironment pins that a path holding spaces and quotes survives being
+// exported into the shell the viewer runs in.
 func TestLogArgvQuotesTheEnvironment(t *testing.T) {
 	argv := logArgv("", "/Users/a b/it's.log", "")
 
 	assert.Contains(t, argv[2], `export WEAVE_LOG='/Users/a b/it'\''s.log'`)
 }
 
+// TestProcessLogArgvFallsBackToTheDefault pins the viewer a process log gets when none is
+// configured, and that no agent id is exported to it.
 func TestProcessLogArgvFallsBackToTheDefault(t *testing.T) {
 	argv := processLogArgv("", "/tmp/setup.log")
 

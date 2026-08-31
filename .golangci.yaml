@@ -10,6 +10,15 @@ linters:
     - agentslinter
     - depguard
     - importas
+    - copyloopvar
+    - errorlint
+    - fatcontext
+    - forcetypeassert
+    - gocritic
+    - iface
+    - inamedparam
+    - noctx
+    - testifylint
   settings:
     errcheck:
       # A discarded error is the same bug whether it went to _ or nowhere, so the blank
@@ -64,6 +73,14 @@ linters:
               desc: same reason, with agents.Action naming an action for a handler that has to describe one
             - pkg: weave/db
               desc: a handler holds no database connection
+        domain:
+          files:
+            - "**/internal/agents/**"
+          deny:
+            - pkg: weave/proto/gen
+              desc: the service decides in its own types, and rendering them onto the wire is the handler's job
+            - pkg: connectrpc.com/connect
+              desc: the service returns a sentinel, and rpcerr picks the code it answers with
         stores:
           files:
             - "**/internal/store/**"
@@ -76,6 +93,10 @@ linters:
               desc: same reason as tmux
             - pkg: weave/internal/ui
               desc: nothing below the panel may depend on it
+            - pkg: weave/proto/gen
+              desc: a row is the store's own struct, and two layers above it decide what the wire sees
+            - pkg: connectrpc.com/connect
+              desc: same reason as the wire types
         adapters:
           files:
             - "**/internal/tmux/**"
@@ -88,6 +109,10 @@ linters:
               desc: the service calls the adapter rather than the other way round
             - pkg: weave/internal/ui
               desc: same reason
+            - pkg: weave/proto/gen
+              desc: what tmux or a CLI can do is weave's own vocabulary, not the wire's
+            - pkg: connectrpc.com/connect
+              desc: same reason as the wire types
         generated-queries:
           files:
             - "**/*.go"
@@ -117,10 +142,8 @@ linters:
     custom:
       agentslinter:
         type: module
-        description: Chariot-style checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, keeps exported doc comments prefixed with the identifier name, and holds comments to a single sentence.
+        description: Chariot-style checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.
         settings:
-          # Off until the comments already written here have been cut down, since it
-          # finds around a thousand of them.
           comment_length:
             skip: false
             # Unanchored regexps over the file path. The config struct's doc comments
@@ -133,6 +156,13 @@ linters:
             skip: false
           comment_prefix:
             skip: false
+            require: true
+          # Unanchored regexps over the file path. The panel talks to the service over HTTP,
+          # so a call of its own that never times out is a frame that never redraws.
+          context_timeout:
+            skip: false
+            include:
+              - internal/ui/
   exclusions:
     rules:
       # The config package is where configuration is read from the environment, which is
@@ -147,6 +177,14 @@ linters:
         linters:
           - agentslinter
         text: forbidnilnil
+      # A test asserts on the assertion it just made, so an unchecked assertion fails the
+      # test on the spot rather than travelling as a wrong value the way it would in the server.
+      # The same files shell out to git and tmux to build their fixtures, where the command
+      # is bounded by the test binary's own life and has no request to be cancelled with.
+      - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)
+        linters:
+          - forcetypeassert
+          - noctx
       # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
       # failure means the throwaway server or file is already gone.
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)

@@ -623,7 +623,7 @@ func TestResumeRunsTheSetupAction(t *testing.T) {
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
-				assert.ErrorContains(t, err, tt.wantErr)
+				require.ErrorContains(t, err, tt.wantErr)
 				assert.Empty(t, tmux.newWindows, "a refused action opens no window")
 				assert.Equal(t, recorded, agentByID(t, st, agent.ID).Cwd, "and moves nobody")
 
@@ -743,6 +743,6 @@ func TestResumeRefusesArchived(t *testing.T) {
 	_, err := manager.resume.ResumeAgent(ctx, archived.ID)
 
 	require.ErrorIs(t, err, ErrAgentArchived)
-	assert.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
+	require.ErrorContains(t, err, "restore it first", "the refusal says what to do about it")
 	assert.Empty(t, tmux.newWindows, "and opens no window")
 }

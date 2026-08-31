@@ -3,6 +3,7 @@ package plugin
 import (
 	commentlength "agentslinter/analyzers/comment_length"
 	commentprefix "agentslinter/analyzers/comment_prefix"
+	contexttimeout "agentslinter/analyzers/context_timeout"
 	forbidgetenv "agentslinter/analyzers/forbidgetenv"
 	forbidnilnil "agentslinter/analyzers/forbidnilnil"
 	"agentslinter/config"
@@ -36,6 +37,10 @@ func (a *agentsLinter) BuildAnalyzers() ([]*analysis.Analyzer, error) {
 
 	if !a.config.CommentPrefix.Skip {
 		analyzers = append(analyzers, commentprefix.NewAnalyzer(a.config.CommentPrefix))
+	}
+
+	if !a.config.ContextTimeout.Skip {
+		analyzers = append(analyzers, contexttimeout.NewAnalyzer(a.config.ContextTimeout))
 	}
 
 	if !a.config.ForbidGetenv.Skip {

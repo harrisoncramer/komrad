@@ -478,6 +478,8 @@ func TestRunSetupAction(t *testing.T) {
 	}
 }
 
+// TestRunSetupActionDoesNotHoldTheWholeDirFile pins that a setup writing a large log is
+// streamed rather than held in memory.
 func TestRunSetupActionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	const wrote = 32 << 20
 
@@ -611,7 +613,7 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		result, err := svc.runInPane(t.Context(), actions.Action{Name: "bad", Path: script, Executable: true}, nil, pane, "", 2*time.Second)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, actions.ErrFailed)
+		require.ErrorIs(t, err, actions.ErrFailed)
 		assert.Equal(t, 7, result.ExitCode)
 		assert.Contains(t, string(result.Stderr), "fatal: already checked out")
 		captured := server.Run("capture-pane", "-p", "-t", pane)
@@ -630,7 +632,7 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		result, err := svc.runInPane(t.Context(), actions.Action{Name: "stdout-only", Path: script, Executable: true}, nil, pane, logPath, 2*time.Second)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, actions.ErrFailed)
+		require.ErrorIs(t, err, actions.ErrFailed)
 		assert.Contains(t, string(result.Stderr), "hello 1")
 		assert.Contains(t, string(result.Stderr), "hello 2")
 		persisted, readErr := os.ReadFile(logPath)
@@ -648,7 +650,7 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		result, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, logPath, 200*time.Millisecond)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, context.DeadlineExceeded)
+		require.ErrorIs(t, err, context.DeadlineExceeded)
 		assert.Contains(t, string(result.Stderr), "gave up after 200ms", "the reason is not silently lost")
 		persisted, readErr := os.ReadFile(logPath)
 		require.NoError(t, readErr)
@@ -682,7 +684,7 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		elapsed := time.Since(began)
 
 		require.Error(t, err)
-		assert.ErrorIs(t, err, errPaneDied)
+		require.ErrorIs(t, err, errPaneDied)
 		assert.Less(t, elapsed, 5*time.Second, "noticed the pane dying rather than waiting out the full timeout")
 		assert.Contains(t, string(result.Stderr), "pane closed before the action finished")
 		persisted, readErr := os.ReadFile(logPath)
@@ -892,7 +894,7 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 		}))
 
 	got := recordFor(t, records(), "action finished")
-	assert.Equal(t, float64(0), got["process.exit.code"], "the action succeeded")
+	assert.EqualValues(t, 0, got["process.exit.code"], "the action succeeded")
 	assert.Equal(t, declined, got["weave.action.stderr"], "what it declined to do is kept")
 	assert.True(t, doneCalled)
 	assert.NoError(t, doneErr)
@@ -1023,6 +1025,8 @@ func TestActionDetailCapsOutputAndNamesTheLogPath(t *testing.T) {
 	}
 }
 
+// TestActionEnvGuardsAgainstInteractivePrompts pins that an action is run with prompts turned
+// off, while an askpass the user configured is left as it was.
 func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 	tests := []struct {
 		name       string

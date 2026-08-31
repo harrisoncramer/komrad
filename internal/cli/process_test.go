@@ -109,7 +109,7 @@ func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
 
-	err := ensureServer(ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
+	err := ensureServer(t.Context(), ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to reach db: connection refused")
@@ -124,7 +124,7 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 
 	self := fakeServe(t, "failed to reach db: this run")
 
-	err := ensureServer(ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
+	err := ensureServer(t.Context(), ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "this run")
@@ -138,7 +138,7 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
 
-	err := ensureServer(ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
+	err := ensureServer(t.Context(), ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), logPath)
@@ -153,7 +153,7 @@ func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 
 	logPath := filepath.Join(blocked, "serve.log")
 
-	err := ensureServer(ensureServerParams{
+	err := ensureServer(t.Context(), ensureServerParams{
 		Addr:    freeAddr(t),
 		Self:    fakeServe(t, "should not run"),
 		LogPath: logPath,
@@ -188,7 +188,7 @@ func TestEnsureServerCarriesTheConfigPath(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
-			err := ensureServer(ensureServerParams{
+			err := ensureServer(t.Context(), ensureServerParams{
 				Addr:        freeAddr(t),
 				Self:        fakeServeEchoingArgs(t),
 				LogPath:     logPath,
@@ -234,7 +234,7 @@ func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
 			})
 			logPath := filepath.Join(t.TempDir(), "serve.log")
 
-			require.NoError(t, ensureServer(ensureServerParams{
+			require.NoError(t, ensureServer(t.Context(), ensureServerParams{
 				Addr:    addr,
 				Self:    fakeServe(t, "should not run"),
 				LogPath: logPath,
@@ -256,7 +256,7 @@ func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
 	})
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 
-	err := ensureServer(ensureServerParams{
+	err := ensureServer(t.Context(), ensureServerParams{
 		Addr:    addr,
 		Self:    fakeServe(t, "the replacement was spawned"),
 		LogPath: logPath,
@@ -314,7 +314,7 @@ func TestProbeServer(t *testing.T) {
 				addr = fakeServer(t, fakeServerParams{status: tt.status, body: tt.body})
 			}
 
-			assert.Equal(t, tt.want, probeServer(addr))
+			assert.Equal(t, tt.want, probeServer(t.Context(), addr))
 		})
 	}
 }

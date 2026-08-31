@@ -30,13 +30,6 @@ const (
 	prStateClosed = "CLOSED"
 )
 
-// prStateResolver reads the pull request an agent recorded, and reports which repository a
-// directory belongs to so the two can be checked against each other.
-type prStateResolver interface {
-	Resolve(ctx context.Context, dir, ref string) (*PullRequest, error)
-	Repository(ctx context.Context, dir string) (string, error)
-}
-
 type prArchiveAgentStore interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
@@ -54,7 +47,7 @@ type PRArchiverParams struct {
 	Agents       prArchiveAgentStore
 	Workflows    prArchiveWorkflowGetter
 	Archiver     prArchiveAgentArchiver
-	PullRequests prStateResolver
+	PullRequests pullRequestResolver
 }
 
 // PRArchiver archives an agent once the pull request it recorded has merged or closed, for
@@ -63,7 +56,7 @@ type PRArchiver struct {
 	agents       prArchiveAgentStore
 	workflows    prArchiveWorkflowGetter
 	archiver     prArchiveAgentArchiver
-	pullRequests prStateResolver
+	pullRequests pullRequestResolver
 
 	// quiet and now need no lock, since the loop runs one pass at a time.
 	quiet map[string]time.Time

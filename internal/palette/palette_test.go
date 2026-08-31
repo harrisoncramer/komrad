@@ -36,6 +36,8 @@ func TestClosingKeys(t *testing.T) {
 	}
 }
 
+// TestTyping pins what the query becomes for each sequence of keys, backspacing an empty one
+// included.
 func TestTyping(t *testing.T) {
 	tests := []struct {
 		name string

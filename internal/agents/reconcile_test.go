@@ -361,6 +361,8 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	assert.Empty(t, rec.tracked, "an unread frame is not an idle observation")
 }
 
+// TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees pins that a reported boundary
+// hurries a state change the frame already supports rather than overriding what the pane says.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
 		name string
@@ -401,6 +403,8 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	}
 }
 
+// TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing pins that a boundary from
+// before the last look is stale and is ignored.
 func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -420,8 +424,8 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 	assert.Equal(t, 1, rec.missCount(agent.ID), "the pass still counted as an ordinary miss")
 }
 
-// TestReconcileWithoutTmux covers a pass that could not read tmux at all, where treating
-// the failure as an answer would clear every pane and demote every agent at once.
+// TestReconcileUnrecognizedFrameDemotesWhenStatic pins that a frame nothing recognizes moves
+// the agent off thinking once it has stopped changing for long enough.
 func TestReconcileUnrecognizedFrameDemotesWhenStatic(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -441,6 +445,8 @@ func TestReconcileUnrecognizedFrameDemotesWhenStatic(t *testing.T) {
 	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 }
 
+// TestReconcileUnrecognizedFrameThatKeepsChangingHolds pins that a frame nothing recognizes
+// but which keeps moving is work in progress rather than an idle pane.
 func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -462,6 +468,8 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	}
 }
 
+// TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped pins that a frame changing
+// forever stops resetting the miss counter, so the hold cannot run on without end.
 func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -493,6 +501,8 @@ func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T)
 		"the accrued misses, not a restarted hold, are what finally demote it")
 }
 
+// TestReconcileCountsUnrecognizedFrames pins the running count of frames nothing recognized,
+// which is what says a harness has changed its output.
 func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -509,6 +519,8 @@ func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
 	assert.Equal(t, 2, rec.unrecognizedTotal)
 }
 
+// TestReconcileWithoutTmux covers a pass that could not read tmux at all, where treating
+// the failure as an answer would clear every pane and demote every agent at once.
 func TestReconcileWithoutTmux(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()

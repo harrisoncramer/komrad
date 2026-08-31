@@ -79,7 +79,7 @@ func TestRegistryGetByID(t *testing.T) {
 
 	_, err = registry.GetByID("gemini")
 	require.ErrorIs(t, err, ErrNotRegistered)
-	assert.ErrorContains(t, err, "claude, codex", "the error names what it does hold")
+	require.ErrorContains(t, err, "claude, codex", "the error names what it does hold")
 
 	_, err = registry.GetByID("")
 	require.ErrorIs(t, err, ErrNotRegistered, "resolution happens before the lookup, so nothing here guesses a default")

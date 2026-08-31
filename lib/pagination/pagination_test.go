@@ -2,7 +2,6 @@ package pagination
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"testing"
 
@@ -98,7 +97,7 @@ func TestNewCursorErrorCarriesTheReason(t *testing.T) {
 	require.Error(t, err)
 
 	var connectErr *connect.Error
-	require.True(t, errors.As(err, &connectErr))
+	require.ErrorAs(t, err, &connectErr)
 	assert.Contains(t, connectErr.Message(), `cursor id "not-an-id" is not an id`)
 }
 

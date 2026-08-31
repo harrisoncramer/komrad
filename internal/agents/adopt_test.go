@@ -338,6 +338,8 @@ func TestAdoptReportsAFailureToRead(t *testing.T) {
 	require.ErrorContains(t, err, "gh: not logged in")
 }
 
+// TestLooksLikePullRequest pins which refs read as a pull request and which are branch names,
+// since the two are told apart by shape alone.
 func TestLooksLikePullRequest(t *testing.T) {
 	tests := []struct {
 		ref  string

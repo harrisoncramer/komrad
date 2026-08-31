@@ -158,7 +158,7 @@ func TestEmptyArchiveDeletesAWorkflowItEmptiesOut(t *testing.T) {
 	instance.WorkQueue()
 
 	_, err = instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
-	assert.ErrorIs(t, err, store.ErrNotFound, "its agent is gone along with the workflow")
+	require.ErrorIs(t, err, store.ErrNotFound, "its agent is gone along with the workflow")
 
 	_, err = instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
 	assert.ErrorIs(t, err, store.ErrNotFound, "the workflow the sweep emptied out is deleted too")

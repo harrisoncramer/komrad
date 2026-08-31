@@ -160,7 +160,7 @@ func serve(ctx context.Context, p serveParams) error {
 	}
 	defer closeWithin(logger, "the database handles", server.Close)
 
-	listener, err := net.Listen("tcp", addr)
+	listener, err := (&net.ListenConfig{}).Listen(ctx, "tcp", addr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on %s: %w", addr, err)
 	}

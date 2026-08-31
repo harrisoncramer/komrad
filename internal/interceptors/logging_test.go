@@ -25,7 +25,7 @@ func loggedCall(t *testing.T, level slog.Level, req connect.AnyRequest, handlerE
 
 	var seen context.Context
 	next := func(ctx context.Context, _ connect.AnyRequest) (connect.AnyResponse, error) {
-		seen = ctx
+		seen = ctx //nolint:fatcontext // holding onto what the interceptor handed the handler is the assertion
 		if handlerErr != nil {
 			return nil, handlerErr
 		}
@@ -108,7 +108,7 @@ func TestLoggingRecordsAFailure(t *testing.T) {
 	assert.Contains(t, record[logging.ErrorMessage], "name is required")
 
 	var connectErr *connect.Error
-	require.True(t, errors.As(err, &connectErr))
+	require.ErrorAs(t, err, &connectErr)
 	assert.NotEmpty(t, connectErr.Meta().Get(TraceHeader), "a failure carries the trace back to whoever saw it")
 }
 

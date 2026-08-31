@@ -16,6 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestStopHookDeliversMail pins what the stop hook writes back to the agent for each shape of
+// mailbox, and when it records the agent's turn boundary.
 func TestStopHookDeliversMail(t *testing.T) {
 	tests := []struct {
 		name         string
@@ -132,6 +134,8 @@ func TestStopHookDeliversMail(t *testing.T) {
 	}
 }
 
+// TestMailPostamble pins the wording an agent is handed for each mix of senders, so it knows
+// whether it is the panel operator or another agent talking.
 func TestMailPostamble(t *testing.T) {
 	tests := []struct {
 		name string
@@ -179,6 +183,8 @@ func TestMailPostamble(t *testing.T) {
 	}
 }
 
+// TestStopHookSurvivesAServerThatIsNotThere pins that the hook exits cleanly when nothing is
+// serving, since it runs on every turn and must never block one.
 func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	state := &app{env: &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"}}
 
@@ -217,7 +223,7 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 		*params.asked = caller.FromHeader(r.Header)
 
 		w.Header().Set("Content-Type", "application/json")
-		require.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Mail: params.mail}))
+		assert.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Mail: params.mail}))
 	})
 
 	mux.HandleFunc(agentv1connect.AgentServiceRecordTurnBoundaryProcedure, func(w http.ResponseWriter, r *http.Request) {
@@ -231,7 +237,7 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 		var line struct {
 			Message string `json:"message"`
 		}
-		require.NoError(t, json.NewDecoder(r.Body).Decode(&line))
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&line))
 		*params.logged = append(*params.logged, line.Message)
 
 		w.Header().Set("Content-Type", "application/json")

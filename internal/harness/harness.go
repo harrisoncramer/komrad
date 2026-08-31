@@ -84,7 +84,7 @@ type Harness interface {
 
 	GetBinary() string
 
-	BuildCommand(Launch) (string, error)
+	BuildCommand(launch Launch) (string, error)
 
 	MintSessionID() string
 

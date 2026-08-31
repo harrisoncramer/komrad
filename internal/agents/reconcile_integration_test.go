@@ -10,6 +10,8 @@ import (
 	"weave/internal/tmuxtest"
 )
 
+// TestReconcileAgainstRealTmux pins that the states the reconciler infers from a real pane
+// match what the fakes stand in for.
 func TestReconcileAgainstRealTmux(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()

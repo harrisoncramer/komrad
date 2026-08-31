@@ -53,24 +53,32 @@ func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
 	assert.Empty(t, records())
 }
 
+// TestCleanupActionOverridesTheWorkflow pins that an agent's own cleanup action is the one
+// that runs, rather than the workflow's.
 func TestCleanupActionOverridesTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}}
 	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("custom-cleanup")})
 	assert.Equal(t, "custom-cleanup", got)
 }
 
+// TestCleanupActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing
+// means no cleanup at all rather than falling back to the workflow.
 func TestCleanupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}}
 	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", CleanupAction: xptr.Ptr("")})
 	assert.Empty(t, got)
 }
 
+// TestSetupActionOverridesTheWorkflow pins that an agent's own setup action is the one that
+// runs, rather than the workflow's.
 func TestSetupActionOverridesTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}}
 	got := setupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("custom-setup")})
 	assert.Equal(t, "custom-setup", got)
 }
 
+// TestSetupActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing means
+// no setup at all rather than falling back to the workflow.
 func TestSetupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
 	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}}
 	got := setupActionFor(context.Background(), workflows, agentstore.Agent{ID: "a1", WorkflowID: "wf1", SetupAction: xptr.Ptr("")})

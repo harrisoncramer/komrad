@@ -7,6 +7,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestFriendly pins how each time renders for a person reading the panel, a zero time
+// included.
 func TestFriendly(t *testing.T) {
 	tests := []struct {
 		name string

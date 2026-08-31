@@ -78,6 +78,8 @@ type View struct {
 	search *search
 }
 
+// NewView builds the review view over a patch, highlighting each file for the theme the
+// terminal is on.
 func NewView(patch *diff.Patch, isDark bool) *View {
 	v := &View{
 		patch:   patch,

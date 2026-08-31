@@ -25,6 +25,10 @@ const (
 	serveWaitInterval = 40 * time.Millisecond
 )
 
+const healthTimeout = 3 * time.Second
+
+const stopRequestTimeout = 5 * time.Second
+
 const stopWaitFor = 30 * time.Second
 
 const stopPollInterval = 100 * time.Millisecond
@@ -36,16 +40,16 @@ type ensureServerParams struct {
 	ConfigPaths []string
 }
 
-func ensureServer(params ensureServerParams) error {
+func ensureServer(ctx context.Context, params ensureServerParams) error {
 	addr, logPath := params.Addr, params.LogPath
 
-	probe := probeServer(addr)
+	probe := probeServer(ctx, addr)
 	if probe.answering {
 		if probe.current {
 			return nil
 		}
 
-		if err := replaceServer(addr, probe.version); err != nil {
+		if err := replaceServer(ctx, addr, probe.version); err != nil {
 			return err
 		}
 	}
@@ -55,7 +59,8 @@ func ensureServer(params ensureServerParams) error {
 		args = append(args, "--config", path)
 	}
 
-	cmd := exec.Command(params.Self, args...)
+	// The server outlives the command that spawned it, so it is not bound to this context.
+	cmd := exec.Command(params.Self, args...) //nolint:noctx // a cancelled start must not kill the server it started
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
 	logFile, err := openServeLog(logPath)
@@ -85,7 +90,7 @@ func ensureServer(params ensureServerParams) error {
 	}()
 
 	for range serveWaitAttempts {
-		if probeServer(addr).ready {
+		if probeServer(ctx, addr).ready {
 			return nil
 		}
 
@@ -103,8 +108,8 @@ func ensureServer(params ensureServerParams) error {
 	return fmt.Errorf("the agent server did not become ready at %s, see %s", addr, logPath)
 }
 
-func replaceServer(addr, reported string) error {
-	if _, err := stopServer(addr); err != nil {
+func replaceServer(ctx context.Context, addr, reported string) error {
+	if _, err := stopServer(ctx, addr); err != nil {
 		return fmt.Errorf("the server at %s is build %q and this is %s, so it has to be replaced: %w",
 			addr, reported, version.Version(), err)
 	}
@@ -121,8 +126,8 @@ type serverProbe struct {
 	current bool
 }
 
-func probeServer(addr string) serverProbe {
-	res, err := healthCheck(addr)
+func probeServer(ctx context.Context, addr string) serverProbe {
+	res, err := healthCheck(ctx, addr)
 	if err != nil {
 		return serverProbe{}
 	}
@@ -139,10 +144,15 @@ func probeServer(addr string) serverProbe {
 	return probe
 }
 
-func healthCheck(addr string) (*http.Response, error) {
-	client := &http.Client{Timeout: 3 * time.Second}
+func healthCheck(ctx context.Context, addr string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+addr+server.HealthPath, nil)
+	if err != nil {
+		return nil, fmt.Errorf("failed to build a health request for %s: %w", addr, err)
+	}
 
-	return client.Get("http://" + addr + server.HealthPath)
+	client := &http.Client{Timeout: healthTimeout}
+
+	return client.Do(req)
 }
 
 func getSelfPath() string {
@@ -154,8 +164,8 @@ func getSelfPath() string {
 	return path
 }
 
-func stopServer(addr string) (int, error) {
-	pid, err := requestStop(addr)
+func stopServer(ctx context.Context, addr string) (int, error) {
+	pid, err := requestStop(ctx, addr)
 	if err != nil {
 		return 0, err
 	}
@@ -171,10 +181,16 @@ func stopServer(addr string) (int, error) {
 	return pid, nil
 }
 
-func requestStop(addr string) (int, error) {
-	client := &http.Client{Timeout: 5 * time.Second}
+func requestStop(ctx context.Context, addr string) (int, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, "http://"+addr+server.StopPath, nil)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build a stop request for %s: %w", addr, err)
+	}
+	req.Header.Set("Content-Type", "text/plain")
 
-	res, err := client.Post("http://"+addr+server.StopPath, "text/plain", nil)
+	client := &http.Client{Timeout: stopRequestTimeout}
+
+	res, err := client.Do(req)
 	if err != nil {
 		var opErr *net.OpError
 		if errors.As(err, &opErr) {

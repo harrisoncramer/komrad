@@ -139,7 +139,7 @@ func TestCodeOfReadsThroughTheChain(t *testing.T) {
 func TestProblemsAreMatchable(t *testing.T) {
 	wrapped := fmt.Errorf("%w: found tmux 3.1c", ErrTmuxTooOld)
 
-	assert.ErrorIs(t, wrapped, ErrTmuxTooOld)
+	require.ErrorIs(t, wrapped, ErrTmuxTooOld)
 	assert.NotErrorIs(t, wrapped, ErrTmuxMissing)
 }
 

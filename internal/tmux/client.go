@@ -309,6 +309,8 @@ func (c *Client) RespawnPane(pane, dir string, argv ...string) {
 	c.run("clear-history", "-t", pane)
 }
 
+// WaitFor blocks until something signals the named tmux channel, which is how a setup
+// script says it has finished.
 func (c *Client) WaitFor(ctx context.Context, channel string) error {
 	command := slices.Concat(c.server, []string{"wait-for", channel})
 

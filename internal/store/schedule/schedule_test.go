@@ -16,6 +16,8 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
+// TestGet pins which lookups find a schedule, an archived one and an id nobody holds
+// included.
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name     string

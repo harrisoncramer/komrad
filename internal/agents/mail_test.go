@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestSendMailRefusals pins which sentinel each way of addressing mail wrongly comes back
+// with, from an unknown recipient to one whose mailbox is already full.
 func TestSendMailRefusals(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -79,6 +81,8 @@ func TestSendMailRefusals(t *testing.T) {
 	}
 }
 
+// TestSendMailStampsTheSender pins that mail records who sent it, which is what lets the
+// recipient reply.
 func TestSendMailStampsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -104,6 +108,8 @@ func TestSendMailStampsTheSender(t *testing.T) {
 	assert.Equal(t, "which column holds the refund?", wrote.Body)
 }
 
+// TestSendMailFromNobody pins that mail sent by no agent carries no sender rather than an
+// invented one.
 func TestSendMailFromNobody(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -119,6 +125,8 @@ func TestSendMailFromNobody(t *testing.T) {
 	assert.Empty(t, mailbox.sent[0].FromName)
 }
 
+// TestSendMailRefusesPastTheHopLimit pins that hops are counted along a reply chain and the
+// send past the limit is the one refused.
 func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -180,6 +188,8 @@ func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
 	assert.Nil(t, sent.FromAgentID)
 }
 
+// TestClaimMail pins which claims are answered and which are refused, an id no agent holds
+// included.
 func TestClaimMail(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -326,6 +336,8 @@ func (f *fakeMailbox) ListUnreadMailboxes(context.Context) ([]string, error) {
 	return unread, nil
 }
 
+// TestListMailChecksTheAgentExists pins that listing an unknown mailbox is refused rather
+// than answered with nothing.
 func TestListMailChecksTheAgentExists(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -338,6 +350,7 @@ func TestListMailChecksTheAgentExists(t *testing.T) {
 	require.ErrorIs(t, err, ErrAgentNotFound)
 }
 
+// TestListMailReturnsWhatIsAddressedToTheAgent pins that a listing is scoped to one mailbox.
 func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
 	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
 		"mail-1": {ID: "mail-1", ToAgentID: "agent-a", Body: "for alpha"},
@@ -355,6 +368,8 @@ func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
 	assert.Equal(t, "for alpha", listed[0].Body)
 }
 
+// TestDeleteMailGoesWholeOrNotAtAll pins that a batch naming one unknown id deletes nothing
+// at all.
 func TestDeleteMailGoesWholeOrNotAtAll(t *testing.T) {
 	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
 		"mail-1": {ID: "mail-1"},
@@ -371,6 +386,7 @@ func TestDeleteMailGoesWholeOrNotAtAll(t *testing.T) {
 	assert.Contains(t, mailbox.byID, "mail-1")
 }
 
+// TestDeleteMailDeletesEveryIDGiven pins that a batch every id of which is known goes whole.
 func TestDeleteMailDeletesEveryIDGiven(t *testing.T) {
 	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
 		"mail-1": {ID: "mail-1"},

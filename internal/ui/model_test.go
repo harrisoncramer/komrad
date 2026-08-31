@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestClampCursor pins where the cursor lands for each length of list, an empty one
+// included.
 func TestClampCursor(t *testing.T) {
 	tests := []struct {
 		name   string

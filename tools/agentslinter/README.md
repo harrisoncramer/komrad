@@ -28,9 +28,18 @@ sentence whatever it starts with, and using the prefix there is its own finding.
 are left alone by listing path patterns under `exclude`, which are unanchored
 regexps matched against the file path.
 
+`context_timeout` flags a `context.Background` or `context.TODO` that is not immediately
+bounded by `context.WithTimeout`, and a timeout written inline rather than named by a
+constant. It applies only to files matching the unanchored path regexps under `include`,
+since a background context is the right answer nearly everywhere else; it is pointed at the
+panel, which reaches the service over HTTP and would otherwise draw a frame that never
+returns.
+
 `comment_prefix` checks that a doc comment on an exported function or method
-begins with the identifier name, so an LSP rename keeps the comment in sync. It
-does not require exported functions to be documented.
+begins with the identifier name, so an LSP rename keeps the comment in sync.
+With `require: true` the comment has to be there at all. In a test file the rule
+covers the tests themselves, named `Test`, `Benchmark`, `Fuzz` or `Example`, and
+leaves alone the exported stubs a fake needs to satisfy an interface.
 
 Each analyzer reads its settings from the `custom.agentslinter.settings` block in
 `.golangci.yaml` and can be turned off individually with `skip: true`.

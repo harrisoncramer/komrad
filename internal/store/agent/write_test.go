@@ -82,6 +82,8 @@ func TestCreateAndUpdate(t *testing.T) {
 	}
 }
 
+// TestCreateWithActionOverride pins that an override of none reads back as an empty string
+// rather than as nil, which is what tells the two apart.
 func TestCreateWithActionOverride(t *testing.T) {
 	tests := []struct {
 		name  string

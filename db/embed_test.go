@@ -18,6 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestMigrate pins that an empty database takes every migration and that a second pass over
+// the same database changes nothing.
 func TestMigrate(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -141,6 +143,7 @@ func TestMigrateSharedDatabase(t *testing.T) {
 	}
 }
 
+// TestMigrateFailure pins that a migration failing partway applies none of itself.
 func TestMigrateFailure(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -237,6 +240,8 @@ func TestMigrateUpToDate(t *testing.T) {
 	require.NoError(t, Migrate(deadlined, pool))
 }
 
+// TestMigrateReleasesLock pins that the advisory lock is free again once the migration is
+// done, so the next process is not left waiting on it.
 func TestMigrateReleasesLock(t *testing.T) {
 	url := pgtest.URL(t)
 	pool := openAt(t, url)
@@ -273,6 +278,8 @@ func TestReleaseMigrateLockOnCancelledContext(t *testing.T) {
 	assert.True(t, taken, "the migration lock outlived the run that took it")
 }
 
+// TestIsPending pins what a pending check reports for a database that has never been
+// migrated and for one already up to date.
 func TestIsPending(t *testing.T) {
 	tests := []struct {
 		name    string

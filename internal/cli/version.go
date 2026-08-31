@@ -21,7 +21,7 @@ func versionCmd(state *app) *cobra.Command {
 			addr := state.env.Addr
 			cmd.Printf("this binary: %s\n", version.Version())
 
-			probe := probeServer(addr)
+			probe := probeServer(cmd.Context(), addr)
 			if !probe.answering {
 				cmd.Printf("nothing is serving at %s\n", addr)
 

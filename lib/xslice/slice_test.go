@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestKeyBy pins the map a slice becomes when each element is keyed, a later duplicate
+// replacing the one before it.
 func TestKeyBy(t *testing.T) {
 	tests := []struct {
 		name string
@@ -34,6 +36,8 @@ func TestKeyBy(t *testing.T) {
 	}
 }
 
+// TestGroupBy pins the map a slice becomes when elements sharing a key are gathered
+// together.
 func TestGroupBy(t *testing.T) {
 	tests := []struct {
 		name string
@@ -62,6 +66,8 @@ func TestGroupBy(t *testing.T) {
 	}
 }
 
+// TestUniqueBy pins that only the first element under each key survives, in the order they
+// were given.
 func TestUniqueBy(t *testing.T) {
 	tests := []struct {
 		name string

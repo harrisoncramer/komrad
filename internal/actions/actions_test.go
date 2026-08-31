@@ -464,6 +464,8 @@ func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
 	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
+// TestRunAndWaitAcceptsABackgroundChild pins that an action returning while a child of its
+// own is still running is finished, rather than waited on until the child exits.
 func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
@@ -481,6 +483,8 @@ func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	assert.Equal(t, "ready", strings.TrimSpace(string(result.Stderr)), "what the script said still comes back")
 }
 
+// TestRunAndWaitRefusesWhatItCannotStart pins that an action that never started comes back as
+// not startable, naming which action it was.
 func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-shebang"), []byte("#!/nope/sh\n"), 0o755))
@@ -496,6 +500,8 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
+// TestRunAndWaitRefusesAContextAlreadyDone pins that a context cancelled before the call runs
+// nothing at all.
 func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
@@ -510,7 +516,7 @@ func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	result, err := NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir, Timeout: time.Minute})
 
 	require.ErrorIs(t, err, context.Canceled)
-	assert.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")
+	require.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")
 	assert.Contains(t, err.Error(), "gave up after 1m0s", "the refusal names the limit it was given")
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }

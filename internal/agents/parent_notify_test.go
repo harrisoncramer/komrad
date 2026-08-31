@@ -30,6 +30,8 @@ func newManagerWithNotifier(tmux *fakeTmux, st *testStore, notifier systemMailSe
 	})
 }
 
+// TestArchiveTellsAParentItsDelegateIsGone pins when archiving mails the parent, so a parent
+// archived in the same batch is not written to.
 func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 	tests := []struct {
 		name             string
@@ -95,6 +97,8 @@ func TestArchiveTellsAParentItsDelegateIsGone(t *testing.T) {
 	}
 }
 
+// TestDeleteTellsAParentItsDelegateIsGone pins when deleting mails the parent, so a parent
+// deleted in the same batch is not written to.
 func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 	tests := []struct {
 		name            string

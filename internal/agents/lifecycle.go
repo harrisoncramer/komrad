@@ -94,7 +94,6 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 			continue
 		}
 
-		agent := agent
 		// The row is never dropped before the action says whether it worked.
 		runCleanup(ctx, s.actions, agent, name, func(cleanupErr error) {
 			if cleanupErr != nil {

@@ -86,8 +86,8 @@ func (a *app) buildDoctor() (doctor.Env, []doctor.Check, error) {
 
 	env.LoadConfig = func() (*config.Config, error) { return config.Load(a.configPaths) }
 
-	env.ProbeServer = func(_ context.Context, addr string) doctor.ServerStatus {
-		found := probeServer(addr)
+	env.ProbeServer = func(ctx context.Context, addr string) doctor.ServerStatus {
+		found := probeServer(ctx, addr)
 
 		return doctor.ServerStatus{
 			Answering: found.answering,

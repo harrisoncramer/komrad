@@ -20,6 +20,8 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
+// TestCreateSchedule pins that a schedule is stored as written, and the code each refusal is
+// answered with.
 func TestCreateSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -167,6 +169,7 @@ func TestCreateScheduleNameConflict(t *testing.T) {
 	}
 }
 
+// TestGetSchedule pins that an id nobody holds is not found, an archived schedule included.
 func TestGetSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -240,6 +243,8 @@ func TestGetScheduleLastResult(t *testing.T) {
 	require.NotNil(t, got.Msg.GetSchedule().GetLastResultAt())
 }
 
+// TestUpdateSchedule pins that every field is written on an update, and the code each refusal
+// is answered with.
 func TestUpdateSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -361,6 +366,8 @@ func TestSetScheduleEnabled(t *testing.T) {
 	}
 }
 
+// TestArchiveSchedule pins that archiving hides a schedule, and that an id nobody holds is
+// not found.
 func TestArchiveSchedule(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -402,6 +409,8 @@ func TestArchiveSchedule(t *testing.T) {
 	}
 }
 
+// TestListSchedules pins how a listing pages, from an empty store to one holding more than a
+// page.
 func TestListSchedules(t *testing.T) {
 	tests := []struct {
 		name     string

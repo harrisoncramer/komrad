@@ -21,7 +21,7 @@ func stopCmd(state *app) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
 
-			pid, err := stopServer(addr)
+			pid, err := stopServer(cmd.Context(), addr)
 			if err != nil {
 				return err
 			}

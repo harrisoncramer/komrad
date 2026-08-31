@@ -119,7 +119,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 	_, err = service.resume.ResumeAgent(t.Context(), stored.ID)
 
 	require.ErrorIs(t, err, harness.ErrNotRegistered)
-	assert.ErrorContains(t, err, "gemini")
+	require.ErrorContains(t, err, "gemini")
 	assert.Empty(t, tmux.newWindows, "nothing is opened for an agent that cannot be run")
 }
 

@@ -21,13 +21,13 @@ func startCmd(state *app) *cobra.Command {
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			addr := state.env.Addr
 
-			if probeServer(addr).current {
+			if probeServer(cmd.Context(), addr).current {
 				cmd.Printf("the server at %s is already running\n", addr)
 
 				return nil
 			}
 
-			if err := ensureServer(ensureServerParams{
+			if err := ensureServer(cmd.Context(), ensureServerParams{
 				Addr:        addr,
 				Self:        getSelfPath(),
 				LogPath:     state.env.LogPath(),

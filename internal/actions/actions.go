@@ -134,7 +134,7 @@ func (r Runner) Run(p RunParams) error {
 	if err := cmd.Start(); err != nil {
 		cancel()
 
-		return fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
+		return fmt.Errorf("failed to run action %s: %w: %w", p.Action.Name, ErrNotStartable, err)
 	}
 
 	go func() {
@@ -143,7 +143,7 @@ func (r Runner) Run(p RunParams) error {
 
 		waitErr := cmd.Wait()
 		if expired := ctx.Err(); expired != nil {
-			waitErr = fmt.Errorf("%w after %s: %v", expired, p.Timeout, waitErr)
+			waitErr = fmt.Errorf("%w%s", expired, gaveUpAfter(p.Timeout))
 		}
 
 		if p.Done == nil {
@@ -197,7 +197,7 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 			return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
 		}
 
-		return result, fmt.Errorf("failed to run action %s: %w: %v", p.Action.Name, ErrNotStartable, err)
+		return result, fmt.Errorf("failed to run action %s: %w: %w", p.Action.Name, ErrNotStartable, err)
 	}
 
 	waitErr := cmd.Wait()
@@ -244,7 +244,7 @@ func (r Runner) outcome(p outcomeParams) (Result, error) {
 		return result, nil
 	}
 
-	return result, fmt.Errorf("failed to run action %s: %w: %v", p.action.Name, ErrFailed, p.waitErr)
+	return result, fmt.Errorf("failed to run action %s: %w: %w", p.action.Name, ErrFailed, p.waitErr)
 }
 
 type tail struct {
