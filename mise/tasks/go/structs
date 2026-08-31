@@ -4,14 +4,15 @@ set -euo pipefail
 #MISE description="Expand single-line keyed struct literals onto one field per line."
 
 usage() {
-	echo "Usage: mise run go:structs [--fix] [--min N]"
+	echo "Usage: mise run go:structs [--fix] [--min N] [--no-tests]"
 	echo
-	echo "Reports keyed composite literals written on a single line, which read"
+	echo "Reports keyed struct literals written on a single line, which read"
 	echo "worse than one field per line. Without --fix it only reports and exits"
 	echo "non-zero, so the check task can call it without rewriting the tree."
 }
 
 WRITE=()
+TESTS=true
 MIN=3
 while [ $# -gt 0 ]; do
 	case "$1" in
@@ -22,9 +23,21 @@ while [ $# -gt 0 ]; do
 	--fix)
 		WRITE=(-w)
 		;;
+	--no-tests)
+		TESTS=false
+		;;
 	--min)
+		if [ $# -lt 2 ]; then
+			echo "--min needs a number" >&2
+			exit 1
+		fi
 		shift
 		MIN="$1"
+		;;
+	*)
+		echo "unknown flag: $1" >&2
+		usage >&2
+		exit 1
 		;;
 	esac
 	shift
@@ -32,4 +45,4 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-go run ./cmd/structexpand -min "$MIN" ${WRITE[@]+"${WRITE[@]}"} .
+go run ./cmd/structexpand -min "$MIN" -tests="$TESTS" ${WRITE[@]+"${WRITE[@]}"} .

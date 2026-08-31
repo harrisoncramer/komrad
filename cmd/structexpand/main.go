@@ -1,4 +1,4 @@
-// Command structexpand rewrites single-line keyed composite literals so each
+// Command structexpand rewrites single-line keyed struct literals so each
 // field sits on a line of its own.
 package main
 
@@ -12,16 +12,17 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 )
 
 var skipDirs = map[string]bool{
 	".git":         true,
-	"gen":          true,
-	"models":       true,
 	"node_modules": true,
 }
+
+var generatedHeader = regexp.MustCompile(`^// Code generated .* DO NOT EDIT\.$`)
 
 type insert struct {
 	off  int
@@ -55,6 +56,7 @@ func main() {
 				if skipDirs[d.Name()] {
 					return fs.SkipDir
 				}
+
 				return nil
 			}
 			if !strings.HasSuffix(path, ".go") {
@@ -63,6 +65,7 @@ func main() {
 			if !*tests && strings.HasSuffix(path, "_test.go") {
 				return nil
 			}
+
 			n, err := process(path, *min, *write)
 			if err != nil {
 				return err
@@ -71,6 +74,7 @@ func main() {
 				changed += n
 				fmt.Printf("%s: %d literal(s)\n", path, n)
 			}
+
 			return nil
 		})
 		if err != nil {
@@ -86,6 +90,11 @@ func main() {
 }
 
 func process(path string, min int, write bool) (int, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+
 	src, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
@@ -95,6 +104,10 @@ func process(path string, min int, write bool) (int, error) {
 	file, err := parser.ParseFile(fset, path, src, parser.ParseComments|parser.SkipObjectResolution)
 	if err != nil {
 		return 0, err
+	}
+
+	if isGenerated(file) {
+		return 0, nil
 	}
 
 	scan := scanner{
@@ -110,6 +123,7 @@ func process(path string, min int, write bool) (int, error) {
 		if !ok || !scan.shouldExpand(lit) {
 			return true
 		}
+
 		count++
 		for _, elt := range lit.Elts {
 			inserts = append(inserts, insert{
@@ -121,6 +135,7 @@ func process(path string, min int, write bool) (int, error) {
 			off:  fset.Position(lit.Rbrace).Offset,
 			text: ",\n",
 		})
+
 		return true
 	})
 	if count == 0 {
@@ -137,16 +152,18 @@ func process(path string, min int, write bool) (int, error) {
 	if err != nil {
 		return 0, fmt.Errorf("%s: rewrite did not parse: %w", path, err)
 	}
+
 	if write {
-		if err := os.WriteFile(path, formatted, 0o644); err != nil {
+		if err := os.WriteFile(path, formatted, info.Mode().Perm()); err != nil {
 			return 0, err
 		}
 	}
+
 	return count, nil
 }
 
 func (s scanner) shouldExpand(lit *ast.CompositeLit) bool {
-	if len(lit.Elts) < s.min {
+	if len(lit.Elts) < s.min || !isStructLiteral(lit) {
 		return false
 	}
 	if s.fset.Position(lit.Lbrace).Line != s.fset.Position(lit.Rbrace).Line {
@@ -158,10 +175,34 @@ func (s scanner) shouldExpand(lit *ast.CompositeLit) bool {
 		}
 	}
 	for _, group := range s.file.Comments {
-		if group.Pos() > lit.Lbrace && group.End() < lit.Rbrace {
+		if group.Pos() > lit.Lbrace && group.End() <= lit.Rbrace {
 			return false
 		}
 	}
 
 	return true
+}
+
+func isStructLiteral(lit *ast.CompositeLit) bool {
+	switch lit.Type.(type) {
+	case nil, *ast.Ident, *ast.SelectorExpr, *ast.IndexExpr, *ast.IndexListExpr:
+		return true
+	default:
+		return false
+	}
+}
+
+func isGenerated(file *ast.File) bool {
+	for _, group := range file.Comments {
+		if group.Pos() > file.Package {
+			return false
+		}
+		for _, line := range group.List {
+			if generatedHeader.MatchString(line.Text) {
+				return true
+			}
+		}
+	}
+
+	return false
 }

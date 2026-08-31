@@ -259,11 +259,14 @@ func TestApplyWorkflows(t *testing.T) {
 		{
 			name:    "an edit lands on the workflow without moving it",
 			current: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {ID: "w2", Name: "web"}},
-			fresh: []workflowstore.Workflow{{ID: "w1", Name: "api"}, {
-				ID:      "w2",
-				Name:    "web",
-				Context: "notes",
-			}},
+			fresh: []workflowstore.Workflow{
+				{ID: "w1", Name: "api"},
+				{
+					ID:      "w2",
+					Name:    "web",
+					Context: "notes",
+				},
+			},
 			wantNames: []string{"api", "web"},
 		},
 		{
@@ -306,20 +309,28 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 		frame:  frame,
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		listing: listing{workflows: []workflowstore.Workflow{{
-			ID:      "w1",
-			Name:    "api",
-			Context: "old notes",
-		}}},
+		listing: listing{
+			workflows: []workflowstore.Workflow{
+				{
+					ID:      "w1",
+					Name:    "api",
+					Context: "old notes",
+				},
+			},
+		},
 	}
 	m.stageSelection()
 	staged := len(tmux.respawns)
 
-	fresh := refreshResult{workflows: []workflowstore.Workflow{{
-		ID:      "w1",
-		Name:    "api",
-		Context: "new notes",
-	}}}
+	fresh := refreshResult{
+		workflows: []workflowstore.Workflow{
+			{
+				ID:      "w1",
+				Name:    "api",
+				Context: "new notes",
+			},
+		},
+	}
 	updated, _ := m.Update(fresh)
 	m, ok := updated.(model)
 	require.True(t, ok)

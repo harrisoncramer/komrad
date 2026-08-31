@@ -323,11 +323,7 @@ func TestArchiveAndRestoreInBatches(t *testing.T) {
 	other, err := st.workflows.Create(ctx, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, err)
 
-	names := map[string]string{
-		"auth": st.defaultWorkflow,
-		"api":  st.defaultWorkflow,
-		"ui":   other.ID,
-	}
+	names := map[string]string{"auth": st.defaultWorkflow, "api": st.defaultWorkflow, "ui": other.ID}
 	ids := make(map[string]string, len(names))
 	for name, workflowID := range names {
 		require.NoError(t, st.Create(ctx, Agent{
