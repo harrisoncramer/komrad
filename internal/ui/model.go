@@ -121,9 +121,6 @@ type model struct {
 
 	form formState
 
-	values formValues
-	target formTarget
-
 	pendingForm bool
 
 	setupPending bool

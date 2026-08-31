@@ -308,7 +308,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.target.deleteAgents)
+			assert.False(t, got.form.active(), "the prompt is down")
 		})
 	}
 }
@@ -352,7 +352,7 @@ func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, workflows.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.target.deleteWorkflow)
+			assert.False(t, got.form.active(), "the prompt is down")
 		})
 	}
 }
@@ -395,7 +395,7 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantEmptied, client.emptied)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.Nil(t, got.values.confirmed)
+			assert.False(t, got.form.active(), "the prompt is down")
 		})
 	}
 }
@@ -422,7 +422,7 @@ func answerEmptyPrompt(t *testing.T, m model, key string) model {
 
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
-		updated, cmd := m.updateArchiveEmpty(msg)
+		updated, cmd := m.form.update(m, msg)
 		next, ok := updated.(model)
 		require.True(t, ok)
 
@@ -447,7 +447,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 
 	var msg tea.Msg = keyMsg(key)
 	for range 8 {
-		updated, cmd := m.updateArchiveDelete(msg)
+		updated, cmd := m.form.update(m, msg)
 		next, ok := updated.(model)
 		require.True(t, ok)
 

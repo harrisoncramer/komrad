@@ -27,6 +27,14 @@ type formState struct {
 	// update is the form's own message handler, which is what saves the panel from asking
 	// which form is up before it can hand it a message.
 	update func(model, tea.Msg) (tea.Model, tea.Cmd)
+
+	// submit is what the answered form does, closed over the values huh writes through and
+	// whatever the form is about, so neither has to be rediscovered from the model.
+	submit func(model) (tea.Model, tea.Cmd)
+
+	// rebuild draws the form again around those same values, since huh will not take another
+	// key into a form it has already completed.
+	rebuild func(model) (*huh.Form, tea.Cmd)
 }
 
 // formKind names the form on screen, for the legend and for what closing it means.
@@ -53,33 +61,22 @@ func (f formState) active() bool {
 
 // openForm puts a form on screen over the screen the panel is already on, which is where
 // closing it lands.
-func (m *model) openForm(kind formKind, form *huh.Form, update func(model, tea.Msg) (tea.Model, tea.Cmd)) tea.Cmd {
-	m.form = formState{kind: kind, form: form, update: update}
+func (m *model) openForm(f formState) tea.Cmd {
+	m.form = f
 
-	return form.Init()
+	return f.form.Init()
 }
 
-type formValues struct {
-	agent     *agentFormValues
-	adopt     *adoptFormValues
-	rename    *string
-	workflow  *workflowFormValues
-	schedule  *schedulestore.Config
-	confirmed *bool
-	archive   *archiveChoice
-}
+// confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,
+// since a confirmation is finished the moment it is answered either way.
+func confirmSubmit(write func(model) (model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
+	return func(m model) (tea.Model, tea.Cmd) {
+		written, writeCmd := write(m)
 
-type formTarget struct {
-	renameAgent      agentstore.Agent
-	newAgentWorkflow *workflowstore.Workflow
-	renameWorkflow   *workflowstore.Workflow
-	editWorkflow     *workflowstore.Workflow
-	archiveWorkflow  *workflowstore.Workflow
-	editSchedule     *schedulestore.Schedule
-	archiveSchedule  *schedulestore.Schedule
-	deleteAgents     []agentstore.Agent
-	archiveAgents    []agentstore.Agent
-	deleteWorkflow   *workflowstore.Workflow
+		next, back := written.closeForm()
+
+		return next, tea.Batch(writeCmd, back)
+	}
 }
 
 type adoptFormValues struct {
@@ -194,9 +191,7 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 	}
 }
 
-func newAgentForm(keys config.FormKeys, prefill agentFormValues, available []actionChoice) (*huh.Form, *agentFormValues) {
-	values := &prefill
-
+func newAgentForm(keys config.FormKeys, values *agentFormValues, available []actionChoice) *huh.Form {
 	fields := append([]huh.Field{
 		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
@@ -209,16 +204,12 @@ func newAgentForm(keys config.FormKeys, prefill agentFormValues, available []act
 			Value(&values.CleanupAction).Options(agentActionOptions(available)...),
 	)
 
-	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-
-	return form, values
+	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
 // adoptAgentForm asks for the work to pick up and little else, since adoption works out where
 // the agent runs.
-func adoptAgentForm(keys config.FormKeys, prefill adoptFormValues) (*huh.Form, *adoptFormValues) {
-	values := &prefill
-
+func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) *huh.Form {
 	fields := []huh.Field{
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a pull request url or number, or a branch already pushed or on disk").Value(&values.Ref),
@@ -229,21 +220,15 @@ func adoptAgentForm(keys config.FormKeys, prefill adoptFormValues) (*huh.Form, *
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 	}
 
-	form := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-
-	return form, values
+	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-func renameForm(current, prefill string, keys config.FormKeys) (*huh.Form, *string) {
-	name := prefill
-
-	form := huh.NewForm(
+func renameForm(current string, name *string, keys config.FormKeys) *huh.Form {
+	return huh.NewForm(
 		huh.NewGroup(
-			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(&name),
+			huh.NewInput().Key("name").Title(fmt.Sprintf("Rename %q to", current)).Value(name),
 		),
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-
-	return form, &name
 }
 
 func formKeyMap(keys config.FormKeys) *huh.KeyMap {
@@ -264,10 +249,6 @@ func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	km.Confirm.Submit = submit
 
 	return km
-}
-
-func (m model) wasConfirmed() bool {
-	return m.values.confirmed != nil && *m.values.confirmed
 }
 
 func confirmForm(title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
@@ -292,6 +273,8 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 	return form, &confirmed
 }
 
+// holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
+// lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
 	m.pendingForm = true
 
@@ -302,30 +285,27 @@ func (m *model) holdForm() tea.Cmd {
 	return nil
 }
 
-// rebuildForm draws the form again from the values it already holds, since a form huh has
-// completed will not take another key and the write it was submitted for may yet be refused.
 func (m *model) rebuildForm() tea.Cmd {
-	switch {
-	case m.form.kind == formAgent && m.values.agent != nil:
-		m.form.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, m.getAvailableActions())
-	case m.form.kind == formAdopt && m.values.adopt != nil:
-		m.form.form, m.values.adopt = adoptAgentForm(m.keys.Form, *m.values.adopt)
-	case m.form.kind == formRename && m.values.rename != nil:
-		m.form.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
-	case m.form.kind == formWorkflow && m.values.workflow != nil:
-		m.form.form, m.values.workflow, _ = m.workflowFormFor(*m.values.workflow)
-	case m.form.kind == formSchedule && m.values.schedule != nil:
-		m.form.form, m.values.schedule = scheduleForm(*m.values.schedule, m.listing.workflows, m.keys.Form)
-	default:
+	if m.form.rebuild == nil {
 		return nil
 	}
 
-	return m.form.form.Init()
+	form, cmd := m.form.rebuild(*m)
+	m.form.form = form
+
+	return cmd
 }
 
-func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+// answerForm runs what the form on screen was filled in to do.
+func (m model) answerForm() (tea.Model, tea.Cmd) {
+	return m.form.submit(m)
+}
+
+// updateForm hands a message to the form on screen, and answers it either when huh says it is
+// finished or on the submit key, which the text fields would otherwise take as a character.
+func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
-		return submit(m)
+		return m.answerForm()
 	}
 
 	form, cmd := m.form.form.Update(msg)
@@ -335,39 +315,9 @@ func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.
 
 	switch m.form.form.State {
 	case huh.StateCompleted:
-		return submit(m)
+		return m.answerForm()
 	case huh.StateAborted:
 		return m.closeForm()
-	default:
-		return m, cmd
-	}
-}
-
-type confirmFormActions struct {
-	write    func(model) (model, tea.Cmd)
-	clear    func(model) model
-	returnTo func(model) (tea.Model, tea.Cmd)
-}
-
-func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.form.Update(msg)
-	if updated, ok := form.(*huh.Form); ok {
-		m.form.form = updated
-	}
-
-	// The prompt is answered either way, so it comes down before what it asked for runs.
-	switch m.form.form.State {
-	case huh.StateCompleted:
-		m.form = formState{}
-
-		written, writeCmd := actions.write(m)
-		next, refresh := actions.returnTo(actions.clear(written))
-
-		return next, tea.Batch(writeCmd, refresh)
-	case huh.StateAborted:
-		m.form = formState{}
-
-		return actions.returnTo(actions.clear(m))
 	default:
 		return m, cmd
 	}
@@ -377,8 +327,6 @@ func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.M
 func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.pendingForm = false
 	m.form = formState{}
-	m.values = formValues{}
-	m.target = formTarget{}
 
 	reenter := m.screen.spec().reenter
 	if reenter == nil {
@@ -456,22 +404,12 @@ func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Fo
 	return form, &choice
 }
 
-func (m model) archiveAnswer() archiveChoice {
-	if m.values.archive == nil {
-		return archiveChoiceCancel
-	}
-
-	return *m.values.archive
-}
-
-func workflowForm(title string, values workflowFormValues, keys config.FormKeys) (*huh.Form, *workflowFormValues) {
-	form := huh.NewForm(
+func workflowForm(title string, values *workflowFormValues, keys config.FormKeys) *huh.Form {
+	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().Key("name").Title(title).Value(&values.Name),
 		),
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
-
-	return form, &values
 }
 
 const setupTypeKey = "setup_type"
@@ -483,7 +421,7 @@ func setupTypeOptions() []huh.Option[string] {
 	}
 }
 
-func workflowConfigForm(nameTitle string, values workflowFormValues, available []actionChoice, keys config.FormKeys) (form *huh.Form, out *workflowFormValues, focusFieldIndex int) {
+func workflowConfigForm(nameTitle string, values *workflowFormValues, available []actionChoice, keys config.FormKeys) (form *huh.Form, focusFieldIndex int) {
 	if values.SetupType == "" {
 		values.SetupType = setupTypeWorktree
 	}
@@ -509,14 +447,14 @@ func workflowConfigForm(nameTitle string, values workflowFormValues, available [
 				Value(&values.CleanupAction).Options(actionOptions(available, values.CleanupAction)...),
 		)
 	default:
-		fields = append(fields, worktreeDetailFields(&values)...)
+		fields = append(fields, worktreeDetailFields(values)...)
 	}
 
-	fields = append(fields, archiveOnPRClosedField(&values))
+	fields = append(fields, archiveOnPRClosedField(values))
 
 	built := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
-	return built, &values, toggleIndex
+	return built, toggleIndex
 }
 
 func worktreeDetailFields(values *workflowFormValues) []huh.Field {
@@ -581,9 +519,7 @@ func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
 	)
 }
 
-func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) (*huh.Form, *schedulestore.Config) {
-	values := cfg
-
+func scheduleForm(values *schedulestore.Config, workflows []workflowstore.Workflow, keys config.FormKeys) *huh.Form {
 	options := make([]huh.Option[string], 0, len(workflows))
 	for _, w := range workflows {
 		options = append(options, huh.NewOption(w.Name+"  "+orDash(w.Cwd), w.ID))
@@ -602,7 +538,7 @@ func scheduleForm(cfg schedulestore.Config, workflows []workflowstore.Workflow, 
 		),
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 
-	return form, &values
+	return form
 }
 
 func archiveScheduleForm(name string, keys config.FormKeys) (*huh.Form, *bool) {
