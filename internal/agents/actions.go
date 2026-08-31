@@ -232,6 +232,8 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 
 const setupPaneOutputLimit = 64 << 10
 
+// setupPaneWrapper prints what happened before it signals, so a caller woken by the signal
+// looks at a pane that already says it.
 const setupPaneWrapper = `
 mkfifo "$6"
 tee "$5" >&2 <"$6" &
@@ -241,9 +243,11 @@ ec=$?
 wait "$teepid"
 rm -f "$6"
 echo "$ec" >"$4"
-tmux -L "$2" wait-for -S "$3"
 if [ "$ec" -ne 0 ]; then
   printf '\n[setup action exited %s -- press enter to close]\n' "$ec"
+fi
+tmux -L "$2" wait-for -S "$3"
+if [ "$ec" -ne 0 ]; then
   read -r _dismiss
 fi
 `

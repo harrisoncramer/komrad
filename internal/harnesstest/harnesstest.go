@@ -26,7 +26,15 @@ const agentScript = `#!/bin/sh
 log="$FAKE_ROOT/logs/$FAKE_SESSION.jsonl"
 state="$FAKE_ROOT/state/$WEAVE_AGENT_ID"
 typed="$FAKE_ROOT/typed/$WEAVE_AGENT_ID"
-mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/typed"
+mkdir -p "$FAKE_ROOT/logs" "$FAKE_ROOT/state" "$FAKE_ROOT/typed" "$FAKE_ROOT/context"
+
+if [ -n "$FAKE_FORK_FROM" ] && [ -f "$FAKE_FORK_FROM" ]; then
+	cat "$FAKE_FORK_FROM" >>"$log"
+fi
+
+if [ -n "$FAKE_CONTEXT_FILE" ]; then
+	cat "$FAKE_CONTEXT_FILE" >"$FAKE_ROOT/context/$WEAVE_AGENT_ID"
+fi
 
 if [ -n "$FAKE_RESUME" ]; then
 	printf 'assistant\tresumed\n' >>"$log"
@@ -118,8 +126,14 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		"FAKE_ROOT=" + harness.QuoteArg(h.root) +
 		" FAKE_SESSION=" + harness.QuoteArg(launch.SessionID)
 
+	// An adoption is a fork, so the fake carries the conversation it was pointed at into the
+	// session the panel minted, the way a CLI that forks does.
+	if launch.ResumeFrom != "" {
+		command += " FAKE_FORK_FROM=" + harness.QuoteArg(filepath.Join(h.root, "logs", launch.ResumeFrom+".jsonl"))
+	}
+
 	switch {
-	case launch.Resume:
+	case launch.Resume && launch.ResumeFrom == "":
 		command += " FAKE_RESUME=1"
 	case launch.Prompt != "":
 		path, err := harness.WriteTempText(h.root, "fake-prompt-*.md", launch.Prompt)
@@ -128,6 +142,15 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		}
 
 		command += " FAKE_PROMPT_FILE=" + harness.QuoteArg(path)
+	}
+
+	if launch.Context != "" {
+		path, err := harness.WriteTempText(h.root, "fake-context-*.md", launch.Context)
+		if err != nil {
+			return "", err
+		}
+
+		command += " FAKE_CONTEXT_FILE=" + harness.QuoteArg(path)
 	}
 
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
@@ -181,6 +204,69 @@ func (h *Harness) GetLogPath(sessionID string) string {
 // said.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 	return harness.ReadAppendOnlyLog(path, offset, flatten)
+}
+
+// ForksOnResume reports that this harness can carry a conversation into an id the panel minted,
+// which is what an adoption of a fake agent exercises.
+func (h *Harness) ForksOnResume() bool { return true }
+
+// DescribeSession answers from what Seed recorded, since a fake conversation has no log format
+// of its own to read a working directory out of.
+func (h *Harness) DescribeSession(sessionID string) (harness.Session, error) {
+	if h.GetLogPath(sessionID) == "" {
+		return harness.Session{}, fmt.Errorf("%w for session %q", harness.ErrSessionNotFound, sessionID)
+	}
+
+	raw, err := os.ReadFile(filepath.Join(h.root, "sessions", sessionID))
+	if os.IsNotExist(err) {
+		return harness.Session{}, fmt.Errorf("%w: session %q was never seeded", harness.ErrSessionNotFound, sessionID)
+	}
+	if err != nil {
+		return harness.Session{}, fmt.Errorf("failed to read the seeded session %q: %w", sessionID, err)
+	}
+
+	fields := strings.SplitN(strings.TrimRight(string(raw), "\n"), "\t", 2)
+	found := harness.Session{Dir: fields[0]}
+	if len(fields) == 2 {
+		found.Branch = fields[1]
+	}
+
+	return found, nil
+}
+
+// Seed writes a conversation nothing in the panel started, which is what there is to adopt.
+func (h *Harness) Seed(sessionID, dir, branch string, turns ...harness.Turn) error {
+	for _, sub := range []string{"logs", "sessions"} {
+		if err := os.MkdirAll(filepath.Join(h.root, sub), 0o755); err != nil {
+			return fmt.Errorf("failed to create the fake harness %s directory: %w", sub, err)
+		}
+	}
+
+	var body strings.Builder
+	for _, turn := range turns {
+		fmt.Fprintf(&body, "%s\t%s\n", turn.Role, turn.Content)
+	}
+
+	if err := os.WriteFile(filepath.Join(h.root, "logs", sessionID+".jsonl"), []byte(body.String()), 0o600); err != nil {
+		return fmt.Errorf("failed to write the seeded log for %q: %w", sessionID, err)
+	}
+
+	record := dir + "\t" + branch
+	if err := os.WriteFile(filepath.Join(h.root, "sessions", sessionID), []byte(record), 0o600); err != nil {
+		return fmt.Errorf("failed to record the seeded session %q: %w", sessionID, err)
+	}
+
+	return nil
+}
+
+// Context is the briefing an agent was launched with, which is empty when it was given none.
+func (h *Harness) Context(agentID string) string {
+	raw, err := os.ReadFile(filepath.Join(h.root, "context", agentID))
+	if err != nil {
+		return ""
+	}
+
+	return string(raw)
 }
 
 // SetActivity is what the test writes to move an agent, which shows in its pane within a tick.

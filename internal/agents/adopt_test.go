@@ -159,7 +159,7 @@ func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 
 			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: tt.branch, WorkflowID: workflow})
 
-			require.ErrorIs(t, err, ErrAdoptBranchInUse)
+			require.ErrorIs(t, err, ErrAdoptDirInUse, "the same refusal an adopted conversation gets, since it is the same problem")
 			assert.ErrorContains(t, err, "sitting", "the refusal names the agent already in the directory")
 		})
 	}

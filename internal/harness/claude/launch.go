@@ -34,6 +34,12 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	switch {
+	// An adoption forks rather than continues, so the conversation weave goes on to read is one
+	// it minted and the person's own log is never written to again.
+	case launch.ResumeFrom != "" && launch.SessionID != "":
+		command += " --resume " + harness.QuoteArg(launch.ResumeFrom)
+		command += " --fork-session --session-id " + harness.QuoteArg(launch.SessionID)
+		command += h.appendedContext(launch)
 	case launch.Resume && launch.SessionID != "":
 		command += " --resume " + harness.QuoteArg(launch.SessionID)
 	default:
@@ -41,11 +47,7 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 			command += " --session-id " + harness.QuoteArg(launch.SessionID)
 		}
 
-		if launch.Context != "" {
-			if path, err := harness.WriteTempText(launch.CacheDir, "claude-context-*.md", launch.Context); err == nil {
-				command += fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", path, path)
-			}
-		}
+		command += h.appendedContext(launch)
 	}
 
 	if launch.Prompt != "" {
@@ -58,6 +60,21 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	return command, nil
+}
+
+// appendedContext renders the briefing as a flag, which Claude honours on a resume as well as a
+// fresh launch, and renders nothing when there is no briefing or nowhere to write it.
+func (h *Harness) appendedContext(launch harness.Launch) string {
+	if launch.Context == "" {
+		return ""
+	}
+
+	path, err := harness.WriteTempText(launch.CacheDir, "claude-context-*.md", launch.Context)
+	if err != nil {
+		return ""
+	}
+
+	return fmt.Sprintf(" --append-system-prompt \"$(cat '%s'; rm '%s')\"", path, path)
 }
 
 func (h *Harness) writeSettings(hookCommand string) (string, error) {

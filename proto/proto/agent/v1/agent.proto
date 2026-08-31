@@ -133,6 +133,41 @@ message AdoptResponse {
   Agent agent = 1;
 }
 
+message AdoptAgentRequest {
+  string session_id = 1 [(buf.validate.field).string = {
+    min_len: 8
+    max_len: 200
+    pattern: "^[A-Za-z0-9_-]+$"
+  }];
+  string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
+  string prompt = 3 [(buf.validate.field).string.max_len = 50000];
+  string title = 4 [
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "adopt_agent.title.printable"
+      message: "title must not contain control characters"
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
+  string flags = 5 [(buf.validate.field).string = {
+    max_len: 500
+    [rules.v1.shell_safe]: true
+  }];
+  string harness = 6 [(buf.validate.field).string = {
+    max_len: 40
+    pattern: "^[a-z0-9-]*$"
+  }];
+  optional string idempotency_key = 7 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+  string setup_pane = 8 [(buf.validate.field).string.max_len = 20];
+}
+
+message AdoptAgentResponse {
+  Agent agent = 1;
+}
+
 message GetAgentRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
@@ -284,6 +319,13 @@ service AgentService {
     option (annotation.v1.tool) = {
       tool_name: "adopt"
       description: "Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded."
+      destructive: false
+    };
+  }
+  rpc AdoptAgent(AdoptAgentRequest) returns (AdoptAgentResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "adopt_agent"
+      description: "Take over a CLI conversation that already exists, naming the session id of a Claude or Codex conversation somebody started outside the panel. The harness is worked out from where the conversation's log lives, and the agent runs in the directory that conversation was held in. Claude conversations are forked rather than continued: the panel mints a session of its own carrying the whole history, so the person's own conversation is left exactly as it stands. Codex has no fork, so adopting one appends to the person's own rollout, which is a takeover rather than a copy. Adopting the same conversation twice returns the agent already on it. Each call otherwise spawns another agent, so do not retry a call that may have succeeded."
       destructive: false
     };
   }
