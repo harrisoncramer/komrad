@@ -192,6 +192,17 @@ func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
 }
 
+// hoveredAgentKey is the row the cursor is on, read before a filter narrows the list under it.
+func (m model) hoveredAgentKey() string {
+	return rowKeyAt(m.agentRows(), m.tree.cursor)
+}
+
+func (m *model) placeAgentCursor(hovered string) {
+	rows := m.agentRows()
+	m.tree.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.tree.cursor, len(rows))
+	m.stageSelection()
+}
+
 func (m *model) placeTreeCursor(selected string) {
 	focus := m.tree.focus
 	m.tree.focus = ""

@@ -25,25 +25,16 @@ type details struct {
 }
 
 func (m model) hoveredDetails() details {
-	switch m.screen {
-	case screenAgents:
-		return m.agentsDetails()
-	case screenSchedules:
-		return m.schedulesDetails()
-	case screenArchive:
-		return m.archiveDetails()
-	default:
+	spec := m.screen.spec().details
+	if spec == nil {
 		return details{}
 	}
+
+	return spec.hovered(m)
 }
 
 func (m model) detailsScreen() bool {
-	switch m.screen {
-	case screenAgents, screenSchedules, screenArchive:
-		return true
-	default:
-		return false
-	}
+	return m.screen.spec().details != nil
 }
 
 func (m model) detailsCursor(held details) int {
@@ -121,14 +112,12 @@ func (m model) setDetailsCursor(held details, idx int) model {
 }
 
 func (m model) quitKeys() []string {
-	switch m.screen {
-	case screenSchedules:
-		return m.keys.Schedules.Quit
-	case screenArchive:
-		return m.keys.Archive.Quit
-	default:
+	spec := m.screen.spec().details
+	if spec == nil {
 		return m.keys.Agents.Quit
 	}
+
+	return spec.quit(m.keys)
 }
 
 func (m model) copyDetailsField(held details, idx int) (tea.Model, tea.Cmd) {

@@ -121,7 +121,7 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 }
 
 func (m *model) enterScreen(next screen) {
-	if m.screen != next && !m.screen.isForm() {
+	if m.screen != next {
 		m.filter = filterState{}
 	}
 
@@ -166,42 +166,17 @@ func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) hoveredFilterKey() string {
-	switch m.screen {
-	case screenAgents:
-		return rowKeyAt(m.agentRows(), m.tree.cursor)
-	case screenArchive:
-		return rowKeyAt(m.archiveRows(), m.archive.cursor)
-	case screenSchedules:
-		if item, ok := m.selectedSchedule(); ok {
-			return item.schedule.ID
-		}
-	default:
+	spec := m.screen.spec().filter
+	if spec == nil {
+		return ""
 	}
 
-	return ""
+	return spec.hovered(m)
 }
 
 func (m *model) placeFilteredCursor(hovered string) {
-	switch m.screen {
-	case screenAgents:
-		rows := m.agentRows()
-		m.tree.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.tree.cursor, len(rows))
-		m.stageSelection()
-	case screenArchive:
-		rows := m.archiveRows()
-		m.archive.cursor = placeCursor(rowIndexOfKey(rows, hovered), m.archive.cursor, len(rows))
-		m.stageArchive()
-	case screenSchedules:
-		rows := m.scheduleRows()
-		found := -1
-		for i, item := range rows {
-			if item.schedule.ID == hovered {
-				found = i
-			}
-		}
-		m.schedules.cursor = placeCursor(found, m.schedules.cursor, len(rows))
-		m.stageSchedule()
-	default:
+	if spec := m.screen.spec().filter; spec != nil {
+		spec.place(m, hovered)
 	}
 }
 

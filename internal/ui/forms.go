@@ -17,6 +17,48 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// formState is the form drawn over whichever screen is up, held by value so that copying the
+// model copies nothing but huh's own pointer, which huh writes through either way.
+type formState struct {
+	kind formKind
+
+	form *huh.Form
+
+	// update is the form's own message handler, which is what saves the panel from asking
+	// which form is up before it can hand it a message.
+	update func(model, tea.Msg) (tea.Model, tea.Cmd)
+}
+
+// formKind names the form on screen, for the legend and for what closing it means.
+type formKind int
+
+const (
+	formNone formKind = iota
+	formAgent
+	formAdopt
+	formRename
+	formAgentArchive
+	formWorkflow
+	formWorkflowArchive
+	formSchedule
+	formScheduleArchive
+	formArchiveDelete
+	formArchiveEmpty
+)
+
+// active reports whether a form is up and holding the keys.
+func (f formState) active() bool {
+	return f.form != nil
+}
+
+// openForm puts a form on screen over the screen the panel is already on, which is where
+// closing it lands.
+func (m *model) openForm(kind formKind, form *huh.Form, update func(model, tea.Msg) (tea.Model, tea.Cmd)) tea.Cmd {
+	m.form = formState{kind: kind, form: form, update: update}
+
+	return form.Init()
+}
+
 type formValues struct {
 	agent     *agentFormValues
 	adopt     *adoptFormValues
@@ -253,30 +295,32 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 func (m *model) holdForm() tea.Cmd {
 	m.pendingForm = true
 
-	if m.form != nil && m.form.State == huh.StateCompleted {
+	if m.form.active() && m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
 	}
 
 	return nil
 }
 
+// rebuildForm draws the form again from the values it already holds, since a form huh has
+// completed will not take another key and the write it was submitted for may yet be refused.
 func (m *model) rebuildForm() tea.Cmd {
 	switch {
-	case m.screen == screenForm && m.values.agent != nil:
-		m.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, m.getAvailableActions())
-	case m.screen == screenAdopt && m.values.adopt != nil:
-		m.form, m.values.adopt = adoptAgentForm(m.keys.Form, *m.values.adopt)
-	case m.screen == screenRename && m.values.rename != nil:
-		m.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
-	case m.screen == screenWorkflowForm && m.values.workflow != nil:
-		m.form, m.values.workflow, _ = m.workflowFormFor(*m.values.workflow)
-	case m.screen == screenScheduleForm && m.values.schedule != nil:
-		m.form, m.values.schedule = scheduleForm(*m.values.schedule, m.listing.workflows, m.keys.Form)
+	case m.form.kind == formAgent && m.values.agent != nil:
+		m.form.form, m.values.agent = newAgentForm(m.keys.Form, *m.values.agent, m.getAvailableActions())
+	case m.form.kind == formAdopt && m.values.adopt != nil:
+		m.form.form, m.values.adopt = adoptAgentForm(m.keys.Form, *m.values.adopt)
+	case m.form.kind == formRename && m.values.rename != nil:
+		m.form.form, m.values.rename = renameForm(m.target.renameAgent.Name, *m.values.rename, m.keys.Form)
+	case m.form.kind == formWorkflow && m.values.workflow != nil:
+		m.form.form, m.values.workflow, _ = m.workflowFormFor(*m.values.workflow)
+	case m.form.kind == formSchedule && m.values.schedule != nil:
+		m.form.form, m.values.schedule = scheduleForm(*m.values.schedule, m.listing.workflows, m.keys.Form)
 	default:
 		return nil
 	}
 
-	return m.form.Init()
+	return m.form.form.Init()
 }
 
 func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
@@ -284,12 +328,12 @@ func (m model) updateSubmitForm(msg tea.Msg, submit func(model) (tea.Model, tea.
 		return submit(m)
 	}
 
-	form, cmd := m.form.Update(msg)
+	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
+		m.form.form = updated
 	}
 
-	switch m.form.State {
+	switch m.form.form.State {
 	case huh.StateCompleted:
 		return submit(m)
 	case huh.StateAborted:
@@ -306,44 +350,42 @@ type confirmFormActions struct {
 }
 
 func (m model) updateConfirmForm(msg tea.Msg, actions confirmFormActions) (tea.Model, tea.Cmd) {
-	form, cmd := m.form.Update(msg)
+	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
+		m.form.form = updated
 	}
 
-	switch m.form.State {
+	// The prompt is answered either way, so it comes down before what it asked for runs.
+	switch m.form.form.State {
 	case huh.StateCompleted:
+		m.form = formState{}
+
 		written, writeCmd := actions.write(m)
 		next, refresh := actions.returnTo(actions.clear(written))
 
 		return next, tea.Batch(writeCmd, refresh)
 	case huh.StateAborted:
+		m.form = formState{}
+
 		return actions.returnTo(actions.clear(m))
 	default:
 		return m, cmd
 	}
 }
 
+// closeForm drops the form and comes back to the screen it was drawn over.
 func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.pendingForm = false
+	m.form = formState{}
 	m.values = formValues{}
 	m.target = formTarget{}
 
-	if m.screen == screenScheduleForm {
-		return m.enterSchedules()
+	reenter := m.screen.spec().reenter
+	if reenter == nil {
+		return m, nil
 	}
 
-	return m.returnToAgents()
-}
-
-func (s screen) isForm() bool {
-	switch s {
-	case screenForm, screenAdopt, screenRename, screenAgentArchive, screenWorkflowForm, screenWorkflowArchive,
-		screenScheduleForm, screenScheduleArchive, screenArchiveDelete, screenArchiveEmpty:
-		return true
-	default:
-		return false
-	}
+	return reenter(m)
 }
 
 func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *bool) {

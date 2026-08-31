@@ -79,6 +79,30 @@ func (m model) selectedSchedule() (scheduleItem, bool) {
 	return rowAt(m.scheduleRows(), m.schedules.cursor)
 }
 
+// hoveredScheduleKey is the row the cursor is on, read before a filter narrows the list under it.
+func (m model) hoveredScheduleKey() string {
+	item, ok := m.selectedSchedule()
+	if !ok {
+		return ""
+	}
+
+	return item.schedule.ID
+}
+
+func (m *model) placeScheduleCursor(hovered string) {
+	rows := m.scheduleRows()
+
+	found := -1
+	for i, item := range rows {
+		if item.schedule.ID == hovered {
+			found = i
+		}
+	}
+
+	m.schedules.cursor = placeCursor(found, m.schedules.cursor, len(rows))
+	m.stageSchedule()
+}
+
 func (m model) schedulesDetails() details {
 	item, ok := m.selectedSchedule()
 	if !ok {
@@ -138,13 +162,14 @@ func (m model) newScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	m.target.editSchedule = nil
-	m.form, m.values.schedule = scheduleForm(schedulestore.Config{
+
+	form, values := scheduleForm(schedulestore.Config{
 		Enabled:    true,
 		WorkflowID: m.listing.workflows[0].ID,
 	}, m.listing.workflows, m.keys.Form)
-	m.screen = screenScheduleForm
+	m.values.schedule = values
 
-	return m, m.form.Init()
+	return m, m.openForm(formSchedule, form, model.updateScheduleForm)
 }
 
 func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
@@ -159,7 +184,8 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 	}
 
 	m.target.editSchedule = &target
-	m.form, m.values.schedule = scheduleForm(schedulestore.Config{
+
+	form, values := scheduleForm(schedulestore.Config{
 		Name:       target.Name,
 		Cron:       target.Cron,
 		Timezone:   target.Timezone,
@@ -168,9 +194,9 @@ func (m model) editScheduleForm() (tea.Model, tea.Cmd) {
 		Prompt:     target.Prompt,
 		WorkflowID: target.WorkflowID,
 	}, m.listing.workflows, m.keys.Form)
-	m.screen = screenScheduleForm
+	m.values.schedule = values
 
-	return m, m.form.Init()
+	return m, m.openForm(formSchedule, form, model.updateScheduleForm)
 }
 
 func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
@@ -181,10 +207,11 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 
 	target := item.schedule
 	m.target.archiveSchedule = &target
-	m.form, m.values.confirmed = archiveScheduleForm(target.Name, m.keys.Form)
-	m.screen = screenScheduleArchive
 
-	return m, m.form.Init()
+	form, values := archiveScheduleForm(target.Name, m.keys.Form)
+	m.values.confirmed = values
+
+	return m, m.openForm(formScheduleArchive, form, model.updateScheduleArchive)
 }
 
 func (m model) updateScheduleForm(msg tea.Msg) (tea.Model, tea.Cmd) {

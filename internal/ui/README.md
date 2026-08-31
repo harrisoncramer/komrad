@@ -19,6 +19,11 @@ is recorded and then falls through, since an open form lays itself out from the 
 view.go writes strings out. It draws the takeover screens first, then any chrome, then the
 active screen.
 
+screens.go is what the three of them dispatch through. A screen is one entry in one switch
+there, saying what takes its keys, what draws it, what it puts on the stage, and whether it
+draws a details pane or a filter under it. Adding a screen is that entry: the switch carries
+no default, so the exhaustive check refuses a screen that answers for nothing.
+
 Everything else in the package is one of those three for one screen.
 
 ## What the panel holds
@@ -37,9 +42,10 @@ Shared concerns are the things that sit across screens on purpose. The filter na
 whichever list is on screen, and there is one of it rather than one per screen, because only
 the list being looked at can be narrowed. The details under that list are shared for the same
 reason: one cursor and one focus, whichever list is above them, with each screen saying only
-what its own hovered row holds. The form owns the keys while it is up. The info region is
-what is open in the pane below, which stays put as the user moves between lists above it. The
-frame is the panel's own tmux layout.
+what its own hovered row holds. The form owns the keys while it is up, and is drawn over
+whichever screen opened it rather than being a screen of its own, so closing it lands back
+there. The info region is what is open in the pane below, which stays put as the user moves
+between lists above it. The frame is the panel's own tmux layout.
 
 Panel chrome is the rest: the banner over a refused write, the errors that replace the panel,
 the keybindings, the dimensions of its own pane.
@@ -81,9 +87,9 @@ its own window is nobody else's business.
 
 ## The files
 
-Screens, each holding its own rows, keys, and view: agents.go, with tree.go for the rows and
-the cursor, workflows.go for the keys that act on a folder header, and selection.go for the
-multi-select. Then archive.go, schedules.go, and search.go.
+Screens, listed in screens.go and each holding its own rows, keys, and view: agents.go, with
+tree.go for the rows and the cursor, workflows.go for the keys that act on a folder header,
+and selection.go for the multi-select. Then archive.go, schedules.go, and search.go.
 
 Shared concerns: api.go, details.go, filter.go, forms.go, help.go, info.go, logs.go,
 refresh.go, keys.go, clipboard.go, report.go, convert.go.

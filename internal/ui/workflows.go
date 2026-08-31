@@ -54,19 +54,21 @@ func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 func (m model) newWorkflowForm() (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = nil
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValues{})
-	m.screen = screenWorkflowForm
 
-	return m, m.form.Init()
+	form, values, _ := m.workflowFormFor(workflowFormValues{})
+	m.values.workflow = values
+
+	return m, m.openForm(formWorkflow, form, model.updateWorkflowForm)
 }
 
 func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.renameWorkflow = &workflow
 	m.target.editWorkflow = nil
-	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValues{})
-	m.screen = screenWorkflowForm
 
-	return m, m.form.Init()
+	form, values, _ := m.workflowFormFor(workflowFormValues{})
+	m.values.workflow = values
+
+	return m, m.openForm(formWorkflow, form, model.updateWorkflowForm)
 }
 
 func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -75,10 +77,11 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 	}
 	m.target.editWorkflow = &workflow
 	m.target.renameWorkflow = nil
-	m.form, m.values.workflow, _ = m.workflowFormFor(workflowFormValuesFrom(workflow.Config()))
-	m.screen = screenWorkflowForm
 
-	return m, m.form.Init()
+	form, values, _ := m.workflowFormFor(workflowFormValuesFrom(workflow.Config()))
+	m.values.workflow = values
+
+	return m, m.openForm(formWorkflow, form, model.updateWorkflowForm)
 }
 
 func (m model) workflowFormFor(values workflowFormValues) (*huh.Form, *workflowFormValues, int) {
@@ -106,7 +109,7 @@ func (m model) rebuildWorkflowForm() (model, tea.Cmd) {
 		cmds = append(cmds, form.NextField())
 	}
 
-	m.form = form
+	m.form.form = form
 	m.values.workflow = values
 
 	return m, tea.Batch(cmds...)
@@ -132,10 +135,11 @@ func (m model) getAvailableActions() []actionChoice {
 
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	m.target.archiveWorkflow = &workflow
-	m.form, m.values.confirmed = archiveWorkflowForm(workflow.Name, m.keys.Form)
-	m.screen = screenWorkflowArchive
 
-	return m, m.form.Init()
+	form, values := archiveWorkflowForm(workflow.Name, m.keys.Form)
+	m.values.confirmed = values
+
+	return m, m.openForm(formWorkflowArchive, form, model.updateWorkflowArchive)
 }
 
 func (m model) updateWorkflowArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -173,12 +177,12 @@ func (m model) updateWorkflowForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 	wasSetupType := m.values.workflow.SetupType
 
-	form, cmd := m.form.Update(msg)
+	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
-		m.form = updated
+		m.form.form = updated
 	}
 
-	switch m.form.State {
+	switch m.form.form.State {
 	case huh.StateCompleted:
 		return m.submitWorkflowForm()
 	case huh.StateAborted:

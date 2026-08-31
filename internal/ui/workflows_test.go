@@ -361,7 +361,7 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 	require.NotNil(t, editing.values.workflow)
 	assert.True(t, editing.values.workflow.ArchiveOnPRClosed, "the form opens on what is stored")
 
-	editing.form.Init()
+	editing.form.form.Init()
 	editing.values.workflow.Cwd = "/work/api-v2"
 
 	updated, cmd := editing.submitWorkflowForm()
@@ -389,7 +389,7 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	opened, _ := m.renameWorkflowForm(m.listing.workflows[0])
 	renaming, ok := opened.(model)
 	require.True(t, ok)
-	renaming.form.Init()
+	renaming.form.form.Init()
 	renaming.values.workflow.Name = "backend"
 
 	updated, cmd := renaming.submitWorkflowForm()

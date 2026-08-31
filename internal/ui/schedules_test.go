@@ -37,6 +37,7 @@ func TestScheduleKeys(t *testing.T) {
 		noWorkflows  bool
 		key          string
 		wantScreen   screen
+		wantForm     formKind
 		wantWrites   int
 		wantReported bool
 	}{
@@ -48,17 +49,20 @@ func TestScheduleKeys(t *testing.T) {
 		{
 			name:       "new opens the form",
 			key:        "n",
-			wantScreen: screenScheduleForm,
+			wantScreen: screenSchedules,
+			wantForm:   formSchedule,
 		},
 		{
 			name:       "edit opens the form on the hovered schedule",
 			key:        "enter",
-			wantScreen: screenScheduleForm,
+			wantScreen: screenSchedules,
+			wantForm:   formSchedule,
 		},
 		{
 			name:       "archive opens the confirm prompt",
 			key:        "z",
-			wantScreen: screenScheduleArchive,
+			wantScreen: screenSchedules,
+			wantForm:   formScheduleArchive,
 		},
 		{
 			name:       "toggle writes straight through, with no form in between",
@@ -111,6 +115,7 @@ func TestScheduleKeys(t *testing.T) {
 			got := settle(t, pressed, cmd)
 
 			assert.Equal(t, tt.wantScreen, got.screen)
+			assert.Equal(t, tt.wantForm, got.form.kind, "the form that opened, if any")
 			assert.Equal(t, tt.wantWrites, client.writes)
 			assert.Equal(t, tt.wantReported, got.banner != nil, "whether the panel had something to say")
 		})
@@ -392,7 +397,9 @@ func TestScheduleWriteFailure(t *testing.T) {
 			act: func(t *testing.T, m model) model {
 				t.Helper()
 				m.target.editSchedule = nil
-				m.form, m.values.schedule = scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, config.DefaultKeybindings().Form)
+				form, values := scheduleForm(schedulestore.Config{Name: "x", Cron: "0 9 * * *"}, nil, config.DefaultKeybindings().Form)
+				m.values.schedule = values
+				m.openForm(formSchedule, form, model.updateScheduleForm)
 				updated, cmd := m.submitScheduleForm()
 				submitted, ok := updated.(model)
 				require.True(t, ok)

@@ -103,10 +103,11 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.enterReview(item.agent)
 		case isBound(k, m.keys.Agents.Rename):
 			m.target.renameAgent = item.agent
-			m.form, m.values.rename = renameForm(item.agent.Name, "", m.keys.Form)
-			m.screen = screenRename
 
-			return m, m.form.Init()
+			form, values := renameForm(item.agent.Name, "", m.keys.Form)
+			m.values.rename = values
+
+			return m, m.openForm(formRename, form, model.updateRename)
 		case isBound(k, m.keys.Agents.Archive):
 			return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
 		}
@@ -151,10 +152,11 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 	}
 
 	m.target.archiveAgents = agents
-	m.form, m.values.archive = archiveAgentsForm(agents, m.keys.Form)
-	m.screen = screenAgentArchive
 
-	return m, m.form.Init()
+	form, values := archiveAgentsForm(agents, m.keys.Form)
+	m.values.archive = values
+
+	return m, m.openForm(formAgentArchive, form, model.updateAgentArchive)
 }
 
 func (m model) updateAgentArchive(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -507,10 +509,10 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 		SetupAction:   inheritAction,
 		CleanupAction: inheritAction,
 	}
-	m.form, m.values.agent = newAgentForm(m.keys.Form, prefill, m.getAvailableActions())
-	m.screen = screenForm
+	form, values := newAgentForm(m.keys.Form, prefill, m.getAvailableActions())
+	m.values.agent = values
 
-	return m, m.form.Init()
+	return m, m.openForm(formAgent, form, model.updateForm)
 }
 
 func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -522,10 +524,10 @@ func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) 
 
 	m.target.newAgentWorkflow = workflow
 	prefill := adoptFormValues{Harness: workflow.Harness, Flags: workflow.Flags}
-	m.form, m.values.adopt = adoptAgentForm(m.keys.Form, prefill)
-	m.screen = screenAdopt
+	form, values := adoptAgentForm(m.keys.Form, prefill)
+	m.values.adopt = values
 
-	return m, m.form.Init()
+	return m, m.openForm(formAdopt, form, model.updateAdopt)
 }
 
 func (m model) updateAdopt(msg tea.Msg) (tea.Model, tea.Cmd) {
