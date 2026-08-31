@@ -10,6 +10,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/logging"
+	"weave/internal/rpcerr"
 	"weave/internal/store"
 	"weave/lib/pagination"
 	"weave/lib/xslice"
@@ -126,20 +127,10 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 		SetupPane:      req.Msg.GetSetupPane(),
 	})
-	switch {
 	// Create-once is what the key is for, so a key already spent answers with the agent it
 	// launched rather than an error.
-	case errors.Is(err, agents.ErrAlreadyLaunched):
-	case errors.Is(err, agents.ErrWorkflowNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrSetupFailed):
-		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrBadDirectory), errors.Is(err, agents.ErrHarnessUnknown), errors.Is(err, agents.ErrSpawnerUnknown):
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, agents.ErrTooManyAgents):
-		return nil, connect.NewError(connect.CodeResourceExhausted, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to create agent: %w", err))
+	if err != nil && !errors.Is(err, agents.ErrAlreadyLaunched) {
+		return nil, rpcerr.Wrap(err, "failed to create agent")
 	}
 
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
@@ -158,19 +149,12 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 		SetupPane:      req.Msg.GetSetupPane(),
 	})
 	switch {
-	case errors.Is(err, agents.ErrWorkflowNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrSetupFailed):
+	// A workflow with no cwd is one that cannot host an adoption at all, rather than an
+	// argument the caller got wrong, since the caller never names it.
+	case errors.Is(err, agents.ErrWorktreeNeedsCwd):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrAdoptNeedsWorktree), errors.Is(err, agents.ErrAdoptBranchInUse), errors.Is(err, agents.ErrWorktreeNeedsCwd):
-		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrAdoptRepoMismatch), errors.Is(err, agents.ErrAdoptForkBranch), errors.Is(err, agents.ErrAdoptNoResolver),
-		errors.Is(err, agents.ErrBadDirectory), errors.Is(err, agents.ErrHarnessUnknown), errors.Is(err, agents.ErrSpawnerUnknown):
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, agents.ErrTooManyAgents):
-		return nil, connect.NewError(connect.CodeResourceExhausted, err)
 	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to adopt agent: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to adopt agent")
 	}
 
 	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.launcher.IsAgentRunning(*created), false).Agent}), nil
@@ -185,14 +169,14 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 
 	agents, err := s.agents.ListPage(ctx, paginator.Limit(), paginator.Cursor(), req.Msg.GetArchived())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list agents: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to list agents")
 	}
 
 	running := s.launcher.GetRunningAgents(ctx, agents)
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
 	}
 	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
 
@@ -204,7 +188,7 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to build the next page token")
 	}
 
 	response := &agentv1.ListAgentsResponse{NextPageToken: next}
@@ -216,16 +200,14 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 // GetAgent returns one agent by id, archived or not.
 func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.GetAgentRequest]) (*connect.Response[agentv1.GetAgentResponse], error) {
 	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
-	}
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to get agent",
+			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
 	}
 	hasUnread := slices.Contains(unreadMailboxes, agent.ID)
 
@@ -236,7 +218,7 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
 	tagged, err := s.agents.SetTags(ctx, req.Msg.GetIds(), req.Msg.Tag)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the tag: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to set the tag")
 	}
 	// Reaching only some of the ids is fine, since an agent archived in the meantime has no
 	// row left to draw a tag on.
@@ -251,7 +233,7 @@ func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetT
 func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {
 	changed, err := s.agents.SetHidden(ctx, req.Msg.GetId(), req.Msg.GetHidden())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to hide the agent: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to hide the agent")
 	}
 	if !changed {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
@@ -268,11 +250,9 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 		Key:   req.Msg.GetKey(),
 		Value: req.Msg.Value,
 	})
-	switch {
-	case errors.Is(err, agentstore.ErrTooManyMetadataKeys):
-		return nil, connect.NewError(connect.CodeResourceExhausted, fmt.Errorf("agent %q already holds as much metadata as it may", req.Msg.GetId()))
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to set the metadata: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to set the metadata",
+			rpcerr.Saying(agentstore.ErrTooManyMetadataKeys, "agent %q already holds as much metadata as it may", req.Msg.GetId()))
 	}
 	// Clearing a key nothing held is not an error, since the agent asked for it to be gone.
 	if !changed && req.Msg.Value != nil {
@@ -291,11 +271,9 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	}
 
 	agent, err := s.agents.GetByID(ctx, id)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", id))
-	}
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get agent: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to get agent",
+			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", id))
 	}
 
 	attrs := []slog.Attr{
@@ -338,17 +316,8 @@ func (s *Service) SendMail(ctx context.Context, req *connect.Request[agentv1.Sen
 		Body:      req.Msg.GetBody(),
 		ReplyTo:   req.Msg.ReplyTo,
 	})
-	switch {
-	case errors.Is(err, agents.ErrRecipientNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrAgentArchived):
-		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case errors.Is(err, agents.ErrSelfAddressed), errors.Is(err, agents.ErrSenderUnknown), errors.Is(err, agents.ErrReplyToNotFound):
-		return nil, connect.NewError(connect.CodeInvalidArgument, err)
-	case errors.Is(err, agents.ErrMailboxFull), errors.Is(err, agents.ErrThreadCapped):
-		return nil, connect.NewError(connect.CodeResourceExhausted, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to send the mail: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to send the mail")
 	}
 
 	return connect.NewResponse(&agentv1.SendMailResponse{Mail: renderMail(*sent)}), nil
@@ -363,11 +332,8 @@ func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.Rea
 	logCrossAgentRead(ctx, id, "agent read another agent's mail")
 
 	claimed, err := s.mail.ClaimMail(ctx, id)
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to read the mail: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to read the mail")
 	}
 
 	return connect.NewResponse(&agentv1.ReadMailResponse{
@@ -389,18 +355,15 @@ func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.Lis
 	}
 
 	listed, err := s.mail.ListMail(ctx, id, int32(paginator.Limit()), paginator.Cursor())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mail: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the mail")
 	}
 
 	resources := xslice.Map(listed, renderMailPage)
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to build the next page token")
 	}
 
 	response := &agentv1.ListMailResponse{NextPageToken: next}
@@ -412,12 +375,8 @@ func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.Lis
 // DeleteMail permanently removes mail by id, so the recipient never sees it rather than
 // having it marked as read.
 func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.mail.DeleteMail(ctx, req.Msg.GetIds())
-	switch {
-	case errors.Is(err, agents.ErrMailNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete mail: %w", err))
+	if err := s.mail.DeleteMail(ctx, req.Msg.GetIds()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to delete mail")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -425,12 +384,8 @@ func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.D
 
 // DeleteAgents stops agents and removes them with their configs and transcripts.
 func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.DeleteAgents(ctx, req.Msg.GetIds())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to delete agents: %w", err))
+	if err := s.launcher.DeleteAgents(ctx, req.Msg.GetIds()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to delete agents")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -440,7 +395,7 @@ func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1
 // every agent in it runs its own cleanup action and the request would be held open too long.
 func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.archive.EmptyArchive(ctx); err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to empty the archive: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to empty the archive")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -448,12 +403,8 @@ func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.E
 
 // ArchiveAgents stops agents and hides them, keeping the records and transcripts.
 func (s *Service) ArchiveAgents(ctx context.Context, req *connect.Request[agentv1.ArchiveAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.launcher.ArchiveAgents(ctx, req.Msg.GetIds())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to archive agents: %w", err))
+	if err := s.launcher.ArchiveAgents(ctx, req.Msg.GetIds()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to archive agents")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -462,22 +413,15 @@ func (s *Service) ArchiveAgents(ctx context.Context, req *connect.Request[agentv
 // RestoreAgents takes agents out of the archive and returns them as stored, dormant.
 func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv1.RestoreAgentsRequest]) (*connect.Response[agentv1.RestoreAgentsResponse], error) {
 	restored, err := s.launcher.RestoreAgents(ctx, req.Msg.GetIds())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrTooManyAgents):
-		return nil, connect.NewError(connect.CodeResourceExhausted, err)
-	case errors.Is(err, store.ErrNameTaken):
-		return nil, connect.NewError(connect.CodeAlreadyExists, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to restore agents: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to restore agents")
 	}
 
 	running := s.launcher.GetRunningAgents(ctx, restored)
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
 	}
 	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
 
@@ -495,18 +439,14 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
 func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
 	resumed, err := s.launcher.ResumeAgent(ctx, req.Msg.GetId())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
-	case errors.Is(err, agents.ErrAgentArchived):
-		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to resume agent: %w", err))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to resume agent",
+			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
 	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to list the mailboxes holding unread mail: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
 	}
 	hasUnread := slices.Contains(unreadMailboxes, resumed.ID)
 
@@ -517,12 +457,11 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 // a conflict rather than leaking the database's own refusal.
 func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
 	renamed, err := s.agents.Rename(ctx, req.Msg.GetId(), req.Msg.GetName())
-	switch {
-	case errors.Is(err, store.ErrNameTaken):
-		return nil, connect.NewError(connect.CodeAlreadyExists, fmt.Errorf("an agent named %q already exists", req.Msg.GetName()))
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to update agent: %w", err))
-	case !renamed:
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to update agent",
+			rpcerr.Saying(store.ErrNameTaken, "an agent named %q already exists", req.Msg.GetName()))
+	}
+	if !renamed {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
 
@@ -551,14 +490,14 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 		AgentID: scope,
 	})
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to search transcripts: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to search transcripts")
 	}
 
 	resources := xslice.Map(hits, renderSearchHit)
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to build the next page token: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to build the next page token")
 	}
 
 	response := &agentv1.SearchTranscriptsResponse{NextPageToken: next}
@@ -576,7 +515,7 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 	// not_found instead.
 	exists, err := s.agents.Exists(ctx, req.Msg.GetAgentId())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to look up agent: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to look up agent")
 	}
 	if !exists {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetAgentId()))
@@ -584,7 +523,7 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 
 	tr, err := s.transcripts.Get(ctx, req.Msg.GetAgentId())
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to get transcript: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to get transcript")
 	}
 
 	return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: tr.Content}), nil

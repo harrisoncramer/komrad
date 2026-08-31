@@ -2,10 +2,10 @@ package action
 
 import (
 	"context"
-	"errors"
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/rpcerr"
 	actionv1 "weave/proto/gen/action/v1"
 
 	"connectrpc.com/connect"
@@ -32,7 +32,7 @@ func NewService(manager actionRunner) *Service {
 func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
 	listed, err := s.actions.ListActions()
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, err)
+		return nil, rpcerr.Wrap(err, "failed to list actions")
 	}
 
 	resources := make([]*actionv1.Action, 0, len(listed))
@@ -52,15 +52,8 @@ func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empt
 // RunAction fires an action and answers as soon as the process exists, so the response is
 // empty and every failure it can report happened before the process started.
 func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
-	err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction())
-	switch {
-	case errors.Is(err, agents.ErrAgentNotFound), errors.Is(err, agents.ErrActionNotFound):
-		return nil, connect.NewError(connect.CodeNotFound, err)
-	case errors.Is(err, agents.ErrActionNotExecutable), errors.Is(err, agents.ErrActionNotStartable),
-		errors.Is(err, agents.ErrActionDirMissing), errors.Is(err, agents.ErrActionAlreadyRunning):
-		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
-	case err != nil:
-		return nil, connect.NewError(connect.CodeInternal, err)
+	if err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to run the action")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

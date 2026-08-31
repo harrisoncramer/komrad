@@ -2,9 +2,9 @@ package config
 
 import (
 	"context"
-	"fmt"
 
 	weaveconfig "weave/config"
+	"weave/internal/rpcerr"
 	"weave/internal/version"
 	configv1 "weave/proto/gen/config/v1"
 
@@ -37,7 +37,7 @@ func (s *Service) GetConfig(_ context.Context, _ *connect.Request[emptypb.Empty]
 
 	blob, err := renderConfig(cfg)
 	if err != nil {
-		return nil, connect.NewError(connect.CodeInternal, fmt.Errorf("failed to render the config: %w", err))
+		return nil, rpcerr.Wrap(err, "failed to render the config")
 	}
 
 	return connect.NewResponse(&configv1.GetConfigResponse{
