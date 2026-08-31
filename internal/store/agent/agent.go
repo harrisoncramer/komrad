@@ -400,7 +400,7 @@ func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error
 }
 
 // SetBranchByID records the branch checked out at an agent's cwd, or clears it when branch
-// is nil, and is written only by the branch syncer's periodic pass.
+// is nil, and is written only by the cwd syncer's periodic pass.
 func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) error {
 	if !store.IsID(id) {
 		return nil
@@ -414,7 +414,7 @@ func (s *Store) SetBranchByID(ctx context.Context, id string, branch *string) er
 }
 
 // SetWorktreeRemovedByID records whether an agent's cwd no longer exists on disk, written
-// only by the worktree syncer's periodic pass.
+// only by the cwd syncer's periodic pass.
 func (s *Store) SetWorktreeRemovedByID(ctx context.Context, id string, removed bool) error {
 	if !store.IsID(id) {
 		return nil
