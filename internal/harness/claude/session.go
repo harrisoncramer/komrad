@@ -14,9 +14,13 @@ import (
 // which is what lets an adoption leave the person's own conversation untouched.
 func (h *Harness) ForksOnResume() bool { return true }
 
-// DescribeSession reads where a conversation was held out of its own log, since the projects
-// folder it sits in maps every character a path cannot hold to a dash and does not decode.
+// DescribeSession reads where a conversation was held out of the lines of its own log.
 func (h *Harness) DescribeSession(sessionID string) (harness.Session, error) {
+	// Explainer: the folder a log sits in is named after the directory Claude ran in, with every
+	// character a folder name cannot hold replaced by a dash, so /repo/my-work, /repo/my.work and
+	// /repo/my_work all arrive as -repo-my-work. Reading a directory back out of that name would
+	// be guesswork, and the guess decides where an adopted agent runs, so the directory is taken
+	// from the lines of the log instead, which carry it verbatim.
 	path := h.GetLogPath(sessionID)
 	if path == "" {
 		return harness.Session{}, fmt.Errorf("%w for session %q", harness.ErrSessionNotFound, sessionID)
