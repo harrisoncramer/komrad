@@ -406,7 +406,7 @@ func (m model) hitHeader(hit searchHit) string {
 	name := clipName(hit.name)
 
 	if hit.archived {
-		row := "  " + noStateMark() + unviewedMark(false) + " " + name + dimStyle.Render(" (archived)")
+		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
 
 		agent, ok := m.archivedAgent(hit.agentID)
 		if !ok {
@@ -418,12 +418,12 @@ func (m model) hitHeader(hit searchHit) string {
 
 	item, ok := m.liveAgent(hit.agentID)
 	if !ok {
-		return "  " + noStateMark() + unviewedMark(false) + " " + name
+		return "  " + noStateMark() + " " + name
 	}
 
-	return "  " + stateMark(displayState(item)) + unviewedMark(item.unviewed) + " " + name +
+	return "  " + stateMark(displayState(item)) + " " + name +
 		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
-		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
+		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed)
 }
 
 // searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own

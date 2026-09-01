@@ -723,8 +723,7 @@ func TestSearchHeaderWithoutTheAgent(t *testing.T) {
 
 	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
 
-	assert.Equal(t, "  "+noStateIcon+unviewedMark(false)+" billing", header,
-		"the header keeps both the state column and the unread column a row sits behind")
+	assert.Equal(t, "  "+noStateIcon+" billing", header, "the header keeps the icon column a header sits behind")
 }
 
 func headerLine(t *testing.T, view, name string) string {

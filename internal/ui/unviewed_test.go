@@ -9,7 +9,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -254,7 +253,5 @@ func TestJumpUnviewedStaysPutWithNothingToReach(t *testing.T) {
 // read, and either is true without the other.
 func TestUnviewedMarkIsItsOwnColumn(t *testing.T) {
 	assert.Contains(t, unviewedMark(true), unviewedIcon)
-	assert.NotContains(t, unviewedMark(false), unviewedIcon)
-	assert.Equal(t, lipgloss.Width(unviewedMark(true)), lipgloss.Width(unviewedMark(false)),
-		"the mark holds its column either way, so the names below it stay in line")
+	assert.Empty(t, unviewedMark(false), "and takes no room on a row with nothing to read")
 }

@@ -76,15 +76,15 @@ func stateMark(state string) string {
 
 const unviewedIcon = "●"
 
-// unviewedMark sits beside the state icon rather than in it, since what an agent is doing and
-// whether it has said something nobody has read are two facts either of which can be true alone,
-// and it holds its column when there is nothing to say so the names stay in line.
+// unviewedMark is its own glyph rather than a colour on the state icon, since what an agent is
+// doing and whether it has said something nobody has read are two facts either of which can be
+// true alone.
 func unviewedMark(unviewed bool) string {
 	if !unviewed {
-		return " "
+		return ""
 	}
 
-	return lipgloss.NewStyle().Foreground(colorSuccess).Render(unviewedIcon)
+	return " " + lipgloss.NewStyle().Foreground(colorSuccess).Render(unviewedIcon)
 }
 
 // noStateIcon fills the column the state icon would take for an agent that has no live state to
