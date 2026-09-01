@@ -136,7 +136,7 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 		return nil
 	}
 
-	m.search.hits = groupByAgent(result.hits)
+	m.search.hits = groupSections(result.hits)
 	m.search.cursor = clampCursor(m.search.cursor, len(m.search.hits))
 	if len(m.search.hits) == 0 {
 		m.frame.Show(layout.RegionStage, newBlankContent())
@@ -186,6 +186,24 @@ func (m *model) applyPreview(result previewResult) {
 
 	m.search.preview = result
 	m.stageTranscript(result.content, lineAtOffset(result.content, result.offset))
+}
+
+// groupSections gathers each agent's hits within its own section, since an agent with a word
+// match and a near match has one of each, and grouping across the two would carry a near hit
+// up among the matches and leave the heading in the wrong place.
+func groupSections(hits []searchHit) []searchHit {
+	var matches, near []searchHit
+
+	for _, hit := range hits {
+		if hit.near {
+			near = append(near, hit)
+			continue
+		}
+
+		matches = append(matches, hit)
+	}
+
+	return append(groupByAgent(matches), groupByAgent(near)...)
 }
 
 // groupByAgent gathers each agent's hits under the first of them, since the ranking interleaves
@@ -408,43 +426,51 @@ func (m model) hitHeader(hit searchHit) string {
 		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
 }
 
+// searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own
+// line landed so the window can be placed on it.
+func (m model) searchRows() ([]string, int) {
+	rows := make([]string, 0, len(m.search.hits)*2)
+	cursor := 0
+
+	labelled, sectioned := "", false
+	for i, hit := range m.search.hits {
+		if hit.near && !sectioned {
+			rows = append(rows, "", dimStyle.Render("near matches"))
+			sectioned, labelled = true, ""
+		}
+		if hit.agentID != labelled {
+			rows = append(rows, m.hitHeader(hit))
+			labelled = hit.agentID
+		}
+
+		prefix := "    "
+		if i == m.search.cursor {
+			prefix = "  " + m.rowCursorStyle().Render("› ")
+			cursor = len(rows)
+		}
+
+		rows = append(rows, prefix+dimStyle.Render(renderSnippet(hit.snippet, m.width-snippetIndent)))
+	}
+
+	return rows, cursor
+}
+
 func (m model) searchView() string {
-	var b strings.Builder
-	b.WriteString(m.titleStyle().Render("Search") + "\n\n")
 	query := cursorStyle.Render("/") + " " + m.search.query
 	if m.search.typing {
 		query += cursorStyle.Render("▏")
 	}
-	b.WriteString(query + "\n\n")
+	header := m.titleStyle().Render("Search") + "\n\n" + query + "\n\n"
+	help := "\n" + m.renderHelp(m.searchHelp())
 
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
-		b.WriteString(dimStyle.Render("type to search transcripts") + "\n")
+		return header + dimStyle.Render("type to search transcripts") + "\n" + help
 	case len(m.search.hits) == 0:
-		b.WriteString(dimStyle.Render("no matches") + "\n")
-	default:
-
-		labelled, sectioned := "", false
-		for i, hit := range m.search.hits {
-			if hit.near && !sectioned {
-				b.WriteString("\n" + dimStyle.Render("near matches") + "\n")
-				sectioned, labelled = true, ""
-			}
-			if hit.agentID != labelled {
-				b.WriteString(m.hitHeader(hit) + "\n")
-				labelled = hit.agentID
-			}
-
-			prefix := "    "
-			if i == m.search.cursor {
-				prefix = "  " + m.rowCursorStyle().Render("› ")
-			}
-
-			b.WriteString(prefix + dimStyle.Render(renderSnippet(hit.snippet, m.width-snippetIndent)) + "\n")
-		}
+		return header + dimStyle.Render("no matches") + "\n" + help
 	}
 
-	b.WriteString("\n" + m.renderHelp(m.searchHelp()))
+	rows, cursor := m.searchRows()
 
-	return b.String()
+	return header + renderList(rows, cursor, m.listLines(header, help)) + help
 }

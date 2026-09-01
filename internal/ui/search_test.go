@@ -921,3 +921,39 @@ func TestMatchNeedsAPosition(t *testing.T) {
 		})
 	}
 }
+
+// TestSearchViewFitsThePane covers a common query returning more hits than the pane is tall,
+// which used to be drawn whole and scroll the panel away.
+func TestSearchViewFitsThePane(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.height = 14
+	m.search = searchState{query: "agent"}
+
+	var found []searchHit
+	for i := range 20 {
+		found = append(found, searchHit{
+			agentID: fmt.Sprintf("a%d", i),
+			name:    fmt.Sprintf("agent-%d", i),
+			snippet: fmt.Sprintf("hit %d", i),
+		})
+	}
+
+	m.applySearch(searchResult{query: "agent", hits: found})
+
+	view := drawnLines(m.searchView())
+	assert.LessOrEqual(t, len(view), m.height, "the view is no taller than the pane")
+	assert.Contains(t, strings.Join(view, "\n"), "more", "the rows it could not draw are counted")
+
+	m.search.cursor = len(m.search.hits) - 1
+	bottom := drawnLines(m.searchView())
+	assert.LessOrEqual(t, len(bottom), m.height, "the view stays inside the pane at the end of the list")
+	assert.Contains(t, strings.Join(bottom, "\n"), "hit 19", "the hit under the cursor is drawn")
+}
+
+// drawnLines is the screen as View hands it to bubbletea, which trims the newline the last row
+// carries before the pane is asked to hold it.
+func drawnLines(view string) []string {
+	return strings.Split(strings.TrimRight(ansi.Strip(view), "\n"), "\n")
+}
