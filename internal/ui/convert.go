@@ -16,7 +16,8 @@ import (
 )
 
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
-	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt()) //nolint:errcheck // a timestamp that will not parse renders as the zero time
+	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())           //nolint:errcheck // a timestamp that will not parse renders as the zero time
+	stateChanged, _ := time.Parse(time.RFC3339, s.GetStateChangedAt()) //nolint:errcheck // a timestamp that will not parse renders as the zero time
 
 	var archived *time.Time
 	if parsed, err := time.Parse(time.RFC3339, s.GetArchivedAt()); err == nil {
@@ -40,6 +41,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		WorkflowID:      s.GetWorkflowId(),
 		ScheduleID:      s.ScheduleId,
 		CreatedAt:       created,
+		StateChangedAt:  stateChanged,
 		ArchivedAt:      archived,
 		Tag:             s.Tag,
 		Hidden:          s.GetHidden(),

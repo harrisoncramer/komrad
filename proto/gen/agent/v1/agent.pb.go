@@ -51,9 +51,10 @@ type Agent struct {
 	Branch           *string                `protobuf:"bytes,22,opt,name=branch,proto3,oneof" json:"branch,omitempty"`
 	WorktreeRemoved  bool                   `protobuf:"varint,23,opt,name=worktree_removed,json=worktreeRemoved,proto3" json:"worktree_removed,omitempty"`
 	// Whether the agent has finished a turn the person has not looked at since.
-	Unviewed      bool `protobuf:"varint,24,opt,name=unviewed,proto3" json:"unviewed,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Unviewed       bool   `protobuf:"varint,24,opt,name=unviewed,proto3" json:"unviewed,omitempty"`
+	StateChangedAt string `protobuf:"bytes,25,opt,name=state_changed_at,json=stateChangedAt,proto3" json:"state_changed_at,omitempty"`
+	unknownFields  protoimpl.UnknownFields
+	sizeCache      protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -245,6 +246,13 @@ func (x *Agent) GetUnviewed() bool {
 		return x.Unviewed
 	}
 	return false
+}
+
+func (x *Agent) GetStateChangedAt() string {
+	if x != nil {
+		return x.StateChangedAt
+	}
+	return ""
 }
 
 type AgentMetadata struct {
@@ -1393,7 +1401,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x9f\x06\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xc9\x06\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1424,7 +1432,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x13spawned_by_agent_id\x18\x14 \x01(\tH\x04R\x10spawnedByAgentId\x88\x01\x01\x12\x1b\n" +
 	"\x06branch\x18\x16 \x01(\tH\x05R\x06branch\x88\x01\x01\x12)\n" +
 	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x12\x1a\n" +
-	"\bunviewed\x18\x18 \x01(\bR\bunviewedB\x0e\n" +
+	"\bunviewed\x18\x18 \x01(\bR\bunviewed\x12(\n" +
+	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAtB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\x06\n" +
 	"\x04_tagB\x12\n" +

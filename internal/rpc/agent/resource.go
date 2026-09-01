@@ -26,6 +26,11 @@ func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 		created = stored.CreatedAt.Format(time.RFC3339)
 	}
 
+	stateChanged := ""
+	if !stored.StateChangedAt.IsZero() {
+		stateChanged = stored.StateChangedAt.Format(time.RFC3339)
+	}
+
 	var archived *string
 	if stored.ArchivedAt != nil {
 		formatted := stored.ArchivedAt.Format(time.RFC3339)
@@ -50,6 +55,7 @@ func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 			WorkflowId:       stored.WorkflowID,
 			ScheduleId:       stored.ScheduleID,
 			CreatedAt:        created,
+			StateChangedAt:   stateChanged,
 			ArchivedAt:       archived,
 			Alive:            alive,
 			UnreadMail:       unreadMail,
