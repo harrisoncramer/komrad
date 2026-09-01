@@ -99,7 +99,11 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 
-	srv := &Server{Pool: st.pool, logger: p.Logger, stopRequested: make(chan struct{}, 1)}
+	srv := &Server{
+		Pool:          st.pool,
+		logger:        p.Logger,
+		stopRequested: make(chan struct{}, 1),
+	}
 	srv.closers = append(srv.closers, func() { _ = st.pool.Close() })
 
 	// Every failure past this point leaves an open handle behind, so the unwind stays armed

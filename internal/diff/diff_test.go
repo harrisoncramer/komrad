@@ -28,7 +28,11 @@ func TestStatCountsFilesAndLines(t *testing.T) {
 		},
 	}}
 
-	assert.Equal(t, Stat{Files: 2, Added: 3, Removed: 2}, patch.Stat())
+	assert.Equal(t, Stat{
+		Files:   2,
+		Added:   3,
+		Removed: 2,
+	}, patch.Stat())
 }
 
 // TestStatOfAnEmptyPatchIsZero pins that a patch holding nothing summarises as zero rather

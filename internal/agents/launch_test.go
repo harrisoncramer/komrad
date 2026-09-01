@@ -496,7 +496,11 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			params := NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: created.ID}
+			params := NewAgentParams{
+				Title:      "agent",
+				Dir:        t.TempDir(),
+				WorkflowID: created.ID,
+			}
 
 			_, err = manager.launch.NewAgent(t.Context(), params)
 			require.NoError(t, err)

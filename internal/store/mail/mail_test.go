@@ -88,7 +88,11 @@ func TestClaimTakesEachMailOnce(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "only once", Deadline: time.Hour})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "only once",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	first, err := st.Claim(ctx, recipient, 10)
@@ -108,7 +112,11 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	mine := seedAgent(t, st, "mine")
 	theirs := seedAgent(t, st, "theirs")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: theirs, Body: "not for you", Deadline: time.Hour})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: theirs,
+		Body:      "not for you",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	claimed, err := st.Claim(ctx, mine, 10)
@@ -142,7 +150,12 @@ func TestReplyToThreadsMail(t *testing.T) {
 	asker := seedAgent(t, st, "asker")
 	answerer := seedAgent(t, st, "answerer")
 
-	asked, err := st.Send(ctx, SendParams{FromAgentID: &asker, ToAgentID: answerer, Body: "which column?", Deadline: time.Hour})
+	asked, err := st.Send(ctx, SendParams{
+		FromAgentID: &asker,
+		ToAgentID:   answerer,
+		Body:        "which column?",
+		Deadline:    time.Hour,
+	})
 	require.NoError(t, err)
 
 	answered, err := st.Send(ctx, SendParams{
@@ -186,7 +199,12 @@ func TestGetByID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "which column?", Hops: 3, Deadline: time.Hour})
+			sent, err := st.Send(ctx, SendParams{
+				ToAgentID: recipient,
+				Body:      "which column?",
+				Hops:      3,
+				Deadline:  time.Hour,
+			})
 			require.NoError(t, err)
 
 			got, err := st.GetByID(ctx, tt.lookup(*sent))
@@ -211,7 +229,11 @@ func TestADeadlineIsMeasuredOnTheDatabaseClock(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "still live", Deadline: time.Hour})
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "still live",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	assert.Equal(t, time.Hour, sent.ExpiresAt.Sub(sent.CreatedAt))
@@ -224,7 +246,11 @@ func TestMailPastItsDeadlineTheInstantItIsSentIsAlreadyExpired(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: time.Nanosecond})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  time.Nanosecond,
+	})
 	require.NoError(t, err)
 
 	pending, err := st.CountPending(ctx, recipient)
@@ -239,7 +265,11 @@ func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: -time.Minute})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  -time.Minute,
+	})
 	require.NoError(t, err)
 
 	claimed, err := st.Claim(ctx, recipient, 10)
@@ -263,7 +293,11 @@ func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: -time.Minute})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  -time.Minute,
+	})
 	require.NoError(t, err)
 
 	first, err := st.ListExpired(ctx, recipient)
@@ -282,7 +316,11 @@ func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: -time.Minute})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  -time.Minute,
+	})
 	require.NoError(t, err)
 
 	mailboxes, err := st.ListPendingMailboxes(ctx)
@@ -297,7 +335,11 @@ func TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported(t *testin
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: -time.Minute})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  -time.Minute,
+	})
 	require.NoError(t, err)
 
 	expired, err := st.ListExpired(ctx, recipient)
@@ -316,9 +358,17 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: -time.Minute})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  -time.Minute,
+	})
 	require.NoError(t, err)
-	_, err = st.Send(ctx, SendParams{ToAgentID: recipient, Body: "still live", Deadline: time.Hour})
+	_, err = st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "still live",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	expired, err := st.ListExpired(ctx, recipient)
@@ -337,7 +387,11 @@ func TestListUnreadMailboxesExcludesExpiredMail(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "too late", Deadline: -time.Minute})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "too late",
+		Deadline:  -time.Minute,
+	})
 	require.NoError(t, err)
 
 	mailboxes, err := st.ListUnreadMailboxes(ctx)
@@ -352,7 +406,11 @@ func TestListUnreadMailboxesExcludesClaimedMail(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "already read", Deadline: time.Hour})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "already read",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 	_, err = st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
@@ -369,7 +427,11 @@ func TestListUnreadMailboxesIncludesLiveUnclaimedMail(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "still live", Deadline: time.Hour})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "still live",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	mailboxes, err := st.ListUnreadMailboxes(ctx)
@@ -385,12 +447,24 @@ func TestListPage(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 	other := seedAgent(t, st, "other")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: other, Body: "not for you", Deadline: time.Hour})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: other,
+		Body:      "not for you",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
-	first, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "first", Deadline: time.Hour})
+	first, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "first",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
-	second, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "second", Deadline: time.Hour})
+	second, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "second",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	_, err = st.Claim(ctx, recipient, 10)
@@ -414,7 +488,11 @@ func TestListPageCursorTakesTheNextPage(t *testing.T) {
 
 	var sent []*Mail
 	for _, body := range []string{"first", "second", "third"} {
-		mail, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: body, Deadline: time.Hour})
+		mail, err := st.Send(ctx, SendParams{
+			ToAgentID: recipient,
+			Body:      body,
+			Deadline:  time.Hour,
+		})
 		require.NoError(t, err)
 		sent = append(sent, mail)
 	}
@@ -439,7 +517,11 @@ func TestListPageIgnoresOtherMailboxes(t *testing.T) {
 	mine := seedAgent(t, st, "mine")
 	theirs := seedAgent(t, st, "theirs")
 
-	_, err := st.Send(ctx, SendParams{ToAgentID: theirs, Body: "not for you", Deadline: time.Hour})
+	_, err := st.Send(ctx, SendParams{
+		ToAgentID: theirs,
+		Body:      "not for you",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	page, err := st.ListPage(ctx, mine, 10, nil)
@@ -454,7 +536,11 @@ func TestListByID(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "which column?", Deadline: time.Hour})
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "which column?",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	found, err := st.ListByID(ctx, []string{sent.ID, uuid.NewString(), "not-an-id"})
@@ -469,7 +555,11 @@ func TestDelete(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "which column?", Deadline: time.Hour})
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "which column?",
+		Deadline:  time.Hour,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, st.Delete(ctx, []string{sent.ID}))
@@ -494,7 +584,11 @@ func open(t *testing.T) *fixture {
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.GetDB()), agents: agentstore.New(p.GetDB()), workflow: created.ID}
+	return &fixture{
+		Store:    New(p.GetDB()),
+		agents:   agentstore.New(p.GetDB()),
+		workflow: created.ID,
+	}
 }
 
 func seedAgent(t *testing.T, st *fixture, name string) string {
@@ -560,7 +654,11 @@ func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	recipient := seedAgent(t, st, "recipient")
 
 	for range 3 {
-		sent, err := st.Send(ctx, SendParams{ToAgentID: recipient, Body: "same thing", Deadline: time.Hour})
+		sent, err := st.Send(ctx, SendParams{
+			ToAgentID: recipient,
+			Body:      "same thing",
+			Deadline:  time.Hour,
+		})
 		require.NoError(t, err)
 		require.NotNil(t, sent)
 	}

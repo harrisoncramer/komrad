@@ -83,7 +83,11 @@ func TestIsGHRateLimitError(t *testing.T) {
 		err  error
 		want bool
 	}{
-		{name: "nil is not a rate limit", err: nil, want: false},
+		{
+			name: "nil is not a rate limit",
+			err:  nil,
+			want: false,
+		},
 		{
 			name: "the primary rate limit",
 			err:  errors.New("gh pr list: API rate limit exceeded for installation ID 123."),
@@ -99,8 +103,16 @@ func TestIsGHRateLimitError(t *testing.T) {
 			err:  errors.New("You have triggered an abuse detection mechanism."),
 			want: true,
 		},
-		{name: "not a git repository is unrelated", err: errors.New("not a git repository"), want: false},
-		{name: "a permission error is unrelated", err: errors.New("HTTP 403: Resource not accessible"), want: false},
+		{
+			name: "not a git repository is unrelated",
+			err:  errors.New("not a git repository"),
+			want: false,
+		},
+		{
+			name: "a permission error is unrelated",
+			err:  errors.New("HTTP 403: Resource not accessible"),
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {

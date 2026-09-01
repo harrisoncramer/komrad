@@ -102,9 +102,17 @@ func TestListPageArchived(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "archived", Pane: "%1", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "archived",
+				Pane:  "%1",
+				State: StateIdle,
+			}))
 			require.NoError(t, st.archiveByName(ctx, "archived"))
-			require.NoError(t, st.Create(ctx, Agent{Name: "live", Pane: "%2", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "live",
+				Pane:  "%2",
+				State: StateIdle,
+			}))
 
 			page, err := st.ListPage(ctx, 10, nil, tt.archived)
 			require.NoError(t, err)
@@ -300,7 +308,11 @@ func TestListByIDCarriesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, api)
 
-	written, err := st.SetMetadata(ctx, SetMetadataParams{ID: auth.ID, Key: "pr", Value: xptr.Ptr("https://example.test/1")})
+	written, err := st.SetMetadata(ctx, SetMetadataParams{
+		ID:    auth.ID,
+		Key:   "pr",
+		Value: xptr.Ptr("https://example.test/1"),
+	})
 	require.NoError(t, err)
 	require.True(t, written)
 

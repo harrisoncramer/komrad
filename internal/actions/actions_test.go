@@ -141,7 +141,11 @@ func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	require.NoError(t, NewRunner().Run(RunParams{Action: found[0], Dir: work, Env: []string{`WEAVE_AGENT={"name":"auth"}`}}))
+	require.NoError(t, NewRunner().Run(RunParams{
+		Action: found[0],
+		Dir:    work,
+		Env:    []string{`WEAVE_AGENT={"name":"auth"}`},
+	}))
 
 	written := eventually(t, out)
 	assert.Contains(t, written, `{"name":"auth"}`, "the payload reaches the script")
@@ -347,7 +351,11 @@ func TestRunAndWaitReportsWhatTheActionSaid(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir, Env: []string{"WEAVE_TEST_ANSWER=/work/api-auth"}})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{
+		Action: found[0],
+		Dir:    dir,
+		Env:    []string{"WEAVE_TEST_ANSWER=/work/api-auth"},
+	})
 	require.NoError(t, err)
 	assert.Equal(t, "/work/api-auth", strings.TrimSpace(string(result.Stdout)), "stdout carries what the action answered")
 	assert.Equal(t, "progress", strings.TrimSpace(string(result.Stderr)), "stderr stays separate from it")
@@ -438,7 +446,11 @@ func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 	require.Len(t, found, 1)
 
 	started := time.Now()
-	_, err = NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir, Timeout: 100 * time.Millisecond})
+	_, err = NewRunner().RunAndWait(t.Context(), RunParams{
+		Action:  found[0],
+		Dir:     dir,
+		Timeout: 100 * time.Millisecond,
+	})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Contains(t, err.Error(), "gave up after 100ms", "the refusal names the limit it passed")
@@ -476,7 +488,11 @@ func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir, Timeout: 10 * time.Minute})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{
+		Action:  found[0],
+		Dir:     dir,
+		Timeout: 10 * time.Minute,
+	})
 
 	require.NoError(t, err)
 	assert.Equal(t, 0, result.ExitCode)
@@ -513,7 +529,11 @@ func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
-	result, err := NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir, Timeout: time.Minute})
+	result, err := NewRunner().RunAndWait(ctx, RunParams{
+		Action:  found[0],
+		Dir:     dir,
+		Timeout: time.Minute,
+	})
 
 	require.ErrorIs(t, err, context.Canceled)
 	require.NotErrorIs(t, err, ErrNotStartable, "a cancelled run says nothing about whether the file would exec")

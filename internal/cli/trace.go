@@ -22,12 +22,14 @@ func traceCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "trace [id]",
 		Short: "Show every log line written under one trace id",
-		Long: "Show every log line weave wrote under one trace id.\n\n" +
-			"A trace id covers one request end to end, or one pass of a background loop. The\n" +
-			"service returns it on any call that failed, and it is on every line in the log, so\n" +
-			"following what happened is a matter of naming it here.\n\n" +
-			"Run with --recent instead of an id to list the traces the log ends with, which is\n" +
-			"where to start when you know what you did but not what it was called.",
+		Long: `Show every log line weave wrote under one trace id.
+
+A trace id covers one request end to end, or one pass of a background loop. The
+service returns it on any call that failed, and it is on every line in the log, so
+following what happened is a matter of naming it here.
+
+Run with --recent instead of an id to list the traces the log ends with, which is
+where to start when you know what you did but not what it was called.`,
 		Args:          cobra.MaximumNArgs(1),
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -98,7 +100,11 @@ func listRecentTraces(out io.Writer, path string) error {
 
 		held, ok := seen[line.Trace]
 		if !ok {
-			held = &summary{trace: line.Trace, when: line.Time, what: describeTrace(line)}
+			held = &summary{
+				trace: line.Trace,
+				when:  line.Time,
+				what:  describeTrace(line),
+			}
 			seen[line.Trace] = held
 			order = append(order, line.Trace)
 		}

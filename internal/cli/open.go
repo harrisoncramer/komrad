@@ -21,16 +21,19 @@ func openCmd(state *app) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "open",
 		Short: "Open the panel popup, creating or attaching its persistent session",
-		Long: "Open the panel popup over the current tmux session.\n\n" +
-			"It creates the manager session if it is not there and attaches either way, so the\n" +
-			"panel keeps its place between opens rather than starting over. The manager session\n" +
-			"lives on weave's own tmux server, so it does not show up in `tmux ls`.\n\n" +
-			"The tmux plugin runs this as the popup's command, so it blocks until the client\n" +
-			"detaches, which is what closes the popup. Pressing the panel key again runs\n" +
-			"`weave hide`. Run by hand outside a popup it attaches the manager session in the\n" +
-			"terminal instead, which is the panel without the popup around it.\n\n" +
-			"With --detach it creates the session and returns, which is what a script wants when\n" +
-			"it needs somewhere for agents to be put back into.",
+		Long: `Open the panel popup over the current tmux session.
+
+It creates the manager session if it is not there and attaches either way, so the
+panel keeps its place between opens rather than starting over. The manager session
+lives on weave's own tmux server, so it does not show up in ` + "`tmux ls`" + `.
+
+The tmux plugin runs this as the popup's command, so it blocks until the client
+detaches, which is what closes the popup. Pressing the panel key again runs
+` + "`weave hide`" + `. Run by hand outside a popup it attaches the manager session in the
+terminal instead, which is the panel without the popup around it.
+
+With --detach it creates the session and returns, which is what a script wants when
+it needs somewhere for agents to be put back into.`,
 		Args:          cobra.ArbitraryArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

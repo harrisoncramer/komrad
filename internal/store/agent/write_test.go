@@ -26,23 +26,42 @@ func TestCreateAndUpdate(t *testing.T) {
 		wantPane  string
 	}{
 		{
-			name:      "the fields a new agent was given are read back",
-			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", Prompt: "do the thing", State: StateIdle},
+			name: "the fields a new agent was given are read back",
+			initial: Agent{
+				Name:   "agent",
+				Pane:   "%1",
+				Cwd:    "/work/api",
+				Flags:  "--model opus",
+				Prompt: "do the thing",
+				State:  StateIdle,
+			},
 			wantCwd:   "/work/api",
 			wantFlags: "--model opus",
 			wantPane:  "%1",
 		},
 		{
-			name:      "an update rewrites the owned config row in place",
-			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", State: StateIdle},
+			name: "an update rewrites the owned config row in place",
+			initial: Agent{
+				Name:  "agent",
+				Pane:  "%1",
+				Cwd:   "/work/api",
+				Flags: "--model opus",
+				State: StateIdle,
+			},
 			update:    func(a *Agent) { a.Cwd = "/work/web"; a.Pane = "%3" },
 			wantCwd:   "/work/web",
 			wantFlags: "--model opus",
 			wantPane:  "%3",
 		},
 		{
-			name:      "an update leaves the fields it did not touch alone",
-			initial:   Agent{Name: "agent", Pane: "%1", Cwd: "/work/api", Flags: "--model opus", State: StateIdle},
+			name: "an update leaves the fields it did not touch alone",
+			initial: Agent{
+				Name:  "agent",
+				Pane:  "%1",
+				Cwd:   "/work/api",
+				Flags: "--model opus",
+				State: StateIdle,
+			},
 			update:    func(a *Agent) { a.State = StateThinking },
 			wantCwd:   "/work/api",
 			wantFlags: "--model opus",
@@ -94,12 +113,20 @@ func TestCreateWithActionOverride(t *testing.T) {
 			agent: Agent{Name: "agent"},
 		},
 		{
-			name:  "an override of none reads back an empty string, not nil",
-			agent: Agent{Name: "agent", SetupAction: xptr.Ptr(""), CleanupAction: xptr.Ptr("")},
+			name: "an override of none reads back an empty string, not nil",
+			agent: Agent{
+				Name:          "agent",
+				SetupAction:   xptr.Ptr(""),
+				CleanupAction: xptr.Ptr(""),
+			},
 		},
 		{
-			name:  "a named override reads back the name",
-			agent: Agent{Name: "agent", SetupAction: xptr.Ptr("install-deps"), CleanupAction: xptr.Ptr("drop-worktree")},
+			name: "a named override reads back the name",
+			agent: Agent{
+				Name:          "agent",
+				SetupAction:   xptr.Ptr("install-deps"),
+				CleanupAction: xptr.Ptr("drop-worktree"),
+			},
 		},
 	}
 
@@ -205,7 +232,11 @@ func TestDeleteTakesMetadata(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	changed, err := st.SetMetadata(ctx, SetMetadataParams{ID: created.ID, Key: "pr", Value: xptr.Ptr("https://github.com/o/r/pull/1")})
+	changed, err := st.SetMetadata(ctx, SetMetadataParams{
+		ID:    created.ID,
+		Key:   "pr",
+		Value: xptr.Ptr("https://github.com/o/r/pull/1"),
+	})
 	require.NoError(t, err)
 	require.True(t, changed)
 
@@ -270,8 +301,16 @@ func TestRename(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", Pane: "%1", State: StateIdle}))
-			require.NoError(t, st.Create(ctx, Agent{Name: "taken", Pane: "%2", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "agent",
+				Pane:  "%1",
+				State: StateIdle,
+			}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "taken",
+				Pane:  "%2",
+				State: StateIdle,
+			}))
 			if tt.archiveOther {
 				require.NoError(t, st.archiveByName(ctx, "taken"))
 			}
@@ -334,7 +373,11 @@ func TestDelete(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "alpha", Pane: "%1", State: StateIdle}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:  "alpha",
+				Pane:  "%1",
+				State: StateIdle,
+			}))
 
 			if tt.hard {
 				created, err := st.Get(ctx, "alpha")
@@ -369,13 +412,21 @@ func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%1", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{
+		Name:  "shared",
+		Pane:  "%1",
+		State: StateIdle,
+	}))
 	first, err := st.Get(ctx, "shared")
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
 	require.NoError(t, st.archiveByName(ctx, "shared"))
-	require.NoError(t, st.Create(ctx, Agent{Name: "shared", Pane: "%2", State: StateIdle}))
+	require.NoError(t, st.Create(ctx, Agent{
+		Name:  "shared",
+		Pane:  "%2",
+		State: StateIdle,
+	}))
 
 	_, deleteErr := st.Delete(ctx, []string{first.ID})
 

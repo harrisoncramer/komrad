@@ -251,9 +251,21 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 		height float64
 		want   int
 	}{
-		{name: "a share of the pane", height: 0.25, want: 6},
-		{name: "a whole number of rows", height: 8, want: 8},
-		{name: "more than the pane holds is capped so the chrome and fields together take half of it", height: 40, want: 8},
+		{
+			name:   "a share of the pane",
+			height: 0.25,
+			want:   6,
+		},
+		{
+			name:   "a whole number of rows",
+			height: 8,
+			want:   8,
+		},
+		{
+			name:   "more than the pane holds is capped so the chrome and fields together take half of it",
+			height: 40,
+			want:   8,
+		},
 	}
 
 	for _, tt := range tests {
@@ -412,7 +424,13 @@ func TestAgentFields(t *testing.T) {
 func strandedModel() model {
 	m := detailsModel(&recordingTmux{})
 	m.listing.agents = append(m.listing.agents, agentItem{
-		agent: agentstore.Agent{ID: "a2", Name: "billing", Pane: "%10", Cwd: "/repo", WorkflowID: "w1"},
+		agent: agentstore.Agent{
+			ID:         "a2",
+			Name:       "billing",
+			Pane:       "%10",
+			Cwd:        "/repo",
+			WorkflowID: "w1",
+		},
 		alive: true,
 	})
 

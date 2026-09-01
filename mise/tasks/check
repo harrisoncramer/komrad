@@ -32,6 +32,7 @@ STEPS=(
 	"bash:check"
 	"bash:fmt --check"
 	"go:fmt --check"
+	"go:structs"
 	"db:fmt --check"
 	"db:validate"
 	"go:lint"

@@ -109,7 +109,11 @@ func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
 
-	err := ensureServer(t.Context(), ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
+	err := ensureServer(t.Context(), ensureServerParams{
+		Addr:    freeAddr(t),
+		Self:    self,
+		LogPath: logPath,
+	})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "failed to reach db: connection refused")
@@ -124,7 +128,11 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 
 	self := fakeServe(t, "failed to reach db: this run")
 
-	err := ensureServer(t.Context(), ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
+	err := ensureServer(t.Context(), ensureServerParams{
+		Addr:    freeAddr(t),
+		Self:    self,
+		LogPath: logPath,
+	})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "this run")
@@ -138,7 +146,11 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
 
-	err := ensureServer(t.Context(), ensureServerParams{Addr: freeAddr(t), Self: self, LogPath: logPath})
+	err := ensureServer(t.Context(), ensureServerParams{
+		Addr:    freeAddr(t),
+		Self:    self,
+		LogPath: logPath,
+	})
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), logPath)
@@ -289,21 +301,34 @@ func TestProbeServer(t *testing.T) {
 			serve:  true,
 			status: http.StatusOK,
 			body:   healthJSON(t, "v0.0.0-20260701000000-0000000000ab"),
-			want:   serverProbe{answering: true, ready: true, version: "v0.0.0-20260701000000-0000000000ab"},
+			want: serverProbe{
+				answering: true,
+				ready:     true,
+				version:   "v0.0.0-20260701000000-0000000000ab",
+			},
 		},
 		{
 			name:   "this build with a database it cannot reach",
 			serve:  true,
 			status: http.StatusServiceUnavailable,
 			body:   healthJSON(t, version.Version()),
-			want:   serverProbe{answering: true, version: version.Version(), current: true},
+			want: serverProbe{
+				answering: true,
+				version:   version.Version(),
+				current:   true,
+			},
 		},
 		{
 			name:   "this build",
 			serve:  true,
 			status: http.StatusOK,
 			body:   healthJSON(t, version.Version()),
-			want:   serverProbe{answering: true, ready: true, version: version.Version(), current: true},
+			want: serverProbe{
+				answering: true,
+				ready:     true,
+				version:   version.Version(),
+				current:   true,
+			},
 		},
 	}
 

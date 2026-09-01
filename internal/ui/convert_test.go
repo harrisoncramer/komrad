@@ -18,7 +18,11 @@ import (
 // since a conversion that drops either leaves the row looking healthy.
 func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	branch := "fix/thing"
-	converted := protoToAgent(&agentv1.Agent{Id: "a1", Branch: &branch, WorktreeRemoved: true})
+	converted := protoToAgent(&agentv1.Agent{
+		Id:              "a1",
+		Branch:          &branch,
+		WorktreeRemoved: true,
+	})
 
 	require.NotNil(t, converted.Branch)
 	assert.Equal(t, branch, *converted.Branch)
@@ -34,8 +38,17 @@ func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}},
 			agents: agentItemsFrom([]*agentv1.Agent{
-				{Id: "a1", Name: "worker", WorkflowId: "w1", WorktreeRemoved: true},
-				{Id: "a2", Name: "reviewer", WorkflowId: "w1"},
+				{
+					Id:              "a1",
+					Name:            "worker",
+					WorkflowId:      "w1",
+					WorktreeRemoved: true,
+				},
+				{
+					Id:         "a2",
+					Name:       "reviewer",
+					WorkflowId: "w1",
+				},
 			}),
 		},
 	}

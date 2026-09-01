@@ -65,10 +65,26 @@ func TestHTTPLoggingRecordsAFailure(t *testing.T) {
 		status       int
 		wantSeverity string
 	}{
-		{name: "the service breaking", status: http.StatusInternalServerError, wantSeverity: "ERROR"},
-		{name: "the caller being refused", status: http.StatusBadRequest, wantSeverity: "WARN"},
-		{name: "a client probing for a method this endpoint does not serve", status: http.StatusMethodNotAllowed, wantSeverity: "WARN"},
-		{name: "a call that worked", status: http.StatusOK, wantSeverity: "INFO"},
+		{
+			name:         "the service breaking",
+			status:       http.StatusInternalServerError,
+			wantSeverity: "ERROR",
+		},
+		{
+			name:         "the caller being refused",
+			status:       http.StatusBadRequest,
+			wantSeverity: "WARN",
+		},
+		{
+			name:         "a client probing for a method this endpoint does not serve",
+			status:       http.StatusMethodNotAllowed,
+			wantSeverity: "WARN",
+		},
+		{
+			name:         "a call that worked",
+			status:       http.StatusOK,
+			wantSeverity: "INFO",
+		},
 	}
 
 	for _, tt := range tests {

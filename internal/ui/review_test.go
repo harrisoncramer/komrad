@@ -50,7 +50,11 @@ func (f *fakeReviewAgents) AddReviewMessage(
 	f.replied = req.Msg
 
 	return connect.NewResponse(&agentv1.AddReviewMessageResponse{
-		Message: &agentv1.ReviewMessage{Id: "m2", ThreadId: req.Msg.GetThreadId(), Body: req.Msg.GetBody()},
+		Message: &agentv1.ReviewMessage{
+			Id:       "m2",
+			ThreadId: req.Msg.GetThreadId(),
+			Body:     req.Msg.GetBody(),
+		},
 	}), nil
 }
 
@@ -130,7 +134,11 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	m.width, m.height = 40, 30
 	m.listing = listing{
 		workflows: []workflowstore.Workflow{
-			{ID: "w1", Name: "backend", Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"}},
+			{
+				ID:       "w1",
+				Name:     "backend",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: "main"},
+			},
 		},
 		agents: []agentItem{{agent: reviewAgent(dir), alive: true}},
 	}
@@ -139,7 +147,13 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 }
 
 func reviewAgent(dir string) agentstore.Agent {
-	return agentstore.Agent{ID: "a1", Name: "auth", Cwd: dir, WorkflowID: "w1", Pane: "%9"}
+	return agentstore.Agent{
+		ID:         "a1",
+		Name:       "auth",
+		Cwd:        dir,
+		WorkflowID: "w1",
+		Pane:       "%9",
+	}
 }
 
 // openReview walks the whole path a keypress takes: the screen opens, the load command runs
@@ -707,9 +721,13 @@ func TestReviewConversationStateSaysWhoseTurnItIs(t *testing.T) {
 	}{
 		{name: "a review with nothing in it", want: "nothing said yet"},
 		{
-			name:    "an answer the reviewer has not read comes before anything else",
-			threads: []*agentv1.ReviewThread{{Id: "t1", UnreadByAgent: true, UnreadByHuman: true}},
-			want:    "the agent has replied",
+			name: "an answer the reviewer has not read comes before anything else",
+			threads: []*agentv1.ReviewThread{{
+				Id:            "t1",
+				UnreadByAgent: true,
+				UnreadByHuman: true,
+			}},
+			want: "the agent has replied",
 		},
 		{
 			name:    "everything read on both sides",

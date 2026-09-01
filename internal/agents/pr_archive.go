@@ -150,7 +150,11 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 			continue
 		}
 
-		written, err := a.agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: prArchivedMetadataKey, Value: &url})
+		written, err := a.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+			ID:    agent.ID,
+			Key:   prArchivedMetadataKey,
+			Value: &url,
+		})
 		if err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent was archived",
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
@@ -349,7 +353,11 @@ func stampRestoredPRs(ctx context.Context, store prStampStore, restored []agents
 
 		// The pull request's state is not read, since that means asking GitHub while somebody
 		// waits on a keypress.
-		if _, err := store.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: prArchivedMetadataKey, Value: &url}); err != nil {
+		if _, err := store.SetMetadata(ctx, agentstore.SetMetadataParams{
+			ID:    agent.ID,
+			Key:   prArchivedMetadataKey,
+			Value: &url,
+		}); err != nil {
 			failures = append(failures, fmt.Errorf("failed to record the pull request agent %q was restored with: %w", agent.ID, err))
 		}
 	}

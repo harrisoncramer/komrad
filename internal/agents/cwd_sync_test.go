@@ -78,7 +78,11 @@ func TestCwdSyncerSync(t *testing.T) {
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
-			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", WorkflowID: workflowID, Cwd: tt.cwd}))
+			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+				Name:       "a",
+				WorkflowID: workflowID,
+				Cwd:        tt.cwd,
+			}))
 			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 			require.NoError(t, err)
 
@@ -106,7 +110,11 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", WorkflowID: workflowID, Cwd: removedDir(t)}))
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		WorkflowID: workflowID,
+		Cwd:        removedDir(t),
+	}))
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
@@ -136,7 +144,11 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 
 	workflowID := seedWorkflow(t, st)
 	repo := initRepo(t)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", WorkflowID: workflowID, Cwd: repo}))
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		WorkflowID: workflowID,
+		Cwd:        repo,
+	}))
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
@@ -166,7 +178,11 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	ctx := t.Context()
 
 	workflowID := seedWorkflow(t, st)
-	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", WorkflowID: workflowID, Cwd: removedDir(t)}))
+	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+		Name:       "a",
+		WorkflowID: workflowID,
+		Cwd:        removedDir(t),
+	}))
 	created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 	require.NoError(t, err)
 
@@ -211,7 +227,11 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			ctx := t.Context()
 
 			workflowID := seedWorkflow(t, st)
-			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{Name: "a", WorkflowID: workflowID, Cwd: tt.cwd}))
+			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
+				Name:       "a",
+				WorkflowID: workflowID,
+				Cwd:        tt.cwd,
+			}))
 			created, err := st.Agents.GetInWorkflow(ctx, workflowID, "a")
 			require.NoError(t, err)
 			_, archiveErr := st.Agents.Archive(ctx, []string{created.ID})

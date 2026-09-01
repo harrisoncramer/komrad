@@ -11,14 +11,27 @@ import (
 
 func sample() Report {
 	findings := []Finding{
-		{Name: "tmux", Status: StatusOK, Detail: "/usr/bin/tmux"},
+		{
+			Name:   "tmux",
+			Status: StatusOK,
+			Detail: "/usr/bin/tmux",
+		},
 		{
 			Name: "tmux version", Status: StatusFail, Detail: "tmux 3.1c",
 			Code: "tmux_too_old", Error: "tmux is too old: found tmux 3.1c",
 			Fix: "upgrade tmux",
 		},
-		{Name: "db", Status: StatusSkip, Detail: "not checked, tmux has to pass first"},
-		{Name: "codex", Status: StatusWarn, Detail: "not on PATH", Error: "codex is not on PATH, so only agents set to it are affected"},
+		{
+			Name:   "db",
+			Status: StatusSkip,
+			Detail: "not checked, tmux has to pass first",
+		},
+		{
+			Name:   "codex",
+			Status: StatusWarn,
+			Detail: "not on PATH",
+			Error:  "codex is not on PATH, so only agents set to it are affected",
+		},
 	}
 
 	return Report{Findings: findings, Summary: summarize(findings)}
@@ -79,15 +92,27 @@ func TestWriteTextSaysWhatFailed(t *testing.T) {
 			name: "something wrong",
 			findings: []Finding{
 				{Name: "tmux", Status: StatusOK},
-				{Name: "db", Status: StatusFail, Error: "unreachable"},
+				{
+					Name:   "db",
+					Status: StatusFail,
+					Error:  "unreachable",
+				},
 			},
 			want: "1 of 2 checks failed.",
 		},
 		{
 			name: "a warning alongside",
 			findings: []Finding{
-				{Name: "db", Status: StatusFail, Error: "unreachable"},
-				{Name: "codex", Status: StatusWarn, Error: "not on PATH"},
+				{
+					Name:   "db",
+					Status: StatusFail,
+					Error:  "unreachable",
+				},
+				{
+					Name:   "codex",
+					Status: StatusWarn,
+					Error:  "not on PATH",
+				},
 			},
 			want: "1 of 2 checks failed, 1 worth a look.",
 		},

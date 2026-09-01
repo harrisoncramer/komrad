@@ -328,7 +328,11 @@ func TestLineAtOffset(t *testing.T) {
 func hits(names ...string) []searchHit {
 	out := make([]searchHit, 0, len(names))
 	for _, name := range names {
-		out = append(out, searchHit{agentID: name, name: name, snippet: name})
+		out = append(out, searchHit{
+			agentID: name,
+			name:    name,
+			snippet: name,
+		})
 	}
 
 	return out
@@ -364,8 +368,12 @@ func TestJumpToSearchHit(t *testing.T) {
 			wantCursor: "payouts",
 		},
 		{
-			name:       "an archived hit lands in the archive",
-			hit:        searchHit{agentID: "a3", name: "old-work", archived: true},
+			name: "an archived hit lands in the archive",
+			hit: searchHit{
+				agentID:  "a3",
+				name:     "old-work",
+				archived: true,
+			},
 			wantScreen: screenArchive,
 			wantCursor: "old-work",
 		},
@@ -375,11 +383,19 @@ func TestJumpToSearchHit(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client := &fakeSearchAgents{}
 			m := filterModel()
-			m.api = api{agents: client, workflows: emptyLists{}, schedules: emptyLists{}}
+			m.api = api{
+				agents:    client,
+				workflows: emptyLists{},
+				schedules: emptyLists{},
+			}
 			m.screen = screenSearch
 			m.search = searchState{query: "ledger", hits: []searchHit{tt.hit}}
 			m.listing.agents[1].agent.Hidden = tt.hidden
-			m.archive.agents = []agentstore.Agent{{ID: "a3", Name: "old-work", WorkflowID: "w1"}}
+			m.archive.agents = []agentstore.Agent{{
+				ID:         "a3",
+				Name:       "old-work",
+				WorkflowID: "w1",
+			}}
 
 			updated, _ := m.route(keyMsg("enter"))
 			got, ok := updated.(model)
@@ -433,9 +449,17 @@ func TestSearchEscape(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := filterModel()
-			m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+			m.api = api{
+				agents:    &fakeSearchAgents{},
+				workflows: emptyLists{},
+				schedules: emptyLists{},
+			}
 			m.screen = screenSearch
-			m.search = searchState{typing: tt.typing, query: "ledger", hits: tt.hits}
+			m.search = searchState{
+				typing: tt.typing,
+				query:  "ledger",
+				hits:   tt.hits,
+			}
 
 			updated, _ := m.route(keyMsg("esc"))
 			next, ok := updated.(model)
@@ -452,7 +476,11 @@ func TestSearchEscape(t *testing.T) {
 func TestSearchQueryOwnsTheKeys(t *testing.T) {
 	m := filterModel()
 	m.screen = screenSearch
-	m.search = searchState{typing: true, query: "ledger", hits: hits("a")}
+	m.search = searchState{
+		typing: true,
+		query:  "ledger",
+		hits:   hits("a"),
+	}
 
 	updated, _ := m.route(keyMsg("?"))
 	got, ok := updated.(model)
@@ -509,9 +537,17 @@ func TestSearchHitsTakeTheKeys(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := filterModel()
-			m.api = api{agents: &fakeSearchAgents{}, workflows: emptyLists{}, schedules: emptyLists{}}
+			m.api = api{
+				agents:    &fakeSearchAgents{},
+				workflows: emptyLists{},
+				schedules: emptyLists{},
+			}
 			m.screen = screenSearch
-			m.search = searchState{typing: true, query: "ledger", hits: hits("a", "b", "c")}
+			m.search = searchState{
+				typing: true,
+				query:  "ledger",
+				hits:   hits("a", "b", "c"),
+			}
 
 			for _, k := range tt.keys {
 				updated, _ := m.route(keyMsg(k))
@@ -549,6 +585,10 @@ func (f *fakeSearchAgents) ResumeAgent(_ context.Context, req *connect.Request[a
 	f.resumed = append(f.resumed, req.Msg.GetId())
 
 	return connect.NewResponse(&agentv1.ResumeAgentResponse{
-		Agent: &agentv1.Agent{Id: req.Msg.GetId(), Name: "api-refactor", PaneId: "%9"},
+		Agent: &agentv1.Agent{
+			Id:     req.Msg.GetId(),
+			Name:   "api-refactor",
+			PaneId: "%9",
+		},
 	}), nil
 }

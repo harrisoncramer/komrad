@@ -74,14 +74,50 @@ func TestToolHints(t *testing.T) {
 		idempotent      bool
 		wantDestructive *bool
 	}{
-		{method: "ListAgents", readOnly: true, idempotent: true},
-		{method: "GetAgent", readOnly: true, idempotent: true},
-		{method: "SearchTranscripts", readOnly: true, idempotent: true},
-		{method: "GetTranscript", readOnly: true, idempotent: true},
-		{method: "CreateAgent", readOnly: false, idempotent: false, wantDestructive: xptr.Ptr(false)},
-		{method: "SetTags", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
-		{method: "UpdateAgent", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(false)},
-		{method: "DeleteAgents", readOnly: false, idempotent: true, wantDestructive: xptr.Ptr(true)},
+		{
+			method:     "ListAgents",
+			readOnly:   true,
+			idempotent: true,
+		},
+		{
+			method:     "GetAgent",
+			readOnly:   true,
+			idempotent: true,
+		},
+		{
+			method:     "SearchTranscripts",
+			readOnly:   true,
+			idempotent: true,
+		},
+		{
+			method:     "GetTranscript",
+			readOnly:   true,
+			idempotent: true,
+		},
+		{
+			method:          "CreateAgent",
+			readOnly:        false,
+			idempotent:      false,
+			wantDestructive: xptr.Ptr(false),
+		},
+		{
+			method:          "SetTags",
+			readOnly:        false,
+			idempotent:      true,
+			wantDestructive: xptr.Ptr(false),
+		},
+		{
+			method:          "UpdateAgent",
+			readOnly:        false,
+			idempotent:      true,
+			wantDestructive: xptr.Ptr(false),
+		},
+		{
+			method:          "DeleteAgents",
+			readOnly:        false,
+			idempotent:      true,
+			wantDestructive: xptr.Ptr(true),
+		},
 	}
 
 	service := agentv1.File_agent_v1_agent_proto.Services().Get(0)

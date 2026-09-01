@@ -50,7 +50,11 @@ func TestGetByIdempotencyKey(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle, IdempotencyKey: &tt.key}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:           "agent",
+				State:          StateIdle,
+				IdempotencyKey: &tt.key,
+			}))
 			if tt.archive {
 				require.NoError(t, st.archiveByName(ctx, "agent"))
 			}
@@ -102,9 +106,17 @@ func TestIdempotencyKeyIsUnique(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, st.Create(ctx, Agent{Name: "first", State: StateIdle, IdempotencyKey: tt.first}))
+			require.NoError(t, st.Create(ctx, Agent{
+				Name:           "first",
+				State:          StateIdle,
+				IdempotencyKey: tt.first,
+			}))
 
-			err := st.Create(ctx, Agent{Name: "second", State: StateIdle, IdempotencyKey: tt.second})
+			err := st.Create(ctx, Agent{
+				Name:           "second",
+				State:          StateIdle,
+				IdempotencyKey: tt.second,
+			})
 			if tt.wantFail {
 				require.Error(t, err)
 				return

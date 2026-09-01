@@ -300,7 +300,11 @@ func agentAuthor(id string) ReviewAuthor {
 func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSender) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{Threads: reviews, Messages: reviews, Mailer: notices})
+	return NewReviewService(ReviewServiceParams{
+		Threads:  reviews,
+		Messages: reviews,
+		Mailer:   notices,
+	})
 }
 
 type fakeReviewStore struct {

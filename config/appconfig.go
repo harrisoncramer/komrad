@@ -556,8 +556,12 @@ func Defaults() *Config {
 		Tags:           DefaultTags(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
-		Log:            Log{Level: DefaultLogLevel, Viewer: DefaultLogViewer, ProcessViewer: DefaultProcessViewer},
-		Connection:     DefaultConnection(),
+		Log: Log{
+			Level:         DefaultLogLevel,
+			Viewer:        DefaultLogViewer,
+			ProcessViewer: DefaultProcessViewer,
+		},
+		Connection: DefaultConnection(),
 	}
 }
 

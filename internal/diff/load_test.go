@@ -99,7 +99,11 @@ func TestLoadHonoursExcludes(t *testing.T) {
 			write(t, root, "proto/gen/new.pb.go", "package gen\n")
 			write(t, root, "untracked.go", "package main\n")
 
-			patch, err := Load(context.Background(), LoadParams{Dir: root, Base: "main", Exclude: tt.exclude})
+			patch, err := Load(context.Background(), LoadParams{
+				Dir:     root,
+				Base:    "main",
+				Exclude: tt.exclude,
+			})
 			require.NoError(t, err)
 
 			assert.Equal(t, tt.want, paths(patch))

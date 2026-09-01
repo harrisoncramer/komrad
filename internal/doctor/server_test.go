@@ -54,21 +54,34 @@ func TestServerCheck(t *testing.T) {
 			wantCode: "address_taken",
 		},
 		{
-			name:     "a weave from another build",
-			status:   ServerStatus{Answering: true, Ready: true, Version: "v1.0.0"},
+			name: "a weave from another build",
+			status: ServerStatus{
+				Answering: true,
+				Ready:     true,
+				Version:   "v1.0.0",
+			},
 			want:     StatusFail,
 			wantCode: "server_stale",
 		},
 		{
-			name:     "this build, listening but unable to reach its database",
-			status:   ServerStatus{Answering: true, Version: "v1.2.3", Current: true},
+			name: "this build, listening but unable to reach its database",
+			status: ServerStatus{
+				Answering: true,
+				Version:   "v1.2.3",
+				Current:   true,
+			},
 			want:     StatusFail,
 			wantCode: "server_not_ready",
 		},
 		{
-			name:   "this build, serving",
-			status: ServerStatus{Answering: true, Ready: true, Version: "v1.2.3", Current: true},
-			want:   StatusOK,
+			name: "this build, serving",
+			status: ServerStatus{
+				Answering: true,
+				Ready:     true,
+				Version:   "v1.2.3",
+				Current:   true,
+			},
+			want: StatusOK,
 		},
 	}
 
@@ -107,7 +120,11 @@ func TestStaleServerNamesBothBuilds(t *testing.T) {
 // panel calls ensureServer only once, when its tmux session is created, so telling somebody
 // with a live panel to stop the server leaves nothing that will ever start one again.
 func TestStaleServerFixDependsOnThePanel(t *testing.T) {
-	stale := ServerStatus{Answering: true, Ready: true, Version: "v1.0.0"}
+	stale := ServerStatus{
+		Answering: true,
+		Ready:     true,
+		Version:   "v1.0.0",
+	}
 
 	t.Run("no panel running", func(t *testing.T) {
 		result := Server().Run(t.Context(), withPanel(stale, false))
@@ -183,7 +200,12 @@ func TestListenAddressIsCheckedFirst(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			env := serverEnv(ServerStatus{Answering: true, Ready: true, Version: "v1.2.3", Current: true})
+			env := serverEnv(ServerStatus{
+				Answering: true,
+				Ready:     true,
+				Version:   "v1.2.3",
+				Current:   true,
+			})
 			env.Addr = tt.addr
 
 			result := Server().Run(t.Context(), env)

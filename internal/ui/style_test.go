@@ -19,12 +19,21 @@ import (
 // the same width, so nothing jitters as the cwd syncer catches up.
 func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	withBranch := model{
-		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
-		keys:    config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", Branch: xptr.Ptr("agent/a1")}}}},
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{{agent: agentstore.Agent{
+			ID:         "a1",
+			Name:       "worker",
+			WorkflowID: "w1",
+			Branch:     xptr.Ptr("agent/a1"),
+		}}}},
 	}
 	withoutBranch := withBranch
-	withoutBranch.listing.agents = []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1"}}}
+	withoutBranch.listing.agents = []agentItem{{agent: agentstore.Agent{
+		ID:         "a1",
+		Name:       "worker",
+		WorkflowID: "w1",
+	}}}
 
 	rowWithBranch, ok := rowNamed(strings.Split(withBranch.agentsView(), "\n"), "worker")
 	require.True(t, ok)
@@ -75,8 +84,17 @@ func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", WorktreeRemoved: true}},
-			{agent: agentstore.Agent{ID: "a2", Name: "reviewer", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{
+				ID:              "a1",
+				Name:            "worker",
+				WorkflowID:      "w1",
+				WorktreeRemoved: true,
+			}},
+			{agent: agentstore.Agent{
+				ID:         "a2",
+				Name:       "reviewer",
+				WorkflowID: "w1",
+			}},
 		}},
 	}
 
@@ -103,8 +121,16 @@ func TestAgentsViewUnreadMail(t *testing.T) {
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "waiting-on-reply", WorkflowID: "w1"}, unreadMail: true},
-			{agent: agentstore.Agent{ID: "a2", Name: "caught-up", WorkflowID: "w1"}, unreadMail: false},
+			{agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "waiting-on-reply",
+				WorkflowID: "w1",
+			}, unreadMail: true},
+			{agent: agentstore.Agent{
+				ID:         "a2",
+				Name:       "caught-up",
+				WorkflowID: "w1",
+			}, unreadMail: false},
 		}},
 	}
 

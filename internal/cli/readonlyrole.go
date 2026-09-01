@@ -14,16 +14,18 @@ func readonlyRoleCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "readonly-role",
 		Short: "Create the least-privilege role the MCP query tools connect as",
-		Long: "Create the least-privilege role the MCP query tools connect as.\n\n" +
-			"The SQL half of the MCP endpoint runs whatever an agent asks it to, so it connects\n" +
-			"as a login that can read the application tables and nothing else. That is enforced\n" +
-			"by Postgres rather than by inspecting the query. This creates or updates that role\n" +
-			"from the user and password in the read-only url, which is WEAVE_READONLY_DATABASE_URL\n" +
-			"when it is set and the writable url with the weave_readonly login otherwise, using\n" +
-			"the writable url to do the granting.\n\n" +
-			"It refuses when the two URLs name the same login, since then the read-only path would\n" +
-			"have the owner's privileges. Run it once when setting a database up. Tables a later\n" +
-			"migration adds are covered on their own, and running it again is harmless.",
+		Long: `Create the least-privilege role the MCP query tools connect as.
+
+The SQL half of the MCP endpoint runs whatever an agent asks it to, so it connects
+as a login that can read the application tables and nothing else. That is enforced
+by Postgres rather than by inspecting the query. This creates or updates that role
+from the user and password in the read-only url, which is WEAVE_READONLY_DATABASE_URL
+when it is set and the writable url with the weave_readonly login otherwise, using
+the writable url to do the granting.
+
+It refuses when the two URLs name the same login, since then the read-only path would
+have the owner's privileges. Run it once when setting a database up. Tables a later
+migration adds are covered on their own, and running it again is harmless.`,
 		Args:          cobra.NoArgs,
 		Hidden:        true,
 		SilenceUsage:  true,

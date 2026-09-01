@@ -67,7 +67,11 @@ func TestResumeDir(t *testing.T) {
 			cwd := tt.cwd(t, root)
 
 			service := NewResumeService(ResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
-			got := service.getResumeDir(agentstore.Agent{ID: "agent-id", Cwd: cwd, SessionID: sessionID})
+			got := service.getResumeDir(agentstore.Agent{
+				ID:        "agent-id",
+				Cwd:       cwd,
+				SessionID: sessionID,
+			})
 
 			assert.Equal(t, tt.wantDir(root, fallbackResumeRoot), got)
 			require.NoError(t, requireUsableDir(got), "a restore always gets a directory it can start in")
@@ -296,7 +300,12 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	assert.Equal(t, agentstore.StateSettingUp, agentByID(t, st, agent.ID).State,
 		"the row says a resume is in flight before the resume does any work")
 
-	prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  prStateMerged,
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
 
 	assert.Nil(t, agentByID(t, st, agent.ID).ArchivedAt, "a pass landing in the window leaves the resume alone")
@@ -341,7 +350,12 @@ func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, resumed.Pane)
 
-	prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
+	prs := &fakePRStates{
+		state:  prStateMerged,
+		branch: prBranch,
+		repo:   prRepo,
+		origin: prRepo,
+	}
 	require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
 
 	assert.NotNil(t, agentByID(t, st, agent.ID).ArchivedAt)
@@ -406,7 +420,12 @@ func TestAPassThatArchivesBeforeTheMarkStopsTheResume(t *testing.T) {
 	tmux := &archivingTmux{fakeTmux: base}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
 	tmux.sync = func() {
-		prs := &fakePRStates{state: prStateMerged, branch: prBranch, repo: prRepo, origin: prRepo}
+		prs := &fakePRStates{
+			state:  prStateMerged,
+			branch: prBranch,
+			repo:   prRepo,
+			origin: prRepo,
+		}
 		require.NoError(t, newPRArchiver(st, prs, manager.lifecycle).Sync(ctx))
 	}
 

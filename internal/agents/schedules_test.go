@@ -98,22 +98,34 @@ func TestNextRun(t *testing.T) {
 		want     time.Time
 	}{
 		{
-			name:     "the next hour",
-			schedule: schedulestore.Schedule{Cron: "0 * * * *", Timezone: "UTC", Enabled: true},
-			want:     time.Date(2026, time.July, 27, 11, 0, 0, 0, time.UTC),
+			name: "the next hour",
+			schedule: schedulestore.Schedule{
+				Cron:     "0 * * * *",
+				Timezone: "UTC",
+				Enabled:  true,
+			},
+			want: time.Date(2026, time.July, 27, 11, 0, 0, 0, time.UTC),
 		},
 		{
-			name:     "tomorrow morning, since today's has passed",
-			schedule: schedulestore.Schedule{Cron: "0 9 * * *", Timezone: "UTC", Enabled: true},
-			want:     time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
+			name: "tomorrow morning, since today's has passed",
+			schedule: schedulestore.Schedule{
+				Cron:     "0 9 * * *",
+				Timezone: "UTC",
+				Enabled:  true,
+			},
+			want: time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC),
 		},
 		{
 			name:     "a paused schedule has no next run",
 			schedule: schedulestore.Schedule{Cron: "0 * * * *", Timezone: "UTC"},
 		},
 		{
-			name:     "nor does one that cannot be parsed",
-			schedule: schedulestore.Schedule{Cron: "0 99 * * *", Timezone: "UTC", Enabled: true},
+			name: "nor does one that cannot be parsed",
+			schedule: schedulestore.Schedule{
+				Cron:     "0 99 * * *",
+				Timezone: "UTC",
+				Enabled:  true,
+			},
 		},
 	}
 
@@ -141,28 +153,49 @@ func TestNewSchedule(t *testing.T) {
 		wantName string
 	}{
 		{
-			name:     "a schedule is stored as written",
-			cfg:      schedulestore.Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI"},
+			name: "a schedule is stored as written",
+			cfg: schedulestore.Config{
+				Name:   "morning-ci",
+				Cron:   "0 9 * * 1-5",
+				Prompt: "check CI",
+			},
 			wantName: "morning-ci",
 		},
 		{
-			name:     "surrounding whitespace is trimmed",
-			cfg:      schedulestore.Config{Name: "  spaced  ", Cron: "  0 9 * * *  ", Prompt: " go "},
+			name: "surrounding whitespace is trimmed",
+			cfg: schedulestore.Config{
+				Name:   "  spaced  ",
+				Cron:   "  0 9 * * *  ",
+				Prompt: " go ",
+			},
 			wantName: "spaced",
 		},
 		{
-			name:    "an unparseable expression never reaches the store",
-			cfg:     schedulestore.Config{Name: "broken", Cron: "0 99 * * *", Prompt: "go"},
+			name: "an unparseable expression never reaches the store",
+			cfg: schedulestore.Config{
+				Name:   "broken",
+				Cron:   "0 99 * * *",
+				Prompt: "go",
+			},
 			wantErr: ErrBadCron,
 		},
 		{
-			name:    "nor does an unknown timezone",
-			cfg:     schedulestore.Config{Name: "elsewhere", Cron: "0 9 * * *", Timezone: "Mars/Olympus", Prompt: "go"},
+			name: "nor does an unknown timezone",
+			cfg: schedulestore.Config{
+				Name:     "elsewhere",
+				Cron:     "0 9 * * *",
+				Timezone: "Mars/Olympus",
+				Prompt:   "go",
+			},
 			wantErr: ErrBadCron,
 		},
 		{
-			name:    "nor does a date the calendar never reaches",
-			cfg:     schedulestore.Config{Name: "never", Cron: "0 0 30 2 *", Prompt: "go"},
+			name: "nor does a date the calendar never reaches",
+			cfg: schedulestore.Config{
+				Name:   "never",
+				Cron:   "0 0 30 2 *",
+				Prompt: "go",
+			},
 			wantErr: ErrBadCron,
 		},
 	}
@@ -294,7 +327,11 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
 
-			schedule := st.SeedSchedule(t, schedulestore.Config{Name: "nightly", Cron: "0 2 * * *", Prompt: "sweep"})
+			schedule := st.SeedSchedule(t, schedulestore.Config{
+				Name:   "nightly",
+				Cron:   "0 2 * * *",
+				Prompt: "sweep",
+			})
 			run := st.SeedAgent(t, agentstore.Agent{
 				Name: "nightly-run", Pane: "%1", State: tt.state,
 				WorkflowID: schedule.WorkflowID, ScheduleID: &schedule.ID,
@@ -329,7 +366,12 @@ func TestScheduleNotFound(t *testing.T) {
 			name: "updating",
 			call: func(t *testing.T, svc *ScheduleService) error {
 				return svc.UpdateSchedule(t.Context(), missingScheduleID,
-					schedulestore.Config{Name: "x", Cron: "0 9 * * *", Prompt: "go", WorkflowID: "w1"})
+					schedulestore.Config{
+						Name:       "x",
+						Cron:       "0 9 * * *",
+						Prompt:     "go",
+						WorkflowID: "w1",
+					})
 			},
 		},
 		{

@@ -44,8 +44,12 @@ func TestBuildCommand(t *testing.T) {
 			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-4' claude --session-id 'sess-4'",
 		},
 		{
-			name:        "and they survive a resume",
-			launch:      harness.Launch{AgentID: "id-1", SessionID: "sess-5", Resume: true},
+			name: "and they survive a resume",
+			launch: harness.Launch{
+				AgentID:   "id-1",
+				SessionID: "sess-5",
+				Resume:    true,
+			},
 			wantCommand: "WEAVE_AGENT_ID='id-1' WEAVE_SESSION_ID='sess-5' claude --resume 'sess-5'",
 		},
 	}
@@ -72,8 +76,12 @@ func TestBuildCommandFailsWhenThePromptCannotBeWritten(t *testing.T) {
 		launch harness.Launch
 	}{
 		{
-			name:   "on the way back into a conversation",
-			launch: harness.Launch{SessionID: "sess-1", Prompt: "carry on", Resume: true},
+			name: "on the way back into a conversation",
+			launch: harness.Launch{
+				SessionID: "sess-1",
+				Prompt:    "carry on",
+				Resume:    true,
+			},
 		},
 		{
 			name:   "and on a fresh one",
@@ -120,7 +128,11 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{Flags: tt.flags, SessionID: "sess", CacheDir: t.TempDir()})
+			command, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).BuildCommand(harness.Launch{
+				Flags:     tt.flags,
+				SessionID: "sess",
+				CacheDir:  t.TempDir(),
+			})
 			require.NoError(t, err)
 
 			assert.NotContains(t, command, tt.wantAbsent, "an unquoted flag would run in the pane")
@@ -139,13 +151,21 @@ func TestBuildCommandPassesTextThroughTempFiles(t *testing.T) {
 		wantAbsent  []string
 	}{
 		{
-			name:       "a resume appends no system prompt, since it would not persist",
-			launch:     harness.Launch{SessionID: "sess", Context: "the buildBriefing", Resume: true},
+			name: "a resume appends no system prompt, since it would not persist",
+			launch: harness.Launch{
+				SessionID: "sess",
+				Context:   "the buildBriefing",
+				Resume:    true,
+			},
 			wantAbsent: []string{"--append-system-prompt"},
 		},
 		{
-			name:        "a resume carries an opening prompt, which is how an unfinished turn is asked for again",
-			launch:      harness.Launch{SessionID: "sess", Prompt: "carry on", Resume: true},
+			name: "a resume carries an opening prompt, which is how an unfinished turn is asked for again",
+			launch: harness.Launch{
+				SessionID: "sess",
+				Prompt:    "carry on",
+				Resume:    true,
+			},
 			wantContain: []string{"--resume 'sess'", ` -- "$(cat `, "; rm "},
 			wantAbsent:  []string{"--session-id"},
 		},

@@ -143,7 +143,11 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 			AgentId: hit.agentID,
 		}))
 		if err != nil {
-			return previewResult{agentID: hit.agentID, query: query, offset: hit.offset}
+			return previewResult{
+				agentID: hit.agentID,
+				query:   query,
+				offset:  hit.offset,
+			}
 		}
 
 		return previewResult{

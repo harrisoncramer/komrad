@@ -55,7 +55,11 @@ func isInternalAction(name string) bool {
 
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
-		return agentItem{agent: protoToAgent(agent), alive: agent.GetAlive(), unreadMail: agent.GetUnreadMail()}
+		return agentItem{
+			agent:      protoToAgent(agent),
+			alive:      agent.GetAlive(),
+			unreadMail: agent.GetUnreadMail(),
+		}
 	})
 }
 

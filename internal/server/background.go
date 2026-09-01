@@ -82,7 +82,12 @@ func startBackground(ctx context.Context, runner jobRunner, loops []Loop, logger
 		})
 	}
 
-	return &backgroundWork{runner: runner, stopLoops: stopLoops, loops: &wg, logger: logger}, nil
+	return &backgroundWork{
+		runner:    runner,
+		stopLoops: stopLoops,
+		loops:     &wg,
+		logger:    logger,
+	}, nil
 }
 
 func (b *backgroundWork) stop(ctx context.Context) {

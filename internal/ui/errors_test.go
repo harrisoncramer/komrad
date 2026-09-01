@@ -46,7 +46,11 @@ func (r refusingAgents) ListAgents(context.Context, *connect.Request[agentv1.Lis
 // TestRefusedWriteIsReported covers a refused write, which the reloading list would otherwise
 // make look exactly like a keypress that never registered.
 func TestRefusedWriteIsReported(t *testing.T) {
-	agent := agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}
+	agent := agentstore.Agent{
+		Name:       "api-refactor",
+		State:      agentstore.StateIdle,
+		WorkflowID: "w1",
+	}
 
 	m := model{
 		api: api{
@@ -95,7 +99,11 @@ func TestRefusedResumeIsReported(t *testing.T) {
 		screen: screenAgents,
 		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
-			agents:    []agentItem{{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}, alive: false}},
+			agents: []agentItem{{agent: agentstore.Agent{
+				Name:       "api-refactor",
+				State:      agentstore.StateIdle,
+				WorkflowID: "w1",
+			}, alive: false}},
 		},
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
@@ -189,7 +197,11 @@ func TestBannerRendersOverTheList(t *testing.T) {
 		screen: screenAgents,
 		keys:   config.DefaultKeybindings(),
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
-			{agent: agentstore.Agent{Name: "api-refactor", State: agentstore.StateIdle, WorkflowID: "w1"}},
+			{agent: agentstore.Agent{
+				Name:       "api-refactor",
+				State:      agentstore.StateIdle,
+				WorkflowID: "w1",
+			}},
 		}},
 	}
 

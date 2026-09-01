@@ -166,14 +166,23 @@ func (m model) loadReviewCmd(agentID, dir, base string, exclude []string) tea.Cm
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		patch, err := diff.Load(ctx, diff.LoadParams{Dir: dir, Base: base, Exclude: exclude})
+		patch, err := diff.Load(ctx, diff.LoadParams{
+			Dir:     dir,
+			Base:    base,
+			Exclude: exclude,
+		})
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
 
-		return reviewLoadedMsg{agentID: agentID, patch: patch, threads: threads, err: err}
+		return reviewLoadedMsg{
+			agentID: agentID,
+			patch:   patch,
+			threads: threads,
+			err:     err,
+		}
 	}
 }
 
@@ -598,7 +607,11 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
 
-		return reviewWroteMsg{agentID: agentID, threads: threads, err: err}
+		return reviewWroteMsg{
+			agentID: agentID,
+			threads: threads,
+			err:     err,
+		}
 	}
 }
 
@@ -796,7 +809,12 @@ func (m model) reviewWriteCmd(notice string, write func(context.Context) error) 
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
 
-		return reviewWroteMsg{agentID: agentID, notice: notice, threads: threads, err: err}
+		return reviewWroteMsg{
+			agentID: agentID,
+			notice:  notice,
+			threads: threads,
+			err:     err,
+		}
 	}
 }
 

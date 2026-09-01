@@ -291,7 +291,12 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 		cursor *Cursor
 	)
 	for range 3 {
-		hits, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 1, Cursor: cursor, AgentID: &mine})
+		hits, err := st.Search(ctx, SearchParams{
+			Query:   "reconciler",
+			Limit:   1,
+			Cursor:  cursor,
+			AgentID: &mine,
+		})
 		require.NoError(t, err)
 		if len(hits) == 0 {
 			break
@@ -300,13 +305,21 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 		ids = append(ids, agentIDs(hits)...)
 
 		last := hits[len(hits)-1]
-		cursor = &Cursor{Rank: last.Rank, AgentID: last.AgentID, Seq: last.Seq}
+		cursor = &Cursor{
+			Rank:    last.Rank,
+			AgentID: last.AgentID,
+			Seq:     last.Seq,
+		}
 	}
 
 	assert.Equal(t, []string{mine, mine}, ids, "both of one agent's turns, and neither of the other's")
 
 	nobody := "not-an-id"
-	none, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10, AgentID: &nobody})
+	none, err := st.Search(ctx, SearchParams{
+		Query:   "reconciler",
+		Limit:   10,
+		AgentID: &nobody,
+	})
 	require.NoError(t, err, "a string that is not an id is a miss rather than a failure")
 	assert.Empty(t, none)
 }
@@ -378,7 +391,11 @@ func TestSearchPages(t *testing.T) {
 				cursor *Cursor
 			)
 			for range len(tt.seeds) + 1 {
-				hits, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: tt.limit, Cursor: cursor})
+				hits, err := st.Search(ctx, SearchParams{
+					Query:  tt.query,
+					Limit:  tt.limit,
+					Cursor: cursor,
+				})
 				require.NoError(t, err)
 				if len(hits) == 0 {
 					break
@@ -390,7 +407,11 @@ func TestSearchPages(t *testing.T) {
 				}
 
 				last := hits[len(hits)-1]
-				cursor = &Cursor{Rank: last.Rank, AgentID: last.AgentID, Seq: last.Seq}
+				cursor = &Cursor{
+					Rank:    last.Rank,
+					AgentID: last.AgentID,
+					Seq:     last.Seq,
+				}
 			}
 
 			assert.Len(t, names, tt.wantCount)
@@ -524,7 +545,11 @@ func open(t *testing.T) *fixture {
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.GetDB()), agents: agentstore.New(p.GetDB()), workflow: created.ID}
+	return &fixture{
+		Store:    New(p.GetDB()),
+		agents:   agentstore.New(p.GetDB()),
+		workflow: created.ID,
+	}
 }
 
 func seedAgent(t *testing.T, st *fixture, name string) string {
@@ -564,7 +589,11 @@ func layOutTurns(turns []Turn) (string, []Turn) {
 func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
 	t.Helper()
 	ctx := t.Context()
-	require.NoError(t, st.Upsert(ctx, UpsertParams{AgentID: id, Content: content, Offset: 1}))
+	require.NoError(t, st.Upsert(ctx, UpsertParams{
+		AgentID: id,
+		Content: content,
+		Offset:  1,
+	}))
 	require.NoError(t, st.AppendTurns(ctx, id, turns))
 }
 

@@ -195,7 +195,11 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 
 			runner := &recordingRunner{}
 			service := NewActionService(ActionParams{
-				Agents: fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Cwd: "/worktrees/a1", WorkflowID: "w1"}},
+				Agents: fakeAgentReader{agent: &agentstore.Agent{
+					ID:         "a1",
+					Cwd:        "/worktrees/a1",
+					WorkflowID: "w1",
+				}},
 				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
 					ID: "w1", Name: "backend", Cwd: "/repo", Worktree: tt.worktree,
 				}},
@@ -386,7 +390,11 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 	gone := filepath.Join(t.TempDir(), "removed-worktree")
 	runner := &recordingRunner{}
 	service := actionService(t, dir, runner)
-	service.agents = fakeAgentReader{agent: &agentstore.Agent{ID: "a1", Name: "auth", Cwd: gone}}
+	service.agents = fakeAgentReader{agent: &agentstore.Agent{
+		ID:   "a1",
+		Name: "auth",
+		Cwd:  gone,
+	}}
 
 	require.NoError(t, service.RunAction(context.Background(), "a1", "cleanup"))
 
@@ -598,7 +606,11 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		script := filepath.Join(dir, "ok")
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho \"working in $FOO\" >&2\n"), 0o755))
 
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, []string{"FOO=api-auth"}, pane, "", 2*time.Second)
+		result, err := svc.runInPane(t.Context(), actions.Action{
+			Name:       "ok",
+			Path:       script,
+			Executable: true,
+		}, []string{"FOO=api-auth"}, pane, "", 2*time.Second)
 
 		require.NoError(t, err)
 		assert.Equal(t, 0, result.ExitCode)
@@ -610,7 +622,11 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		script := filepath.Join(dir, "bad")
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'fatal: already checked out' >&2\nexit 7\n"), 0o755))
 
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "bad", Path: script, Executable: true}, nil, pane, "", 2*time.Second)
+		result, err := svc.runInPane(t.Context(), actions.Action{
+			Name:       "bad",
+			Path:       script,
+			Executable: true,
+		}, nil, pane, "", 2*time.Second)
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, actions.ErrFailed)
@@ -629,7 +645,11 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'hello 1'\necho 'hello 2'\nexit 1\n"), 0o755))
 		logPath := filepath.Join(t.TempDir(), "setup.log")
 
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "stdout-only", Path: script, Executable: true}, nil, pane, logPath, 2*time.Second)
+		result, err := svc.runInPane(t.Context(), actions.Action{
+			Name:       "stdout-only",
+			Path:       script,
+			Executable: true,
+		}, nil, pane, logPath, 2*time.Second)
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, actions.ErrFailed)
@@ -647,7 +667,11 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
 		logPath := filepath.Join(t.TempDir(), "setup.log")
 
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, logPath, 200*time.Millisecond)
+		result, err := svc.runInPane(t.Context(), actions.Action{
+			Name:       "slow",
+			Path:       script,
+			Executable: true,
+		}, nil, pane, logPath, 200*time.Millisecond)
 
 		require.Error(t, err)
 		require.ErrorIs(t, err, context.DeadlineExceeded)
@@ -662,7 +686,11 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		server.Run("kill-pane", "-t", pane)
 
 		script := filepath.Join(dir, "ok")
-		_, err := svc.runInPane(t.Context(), actions.Action{Name: "ok", Path: script, Executable: true}, nil, pane, "", time.Second)
+		_, err := svc.runInPane(t.Context(), actions.Action{
+			Name:       "ok",
+			Path:       script,
+			Executable: true,
+		}, nil, pane, "", time.Second)
 
 		require.Error(t, err)
 		assert.ErrorIs(t, err, actions.ErrNotStartable)
@@ -680,7 +708,11 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		}()
 
 		began := time.Now()
-		result, err := svc.runInPane(t.Context(), actions.Action{Name: "slow", Path: script, Executable: true}, nil, pane, logPath, 30*time.Second)
+		result, err := svc.runInPane(t.Context(), actions.Action{
+			Name:       "slow",
+			Path:       script,
+			Executable: true,
+		}, nil, pane, logPath, 30*time.Second)
 		elapsed := time.Since(began)
 
 		require.Error(t, err)

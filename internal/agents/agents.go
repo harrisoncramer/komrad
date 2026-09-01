@@ -249,7 +249,11 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 	}
 
 	reason := failureReason(cause)
-	if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{ID: agent.ID, Key: "error", Value: &reason}); err != nil {
+	if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
+		ID:    agent.ID,
+		Key:   "error",
+		Value: &reason,
+	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}

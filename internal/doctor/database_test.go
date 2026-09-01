@@ -37,7 +37,11 @@ func dbEnv(schema fakeSchema, connectErr, readOnlyErr error) Env {
 }
 
 func refused() error {
-	return &net.OpError{Op: "dial", Net: "tcp", Err: errors.New("connect: connection refused")}
+	return &net.OpError{
+		Op:  "dial",
+		Net: "tcp",
+		Err: errors.New("connect: connection refused"),
+	}
 }
 
 // TestDatabaseCheckTellsTheFailuresApart is the point of this check: every one of these

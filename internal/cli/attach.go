@@ -13,12 +13,14 @@ func attachCmd(state *app) *cobra.Command {
 	return &cobra.Command{
 		Use:   "attach",
 		Short: "Attach the running panel in this terminal",
-		Long: "Attach the running panel in this terminal.\n\n" +
-			"This is the panel without the popup around it, on the same session the panel key\n" +
-			"opens, so both show the same thing and neither disturbs the other. The panel key\n" +
-			"detaches it, which gives this terminal back and leaves everything running.\n\n" +
-			"It attaches a panel that is already up and refuses when there is none, since\n" +
-			"starting one is what the panel key is for.",
+		Long: `Attach the running panel in this terminal.
+
+This is the panel without the popup around it, on the same session the panel key
+opens, so both show the same thing and neither disturbs the other. The panel key
+detaches it, which gives this terminal back and leaves everything running.
+
+It attaches a panel that is already up and refuses when there is none, since
+starting one is what the panel key is for.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,

@@ -211,7 +211,12 @@ func TestSchedulerReconcileSurvivesAFailedRegistration(t *testing.T) {
 }
 
 func armed(id, cron string) schedulestore.Schedule {
-	return schedulestore.Schedule{ID: id, Name: id, Cron: cron, Enabled: true}
+	return schedulestore.Schedule{
+		ID:      id,
+		Name:    id,
+		Cron:    cron,
+		Enabled: true,
+	}
 }
 
 func paused(id, cron string) schedulestore.Schedule {

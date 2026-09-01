@@ -53,7 +53,12 @@ func TestGet(t *testing.T) {
 
 			id := tt.id
 			if tt.create {
-				created := seed(t, st, Config{Name: "morning-ci", Cron: "0 9 * * 1-5", Prompt: "check CI", Enabled: true})
+				created := seed(t, st, Config{
+					Name:    "morning-ci",
+					Cron:    "0 9 * * 1-5",
+					Prompt:  "check CI",
+					Enabled: true,
+				})
 				id = created.ID
 			}
 			if tt.archive {
@@ -95,8 +100,12 @@ func TestCreate(t *testing.T) {
 			wantEnabled: true,
 		},
 		{
-			name:        "a paused schedule is stored paused",
-			cfg:         Config{Name: "draft", Cron: "0 9 * * *", Prompt: "later"},
+			name: "a paused schedule is stored paused",
+			cfg: Config{
+				Name:   "draft",
+				Cron:   "0 9 * * *",
+				Prompt: "later",
+			},
 			wantEnabled: false,
 		},
 	}
@@ -149,12 +158,21 @@ func TestNameTaken(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			first := seed(t, st, Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "go"})
+			first := seed(t, st, Config{
+				Name:   "morning-ci",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			})
 			if tt.archive {
 				require.NoError(t, st.Archive(ctx, first.ID))
 			}
 
-			_, err := st.Create(ctx, Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "again", WorkflowID: seedWorkflow(t, st)})
+			_, err := st.Create(ctx, Config{
+				Name:       "morning-ci",
+				Cron:       "0 9 * * *",
+				Prompt:     "again",
+				WorkflowID: seedWorkflow(t, st),
+			})
 			if tt.wantTake {
 				require.ErrorIs(t, err, store.ErrNameTaken)
 				return
@@ -178,18 +196,32 @@ func TestUpdate(t *testing.T) {
 		wantEnabled  bool
 	}{
 		{
-			name:        "the editable fields are replaced",
-			update:      Config{Name: "renamed", Cron: "0 17 * * 5", Timezone: "UTC", Prompt: "weekly"},
+			name: "the editable fields are replaced",
+			update: Config{
+				Name:     "renamed",
+				Cron:     "0 17 * * 5",
+				Timezone: "UTC",
+				Prompt:   "weekly",
+			},
 			wantEnabled: false,
 		},
 		{
-			name:        "a paused schedule can be resumed through an update",
-			update:      Config{Name: "morning-ci", Cron: "0 9 * * *", Enabled: true, Prompt: "go"},
+			name: "a paused schedule can be resumed through an update",
+			update: Config{
+				Name:    "morning-ci",
+				Cron:    "0 9 * * *",
+				Enabled: true,
+				Prompt:  "go",
+			},
 			wantEnabled: true,
 		},
 		{
-			name:         "a schedule can be moved to another workflow",
-			update:       Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "go"},
+			name: "a schedule can be moved to another workflow",
+			update: Config{
+				Name:   "morning-ci",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			},
 			moveWorkflow: true,
 		},
 	}
@@ -263,7 +295,12 @@ func TestSetEnabled(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			created := seed(t, st, Config{Name: "morning-ci", Cron: "0 9 * * *", Prompt: "check CI", Enabled: tt.start})
+			created := seed(t, st, Config{
+				Name:    "morning-ci",
+				Cron:    "0 9 * * *",
+				Prompt:  "check CI",
+				Enabled: tt.start,
+			})
 
 			target := tt.id
 			if target == "" {
@@ -345,7 +382,11 @@ func TestRecordLaunchResult(t *testing.T) {
 			st := open(t)
 			ctx := t.Context()
 
-			created := seed(t, st, Config{Name: "nightly", Cron: "0 9 * * *", Prompt: "go"})
+			created := seed(t, st, Config{
+				Name:   "nightly",
+				Cron:   "0 9 * * *",
+				Prompt: "go",
+			})
 
 			id := tt.id
 			if id == "" {
@@ -379,7 +420,11 @@ func TestRecordLaunchResultArchived(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	created := seed(t, st, Config{Name: "nightly", Cron: "0 9 * * *", Prompt: "go"})
+	created := seed(t, st, Config{
+		Name:   "nightly",
+		Cron:   "0 9 * * *",
+		Prompt: "go",
+	})
 	require.NoError(t, st.Archive(ctx, created.ID))
 
 	require.NoError(t, st.RecordLaunchResult(ctx, created.ID, LaunchResultCannotLaunch, "bad directory"))
@@ -391,7 +436,12 @@ func TestRecordLaunchResultOverwrites(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
-	created := seed(t, st, Config{Name: "nightly", Cron: "0 9 * * *", Prompt: "go", Enabled: true})
+	created := seed(t, st, Config{
+		Name:    "nightly",
+		Cron:    "0 9 * * *",
+		Prompt:  "go",
+		Enabled: true,
+	})
 
 	require.NoError(t, st.RecordLaunchResult(ctx, created.ID, LaunchResultCannotLaunch, "bad directory"))
 	require.NoError(t, st.RecordLaunchResult(ctx, created.ID, LaunchResultLaunched, ""))
@@ -435,7 +485,11 @@ func TestList(t *testing.T) {
 
 			byName := make(map[string]string, len(tt.seeds))
 			for _, name := range tt.seeds {
-				created := seed(t, st, Config{Name: name, Cron: "0 9 * * *", Prompt: "go"})
+				created := seed(t, st, Config{
+					Name:   name,
+					Cron:   "0 9 * * *",
+					Prompt: "go",
+				})
 				byName[name] = created.ID
 			}
 			if tt.archive != "" {
@@ -482,7 +536,11 @@ func TestListPage(t *testing.T) {
 			ctx := t.Context()
 
 			for i := range tt.seeds {
-				seed(t, st, Config{Name: string(rune('a' + i)), Cron: "0 9 * * *", Prompt: "go"})
+				seed(t, st, Config{
+					Name:   string(rune('a' + i)),
+					Cron:   "0 9 * * *",
+					Prompt: "go",
+				})
 			}
 
 			var (

@@ -190,7 +190,11 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 	return func() tea.Msg {
 		agent, err := clients.createAgent(params)
 		if err != nil {
-			return writeResult{summary: "Could not start the agent", err: err, setupPane: params.SetupPane != ""}
+			return writeResult{
+				summary:   "Could not start the agent",
+				err:       err,
+				setupPane: params.SetupPane != "",
+			}
 		}
 
 		return writeResult{
@@ -210,7 +214,11 @@ func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 
 		agent, err := clients.adopt(params)
 		if err != nil {
-			return writeResult{summary: summary, err: err, setupPane: params.SetupPane != ""}
+			return writeResult{
+				summary:   summary,
+				err:       err,
+				setupPane: params.SetupPane != "",
+			}
 		}
 
 		return writeResult{

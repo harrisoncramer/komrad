@@ -27,39 +27,69 @@ func TestSendMailRefusals(t *testing.T) {
 		wantErr error
 	}{
 		{
-			name:    "an address nothing answers to",
-			params:  SendMailParams{From: "agent-a", ToAgentID: "ghost", Body: "hello"},
+			name: "an address nothing answers to",
+			params: SendMailParams{
+				From:      "agent-a",
+				ToAgentID: "ghost",
+				Body:      "hello",
+			},
 			wantErr: ErrRecipientNotFound,
 		},
 		{
-			name:    "a recipient that has been archived",
-			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-archived", Body: "hello"},
+			name: "a recipient that has been archived",
+			params: SendMailParams{
+				From:      "agent-a",
+				ToAgentID: "agent-archived",
+				Body:      "hello",
+			},
 			wantErr: ErrAgentArchived,
 		},
 		{
-			name:    "a sender naming an agent that does not exist",
-			params:  SendMailParams{From: "agent-ghost", ToAgentID: "agent-b", Body: "hello"},
+			name: "a sender naming an agent that does not exist",
+			params: SendMailParams{
+				From:      "agent-ghost",
+				ToAgentID: "agent-b",
+				Body:      "hello",
+			},
 			wantErr: ErrSenderUnknown,
 		},
 		{
-			name:    "an agent addressing itself",
-			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-a", Body: "hello"},
+			name: "an agent addressing itself",
+			params: SendMailParams{
+				From:      "agent-a",
+				ToAgentID: "agent-a",
+				Body:      "hello",
+			},
 			wantErr: ErrSelfAddressed,
 		},
 		{
-			name:    "a recipient already holding a full mailbox",
-			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello"},
+			name: "a recipient already holding a full mailbox",
+			params: SendMailParams{
+				From:      "agent-a",
+				ToAgentID: "agent-b",
+				Body:      "hello",
+			},
 			pending: maxPendingMail,
 			wantErr: ErrMailboxFull,
 		},
 		{
-			name:    "a reply_to that is not a well-formed id",
-			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr("not-an-id")},
+			name: "a reply_to that is not a well-formed id",
+			params: SendMailParams{
+				From:      "agent-a",
+				ToAgentID: "agent-b",
+				Body:      "hello",
+				ReplyTo:   xptr.Ptr("not-an-id"),
+			},
 			wantErr: ErrReplyToNotFound,
 		},
 		{
-			name:    "a reply_to naming a well-formed id nothing holds",
-			params:  SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "hello", ReplyTo: xptr.Ptr(uuid.NewString())},
+			name: "a reply_to naming a well-formed id nothing holds",
+			params: SendMailParams{
+				From:      "agent-a",
+				ToAgentID: "agent-b",
+				Body:      "hello",
+				ReplyTo:   xptr.Ptr(uuid.NewString()),
+			},
 			wantErr: ErrReplyToNotFound,
 		},
 	}
@@ -135,7 +165,11 @@ func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
 		Config:         fakeMailConfig{maxHops: 2},
 	})
 
-	first, err := svc.SendMail(t.Context(), SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "which column?"})
+	first, err := svc.SendMail(t.Context(), SendMailParams{
+		From:      "agent-a",
+		ToAgentID: "agent-b",
+		Body:      "which column?",
+	})
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), first.Hops)
 
@@ -150,7 +184,11 @@ func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrThreadCapped)
 
-	unrelated, err := svc.SendMail(t.Context(), SendMailParams{From: "agent-a", ToAgentID: "agent-b", Body: "unrelated ping"})
+	unrelated, err := svc.SendMail(t.Context(), SendMailParams{
+		From:      "agent-a",
+		ToAgentID: "agent-b",
+		Body:      "unrelated ping",
+	})
 	require.NoError(t, err)
 	assert.Equal(t, int32(1), unrelated.Hops)
 }
@@ -353,8 +391,16 @@ func TestListMailChecksTheAgentExists(t *testing.T) {
 // TestListMailReturnsWhatIsAddressedToTheAgent pins that a listing is scoped to one mailbox.
 func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
 	mailbox := &fakeMailbox{byID: map[string]mailstore.Mail{
-		"mail-1": {ID: "mail-1", ToAgentID: "agent-a", Body: "for alpha"},
-		"mail-2": {ID: "mail-2", ToAgentID: "agent-b", Body: "for beta"},
+		"mail-1": {
+			ID:        "mail-1",
+			ToAgentID: "agent-a",
+			Body:      "for alpha",
+		},
+		"mail-2": {
+			ID:        "mail-2",
+			ToAgentID: "agent-b",
+			Body:      "for beta",
+		},
 	}}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
@@ -411,7 +457,11 @@ func newFakeDirectory() *fakeDirectory {
 	api := agentstore.Agent{ID: "agent-a", Name: "api"}
 	migrations := agentstore.Agent{ID: "agent-b", Name: "migrations"}
 	archivedAt := time.Date(2026, time.August, 4, 9, 0, 0, 0, time.UTC)
-	archived := agentstore.Agent{ID: "agent-archived", Name: "old", ArchivedAt: &archivedAt}
+	archived := agentstore.Agent{
+		ID:         "agent-archived",
+		Name:       "old",
+		ArchivedAt: &archivedAt,
+	}
 
 	return &fakeDirectory{
 		byID: map[string]agentstore.Agent{

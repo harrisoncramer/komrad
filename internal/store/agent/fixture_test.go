@@ -66,7 +66,13 @@ func open(t *testing.T) *fixture {
 	created, err := workflows.Create(t.Context(), workflowstore.Config{Name: "default"})
 	require.NoError(t, err)
 
-	return &fixture{Store: New(p.GetDB()), db: p.GetDB(), pool: p, workflows: workflows, defaultWorkflow: created.ID}
+	return &fixture{
+		Store:           New(p.GetDB()),
+		db:              p.GetDB(),
+		pool:            p,
+		workflows:       workflows,
+		defaultWorkflow: created.ID,
+	}
 }
 
 func pool(t *testing.T) *store.Pool {

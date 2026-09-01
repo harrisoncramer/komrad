@@ -54,7 +54,12 @@ func TestRunReportsEveryCheck(t *testing.T) {
 	})
 
 	require.Len(t, report.Findings, 3)
-	assert.Equal(t, Summary{OK: 1, Warn: 1, Fail: 1, Total: 3}, report.Summary)
+	assert.Equal(t, Summary{
+		OK:    1,
+		Warn:  1,
+		Fail:  1,
+		Total: 3,
+	}, report.Summary)
 }
 
 // TestSummaryHealth covers what makes a machine unhealthy: a warning is a fact rather than

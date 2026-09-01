@@ -153,8 +153,13 @@ type model struct {
 
 func newModel(deps Deps, isDark bool) model {
 	m := model{
-		isDark:          isDark,
-		api:             api{agents: deps.Agents, workflows: deps.Workflows, schedules: deps.Schedules, actions: deps.Actions},
+		isDark: isDark,
+		api: api{
+			agents:    deps.Agents,
+			workflows: deps.Workflows,
+			schedules: deps.Schedules,
+			actions:   deps.Actions,
+		},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,

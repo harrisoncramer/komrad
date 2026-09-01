@@ -228,7 +228,11 @@ const testSessionID = "claude-abc"
 func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
 	ctx := context.Background()
-	require.NoError(t, st.Create(ctx, agentstore.Agent{Name: name, State: agentstore.StateIdle, SessionID: sessionID}))
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:      name,
+		State:     agentstore.StateIdle,
+		SessionID: sessionID,
+	}))
 	got, err := st.Get(ctx, name)
 	require.NoError(t, err)
 	require.NotNil(t, got)

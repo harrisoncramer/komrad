@@ -195,13 +195,21 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			wantCleanup: worktreeCleanupAction,
 		},
 		{
-			name:      "naming the built-in setup action without the toggle is refused",
-			cfg:       workflowstore.Config{Name: "backend", Cwd: "/repo", SetupAction: worktreeSetupAction},
+			name: "naming the built-in setup action without the toggle is refused",
+			cfg: workflowstore.Config{
+				Name:        "backend",
+				Cwd:         "/repo",
+				SetupAction: worktreeSetupAction,
+			},
 			wantErrIs: ErrWorktreeActionsReserved,
 		},
 		{
-			name:      "naming the built-in cleanup action without the toggle is refused too",
-			cfg:       workflowstore.Config{Name: "backend", Cwd: "/repo", CleanupAction: worktreeCleanupAction},
+			name: "naming the built-in cleanup action without the toggle is refused too",
+			cfg: workflowstore.Config{
+				Name:          "backend",
+				Cwd:           "/repo",
+				CleanupAction: worktreeCleanupAction,
+			},
 			wantErrIs: ErrWorktreeActionsReserved,
 		},
 	}
@@ -361,15 +369,24 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 	repo := initRepo(t)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-		Name:     "backend",
-		Cwd:      repo,
-		Worktree: workflowstore.WorktreeConfig{Enabled: true, BaseBranch: details.BaseBranch, CopyPaths: details.CopyPaths, SymlinkPaths: details.SymlinkPaths},
+		Name: "backend",
+		Cwd:  repo,
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			BaseBranch:   details.BaseBranch,
+			CopyPaths:    details.CopyPaths,
+			SymlinkPaths: details.SymlinkPaths,
+		},
 	})
 	require.NoError(t, err)
 
 	disabledDetails := details
 	disabledDetails.Enabled = false
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: "/repo", Worktree: disabledDetails})
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: disabledDetails,
+	})
 	require.NoError(t, err)
 
 	disabled, err := st.GetWorkflow(t.Context(), created.ID)
@@ -381,7 +398,11 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 
 	enabledDetails := details
 	enabledDetails.Enabled = true
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: repo, Worktree: enabledDetails})
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name:     "backend",
+		Cwd:      repo,
+		Worktree: enabledDetails,
+	})
 	require.NoError(t, err)
 
 	reenabled, err := st.GetWorkflow(t.Context(), created.ID)
@@ -698,7 +719,11 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	require.NoError(t, err)
 
 	for _, title := range []string{"one", "two"} {
-		_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: created.ID})
+		_, err := manager.launch.NewAgent(ctx, NewAgentParams{
+			Title:      title,
+			Dir:        t.TempDir(),
+			WorkflowID: created.ID,
+		})
 		require.NoError(t, err)
 	}
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
@@ -706,7 +731,11 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	elsewhere, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend"})
 	require.NoError(t, err)
 	for _, title := range []string{"live-one", "live-two"} {
-		_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: title, Dir: t.TempDir(), WorkflowID: elsewhere.ID})
+		_, err := manager.launch.NewAgent(ctx, NewAgentParams{
+			Title:      title,
+			Dir:        t.TempDir(),
+			WorkflowID: elsewhere.ID,
+		})
 		require.NoError(t, err)
 	}
 
@@ -744,9 +773,17 @@ func TestRestoreAgentRestoresItsWorkflow(t *testing.T) {
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
 	require.NoError(t, err)
 
-	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "one", Dir: t.TempDir(), WorkflowID: created.ID})
+	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "one",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
 	require.NoError(t, err)
-	other, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "two", Dir: t.TempDir(), WorkflowID: created.ID})
+	other, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "two",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
@@ -853,12 +890,20 @@ func TestDeleteWorkflow(t *testing.T) {
 				id = created.ID
 			}
 			if tt.addAgent {
-				_, err := manager.launch.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: id})
+				_, err := manager.launch.NewAgent(ctx, NewAgentParams{
+					Title:      "agent",
+					Dir:        t.TempDir(),
+					WorkflowID: id,
+				})
 				require.NoError(t, err)
 			}
 			var scheduleID string
 			if tt.addSchedule {
-				schedule, err := st.Schedules.Create(ctx, schedulestore.Config{Name: "nightly", Cron: "0 3 * * *", WorkflowID: id})
+				schedule, err := st.Schedules.Create(ctx, schedulestore.Config{
+					Name:       "nightly",
+					Cron:       "0 3 * * *",
+					WorkflowID: id,
+				})
 				require.NoError(t, err)
 				require.NoError(t, st.Schedules.Archive(ctx, schedule.ID))
 				scheduleID = schedule.ID
@@ -907,7 +952,11 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	moved, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "moved"})
 	require.NoError(t, err)
 
-	schedule, err := st.Schedules.Create(ctx, schedulestore.Config{Name: "nightly", Cron: "0 3 * * *", WorkflowID: launcher.ID})
+	schedule, err := st.Schedules.Create(ctx, schedulestore.Config{
+		Name:       "nightly",
+		Cron:       "0 3 * * *",
+		WorkflowID: launcher.ID,
+	})
 	require.NoError(t, err)
 
 	_, err = manager.launch.NewAgent(ctx, NewAgentParams{
@@ -925,7 +974,11 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	}))
 	require.NoError(t, st.Schedules.Archive(ctx, schedule.ID))
 
-	_, err = manager.launch.NewAgent(ctx, NewAgentParams{Title: "inside", Dir: t.TempDir(), WorkflowID: moved.ID})
+	_, err = manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "inside",
+		Dir:        t.TempDir(),
+		WorkflowID: moved.ID,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, moved.ID))
@@ -963,7 +1016,11 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "teardown"})
 	require.NoError(t, err)
 
-	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{Title: "agent", Dir: t.TempDir(), WorkflowID: created.ID})
+	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
