@@ -266,18 +266,24 @@ func splitTerms(query string) queryTerms {
 	)
 
 	flush := func() {
-		term := text.String()
+		term, quotedTerm := text.String(), hadQuote
+		text.Reset()
+		quoted, hadQuote = false, false
+
+		// A minus with a space after it still excludes the word beyond the space.
+		if term == "" {
+			return
+		}
+
 		switch {
-		case term == "":
 		case negated:
 			terms.negative = append(terms.negative, term)
-		case !hadQuote && strings.EqualFold(term, "or"):
+		case !quotedTerm && strings.EqualFold(term, "or"):
 		default:
 			terms.positive = append(terms.positive, term)
 		}
 
-		text.Reset()
-		quoted, hadQuote, negated = false, false, false
+		negated = false
 	}
 	for _, r := range query {
 		switch {

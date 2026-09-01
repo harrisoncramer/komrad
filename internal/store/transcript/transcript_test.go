@@ -678,6 +678,27 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"-config"},
 		},
 		{
+			name:         "a minus with a space after it excludes the word beyond the space",
+			query:        "- config",
+			wantNegative: []string{"config"},
+		},
+		{
+			name:         "a minus between words excludes the one after it",
+			query:        "foo - bar",
+			wantPositive: []string{"foo"},
+			wantNegative: []string{"bar"},
+		},
+		{
+			name:         "a minus across a space is still cancelled by the next one",
+			query:        "- -config",
+			wantPositive: []string{"config"},
+		},
+		{
+			name:         "a trailing minus asks for nothing",
+			query:        "config -",
+			wantPositive: []string{"config"},
+		},
+		{
 			name:         "a quoted phrase behind a minus is still excluded",
 			query:        `pane -"derives markers"`,
 			wantPositive: []string{"pane"},
