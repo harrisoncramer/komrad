@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Hold struct declarations and literals to one field per line, with no blank lines between them."
+#MISE description="Hold struct declarations, literals, and declaration blocks to one entry per line, with no blank lines between them."
 
 usage() {
 	echo "Usage: mise run go:structs"
 	echo
 	echo "Puts keyed struct literals onto one field per line and closes the blank"
-	echo "lines between the fields of a struct, which read as a grouping nobody"
-	echo "meant. It rewrites what it finds and then exits non-zero, so a tree that"
-	echo "was already right passes and one that was not is fixed and reported."
+	echo "lines between the fields of a struct and the entries of a parenthesised"
+	echo "const, var, or type block, which read as a grouping nobody meant. It"
+	echo "rewrites what it finds and then exits non-zero, so a tree that was"
+	echo "already right passes and one that was not is fixed and reported."
 	echo
 	echo "Both codemods run even when the first has something to say, so one run"
 	echo "lists everything that was wrong."

@@ -248,3 +248,129 @@ func f() {
 	assert.Equal(t, 0, count)
 	assert.Equal(t, src, out)
 }
+
+// TestRewriteClosesGapsInDeclarationBlocks pins that a parenthesised const, var, or type
+// block reads under the same rule as a struct, since the gaps are the same kind of grouping.
+func TestRewriteClosesGapsInDeclarationBlocks(t *testing.T) {
+	sources := map[string]struct {
+		src  string
+		want string
+	}{
+		"const with iota": {
+			src: `package p
+
+const (
+	infoNothing infoKind = iota
+
+	infoSetup
+
+	infoSetupLog
+	infoEditFile
+)
+`,
+			want: `package p
+
+const (
+	infoNothing infoKind = iota
+	infoSetup
+	infoSetupLog
+	infoEditFile
+)
+`,
+		},
+		"var": {
+			src: `package p
+
+var (
+	a = 1
+
+	b = 2
+)
+`,
+			want: `package p
+
+var (
+	a = 1
+	b = 2
+)
+`,
+		},
+		"type": {
+			src: `package p
+
+type (
+	Action = actions.Action
+
+	ActionHeader = actions.Header
+)
+`,
+			want: `package p
+
+type (
+	Action       = actions.Action
+	ActionHeader = actions.Header
+)
+`,
+		},
+		"against the parens": {
+			src: `package p
+
+const (
+
+	a = 1
+
+)
+`,
+			want: `package p
+
+const (
+	a = 1
+)
+`,
+		},
+	}
+
+	for name, tc := range sources {
+		t.Run(name, func(t *testing.T) {
+			out, count := run(t, tc.src)
+			assert.Positive(t, count)
+			assert.Equal(t, tc.want, out)
+		})
+	}
+}
+
+// TestRewriteKeepsTheLineBeforeADocumentedSpec pins the same exception a documented field
+// gets, since running the doc comments together loses the break that makes them readable.
+func TestRewriteKeepsTheLineBeforeADocumentedSpec(t *testing.T) {
+	src := `package p
+
+const (
+	// a is the first.
+	a = 1
+
+	// b is the second.
+	b = 2
+)
+`
+
+	out, count := run(t, src)
+	assert.Equal(t, 0, count)
+	assert.Equal(t, src, out)
+}
+
+// TestRewriteLeavesImportBlocksAlone pins that the groups an import block is spaced into are
+// goimports' to decide, not this tool's.
+func TestRewriteLeavesImportBlocksAlone(t *testing.T) {
+	src := `package p
+
+import (
+	"fmt"
+
+	"weave/internal/codemod"
+)
+`
+
+	out, count := run(t, src)
+	assert.Equal(t, 0, count)
+	assert.Equal(t, src, out)
+}
