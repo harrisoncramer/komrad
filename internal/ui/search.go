@@ -58,7 +58,9 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.search = searchState{typing: true}
 	m.frame.Show(layout.RegionStage, newBlankContent())
 
-	return m, nil
+	// The archived agents a hit can name are only listed while this screen is up, so the first
+	// pass is asked for here rather than waited on.
+	return m, m.refreshCmd()
 }
 
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
@@ -370,6 +372,32 @@ func (m *model) stageMatch(agentID string) bool {
 	return true
 }
 
+// hitHeader names the agent a run of hits came from, wearing the same marks its row wears on
+// the screen it lives on, since a snippet says nothing about the agent that wrote it.
+func (m model) hitHeader(hit searchHit) string {
+	name := clipName(hit.name)
+
+	if hit.archived {
+		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
+
+		agent, ok := m.archivedAgent(hit.agentID)
+		if !ok {
+			return row
+		}
+
+		return row + failedMark(agent) + scheduledMark(agent) + tagGlyph(agent, m.tags)
+	}
+
+	item, ok := m.liveAgent(hit.agentID)
+	if !ok {
+		return "  " + noStateMark() + " " + name
+	}
+
+	return "  " + stateMark(displayState(item)) + " " + name +
+		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
+		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
+}
+
 func (m model) searchView() string {
 	var b strings.Builder
 	b.WriteString(m.titleStyle().Render("Search") + "\n\n")
@@ -389,11 +417,7 @@ func (m model) searchView() string {
 		labelled := ""
 		for i, hit := range m.search.hits {
 			if hit.agentID != labelled {
-				name := clipName(hit.name)
-				if hit.archived {
-					name += dimStyle.Render(" (archived)")
-				}
-				b.WriteString("  " + name + "\n")
+				b.WriteString(m.hitHeader(hit) + "\n")
 				labelled = hit.agentID
 			}
 

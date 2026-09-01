@@ -635,6 +635,111 @@ func TestSearchGroupsByAgent(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one header per agent rather than per name")
 }
 
+// TestSearchHeaderCarriesTheAgent covers a header wearing what the agent's own row wears, since
+// the hit itself says nothing about the state the agent it came from is in.
+func TestSearchHeaderCarriesTheAgent(t *testing.T) {
+	tagged := "\u2713"
+
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "ledger"}
+	m.listing.agents = []agentItem{
+		{
+			agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "billing",
+				WorkflowID: "w1",
+				State:      agentstore.StateThinking,
+				Tag:        &tagged,
+			},
+			alive:      true,
+			unreadMail: true,
+		},
+	}
+	m.archive.agents = []agentstore.Agent{
+		{
+			ID:         "a2",
+			Name:       "payouts",
+			WorkflowID: "w1",
+			State:      agentstore.StateFailedToCleanup,
+		},
+	}
+
+	m.applySearch(searchResult{
+		query: "ledger",
+		hits: []searchHit{
+			{
+				agentID: "a1",
+				name:    "billing",
+				snippet: "first",
+			},
+			{
+				agentID:  "a2",
+				name:     "payouts",
+				archived: true,
+				snippet:  "second",
+			},
+		},
+	})
+
+	view := ansi.Strip(m.searchView())
+
+	live := headerLine(t, view, "billing")
+	assert.Contains(t, live, stateIcon(agentstore.StateThinking), "the live header wears the state it is in")
+	assert.Contains(t, live, tagged, "the live header wears its tag")
+	assert.Contains(t, live, unreadMailIcon, "the live header says mail is waiting")
+
+	archived := headerLine(t, view, "payouts")
+	assert.Contains(t, archived, "(archived)", "the archived header still says so")
+	assert.Contains(t, archived, stateIcon(agentstore.StateFailedToCleanup), "the archived header wears a failed cleanup")
+
+	for _, header := range []string{live, archived} {
+		assert.NotEqual(t, snippetIndent, indentOf(header), "a header is not drawn at the indent its snippets are")
+	}
+}
+
+func indentOf(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " "))
+}
+
+// TestSearchHeaderWithoutTheAgent covers a hit named before its listing has landed, which is
+// what a first paint looks like, and which is only allowed to cost the marks.
+func TestSearchHeaderWithoutTheAgent(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "ledger"}
+	m.listing.agents = nil
+
+	m.applySearch(searchResult{
+		query: "ledger",
+		hits: []searchHit{{
+			agentID: "gone",
+			name:    "billing",
+			snippet: "first",
+		}},
+	})
+
+	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
+
+	assert.Equal(t, "  "+noStateIcon+" billing", header, "the header keeps the icon column a header sits behind")
+}
+
+func headerLine(t *testing.T, view, name string) string {
+	t.Helper()
+
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, name) {
+			return line
+		}
+	}
+
+	t.Fatalf("no header for %q in:\n%s", name, view)
+
+	return ""
+}
+
 // TestJumpLandsOnTheMatch covers enter carrying the position the snippet came from, so the
 // transcript opens where the match is rather than at the top of it.
 func TestJumpLandsOnTheMatch(t *testing.T) {

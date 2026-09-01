@@ -390,6 +390,53 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 	assert.Equal(t, "infra-audit", selected.Name)
 }
 
+// TestSearchListsTheArchive covers the search screen naming archived agents, which it can only
+// do while the refresh is fetching them, since nothing else on that screen holds them.
+func TestSearchListsTheArchive(t *testing.T) {
+	lists := archivedLists{}
+
+	for _, tc := range []struct {
+		screen screen
+		want   int
+	}{
+		{screen: screenSearch, want: 1},
+		{screen: screenAgents, want: 0},
+	} {
+		m := model{
+			frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+			keys:   config.DefaultKeybindings(),
+			screen: tc.screen,
+			api: api{
+				agents:    lists,
+				workflows: lists,
+				schedules: lists,
+			},
+		}
+
+		m = settle(t, m, m.refreshCmd())
+
+		assert.Len(t, m.archive.agents, tc.want, "screen %d holds the archived agents it asked for", tc.screen)
+	}
+}
+
+type archivedLists struct {
+	emptyLists
+}
+
+func (archivedLists) ListAgents(_ context.Context, req *connect.Request[agentv1.ListAgentsRequest]) (*connect.Response[agentv1.ListAgentsResponse], error) {
+	if !req.Msg.GetArchived() {
+		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
+	}
+
+	return connect.NewResponse(&agentv1.ListAgentsResponse{
+		Agents: []*agentv1.Agent{{
+			Id:         "a1",
+			Name:       "payouts",
+			WorkflowId: "w1",
+		}},
+	}), nil
+}
+
 type emptyLists struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient

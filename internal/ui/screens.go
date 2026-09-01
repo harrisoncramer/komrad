@@ -33,6 +33,10 @@ type screenSpec struct {
 	// says a pass that lands should restage it.
 	fromListing bool
 
+	// needsArchive is whether the refresh has to list the archived agents too, which costs a
+	// call the screens that never name an archived agent do not pay.
+	needsArchive bool
+
 	// reenter comes back to the screen with its cursor and stage put right, and is nil on a
 	// screen nothing is ever drawn over.
 	reenter func(model) (tea.Model, tea.Cmd)
@@ -105,11 +109,12 @@ func (s screen) spec() screenSpec {
 		}
 	case screenArchive:
 		return screenSpec{
-			key:         model.updateArchive,
-			view:        model.archiveView,
-			stage:       (*model).stageArchive,
-			fromListing: true,
-			reenter:     model.enterArchive,
+			key:          model.updateArchive,
+			view:         model.archiveView,
+			stage:        (*model).stageArchive,
+			fromListing:  true,
+			needsArchive: true,
+			reenter:      model.enterArchive,
 			details: &detailsSpec{
 				hovered: model.archiveDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Archive.Quit },
@@ -121,9 +126,10 @@ func (s screen) spec() screenSpec {
 		}
 	case screenSearch:
 		return screenSpec{
-			key:    model.updateSearch,
-			view:   model.searchView,
-			typing: func(m model) bool { return m.search.typing },
+			key:          model.updateSearch,
+			view:         model.searchView,
+			needsArchive: true,
+			typing:       func(m model) bool { return m.search.typing },
 		}
 	case screenReview:
 		return screenSpec{

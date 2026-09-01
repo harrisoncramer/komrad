@@ -49,7 +49,7 @@ func (m model) refreshCmd() tea.Cmd {
 		return nil
 	}
 
-	clients, epoch, withArchive := m.api, m.epoch, m.screen == screenArchive
+	clients, epoch, withArchive := m.api, m.epoch, m.screen.spec().needsArchive
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
