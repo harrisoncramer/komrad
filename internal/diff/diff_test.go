@@ -93,3 +93,18 @@ func TestFingerprintFollowsTheDiffRatherThanTheFile(t *testing.T) {
 	renamed.Metadata = []string{"renamed from hello.go"}
 	assert.NotEqual(t, original, renamed.Fingerprint(), "what the change did to the file is part of it")
 }
+
+// TestFingerprintStandsOnContentWhereThereAreNoHunks is the binary case: nothing else about the
+// file moves when an agent replaces it, so a mark held without the content never comes off.
+func TestFingerprintStandsOnContentWhereThereAreNoHunks(t *testing.T) {
+	file := File{
+		OldPath:  "logo.png",
+		NewPath:  "logo.png",
+		Metadata: []string{"binary file"},
+		Content:  "994211c..952a679",
+	}
+
+	replaced := file
+	replaced.Content = "994211c..1f0a3bd"
+	assert.NotEqual(t, file.Fingerprint(), replaced.Fingerprint(), "the binary the agent replaced reads as unread")
+}
