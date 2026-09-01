@@ -386,6 +386,23 @@ func (v *View) JumpFile(y, direction int) int {
 	return y
 }
 
+// FileTop is the row the file at y starts on, so a jump into it can put its header at the top
+// of the pane rather than leaving the scroll margin to decide.
+func (v *View) FileTop(y int) int {
+	current, ok := v.getRow(y)
+	if !ok {
+		return y
+	}
+
+	for index, candidate := range v.rows {
+		if candidate.file == current.file {
+			return index
+		}
+	}
+
+	return y
+}
+
 // JumpHunk moves to the first line of the next hunk, or backwards to the top of the hunk the
 // cursor is inside and only then to the one before it, the way vim's `{` walks a paragraph.
 func (v *View) JumpHunk(y, direction int) int {

@@ -62,6 +62,11 @@ type reviewState struct {
 	// pinTop holds the window where zt or zb put it until the cursor moves, since the next repaint
 	// would otherwise drag it back to keep the cursor clear of the edge.
 	pinTop bool
+
+	// pinFloor is the row a file jump put at the top of the pane, which the window stays at or
+	// below while the cursor is inside that file, since the margin would otherwise scroll the file
+	// it was jumped away from back into view on the first keypress.
+	pinFloor int
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
@@ -377,9 +382,9 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, keys.HalfPageUp):
 		return m.pageReview(-max(1, m.reviewPage()/2))
 	case isBound(k, keys.NextFile):
-		return m.moveReviewCursor(m.review.view.JumpFile(m.review.cursor, 1))
+		return m.jumpReviewFile(1)
 	case isBound(k, keys.PrevFile):
-		return m.moveReviewCursor(m.review.view.JumpFile(m.review.cursor, -1))
+		return m.jumpReviewFile(-1)
 	case isBound(k, keys.NextHunk):
 		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, 1))
 	case isBound(k, keys.PrevHunk):
@@ -535,6 +540,24 @@ func (m model) leaveReview() (tea.Model, tea.Cmd) {
 	return m.returnToAgents()
 }
 
+// jumpReviewFile moves to the next or previous file and puts that file's header at the top of the
+// pane, since the scroll margin would otherwise land a forward jump on the last rows of the window
+// and show almost nothing of the file it went to.
+func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
+	next := m.review.view.JumpFile(m.review.cursor, direction)
+	if next == m.review.cursor {
+		return m, nil
+	}
+
+	m.review.cursor = next
+	m.review.top = max(min(m.review.view.FileTop(next), m.review.view.Len()-1), 0)
+	m.review.pinTop = true
+	m.review.pinFloor = m.review.top
+	m.stageReview()
+
+	return m, m.markReviewThreadReadCmd()
+}
+
 func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 	if next == m.review.cursor {
 		return m, nil
@@ -567,8 +590,15 @@ func (m *model) scrollReviewToCursor() {
 
 	margin := min(reviewScrollMargin, max((height-1)/2, 0))
 
+	// A file jump is only worth anything if the file stays at the top, so the margin gives up its
+	// gap until the cursor walks back above the row the jump landed on.
+	floor := 0
+	if m.review.cursor >= m.review.pinFloor {
+		floor = m.review.pinFloor
+	}
+
 	if low := m.review.cursor - margin; low < m.review.top {
-		m.review.top = max(low, 0)
+		m.review.top = max(low, floor)
 	}
 
 	if high := m.review.cursor - height + 1 + margin; high > m.review.top {
