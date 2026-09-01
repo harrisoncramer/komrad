@@ -83,9 +83,9 @@ func TestTerminalReplacesOpenLogs(t *testing.T) {
 	assert.Equal(t, dir, tmux.respawnDirs[1])
 }
 
-// TestTerminalRefocusesTheShellAlreadyThere pins that pressing the key again on the same agent
-// hands the shell the keyboard rather than respawning it, which would throw away whatever the
-// user was in the middle of.
+// TestTerminalRefocusesTheShellAlreadyThere pins that pressing the key again hands the shell the
+// keyboard rather than respawning it, which would throw away whatever the user was in the middle
+// of.
 func TestTerminalRefocusesTheShellAlreadyThere(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := terminalModel(t, tmux)
@@ -97,9 +97,9 @@ func TestTerminalRefocusesTheShellAlreadyThere(t *testing.T) {
 	assert.Equal(t, []string{"%2", "%2"}, tmux.selected)
 }
 
-// TestTerminalFollowsTheHoveredAgent pins that the key moves the shell to whichever agent the
-// cursor has since landed on.
-func TestTerminalFollowsTheHoveredAgent(t *testing.T) {
+// TestTerminalFollowsTheCursor pins that the shell moves to whichever agent the cursor lands on,
+// the way the logs below the stage do, rather than waiting to be asked again.
+func TestTerminalFollowsTheCursor(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, first := terminalModel(t, tmux)
 
@@ -117,12 +117,71 @@ func TestTerminalFollowsTheHoveredAgent(t *testing.T) {
 	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
-	require.Equal(t, []string{first}, infoRespawns(tmux), "moving the cursor leaves the shell alone")
 
-	switched := pressTerminal(t, panel)
-
-	assert.Equal(t, second, switched.info.action)
+	assert.Equal(t, second, panel.info.action)
 	assert.Equal(t, []string{first, second}, infoRespawns(tmux))
+}
+
+// TestTerminalStaysPutOverAWorkflowHeader pins that a row holding no directory of its own leaves
+// the shell where it is, since the cursor passes over a header on the way to every agent.
+func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, dir := terminalModel(t, tmux)
+
+	opened := pressTerminal(t, m)
+
+	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	panel, ok := moved.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, dir, panel.info.action)
+	assert.Equal(t, []string{dir}, infoRespawns(tmux))
+}
+
+// TestTerminalStaysPutOverAMissingWorktree pins that an agent whose directory has gone leaves the
+// shell where it is rather than dropping it somewhere else.
+func TestTerminalStaysPutOverAMissingWorktree(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, dir := terminalModel(t, tmux)
+
+	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+		ID:         "a2",
+		Name:       "billing",
+		Cwd:        "/no/such/worktree",
+		WorkflowID: "w1",
+	}})
+
+	opened := pressTerminal(t, m)
+
+	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	panel, ok := moved.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, dir, panel.info.action)
+	assert.Equal(t, []string{dir}, infoRespawns(tmux))
+}
+
+// TestTerminalStaysPutAcrossAWorkflowsAgents pins that agents a workflow roots in one directory
+// share one shell, since keying on the directory means there is nothing to move.
+func TestTerminalStaysPutAcrossAWorkflowsAgents(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, dir := terminalModel(t, tmux)
+
+	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+		ID:         "a2",
+		Name:       "billing",
+		Cwd:        dir,
+		WorkflowID: "w1",
+	}})
+
+	opened := pressTerminal(t, m)
+
+	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	panel, ok := moved.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, dir, panel.info.action)
+	assert.Equal(t, []string{dir}, infoRespawns(tmux), "one directory is one shell")
 }
 
 // TestTerminalSurvivesTheRestaging pins that the stage being drawn again, which happens on every

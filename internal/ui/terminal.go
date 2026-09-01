@@ -12,7 +12,7 @@ import (
 const fallbackShell = "sh"
 
 // terminalContent is a shell in a directory, keyed by that directory rather than by the agent so
-// the shell the user is typing in survives the restaging every refresh does.
+// that moving between agents a workflow roots in one place leaves the shell alone.
 func terminalContent(shell, dir string) layout.Content {
 	if shell == "" {
 		shell = fallbackShell
@@ -26,6 +26,22 @@ func terminalContent(shell, dir string) layout.Content {
 	}
 }
 
+// terminalDir is where the shell belongs: under the cursor while it is on an agent, and where it
+// already is otherwise, so passing over a workflow header does not pull it out from under you.
+func (m model) terminalDir() string {
+	agent, ok := m.logTarget()
+	if !ok {
+		return m.info.action
+	}
+
+	// An agent whose worktree has been removed has nowhere to put a shell.
+	if _, err := os.Stat(agent.Cwd); err != nil {
+		return m.info.action
+	}
+
+	return agent.Cwd
+}
+
 // openTerminal puts a shell in the pane below the stage, rooted at the hovered agent's directory.
 func (m model) openTerminal() (tea.Model, tea.Cmd) {
 	if m.setupPending {
@@ -37,22 +53,18 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// An agent whose worktree has been removed has nowhere to put a shell.
-	dir := agent.Cwd
-	if _, err := os.Stat(dir); err != nil {
+	if _, err := os.Stat(agent.Cwd); err != nil {
 		m.report("Could not open a terminal", err)
 		return m, nil
 	}
 
-	// The shell that agent asked for is already up, so it only wants the keyboard.
-	if m.info.kind == infoTerminal && m.info.action == dir && m.frame.IsOpen(layout.RegionInfo) {
-		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
-		return m, nil
+	// A shell already up follows the cursor on its own, so the key is only asking for the keyboard.
+	if m.info.kind != infoTerminal || !m.frame.IsOpen(layout.RegionInfo) {
+		if !m.claimInfo(infoTerminal, agent.Cwd) {
+			return m, nil
+		}
 	}
 
-	if !m.claimInfo(infoTerminal, dir) {
-		return m, nil
-	}
 	m.stageInfo()
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
