@@ -110,31 +110,22 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 }
 
 type recordingTmux struct {
-	path     string
-	swaps    int
-	respawns []string
-
-	width  int
-	height int
-
-	sentKeys []string
-
+	path          string
+	swaps         int
+	respawns      []string
+	width         int
+	height        int
+	sentKeys      []string
 	windows       []string
 	openWindowErr error
-
-	detaches int
-	killed   []string
-
-	belowAnchors []string
-	globals      map[string]string
-
-	infoPane string
-
-	selected []string
-
-	respawnPanes []string
-
-	deadPanes map[string]bool
+	detaches      int
+	killed        []string
+	belowAnchors  []string
+	globals       map[string]string
+	infoPane      string
+	selected      []string
+	respawnPanes  []string
+	deadPanes     map[string]bool
 }
 
 func (t *recordingTmux) ShowGlobal(string) string                { return "" }

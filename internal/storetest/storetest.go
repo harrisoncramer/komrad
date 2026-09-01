@@ -23,8 +23,7 @@ import (
 )
 
 type Stores struct {
-	URL string
-
+	URL         string
 	ReadOnlyURL string
 	Pool        *store.Pool
 	Agents      *agentstore.Store

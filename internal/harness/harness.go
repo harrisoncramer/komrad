@@ -36,25 +36,16 @@ func EnvPrefix(launch Launch) string {
 }
 
 type Launch struct {
-	Flags string
-
-	Prompt string
-
-	Context string
-
-	SessionID string
-
-	AgentID string
-
+	Flags       string
+	Prompt      string
+	Context     string
+	SessionID   string
+	AgentID     string
 	MCPEndpoint string
-
-	CacheDir string
-
-	Dir string
-
+	CacheDir    string
+	Dir         string
 	HookCommand string
-
-	Resume bool
+	Resume      bool
 }
 
 type Activity int
@@ -80,11 +71,9 @@ type Turn struct {
 }
 
 type LogRead struct {
-	Turns []Turn
-
+	Turns    []Turn
 	Consumed int64
-
-	Restart bool
+	Restart  bool
 }
 
 type Harness interface {

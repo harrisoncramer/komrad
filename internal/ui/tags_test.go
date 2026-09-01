@@ -223,8 +223,7 @@ func TestNextSelectionTag(t *testing.T) {
 // selection still up so the key can be pressed again.
 func TestTagSelection(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name     string
 		carrying map[string]string
 		want     *string
 	}{

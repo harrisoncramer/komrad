@@ -20,8 +20,7 @@ import (
 // answering with the defaults and the reason rather than failing the call.
 func TestGetConfig(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name  string
 		file  string
 		check func(t *testing.T, resp *configv1.GetConfigResponse)
 	}{

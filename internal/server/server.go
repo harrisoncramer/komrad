@@ -27,28 +27,17 @@ import (
 )
 
 type Params struct {
-	Env *config.Environment
-
-	ConfigPaths []string
-
-	Logger *slog.Logger
-
-	Addr string
-
-	Tmux *tmux.Servers
-
-	Harnesses *harness.Registry
-
-	DefaultHarness string
-
-	DefaultFlags map[string]string
-
-	MaxAgents int
-
-	ContextPath string
-
-	HookCommand string
-
+	Env                *config.Environment
+	ConfigPaths        []string
+	Logger             *slog.Logger
+	Addr               string
+	Tmux               *tmux.Servers
+	Harnesses          *harness.Registry
+	DefaultHarness     string
+	DefaultFlags       map[string]string
+	MaxAgents          int
+	ContextPath        string
+	HookCommand        string
 	FallbackResumeRoot string
 }
 
@@ -75,18 +64,12 @@ func (load mailConfig) GetMaxHops() (int, error) {
 }
 
 type Server struct {
-	Mux *http.ServeMux
-
-	Jobs *river.Client[pgx.Tx]
-
-	Periodic *jobs.RiverPeriodic
-
-	Pool *store.Pool
-
-	Delivery *agents.DeliveryService
-
-	Loops []Loop
-
+	Mux           *http.ServeMux
+	Jobs          *river.Client[pgx.Tx]
+	Periodic      *jobs.RiverPeriodic
+	Pool          *store.Pool
+	Delivery      *agents.DeliveryService
+	Loops         []Loop
 	logger        *slog.Logger
 	stopRequested chan struct{}
 	background    *backgroundWork

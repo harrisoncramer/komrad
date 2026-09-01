@@ -86,12 +86,11 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 	}
 
 	_, err = w.agents.NewAgent(ctx, agents.NewAgentParams{
-		Title:      schedule.Name,
-		Prompt:     schedule.Prompt,
-		WorkflowID: schedule.WorkflowID,
-		ScheduleID: xptr.Ptr(schedule.ID),
-		Hidden:     schedule.HideAgents,
-
+		Title:          schedule.Name,
+		Prompt:         schedule.Prompt,
+		WorkflowID:     schedule.WorkflowID,
+		ScheduleID:     xptr.Ptr(schedule.ID),
+		Hidden:         schedule.HideAgents,
 		IdempotencyKey: LaunchKey(schedule.ID, job.Args.ScheduledFor),
 	})
 

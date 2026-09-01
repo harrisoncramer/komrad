@@ -23,10 +23,8 @@ var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
 // since re-adding one nothing changed about would leave two jobs on the same expression.
 func TestSchedulerReconcile(t *testing.T) {
 	tests := []struct {
-		name string
-
-		passes [][]schedulestore.Schedule
-
+		name        string
+		passes      [][]schedulestore.Schedule
 		wantAdded   []string
 		wantRemoved []string
 	}{
@@ -159,14 +157,10 @@ func TestSchedulerReconcileFailure(t *testing.T) {
 // the rest still register and a paused one still comes off.
 func TestSchedulerReconcileSurvivesAFailedRegistration(t *testing.T) {
 	tests := []struct {
-		name string
-
-		failFor string
-
-		passes [][]schedulestore.Schedule
-
-		wantAdded []string
-
+		name        string
+		failFor     string
+		passes      [][]schedulestore.Schedule
+		wantAdded   []string
 		wantRemoved []string
 	}{
 		{
@@ -254,7 +248,6 @@ func (l *listingSchedules) Get(_ context.Context, id string) (*schedulestore.Sch
 type recordingPeriodic struct {
 	added   []string
 	removed []string
-
 	failFor string
 }
 
@@ -285,7 +278,6 @@ func TestOccurrenceFor(t *testing.T) {
 	tests := []struct {
 		name string
 		cron string
-
 		at   time.Time
 		want time.Time
 	}{

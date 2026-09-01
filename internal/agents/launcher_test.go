@@ -15,8 +15,7 @@ import (
 // command the harness built into the agent's pane and running it.
 func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name        string
 		commandErr  error
 		sendKeysErr error
 		wantErr     string
@@ -112,7 +111,6 @@ func TestAppendedSystemPrompt(t *testing.T) {
 
 				briefedLogPath,
 			},
-
 			wantAbsent: []string{"shared notes", mcpURLPlaceholder, logPathPlaceholder},
 		},
 		{
@@ -193,10 +191,8 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 // buildBriefing and the workflow's own, with a missing file treated as ordinary.
 func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 	tests := []struct {
-		name string
-
-		global string
-
+		name            string
+		global          string
 		missing         bool
 		workflowContext string
 		wantContain     []string

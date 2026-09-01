@@ -39,8 +39,7 @@ type screenSpec struct {
 
 	// typing reports whether something on the screen is taking every key and so standing the
 	// panel's own bindings down, and is nil on a screen that never takes typing.
-	typing func(model) bool
-
+	typing  func(model) bool
 	details *detailsSpec
 	filter  *filterSpec
 }

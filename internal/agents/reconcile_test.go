@@ -21,12 +21,10 @@ func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
 		fromState string
-
-		owned bool
-
-		command string
-		frame   string
-		want    string
+		owned     bool
+		command   string
+		frame     string
+		want      string
 	}{
 		{
 			name:      "a pane that is not the agent's settles thinking to idle",
@@ -129,11 +127,9 @@ func TestReconcileSinglePass(t *testing.T) {
 // would otherwise be typed at through and could not be resumed from.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	tests := []struct {
-		name string
-
-		mine    bool
-		command string
-
+		name      string
+		mine      bool
+		command   string
 		wantStamp string
 	}{
 		{
@@ -240,17 +236,13 @@ func TestReconcileLeavesTheTag(t *testing.T) {
 // and the miss count that debounce is built on.
 func TestReconcileOverPasses(t *testing.T) {
 	tests := []struct {
-		name string
-
-		passes []string
-
+		name              string
+		passes            []string
 		archiveBeforeLast bool
-
-		wantAfterFirst string
-		wantBeforeLast string
-		want           string
-
-		wantMisses *int
+		wantAfterFirst    string
+		wantBeforeLast    string
+		want              string
+		wantMisses        *int
 	}{
 		{
 			name:           "an idle pane only demotes once the misses run out",
@@ -365,8 +357,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 // hurries a state change the frame already supports rather than overriding what the pane says.
 func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name  string
 		frame string
 		want  string
 	}{
@@ -550,10 +541,8 @@ func TestReconcileWithoutTmux(t *testing.T) {
 // stamp, so an agent nothing can observe is never mistaken for an observed one.
 func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	tests := []struct {
-		name string
-
-		harness string
-
+		name          string
+		harness       string
 		passes        int
 		frame         string
 		wantConfirmed bool

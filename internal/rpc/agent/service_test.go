@@ -214,8 +214,7 @@ func TestAdopt(t *testing.T) {
 // back with its cwd, its state, and a creation time rendered as RFC 3339.
 func TestGetAgent(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name     string
 		seed     string
 		wantCode connect.Code
 	}{
@@ -416,10 +415,9 @@ func TestListAgentsIdempotencyKey(t *testing.T) {
 // its archive read their rows through the same call.
 func TestListAgentsArchived(t *testing.T) {
 	tests := []struct {
-		name      string
-		archived  bool
-		wantNames []string
-
+		name           string
+		archived       bool
+		wantNames      []string
 		wantArchivedAt bool
 	}{
 		{
@@ -545,9 +543,8 @@ func TestUpdateAgent(t *testing.T) {
 // and refuse an id nobody holds.
 func TestSetHidden(t *testing.T) {
 	tests := []struct {
-		name string
-		seed bool
-
+		name      string
+		seed      bool
 		hideFirst bool
 		hidden    bool
 		wantCode  connect.Code
@@ -603,11 +600,9 @@ func TestSetHidden(t *testing.T) {
 // one that reached only some of its ids is not.
 func TestSetTags(t *testing.T) {
 	tests := []struct {
-		name string
-		seed int
-
-		strays int
-
+		name     string
+		seed     int
+		strays   int
 		tagFirst *string
 		tag      *string
 		wantCode connect.Code
@@ -689,15 +684,13 @@ func TestSetTags(t *testing.T) {
 // them back off the resource, which is where the panel gets them.
 func TestSetMetadata(t *testing.T) {
 	tests := []struct {
-		name string
-		seed bool
-
+		name        string
+		seed        bool
 		recordFirst []agentstore.Metadata
 		key         string
 		value       *string
 		wantCode    connect.Code
-
-		wantStored []agentstore.Metadata
+		wantStored  []agentstore.Metadata
 	}{
 		{
 			name:     "an id nobody holds is not a quiet success",
@@ -872,10 +865,8 @@ func (f *fakeReconciler) RecordTurnBoundary(agentID string) {
 // that a caller with no identity of its own is refused.
 func TestRecordTurnBoundary(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name     string
 		callerID string
-
 		wantCode connect.Code
 	}{
 		{
@@ -1366,13 +1357,10 @@ func TestLogTagsTheAction(t *testing.T) {
 // still look like a working search while sending the reader to the wrong place.
 func TestSearchTranscripts(t *testing.T) {
 	tests := []struct {
-		name string
-
-		turns []string
-
-		archive bool
-		query   string
-
+		name     string
+		turns    []string
+		archive  bool
+		query    string
 		wantSeqs []int32
 	}{
 		{
@@ -1442,12 +1430,9 @@ func TestSearchTranscripts(t *testing.T) {
 // the caller rather than from the request alone.
 func TestSearchTranscriptsScope(t *testing.T) {
 	tests := []struct {
-		name string
-
-		callerIs string
-
-		asksFor string
-
+		name      string
+		callerIs  string
+		asksFor   string
 		wantNames []string
 	}{
 		{
@@ -1603,10 +1588,8 @@ func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
 // leaves, and the silence a read of your own does.
 func TestCrossAgentReadIsRecorded(t *testing.T) {
 	tests := []struct {
-		name string
-
-		callerIs string
-
+		name       string
+		callerIs   string
 		read       func(t *testing.T, svc *Service, ctx context.Context, target string)
 		wantRecord bool
 	}{
@@ -1687,10 +1670,8 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 // with nothing synced yet would both read as empty content.
 func TestGetTranscript(t *testing.T) {
 	tests := []struct {
-		name string
-
-		agentID string
-
+		name     string
+		agentID  string
 		turns    []string
 		wantCode connect.Code
 		want     string
@@ -1831,23 +1812,21 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 // fakeLauncher stands in for every service the handler talks to at once, so a test can wire one
 // fake into all five of its params rather than five.
 type fakeLauncher struct {
-	got        agents.NewAgentParams
-	adopted    agents.AdoptParams
-	created    *agentstore.Agent
-	err        error
-	alive      bool
-	deleted    []string
-	deleteErr  error
-	archived   []string
-	archiveErr error
-	restored   []string
-
+	got            agents.NewAgentParams
+	adopted        agents.AdoptParams
+	created        *agentstore.Agent
+	err            error
+	alive          bool
+	deleted        []string
+	deleteErr      error
+	archived       []string
+	archiveErr     error
+	restored       []string
 	restoredAgents []agentstore.Agent
 	restoreErr     error
 	resumed        []string
 	resumeErr      error
-
-	runningCalls int
+	runningCalls   int
 }
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
@@ -2010,10 +1989,8 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 // queue that refuses saying so rather than reading as a sweep under way.
 func TestEmptyArchiveQueuesTheSweep(t *testing.T) {
 	tests := []struct {
-		name string
-
-		err error
-
+		name     string
+		err      error
 		wantCode connect.Code
 	}{
 		{

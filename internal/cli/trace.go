@@ -54,8 +54,7 @@ type logLine struct {
 	Level   string
 	Message string
 	Trace   string
-
-	Fields map[string]any
+	Fields  map[string]any
 }
 
 func showTrace(out io.Writer, path, trace string) error {

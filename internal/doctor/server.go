@@ -34,12 +34,9 @@ var (
 
 type ServerStatus struct {
 	Answering bool
-
-	Ready bool
-
-	Version string
-
-	Current bool
+	Ready     bool
+	Version   string
+	Current   bool
 }
 
 // Server reports who holds the address the panel talks through, since an address held by

@@ -969,8 +969,7 @@ type worktreeEnv struct {
 	adoptBranch  string
 	copyPaths    []string
 	symlinkPaths []string
-
-	pathPrefix string
+	pathPrefix   string
 }
 
 func (e worktreeEnv) toEnv() []string {

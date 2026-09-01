@@ -10,9 +10,8 @@ import (
 // on a deleted line has no new-side number.
 type anchorKey struct {
 	filePath string
-
-	newLine int32
-	oldLine int32
+	newLine  int32
+	oldLine  int32
 }
 
 func keyForThread(thread *agentv1.ReviewThread) anchorKey {

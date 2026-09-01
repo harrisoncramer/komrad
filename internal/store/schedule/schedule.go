@@ -14,25 +14,18 @@ import (
 )
 
 type Schedule struct {
-	ID   string
-	Name string
-
-	Cron string
-
-	Timezone string
-
-	Enabled bool
-
-	HideAgents bool
-	Prompt     string
-
-	WorkflowID string
-
+	ID                string
+	Name              string
+	Cron              string
+	Timezone          string
+	Enabled           bool
+	HideAgents        bool
+	Prompt            string
+	WorkflowID        string
 	LastResultStatus  LaunchResultStatus
 	LastResultMessage string
 	LastResultAt      *time.Time
-
-	UpdatedAt time.Time
+	UpdatedAt         time.Time
 }
 
 // LaunchResultStatus is what happened the last time a schedule fired, empty when it never has.
@@ -320,19 +313,17 @@ func scheduleFromRow(s models.Schedule) Schedule {
 	}
 
 	return Schedule{
-		ID:         s.ID,
-		Name:       s.Name,
-		Cron:       s.Cron,
-		Timezone:   s.Timezone,
-		Enabled:    s.Enabled,
-		HideAgents: s.HideAgents,
-		Prompt:     s.Prompt,
-		WorkflowID: s.WorkflowID,
-
+		ID:                s.ID,
+		Name:              s.Name,
+		Cron:              s.Cron,
+		Timezone:          s.Timezone,
+		Enabled:           s.Enabled,
+		HideAgents:        s.HideAgents,
+		Prompt:            s.Prompt,
+		WorkflowID:        s.WorkflowID,
 		LastResultStatus:  status,
 		LastResultMessage: message,
 		LastResultAt:      s.LastResultAt,
-
-		UpdatedAt: s.UpdatedAt,
+		UpdatedAt:         s.UpdatedAt,
 	}
 }

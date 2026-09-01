@@ -44,34 +44,25 @@ import (
 const settleTimeout = 10 * time.Second
 
 type Instance struct {
-	t *testing.T
-
-	Agents    agentv1connect.AgentServiceClient
-	Workflows workflowv1connect.WorkflowServiceClient
-	Schedules schedulev1connect.ScheduleServiceClient
-	Actions   actionv1connect.ActionServiceClient
-	Config    configv1connect.ConfigServiceClient
-
-	Harness *harnesstest.Harness
-
-	Tmux *tmuxtest.Server
-
-	Stores *storetest.Stores
-
+	t             *testing.T
+	Agents        agentv1connect.AgentServiceClient
+	Workflows     workflowv1connect.WorkflowServiceClient
+	Schedules     schedulev1connect.ScheduleServiceClient
+	Actions       actionv1connect.ActionServiceClient
+	Config        configv1connect.ConfigServiceClient
+	Harness       *harnesstest.Harness
+	Tmux          *tmuxtest.Server
+	Stores        *storetest.Stores
 	GetActionsDir string
-
-	URL string
-
-	server  *server.Server
-	working bool
+	URL           string
+	server        *server.Server
+	working       bool
 }
 
 type Params struct {
-	MaxAgents int
-
+	MaxAgents        int
 	DeliveryDeadline string
-
-	WorktreesDir string
+	WorktreesDir     string
 }
 
 // Start builds the service and returns it running, torn down when the test ends.

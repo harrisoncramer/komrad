@@ -119,11 +119,9 @@ func replaceServer(ctx context.Context, addr, reported string) error {
 
 type serverProbe struct {
 	answering bool
-
-	ready bool
-
-	version string
-	current bool
+	ready     bool
+	version   string
+	current   bool
 }
 
 func probeServer(ctx context.Context, addr string) serverProbe {

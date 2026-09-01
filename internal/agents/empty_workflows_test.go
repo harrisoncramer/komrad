@@ -15,12 +15,10 @@ import (
 // nothing left in it is destroyed.
 func TestDeleteIfEmpty(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name     string
 		create   bool
 		archive  bool
 		addAgent bool
-
 		wantGone bool
 	}{
 		{

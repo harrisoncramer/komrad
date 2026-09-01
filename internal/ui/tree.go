@@ -10,18 +10,14 @@ import (
 
 type treeState struct {
 	rowCursor
-
-	placed bool
-
+	placed     bool
 	showHidden bool
 }
 
 type agentRow struct {
-	header bool
-	item   agentItem
-
-	workflow workflowstore.Workflow
-
+	header      bool
+	item        agentItem
+	workflow    workflowstore.Workflow
 	hiddenCount int
 }
 

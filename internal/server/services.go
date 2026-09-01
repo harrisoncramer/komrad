@@ -12,7 +12,6 @@ import (
 
 type services struct {
 	loadConfig func() (*config.Config, error)
-
 	action     *agents.ActionService
 	mail       *agents.MailService
 	review     *agents.ReviewService

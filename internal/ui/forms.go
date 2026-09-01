@@ -21,7 +21,6 @@ import (
 // model copies nothing but huh's own pointer, which huh writes through either way.
 type formState struct {
 	kind formKind
-
 	form *huh.Form
 
 	// update is the form's own message handler, which is what saves the panel from asking
@@ -105,23 +104,19 @@ const (
 )
 
 type workflowFormValues struct {
-	Name    string
-	Context string
-	Harness string
-	Cwd     string
-	Flags   string
-
-	SetupType     string
-	SetupAction   string
-	CleanupAction string
-
-	WorktreeBaseBranch string
-
+	Name                 string
+	Context              string
+	Harness              string
+	Cwd                  string
+	Flags                string
+	SetupType            string
+	SetupAction          string
+	CleanupAction        string
+	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
 	WorktreeDiffExclude  string
-
-	ArchiveOnPRClosed bool
+	ArchiveOnPRClosed    bool
 }
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {

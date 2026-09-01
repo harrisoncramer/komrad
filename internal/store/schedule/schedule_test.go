@@ -188,10 +188,8 @@ func TestNameTaken(t *testing.T) {
 // directory now that it holds none of its own.
 func TestUpdate(t *testing.T) {
 	tests := []struct {
-		name string
-
-		update Config
-
+		name         string
+		update       Config
 		moveWorkflow bool
 		wantEnabled  bool
 	}{
@@ -347,11 +345,9 @@ func TestHideAgents(t *testing.T) {
 // TestRecordLaunchResult covers what a firing writes and what a reader gets back.
 func TestRecordLaunchResult(t *testing.T) {
 	tests := []struct {
-		name string
-
-		id      string
-		message string
-
+		name        string
+		id          string
+		message     string
 		wantStatus  LaunchResultStatus
 		wantMessage string
 	}{

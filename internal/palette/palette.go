@@ -33,8 +33,7 @@ func Run() error {
 }
 
 type model struct {
-	query string
-
+	query  string
 	height int
 }
 

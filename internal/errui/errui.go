@@ -21,15 +21,11 @@ var (
 )
 
 type Screen struct {
-	Title string
-
-	Body []string
-
+	Title   string
+	Body    []string
 	Details []Detail
-
-	Hints []string
-
-	Width int
+	Hints   []string
+	Width   int
 }
 
 type Detail struct {

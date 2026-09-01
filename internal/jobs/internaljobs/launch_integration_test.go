@@ -25,14 +25,11 @@ func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name string
-
-		occurrences []time.Time
-
+		name              string
+		occurrences       []time.Time
 		promoteAfterFirst bool
-
-		wantSkipped bool
-		wantAgents  int
+		wantSkipped       bool
+		wantAgents        int
 	}{
 		{
 			name:              "a later firing skips while the last agent is still working",

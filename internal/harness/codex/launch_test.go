@@ -28,7 +28,6 @@ func TestBuildCommand(t *testing.T) {
 				"codex resume",
 				"'019fb3e7-2cb6'",
 			},
-
 			wantAbsent: []string{"$(cat "},
 		},
 		{

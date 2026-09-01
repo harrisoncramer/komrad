@@ -26,8 +26,7 @@ var ErrScheduleNotFound = errors.New("schedule not found")
 var ErrBadCron = errors.New("unreadable cron expression")
 
 type ScheduleService struct {
-	store scheduleReadWriter
-
+	store     scheduleReadWriter
 	workflows workflowReader
 }
 

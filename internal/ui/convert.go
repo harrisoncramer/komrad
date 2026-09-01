@@ -119,15 +119,14 @@ func scheduleItemsFrom(listed []*schedulev1.Schedule) []scheduleItem {
 
 func scheduleFromProto(s *schedulev1.Schedule) schedulestore.Schedule {
 	schedule := schedulestore.Schedule{
-		ID:         s.GetId(),
-		Name:       s.GetName(),
-		Cron:       s.GetCron(),
-		Timezone:   s.GetTimezone(),
-		Enabled:    s.GetEnabled(),
-		HideAgents: s.GetHideAgents(),
-		Prompt:     s.GetPrompt(),
-		WorkflowID: s.GetWorkflowId(),
-
+		ID:                s.GetId(),
+		Name:              s.GetName(),
+		Cron:              s.GetCron(),
+		Timezone:          s.GetTimezone(),
+		Enabled:           s.GetEnabled(),
+		HideAgents:        s.GetHideAgents(),
+		Prompt:            s.GetPrompt(),
+		WorkflowID:        s.GetWorkflowId(),
 		LastResultStatus:  schedulestore.LaunchResultStatus(s.GetLastResultStatus()),
 		LastResultMessage: s.GetLastResultMessage(),
 	}

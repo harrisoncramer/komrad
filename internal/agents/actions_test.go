@@ -414,8 +414,7 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 // which are whether it happens at all and where the agent ends up running.
 func TestRunSetupAction(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name    string
 		action  string
 		result  runResult
 		wantDir string
@@ -747,12 +746,10 @@ func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
 // TestRunActionLogsWhatItDid covers the only account there is of an action nothing waits on.
 func TestRunActionLogsWhatItDid(t *testing.T) {
 	tests := []struct {
-		name string
-
-		result    runResult
-		wantLevel string
-		wantBody  string
-
+		name       string
+		result     runResult
+		wantLevel  string
+		wantBody   string
 		wantFields map[string]any
 	}{
 		{
@@ -1468,15 +1465,11 @@ func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (
 }
 
 type fakePaneOwner struct {
-	owner string
-
-	globals map[string]string
-
+	owner      string
+	globals    map[string]string
 	hostSocket string
-
-	shell string
-
-	infoPane string
+	shell      string
+	infoPane   string
 }
 
 func (f fakePaneOwner) GetPaneOwner(string) string            { return f.owner }

@@ -16,10 +16,9 @@ import (
 
 type fixture struct {
 	*Store
-	db        store.DBTX
-	pool      *store.Pool
-	workflows *workflowstore.Store
-
+	db              store.DBTX
+	pool            *store.Pool
+	workflows       *workflowstore.Store
 	defaultWorkflow string
 }
 

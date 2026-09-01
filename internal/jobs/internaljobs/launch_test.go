@@ -28,22 +28,15 @@ func TestLaunchAgentWorker(t *testing.T) {
 	occurrence := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name string
-
-		schedule *schedulestore.Schedule
-
-		launchErr error
-
-		wantCancel bool
-		wantErr    bool
-
-		running int64
-
-		attempt     int
-		maxAttempts int
-
-		wantLaunched bool
-
+		name             string
+		schedule         *schedulestore.Schedule
+		launchErr        error
+		wantCancel       bool
+		wantErr          bool
+		running          int64
+		attempt          int
+		maxAttempts      int
+		wantLaunched     bool
 		wantResultStatus schedulestore.LaunchResultStatus
 	}{
 		{

@@ -26,47 +26,37 @@ const (
 // from the activity of the row that was shown rather than from the clock, so a message
 // written in between stays unread.
 type Thread struct {
-	ID      string
-	AgentID string
-
-	FilePath string
-
-	OldStart int32
-	OldEnd   int32
-	NewStart int32
-	NewEnd   int32
-
-	QuotedLines []string
-
+	ID                  string
+	AgentID             string
+	FilePath            string
+	OldStart            int32
+	OldEnd              int32
+	NewStart            int32
+	NewEnd              int32
+	QuotedLines         []string
 	LastHumanActivityAt *time.Time
 	LastAgentActivityAt *time.Time
-
-	AgentReadAt *time.Time
-	HumanReadAt *time.Time
+	AgentReadAt         *time.Time
+	HumanReadAt         *time.Time
 
 	// ResolvedAt is when the person reviewing settled the thread, nil while it is still owed an
 	// answer and untouched by the code moving underneath.
-	ResolvedAt *time.Time
-
+	ResolvedAt    *time.Time
 	UnreadByAgent bool
 	UnreadByHuman bool
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 // Message is one thing said in a thread.
 type Message struct {
-	ID       string
-	ThreadID string
-
+	ID            string
+	ThreadID      string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
-
-	Body string
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	Body          string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
 }
 
 type Store struct {
@@ -79,16 +69,13 @@ func New(db store.DBTX) *Store {
 }
 
 type CreateThreadParams struct {
-	AgentID  string
-	FilePath string
-
-	OldStart int32
-	OldEnd   int32
-	NewStart int32
-	NewEnd   int32
-
-	QuotedLines []string
-
+	AgentID       string
+	FilePath      string
+	OldStart      int32
+	OldEnd        int32
+	NewStart      int32
+	NewEnd        int32
+	QuotedLines   []string
 	Body          string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
@@ -282,14 +269,12 @@ func (s *Store) DeleteThread(ctx context.Context, id string) error {
 }
 
 type AddMessageParams struct {
-	ThreadID string
-
+	ThreadID   string
 	AuthorKind AuthorKind
 	// AuthorAgentID links to the agent that wrote it, which deleting that agent clears, so it
 	// is not a record of who wrote it.
 	AuthorAgentID *string
-
-	Body string
+	Body          string
 }
 
 // AddMessage writes a message into a thread and moves the writer's activity stamp, both in

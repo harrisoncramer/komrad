@@ -310,8 +310,7 @@ func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSe
 type fakeReviewStore struct {
 	thread   reviewstore.Thread
 	messages map[string]reviewstore.Message
-
-	unread int64
+	unread   int64
 }
 
 func newFakeReviewStore() *fakeReviewStore {
@@ -429,8 +428,7 @@ func (f *fakeReviewStore) ListMessages(context.Context, []string) ([]reviewstore
 func (f *fakeReviewStore) DeleteMessage(context.Context, string) error { return nil }
 
 type fakeNoticeSender struct {
-	sent []SendNoticeParams
-
+	sent   []SendNoticeParams
 	answer *mailstore.Mail
 }
 
