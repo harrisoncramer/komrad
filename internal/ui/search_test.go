@@ -693,6 +693,14 @@ func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 	archived := headerLine(t, view, "payouts")
 	assert.Contains(t, archived, "(archived)", "the archived header still says so")
 	assert.Contains(t, archived, stateIcon(agentstore.StateFailedToCleanup), "the archived header wears a failed cleanup")
+
+	for _, header := range []string{live, archived} {
+		assert.NotEqual(t, snippetIndent, indentOf(header), "a header is not drawn at the indent its snippets are")
+	}
+}
+
+func indentOf(line string) int {
+	return len(line) - len(strings.TrimLeft(line, " "))
 }
 
 // TestSearchHeaderWithoutTheAgent covers a hit named before its listing has landed, which is
@@ -713,7 +721,9 @@ func TestSearchHeaderWithoutTheAgent(t *testing.T) {
 		}},
 	})
 
-	assert.Contains(t, ansi.Strip(m.searchView()), "billing", "the header still names the agent")
+	header := headerLine(t, ansi.Strip(m.searchView()), "billing")
+
+	assert.Equal(t, "  "+noStateIcon+" billing", header, "the header keeps the icon column a header sits behind")
 }
 
 func headerLine(t *testing.T, view, name string) string {

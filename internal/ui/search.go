@@ -58,7 +58,9 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.search = searchState{typing: true}
 	m.frame.Show(layout.RegionStage, newBlankContent())
 
-	return m, nil
+	// The archived agents a hit can name are only listed while this screen is up, so the first
+	// pass is asked for here rather than waited on.
+	return m, m.refreshCmd()
 }
 
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
@@ -376,7 +378,7 @@ func (m model) hitHeader(hit searchHit) string {
 	name := clipName(hit.name)
 
 	if hit.archived {
-		row := "    " + name + dimStyle.Render(" (archived)")
+		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
 
 		agent, ok := m.archivedAgent(hit.agentID)
 		if !ok {
@@ -388,7 +390,7 @@ func (m model) hitHeader(hit searchHit) string {
 
 	item, ok := m.liveAgent(hit.agentID)
 	if !ok {
-		return "    " + name
+		return "  " + noStateMark() + " " + name
 	}
 
 	return "  " + stateMark(displayState(item)) + " " + name +

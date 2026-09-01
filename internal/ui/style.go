@@ -75,6 +75,14 @@ func stateMark(state string) string {
 	return lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 }
 
+// noStateIcon fills the column the state icon would take for an agent that has no live state to
+// report, since a header that leaves it empty sits at the indent its own snippets do.
+const noStateIcon = "▫"
+
+func noStateMark() string {
+	return dimStyle.Render(noStateIcon)
+}
+
 // failedMark is the archive's only state icon, since an archived agent's last live state says
 // nothing but a failed create or cleanup is why the row is still there.
 func failedMark(agent agentstore.Agent) string {
@@ -82,7 +90,7 @@ func failedMark(agent agentstore.Agent) string {
 		return ""
 	}
 
-	return " " + lipgloss.NewStyle().Foreground(stateColor(agent.State)).Render(stateIcon(agent.State))
+	return " " + stateMark(agent.State)
 }
 
 const workflowIcon = "⧉"
