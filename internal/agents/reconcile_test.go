@@ -263,6 +263,12 @@ func TestReconcileOverPasses(t *testing.T) {
 			want:           agentstore.StateIdle,
 		},
 		{
+			name:           "a prompt somebody is typing into is still a finished turn",
+			passes:         repeatFrame(composingFrame, reconcileMisses),
+			wantBeforeLast: agentstore.StateThinking,
+			want:           agentstore.StateIdle,
+		},
+		{
 			name:              "an agent that leaves the listing has its misses reaped",
 			passes:            []string{idleFrame, idleFrame},
 			archiveBeforeLast: true,

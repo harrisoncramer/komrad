@@ -10,9 +10,10 @@ import (
 )
 
 const (
-	busyFrame = "· Cooking… (1m 50s · ↓ 5.4k tokens)\n───────\n❯ \n───────"
-	idleFrame = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
-	waitFrame = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
+	busyFrame  = "· Cooking… (1m 50s · ↓ 5.4k tokens)\n───────\n❯ \n───────"
+	idleFrame  = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
+	typedFrame = "───────────────\n❯ half a question about\n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
+	waitFrame  = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
 )
 
 const toolBlock = "\n" +
@@ -48,6 +49,31 @@ func TestReadActivity(t *testing.T) {
 			name:  "idle input box is neither working nor waiting",
 			frame: idleFrame,
 			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "an input box somebody has typed into",
+			frame: typedFrame,
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "an input box holding text under the marker rather than beside it",
+			frame: "───────────────\n❯ \n  a second paragraph\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "an empty box, whose marker is followed by the space Claude actually draws",
+			frame: "───────────────\n\x1b[39m❯\u00a0\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a transcript echoing a sent message above an empty box",
+			frame: "❯ what did I ask again\n\n⏺ You asked this.\n───────────────\n❯ \n───────────────\n  -- INSERT --",
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "an input box whose marker carries colour",
+			frame: "───────────────\n\x1b[39m❯ still writing\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityComposing,
 		},
 		{
 			name:  "a tool-result line rather than the spinner",

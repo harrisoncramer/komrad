@@ -58,6 +58,10 @@ const (
 	// ActivityIdle is a frame the harness positively recognises as the input box.
 	ActivityIdle
 
+	// ActivityComposing is the input box holding text somebody typed and has not sent, so
+	// anything weave types there would be fused with it.
+	ActivityComposing
+
 	// ActivityUnrecognized is a frame that matched none of a harness's patterns, which is
 	// not the same claim as ActivityIdle even though both leave an agent idle today.
 	ActivityUnrecognized
