@@ -12,6 +12,8 @@ Press `c` in the sidebar. If you don't specify the agent, weave will use the def
 
 Agents can be thinking (generating or running a tool); waiting (blocked on a human confirmation or other interactive prompt); or idle (sitting with nothing to do).
 
+An agent that finishes a turn while you are looking somewhere else keeps a bright dot in the state column until you have looked at it. Hovering a running agent puts its own pane in the stage, so hovering is how one is read, and the mark clears once the cursor has been sitting on it for a few seconds rather than the moment it arrives. Press `n` to jump to the next agent carrying something unread, and `N` to go back, which is how you get to one without travelling over the rows in between and clearing those on the way.
+
 Separately from state, an agent is either running or dormant. Dormant agents' panes are closed because the CLI has exited, but can be restored, by resuming the session.
 
 ## Adopting work that already exists

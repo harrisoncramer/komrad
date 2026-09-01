@@ -18,10 +18,12 @@ import (
 )
 
 // noToolSurface is the methods deliberately kept out of a model's reach, which are the
-// reviewer's half of a review conversation rather than the agent's.
+// reviewer's half of a review conversation, and the marks the panel keeps of what the person
+// has looked at, rather than the agent's.
 var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
 	"RecordTurnBoundary":      true,
+	"SetAgentViewed":          true,
 	"CreateReviewThread":      true,
 	"EditReviewMessage":       true,
 	"DeleteReviewThread":      true,

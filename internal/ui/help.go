@@ -305,6 +305,7 @@ func (m model) rowHelp() []key.Binding {
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
 			m.archiveBinding(m.keys.Workflows.Archive),
+			binding(m.keys.Agents.NextUnviewed, "next unviewed"),
 			m.showHiddenBinding(),
 		}
 	}
@@ -320,6 +321,8 @@ func (m model) rowHelp() []key.Binding {
 		m.hideBinding(),
 		m.newBinding(),
 		binding(m.keys.Agents.Rename, "rename"),
+		binding(m.keys.Agents.NextUnviewed, "next unviewed"),
+		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),
 		m.archiveBinding(m.keys.Agents.Archive),
 	}
 }

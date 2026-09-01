@@ -596,6 +596,34 @@ func TestSetHidden(t *testing.T) {
 	}
 }
 
+// TestSetAgentViewed covers the mark over the wire in both directions, where the answer the
+// panel reads back is the unviewed flag on the agent rather than anything the call returns.
+func TestSetAgentViewed(t *testing.T) {
+	svc, st := service(t)
+	ctx := t.Context()
+
+	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
+	require.NoError(t, st.Agents.MarkFinished(ctx, id))
+
+	before, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	require.True(t, before.Msg.GetAgent().GetUnviewed())
+
+	_, err = svc.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id, Viewed: true}))
+	require.NoError(t, err)
+
+	after, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	assert.False(t, after.Msg.GetAgent().GetUnviewed())
+
+	_, err = svc.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id}))
+	require.NoError(t, err)
+
+	back, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	assert.True(t, back.Msg.GetAgent().GetUnviewed(), "and the person can put the mark back")
+}
+
 // TestSetTags covers the tag over the wire, where a call that reached nothing is refused and
 // one that reached only some of its ids is not.
 func TestSetTags(t *testing.T) {

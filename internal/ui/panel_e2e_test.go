@@ -356,3 +356,131 @@ func helpDescriptions(bindings []key.Binding) []string {
 
 	return described
 }
+
+// TestPanelClearsTheUnviewedMarkThroughTheService takes the read marker all the way to the
+// database, since the dwell tests answer the panel from a fake client and prove only that it
+// would have made the call.
+func TestPanelClearsTheUnviewedMarkThroughTheService(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	agent := created.Msg.GetAgent()
+	require.NoError(t, instance.Stores.Agents.MarkFinished(ctx, agent.GetId()))
+
+	tmux := &recordingTmux{}
+	popup := NewPopupWindow(tmux, "test-session")
+	popup.MarkOpen()
+
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			actions:   instance.Actions,
+		},
+		tmux:   tmux,
+		popup:  popup,
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+	}
+
+	panel = settle(t, panel, panel.refreshCmd())
+	panel.tree.cursor = 1
+
+	hovered, ok := panel.selectedAgent()
+	require.True(t, ok)
+	require.True(t, hovered.unviewed, "the panel reads the mark off the listing")
+
+	at := time.Now()
+	panel, cmd := panel.dwellViewed(at)
+	require.Nil(t, cmd)
+
+	panel, cmd = panel.dwellViewed(at.Add(viewedDwell))
+	require.NotNil(t, cmd)
+	cmd()
+
+	panel = settle(t, panel, panel.refreshCmd())
+	after, ok := panel.selectedAgent()
+	require.True(t, ok)
+	assert.False(t, after.unviewed, "and the mark is gone once the service has it")
+}
+
+// TestPanelLeavesTheMarkStandingWhileItIsHidden covers the way weave is actually used: the panel
+// keeps running with its client detached, so the tick keeps firing over a cursor that has been
+// parked on one row for hours, and the row that finishes while nobody is watching is exactly
+// the one the mark exists for.
+func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	tmux := &recordingTmux{}
+	popup := NewPopupWindow(tmux, "test-session")
+	popup.MarkOpen()
+
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			actions:   instance.Actions,
+		},
+		tmux:   tmux,
+		popup:  popup,
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+	}
+
+	panel = settle(t, panel, panel.refreshCmd())
+	panel.tree.cursor = 1
+
+	at := time.Now()
+	panel, _ = panel.dwellViewed(at)
+
+	popup.MarkClosed()
+
+	// The agent finishes long after the cursor last moved, which is what makes a dwell measured
+	// from the cursor's arrival say the row was read.
+	require.NoError(t, instance.Stores.Agents.MarkFinished(ctx, created.Msg.GetAgent().GetId()))
+	panel = settle(t, panel, panel.refreshCmd())
+
+	hidden := at.Add(time.Hour)
+	panel, cmd := panel.dwellViewed(hidden)
+	require.Nil(t, cmd, "nobody was looking at it")
+
+	popup.MarkOpen()
+
+	back := hidden.Add(viewedDwell / 2)
+	panel, cmd = panel.dwellViewed(back)
+	assert.Nil(t, cmd, "and coming back to the panel starts the look over rather than finishing one")
+
+	_, cmd = panel.dwellViewed(back.Add(viewedDwell))
+	assert.NotNil(t, cmd)
+}

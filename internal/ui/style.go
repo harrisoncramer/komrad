@@ -71,7 +71,21 @@ func stateColor(state string) lipgloss.Color {
 }
 
 func stateMark(state string) string {
-	return lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
+	return stateMarkFor(state, false)
+}
+
+// stateColorFor brightens the idle dot on an agent that has finished something nobody has looked
+// at since, leaving a working agent reading as working whether or not it left anything behind.
+func stateColorFor(state string, unviewed bool) lipgloss.Color {
+	if unviewed && state == agentstore.StateIdle {
+		return colorSuccess
+	}
+
+	return stateColor(state)
+}
+
+func stateMarkFor(state string, unviewed bool) string {
+	return lipgloss.NewStyle().Foreground(stateColorFor(state, unviewed)).Render(stateIcon(state))
 }
 
 // noStateIcon fills the column the state icon would take for an agent that has no live state to

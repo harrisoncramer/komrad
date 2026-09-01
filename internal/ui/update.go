@@ -116,7 +116,9 @@ func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case refreshTickMsg:
-		return m, tea.Batch(m.refreshCmd(), refreshTick()), true
+		next, viewed := m.dwellViewed(msg.at)
+
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed), true
 	case refreshResult:
 		if m.applyRefresh(msg) {
 			next, cmd := m.reloadReview()

@@ -341,6 +341,14 @@ table "agents" {
     type    = timestamptz
     default = sql("now()")
   }
+  column "finished_at" {
+    null = true
+    type = timestamptz
+  }
+  column "viewed_at" {
+    null = true
+    type = timestamptz
+  }
   column "harness" {
     null    = false
     type    = text

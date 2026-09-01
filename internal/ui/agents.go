@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/ui/layout"
@@ -68,6 +69,12 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
+	if isBound(k, m.keys.Agents.NextUnviewed) {
+		return m.jumpUnviewed(1)
+	}
+	if isBound(k, m.keys.Agents.PrevUnviewed) {
+		return m.jumpUnviewed(-1)
+	}
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)
 	}
@@ -95,6 +102,8 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case isBound(k, m.keys.Agents.Tag):
 			return m.tagAgent(item.agent)
+		case isBound(k, m.keys.Agents.ToggleViewed):
+			return m.toggleAgentViewed(item)
 		case isBound(k, m.keys.Agents.Hide):
 			return m.hideAgent(item.agent)
 		case isBound(k, m.keys.Agents.OpenPR):
@@ -239,6 +248,47 @@ func (m model) jumpCursor(idx int) model {
 	m.stageSelection()
 
 	return m
+}
+
+// toggleAgentViewed puts an agent's unread mark back by hand, or takes it off, for the times
+// weave's own reading of the pane is wrong about what happened.
+func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
+	viewed := item.unviewed
+
+	// A mark set by hand is held against the dwell until the cursor leaves the row, since the
+	// row it is set on is the row being hovered and the dwell would otherwise undo it at once.
+	m.hover = hoverState{
+		agentID: item.agent.ID,
+		since:   time.Now(),
+		held:    !viewed,
+	}
+
+	summary := fmt.Sprintf("Could not mark agent %q unread", item.agent.Name)
+	if viewed {
+		summary = fmt.Sprintf("Could not mark agent %q read", item.agent.Name)
+	}
+
+	return m, m.writeCmd(summary, func(a api) error { return a.setViewed(item.agent.ID, viewed) })
+}
+
+// jumpUnviewed travels to the next agent carrying something nobody has read, wrapping past the
+// end of the list, so the rows in between are never counted as read on the way.
+func (m model) jumpUnviewed(delta int) (tea.Model, tea.Cmd) {
+	rows := m.agentRows()
+	if len(rows) == 0 {
+		return m, nil
+	}
+
+	for step := 1; step <= len(rows); step++ {
+		at := ((m.tree.cursor+delta*step)%len(rows) + len(rows)) % len(rows)
+		if rows[at].header || !rows[at].item.unviewed {
+			continue
+		}
+
+		return m.jumpCursor(at), nil
+	}
+
+	return m, nil
 }
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
@@ -460,7 +510,7 @@ func (m model) agentsView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		rows = append(rows, prefix+"  "+stateMark(displayState(item))+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
+		rows = append(rows, prefix+"  "+stateMarkFor(displayState(item), item.unviewed)+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)

@@ -182,6 +182,7 @@ type agentItem struct {
 	agent      agentstore.Agent
 	alive      bool
 	unreadMail bool
+	unviewed   bool
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

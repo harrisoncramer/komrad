@@ -19,10 +19,74 @@ const (
 	agentsTimeout   = 2 * time.Second
 )
 
-type refreshTickMsg struct{}
+type refreshTickMsg struct {
+	at time.Time
+}
 
 func refreshTick() tea.Cmd {
-	return tea.Tick(refreshInterval, func(time.Time) tea.Msg { return refreshTickMsg{} })
+	return tea.Tick(refreshInterval, func(at time.Time) tea.Msg { return refreshTickMsg{at: at} })
+}
+
+// viewedDwell is how long the cursor has to stay on one agent before the panel counts the pane
+// it stages as read, which is what keeps the rows a person travels over from being cleared.
+const viewedDwell = time.Second
+
+// hoverState is the agent the cursor is sitting on, when it arrived, and whether the person has
+// set that row's mark by hand and does not want the dwell moving it back.
+type hoverState struct {
+	agentID string
+	since   time.Time
+	held    bool
+}
+
+// dwellViewed claims the hovered agent once the cursor has been on it long enough to have read
+// what it said, counting only a live row, since a dormant one stages a placeholder rather than
+// a pane, and writing only an unviewed one, so a settled list makes no calls at all.
+func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
+	item, ok := m.dwelledAgent()
+	if !ok {
+		m.hover = hoverState{}
+
+		return m, nil
+	}
+
+	// The row is tracked whether or not it is unviewed, so that a mark set by hand survives its
+	// own write landing and is let go of only when the cursor moves somewhere else.
+	if m.hover.agentID != item.agent.ID {
+		m.hover = hoverState{agentID: item.agent.ID, since: now}
+	}
+
+	if !item.unviewed || m.hover.held {
+		return m, nil
+	}
+
+	if now.Sub(m.hover.since) < viewedDwell {
+		return m, nil
+	}
+
+	// Asked only here rather than every tick, since this is the one moment the answer changes
+	// anything, and a hidden panel restarts the dwell so coming back to it is a fresh look
+	// rather than a mark that was earned while nobody was watching.
+	if !m.popup.IsShown() {
+		m.hover.since = now
+
+		return m, nil
+	}
+
+	return m, m.markViewedCmd(item.agent.ID)
+}
+
+func (m model) dwelledAgent() (agentItem, bool) {
+	if m.screen != screenAgents || m.form.form != nil {
+		return agentItem{}, false
+	}
+
+	item, ok := m.selectedAgent()
+	if !ok || !item.alive {
+		return agentItem{}, false
+	}
+
+	return item, true
 }
 
 type refreshResult struct {
@@ -145,6 +209,19 @@ type writeResult struct {
 type written struct {
 	row  string
 	pane string
+}
+
+// markViewedCmd claims what an agent has finished without going through the write path, since
+// the mark is a note about a row already on screen rather than a change the listing has to show,
+// and one that does not land is made again by the next tick that still finds the row unviewed.
+func (m model) markViewedCmd(id string) tea.Cmd {
+	clients := m.api
+
+	return func() tea.Msg {
+		_ = clients.setViewed(id, true) //nolint:errcheck // the next tick makes the mark again
+
+		return nil
+	}
 }
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {

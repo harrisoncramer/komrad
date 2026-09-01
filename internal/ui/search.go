@@ -421,7 +421,7 @@ func (m model) hitHeader(hit searchHit) string {
 		return "  " + noStateMark() + " " + name
 	}
 
-	return "  " + stateMark(displayState(item)) + " " + name +
+	return "  " + stateMarkFor(displayState(item), item.unviewed) + " " + name +
 		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
 }
