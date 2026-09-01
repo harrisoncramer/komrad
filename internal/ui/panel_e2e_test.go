@@ -378,7 +378,7 @@ func TestPanelClearsTheUnviewedMarkThroughTheService(t *testing.T) {
 	require.NoError(t, err)
 
 	agent := created.Msg.GetAgent()
-	require.NoError(t, instance.Stores.Agents.MarkFinished(ctx, agent.GetId()))
+	instance.Stores.SeedTranscript(t, agent.GetId(), "the agent said something")
 
 	tmux := &recordingTmux{}
 	popup := NewPopupWindow(tmux, "test-session")
@@ -468,7 +468,7 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 
 	// The agent finishes long after the cursor last moved, which is what makes a dwell measured
 	// from the cursor's arrival say the row was read.
-	require.NoError(t, instance.Stores.Agents.MarkFinished(ctx, created.Msg.GetAgent().GetId()))
+	instance.Stores.SeedTranscript(t, created.Msg.GetAgent().GetId(), "the agent said something")
 	panel = settle(t, panel, panel.refreshCmd())
 
 	hidden := at.Add(time.Hour)

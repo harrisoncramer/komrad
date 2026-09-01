@@ -290,27 +290,34 @@ SET
 WHERE
     id = @id;
 
--- name: SetAgentFinishedAtByID :exec
-UPDATE
-    agents
-SET
-    finished_at = NOW()
-WHERE
-    id = @id;
-
 -- name: SetAgentViewedByID :exec
 UPDATE
     agents
 SET
     viewed_at = CASE WHEN @viewed::boolean THEN
-        finished_at
+    (
+        SELECT
+            t.synced_at
+        FROM
+            agent_transcripts t
+        WHERE
+            t.agent_id = agents.id)
     ELSE
         NULL
     END
 WHERE
-    id = @id
-    AND (finished_at IS NOT NULL
-        OR NOT @viewed::boolean);
+    id = @id;
+
+-- name: ListAgentsWithUnreadTranscripts :many
+SELECT
+    t.agent_id
+FROM
+    agent_transcripts t
+    JOIN agents a ON a.id = t.agent_id
+WHERE
+    a.archived_at IS NULL
+    AND (a.viewed_at IS NULL
+        OR t.synced_at > a.viewed_at);
 
 -- name: MarkAgentSettingUpIfLive :many
 UPDATE
@@ -511,7 +518,8 @@ WHERE
 -- name: GetTranscript :one
 SELECT
     content,
-    synced_offset
+    synced_offset,
+    synced_at
 FROM
     agent_transcripts
 WHERE

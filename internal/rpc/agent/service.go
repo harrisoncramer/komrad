@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
@@ -72,6 +71,7 @@ type archiveEmptier interface {
 type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
+	ListUnread(ctx context.Context) ([]string, error)
 }
 
 type mailer interface {
@@ -162,7 +162,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, rpcerr.Wrap(err, "failed to create agent")
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, s.liveness.IsAgentRunning(*created), false).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, agentMarks{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
 }
 
 // Adopt puts an agent on a branch or pull request that already exists.
@@ -186,7 +186,36 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 		return nil, rpcerr.Wrap(err, "failed to adopt agent")
 	}
 
-	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, s.liveness.IsAgentRunning(*created), false).Agent}), nil
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, agentMarks{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
+}
+
+// markAgents gathers the facts about a set of agents that are not on their own rows, so a
+// listing asks for each of them once rather than once per agent.
+func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentMarks, error) {
+	running := s.liveness.GetRunningAgents(ctx, listed)
+
+	mailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
+	}
+	waiting := xslice.KeyBy(mailboxes, func(id string) string { return id })
+
+	unread, err := s.transcripts.ListUnread(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the agents holding unread output")
+	}
+	unviewed := xslice.KeyBy(unread, func(id string) string { return id })
+
+	return func(a agentstore.Agent) agentMarks {
+		_, hasMail := waiting[a.ID]
+		_, hasOutput := unviewed[a.ID]
+
+		return agentMarks{
+			alive:      running[a.ID],
+			unreadMail: hasMail,
+			unviewed:   hasOutput,
+		}
+	}, nil
 }
 
 // ListAgents returns one page of stored agents, newest first.
@@ -201,19 +230,12 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, rpcerr.Wrap(err, "failed to list agents")
 	}
 
-	running := s.liveness.GetRunningAgents(ctx, agents)
-
-	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	marks, err := s.markAgents(ctx, agents)
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
+		return nil, err
 	}
-	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
 
-	resources := xslice.Map(agents, func(a agentstore.Agent) agent {
-		_, hasUnread := unread[a.ID]
-
-		return renderAgent(a, running[a.ID], hasUnread)
-	})
+	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, marks(a)) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -234,13 +256,12 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
-	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	marks, err := s.markAgents(ctx, []agentstore.Agent{*agent})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
+		return nil, err
 	}
-	hasUnread := slices.Contains(unreadMailboxes, agent.ID)
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, s.liveness.IsAgentRunning(*agent), hasUnread).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, marks(*agent)).Agent}), nil
 }
 
 // SetTags tags every agent named, and an unset tag clears the ones they carry.
@@ -460,19 +481,14 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 		return nil, rpcerr.Wrap(err, "failed to restore agents")
 	}
 
-	running := s.liveness.GetRunningAgents(ctx, restored)
-
-	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	marks, err := s.markAgents(ctx, restored)
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
+		return nil, err
 	}
-	unread := xslice.KeyBy(unreadMailboxes, func(id string) string { return id })
 
 	response := &agentv1.RestoreAgentsResponse{
 		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent {
-			_, hasUnread := unread[a.ID]
-
-			return renderAgent(a, running[a.ID], hasUnread).Agent
+			return renderAgent(a, marks(a)).Agent
 		}),
 	}
 
@@ -487,13 +503,12 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
-	unreadMailboxes, err := s.mail.ListUnreadMailboxes(ctx)
+	marks, err := s.markAgents(ctx, []agentstore.Agent{*resumed})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the mailboxes holding unread mail")
+		return nil, err
 	}
-	hasUnread := slices.Contains(unreadMailboxes, resumed.ID)
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, s.liveness.IsAgentRunning(*resumed), hasUnread).Agent}), nil
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, marks(*resumed)).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as

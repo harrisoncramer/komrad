@@ -603,7 +603,7 @@ func TestSetAgentViewed(t *testing.T) {
 	ctx := t.Context()
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
-	require.NoError(t, st.Agents.MarkFinished(ctx, id))
+	st.SeedTranscript(t, id, "the agent said something")
 
 	before, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)

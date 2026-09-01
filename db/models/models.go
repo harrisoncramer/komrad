@@ -123,7 +123,6 @@ type Agent struct {
 	StateSeenAt      time.Time
 	InterruptedAt    *time.Time
 	AdoptedBranch    string
-	FinishedAt       *time.Time
 	ViewedAt         *time.Time
 }
 
