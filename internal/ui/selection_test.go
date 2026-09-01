@@ -17,6 +17,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -58,6 +59,16 @@ func selectionTree() model {
 			}},
 		}},
 	}
+}
+
+// withColor forces a profile that writes escapes, since a selection now shows in the colour of
+// the name and nothing renders one under the bare profile a test binary reports.
+func withColor(t *testing.T) {
+	t.Helper()
+
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.TrueColor)
 }
 
 func press(t *testing.T, m model, key tea.KeyMsg) model {
@@ -388,33 +399,58 @@ func TestArchiveSelection(t *testing.T) {
 		assert.Equal(t, []string{"a3"}, m.archive.selected.ids)
 	})
 
-	t.Run("the gutter is drawn without shifting the rows", func(t *testing.T) {
+	t.Run("a chosen row turns without shifting the rows", func(t *testing.T) {
+		withColor(t)
+
 		m := archiveSelectionTree()
 
 		rest := m.archiveView()
-		assert.NotContains(t, rest, selectionIcon)
+		assert.NotContains(t, rest, selectionStyle.Render("api"))
 
 		m.archive.selected = selection{ids: []string{"a2"}}
 		view := m.archiveView()
-		assert.Equal(t, 1, countRows(view, selectionIcon))
+		assert.Contains(t, view, selectionStyle.Render("api"))
+		assert.NotContains(t, view, selectionStyle.Render("db"), "and only that row")
 		assert.Equal(t, lineWidth(t, rest, "api"), lineWidth(t, view, "api"), "the chosen row keeps its width")
 		assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
 	})
 }
 
-// TestAgentsViewGutter covers the column down the left of the tree, drawn on every row so
-// taking a row in cannot shift the rows around it.
-func TestAgentsViewGutter(t *testing.T) {
+// TestAgentsViewSelectionColour covers how a row taken into a selection is drawn, which is its
+// own name in the selection colour, so that taking a row in shifts nothing around it.
+func TestAgentsViewSelectionColour(t *testing.T) {
+	withColor(t)
+
 	m := selectionTree()
 
 	rest := m.agentsView()
-	assert.NotContains(t, rest, selectionIcon)
+	assert.NotContains(t, rest, selectionStyle.Render("api"))
 
 	m.tree.selected = selection{ids: []string{"a2"}}
 	view := m.agentsView()
-	assert.Equal(t, 1, countRows(view, selectionIcon), "only the selected row carries the bar")
+	assert.Contains(t, view, selectionStyle.Render("api"), "the selected row turns")
+	assert.NotContains(t, view, selectionStyle.Render("db"), "and only that row")
 	assert.Equal(t, lineWidth(t, rest, "api"), lineWidth(t, view, "api"), "the chosen row keeps its width")
 	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
+}
+
+// TestSelectionBeatsTheCursor pins that the row under the cursor still shows whether it is in,
+// since the cursor colour would otherwise hide the one row a person is toggling.
+func TestSelectionBeatsTheCursor(t *testing.T) {
+	withColor(t)
+
+	m := selectionTree()
+	m.tree.selected = selection{ids: []string{"a2"}}
+
+	for i, r := range m.agentRows() {
+		if !r.header && r.item.agent.ID == "a2" {
+			m.tree.cursor = i
+		}
+	}
+
+	view := m.agentsView()
+	assert.Contains(t, view, selectionStyle.Render("api"))
+	assert.NotContains(t, view, m.rowCursorStyle().Render("api"), "the cursor does not take the name back")
 }
 
 func lineWidth(t *testing.T, view, text string) int {
@@ -429,17 +465,6 @@ func lineWidth(t *testing.T, view, text string) int {
 	t.Fatalf("no rendered row carries %q", text)
 
 	return 0
-}
-
-func countRows(view, marker string) int {
-	n := 0
-	for _, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, marker) {
-			n++
-		}
-	}
-
-	return n
 }
 
 // TestArchiveSelectionFromTheTree covers the archive key over a selection, which only opens

@@ -11,38 +11,29 @@ import (
 )
 
 const (
-	// rowChrome is every cell an agent row spends outside its name and its icons: the selection
-	// gutter, the cursor, the two spaces behind the state icon, that icon, and the spaces
-	// bracketing the name.
-	rowChrome = 9
-
-	// maxRowIcons is how many icons follow a name: the removed worktree, the schedule, the
-	// hidden mark, the tag, unread mail, and unread output.
-	maxRowIcons = 6
-
-	// ghostGap is the space left between a row and its slot.
-	ghostGap = 2
-
-	// ghostColumn is where the ghost slot opens, which is the widest row an agent can draw plus
-	// the gap, so that every slot lines up whatever the row beside it happens to wear.
-	ghostColumn = rowChrome + nameWidth + 2*maxRowIcons + ghostGap
+	// ghostGap is the space left between the slot and the row beside it, a single cell so that
+	// the column reads as its own without pushing the rows away from it.
+	ghostGap = 1
 
 	// ghostWidth is the slot itself, wide enough for the longest span Elapsed writes.
 	ghostWidth = 4
 )
 
-// ghostSlot pads a row out to the ghost column and right-aligns the text in it, drawing nothing
-// when this row and a slot would not fit the pane, since nothing downstream clips a row and an
-// overrun one wraps onto the row below it.
+// ghostSlot opens a fixed column at the head of a row and right-aligns the text in it, holding
+// the column open when there is nothing to say so that every row starts in the same place, and
+// dropping the slot when the row would not fit the pane beside it, since nothing downstream
+// clips a row and an overrun one wraps onto the row below it.
 func ghostSlot(row, text string, width int) string {
-	drawn := lipgloss.Width(row)
-	if text == "" || drawn+ghostGap+ghostWidth > width {
+	if lipgloss.Width(row)+ghostWidth+ghostGap > width {
 		return row
 	}
 
-	pad := max(ghostColumn-drawn, ghostGap)
+	slot := strings.Repeat(" ", ghostWidth)
+	if text != "" {
+		slot = dimStyle.Render(fmt.Sprintf("%*s", ghostWidth, text))
+	}
 
-	return row + strings.Repeat(" ", pad) + dimStyle.Render(fmt.Sprintf("%*s", ghostWidth, text))
+	return slot + strings.Repeat(" ", ghostGap) + row
 }
 
 // ghostText is what the slot says about an agent, which for now is how long it has been in the

@@ -500,16 +500,18 @@ func (m model) agentsView() string {
 		if hovered {
 			prefix = m.rowCursorStyle().Render("› ")
 		}
-		prefix = selectionGutter(!r.header && m.tree.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
-			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+hiddenTally(r.hiddenCount, m.tree.showHidden))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
+			header := prefix + dimStyle.Render(workflowIcon) + " " + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			rows = append(rows, ghostSlot(header, "", m.width))
+
 			continue
 		}
 
 		item := r.item
-		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
+		selected := m.tree.selected.has(item.agent.ID)
+		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
 		row := prefix + "  " + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}

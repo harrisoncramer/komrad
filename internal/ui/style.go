@@ -203,8 +203,10 @@ var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
 
 var brokenStyle = lipgloss.NewStyle().Foreground(colorDanger)
 
-func (m model) nameStyle(hovered, inactive bool) lipgloss.Style {
+func (m model) nameStyle(hovered, selected, inactive bool) lipgloss.Style {
 	switch {
+	case selected:
+		return selectionStyle
 	case hovered:
 		return m.rowCursorStyle()
 	case inactive:
@@ -229,14 +231,7 @@ func clip(text string, width int) string {
 	return string(runes[:width-1]) + "…"
 }
 
-const selectionIcon = "▌"
-
-var selectionStyle = lipgloss.NewStyle().Foreground(colorSuccess)
-
-func selectionGutter(selected bool) string {
-	if !selected {
-		return "  "
-	}
-
-	return selectionStyle.Render(selectionIcon) + " "
-}
+// selectionStyle is how a row taken into a selection is drawn, which is the name itself rather
+// than a mark beside it, and beats the cursor so that the row under the cursor still shows
+// whether it is in.
+var selectionStyle = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)

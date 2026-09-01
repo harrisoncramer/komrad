@@ -378,17 +378,16 @@ func (m model) archiveView() string {
 		if hovered {
 			prefix = m.rowCursorStyle().Render("› ")
 		}
-		prefix = selectionGutter(!r.header && m.archive.selected.has(r.item.agent.ID)) + prefix
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
 
 			continue
 		}
 
 		agent := r.item.agent
-		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
+		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, m.archive.selected.has(agent.ID), true))
 		rows = append(rows, prefix+"  "+name+failedMark(agent)+scheduledMark(agent)+tagGlyph(agent, m.tags))
 	}
 

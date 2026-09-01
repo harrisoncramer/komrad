@@ -77,13 +77,13 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return m.nameStyle(true, true).Render(clipName(review.WhereOf(thread))) + "\n"
+			return m.nameStyle(true, false, true).Render(clipName(review.WhereOf(thread))) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	out := m.nameStyle(true, true).Render(clipName(review.Where(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
+	out := m.nameStyle(true, false, true).Render(clipName(review.Where(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
 	for _, quoted := range anchor.QuotedLines {
 		out += reviewQuoteStyle.Render(m.reviewWrap(quoted)) + "\n"
 	}
