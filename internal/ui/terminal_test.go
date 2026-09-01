@@ -136,6 +136,12 @@ func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
 
 	assert.Equal(t, dir, panel.info.action)
 	assert.Equal(t, []string{dir}, infoRespawns(tmux))
+
+	// The header holds no directory, but the shell under it is still what the key asks for.
+	pressTerminal(t, panel)
+
+	assert.Equal(t, []string{dir}, infoRespawns(tmux))
+	assert.Equal(t, []string{"%2", "%2"}, tmux.selected)
 }
 
 // TestTerminalStaysPutOverAMissingWorktree pins that an agent whose directory has gone leaves the

@@ -48,6 +48,12 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// A shell already up is kept current by the restaging, so the key is only asking for the keyboard.
+	if m.info.kind == infoTerminal && m.frame.IsOpen(layout.RegionInfo) {
+		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
+		return m, nil
+	}
+
 	agent, ok := m.logTarget()
 	if !ok {
 		return m, nil
@@ -58,13 +64,9 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A shell already up follows the cursor on its own, so the key is only asking for the keyboard.
-	if m.info.kind != infoTerminal || !m.frame.IsOpen(layout.RegionInfo) {
-		if !m.claimInfo(infoTerminal, agent.Cwd) {
-			return m, nil
-		}
+	if !m.claimInfo(infoTerminal, agent.Cwd) {
+		return m, nil
 	}
-
 	m.stageInfo()
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
