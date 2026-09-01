@@ -1,14 +1,18 @@
 #!/usr/bin/env bash
 source "$MISE_CONFIG_ROOT/mise/tasks/_"
 set -euo pipefail
-#MISE description="Expand single-line keyed struct literals onto one field per line."
+#MISE description="Hold struct declarations and literals to one field per line, with no blank lines between them."
 
 usage() {
 	echo "Usage: mise run go:structs [--fix] [--min N] [--no-tests]"
 	echo
-	echo "Reports keyed struct literals written on a single line, which read"
-	echo "worse than one field per line. Without --fix it only reports and exits"
-	echo "non-zero, so the check task can call it without rewriting the tree."
+	echo "Reports keyed struct literals written on a single line, which read worse"
+	echo "than one field per line, and blank lines between the fields of a struct,"
+	echo "which read as a grouping nobody meant. Without --fix it only reports and"
+	echo "exits non-zero, so the check task can call it without rewriting the tree."
+	echo
+	echo "Both codemods run even when the first has something to say, so one run"
+	echo "lists everything that is wrong."
 }
 
 WRITE=()
@@ -45,4 +49,17 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-go run ./cmd/structexpand -min "$MIN" -tests="$TESTS" ${WRITE[@]+"${WRITE[@]}"} .
+failed=()
+
+if ! go run ./cmd/structexpand -min "$MIN" -tests="$TESTS" ${WRITE[@]+"${WRITE[@]}"} .; then
+	failed+=("structexpand")
+fi
+
+if ! go run ./cmd/structgap -tests="$TESTS" ${WRITE[@]+"${WRITE[@]}"} .; then
+	failed+=("structgap")
+fi
+
+if ((${#failed[@]} > 0)); then
+	gum log --level error "failed: ${failed[*]}"
+	exit 1
+fi
