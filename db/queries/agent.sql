@@ -546,101 +546,71 @@ VALUES (
 -- name: SearchTranscripts :many
 WITH parsed AS (
     SELECT
-        WEBSEARCH_TO_TSQUERY('english', @query) AS query,
         @terms::text[] AS terms,
-        @substring_weight::float8 AS weight,
         @patterns::text[] AS patterns,
-        @excluded::text[] AS excluded
+        @excluded::text[] AS excluded,
+        @substring_weight::float8 AS weight
 ),
 q AS (
     SELECT
-        query,
         terms,
-        weight,
         patterns,
-        excluded,
-        NOT (''::tsvector @@ query) AS positive
-    FROM
-        parsed
-),
-matched AS (
+        weight,
+        COALESCE((
+            SELECT
+                STRING_AGG('(' || p.part || ')', ' & ')
+            FROM (
+                SELECT
+                    PHRASETO_TSQUERY('english', t)::text AS part
+                FROM UNNEST(terms) AS t) p
+        WHERE
+            p.part <> ''), '')::tsquery AS query, COALESCE((
+            SELECT
+                STRING_AGG('(' || p.part || ')', ' | ')
+            FROM (
+                SELECT
+                    PHRASETO_TSQUERY('english', e)::text AS part
+                FROM UNNEST(excluded) AS e) p
+        WHERE
+            p.part <> ''), '')::tsquery AS excluded
+    FROM parsed), matched AS (
     SELECT
-        c.agent_id,
-        c.seq,
-        c.role,
-        c.content,
-        c.content_offset,
-        c.tsv,
-        a.name,
-        a.archived_at IS NOT NULL AS archived,
-        q.query,
-        q.terms,
-        q.weight,
-        q.positive
-        AND c.tsv @@ q.query AS word_match
-    FROM
-        agent_transcript_chunks c
-        CROSS JOIN q
-        JOIN agents a ON a.id = c.agent_id
-    WHERE (q.positive
-        AND c.tsv @@ q.query
-        OR (CARDINALITY(q.terms) > 0
-            AND c.content ILIKE ALL (q.patterns)
-            AND NOT (c.content ILIKE ANY (q.excluded))))
-    AND (sqlc.narg('agent_id')::uuid IS NULL
-        OR c.agent_id = sqlc.narg('agent_id'))
-),
-ranked AS (
-    SELECT
-        m.agent_id,
-        m.seq,
-        m.role,
-        m.content_offset,
-        m.name,
-        m.archived,
-        m.word_match,
-        CASE WHEN m.word_match THEN
-            TS_HEADLINE('english', m.content, m.query, @headline)
-        ELSE
-            SUBSTRING(m.content FROM GREATEST(1,(
-                        SELECT
-                            MIN(POSITION(LOWER(t) IN LOWER(m.content)))
-                        FROM UNNEST(m.terms) t
+        c.agent_id, c.seq, c.role, c.content, c.content_offset, c.tsv, a.name, a.archived_at IS NOT NULL AS archived, q.query, q.terms, q.weight, c.tsv @@ q.query AS word_match
+    FROM agent_transcript_chunks c
+    CROSS JOIN q
+    JOIN agents a ON a.id = c.agent_id
+    WHERE
+        NOT (c.tsv @@ q.excluded)
+        AND (c.tsv @@ q.query
+            OR (CARDINALITY(q.terms) > 0
+                AND c.content ILIKE ALL (q.patterns)))
+        AND (sqlc.narg('agent_id')::uuid IS NULL
+            OR c.agent_id = sqlc.narg('agent_id'))), ranked AS (
+        SELECT
+            m.agent_id, m.seq, m.role, m.content_offset, m.name, m.archived, m.word_match, CASE WHEN m.word_match THEN
+                TS_HEADLINE('english', m.content, m.query, @headline)
+            ELSE
+                SUBSTRING(m.content FROM GREATEST(1,(
+                            SELECT
+                                MIN(POSITION(LOWER(t) IN LOWER(m.content)))
+                            FROM UNNEST(m.terms) t
                         WHERE
                             POSITION(LOWER(t) IN LOWER(m.content)) > 0) - @lead::int)
                     FOR @width::int)
-        END::text AS snippet,
-        CASE WHEN m.word_match THEN
-            TS_RANK_CD(m.tsv, m.query, 32)
-        ELSE
-            m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
-        END::float8 AS rank
-    FROM
-        matched m
-)
-SELECT
-    r.agent_id,
-    r.seq,
-    r.role,
-    r.content_offset,
-    r.name,
-    r.archived::boolean AS archived,
-    r.word_match::boolean AS word_match,
-    r.snippet,
-    r.rank
-FROM
-    ranked r
-WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
-    OR r.rank < sqlc.narg('cursor_rank')
-    OR (r.rank = sqlc.narg('cursor_rank')
-        AND (r.agent_id,
-            r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
-            sqlc.narg('cursor_seq')::int)))
-ORDER BY
-    r.rank DESC,
-    r.agent_id ASC,
-    r.seq ASC
-LIMIT @lim;
+            END::text AS snippet, CASE WHEN m.word_match THEN
+                TS_RANK_CD(m.tsv, m.query, 32)
+            ELSE
+                m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
+            END::float8 AS rank
+        FROM matched m)
+    SELECT
+        r.agent_id, r.seq, r.role, r.content_offset, r.name, r.archived::boolean AS archived, r.word_match::boolean AS word_match, r.snippet, r.rank
+    FROM ranked r
+    WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
+        OR r.rank < sqlc.narg('cursor_rank')
+        OR (r.rank = sqlc.narg('cursor_rank')
+            AND (r.agent_id, r.seq) >(sqlc.narg('cursor_agent_id')::uuid, sqlc.narg('cursor_seq')::int)))
+ORDER BY r.rank DESC, r.agent_id ASC, r.seq ASC LIMIT @lim;
 
 -- name: CountLiveScheduleAgents :one
 SELECT

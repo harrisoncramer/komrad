@@ -191,10 +191,10 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
-			name:     "an or between partial words still needs both, since the fallback is a conjunction",
-			content:  "the pgxpool discusses postgres",
+			name:     "an exclusion in another tense still excludes",
+			content:  "the pgxpool notes",
 			other:    "the pgxpool wrapper",
-			query:    "pgxp or ostgr",
+			query:    "pgxpool -wrappers",
 			wantHits: 1,
 		},
 		{
@@ -634,13 +634,8 @@ func TestSplitTerms(t *testing.T) {
 			wantNegative: []string{"derives markers"},
 		},
 		{
-			name:         "the or operator is not a word being searched for",
+			name:         "or is an ordinary word, since every word typed has to appear",
 			query:        "pane or marker",
-			wantPositive: []string{"pane", "marker"},
-		},
-		{
-			name:         "a quoted or is a word rather than the operator",
-			query:        `pane "or" marker`,
 			wantPositive: []string{"pane", "or", "marker"},
 		},
 		{
@@ -663,14 +658,9 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"well-known"},
 		},
 		{
-			name:         "a doubled minus cancels itself, the way the tsquery reads it",
+			name:         "only a single minus excludes, so a flag name is a word",
 			query:        "--config",
-			wantPositive: []string{"config"},
-		},
-		{
-			name:         "a third minus excludes again",
-			query:        "---config",
-			wantNegative: []string{"config"},
+			wantPositive: []string{"--config"},
 		},
 		{
 			name:         "a quoted minus is part of the word rather than an exclusion",
@@ -678,19 +668,8 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"-config"},
 		},
 		{
-			name:         "a minus with a space after it excludes the word beyond the space",
+			name:         "a minus on its own is not an exclusion of the next word",
 			query:        "- config",
-			wantNegative: []string{"config"},
-		},
-		{
-			name:         "a minus between words excludes the one after it",
-			query:        "foo - bar",
-			wantPositive: []string{"foo"},
-			wantNegative: []string{"bar"},
-		},
-		{
-			name:         "a minus across a space is still cancelled by the next one",
-			query:        "- -config",
 			wantPositive: []string{"config"},
 		},
 		{

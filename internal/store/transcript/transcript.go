@@ -184,8 +184,7 @@ type SearchParams struct {
 
 // Search returns one page of the turns matching the query, most relevant first, where a word
 // match arrives already marked by the database, a substring match is marked here, and a query
-// asking only for words to leave out is answered with nothing rather than with every turn it
-// technically matches.
+// with no word to look for is answered with nothing.
 func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
 
@@ -204,11 +203,10 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	}
 
 	args := models.SearchTranscriptsParams{
-		Query:           query,
 		Terms:           terms.positive,
-		SubstringWeight: substringRankWeight,
 		Patterns:        likePatterns(terms.positive),
-		Excluded:        likePatterns(terms.negative),
+		Excluded:        terms.negative,
+		SubstringWeight: substringRankWeight,
 		Headline:        headlineOptions,
 		Lead:            snippetLead,
 		Width:           snippetWidth,
@@ -252,47 +250,39 @@ type queryTerms struct {
 	negative []string
 }
 
-// splitTerms reads the words a query is asking for out of its websearch syntax, since the
-// substring fallback matches text as it was typed and would otherwise look for the operators
-// themselves, where a minus only excludes the word behind it when it is typed outside the
-// quotes and not cancelled by another minus.
+// splitTerms reads a query as the words it is looking for and the words it wants left out,
+// which the database turns into a tsquery and this side turns into substring patterns, so the
+// two agree by construction rather than by both parsing the same syntax the same way.
 func splitTerms(query string) queryTerms {
 	var (
-		terms    queryTerms
-		text     strings.Builder
-		quoted   bool
-		hadQuote bool
-		negated  bool
+		terms   queryTerms
+		text    strings.Builder
+		quoted  bool
+		minuses int
 	)
 
 	flush := func() {
-		term, quotedTerm := text.String(), hadQuote
+		term, leading := text.String(), minuses
 		text.Reset()
-		quoted, hadQuote = false, false
-
-		// A minus with a space after it still excludes the word beyond the space.
-		if term == "" {
-			return
-		}
+		quoted, minuses = false, 0
 
 		switch {
-		case negated:
+		case term == "":
+		case leading == 1:
 			terms.negative = append(terms.negative, term)
-		case !quotedTerm && strings.EqualFold(term, "or"):
 		default:
-			terms.positive = append(terms.positive, term)
+			// Only a single minus excludes, so a flag name stays the word it looks like.
+			terms.positive = append(terms.positive, strings.Repeat("-", leading)+term)
 		}
-
-		negated = false
 	}
 	for _, r := range query {
 		switch {
 		case r == '"':
-			quoted, hadQuote = !quoted, true
+			quoted = !quoted
 		case unicode.IsSpace(r) && !quoted:
 			flush()
 		case r == '-' && !quoted && text.Len() == 0:
-			negated = !negated
+			minuses++
 		default:
 			text.WriteRune(r)
 		}
