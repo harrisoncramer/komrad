@@ -129,7 +129,7 @@ type recordingTmux struct {
 	deadPanes     map[string]bool
 }
 
-func (t *recordingTmux) ShowGlobal(string) string                { return "" }
+func (t *recordingTmux) ShowGlobal(name string) string           { return t.globals[name] }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}

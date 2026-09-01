@@ -322,13 +322,21 @@ func (r *Reconciler) settleIdle(ctx context.Context, agent agentstore.Agent) {
 	}
 
 	if r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
-		r.apply(ctx, agent, agentstore.StateIdle)
+		r.settle(ctx, agent)
 
 		return
 	}
 
 	if r.recordMiss(agent.ID) >= reconcileMisses {
-		r.apply(ctx, agent, agentstore.StateIdle)
+		r.settle(ctx, agent)
+	}
+}
+
+// settle takes an agent out of a turn the harness reported the end of, which is the only
+// transition into idle that is an agent finishing something rather than a pane going away.
+func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent) {
+	if r.apply(ctx, agent, agentstore.StateIdle) {
+		r.markFinished(ctx, agent)
 	}
 }
 
@@ -395,11 +403,13 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	return forgotten
 }
 
-func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {
+// apply writes the state a pass observed and reports whether that write was this agent coming
+// out of a turn, which is what its caller needs to know before recording a finish.
+func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) bool {
 	r.clearDebounce(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
 	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
-		return
+		return false
 	}
 
 	if err := r.store.SetStateByID(ctx, agent.ID, state); err != nil {
@@ -409,18 +419,19 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 				slog.String(logging.AgentState, state),
 			}, logging.Err(err)...)...)
 
-		return
+		return false
 	}
 
 	if justWentIdle {
-		r.markFinished(ctx, agent)
 		r.checkPR(ctx, agent)
 	}
+
+	return justWentIdle
 }
 
-// markFinished stamps the turn an agent has just come out of, and is deliberately only reached
-// from an observed transition: the other writes of an idle state are a row being created and a
-// pane being rebuilt, neither of which is an agent finishing anything.
+// markFinished stamps the turn an agent has just come out of, and is reached only from settle,
+// since every other write of an idle state is a row being created, a pane being rebuilt, or a
+// pane going away, and none of those is an agent finishing anything.
 func (r *Reconciler) markFinished(ctx context.Context, agent agentstore.Agent) {
 	if err := r.store.MarkFinished(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record an agent's finished turn",

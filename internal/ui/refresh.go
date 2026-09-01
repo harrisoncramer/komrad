@@ -58,6 +58,15 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Asked only here rather than every tick, since this is the one moment the answer changes
+	// anything, and a hidden panel restarts the dwell so coming back to it is a fresh look
+	// rather than a mark that was earned while nobody was watching.
+	if !m.popup.IsShown() {
+		m.hover.since = now
+
+		return m, nil
+	}
+
 	return m, m.markViewedCmd(item.agent.ID)
 }
 

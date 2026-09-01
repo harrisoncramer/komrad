@@ -13,8 +13,13 @@ import (
 )
 
 func unviewedTree() model {
+	tmux := &recordingTmux{}
+	popup := NewPopupWindow(tmux, "test-session")
+	popup.MarkOpen()
+
 	return model{
-		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		frame: layout.New(tmux, config.DefaultLayout()),
+		popup: popup,
 		keys:  config.DefaultKeybindings(),
 		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},

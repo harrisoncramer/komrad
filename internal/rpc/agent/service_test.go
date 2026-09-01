@@ -617,7 +617,7 @@ func TestMarkAgentViewed(t *testing.T) {
 	assert.False(t, after.Msg.GetAgent().GetUnviewed())
 }
 
-// TestSetTags covers the tag over the wire// TestSetTags covers the tag over the wire, where a call that reached nothing is refused and
+// TestSetTags covers the tag over the wire, where a call that reached nothing is refused and
 // one that reached only some of its ids is not.
 func TestSetTags(t *testing.T) {
 	tests := []struct {

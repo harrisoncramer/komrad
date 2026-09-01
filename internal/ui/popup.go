@@ -138,6 +138,11 @@ func (p *PopupWindow) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }
 // MarkClosed records that the popup is hidden.
 func (p *PopupWindow) MarkClosed() { p.tmux.SetGlobal(managerOpenFlag, "0") }
 
+// IsShown reports whether the popup has a client attached, which the panel cannot see for
+// itself: hiding detaches the client and leaves this program running, and a detached client is
+// told nothing.
+func (p *PopupWindow) IsShown() bool { return p.tmux.ShowGlobal(managerOpenFlag) == "1" }
+
 // SetInvokingClient records the tmux client that opened the current popup.
 func (p *PopupWindow) SetInvokingClient(client string) {
 	p.tmux.SetGlobal(managerClientFlag, client)
