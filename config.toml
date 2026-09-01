@@ -227,6 +227,12 @@ range  = ["V"]
 # Take the row under the cursor into the selection, or back out of it.
 toggle = ["v"]
 
+# The key that opens a shell in the hovered agent's directory, shared by every
+# screen that lists agents.
+[keybindings.terminal]
+# Open a shell in the hovered agent's directory, or focus the one already open.
+open = ["T"]
+
 # The bindings that create and change workflows, from the agents list.
 [keybindings.workflows]
 # Put an agent on a branch or a pull request that already exists, in the

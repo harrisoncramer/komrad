@@ -125,6 +125,7 @@ type recordingTmux struct {
 	infoPane      string
 	selected      []string
 	respawnPanes  []string
+	respawnDirs   []string
 	deadPanes     map[string]bool
 }
 
@@ -195,9 +196,10 @@ func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
 
 func (t *recordingTmux) ResizePane(string, string) {}
 
-func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
+func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
+	t.respawnDirs = append(t.respawnDirs, dir)
 }
 
 func infoModel(tmux *recordingTmux) model {

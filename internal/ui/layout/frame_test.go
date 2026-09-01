@@ -409,6 +409,7 @@ type recordingTmux struct {
 	swaps        int
 	respawns     []string
 	respawnPanes []string
+	respawnDirs  []string
 	siblings     []string
 	owners       map[string]string
 	broken       []string
@@ -456,9 +457,10 @@ func (t *recordingTmux) ResizePane(pane, width string) {
 
 func (t *recordingTmux) SwapPanes(string, string) { t.swaps++ }
 
-func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
+func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
+	t.respawnDirs = append(t.respawnDirs, dir)
 }
 
 func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }

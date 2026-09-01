@@ -41,6 +41,7 @@ type Target struct {
 
 type Content struct {
 	Key    string
+	Dir    string
 	Wraps  bool
 	Render func(Target) ([]string, bool)
 }
