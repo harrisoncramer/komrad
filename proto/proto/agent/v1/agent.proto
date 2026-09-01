@@ -36,6 +36,8 @@ message Agent {
   optional string spawned_by_agent_id = 20;
   optional string branch = 22;
   bool worktree_removed = 23;
+  // Whether the agent has finished a turn the person has not looked at since.
+  bool unviewed = 24;
 }
 
 message AgentMetadata {
@@ -160,6 +162,10 @@ message SetTagsRequest {
 message SetHiddenRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   bool hidden = 2;
+}
+
+message MarkAgentViewedRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message SetMetadataRequest {
@@ -408,6 +414,9 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
   }
   rpc RecordTurnBoundary(google.protobuf.Empty) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc MarkAgentViewed(MarkAgentViewedRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {

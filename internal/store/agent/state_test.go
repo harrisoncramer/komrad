@@ -215,3 +215,65 @@ func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
 		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
 	require.NoError(t, err)
 }
+
+// TestMarkFinishedAndViewed pins the read marker: an agent is unviewed from the moment a turn is
+// recorded until it is claimed, and a turn recorded after the claim puts it back.
+func TestMarkFinishedAndViewed(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	assert.False(t, created.Unviewed(), "an agent that has finished nothing is not unviewed")
+
+	require.NoError(t, st.MarkFinished(ctx, created.ID))
+	finished, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, finished.FinishedAt)
+	assert.True(t, finished.Unviewed())
+
+	require.NoError(t, st.MarkViewed(ctx, created.ID))
+	viewed, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, viewed.ViewedAt)
+	assert.False(t, viewed.Unviewed())
+	assert.Equal(t, finished.FinishedAt.UTC(), viewed.ViewedAt.UTC(),
+		"the mark stamps the finish it was answering rather than the clock")
+
+	require.NoError(t, st.MarkFinished(ctx, created.ID))
+	again, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.True(t, again.Unviewed(), "a turn finished after the look is unread again")
+}
+
+// TestMarkViewedBeforeAnythingFinished pins that claiming an agent that has finished nothing
+// records nothing, so the first turn it does finish is still news.
+func TestMarkViewedBeforeAnythingFinished(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+
+	require.NoError(t, st.MarkViewed(ctx, created.ID))
+	after, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Nil(t, after.ViewedAt)
+
+	require.NoError(t, st.MarkFinished(ctx, created.ID))
+	finished, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.True(t, finished.Unviewed())
+}
+
+// TestMarkViewedRejectsAnIDThatIsNotOne pins that a malformed id is refused rather than
+// silently marking nothing.
+func TestMarkViewedRejectsAnIDThatIsNotOne(t *testing.T) {
+	st := open(t)
+
+	require.ErrorIs(t, st.MarkViewed(t.Context(), "not-a-uuid"), store.ErrNotFound)
+	require.ErrorIs(t, st.MarkFinished(t.Context(), "not-a-uuid"), store.ErrNotFound)
+}

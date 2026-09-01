@@ -56,34 +56,39 @@ details_height = 0.33
 # The agents list, the panel's main screen.
 [keybindings.agents]
 # Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
-archive     = ["z"]
+archive       = ["z"]
 # Step out of a workflow scope, or quit at the root.
-back        = ["esc"]
+back          = ["esc"]
 # Review what the hovered agent has changed in its worktree, with the diff in the stage and
 # the review threads in the sidebar. The key does nothing for an agent whose workflow does
 # not make worktrees, since there is no base branch to measure one against, and the legend
 # leaves it off there.
-review      = ["d"]
+review        = ["d"]
 # Hide the hovered agent from this list.
-hide        = ["h"]
+hide          = ["h"]
 # Move the hovered agent to the next tag in the tags list, and past the last
 # one back to untagged. Nothing but you ever sets a tag.
-tag         = ["t"]
+tag           = ["t"]
 # Start a new agent.
-new         = ["c"]
+new           = ["c"]
+# Jump to the next agent that has finished something you have not looked at, wrapping at
+# the end of the list.
+next_unviewed = ["n"]
+# Jump to the previous agent that has finished something you have not looked at.
+prev_unviewed = ["N"]
 # Attach to the hovered agent.
-open        = ["enter"]
+open          = ["enter"]
 # Open the pull request the hovered agent recorded, in your browser. The key does
 # nothing on an agent with none recorded, and the legend leaves it off there.
-open_pr     = ["o"]
+open_pr       = ["o"]
 # Quit the panel.
-quit        = ["ctrl+c"]
+quit          = ["ctrl+c"]
 # Rename the hovered agent.
-rename      = ["r"]
+rename        = ["r"]
 # Search every conversation the panel holds for what you type, the archived ones included.
-search      = ["s"]
+search        = ["s"]
 # Toggles visibility of hidden agents alongside the rest.
-show_hidden = ["H"]
+show_hidden   = ["H"]
 
 # The archive screen, and the key that opens it from the agents list.
 [keybindings.archive]

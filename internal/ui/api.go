@@ -51,6 +51,16 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	return err
 }
 
+// markViewed claims whatever the agent has finished up to now.
+func (a api) markViewed(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.agents.MarkAgentViewed(ctx, connect.NewRequest(&agentv1.MarkAgentViewedRequest{Id: id}))
+
+	return err
+}
+
 type createAgentParams struct {
 	Prompt        string
 	Title         string

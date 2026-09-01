@@ -30,17 +30,20 @@ func IsFailed(state string) bool {
 }
 
 type Agent struct {
-	ID               string
-	Name             string
-	Pane             string
-	Cwd              string
-	Flags            string
-	SetupAction      *string
-	CleanupAction    *string
-	Prompt           string
-	State            string
-	StateChangedAt   time.Time
-	StateSeenAt      time.Time
+	ID             string
+	Name           string
+	Pane           string
+	Cwd            string
+	Flags          string
+	SetupAction    *string
+	CleanupAction  *string
+	Prompt         string
+	State          string
+	StateChangedAt time.Time
+	StateSeenAt    time.Time
+	// An agent has finished something nobody has read when FinishedAt is newer than ViewedAt.
+	FinishedAt       *time.Time
+	ViewedAt         *time.Time
 	Harness          string
 	SessionID        string
 	WorkflowID       string
@@ -61,6 +64,15 @@ type Agent struct {
 	AdoptedBranch   string
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time
+}
+
+// Unviewed reports whether an agent has finished a turn that nobody has looked at since.
+func (a Agent) Unviewed() bool {
+	if a.FinishedAt == nil {
+		return false
+	}
+
+	return a.ViewedAt == nil || a.FinishedAt.After(*a.ViewedAt)
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -113,6 +125,8 @@ func agentFromRow(agent models.Agent) Agent {
 		State:            agent.State,
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,
+		FinishedAt:       agent.FinishedAt,
+		ViewedAt:         agent.ViewedAt,
 		Harness:          agent.Harness,
 		SessionID:        agent.SessionID,
 		WorkflowID:       agent.WorkflowID,

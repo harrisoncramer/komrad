@@ -68,6 +68,12 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
+	if isBound(k, m.keys.Agents.NextUnviewed) {
+		return m.jumpUnviewed(1)
+	}
+	if isBound(k, m.keys.Agents.PrevUnviewed) {
+		return m.jumpUnviewed(-1)
+	}
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)
 	}
@@ -239,6 +245,26 @@ func (m model) jumpCursor(idx int) model {
 	m.stageSelection()
 
 	return m
+}
+
+// jumpUnviewed travels to the next agent carrying something nobody has read, wrapping past the
+// end of the list, so the rows in between are never counted as read on the way.
+func (m model) jumpUnviewed(delta int) (tea.Model, tea.Cmd) {
+	rows := m.agentRows()
+	if len(rows) == 0 {
+		return m, nil
+	}
+
+	for step := 1; step <= len(rows); step++ {
+		at := ((m.tree.cursor+delta*step)%len(rows) + len(rows)) % len(rows)
+		if rows[at].header || !rows[at].item.unviewed {
+			continue
+		}
+
+		return m.jumpCursor(at), nil
+	}
+
+	return m, nil
 }
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
@@ -460,7 +486,7 @@ func (m model) agentsView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		rows = append(rows, prefix+"  "+stateMark(displayState(item))+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
+		rows = append(rows, prefix+"  "+stateMarkFor(displayState(item), item.unviewed)+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)

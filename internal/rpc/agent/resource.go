@@ -60,6 +60,7 @@ func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 			SpawnedByAgentId: stored.SpawnedByAgentID,
 			Branch:           stored.Branch,
 			WorktreeRemoved:  stored.WorktreeRemoved,
+			Unviewed:         stored.Unviewed(),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

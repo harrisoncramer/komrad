@@ -52,6 +52,7 @@ type paneObserver interface {
 type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id, state string) error
+	MarkFinished(ctx context.Context, id string) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
@@ -412,7 +413,18 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 	}
 
 	if justWentIdle {
+		r.markFinished(ctx, agent)
 		r.checkPR(ctx, agent)
+	}
+}
+
+// markFinished stamps the turn an agent has just come out of, and is deliberately only reached
+// from an observed transition: the other writes of an idle state are a row being created and a
+// pane being rebuilt, neither of which is an agent finishing anything.
+func (r *Reconciler) markFinished(ctx context.Context, agent agentstore.Agent) {
+	if err := r.store.MarkFinished(ctx, agent.ID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record an agent's finished turn",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }
 

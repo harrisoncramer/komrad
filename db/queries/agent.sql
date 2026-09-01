@@ -290,6 +290,23 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentFinishedAtByID :exec
+UPDATE
+    agents
+SET
+    finished_at = NOW()
+WHERE
+    id = @id;
+
+-- name: MarkAgentViewedByID :exec
+UPDATE
+    agents
+SET
+    viewed_at = finished_at
+WHERE
+    id = @id
+    AND finished_at IS NOT NULL;
+
 -- name: MarkAgentSettingUpIfLive :many
 UPDATE
     agents

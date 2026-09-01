@@ -41,6 +41,34 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
+// MarkFinished records that a reconcile pass watched an agent settle out of a turn, which is
+// what the panel measures its viewed mark against.
+func (s *Store) MarkFinished(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.SetAgentFinishedAtByID(ctx, id); err != nil {
+		return fmt.Errorf("failed to record the finished turn for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// MarkViewed claims what an agent has finished up to now, stamping the finish that was on the
+// row rather than the clock, so a turn that lands mid-look is not marked as read with it.
+func (s *Store) MarkViewed(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.MarkAgentViewedByID(ctx, id); err != nil {
+		return fmt.Errorf("failed to mark id %q viewed: %w", id, err)
+	}
+
+	return nil
+}
+
 // MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,
 // refusing an archived row so the resume notices rather than writing a pane onto a hidden one.
 func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {

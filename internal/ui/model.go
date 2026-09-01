@@ -94,6 +94,7 @@ type model struct {
 	detailsHeight   float64
 	listing         listing
 	tree            treeState
+	hover           hoverState
 	schedules       scheduleState
 	archive         archiveState
 	search          searchState

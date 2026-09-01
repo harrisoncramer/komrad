@@ -356,3 +356,62 @@ func helpDescriptions(bindings []key.Binding) []string {
 
 	return described
 }
+
+// TestPanelClearsTheUnviewedMarkThroughTheService takes the read marker all the way to the
+// database, since the dwell tests answer the panel from a fake client and prove only that it
+// would have made the call.
+func TestPanelClearsTheUnviewedMarkThroughTheService(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	agent := created.Msg.GetAgent()
+	require.NoError(t, instance.Stores.Agents.MarkFinished(ctx, agent.GetId()))
+
+	tmux := &recordingTmux{}
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			actions:   instance.Actions,
+		},
+		tmux:   tmux,
+		popup:  NewPopupWindow(tmux, "test-session"),
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+	}
+
+	panel = settle(t, panel, panel.refreshCmd())
+	panel.tree.cursor = 1
+
+	hovered, ok := panel.selectedAgent()
+	require.True(t, ok)
+	require.True(t, hovered.unviewed, "the panel reads the mark off the listing")
+
+	at := time.Now()
+	panel, cmd := panel.dwellViewed(at)
+	require.Nil(t, cmd)
+
+	panel, cmd = panel.dwellViewed(at.Add(viewedDwell))
+	require.NotNil(t, cmd)
+	cmd()
+
+	panel = settle(t, panel, panel.refreshCmd())
+	after, ok := panel.selectedAgent()
+	require.True(t, ok)
+	assert.False(t, after.unviewed, "and the mark is gone once the service has it")
+}
