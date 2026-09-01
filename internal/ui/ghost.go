@@ -12,13 +12,13 @@ import (
 
 const (
 	// rowChrome is every cell an agent row spends outside its name and its icons: the selection
-	// gutter, the cursor, the two spaces behind the state icon, that icon, the unread mark
-	// beside it, and the spaces bracketing the name.
-	rowChrome = 10
+	// gutter, the cursor, the two spaces behind the state icon, that icon, and the spaces
+	// bracketing the name.
+	rowChrome = 9
 
 	// maxRowIcons is how many icons follow a name: the removed worktree, the schedule, the
-	// hidden mark, the tag, and unread mail.
-	maxRowIcons = 5
+	// hidden mark, the tag, unread mail, and unread output.
+	maxRowIcons = 6
 
 	// ghostGap is the space left between a row and its slot.
 	ghostGap = 2
