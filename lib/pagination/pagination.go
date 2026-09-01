@@ -83,12 +83,19 @@ func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
 		return nil, fmt.Errorf("failed to read cursor: %w", err)
 	}
 
+	return Token(cursor)
+}
+
+// Token encodes a cursor a handler has built itself, which a listing of more than one
+// section needs, since its next page is not located by the last record alone.
+func Token[C Cursor](cursor C) (*string, error) {
 	raw, err := json.Marshal(cursor)
 	if err != nil {
 		return nil, fmt.Errorf("failed to encode cursor: %w", err)
 	}
 
 	token := base64.URLEncoding.EncodeToString(raw)
+
 	return &token, nil
 }
 

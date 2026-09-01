@@ -156,17 +156,45 @@ func (s *Store) Delete(ctx context.Context, agentIDs []string) error {
 	return nil
 }
 
-type Cursor struct {
+// Position locates one hit within its own section.
+type Position struct {
 	Rank    float64 `json:"r"`
 	AgentID string  `json:"i"`
 	Seq     int32   `json:"s"`
 }
 
-// Validate refuses a cursor holding anything but an agent id, since a rank or a sequence out
-// of place only narrows the page.
+// Validate refuses a position holding anything but an agent id, since a rank or a sequence
+// out of place only narrows the page.
+func (p Position) Validate() error {
+	if !store.IsID(p.AgentID) {
+		return fmt.Errorf("cursor agent id %q is not an id", p.AgentID)
+	}
+
+	return nil
+}
+
+// Cursor walks both sections at once, holding nothing for a section that has run out.
+type Cursor struct {
+	Matches *Position `json:"m,omitempty"`
+	Near    *Position `json:"n,omitempty"`
+}
+
+// Validate refuses a cursor whose sections are not both positions this server could have
+// handed out.
 func (c Cursor) Validate() error {
-	if !store.IsID(c.AgentID) {
-		return fmt.Errorf("cursor agent id %q is not an id", c.AgentID)
+	// A cursor locating neither section is one this server never handed out, since a page
+	// with nothing left to walk ends the listing rather than minting a token.
+	if c.Matches == nil && c.Near == nil {
+		return fmt.Errorf("cursor locates neither section")
+	}
+
+	for _, position := range []*Position{c.Matches, c.Near} {
+		if position == nil {
+			continue
+		}
+		if err := position.Validate(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -179,17 +207,30 @@ type SearchParams struct {
 	AgentID *string
 }
 
-// Search returns one page of the turns matching the query, most relevant first, where a word
-// match arrives already marked by the database and a substring fallback ranks zero and is
-// marked here.
-func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
+// Results is one page of each section, the turns that say the words and the turns that only
+// carry the letters, kept apart because the two are scored by measures that do not compare.
+type Results struct {
+	Matches []SearchHit
+	Near    []SearchHit
+
+	// Next locates the page after this one, holding a position only for a section that filled
+	// this page, and nil once neither has more to give.
+	Next *Cursor
+}
+
+// Search returns one page of each section, most relevant first within each, where a word
+// match arrives already marked by the database, a near match is marked here, and a query with
+// no word to look for is answered with nothing.
+func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
-	if strings.TrimSpace(query) == "" {
-		return nil, nil
+
+	terms := splitTerms(query)
+	if len(terms.positive) == 0 {
+		return Results{}, nil
 	}
 
 	if params.AgentID != nil && !store.IsID(*params.AgentID) {
-		return nil, nil
+		return Results{}, nil
 	}
 
 	limit := params.Limit
@@ -197,45 +238,187 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 		limit = defaultSearchLimit
 	}
 
-	args := models.SearchTranscriptsParams{
-		Query:    query,
-		Headline: headlineOptions,
-		Pattern:  likePattern(query),
-		Lead:     snippetLead,
-		Width:    snippetWidth,
-		Lim:      int32(limit),
-		AgentID:  params.AgentID,
-	}
-	if params.Cursor != nil {
-		args.CursorRank = &params.Cursor.Rank
-		args.CursorAgentID = &params.Cursor.AgentID
-		args.CursorSeq = &params.Cursor.Seq
+	// A first page has no cursor at all, while a later page holds one only for the sections
+	// still running, so an exhausted section is asked for nothing rather than restarted.
+	first := params.Cursor == nil
+	var matchesAt, nearAt *Position
+	if !first {
+		matchesAt, nearAt = params.Cursor.Matches, params.Cursor.Near
 	}
 
-	rows, err := s.queries.SearchTranscripts(ctx, args)
-	if err != nil {
-		return nil, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
-	}
+	var results Results
 
-	hits := xslice.Map(rows, func(row *models.SearchTranscriptsRow) SearchHit {
-		snippet := row.Snippet
-		if row.Rank == 0 {
-			snippet = markMatches(snippet, query)
+	if first || matchesAt != nil {
+		rows, err := s.queries.SearchTranscripts(ctx, models.SearchTranscriptsParams{
+			Terms:         terms.positive,
+			Excluded:      terms.negative,
+			Headline:      headlineOptions,
+			Lim:           int32(limit),
+			AgentID:       params.AgentID,
+			CursorRank:    rankOf(matchesAt),
+			CursorAgentID: agentOf(matchesAt),
+			CursorSeq:     seqOf(matchesAt),
+		})
+		if err != nil {
+			return Results{}, fmt.Errorf("failed to search transcripts for %q: %w", query, err)
 		}
 
-		return SearchHit{
-			AgentID:       row.AgentID,
-			Name:          row.Name,
-			Archived:      row.Archived,
-			Seq:           row.Seq,
-			Role:          row.Role,
-			ContentOffset: row.ContentOffset,
-			Snippet:       snippet,
-			Rank:          row.Rank,
-		}
-	})
+		results.Matches = xslice.Map(rows, func(row *models.SearchTranscriptsRow) SearchHit {
+			return SearchHit{
+				AgentID:       row.AgentID,
+				Name:          row.Name,
+				Archived:      row.Archived,
+				Seq:           row.Seq,
+				Role:          row.Role,
+				ContentOffset: row.ContentOffset,
+				Snippet:       row.Snippet,
+				Rank:          row.Rank,
+			}
+		})
+	}
 
-	return hits, nil
+	if first || nearAt != nil {
+		rows, err := s.queries.SearchTranscriptsNear(ctx, models.SearchTranscriptsNearParams{
+			Terms:         terms.positive,
+			Patterns:      likePatterns(terms.positive),
+			Excluded:      terms.negative,
+			Lead:          snippetLead,
+			Width:         snippetWidth,
+			Lim:           int32(limit),
+			AgentID:       params.AgentID,
+			CursorRank:    rankOf(nearAt),
+			CursorAgentID: agentOf(nearAt),
+			CursorSeq:     seqOf(nearAt),
+		})
+		if err != nil {
+			return Results{}, fmt.Errorf("failed to search transcripts near %q: %w", query, err)
+		}
+
+		results.Near = xslice.Map(rows, func(row *models.SearchTranscriptsNearRow) SearchHit {
+			return SearchHit{
+				AgentID:       row.AgentID,
+				Name:          row.Name,
+				Archived:      row.Archived,
+				Seq:           row.Seq,
+				Role:          row.Role,
+				ContentOffset: row.ContentOffset,
+				Snippet:       markMatches(row.Snippet, terms.positive),
+				Rank:          row.Rank,
+			}
+		})
+	}
+
+	results.Next = nextCursor(limit, results)
+
+	return results, nil
+}
+
+// nextCursor keeps a position for each section that filled its page, so a section that has
+// run out is not asked for again while the other one is still going.
+func nextCursor(limit int64, results Results) *Cursor {
+	cursor := Cursor{
+		Matches: lastOf(limit, results.Matches),
+		Near:    lastOf(limit, results.Near),
+	}
+	if cursor.Matches == nil && cursor.Near == nil {
+		return nil
+	}
+
+	return &cursor
+}
+
+func lastOf(limit int64, hits []SearchHit) *Position {
+	if int64(len(hits)) < limit {
+		return nil
+	}
+
+	last := hits[len(hits)-1]
+
+	return &Position{
+		Rank:    last.Rank,
+		AgentID: last.AgentID,
+		Seq:     last.Seq,
+	}
+}
+
+func rankOf(p *Position) *float64 {
+	if p == nil {
+		return nil
+	}
+
+	return &p.Rank
+}
+
+func agentOf(p *Position) *string {
+	if p == nil {
+		return nil
+	}
+
+	return &p.AgentID
+}
+
+func seqOf(p *Position) *int32 {
+	if p == nil {
+		return nil
+	}
+
+	return &p.Seq
+}
+
+type queryTerms struct {
+	positive []string
+	negative []string
+}
+
+// splitTerms reads a query as the words it is looking for and the words it wants left out,
+// which the database turns into a tsquery and this side turns into substring patterns, so the
+// two agree by construction rather than by both parsing the same syntax the same way.
+func splitTerms(query string) queryTerms {
+	var (
+		terms   queryTerms
+		text    strings.Builder
+		quoted  bool
+		minuses int
+	)
+
+	flush := func() {
+		term, leading := text.String(), minuses
+		text.Reset()
+		quoted, minuses = false, 0
+
+		switch {
+		case term == "":
+		case leading == 1:
+			terms.negative = append(terms.negative, term)
+		default:
+			// Only a single minus excludes, so a flag name stays the word it looks like.
+			terms.positive = append(terms.positive, strings.Repeat("-", leading)+term)
+		}
+	}
+	for _, r := range query {
+		switch {
+		case r == '"':
+			quoted = !quoted
+		case unicode.IsSpace(r) && !quoted:
+			flush()
+		case r == '-' && !quoted && text.Len() == 0:
+			minuses++
+		default:
+			text.WriteRune(r)
+		}
+	}
+	flush()
+
+	return terms
+}
+
+func likePatterns(terms []string) []string {
+	patterns := make([]string, 0, len(terms))
+	for _, term := range terms {
+		patterns = append(patterns, likePattern(term))
+	}
+
+	return patterns
 }
 
 func likePattern(query string) string {
@@ -243,17 +426,13 @@ func likePattern(query string) string {
 	return "%" + escaped + "%"
 }
 
-func markMatches(snippet, query string) string {
-	if query == "" {
-		return snippet
-	}
-
+func markMatches(snippet string, terms []string) string {
 	var (
 		out strings.Builder
 		at  int
 	)
 	for at < len(snippet) {
-		start, end, ok := foldIndex(snippet[at:], query)
+		start, end, ok := firstMatch(snippet[at:], terms)
 		if !ok {
 			break
 		}
@@ -267,6 +446,29 @@ func markMatches(snippet, query string) string {
 	out.WriteString(snippet[at:])
 
 	return out.String()
+}
+
+// firstMatch returns the earliest occurrence of any term, preferring the longest where two
+// start at the same place, so overlapping terms are marked once rather than nested.
+func firstMatch(hay string, terms []string) (int, int, bool) {
+	found := false
+
+	var bestStart, bestEnd int
+	for _, term := range terms {
+		if term == "" {
+			continue
+		}
+
+		start, end, ok := foldIndex(hay, term)
+		if !ok {
+			continue
+		}
+		if !found || start < bestStart || (start == bestStart && end > bestEnd) {
+			found, bestStart, bestEnd = true, start, end
+		}
+	}
+
+	return bestStart, bestEnd, found
 }
 
 func foldIndex(hay, needle string) (int, int, bool) {

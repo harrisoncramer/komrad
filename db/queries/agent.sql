@@ -546,40 +546,130 @@ VALUES (
 -- name: SearchTranscripts :many
 WITH q AS (
     SELECT
-        WEBSEARCH_TO_TSQUERY('english', @query) AS query
-)
+        PLAINTO_TSQUERY('english', ARRAY_TO_STRING(@terms::text[], ' ')) AS words,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', t)
+            FROM
+                UNNEST(@terms::text[]) t
+            WHERE
+                PHRASETO_TSQUERY('english', t) <> '') AS required,
+            ARRAY (
+                SELECT
+                    PHRASETO_TSQUERY('english', e)
+                FROM
+                    UNNEST(@excluded::text[]) e) AS forbidden
+),
+ranked AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content_offset,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        TS_HEADLINE('english', c.content, q.words, @headline) AS snippet,
+        TS_RANK_CD(c.tsv, q.words, 32) AS rank
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE
+        CARDINALITY(q.required) > 0
+        AND c.tsv @@ ALL (q.required)
+        AND NOT (c.tsv @@ ANY (q.forbidden))
+        AND (sqlc.narg('agent_id')::uuid IS NULL
+            OR c.agent_id = sqlc.narg('agent_id')))
 SELECT
-    c.agent_id,
-    c.seq,
-    c.role,
-    c.content_offset,
-    a.name,
-(a.archived_at IS NOT NULL)::boolean AS archived,
-    CASE WHEN c.tsv @@ q.query THEN
-        TS_HEADLINE('english', c.content, q.query, @headline)
-    ELSE
-        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER(@query) IN LOWER(c.content)) - @lead::int)
-            FOR @width::int)
-    END::text AS snippet,
-    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.snippet::text AS snippet,
+    r.rank::float8 AS rank
 FROM
-    agent_transcript_chunks c
-    CROSS JOIN q
-    JOIN agents a ON a.id = c.agent_id
-WHERE (c.tsv @@ q.query
-    OR c.content ILIKE @pattern)
-AND (sqlc.narg('agent_id')::uuid IS NULL
-    OR c.agent_id = sqlc.narg('agent_id'))
-AND (sqlc.narg('cursor_rank')::float8 IS NULL
-    OR TS_RANK_CD(c.tsv, q.query) < sqlc.narg('cursor_rank')
-    OR (TS_RANK_CD(c.tsv, q.query) = sqlc.narg('cursor_rank')
-        AND (c.agent_id,
-            c.seq) >(sqlc.narg('cursor_agent_id')::uuid,
+    ranked r
+WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
+    OR r.rank < sqlc.narg('cursor_rank')
+    OR (r.rank = sqlc.narg('cursor_rank')
+        AND (r.agent_id,
+            r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
             sqlc.narg('cursor_seq')::int)))
 ORDER BY
-    rank DESC,
-    c.agent_id ASC,
-    c.seq ASC
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
+LIMIT @lim;
+
+-- name: SearchTranscriptsNear :many
+WITH q AS (
+    SELECT
+        @terms::text[] AS terms,
+        @patterns::text[] AS patterns,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', t)
+            FROM
+                UNNEST(@terms::text[]) t
+            WHERE
+                PHRASETO_TSQUERY('english', t) <> '') AS required,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', e)
+            FROM
+                UNNEST(@excluded::text[]) e) AS forbidden
+),
+ranked AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content_offset,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        SUBSTRING(c.content FROM GREATEST(1,(
+                    SELECT
+                        MIN(POSITION(LOWER(t) IN LOWER(c.content)))
+                    FROM UNNEST(q.terms) t
+                WHERE
+                    POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
+            FOR @width::int) AS snippet,
+        WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE
+        CARDINALITY(q.terms) > 0
+        AND c.content ILIKE ALL (q.patterns)
+        AND NOT (CARDINALITY(q.required) > 0
+            AND c.tsv @@ ALL (q.required))
+        AND NOT (c.tsv @@ ANY (q.forbidden))
+        AND (sqlc.narg('agent_id')::uuid IS NULL
+            OR c.agent_id = sqlc.narg('agent_id')))
+SELECT
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.snippet::text AS snippet,
+    r.rank::float8 AS rank
+FROM
+    ranked r
+WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
+    OR r.rank < sqlc.narg('cursor_rank')
+    OR (r.rank = sqlc.narg('cursor_rank')
+        AND (r.agent_id,
+            r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
+            sqlc.narg('cursor_seq')::int)))
+ORDER BY
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
 LIMIT @lim;
 
 -- name: CountLiveScheduleAgents :one

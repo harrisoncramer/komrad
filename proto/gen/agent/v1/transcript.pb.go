@@ -185,7 +185,8 @@ func (x *SearchHit) GetContentOffset() int64 {
 
 type SearchTranscriptsResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Hits          []*SearchHit           `protobuf:"bytes,1,rep,name=hits,proto3" json:"hits,omitempty"`
+	Matches       []*SearchHit           `protobuf:"bytes,1,rep,name=matches,proto3" json:"matches,omitempty"`
+	Near          []*SearchHit           `protobuf:"bytes,3,rep,name=near,proto3" json:"near,omitempty"`
 	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -221,9 +222,16 @@ func (*SearchTranscriptsResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_transcript_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *SearchTranscriptsResponse) GetHits() []*SearchHit {
+func (x *SearchTranscriptsResponse) GetMatches() []*SearchHit {
 	if x != nil {
-		return x.Hits
+		return x.Matches
+	}
+	return nil
+}
+
+func (x *SearchTranscriptsResponse) GetNear() []*SearchHit {
+	if x != nil {
+		return x.Near
 	}
 	return nil
 }
@@ -345,9 +353,10 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\x05score\x18\x06 \x01(\x01R\x05score\x12\x10\n" +
 	"\x03seq\x18\a \x01(\x05R\x03seq\x12\x12\n" +
 	"\x04role\x18\b \x01(\tR\x04role\x12%\n" +
-	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffset\"\x85\x01\n" +
-	"\x19SearchTranscriptsResponse\x12'\n" +
-	"\x04hits\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\x04hits\x12+\n" +
+	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffset\"\xb4\x01\n" +
+	"\x19SearchTranscriptsResponse\x12-\n" +
+	"\amatches\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\amatches\x12'\n" +
+	"\x04near\x18\x03 \x03(\v2\x13.agent.v1.SearchHitR\x04near\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\":\n" +
 	"\x14GetTranscriptRequest\x12\"\n" +
@@ -378,12 +387,13 @@ var file_agent_v1_transcript_proto_goTypes = []any{
 }
 var file_agent_v1_transcript_proto_depIdxs = []int32{
 	5, // 0: agent.v1.SearchTranscriptsRequest.pagination:type_name -> pagination.v1.Pagination
-	1, // 1: agent.v1.SearchTranscriptsResponse.hits:type_name -> agent.v1.SearchHit
-	2, // [2:2] is the sub-list for method output_type
-	2, // [2:2] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	1, // 1: agent.v1.SearchTranscriptsResponse.matches:type_name -> agent.v1.SearchHit
+	1, // 2: agent.v1.SearchTranscriptsResponse.near:type_name -> agent.v1.SearchHit
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_transcript_proto_init() }

@@ -33,6 +33,7 @@ type searchHit struct {
 	archived bool
 	offset   int64
 	snippet  string
+	near     bool
 }
 
 type searchSettledMsg struct {
@@ -104,18 +105,29 @@ func (m model) searchCmd(query string) tea.Cmd {
 			return searchResult{query: query}
 		}
 
-		hits := make([]searchHit, 0, len(resp.Msg.GetHits()))
-		for _, h := range resp.Msg.GetHits() {
-			hits = append(hits, searchHit{
-				agentID:  h.GetAgentId(),
-				name:     h.GetName(),
-				archived: h.GetArchived(),
-				offset:   h.GetContentOffset(),
-				snippet:  h.GetSnippet(),
-			})
+		found := resp.Msg.GetMatches()
+		near := resp.Msg.GetNear()
+
+		hits := make([]searchHit, 0, len(found)+len(near))
+		for _, h := range found {
+			hits = append(hits, renderHit(h, false))
+		}
+		for _, h := range near {
+			hits = append(hits, renderHit(h, true))
 		}
 
 		return searchResult{query: query, hits: hits}
+	}
+}
+
+func renderHit(h *agentv1.SearchHit, near bool) searchHit {
+	return searchHit{
+		agentID:  h.GetAgentId(),
+		name:     h.GetName(),
+		archived: h.GetArchived(),
+		offset:   h.GetContentOffset(),
+		snippet:  h.GetSnippet(),
+		near:     near,
 	}
 }
 
@@ -412,8 +424,12 @@ func (m model) searchView() string {
 		b.WriteString(dimStyle.Render("no matches") + "\n")
 	default:
 
-		labelled := ""
+		labelled, sectioned := "", false
 		for i, hit := range m.search.hits {
+			if hit.near && !sectioned {
+				b.WriteString("\n" + dimStyle.Render("near matches") + "\n")
+				sectioned, labelled = true, ""
+			}
 			if hit.agentID != labelled {
 				b.WriteString(m.hitHeader(hit) + "\n")
 				labelled = hit.agentID

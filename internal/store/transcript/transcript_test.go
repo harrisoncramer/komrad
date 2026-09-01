@@ -100,6 +100,7 @@ func TestSearch(t *testing.T) {
 		other        string
 		query        string
 		wantHits     int
+		wantNear     int
 		wantArchived bool
 	}{
 		{
@@ -153,6 +154,58 @@ func TestSearch(t *testing.T) {
 			content:  "the quick brown fox discusses postgres indexing",
 			query:    "ostgr",
 			wantHits: 1,
+			wantNear: 1,
+		},
+		{
+			name:     "a bare exclusion matches nothing rather than everything",
+			content:  "alpha beta gamma",
+			other:    "delta epsilon",
+			query:    "-zeta",
+			wantHits: 0,
+		},
+		{
+			name:     "a query of nothing but a stopword does not match every turn",
+			content:  "the reconciler notes",
+			other:    "zeta alone",
+			query:    "the",
+			wantHits: 1,
+			wantNear: 1,
+		},
+		{
+			name:     "an exclusion beside a stopword still excludes",
+			content:  "the reconciler notes",
+			other:    "the zeta notes",
+			query:    "the -zeta",
+			wantHits: 1,
+			wantNear: 1,
+		},
+		{
+			name:     "an exclusion does not leak into the substring fallback",
+			content:  "the pgxpool wrapper",
+			other:    "the pgxpool sqlite wrapper",
+			query:    "pgxp -sqlite",
+			wantHits: 1,
+			wantNear: 1,
+		},
+		{
+			name:     "quotes do not leak into the substring fallback",
+			content:  "the pgxpoolwrapper thing",
+			query:    `"pgxpoolwrap"`,
+			wantHits: 1,
+			wantNear: 1,
+		},
+		{
+			name:     "a flag name is a search rather than an exclusion",
+			content:  "the config file lives at ~/.config/weave/config.toml",
+			query:    "--config",
+			wantHits: 1,
+		},
+		{
+			name:     "an exclusion in another tense still excludes",
+			content:  "the pgxpool notes",
+			other:    "the pgxpool wrapper",
+			query:    "pgxpool -wrappers",
+			wantHits: 1,
 		},
 		{
 			name:         "an archived agent is still findable",
@@ -193,6 +246,7 @@ func TestSearch(t *testing.T) {
 			content:  "ok",
 			query:    "K",
 			wantHits: 1,
+			wantNear: 1,
 		},
 	}
 
@@ -220,9 +274,12 @@ func TestSearch(t *testing.T) {
 				require.NoError(t, archiveErr)
 			}
 
-			hits, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: 10})
+			got, err := st.Search(ctx, SearchParams{Query: tt.query, Limit: 10})
 			require.NoError(t, err)
+
+			hits := allHits(got)
 			require.Len(t, hits, tt.wantHits)
+			assert.Len(t, got.Near, tt.wantNear, "which section the hit lands in")
 
 			if tt.wantHits == 0 {
 				return
@@ -251,8 +308,10 @@ func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 	id := seedAgent(t, st, "one")
 	seedTurns(t, st, id, content, turns)
 
-	hits, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
+	got, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
 	require.NoError(t, err)
+
+	hits := got.Matches
 	require.Len(t, hits, 2, "the turns that mention it, not the conversation once")
 
 	for _, hit := range hits {
@@ -281,32 +340,28 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 
 	unscoped, err := st.Search(ctx, SearchParams{Query: "reconciler", Limit: 10})
 	require.NoError(t, err)
-	require.Len(t, uniqueStrings(agentIDs(unscoped)), 2, "both agents said it")
+	require.Len(t, uniqueStrings(agentIDs(allHits(unscoped))), 2, "both agents said it")
 
 	var (
 		ids    []string
 		cursor *Cursor
 	)
 	for range 3 {
-		hits, err := st.Search(ctx, SearchParams{
+		page, err := st.Search(ctx, SearchParams{
 			Query:   "reconciler",
 			Limit:   1,
 			Cursor:  cursor,
 			AgentID: &mine,
 		})
 		require.NoError(t, err)
+
+		hits := allHits(page)
 		if len(hits) == 0 {
 			break
 		}
 
 		ids = append(ids, agentIDs(hits)...)
-
-		last := hits[len(hits)-1]
-		cursor = &Cursor{
-			Rank:    last.Rank,
-			AgentID: last.AgentID,
-			Seq:     last.Seq,
-		}
+		cursor = page.Next
 	}
 
 	assert.Equal(t, []string{mine, mine}, ids, "both of one agent's turns, and neither of the other's")
@@ -318,7 +373,7 @@ func TestSearchScopedToOneAgent(t *testing.T) {
 		AgentID: &nobody,
 	})
 	require.NoError(t, err, "a string that is not an id is a miss rather than a failure")
-	assert.Empty(t, none)
+	assert.Empty(t, allHits(none))
 }
 
 // TestSearchPages walks a result set the way the RPC does, covering both the ordering the
@@ -349,7 +404,7 @@ func TestSearchPages(t *testing.T) {
 			wantCount: 2,
 		},
 		{
-			name: "a word match outranks a partial one",
+			name: "a word match is listed before a near one, since the sections are in that order",
 			seeds: []seed{
 				{name: "word", content: "we use pgx here"},
 				{name: "partial", content: "we use pgxpool here"},
@@ -358,6 +413,17 @@ func TestSearchPages(t *testing.T) {
 			limit:     10,
 			wantNames: []string{"word", "partial"},
 			wantCount: 2,
+		},
+		{
+			name: "a cursor walks a set that mixes word and substring hits",
+			seeds: []seed{
+				{name: "a", content: "shared term here"},
+				{name: "b", content: "sharedterm here"},
+				{name: "c", content: "shared term here"},
+			},
+			query:     "shared",
+			limit:     1,
+			wantCount: 3,
 		},
 		{
 			name: "a cursor walks the whole set one hit at a time",
@@ -387,12 +453,14 @@ func TestSearchPages(t *testing.T) {
 				cursor *Cursor
 			)
 			for range len(tt.seeds) + 1 {
-				hits, err := st.Search(ctx, SearchParams{
+				page, err := st.Search(ctx, SearchParams{
 					Query:  tt.query,
 					Limit:  tt.limit,
 					Cursor: cursor,
 				})
 				require.NoError(t, err)
+
+				hits := allHits(page)
 				if len(hits) == 0 {
 					break
 				}
@@ -402,11 +470,9 @@ func TestSearchPages(t *testing.T) {
 					ids = append(ids, hit.AgentID)
 				}
 
-				last := hits[len(hits)-1]
-				cursor = &Cursor{
-					Rank:    last.Rank,
-					AgentID: last.AgentID,
-					Seq:     last.Seq,
+				cursor = page.Next
+				if cursor == nil {
+					break
 				}
 			}
 
@@ -420,6 +486,92 @@ func TestSearchPages(t *testing.T) {
 	}
 }
 
+// TestCursorValidate covers the tokens a search refuses, since a cursor that decodes into a
+// position the query cannot use would otherwise answer with a quietly empty page.
+func TestCursorValidate(t *testing.T) {
+	valid := Position{
+		Rank:    0.5,
+		AgentID: "00000000-0000-7000-8000-000000000000",
+		Seq:     1,
+	}
+
+	tests := []struct {
+		name    string
+		cursor  Cursor
+		wantErr bool
+	}{
+		{
+			name:   "a position in one section is enough",
+			cursor: Cursor{Matches: &valid},
+		},
+		{
+			name:   "a position in each",
+			cursor: Cursor{Matches: &valid, Near: &valid},
+		},
+		{
+			name:    "a cursor locating neither section was never handed out",
+			cursor:  Cursor{},
+			wantErr: true,
+		},
+		{
+			name:    "a position holding something that is not an agent id",
+			cursor:  Cursor{Near: &Position{AgentID: "not-an-id"}},
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.cursor.Validate()
+			if tt.wantErr {
+				require.Error(t, err)
+				return
+			}
+
+			require.NoError(t, err)
+		})
+	}
+}
+
+// TestSearchKeepsNearMatchesOnTheirOwnPage pins the point of holding the two apart: a near
+// match comes back however many word matches there are, where one shared ranking left it
+// behind all of them and off the page the panel asks for.
+func TestSearchKeepsNearMatchesOnTheirOwnPage(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	glued := seedAgent(t, st, "glued")
+	seedTranscript(t, st, glued, "it lives in /state/weave/worktree/01a0 today")
+
+	for _, name := range []string{"one", "two", "three", "four"} {
+		seedTranscript(t, st, seedAgent(t, st, name), "the worktree is checked out for "+name)
+	}
+
+	got, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2})
+	require.NoError(t, err)
+
+	assert.Len(t, got.Matches, 2, "one page of the turns that say the word")
+	require.Len(t, got.Near, 1, "and the turn that only carries the letters, not buried behind them")
+	assert.Equal(t, glued, got.Near[0].AgentID)
+	assert.NotContains(t, agentIDs(got.Matches), glued, "a turn is in one section or the other")
+}
+
+// TestSearchScoresNearMatches pins that a near match is scored on its own terms rather than
+// against the word matches, which is what lets the two be ranked apart.
+func TestSearchScoresNearMatches(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	id := seedAgent(t, st, "partial")
+	seedTranscript(t, st, id, "the pgxpool wrapper")
+
+	got, err := st.Search(ctx, SearchParams{Query: "pgxp", Limit: 10})
+	require.NoError(t, err)
+	assert.Empty(t, got.Matches, "no turn says the word")
+	require.Len(t, got.Near, 1)
+	assert.Positive(t, got.Near[0].Rank, "a near match carries a score of its own")
+}
+
 // TestMarkMatches covers the marking a substring-only hit gets on this side,
 // where the offsets of the match have to be offsets into the snippet the caller
 // is handed back.
@@ -427,62 +579,166 @@ func TestMarkMatches(t *testing.T) {
 	tests := []struct {
 		name    string
 		snippet string
-		query   string
+		terms   []string
 		want    string
 	}{
 		{
 			name:    "an occurrence is wrapped",
 			snippet: "talking about postgres today",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "talking about " + SnippetOpen + "postgres" + SnippetClose + " today",
 		},
 		{
 			name:    "every occurrence is wrapped",
 			snippet: "postgres and postgres",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    SnippetOpen + "postgres" + SnippetClose + " and " + SnippetOpen + "postgres" + SnippetClose,
 		},
 		{
 			name:    "a match of another case keeps the casing the snippet had",
 			snippet: "talking about Postgres today",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "talking about " + SnippetOpen + "Postgres" + SnippetClose + " today",
 		},
 		{
 			name:    "a window cut mid-match is left unmarked",
 			snippet: "talking about postg",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "talking about postg",
 		},
 		{
 			name:    "a query that folds to fewer bytes marks only the bytes it matched",
 			snippet: "ok",
-			query:   "K",
+			terms:   []string{"K"},
 			want:    "o" + SnippetOpen + "k" + SnippetClose,
 		},
 		{
 			name:    "a query that folds to more bytes marks only the bytes it matched",
 			snippet: "bitİ",
-			query:   "tİ",
+			terms:   []string{"tİ"},
 			want:    "bi" + SnippetOpen + "tİ" + SnippetClose,
+		},
+		{
+			name:    "several terms are each wrapped where they fall",
+			snippet: "the pgxpool tuning notes",
+			terms:   []string{"pool", "tuning"},
+			want: "the pgx" + SnippetOpen + "pool" + SnippetClose + " " +
+				SnippetOpen + "tuning" + SnippetClose + " notes",
+		},
+		{
+			name:    "overlapping terms are marked once, the longer of the two",
+			snippet: "the pgxpool wrapper",
+			terms:   []string{"pgx", "pgxpool"},
+			want:    "the " + SnippetOpen + "pgxpool" + SnippetClose + " wrapper",
 		},
 		{
 			name:    "a snippet with no occurrence is returned as it stands",
 			snippet: "nothing to see",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "nothing to see",
 		},
 		{
 			name:    "an empty query marks nothing",
 			snippet: "nothing to see",
-			query:   "",
+			terms:   nil,
 			want:    "nothing to see",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, markMatches(tt.snippet, tt.query))
+			assert.Equal(t, tt.want, markMatches(tt.snippet, tt.terms))
+		})
+	}
+}
+
+// TestSplitTerms covers the words pulled out of a query for the substring fallback, which
+// matches text as it was typed and so has to be handed the terms rather than the operators.
+func TestSplitTerms(t *testing.T) {
+	tests := []struct {
+		name         string
+		query        string
+		wantPositive []string
+		wantNegative []string
+	}{
+		{
+			name:         "plain words are all positive",
+			query:        "reconciler markers",
+			wantPositive: []string{"reconciler", "markers"},
+		},
+		{
+			name:         "a minus marks the word behind it as excluded",
+			query:        "postgres -sqlite",
+			wantPositive: []string{"postgres"},
+			wantNegative: []string{"sqlite"},
+		},
+		{
+			name:         "quotes are stripped, and a phrase stays one term",
+			query:        `"derives markers" pane`,
+			wantPositive: []string{"derives markers", "pane"},
+		},
+		{
+			name:         "an excluded phrase keeps its words together",
+			query:        `pane -"derives markers"`,
+			wantPositive: []string{"pane"},
+			wantNegative: []string{"derives markers"},
+		},
+		{
+			name:         "or is an ordinary word, since every word typed has to appear",
+			query:        "pane or marker",
+			wantPositive: []string{"pane", "or", "marker"},
+		},
+		{
+			name:         "a query of nothing but an exclusion asks for no words at all",
+			query:        "-zeta",
+			wantNegative: []string{"zeta"},
+		},
+		{
+			name:  "blank space is no query at all",
+			query: "   ",
+		},
+		{
+			name:  "a bare minus asks for nothing",
+			query: "-",
+		},
+		{
+			name:         "a minus inside a word is part of it",
+			query:        "well-known",
+			wantPositive: []string{"well-known"},
+		},
+		{
+			name:         "only a single minus excludes, so a flag name is a word",
+			query:        "--config",
+			wantPositive: []string{"--config"},
+		},
+		{
+			name:         "a quoted minus is part of the word rather than an exclusion",
+			query:        `"-config"`,
+			wantPositive: []string{"-config"},
+		},
+		{
+			name:         "a minus on its own is not an exclusion of the next word",
+			query:        "- config",
+			wantPositive: []string{"config"},
+		},
+		{
+			name:         "a trailing minus asks for nothing",
+			query:        "config -",
+			wantPositive: []string{"config"},
+		},
+		{
+			name:         "a quoted phrase behind a minus is still excluded",
+			query:        `pane -"derives markers"`,
+			wantPositive: []string{"pane"},
+			wantNegative: []string{"derives markers"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitTerms(tt.query)
+			assert.Equal(t, tt.wantPositive, got.positive)
+			assert.Equal(t, tt.wantNegative, got.negative)
 		})
 	}
 }
@@ -590,6 +846,12 @@ func seedTurns(t *testing.T, st *fixture, id, content string, turns []Turn) {
 		Offset:  1,
 	}))
 	require.NoError(t, st.AppendTurns(ctx, id, turns))
+}
+
+// allHits flattens both sections in the order the panel shows them, for the tests that care
+// how many turns matched rather than which way each one did.
+func allHits(results Results) []SearchHit {
+	return append(append([]SearchHit{}, results.Matches...), results.Near...)
 }
 
 func agentIDs(hits []SearchHit) []string {

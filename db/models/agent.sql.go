@@ -1282,54 +1282,73 @@ func (q *Queries) RestoreAgents(ctx context.Context, ids []string) error {
 const searchTranscripts = `-- name: SearchTranscripts :many
 WITH q AS (
     SELECT
-        WEBSEARCH_TO_TSQUERY('english', $2) AS query
-)
+        PLAINTO_TSQUERY('english', ARRAY_TO_STRING($5::text[], ' ')) AS words,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', t)
+            FROM
+                UNNEST($5::text[]) t
+            WHERE
+                PHRASETO_TSQUERY('english', t) <> '') AS required,
+            ARRAY (
+                SELECT
+                    PHRASETO_TSQUERY('english', e)
+                FROM
+                    UNNEST($6::text[]) e) AS forbidden
+),
+ranked AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content_offset,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        TS_HEADLINE('english', c.content, q.words, $7) AS snippet,
+        TS_RANK_CD(c.tsv, q.words, 32) AS rank
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE
+        CARDINALITY(q.required) > 0
+        AND c.tsv @@ ALL (q.required)
+        AND NOT (c.tsv @@ ANY (q.forbidden))
+        AND ($8::uuid IS NULL
+            OR c.agent_id = $8))
 SELECT
-    c.agent_id,
-    c.seq,
-    c.role,
-    c.content_offset,
-    a.name,
-(a.archived_at IS NOT NULL)::boolean AS archived,
-    CASE WHEN c.tsv @@ q.query THEN
-        TS_HEADLINE('english', c.content, q.query, $1)
-    ELSE
-        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER($2) IN LOWER(c.content)) - $3::int)
-            FOR $4::int)
-    END::text AS snippet,
-    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.snippet::text AS snippet,
+    r.rank::float8 AS rank
 FROM
-    agent_transcript_chunks c
-    CROSS JOIN q
-    JOIN agents a ON a.id = c.agent_id
-WHERE (c.tsv @@ q.query
-    OR c.content ILIKE $5)
-AND ($6::uuid IS NULL
-    OR c.agent_id = $6)
-AND ($7::float8 IS NULL
-    OR TS_RANK_CD(c.tsv, q.query) < $7
-    OR (TS_RANK_CD(c.tsv, q.query) = $7
-        AND (c.agent_id,
-            c.seq) >($8::uuid,
-            $9::int)))
+    ranked r
+WHERE ($1::float8 IS NULL
+    OR r.rank < $1
+    OR (r.rank = $1
+        AND (r.agent_id,
+            r.seq) >($2::uuid,
+            $3::int)))
 ORDER BY
-    rank DESC,
-    c.agent_id ASC,
-    c.seq ASC
-LIMIT $10
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
+LIMIT $4
 `
 
 type SearchTranscriptsParams struct {
-	Headline      string
-	Query         string
-	Lead          int32
-	Width         int32
-	Pattern       string
-	AgentID       *string
 	CursorRank    *float64
 	CursorAgentID *string
 	CursorSeq     *int32
 	Lim           int32
+	Terms         []string
+	Excluded      []string
+	Headline      string
+	AgentID       *string
 }
 
 type SearchTranscriptsRow struct {
@@ -1345,16 +1364,14 @@ type SearchTranscriptsRow struct {
 
 func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsParams) ([]*SearchTranscriptsRow, error) {
 	rows, err := q.db.Query(ctx, searchTranscripts,
-		arg.Headline,
-		arg.Query,
-		arg.Lead,
-		arg.Width,
-		arg.Pattern,
-		arg.AgentID,
 		arg.CursorRank,
 		arg.CursorAgentID,
 		arg.CursorSeq,
 		arg.Lim,
+		arg.Terms,
+		arg.Excluded,
+		arg.Headline,
+		arg.AgentID,
 	)
 	if err != nil {
 		return nil, err
@@ -1363,6 +1380,140 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 	var items []*SearchTranscriptsRow
 	for rows.Next() {
 		var i SearchTranscriptsRow
+		if err := rows.Scan(
+			&i.AgentID,
+			&i.Seq,
+			&i.Role,
+			&i.ContentOffset,
+			&i.Name,
+			&i.Archived,
+			&i.Snippet,
+			&i.Rank,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const searchTranscriptsNear = `-- name: SearchTranscriptsNear :many
+WITH q AS (
+    SELECT
+        $5::text[] AS terms,
+        $6::text[] AS patterns,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', t)
+            FROM
+                UNNEST($5::text[]) t
+            WHERE
+                PHRASETO_TSQUERY('english', t) <> '') AS required,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', e)
+            FROM
+                UNNEST($7::text[]) e) AS forbidden
+),
+ranked AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content_offset,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        SUBSTRING(c.content FROM GREATEST(1,(
+                    SELECT
+                        MIN(POSITION(LOWER(t) IN LOWER(c.content)))
+                    FROM UNNEST(q.terms) t
+                WHERE
+                    POSITION(LOWER(t) IN LOWER(c.content)) > 0) - $8::int)
+            FOR $9::int) AS snippet,
+        WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE
+        CARDINALITY(q.terms) > 0
+        AND c.content ILIKE ALL (q.patterns)
+        AND NOT (CARDINALITY(q.required) > 0
+            AND c.tsv @@ ALL (q.required))
+        AND NOT (c.tsv @@ ANY (q.forbidden))
+        AND ($10::uuid IS NULL
+            OR c.agent_id = $10))
+SELECT
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.snippet::text AS snippet,
+    r.rank::float8 AS rank
+FROM
+    ranked r
+WHERE ($1::float8 IS NULL
+    OR r.rank < $1
+    OR (r.rank = $1
+        AND (r.agent_id,
+            r.seq) >($2::uuid,
+            $3::int)))
+ORDER BY
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
+LIMIT $4
+`
+
+type SearchTranscriptsNearParams struct {
+	CursorRank    *float64
+	CursorAgentID *string
+	CursorSeq     *int32
+	Lim           int32
+	Terms         []string
+	Patterns      []string
+	Excluded      []string
+	Lead          int32
+	Width         int32
+	AgentID       *string
+}
+
+type SearchTranscriptsNearRow struct {
+	AgentID       string
+	Seq           int32
+	Role          string
+	ContentOffset int64
+	Name          string
+	Archived      bool
+	Snippet       string
+	Rank          float64
+}
+
+func (q *Queries) SearchTranscriptsNear(ctx context.Context, arg SearchTranscriptsNearParams) ([]*SearchTranscriptsNearRow, error) {
+	rows, err := q.db.Query(ctx, searchTranscriptsNear,
+		arg.CursorRank,
+		arg.CursorAgentID,
+		arg.CursorSeq,
+		arg.Lim,
+		arg.Terms,
+		arg.Patterns,
+		arg.Excluded,
+		arg.Lead,
+		arg.Width,
+		arg.AgentID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*SearchTranscriptsNearRow
+	for rows.Next() {
+		var i SearchTranscriptsNearRow
 		if err := rows.Scan(
 			&i.AgentID,
 			&i.Seq,
