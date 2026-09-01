@@ -17,6 +17,10 @@ const (
 
 	// ghostWidth is the slot itself, wide enough for the longest span Elapsed writes.
 	ghostWidth = 4
+
+	// freshText stands in for a state entered within the minute, which every agent is in for a
+	// while after a restart brings them all back at once.
+	freshText = "<1m"
 )
 
 // ghostSlot opens a fixed column at the head of a row and right-aligns the text in it, holding
@@ -37,8 +41,8 @@ func ghostSlot(row, text string, width int) string {
 }
 
 // ghostText is what the slot says about an agent, which for now is how long it has been in the
-// state it is in, blank under a minute since a count of seconds redraws on every tick and says
-// nothing a row's own state does not already.
+// state it is in, reading as freshText within the minute rather than as a count of seconds that
+// would redraw on every tick or a blank that reads as a panel with nothing to say.
 func ghostText(item agentItem) string {
 	if item.agent.StateChangedAt.IsZero() {
 		return ""
@@ -46,7 +50,7 @@ func ghostText(item agentItem) string {
 
 	held := time.Since(item.agent.StateChangedAt)
 	if held < time.Minute {
-		return ""
+		return freshText
 	}
 
 	return dates.Elapsed(held)

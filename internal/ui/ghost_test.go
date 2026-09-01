@@ -144,11 +144,11 @@ func TestGhostTextWithoutATimestamp(t *testing.T) {
 	assert.Empty(t, ghostText(agentItem{agent: agentstore.Agent{Name: "unknown"}}))
 }
 
-// TestGhostTextUnderAMinute covers a state entered moments ago, which draws nothing rather than a
-// count of seconds that would redraw on every tick.
+// TestGhostTextUnderAMinute covers a state entered moments ago, which reads as freshText rather
+// than a count of seconds that would redraw on every tick.
 func TestGhostTextUnderAMinute(t *testing.T) {
 	fresh := agentItem{agent: agentstore.Agent{Name: "fresh", StateChangedAt: time.Now().Add(-20 * time.Second)}}
-	assert.Empty(t, ghostText(fresh))
+	assert.Equal(t, freshText, ghostText(fresh))
 
 	held := agentItem{agent: agentstore.Agent{Name: "held", StateChangedAt: time.Now().Add(-90 * time.Second)}}
 	assert.Equal(t, "1m", ghostText(held))
