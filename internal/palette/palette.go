@@ -1,3 +1,8 @@
+// Package palette draws weave's command palette, a prompt that opens over the panel and takes
+// a query.
+//
+// Nothing is dispatched behind the query yet. The package exists so the surface and the key
+// that opens it are settled before the commands it will run are.
 package palette
 
 import (

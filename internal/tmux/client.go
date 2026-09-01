@@ -1,3 +1,11 @@
+// Package tmux is weave's seam in front of tmux, wrapping the one server it runs so the rest of
+// the code names sessions, windows and panes rather than shell arguments.
+//
+// Every agent lives in a pane on that server, and the panel is a client attached to its manager
+// session, so almost everything weave does to an agent it does through here: creating the
+// window, capturing the frame the reconciler reads its state out of, typing into it, and
+// killing it. The socket is a field rather than a global so a test can point a client at a
+// throwaway server and drive it for real.
 package tmux
 
 import (

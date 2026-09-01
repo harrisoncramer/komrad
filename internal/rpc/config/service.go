@@ -1,3 +1,5 @@
+// Package config serves the configuration RPC, which reports the settings weave is running on
+// as they were resolved rather than as they were written.
 package config
 
 import (

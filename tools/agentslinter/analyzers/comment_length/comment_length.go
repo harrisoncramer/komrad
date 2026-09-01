@@ -1,3 +1,11 @@
+// Package commentlength holds every comment in weave to a single sentence, so a comment says
+// the one thing it is for rather than narrating the code under it.
+//
+// The two exceptions are the ones where prose earns its place. A package comment may run as
+// long as it needs to, since it is the only place a package gets to explain what it is for and
+// it is what a reader meets first on pkg.go.dev. A free paragraph inside a file may run long
+// behind an Explainer prefix, which marks it as reasoning set aside on purpose rather than a
+// comment that got away from its author.
 package commentlength
 
 import (
@@ -15,13 +23,24 @@ import (
 const explainerPrefix = "Explainer:"
 
 const (
-	docTooLong     = "doc comment must be a single sentence"
-	commentTooLong = `comment must be a single sentence unless the paragraph starts with "Explainer:"`
-	explainerOnDoc = `"Explainer:" is for the free paragraphs that explain a file, not for a doc comment`
+	docTooLong         = "doc comment must be a single sentence"
+	commentTooLong     = `comment must be a single sentence unless the paragraph starts with "Explainer:"`
+	explainerOnDoc     = `"Explainer:" is for the free paragraphs that explain a file, not for a doc comment`
+	explainerOnPackage = `a package comment is godoc output, so write the paragraph without the "Explainer:" prefix`
+)
+
+// commentKind is what a comment group is attached to, which decides how much room it gets.
+type commentKind int
+
+const (
+	freeComment commentKind = iota
+	declarationDoc
+	packageDoc
 )
 
 // NewAnalyzer builds the comment-length analyzer, which holds every comment to one sentence
-// unless it is a free paragraph setting its reasoning aside behind the Explainer prefix.
+// unless it is a package comment or a free paragraph setting its reasoning aside behind the
+// Explainer prefix.
 func NewAnalyzer(cfg config.CommentLengthConfig) *analysis.Analyzer {
 	excluded, compileErr := compileExcludes(cfg.Exclude)
 
@@ -38,7 +57,7 @@ func NewAnalyzer(cfg config.CommentLengthConfig) *analysis.Analyzer {
 				}
 				docs := declarationDocs(file)
 				for _, group := range file.Comments {
-					if message, ok := complaint(group.Text(), docs[group]); ok {
+					if message, ok := complaint(group.Text(), kindOf(group, file, docs)); ok {
 						pass.Report(analysis.Diagnostic{Pos: group.Pos(), Message: message})
 					}
 				}
@@ -48,9 +67,19 @@ func NewAnalyzer(cfg config.CommentLengthConfig) *analysis.Analyzer {
 	}
 }
 
-func complaint(text string, isDoc bool) (string, bool) {
+func complaint(text string, kind commentKind) (string, bool) {
 	paragraphs := paragraphsOf(text)
-	if isDoc {
+
+	switch kind {
+	case packageDoc:
+		for _, paragraph := range paragraphs {
+			if strings.HasPrefix(paragraph, explainerPrefix) {
+				return explainerOnPackage, true
+			}
+		}
+
+		return "", false
+	case declarationDoc:
 		for _, paragraph := range paragraphs {
 			if strings.HasPrefix(paragraph, explainerPrefix) {
 				return explainerOnDoc, true
@@ -61,19 +90,34 @@ func complaint(text string, isDoc bool) (string, bool) {
 		}
 
 		return "", false
-	}
-
-	var counted []string
-	for _, paragraph := range paragraphs {
-		if !strings.HasPrefix(paragraph, explainerPrefix) {
-			counted = append(counted, paragraph)
+	case freeComment:
+		var counted []string
+		for _, paragraph := range paragraphs {
+			if !strings.HasPrefix(paragraph, explainerPrefix) {
+				counted = append(counted, paragraph)
+			}
 		}
-	}
-	if countSentences(strings.Join(counted, " ")) > 1 {
-		return commentTooLong, true
+		if countSentences(strings.Join(counted, " ")) > 1 {
+			return commentTooLong, true
+		}
+
+		return "", false
 	}
 
 	return "", false
+}
+
+// kindOf reports what a comment group is attached to, since the package comment is the one
+// place in a file that is meant to run long.
+func kindOf(group *ast.CommentGroup, file *ast.File, docs map[*ast.CommentGroup]bool) commentKind {
+	switch {
+	case group == file.Doc:
+		return packageDoc
+	case docs[group]:
+		return declarationDoc
+	default:
+		return freeComment
+	}
 }
 
 func paragraphsOf(text string) []string {

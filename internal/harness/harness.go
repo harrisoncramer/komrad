@@ -1,3 +1,11 @@
+// Package harness is the boundary between weave and the CLI an agent actually runs, so that
+// Claude and Codex differ only inside their own packages.
+//
+// A harness knows what weave cannot know generically: the command line that starts a
+// conversation, the keys that interrupt one, where the CLI writes its conversation log and how
+// to flatten that log into turns, and how to read a captured frame for whether the agent is
+// working or waiting. The registry holds the harnesses this build was compiled with and hands
+// one back by the id an agent or workflow named.
 package harness
 
 import (

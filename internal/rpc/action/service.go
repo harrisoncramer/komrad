@@ -1,3 +1,5 @@
+// Package action serves the action RPCs, which list the scripts a person has written and fire
+// one against an agent.
 package action
 
 import (

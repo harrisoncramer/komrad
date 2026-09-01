@@ -1,3 +1,10 @@
+// Package doctor checks the things weave needs from the machine around it and reports what is
+// wrong in terms a person can act on: the configuration file, the database and its schema, the
+// service, tmux and its shell, and the CLI binary each harness runs.
+//
+// Every one of these fails at a distance from where it is noticed. A missing tmux shell shows
+// up as an agent whose pane dies on launch, and a schema behind the binary shows up as a query
+// against a column that is not there. The doctor is where those are asked about directly.
 package doctor
 
 import (

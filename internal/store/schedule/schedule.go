@@ -1,3 +1,5 @@
+// Package schedule stores the recurring launches: the cron expression, the workflow and prompt
+// each firing uses, and what happened the last time one fired.
 package schedule
 
 import (

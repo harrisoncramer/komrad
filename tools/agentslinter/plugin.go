@@ -1,3 +1,5 @@
+// Package plugin registers weave's own analyzers with golangci-lint, which is what makes them
+// run as part of one lint pass rather than as a second tool.
 package plugin
 
 import (

@@ -1,11 +1,11 @@
 // Package stage draws a file into the panel's stage pane and redraws it when the panel says it
 // has changed.
 //
-// Explainer: it exists because a pager repaints its whole screen for any change. tmux forwards
-// that to the client in a dozen installments spread over tens of milliseconds, which is what
-// reads as a flicker while scrolling a diff. Holding the frame in a bubbletea model instead
-// means its renderer writes only the lines that differ, so moving a cursor down one row costs
-// one write rather than a repaint.
+// It exists because a pager repaints its whole screen for any change. tmux forwards that to
+// the client in a dozen installments spread over tens of milliseconds, which is what reads as
+// a flicker while scrolling a diff. Holding the frame in a bubbletea model instead means its
+// renderer writes only the lines that differ, so moving a cursor down one row costs one write
+// rather than a repaint.
 package stage
 
 import (

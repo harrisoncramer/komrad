@@ -1,3 +1,5 @@
+// Package mail stores the messages agents send each other, and which of them the recipient has
+// claimed, so the delivery loop can find what is still waiting and hand it over.
 package mail
 
 import (

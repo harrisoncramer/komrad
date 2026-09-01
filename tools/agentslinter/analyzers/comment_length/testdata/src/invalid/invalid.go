@@ -1,3 +1,7 @@
+// Package invalid is a package doc that reaches for the prefix it does not need. // want `a package comment is godoc output, so write the paragraph without the "Explainer:" prefix`
+//
+// Explainer: the prefix is godoc output here rather than a marker, so it reads as a typo on
+// pkg.go.dev.
 package invalid
 
 // A has two sentences. This is the second one. // want `doc comment must be a single sentence`

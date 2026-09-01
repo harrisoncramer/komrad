@@ -1,3 +1,10 @@
+// Package store owns the connection to Postgres and the transaction the domain stores run in,
+// with the queries themselves in a package beneath it, one per domain.
+//
+// A write that touches more than one domain is handed a transaction through InTx and the domain
+// stores take it as their DBTX, so archiving an agent and settling the mail addressed to it
+// either both happen or neither does. Opening a pool also migrates the schema, which is why a
+// checkout carrying a migration of its own must not be pointed at the panel's database.
 package store
 
 import (

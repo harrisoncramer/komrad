@@ -1,3 +1,9 @@
+// Package cli builds the weave command tree, which opens the panel when run with no subcommand
+// and otherwise starts the service, attaches to an agent, runs the doctor, or calls one RPC.
+//
+// The rpc subcommands are not written here. They are generated from the same proto descriptors
+// the handlers and the MCP tools come from, so every endpoint is reachable from a shell without
+// anybody adding a command for it.
 package cli
 
 import (

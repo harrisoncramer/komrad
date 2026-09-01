@@ -1,8 +1,8 @@
-// Package valid is a package doc, which is the paragraph explaining a file rather than a
+// Package valid is a package doc, which is the paragraph explaining a package rather than a
 // declaration.
 //
-// Explainer: a package doc may run long. It is the one place a file gets to explain itself
-// at length, and the prefix says that is deliberate.
+// A package comment may run long. It is the one place a package gets to explain what it is
+// for at whatever length that takes, so no prefix sets the paragraph aside.
 package valid
 
 // A is a single sentence with a period.
