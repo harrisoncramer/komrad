@@ -71,6 +71,10 @@ func stateColor(state string) lipgloss.Color {
 	}
 }
 
+func stateMark(state string) string {
+	return lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
+}
+
 // failedMark is the archive's only state icon, since an archived agent's last live state says
 // nothing but a failed create or cleanup is why the row is still there.
 func failedMark(agent agentstore.Agent) string {
