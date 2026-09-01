@@ -132,14 +132,24 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
 		SetupType:            setupType,
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
+		SetupAction:          customAction(cfg.SetupAction),
+		CleanupAction:        customAction(cfg.CleanupAction),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	}
+}
+
+// customAction drops an action weave owns, since the custom fields only ever offer the ones a
+// person wrote and an internal name left in them reads as an action that has gone missing.
+func customAction(name string) string {
+	if isInternalAction(name) {
+		return ""
+	}
+
+	return name
 }
 
 func (v workflowFormValues) toConfig() workflowstore.Config {
@@ -435,11 +445,13 @@ func workflowConfigForm(nameTitle string, values *workflowFormValues, available 
 
 	switch values.SetupType {
 	case setupTypeCustom:
+		// Options comes before Value so huh reads the zero value and leaves the list scrolled
+		// to the top, which holds only while None, carrying the empty action, leads it.
 		fields = append(fields,
 			huh.NewSelect[string]().Key("setup").Title("Setup action").
-				Value(&values.SetupAction).Options(actionOptions(available, values.SetupAction)...),
+				Options(actionOptions(available, values.SetupAction)...).Value(&values.SetupAction),
 			huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-				Value(&values.CleanupAction).Options(actionOptions(available, values.CleanupAction)...),
+				Options(actionOptions(available, values.CleanupAction)...).Value(&values.CleanupAction),
 		)
 	default:
 		fields = append(fields, worktreeDetailFields(values)...)
