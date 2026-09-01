@@ -5,6 +5,7 @@ import (
 	"hash/maphash"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"weave/internal/ui/layout"
 )
@@ -29,9 +30,11 @@ func newTextContent(markdown string) layout.Content {
 	}
 }
 
-func newLogContent(path string, argv []string) layout.Content {
+// newLogContent keys on the command rather than the file it reads, since the panel's own log is one
+// file every agent shares and only the viewer's environment says which agent it is filtered to.
+func newLogContent(argv []string) layout.Content {
 	return layout.Content{
-		Key: "log:" + path,
+		Key: "log:" + strings.Join(argv, "\x00"),
 		Render: func(layout.Target) ([]string, bool) {
 			return argv, len(argv) > 0
 		},

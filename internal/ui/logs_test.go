@@ -320,3 +320,44 @@ func TestLogKeysFollowTheArchiveCursor(t *testing.T) {
 	require.Len(t, argv, 3)
 	assert.Contains(t, argv[2], "export WEAVE_AGENT_ID='a2'; ", "the panel's own log is filtered to the archived agent")
 }
+
+// TestAgentLogContentKeyFollowsTheAgent pins that the panel's own log restages when the cursor
+// moves, since every agent reads the same file and only the filter in the command differs.
+func TestAgentLogContentKeyFollowsTheAgent(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	first := m.agentLogContent().Key
+
+	m.listing.agents[0].agent.ID = "a2"
+	second := m.agentLogContent().Key
+
+	assert.NotEqual(t, first, second)
+}
+
+// TestAgentLogRespawnsOnACursorMove pins the same thing through the panel, that moving between
+// two agents with the log up pages the log of the agent the cursor landed on.
+func TestAgentLogRespawnsOnACursorMove(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+		ID:         "a2",
+		Name:       "billing",
+		Pane:       "%8",
+		WorkflowID: "w1",
+	}, alive: true})
+
+	m.claimInfo(infoAgentLog, "")
+	m.stageInfo()
+	require.Equal(t, []string{"%2"}, tmux.respawnPanes)
+	require.Contains(t, tmux.respawns[0], "WEAVE_AGENT_ID='a1'")
+
+	moved := m.moveCursor(1)
+	agent, ok := moved.logTarget()
+	require.True(t, ok)
+	require.Equal(t, "a2", agent.ID, "the cursor has to have landed on the other agent for this to mean anything")
+
+	require.Len(t, tmux.respawns, 2)
+	assert.Equal(t, "%2", tmux.respawnPanes[1], "the log pane is the one paged again")
+	assert.Contains(t, tmux.respawns[1], "WEAVE_AGENT_ID='a2'")
+}

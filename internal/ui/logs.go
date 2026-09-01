@@ -107,7 +107,7 @@ func (m model) actionLogContent(kind string) layout.Content {
 
 	path := config.ActionLogPath(m.actionLogsDir, agent.ID, kind)
 
-	return newLogContent(path, processLogArgv(m.processViewer, path))
+	return newLogContent(processLogArgv(m.processViewer, path))
 }
 
 // hasActionLog reports whether a setup or teardown action left anything to read for an agent.
@@ -127,5 +127,5 @@ func (m model) agentLogContent() layout.Content {
 		return newTextContent("select an agent to see its log")
 	}
 
-	return newLogContent(m.logPath, logArgv(m.logViewer, m.logPath, agent.ID))
+	return newLogContent(logArgv(m.logViewer, m.logPath, agent.ID))
 }
