@@ -22,13 +22,6 @@ var skipDirs = map[string]bool{
 
 var generatedHeader = regexp.MustCompile(`^// Code generated .* DO NOT EDIT\.$`)
 
-// Options is everything a run decides besides the rewrite itself.
-type Options struct {
-	Roots []string
-	Tests bool
-	Write bool
-}
-
 // Rewrite returns the source a file should hold instead, along with a count of what it
 // changed, and returns a zero count when it would change nothing.
 type Rewrite func(fset *token.FileSet, file *ast.File, src []byte) ([]byte, int, error)
@@ -39,10 +32,9 @@ type Result struct {
 	Count int
 }
 
-// Run applies rewrite to every Go file under the roots, skipping generated files, and reports
+// Run rewrites every Go file under the roots in place, skipping generated files, and reports
 // the files it changed, including those it had already changed when a later one failed.
-func Run(opts Options, rewrite Rewrite) ([]Result, error) {
-	roots := opts.Roots
+func Run(roots []string, rewrite Rewrite) ([]Result, error) {
 	if len(roots) == 0 {
 		roots = []string{"."}
 	}
@@ -63,11 +55,8 @@ func Run(opts Options, rewrite Rewrite) ([]Result, error) {
 			if !strings.HasSuffix(path, ".go") {
 				return nil
 			}
-			if !opts.Tests && strings.HasSuffix(path, "_test.go") {
-				return nil
-			}
 
-			count, err := apply(path, opts.Write, rewrite)
+			count, err := apply(path, rewrite)
 			if err != nil {
 				return err
 			}
@@ -88,7 +77,7 @@ func Run(opts Options, rewrite Rewrite) ([]Result, error) {
 	return results, nil
 }
 
-func apply(path string, write bool, rewrite Rewrite) (int, error) {
+func apply(path string, rewrite Rewrite) (int, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return 0, err
@@ -122,10 +111,8 @@ func apply(path string, write bool, rewrite Rewrite) (int, error) {
 		return 0, fmt.Errorf("%s: rewrite did not parse: %w", path, err)
 	}
 
-	if write {
-		if err := os.WriteFile(path, formatted, info.Mode().Perm()); err != nil {
-			return 0, err
-		}
+	if err := os.WriteFile(path, formatted, info.Mode().Perm()); err != nil {
+		return 0, err
 	}
 
 	return count, nil

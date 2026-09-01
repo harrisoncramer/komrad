@@ -3,7 +3,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -14,19 +13,7 @@ import (
 )
 
 func main() {
-	write := flag.Bool("w", false, "write results back to the files")
-	tests := flag.Bool("tests", true, "include _test.go files")
-	docs := flag.Bool("docs", true, "keep the blank line in front of a documented field of a declaration")
-	flag.Parse()
-
-	opts := codemod.Options{
-		Roots: flag.Args(),
-		Tests: *tests,
-		Write: *write,
-	}
-
-	closer := gapCloser{keepDocs: *docs}
-	results, err := codemod.Run(opts, closer.rewrite)
+	results, err := codemod.Run(os.Args[1:], rewrite)
 
 	closed := 0
 	for _, result := range results {
@@ -40,21 +27,16 @@ func main() {
 	}
 
 	fmt.Printf("%d gap(s) closed\n", closed)
-	if closed > 0 && !*write {
+	if closed > 0 {
 		os.Exit(1)
 	}
 }
 
-type gapCloser struct {
-	keepDocs bool
-}
-
-func (g gapCloser) rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]byte, int, error) {
+func rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]byte, int, error) {
 	scan := gapScan{
-		closer: g,
-		fset:   fset,
-		lines:  strings.Split(string(src), "\n"),
-		drop:   make(map[int]bool),
+		fset:  fset,
+		lines: strings.Split(string(src), "\n"),
+		drop:  make(map[int]bool),
 	}
 
 	ast.Inspect(file, func(n ast.Node) bool {
@@ -83,11 +65,10 @@ func (g gapCloser) rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]b
 }
 
 type gapScan struct {
-	closer gapCloser
-	fset   *token.FileSet
-	lines  []string
-	drop   map[int]bool
-	count  int
+	fset  *token.FileSet
+	lines []string
+	drop  map[int]bool
+	count int
 }
 
 func (s *gapScan) structType(st *ast.StructType) {
@@ -122,7 +103,7 @@ func (s *gapScan) literal(lit *ast.CompositeLit) {
 }
 
 func (s *gapScan) close(prev, next token.Pos, documented bool) {
-	if documented && s.closer.keepDocs {
+	if documented {
 		return
 	}
 

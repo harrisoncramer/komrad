@@ -3,7 +3,6 @@
 package main
 
 import (
-	"flag"
 	"fmt"
 	"go/ast"
 	"go/token"
@@ -13,6 +12,9 @@ import (
 	"weave/internal/codemod"
 )
 
+// minFields is the shortest literal worth spreading, below which one line still reads.
+const minFields = 3
+
 type insert struct {
 	off  int
 	text string
@@ -21,22 +23,10 @@ type insert struct {
 type scanner struct {
 	fset *token.FileSet
 	file *ast.File
-	min  int
 }
 
 func main() {
-	min := flag.Int("min", 3, "expand literals with at least this many keyed fields")
-	write := flag.Bool("w", false, "write results back to the files")
-	tests := flag.Bool("tests", true, "include _test.go files")
-	flag.Parse()
-
-	opts := codemod.Options{
-		Roots: flag.Args(),
-		Tests: *tests,
-		Write: *write,
-	}
-
-	results, err := codemod.Run(opts, expander{min: *min}.rewrite)
+	results, err := codemod.Run(os.Args[1:], rewrite)
 
 	changed := 0
 	for _, result := range results {
@@ -50,20 +40,15 @@ func main() {
 	}
 
 	fmt.Printf("%d literal(s) expanded\n", changed)
-	if changed > 0 && !*write {
+	if changed > 0 {
 		os.Exit(1)
 	}
 }
 
-type expander struct {
-	min int
-}
-
-func (e expander) rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]byte, int, error) {
+func rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]byte, int, error) {
 	scan := scanner{
 		fset: fset,
 		file: file,
-		min:  e.min,
 	}
 
 	var inserts []insert
@@ -102,7 +87,7 @@ func (e expander) rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]by
 }
 
 func (s scanner) shouldExpand(lit *ast.CompositeLit) bool {
-	if len(lit.Elts) < s.min || !isStructLiteral(lit) {
+	if len(lit.Elts) < minFields || !isStructLiteral(lit) {
 		return false
 	}
 	if s.fset.Position(lit.Lbrace).Line != s.fset.Position(lit.Rbrace).Line {

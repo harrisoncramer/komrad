@@ -10,14 +10,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func run(t *testing.T, keepDocs bool, src string) (string, int) {
+func run(t *testing.T, src string) (string, int) {
 	t.Helper()
 
 	fset := token.NewFileSet()
 	file, err := parser.ParseFile(fset, "in.go", src, parser.ParseComments|parser.SkipObjectResolution)
 	require.NoError(t, err)
 
-	out, count, err := gapCloser{keepDocs: keepDocs}.rewrite(fset, file, []byte(src))
+	out, count, err := rewrite(fset, file, []byte(src))
 	require.NoError(t, err)
 	if count == 0 {
 		return src, 0
@@ -41,7 +41,7 @@ type Params struct {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, `package p
 
@@ -64,7 +64,7 @@ type Params struct {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 2, count)
 	assert.Equal(t, `package p
 
@@ -88,36 +88,9 @@ type Params struct {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 0, count)
 	assert.Equal(t, src, out)
-}
-
-// TestRewriteClosesDocumentedGapsWhenAsked pins that the exception is the default rather
-// than the rule.
-func TestRewriteClosesDocumentedGapsWhenAsked(t *testing.T) {
-	src := `package p
-
-type Params struct {
-	// AgentID is whose review it is.
-	AgentID string
-
-	// Author is who wrote the line.
-	Author ReviewAuthor
-}
-`
-
-	out, count := run(t, false, src)
-	assert.Equal(t, 1, count)
-	assert.Equal(t, `package p
-
-type Params struct {
-	// AgentID is whose review it is.
-	AgentID string
-	// Author is who wrote the line.
-	Author ReviewAuthor
-}
-`, out)
 }
 
 // TestRewriteLeavesAGapHoldingAComment pins that a comment standing on its own between two
@@ -134,7 +107,7 @@ type Params struct {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 0, count)
 	assert.Equal(t, src, out)
 }
@@ -151,7 +124,7 @@ var x = Params{
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, `package p
 
@@ -198,7 +171,7 @@ var x = map[string]map[string]int{
 
 	for name, src := range sources {
 		t.Run(name, func(t *testing.T) {
-			out, count := run(t, true, src)
+			out, count := run(t, src)
 			assert.Equal(t, 0, count)
 			assert.Equal(t, src, out)
 		})
@@ -220,7 +193,7 @@ var x = struct {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, `package p
 
@@ -247,7 +220,7 @@ type Params struct {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 1, count)
 	assert.Equal(t, `package p
 
@@ -271,7 +244,7 @@ func f() {
 }
 `
 
-	out, count := run(t, true, src)
+	out, count := run(t, src)
 	assert.Equal(t, 0, count)
 	assert.Equal(t, src, out)
 }
