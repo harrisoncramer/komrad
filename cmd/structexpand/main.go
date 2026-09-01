@@ -109,7 +109,11 @@ func (s scanner) shouldExpand(lit *ast.CompositeLit) bool {
 		return false
 	}
 	for _, elt := range lit.Elts {
-		if _, ok := elt.(*ast.KeyValueExpr); !ok {
+		kv, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			return false
+		}
+		if _, ok := kv.Key.(*ast.Ident); !ok {
 			return false
 		}
 	}
