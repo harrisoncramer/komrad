@@ -39,7 +39,6 @@ linters:
     staticcheck:
       checks:
         - all
-        - -ST1000 # package comments not required on main
     depguard:
       # The layers, as docs/concepts.md describes them. A layer may call the one below it
       # and may not reach past it, and the panel receives its adapters rather than
@@ -165,6 +164,12 @@ linters:
               - internal/ui/
   exclusions:
     rules:
+      # A binary's package comment would be the first thing a reader of the command sees on
+      # pkg.go.dev, and these three exist to be run rather than to be read about.
+      - path: (^main\.go$|^cmd/|^config/gen/)
+        linters:
+          - staticcheck
+        text: ST1000
       # The config package is where configuration is read from the environment, which is
       # the thing forbidgetenv exists to funnel through it. It cannot follow its own advice.
       - path: ^config/

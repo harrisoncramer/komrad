@@ -1,3 +1,6 @@
+// Package client holds the calls the panel and the CLI make that are more than one request,
+// which is paging a listing to its end so the caller gets every agent, workflow or schedule
+// rather than the first page of them.
 package client
 
 import (

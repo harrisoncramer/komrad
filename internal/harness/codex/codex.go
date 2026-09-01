@@ -1,3 +1,9 @@
+// Package codex runs Codex as a weave agent, building the command that starts or resumes a
+// conversation, reading its rollout log, and telling from a captured frame whether it is
+// working, waiting on a person, or idle.
+//
+// It also owns the trust file, since Codex refuses to run in a directory it has not been told
+// about and every worktree weave makes is a directory it has never seen.
 package codex
 
 import (

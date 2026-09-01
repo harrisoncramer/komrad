@@ -1,3 +1,10 @@
+// Package weavetest runs a whole weave in a test: its own database, its own tmux server, and a
+// service over both, with the loops driven by hand rather than by the clock.
+//
+// The behaviour worth testing here is the wiring between config, the service, tmux and a
+// spawned CLI, and that is exactly what a unit test with fakes on both sides cannot reach. An
+// instance lets a test launch an agent for real, make its harness look busy, run one pass of
+// the reconciler, and then ask what was written and what was typed into the pane.
 package weavetest
 
 import (

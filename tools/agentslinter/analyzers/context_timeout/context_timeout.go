@@ -1,3 +1,6 @@
+// Package contexttimeout asks the panel to bound the contexts it starts, since the panel talks
+// to the service over HTTP and a call of its own that never times out is a frame that never
+// redraws.
 package contexttimeout
 
 import (

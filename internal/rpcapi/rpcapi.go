@@ -1,3 +1,10 @@
+// Package rpcapi reads weave's own proto descriptors at runtime, so the CLI and the MCP server
+// are generated from the same list of methods the handlers implement.
+//
+// It is what makes adding an RPC enough on its own. The method's path, its request fields and
+// their validation rules, and the annotations saying whether it only reads and whether it is
+// safe to retry all come from the descriptor, so a new endpoint arrives as a CLI subcommand and
+// an MCP tool without either being written by hand.
 package rpcapi
 
 import (

@@ -1,3 +1,11 @@
+// Package caller carries who is making a request, and the id that ties its log lines together,
+// across the hop between the panel, the CLI, an agent's MCP call and the service.
+//
+// The identity travels in headers so it survives that hop, and on the context so a handler and
+// the store beneath it read it without being handed it. It is what lets a log line say which
+// agent asked, and what lets an agent reading another agent's transcript be recorded as having
+// done so deliberately. A request that names nobody is unattributed rather than wrong, so the
+// panel and curl are logged without the fields rather than with empty ones.
 package caller
 
 import (

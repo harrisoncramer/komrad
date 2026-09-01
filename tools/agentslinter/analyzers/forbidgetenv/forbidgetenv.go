@@ -1,3 +1,5 @@
+// Package forbidgetenv keeps environment reads out of the tree, so what weave takes from its
+// environment is declared in the config package rather than picked up wherever it is wanted.
 package forbidgetenv
 
 import (

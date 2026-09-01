@@ -1,3 +1,10 @@
+// Package mcp serves weave's API to the agents themselves, turning each RPC method into a tool
+// an agent's CLI can call.
+//
+// The tools are generated from the same descriptors the handlers are built on, so a tool takes
+// the request's fields as its inputs and its annotations say whether it only reads. That is
+// what lets one agent spawn, address, or read another without weave keeping a second
+// hand-written surface in step with the first.
 package mcp
 
 import (

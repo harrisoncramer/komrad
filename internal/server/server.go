@@ -1,3 +1,9 @@
+// Package server assembles the running service: the stores over one pool, the domain services
+// over those, the ConnectRPC and MCP handlers over those, and the background loops that watch
+// every agent.
+//
+// It owns the wiring and the shutdown, so the pieces beneath it take their dependencies rather
+// than reaching for them.
 package server
 
 import (

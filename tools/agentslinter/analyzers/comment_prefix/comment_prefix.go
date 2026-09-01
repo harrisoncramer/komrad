@@ -1,3 +1,6 @@
+// Package commentprefix holds a doc comment to starting with the name it documents, so renaming
+// an identifier without touching its comment shows up as a lint failure rather than as a
+// comment naming something that no longer exists.
 package commentprefix
 
 import (

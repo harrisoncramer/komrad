@@ -1,3 +1,6 @@
+// Package logging builds the slog logger weave writes with, carries it on the context so any
+// layer can reach it, and turns errors and recovered panics into the attributes a line is
+// written with.
 package logging
 
 import (
