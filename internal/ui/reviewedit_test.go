@@ -15,20 +15,20 @@ import (
 
 func editorKey() tea.KeyMsg { return tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("e")} }
 
-// lastRespawnOf is the command a pane was last handed, which is how the editor's own pane is
-// read apart from the stage being drawn again beside it.
-func lastRespawnOf(t *testing.T, tmux *recordingTmux, pane string) string {
+// lastRespawnOf is the command a pane was last handed and where it was rooted, which is how the
+// editor's own pane is read apart from the stage being drawn again beside it.
+func lastRespawnOf(t *testing.T, tmux *recordingTmux, pane string) (argv, dir string) {
 	t.Helper()
 
 	for i := len(tmux.respawnPanes) - 1; i >= 0; i-- {
 		if tmux.respawnPanes[i] == pane {
-			return tmux.respawns[i]
+			return tmux.respawns[i], tmux.respawnDirs[i]
 		}
 	}
 
 	t.Fatalf("nothing was run in %s", pane)
 
-	return ""
+	return "", ""
 }
 
 // TestReviewEditorOpensTheFileUnderTheCursor covers the editor key: a split under the diff, the
@@ -44,8 +44,8 @@ func TestReviewEditorOpensTheFileUnderTheCursor(t *testing.T) {
 	require.Equal(t, infoEditFile, m.info.kind)
 	assert.Equal(t, []string{"%1"}, tmux.belowAnchors, "the split hangs off the stage")
 
-	opened := lastRespawnOf(t, tmux, "%2")
-	assert.Contains(t, opened, "cd '"+m.review.root+"'")
+	opened, rooted := lastRespawnOf(t, tmux, "%2")
+	assert.Equal(t, m.review.root, rooted, "the editor is rooted in the worktree it is reading")
 	assert.Contains(t, opened, "vi +1 'greet.go'")
 	assert.Equal(t, []string{"%2"}, tmux.selected, "the editor is what the user types into")
 
@@ -64,7 +64,8 @@ func TestReviewEditorRunsTheConfiguredEditor(t *testing.T) {
 	next, _ := m.updateReview(editorKey())
 	m = next.(model)
 
-	assert.Contains(t, lastRespawnOf(t, tmux, "%2"), "nvim --clean +1 'greet.go'")
+	opened, _ := lastRespawnOf(t, tmux, "%2")
+	assert.Contains(t, opened, "nvim --clean +1 'greet.go'")
 }
 
 // TestReviewEditorTogglesShut covers the second press: the same line is what opened the editor,
@@ -97,7 +98,8 @@ func TestReviewEditorFollowsTheCursor(t *testing.T) {
 	m = next.(model)
 
 	require.Equal(t, infoEditFile, m.info.kind)
-	assert.Contains(t, lastRespawnOf(t, tmux, "%2"), "vi +5 'greet.go'")
+	reopened, _ := lastRespawnOf(t, tmux, "%2")
+	assert.Contains(t, reopened, "vi +5 'greet.go'")
 }
 
 // TestReviewEditCloseReloadsTheDiff pins both ways the editor closes reading the diff again,

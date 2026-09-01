@@ -41,6 +41,7 @@ func Run(deps Deps) error {
 type uiTmux interface {
 	layout.Tmux
 	GetClientPath(client string) string
+	DefaultShell() string
 	SetInfoPane(pane string)
 	SelectPane(pane string)
 	OpenWindow(client, name, dir string, argv ...string) error
@@ -114,7 +115,10 @@ type model struct {
 	pane            string
 	// self is the weave binary, which the panel runs in the stage pane to draw into it.
 	self string
-	clip clipboardWriter
+	// shell is what tmux starts a pane's process with, read once since the terminal has to name
+	// it rather than leave the pane to rerun whatever was in it last.
+	shell string
+	clip  clipboardWriter
 
 	// isDark is the terminal's background, settled before the program started and never asked of
 	// lipgloss again while the panel runs.
@@ -156,6 +160,7 @@ func newModel(deps Deps, isDark bool) model {
 	}
 
 	m.frame.Attach(deps.Pane)
+	m.shell = deps.Tmux.DefaultShell()
 
 	return m
 }

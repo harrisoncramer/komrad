@@ -59,7 +59,7 @@ func TestTerminalOpensInTheHoveredAgentDirectory(t *testing.T) {
 	assert.Equal(t, 1, tmux.swaps, "the agent's own pane is left where it is")
 	require.Len(t, tmux.respawns, 1)
 	assert.Equal(t, "%2", tmux.respawnPanes[0], "the shell goes in the pane below")
-	assert.Empty(t, tmux.respawns[0], "an empty argv is what respawns the default shell")
+	assert.Equal(t, "/bin/zsh", tmux.respawns[0], "the shell is named so the pane cannot rerun what it held last")
 	assert.Equal(t, dir, tmux.respawnDirs[0])
 	assert.Equal(t, []string{"%2"}, tmux.selected, "the shell takes the keyboard")
 }

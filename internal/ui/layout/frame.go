@@ -276,10 +276,6 @@ func (f *Frame) closeInfo() {
 func (f *Frame) forget(region Region) { delete(f.shown, region) }
 
 func (f *Frame) run(pane, dir string, argv ...string) {
-	if dir == "" {
-		dir = getHomeDir()
-	}
-
 	f.tmux.RespawnPane(pane, dir, argv...)
 }
 

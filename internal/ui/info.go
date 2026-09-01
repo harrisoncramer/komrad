@@ -59,7 +59,7 @@ func (m *model) stageInfo() {
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:
-		m.frame.Show(layout.RegionInfo, terminalContent(m.info.action))
+		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.action))
 	case infoNothing, infoSetup, infoEditFile:
 	}
 }

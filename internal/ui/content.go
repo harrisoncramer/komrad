@@ -16,9 +16,18 @@ var stageTextPath = filepath.Join(os.TempDir(), "weave-stage.ansi")
 
 const transcriptPreviewBefore = 12
 
+// homeDir is where content that reads a file rather than a directory is rooted, since a pager
+// takes its path from the argv and cares nothing for where it was started.
+func homeDir() string {
+	dir, _ := os.UserHomeDir()
+
+	return dir
+}
+
 func newTextContent(markdown string) layout.Content {
 	return layout.Content{
 		Key:   "text:" + markdown,
+		Dir:   homeDir(),
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
 			if !writeStageFile(stageTextPath, render(markdown, target.Width)) {
@@ -35,6 +44,7 @@ func newTextContent(markdown string) layout.Content {
 func newLogContent(argv []string) layout.Content {
 	return layout.Content{
 		Key: "log:" + strings.Join(argv, "\x00"),
+		Dir: homeDir(),
 		Render: func(layout.Target) ([]string, bool) {
 			return argv, len(argv) > 0
 		},
@@ -46,6 +56,7 @@ func newTranscriptContent(conversation string, highlightLine int) layout.Content
 		// The stage is drawn again on every refresh, so the key has to answer for the
 		// conversation as well as the line, or a transcript that has grown would stop restaging.
 		Key: fmt.Sprintf("transcript:%d:%d", highlightLine, maphash.String(transcriptSeed, conversation)),
+		Dir: homeDir(),
 		Render: func(layout.Target) ([]string, bool) {
 			path := filepath.Join(os.TempDir(), "weave-transcript.txt")
 			if !writeStageFile(path, highlighted(conversation, highlightLine)) {
@@ -65,6 +76,7 @@ func newTranscriptContent(conversation string, highlightLine int) layout.Content
 func newBlankContent() layout.Content {
 	return layout.Content{
 		Key:    "blank",
+		Dir:    homeDir(),
 		Render: func(layout.Target) ([]string, bool) { return nil, true },
 	}
 }

@@ -21,10 +21,11 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 	}
 
 	// The editor is left unquoted so an EDITOR of several words stays several words.
-	open := fmt.Sprintf("cd %s && exec %s +%d %s", shellQuote(dir), command, line, shellQuote(path))
+	open := fmt.Sprintf("exec %s +%d %s", command, line, shellQuote(path))
 
 	return layout.Content{
 		Key:    fmt.Sprintf("edit:%s:%d", path, line),
+		Dir:    dir,
 		Render: func(layout.Target) ([]string, bool) { return []string{"sh", "-c", open}, true },
 	}
 }
