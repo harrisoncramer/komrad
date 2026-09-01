@@ -126,7 +126,7 @@ func (f *Frame) Show(region Region, content Content) {
 		return
 	}
 
-	f.run(pane, argv...)
+	f.run(pane, content.Dir, argv...)
 	f.shown[region] = shown{
 		key:    content.Key,
 		width:  target.Width,
@@ -275,8 +275,8 @@ func (f *Frame) closeInfo() {
 
 func (f *Frame) forget(region Region) { delete(f.shown, region) }
 
-func (f *Frame) run(pane string, argv ...string) {
-	f.tmux.RespawnPane(pane, getHomeDir(), argv...)
+func (f *Frame) run(pane, dir string, argv ...string) {
+	f.tmux.RespawnPane(pane, dir, argv...)
 }
 
 func getHomeDir() string {

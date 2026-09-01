@@ -136,6 +136,9 @@ type Keybindings struct {
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
 	Selection SelectionKeys `mapstructure:"selection"`
+	// The key that opens a shell in the hovered agent's directory, shared by every
+	// screen that lists agents.
+	Terminal TerminalKeys `mapstructure:"terminal"`
 	// The bindings that create and change workflows, from the agents list.
 	Workflows WorkflowsKeys `mapstructure:"workflows"`
 }
@@ -199,6 +202,15 @@ type SelectionKeys struct {
 	Range []string `mapstructure:"range"`
 	// Take the row under the cursor into the selection, or back out of it.
 	Toggle []string `mapstructure:"toggle"`
+}
+
+// TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
+// agent's own directory. It is its own group rather than one of a screen's, since the
+// archive lists agents with directories too. Pressing it again while that shell is up hands
+// it the keyboard, and moving to another agent moves the shell to that agent's directory.
+type TerminalKeys struct {
+	// Open a shell in the hovered agent's directory, or focus the one already open.
+	Open []string `mapstructure:"open"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
@@ -730,6 +742,9 @@ func DefaultKeybindings() Keybindings {
 			Clear:  []string{"esc"},
 			Range:  []string{"V"},
 			Toggle: []string{"v"},
+		},
+		Terminal: TerminalKeys{
+			Open: []string{"T"},
 		},
 		Workflows: WorkflowsKeys{
 			Adopt:   []string{"a"},

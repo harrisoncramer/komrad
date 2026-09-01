@@ -13,6 +13,7 @@ const (
 	infoSetupLog
 	infoTeardownLog
 	infoAgentLog
+	infoTerminal
 	infoEditFile
 )
 
@@ -57,6 +58,9 @@ func (m *model) stageInfo() {
 		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogTeardown))
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
+	case infoTerminal:
+		m.info.action = m.terminalDir()
+		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.action))
 	case infoNothing, infoSetup, infoEditFile:
 	}
 }

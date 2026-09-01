@@ -193,7 +193,14 @@ func (m model) agentHelp() keyMap {
 	full := slices.Concat(
 		rows,
 		m.screenHelp(),
-		[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding(), binding(m.keys.Logs.Open, m.logsDesc())},
+		[]key.Binding{
+			m.detailsBinding(),
+			m.filterBinding(),
+			m.moveBinding(),
+			m.jumpBinding(),
+			binding(m.keys.Logs.Open, m.logsDesc()),
+			binding(m.keys.Terminal.Open, m.terminalDesc()),
+		},
 		m.editFilterBinding(m.keys.Agents.Back),
 		m.globalHelp(),
 	)

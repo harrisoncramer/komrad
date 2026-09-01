@@ -125,6 +125,7 @@ type recordingTmux struct {
 	infoPane      string
 	selected      []string
 	respawnPanes  []string
+	respawnDirs   []string
 	deadPanes     map[string]bool
 }
 
@@ -133,6 +134,7 @@ func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}
 func (t *recordingTmux) GetClientPath(string) string             { return t.path }
+func (t *recordingTmux) DefaultShell() string                    { return "/bin/zsh" }
 func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 	t.sentKeys = append(t.sentKeys, strings.Join(append([]string{target}, keys...), " "))
 
@@ -195,9 +197,10 @@ func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
 
 func (t *recordingTmux) ResizePane(string, string) {}
 
-func (t *recordingTmux) RespawnPane(pane, _ string, argv ...string) {
+func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
 	t.respawnPanes = append(t.respawnPanes, pane)
+	t.respawnDirs = append(t.respawnDirs, dir)
 }
 
 func infoModel(tmux *recordingTmux) model {
@@ -207,6 +210,7 @@ func infoModel(tmux *recordingTmux) model {
 	return model{
 		tmux:          tmux,
 		frame:         frame,
+		shell:         tmux.DefaultShell(),
 		keys:          config.DefaultKeybindings(),
 		screen:        screenAgents,
 		detailsHeight: config.DefaultDetailsHeight,

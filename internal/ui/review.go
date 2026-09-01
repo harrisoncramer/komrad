@@ -383,6 +383,7 @@ func (m model) reviewContent() layout.Content {
 
 	return layout.Content{
 		Key:   "review:" + state.agentID,
+		Dir:   homeDir(),
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
 			state.frames.width = max(target.Width, review.GutterWidth+20)
