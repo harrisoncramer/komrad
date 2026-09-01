@@ -489,7 +489,11 @@ func TestSearchPages(t *testing.T) {
 // TestCursorValidate covers the tokens a search refuses, since a cursor that decodes into a
 // position the query cannot use would otherwise answer with a quietly empty page.
 func TestCursorValidate(t *testing.T) {
-	valid := Position{Rank: 0.5, AgentID: "00000000-0000-7000-8000-000000000000", Seq: 1}
+	valid := Position{
+		Rank:    0.5,
+		AgentID: "00000000-0000-7000-8000-000000000000",
+		Seq:     1,
+	}
 
 	tests := []struct {
 		name    string
@@ -652,9 +656,8 @@ func TestMarkMatches(t *testing.T) {
 // matches text as it was typed and so has to be handed the terms rather than the operators.
 func TestSplitTerms(t *testing.T) {
 	tests := []struct {
-		name  string
-		query string
-
+		name         string
+		query        string
 		wantPositive []string
 		wantNegative []string
 	}{
@@ -686,9 +689,8 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"pane", "or", "marker"},
 		},
 		{
-			name:  "a query of nothing but an exclusion asks for no words at all",
-			query: "-zeta",
-
+			name:         "a query of nothing but an exclusion asks for no words at all",
+			query:        "-zeta",
 			wantNegative: []string{"zeta"},
 		},
 		{

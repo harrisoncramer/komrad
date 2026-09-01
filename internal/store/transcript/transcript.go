@@ -334,7 +334,11 @@ func lastOf(limit int64, hits []SearchHit) *Position {
 
 	last := hits[len(hits)-1]
 
-	return &Position{Rank: last.Rank, AgentID: last.AgentID, Seq: last.Seq}
+	return &Position{
+		Rank:    last.Rank,
+		AgentID: last.AgentID,
+		Seq:     last.Seq,
+	}
 }
 
 func rankOf(p *Position) *float64 {
