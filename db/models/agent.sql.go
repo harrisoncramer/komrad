@@ -1292,61 +1292,101 @@ q AS (
         terms,
         patterns,
         weight,
-        COALESCE((
+        PLAINTO_TSQUERY('english', ARRAY_TO_STRING(terms, ' ')) AS words,
+        ARRAY (
             SELECT
-                STRING_AGG('(' || p.part || ')', ' & ')
-            FROM (
-                SELECT
-                    PHRASETO_TSQUERY('english', t)::text AS part
-                FROM UNNEST(terms) AS t) p
-        WHERE
-            p.part <> ''), '')::tsquery AS query, COALESCE((
+                PHRASETO_TSQUERY('english', t)
+            FROM
+                UNNEST(terms) t
+            WHERE
+                PHRASETO_TSQUERY('english', t) <> '') AS required,
+        ARRAY (
             SELECT
-                STRING_AGG('(' || p.part || ')', ' | ')
-            FROM (
-                SELECT
-                    PHRASETO_TSQUERY('english', e)::text AS part
-                FROM UNNEST(excluded) AS e) p
-        WHERE
-            p.part <> ''), '')::tsquery AS excluded
-    FROM parsed), matched AS (
+                PHRASETO_TSQUERY('english', e)
+            FROM
+                UNNEST(excluded) e) AS forbidden
+    FROM
+        parsed
+),
+matched AS (
     SELECT
-        c.agent_id, c.seq, c.role, c.content, c.content_offset, c.tsv, a.name, a.archived_at IS NOT NULL AS archived, q.query, q.terms, q.weight, c.tsv @@ q.query AS word_match
-    FROM agent_transcript_chunks c
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content,
+        c.content_offset,
+        c.tsv,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        q.words,
+        q.terms,
+        q.weight,
+        CARDINALITY(q.required) > 0
+        AND c.tsv @@ ALL (q.required) AS word_match
+FROM
+    agent_transcript_chunks c
     CROSS JOIN q
     JOIN agents a ON a.id = c.agent_id
     WHERE
-        NOT (c.tsv @@ q.excluded)
-        AND (c.tsv @@ q.query
+        NOT (c.tsv @@ ANY (q.forbidden))
+        AND (CARDINALITY(q.required) > 0
+            AND c.tsv @@ ALL (q.required)
             OR (CARDINALITY(q.terms) > 0
                 AND c.content ILIKE ALL (q.patterns)))
         AND ($9::uuid IS NULL
-            OR c.agent_id = $9)), ranked AS (
-        SELECT
-            m.agent_id, m.seq, m.role, m.content_offset, m.name, m.archived, m.word_match, CASE WHEN m.word_match THEN
-                TS_HEADLINE('english', m.content, m.query, $10)
-            ELSE
-                SUBSTRING(m.content FROM GREATEST(1,(
-                            SELECT
-                                MIN(POSITION(LOWER(t) IN LOWER(m.content)))
-                            FROM UNNEST(m.terms) t
+            OR c.agent_id = $9)
+),
+ranked AS (
+    SELECT
+        m.agent_id,
+        m.seq,
+        m.role,
+        m.content_offset,
+        m.name,
+        m.archived,
+        m.word_match,
+        CASE WHEN m.word_match THEN
+            TS_HEADLINE('english', m.content, m.words, $10)
+        ELSE
+            SUBSTRING(m.content FROM GREATEST(1,(
+                        SELECT
+                            MIN(POSITION(LOWER(t) IN LOWER(m.content)))
+                        FROM UNNEST(m.terms) t
                         WHERE
                             POSITION(LOWER(t) IN LOWER(m.content)) > 0) - $11::int)
                     FOR $12::int)
-            END::text AS snippet, CASE WHEN m.word_match THEN
-                TS_RANK_CD(m.tsv, m.query, 32)
-            ELSE
-                m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
-            END::float8 AS rank
-        FROM matched m)
-    SELECT
-        r.agent_id, r.seq, r.role, r.content_offset, r.name, r.archived::boolean AS archived, r.word_match::boolean AS word_match, r.snippet, r.rank
-    FROM ranked r
-    WHERE ($1::float8 IS NULL
-        OR r.rank < $1
-        OR (r.rank = $1
-            AND (r.agent_id, r.seq) >($2::uuid, $3::int)))
-ORDER BY r.rank DESC, r.agent_id ASC, r.seq ASC LIMIT $4
+        END::text AS snippet,
+        CASE WHEN m.word_match THEN
+            TS_RANK_CD(m.tsv, m.words, 32)
+        ELSE
+            m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
+        END::float8 AS rank
+    FROM
+        matched m
+)
+SELECT
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.word_match::boolean AS word_match,
+    r.snippet,
+    r.rank
+FROM
+    ranked r
+WHERE ($1::float8 IS NULL
+    OR r.rank < $1
+    OR (r.rank = $1
+        AND (r.agent_id,
+            r.seq) >($2::uuid,
+            $3::int)))
+ORDER BY
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
+LIMIT $4
 `
 
 type SearchTranscriptsParams struct {

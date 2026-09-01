@@ -165,6 +165,13 @@ func TestSearch(t *testing.T) {
 			wantHits: 0,
 		},
 		{
+			name:     "a query of nothing but a stopword does not match every turn",
+			content:  "the reconciler notes",
+			other:    "zeta alone",
+			query:    "the",
+			wantHits: 1,
+		},
+		{
 			name:     "an exclusion beside a stopword still excludes",
 			content:  "the reconciler notes",
 			other:    "the zeta notes",
