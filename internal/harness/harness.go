@@ -52,9 +52,7 @@ type Activity int
 
 const (
 	ActivityUnknown Activity = iota
-
 	ActivityWorking
-
 	ActivityWaiting
 
 	// ActivityIdle is a frame the harness positively recognises as the input box.

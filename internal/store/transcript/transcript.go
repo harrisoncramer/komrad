@@ -37,9 +37,8 @@ const (
 )
 
 const (
-	snippetLead  = 60
-	snippetWidth = 200
-
+	snippetLead     = 60
+	snippetWidth    = 200
 	headlineOptions = "StartSel=" + SnippetOpen + ",StopSel=" + SnippetClose +
 		",MaxWords=35,MinWords=15,MaxFragments=1"
 )

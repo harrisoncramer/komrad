@@ -12,9 +12,8 @@ const (
 	gap         = "   "
 	nameGap     = "  "
 	markerWidth = 2
-
-	colorReset = "\033[0m"
-	dimColor   = "\033[90m"
+	colorReset  = "\033[0m"
+	dimColor    = "\033[90m"
 )
 
 var statusColors = map[Status]string{

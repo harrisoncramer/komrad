@@ -18,9 +18,7 @@ type Delivery int
 
 const (
 	DeliveryDone Delivery = iota
-
 	DeliverySoon
-
 	DeliveryLater
 )
 

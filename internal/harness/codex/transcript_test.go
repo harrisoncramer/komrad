@@ -15,34 +15,24 @@ import (
 const (
 	metaRecord = `{"timestamp":"2026-07-30T12:41:39Z","type":"session_meta",` +
 		`"payload":{"id":"019fb3e7-2cb6-7ab3-86a0-51a670a33140","session_id":"019fb3e7-2cb6-7ab3-86a0-51a670a33140","cwd":"/repo/worktree"}}`
-
 	permissionsRecord = `{"type":"response_item","payload":{"type":"message","role":"developer",` +
 		`"content":[{"type":"input_text","text":"<permissions instructions>\nFilesystem sandboxing defines which files can be read"}]}}`
-
 	identityRecord = `{"type":"response_item","payload":{"type":"message","role":"developer",` +
 		`"content":[{"type":"input_text","text":"You are ` + "`/root`" + `, the primary agent in a team of agents"}]}}`
-
 	abortedRecord = `{"type":"response_item","payload":{"type":"message","role":"developer",` +
 		`"content":[{"type":"input_text","text":"<turn_aborted>\nThe previous turn was interrupted on purpose."}]}}`
-
 	environmentRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
 		`"content":[{"type":"input_text","text":"<environment_context>\n  <cwd>/repo/worktree</cwd>\n  <shell>zsh</shell>"}]}}`
-
 	promptRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
 		`"content":[{"type":"input_text","text":"how do I use trigram search"}]}}`
-
 	briefedRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
 		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by weave.\n</panel_briefing>\n\nhow do I use trigram search"}]}}`
-
 	briefingOnlyRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
 		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent run by weave.\n</panel_briefing>"}]}}`
-
 	unclosedBriefingRecord = `{"type":"response_item","payload":{"type":"message","role":"user",` +
 		`"content":[{"type":"input_text","text":"<panel_briefing>\nYou are a background agent"}]}}`
-
 	answerRecord = `{"type":"response_item","payload":{"type":"message","role":"assistant",` +
 		`"content":[{"type":"output_text","text":"Use the tsvector column."}]}}`
-
 	eventRecord       = `{"timestamp":"2026-07-30T12:41:40Z","type":"event_msg","payload":{"type":"task_started"}}`
 	worldStateRecord  = `{"timestamp":"2026-07-30T12:41:40Z","type":"world_state","payload":{}}`
 	turnContextRecord = `{"timestamp":"2026-07-30T12:41:40Z","type":"turn_context","payload":{"cwd":"/repo/worktree"}}`

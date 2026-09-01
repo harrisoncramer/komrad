@@ -31,27 +31,17 @@ const (
 )
 
 var (
-	addedBackground = lipgloss.AdaptiveColor{Light: "#dafbe1", Dark: "#1b3823"}
-
+	addedBackground   = lipgloss.AdaptiveColor{Light: "#dafbe1", Dark: "#1b3823"}
 	deletedBackground = lipgloss.AdaptiveColor{Light: "#ffebe9", Dark: "#402222"}
-
-	cursorBackground = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
-
-	matchBackground = lipgloss.AdaptiveColor{Light: "#fde68a", Dark: "#7c5c00"}
-
-	plainBackground = lipgloss.NoColor{}
-
-	gutterStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-
-	fileStyle = lipgloss.NewStyle().Bold(true)
-
-	metadataStyle = lipgloss.NewStyle().Faint(true)
-
-	hunkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-
-	threadMarkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-
-	settledMarkStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	cursorBackground  = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
+	matchBackground   = lipgloss.AdaptiveColor{Light: "#fde68a", Dark: "#7c5c00"}
+	plainBackground   = lipgloss.NoColor{}
+	gutterStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	fileStyle         = lipgloss.NewStyle().Bold(true)
+	metadataStyle     = lipgloss.NewStyle().Faint(true)
+	hunkStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	threadMarkStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	settledMarkStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an

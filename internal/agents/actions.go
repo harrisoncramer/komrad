@@ -46,12 +46,9 @@ type actionRunner interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	TriggerManual = "manual"
-
-	TriggerSetup = "setup"
-
-	TriggerResume = "resume"
-
+	TriggerManual  = "manual"
+	TriggerSetup   = "setup"
+	TriggerResume  = "resume"
 	TriggerCleanup = "cleanup"
 )
 
