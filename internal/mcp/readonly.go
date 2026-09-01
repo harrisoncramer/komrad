@@ -16,10 +16,8 @@ import (
 )
 
 const (
-	maxRows = 1000
-
+	maxRows      = 1000
 	maxCellChars = 2000
-
 	queryTimeout = 15 * time.Second
 )
 

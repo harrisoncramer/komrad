@@ -9,13 +9,10 @@ type infoKind int
 
 const (
 	infoNothing infoKind = iota
-
 	infoSetup
-
 	infoSetupLog
 	infoTeardownLog
 	infoAgentLog
-
 	infoEditFile
 )
 

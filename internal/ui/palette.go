@@ -11,15 +11,11 @@ import (
 )
 
 const (
-	colorAccent = lipgloss.Color("4")
-
+	colorAccent  = lipgloss.Color("4")
 	colorSuccess = lipgloss.Color("10")
-
 	colorWarning = lipgloss.Color("11")
-
-	colorDanger = lipgloss.Color("9")
-
-	colorMuted = lipgloss.Color("8")
+	colorDanger  = lipgloss.Color("9")
+	colorMuted   = lipgloss.Color("8")
 )
 
 func formTheme() *huh.Theme {

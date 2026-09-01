@@ -16,7 +16,6 @@ import (
 
 var (
 	Red = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-
 	Dim = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
 )
 

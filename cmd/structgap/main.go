@@ -1,5 +1,6 @@
-// Command structgap closes the blank lines inside struct declarations and keyed struct
-// literals, where a gap between fields reads as a grouping nobody meant.
+// Command structgap closes the blank lines inside struct declarations, keyed struct
+// literals, and parenthesised declaration blocks, where a gap between entries reads as a
+// grouping nobody meant.
 package main
 
 import (
@@ -45,6 +46,8 @@ func rewrite(fset *token.FileSet, file *ast.File, src []byte) ([]byte, int, erro
 			scan.structType(node)
 		case *ast.CompositeLit:
 			scan.literal(node)
+		case *ast.GenDecl:
+			scan.genDecl(node)
 		}
 
 		return true
@@ -100,6 +103,41 @@ func (s *gapScan) literal(lit *ast.CompositeLit) {
 		prev = elt.End()
 	}
 	s.close(prev, lit.Rbrace, false)
+}
+
+func (s *gapScan) genDecl(decl *ast.GenDecl) {
+	if !decl.Lparen.IsValid() || !decl.Rparen.IsValid() {
+		return
+	}
+	switch decl.Tok {
+	case token.CONST, token.VAR, token.TYPE:
+	default:
+		return
+	}
+
+	prev := decl.Lparen
+	for i, spec := range decl.Specs {
+		start := spec.Pos()
+		doc := specDoc(spec)
+		documented := doc != nil
+		if documented {
+			start = doc.Pos()
+		}
+		s.close(prev, start, documented && i > 0)
+		prev = spec.End()
+	}
+	s.close(prev, decl.Rparen, false)
+}
+
+func specDoc(spec ast.Spec) *ast.CommentGroup {
+	switch node := spec.(type) {
+	case *ast.ValueSpec:
+		return node.Doc
+	case *ast.TypeSpec:
+		return node.Doc
+	}
+
+	return nil
 }
 
 func (s *gapScan) close(prev, next token.Pos, documented bool) {

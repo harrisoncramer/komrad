@@ -21,12 +21,9 @@ var ErrCheckPanicked = &Problem{
 type Status string
 
 const (
-	StatusOK Status = "ok"
-
+	StatusOK   Status = "ok"
 	StatusWarn Status = "warn"
-
 	StatusFail Status = "fail"
-
 	StatusSkip Status = "skip"
 )
 

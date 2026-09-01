@@ -14,70 +14,44 @@ import (
 )
 
 const (
-	TraceID = "trace.id"
-
-	RPCSystem  = "rpc.system"
-	RPCService = "rpc.service"
-	RPCMethod  = "rpc.method"
-
-	RPCErrorCode = "rpc.connect_rpc.error_code"
-
-	ClientAddress = "client.address"
-
-	HTTPMethod = "http.request.method"
-	URLPath    = "url.path"
-	HTTPStatus = "http.response.status_code"
-
-	RequestHost   = "http.request.header.host"
-	RequestOrigin = "http.request.header.origin"
-
-	AgentID   = "weave.agent.id"
-	SessionID = "weave.session.id"
-
-	TargetAgentID = "weave.target_agent.id"
-
-	DelegateAgentID = "weave.delegate_agent.id"
-
-	LifecycleReason = "weave.lifecycle.reason"
-
-	AgentState = "weave.agent.state"
-
+	TraceID                = "trace.id"
+	RPCSystem              = "rpc.system"
+	RPCService             = "rpc.service"
+	RPCMethod              = "rpc.method"
+	RPCErrorCode           = "rpc.connect_rpc.error_code"
+	ClientAddress          = "client.address"
+	HTTPMethod             = "http.request.method"
+	URLPath                = "url.path"
+	HTTPStatus             = "http.response.status_code"
+	RequestHost            = "http.request.header.host"
+	RequestOrigin          = "http.request.header.origin"
+	AgentID                = "weave.agent.id"
+	SessionID              = "weave.session.id"
+	TargetAgentID          = "weave.target_agent.id"
+	DelegateAgentID        = "weave.delegate_agent.id"
+	LifecycleReason        = "weave.lifecycle.reason"
+	AgentState             = "weave.agent.state"
 	UnrecognizedFrameCount = "weave.agent.unrecognized_frame_count"
-
-	MCPTool = "mcp.tool.name"
-
-	ActionName    = "weave.action.name"
-	ActionTrigger = "weave.action.trigger"
-
-	ActionAgentID  = "weave.action.agent.id"
-	ActionAgentCwd = "weave.action.agent.cwd"
-
-	ActionStdout = "weave.action.stdout"
-	ActionStderr = "weave.action.stderr"
-
-	MailID     = "weave.mail.id"
-	UnreadMail = "weave.mail.unread"
-
-	WorkflowID = "weave.workflow.id"
-
-	PullRequestURL = "weave.pull_request.url"
-
-	ExitCode = "process.exit.code"
-
-	DurationMS = "duration_ms"
-
-	Loop = "loop"
-
-	Repeats = "repeats"
-
-	Handle = "handle"
-
-	ServerAddress = "server.address"
-
-	ErrorType    = "error.type"
-	ErrorMessage = "error.message"
-
-	StackTrace = "error.stack_trace"
+	MCPTool                = "mcp.tool.name"
+	ActionName             = "weave.action.name"
+	ActionTrigger          = "weave.action.trigger"
+	ActionAgentID          = "weave.action.agent.id"
+	ActionAgentCwd         = "weave.action.agent.cwd"
+	ActionStdout           = "weave.action.stdout"
+	ActionStderr           = "weave.action.stderr"
+	MailID                 = "weave.mail.id"
+	UnreadMail             = "weave.mail.unread"
+	WorkflowID             = "weave.workflow.id"
+	PullRequestURL         = "weave.pull_request.url"
+	ExitCode               = "process.exit.code"
+	DurationMS             = "duration_ms"
+	Loop                   = "loop"
+	Repeats                = "repeats"
+	Handle                 = "handle"
+	ServerAddress          = "server.address"
+	ErrorType              = "error.type"
+	ErrorMessage           = "error.message"
+	StackTrace             = "error.stack_trace"
 )
 
 const RPCSystemConnect = "connect_rpc"
@@ -86,8 +60,7 @@ const (
 	TimestampKey = "timestamp"
 	SeverityKey  = "severity_text"
 	BodyKey      = "body"
-
-	severityNum = "severity_number"
+	severityNum  = "severity_number"
 )
 
 const ServiceName = "service.name"

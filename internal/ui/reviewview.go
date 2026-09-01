@@ -13,16 +13,11 @@ import (
 )
 
 var (
-	reviewQuoteStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
-
-	reviewHumanStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
-
-	reviewAgentStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
-
-	reviewNoticeStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-
-	reviewAddedStyle = lipgloss.NewStyle().Foreground(colorSuccess)
-
+	reviewQuoteStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("8")).Italic(true)
+	reviewHumanStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("6")).Bold(true)
+	reviewAgentStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11")).Bold(true)
+	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	reviewAddedStyle   = lipgloss.NewStyle().Foreground(colorSuccess)
 	reviewRemovedStyle = lipgloss.NewStyle().Foreground(colorDanger)
 )
 
