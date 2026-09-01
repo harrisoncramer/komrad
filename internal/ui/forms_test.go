@@ -434,6 +434,53 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	assert.Contains(t, workflowView, "> drop-worktree", "editing a workflow opens with its own stored cleanup action marked as the one picked, not none")
 }
 
+// TestWorktreeWorkflowSwitchedToCustomOffersNoAction covers the action fields a worktree
+// workflow leaves behind, since the pair weave owns is not one a person may pick.
+func TestWorktreeWorkflowSwitchedToCustomOffersNoAction(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name:          "admin",
+		SetupAction:   "_worktree_setup",
+		CleanupAction: "_worktree_cleanup",
+		Worktree:      workflowstore.WorktreeConfig{Enabled: true},
+	})
+	assert.Empty(t, values.SetupAction)
+	assert.Empty(t, values.CleanupAction)
+
+	values.SetupType = setupTypeCustom
+
+	form, _ := workflowConfigForm("Workflow name", &values, nil, config.DefaultKeybindings().Form)
+	form.Init()
+
+	view := form.View()
+	assert.NotContains(t, view, "_worktree_setup")
+	assert.NotContains(t, view, "_worktree_cleanup")
+	assert.Contains(t, view, "> None", "the field settles on no action rather than one it cannot offer")
+}
+
+// TestActionOptionsLeadWithNone covers what the workflow form's field ordering rests on: huh
+// reads the zero value as Options goes past, so None has to stay the first option.
+func TestActionOptionsLeadWithNone(t *testing.T) {
+	options := actionOptions([]actionChoice{{name: "install-deps"}}, "install-deps")
+	require.NotEmpty(t, options)
+	assert.Empty(t, options[0].Value)
+}
+
+// TestActionSelectShowsEveryOptionOnOpen covers the whole list being on screen when the field
+// opens on a choice partway down it, since huh scrolls its viewport to the selected row.
+func TestActionSelectShowsEveryOptionOnOpen(t *testing.T) {
+	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
+
+	values := workflowFormValues{SetupType: setupTypeCustom, SetupAction: "install-deps"}
+
+	form, _ := workflowConfigForm("Workflow name", &values, available, config.DefaultKeybindings().Form)
+	form.Init()
+
+	view := form.View()
+	assert.Contains(t, view, "None", "the option that clears the field stays reachable")
+	assert.Contains(t, view, "make-worktree")
+	assert.Contains(t, view, "> install-deps", "and the stored choice is still the one picked")
+}
+
 // TestRefusedSubmitKeepsTheForm covers a refused write leaving the form up with what was
 // filled in, since closing would cost every other field.
 func TestRefusedSubmitKeepsTheForm(t *testing.T) {
