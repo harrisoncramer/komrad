@@ -210,7 +210,8 @@ func TestAdopt(t *testing.T) {
 	}
 }
 
-// TestGetAgent pins that an id nobody holds is not found rather than an empty agent.
+// TestGetAgent pins that an id nobody holds is not found, and that an agent that exists comes
+// back with its cwd, its state, and a creation time rendered as RFC 3339.
 func TestGetAgent(t *testing.T) {
 	tests := []struct {
 		name string

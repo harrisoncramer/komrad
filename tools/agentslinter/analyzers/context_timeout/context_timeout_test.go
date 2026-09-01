@@ -25,6 +25,15 @@ func TestFilesOutsideTheIncludeAreLeftAlone(t *testing.T) {
 	analysistest.Run(t, testdata, analyzer, "elsewhere")
 }
 
+// TestEmptyIncludeIsAnError pins that a rule left without a path to reach fails rather than
+// reading as on while checking nothing.
+func TestEmptyIncludeIsAnError(t *testing.T) {
+	analyzer := contexttimeout.NewAnalyzer(config.ContextTimeoutConfig{})
+	if _, err := analyzer.Run(nil); err == nil {
+		t.Fatal("expected an empty include list to fail the analyzer")
+	}
+}
+
 // TestBadIncludePatternIsAnError pins that an include pattern that will not compile fails the
 // analyzer rather than silently matching nothing.
 func TestBadIncludePatternIsAnError(t *testing.T) {

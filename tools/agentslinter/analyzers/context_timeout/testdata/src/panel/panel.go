@@ -34,3 +34,9 @@ func inherited(parent context.Context) {
 	defer cancel()
 	_ = ctx
 }
+
+func bareDuration() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute) // want `the timeout must be a named constant rather than a duration written inline`
+	defer cancel()
+	_ = ctx
+}

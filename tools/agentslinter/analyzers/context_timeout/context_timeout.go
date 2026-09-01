@@ -1,6 +1,7 @@
 package contexttimeout
 
 import (
+	"errors"
 	"fmt"
 	"go/ast"
 	"go/types"
@@ -19,6 +20,10 @@ func NewAnalyzer(cfg config.ContextTimeoutConfig) *analysis.Analyzer {
 		Name: "contexttimeout",
 		Doc:  "Checks that a context started from context.Background carries a timeout named by a constant",
 		Run: func(pass *analysis.Pass) (any, error) {
+			if len(cfg.Include) == 0 {
+				return nil, errors.New("context_timeout: include must name at least one path pattern, since the rule reaches nothing without one")
+			}
+
 			include, err := compileIncludes(cfg.Include)
 			if err != nil {
 				return nil, err
@@ -83,9 +88,14 @@ func check(pass *analysis.Pass, file *ast.File) {
 // reportUnnamedTimeout flags a duration written where the call is, since a constant beside the
 // others is what makes the timeouts of a package readable together.
 func reportUnnamedTimeout(pass *analysis.Pass, arg ast.Expr) {
-	switch arg.(type) {
-	case *ast.Ident, *ast.SelectorExpr:
+	switch expr := arg.(type) {
+	case *ast.Ident:
 		return
+	case *ast.SelectorExpr:
+		// A constant from another package is named; time.Minute is the duration itself.
+		if !isPackageMember(pass, expr, "time") {
+			return
+		}
 	}
 
 	pass.Report(analysis.Diagnostic{
@@ -101,6 +111,10 @@ func isContextCall(pass *analysis.Pass, call *ast.CallExpr, name string) bool {
 		return false
 	}
 
+	return isPackageMember(pass, selector, "context")
+}
+
+func isPackageMember(pass *analysis.Pass, selector *ast.SelectorExpr, path string) bool {
 	ident, ok := selector.X.(*ast.Ident)
 	if !ok {
 		return false
@@ -108,7 +122,7 @@ func isContextCall(pass *analysis.Pass, call *ast.CallExpr, name string) bool {
 
 	pkg, ok := pass.TypesInfo.Uses[ident].(*types.PkgName)
 
-	return ok && pkg.Imported().Path() == "context"
+	return ok && pkg.Imported().Path() == path
 }
 
 func compileIncludes(patterns []string) ([]*regexp.Regexp, error) {

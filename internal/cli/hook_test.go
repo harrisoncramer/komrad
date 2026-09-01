@@ -101,7 +101,7 @@ func TestStopHookDeliversMail(t *testing.T) {
 			cmd := stopHookCmd(state)
 			cmd.SetIn(bytes.NewBufferString(tt.payload))
 			cmd.SetOut(&out)
-			cmd.SetArgs(nil)
+			cmd.SetArgs([]string{})
 
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, tt.wantSent, asked.AgentID != "", "the mailbox is only read when there is one to read")
@@ -192,7 +192,7 @@ func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	cmd := stopHookCmd(state)
 	cmd.SetIn(bytes.NewBufferString(`{"stop_hook_active":false}`))
 	cmd.SetOut(&out)
-	cmd.SetArgs(nil)
+	cmd.SetArgs([]string{})
 
 	var errOut bytes.Buffer
 	cmd.SetErr(&errOut)

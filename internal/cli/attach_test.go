@@ -44,7 +44,7 @@ func TestAttachRefusesWithoutAPanel(t *testing.T) {
 			}
 
 			cmd := attachCmd(attachState(socket))
-			cmd.SetArgs(nil)
+			cmd.SetArgs([]string{})
 			cmd.SetOut(io.Discard)
 			cmd.SetErr(io.Discard)
 

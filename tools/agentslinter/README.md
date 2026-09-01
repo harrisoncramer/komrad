@@ -30,10 +30,11 @@ regexps matched against the file path.
 
 `context_timeout` flags a `context.Background` or `context.TODO` that is not immediately
 bounded by `context.WithTimeout`, and a timeout written inline rather than named by a
-constant. It applies only to files matching the unanchored path regexps under `include`,
-since a background context is the right answer nearly everywhere else; it is pointed at the
-panel, which reaches the service over HTTP and would otherwise draw a frame that never
-returns.
+constant, `time.Minute` included. It applies only to files matching the unanchored path
+regexps under `include`, since a background context is the right answer nearly everywhere
+else, and an empty `include` fails the analyzer rather than reading as on while checking
+nothing. It is pointed at the panel, which reaches the service over HTTP and would otherwise
+draw a frame that never returns.
 
 `comment_prefix` checks that a doc comment on an exported function or method
 begins with the identifier name, so an LSP rename keeps the comment in sync.

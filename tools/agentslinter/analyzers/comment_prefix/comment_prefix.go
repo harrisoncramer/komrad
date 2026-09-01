@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"agentslinter/config"
 
@@ -106,11 +107,20 @@ func isExportedReceiver(recv *ast.FieldList) bool {
 	}
 }
 
+// isTestName follows go's own rule, where the prefix is a test only when what follows it is
+// not a lower-case letter, so a helper named Testing is left alone.
 func isTestName(name string) bool {
 	for _, prefix := range []string{"Test", "Benchmark", "Fuzz", "Example"} {
-		if strings.HasPrefix(name, prefix) {
+		rest, found := strings.CutPrefix(name, prefix)
+		if !found {
+			continue
+		}
+		if rest == "" {
 			return true
 		}
+		first, _ := utf8.DecodeRuneInString(rest)
+
+		return !unicode.IsLower(first)
 	}
 
 	return false

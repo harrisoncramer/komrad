@@ -18,3 +18,7 @@ type fake struct{}
 func (fake) ExportedStub() {}
 
 func helper(t *testing.T) {}
+
+func Testing(t *testing.T) {}
+
+func Exampleish() {}
