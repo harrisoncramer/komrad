@@ -60,7 +60,7 @@ type agentReadWriter interface {
 	Exists(ctx context.Context, id string) (bool, error)
 	SetTags(ctx context.Context, ids []string, tag *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
-	MarkViewed(ctx context.Context, id string) error
+	SetViewed(ctx context.Context, id string, viewed bool) error
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
@@ -271,12 +271,12 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// MarkAgentViewed claims whatever the agent has finished up to now, and carries no tool
-// annotation because an agent clearing the marks on the user's screen is the one caller it
-// must not have.
-func (s *Service) MarkAgentViewed(ctx context.Context, req *connect.Request[agentv1.MarkAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.agents.MarkViewed(ctx, req.Msg.GetId()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to mark the agent viewed")
+// SetAgentViewed claims whatever the agent has finished up to now, or puts the mark back, and
+// carries no tool annotation because an agent moving the marks on the user's screen is the one
+// caller it must not have.
+func (s *Service) SetAgentViewed(ctx context.Context, req *connect.Request[agentv1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := s.agents.SetViewed(ctx, req.Msg.GetId(), req.Msg.GetViewed()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to set whether the agent was viewed")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

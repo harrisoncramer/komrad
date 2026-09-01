@@ -31,15 +31,17 @@ func refreshTick() tea.Cmd {
 // it stages as read, which is what keeps the rows a person travels over from being cleared.
 const viewedDwell = time.Second
 
-// hoverState is the agent the cursor is sitting on and when it arrived.
+// hoverState is the agent the cursor is sitting on, when it arrived, and whether the person has
+// set that row's mark by hand and does not want the dwell moving it back.
 type hoverState struct {
 	agentID string
 	since   time.Time
+	held    bool
 }
 
 // dwellViewed claims the hovered agent once the cursor has been on it long enough to have read
-// what it said, counting only a live and unviewed row, since a dormant one stages a placeholder
-// rather than a pane and a settled list should make no calls at all.
+// what it said, counting only a live row, since a dormant one stages a placeholder rather than
+// a pane, and writing only an unviewed one, so a settled list makes no calls at all.
 func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 	item, ok := m.dwelledAgent()
 	if !ok {
@@ -48,9 +50,13 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The row is tracked whether or not it is unviewed, so that a mark set by hand survives its
+	// own write landing and is let go of only when the cursor moves somewhere else.
 	if m.hover.agentID != item.agent.ID {
 		m.hover = hoverState{agentID: item.agent.ID, since: now}
+	}
 
+	if !item.unviewed || m.hover.held {
 		return m, nil
 	}
 
@@ -76,7 +82,7 @@ func (m model) dwelledAgent() (agentItem, bool) {
 	}
 
 	item, ok := m.selectedAgent()
-	if !ok || !item.alive || !item.unviewed {
+	if !ok || !item.alive {
 		return agentItem{}, false
 	}
 
@@ -212,7 +218,7 @@ func (m model) markViewedCmd(id string) tea.Cmd {
 	clients := m.api
 
 	return func() tea.Msg {
-		_ = clients.markViewed(id) //nolint:errcheck // the next tick makes the mark again
+		_ = clients.setViewed(id, true) //nolint:errcheck // the next tick makes the mark again
 
 		return nil
 	}

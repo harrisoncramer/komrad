@@ -1082,21 +1082,6 @@ func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id string) ([]st
 	return items, nil
 }
 
-const markAgentViewedByID = `-- name: MarkAgentViewedByID :exec
-UPDATE
-    agents
-SET
-    viewed_at = finished_at
-WHERE
-    id = $1
-    AND finished_at IS NOT NULL
-`
-
-func (q *Queries) MarkAgentViewedByID(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, markAgentViewedByID, id)
-	return err
-}
-
 const markAgentsArchived = `-- name: MarkAgentsArchived :many
 WITH prior AS (
     SELECT
@@ -1787,6 +1772,31 @@ func (q *Queries) SetAgentTags(ctx context.Context, arg SetAgentTagsParams) ([]s
 		return nil, err
 	}
 	return items, nil
+}
+
+const setAgentViewedByID = `-- name: SetAgentViewedByID :exec
+UPDATE
+    agents
+SET
+    viewed_at = CASE WHEN $1::boolean THEN
+        finished_at
+    ELSE
+        NULL
+    END
+WHERE
+    id = $2
+    AND (finished_at IS NOT NULL
+        OR NOT $1::boolean)
+`
+
+type SetAgentViewedByIDParams struct {
+	Viewed bool
+	ID     string
+}
+
+func (q *Queries) SetAgentViewedByID(ctx context.Context, arg SetAgentViewedByIDParams) error {
+	_, err := q.db.Exec(ctx, setAgentViewedByID, arg.Viewed, arg.ID)
+	return err
 }
 
 const setAgentWorktreeRemovedByID = `-- name: SetAgentWorktreeRemovedByID :exec

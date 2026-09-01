@@ -164,8 +164,11 @@ message SetHiddenRequest {
   bool hidden = 2;
 }
 
-message MarkAgentViewedRequest {
+message SetAgentViewedRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
+  // Whether the person has read what the agent finished. Unsetting it puts the mark back, which
+  // is what the toggle does on its way out.
+  bool viewed = 2;
 }
 
 message SetMetadataRequest {
@@ -416,7 +419,7 @@ service AgentService {
   rpc RecordTurnBoundary(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc MarkAgentViewed(MarkAgentViewedRequest) returns (google.protobuf.Empty) {
+  rpc SetAgentViewed(SetAgentViewedRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {

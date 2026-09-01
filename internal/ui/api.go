@@ -51,12 +51,12 @@ func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	return err
 }
 
-// markViewed claims whatever the agent has finished up to now.
-func (a api) markViewed(id string) error {
+// setViewed claims whatever the agent has finished up to now, or puts the mark back.
+func (a api) setViewed(id string, viewed bool) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.MarkAgentViewed(ctx, connect.NewRequest(&agentv1.MarkAgentViewedRequest{Id: id}))
+	_, err := a.agents.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id, Viewed: viewed}))
 
 	return err
 }

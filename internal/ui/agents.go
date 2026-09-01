@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/ui/layout"
@@ -101,6 +102,8 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		switch {
 		case isBound(k, m.keys.Agents.Tag):
 			return m.tagAgent(item.agent)
+		case isBound(k, m.keys.Agents.ToggleViewed):
+			return m.toggleAgentViewed(item)
 		case isBound(k, m.keys.Agents.Hide):
 			return m.hideAgent(item.agent)
 		case isBound(k, m.keys.Agents.OpenPR):
@@ -245,6 +248,27 @@ func (m model) jumpCursor(idx int) model {
 	m.stageSelection()
 
 	return m
+}
+
+// toggleAgentViewed puts an agent's unread mark back by hand, or takes it off, for the times
+// weave's own reading of the pane is wrong about what happened.
+func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
+	viewed := item.unviewed
+
+	// A mark set by hand is held against the dwell until the cursor leaves the row, since the
+	// row it is set on is the row being hovered and the dwell would otherwise undo it at once.
+	m.hover = hoverState{
+		agentID: item.agent.ID,
+		since:   time.Now(),
+		held:    !viewed,
+	}
+
+	summary := fmt.Sprintf("Could not mark agent %q unread", item.agent.Name)
+	if viewed {
+		summary = fmt.Sprintf("Could not mark agent %q read", item.agent.Name)
+	}
+
+	return m, m.writeCmd(summary, func(a api) error { return a.setViewed(item.agent.ID, viewed) })
 }
 
 // jumpUnviewed travels to the next agent carrying something nobody has read, wrapping past the

@@ -322,6 +322,7 @@ func (m model) rowHelp() []key.Binding {
 		m.newBinding(),
 		binding(m.keys.Agents.Rename, "rename"),
 		binding(m.keys.Agents.NextUnviewed, "next unviewed"),
+		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),
 		m.archiveBinding(m.keys.Agents.Archive),
 	}
 }

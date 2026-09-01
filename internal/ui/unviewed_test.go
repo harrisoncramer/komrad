@@ -10,6 +10,7 @@ import (
 	"weave/internal/ui/layout"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func unviewedTree() model {
@@ -128,6 +129,61 @@ func TestDwellViewedSkipsRowsThatShowNoPane(t *testing.T) {
 			assert.Nil(t, cmd)
 		})
 	}
+}
+
+// TestToggleViewedHoldsAgainstTheDwell covers the point of a manual mark: it is set while the
+// cursor is on the row, which is the one place the dwell would undo it a second later.
+func TestToggleViewedHoldsAgainstTheDwell(t *testing.T) {
+	at := time.Now()
+
+	m := unviewedTree()
+	m.tree.cursor = 2
+
+	// The row was read, and the person puts the mark back by hand.
+	item, ok := m.selectedAgent()
+	require.True(t, ok)
+	require.False(t, item.unviewed)
+
+	next, _ := m.toggleAgentViewed(item)
+	m, ok = next.(model)
+	require.True(t, ok)
+	require.True(t, m.hover.held)
+
+	// The write lands and the row comes back unviewed, which is when the dwell would pounce.
+	m.listing.agents[1].unviewed = true
+
+	m, cmd := m.dwellViewed(at)
+	assert.Nil(t, cmd)
+
+	_, cmd = m.dwellViewed(at.Add(10 * viewedDwell))
+	assert.Nil(t, cmd, "a mark set by hand stands while the cursor is still on the row")
+}
+
+// TestToggleViewedLetsGoWhenTheCursorMoves pins that the hold is for as long as you are looking
+// at the row and no longer, so coming back to it later reads it the way anything else does.
+func TestToggleViewedLetsGoWhenTheCursorMoves(t *testing.T) {
+	at := time.Now()
+
+	m := unviewedTree()
+	m.tree.cursor = 2
+
+	item, ok := m.selectedAgent()
+	require.True(t, ok)
+
+	next, _ := m.toggleAgentViewed(item)
+	m, ok = next.(model)
+	require.True(t, ok)
+	m.listing.agents[1].unviewed = true
+
+	m.tree.cursor = 1
+	m, _ = m.dwellViewed(at)
+	m.tree.cursor = 2
+
+	m, cmd := m.dwellViewed(at.Add(time.Second))
+	assert.Nil(t, cmd, "the cursor only just came back")
+
+	_, cmd = m.dwellViewed(at.Add(time.Second).Add(viewedDwell))
+	assert.NotNil(t, cmd)
 }
 
 // TestJumpUnviewed covers the half of this that makes the dwell safe: reaching an agent without

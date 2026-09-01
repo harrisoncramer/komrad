@@ -23,7 +23,7 @@ import (
 var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
 	"RecordTurnBoundary":      true,
-	"MarkAgentViewed":         true,
+	"SetAgentViewed":          true,
 	"CreateReviewThread":      true,
 	"EditReviewMessage":       true,
 	"DeleteReviewThread":      true,

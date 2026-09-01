@@ -55,15 +55,16 @@ func (s *Store) MarkFinished(ctx context.Context, id string) error {
 	return nil
 }
 
-// MarkViewed claims what an agent has finished up to now, stamping the finish that was on the
-// row rather than the clock, so a turn that lands mid-look is not marked as read with it.
-func (s *Store) MarkViewed(ctx context.Context, id string) error {
+// SetViewed claims what an agent has finished up to now, stamping the finish that was on the row
+// rather than the clock so a turn that lands mid-look is not marked read with it, or puts the
+// mark back when viewed is unset.
+func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
-	if err := s.queries.MarkAgentViewedByID(ctx, id); err != nil {
-		return fmt.Errorf("failed to mark id %q viewed: %w", id, err)
+	if err := s.queries.SetAgentViewedByID(ctx, models.SetAgentViewedByIDParams{ID: id, Viewed: viewed}); err != nil {
+		return fmt.Errorf("failed to set viewed for id %q: %w", id, err)
 	}
 
 	return nil

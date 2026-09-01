@@ -71,6 +71,10 @@ hide          = ["h"]
 tag           = ["t"]
 # Start a new agent.
 new           = ["c"]
+# Put the hovered agent's unread mark back, or take it off, for the times weave's own
+# guess about what you have read is wrong. The mark you set by hand stands until you
+# move the cursor off the row.
+toggle_viewed = ["u"]
 # Jump to the next agent that has finished something you have not looked at, wrapping at
 # the end of the list.
 next_unviewed = ["n"]

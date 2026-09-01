@@ -243,6 +243,10 @@ type AgentsKeys struct {
 	Tag []string `mapstructure:"tag"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
+	// Put the hovered agent's unread mark back, or take it off, for the times weave's own
+	// guess about what you have read is wrong. The mark you set by hand stands until you
+	// move the cursor off the row.
+	ToggleViewed []string `mapstructure:"toggle_viewed"`
 	// Jump to the next agent that has finished something you have not looked at, wrapping at
 	// the end of the list.
 	NextUnviewed []string `mapstructure:"next_unviewed"`
@@ -671,6 +675,7 @@ func DefaultKeybindings() Keybindings {
 			Hide:         []string{"h"},
 			Tag:          []string{"t"},
 			New:          []string{"c"},
+			ToggleViewed: []string{"u"},
 			NextUnviewed: []string{"n"},
 			PrevUnviewed: []string{"N"},
 			Open:         []string{"enter"},
