@@ -113,9 +113,15 @@ func (m model) reviewStatView() string {
 		files += "s"
 	}
 
-	return dimStyle.Render(files+" changed") + "  " +
+	out := dimStyle.Render(files+" changed") + "  " +
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
-		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed)) + "\n"
+		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
+
+	if read, total := m.review.view.ViewedCount(); read > 0 {
+		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
+	}
+
+	return out + "\n"
 }
 
 // reviewMatchCount is where in the search the cursor is standing, drawn under the pattern the
@@ -128,6 +134,12 @@ func (m model) reviewMatchCount() string {
 	where := matchingLines(m.review.view.MatchCount())
 	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
 		where = fmt.Sprintf("%d of %d", at, m.review.view.MatchCount())
+	}
+
+	// A match inside a file folded away is on no row, so stepping through the matches never
+	// reaches it, and it is counted apart rather than left to look like nothing was found.
+	if hidden := m.review.view.HiddenMatches(); hidden > 0 {
+		where += fmt.Sprintf(" · %d in viewed files", hidden)
 	}
 
 	return dimStyle.Render("  "+where) + "\n\n"
@@ -264,6 +276,19 @@ func (m model) reviewResolveDesc() string {
 	return "settle the thread"
 }
 
+// reviewViewedDesc says which way the fold key would go where the cursor is standing.
+func (m model) reviewViewedDesc() string {
+	if m.review.view == nil {
+		return "mark the file viewed"
+	}
+
+	if file, ok := m.review.view.FileAt(m.review.cursor); ok && m.review.view.IsViewed(file.Path()) {
+		return "open the file again"
+	}
+
+	return "mark the file viewed"
+}
+
 func (m model) reviewHelp() keyMap {
 	keys := m.keys.Review
 
@@ -289,6 +314,7 @@ func (m model) reviewHelp() keyMap {
 				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
 				binding(keys.EditFile, m.reviewEditorDesc()),
 				binding(keys.Resolve, m.reviewResolveDesc()),
+				binding(keys.ToggleViewed, m.reviewViewedDesc()),
 				binding(keys.DeleteThread, "delete the thread"),
 				binding(m.keys.Form.Submit, "tell the agent"),
 				binding(keys.Back, "back to the agents"),

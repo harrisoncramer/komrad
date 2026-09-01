@@ -155,3 +155,36 @@ table "review_messages" {
     columns = [column.thread_id, column.id]
   }
 }
+
+table "review_viewed_files" {
+  schema  = schema.public
+  comment = "One file of an agent's diff the person reviewing has read, and the shape that file had when they read it."
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  column "file_path" {
+    null    = false
+    type    = text
+    comment = "The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it."
+  }
+  column "fingerprint" {
+    null    = false
+    type    = text
+    comment = "A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched."
+  }
+  column "viewed_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.agent_id, column.file_path]
+  }
+  foreign_key "review_viewed_files_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+}

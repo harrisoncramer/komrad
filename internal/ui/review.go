@@ -112,6 +112,7 @@ type reviewLoadedMsg struct {
 	agentID string
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
+	viewed  []*agentv1.ReviewViewedFile
 	err     error
 }
 
@@ -171,14 +172,39 @@ func (m model) loadReviewCmd(agentID, dir, base string, exclude []string) tea.Cm
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
+		if err != nil {
+			return reviewLoadedMsg{
+				agentID: agentID,
+				patch:   patch,
+				err:     err,
+			}
+		}
+
+		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
 
 		return reviewLoadedMsg{
 			agentID: agentID,
 			patch:   patch,
 			threads: threads,
+			viewed:  viewed,
 			err:     err,
 		}
 	}
+}
+
+func listReviewViewedFiles(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	agentID string,
+) ([]*agentv1.ReviewViewedFile, error) {
+	resp, err := agents.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{
+		AgentId: agentID,
+	}))
+	if err != nil {
+		return nil, fmt.Errorf("failed to read which files of %q have been viewed: %w", agentID, err)
+	}
+
+	return resp.Msg.GetViewed(), nil
 }
 
 func listReviewThreads(
@@ -209,8 +235,10 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
+	m.review.view.SetViewed(stillViewed(msg.patch, msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 	m.review.threads = msg.threads
+	m.review.notice = reopenedNotice(msg.patch, msg.viewed)
 	m.review.cursor = m.review.view.First()
 	if place := m.review.restore; place != nil {
 		if found, ok := m.review.view.Locate(*place); ok {
@@ -221,6 +249,58 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	}
 
 	m.stageReview()
+}
+
+// stillViewed is which files marked read still look the way they did when they were read, which
+// is the only sense in which the mark holds.
+func stillViewed(patch *diff.Patch, viewed []*agentv1.ReviewViewedFile) map[string]bool {
+	// A mark the file has outgrown is left in the store rather than swept, to be overwritten by
+	// the next read or to hold again should the file end up reading exactly as it did.
+	marks := map[string]string{}
+	for _, mark := range viewed {
+		marks[mark.GetFilePath()] = mark.GetFingerprint()
+	}
+
+	held := map[string]bool{}
+	for _, file := range patch.Files {
+		if fingerprint, ok := marks[file.Path()]; ok && fingerprint == file.Fingerprint() {
+			held[file.Path()] = true
+		}
+	}
+
+	return held
+}
+
+// reopenedNotice says how many files came back because something changed in them, since a file
+// unfolding under the reader with nothing said about it reads as the panel losing their place.
+func reopenedNotice(patch *diff.Patch, viewed []*agentv1.ReviewViewedFile) string {
+	held := stillViewed(patch, viewed)
+
+	changed := 0
+	for _, file := range patch.Files {
+		if !held[file.Path()] && wasViewed(viewed, file.Path()) {
+			changed++
+		}
+	}
+
+	switch changed {
+	case 0:
+		return ""
+	case 1:
+		return "1 file changed since you viewed it"
+	}
+
+	return fmt.Sprintf("%d files changed since you viewed them", changed)
+}
+
+func wasViewed(viewed []*agentv1.ReviewViewedFile, path string) bool {
+	for _, mark := range viewed {
+		if mark.GetFilePath() == path {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *model) applyReviewWrote(msg reviewWroteMsg) {
@@ -417,6 +497,8 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.composeReview()
 	case isBound(k, keys.Resolve):
 		return m.resolveReviewThread()
+	case isBound(k, keys.ToggleViewed):
+		return m.toggleReviewViewed()
 	case isBound(k, keys.DeleteThread):
 		return m.deleteReviewThread()
 	case isBound(k, m.keys.Form.Submit):
@@ -778,6 +860,47 @@ func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
 		_, err := agents.SetReviewThreadResolved(ctx, connect.NewRequest(&agentv1.SetReviewThreadResolvedRequest{
 			Id:       id,
 			Resolved: settling,
+		}))
+
+		return err
+	})
+}
+
+// toggleReviewViewed folds the file the cursor is in away once it has been read, or opens it
+// again, stepping on to the next file when it has just been folded, since reviewing is a walk
+// down them.
+func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
+	file, ok := m.review.view.FileAt(m.review.cursor)
+	if !ok {
+		return m, nil
+	}
+
+	path, fingerprint := file.Path(), file.Fingerprint()
+	viewed := !m.review.view.IsViewed(path)
+
+	// Where the cursor is standing is taken before the rows are built again, since folding the
+	// file away takes the line it was on out of the diff.
+	place, located := m.review.view.GetPlace(m.review.cursor)
+	m.review.view.SetFileViewed(path, viewed)
+	m.keepReviewCursor(place, located)
+
+	notice := "file opened again"
+	if viewed {
+		notice = "file viewed"
+		m.review.cursor = m.review.view.JumpFile(m.review.cursor, 1)
+		m.review.pinTop = false
+	}
+
+	m.stageReview()
+
+	agents, agentID := m.api.agents, m.review.agentID
+
+	return m, m.reviewWriteCmd(notice, func(ctx context.Context) error {
+		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
+			AgentId:     agentID,
+			FilePath:    path,
+			Viewed:      viewed,
+			Fingerprint: fingerprint,
 		}))
 
 		return err

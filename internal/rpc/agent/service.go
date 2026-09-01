@@ -105,6 +105,8 @@ type reviewConversation interface {
 	DeleteReviewThread(ctx context.Context, params agents.DeleteReviewThreadParams) error
 	DeleteReviewMessage(ctx context.Context, params agents.DeleteReviewMessageParams) error
 	NotifyReviewThreads(ctx context.Context, params agents.NotifyReviewThreadsParams) (*agents.NotifyReviewThreadsResult, error)
+	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
+	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }
 
 type NewServiceParams struct {

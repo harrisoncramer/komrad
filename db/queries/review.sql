@@ -256,3 +256,36 @@ ORDER BY
 -- name: DeleteReviewMessage :exec
 DELETE FROM review_messages
 WHERE id = @id;
+
+-- name: MarkReviewFileViewed :one
+INSERT INTO review_viewed_files(
+    agent_id,
+    file_path,
+    fingerprint)
+VALUES (
+    @agent_id,
+    @file_path,
+    @fingerprint)
+ON CONFLICT (
+    agent_id,
+    file_path)
+    DO UPDATE SET
+        fingerprint = EXCLUDED.fingerprint,
+        viewed_at = NOW()
+    RETURNING
+        *;
+
+-- name: UnmarkReviewFileViewed :exec
+DELETE FROM review_viewed_files
+WHERE agent_id = @agent_id
+    AND file_path = @file_path;
+
+-- name: ListReviewViewedFiles :many
+SELECT
+    v.*
+FROM
+    review_viewed_files v
+WHERE
+    v.agent_id = @agent_id
+ORDER BY
+    v.file_path;

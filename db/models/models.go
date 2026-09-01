@@ -214,6 +214,16 @@ type ReviewThread struct {
 	ResolvedAt *time.Time
 }
 
+// One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
+type ReviewViewedFile struct {
+	AgentID string
+	// The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
+	FilePath string
+	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
+	Fingerprint string
+	ViewedAt    time.Time
+}
+
 // A cron-driven agent launch: when to fire and what to ask for.
 type Schedule struct {
 	ID                string

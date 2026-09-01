@@ -150,3 +150,37 @@ message NotifyReviewThreadsResponse {
   // was raised. Pressing the key again is not a second thing for it to read.
   bool already_waiting = 2;
 }
+
+// ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read.
+message ReviewViewedFile {
+  string agent_id = 1;
+  string file_path = 2;
+  // The shape the file's slice of the patch had when it was read. The panel hashes the file
+  // again on its next pass and shows it unread once the two disagree, which is how an agent
+  // writing to the file undoes the mark.
+  string fingerprint = 3;
+  string viewed_at = 4;
+}
+
+message SetReviewFileViewedRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string file_path = 2 [(buf.validate.field).string.min_len = 1];
+  // Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
+  // on its way back.
+  bool viewed = 3;
+  // The shape the file had when it was read, ignored when viewed is unset.
+  string fingerprint = 4;
+}
+
+message SetReviewFileViewedResponse {
+  // The mark as it now stands, absent when the file was unmarked.
+  ReviewViewedFile viewed = 1;
+}
+
+message ListReviewViewedFilesRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListReviewViewedFilesResponse {
+  repeated ReviewViewedFile viewed = 1;
+}

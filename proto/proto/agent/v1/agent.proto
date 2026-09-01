@@ -439,4 +439,8 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
   }
   rpc NotifyReviewThreads(NotifyReviewThreadsRequest) returns (NotifyReviewThreadsResponse) {}
+  rpc SetReviewFileViewed(SetReviewFileViewedRequest) returns (SetReviewFileViewedResponse) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc ListReviewViewedFiles(ListReviewViewedFilesRequest) returns (ListReviewViewedFilesResponse) {}
 }

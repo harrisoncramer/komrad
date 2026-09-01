@@ -37,6 +37,10 @@ const (
 	// adrift is a thread with nothing left to stand on, which keeps a row of its own at the
 	// foot of the diff.
 	adrift
+
+	// collapsed is a thread in a file that has been read and folded away, which has its line back
+	// the moment that file is opened again and so is neither adrift nor given a row at the foot.
+	collapsed
 )
 
 // lineIndex is the diff's lines looked at from the three directions a thread can be placed

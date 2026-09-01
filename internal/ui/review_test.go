@@ -26,10 +26,45 @@ import (
 type fakeReviewAgents struct {
 	agentv1connect.AgentServiceClient
 	threads  []*agentv1.ReviewThread
+	viewed   []*agentv1.ReviewViewedFile
 	settled  *agentv1.SetReviewThreadResolvedRequest
 	created  *agentv1.CreateReviewThreadRequest
 	replied  *agentv1.AddReviewMessageRequest
 	notified *agentv1.NotifyReviewThreadsRequest
+	marked   *agentv1.SetReviewFileViewedRequest
+}
+
+func (f *fakeReviewAgents) ListReviewViewedFiles(
+	context.Context,
+	*connect.Request[agentv1.ListReviewViewedFilesRequest],
+) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
+	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: f.viewed}), nil
+}
+
+func (f *fakeReviewAgents) SetReviewFileViewed(
+	_ context.Context,
+	req *connect.Request[agentv1.SetReviewFileViewedRequest],
+) (*connect.Response[agentv1.SetReviewFileViewedResponse], error) {
+	f.marked = req.Msg
+
+	kept := make([]*agentv1.ReviewViewedFile, 0, len(f.viewed))
+	for _, mark := range f.viewed {
+		if mark.GetFilePath() != req.Msg.GetFilePath() {
+			kept = append(kept, mark)
+		}
+	}
+
+	if req.Msg.GetViewed() {
+		kept = append(kept, &agentv1.ReviewViewedFile{
+			AgentId:     req.Msg.GetAgentId(),
+			FilePath:    req.Msg.GetFilePath(),
+			Fingerprint: req.Msg.GetFingerprint(),
+		})
+	}
+
+	f.viewed = kept
+
+	return connect.NewResponse(&agentv1.SetReviewFileViewedResponse{}), nil
 }
 
 func (f *fakeReviewAgents) NotifyReviewThreads(
@@ -1159,4 +1194,67 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 
 	assert.Equal(t, screenAgents, m.screen)
 	assert.Equal(t, 1, m.tree.cursor, "so esc lands back on the row it came from")
+}
+
+// TestMarkingAFileViewedFoldsItAway covers the toggle itself: the file goes down to its header,
+// the mark is written with the shape the file had, and pressing the key again opens it.
+func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	whole := m.review.view.Len()
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	assert.True(t, m.review.view.IsViewed("greet.go"))
+	assert.Less(t, m.review.view.Len(), whole, "the file is down to its header")
+	_, onLine := m.review.view.GetAnchor(m.review.cursor)
+	assert.False(t, onLine, "the cursor is left on the header, which is no line to write against")
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+
+	require.NotNil(t, agents.marked)
+	assert.Equal(t, "greet.go", agents.marked.GetFilePath())
+	assert.True(t, agents.marked.GetViewed())
+	assert.NotEmpty(t, agents.marked.GetFingerprint())
+
+	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	m = next.(model)
+	require.NotNil(t, cmd)
+	cmd()
+
+	assert.False(t, m.review.view.IsViewed("greet.go"))
+	assert.Equal(t, whole, m.review.view.Len())
+	assert.False(t, agents.marked.GetViewed(), "the mark is dropped rather than rewritten")
+}
+
+// TestAViewedFileComesBackWhenItChanges covers the mark being held against the shape the file
+// had: reading it again finds it folded, and writing to it opens it and says so.
+func TestAViewedFileComesBackWhenItChanges(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
+	m = next.(model)
+	cmd()
+
+	m = openReview(t, m)
+	require.True(t, m.review.view.IsViewed("greet.go"), "nothing changed, so the mark still holds")
+	assert.Empty(t, m.review.notice)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"hi again\"\n}\n"), 0o644))
+
+	m = openReview(t, m)
+
+	assert.False(t, m.review.view.IsViewed("greet.go"), "the agent wrote under the mark")
+	assert.Equal(t, "1 file changed since you viewed it", m.review.notice)
 }

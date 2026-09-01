@@ -456,6 +456,79 @@ func (q *Queries) ListReviewThreads(ctx context.Context, arg ListReviewThreadsPa
 	return items, nil
 }
 
+const listReviewViewedFiles = `-- name: ListReviewViewedFiles :many
+SELECT
+    v.agent_id, v.file_path, v.fingerprint, v.viewed_at
+FROM
+    review_viewed_files v
+WHERE
+    v.agent_id = $1
+ORDER BY
+    v.file_path
+`
+
+func (q *Queries) ListReviewViewedFiles(ctx context.Context, agentID string) ([]*ReviewViewedFile, error) {
+	rows, err := q.db.Query(ctx, listReviewViewedFiles, agentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ReviewViewedFile
+	for rows.Next() {
+		var i ReviewViewedFile
+		if err := rows.Scan(
+			&i.AgentID,
+			&i.FilePath,
+			&i.Fingerprint,
+			&i.ViewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markReviewFileViewed = `-- name: MarkReviewFileViewed :one
+INSERT INTO review_viewed_files(
+    agent_id,
+    file_path,
+    fingerprint)
+VALUES (
+    $1,
+    $2,
+    $3)
+ON CONFLICT (
+    agent_id,
+    file_path)
+    DO UPDATE SET
+        fingerprint = EXCLUDED.fingerprint,
+        viewed_at = NOW()
+    RETURNING
+        agent_id, file_path, fingerprint, viewed_at
+`
+
+type MarkReviewFileViewedParams struct {
+	AgentID     string
+	FilePath    string
+	Fingerprint string
+}
+
+func (q *Queries) MarkReviewFileViewed(ctx context.Context, arg MarkReviewFileViewedParams) (*ReviewViewedFile, error) {
+	row := q.db.QueryRow(ctx, markReviewFileViewed, arg.AgentID, arg.FilePath, arg.Fingerprint)
+	var i ReviewViewedFile
+	err := row.Scan(
+		&i.AgentID,
+		&i.FilePath,
+		&i.Fingerprint,
+		&i.ViewedAt,
+	)
+	return &i, err
+}
+
 const markReviewThreadRead = `-- name: MarkReviewThreadRead :one
 UPDATE
     review_threads t
@@ -545,6 +618,22 @@ func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThre
 		&i.ResolvedAt,
 	)
 	return &i, err
+}
+
+const unmarkReviewFileViewed = `-- name: UnmarkReviewFileViewed :exec
+DELETE FROM review_viewed_files
+WHERE agent_id = $1
+    AND file_path = $2
+`
+
+type UnmarkReviewFileViewedParams struct {
+	AgentID  string
+	FilePath string
+}
+
+func (q *Queries) UnmarkReviewFileViewed(ctx context.Context, arg UnmarkReviewFileViewedParams) error {
+	_, err := q.db.Exec(ctx, unmarkReviewFileViewed, arg.AgentID, arg.FilePath)
+	return err
 }
 
 const updateReviewMessageBody = `-- name: UpdateReviewMessageBody :one

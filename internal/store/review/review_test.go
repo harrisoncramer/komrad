@@ -233,6 +233,42 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 	}
 }
 
+// TestMarkingAFileViewedAgainReplacesTheShapeHeldForIt covers reading a file a second time
+// after it has changed: the mark is one row per file, and the shape it holds is the one from
+// the last read rather than the first.
+func TestMarkingAFileViewedAgainReplacesTheShapeHeldForIt(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	_, err := st.MarkFileViewed(ctx, MarkFileViewedParams{
+		AgentID:     agentID,
+		FilePath:    "greet.go",
+		Fingerprint: "before",
+	})
+	require.NoError(t, err)
+
+	again, err := st.MarkFileViewed(ctx, MarkFileViewedParams{
+		AgentID:     agentID,
+		FilePath:    "greet.go",
+		Fingerprint: "after",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "after", again.Fingerprint)
+
+	viewed, err := st.ListViewedFiles(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, viewed, 1)
+	assert.Equal(t, "greet.go", viewed[0].FilePath)
+	assert.Equal(t, "after", viewed[0].Fingerprint)
+
+	require.NoError(t, st.UnmarkFileViewed(ctx, agentID, "greet.go"))
+
+	viewed, err = st.ListViewedFiles(ctx, agentID)
+	require.NoError(t, err)
+	assert.Empty(t, viewed)
+}
+
 type fixture struct {
 	*Store
 	agents   *agentstore.Store

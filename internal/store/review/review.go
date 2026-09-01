@@ -381,6 +381,84 @@ func (s *Store) DeleteMessage(ctx context.Context, id string) error {
 	return nil
 }
 
+// ViewedFile is one file of an agent's diff the person reviewing has read, holding the shape
+// that file had at the time so the mark can be dropped once the file no longer looks like it.
+type ViewedFile struct {
+	AgentID     string
+	FilePath    string
+	Fingerprint string
+	ViewedAt    time.Time
+}
+
+type MarkFileViewedParams struct {
+	AgentID     string
+	FilePath    string
+	Fingerprint string
+}
+
+// MarkFileViewed records that a file has been read, replacing the shape held for it when it
+// was read before, since marking it again means the file as it now stands.
+func (s *Store) MarkFileViewed(ctx context.Context, params MarkFileViewedParams) (*ViewedFile, error) {
+	row, err := s.queries.MarkReviewFileViewed(ctx, models.MarkReviewFileViewedParams{
+		AgentID:     params.AgentID,
+		FilePath:    params.FilePath,
+		Fingerprint: params.Fingerprint,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to mark %q viewed on agent %q: %w", params.FilePath, params.AgentID, err)
+	}
+
+	viewed := viewedFileFromRow(*row)
+
+	return &viewed, nil
+}
+
+// UnmarkFileViewed drops the mark on one file, which is what the toggle does on its way back.
+func (s *Store) UnmarkFileViewed(ctx context.Context, agentID, filePath string) error {
+	if !store.IsID(agentID) {
+		return nil
+	}
+
+	err := s.queries.UnmarkReviewFileViewed(ctx, models.UnmarkReviewFileViewedParams{
+		AgentID:  agentID,
+		FilePath: filePath,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to unmark %q viewed on agent %q: %w", filePath, agentID, err)
+	}
+
+	return nil
+}
+
+// ListViewedFiles is every file marked read on an agent, whether or not the diff still looks
+// the way it did when it was marked, which is the caller's comparison to make.
+func (s *Store) ListViewedFiles(ctx context.Context, agentID string) ([]ViewedFile, error) {
+	if !store.IsID(agentID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListReviewViewedFiles(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the viewed files of agent %q: %w", agentID, err)
+	}
+
+	viewed := make([]ViewedFile, 0, len(rows))
+	for _, row := range rows {
+		viewed = append(viewed, viewedFileFromRow(*row))
+	}
+
+	return viewed, nil
+}
+
+func viewedFileFromRow(row models.ReviewViewedFile) ViewedFile {
+	return ViewedFile{
+		AgentID:     row.AgentID,
+		FilePath:    row.FilePath,
+		Fingerprint: row.Fingerprint,
+		ViewedAt:    row.ViewedAt,
+	}
+}
+
 func threadFromRow(row models.ReviewThread) Thread {
 	return Thread{
 		ID:                  row.ID,

@@ -3,6 +3,13 @@
 // place in a file.
 package diff
 
+import (
+	"crypto/sha256"
+	"encoding/hex"
+	"fmt"
+	"strings"
+)
+
 // LineKind is what one line of a hunk does.
 type LineKind uint8
 
@@ -40,6 +47,30 @@ type File struct {
 	Hunks     []Hunk
 }
 
+// Fingerprint is a hash of what the diff draws for one file, which is what a mark of having
+// read that file is held against: the change made to it, the headers its hunks fall under, and
+// every line of them, but not the source outside them, since a change no hunk shows is a change
+// the reader was never shown.
+func (f File) Fingerprint() string {
+	var drawn strings.Builder
+
+	fmt.Fprintf(&drawn, "%s\x00%s\x00", f.OldPath, f.NewPath)
+	for _, metadata := range f.Metadata {
+		fmt.Fprintf(&drawn, "%s\x00", metadata)
+	}
+
+	for _, hunk := range f.Hunks {
+		fmt.Fprintf(&drawn, "%s\x00", hunk.Header)
+		for _, line := range hunk.Lines {
+			fmt.Fprintf(&drawn, "%d%s\x00", line.Kind, line.Text)
+		}
+	}
+
+	sum := sha256.Sum256([]byte(drawn.String()))
+
+	return hex.EncodeToString(sum[:])
+}
+
 // Path is the name to show the file under, which is where it ended up unless it was deleted.
 func (f File) Path() string {
 	if f.NewPath != "" {
@@ -72,15 +103,25 @@ type Stat struct {
 func (p Patch) Stat() Stat {
 	stat := Stat{Files: len(p.Files)}
 	for _, file := range p.Files {
-		for _, hunk := range file.Hunks {
-			for _, line := range hunk.Lines {
-				switch line.Kind {
-				case Addition:
-					stat.Added++
-				case Deletion:
-					stat.Removed++
-				case Context:
-				}
+		counted := file.Stat()
+		stat.Added += counted.Added
+		stat.Removed += counted.Removed
+	}
+
+	return stat
+}
+
+// Stat is the size of one file's change, which is what a collapsed file says about itself.
+func (f File) Stat() Stat {
+	stat := Stat{Files: 1}
+	for _, hunk := range f.Hunks {
+		for _, line := range hunk.Lines {
+			switch line.Kind {
+			case Addition:
+				stat.Added++
+			case Deletion:
+				stat.Removed++
+			case Context:
 			}
 		}
 	}

@@ -1,9 +1,11 @@
 package review
 
 import (
+	"regexp"
 	"testing"
 
 	"weave/internal/diff"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -172,4 +174,132 @@ func TestJumpHunkWalksTheHunkBeforeLeavingIt(t *testing.T) {
 
 	assert.Equal(t, second, view.JumpHunk(inside, -1), "backwards is the top of this hunk")
 	assert.Equal(t, first, view.JumpHunk(second, -1), "and then the hunk before it")
+}
+
+// twoFilePatch is two files with one changed line apiece, which is the smallest patch that can
+// show a file folded away while the diff around it stays whole.
+func twoFilePatch() *diff.Patch {
+	file := func(path, text string) diff.File {
+		return diff.File{
+			OldPath: path,
+			NewPath: path,
+			Hunks: []diff.Hunk{hunkOf(
+				diff.Line{
+					Kind:      diff.Context,
+					Text:      "package greet",
+					OldNumber: 1,
+					NewNumber: 1,
+				},
+				diff.Line{
+					Kind:      diff.Addition,
+					Text:      text,
+					NewNumber: 2,
+				},
+			)},
+		}
+	}
+
+	return patchWith(file("greet.go", "// greet"), file("wave.go", "// wave"))
+}
+
+// TestViewedFileCollapsesToItsHeader covers the fold itself: the file keeps its header and
+// loses its lines, and the file beside it is untouched.
+func TestViewedFileCollapsesToItsHeader(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+	require.Equal(t, 8, view.Len())
+
+	view.SetFileViewed("greet.go", true)
+
+	require.Equal(t, 5, view.Len())
+	assert.True(t, view.IsViewed("greet.go"))
+
+	read, total := view.ViewedCount()
+	assert.Equal(t, 1, read)
+	assert.Equal(t, 2, total)
+
+	view.SetFileViewed("greet.go", false)
+	assert.Equal(t, 8, view.Len())
+	assert.False(t, view.IsViewed("greet.go"))
+}
+
+// TestCursorCanRestOnACollapsedHeader pins the one thing that makes the fold reversible: the
+// header is the only row the file has left, so the cursor has to be able to stand on it.
+func TestCursorCanRestOnACollapsedHeader(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+	view.SetFileViewed("greet.go", true)
+
+	assert.Equal(t, 0, view.First(), "the fold leaves the header as the first row to rest on")
+
+	file, ok := view.FileAt(0)
+	require.True(t, ok)
+	assert.Equal(t, "greet.go", file.Path())
+}
+
+// TestJumpFileLandsOnACollapsedHeader covers walking the files with one of them folded away,
+// which would otherwise swallow the jump for want of a line to land on.
+func TestJumpFileLandsOnACollapsedHeader(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+	view.SetFileViewed("wave.go", true)
+
+	landed := view.JumpFile(view.First(), 1)
+
+	file, ok := view.FileAt(landed)
+	require.True(t, ok)
+	assert.Equal(t, "wave.go", file.Path())
+}
+
+// TestFoldingKeepsTheCursorInTheFile covers the cursor standing in a file as it is folded, and
+// then standing on the header as it is opened again.
+func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+
+	inside := view.Move(view.First(), 1)
+	place, ok := view.GetPlace(inside)
+	require.True(t, ok)
+
+	view.SetFileViewed("greet.go", true)
+
+	header, ok := view.Locate(place)
+	require.True(t, ok)
+	assert.Equal(t, 0, header, "the header is what is left of the file to come back to")
+
+	place, ok = view.GetPlace(header)
+	require.True(t, ok)
+
+	view.SetFileViewed("greet.go", false)
+
+	back, ok := view.Locate(place)
+	require.True(t, ok)
+
+	file, ok := view.FileAt(back)
+	require.True(t, ok)
+	assert.Equal(t, "greet.go", file.Path())
+	assert.True(t, view.isPinnable(back), "opening the file again lands the cursor on a line of it")
+}
+
+// TestThreadInACollapsedFileIsNotAdrift pins that folding a file away does not send the
+// conversations in it to the section for threads with nothing left to stand on.
+func TestThreadInACollapsedFileIsNotAdrift(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+
+	thread := threadAt("t1", "greet.go", 0, 2, "+// greet")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+	require.Equal(t, 8, view.Len())
+
+	view.SetFileViewed("greet.go", true)
+
+	assert.Equal(t, 5, view.Len(), "no row is added at the foot for the folded thread")
+	assert.Equal(t, collapsed, view.placed[thread.GetId()])
+}
+
+// TestHiddenMatchesCountsWhatTheFoldHides covers searching with a file folded away, where the
+// matches inside it are on no row and stepping through the search never reaches them.
+func TestHiddenMatchesCountsWhatTheFoldHides(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+	view.SetFileViewed("greet.go", true)
+
+	found := view.SetPattern(regexp.MustCompile("package"))
+
+	assert.Equal(t, 1, found, "only the file still drawn has rows to match")
+	assert.Equal(t, 1, view.HiddenMatches())
 }

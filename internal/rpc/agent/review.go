@@ -194,6 +194,51 @@ func (s *Service) NotifyReviewThreads(
 	}), nil
 }
 
+// SetReviewFileViewed marks one file of a diff read, or drops the mark.
+func (s *Service) SetReviewFileViewed(
+	ctx context.Context,
+	req *connect.Request[agentv1.SetReviewFileViewedRequest],
+) (*connect.Response[agentv1.SetReviewFileViewedResponse], error) {
+	viewed, err := s.review.SetReviewFileViewed(ctx, agents.SetReviewFileViewedParams{
+		AgentID:     req.Msg.GetAgentId(),
+		FilePath:    req.Msg.GetFilePath(),
+		Fingerprint: req.Msg.GetFingerprint(),
+		Viewed:      req.Msg.GetViewed(),
+		Author:      reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to set the file viewed")
+	}
+
+	answered := &agentv1.SetReviewFileViewedResponse{}
+	if viewed != nil {
+		answered.Viewed = toReviewViewedFile(*viewed)
+	}
+
+	return connect.NewResponse(answered), nil
+}
+
+// ListReviewViewedFiles reads which files of an agent's diff have been marked read.
+func (s *Service) ListReviewViewedFiles(
+	ctx context.Context,
+	req *connect.Request[agentv1.ListReviewViewedFilesRequest],
+) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
+	files, err := s.review.ListReviewViewedFiles(ctx, agents.ListReviewViewedFilesParams{
+		AgentID: req.Msg.GetAgentId(),
+		Author:  reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the viewed files")
+	}
+
+	answered := make([]*agentv1.ReviewViewedFile, 0, len(files))
+	for _, file := range files {
+		answered = append(answered, toReviewViewedFile(file))
+	}
+
+	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: answered}), nil
+}
+
 // reviewAuthorFrom reads who a call belongs to from the identity on it, so an agent cannot
 // post as the reviewer by asking to.
 func reviewAuthorFrom(ctx context.Context) agents.ReviewAuthor {
@@ -248,5 +293,14 @@ func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		Body:          message.Body,
 		CreatedAt:     message.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     message.UpdatedAt.Format(time.RFC3339),
+	}
+}
+
+func toReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
+	return &agentv1.ReviewViewedFile{
+		AgentId:     viewed.AgentID,
+		FilePath:    viewed.FilePath,
+		Fingerprint: viewed.Fingerprint,
+		ViewedAt:    viewed.ViewedAt.Format(time.RFC3339),
 	}
 }

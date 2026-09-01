@@ -51,6 +51,15 @@ type reviewMessageReadWriter interface {
 	DeleteMessage(ctx context.Context, id string) error
 }
 
+// reviewViewedFileReadWriter is the record of which files the person reviewing has read, kept
+// apart from the conversations since it is about their own progress rather than about anything
+// said to the agent.
+type reviewViewedFileReadWriter interface {
+	MarkFileViewed(ctx context.Context, params reviewstore.MarkFileViewedParams) (*reviewstore.ViewedFile, error)
+	UnmarkFileViewed(ctx context.Context, agentID, filePath string) error
+	ListViewedFiles(ctx context.Context, agentID string) ([]reviewstore.ViewedFile, error)
+}
+
 type reviewNoticeSender interface {
 	SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error)
 }
@@ -79,6 +88,7 @@ type ReviewThreadWithMessages struct {
 type ReviewServiceParams struct {
 	Threads     reviewThreadReadWriter
 	Messages    reviewMessageReadWriter
+	Viewed      reviewViewedFileReadWriter
 	Mailer      reviewNoticeSender
 	Interrupter agentInterrupter
 }
@@ -88,6 +98,7 @@ type ReviewServiceParams struct {
 type ReviewService struct {
 	threads     reviewThreadReadWriter
 	messages    reviewMessageReadWriter
+	viewed      reviewViewedFileReadWriter
 	mailer      reviewNoticeSender
 	interrupter agentInterrupter
 }
@@ -97,6 +108,7 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 	return &ReviewService{
 		threads:     params.Threads,
 		messages:    params.Messages,
+		viewed:      params.Viewed,
 		mailer:      params.Mailer,
 		interrupter: params.Interrupter,
 	}
@@ -283,6 +295,56 @@ func (s *ReviewService) SetReviewThreadResolved(
 	}
 
 	return s.threads.SetThreadResolved(ctx, params.ID, params.Resolved)
+}
+
+type SetReviewFileViewedParams struct {
+	AgentID  string
+	FilePath string
+	// Fingerprint is the shape the file had when it was read, which the panel compares against on
+	// its next pass to decide whether the mark still stands, and which is read only when Viewed
+	// is set.
+	Fingerprint string
+	Viewed      bool
+	Author      ReviewAuthor
+}
+
+// SetReviewFileViewed marks one file of a diff read or drops the mark, which only the person
+// reviewing may do, since it is a record of what they have looked at.
+func (s *ReviewService) SetReviewFileViewed(
+	ctx context.Context,
+	params SetReviewFileViewedParams,
+) (*reviewstore.ViewedFile, error) {
+	if !params.Author.IsHuman() {
+		return nil, fmt.Errorf("%w: marking a file viewed", ErrReviewHumanOnly)
+	}
+
+	if !params.Viewed {
+		return nil, s.viewed.UnmarkFileViewed(ctx, params.AgentID, params.FilePath)
+	}
+
+	return s.viewed.MarkFileViewed(ctx, reviewstore.MarkFileViewedParams{
+		AgentID:     params.AgentID,
+		FilePath:    params.FilePath,
+		Fingerprint: params.Fingerprint,
+	})
+}
+
+type ListReviewViewedFilesParams struct {
+	AgentID string
+	Author  ReviewAuthor
+}
+
+// ListReviewViewedFiles is every file of an agent's diff the person reviewing has marked read,
+// which is theirs alone, so an agent is never told which parts of its work have been looked at.
+func (s *ReviewService) ListReviewViewedFiles(
+	ctx context.Context,
+	params ListReviewViewedFilesParams,
+) ([]reviewstore.ViewedFile, error) {
+	if !params.Author.IsHuman() {
+		return nil, fmt.Errorf("%w: reading which files have been viewed", ErrReviewHumanOnly)
+	}
+
+	return s.viewed.ListViewedFiles(ctx, params.AgentID)
 }
 
 type DeleteReviewThreadParams struct {
