@@ -17,12 +17,10 @@ import (
 // archive twice or stopping at the first page would leave agents behind and say nothing.
 func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 	tests := []struct {
-		name string
-
-		archived int
-		failOn   int
-		keepRows bool
-
+		name        string
+		archived    int
+		failOn      int
+		keepRows    bool
 		wantDeleted int
 		wantErr     bool
 	}{
@@ -76,8 +74,7 @@ func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 }
 
 type fakeArchive struct {
-	agents []agentstore.Agent
-
+	agents  []agentstore.Agent
 	deleted int
 	pages   int
 

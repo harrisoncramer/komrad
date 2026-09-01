@@ -17,9 +17,8 @@ type periodicJobRegistrar interface {
 }
 
 type Scheduler struct {
-	schedules ScheduleLister
-	periodic  periodicJobRegistrar
-
+	schedules  ScheduleLister
+	periodic   periodicJobRegistrar
 	registered map[string]registration
 }
 

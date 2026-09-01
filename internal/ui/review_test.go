@@ -25,9 +25,7 @@ import (
 
 type fakeReviewAgents struct {
 	agentv1connect.AgentServiceClient
-
-	threads []*agentv1.ReviewThread
-
+	threads  []*agentv1.ReviewThread
 	settled  *agentv1.SetReviewThreadResolvedRequest
 	created  *agentv1.CreateReviewThreadRequest
 	replied  *agentv1.AddReviewMessageRequest

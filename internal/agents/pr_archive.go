@@ -60,8 +60,7 @@ type PRArchiver struct {
 
 	// quiet and now need no lock, since the loop runs one pass at a time.
 	quiet map[string]time.Time
-
-	now func() time.Time
+	now   func() time.Time
 }
 
 // NewPRArchiver builds an archiver over the agent store, the workflows that hold the

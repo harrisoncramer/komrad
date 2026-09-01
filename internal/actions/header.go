@@ -28,10 +28,8 @@ const unlimitedTimeout time.Duration = -1
 
 type Header struct {
 	Description string
-
-	Timeout time.Duration
-
-	Problems []string
+	Timeout     time.Duration
+	Problems    []string
 }
 
 // TimeoutOr is the header's declared timeout, the fallback where the file declared none, or

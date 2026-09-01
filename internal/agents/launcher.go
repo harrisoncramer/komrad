@@ -18,15 +18,11 @@ const mcpURLPlaceholder = "{{MCP_URL}}"
 const logPathPlaceholder = "{{LOG_PATH}}"
 
 type Launcher struct {
-	tmux paneWriter
-
-	serverAddr string
-
-	cacheDir string
-	logPath  string
-
+	tmux        paneWriter
+	serverAddr  string
+	cacheDir    string
+	logPath     string
 	contextPath string
-
 	hookCommand string
 }
 
@@ -94,14 +90,13 @@ func (l *Launcher) globalContext() string {
 }
 
 type launchParams struct {
-	Pane            string
-	Dir             string
-	Flags           string
-	Prompt          string
-	WorkflowContext string
-	SessionID       string
-	AgentID         string
-
+	Pane             string
+	Dir              string
+	Flags            string
+	Prompt           string
+	WorkflowContext  string
+	SessionID        string
+	AgentID          string
 	SpawnedByAgentID string
 	SpawnedByName    string
 	Resume           bool

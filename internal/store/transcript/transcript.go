@@ -1,3 +1,5 @@
+// Package transcript stores each agent's conversation as searchable text, appended as the sync
+// loop reads new turns out of the CLI's own log.
 package transcript
 
 import (

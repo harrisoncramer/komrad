@@ -16,11 +16,9 @@ import (
 // that state events keyed by that name land on the live one.
 func TestArchiveAndReuse(t *testing.T) {
 	tests := []struct {
-		name    string
-		archive bool
-
-		reuse bool
-
+		name        string
+		archive     bool
+		reuse       bool
 		wantVisible bool
 		wantLive    int
 		wantAll     int
@@ -141,11 +139,9 @@ func TestArchiveClearsPane(t *testing.T) {
 // the primary key nor loses what the agent belonged to.
 func TestRestore(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name         string
 		withWorkflow bool
-
-		hidden bool
+		hidden       bool
 	}{
 		{
 			name: "a restored agent keeps its id and its conversation",

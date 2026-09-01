@@ -1,3 +1,5 @@
+// Package workflow stores the workflows agents are filed under, which carry the working
+// directory, flags, shared context and setup and cleanup actions their agents start from.
 package workflow
 
 import (
@@ -14,25 +16,18 @@ import (
 )
 
 type Workflow struct {
-	ID   string
-	Name string
-
-	Context string
-
-	Harness string
-	Cwd     string
-	Flags   string
-
-	SetupAction   string
-	CleanupAction string
-
-	Worktree WorktreeConfig
-
+	ID                string
+	Name              string
+	Context           string
+	Harness           string
+	Cwd               string
+	Flags             string
+	SetupAction       string
+	CleanupAction     string
+	Worktree          WorktreeConfig
 	ArchiveOnPRClosed bool
-
-	ArchivedAt *time.Time
-
-	UpdatedAt time.Time
+	ArchivedAt        *time.Time
+	UpdatedAt         time.Time
 }
 
 type Config struct {
@@ -79,15 +74,11 @@ func (c Config) Workflow(id string) Workflow {
 }
 
 type WorktreeConfig struct {
-	Enabled bool
-
-	BaseBranch string
-
-	CopyPaths []string
-
+	Enabled      bool
+	BaseBranch   string
+	CopyPaths    []string
 	SymlinkPaths []string
-
-	DiffExclude []string
+	DiffExclude  []string
 }
 
 type Store struct {
@@ -431,8 +422,7 @@ type actionConfigFields struct {
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
-
-	ArchiveOnPRClosed bool
+	ArchiveOnPRClosed    bool
 }
 
 func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {

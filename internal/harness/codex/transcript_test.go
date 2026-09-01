@@ -125,11 +125,9 @@ func TestReadLog(t *testing.T) {
 	opening := metaRecord + "\n" + promptRecord + "\n"
 
 	tests := []struct {
-		name string
-
-		body   string
-		offset int64
-
+		name         string
+		body         string
+		offset       int64
 		missing      bool
 		wantTurns    []harness.Turn
 		wantConsumed int64

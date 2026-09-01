@@ -235,7 +235,6 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 
 type fixture struct {
 	*Store
-
 	agents   *agentstore.Store
 	workflow string
 }

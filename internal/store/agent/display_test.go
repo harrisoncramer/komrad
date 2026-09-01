@@ -16,11 +16,10 @@ import (
 // believing they tagged agents that show no tag.
 func TestSetTags(t *testing.T) {
 	tests := []struct {
-		name    string
-		create  int
-		archive bool
-		ids     func(created []Agent) []string
-
+		name       string
+		create     int
+		archive    bool
+		ids        func(created []Agent) []string
 		before     *string
 		tag        *string
 		wantTagged int
@@ -135,11 +134,10 @@ func TestSetTags(t *testing.T) {
 // a row the caller believes it took away.
 func TestSetHidden(t *testing.T) {
 	tests := []struct {
-		name    string
-		create  bool
-		archive bool
-		id      func(created Agent) string
-
+		name        string
+		create      bool
+		archive     bool
+		id          func(created Agent) string
 		before      bool
 		hidden      bool
 		wantChanged bool

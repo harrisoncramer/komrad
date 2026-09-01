@@ -48,11 +48,9 @@ func TestFiringIsQueuedOnce(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name string
-
-		first  internaljobs.LaunchAgentArgs
-		second internaljobs.LaunchAgentArgs
-
+		name          string
+		first         internaljobs.LaunchAgentArgs
+		second        internaljobs.LaunchAgentArgs
 		wantDuplicate bool
 	}{
 		{
@@ -95,8 +93,7 @@ func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
 	tests := []struct {
-		name string
-
+		name   string
 		cancel bool
 	}{
 		{
@@ -175,10 +172,8 @@ func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 	require.NoError(t, err)
 
 	tests := []struct {
-		name string
-
-		added []string
-
+		name       string
+		added      []string
 		wantAddErr bool
 	}{
 		{

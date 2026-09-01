@@ -17,22 +17,14 @@ const commandTimeout = 5 * time.Second
 
 type Env struct {
 	Settings
-
-	LookPath func(name string) (string, error)
-
-	Output func(ctx context.Context, name string, args ...string) (string, error)
-
-	LoadConfig func() (*config.Config, error)
-
-	DoesLayerExist func(path string) bool
-
-	PingDatabase func(ctx context.Context, url string) error
-
+	LookPath              func(name string) (string, error)
+	Output                func(ctx context.Context, name string, args ...string) (string, error)
+	LoadConfig            func() (*config.Config, error)
+	DoesLayerExist        func(path string) bool
+	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
-
-	ConnectReadOnly func(ctx context.Context, url string) error
-
-	ProbeServer func(ctx context.Context, addr string) ServerStatus
+	ConnectReadOnly       func(ctx context.Context, url string) error
+	ProbeServer           func(ctx context.Context, addr string) ServerStatus
 }
 
 type HarnessInfo struct {
@@ -41,23 +33,16 @@ type HarnessInfo struct {
 }
 
 type Settings struct {
-	TmuxSocket string
-
-	InsideTmux string
-
-	PanelSession string
-
-	ConfigLayers []config.Layer
-
-	Sources map[string]config.Source
-
-	Harnesses []HarnessInfo
-
+	TmuxSocket          string
+	InsideTmux          string
+	PanelSession        string
+	ConfigLayers        []config.Layer
+	Sources             map[string]config.Source
+	Harnesses           []HarnessInfo
 	DatabaseURL         string
 	ReadOnlyDatabaseURL string
-
-	Addr    string
-	Version string
+	Addr                string
+	Version             string
 }
 
 func (s Settings) configPaths() []string {

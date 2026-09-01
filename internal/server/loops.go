@@ -34,12 +34,9 @@ const (
 
 type buildLoopsParams struct {
 	Harnesses *harness.Registry
-
-	Stores *stores
-
-	Services *services
-
-	Periodic *jobs.RiverPeriodic
+	Stores    *stores
+	Services  *services
+	Periodic  *jobs.RiverPeriodic
 }
 
 func buildLoops(p buildLoopsParams) []Loop {

@@ -14,7 +14,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/charmbracelet/lipgloss"
 )
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
@@ -335,6 +334,7 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
+	case m.stageMatch(r.item.agent.ID):
 	case r.item.agent.State == agentstore.StateSettingUp:
 		m.stageDocument(settingUpPlaceholder)
 	case agentstore.IsFailed(r.item.agent.State):
@@ -459,14 +459,8 @@ func (m model) agentsView() string {
 		}
 
 		item := r.item
-		state := item.agent.State
-		if !item.alive && state != agentstore.StateSettingUp && !agentstore.IsFailed(state) {
-			state = agentstore.StateIdle
-		}
-
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		icon := lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
-		rows = append(rows, prefix+"  "+icon+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
+		rows = append(rows, prefix+"  "+stateMark(displayState(item))+" "+name+" "+worktreeRemovedMark(item.agent)+scheduledMark(item.agent)+hiddenMark(item.agent.Hidden)+tagGlyph(item.agent, m.tags)+unreadMailMark(item.unreadMail))
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)

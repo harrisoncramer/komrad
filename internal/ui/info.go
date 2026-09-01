@@ -20,8 +20,7 @@ const (
 )
 
 type infoState struct {
-	kind infoKind
-
+	kind   infoKind
 	action string
 }
 

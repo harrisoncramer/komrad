@@ -70,8 +70,7 @@ func TestArchiveUnchangedAgents(t *testing.T) {
 // would undo the half that landed.
 func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name  string
 		stray string
 	}{
 		{
@@ -285,10 +284,8 @@ func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 // two of the returning agents between them.
 func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 	tests := []struct {
-		name string
-
-		liveNamesake bool
-
+		name           string
+		liveNamesake   bool
 		secondNamesake bool
 	}{
 		{

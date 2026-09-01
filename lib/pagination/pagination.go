@@ -1,12 +1,12 @@
 // Package pagination turns a request's page token and limit into the cursor and bound a
 // query runs with, and turns the records that come back into the token for the next page.
 //
-// Explainer: a resource opts in by implementing Cursorable, returning the cursor that
-// locates it among its peers, and the handler that lists it holds a Paginator over that
-// pair. The token is an opaque base64 of the JSON-encoded cursor, so callers hand it back
-// verbatim and the shape inside it stays the server's business. A cursor type says through
-// Validate what it will take back, so a token holding something the query cannot use is
-// refused here rather than by the database.
+// A resource opts in by implementing Cursorable, returning the cursor that locates it among
+// its peers, and the handler that lists it holds a Paginator over that pair. The token is an
+// opaque base64 of the JSON-encoded cursor, so callers hand it back verbatim and the shape
+// inside it stays the server's business. A cursor type says through Validate what it will
+// take back, so a token holding something the query cannot use is refused here rather than by
+// the database.
 package pagination
 
 import (

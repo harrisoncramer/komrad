@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"weave/internal/ui/layout"
+	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
 
@@ -15,11 +16,11 @@ import (
 )
 
 type searchState struct {
-	typing bool
-
-	query  string
-	hits   []searchHit
-	cursor int
+	typing  bool
+	query   string
+	hits    []searchHit
+	cursor  int
+	preview previewResult
 }
 
 const searchLimit = 10
@@ -56,7 +57,9 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.search = searchState{typing: true}
 	m.frame.Show(layout.RegionStage, newBlankContent())
 
-	return m, nil
+	// The archived agents a hit can name are only listed while this screen is up, so the first
+	// pass is asked for here rather than waited on.
+	return m, m.refreshCmd()
 }
 
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
@@ -133,7 +136,7 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 		return nil
 	}
 
-	m.search.hits = result.hits
+	m.search.hits = groupByAgent(result.hits)
 	m.search.cursor = clampCursor(m.search.cursor, len(m.search.hits))
 	if len(m.search.hits) == 0 {
 		m.frame.Show(layout.RegionStage, newBlankContent())
@@ -181,7 +184,28 @@ func (m *model) applyPreview(result previewResult) {
 		return
 	}
 
+	m.search.preview = result
 	m.stageTranscript(result.content, lineAtOffset(result.content, result.offset))
+}
+
+// groupByAgent gathers each agent's hits under the first of them, since the ranking interleaves
+// agents and a header is only worth drawing over the rows it stands for.
+func groupByAgent(hits []searchHit) []searchHit {
+	grouped := make([]searchHit, 0, len(hits))
+	gathered := make(map[string]bool, len(hits))
+
+	for _, hit := range hits {
+		if gathered[hit.agentID] {
+			continue
+		}
+		gathered[hit.agentID] = true
+
+		grouped = append(grouped, xslice.Filter(hits, func(h searchHit) bool {
+			return h.agentID == hit.agentID
+		})...)
+	}
+
+	return grouped
 }
 
 const noTranscriptMarkdown = "_no transcript yet_"
@@ -294,8 +318,15 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	m.match = matchFor(hit, m.search.preview)
+
 	if hit.archived {
 		m.archive.focus = hit.agentID
+		// The stage is drawn before the listing the focus is spent on comes back, so the cursor
+		// is placed here too when the archive is already held.
+		if idx := rowIndexOfAgentID(m.archiveRows(), hit.agentID); idx >= 0 {
+			m.archive.cursor = idx
+		}
 
 		return m.enterArchive()
 	}
@@ -305,6 +336,76 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 	m.stageSelection()
 
 	return m, nil
+}
+
+// matchFocus is where a search hit sat in its agent's transcript, kept because the screen the
+// jump lands on redraws its stage from the row under the cursor every refresh.
+type matchFocus struct {
+	agentID string
+	content string
+	line    int
+}
+
+func matchFor(hit searchHit, preview previewResult) matchFocus {
+	if preview.agentID != hit.agentID || strings.TrimSpace(preview.content) == "" {
+		return matchFocus{}
+	}
+
+	// An offset the content does not hold reads as line zero, which is the top of the
+	// transcript and so nothing worth taking the stage for.
+	line := lineAtOffset(preview.content, hit.offset)
+	if line == 0 {
+		return matchFocus{}
+	}
+
+	return matchFocus{
+		agentID: hit.agentID,
+		content: preview.content,
+		line:    line,
+	}
+}
+
+// stageMatch puts the transcript a search hit came from on the stage at the line it matched on,
+// reporting whether it took the stage, and holds it until the cursor moves to another agent.
+func (m *model) stageMatch(agentID string) bool {
+	if m.match.agentID == "" {
+		return false
+	}
+	if m.match.agentID != agentID {
+		m.match = matchFocus{}
+
+		return false
+	}
+
+	m.stageTranscript(m.match.content, m.match.line)
+
+	return true
+}
+
+// hitHeader names the agent a run of hits came from, wearing the same marks its row wears on
+// the screen it lives on, since a snippet says nothing about the agent that wrote it.
+func (m model) hitHeader(hit searchHit) string {
+	name := clipName(hit.name)
+
+	if hit.archived {
+		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
+
+		agent, ok := m.archivedAgent(hit.agentID)
+		if !ok {
+			return row
+		}
+
+		return row + failedMark(agent) + scheduledMark(agent) + tagGlyph(agent, m.tags)
+	}
+
+	item, ok := m.liveAgent(hit.agentID)
+	if !ok {
+		return "  " + noStateMark() + " " + name
+	}
+
+	return "  " + stateMark(displayState(item)) + " " + name +
+		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
+		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
 }
 
 func (m model) searchView() string {
@@ -329,13 +430,9 @@ func (m model) searchView() string {
 				b.WriteString("\n" + dimStyle.Render("near matches") + "\n")
 				sectioned, labelled = true, ""
 			}
-			if hit.name != labelled {
-				name := clipName(hit.name)
-				if hit.archived {
-					name += dimStyle.Render(" (archived)")
-				}
-				b.WriteString("  " + name + "\n")
-				labelled = hit.name
+			if hit.agentID != labelled {
+				b.WriteString(m.hitHeader(hit) + "\n")
+				labelled = hit.agentID
 			}
 
 			prefix := "    "

@@ -15,10 +15,8 @@ import (
 // reconciler named after it was deleted.
 func TestSetStateByID(t *testing.T) {
 	tests := []struct {
-		name string
-
-		target string
-
+		name      string
+		target    string
 		wantErr   error
 		wantState string
 	}{

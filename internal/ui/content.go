@@ -1,11 +1,15 @@
 package ui
 
 import (
+	"fmt"
+	"hash/maphash"
 	"os"
 	"path/filepath"
 
 	"weave/internal/ui/layout"
 )
+
+var transcriptSeed = maphash.MakeSeed()
 
 var stageTextPath = filepath.Join(os.TempDir(), "weave-stage.ansi")
 
@@ -36,6 +40,9 @@ func newLogContent(path string, argv []string) layout.Content {
 
 func newTranscriptContent(conversation string, highlightLine int) layout.Content {
 	return layout.Content{
+		// The stage is drawn again on every refresh, so the key has to answer for the
+		// conversation as well as the line, or a transcript that has grown would stop restaging.
+		Key: fmt.Sprintf("transcript:%d:%d", highlightLine, maphash.String(transcriptSeed, conversation)),
 		Render: func(layout.Target) ([]string, bool) {
 			path := filepath.Join(os.TempDir(), "weave-transcript.txt")
 			if !writeStageFile(path, highlighted(conversation, highlightLine)) {

@@ -100,10 +100,8 @@ func TestCreateAgentValidation(t *testing.T) {
 // need a real client rather than the service directly.
 func TestRequestValidation(t *testing.T) {
 	tests := []struct {
-		name string
-
-		call func(t *testing.T, c agentv1connect.AgentServiceClient) error
-
+		name    string
+		call    func(t *testing.T, c agentv1connect.AgentServiceClient) error
 		wantErr bool
 	}{
 		{

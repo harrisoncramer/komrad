@@ -67,9 +67,7 @@ type ActionService struct {
 	logsDir    string
 	editor     string
 	binPath    string
-
-	catalog *actions.Catalog
-
+	catalog    *actions.Catalog
 	inFlightMu sync.Mutex
 	inFlight   map[actionKey]struct{}
 }
@@ -550,10 +548,9 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 	began := time.Now()
 
 	err := s.runner.Run(actions.RunParams{
-		Action: p.action,
-		Dir:    p.action.GetDir(),
-		Env:    p.env,
-
+		Action:  p.action,
+		Dir:     p.action.GetDir(),
+		Env:     p.env,
 		Timeout: p.action.Header.TimeoutOr(timeoutFallback(p.trigger)),
 		Done: func(result actions.Result, err error) {
 			defer s.release(key)

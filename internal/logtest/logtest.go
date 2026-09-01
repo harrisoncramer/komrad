@@ -1,3 +1,5 @@
+// Package logtest parses the JSON lines a logger wrote, so a test asserts on the fields of a
+// record rather than on the text of it.
 package logtest
 
 import (

@@ -21,16 +21,15 @@ import (
 // reads an empty pane target as whatever the user is looking at.
 func TestNewAgent(t *testing.T) {
 	tests := []struct {
-		name        string
-		dir         func(t *testing.T) string
-		title       string
-		windowErr   error
-		sendKeysErr error
-		setOwnerErr error
-		badWorkflow bool
-		wantErrIs   error
-		wantErr     string
-
+		name           string
+		dir            func(t *testing.T) string
+		title          string
+		windowErr      error
+		sendKeysErr    error
+		setOwnerErr    error
+		badWorkflow    bool
+		wantErrIs      error
+		wantErr        string
 		wantPaneKilled bool
 		wantsFailedRow bool
 	}{
@@ -177,11 +176,9 @@ func metadataValue(md []agentstore.Metadata) string {
 // runs twice in two tmux windows.
 func TestNewAgentIdempotency(t *testing.T) {
 	tests := []struct {
-		name string
-
-		first  string
-		second string
-
+		name     string
+		first    string
+		second   string
 		wantSame bool
 		wantErr  error
 	}{
@@ -250,10 +247,8 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 	const key = "schedule:s1:2026-07-28T09:00:00Z"
 
 	tests := []struct {
-		name string
-
-		state string
-
+		name         string
+		state        string
 		wantRelaunch bool
 	}{
 		{
@@ -322,10 +317,8 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 // which the panel sends none of so what it creates has no parent.
 func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 	tests := []struct {
-		name string
-
-		spawnerName string
-
+		name           string
+		spawnerName    string
 		unknownSpawner bool
 		wantErrIs      error
 	}{
@@ -399,9 +392,8 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 // since tmux does no tilde expansion.
 func TestNewAgentGetsDirectory(t *testing.T) {
 	tests := []struct {
-		name string
-		dir  string
-
+		name        string
+		dir         string
 		workflowCwd string
 		useClient   bool
 	}{
@@ -410,9 +402,8 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			workflowCwd: "~/chariot/chariot",
 		},
 		{
-			name: "what the caller asked for wins over the workflow's",
-			dir:  "~/chariot/chariot",
-
+			name:        "what the caller asked for wins over the workflow's",
+			dir:         "~/chariot/chariot",
 			workflowCwd: "/no/such/directory",
 		},
 		{
@@ -529,8 +520,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 	provisioned := t.TempDir()
 
 	tests := []struct {
-		name string
-
+		name      string
 		action    string
 		answered  string
 		setupErr  error
@@ -690,8 +680,7 @@ func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
 // a create refused after its workflow built a worktree leaves one behind every time.
 func TestNewAgentCeiling(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name            string
 		maxAgents       int
 		existing        int
 		archiveExisting bool
@@ -799,8 +788,7 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 // its work, since a worktree no row names is never reached again.
 func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name        string
 		answered    string
 		windowErr   error
 		setOwnerErr error
@@ -975,10 +963,9 @@ func TestNewAgentCleansUpAFailedCreateWithNoSetupAction(t *testing.T) {
 // names taken inside the same workflow.
 func TestUniqueAgentName(t *testing.T) {
 	tests := []struct {
-		name   string
-		title  string
-		prompt string
-
+		name           string
+		title          string
+		prompt         string
 		taken          []string
 		takenElsewhere []string
 		wantName       string
@@ -1038,9 +1025,8 @@ func TestUniqueAgentName(t *testing.T) {
 // in another.
 func TestNameTaken(t *testing.T) {
 	tests := []struct {
-		name  string
-		check string
-
+		name      string
+		check     string
 		elsewhere bool
 		want      bool
 	}{

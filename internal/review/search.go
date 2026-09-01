@@ -15,7 +15,6 @@ type span struct {
 // search is a pattern and the rows it matches, which is every row the cursor can rest on.
 type search struct {
 	pattern *regexp.Regexp
-
 	matches map[int][]span
 	// rows is every matching row in order, which is what stepping through matches walks and
 	// what counts them for the prompt.

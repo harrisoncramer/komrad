@@ -350,10 +350,8 @@ func TestAgentFields(t *testing.T) {
 	}
 
 	tests := []struct {
-		name string
-
-		schedule string
-
+		name       string
+		schedule   string
 		metadata   []agentstore.Metadata
 		wantLabels []string
 		wantValues []string

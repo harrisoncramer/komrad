@@ -144,12 +144,9 @@ func TestToolHints(t *testing.T) {
 // everything else can be left out.
 func TestInputSchema(t *testing.T) {
 	tests := []struct {
-		method string
-
-		wantFields map[string]map[string]any
-
-		wantNested map[string]map[string]map[string]any
-
+		method       string
+		wantFields   map[string]map[string]any
+		wantNested   map[string]map[string]map[string]any
 		wantRequired []string
 	}{
 		{

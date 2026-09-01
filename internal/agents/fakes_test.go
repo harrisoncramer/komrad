@@ -23,13 +23,11 @@ import (
 )
 
 type fakeTmux struct {
-	mu       sync.Mutex
-	owners   map[string]string
-	captures map[string]string
-
-	commands  map[string]string
-	clientDir string
-
+	mu             sync.Mutex
+	owners         map[string]string
+	captures       map[string]string
+	commands       map[string]string
+	clientDir      string
 	sent           map[string][][]string
 	globals        map[string]string
 	newWindows     map[string]string
@@ -612,7 +610,6 @@ func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state s
 // delete has, after it has read and killed the agents and before its own write commits.
 type writingPaneFirst struct {
 	*agentstore.Store
-
 	inTheGap func()
 }
 
@@ -626,7 +623,6 @@ func (s writingPaneFirst) Archive(ctx context.Context, ids []string) ([]agentsto
 // where the delete's own removal and a workflow archive's both are.
 type txWritingPaneFirst struct {
 	txRunner
-
 	inTheGap func()
 }
 

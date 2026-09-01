@@ -13,8 +13,7 @@ import (
 )
 
 type stores struct {
-	pool *store.Pool
-
+	pool        *store.Pool
 	agents      *agentstore.Store
 	workflows   *workflowstore.Store
 	schedules   *schedulestore.Store

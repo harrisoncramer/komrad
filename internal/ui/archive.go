@@ -54,6 +54,16 @@ func (m model) archiveHeaders() []workflowstore.Workflow {
 	return headers
 }
 
+func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
+	for _, agent := range m.archive.agents {
+		if agent.ID == id {
+			return agent, true
+		}
+	}
+
+	return agentstore.Agent{}, false
+}
+
 // hoveredArchiveKey is the row the cursor is on, read before a filter narrows the list under it.
 func (m model) hoveredArchiveKey() string {
 	return rowKeyAt(m.archiveRows(), m.archive.cursor)
@@ -331,6 +341,7 @@ func (m *model) stageArchive() {
 		m.stageDocument(emptyArchiveMarkdown)
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
+	case m.stageMatch(r.item.agent.ID):
 	default:
 		m.stageDocument(m.archiveDocument(r.item.agent))
 	}

@@ -1,3 +1,5 @@
+// Package storetest opens the stores over a throwaway database and seeds the rows a test needs,
+// so a test names the agent or workflow it is about rather than the columns.
 package storetest
 
 import (
@@ -21,8 +23,7 @@ import (
 )
 
 type Stores struct {
-	URL string
-
+	URL         string
 	ReadOnlyURL string
 	Pool        *store.Pool
 	Agents      *agentstore.Store

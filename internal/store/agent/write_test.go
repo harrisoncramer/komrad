@@ -17,9 +17,8 @@ import (
 // orphaning it behind a new id.
 func TestCreateAndUpdate(t *testing.T) {
 	tests := []struct {
-		name    string
-		initial Agent
-
+		name      string
+		initial   Agent
 		update    func(a *Agent)
 		wantCwd   string
 		wantFlags string
@@ -253,15 +252,12 @@ func TestDeleteTakesMetadata(t *testing.T) {
 // while a rename onto a name only an archived row holds is allowed.
 func TestRename(t *testing.T) {
 	tests := []struct {
-		name string
-
-		target string
-
+		name         string
+		target       string
 		archiveOther bool
 		to           string
 		wantErr      error
-
-		wantRenamed bool
+		wantRenamed  bool
 	}{
 		{
 			name:   "an id no agent holds touches nothing",
@@ -351,8 +347,7 @@ func TestRename(t *testing.T) {
 // whether the row survives to be restored later.
 func TestDelete(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name     string
 		hard     bool
 		wantLive int
 		wantAll  int

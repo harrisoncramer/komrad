@@ -1,3 +1,5 @@
+// Package forbidnilnil refuses a nil pointer returned with a nil error, since the caller has
+// been told nothing went wrong and is about to dereference it.
 package forbidnilnil
 
 import (

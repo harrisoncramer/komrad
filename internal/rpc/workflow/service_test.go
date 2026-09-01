@@ -258,9 +258,8 @@ func TestUpdateWorkflow(t *testing.T) {
 // belongs to a workflow and there is nowhere to leave one.
 func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
-		name   string
-		create bool
-
+		name      string
+		create    bool
 		scheduled bool
 		twice     bool
 		wantCode  connect.Code

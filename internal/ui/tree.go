@@ -10,18 +10,14 @@ import (
 
 type treeState struct {
 	rowCursor
-
-	placed bool
-
+	placed     bool
 	showHidden bool
 }
 
 type agentRow struct {
-	header bool
-	item   agentItem
-
-	workflow workflowstore.Workflow
-
+	header      bool
+	item        agentItem
+	workflow    workflowstore.Workflow
 	hiddenCount int
 }
 
@@ -186,6 +182,27 @@ type agentItem struct {
 	agent      agentstore.Agent
 	alive      bool
 	unreadMail bool
+}
+
+// displayState is the state a row wears, which is idle once the pane has gone even though the
+// store still holds whatever the agent stopped in.
+func displayState(item agentItem) string {
+	state := item.agent.State
+	if !item.alive && state != agentstore.StateSettingUp && !agentstore.IsFailed(state) {
+		return agentstore.StateIdle
+	}
+
+	return state
+}
+
+func (m model) liveAgent(id string) (agentItem, bool) {
+	for _, item := range m.listing.agents {
+		if item.agent.ID == id {
+			return item, true
+		}
+	}
+
+	return agentItem{}, false
 }
 
 func (m *model) applyWorkflows(fresh []workflowstore.Workflow) {

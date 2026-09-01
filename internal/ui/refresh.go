@@ -26,17 +26,13 @@ func refreshTick() tea.Cmd {
 }
 
 type refreshResult struct {
-	epoch int
-
-	agents    []agentItem
-	agentsErr error
-
-	workflows    []workflowstore.Workflow
-	workflowsErr error
-
-	schedules    []scheduleItem
-	schedulesErr error
-
+	epoch                int
+	agents               []agentItem
+	agentsErr            error
+	workflows            []workflowstore.Workflow
+	workflowsErr         error
+	schedules            []scheduleItem
+	schedulesErr         error
 	archived             []agentstore.Agent
 	archivedErr          error
 	archivedWorkflows    []workflowstore.Workflow
@@ -49,7 +45,7 @@ func (m model) refreshCmd() tea.Cmd {
 		return nil
 	}
 
-	clients, epoch, withArchive := m.api, m.epoch, m.screen == screenArchive
+	clients, epoch, withArchive := m.api, m.epoch, m.screen.spec().needsArchive
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
@@ -140,9 +136,8 @@ func (r refreshResult) err() error {
 }
 
 type writeResult struct {
-	summary string
-	err     error
-
+	summary   string
+	err       error
 	written   *written
 	setupPane bool
 }

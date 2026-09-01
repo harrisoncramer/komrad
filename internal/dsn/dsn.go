@@ -1,3 +1,5 @@
+// Package dsn takes the password out of a Postgres connection string, so the URL can be shown
+// in a log line, an error, or the doctor's report without carrying the secret with it.
 package dsn
 
 import (

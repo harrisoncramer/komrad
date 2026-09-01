@@ -1,3 +1,6 @@
+// Package agent stores the agents themselves: the row for each one, the state the reconciler
+// keeps up to date, the metadata an agent records about its own work, the tags a person puts on
+// a row, and whether it is archived or still on screen.
 package agent
 
 import (
@@ -27,17 +30,16 @@ func IsFailed(state string) bool {
 }
 
 type Agent struct {
-	ID             string
-	Name           string
-	Pane           string
-	Cwd            string
-	Flags          string
-	SetupAction    *string
-	CleanupAction  *string
-	Prompt         string
-	State          string
-	StateChangedAt time.Time
-
+	ID               string
+	Name             string
+	Pane             string
+	Cwd              string
+	Flags            string
+	SetupAction      *string
+	CleanupAction    *string
+	Prompt           string
+	State            string
+	StateChangedAt   time.Time
 	StateSeenAt      time.Time
 	Harness          string
 	SessionID        string
@@ -52,16 +54,13 @@ type Agent struct {
 	SpawnedByAgentID *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
-
-	Branch *string
+	Branch           *string
 
 	// AdoptedBranch is the branch an agent was put on rather than one weave made for it,
 	// so it is what was asked for where Branch is what the cwd is on now.
-	AdoptedBranch string
-
+	AdoptedBranch   string
 	WorktreeRemoved bool
-
-	InterruptedAt *time.Time
+	InterruptedAt   *time.Time
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.

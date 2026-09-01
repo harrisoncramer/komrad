@@ -16,16 +16,13 @@ import (
 // file, which belongs to the user so most cases are about not damaging it.
 func TestTrustLaunchDirs(t *testing.T) {
 	tests := []struct {
-		name string
-
-		enabled  bool
-		existing string
-		dir      string
-
+		name        string
+		enabled     bool
+		existing    string
+		dir         string
 		wantTrusted string
-
-		wantKept string
-		wantErr  string
+		wantKept    string
+		wantErr     string
 	}{
 		{
 			name:     "left off, the config is not touched and the agent meets the question itself",

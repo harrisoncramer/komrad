@@ -1,3 +1,5 @@
+// Package config is the settings the analyzers take from .golangci.yaml, which is how a rule is
+// turned off or pointed away from the files it does not apply to.
 package config
 
 type Config struct {
@@ -9,8 +11,7 @@ type Config struct {
 }
 
 type ContextTimeoutConfig struct {
-	Skip bool `json:"skip"`
-
+	Skip    bool     `json:"skip"`
 	Include []string `json:"include"`
 }
 
@@ -20,8 +21,7 @@ type CommentLengthConfig struct {
 }
 
 type CommentPrefixConfig struct {
-	Skip bool `json:"skip"`
-
+	Skip    bool `json:"skip"`
 	Require bool `json:"require"`
 }
 

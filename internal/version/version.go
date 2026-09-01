@@ -1,3 +1,5 @@
+// Package version reports which build this binary is, from the tag stamped in at link time or,
+// failing that, from the module information the toolchain left behind.
 package version
 
 import "runtime/debug"

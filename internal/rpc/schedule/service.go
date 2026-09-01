@@ -1,3 +1,5 @@
+// Package schedule serves the schedule RPCs, which create, edit, pause and remove the recurring
+// launches.
 package schedule
 
 import (

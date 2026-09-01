@@ -7,16 +7,13 @@ import (
 )
 
 type Frame struct {
-	tmux Tmux
-	spec Spec
-
+	tmux    Tmux
+	spec    Spec
 	sidebar string
 	stage   string
 	info    string
-
-	guest string
-
-	shown map[Region]shown
+	guest   string
+	shown   map[Region]shown
 }
 
 type shown struct {

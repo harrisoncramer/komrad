@@ -301,9 +301,8 @@ func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 // search still reaches it.
 func TestArchiveAgent(t *testing.T) {
 	tests := []struct {
-		name string
-		seed string
-
+		name      string
+		seed      string
 		missing   bool
 		wantErrIs error
 	}{
@@ -400,10 +399,9 @@ func TestDeleteKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 // index holds among live rows only and these agents are archived.
 func TestDeleteAgent(t *testing.T) {
 	tests := []struct {
-		name    string
-		archive bool
-		target  func(seeded agentstore.Agent) string
-
+		name           string
+		archive        bool
+		target         func(seeded agentstore.Agent) string
 		wantPaneKilled bool
 		wantErrIs      error
 	}{

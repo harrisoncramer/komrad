@@ -16,8 +16,7 @@ const (
 // token is one run of source text that shares a colour, with no background, since the same
 // line is drawn on a different one depending on the diff and the cursor.
 type token struct {
-	text string
-
+	text       string
 	foreground string
 }
 
@@ -27,8 +26,7 @@ type styledLine []token
 // highlighter lexes whole files, which is what keeps a multi-line string or block comment
 // coloured correctly where per-line lexing cannot.
 type highlighter struct {
-	style *chroma.Style
-
+	style  *chroma.Style
 	lexers map[string]chroma.Lexer
 }
 

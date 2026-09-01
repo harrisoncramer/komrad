@@ -12,12 +12,9 @@ import (
 // idle agent does not, since nothing will move it and the schedule would block for good.
 func TestCountLiveForSchedule(t *testing.T) {
 	tests := []struct {
-		name string
-
-		states []string
-
-		archive bool
-
+		name          string
+		states        []string
+		archive       bool
 		lookElsewhere bool
 		want          int64
 	}{
@@ -92,8 +89,7 @@ func TestCountLiveForSchedule(t *testing.T) {
 // holds contributes to whatever its state and whether or not it is shown.
 func TestCountLive(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name    string
 		states  []string
 		hide    bool
 		archive bool

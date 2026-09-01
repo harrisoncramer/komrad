@@ -1,3 +1,10 @@
+// Package weavetest runs a whole weave in a test: its own database, its own tmux server, and a
+// service over both, with the loops driven by hand rather than by the clock.
+//
+// The behaviour worth testing here is the wiring between config, the service, tmux and a
+// spawned CLI, and that is exactly what a unit test with fakes on both sides cannot reach. An
+// instance lets a test launch an agent for real, make its harness look busy, run one pass of
+// the reconciler, and then ask what was written and what was typed into the pane.
 package weavetest
 
 import (
@@ -37,34 +44,25 @@ import (
 const settleTimeout = 10 * time.Second
 
 type Instance struct {
-	t *testing.T
-
-	Agents    agentv1connect.AgentServiceClient
-	Workflows workflowv1connect.WorkflowServiceClient
-	Schedules schedulev1connect.ScheduleServiceClient
-	Actions   actionv1connect.ActionServiceClient
-	Config    configv1connect.ConfigServiceClient
-
-	Harness *harnesstest.Harness
-
-	Tmux *tmuxtest.Server
-
-	Stores *storetest.Stores
-
+	t             *testing.T
+	Agents        agentv1connect.AgentServiceClient
+	Workflows     workflowv1connect.WorkflowServiceClient
+	Schedules     schedulev1connect.ScheduleServiceClient
+	Actions       actionv1connect.ActionServiceClient
+	Config        configv1connect.ConfigServiceClient
+	Harness       *harnesstest.Harness
+	Tmux          *tmuxtest.Server
+	Stores        *storetest.Stores
 	GetActionsDir string
-
-	URL string
-
-	server  *server.Server
-	working bool
+	URL           string
+	server        *server.Server
+	working       bool
 }
 
 type Params struct {
-	MaxAgents int
-
+	MaxAgents        int
 	DeliveryDeadline string
-
-	WorktreesDir string
+	WorktreesDir     string
 }
 
 // Start builds the service and returns it running, torn down when the test ends.

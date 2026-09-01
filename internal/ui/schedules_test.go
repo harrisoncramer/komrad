@@ -30,10 +30,8 @@ func TestScheduleKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
 	tests := []struct {
-		name string
-
-		empty bool
-
+		name         string
+		empty        bool
 		noWorkflows  bool
 		key          string
 		wantScreen   screen
@@ -484,13 +482,11 @@ func scheduleModel(client schedulev1connect.ScheduleServiceClient, keys config.K
 	return model{
 		api:  api{schedules: client},
 		tmux: tmux,
-
 		listing: listing{workflows: []workflowstore.Workflow{{
 			ID:   "w1",
 			Name: "api",
 			Cwd:  "/work/api",
 		}}},
-
 		popup:  NewPopupWindow(tmux, "test-session"),
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   keys,

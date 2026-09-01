@@ -38,8 +38,7 @@ func SessionFromEnv(value string) string {
 
 type Host struct {
 	manager *Client
-
-	pane string
+	pane    string
 }
 
 // NewHost returns a Host that finds the user's server through the manager's, reading tmuxEnv

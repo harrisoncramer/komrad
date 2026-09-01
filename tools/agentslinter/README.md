@@ -20,13 +20,22 @@ says which of the two happened. It is held to pointers, where nil carries no mea
 of its own, rather than to a nil map or slice that already reads as empty.
 
 `comment_length` flags any comment that runs to more than one sentence, so a
-comment says one thing rather than narrating the change that made it. A comment
-that genuinely needs the room sets that reasoning aside in a paragraph starting
-`Explainer:`. That prefix is for the free paragraphs standing on their own in a
-file, such as a package doc; a doc comment on a declaration is held to its one
-sentence whatever it starts with, and using the prefix there is its own finding. Whole files
-are left alone by listing path patterns under `exclude`, which are unanchored
-regexps matched against the file path.
+comment says one thing rather than narrating the change that made it. A free
+paragraph standing on its own in a file may run long if it sets that reasoning
+aside behind an `Explainer:` prefix. A doc comment on a declaration is held to its
+one sentence whatever it starts with, and using the prefix there is its own
+finding.
+
+The package comment is the exception and has no length limit at all. It is the one
+place a package gets to explain what it is for, and it is what a reader meets first
+on pkg.go.dev, so it is meant to run to paragraphs. For the same reason it may not
+use the `Explainer:` prefix, which would be published as part of the documentation
+rather than read as a marker. Every non-main package has to have one, which
+staticcheck's `ST1000` enforces. Where the comment outgrows the top of the file it
+lives in, move it to a `doc.go` holding nothing else, as `internal/agents` does.
+
+Whole files are left alone by listing path patterns under `exclude`, which are
+unanchored regexps matched against the file path.
 
 `context_timeout` flags a `context.Background` or `context.TODO` that is not immediately
 bounded by `context.WithTimeout`, and a timeout written inline rather than named by a
