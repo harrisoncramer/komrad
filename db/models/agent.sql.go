@@ -1280,56 +1280,119 @@ func (q *Queries) RestoreAgents(ctx context.Context, ids []string) error {
 }
 
 const searchTranscripts = `-- name: SearchTranscripts :many
-WITH q AS (
+WITH parsed AS (
     SELECT
-        WEBSEARCH_TO_TSQUERY('english', $2) AS query
+        WEBSEARCH_TO_TSQUERY('english', $5) AS query,
+        $6::text[] AS terms,
+        $7::float8 AS weight,
+        $8::text[] AS patterns,
+        $9::text[] AS excluded
+),
+q AS (
+    SELECT
+        query,
+        terms,
+        weight,
+        patterns,
+        excluded,
+        NOT (''::tsvector @@ query) AS positive
+    FROM
+        parsed
+),
+matched AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content,
+        c.content_offset,
+        c.tsv,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        q.query,
+        q.terms,
+        q.weight,
+        q.positive
+        AND c.tsv @@ q.query AS word_match
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE (q.positive
+        AND c.tsv @@ q.query
+        OR (CARDINALITY(q.terms) > 0
+            AND c.content ILIKE ALL (q.patterns)
+            AND NOT (c.content ILIKE ANY (q.excluded))))
+    AND ($10::uuid IS NULL
+        OR c.agent_id = $10)
+),
+ranked AS (
+    SELECT
+        m.agent_id,
+        m.seq,
+        m.role,
+        m.content_offset,
+        m.name,
+        m.archived,
+        m.word_match,
+        CASE WHEN m.word_match THEN
+            TS_HEADLINE('english', m.content, m.query, $11)
+        ELSE
+            SUBSTRING(m.content FROM GREATEST(1,(
+                        SELECT
+                            MIN(POSITION(LOWER(t) IN LOWER(m.content)))
+                        FROM UNNEST(m.terms) t
+                        WHERE
+                            POSITION(LOWER(t) IN LOWER(m.content)) > 0) - $12::int)
+                    FOR $13::int)
+        END::text AS snippet,
+        CASE WHEN m.word_match THEN
+            TS_RANK_CD(m.tsv, m.query, 32)
+        ELSE
+            m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
+        END::float8 AS rank
+    FROM
+        matched m
 )
 SELECT
-    c.agent_id,
-    c.seq,
-    c.role,
-    c.content_offset,
-    a.name,
-(a.archived_at IS NOT NULL)::boolean AS archived,
-    CASE WHEN c.tsv @@ q.query THEN
-        TS_HEADLINE('english', c.content, q.query, $1)
-    ELSE
-        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER($2) IN LOWER(c.content)) - $3::int)
-            FOR $4::int)
-    END::text AS snippet,
-    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.word_match::boolean AS word_match,
+    r.snippet,
+    r.rank
 FROM
-    agent_transcript_chunks c
-    CROSS JOIN q
-    JOIN agents a ON a.id = c.agent_id
-WHERE (c.tsv @@ q.query
-    OR c.content ILIKE $5)
-AND ($6::uuid IS NULL
-    OR c.agent_id = $6)
-AND ($7::float8 IS NULL
-    OR TS_RANK_CD(c.tsv, q.query) < $7
-    OR (TS_RANK_CD(c.tsv, q.query) = $7
-        AND (c.agent_id,
-            c.seq) >($8::uuid,
-            $9::int)))
+    ranked r
+WHERE ($1::float8 IS NULL
+    OR r.rank < $1
+    OR (r.rank = $1
+        AND (r.agent_id,
+            r.seq) >($2::uuid,
+            $3::int)))
 ORDER BY
-    rank DESC,
-    c.agent_id ASC,
-    c.seq ASC
-LIMIT $10
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
+LIMIT $4
 `
 
 type SearchTranscriptsParams struct {
-	Headline      string
-	Query         string
-	Lead          int32
-	Width         int32
-	Pattern       string
-	AgentID       *string
-	CursorRank    *float64
-	CursorAgentID *string
-	CursorSeq     *int32
-	Lim           int32
+	CursorRank      *float64
+	CursorAgentID   *string
+	CursorSeq       *int32
+	Lim             int32
+	Query           string
+	Terms           []string
+	SubstringWeight float64
+	Patterns        []string
+	Excluded        []string
+	AgentID         *string
+	Headline        string
+	Lead            int32
+	Width           int32
 }
 
 type SearchTranscriptsRow struct {
@@ -1339,22 +1402,26 @@ type SearchTranscriptsRow struct {
 	ContentOffset int64
 	Name          string
 	Archived      bool
+	WordMatch     bool
 	Snippet       string
 	Rank          float64
 }
 
 func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsParams) ([]*SearchTranscriptsRow, error) {
 	rows, err := q.db.Query(ctx, searchTranscripts,
-		arg.Headline,
-		arg.Query,
-		arg.Lead,
-		arg.Width,
-		arg.Pattern,
-		arg.AgentID,
 		arg.CursorRank,
 		arg.CursorAgentID,
 		arg.CursorSeq,
 		arg.Lim,
+		arg.Query,
+		arg.Terms,
+		arg.SubstringWeight,
+		arg.Patterns,
+		arg.Excluded,
+		arg.AgentID,
+		arg.Headline,
+		arg.Lead,
+		arg.Width,
 	)
 	if err != nil {
 		return nil, err
@@ -1370,6 +1437,7 @@ func (q *Queries) SearchTranscripts(ctx context.Context, arg SearchTranscriptsPa
 			&i.ContentOffset,
 			&i.Name,
 			&i.Archived,
+			&i.WordMatch,
 			&i.Snippet,
 			&i.Rank,
 		); err != nil {

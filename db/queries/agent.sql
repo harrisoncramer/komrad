@@ -544,42 +544,102 @@ VALUES (
     @content_offset);
 
 -- name: SearchTranscripts :many
-WITH q AS (
+WITH parsed AS (
     SELECT
-        WEBSEARCH_TO_TSQUERY('english', @query) AS query
+        WEBSEARCH_TO_TSQUERY('english', @query) AS query,
+        @terms::text[] AS terms,
+        @substring_weight::float8 AS weight,
+        @patterns::text[] AS patterns,
+        @excluded::text[] AS excluded
+),
+q AS (
+    SELECT
+        query,
+        terms,
+        weight,
+        patterns,
+        excluded,
+        NOT (''::tsvector @@ query) AS positive
+    FROM
+        parsed
+),
+matched AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content,
+        c.content_offset,
+        c.tsv,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        q.query,
+        q.terms,
+        q.weight,
+        q.positive
+        AND c.tsv @@ q.query AS word_match
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE (q.positive
+        AND c.tsv @@ q.query
+        OR (CARDINALITY(q.terms) > 0
+            AND c.content ILIKE ALL (q.patterns)
+            AND NOT (c.content ILIKE ANY (q.excluded))))
+    AND (sqlc.narg('agent_id')::uuid IS NULL
+        OR c.agent_id = sqlc.narg('agent_id'))
+),
+ranked AS (
+    SELECT
+        m.agent_id,
+        m.seq,
+        m.role,
+        m.content_offset,
+        m.name,
+        m.archived,
+        m.word_match,
+        CASE WHEN m.word_match THEN
+            TS_HEADLINE('english', m.content, m.query, @headline)
+        ELSE
+            SUBSTRING(m.content FROM GREATEST(1,(
+                        SELECT
+                            MIN(POSITION(LOWER(t) IN LOWER(m.content)))
+                        FROM UNNEST(m.terms) t
+                        WHERE
+                            POSITION(LOWER(t) IN LOWER(m.content)) > 0) - @lead::int)
+                    FOR @width::int)
+        END::text AS snippet,
+        CASE WHEN m.word_match THEN
+            TS_RANK_CD(m.tsv, m.query, 32)
+        ELSE
+            m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
+        END::float8 AS rank
+    FROM
+        matched m
 )
 SELECT
-    c.agent_id,
-    c.seq,
-    c.role,
-    c.content_offset,
-    a.name,
-(a.archived_at IS NOT NULL)::boolean AS archived,
-    CASE WHEN c.tsv @@ q.query THEN
-        TS_HEADLINE('english', c.content, q.query, @headline)
-    ELSE
-        SUBSTRING(c.content FROM greatest(1, POSITION(LOWER(@query) IN LOWER(c.content)) - @lead::int)
-            FOR @width::int)
-    END::text AS snippet,
-    TS_RANK_CD(c.tsv, q.query)::float8 AS rank
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.word_match::boolean AS word_match,
+    r.snippet,
+    r.rank
 FROM
-    agent_transcript_chunks c
-    CROSS JOIN q
-    JOIN agents a ON a.id = c.agent_id
-WHERE (c.tsv @@ q.query
-    OR c.content ILIKE @pattern)
-AND (sqlc.narg('agent_id')::uuid IS NULL
-    OR c.agent_id = sqlc.narg('agent_id'))
-AND (sqlc.narg('cursor_rank')::float8 IS NULL
-    OR TS_RANK_CD(c.tsv, q.query) < sqlc.narg('cursor_rank')
-    OR (TS_RANK_CD(c.tsv, q.query) = sqlc.narg('cursor_rank')
-        AND (c.agent_id,
-            c.seq) >(sqlc.narg('cursor_agent_id')::uuid,
+    ranked r
+WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
+    OR r.rank < sqlc.narg('cursor_rank')
+    OR (r.rank = sqlc.narg('cursor_rank')
+        AND (r.agent_id,
+            r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
             sqlc.narg('cursor_seq')::int)))
 ORDER BY
-    rank DESC,
-    c.agent_id ASC,
-    c.seq ASC
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
 LIMIT @lim;
 
 -- name: CountLiveScheduleAgents :one

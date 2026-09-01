@@ -44,6 +44,11 @@ const (
 
 const defaultSearchLimit = 50
 
+// substringRankWeight scores a substring hit as a fraction of one mention of the word, which
+// is the 0.1 ts_rank_cd gives a single occurrence, so the two kinds of hit sort among each
+// other rather than every substring hit landing behind every word match.
+const substringRankWeight = 0.1
+
 type Store struct {
 	queries *models.Queries
 }
@@ -178,11 +183,14 @@ type SearchParams struct {
 }
 
 // Search returns one page of the turns matching the query, most relevant first, where a word
-// match arrives already marked by the database and a substring fallback ranks zero and is
-// marked here.
+// match arrives already marked by the database, a substring match is marked here, and a query
+// asking only for words to leave out is answered with nothing rather than with every turn it
+// technically matches.
 func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, error) {
 	query := strings.ReplaceAll(params.Query, "\x00", "")
-	if strings.TrimSpace(query) == "" {
+
+	terms := splitTerms(query)
+	if len(terms.positive) == 0 {
 		return nil, nil
 	}
 
@@ -196,13 +204,16 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	}
 
 	args := models.SearchTranscriptsParams{
-		Query:    query,
-		Headline: headlineOptions,
-		Pattern:  likePattern(query),
-		Lead:     snippetLead,
-		Width:    snippetWidth,
-		Lim:      int32(limit),
-		AgentID:  params.AgentID,
+		Query:           query,
+		Terms:           terms.positive,
+		SubstringWeight: substringRankWeight,
+		Patterns:        likePatterns(terms.positive),
+		Excluded:        likePatterns(terms.negative),
+		Headline:        headlineOptions,
+		Lead:            snippetLead,
+		Width:           snippetWidth,
+		Lim:             int32(limit),
+		AgentID:         params.AgentID,
 	}
 	if params.Cursor != nil {
 		args.CursorRank = &params.Cursor.Rank
@@ -217,8 +228,8 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 
 	hits := xslice.Map(rows, func(row *models.SearchTranscriptsRow) SearchHit {
 		snippet := row.Snippet
-		if row.Rank == 0 {
-			snippet = markMatches(snippet, query)
+		if !row.WordMatch {
+			snippet = markMatches(snippet, terms.positive)
 		}
 
 		return SearchHit{
@@ -236,22 +247,81 @@ func (s *Store) Search(ctx context.Context, params SearchParams) ([]SearchHit, e
 	return hits, nil
 }
 
+type queryTerms struct {
+	positive []string
+	negative []string
+}
+
+// splitTerms reads the words a query is asking for out of its websearch syntax, since the
+// substring fallback matches text as it was typed and would otherwise look for the operators
+// themselves.
+func splitTerms(query string) queryTerms {
+	var (
+		terms  queryTerms
+		tokens []string
+		token  strings.Builder
+		quoted bool
+	)
+
+	flush := func() {
+		if token.Len() > 0 {
+			tokens = append(tokens, token.String())
+			token.Reset()
+		}
+	}
+	for _, r := range query {
+		switch {
+		case r == '"':
+			quoted = !quoted
+		case unicode.IsSpace(r) && !quoted:
+			flush()
+		default:
+			token.WriteRune(r)
+		}
+	}
+	flush()
+
+	for _, tok := range tokens {
+		if strings.EqualFold(tok, "or") {
+			continue
+		}
+
+		term, negated := strings.CutPrefix(tok, "-")
+		if term == "" {
+			continue
+		}
+		if negated {
+			terms.negative = append(terms.negative, term)
+			continue
+		}
+
+		terms.positive = append(terms.positive, term)
+	}
+
+	return terms
+}
+
+func likePatterns(terms []string) []string {
+	patterns := make([]string, 0, len(terms))
+	for _, term := range terms {
+		patterns = append(patterns, likePattern(term))
+	}
+
+	return patterns
+}
+
 func likePattern(query string) string {
 	escaped := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(query)
 	return "%" + escaped + "%"
 }
 
-func markMatches(snippet, query string) string {
-	if query == "" {
-		return snippet
-	}
-
+func markMatches(snippet string, terms []string) string {
 	var (
 		out strings.Builder
 		at  int
 	)
 	for at < len(snippet) {
-		start, end, ok := foldIndex(snippet[at:], query)
+		start, end, ok := firstMatch(snippet[at:], terms)
 		if !ok {
 			break
 		}
@@ -265,6 +335,29 @@ func markMatches(snippet, query string) string {
 	out.WriteString(snippet[at:])
 
 	return out.String()
+}
+
+// firstMatch returns the earliest occurrence of any term, preferring the longest where two
+// start at the same place, so overlapping terms are marked once rather than nested.
+func firstMatch(hay string, terms []string) (int, int, bool) {
+	found := false
+
+	var bestStart, bestEnd int
+	for _, term := range terms {
+		if term == "" {
+			continue
+		}
+
+		start, end, ok := foldIndex(hay, term)
+		if !ok {
+			continue
+		}
+		if !found || start < bestStart || (start == bestStart && end > bestEnd) {
+			found, bestStart, bestEnd = true, start, end
+		}
+	}
+
+	return bestStart, bestEnd, found
 }
 
 func foldIndex(hay, needle string) (int, int, bool) {

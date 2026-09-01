@@ -158,6 +158,33 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
+			name:     "a bare exclusion matches nothing rather than everything",
+			content:  "alpha beta gamma",
+			other:    "delta epsilon",
+			query:    "-zeta",
+			wantHits: 0,
+		},
+		{
+			name:     "an exclusion beside a stopword still excludes",
+			content:  "the reconciler notes",
+			other:    "the zeta notes",
+			query:    "the -zeta",
+			wantHits: 1,
+		},
+		{
+			name:     "an exclusion does not leak into the substring fallback",
+			content:  "the pgxpool wrapper",
+			other:    "the pgxpool sqlite wrapper",
+			query:    "pgxp -sqlite",
+			wantHits: 1,
+		},
+		{
+			name:     "quotes do not leak into the substring fallback",
+			content:  "the pgxpoolwrapper thing",
+			query:    `"pgxpoolwrap"`,
+			wantHits: 1,
+		},
+		{
 			name:         "an archived agent is still findable",
 			content:      "an agent that mentions postgres then is archived",
 			archive:      true,
@@ -364,6 +391,28 @@ func TestSearchPages(t *testing.T) {
 			wantCount: 2,
 		},
 		{
+			name: "a close substring hit outranks a scattered word match",
+			seeds: []seed{
+				{name: "partial", content: "the pgxpool tuning notes"},
+				{name: "scattered", content: "pgx is mentioned here and pool comes up much later after many other unrelated words"},
+			},
+			query:     "pgx pool",
+			limit:     10,
+			wantNames: []string{"partial", "scattered"},
+			wantCount: 2,
+		},
+		{
+			name: "a cursor walks a set that mixes word and substring hits",
+			seeds: []seed{
+				{name: "a", content: "shared term here"},
+				{name: "b", content: "sharedterm here"},
+				{name: "c", content: "shared term here"},
+			},
+			query:     "shared",
+			limit:     1,
+			wantCount: 3,
+		},
+		{
 			name: "a cursor walks the whole set one hit at a time",
 			seeds: []seed{
 				{name: "a", content: "shared term here"},
@@ -424,6 +473,41 @@ func TestSearchPages(t *testing.T) {
 	}
 }
 
+// TestSearchReachesSubstringHits pins that a substring hit shares a page with the word
+// matches it scores alongside, since the panel asks for ten and a hit sorted behind every
+// word match is one nobody sees.
+func TestSearchReachesSubstringHits(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	glued := seedAgent(t, st, "glued")
+	seedTranscript(t, st, glued, "it lives in /state/weave/worktree/01a0 today")
+
+	for _, name := range []string{"one", "two", "three", "four"} {
+		seedTranscript(t, st, seedAgent(t, st, name), "the worktree is checked out for "+name)
+	}
+
+	hits, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2})
+	require.NoError(t, err)
+	require.Len(t, hits, 2)
+	assert.Contains(t, agentIDs(hits), glued, "the substring hit is on the first page")
+}
+
+// TestSearchScoresSubstringHits pins that a hit found only by substring carries a score of
+// its own, since a zero sorts it behind every word match and off the page.
+func TestSearchScoresSubstringHits(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	id := seedAgent(t, st, "partial")
+	seedTranscript(t, st, id, "the pgxpool wrapper")
+
+	hits, err := st.Search(ctx, SearchParams{Query: "pgxp", Limit: 10})
+	require.NoError(t, err)
+	require.Len(t, hits, 1)
+	assert.Positive(t, hits[0].Rank, "a substring hit scores rather than ranking zero")
+}
+
 // TestMarkMatches covers the marking a substring-only hit gets on this side,
 // where the offsets of the match have to be offsets into the snippet the caller
 // is handed back.
@@ -431,62 +515,142 @@ func TestMarkMatches(t *testing.T) {
 	tests := []struct {
 		name    string
 		snippet string
-		query   string
+		terms   []string
 		want    string
 	}{
 		{
 			name:    "an occurrence is wrapped",
 			snippet: "talking about postgres today",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "talking about " + SnippetOpen + "postgres" + SnippetClose + " today",
 		},
 		{
 			name:    "every occurrence is wrapped",
 			snippet: "postgres and postgres",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    SnippetOpen + "postgres" + SnippetClose + " and " + SnippetOpen + "postgres" + SnippetClose,
 		},
 		{
 			name:    "a match of another case keeps the casing the snippet had",
 			snippet: "talking about Postgres today",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "talking about " + SnippetOpen + "Postgres" + SnippetClose + " today",
 		},
 		{
 			name:    "a window cut mid-match is left unmarked",
 			snippet: "talking about postg",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "talking about postg",
 		},
 		{
 			name:    "a query that folds to fewer bytes marks only the bytes it matched",
 			snippet: "ok",
-			query:   "K",
+			terms:   []string{"K"},
 			want:    "o" + SnippetOpen + "k" + SnippetClose,
 		},
 		{
 			name:    "a query that folds to more bytes marks only the bytes it matched",
 			snippet: "bitİ",
-			query:   "tİ",
+			terms:   []string{"tİ"},
 			want:    "bi" + SnippetOpen + "tİ" + SnippetClose,
+		},
+		{
+			name:    "several terms are each wrapped where they fall",
+			snippet: "the pgxpool tuning notes",
+			terms:   []string{"pool", "tuning"},
+			want: "the pgx" + SnippetOpen + "pool" + SnippetClose + " " +
+				SnippetOpen + "tuning" + SnippetClose + " notes",
+		},
+		{
+			name:    "overlapping terms are marked once, the longer of the two",
+			snippet: "the pgxpool wrapper",
+			terms:   []string{"pgx", "pgxpool"},
+			want:    "the " + SnippetOpen + "pgxpool" + SnippetClose + " wrapper",
 		},
 		{
 			name:    "a snippet with no occurrence is returned as it stands",
 			snippet: "nothing to see",
-			query:   "postgres",
+			terms:   []string{"postgres"},
 			want:    "nothing to see",
 		},
 		{
 			name:    "an empty query marks nothing",
 			snippet: "nothing to see",
-			query:   "",
+			terms:   nil,
 			want:    "nothing to see",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, markMatches(tt.snippet, tt.query))
+			assert.Equal(t, tt.want, markMatches(tt.snippet, tt.terms))
+		})
+	}
+}
+
+// TestSplitTerms covers the words pulled out of a query for the substring fallback, which
+// matches text as it was typed and so has to be handed the terms rather than the operators.
+func TestSplitTerms(t *testing.T) {
+	tests := []struct {
+		name  string
+		query string
+
+		wantPositive []string
+		wantNegative []string
+	}{
+		{
+			name:         "plain words are all positive",
+			query:        "reconciler markers",
+			wantPositive: []string{"reconciler", "markers"},
+		},
+		{
+			name:         "a minus marks the word behind it as excluded",
+			query:        "postgres -sqlite",
+			wantPositive: []string{"postgres"},
+			wantNegative: []string{"sqlite"},
+		},
+		{
+			name:         "quotes are stripped, and a phrase stays one term",
+			query:        `"derives markers" pane`,
+			wantPositive: []string{"derives markers", "pane"},
+		},
+		{
+			name:         "an excluded phrase keeps its words together",
+			query:        `pane -"derives markers"`,
+			wantPositive: []string{"pane"},
+			wantNegative: []string{"derives markers"},
+		},
+		{
+			name:         "the or operator is not a word being searched for",
+			query:        "pane or marker",
+			wantPositive: []string{"pane", "marker"},
+		},
+		{
+			name:  "a query of nothing but an exclusion asks for no words at all",
+			query: "-zeta",
+
+			wantNegative: []string{"zeta"},
+		},
+		{
+			name:  "blank space is no query at all",
+			query: "   ",
+		},
+		{
+			name:  "a bare minus asks for nothing",
+			query: "-",
+		},
+		{
+			name:         "a minus inside a word is part of it",
+			query:        "well-known",
+			wantPositive: []string{"well-known"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := splitTerms(tt.query)
+			assert.Equal(t, tt.wantPositive, got.positive)
+			assert.Equal(t, tt.wantNegative, got.negative)
 		})
 	}
 }
