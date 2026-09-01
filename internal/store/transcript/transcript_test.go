@@ -185,6 +185,19 @@ func TestSearch(t *testing.T) {
 			wantHits: 1,
 		},
 		{
+			name:     "a flag name is a search rather than an exclusion",
+			content:  "the config file lives at ~/.config/weave/config.toml",
+			query:    "--config",
+			wantHits: 1,
+		},
+		{
+			name:     "an or between partial words still needs both, since the fallback is a conjunction",
+			content:  "the pgxpool discusses postgres",
+			other:    "the pgxpool wrapper",
+			query:    "pgxp or ostgr",
+			wantHits: 1,
+		},
+		{
 			name:         "an archived agent is still findable",
 			content:      "an agent that mentions postgres then is archived",
 			archive:      true,
@@ -473,10 +486,10 @@ func TestSearchPages(t *testing.T) {
 	}
 }
 
-// TestSearchReachesSubstringHits pins that a substring hit shares a page with the word
-// matches it scores alongside, since the panel asks for ten and a hit sorted behind every
-// word match is one nobody sees.
-func TestSearchReachesSubstringHits(t *testing.T) {
+// TestSearchSortsSubstringHitsAmongWordHits pins that a substring hit sorts into the band of
+// turns mentioning the word once rather than behind every word match, which is where scoring
+// it zero used to put it.
+func TestSearchSortsSubstringHitsAmongWordHits(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
@@ -490,7 +503,7 @@ func TestSearchReachesSubstringHits(t *testing.T) {
 	hits, err := st.Search(ctx, SearchParams{Query: "worktree", Limit: 2})
 	require.NoError(t, err)
 	require.Len(t, hits, 2)
-	assert.Contains(t, agentIDs(hits), glued, "the substring hit is on the first page")
+	assert.Contains(t, agentIDs(hits), glued, "the substring hit outranks a single mention")
 }
 
 // TestSearchScoresSubstringHits pins that a hit found only by substring carries a score of
@@ -626,6 +639,11 @@ func TestSplitTerms(t *testing.T) {
 			wantPositive: []string{"pane", "marker"},
 		},
 		{
+			name:         "a quoted or is a word rather than the operator",
+			query:        `pane "or" marker`,
+			wantPositive: []string{"pane", "or", "marker"},
+		},
+		{
 			name:  "a query of nothing but an exclusion asks for no words at all",
 			query: "-zeta",
 
@@ -643,6 +661,27 @@ func TestSplitTerms(t *testing.T) {
 			name:         "a minus inside a word is part of it",
 			query:        "well-known",
 			wantPositive: []string{"well-known"},
+		},
+		{
+			name:         "a doubled minus cancels itself, the way the tsquery reads it",
+			query:        "--config",
+			wantPositive: []string{"config"},
+		},
+		{
+			name:         "a third minus excludes again",
+			query:        "---config",
+			wantNegative: []string{"config"},
+		},
+		{
+			name:         "a quoted minus is part of the word rather than an exclusion",
+			query:        `"-config"`,
+			wantPositive: []string{"-config"},
+		},
+		{
+			name:         "a quoted phrase behind a minus is still excluded",
+			query:        `pane -"derives markers"`,
+			wantPositive: []string{"pane"},
+			wantNegative: []string{"derives markers"},
 		},
 	}
 

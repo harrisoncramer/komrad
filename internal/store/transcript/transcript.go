@@ -44,9 +44,9 @@ const (
 
 const defaultSearchLimit = 50
 
-// substringRankWeight scores a substring hit as a fraction of one mention of the word, which
-// is the 0.1 ts_rank_cd gives a single occurrence, so the two kinds of hit sort among each
-// other rather than every substring hit landing behind every word match.
+// substringRankWeight scales a substring hit by the 0.1 ts_rank_cd scores one occurrence of a
+// word at before normalisation, which lands a perfect substring hit beside the turns that
+// mention the word once rather than behind every word match there is.
 const substringRankWeight = 0.1
 
 type Store struct {
@@ -254,49 +254,44 @@ type queryTerms struct {
 
 // splitTerms reads the words a query is asking for out of its websearch syntax, since the
 // substring fallback matches text as it was typed and would otherwise look for the operators
-// themselves.
+// themselves, where a minus only excludes the word behind it when it is typed outside the
+// quotes and not cancelled by another minus.
 func splitTerms(query string) queryTerms {
 	var (
-		terms  queryTerms
-		tokens []string
-		token  strings.Builder
-		quoted bool
+		terms    queryTerms
+		text     strings.Builder
+		quoted   bool
+		hadQuote bool
+		negated  bool
 	)
 
 	flush := func() {
-		if token.Len() > 0 {
-			tokens = append(tokens, token.String())
-			token.Reset()
+		term := text.String()
+		switch {
+		case term == "":
+		case negated:
+			terms.negative = append(terms.negative, term)
+		case !hadQuote && strings.EqualFold(term, "or"):
+		default:
+			terms.positive = append(terms.positive, term)
 		}
+
+		text.Reset()
+		quoted, hadQuote, negated = false, false, false
 	}
 	for _, r := range query {
 		switch {
 		case r == '"':
-			quoted = !quoted
+			quoted, hadQuote = !quoted, true
 		case unicode.IsSpace(r) && !quoted:
 			flush()
+		case r == '-' && !quoted && text.Len() == 0:
+			negated = !negated
 		default:
-			token.WriteRune(r)
+			text.WriteRune(r)
 		}
 	}
 	flush()
-
-	for _, tok := range tokens {
-		if strings.EqualFold(tok, "or") {
-			continue
-		}
-
-		term, negated := strings.CutPrefix(tok, "-")
-		if term == "" {
-			continue
-		}
-		if negated {
-			terms.negative = append(terms.negative, term)
-			continue
-		}
-
-		terms.positive = append(terms.positive, term)
-	}
 
 	return terms
 }
