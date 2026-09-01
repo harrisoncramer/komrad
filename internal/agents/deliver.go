@@ -148,8 +148,8 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 	return DeliverySoon, nil
 }
 
-// canPaneTakeKeys reports whether the pane is showing the harness's own idle prompt, which is
-// the only frame seen to take both the line and the newline that submits it.
+// canPaneTakeKeys reports whether the pane is showing the harness's own empty idle prompt,
+// which is the only frame seen to take both the line and the newline that submits it.
 func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
 	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
@@ -159,7 +159,9 @@ func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
 	}
 
 	// A CLI still starting up holds the line in the terminal buffer but loses the newline, so
-	// the line sits in the prompt unsent until the retry.
+	// the line sits in the prompt unsent until the retry, and a prompt already holding typed
+	// text is not idle either, since the newline would send whatever somebody was halfway
+	// through writing along with the nudge.
 	return hn.ReadActivity(s.paneTyper.CapturePane(agent.Pane)) == harness.ActivityIdle
 }
 

@@ -37,11 +37,17 @@ func ghostSlot(row, text string, width int) string {
 }
 
 // ghostText is what the slot says about an agent, which for now is how long it has been in the
-// state it is in.
+// state it is in, blank under a minute since a count of seconds redraws on every tick and says
+// nothing a row's own state does not already.
 func ghostText(item agentItem) string {
 	if item.agent.StateChangedAt.IsZero() {
 		return ""
 	}
 
-	return dates.Elapsed(time.Since(item.agent.StateChangedAt))
+	held := time.Since(item.agent.StateChangedAt)
+	if held < time.Minute {
+		return ""
+	}
+
+	return dates.Elapsed(held)
 }

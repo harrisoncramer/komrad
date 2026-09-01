@@ -9,20 +9,29 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// A placeholder Codex draws in an empty composer is dim, and a frame is captured with its
+// colours, so the escapes are part of what a fixture has to carry.
+const (
+	dimOn  = "\x1b[2m"
+	dimOff = "\x1b[0m"
+)
+
+const composerHint = dimOn + "Improve documentation in @filename" + dimOff
+
 const idleFrame = "• ls returned no files. Total: 0.\n" +
 	"────────────────────────────────────────\n" +
 	"\n" +
-	"› Improve documentation in @filename\n" +
+	"› " + composerHint + "\n" +
 	"\n" +
 	"  gpt-5.6-sol default fast · /repo/worktree"
 
-const composerTail = "\n\n› Improve documentation in @filename\n\n  gpt-5.6-sol default fast · /repo/worktree"
+const composerTail = "\n\n› " + composerHint + "\n\n  gpt-5.6-sol default fast · /repo/worktree"
 
 const workingFrame = "› list the files in this directory\n" +
 	"\n" +
 	"• Working (5s • esc to interrupt) · 1 background terminal running · /ps to view\n" +
 	"\n" +
-	"› Improve documentation in @filename\n" +
+	"› " + composerHint + "\n" +
 	"  gpt-5.6-sol default fast · /repo/worktree"
 
 const approvalFrame = "  Would you like to run the following command?\n" +
@@ -81,7 +90,7 @@ const quotedStatusFrame = "  \u2514 weave.send_mail({\"body\":\"the pane still s
 	"\n" +
 	"\u2500 Worked for 3m 48s \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\n" +
 	"\n" +
-	"\u203a Explain this codebase\n" +
+	"\u203a " + dimOn + "Explain this codebase" + dimOff + "\n" +
 	"\n" +
 	"  gpt-5.6-sol medium fast · /repo/worktree"
 
@@ -142,14 +151,34 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityIdle,
 		},
 		{
-			name:  "an interrupted turn reads as finished",
+			name:  "a composer somebody has typed into",
+			frame: "• ls returned no files. Total: 0.\n\n\x1b[1m›\x1b[0m half a question about\n\n  gpt-5.6-sol default fast · /repo/worktree",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "a composer holding a prompt nobody has sent yet",
 			frame: "› write a haiku about tmux\n  gpt-5.6-sol default fast · /repo/worktree",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "a composer holding text under the marker rather than beside it",
+			frame: "• ls returned no files. Total: 0.\n\n\x1b[1m›\x1b[0m\n  a second paragraph\n\n  gpt-5.6-sol medium · /private/tmp",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "text under the marker, under a footer that is dim from end to end",
+			frame: "• 40\n\n\x1b[1m›\x1b[0m\n  second line text\n\n" + dimOn + "  esc again to edit previous message" + dimOff,
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "a transcript echoing a sent message above an empty composer",
+			frame: "› reply with exactly: ok\n\n• ok\n\n› " + composerHint + "\n\n  gpt-5.6-sol medium · /private/tmp",
 			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "a slash-command popup is the user typing, not the agent working",
 			frame: "› /model\n  /model  choose what model and reasoning effort to use",
-			want:  harness.ActivityIdle,
+			want:  harness.ActivityComposing,
 		},
 		{
 			name:  "the status line is work",
@@ -178,7 +207,7 @@ func TestReadActivity(t *testing.T) {
 		},
 		{
 			name:  "an approval phrase just above a live status line",
-			frame: "• The prompt says press enter to continue.\n\n• Working (4s • esc to interrupt)\n\n› Improve documentation in @filename\n\n  gpt-5.6-sol default fast · /repo/worktree",
+			frame: "• The prompt says press enter to continue.\n\n• Working (4s • esc to interrupt)\n\n› " + composerHint + "\n\n  gpt-5.6-sol default fast · /repo/worktree",
 			want:  harness.ActivityWorking,
 		},
 		{

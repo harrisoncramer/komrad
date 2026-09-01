@@ -303,7 +303,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		r.apply(ctx, agent, agentstore.StateWaiting)
 	case harness.ActivityUnknown:
 
-	case harness.ActivityIdle:
+	case harness.ActivityIdle, harness.ActivityComposing:
 		r.settleIdle(ctx, agent)
 
 	case harness.ActivityUnrecognized:

@@ -16,7 +16,7 @@ var interruptTimer = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*\p{L}+\s*\(\s*\d+
 
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
 
-var idleComposer = regexp.MustCompile(`(?m)^\s*›`)
+var composerMarker = regexp.MustCompile(`^\s*›(.*)$`)
 
 const liveRegionLines = 30
 
@@ -25,6 +25,10 @@ const waitingRegionLines = 8
 const idleRegionLines = 8
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
+
+// dimSpan is the hint Codex writes into an empty composer, which is text in the frame but not
+// text anybody typed.
+var dimSpan = regexp.MustCompile(`\x1b\[2m.*?\x1b\[(?:0|22)m`)
 
 // ReadActivity reads what a captured frame says Codex is doing, counting only a frame showing
 // the composer as idle.
@@ -40,9 +44,11 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 		return harness.ActivityWorking
 	case doesFrameShowWaiting(frame):
 		return harness.ActivityWaiting
-	// An interrupted turn reads as finished, since escaping leaves the typed prompt sitting in
-	// the composer.
 	case doesFrameShowComposer(frame):
+		if doesComposerHoldText(frame) {
+			return harness.ActivityComposing
+		}
+
 		return harness.ActivityIdle
 	default:
 		return harness.ActivityUnrecognized
@@ -70,7 +76,59 @@ func doesFrameShowWaiting(frame string) bool {
 }
 
 func doesFrameShowComposer(frame string) bool {
-	return idleComposer.MatchString(tailLines(frame, idleRegionLines))
+	_, ok := composerText(frame)
+
+	return ok
+}
+
+func doesComposerHoldText(frame string) bool {
+	held, _ := composerText(frame)
+
+	return strings.TrimSpace(held) != ""
+}
+
+// composerText is what the composer holds, taken from the lowest marker in the region because
+// the transcript echoes a message somebody sent with the same glyph the composer wears.
+func composerText(frame string) (string, bool) {
+	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
+	if len(drawn) > idleRegionLines {
+		drawn = drawn[len(drawn)-idleRegionLines:]
+	}
+
+	// Stripping line by line keeps the two readings of the region the same length, where
+	// stripping the region whole would drop a line that came down to nothing.
+	lines := make([]string, len(drawn))
+	for i, line := range drawn {
+		lines[i] = ansiSeq.ReplaceAllString(dimSpan.ReplaceAllString(line, ""), "")
+		drawn[i] = ansiSeq.ReplaceAllString(line, "")
+	}
+
+	marker := -1
+	for i, line := range lines {
+		if composerMarker.MatchString(line) {
+			marker = i
+		}
+	}
+
+	if marker < 0 {
+		return "", false
+	}
+
+	// The composer has no rule under it, so what it holds runs down to the lowest line Codex
+	// draws below it, dim hints included, since those are the frame's own furniture.
+	footer := marker
+	for i := marker + 1; i < len(drawn); i++ {
+		if strings.TrimSpace(drawn[i]) != "" {
+			footer = i
+		}
+	}
+
+	held := []string{composerMarker.FindStringSubmatch(lines[marker])[1]}
+	if footer > marker {
+		held = append(held, lines[marker+1:footer]...)
+	}
+
+	return strings.Join(held, "\n"), true
 }
 
 func doesFrameShowPromptFooter(frame string) bool {

@@ -196,7 +196,7 @@ func (h *Harness) SetActivity(agentID string, activity harness.Activity) error {
 		line = workingLine
 	case harness.ActivityWaiting:
 		line = waitingLine
-	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityUnrecognized:
+	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityComposing, harness.ActivityUnrecognized:
 	}
 
 	return h.Show(agentID, line)
@@ -242,7 +242,7 @@ func Frame(activity harness.Activity) string {
 		return workingLine
 	case harness.ActivityWaiting:
 		return waitingLine
-	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityUnrecognized:
+	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityComposing, harness.ActivityUnrecognized:
 		return idleLine
 	}
 

@@ -171,6 +171,19 @@ func TestDeliver(t *testing.T) {
 			want:    DeliveryLater,
 		},
 		{
+			name: "an agent whose prompt somebody is halfway through typing into",
+			agent: &agentstore.Agent{
+				ID:             "agent-a",
+				Pane:           "%1",
+				State:          agentstore.StateIdle,
+				StateChangedAt: idleSince,
+			},
+			pending: 1,
+			alive:   true,
+			frame:   composingFrame,
+			want:    DeliveryLater,
+		},
+		{
 			name: "an idle agent never told before",
 			agent: &agentstore.Agent{
 				ID:             "agent-a",
