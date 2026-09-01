@@ -303,13 +303,68 @@ func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSe
 	return NewReviewService(ReviewServiceParams{
 		Threads:  reviews,
 		Messages: reviews,
+		Viewed:   reviews,
 		Mailer:   notices,
 	})
+}
+
+// TestViewedFilesAreTheReviewersOwn pins that which files have been read is a record of the
+// person's own progress: they set it and read it, and the agent whose work it is cannot.
+func TestViewedFilesAreTheReviewersOwn(t *testing.T) {
+	reviews := newFakeReviewStore()
+	service := reviewService(t, reviews, &fakeNoticeSender{})
+	ctx := t.Context()
+
+	_, err := service.SetReviewFileViewed(ctx, SetReviewFileViewedParams{
+		AgentID:     reviewedAgentID,
+		FilePath:    "greet.go",
+		Fingerprint: "shape",
+		Viewed:      true,
+		Author:      humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	viewed, err := service.ListReviewViewedFiles(ctx, ListReviewViewedFilesParams{
+		AgentID: reviewedAgentID,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+	require.Len(t, viewed, 1)
+	assert.Equal(t, "greet.go", viewed[0].FilePath)
+
+	_, err = service.SetReviewFileViewed(ctx, SetReviewFileViewedParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Viewed:   true,
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.ErrorIs(t, err, ErrReviewHumanOnly)
+
+	_, err = service.ListReviewViewedFiles(ctx, ListReviewViewedFilesParams{
+		AgentID: reviewedAgentID,
+		Author:  agentAuthor(reviewedAgentID),
+	})
+	require.ErrorIs(t, err, ErrReviewHumanOnly)
+
+	_, err = service.SetReviewFileViewed(ctx, SetReviewFileViewedParams{
+		AgentID:  reviewedAgentID,
+		FilePath: "greet.go",
+		Author:   humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	viewed, err = service.ListReviewViewedFiles(ctx, ListReviewViewedFilesParams{
+		AgentID: reviewedAgentID,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, viewed)
 }
 
 type fakeReviewStore struct {
 	thread   reviewstore.Thread
 	messages map[string]reviewstore.Message
+	viewed   map[string]string
 	unread   int64
 }
 
@@ -388,6 +443,41 @@ func (f *fakeReviewStore) CountUnreadForAgent(context.Context, string) (int64, e
 }
 
 func (f *fakeReviewStore) DeleteThread(context.Context, string) error { return nil }
+
+func (f *fakeReviewStore) MarkFileViewed(
+	_ context.Context,
+	params reviewstore.MarkFileViewedParams,
+) (*reviewstore.ViewedFile, error) {
+	if f.viewed == nil {
+		f.viewed = map[string]string{}
+	}
+	f.viewed[params.FilePath] = params.Fingerprint
+
+	return &reviewstore.ViewedFile{
+		AgentID:     params.AgentID,
+		FilePath:    params.FilePath,
+		Fingerprint: params.Fingerprint,
+	}, nil
+}
+
+func (f *fakeReviewStore) UnmarkFileViewed(_ context.Context, _, filePath string) error {
+	delete(f.viewed, filePath)
+
+	return nil
+}
+
+func (f *fakeReviewStore) ListViewedFiles(_ context.Context, agentID string) ([]reviewstore.ViewedFile, error) {
+	files := make([]reviewstore.ViewedFile, 0, len(f.viewed))
+	for path, fingerprint := range f.viewed {
+		files = append(files, reviewstore.ViewedFile{
+			AgentID:     agentID,
+			FilePath:    path,
+			Fingerprint: fingerprint,
+		})
+	}
+
+	return files, nil
+}
 
 func (f *fakeReviewStore) AddMessage(
 	_ context.Context,

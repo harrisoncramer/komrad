@@ -29,6 +29,8 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"MarkReviewThreadRead":    true,
 	"SetReviewThreadResolved": true,
 	"NotifyReviewThreads":     true,
+	"SetReviewFileViewed":     true,
+	"ListReviewViewedFiles":   true,
 }
 
 // TestEveryMethodIsAnnotated fails when an RPC carries no tool annotation, so leaving one out

@@ -114,6 +114,12 @@ const (
 	// AgentServiceNotifyReviewThreadsProcedure is the fully-qualified name of the AgentService's
 	// NotifyReviewThreads RPC.
 	AgentServiceNotifyReviewThreadsProcedure = "/agent.v1.AgentService/NotifyReviewThreads"
+	// AgentServiceSetReviewFileViewedProcedure is the fully-qualified name of the AgentService's
+	// SetReviewFileViewed RPC.
+	AgentServiceSetReviewFileViewedProcedure = "/agent.v1.AgentService/SetReviewFileViewed"
+	// AgentServiceListReviewViewedFilesProcedure is the fully-qualified name of the AgentService's
+	// ListReviewViewedFiles RPC.
+	AgentServiceListReviewViewedFilesProcedure = "/agent.v1.AgentService/ListReviewViewedFiles"
 )
 
 // AgentServiceClient is a client for the agent.v1.AgentService service.
@@ -148,6 +154,8 @@ type AgentServiceClient interface {
 	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
 	NotifyReviewThreads(context.Context, *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error)
+	SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error)
+	ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error)
 }
 
 // NewAgentServiceClient constructs a client for the agent.v1.AgentService service. By default, it
@@ -361,6 +369,19 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("NotifyReviewThreads")),
 			connect.WithClientOptions(opts...),
 		),
+		setReviewFileViewed: connect.NewClient[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse](
+			httpClient,
+			baseURL+AgentServiceSetReviewFileViewedProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("SetReviewFileViewed")),
+			connect.WithIdempotency(connect.IdempotencyIdempotent),
+			connect.WithClientOptions(opts...),
+		),
+		listReviewViewedFiles: connect.NewClient[v1.ListReviewViewedFilesRequest, v1.ListReviewViewedFilesResponse](
+			httpClient,
+			baseURL+AgentServiceListReviewViewedFilesProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ListReviewViewedFiles")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
@@ -396,6 +417,8 @@ type agentServiceClient struct {
 	deleteReviewThread      *connect.Client[v1.DeleteReviewThreadRequest, emptypb.Empty]
 	deleteReviewMessage     *connect.Client[v1.DeleteReviewMessageRequest, emptypb.Empty]
 	notifyReviewThreads     *connect.Client[v1.NotifyReviewThreadsRequest, v1.NotifyReviewThreadsResponse]
+	setReviewFileViewed     *connect.Client[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse]
+	listReviewViewedFiles   *connect.Client[v1.ListReviewViewedFilesRequest, v1.ListReviewViewedFilesResponse]
 }
 
 // ListAgents calls agent.v1.AgentService.ListAgents.
@@ -548,6 +571,16 @@ func (c *agentServiceClient) NotifyReviewThreads(ctx context.Context, req *conne
 	return c.notifyReviewThreads.CallUnary(ctx, req)
 }
 
+// SetReviewFileViewed calls agent.v1.AgentService.SetReviewFileViewed.
+func (c *agentServiceClient) SetReviewFileViewed(ctx context.Context, req *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error) {
+	return c.setReviewFileViewed.CallUnary(ctx, req)
+}
+
+// ListReviewViewedFiles calls agent.v1.AgentService.ListReviewViewedFiles.
+func (c *agentServiceClient) ListReviewViewedFiles(ctx context.Context, req *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error) {
+	return c.listReviewViewedFiles.CallUnary(ctx, req)
+}
+
 // AgentServiceHandler is an implementation of the agent.v1.AgentService service.
 type AgentServiceHandler interface {
 	ListAgents(context.Context, *connect.Request[v1.ListAgentsRequest]) (*connect.Response[v1.ListAgentsResponse], error)
@@ -580,6 +613,8 @@ type AgentServiceHandler interface {
 	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
 	NotifyReviewThreads(context.Context, *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error)
+	SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error)
+	ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error)
 }
 
 // NewAgentServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -789,6 +824,19 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("NotifyReviewThreads")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceSetReviewFileViewedHandler := connect.NewUnaryHandler(
+		AgentServiceSetReviewFileViewedProcedure,
+		svc.SetReviewFileViewed,
+		connect.WithSchema(agentServiceMethods.ByName("SetReviewFileViewed")),
+		connect.WithIdempotency(connect.IdempotencyIdempotent),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceListReviewViewedFilesHandler := connect.NewUnaryHandler(
+		AgentServiceListReviewViewedFilesProcedure,
+		svc.ListReviewViewedFiles,
+		connect.WithSchema(agentServiceMethods.ByName("ListReviewViewedFiles")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/agent.v1.AgentService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case AgentServiceListAgentsProcedure:
@@ -851,6 +899,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceDeleteReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceNotifyReviewThreadsProcedure:
 			agentServiceNotifyReviewThreadsHandler.ServeHTTP(w, r)
+		case AgentServiceSetReviewFileViewedProcedure:
+			agentServiceSetReviewFileViewedHandler.ServeHTTP(w, r)
+		case AgentServiceListReviewViewedFilesProcedure:
+			agentServiceListReviewViewedFilesHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -978,4 +1030,12 @@ func (UnimplementedAgentServiceHandler) DeleteReviewMessage(context.Context, *co
 
 func (UnimplementedAgentServiceHandler) NotifyReviewThreads(context.Context, *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.NotifyReviewThreads is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetReviewFileViewed is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ListReviewViewedFiles is not implemented"))
 }

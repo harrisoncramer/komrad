@@ -26,6 +26,8 @@ const (
 	// settledMark is a thread the person reviewing has finished with, which is the only thing
 	// that quiets one down.
 	settledMark = "✓"
+	// viewedMark heads the header of a file that has been read and folded away.
+	viewedMark = "✓"
 )
 
 var (
@@ -62,7 +64,7 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 
 	switch current.kind {
 	case fileRow:
-		return ansi.Truncate(fileStyle.Render(current.text), width, "…")
+		return v.renderFileRow(current, isCursor, width)
 	case metadataRow:
 		return ansi.Truncate(metadataStyle.Render("  "+current.text), width, "…")
 	case hunkRow:
@@ -82,6 +84,47 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 
 	return v.renderGutter(y, line, background) +
 		fitWindow(content, offset, max(0, width-GutterWidth), background)
+}
+
+// renderFileRow draws a file's header, which once the file is collapsed has to say what is
+// folded under it, since it is then the only row that file has.
+func (v *View) renderFileRow(current row, isCursor bool, width int) string {
+	text := current.text
+	if v.isCollapsed(current.file) {
+		text += "  " + viewedMark + " viewed  " + v.fileSummary(current.file)
+	}
+
+	style := fileStyle
+	if isCursor {
+		style = style.Background(cursorBackground).Width(width)
+	}
+
+	return style.Render(ansi.Truncate(text, width, "…"))
+}
+
+// fileSummary is how much a collapsed file is hiding: the lines it changed, and how many
+// conversations are still open in it, which is the one thing folding it away could bury.
+func (v *View) fileSummary(fileIndex int) string {
+	stat := v.patch.Files[fileIndex].Stat()
+
+	summary := fmt.Sprintf("+%d −%d", stat.Added, stat.Removed)
+	if open := v.openThreadsIn(v.patch.Files[fileIndex].Path()); open > 0 {
+		summary += fmt.Sprintf("  %s %d", threadMark, open)
+	}
+
+	return summary
+}
+
+// openThreadsIn is how many conversations in a file are still owed an answer.
+func (v *View) openThreadsIn(path string) int {
+	open := 0
+	for _, thread := range v.threads {
+		if thread.GetFilePath() == path && thread.GetResolvedAt() == "" {
+			open++
+		}
+	}
+
+	return open
 }
 
 // renderGutter draws the line numbers, what the diff did to the line, and whether a thread is

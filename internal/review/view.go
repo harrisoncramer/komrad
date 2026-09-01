@@ -67,7 +67,12 @@ type View struct {
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
-	search *search
+	// viewed is the files the person reviewing has read, by path, which are drawn collapsed.
+	viewed map[string]bool
+	// threads is what was last pinned, kept so that collapsing a file can pin them again over
+	// the rows that rebuilding left.
+	threads []*agentv1.ReviewThread
+	search  *search
 }
 
 // NewView builds the review view over a patch, highlighting each file for the theme the
@@ -78,6 +83,7 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 		sources: make([]fileSource, len(patch.Files)),
 		pinned:  map[int]*agentv1.ReviewThread{},
 		placed:  map[string]placement{},
+		viewed:  map[string]bool{},
 	}
 
 	highlight := newHighlighter(isDark)
@@ -87,6 +93,21 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 			old: highlight.splitLines(file.Path(), file.OldSource),
 			new: highlight.splitLines(file.Path(), file.NewSource),
 		}
+	}
+
+	v.build()
+
+	return v
+}
+
+// build flattens the patch into rows, giving a file that has been read its header and nothing
+// else, since the point of marking one is to get it out of the way until something changes in
+// it.
+func (v *View) build() {
+	v.rows = nil
+
+	for fileIndex := range v.patch.Files {
+		file := &v.patch.Files[fileIndex]
 
 		v.rows = append(v.rows, row{
 			kind: fileRow,
@@ -95,6 +116,11 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 			line: -1,
 			text: file.Path(),
 		})
+
+		if v.viewed[file.Path()] {
+			continue
+		}
+
 		for _, metadata := range file.Metadata {
 			v.rows = append(v.rows, row{
 				kind: metadataRow,
@@ -126,8 +152,58 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 	}
 
 	v.patchRows = len(v.rows)
+}
 
-	return v
+// SetViewed says which files have been read, collapsing each of those to its header and pinning
+// the threads again over the rows that survive it.
+func (v *View) SetViewed(paths map[string]bool) {
+	v.viewed = paths
+	if v.viewed == nil {
+		v.viewed = map[string]bool{}
+	}
+
+	v.build()
+	v.PinThreads(v.threads)
+}
+
+// SetFileViewed folds one file away once it has been read, or opens it again.
+func (v *View) SetFileViewed(path string, viewed bool) {
+	if viewed {
+		v.viewed[path] = true
+	} else {
+		delete(v.viewed, path)
+	}
+
+	v.build()
+	v.PinThreads(v.threads)
+}
+
+// IsViewed reports whether a file is drawn collapsed, which is what the toggle reads to know
+// which way it is going.
+func (v *View) IsViewed(path string) bool { return v.viewed[path] }
+
+// ViewedCount is how many of the patch's files have been read, and how many there are.
+func (v *View) ViewedCount() (int, int) {
+	read := 0
+	for _, file := range v.patch.Files {
+		if v.viewed[file.Path()] {
+			read++
+		}
+	}
+
+	return read, len(v.patch.Files)
+}
+
+// FileAt is the file the cursor is inside, which is what a mark of having read one is put on.
+func (v *View) FileAt(y int) (diff.File, bool) { return v.getFile(y) }
+
+// isCollapsed reports whether a file is drawn as its header alone.
+func (v *View) isCollapsed(fileIndex int) bool {
+	if fileIndex < 0 || fileIndex >= len(v.patch.Files) {
+		return false
+	}
+
+	return v.viewed[v.patch.Files[fileIndex].Path()]
 }
 
 // Len is how many rows the diff was flattened into.
@@ -139,6 +215,7 @@ func (v *View) Stat() diff.Stat { return v.patch.Stat() }
 // PinThreads works out where each thread is drawn now that the agent has been editing under
 // it, and never drops one for having moved.
 func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
+	v.threads = threads
 	v.rows = v.rows[:v.patchRows]
 	v.pinned = map[int]*agentv1.ReviewThread{}
 	v.placed = map[string]placement{}
@@ -147,6 +224,14 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 
 	var unplaced []*agentv1.ReviewThread
 	for _, thread := range threads {
+		// A thread in a collapsed file has a line to stand on the moment the file is opened
+		// again, so it is not adrift and does not go to the foot of the diff.
+		if v.viewed[thread.GetFilePath()] {
+			v.placed[thread.GetId()] = collapsed
+
+			continue
+		}
+
 		y, where := v.rowFor(index, thread)
 		if where == adrift || v.pinned[y] != nil {
 			unplaced = append(unplaced, thread)
@@ -225,14 +310,19 @@ func (v *View) IsGhosted(thread *agentv1.ReviewThread) bool {
 	return v.placed[thread.GetId()] == ghosted
 }
 
-// isPinnable reports whether a row is one the cursor can rest on: a real line of a file, or a
-// thread that has no line left to be read on.
+// isPinnable reports whether a row is one the cursor can rest on: a real line of a file, a
+// thread that has no line left to be read on, or the header of a collapsed file, which is the
+// only row that file has left to be opened again from.
 func (v *View) isPinnable(y int) bool {
 	if y < 0 || y >= len(v.rows) {
 		return false
 	}
 
-	return v.rows[y].kind == lineRow || v.rows[y].kind == threadRow
+	current := v.rows[y]
+
+	return current.kind == lineRow ||
+		current.kind == threadRow ||
+		(current.kind == fileRow && v.isCollapsed(current.file))
 }
 
 // First is where the cursor starts: the first row that stands for a line.
@@ -254,8 +344,14 @@ type Place struct {
 
 // GetPlace is where the cursor is standing, in terms that survive the patch being reloaded.
 func (v *View) GetPlace(y int) (Place, bool) {
-	if current, ok := v.getRow(y); ok && current.kind == threadRow {
+	current, ok := v.getRow(y)
+	if ok && current.kind == threadRow {
 		return Place{ThreadID: current.thread.GetId()}, true
+	}
+
+	// A collapsed file has no line under the cursor, so the file itself is the place.
+	if ok && current.kind == fileRow {
+		return Place{FilePath: v.patch.Files[current.file].Path()}, true
 	}
 
 	key, ok := v.getKey(y)
@@ -285,6 +381,12 @@ func (v *View) Locate(place Place) (int, bool) {
 		return 0, false
 	}
 
+	// A file read since the cursor was last in it is drawn as its header alone, which is the
+	// only row left of it to come back to.
+	if y, ok := v.collapsedHeader(place.FilePath); ok {
+		return y, true
+	}
+
 	for y, current := range v.rows {
 		if current.kind != lineRow || v.patch.Files[current.file].Path() != place.FilePath {
 			continue
@@ -308,6 +410,22 @@ func (v *View) Locate(place Place) (int, bool) {
 	}
 
 	return nearest, nearest >= 0
+}
+
+// collapsedHeader is the header row of a file drawn collapsed, and false for a file drawn
+// whole, which has lines of its own to stand on.
+func (v *View) collapsedHeader(path string) (int, bool) {
+	if path == "" || !v.viewed[path] {
+		return 0, false
+	}
+
+	for y, current := range v.rows {
+		if current.kind == fileRow && v.patch.Files[current.file].Path() == path {
+			return y, true
+		}
+	}
+
+	return 0, false
 }
 
 func abs(n int) int {
@@ -377,8 +495,10 @@ func (v *View) JumpFile(y, direction int) int {
 		return y
 	}
 
+	// The first row of the file the cursor can rest on, which is its first line, or its header
+	// alone when the file has been read and folded away.
 	for index, candidate := range v.rows {
-		if candidate.file == target && candidate.kind == lineRow {
+		if candidate.file == target && v.isPinnable(index) {
 			return index
 		}
 	}

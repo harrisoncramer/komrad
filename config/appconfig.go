@@ -311,6 +311,9 @@ type ReviewKeys struct {
 	Quit []string `mapstructure:"quit"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve"`
+	// Fold away the file the cursor is in once you have read it, or open it again. A file
+	// the agent writes to afterwards comes back on its own.
+	ToggleViewed []string `mapstructure:"toggle_viewed"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
@@ -712,6 +715,7 @@ func DefaultKeybindings() Keybindings {
 			PrevThread:   []string{"T"},
 			Quit:         []string{"ctrl+c"},
 			Resolve:      []string{"r"},
+			ToggleViewed: []string{"v"},
 		},
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},

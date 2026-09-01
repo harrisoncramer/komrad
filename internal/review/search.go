@@ -64,6 +64,32 @@ func (v *View) MatchCount() int {
 	return len(v.search.rows)
 }
 
+// HiddenMatches is how many lines the pattern was found on inside files that have been read and
+// folded away, which are on no row for the search to step through, and which are counted apart
+// rather than left to read as though the pattern were not there.
+func (v *View) HiddenMatches() int {
+	if v.search == nil {
+		return 0
+	}
+
+	hidden := 0
+	for _, file := range v.patch.Files {
+		if !v.viewed[file.Path()] {
+			continue
+		}
+
+		for _, hunk := range file.Hunks {
+			for _, line := range hunk.Lines {
+				if v.search.pattern.MatchString(markerFor(line.Kind) + line.Text) {
+					hidden++
+				}
+			}
+		}
+	}
+
+	return hidden
+}
+
 // MatchNumber is which match the cursor is standing on, counting from one, and false when it
 // is not standing on one.
 func (v *View) MatchNumber(y int) (int, bool) {
