@@ -748,3 +748,71 @@ func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
 
 	assert.Empty(t, next.match.agentID, "the transcript is let go of")
 }
+
+// TestMatchIsStagedOnce pins the landing surviving the refresh, which redraws the stage every
+// second: a pager restarted under the reader cannot be scrolled or searched.
+func TestMatchIsStagedOnce(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := filterModel()
+	m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
+	m.frame = layout.New(tmux, config.DefaultLayout())
+	m.frame.Attach("%0")
+	m.tree.cursor = 2
+	m.listing.agents[1].alive = true
+	m.match = matchFocus{
+		agentID: "a2",
+		content: "one\ntwo\nthree\n",
+		line:    2,
+	}
+
+	for range 3 {
+		m.stageSelection()
+	}
+
+	staged := 0
+	for _, argv := range tmux.respawns {
+		if strings.Contains(argv, "weave-transcript.txt") {
+			staged++
+		}
+	}
+
+	assert.Equal(t, 1, staged, "the pager is left running across the passes that follow")
+}
+
+// TestMatchNeedsAPosition covers an offset the transcript does not hold, which reads as the
+// top of it: there is nothing there to take the stage away from the agent's own pane for.
+func TestMatchNeedsAPosition(t *testing.T) {
+	const content = "one\ntwo\nthree\n"
+
+	tests := []struct {
+		name   string
+		offset int64
+		want   int
+	}{
+		{
+			name:   "an offset the content holds",
+			offset: 4,
+			want:   2,
+		},
+		{
+			name:   "an offset past the end",
+			offset: int64(len(content) + 1),
+		},
+		{
+			name:   "an offset below zero",
+			offset: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hit := searchHit{agentID: "a2", offset: tt.offset}
+			got := matchFor(hit, previewResult{agentID: "a2", content: content})
+
+			assert.Equal(t, tt.want, got.line)
+			if tt.want == 0 {
+				assert.Empty(t, got.agentID, "nothing is held on to")
+			}
+		})
+	}
+}

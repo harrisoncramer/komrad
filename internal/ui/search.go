@@ -306,7 +306,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.match = matchAt(hit, m.search.preview)
+	m.match = matchFor(hit, m.search.preview)
 
 	if hit.archived {
 		m.archive.focus = hit.agentID
@@ -334,15 +334,22 @@ type matchFocus struct {
 	line    int
 }
 
-func matchAt(hit searchHit, preview previewResult) matchFocus {
+func matchFor(hit searchHit, preview previewResult) matchFocus {
 	if preview.agentID != hit.agentID || strings.TrimSpace(preview.content) == "" {
+		return matchFocus{}
+	}
+
+	// An offset the content does not hold reads as line zero, which is the top of the
+	// transcript and so nothing worth taking the stage for.
+	line := lineAtOffset(preview.content, hit.offset)
+	if line == 0 {
 		return matchFocus{}
 	}
 
 	return matchFocus{
 		agentID: hit.agentID,
 		content: preview.content,
-		line:    lineAtOffset(preview.content, hit.offset),
+		line:    line,
 	}
 }
 
