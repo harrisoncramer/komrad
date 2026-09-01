@@ -41,14 +41,12 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 	dir := agent.Cwd
 	if _, err := os.Stat(dir); err != nil {
 		m.report("Could not open a terminal", err)
-
 		return m, nil
 	}
 
 	// The shell that agent asked for is already up, so it only wants the keyboard.
 	if m.info.kind == infoTerminal && m.info.action == dir && m.frame.IsOpen(layout.RegionInfo) {
 		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
-
 		return m, nil
 	}
 
