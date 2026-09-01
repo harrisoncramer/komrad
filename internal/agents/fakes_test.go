@@ -208,6 +208,7 @@ func (f *fakeTmux) lastKeys(target string) []string {
 const (
 	busyFrame         = "frame: working"
 	idleFrame         = "frame: idle"
+	composingFrame    = "frame: composing"
 	waitFrame         = "frame: waiting"
 	unrecognizedFrame = "frame: unrecognized"
 )
@@ -246,6 +247,8 @@ func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 		return harness.ActivityWorking
 	case frame == waitFrame:
 		return harness.ActivityWaiting
+	case frame == composingFrame:
+		return harness.ActivityComposing
 	case frame == "":
 		return harness.ActivityUnknown
 	case strings.HasPrefix(frame, unrecognizedFrame):

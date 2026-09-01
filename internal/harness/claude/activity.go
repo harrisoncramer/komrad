@@ -14,7 +14,9 @@ var (
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
-var idleInputBox = regexp.MustCompile(`(?m)^─{3,}\s*$\n❯`)
+var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
+
+const promptMarker = "❯"
 
 const liveRegionLines = 30
 
@@ -35,6 +37,10 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	case doesFrameShowWaiting(frame):
 		return harness.ActivityWaiting
 	case doesFrameShowIdleInputBox(frame):
+		if doesInputBoxHoldText(frame) {
+			return harness.ActivityComposing
+		}
+
 		return harness.ActivityIdle
 	default:
 		return harness.ActivityUnrecognized
@@ -61,5 +67,45 @@ func doesFrameShowWaiting(frame string) bool {
 }
 
 func doesFrameShowIdleInputBox(frame string) bool {
-	return idleInputBox.MatchString(tailLines(frame, idleRegionLines))
+	_, ok := inputBox(frame)
+
+	return ok
+}
+
+// doesInputBoxHoldText reports whether somebody has typed into the box, which is any text at
+// all, since Claude draws no placeholder in an empty one.
+func doesInputBoxHoldText(frame string) bool {
+	held, _ := inputBox(frame)
+
+	return strings.TrimSpace(held) != ""
+}
+
+// inputBox is what the box holds, which is every line between the rule that opens it and the
+// rule that closes it, so that text typed under the marker counts as much as text beside it.
+func inputBox(frame string) (string, bool) {
+	lines := strings.Split(tailLines(frame, idleRegionLines), "\n")
+
+	for i, line := range lines {
+		if !boxRule.MatchString(line) || i+1 >= len(lines) {
+			continue
+		}
+
+		rest, ok := strings.CutPrefix(lines[i+1], promptMarker)
+		if !ok {
+			continue
+		}
+
+		held := []string{rest}
+		for _, line := range lines[i+2:] {
+			if boxRule.MatchString(line) {
+				break
+			}
+
+			held = append(held, line)
+		}
+
+		return strings.Join(held, "\n"), true
+	}
+
+	return "", false
 }
