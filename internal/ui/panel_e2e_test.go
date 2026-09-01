@@ -477,9 +477,10 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 
 	popup.MarkOpen()
 
-	panel, cmd = panel.dwellViewed(hidden.Add(time.Second))
+	back := hidden.Add(viewedDwell / 2)
+	panel, cmd = panel.dwellViewed(back)
 	assert.Nil(t, cmd, "and coming back to the panel starts the look over rather than finishing one")
 
-	_, cmd = panel.dwellViewed(hidden.Add(time.Second).Add(viewedDwell))
+	_, cmd = panel.dwellViewed(back.Add(viewedDwell))
 	assert.NotNil(t, cmd)
 }

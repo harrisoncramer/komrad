@@ -29,7 +29,7 @@ func refreshTick() tea.Cmd {
 
 // viewedDwell is how long the cursor has to stay on one agent before the panel counts the pane
 // it stages as read, which is what keeps the rows a person travels over from being cleared.
-const viewedDwell = 3 * time.Second
+const viewedDwell = time.Second
 
 // hoverState is the agent the cursor is sitting on and when it arrived.
 type hoverState struct {

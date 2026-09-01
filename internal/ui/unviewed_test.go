@@ -64,7 +64,7 @@ func TestDwellViewedWaitsForTheCursorToSettle(t *testing.T) {
 	m, cmd := m.dwellViewed(at)
 	assert.Nil(t, cmd, "the tick the cursor arrived on marks nothing")
 
-	m, cmd = m.dwellViewed(at.Add(viewedDwell - time.Second))
+	m, cmd = m.dwellViewed(at.Add(viewedDwell / 2))
 	assert.Nil(t, cmd, "still inside the dwell")
 
 	_, cmd = m.dwellViewed(at.Add(viewedDwell))
