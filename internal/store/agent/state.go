@@ -41,23 +41,9 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// MarkFinished records that a reconcile pass watched an agent settle out of a turn, which is
-// what the panel measures its viewed mark against.
-func (s *Store) MarkFinished(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
-	}
-
-	if err := s.queries.SetAgentFinishedAtByID(ctx, id); err != nil {
-		return fmt.Errorf("failed to record the finished turn for id %q: %w", id, err)
-	}
-
-	return nil
-}
-
-// SetViewed claims what an agent has finished up to now, stamping the finish that was on the row
-// rather than the clock so a turn that lands mid-look is not marked read with it, or puts the
-// mark back when viewed is unset.
+// SetViewed claims an agent's conversation as read up to where it now stands, stamping when the
+// transcript last grew rather than the clock so a turn landing mid-look is not read with it, or
+// puts the mark back when viewed is unset.
 func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)

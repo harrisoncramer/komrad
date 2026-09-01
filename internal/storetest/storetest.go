@@ -109,6 +109,18 @@ func (s *Stores) LiveAgentByName(ctx context.Context, name string) (*agentstore.
 	return nil, fmt.Errorf("%w: no live agent named %q", store.ErrNotFound, name)
 }
 
+// SeedTranscript writes an agent's transcript, which is how a test makes one look like it has
+// said something nobody has read since.
+func (s *Stores) SeedTranscript(t *testing.T, agentID, content string) {
+	t.Helper()
+
+	require.NoError(t, s.Transcripts.Upsert(t.Context(), transcriptstore.UpsertParams{
+		AgentID: agentID,
+		Content: content,
+		Offset:  int64(len(content)),
+	}))
+}
+
 // SeedWorkflow creates a workflow and returns it, for the tests that only need
 // something to file an agent under.
 func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflowstore.Workflow {

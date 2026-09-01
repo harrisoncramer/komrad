@@ -876,3 +876,86 @@ func uniqueStrings(in []string) []string {
 
 	return out
 }
+
+// TestListUnreadFollowsTheTranscript covers the whole point of reading the mark off the log
+// rather than off the pane: an agent is unread because it wrote something, and nothing weave
+// thinks it saw on screen can say otherwise.
+func TestListUnreadFollowsTheTranscript(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	id := seedAgent(t, st, "agent")
+
+	unread, err := st.ListUnread(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unread, "an agent that has written nothing is not unread")
+
+	seedTranscript(t, st, id, "the first thing it said")
+	unread, err = st.ListUnread(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{id}, unread)
+
+	require.NoError(t, st.agents.SetViewed(ctx, id, true))
+	unread, err = st.ListUnread(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unread, "and read once somebody has looked")
+
+	seedTranscript(t, st, id, "and the next thing")
+	unread, err = st.ListUnread(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{id}, unread, "anything written since the look is unread again")
+}
+
+// TestSetViewedStampsWhatWasWritten pins that the mark records how far the transcript had got
+// rather than the clock, so output landing mid-look is not read along with the look.
+func TestSetViewedStampsWhatWasWritten(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	id := seedAgent(t, st, "agent")
+	seedTranscript(t, st, id, "something")
+
+	synced, err := st.Get(ctx, id)
+	require.NoError(t, err)
+
+	require.NoError(t, st.agents.SetViewed(ctx, id, true))
+	read, err := st.agents.GetByID(ctx, id)
+	require.NoError(t, err)
+	require.NotNil(t, read.ViewedAt)
+	assert.Equal(t, synced.SyncedAt.UTC(), read.ViewedAt.UTC())
+}
+
+// TestSetViewedPutsTheMarkBack covers the manual half, where somebody says they have not read
+// what weave decided they had.
+func TestSetViewedPutsTheMarkBack(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	id := seedAgent(t, st, "agent")
+	seedTranscript(t, st, id, "something")
+	require.NoError(t, st.agents.SetViewed(ctx, id, true))
+
+	require.NoError(t, st.agents.SetViewed(ctx, id, false))
+	back, err := st.agents.GetByID(ctx, id)
+	require.NoError(t, err)
+	assert.Nil(t, back.ViewedAt)
+
+	unread, err := st.ListUnread(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{id}, unread)
+}
+
+// TestSetViewedOnAnAgentThatHasWrittenNothing pins that claiming an agent with no transcript
+// records nothing, so the first thing it does write is still news.
+func TestSetViewedOnAnAgentThatHasWrittenNothing(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	id := seedAgent(t, st, "agent")
+	require.NoError(t, st.agents.SetViewed(ctx, id, true))
+
+	seedTranscript(t, st, id, "the first thing it said")
+	unread, err := st.ListUnread(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{id}, unread)
+}

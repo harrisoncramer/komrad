@@ -510,7 +510,7 @@ func (m model) agentsView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		row := prefix + "  " + stateMarkFor(displayState(item), item.unviewed) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
+		row := prefix + "  " + stateMark(displayState(item)) + unviewedMark(item.unviewed) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}
 

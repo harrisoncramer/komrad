@@ -20,7 +20,15 @@ func (s agent) Cursor() (agentstore.Cursor, error) {
 	return s.cursor, nil
 }
 
-func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
+// agentMarks are the facts about an agent that are not on its own row: whether it is running,
+// whether it has mail it has not read, and whether it has said anything the person has not.
+type agentMarks struct {
+	alive      bool
+	unreadMail bool
+	unviewed   bool
+}
+
+func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 	created := ""
 	if !stored.CreatedAt.IsZero() {
 		created = stored.CreatedAt.Format(time.RFC3339)
@@ -57,8 +65,8 @@ func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 			CreatedAt:        created,
 			StateChangedAt:   stateChanged,
 			ArchivedAt:       archived,
-			Alive:            alive,
-			UnreadMail:       unreadMail,
+			Alive:            marks.alive,
+			UnreadMail:       marks.unreadMail,
 			Tag:              stored.Tag,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
@@ -66,7 +74,7 @@ func renderAgent(stored agentstore.Agent, alive, unreadMail bool) agent {
 			SpawnedByAgentId: stored.SpawnedByAgentID,
 			Branch:           stored.Branch,
 			WorktreeRemoved:  stored.WorktreeRemoved,
-			Unviewed:         stored.Unviewed(),
+			Unviewed:         marks.unviewed,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

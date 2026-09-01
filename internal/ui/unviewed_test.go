@@ -9,6 +9,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -248,12 +249,12 @@ func TestJumpUnviewedStaysPutWithNothingToReach(t *testing.T) {
 	assert.Equal(t, 2, press(t, m, keyMsg("n")).tree.cursor)
 }
 
-// TestUnviewedDotIsBright pins that the mark is drawn in the state column rather than as a
-// glyph of its own, and only on an agent that has stopped.
-func TestUnviewedDotIsBright(t *testing.T) {
-	assert.Equal(t, colorSuccess, stateColorFor(agentstore.StateIdle, true),
-		"a finished agent nobody has read is not drawn like one that has been")
-	assert.Equal(t, colorMuted, stateColorFor(agentstore.StateIdle, false))
-	assert.Equal(t, colorWarning, stateColorFor(agentstore.StateThinking, true),
-		"an agent that is working reads as working")
+// TestUnviewedMarkIsItsOwnColumn pins the separation the whole design rests on: the state icon
+// says only what the agent is doing, the mark beside it says only whether there is something to
+// read, and either is true without the other.
+func TestUnviewedMarkIsItsOwnColumn(t *testing.T) {
+	assert.Contains(t, unviewedMark(true), unviewedIcon)
+	assert.NotContains(t, unviewedMark(false), unviewedIcon)
+	assert.Equal(t, lipgloss.Width(unviewedMark(true)), lipgloss.Width(unviewedMark(false)),
+		"the mark holds its column either way, so the names below it stay in line")
 }

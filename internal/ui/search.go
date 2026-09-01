@@ -406,7 +406,7 @@ func (m model) hitHeader(hit searchHit) string {
 	name := clipName(hit.name)
 
 	if hit.archived {
-		row := "  " + noStateMark() + " " + name + dimStyle.Render(" (archived)")
+		row := "  " + noStateMark() + unviewedMark(false) + " " + name + dimStyle.Render(" (archived)")
 
 		agent, ok := m.archivedAgent(hit.agentID)
 		if !ok {
@@ -418,10 +418,10 @@ func (m model) hitHeader(hit searchHit) string {
 
 	item, ok := m.liveAgent(hit.agentID)
 	if !ok {
-		return "  " + noStateMark() + " " + name
+		return "  " + noStateMark() + unviewedMark(false) + " " + name
 	}
 
-	return "  " + stateMarkFor(displayState(item), item.unviewed) + " " + name +
+	return "  " + stateMark(displayState(item)) + unviewedMark(item.unviewed) + " " + name +
 		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail)
 }

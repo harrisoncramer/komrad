@@ -41,8 +41,8 @@ type Agent struct {
 	State          string
 	StateChangedAt time.Time
 	StateSeenAt    time.Time
-	// An agent has finished something nobody has read when FinishedAt is newer than ViewedAt.
-	FinishedAt       *time.Time
+	// ViewedAt is how much of an agent's conversation the person has read, measured against
+	// when the transcript last grew rather than against anything read off the pane.
 	ViewedAt         *time.Time
 	Harness          string
 	SessionID        string
@@ -64,15 +64,6 @@ type Agent struct {
 	AdoptedBranch   string
 	WorktreeRemoved bool
 	InterruptedAt   *time.Time
-}
-
-// Unviewed reports whether an agent has finished a turn that nobody has looked at since.
-func (a Agent) Unviewed() bool {
-	if a.FinishedAt == nil {
-		return false
-	}
-
-	return a.ViewedAt == nil || a.FinishedAt.After(*a.ViewedAt)
 }
 
 // SanitizeName maps a name to characters tmux accepts in session names.
@@ -125,7 +116,6 @@ func agentFromRow(agent models.Agent) Agent {
 		State:            agent.State,
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,
-		FinishedAt:       agent.FinishedAt,
 		ViewedAt:         agent.ViewedAt,
 		Harness:          agent.Harness,
 		SessionID:        agent.SessionID,
