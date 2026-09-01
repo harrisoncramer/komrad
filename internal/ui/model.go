@@ -124,6 +124,8 @@ type model struct {
 	search    searchState
 	review    reviewState
 
+	match matchFocus
+
 	filter filterState
 
 	form formState
