@@ -38,6 +38,7 @@ message Agent {
   bool worktree_removed = 23;
   // Whether the agent has finished a turn the person has not looked at since.
   bool unviewed = 24;
+  string state_changed_at = 25;
 }
 
 message AgentMetadata {

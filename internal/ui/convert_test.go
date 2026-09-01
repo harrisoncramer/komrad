@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"weave/config"
 	workflowstore "weave/internal/store/workflow"
@@ -27,6 +28,24 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	require.NotNil(t, converted.Branch)
 	assert.Equal(t, branch, *converted.Branch)
 	assert.True(t, converted.WorktreeRemoved)
+}
+
+// TestProtoToAgentCarriesTheStateChange pins the timestamp the ghost slot counts from, which
+// is the only field on the row that has to survive the wire for a span to read at all.
+func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
+	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
+	converted := protoToAgent(&agentv1.Agent{
+		Id:             "a1",
+		StateChangedAt: changed.Format(time.RFC3339),
+	})
+
+	assert.True(t, converted.StateChangedAt.Equal(changed))
+}
+
+// TestProtoToAgentWithoutAStateChange covers a server that sent no timestamp, which leaves the
+// zero time rather than an instant the slot would count a span from.
+func TestProtoToAgentWithoutAStateChange(t *testing.T) {
+	assert.True(t, protoToAgent(&agentv1.Agent{Id: "a1"}).StateChangedAt.IsZero())
 }
 
 // TestAgentsViewDrawsWorktreeRemovedFromTheWire covers the way from the proto to the printed

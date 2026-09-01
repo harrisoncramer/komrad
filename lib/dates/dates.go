@@ -1,7 +1,10 @@
 // Package dates formats timestamps as friendly, local-time labels for display.
 package dates
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 const friendlyLayout = "Jan 2 at 3:04pm"
 
@@ -13,4 +16,19 @@ func Friendly(t time.Time) string {
 	}
 
 	return t.Local().Format(friendlyLayout)
+}
+
+// Elapsed renders a span as the coarsest unit that still says something, so a row shows "2m"
+// rather than a count of seconds that would be stale by the time it is read.
+func Elapsed(d time.Duration) string {
+	switch {
+	case d < time.Minute:
+		return fmt.Sprintf("%ds", max(int(d.Seconds()), 0))
+	case d < time.Hour:
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	case d < 24*time.Hour:
+		return fmt.Sprintf("%dh", int(d.Hours()))
+	default:
+		return fmt.Sprintf("%dd", int(d.Hours())/24)
+	}
 }

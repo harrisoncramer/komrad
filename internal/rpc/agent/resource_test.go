@@ -2,6 +2,7 @@ package agent
 
 import (
 	"testing"
+	"time"
 
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
@@ -29,4 +30,19 @@ func TestRenderAgentLeavesAPresentWorktreeAlone(t *testing.T) {
 	rendered := renderAgent(agentstore.Agent{ID: "a2", Name: "reviewer"}, false, false)
 
 	assert.False(t, rendered.GetWorktreeRemoved())
+}
+
+// TestRenderAgentCarriesTheStateChange pins the timestamp the panel counts a span from, which
+// is written nowhere but this response.
+func TestRenderAgentCarriesTheStateChange(t *testing.T) {
+	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
+	rendered := renderAgent(agentstore.Agent{ID: "a1", StateChangedAt: changed}, false, false)
+
+	assert.Equal(t, changed.Format(time.RFC3339), rendered.GetStateChangedAt())
+}
+
+// TestRenderAgentWithoutAStateChange covers an agent that has never been given one, which
+// sends nothing rather than a formatted zero time.
+func TestRenderAgentWithoutAStateChange(t *testing.T) {
+	assert.Empty(t, renderAgent(agentstore.Agent{ID: "a2"}, false, false).GetStateChangedAt())
 }
