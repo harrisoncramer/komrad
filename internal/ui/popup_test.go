@@ -161,3 +161,33 @@ func TestBindPalette(t *testing.T) {
 		})
 	}
 }
+
+// TestIsShownTreatsAnUnreadableFlagAsShown covers the panel attached in a terminal by hand,
+// where no user server was ever recorded and so the flag can be neither written nor read, which
+// read as hidden would leave every unviewed mark on screen with no way to clear one.
+func TestIsShownTreatsAnUnreadableFlagAsShown(t *testing.T) {
+	tests := []struct {
+		name string
+		flag string
+		want bool
+	}{
+		{name: "no user server has ever opened a popup", want: true},
+		{
+			name: "a popup is attached",
+			flag: "1",
+			want: true,
+		},
+		{name: "the popup is hidden", flag: "0"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			if tt.flag != "" {
+				tmux.SetGlobal(managerOpenFlag, tt.flag)
+			}
+
+			assert.Equal(t, tt.want, NewPopupWindow(tmux, "test-session").IsShown())
+		})
+	}
+}
