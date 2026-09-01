@@ -45,16 +45,20 @@ type File struct {
 	OldSource string
 	NewSource string
 	Hunks     []Hunk
+	// Content identifies what a file holds when the patch draws none of it, as for a binary,
+	// and is empty for a file whose hunks carry its change, since hashing source the reader was
+	// never shown would drop a mark over a change they could not have missed.
+	Content string
 }
 
 // Fingerprint is a hash of what the diff draws for one file, which is what a mark of having
 // read that file is held against: the change made to it, the headers its hunks fall under, and
-// every line of them, but not the source outside them, since a change no hunk shows is a change
-// the reader was never shown.
+// every line of them, and the content of a file it draws nothing of, but not the source outside
+// the hunks of one it does, since a change no hunk shows is a change the reader was never shown.
 func (f File) Fingerprint() string {
 	var drawn strings.Builder
 
-	fmt.Fprintf(&drawn, "%s\x00%s\x00", f.OldPath, f.NewPath)
+	fmt.Fprintf(&drawn, "%s\x00%s\x00%s\x00", f.OldPath, f.NewPath, f.Content)
 	for _, metadata := range f.Metadata {
 		fmt.Fprintf(&drawn, "%s\x00", metadata)
 	}

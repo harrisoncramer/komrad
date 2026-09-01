@@ -76,7 +76,7 @@ func diffArgs(commit string, exclude []string) []string {
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",
 		"--no-pager", "diff",
-		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3",
+		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3", "--full-index",
 		commit, "--", ".",
 	}
 
@@ -139,7 +139,15 @@ func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, e
 			file.Metadata = append(file.Metadata, "renamed from "+cleanPath(current.OldName))
 		}
 
-		if !current.IsBinary {
+		if mode := modeChange(current); mode != "" {
+			file.Metadata = append(file.Metadata, mode)
+		}
+
+		if current.IsBinary {
+			// The patch draws no hunks for a binary, so the blob hashes git names on its index
+			// line are what the fingerprint has to hold the mark against.
+			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
+		} else {
 			file.OldSource = readRevision(ctx, root, commit, file.OldPath)
 			file.NewSource = readWorkingTree(root, file.NewPath)
 			file.Hunks = buildHunks(current.TextFragments)
@@ -149,6 +157,17 @@ func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, e
 	}
 
 	return files, nil
+}
+
+// modeChange is the line to show for a file whose permissions moved, which git puts in the patch
+// with no hunk to hang it off, and is nothing for a file arriving or leaving, since those have
+// only ever had the one mode and are already named as new or deleted.
+func modeChange(file *gitdiff.File) string {
+	if file.OldMode == 0 || file.NewMode == 0 || file.OldMode == file.NewMode {
+		return ""
+	}
+
+	return fmt.Sprintf("mode %04o to %04o", file.OldMode.Perm(), file.NewMode.Perm())
 }
 
 func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
@@ -229,6 +248,7 @@ func loadUntracked(ctx context.Context, root string, exclude []string) ([]File, 
 
 		if info.Size() > maxFileBytes {
 			file.Metadata = append(file.Metadata, "content omitted: over 2 MiB")
+			file.Content = hashObject(ctx, root, path)
 			files = append(files, file)
 
 			continue
@@ -237,6 +257,7 @@ func loadUntracked(ctx context.Context, root string, exclude []string) ([]File, 
 		content := readWorkingTree(root, path)
 		if strings.IndexByte(content, 0) >= 0 {
 			file.Metadata = []string{"untracked binary file"}
+			file.Content = hashObject(ctx, root, path)
 			files = append(files, file)
 
 			continue
@@ -263,6 +284,18 @@ func addedHunk(content string) Hunk {
 	}
 
 	return Hunk{Header: fmt.Sprintf("@@ -0,0 +1,%d @@", len(lines)), Lines: lines}
+}
+
+// hashObject is what git would call the file on disk, which is how an untracked file the patch
+// draws nothing of still has something that moves when the agent rewrites it, and it reads the
+// file rather than the index, so it serves one no revision holds and one too big to load alike.
+func hashObject(ctx context.Context, root, path string) string {
+	oid, err := runGit(ctx, root, "hash-object", "--", path)
+	if err != nil {
+		return ""
+	}
+
+	return oid
 }
 
 func readRevision(ctx context.Context, root, revision, path string) string {
