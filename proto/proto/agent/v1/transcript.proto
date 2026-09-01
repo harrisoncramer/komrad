@@ -28,7 +28,8 @@ message SearchHit {
 }
 
 message SearchTranscriptsResponse {
-  repeated SearchHit hits = 1;
+  repeated SearchHit matches = 1;
+  repeated SearchHit near = 3;
   optional string next_page_token = 2;
 }
 

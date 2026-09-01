@@ -544,90 +544,42 @@ VALUES (
     @content_offset);
 
 -- name: SearchTranscripts :many
-WITH parsed AS (
+WITH q AS (
     SELECT
-        @terms::text[] AS terms,
-        @patterns::text[] AS patterns,
-        @excluded::text[] AS excluded,
-        @substring_weight::float8 AS weight
-),
-q AS (
-    SELECT
-        terms,
-        patterns,
-        weight,
-        PLAINTO_TSQUERY('english', ARRAY_TO_STRING(terms, ' ')) AS words,
+        PLAINTO_TSQUERY('english', ARRAY_TO_STRING(@terms::text[], ' ')) AS words,
         ARRAY (
             SELECT
                 PHRASETO_TSQUERY('english', t)
             FROM
-                UNNEST(terms) t
+                UNNEST(@terms::text[]) t
             WHERE
                 PHRASETO_TSQUERY('english', t) <> '') AS required,
-        ARRAY (
-            SELECT
-                PHRASETO_TSQUERY('english', e)
-            FROM
-                UNNEST(excluded) e) AS forbidden
-    FROM
-        parsed
+            ARRAY (
+                SELECT
+                    PHRASETO_TSQUERY('english', e)
+                FROM
+                    UNNEST(@excluded::text[]) e) AS forbidden
 ),
-matched AS (
+ranked AS (
     SELECT
         c.agent_id,
         c.seq,
         c.role,
-        c.content,
         c.content_offset,
-        c.tsv,
         a.name,
         a.archived_at IS NOT NULL AS archived,
-        q.words,
-        q.terms,
-        q.weight,
-        CARDINALITY(q.required) > 0
-        AND c.tsv @@ ALL (q.required) AS word_match
-FROM
-    agent_transcript_chunks c
-    CROSS JOIN q
-    JOIN agents a ON a.id = c.agent_id
-    WHERE
-        NOT (c.tsv @@ ANY (q.forbidden))
-        AND (CARDINALITY(q.required) > 0
-            AND c.tsv @@ ALL (q.required)
-            OR (CARDINALITY(q.terms) > 0
-                AND c.content ILIKE ALL (q.patterns)))
-        AND (sqlc.narg('agent_id')::uuid IS NULL
-            OR c.agent_id = sqlc.narg('agent_id'))
-),
-ranked AS (
-    SELECT
-        m.agent_id,
-        m.seq,
-        m.role,
-        m.content_offset,
-        m.name,
-        m.archived,
-        m.word_match,
-        CASE WHEN m.word_match THEN
-            TS_HEADLINE('english', m.content, m.words, @headline)
-        ELSE
-            SUBSTRING(m.content FROM GREATEST(1,(
-                        SELECT
-                            MIN(POSITION(LOWER(t) IN LOWER(m.content)))
-                        FROM UNNEST(m.terms) t
-                        WHERE
-                            POSITION(LOWER(t) IN LOWER(m.content)) > 0) - @lead::int)
-                    FOR @width::int)
-        END::text AS snippet,
-        CASE WHEN m.word_match THEN
-            TS_RANK_CD(m.tsv, m.words, 32)
-        ELSE
-            m.weight * WORD_SIMILARITY(ARRAY_TO_STRING(m.terms, ' '), m.content)
-        END::float8 AS rank
+        TS_HEADLINE('english', c.content, q.words, @headline) AS snippet,
+        TS_RANK_CD(c.tsv, q.words, 32) AS rank
     FROM
-        matched m
-)
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE
+        CARDINALITY(q.required) > 0
+        AND c.tsv @@ ALL (q.required)
+        AND NOT (c.tsv @@ ANY (q.forbidden))
+        AND (sqlc.narg('agent_id')::uuid IS NULL
+            OR c.agent_id = sqlc.narg('agent_id')))
 SELECT
     r.agent_id,
     r.seq,
@@ -635,9 +587,77 @@ SELECT
     r.content_offset,
     r.name,
     r.archived::boolean AS archived,
-    r.word_match::boolean AS word_match,
-    r.snippet,
-    r.rank
+    r.snippet::text AS snippet,
+    r.rank::float8 AS rank
+FROM
+    ranked r
+WHERE (sqlc.narg('cursor_rank')::float8 IS NULL
+    OR r.rank < sqlc.narg('cursor_rank')
+    OR (r.rank = sqlc.narg('cursor_rank')
+        AND (r.agent_id,
+            r.seq) >(sqlc.narg('cursor_agent_id')::uuid,
+            sqlc.narg('cursor_seq')::int)))
+ORDER BY
+    r.rank DESC,
+    r.agent_id ASC,
+    r.seq ASC
+LIMIT @lim;
+
+-- name: SearchTranscriptsNear :many
+WITH q AS (
+    SELECT
+        @terms::text[] AS terms,
+        @patterns::text[] AS patterns,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', t)
+            FROM
+                UNNEST(@terms::text[]) t
+            WHERE
+                PHRASETO_TSQUERY('english', t) <> '') AS required,
+        ARRAY (
+            SELECT
+                PHRASETO_TSQUERY('english', e)
+            FROM
+                UNNEST(@excluded::text[]) e) AS forbidden
+),
+ranked AS (
+    SELECT
+        c.agent_id,
+        c.seq,
+        c.role,
+        c.content_offset,
+        a.name,
+        a.archived_at IS NOT NULL AS archived,
+        SUBSTRING(c.content FROM GREATEST(1,(
+                    SELECT
+                        MIN(POSITION(LOWER(t) IN LOWER(c.content)))
+                    FROM UNNEST(q.terms) t
+                WHERE
+                    POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
+            FOR @width::int) AS snippet,
+        WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
+    FROM
+        agent_transcript_chunks c
+        CROSS JOIN q
+        JOIN agents a ON a.id = c.agent_id
+    WHERE
+        CARDINALITY(q.terms) > 0
+        AND c.content ILIKE ALL (q.patterns)
+        AND NOT (CARDINALITY(q.required) > 0
+            AND c.tsv @@ ALL (q.required))
+        AND NOT (c.tsv @@ ANY (q.forbidden))
+        AND (sqlc.narg('agent_id')::uuid IS NULL
+            OR c.agent_id = sqlc.narg('agent_id')))
+SELECT
+    r.agent_id,
+    r.seq,
+    r.role,
+    r.content_offset,
+    r.name,
+    r.archived::boolean AS archived,
+    r.snippet::text AS snippet,
+    r.rank::float8 AS rank
 FROM
     ranked r
 WHERE (sqlc.narg('cursor_rank')::float8 IS NULL

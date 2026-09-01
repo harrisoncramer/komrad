@@ -81,7 +81,7 @@ func TestMailReachesAnAgentThatHadAlreadyStopped(t *testing.T) {
 			AgentId: &scope,
 		}))
 		require.NoError(t, err)
-		require.NotEmpty(t, hits.Msg.GetHits())
+		require.NotEmpty(t, hits.Msg.GetMatches())
 	})
 }
 

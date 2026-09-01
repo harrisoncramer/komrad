@@ -168,10 +168,10 @@ func TestTranscriptSyncer(t *testing.T) {
 			}
 
 			if tt.searchFor != "" {
-				hits, err := st.Transcripts.Search(ctx, transcriptstore.SearchParams{Query: tt.searchFor, Limit: 10})
+				found, err := st.Transcripts.Search(ctx, transcriptstore.SearchParams{Query: tt.searchFor, Limit: 10})
 				require.NoError(t, err)
-				require.Len(t, hits, 1)
-				assert.Equal(t, agent.ID, hits[0].AgentID)
+				require.Len(t, found.Matches, 1)
+				assert.Equal(t, agent.ID, found.Matches[0].AgentID)
 			}
 		})
 	}

@@ -109,32 +109,24 @@ func renderMailPage(stored mailstore.Mail) mail {
 	return mail{Mail: renderMail(stored), cursor: mailstore.Cursor{ID: stored.ID}}
 }
 
-type searchHit struct {
-	*agentv1.SearchHit
+// searchPage lets the paginator decode a search cursor, which locates a page of both
+// sections rather than a single hit the way every other listing's cursor does.
+type searchPage struct {
 	cursor transcriptstore.Cursor
 }
 
-// Cursor returns the keyset cursor locating this hit.
-func (h searchHit) Cursor() (transcriptstore.Cursor, error) {
-	return h.cursor, nil
-}
+// Cursor returns the keyset cursor locating this page.
+func (p searchPage) Cursor() (transcriptstore.Cursor, error) { return p.cursor, nil }
 
-func renderSearchHit(hit transcriptstore.SearchHit) searchHit {
-	return searchHit{
-		SearchHit: &agentv1.SearchHit{
-			AgentId:       hit.AgentID,
-			Name:          hit.Name,
-			Archived:      hit.Archived,
-			Snippet:       hit.Snippet,
-			Score:         hit.Rank,
-			Seq:           hit.Seq,
-			Role:          hit.Role,
-			ContentOffset: hit.ContentOffset,
-		},
-		cursor: transcriptstore.Cursor{
-			Rank:    hit.Rank,
-			AgentID: hit.AgentID,
-			Seq:     hit.Seq,
-		},
+func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
+	return &agentv1.SearchHit{
+		AgentId:       hit.AgentID,
+		Name:          hit.Name,
+		Archived:      hit.Archived,
+		Snippet:       hit.Snippet,
+		Score:         hit.Rank,
+		Seq:           hit.Seq,
+		Role:          hit.Role,
+		ContentOffset: hit.ContentOffset,
 	}
 }

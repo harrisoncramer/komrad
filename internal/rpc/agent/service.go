@@ -68,7 +68,7 @@ type archiveEmptier interface {
 
 type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
-	Search(ctx context.Context, params transcriptstore.SearchParams) ([]transcriptstore.SearchHit, error)
+	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
 }
 
 type mailer interface {
@@ -495,10 +495,10 @@ func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// SearchTranscripts runs a full-text search over stored transcripts and returns one page of
-// matching agents with a marked snippet, best match first.
+// SearchTranscripts runs a search over stored transcripts and returns one page of the turns
+// that say the words, and one of the turns that only carry the letters.
 func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
-	paginator, err := pagination.New[transcriptstore.Cursor, searchHit](req.Msg.GetPagination())
+	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.Msg.GetPagination())
 	if err != nil {
 		return nil, err
 	}
@@ -510,7 +510,7 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
 	}
 
-	hits, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
+	results, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
 		Query:   req.Msg.GetQuery(),
 		Limit:   paginator.Limit(),
 		Cursor:  paginator.Cursor(),
@@ -520,17 +520,18 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 		return nil, rpcerr.Wrap(err, "failed to search transcripts")
 	}
 
-	resources := xslice.Map(hits, renderSearchHit)
-
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to build the next page token")
+	var next *string
+	if results.Next != nil {
+		if next, err = pagination.Token(*results.Next); err != nil {
+			return nil, rpcerr.Wrap(err, "failed to build the next page token")
+		}
 	}
 
-	response := &agentv1.SearchTranscriptsResponse{NextPageToken: next}
-	response.Hits = xslice.Map(resources, func(resource searchHit) *agentv1.SearchHit { return resource.SearchHit })
-
-	return connect.NewResponse(response), nil
+	return connect.NewResponse(&agentv1.SearchTranscriptsResponse{
+		Matches:       xslice.Map(results.Matches, renderSearchHit),
+		Near:          xslice.Map(results.Near, renderSearchHit),
+		NextPageToken: next,
+	}), nil
 }
 
 // GetTranscript returns an agent's full stored transcript by id, so the search preview can

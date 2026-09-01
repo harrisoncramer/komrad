@@ -1362,6 +1362,12 @@ func TestLogTagsTheAction(t *testing.T) {
 	assert.Equal(t, "create-worktree", record[logging.ActionName])
 }
 
+// allSearchHits flattens both sections of a response, for the tests that care which turns
+// came back rather than which way each one matched.
+func allSearchHits(msg *agentv1.SearchTranscriptsResponse) []*agentv1.SearchHit {
+	return append(append([]*agentv1.SearchHit{}, msg.GetMatches()...), msg.GetNear()...)
+}
+
 // TestSearchTranscripts covers every field on a hit, since two of them crossed on the way out
 // still look like a working search while sending the reader to the wrong place.
 func TestSearchTranscripts(t *testing.T) {
@@ -1417,10 +1423,10 @@ func TestSearchTranscripts(t *testing.T) {
 				Query: tt.query,
 			}))
 			require.NoError(t, err)
-			require.Len(t, found.Msg.GetHits(), len(tt.wantSeqs))
+			require.Len(t, allSearchHits(found.Msg), len(tt.wantSeqs))
 
 			seqs := make([]int32, 0, len(tt.wantSeqs))
-			for _, hit := range found.Msg.GetHits() {
+			for _, hit := range allSearchHits(found.Msg) {
 				seqs = append(seqs, hit.GetSeq())
 
 				assert.Equal(t, agent.ID, hit.GetAgentId())
@@ -1502,8 +1508,10 @@ func TestSearchTranscriptsScope(t *testing.T) {
 			found, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
 			require.NoError(t, err)
 
-			names := make([]string, 0, len(found.Msg.GetHits()))
-			for _, hit := range found.Msg.GetHits() {
+			hits := allSearchHits(found.Msg)
+
+			names := make([]string, 0, len(hits))
+			for _, hit := range hits {
 				names = append(names, hit.GetName())
 			}
 			assert.ElementsMatch(t, tt.wantNames, names)
@@ -1516,7 +1524,7 @@ func TestSearchTranscriptsScope(t *testing.T) {
 func TestPagedReadsRefuseAMangledToken(t *testing.T) {
 	const (
 		listToken   = "eyJpIjoibm90LWFuLWlkIn0="
-		searchToken = "eyJyIjowLjUsImkiOiJub3QtYW4taWQiLCJzIjoxfQ=="
+		searchToken = "eyJtIjp7InIiOjAuNSwiaSI6Im5vdC1hbi1pZCIsInMiOjF9fQ=="
 	)
 
 	tests := []struct {
@@ -1582,11 +1590,11 @@ func TestSearchTranscriptsScopeSurvivesACursor(t *testing.T) {
 
 		found, err := svc.SearchTranscripts(ctx, connect.NewRequest(req))
 		require.NoError(t, err)
-		if len(found.Msg.GetHits()) == 0 {
+		if len(allSearchHits(found.Msg)) == 0 {
 			break
 		}
 
-		for _, hit := range found.Msg.GetHits() {
+		for _, hit := range allSearchHits(found.Msg) {
 			names = append(names, hit.GetName())
 		}
 

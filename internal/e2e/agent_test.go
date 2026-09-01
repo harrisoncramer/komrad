@@ -56,8 +56,8 @@ func TestAgentLifecycle(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
-		require.Len(t, hits.Msg.GetHits(), 1)
-		assert.Equal(t, agent.GetId(), hits.Msg.GetHits()[0].GetAgentId())
+		require.Len(t, hits.Msg.GetMatches(), 1)
+		assert.Equal(t, agent.GetId(), hits.Msg.GetMatches()[0].GetAgentId())
 	})
 
 	t.Run("a rename keeps the same agent", func(t *testing.T) {
