@@ -231,7 +231,20 @@ func clip(text string, width int) string {
 	return string(runes[:width-1]) + "…"
 }
 
-// selectionStyle is how a row taken into a selection is drawn, which is the name itself rather
-// than a mark beside it, and beats the cursor so that the row under the cursor still shows
-// whether it is in.
+// selectionStyle is the colour a row taken into a selection wears on its name, and it beats the
+// cursor so that the row under the cursor still shows whether it is in.
 var selectionStyle = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+
+const selectedIcon = "\u25a3"
+
+// selectedMark carries the selection where the colour on the name cannot, since a filter
+// covering the whole name draws it in matchStyle and a terminal without colour draws no style
+// at all, and it follows the name rather than opening the row so that an empty selection costs
+// the sidebar nothing.
+func selectedMark(selected bool) string {
+	if !selected {
+		return ""
+	}
+
+	return " " + selectionStyle.Render(selectedIcon)
+}

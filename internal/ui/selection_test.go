@@ -17,6 +17,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -399,39 +400,99 @@ func TestArchiveSelection(t *testing.T) {
 		assert.Equal(t, []string{"a3"}, m.archive.selected.ids)
 	})
 
-	t.Run("a chosen row turns without shifting the rows", func(t *testing.T) {
+	t.Run("a chosen row is marked without shifting the rows", func(t *testing.T) {
 		withColor(t)
 
 		m := archiveSelectionTree()
 
 		rest := m.archiveView()
 		assert.NotContains(t, rest, selectionStyle.Render("api"))
+		assert.NotContains(t, rest, selectedIcon)
 
 		m.archive.selected = selection{ids: []string{"a2"}}
 		view := m.archiveView()
 		assert.Contains(t, view, selectionStyle.Render("api"))
 		assert.NotContains(t, view, selectionStyle.Render("db"), "and only that row")
-		assert.Equal(t, lineWidth(t, rest, "api"), lineWidth(t, view, "api"), "the chosen row keeps its width")
-		assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
+		assert.Equal(t, 1, countRows(view, selectedIcon), "only the chosen row carries the mark")
+		assert.Equal(t, nameColumn(t, rest, "api"), nameColumn(t, view, "api"), "the chosen row does not shift")
+		assert.Equal(t, nameColumn(t, rest, "db"), nameColumn(t, view, "db"), "and neither does the one below it")
 	})
 }
 
-// TestAgentsViewSelectionColour covers how a row taken into a selection is drawn, which is its
-// own name in the selection colour, so that taking a row in shifts nothing around it.
-func TestAgentsViewSelectionColour(t *testing.T) {
+// TestAgentsViewSelection covers how a row taken into a selection is drawn, which is a mark
+// after its own name and the name in the selection colour, so that taking a row in shifts
+// nothing around it.
+func TestAgentsViewSelection(t *testing.T) {
 	withColor(t)
 
 	m := selectionTree()
 
 	rest := m.agentsView()
 	assert.NotContains(t, rest, selectionStyle.Render("api"))
+	assert.NotContains(t, rest, selectedIcon)
 
 	m.tree.selected = selection{ids: []string{"a2"}}
 	view := m.agentsView()
 	assert.Contains(t, view, selectionStyle.Render("api"), "the selected row turns")
 	assert.NotContains(t, view, selectionStyle.Render("db"), "and only that row")
-	assert.Equal(t, lineWidth(t, rest, "api"), lineWidth(t, view, "api"), "the chosen row keeps its width")
-	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
+	assert.Equal(t, 1, countRows(view, selectedIcon), "only the chosen row carries the mark")
+	assert.Equal(t, nameColumn(t, rest, "api"), nameColumn(t, view, "api"), "the chosen row does not shift")
+	assert.Equal(t, nameColumn(t, rest, "db"), nameColumn(t, view, "db"), "and neither does the one below it")
+}
+
+// TestSelectionSurvivesAFilterOverTheName covers a standing filter whose match covers the whole
+// name, which draws the name in matchStyle and so leaves the selection colour nowhere to go.
+func TestSelectionSurvivesAFilterOverTheName(t *testing.T) {
+	withColor(t)
+
+	for _, tc := range []struct {
+		name string
+		view func(m model, chosen bool) string
+	}{
+		{
+			name: "agents",
+			view: func(m model, chosen bool) string {
+				if chosen {
+					m.tree.selected = selection{ids: []string{"a2"}}
+				}
+
+				return m.agentsView()
+			},
+		},
+		{
+			name: "archive",
+			view: func(m model, chosen bool) string {
+				if chosen {
+					m.archive.selected = selection{ids: []string{"a2"}}
+				}
+
+				return m.archiveView()
+			},
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			m := selectionTree()
+			m.archive = archiveSelectionTree().archive
+			m.filter.setQuery("api")
+
+			assert.NotEqual(t, agentLine(t, tc.view(m, false), "api"), agentLine(t, tc.view(m, true), "api"))
+		})
+	}
+}
+
+// TestSelectionSurvivesWithoutColour covers a terminal that renders no escapes at all, where
+// every other row fact still reads because every other row fact is a glyph.
+func TestSelectionSurvivesWithoutColour(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.Ascii)
+
+	m := selectionTree()
+
+	rest := agentLine(t, m.agentsView(), "api")
+	m.tree.selected = selection{ids: []string{"a2"}}
+
+	assert.NotEqual(t, rest, agentLine(t, m.agentsView(), "api"))
 }
 
 // TestSelectionBeatsTheCursor pins that the row under the cursor still shows whether it is in,
@@ -453,18 +514,42 @@ func TestSelectionBeatsTheCursor(t *testing.T) {
 	assert.NotContains(t, view, m.rowCursorStyle().Render("api"), "the cursor does not take the name back")
 }
 
-func lineWidth(t *testing.T, view, text string) int {
+// nameColumn is the cell a row's name starts in, which is what a mark drawn beside a row has to
+// leave alone whether or not the row is in the selection.
+func nameColumn(t *testing.T, view, text string) int {
 	t.Helper()
 
+	return strings.Index(ansi.Strip(agentLine(t, view, text)), text)
+}
+
+// agentLine is the rendered row for a name, which is the last line carrying it so that the
+// filter's own echo of the query is not mistaken for a row.
+func agentLine(t *testing.T, view, text string) string {
+	t.Helper()
+
+	found := ""
 	for _, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, text) {
-			return lipgloss.Width(line)
+		if strings.Contains(ansi.Strip(line), " "+text) {
+			found = line
 		}
 	}
 
-	t.Fatalf("no rendered row carries %q", text)
+	if found == "" {
+		t.Fatalf("no rendered row carries %q", text)
+	}
 
-	return 0
+	return found
+}
+
+func countRows(view, marker string) int {
+	n := 0
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, marker) {
+			n++
+		}
+	}
+
+	return n
 }
 
 // TestArchiveSelectionFromTheTree covers the archive key over a selection, which only opens
