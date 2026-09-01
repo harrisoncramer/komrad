@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestNewWorkflow pins what a workflow is stored as, a blank name falling back to a label so
+// the list never draws an empty row.
 func TestNewWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -42,6 +44,8 @@ func TestNewWorkflow(t *testing.T) {
 	}
 }
 
+// TestUpdateWorkflow pins that every field is written on an update, and which refusals an
+// update can raise.
 func TestUpdateWorkflow(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -227,6 +231,8 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 	}
 }
 
+// TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout pins that a worktree workflow is
+// refused unless its cwd is a repository agents can be branched off.
 func TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout(t *testing.T) {
 	tests := []struct {
 		name string
@@ -578,7 +584,7 @@ func TestArchiveWorkflow(t *testing.T) {
 			assert.Empty(t, listed, "the workflow is hidden")
 
 			_, err = st.Get(ctx, "agent")
-			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from the live listing")
+			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from the live listing")
 
 			all, err := st.ListAll(ctx)
 			require.NoError(t, err)
@@ -821,7 +827,7 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 	_, err = workflows.RestoreWorkflow(ctx, created.ID)
 
 	require.ErrorIs(t, err, store.ErrNameTaken)
-	assert.ErrorContains(t, err, "agent", "the refusal names what is in the way")
+	require.ErrorContains(t, err, "agent", "the refusal names what is in the way")
 
 	archived, err := st.Agents.ListArchivedInWorkflow(ctx, created.ID)
 	require.NoError(t, err)
@@ -916,7 +922,7 @@ func TestDeleteWorkflow(t *testing.T) {
 			require.NoError(t, err)
 
 			_, err = st.Workflows.GetIncludingArchived(ctx, id)
-			assert.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
+			require.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
 
 			if tt.addAgent {
 				all, err := st.ListAll(ctx)

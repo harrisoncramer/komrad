@@ -35,7 +35,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 
 			var startupErr error
 			if state.configErr == nil {
-				startupErr = ensureServer(ensureServerParams{
+				startupErr = ensureServer(cmd.Context(), ensureServerParams{
 					Addr:        state.env.Addr,
 					Self:        getSelfPath(),
 					LogPath:     logPath,

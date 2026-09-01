@@ -54,7 +54,7 @@ func TestMailConfigPropagatesTheLoadError(t *testing.T) {
 	load := mailConfig(func() (*config.Config, error) { return nil, sentinel })
 
 	_, err := load.GetDeliveryDeadline()
-	assert.ErrorIs(t, err, sentinel)
+	require.ErrorIs(t, err, sentinel)
 
 	_, err = load.GetMaxHops()
 	assert.ErrorIs(t, err, sentinel)

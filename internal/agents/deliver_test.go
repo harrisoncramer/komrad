@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestDeliver pins which agents mail is handed to and which are passed over, covering the
+// pane, the state, and how long ago it was last seen.
 func TestDeliver(t *testing.T) {
 	idleSince := time.Date(2026, time.August, 4, 12, 0, 0, 0, time.UTC)
 	nudgedBefore := idleSince.Add(-time.Minute)
@@ -226,6 +228,8 @@ func TestDeliver(t *testing.T) {
 	}
 }
 
+// TestDeliverReportsExpiredMail pins that mail nobody read before its deadline is reported
+// rather than dropped in silence.
 func TestDeliverReportsExpiredMail(t *testing.T) {
 	agents := &fakeAgents{agent: &agentstore.Agent{
 		ID:    "agent-a",
@@ -317,6 +321,8 @@ func (f *fakePanes) SendKeys(_ string, keys ...string) error {
 	return nil
 }
 
+// TestDeliverAllVisitsEveryMailboxHoldingMail pins that a sweep reaches every mailbox with
+// something waiting in it.
 func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 	agents := &fakeAgents{}
 	panes := &fakePanes{frame: idleFrame}
@@ -334,6 +340,7 @@ func TestDeliverAllVisitsEveryMailboxHoldingMail(t *testing.T) {
 	assert.Empty(t, panes.text, "mailboxes belonging to no agent are left alone")
 }
 
+// TestDeliverAllDoesNothingWhenNoMailIsWaiting pins that an empty sweep touches no pane.
 func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 	agents := &fakeAgents{}
 	panes := &fakePanes{}

@@ -104,6 +104,8 @@ func TestDescribeTable(t *testing.T) {
 	}
 }
 
+// TestDescribeTableRejectsBadNames pins that a name carrying anything but a table is refused
+// rather than interpolated into the query.
 func TestDescribeTableRejectsBadNames(t *testing.T) {
 	tests := []struct {
 		name    string

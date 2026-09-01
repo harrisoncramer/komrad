@@ -42,7 +42,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	rowWithoutBranch, ok := rowNamed(strings.Split(withoutBranch.agentsView(), "\n"), "worker")
 	require.True(t, ok)
 
-	assert.Equal(t, len(rowWithBranch), len(rowWithoutBranch))
+	assert.Len(t, rowWithoutBranch, len(rowWithBranch))
 }
 
 // TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree
@@ -108,6 +108,7 @@ func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
 	assert.NotContains(t, reviewer, worktreeRemovedIcon)
 }
 
+// TestUnreadMailMark pins that the glyph is drawn only for an agent with mail waiting.
 func TestUnreadMailMark(t *testing.T) {
 	assert.Empty(t, unreadMailMark(false))
 	assert.Contains(t, unreadMailMark(true), unreadMailIcon)

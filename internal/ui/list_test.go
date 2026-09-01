@@ -240,6 +240,8 @@ func TestListLines(t *testing.T) {
 	}
 }
 
+// TestTailRowsFitsASingleLineOfRoom pins that one line of room is spent saying how much is
+// hidden rather than on a row that would not fit.
 func TestTailRowsFitsASingleLineOfRoom(t *testing.T) {
 	out := tailRows("one\ntwo\nthree\n", 1)
 

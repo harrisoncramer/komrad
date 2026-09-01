@@ -336,6 +336,8 @@ func TestMCPConfigCarriesTheAgentsIdentity(t *testing.T) {
 	assert.Contains(t, command, "WEAVE_SESSION_ID='sess-1'")
 }
 
+// TestBuildCommandRegistersTheStopHook pins when the launch command carries the stop hook,
+// which is what lets weave hear an agent finish a turn.
 func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 	tests := []struct {
 		name        string

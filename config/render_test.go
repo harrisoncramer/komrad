@@ -12,6 +12,8 @@ import (
 // configTOMLPath is the checked-in file, relative to this package.
 const configTOMLPath = "../config.toml"
 
+// TestConfigTOMLIsUpToDate pins that the committed config.toml is what the generator would
+// write today, since it is generated from the config struct.
 func TestConfigTOMLIsUpToDate(t *testing.T) {
 	rendered, err := RenderConfigTOML(".")
 	require.NoError(t, err)
@@ -23,6 +25,8 @@ func TestConfigTOMLIsUpToDate(t *testing.T) {
 		"config.toml is stale; run 'mise run gen:config' and commit the result")
 }
 
+// TestRenderedConfigLoadsAsTheDefaults pins that the generated file loads back as the
+// defaults, which comparing bytes against the committed one does not prove.
 func TestRenderedConfigLoadsAsTheDefaults(t *testing.T) {
 	rendered, err := RenderConfigTOML(".")
 	require.NoError(t, err)

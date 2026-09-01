@@ -215,7 +215,7 @@ func TestBackgroundOutlivesTheSignal(t *testing.T) {
 	cancel()
 
 	require.NotNil(t, runner.startCtx)
-	assert.NoError(t, runner.startCtx.Err(), "the context River was started on outlives the signal")
+	require.NoError(t, runner.startCtx.Err(), "the context River was started on outlives the signal")
 
 	work.stop(context.Background())
 }
@@ -266,7 +266,7 @@ func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	deadline, release := shutdownDeadline(ctx, jobStopTimeout)
 	defer release()
 
-	assert.NoError(t, deadline.Err(), "the stage is not already over before it starts")
+	require.NoError(t, deadline.Err(), "the stage is not already over before it starts")
 
 	at, ok := deadline.Deadline()
 	require.True(t, ok, "the stage is bounded rather than waiting forever")

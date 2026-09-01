@@ -14,7 +14,6 @@ import (
 	"weave/internal/logtest"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func servedCall(t *testing.T, body string, handler http.HandlerFunc) (string, string) {
@@ -25,7 +24,7 @@ func servedCall(t *testing.T, body string, handler http.HandlerFunc) (string, st
 	seen := ""
 	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		read, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
+		assert.NoError(t, err)
 		seen = string(read)
 
 		handler(w, r)

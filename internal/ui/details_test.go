@@ -133,7 +133,7 @@ func TestDetailsCopyTheFieldUnderTheCursor(t *testing.T) {
 
 	msg := copyResultFrom(t, cmd)
 
-	assert.NoError(t, msg.err)
+	require.NoError(t, msg.err)
 	assert.Equal(t, []string{"https://github.com/o/r/pull/312"}, clip.written)
 	assert.Positive(t, panel.details.flashed, "the copied field flashes while the write runs")
 }

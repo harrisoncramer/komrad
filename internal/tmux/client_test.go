@@ -13,6 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestClientTarget pins the target flags a command carries, which is none until a client is
+// named.
 func TestClientTarget(t *testing.T) {
 	tests := []struct {
 		name   string

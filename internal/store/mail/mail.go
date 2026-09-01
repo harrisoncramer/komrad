@@ -56,6 +56,7 @@ type Store struct {
 	queries *models.Queries
 }
 
+// New builds the mail store over a database handle or a transaction.
 func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
@@ -107,6 +108,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	return &sent, nil
 }
 
+// GetByID returns one piece of mail, claimed or not.
 func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
 	if !store.IsID(id) {
 		return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
@@ -125,6 +127,7 @@ func (s *Store) GetByID(ctx context.Context, id string) (*Mail, error) {
 	return &got, nil
 }
 
+// Claim marks up to limit of an agent's waiting mail as read and returns it, oldest first.
 func (s *Store) Claim(ctx context.Context, toAgentID string, limit int32) ([]Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, nil
@@ -204,6 +207,7 @@ func (s *Store) Delete(ctx context.Context, ids []string) error {
 	return nil
 }
 
+// CountPending returns how much unclaimed mail is waiting for an agent.
 func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, error) {
 	if !store.IsID(toAgentID) {
 		return 0, nil

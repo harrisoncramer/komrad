@@ -30,7 +30,7 @@ func TestShutdownSignalFollowsItsParent(t *testing.T) {
 	ctx, stop := shutdownSignal(parent)
 	defer stop()
 
-	assert.NoError(t, ctx.Err())
+	require.NoError(t, ctx.Err())
 
 	cancelParent()
 

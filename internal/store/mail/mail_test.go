@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestSendAndClaim pins what a claim returns and what it leaves behind for each shape of
+// mailbox, from an empty one to one holding more than the limit asks for.
 func TestSendAndClaim(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -79,6 +81,8 @@ func TestSendAndClaim(t *testing.T) {
 	}
 }
 
+// TestClaimTakesEachMailOnce pins that claiming empties the mailbox, so a second call is
+// not a second delivery.
 func TestClaimTakesEachMailOnce(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -100,6 +104,8 @@ func TestClaimTakesEachMailOnce(t *testing.T) {
 	assert.Empty(t, second)
 }
 
+// TestClaimIgnoresOtherMailboxes pins that a claim reaches only the mail addressed to that
+// agent, leaving anybody else's where it is.
 func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -122,6 +128,8 @@ func TestClaimIgnoresOtherMailboxes(t *testing.T) {
 	assert.Equal(t, int64(1), left)
 }
 
+// TestClaimToleratesAnIDNoColumnCouldHold pins that an id the uuid column could not hold
+// reads as an empty mailbox rather than as a database error.
 func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
 	st := open(t)
 
@@ -134,6 +142,8 @@ func TestClaimToleratesAnIDNoColumnCouldHold(t *testing.T) {
 	assert.Zero(t, left)
 }
 
+// TestReplyToThreadsMail pins that a reply records the mail it answers, which is what makes
+// the two read as one thread.
 func TestReplyToThreadsMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -160,6 +170,8 @@ func TestReplyToThreadsMail(t *testing.T) {
 	assert.Equal(t, asked.ID, *answered.ReplyTo)
 }
 
+// TestGetByID pins which lookups find mail and which come back as not found, an id the
+// column could not hold included.
 func TestGetByID(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -246,6 +258,8 @@ func TestMailPastItsDeadlineTheInstantItIsSentIsAlreadyExpired(t *testing.T) {
 	assert.Zero(t, pending)
 }
 
+// TestExpiredMailIsNeitherDeliveredNorRead pins that mail past its deadline is neither
+// claimed nor counted as waiting.
 func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -272,6 +286,8 @@ func TestExpiredMailIsNeitherDeliveredNorRead(t *testing.T) {
 	assert.Equal(t, "too late", expired[0].Body)
 }
 
+// TestExpiredMailIsNotListedAgainOnceReported pins that listing expired mail marks it, so
+// the sender is told once rather than on every sweep.
 func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -293,6 +309,8 @@ func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
 	assert.Empty(t, second, "mail already reported must not be reported again")
 }
 
+// TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired pins that expiry is what
+// puts a mailbox into the sweep, since the expiry is the thing to report.
 func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -310,6 +328,8 @@ func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.
 	assert.Contains(t, mailboxes, recipient)
 }
 
+// TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported pins that a mailbox
+// leaves the sweep once there is nothing left in it to report.
 func TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -331,6 +351,8 @@ func TestListPendingMailboxesDropsAMailboxOnceItsExpiredMailIsReported(t *testin
 	assert.NotContains(t, mailboxes, recipient, "a mailbox whose only mail was already reported should not keep coming back to the sweep")
 }
 
+// TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsReported pins that
+// reporting one expiry does not take a mailbox still holding live mail out of the sweep.
 func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsReported(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -358,6 +380,8 @@ func TestListPendingMailboxesKeepsAMailboxWithLiveMailAfterItsExpiredMailIsRepor
 	assert.Contains(t, mailboxes, recipient, "the mailbox still holds live mail, so it must stay in the sweep")
 }
 
+// TestListUnreadMailboxesExcludesExpiredMail pins that mail nobody can read any more does
+// not make a mailbox look unread.
 func TestListUnreadMailboxesExcludesExpiredMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -375,6 +399,8 @@ func TestListUnreadMailboxesExcludesExpiredMail(t *testing.T) {
 	assert.NotContains(t, mailboxes, recipient, "expired mail cannot be read, so it does not count as unread")
 }
 
+// TestListUnreadMailboxesExcludesClaimedMail pins that mail already taken stops counting as
+// unread.
 func TestListUnreadMailboxesExcludesClaimedMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -394,6 +420,8 @@ func TestListUnreadMailboxesExcludesClaimedMail(t *testing.T) {
 	assert.NotContains(t, mailboxes, recipient)
 }
 
+// TestListUnreadMailboxesIncludesLiveUnclaimedMail pins that mail still waiting to be taken
+// is what makes a mailbox unread.
 func TestListUnreadMailboxesIncludesLiveUnclaimedMail(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -411,6 +439,8 @@ func TestListUnreadMailboxesIncludesLiveUnclaimedMail(t *testing.T) {
 	assert.Contains(t, mailboxes, recipient)
 }
 
+// TestListPage pins that a listing is newest first, is scoped to one mailbox, and shows
+// claimed mail rather than dropping it.
 func TestListPage(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -449,6 +479,8 @@ func TestListPage(t *testing.T) {
 	assert.NotNil(t, page[1].ClaimedAt)
 }
 
+// TestListPageCursorTakesTheNextPage pins that the cursor from one page starts the next
+// where the first left off.
 func TestListPageCursorTakesTheNextPage(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -477,6 +509,8 @@ func TestListPageCursorTakesTheNextPage(t *testing.T) {
 	assert.Equal(t, sent[0].ID, secondPage[0].ID)
 }
 
+// TestListPageIgnoresOtherMailboxes pins that a listing reaches only the mail addressed to
+// that agent.
 func TestListPageIgnoresOtherMailboxes(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -495,6 +529,8 @@ func TestListPageIgnoresOtherMailboxes(t *testing.T) {
 	assert.Empty(t, page)
 }
 
+// TestListByID pins that only the ids actually holding mail come back, so an id that is
+// unknown or malformed is skipped rather than failing the call.
 func TestListByID(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -513,6 +549,7 @@ func TestListByID(t *testing.T) {
 	assert.Equal(t, sent.ID, found[0].ID)
 }
 
+// TestDelete pins that deleted mail is gone rather than merely marked read.
 func TestDelete(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -589,7 +626,7 @@ func TestOneUnclaimedNoticePerKind(t *testing.T) {
 		Kind:      KindReviewActivity,
 		Deadline:  time.Hour,
 	})
-	assert.ErrorIs(t, err, ErrNoticePending, "a doorbell still waiting to be read is not rung again")
+	require.ErrorIs(t, err, ErrNoticePending, "a doorbell still waiting to be read is not rung again")
 
 	pending, err := st.CountPending(ctx, recipient)
 	require.NoError(t, err)

@@ -464,7 +464,7 @@ func TestUnreachableView(t *testing.T) {
 
 			view := m.View()
 			if !tt.wantTakeover {
-				assert.NoError(t, m.unreachable)
+				require.NoError(t, m.unreachable)
 				assert.NotContains(t, view, "Cannot reach the server")
 
 				return

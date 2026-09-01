@@ -145,6 +145,8 @@ func TestUpdateSearchEditsQuery(t *testing.T) {
 	}
 }
 
+// TestTrimLastRune pins that a backspace drops a whole rune rather than one byte of a
+// multi-byte one.
 func TestTrimLastRune(t *testing.T) {
 	tests := []struct {
 		name string

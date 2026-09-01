@@ -15,7 +15,7 @@ import (
 // TestRequestStopOnNothing covers a stop aimed at an address nothing is serving: the work
 // is already done, so a reload carries on rather than failing.
 func TestRequestStopOnNothing(t *testing.T) {
-	pid, err := requestStop(freeAddr(t))
+	pid, err := requestStop(t.Context(), freeAddr(t))
 
 	require.NoError(t, err)
 	assert.Zero(t, pid, "there was nothing to stop")
@@ -26,7 +26,7 @@ func TestRequestStopOnNothing(t *testing.T) {
 func TestRequestStopReadsThePid(t *testing.T) {
 	addr := fakeServer(t, fakeServerParams{stopPid: os.Getpid()})
 
-	pid, err := requestStop(addr)
+	pid, err := requestStop(t.Context(), addr)
 
 	require.NoError(t, err)
 	assert.Equal(t, os.Getpid(), pid)
@@ -39,7 +39,7 @@ func TestRequestStopOnAServerWithoutTheRoute(t *testing.T) {
 	server := httptest.NewServer(http.NotFoundHandler())
 	defer server.Close()
 
-	_, err := requestStop(strippedHost(t, server.URL))
+	_, err := requestStop(t.Context(), strippedHost(t, server.URL))
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "would not stop")

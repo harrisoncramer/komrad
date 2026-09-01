@@ -59,13 +59,13 @@ func TestSessionClientWithNothingAttached(t *testing.T) {
 	assert.Empty(t, client.GetSessionClient("$99"))
 }
 
-// The server here stands in for the user's own rather than the manager's, since that is
-// the only side OpenWindow is ever pointed at.
+// TestOpenWindowWithoutAClient covers a server standing in for the user's own rather than the
+// manager's, since that is the only side OpenWindow is ever pointed at.
 func TestOpenWindowWithoutAClient(t *testing.T) {
 	client := testServer(t, "host")
 
-	assert.Error(t, client.OpenWindow("", "editor", t.TempDir(), "sh"))
-	assert.Error(t, client.OpenWindow("/dev/ttys999", "editor", t.TempDir(), "sh"))
+	require.Error(t, client.OpenWindow("", "editor", t.TempDir(), "sh"))
+	require.Error(t, client.OpenWindow("/dev/ttys999", "editor", t.TempDir(), "sh"))
 
 	assert.Equal(t, []string{"host"}, windowNames(t, client, "host"))
 }

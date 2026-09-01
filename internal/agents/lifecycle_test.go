@@ -571,7 +571,7 @@ func TestRestore(t *testing.T) {
 
 			if tt.wantErrIs != nil {
 				require.ErrorIs(t, err, tt.wantErrIs)
-				assert.ErrorContains(t, err, "rename whatever holds", "the refusal says what to do about it")
+				require.ErrorContains(t, err, "rename whatever holds", "the refusal says what to do about it")
 
 				refused := agentByID(t, st, original.ID)
 				assert.NotNil(t, refused.ArchivedAt, "the agent stays in the archive")

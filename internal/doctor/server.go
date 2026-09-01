@@ -50,7 +50,7 @@ func Server() Check {
 		Name:        "server",
 		Description: "the panel reads and changes agents through a local service",
 		Run: func(ctx context.Context, env Env) Result {
-			if err := requireListenable(env.Addr); err != nil {
+			if err := requireListenable(ctx, env.Addr); err != nil {
 				return fail(err, env.Addr, "set WEAVE_ADDR to a host and port, such as 127.0.0.1:8787")
 			}
 
@@ -93,7 +93,7 @@ func Server() Check {
 	}
 }
 
-func requireListenable(addr string) error {
+func requireListenable(ctx context.Context, addr string) error {
 	_, port, err := net.SplitHostPort(addr)
 	if err != nil {
 		return fmt.Errorf("%w: %q has no port", ErrAddressUnusable, addr)
@@ -101,7 +101,7 @@ func requireListenable(addr string) error {
 
 	number, err := strconv.Atoi(port)
 	if err != nil {
-		if _, err := net.LookupPort("tcp", port); err != nil {
+		if _, err := net.DefaultResolver.LookupPort(ctx, "tcp", port); err != nil {
 			return fmt.Errorf("%w: %q names no port", ErrAddressUnusable, port)
 		}
 

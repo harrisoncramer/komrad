@@ -348,7 +348,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	_, ok = updated.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, staged, len(tmux.respawns), "an unchanged refresh leaves the stage pane alone")
+	assert.Len(t, tmux.respawns, staged, "an unchanged refresh leaves the stage pane alone")
 }
 
 func describeRows(rows []agentRow) []string {

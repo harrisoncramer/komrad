@@ -62,6 +62,8 @@ type NewMailServiceParams struct {
 	Config         mailConfigReader
 }
 
+// NewMailService builds the service that sends, claims and lists the mail agents leave for
+// each other.
 func NewMailService(p NewMailServiceParams) *MailService {
 	return &MailService{
 		mailReadWriter: p.MailReadWriter,
@@ -77,6 +79,7 @@ type SendMailParams struct {
 	ReplyTo   *string
 }
 
+// SendMail records one piece of ordinary mail from one agent to another.
 func (s *MailService) SendMail(ctx context.Context, params SendMailParams) (*mailstore.Mail, error) {
 	return s.send(ctx, sendParams{
 		From:      params.From,
@@ -212,6 +215,8 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	return sent, nil
 }
 
+// ClaimMail takes the mail waiting for an agent, which empties its mailbox rather than
+// showing it.
 func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
 	agent, err := s.agentFinder.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {

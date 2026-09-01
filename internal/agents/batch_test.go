@@ -97,7 +97,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 			err := manager.lifecycle.ArchiveAgents(ctx, []string{auth.ID, tt.stray, api.ID})
 
 			require.ErrorIs(t, err, ErrAgentNotFound)
-			assert.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
+			require.ErrorContains(t, err, tt.stray, "the refusal names what it could not find")
 			assert.Empty(t, tmux.killedPanes, "nothing was stopped")
 
 			live, err := st.List(ctx)
@@ -327,7 +327,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 			_, err := manager.lifecycle.RestoreAgents(ctx, batch)
 
 			require.ErrorIs(t, err, store.ErrNameTaken)
-			assert.ErrorContains(t, err, "auth", "the refusal names what is in the way")
+			require.ErrorContains(t, err, "auth", "the refusal names what is in the way")
 			assert.NotNil(t, agentByID(t, st, other.ID).ArchivedAt, "the agent with no clash stays back too")
 		})
 	}
@@ -416,7 +416,7 @@ func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	err := manager.lifecycle.ArchiveAgents(t.Context(), ids)
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
-	assert.ErrorContains(t, err, ids[0], "the first few are named")
-	assert.ErrorContains(t, err, "and 15 more", "and the rest are counted")
+	require.ErrorContains(t, err, ids[0], "the first few are named")
+	require.ErrorContains(t, err, "and 15 more", "and the rest are counted")
 	assert.NotContains(t, err.Error(), ids[19], "rather than spelled out")
 }

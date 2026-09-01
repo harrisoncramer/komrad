@@ -6,6 +6,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestFirstLine pins what the first line of a string is for each shape of input, an empty
+// string included.
 func TestFirstLine(t *testing.T) {
 	tests := []struct {
 		name string
@@ -41,6 +43,8 @@ func TestFirstLine(t *testing.T) {
 	}
 }
 
+// TestSlug pins how a string is reduced to a slug, including one that holds nothing a slug
+// could keep.
 func TestSlug(t *testing.T) {
 	tests := []struct {
 		name   string

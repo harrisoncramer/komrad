@@ -491,6 +491,8 @@ func TestMarkMatches(t *testing.T) {
 	}
 }
 
+// TestLikePattern pins that a query is escaped before it reaches LIKE, so a wildcard typed by
+// a searcher cannot widen the search.
 func TestLikePattern(t *testing.T) {
 	tests := []struct {
 		name  string

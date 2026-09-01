@@ -783,7 +783,7 @@ func TestConfirmingArchiveTracksTheWriteAsPending(t *testing.T) {
 	submitted, cmd := m.form.update(m, keyMsg("enter"))
 	got := asModel(t, submitted)
 
-	assert.Greater(t, got.pending, 0, "the in-flight write is tracked on the model that comes back")
+	assert.Positive(t, got.pending, "the in-flight write is tracked on the model that comes back")
 	assert.Nil(t, got.refreshCmd(), "a refresh mid-write is held off rather than racing it")
 	require.NotNil(t, cmd)
 }

@@ -21,6 +21,7 @@ const (
 	StateFailedToCleanup = "failed_to_cleanup"
 )
 
+// IsFailed reports whether a state is one of the two an agent reaches by failing.
 func IsFailed(state string) bool {
 	return state == StateFailedToCreate || state == StateFailedToCleanup
 }

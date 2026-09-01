@@ -622,6 +622,8 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 	}
 }
 
+// TestNewAgentSetupActionOverride pins that an agent's own setup action is the one run,
+// rather than the workflow's.
 func TestNewAgentSetupActionOverride(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -652,6 +654,8 @@ func TestNewAgentSetupActionOverride(t *testing.T) {
 	assert.Equal(t, "install-deps", *stored.SetupAction, "the override is what gets persisted, not the workflow's action")
 }
 
+// TestNewAgentSetupActionOverrideToNone pins that an override set to nothing means no setup
+// at all rather than falling back to the workflow.
 func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -1030,6 +1034,8 @@ func TestUniqueAgentName(t *testing.T) {
 	}
 }
 
+// TestNameTaken pins that a name is taken only within one workflow, so the same name is free
+// in another.
 func TestNameTaken(t *testing.T) {
 	tests := []struct {
 		name  string

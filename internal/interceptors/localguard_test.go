@@ -17,6 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestLocalGuard pins which requests reach the service and which are refused, so a page in a
+// browser cannot drive the local API.
 func TestLocalGuard(t *testing.T) {
 	t.Parallel()
 
@@ -118,7 +120,7 @@ func TestLocalGuard(t *testing.T) {
 			record := logtest.Record(t, written)
 			assert.Equal(t, "WARN", record["severity_text"])
 			assert.Equal(t, test.host, record[logging.RequestHost])
-			assert.Equal(t, float64(http.StatusForbidden), record[logging.HTTPStatus])
+			assert.EqualValues(t, http.StatusForbidden, record[logging.HTTPStatus])
 		})
 	}
 }

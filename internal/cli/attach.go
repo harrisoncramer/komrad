@@ -24,8 +24,8 @@ starting one is what the panel key is for.`,
 		Args:          cobra.NoArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			if !managerSessionRunning(state) {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if !managerSessionRunning(cmd.Context(), state) {
 				return errors.New("the panel is not running, so there is nothing to attach: " +
 					"press the panel key, or run `weave open`, to start it")
 			}
@@ -41,7 +41,7 @@ starting one is what the panel key is for.`,
 				ConfigPaths: state.configPaths,
 			})
 
-			return attachManagerSession(state)
+			return attachManagerSession(cmd.Context(), state)
 		},
 	}
 }

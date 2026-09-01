@@ -8,6 +8,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+// TestLoadAddsProcessEnvironment pins which process variables are read into the environment
+// alongside the settings the connection carries.
 func TestLoadAddsProcessEnvironment(t *testing.T) {
 	t.Setenv("EDITOR", "nvim")
 	t.Setenv("TMUX", "/tmp/tmux,1,0")
@@ -29,12 +31,15 @@ func TestLoadAddsProcessEnvironment(t *testing.T) {
 	assert.Equal(t, "/tmp/weave-cache/weave.log", got.LogPath())
 }
 
+// TestLoadDefaultsEditor pins the editor used when the process names none.
 func TestLoadDefaultsEditor(t *testing.T) {
 	t.Setenv("EDITOR", "")
 
 	assert.Equal(t, "vi", LoadEnvironment(Environment{}).Editor)
 }
 
+// TestLayerPathsUsesPlatformPathList pins that several config paths are separated the way the
+// platform separates a path list.
 func TestLayerPathsUsesPlatformPathList(t *testing.T) {
 	want := []string{"/one.toml", "/two.toml"}
 	t.Setenv("WEAVE_CONFIG", strings.Join(want, string(filepath.ListSeparator)))

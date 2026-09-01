@@ -97,6 +97,8 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 	}
 }
 
+// TestReviewOperationsTheAgentDoesNotGet pins which review calls are the reviewer's alone, so
+// an agent cannot open or resolve a thread on its own work.
 func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 	tests := []struct {
 		name string
@@ -152,6 +154,8 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 	}
 }
 
+// TestOnlyTheAuthorRewritesAMessage pins that a message can be rewritten only by whoever
+// wrote it.
 func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -207,6 +211,8 @@ func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 	}
 }
 
+// TestClaimingAnotherAgentsReviewIsRefused pins that reading somebody else's review is allowed
+// while claiming it as read is not.
 func TestClaimingAnotherAgentsReviewIsRefused(t *testing.T) {
 	service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
 
@@ -221,6 +227,8 @@ func TestClaimingAnotherAgentsReviewIsRefused(t *testing.T) {
 	assert.NoError(t, err, "reading another agent's review without claiming it is allowed")
 }
 
+// TestNotifyReviewThreads pins when an agent is told about review activity, so an agent that
+// is up to date or already holding a notice is left alone.
 func TestNotifyReviewThreads(t *testing.T) {
 	tests := []struct {
 		name           string

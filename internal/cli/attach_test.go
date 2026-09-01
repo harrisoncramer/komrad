@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sync/atomic"
@@ -42,7 +43,12 @@ func TestAttachRefusesWithoutAPanel(t *testing.T) {
 				require.NoError(t, err, "tmux: %s", out)
 			}
 
-			err := attachCmd(attachState(socket)).RunE(nil, nil)
+			cmd := attachCmd(attachState(socket))
+			cmd.SetArgs([]string{})
+			cmd.SetOut(io.Discard)
+			cmd.SetErr(io.Discard)
+
+			err := cmd.Execute()
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "the panel is not running")

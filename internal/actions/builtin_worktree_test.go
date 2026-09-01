@@ -218,6 +218,8 @@ func TestBuiltinWorktreeSetupCopiesADirectory(t *testing.T) {
 	assert.Equal(t, "AFTER=1\n", string(after))
 }
 
+// TestBuiltinWorktreeSetupSkipsATrackedCopyPath pins that a path git already tracks is left
+// to the checkout rather than copied over with the version in the working tree.
 func TestBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "settings.json"), []byte("committed\n"), 0o644))
@@ -240,6 +242,8 @@ func TestBuiltinWorktreeSetupSkipsATrackedCopyPath(t *testing.T) {
 	assert.Equal(t, "committed\n", string(content), "a tracked path is left as git checked it out rather than copied over")
 }
 
+// TestBuiltinWorktreeSetupSkipsATrackedSymlinkPath pins that a tracked directory is left as
+// git checked it out rather than replaced with a link.
 func TestBuiltinWorktreeSetupSkipsATrackedSymlinkPath(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "vendor"), 0o755))
@@ -291,6 +295,8 @@ func TestBuiltinWorktreeSetupRefusesAPathOutsideTheWorktree(t *testing.T) {
 	assert.True(t, info.IsDir(), "a path naming the worktree itself is refused rather than replacing it")
 }
 
+// TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade pins that a second entry
+// reaching through a link the first one made is refused rather than writing into the repo.
 func TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(repo, "local", "bin"), 0o755))
@@ -318,6 +324,8 @@ func TestBuiltinWorktreeSetupRefusesAPathUnderALinkAnEarlierEntryMade(t *testing
 	assert.Equal(t, filepath.Join(repo, "local"), link)
 }
 
+// TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink pins that a path resolving
+// through a tracked symlink out of the repo is refused.
 func TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
 	repo := initRepo(t)
 	outside := t.TempDir()
@@ -338,6 +346,8 @@ func TestBuiltinWorktreeSetupRefusesAPathUnderATrackedSymlink(t *testing.T) {
 	assert.FileExists(t, filepath.Join(outside, "cache", "keep.txt"), "the directory outside the repo survives")
 }
 
+// TestBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash pins that a trailing slash
+// names the same path, so the entry is not applied twice.
 func TestBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.MkdirAll(filepath.Join(repo, "local", "bin"), 0o755))
@@ -363,6 +373,8 @@ func TestBuiltinWorktreeSetupAppliesAPathWrittenWithATrailingSlash(t *testing.T)
 	assert.Equal(t, filepath.Join(repo, "local"), link)
 }
 
+// TestBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash pins that the
+// tracked check still recognizes the path when it is written with a trailing slash.
 func TestBuiltinWorktreeSetupSkipsATrackedSymlinkWrittenWithATrailingSlash(t *testing.T) {
 	repo := initRepo(t)
 	outside := t.TempDir()

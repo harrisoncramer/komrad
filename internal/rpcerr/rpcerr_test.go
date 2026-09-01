@@ -82,6 +82,7 @@ func TestWrapCodes(t *testing.T) {
 	}
 }
 
+// TestWrapNil pins that wrapping no error is no error, so a handler can wrap unconditionally.
 func TestWrapNil(t *testing.T) {
 	assert.NoError(t, rpcerr.Wrap(nil, "failed to do the thing"))
 }

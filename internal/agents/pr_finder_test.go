@@ -75,6 +75,8 @@ func TestGHPRFinderClassifiesARateLimit(t *testing.T) {
 	assert.True(t, isGHRateLimitError(err), "gh's rate-limit wording is recognised")
 }
 
+// TestIsGHRateLimitError pins which gh failures are a rate limit worth backing off from and
+// which are an ordinary error.
 func TestIsGHRateLimitError(t *testing.T) {
 	tests := []struct {
 		name string

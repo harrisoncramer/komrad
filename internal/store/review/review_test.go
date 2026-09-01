@@ -143,6 +143,8 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	assert.True(t, byID[first.ID].UnreadByAgent, "the agent's side is untouched by the person reading")
 }
 
+// TestCountUnreadForAgent pins how much review an agent still has to read, which is what the
+// notice is raised from.
 func TestCountUnreadForAgent(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -193,7 +195,7 @@ func TestCountUnreadForAgent(t *testing.T) {
 	}
 }
 
-// TestMissingRowsAnswerNil keeps the store's promise that an id naming nothing is an empty
+// TestMissingRowsAnswerNotFound keeps the store's promise that an id naming nothing is an empty
 // answer rather than an error, which is what lets the service above it say not found instead
 // of leaking an internal failure.
 func TestMissingRowsAnswerNotFound(t *testing.T) {
@@ -217,13 +219,13 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 			ctx := t.Context()
 
 			_, err := st.GetThread(ctx, tt.id)
-			assert.ErrorIs(t, err, store.ErrNotFound)
+			require.ErrorIs(t, err, store.ErrNotFound)
 
 			_, err = st.GetMessage(ctx, tt.id)
-			assert.ErrorIs(t, err, store.ErrNotFound)
+			require.ErrorIs(t, err, store.ErrNotFound)
 
 			_, err = st.MarkThreadRead(ctx, tt.id, AuthorHuman)
-			assert.ErrorIs(t, err, store.ErrNotFound)
+			require.ErrorIs(t, err, store.ErrNotFound)
 
 			_, err = st.EditMessage(ctx, tt.id, "rewritten")
 			assert.ErrorIs(t, err, store.ErrNotFound)

@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -37,8 +38,8 @@ it needs somewhere for agents to be put back into.`,
 		Hidden:        true,
 		SilenceUsage:  true,
 		SilenceErrors: true,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			if err := ensureManagerSession(state); err != nil {
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			if err := ensureManagerSession(cmd.Context(), state); err != nil {
 				return err
 			}
 
@@ -60,7 +61,7 @@ it needs somewhere for agents to be put back into.`,
 				ConfigPaths: state.configPaths,
 			})
 
-			return attachManagerSession(state)
+			return attachManagerSession(cmd.Context(), state)
 		},
 	}
 
@@ -69,8 +70,8 @@ it needs somewhere for agents to be put back into.`,
 	return cmd
 }
 
-func attachManagerSession(state *app) error {
-	attach := state.tmuxCommand("attach-session", "-t", agents.ManagerSession)
+func attachManagerSession(ctx context.Context, state *app) error {
+	attach := state.tmuxCommand(ctx, "attach-session", "-t", agents.ManagerSession)
 	attach.Stdin = os.Stdin
 	attach.Stdout = os.Stdout
 	attach.Stderr = os.Stderr
@@ -82,16 +83,16 @@ func attachManagerSession(state *app) error {
 	return nil
 }
 
-func managerSessionRunning(state *app) bool {
-	return state.tmuxCommand("has-session", "-t", agents.ManagerSession).Run() == nil
+func managerSessionRunning(ctx context.Context, state *app) bool {
+	return state.tmuxCommand(ctx, "has-session", "-t", agents.ManagerSession).Run() == nil
 }
 
-func ensureManagerSession(state *app) error {
-	if managerSessionRunning(state) {
+func ensureManagerSession(ctx context.Context, state *app) error {
+	if managerSessionRunning(ctx, state) {
 		return nil
 	}
 
-	cmd := state.tmuxCommand(buildManagerSessionArgs(state, getSelfPath())...)
+	cmd := state.tmuxCommand(ctx, buildManagerSessionArgs(state, getSelfPath())...)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
@@ -120,8 +121,8 @@ func buildManagerSessionArgs(state *app, self string) []string {
 	return args
 }
 
-func (a *app) tmuxCommand(args ...string) *exec.Cmd {
-	cmd := exec.Command("tmux", append([]string{"-L", a.env.TmuxSocket}, args...)...)
+func (a *app) tmuxCommand(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "tmux", append([]string{"-L", a.env.TmuxSocket}, args...)...)
 	cmd.Env = envWithoutTmux()
 
 	return cmd

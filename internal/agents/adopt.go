@@ -30,8 +30,8 @@ const adoptLookupTimeout = 30 * time.Second
 
 const worktreeListTimeout = 10 * time.Second
 
-// pullRequestResolver reads a pull request somebody else opened, and reports which
-// repository a directory belongs to so the two can be checked against each other.
+// pullRequestResolver reads a pull request and reports which repository a directory belongs
+// to, so adoption and the archive sweep can check the two against each other.
 type pullRequestResolver interface {
 	Resolve(ctx context.Context, dir, ref string) (*PullRequest, error)
 	Repository(ctx context.Context, dir string) (string, error)

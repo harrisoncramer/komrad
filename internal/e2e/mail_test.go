@@ -14,6 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestAgentsMailEachOther pins that mail sent through the running service reaches the
+// recipient and empties its mailbox when read.
 func TestAgentsMailEachOther(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

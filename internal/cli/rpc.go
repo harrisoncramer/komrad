@@ -76,12 +76,12 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 			return err
 		}
 
-		if err := requireServer(state.env.Addr); err != nil {
-			return err
-		}
-
 		ctx, cancel := context.WithTimeout(cmd.Context(), timeout)
 		defer cancel()
+
+		if err := requireServer(ctx, state.env.Addr); err != nil {
+			return err
+		}
 
 		payload, err := callRPC(ctx, callRPCParams{
 			Addr:    state.env.Addr,
@@ -99,8 +99,8 @@ func rpcMethodCmd(state *app, exposed rpcapi.Method) *cobra.Command {
 	return cmd
 }
 
-func requireServer(addr string) error {
-	if probeServer(addr).answering {
+func requireServer(ctx context.Context, addr string) error {
+	if probeServer(ctx, addr).answering {
 		return nil
 	}
 

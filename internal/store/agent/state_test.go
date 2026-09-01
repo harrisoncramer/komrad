@@ -55,7 +55,7 @@ func TestSetStateByID(t *testing.T) {
 			}
 
 			if tt.wantErr != nil {
-				assert.ErrorIs(t, st.SetStateByID(ctx, target, StateThinking), tt.wantErr)
+				require.ErrorIs(t, st.SetStateByID(ctx, target, StateThinking), tt.wantErr)
 			} else {
 				require.NoError(t, st.SetStateByID(ctx, target, StateThinking))
 			}
@@ -145,7 +145,7 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := open(t)
 
-			assert.ErrorIs(t, tt.write(st.Store, "not-a-uuid"), store.ErrNotFound)
+			require.ErrorIs(t, tt.write(st.Store, "not-a-uuid"), store.ErrNotFound)
 			assert.NoError(t, tt.write(st.Store, "00000000-0000-0000-0000-0000000000ff"),
 				"an id no agent holds is not the same question")
 		})

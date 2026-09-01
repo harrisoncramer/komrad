@@ -74,7 +74,7 @@ func TestArchiveAndReuse(t *testing.T) {
 
 			got, err := st.Get(ctx, "agent")
 			if !tt.wantVisible {
-				assert.ErrorIs(t, err, store.ErrNotFound, "an archived row is hidden from Get")
+				require.ErrorIs(t, err, store.ErrNotFound, "an archived row is hidden from Get")
 			} else {
 				require.NoError(t, err)
 				require.NotNil(t, got)

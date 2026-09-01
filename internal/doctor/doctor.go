@@ -28,6 +28,7 @@ type Problem struct {
 	Message string
 }
 
+// Error returns the message the check wrote, which is the sentence a person reads.
 func (p *Problem) Error() string { return p.Message }
 
 // CodeOf returns the stable code of the problem err carries, or empty when it carries none;

@@ -14,6 +14,8 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
+// TestGet pins which lookups find a workflow, an archived one and an id nobody holds
+// included.
 func TestGet(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -68,6 +70,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
+// TestList pins what a listing holds, and that an archived workflow drops out of it.
 func TestList(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -224,6 +227,8 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
+// TestActionsRoundTrip pins that the setup and cleanup actions come back as they were
+// written, naming none storing blank.
 func TestActionsRoundTrip(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -599,7 +604,7 @@ func TestDelete(t *testing.T) {
 			require.NoError(t, st.Delete(ctx, id))
 
 			_, err = st.GetIncludingArchived(ctx, id)
-			assert.ErrorIs(t, err, store.ErrNotFound, "the row is gone")
+			require.ErrorIs(t, err, store.ErrNotFound, "the row is gone")
 
 			if !tt.create {
 				return
