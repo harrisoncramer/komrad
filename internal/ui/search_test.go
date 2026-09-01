@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -18,6 +19,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -591,4 +593,158 @@ func (f *fakeSearchAgents) ResumeAgent(_ context.Context, req *connect.Request[a
 			PaneId: "%9",
 		},
 	}), nil
+}
+
+// TestSearchGroupsByAgent covers two agents sharing a name, which archived rows make ordinary,
+// and the rank ordering scattering one agent's hits: the list is headed once per agent, and an
+// agent's hits are drawn together under it.
+func TestSearchGroupsByAgent(t *testing.T) {
+	m := filterModel()
+	m.screen = screenSearch
+	m.width = 80
+	m.search = searchState{query: "ledger"}
+
+	m.applySearch(searchResult{
+		query: "ledger",
+		hits: []searchHit{
+			{
+				agentID: "a1",
+				name:    "dispatcher",
+				snippet: "first",
+			},
+			{
+				agentID: "a2",
+				name:    "dispatcher",
+				snippet: "second",
+			},
+			{
+				agentID: "a1",
+				name:    "dispatcher",
+				snippet: "third",
+			},
+		},
+	})
+
+	var snippets []string
+	for _, hit := range m.search.hits {
+		snippets = append(snippets, hit.snippet)
+	}
+	assert.Equal(t, []string{"first", "third", "second"}, snippets, "an agent's hits sit together")
+
+	view := ansi.Strip(m.searchView())
+	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one header per agent rather than per name")
+}
+
+// TestJumpLandsOnTheMatch covers enter carrying the position the snippet came from, so the
+// transcript opens where the match is rather than at the top of it.
+func TestJumpLandsOnTheMatch(t *testing.T) {
+	transcript := strings.Repeat("filler\n", 40) + "the ledger is here\n" + strings.Repeat("more\n", 40)
+	offset := int64(strings.Index(transcript, "ledger"))
+	wantLine := max(lineAtOffset(transcript, offset)-transcriptPreviewBefore, 1)
+
+	tests := []struct {
+		name string
+		hit  searchHit
+	}{
+		{
+			name: "a live hit",
+			hit: searchHit{
+				agentID: "a2",
+				name:    "payouts",
+				offset:  offset,
+			},
+		},
+		{
+			name: "an archived hit",
+			hit: searchHit{
+				agentID:  "a3",
+				name:     "old-work",
+				archived: true,
+				offset:   offset,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			m := filterModel()
+			m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
+			m.frame = layout.New(tmux, config.DefaultLayout())
+			m.frame.Attach("%0")
+			m.api = api{
+				agents:    &fakeSearchAgents{},
+				workflows: emptyLists{},
+				schedules: emptyLists{},
+			}
+			m.screen = screenSearch
+			m.listing.agents[1].alive = true
+			m.archive.agents = []agentstore.Agent{{
+				ID:         "a3",
+				Name:       "old-work",
+				WorkflowID: "w1",
+			}}
+			m.search = searchState{
+				query: "ledger",
+				hits:  []searchHit{tt.hit},
+				preview: previewResult{
+					agentID: tt.hit.agentID,
+					query:   "ledger",
+					offset:  offset,
+					content: transcript,
+				},
+			}
+
+			updated, _ := m.route(keyMsg("enter"))
+			_, ok := updated.(model)
+			require.True(t, ok)
+
+			staged := strings.Join(tmux.respawns, "\n")
+			assert.Contains(t, staged, "weave-transcript.txt", "the transcript is what the stage holds")
+			assert.Contains(t, staged, fmt.Sprintf("+%d ", wantLine), "the pager opens on the match")
+		})
+	}
+}
+
+// TestMatchGivesTheStageBackWhenTheCursorMoves pins the landing being the hit's own row and
+// nothing more, so the tree goes back to drawing what it always draws as soon as the cursor
+// moves off it.
+func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := filterModel()
+	m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
+	m.frame = layout.New(tmux, config.DefaultLayout())
+	m.frame.Attach("%0")
+	m.api = api{
+		agents:    &fakeSearchAgents{},
+		workflows: emptyLists{},
+		schedules: emptyLists{},
+	}
+	m.screen = screenSearch
+	m.listing.agents[1].alive = true
+	m.search = searchState{
+		query: "ledger",
+		hits: []searchHit{{
+			agentID: "a2",
+			name:    "payouts",
+			offset:  4,
+		}},
+		preview: previewResult{
+			agentID: "a2",
+			query:   "ledger",
+			offset:  4,
+			content: "one\ntwo\nthree\n",
+		},
+	}
+
+	jumped, _ := m.route(keyMsg("enter"))
+	landed, ok := jumped.(model)
+	require.True(t, ok)
+	require.Equal(t, "a2", landed.match.agentID)
+
+	moved, _ := landed.route(keyMsg("k"))
+	next, ok := moved.(model)
+	require.True(t, ok)
+
+	assert.Empty(t, next.match.agentID, "the transcript is let go of")
 }

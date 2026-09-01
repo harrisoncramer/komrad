@@ -335,6 +335,7 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
+	case m.stageMatch(r.item.agent.ID):
 	case r.item.agent.State == agentstore.StateSettingUp:
 		m.stageDocument(settingUpPlaceholder)
 	case agentstore.IsFailed(r.item.agent.State):

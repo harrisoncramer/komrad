@@ -331,6 +331,7 @@ func (m *model) stageArchive() {
 		m.stageDocument(emptyArchiveMarkdown)
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
+	case m.stageMatch(r.item.agent.ID):
 	default:
 		m.stageDocument(m.archiveDocument(r.item.agent))
 	}
