@@ -31,16 +31,18 @@ const (
 	ghostWidth = 4
 )
 
-// ghostSlot pads a row out to the ghost column and right-aligns the text in it, drawing nothing
-// when this row and a slot would not fit the pane, since nothing downstream clips a row and an
-// overrun one wraps onto the row below it.
+// ghostSlot pads a row out to the ghost column, or to the pane's right edge in a sidebar too
+// narrow to reach that column, and right-aligns the text in the slot that opens there, drawing
+// nothing when even that will not fit, since nothing downstream clips a row and an overrun one
+// wraps onto the row below it.
 func ghostSlot(row, text string, width int) string {
 	drawn := lipgloss.Width(row)
-	if text == "" || drawn+ghostGap+ghostWidth > width {
+	span := max(ghostWidth, lipgloss.Width(text))
+	if text == "" || drawn+ghostGap+span > width {
 		return row
 	}
 
-	pad := max(ghostColumn-drawn, ghostGap)
+	pad := max(min(ghostColumn, width-span)-drawn, ghostGap)
 
 	return row + strings.Repeat(" ", pad) + dimStyle.Render(fmt.Sprintf("%*s", ghostWidth, text))
 }

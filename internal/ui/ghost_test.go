@@ -113,18 +113,49 @@ func TestGhostSlotHiddenWhenTheRowWouldOverrun(t *testing.T) {
 	long := "      • " + strings.Repeat("x", nameWidth)
 	width := lipgloss.Width(long) + ghostGap + ghostWidth - 1
 
-	assert.Contains(t, ghostSlot(short, "6m", width), "6m")
+	kept := ghostSlot(short, "6m", width)
+	assert.Contains(t, kept, "6m")
+	assert.LessOrEqual(t, lipgloss.Width(kept), width, "and it stays inside the pane")
 	assert.Equal(t, long, ghostSlot(long, "27m", width))
 }
 
-// TestGhostSlotNeverOverrunsThePane walks a long row across every pane width the slot could be
-// drawn at, since a row wider than its pane wraps and shifts every row under it.
-func TestGhostSlotNeverOverrunsThePane(t *testing.T) {
-	row := strings.Repeat("x", ghostColumn)
+// TestGhostSlotFallsBackToThePaneEdge covers a sidebar too narrow to reach the ghost column,
+// which is every ordinary terminal, where the slot sits at the pane's right edge rather than
+// being dropped or drawn past it.
+func TestGhostSlotFallsBackToThePaneEdge(t *testing.T) {
+	const width = 40
 
-	for width := range ghostColumn + ghostWidth + ghostGap + 4 {
-		assert.LessOrEqual(t, lipgloss.Width(ghostSlot(row, "27m", width)), max(width, len(row)),
-			"a row drawn at width %d", width)
+	bare := ghostSlot("      • bare", "6m", width)
+	decorated := ghostSlot("      • decorated ⊘ ◷", "27m", width)
+
+	assert.Equal(t, width, lipgloss.Width(bare))
+	assert.Equal(t, width, lipgloss.Width(decorated))
+	assert.True(t, strings.HasSuffix(ansi.Strip(bare), "  6m"), "the bare row still ends in its span")
+	assert.True(t, strings.HasSuffix(ansi.Strip(decorated), " 27m"), "and so does the decorated one")
+}
+
+// TestGhostSlotNeverOverrunsThePane walks rows of every width across every pane width the slot
+// could be drawn at, since a row wider than its pane wraps and shifts every row under it.
+func TestGhostSlotNeverOverrunsThePane(t *testing.T) {
+	for drawn := range ghostColumn + 1 {
+		row := strings.Repeat("x", drawn)
+
+		for width := range ghostColumn + ghostWidth + ghostGap + 4 {
+			assert.LessOrEqual(t, lipgloss.Width(ghostSlot(row, "27m", width)), max(width, drawn),
+				"a row of width %d drawn in a pane of width %d", drawn, width)
+		}
+	}
+}
+
+// TestGhostSlotFitsANarrowSidebar renders the list at the widths a sidebar actually takes, since
+// the pane is a fraction of the window and is narrower than the ghost column on any terminal a
+// person is likely to be sitting at.
+func TestGhostSlotFitsANarrowSidebar(t *testing.T) {
+	for _, width := range []int{30, 40, 50, 56, 120} {
+		for _, row := range strings.Split(ghostTree(width).agentsView(), "\n") {
+			assert.LessOrEqual(t, lipgloss.Width(strings.TrimRight(row, " ")), width,
+				"a row rendered in a pane of width %d", width)
+		}
 	}
 }
 
