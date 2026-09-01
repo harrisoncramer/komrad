@@ -11,8 +11,7 @@ type Config struct {
 }
 
 type ContextTimeoutConfig struct {
-	Skip bool `json:"skip"`
-
+	Skip    bool     `json:"skip"`
 	Include []string `json:"include"`
 }
 
@@ -22,8 +21,7 @@ type CommentLengthConfig struct {
 }
 
 type CommentPrefixConfig struct {
-	Skip bool `json:"skip"`
-
+	Skip    bool `json:"skip"`
 	Require bool `json:"require"`
 }
 

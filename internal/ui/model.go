@@ -48,111 +48,72 @@ type uiTmux interface {
 }
 
 type Deps struct {
-	PopupWindow *PopupWindow
-	Tmux        uiTmux
-	Agents      agentv1connect.AgentServiceClient
-	Workflows   workflowv1connect.WorkflowServiceClient
-	Schedules   schedulev1connect.ScheduleServiceClient
-	Actions     actionv1connect.ActionServiceClient
-	Keys        config.Keybindings
-
-	Tags []config.Tag
-
-	Layout config.Layout
-
-	Addr string
-
-	LogViewer string
-
-	LogPath string
-
-	ProcessViewer string
-
-	Editor string
-
-	ActionLogsDir string
-
-	ConfigErr error
-
-	StartupErr error
-
+	PopupWindow     *PopupWindow
+	Tmux            uiTmux
+	Agents          agentv1connect.AgentServiceClient
+	Workflows       workflowv1connect.WorkflowServiceClient
+	Schedules       schedulev1connect.ScheduleServiceClient
+	Actions         actionv1connect.ActionServiceClient
+	Keys            config.Keybindings
+	Tags            []config.Tag
+	Layout          config.Layout
+	Addr            string
+	LogViewer       string
+	LogPath         string
+	ProcessViewer   string
+	Editor          string
+	ActionLogsDir   string
+	ConfigErr       error
+	StartupErr      error
 	StartupFindings []errui.Finding
-
-	Pane string
+	Pane            string
 
 	// Self is the weave binary, which the panel runs in the stage pane to draw into it.
 	Self string
 }
 
 type model struct {
-	popup *PopupWindow
-	api   api
-
-	tmux uiTmux
-
-	frame *layout.Frame
-
-	addr string
-
-	unreachable error
-
-	epoch int
-
-	pending int
-
+	popup           *PopupWindow
+	api             api
+	tmux            uiTmux
+	frame           *layout.Frame
+	addr            string
+	unreachable     error
+	epoch           int
+	pending         int
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding
-
-	banner *errui.Banner
-
-	screen screen
-
-	height int
-	width  int
-
-	info infoState
-
-	details       detailsState
-	detailsHeight float64
-
-	listing listing
-
-	tree      treeState
-	schedules scheduleState
-	archive   archiveState
-	search    searchState
-	review    reviewState
-
-	match matchFocus
-
-	filter filterState
-
-	form formState
-
-	pendingForm bool
-
-	setupPending bool
-
-	helpExpanded bool
-
-	topHeld bool
-
-	keys config.Keybindings
-	tags []config.Tag
-
-	logPath   string
-	logViewer string
-
-	processViewer string
-
-	editor        string
-	actionLogsDir string
-
-	pane string
+	banner          *errui.Banner
+	screen          screen
+	height          int
+	width           int
+	info            infoState
+	details         detailsState
+	detailsHeight   float64
+	listing         listing
+	tree            treeState
+	schedules       scheduleState
+	archive         archiveState
+	search          searchState
+	review          reviewState
+	match           matchFocus
+	filter          filterState
+	form            formState
+	pendingForm     bool
+	setupPending    bool
+	helpExpanded    bool
+	topHeld         bool
+	keys            config.Keybindings
+	tags            []config.Tag
+	logPath         string
+	logViewer       string
+	processViewer   string
+	editor          string
+	actionLogsDir   string
+	pane            string
 	// self is the weave binary, which the panel runs in the stage pane to draw into it.
 	self string
-
 	clip clipboardWriter
 
 	// isDark is the terminal's background, settled before the program started and never asked of

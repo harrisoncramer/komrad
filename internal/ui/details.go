@@ -10,15 +10,12 @@ import (
 type detailsState struct {
 	focused bool
 	cursor  int
-
-	row string
-
+	row     string
 	flashed int
 }
 
 type details struct {
-	id string
-
+	id     string
 	kind   string
 	title  string
 	fields []recordField

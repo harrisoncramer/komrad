@@ -90,11 +90,9 @@ func TestReadLog(t *testing.T) {
 	const firstTurn = `{"type":"user","message":{"content":"first turn"}}` + "\n"
 
 	tests := []struct {
-		name string
-
-		body   string
-		offset int64
-
+		name         string
+		body         string
+		offset       int64
 		missing      bool
 		wantTurns    []harness.Turn
 		wantConsumed int64

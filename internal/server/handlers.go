@@ -25,18 +25,12 @@ import (
 )
 
 type newMuxParams struct {
-	Logger *slog.Logger
-
-	Addr string
-
-	Stores *stores
-
-	Services *services
-
-	Jobs *river.Client[pgx.Tx]
-
-	ReadOnly *pgxpool.Pool
-
+	Logger        *slog.Logger
+	Addr          string
+	Stores        *stores
+	Services      *services
+	Jobs          *river.Client[pgx.Tx]
+	ReadOnly      *pgxpool.Pool
 	StopRequested chan struct{}
 }
 

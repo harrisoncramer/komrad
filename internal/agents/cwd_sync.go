@@ -26,7 +26,6 @@ type cwdSetter interface {
 // directory itself.
 type CwdSyncer struct {
 	agents cwdSetter
-
 	branch func(ctx context.Context, dir string) *string
 }
 

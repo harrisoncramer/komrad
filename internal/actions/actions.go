@@ -41,8 +41,7 @@ type Action struct {
 	Name       string
 	Path       string
 	Executable bool
-
-	Header Header
+	Header     Header
 }
 
 // GetDir is the directory an action runs in.
@@ -93,14 +92,11 @@ func Discover(dir string) ([]Action, error) {
 }
 
 type RunParams struct {
-	Action Action
-
-	Dir string
-	Env []string
-
+	Action  Action
+	Dir     string
+	Env     []string
 	Timeout time.Duration
-
-	Done func(Result, error)
+	Done    func(Result, error)
 }
 
 type Result struct {

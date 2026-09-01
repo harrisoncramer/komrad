@@ -17,10 +17,8 @@ const (
 
 // Line is one line of a hunk, with a zero number on the side it does not appear on.
 type Line struct {
-	Kind LineKind
-
-	Text string
-
+	Kind      LineKind
+	Text      string
 	OldNumber int
 	NewNumber int
 }
@@ -28,22 +26,18 @@ type Line struct {
 // Hunk is one run of changed lines with the context around it.
 type Hunk struct {
 	Header string
-
-	Lines []Line
+	Lines  []Line
 }
 
 // File is one file's worth of change with both sides of its source carried whole, since the
 // highlighter lexes a language over a file rather than over the fragments a patch shows.
 type File struct {
-	OldPath string
-	NewPath string
-
-	Metadata []string
-
+	OldPath   string
+	NewPath   string
+	Metadata  []string
 	OldSource string
 	NewSource string
-
-	Hunks []Hunk
+	Hunks     []Hunk
 }
 
 // Path is the name to show the file under, which is where it ended up unless it was deleted.
@@ -57,12 +51,10 @@ func (f File) Path() string {
 
 // Patch is everything an agent has changed, measured against one base commit.
 type Patch struct {
-	Root string
-
+	Root   string
 	Base   string
 	Commit string
-
-	Files []File
+	Files  []File
 }
 
 // IsEmpty reports whether the patch has nothing to show.

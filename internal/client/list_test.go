@@ -17,12 +17,9 @@ import (
 // early has to say so rather than hand back the part it managed.
 func TestListAll(t *testing.T) {
 	tests := []struct {
-		name string
-
-		pages [][]string
-
-		failOn int
-
+		name      string
+		pages     [][]string
+		failOn    int
 		neverEnds bool
 		wantErr   bool
 		want      []string

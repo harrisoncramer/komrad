@@ -9,13 +9,10 @@ import (
 
 type Spec struct {
 	sidebarOnRight bool
-
-	sidebarSize string
-
-	stageSize string
-	infoAbove bool
-
-	infoSize string
+	sidebarSize    string
+	stageSize      string
+	infoAbove      bool
+	infoSize       string
 }
 
 // NewSpec resolves a configured layout into the geometry the frame lays panes out at, falling

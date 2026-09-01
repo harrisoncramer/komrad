@@ -39,9 +39,8 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 		name string
 		// held says which checkout has the branch when adoption runs: none, one made
 		// alongside the repo, or the repo itself.
-		held      string
-		wantErrIs error
-
+		held            string
+		wantErrIs       error
 		wantOwnWorktree bool
 	}{
 		{

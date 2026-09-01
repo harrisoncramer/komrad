@@ -22,10 +22,8 @@ func TestResumeDir(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
 
 	tests := []struct {
-		name string
-
-		cwd func(t *testing.T, root string) string
-
+		name    string
+		cwd     func(t *testing.T, root string) string
 		wantDir func(root, fallbackResumeRoot string) string
 	}{
 		{
@@ -256,7 +254,6 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 // on.
 type blockingLifecycle struct {
 	fakeLifecycle
-
 	entered chan struct{}
 	release chan struct{}
 }
@@ -389,7 +386,6 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 // resume marking it.
 type archivingTmux struct {
 	*fakeTmux
-
 	sync func()
 	once sync.Once
 }
@@ -583,8 +579,7 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 // moment a workspace has to exist since nothing before it rebuilds one.
 func TestResumeRunsTheSetupAction(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name       string
 		named      string
 		resumeErr  error
 		wantWindow bool
@@ -684,8 +679,7 @@ func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
 // agent is idle in that shell.
 func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name        string
 		setOwnerErr error
 		sendKeysErr error
 	}{

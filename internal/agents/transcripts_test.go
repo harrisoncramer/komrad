@@ -65,16 +65,12 @@ func TestAppendTurns(t *testing.T) {
 // log that has moved on since the first.
 func TestTranscriptSyncer(t *testing.T) {
 	tests := []struct {
-		name string
-
-		log string
-
+		name      string
+		log       string
 		wantFirst string
-
 		appended  string
 		rewritten string
 		want      string
-
 		searchFor string
 	}{
 		{
@@ -294,8 +290,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 // started, since the panel cannot hand it an id.
 func TestSyncAdoptsSessions(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name  string
 		found string
 		held  string
 		want  string

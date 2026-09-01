@@ -7,8 +7,9 @@ usage() {
 	echo "Usage: mise run check"
 	echo
 	echo "Runs the whole suite and reports which steps failed rather than stopping at"
-	echo "the first, so one run tells you everything that is wrong. Nothing here"
-	echo "rewrites the tree; the formatters are called in their reporting mode."
+	echo "the first, so one run tells you everything that is wrong. The formatters are"
+	echo "called in their reporting mode, though go:structs and gen:check rewrite what"
+	echo "drifted and fail so you can see what they had to do."
 	echo
 	echo "The tests need Postgres, so run 'mise run docker:up' first. Drift in"
 	echo "config.toml is caught by the config tests, which regenerate it in memory"

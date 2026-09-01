@@ -34,24 +34,20 @@ const reviewEditorHeight = 4
 type reviewState struct {
 	agentID   string
 	agentName string
-
-	dir     string
-	root    string
-	base    string
-	exclude []string
-
-	view    *review.View
-	threads []*agentv1.ReviewThread
+	dir       string
+	root      string
+	base      string
+	exclude   []string
+	view      *review.View
+	threads   []*agentv1.ReviewThread
 
 	// cursor lives here rather than in the stage, since the sidebar draws the thread it stands on.
 	cursor int
 	pan    int
 	// top is the first row the pane is showing, held rather than derived from the cursor, since
 	// deriving it centres the cursor and repaints every row on every move.
-	top int
-
-	frames *reviewFrames
-
+	top       int
+	frames    *reviewFrames
 	composing bool
 	editor    textarea.Model
 
@@ -69,7 +65,6 @@ type reviewState struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
-
 	loading bool
 	notice  string
 	err     error
@@ -110,23 +105,18 @@ func (f *reviewFrames) window(view *review.View, top, cursor, pan int) string {
 
 type reviewLoadedMsg struct {
 	agentID string
-
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
-
-	err error
+	err     error
 }
 
 // reviewWroteMsg is one write and the review as it stands after it, since the panel keeps no
 // copy of a thread it has just changed and reads the review back instead.
 type reviewWroteMsg struct {
 	agentID string
-
-	notice string
-
+	notice  string
 	threads []*agentv1.ReviewThread
-
-	err error
+	err     error
 }
 
 // enterReview opens the review of an agent's diff, with the threads in the sidebar and the

@@ -26,14 +26,11 @@ const (
 // row is one drawable line of the diff, flattened from the patch once so that moving the
 // cursor walks a slice rather than the patch.
 type row struct {
-	kind rowKind
-
-	file int
-	hunk int
-	line int
-
-	text string
-
+	kind   rowKind
+	file   int
+	hunk   int
+	line   int
+	text   string
 	thread *agentv1.ReviewThread
 }
 
@@ -47,20 +44,16 @@ type fileSource struct {
 // Anchor is the place a thread is pinned to, holding the file, both sides' line numbers, and
 // the lines themselves, so it still says what it was about once the code is rewritten.
 type Anchor struct {
-	FilePath string
-
-	OldStart int
-	OldEnd   int
-
-	NewStart int
-	NewEnd   int
-
+	FilePath    string
+	OldStart    int
+	OldEnd      int
+	NewStart    int
+	NewEnd      int
 	QuotedLines []string
 }
 
 type View struct {
-	patch *diff.Patch
-
+	patch   *diff.Patch
 	rows    []row
 	sources []fileSource
 
@@ -74,7 +67,6 @@ type View struct {
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
-
 	search *search
 }
 
@@ -252,9 +244,8 @@ func (v *View) First() int {
 // read again so the reader is not thrown back to the top of it.
 type Place struct {
 	FilePath string
-
-	NewLine int
-	OldLine int
+	NewLine  int
+	OldLine  int
 
 	// ThreadID is set when the cursor was standing on a thread that had come adrift rather than
 	// on a line, since those rows have no coordinates to come back to.

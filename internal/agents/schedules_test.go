@@ -289,10 +289,8 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 // is not counted as work in flight, which would stop the schedule ever firing again.
 func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name  string
 		state string
-
 		frame string
 		want  int64
 	}{

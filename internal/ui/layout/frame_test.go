@@ -400,27 +400,20 @@ func newProbe(key string, wraps bool, got *Target) Content {
 }
 
 type recordingTmux struct {
-	width  int
-	height int
-
-	splits []string
-
+	width        int
+	height       int
+	splits       []string
 	anchors      []string
 	belowAnchors []string
-
-	resizes []string
-	swaps   int
-
+	resizes      []string
+	swaps        int
 	respawns     []string
 	respawnPanes []string
-
-	siblings []string
-	owners   map[string]string
-
-	broken []string
-	killed []string
-
-	deadPanes map[string]bool
+	siblings     []string
+	owners       map[string]string
+	broken       []string
+	killed       []string
+	deadPanes    map[string]bool
 }
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }

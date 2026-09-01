@@ -26,10 +26,8 @@ func Run(path string) error {
 }
 
 type model struct {
-	path string
-
-	frame string
-
+	path   string
+	frame  string
 	height int
 }
 

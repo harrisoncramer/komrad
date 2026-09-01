@@ -41,9 +41,8 @@ func TestLoad(t *testing.T) {
 			wantNavUp: DefaultKeybindings().Nav.Up,
 		},
 		{
-			name: "what the file sets wins, and the rest still defaults",
-			file: "[harness.claude]\nflags = \"--model opus\"\n\n[keybindings.nav]\nup = [\"w\"]\n",
-
+			name:      "what the file sets wins, and the rest still defaults",
+			file:      "[harness.claude]\nflags = \"--model opus\"\n\n[keybindings.nav]\nup = [\"w\"]\n",
 			wantFlags: "--model opus",
 			wantNavUp: []string{"w"},
 		},

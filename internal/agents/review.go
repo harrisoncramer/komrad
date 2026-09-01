@@ -63,8 +63,7 @@ type agentInterrupter interface {
 // the caller asks for: the panel names no agent and acts as the person, an agent names itself
 // and acts as itself.
 type ReviewAuthor struct {
-	Kind reviewstore.AuthorKind
-
+	Kind    reviewstore.AuthorKind
 	AgentID *string
 }
 
@@ -73,8 +72,7 @@ func (a ReviewAuthor) IsHuman() bool { return a.Kind != reviewstore.AuthorAgent 
 
 // ReviewThreadWithMessages is a thread and everything said in it.
 type ReviewThreadWithMessages struct {
-	Thread reviewstore.Thread
-
+	Thread   reviewstore.Thread
 	Messages []reviewstore.Message
 }
 
@@ -109,8 +107,7 @@ type ListReviewThreadsParams struct {
 	// MarkRead claims what is returned, which an agent reading in order to act wants and the
 	// panel drawing a diff does not.
 	MarkRead bool
-
-	Author ReviewAuthor
+	Author   ReviewAuthor
 }
 
 // ListReviewThreads is every thread on an agent's diff with its messages.
@@ -160,18 +157,15 @@ func (s *ReviewService) ListReviewThreads(
 }
 
 type CreateReviewThreadParams struct {
-	AgentID  string
-	FilePath string
-
-	OldStart int32
-	OldEnd   int32
-	NewStart int32
-	NewEnd   int32
-
+	AgentID     string
+	FilePath    string
+	OldStart    int32
+	OldEnd      int32
+	NewStart    int32
+	NewEnd      int32
 	QuotedLines []string
-
-	Body   string
-	Author ReviewAuthor
+	Body        string
+	Author      ReviewAuthor
 }
 
 // CreateReviewThread pins a conversation to a place in a diff and writes its first message,
@@ -339,8 +333,7 @@ type NotifyReviewThreadsParams struct {
 	// Interrupt stops the agent where it stands before the mail is sent, so it reads the
 	// review now rather than at the end of whatever it is doing.
 	Interrupt bool
-
-	Author ReviewAuthor
+	Author    ReviewAuthor
 }
 
 // NotifyReviewThreads tells an agent it has review activity waiting, as one piece of mail that

@@ -71,7 +71,6 @@ func init() {
 type Harness struct {
 	root   string
 	script string
-
 	binary string
 }
 

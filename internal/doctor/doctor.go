@@ -51,23 +51,17 @@ func CodeOf(err error) string {
 }
 
 type Check struct {
-	Name string
-
+	Name        string
 	Description string
-
-	Needs []string
-
-	Run func(context.Context, Env) Result
+	Needs       []string
+	Run         func(context.Context, Env) Result
 }
 
 type Result struct {
 	Status Status
-
 	Detail string
-
-	Err error
-
-	Fix string
+	Err    error
+	Fix    string
 }
 
 func pass(detail string) Result {
@@ -100,10 +94,9 @@ type Finding struct {
 	Description string `json:"description"`
 	Status      Status `json:"status"`
 	Detail      string `json:"detail,omitempty"`
-
-	Code  string `json:"code,omitempty"`
-	Error string `json:"error,omitempty"`
-	Fix   string `json:"fix,omitempty"`
+	Code        string `json:"code,omitempty"`
+	Error       string `json:"error,omitempty"`
+	Fix         string `json:"fix,omitempty"`
 }
 
 type Report struct {

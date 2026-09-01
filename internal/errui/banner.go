@@ -12,12 +12,9 @@ import (
 
 type Banner struct {
 	Summary string
-
-	Detail string
-
-	Hint string
-
-	Trace string
+	Detail  string
+	Hint    string
+	Trace   string
 }
 
 const bannerIndent = "  "

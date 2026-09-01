@@ -9,13 +9,10 @@ import (
 )
 
 type filterState struct {
-	typing bool
-
-	query string
-
+	typing  bool
+	query   string
 	pattern *regexp.Regexp
-
-	broken bool
+	broken  bool
 }
 
 func (f filterState) standing() bool {

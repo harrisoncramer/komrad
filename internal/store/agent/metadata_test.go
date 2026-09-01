@@ -17,11 +17,10 @@ import (
 // no live agent, rather than reporting a success the agent would go on believing.
 func TestSetMetadata(t *testing.T) {
 	tests := []struct {
-		name    string
-		create  bool
-		archive bool
-		id      func(created Agent) string
-
+		name        string
+		create      bool
+		archive     bool
+		id          func(created Agent) string
 		before      []Metadata
 		key         string
 		value       *string

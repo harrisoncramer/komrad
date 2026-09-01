@@ -514,9 +514,8 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 // behind a workflow nothing lists.
 func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
-		name   string
-		create bool
-
+		name         string
+		create       bool
 		withSchedule bool
 		wantErrIs    error
 	}{
@@ -600,10 +599,8 @@ func TestArchiveWorkflow(t *testing.T) {
 // live agent has taken since refusing the whole restore.
 func TestRestoreWorkflow(t *testing.T) {
 	tests := []struct {
-		name string
-
-		archive bool
-
+		name      string
+		archive   bool
 		takeName  bool
 		wantErrIs error
 	}{
@@ -838,14 +835,12 @@ func TestRestoreWorkflowRefusesTwoArchivedNamesakes(t *testing.T) {
 // DeleteAgents cannot finish leaves both it and the workflow behind rather than erroring.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name        string
 		create      bool
 		archive     bool
 		addAgent    bool
 		addSchedule bool
-
-		wantErrIs error
+		wantErrIs   error
 	}{
 		{
 			name:      "an id nobody holds",

@@ -11,8 +11,7 @@ import (
 )
 
 type ArchiveIfUnchangedParams struct {
-	ID string
-
+	ID        string
 	UpdatedAt time.Time
 }
 

@@ -16,12 +16,10 @@ import (
 )
 
 type searchState struct {
-	typing bool
-
-	query  string
-	hits   []searchHit
-	cursor int
-
+	typing  bool
+	query   string
+	hits    []searchHit
+	cursor  int
 	preview previewResult
 }
 

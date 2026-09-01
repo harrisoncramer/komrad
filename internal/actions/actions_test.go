@@ -161,8 +161,7 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 		file     string
 		contents string
 		mode     os.FileMode
-
-		wantIs error
+		wantIs   error
 	}{
 		{
 			name:     "a file without the executable bit names the chmod that fixes it",
@@ -235,11 +234,10 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 // action can learn about it.
 func TestRunReportsTheOutcome(t *testing.T) {
 	tests := []struct {
-		name     string
-		contents string
-		wantCode int
-		wantErr  bool
-
+		name       string
+		contents   string
+		wantCode   int
+		wantErr    bool
 		wantStderr string
 	}{
 		{

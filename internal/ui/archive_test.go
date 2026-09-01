@@ -30,12 +30,9 @@ func TestArchiveKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
 	tests := []struct {
-		name string
-
-		empty bool
-
-		archivedFolder bool
-
+		name                 string
+		empty                bool
+		archivedFolder       bool
 		cursor               int
 		key                  string
 		wantScreen           screen
@@ -491,8 +488,7 @@ func answerPrompt(t *testing.T, m model, key string) model {
 // was and so needs the banner to look like anything happened at all.
 func TestRefusedArchiveWritesAreReported(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name        string
 		onFolder    bool
 		act         func(t *testing.T, m model) model
 		wantSummary string
@@ -578,8 +574,7 @@ func TestArchiveView(t *testing.T) {
 				Name:       "api-refactor",
 				WorkflowID: "w1",
 			}},
-			wants: []string{"backend", "api-refactor"},
-
+			wants:       []string{"backend", "api-refactor"},
 			wantsAbsent: []string{"archived"},
 		},
 		{

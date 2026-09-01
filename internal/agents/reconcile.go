@@ -67,12 +67,10 @@ type Reconciler struct {
 	// mu guards tracked and every field of the entries inside it, since an entry is
 	// reached by the reconcile pass, by the RPC handler recording a turn boundary, and by
 	// the goroutine a pull request check runs on.
-	mu      sync.Mutex
-	tracked map[string]trackedAgent
-
+	mu                sync.Mutex
+	tracked           map[string]trackedAgent
 	unrecognizedTotal int
-
-	now func() time.Time
+	now               func() time.Time
 }
 
 // trackedAgent is what one pass leaves the next to work from about a single agent, all of it

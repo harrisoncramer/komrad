@@ -31,16 +31,14 @@ func originatorPrefix(agentID string) string {
 }
 
 type Harness struct {
-	sessionsDir string
-	configPath  string
-
+	sessionsDir     string
+	configPath      string
 	trustLaunchDirs bool
 }
 
 type NewHarnessParams struct {
-	SessionsDir string
-	ConfigPath  string
-
+	SessionsDir     string
+	ConfigPath      string
 	TrustLaunchDirs bool
 }
 

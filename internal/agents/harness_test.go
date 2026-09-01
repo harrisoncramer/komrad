@@ -16,8 +16,7 @@ import (
 // for ahead of the workflow's default and the configured one.
 func TestNewAgentGetsHarness(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name      string
 		requested string
 		workflow  string
 		want      string

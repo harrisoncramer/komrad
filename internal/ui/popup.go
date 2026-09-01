@@ -14,8 +14,7 @@ type popupTmux interface {
 }
 
 type PopupWindow struct {
-	tmux popupTmux
-
+	tmux    popupTmux
 	session string
 }
 

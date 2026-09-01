@@ -15,8 +15,7 @@ import (
 const nestingLimit = 2
 
 type requestFields struct {
-	bound []boundField
-
+	bound   []boundField
 	skipped []string
 }
 

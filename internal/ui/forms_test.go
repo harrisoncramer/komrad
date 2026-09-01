@@ -36,13 +36,10 @@ import (
 // holds, since huh records a field into its own results only as the cursor leaves it.
 func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	tests := []struct {
-		name string
-
-		open func(t *testing.T, m model) model
-
+		name   string
+		open   func(t *testing.T, m model) model
 		submit func(m model) (tea.Model, tea.Cmd)
-
-		check func(t *testing.T, sent *formRecorder)
+		check  func(t *testing.T, sent *formRecorder)
 	}{
 		{
 			name: "the new-agent form",
@@ -441,13 +438,11 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 // filled in, since closing would cost every other field.
 func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name   string
 		open   func(t *testing.T, m model) (model, func() string)
 		submit func(m model) (tea.Model, tea.Cmd)
 		form   formKind
-
-		typed string
+		typed  string
 	}{
 		{
 			name: "the new-agent form, with no setup action to run",
@@ -687,8 +682,7 @@ func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
 // on the reversible one so a submit alone never destroys anything.
 func TestArchivePromptChoices(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name         string
 		down         int
 		wantArchived []string
 		wantDeleted  []string
@@ -862,11 +856,8 @@ type formRecorder struct {
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
 	actionv1connect.ActionServiceClient
-
-	refuse error
-
-	storedWorkflow *workflowv1.Workflow
-
+	refuse           error
+	storedWorkflow   *workflowv1.Workflow
 	createdAgent     *agentv1.CreateAgentRequest
 	adoptedAgent     *agentv1.AdoptRequest
 	renamedAgent     *agentv1.UpdateAgentRequest

@@ -35,15 +35,12 @@ type Tmux interface {
 
 type Target struct {
 	Region Region
-
 	Width  int
 	Height int
 }
 
 type Content struct {
-	Key string
-
-	Wraps bool
-
+	Key    string
+	Wraps  bool
 	Render func(Target) ([]string, bool)
 }

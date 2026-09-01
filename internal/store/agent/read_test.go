@@ -17,10 +17,9 @@ import (
 // so an archived one blocks nothing.
 func TestActiveNameExists(t *testing.T) {
 	tests := []struct {
-		name    string
-		create  bool
-		archive bool
-
+		name      string
+		create    bool
+		archive   bool
 		elsewhere bool
 		want      bool
 	}{
@@ -130,8 +129,7 @@ func TestListPageArchived(t *testing.T) {
 // still answer to once a live agent has taken the name.
 func TestGetByID(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name    string
 		lookFor func(created Agent) string
 		archive bool
 		wantHit bool
@@ -222,10 +220,8 @@ func TestGetByIDCarriesMetadata(t *testing.T) {
 // what it leaves out matters as much as what it returns.
 func TestListByID(t *testing.T) {
 	tests := []struct {
-		name string
-
-		create []string
-
+		name      string
+		create    []string
 		ids       func(seeded map[string]string) []string
 		wantNames []string
 	}{

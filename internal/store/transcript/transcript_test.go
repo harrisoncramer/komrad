@@ -17,8 +17,7 @@ import (
 // anything has been synced for the agent at all.
 func TestUpsertAndGet(t *testing.T) {
 	tests := []struct {
-		name string
-
+		name        string
 		writes      []UpsertParams
 		wantContent string
 		wantOffset  int64
@@ -94,12 +93,10 @@ func TestGetOfUnknownID(t *testing.T) {
 // agent behind it is still listed.
 func TestSearch(t *testing.T) {
 	tests := []struct {
-		name    string
-		content string
-
-		reindexTo string
-		archive   bool
-
+		name         string
+		content      string
+		reindexTo    string
+		archive      bool
 		other        string
 		query        string
 		wantHits     int
@@ -333,11 +330,10 @@ func TestSearchPages(t *testing.T) {
 	}
 
 	tests := []struct {
-		name  string
-		seeds []seed
-		query string
-		limit int64
-
+		name      string
+		seeds     []seed
+		query     string
+		limit     int64
 		wantNames []string
 		wantCount int
 	}{
@@ -530,8 +526,7 @@ func TestLikePattern(t *testing.T) {
 
 type fixture struct {
 	*Store
-	agents *agentstore.Store
-
+	agents   *agentstore.Store
 	workflow string
 }
 
