@@ -39,8 +39,8 @@ type Result struct {
 	Count int
 }
 
-// Run applies rewrite to every Go file under the roots, skipping generated files, and
-// reports the files it changed.
+// Run applies rewrite to every Go file under the roots, skipping generated files, and reports
+// the files it changed, including those it had already changed when a later one failed.
 func Run(opts Options, rewrite Rewrite) ([]Result, error) {
 	roots := opts.Roots
 	if len(roots) == 0 {
@@ -81,7 +81,7 @@ func Run(opts Options, rewrite Rewrite) ([]Result, error) {
 			return nil
 		})
 		if err != nil {
-			return nil, err
+			return results, err
 		}
 	}
 

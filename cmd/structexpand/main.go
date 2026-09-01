@@ -37,15 +37,16 @@ func main() {
 	}
 
 	results, err := codemod.Run(opts, expander{min: *min}.rewrite)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
 
 	changed := 0
 	for _, result := range results {
 		changed += result.Count
 		fmt.Printf("%s: %d literal(s)\n", result.Path, result.Count)
+	}
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("%d literal(s) expanded\n", changed)

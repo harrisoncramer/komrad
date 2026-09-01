@@ -16,7 +16,7 @@ import (
 func main() {
 	write := flag.Bool("w", false, "write results back to the files")
 	tests := flag.Bool("tests", true, "include _test.go files")
-	docs := flag.Bool("docs", true, "keep the blank line in front of a documented field")
+	docs := flag.Bool("docs", true, "keep the blank line in front of a documented field of a declaration")
 	flag.Parse()
 
 	opts := codemod.Options{
@@ -27,15 +27,16 @@ func main() {
 
 	closer := gapCloser{keepDocs: *docs}
 	results, err := codemod.Run(opts, closer.rewrite)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
 
 	closed := 0
 	for _, result := range results {
 		closed += result.Count
 		fmt.Printf("%s: %d gap(s)\n", result.Path, result.Count)
+	}
+
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
 	}
 
 	fmt.Printf("%d gap(s) closed\n", closed)
@@ -125,8 +126,8 @@ func (s *gapScan) close(prev, next token.Pos, documented bool) {
 		return
 	}
 
-	from := s.fset.Position(prev).Line
-	to := s.fset.Position(next).Line
+	from := s.fset.PositionFor(prev, false).Line
+	to := s.fset.PositionFor(next, false).Line
 
 	var blanks []int
 	for line := from + 1; line < to; line++ {
@@ -150,12 +151,16 @@ func isKeyedStruct(lit *ast.CompositeLit) bool {
 		return false
 	}
 	switch lit.Type.(type) {
-	case nil, *ast.Ident, *ast.SelectorExpr, *ast.IndexExpr, *ast.IndexListExpr:
+	case nil, *ast.Ident, *ast.SelectorExpr, *ast.IndexExpr, *ast.IndexListExpr, *ast.StructType:
 	default:
 		return false
 	}
 	for _, elt := range lit.Elts {
-		if _, ok := elt.(*ast.KeyValueExpr); !ok {
+		kv, ok := elt.(*ast.KeyValueExpr)
+		if !ok {
+			return false
+		}
+		if _, ok := kv.Key.(*ast.Ident); !ok {
 			return false
 		}
 	}

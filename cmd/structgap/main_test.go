@@ -165,18 +165,98 @@ var x = Params{
 // TestRewriteLeavesMapLiteralsAlone pins that grouping inside a map is left to whoever wrote
 // it, since a map is a table rather than a record.
 func TestRewriteLeavesMapLiteralsAlone(t *testing.T) {
-	src := `package p
+	sources := map[string]string{
+		"written out": `package p
 
 var x = map[string]int{
 	"a": 1,
 
 	"b": 2,
 }
+`,
+		"named type": `package p
+
+type M map[string]int
+
+var x = M{
+	"a": 1,
+
+	"b": 2,
+}
+`,
+		"nested": `package p
+
+var x = map[string]map[string]int{
+	"outer": {
+		"a": 1,
+
+		"b": 2,
+	},
+}
+`,
+	}
+
+	for name, src := range sources {
+		t.Run(name, func(t *testing.T) {
+			out, count := run(t, true, src)
+			assert.Equal(t, 0, count)
+			assert.Equal(t, src, out)
+		})
+	}
+}
+
+// TestRewriteClosesGapsInAnonymousStructLiterals pins that an inline struct is read the same
+// way under its brace as above it.
+func TestRewriteClosesGapsInAnonymousStructLiterals(t *testing.T) {
+	src := `package p
+
+var x = struct {
+	Fn func()
+	N  int
+}{
+	Fn: nil,
+
+	N: 2,
+}
 `
 
 	out, count := run(t, true, src)
-	assert.Equal(t, 0, count)
-	assert.Equal(t, src, out)
+	assert.Equal(t, 1, count)
+	assert.Equal(t, `package p
+
+var x = struct {
+	Fn func()
+	N  int
+}{
+	Fn: nil,
+	N:  2,
+}
+`, out)
+}
+
+// TestRewriteReadsPhysicalLinesUnderALineDirective pins that a directive renumbering the file
+// does not send the rewrite off the end of the source it is editing.
+func TestRewriteReadsPhysicalLinesUnderALineDirective(t *testing.T) {
+	src := `package p
+
+//line fake.go:1000
+type Params struct {
+	AgentID string
+
+	Author ReviewAuthor
+}
+`
+
+	out, count := run(t, true, src)
+	assert.Equal(t, 1, count)
+	assert.Equal(t, `package p
+
+//line fake.go:1000
+type Params struct {
+	AgentID string
+	Author  ReviewAuthor
+}
+`, out)
 }
 
 // TestRewriteKeepsBlankLinesOutsideStructs pins that the tool touches nothing but the fields,
