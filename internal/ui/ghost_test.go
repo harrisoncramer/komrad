@@ -75,14 +75,57 @@ func TestGhostSlotHoldsOneColumn(t *testing.T) {
 	assert.True(t, strings.HasSuffix(ansi.Strip(decorated), " 27m"), "and so does the decorated one")
 }
 
-// TestGhostSlotHiddenInANarrowPane covers the pane too small to hold the row and the slot both,
-// where pulling the slot in would only stack it back onto the icons.
-func TestGhostSlotHiddenInANarrowPane(t *testing.T) {
-	rows := strings.Split(ghostTree(ghostColumn+ghostWidth+1).agentsView(), "\n")
+// TestGhostSlotClearsTheWidestRow renders an agent wearing every icon under a full-width name,
+// which is the row the column has to clear and so the case that catches an icon added without
+// the count positioning the column being moved with it.
+func TestGhostSlotClearsTheWidestRow(t *testing.T) {
+	m := ghostTree(120)
+	m.tree.showHidden = true
+	m.listing.agents = append(m.listing.agents, agentItem{
+		agent: agentstore.Agent{
+			ID:              "a3",
+			Name:            strings.Repeat("x", nameWidth),
+			WorkflowID:      "w1",
+			State:           agentstore.StateIdle,
+			StateChangedAt:  time.Now().Add(-27 * time.Minute),
+			Tag:             xptr.Ptr("✓"),
+			ScheduleID:      xptr.Ptr("s1"),
+			Hidden:          true,
+			WorktreeRemoved: true,
+		},
+		alive:      true,
+		unreadMail: true,
+	})
 
-	bare, ok := rowNamed(rows, "bare")
+	rows := strings.Split(m.agentsView(), "\n")
+	widest, ok := rowNamed(rows, strings.Repeat("x", nameWidth))
 	require.True(t, ok)
-	assert.NotContains(t, ansi.Strip(bare), "6m")
+
+	assert.Equal(t, ghostColumn+ghostWidth, lipgloss.Width(strings.TrimRight(widest, " ")))
+	assert.True(t, strings.HasSuffix(ansi.Strip(widest), " 27m"), "the span still sits in its slot")
+}
+
+// TestGhostSlotHiddenWhenTheRowWouldOverrun pins that the pane is measured against the row in
+// hand rather than against the widest one an agent could draw, so a long name loses its span in
+// a pane a short one keeps it in rather than wrapping onto the row below.
+func TestGhostSlotHiddenWhenTheRowWouldOverrun(t *testing.T) {
+	short := "      • short"
+	long := "      • " + strings.Repeat("x", nameWidth)
+	width := lipgloss.Width(long) + ghostGap + ghostWidth - 1
+
+	assert.Contains(t, ghostSlot(short, "6m", width), "6m")
+	assert.Equal(t, long, ghostSlot(long, "27m", width))
+}
+
+// TestGhostSlotNeverOverrunsThePane walks a long row across every pane width the slot could be
+// drawn at, since a row wider than its pane wraps and shifts every row under it.
+func TestGhostSlotNeverOverrunsThePane(t *testing.T) {
+	row := strings.Repeat("x", ghostColumn)
+
+	for width := range ghostColumn + ghostWidth + ghostGap + 4 {
+		assert.LessOrEqual(t, lipgloss.Width(ghostSlot(row, "27m", width)), max(width, len(row)),
+			"a row drawn at width %d", width)
+	}
 }
 
 // TestGhostSlotSkipsHeaders pins that a workflow header carries no span, since a workflow is

@@ -2,12 +2,9 @@ package ui
 
 import (
 	"fmt"
-	"strings"
-	"time"
 
 	"weave/config"
 	"weave/internal/errui"
-	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -243,39 +240,4 @@ func selectionGutter(selected bool) string {
 	}
 
 	return selectionStyle.Render(selectionIcon) + " "
-}
-
-const (
-	// ghostColumn is where the ghost slot opens: the fixed gutter and cursor, the clipped name,
-	// and room for every icon a row can wear, so the slot never lands on top of one.
-	ghostColumn = 6 + nameWidth + 2*maxRowIcons
-
-	// ghostWidth is the slot itself, wide enough for the longest span Elapsed writes.
-	ghostWidth = 4
-
-	// maxRowIcons is how many icons follow a name: the removed worktree, the schedule, the
-	// hidden mark, the tag, and unread mail.
-	maxRowIcons = 5
-)
-
-// ghostSlot pads a row out to the ghost column and right-aligns the text in it, drawing nothing
-// in a pane too narrow to hold both, where pulling the slot in would only stack it onto the icons.
-func ghostSlot(row, text string, width int) string {
-	if text == "" || width < ghostColumn+ghostWidth+2 {
-		return row
-	}
-
-	pad := max(ghostColumn-lipgloss.Width(row), 2)
-
-	return row + strings.Repeat(" ", pad) + dimStyle.Render(fmt.Sprintf("%*s", ghostWidth, text))
-}
-
-// ghostText is what the slot says about an agent, which for now is how long it has been in the
-// state it is in.
-func ghostText(item agentItem) string {
-	if item.agent.StateChangedAt.IsZero() {
-		return ""
-	}
-
-	return dates.Elapsed(time.Since(item.agent.StateChangedAt))
 }
