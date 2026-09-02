@@ -209,18 +209,89 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
 
 	attach := func(title string) error {
-		_, err := manager.launch.NewAgent(ctx, NewAgentParams{
-			Title:         title,
-			Prompt:        "read the change",
-			WorkflowID:    parent.WorkflowID,
-			ParentAgentID: parent.ID,
-		})
+		_, err := manager.launch.NewAgent(ctx, childOf(parent, title))
 
 		return err
 	}
 
 	require.NoError(t, attach("reviewer"))
 	require.ErrorIs(t, attach("second-reviewer"), ErrTooManyChildren)
+}
+
+// TestRestoreOfAChildUnderTheChildCeiling pins that a child comes back only while its parent
+// still has room, since a child archived on its own may have been replaced while it was gone
+// and two children of one parent would then edit the one checkout at once.
+func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:        tmux,
+		harnesses:   fakeHarnesses{harness: &fakeHarness{}},
+		addr:        "127.0.0.1:9999",
+		maxChildren: 1,
+	})
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+
+	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
+
+	_, err = manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
+	require.NoError(t, err, "the ceiling frees up once one child is archived")
+
+	_, err = manager.lifecycle.RestoreAgents(ctx, []string{first.ID})
+	require.ErrorIs(t, err, ErrTooManyChildren)
+	assert.NotNil(t, agentByID(t, st, first.ID).ArchivedAt, "the refusal restores nothing")
+
+	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, held)
+}
+
+// TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, since
+// a workflow archived after a child was replaced holds both of them.
+func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentService(agentServiceOptions{
+		tmux:        tmux,
+		harnesses:   fakeHarnesses{harness: &fakeHarness{}},
+		addr:        "127.0.0.1:9999",
+		maxChildren: 1,
+	})
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxChildren: 1})
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, st.Update(ctx, withCwd(parent, t.TempDir())))
+
+	first, err := manager.launch.NewAgent(ctx, childOf(parent, "reviewer"))
+	require.NoError(t, err)
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{first.ID}))
+
+	_, err = manager.launch.NewAgent(ctx, childOf(parent, "second-reviewer"))
+	require.NoError(t, err)
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, parent.WorkflowID))
+
+	_, err = workflows.RestoreWorkflow(ctx, parent.WorkflowID)
+	require.ErrorIs(t, err, ErrTooManyChildren)
+
+	held, err := st.Agents.CountLiveChildren(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Zero(t, held, "the refusal restores nothing")
+}
+
+func childOf(parent agentstore.Agent, title string) NewAgentParams {
+	return NewAgentParams{
+		Title:         title,
+		Prompt:        "read the change",
+		WorkflowID:    parent.WorkflowID,
+		ParentAgentID: parent.ID,
+	}
 }
 
 func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {

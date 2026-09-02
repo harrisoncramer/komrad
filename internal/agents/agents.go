@@ -78,6 +78,13 @@ type childSlots interface {
 	LockSlots(ctx context.Context) error
 }
 
+// restoredChildSlots is what a restore holds a parent to its ceiling with: the count it already
+// runs, plus the rows its children's parent ids stand for, so a refusal can name the parent.
+type restoredChildSlots interface {
+	childSlots
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+}
+
 // childLister reads the agents attached to a set of parents, which is what an archive, a
 // delete, or a restore has to add to the ids it was given.
 type childLister interface {

@@ -55,6 +55,7 @@ type WorkflowService struct {
 	tmux         paneKiller
 	tx           txRunner
 	maxAgents    int
+	maxChildren  int
 	notifier     systemMailSender
 }
 
@@ -67,6 +68,7 @@ type WorkflowParams struct {
 	Tmux         paneKiller
 	Tx           txRunner
 	MaxAgents    int
+	MaxChildren  int
 	Notifier     systemMailSender
 }
 
@@ -81,6 +83,7 @@ func NewWorkflowService(p WorkflowParams) *WorkflowService {
 		tmux:         p.Tmux,
 		tx:           p.Tx,
 		maxAgents:    p.MaxAgents,
+		maxChildren:  p.MaxChildren,
 		notifier:     p.Notifier,
 	}
 }
@@ -356,6 +359,9 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		// A partial restore would read as a whole one, so the ceiling and the names live agents
 		// hold are both checked before anything is written.
 		if err := claimRoomForAgents(ctx, agents, w.maxAgents, len(archived)); err != nil {
+			return err
+		}
+		if err := claimRoomForRestoredChildren(ctx, agents, w.maxChildren, archived); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agents, archived); err != nil {

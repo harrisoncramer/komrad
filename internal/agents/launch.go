@@ -518,12 +518,76 @@ func claimRoomForChildren(ctx context.Context, agents childSlots, maxChildren in
 		return err
 	}
 
-	held, err := agents.CountLiveChildren(ctx, parent.ID)
-	if err != nil {
-		return fmt.Errorf("failed to count the children of agent %q: %w", parent.Name, err)
+	return requireRoomForChildren(ctx, agents, maxChildren, []parentRoom{{
+		id:   parent.ID,
+		name: parent.Name,
+		want: 1,
+	}})
+}
+
+// claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
+// same ceiling a create is held to, since a child archived on its own may have been replaced
+// while it was gone.
+func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlots, maxChildren int, restoring []agentstore.Agent) error {
+	if maxChildren <= 0 {
+		return nil
 	}
-	if held+1 > maxChildren {
-		return fmt.Errorf("%w: %q already holds %d of %d, and they share one checkout", ErrTooManyChildren, parent.Name, held, maxChildren)
+
+	// The whole batch is counted against each parent at once, since children checked one at a
+	// time would each find room and walk past the ceiling together.
+	want := make(map[string]int, len(restoring))
+	var parentIDs []string
+	for _, agent := range restoring {
+		if agent.ParentAgentID == nil {
+			continue
+		}
+		if want[*agent.ParentAgentID] == 0 {
+			parentIDs = append(parentIDs, *agent.ParentAgentID)
+		}
+		want[*agent.ParentAgentID]++
+	}
+	if len(parentIDs) == 0 {
+		return nil
+	}
+
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	parents, err := agents.ListByID(ctx, parentIDs)
+	if err != nil {
+		return fmt.Errorf("failed to look up the parents of %d restoring children: %w", len(restoring), err)
+	}
+
+	wanted := make([]parentRoom, 0, len(parents))
+	for _, parent := range parents {
+		wanted = append(wanted, parentRoom{
+			id:   parent.ID,
+			name: parent.Name,
+			want: want[parent.ID],
+		})
+	}
+
+	return requireRoomForChildren(ctx, agents, maxChildren, wanted)
+}
+
+// parentRoom is one parent and how many children a call wants to put under it.
+type parentRoom struct {
+	id   string
+	name string
+	want int
+}
+
+func requireRoomForChildren(ctx context.Context, agents childCounter, maxChildren int, wanted []parentRoom) error {
+	for _, parent := range wanted {
+		held, err := agents.CountLiveChildren(ctx, parent.id)
+		if err != nil {
+			return fmt.Errorf("failed to count the children of agent %q: %w", parent.name, err)
+		}
+		if held+parent.want > maxChildren {
+			return fmt.Errorf("%w: %q may run %d at once and this would make %d, and they share one checkout",
+				ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
+		}
 	}
 
 	return nil

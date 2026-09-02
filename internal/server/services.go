@@ -125,6 +125,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Notifier:       mailService,
 		LogsDir:        actionLogsDir,
 		MaxAgents:      p.MaxAgents,
+		MaxChildren:    p.MaxChildren,
 	})
 	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
 		Workflows:    st.workflows,
@@ -135,6 +136,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Tmux:         p.Tmux,
 		Tx:           st.pool,
 		MaxAgents:    p.MaxAgents,
+		MaxChildren:  p.MaxChildren,
 		Notifier:     mailService,
 	})
 

@@ -44,6 +44,7 @@ type LifecycleService struct {
 	notifier       systemMailSender
 	logsDir        string
 	maxAgents      int
+	maxChildren    int
 }
 
 type LifecycleServiceParams struct {
@@ -56,6 +57,7 @@ type LifecycleServiceParams struct {
 	Notifier       systemMailSender
 	LogsDir        string
 	MaxAgents      int
+	MaxChildren    int
 }
 
 // NewLifecycleService builds the service from its dependencies.
@@ -70,6 +72,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 		notifier:       p.Notifier,
 		logsDir:        p.LogsDir,
 		maxAgents:      p.MaxAgents,
+		maxChildren:    p.MaxChildren,
 	}
 }
 
@@ -264,6 +267,9 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		agentStore, workflowStore := agentstore.New(db), workflowstore.New(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
+			return err
+		}
+		if err := claimRoomForRestoredChildren(ctx, agentStore, s.maxChildren, archived); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agentStore, archived); err != nil {

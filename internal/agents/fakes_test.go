@@ -453,6 +453,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Notifier:       options.notifier,
 			LogsDir:        options.logsDir,
 			MaxAgents:      options.maxAgents,
+			MaxChildren:    options.maxChildren,
 		}),
 		panes:   NewPaneLiveness(options.tmux),
 		emptied: emptied,
@@ -556,17 +557,16 @@ func (f *fakeLifecycle) RunCleanupAction(ctx context.Context, agent agentstore.A
 	return nil
 }
 
-func (s *testStore) workflowService(tmux *fakeTmux) *WorkflowService {
-	return s.workflowServiceCapped(tmux, 0)
+type workflowServiceOptions struct {
+	tmux        *fakeTmux
+	maxAgents   int
+	maxChildren int
+	notifier    systemMailSender
 }
 
-func (s *testStore) workflowServiceCapped(tmux *fakeTmux, maxAgents int) *WorkflowService {
-	return s.workflowServiceWithNotifier(tmux, maxAgents, nil)
-}
-
-func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, notifier systemMailSender) *WorkflowService {
+func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowService {
 	deleter := s.agentService(agentServiceOptions{
-		tmux:      tmux,
+		tmux:      options.tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
 		addr:      "127.0.0.1:9999",
 	})
@@ -577,10 +577,11 @@ func (s *testStore) workflowServiceWithNotifier(tmux *fakeTmux, maxAgents int, n
 		AgentDeleter: deleter.lifecycle,
 		Emptied:      deleter.emptied,
 		Schedules:    s.Schedules,
-		Tmux:         tmux,
+		Tmux:         options.tmux,
 		Tx:           s.Pool,
-		MaxAgents:    maxAgents,
-		Notifier:     notifier,
+		MaxAgents:    options.maxAgents,
+		MaxChildren:  options.maxChildren,
+		Notifier:     options.notifier,
 	})
 }
 
@@ -748,7 +749,7 @@ func newManager(tmux *fakeTmux, st *testStore, flags string) *testAgents {
 }
 
 func workflowsFor(st *testStore, tmux *fakeTmux) *WorkflowService {
-	return st.workflowService(tmux)
+	return st.workflowService(workflowServiceOptions{tmux: tmux})
 }
 
 func newManagerWithHarness(tmux *fakeTmux, st *testStore, flags string) (*testAgents, *fakeHarness) {

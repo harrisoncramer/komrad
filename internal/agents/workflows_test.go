@@ -709,7 +709,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 	manager := newManager(tmux, st, "")
-	workflows := st.workflowServiceCapped(tmux, 3)
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxAgents: 3})
 	ctx := t.Context()
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
