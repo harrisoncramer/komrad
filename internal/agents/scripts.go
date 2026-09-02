@@ -178,6 +178,8 @@ func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 // provisioned rather than the one the hook was found in, since a hook is there to work on the
 // checkout.
 func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
+	logPath := s.claimRunLog(ctx, agent.ID, event, name)
+
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
@@ -185,20 +187,19 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		hook:    true,
 	})
 	if err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
+		return refuseHook(ctx, logPath, name, err)
 	}
 
 	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
 	// rather than a reason to run the script somewhere else.
 	if err := requireUsableDir(agent.Cwd); err != nil {
-		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
+		return refuseHook(ctx, logPath, name, err)
 	}
 
 	logger := s.runLogger(ctx, name, event, agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 
-	logPath := s.claimRunLog(ctx, agent.ID, event, name)
 	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
 		Script:  script,
 		Dir:     agent.Cwd,
@@ -216,6 +217,15 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
 	return nil
+}
+
+// refuseHook puts the reason a hook never started into the log the panel offers for it, since
+// a run number holding nothing opens an empty pager on the one screen that was meant to say why.
+func refuseHook(ctx context.Context, logPath, name string, cause error) error {
+	err := fmt.Errorf("%w: %s: %w", ErrHookFailed, name, cause)
+	writeRunLog(ctx, logPath, []byte(err.Error()+"\n"))
+
+	return err
 }
 
 // RunResume reruns the provisioner before resuming an agent.

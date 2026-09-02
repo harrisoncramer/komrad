@@ -1786,3 +1786,43 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 		})
 	}
 }
+
+// TestARefusedHookLeavesARunLogSayingWhy pins a hook with nowhere to run writing the log key
+// something to open, since a refusal that never reaches the runner used to leave the panel
+// nothing at all to show.
+func TestARefusedHookLeavesARunLogSayingWhy(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	logsDir := t.TempDir()
+	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
+
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPostRestore)
+	require.ErrorIs(t, err, ErrHookFailed)
+
+	runs := config.ListRunLogs(logsDir, "a1")
+	require.Len(t, runs, 1)
+	assert.Equal(t, workflowstore.HookPostRestore, runs[0].Trigger)
+	assert.Equal(t, "install-deps", runs[0].Script)
+
+	logged, readErr := os.ReadFile(runs[0].Path)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(logged), "/definitely/not/here")
+}
+
+// TestAHookThatCannotStartLeavesARunLogSayingWhy pins the other refusal, since a hook deleted
+// out from under a workflow reads on screen exactly like one that ran and did nothing.
+func TestAHookThatCannotStartLeavesARunLogSayingWhy(t *testing.T) {
+	logsDir := t.TempDir()
+	svc := scriptServiceWithLogsDir(t, t.TempDir(), scripts.NewRunner(), logsDir)
+
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
+	require.ErrorIs(t, err, ErrHookFailed)
+
+	runs := config.ListRunLogs(logsDir, "a1")
+	require.Len(t, runs, 1)
+
+	logged, readErr := os.ReadFile(runs[0].Path)
+	require.NoError(t, readErr)
+	assert.Contains(t, string(logged), "install-deps")
+}
