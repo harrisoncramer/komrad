@@ -125,7 +125,7 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 			Harness: row.Harness,
 			Cwd:     row.Cwd,
 			Flags:   row.Flags,
-		}, actionConfigFields{
+		}, provisionerConfigFields{
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -186,7 +186,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 			Harness: row.Harness,
 			Cwd:     row.Cwd,
 			Flags:   row.Flags,
-		}, actionConfigFields{
+		}, provisionerConfigFields{
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -220,7 +220,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		Harness: row.Harness,
 		Cwd:     row.Cwd,
 		Flags:   row.Flags,
-	}, actionConfigFields{
+	}, provisionerConfigFields{
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -233,7 +233,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 }
 
 // Create inserts a workflow together with the config rows holding what new agents inherit
-// and the actions around their lives, all of which must land together so a caller outside a
+// and the provisioning of their directories, all of which must land together so a caller outside
 // transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
@@ -245,7 +245,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
 	}
 
-	actionConfigID, err := s.queries.InsertWorkflowActionConfig(ctx, models.InsertWorkflowActionConfigParams{
+	provisionerConfigID, err := s.queries.InsertWorkflowProvisionerConfig(ctx, models.InsertWorkflowProvisionerConfigParams{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -254,14 +254,14 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert action config for workflow %q: %w", cfg.Name, err)
+		return nil, fmt.Errorf("failed to insert the provisioner config for workflow %q: %w", cfg.Name, err)
 	}
 
 	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
-		Name:             cfg.Name,
-		Context:          cfg.Context,
-		WorkflowConfigID: configID,
-		ActionConfigID:   actionConfigID,
+		Name:                cfg.Name,
+		Context:             cfg.Context,
+		WorkflowConfigID:    configID,
+		ProvisionerConfigID: provisionerConfigID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
@@ -275,7 +275,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
-	}, actionConfigFields{
+	}, provisionerConfigFields{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -301,7 +301,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 	return nil
 }
 
-// Update rewrites a workflow's name, context, actions, and linked config, keyed by id, and
+// Update rewrites a workflow's name, context, hooks, and linked config, keyed by id, and
 // the writes must land together so a caller outside a transaction gets one through InTx.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
@@ -316,7 +316,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update context for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{
+	if err := s.queries.SetWorkflowProvisioner(ctx, models.SetWorkflowProvisionerParams{
 		WorkflowID:           id,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
@@ -325,7 +325,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	}); err != nil {
-		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
+		return fmt.Errorf("failed to update the provisioner for workflow %q: %w", id, err)
 	}
 
 	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{
@@ -387,8 +387,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to delete config for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.DeleteWorkflowActionConfig(ctx, ids.ActionConfigID); err != nil {
-		return fmt.Errorf("failed to delete action config for workflow %q: %w", id, err)
+	if err := s.queries.DeleteWorkflowProvisionerConfig(ctx, ids.ProvisionerConfigID); err != nil {
+		return fmt.Errorf("failed to delete the provisioner config for workflow %q: %w", id, err)
 	}
 
 	return nil
@@ -418,7 +418,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		Harness: row.Harness,
 		Cwd:     row.Cwd,
 		Flags:   row.Flags,
-	}, actionConfigFields{
+	}, provisionerConfigFields{
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -444,7 +444,7 @@ type workflowConfigFields struct {
 	Flags   string
 }
 
-type actionConfigFields struct {
+type provisionerConfigFields struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -464,7 +464,7 @@ func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) e
 		if err := s.queries.InsertWorkflowHook(ctx, models.InsertWorkflowHookParams{
 			WorkflowID: workflowID,
 			Event:      hook.Event,
-			Action:     hook.Script,
+			Script:     hook.Script,
 			Position:   int32(position),
 		}); err != nil {
 			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", hook.Event, hook.Script, workflowID, err)
@@ -481,7 +481,7 @@ func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error)
 	}
 
 	return xslice.Map(rows, func(row *models.ListHooksForWorkflowRow) Hook {
-		return Hook{Event: row.Event, Script: row.Action}
+		return Hook{Event: row.Event, Script: row.Script}
 	}), nil
 }
 
@@ -495,7 +495,7 @@ func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) 
 
 	hooks := make(map[string][]Hook)
 	for _, row := range rows {
-		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Action})
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Script})
 	}
 
 	return hooks, nil
@@ -515,13 +515,13 @@ func (s *Store) hooksForWorkflows(ctx context.Context, ids []string) (map[string
 
 	hooks := make(map[string][]Hook)
 	for _, row := range rows {
-		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Action})
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Script})
 	}
 
 	return hooks, nil
 }
 
-func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields, hooks []Hook) Workflow {
+func workflowFromRow(w models.Workflow, cfg workflowConfigFields, pc provisionerConfigFields, hooks []Hook) Workflow {
 	return Workflow{
 		ID:      w.ID,
 		Name:    w.Name,
@@ -530,14 +530,14 @@ func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfi
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
 		Worktree: WorktreeConfig{
-			Enabled:      ac.WorktreeEnabled,
-			BaseBranch:   ac.WorktreeBaseBranch,
-			CopyPaths:    ac.WorktreeCopyPaths,
-			SymlinkPaths: ac.WorktreeSymlinkPaths,
-			DiffExclude:  ac.WorktreeDiffExclude,
+			Enabled:      pc.WorktreeEnabled,
+			BaseBranch:   pc.WorktreeBaseBranch,
+			CopyPaths:    pc.WorktreeCopyPaths,
+			SymlinkPaths: pc.WorktreeSymlinkPaths,
+			DiffExclude:  pc.WorktreeDiffExclude,
 		},
 		Hooks:             hooks,
-		ArchiveOnPRClosed: ac.ArchiveOnPRClosed,
+		ArchiveOnPRClosed: pc.ArchiveOnPRClosed,
 		ArchivedAt:        w.ArchivedAt,
 		UpdatedAt:         w.UpdatedAt,
 	}

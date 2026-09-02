@@ -575,11 +575,11 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			var configs, actionConfigs int
+			var configs, provisionerConfigs int
 			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_configs").Scan(&configs))
-			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_action_configs").Scan(&actionConfigs))
+			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_provisioner_configs").Scan(&provisionerConfigs))
 			assert.Zero(t, configs, "its config row goes with it")
-			assert.Zero(t, actionConfigs, "and its action config row too")
+			assert.Zero(t, provisionerConfigs, "and its provisioner config row too")
 		})
 	}
 }

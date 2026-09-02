@@ -125,7 +125,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 		}
 	}
 
-	// The workflow, its blueprint, and its script config are three rows, so a failure partway
+	// The workflow, its blueprint, and its provisioner config are three rows, so a failure partway
 	// through must not leave any of them half-written.
 	var created *workflowstore.Workflow
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {

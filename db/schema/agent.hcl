@@ -39,7 +39,7 @@ table "workflow_configs" {
   }
 }
 
-table "workflow_action_configs" {
+table "workflow_provisioner_configs" {
   schema  = schema.public
   comment = "The worktree config a workflow provisions its agents with, and whether it provisions them at all."
   column "id" {
@@ -108,7 +108,7 @@ table "workflow_hooks" {
     null = false
     type = text
   }
-  column "action" {
+  column "script" {
     null = false
     type = text
   }
@@ -156,7 +156,7 @@ table "workflows" {
     null = false
     type = uuid
   }
-  column "action_config_id" {
+  column "provisioner_config_id" {
     null = false
     type = uuid
   }
@@ -183,17 +183,17 @@ table "workflows" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "workflows_action_config_id_fkey" {
-    columns     = [column.action_config_id]
-    ref_columns = [table.workflow_action_configs.column.id]
+  foreign_key "workflows_provisioner_config_id_fkey" {
+    columns     = [column.provisioner_config_id]
+    ref_columns = [table.workflow_provisioner_configs.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   index "workflows_workflow_config_id" {
     columns = [column.workflow_config_id]
   }
-  index "workflows_action_config_id" {
-    columns = [column.action_config_id]
+  index "workflows_provisioner_config_id" {
+    columns = [column.provisioner_config_id]
   }
 }
 
