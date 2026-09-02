@@ -3,6 +3,8 @@ package ui
 import (
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	transcriptstore "weave/internal/store/transcript"
 )
@@ -214,23 +216,17 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 	return mergeSpans(spans)
 }
 
-// startsWord reports whether an index falls at the front of a word, where every byte a word can
-// be spelled with counts, the bytes of a multi-byte rune among them.
+// startsWord reports whether an index falls at the front of a word, reading the rune before it
+// rather than the byte, since the punctuation these transcripts are written with runs well past
+// ASCII and a curly quote is no more a word than a straight one is.
 func startsWord(s string, at int) bool {
 	if at == 0 {
 		return true
 	}
 
-	c := s[at-1]
+	r, _ := utf8.DecodeLastRuneInString(s[:at])
 
-	switch {
-	case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
-		return false
-	case c == '_', c >= 0x80:
-		return false
-	}
-
-	return true
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 }
 
 // mergeSpans folds overlapping spans together, since two of the matched words can be spelled

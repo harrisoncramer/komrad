@@ -292,6 +292,56 @@ func TestMatchSpans(t *testing.T) {
 	}
 }
 
+// TestMatchSpansMarksWholeWords pins the front of the match being a word boundary, which is
+// what the listing's own snippet marks, with the punctuation these transcripts are written
+// with reaching well past ASCII.
+func TestMatchSpansMarksWholeWords(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{
+			name:    "a word of its own is marked",
+			content: "the sandbox here",
+			want:    true,
+		},
+		{
+			name:    "a curly quote in front of it is not part of the word",
+			content: "he said \u201csandbox\u201d once",
+			want:    true,
+		},
+		{
+			name:    "an em dash in front of it is not part of the word",
+			content: "the thing\u2014sandbox\u2014here",
+			want:    true,
+		},
+		{
+			name:    "a letter outside ASCII in front of it is part of the word",
+			content: "the Gr\u00fcnsandbox here",
+		},
+		{
+			name:    "a letter in front of it is part of the word",
+			content: "the presandbox here",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spans := matchSpans(tt.content, 0, int64(len(tt.content)), []string{"sandbox"})
+
+			if !tt.want {
+				assert.Empty(t, spans, "the word is only spelled inside a longer one")
+
+				return
+			}
+
+			word := strings.Index(tt.content, "sandbox")
+			assert.Equal(t, []span{{start: word, end: word + len("sandbox")}}, spans)
+		})
+	}
+}
+
 // TestMatchSpansFoldsLikeTheTermsDo pins the two sides of the search being folded the same way:
 // a word the snippet marks with a capital outside ASCII is still found in the transcript, which
 // a Unicode fold on one side only would miss.
