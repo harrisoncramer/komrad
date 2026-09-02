@@ -26,10 +26,6 @@ const idleRegionLines = 6
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// dimSpan is the prompt Claude suggests inside an empty input box, which is text in the frame
-// but not text anybody typed.
-var dimSpan = regexp.MustCompile(`\x1b\[2m.*?\x1b\[(?:0|22)m`)
-
 // ReadActivity reads what a captured frame says Claude is doing, counting only a frame showing
 // the empty input box as idle and anything else unrecognised.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
@@ -89,15 +85,16 @@ func doesInputBoxHoldText(frame string) bool {
 
 // inputBox is what the box holds, which is every line between the rule that opens it and the
 // rule that closes it, so that text typed under the marker counts as much as text beside it,
-// less the suggestion Claude draws there itself, which is nobody's unfinished work.
+// less the prompt Claude suggests there itself, which is nobody's unfinished work.
 func inputBox(frame string) (string, bool) {
 	drawn := tailRegion(frame, idleRegionLines)
 
-	// Stripping line by line keeps the two readings of the region the same length, where
-	// stripping the region whole would drop a line that came down to nothing.
-	lines := make([]string, len(drawn))
+	lines := harness.StripDim(drawn)
+	for i, line := range lines {
+		lines[i] = ansiSeq.ReplaceAllString(line, "")
+	}
+
 	for i, line := range drawn {
-		lines[i] = ansiSeq.ReplaceAllString(dimSpan.ReplaceAllString(line, ""), "")
 		drawn[i] = ansiSeq.ReplaceAllString(line, "")
 	}
 

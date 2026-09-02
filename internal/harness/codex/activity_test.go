@@ -25,6 +25,17 @@ const idleFrame = "• ls returned no files. Total: 0.\n" +
 	"\n" +
 	"  gpt-5.6-sol default fast · /repo/worktree"
 
+// startupFrame is a codex composer captured out of a real tmux pane at eighty columns, where
+// codex truncates its own footer rather than letting it wrap.
+const startupFrame = "\x1b[2m╰─────────────────────────────────────────────────────╯\x1b[0m\n" +
+	"\n" +
+	"  \x1b[1mTip:\x1b[0m \x1b[3mNew\x1b[0m Use \x1b[1m/fast\x1b[0m to enable our fastest inference with increased plan usage.\n" +
+	"\n" +
+	"\n" +
+	"\x1b[1m›\x1b[0m \x1b[2mRun /review on my current changes\x1b[0m\n" +
+	"\n" +
+	"  \x1b[38;2;130;156;207mgpt-5.6-sol medium\x1b[2m\x1b[39m · \x1b[0m\x1b[38;2;154;184;117m~/.local/state/weave/worktrees/01a06355-b7ca-78b2-b18e-f…"
+
 const composerTail = "\n\n› " + composerHint + "\n\n  gpt-5.6-sol default fast · /repo/worktree"
 
 const workingFrame = "› list the files in this directory\n" +
@@ -128,6 +139,11 @@ func TestReadActivity(t *testing.T) {
 		{
 			name:  "the input box is idle",
 			frame: idleFrame,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "the composer as a real pane draws it before a first turn",
+			frame: startupFrame,
 			want:  harness.ActivityIdle,
 		},
 		{

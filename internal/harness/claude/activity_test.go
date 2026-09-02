@@ -19,6 +19,29 @@ const (
 	waitFrame      = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
 )
 
+// wideRule is a rule drawn to the full width of an eighty column pane.
+const wideRule = "────────────────────────────────────────────────────────────────────────────────"
+
+// boxRuleLine is the rule Claude draws across an eighty column pane, as tmux captures it.
+const boxRuleLine = "\x1b[38;5;102m────────────────────────────────────────────────────────────────────────────\x1b[39m"
+
+// wrappedSuggestionFrame is a suggestion long enough to wrap, captured out of a real tmux pane,
+// where the continuation line carries no dim of its own because tmux re-emits no attribute at a
+// wrap.
+const wrappedSuggestionFrame = boxRuleLine + "\n" +
+	"❯ \x1b[2mcheck whether the reviewer came back with anything yet and summarise what it s\n" +
+	"aid\x1b[0m\n" +
+	boxRuleLine + "\n" +
+	"  \x1b[38;5;102m-- INSERT --\x1b[39m \x1b[38;5;203m⏵⏵ bypass permissions on\x1b[39m"
+
+// dimRuleFrame is a draft under a full width dim rule, captured out of a real tmux pane, where
+// the rule leaves its dim open at the end of its own line and the reset lands on the first cell
+// of the line the draft is on.
+const dimRuleFrame = "\x1b[2m" + wideRule + "\n" +
+	"\x1b[0m❯ half a question about\n" +
+	"\x1b[2m" + wideRule + "\n" +
+	"\x1b[0m  -- INSERT --"
+
 const toolBlock = "\n" +
 	"  ⎿  ◼ Schema + migration + sqlc for workflows\n" +
 	"     ◻ Store layer: Workflow type + WorkflowID + CRUD\n" +
@@ -80,8 +103,13 @@ func TestReadActivity(t *testing.T) {
 		},
 		{
 			name:  "a suggestion long enough to wrap under the marker is still not a draft",
-			frame: "───────────────\n\x1b[39m❯ \x1b[2mcheck whether the reviewer\x1b[0m\n\x1b[2m  came back with anything\x1b[22m\n───────────────\n  -- INSERT --",
+			frame: wrappedSuggestionFrame,
 			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a draft under a dim rule that left its dim open at the wrap",
+			frame: dimRuleFrame,
+			want:  harness.ActivityComposing,
 		},
 		{
 			name:  "a draft typed under a box rule Claude drew dim",
