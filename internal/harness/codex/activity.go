@@ -26,10 +26,6 @@ const idleRegionLines = 8
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// dimSpan is the hint Codex writes into an empty composer, which is text in the frame but not
-// text anybody typed.
-var dimSpan = regexp.MustCompile(`\x1b\[2m.*?\x1b\[(?:0|22)m`)
-
 // ReadActivity reads what a captured frame says Codex is doing, counting only a frame showing
 // the composer as idle.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
@@ -95,11 +91,12 @@ func composerText(frame string) (string, bool) {
 		drawn = drawn[len(drawn)-idleRegionLines:]
 	}
 
-	// Stripping line by line keeps the two readings of the region the same length, where
-	// stripping the region whole would drop a line that came down to nothing.
-	lines := make([]string, len(drawn))
+	lines := harness.StripDim(drawn)
+	for i, line := range lines {
+		lines[i] = ansiSeq.ReplaceAllString(line, "")
+	}
+
 	for i, line := range drawn {
-		lines[i] = ansiSeq.ReplaceAllString(dimSpan.ReplaceAllString(line, ""), "")
 		drawn[i] = ansiSeq.ReplaceAllString(line, "")
 	}
 
