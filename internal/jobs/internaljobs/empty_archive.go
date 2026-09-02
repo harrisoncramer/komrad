@@ -71,18 +71,46 @@ func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchi
 
 		cursor = &agentstore.Cursor{ID: batch[len(batch)-1].ID}
 
-		// A child is deleted by naming its parent, and naming one on its own is refused, so the
-		// page asks for the parents and the children on it go with whichever page holds theirs.
-		parents := xslice.Filter(batch, func(agent agentstore.Agent) bool { return agent.ParentAgentID == nil })
-		if len(parents) == 0 {
+		// A child whose parent is in the archive too goes with whichever page holds that
+		// parent, so this page asks for the parents and for the children nothing else reaches.
+		named := xslice.Filter(batch, func(agent agentstore.Agent) bool { return agent.ParentAgentID == nil })
+
+		orphaned, err := w.orphanedChildren(ctx, batch)
+		if err != nil {
+			failures = append(failures, err)
+		}
+		named = append(named, orphaned...)
+
+		if len(named) == 0 {
 			continue
 		}
 
 		// An agent whose cleanup is still running or failed is left behind rather than
 		// failing the batch, so a sweep can finish with rows still in the archive.
-		ids := xslice.Map(parents, func(agent agentstore.Agent) string { return agent.ID })
+		ids := xslice.Map(named, func(agent agentstore.Agent) string { return agent.ID })
 		if err := w.agents.DeleteAgents(ctx, ids); err != nil {
 			failures = append(failures, fmt.Errorf("failed to delete %d archived agents: %w", len(ids), err))
 		}
 	}
+}
+
+// orphanedChildren picks the children on a page whose parent is not in the archive with them,
+// since a live parent is never named by the sweep and nothing else would reach those rows.
+func (w *EmptyArchiveWorker) orphanedChildren(ctx context.Context, batch []agentstore.Agent) ([]agentstore.Agent, error) {
+	children := xslice.Filter(batch, func(agent agentstore.Agent) bool { return agent.ParentAgentID != nil })
+	if len(children) == 0 {
+		return nil, nil
+	}
+
+	parents, err := w.archived.ListByID(ctx, xslice.Map(children, func(agent agentstore.Agent) string { return *agent.ParentAgentID }))
+	if err != nil {
+		return nil, fmt.Errorf("failed to look up the parents of %d archived children: %w", len(children), err)
+	}
+
+	inArchive := make(map[string]bool, len(parents))
+	for _, parent := range parents {
+		inArchive[parent.ID] = parent.ArchivedAt != nil
+	}
+
+	return xslice.Filter(children, func(child agentstore.Agent) bool { return !inArchive[*child.ParentAgentID] }), nil
 }

@@ -32,13 +32,15 @@ Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
 ## Children
 
-A child agent is attached to another agent rather than standing on its own. It runs in that agent's own directory, provisions nothing of its own, may only mail inside its family, and is archived, deleted, and restored along with the parent rather than by itself. The panel draws it indented under the row it belongs to.
+A child agent is attached to another agent rather than standing on its own. It runs in that agent's own directory, provisions nothing of its own, may only mail inside its family, and goes when the parent goes. The panel draws it indented under the row it belongs to.
 
 The shape this is for is a second pair of eyes on work already in progress: an author that wants its change read, or a test runner that reports what failed. Doing that with an ordinary agent means passing the parent's directory and turning its provisioner off by hand, and getting either wrong drops the agent into a fresh checkout where there is nothing to read. A child takes both from the parent, so there is nothing to get wrong.
 
 Press `C` on the hovered agent to attach one. The form asks for the prompt, a title, the harness and the flags, and nothing about where it runs, since none of that is yours to choose here. Agents attach children too, through `create_agent` over [MCP](mcp.md) with `parentAgentId` set to their own id.
 
-What a child cannot do is the point of it. It has no directory of its own, so it is a guest in the parent's checkout: it is told to read and run but not to commit, push, stash, or switch branches. It cannot be archived, deleted, or restored on its own, and naming one without its parent is refused. It cannot have children of its own. And it can only reach its parent and that parent's other children by [mail](mail.md).
+What a child cannot do is the point of it. It has no directory of its own, so it is a guest in the parent's checkout: it is told to read and run but not to commit, push, stash, or switch branches. It cannot have children of its own. And it can only reach its parent and that parent's other children by [mail](mail.md).
+
+Archiving or deleting the parent takes the children with it, and a child named on its own goes on its own, which is how you finish with a reviewer while the agent it was reading for keeps working. Restoring is the one direction that holds the family together: a child comes back only once its parent is live again, since there would otherwise be no row for it to be drawn under.
 
 Because they all edit the one checkout, one agent may hold only a few children at once. `max_children` in your configuration is that ceiling, and a call past it is refused rather than queued.
 

@@ -32,6 +32,7 @@ type AgentDeleter interface {
 
 type ArchivedAgentLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 }
 
 type RunningAgentCounter interface {

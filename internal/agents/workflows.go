@@ -327,7 +327,7 @@ func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error 
 	// took off the rows.
 	killPanes(ctx, w.tmux, taken)
 
-	notifyParents(ctx, w.notifier, inside, "archived")
+	notifyParents(ctx, w.notifier, inside, inside, "archived")
 
 	return nil
 }
