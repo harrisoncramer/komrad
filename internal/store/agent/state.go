@@ -71,7 +71,9 @@ func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 	return nil
 }
 
-// ListUnseenTurns reports the agents that have ended a turn the person has not looked at since.
+// ListUnseenTurns reports the agents that have ended a turn the person has not looked at since,
+// leaving off one that has gone back to work, since a row going again is not waiting on a reader
+// and the turn it is in the middle of will end with a mark of its own.
 func (s *Store) ListUnseenTurns(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListAgentsWithUnseenTurns(ctx)
 	if err != nil {

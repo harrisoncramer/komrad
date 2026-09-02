@@ -237,6 +237,7 @@ func TestListUnseenTurnsFollowsTheReportedTurn(t *testing.T) {
 	assert.Empty(t, unseen, "and working is not finishing")
 
 	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateIdle))
 	unseen, err = st.ListUnseenTurns(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []string{created.ID}, unseen)
@@ -250,6 +251,50 @@ func TestListUnseenTurnsFollowsTheReportedTurn(t *testing.T) {
 	unseen, err = st.ListUnseenTurns(ctx)
 	require.NoError(t, err)
 	assert.Equal(t, []string{created.ID}, unseen, "a turn ending after the look is unread again")
+}
+
+// TestListUnseenTurnsDropsAnAgentBackAtWork covers an agent that finished, was never read, and
+// then went again on its own, where the mark stood for a turn nobody is waiting on any more.
+func TestListUnseenTurnsDropsAnAgentBackAtWork(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+
+	unseen, err := st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	require.Equal(t, []string{created.ID}, unseen)
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	unseen, err = st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unseen, "a row that went again is not waiting on a reader")
+
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateIdle))
+	unseen, err = st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{created.ID}, unseen, "and the turn it went on to end is unread")
+}
+
+// TestListUnseenTurnsKeepsAnAgentBlockedOnAPerson pins that only working takes the mark off,
+// since a row stopped on a prompt is the one most worth travelling to.
+func TestListUnseenTurnsKeepsAnAgentBlockedOnAPerson(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
+
+	unseen, err := st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{created.ID}, unseen)
 }
 
 // TestSetViewedStampsTheTurnItRead pins that the mark records the turn weave had been told

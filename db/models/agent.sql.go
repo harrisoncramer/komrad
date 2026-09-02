@@ -774,6 +774,7 @@ FROM
     agents a
 WHERE
     a.archived_at IS NULL
+    AND a.state <> 'thinking'
     AND a.turn_ended_at IS NOT NULL
     AND (a.viewed_at IS NULL
         OR a.turn_ended_at > a.viewed_at)
