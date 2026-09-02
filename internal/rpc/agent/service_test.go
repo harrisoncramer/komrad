@@ -603,7 +603,7 @@ func TestSetAgentViewed(t *testing.T) {
 	ctx := t.Context()
 
 	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
-	st.SeedTranscript(t, id, "the agent said something")
+	st.SeedTurnEnded(t, id)
 
 	before, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
@@ -889,46 +889,40 @@ func (f *fakeReconciler) RecordTurnBoundary(agentID string) {
 	f.recorded = append(f.recorded, agentID)
 }
 
-// TestRecordTurnBoundary pins that the boundary is recorded against the calling agent, and
-// that a caller with no identity of its own is refused.
-func TestRecordTurnBoundary(t *testing.T) {
-	tests := []struct {
-		name     string
-		callerID string
-		wantCode connect.Code
-	}{
-		{
-			name:     "no caller identity is refused",
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "the boundary is recorded against the caller",
-			callerID: "agent-a",
-		},
-	}
+// TestRecordTurnBoundaryRefusesACallerWithNoIdentity pins that a hook that cannot say which
+// agent it speaks for is turned away rather than stamping somebody.
+func TestRecordTurnBoundaryRefusesACallerWithNoIdentity(t *testing.T) {
+	reconciler := &fakeReconciler{}
+	svc := NewService(NewServiceParams{Reconciler: reconciler})
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reconciler := &fakeReconciler{}
-			svc := NewService(NewServiceParams{Reconciler: reconciler})
+	_, err := svc.RecordTurnBoundary(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+	assert.Empty(t, reconciler.recorded)
+}
 
-			ctx := t.Context()
-			if tt.callerID != "" {
-				ctx = caller.With(ctx, caller.Caller{AgentID: tt.callerID})
-			}
+// TestRecordTurnBoundaryMarksTheAgentUnviewed pins the two things one report does: the
+// reconciler hears about the boundary, and the row is stamped so the panel says the agent has
+// finished something nobody has read.
+func TestRecordTurnBoundaryMarksTheAgentUnviewed(t *testing.T) {
+	svc, st := service(t)
+	reconciler := &fakeReconciler{}
+	svc.reconciler = reconciler
 
-			_, err := svc.RecordTurnBoundary(ctx, connect.NewRequest(&emptypb.Empty{}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				assert.Empty(t, reconciler.recorded)
+	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle}).ID
 
-				return
-			}
+	before, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	require.False(t, before.Msg.GetAgent().GetUnviewed(), "an agent that has ended no turn is not unread")
 
-			require.NoError(t, err)
-			assert.Equal(t, []string{tt.callerID}, reconciler.recorded)
-		})
-	}
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
+	_, err = svc.RecordTurnBoundary(ctx, connect.NewRequest(&emptypb.Empty{}))
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{id}, reconciler.recorded)
+
+	after, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	assert.True(t, after.Msg.GetAgent().GetUnviewed())
 }
 
 // TestSendMail pins the code each way of addressing mail wrongly is answered with, a name in

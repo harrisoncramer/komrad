@@ -79,6 +79,16 @@ func TestBuildCommand(t *testing.T) {
 			launch:      harness.Launch{Prompt: "resume the deploy"},
 			wantContain: []string{` -- "$(cat `, "; rm "},
 		},
+		{
+			name:        "notify points at weave, which is codex's only report of a turn ending",
+			launch:      harness.Launch{HookCommand: "/usr/local/bin/weave", Prompt: "go"},
+			wantContain: []string{`-c 'notify=["/usr/local/bin/weave","hook","turn-end"]'`},
+		},
+		{
+			name:       "and a launch weave cannot name a binary for asks for none",
+			launch:     harness.Launch{Prompt: "go"},
+			wantAbsent: []string{"notify="},
+		},
 	}
 
 	for _, tt := range tests {

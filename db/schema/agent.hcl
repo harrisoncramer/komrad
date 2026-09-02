@@ -345,6 +345,10 @@ table "agents" {
     null = true
     type = timestamptz
   }
+  column "turn_ended_at" {
+    null = true
+    type = timestamptz
+  }
   column "harness" {
     null    = false
     type    = text

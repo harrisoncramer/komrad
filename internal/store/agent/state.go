@@ -41,9 +41,9 @@ func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
 	return nil
 }
 
-// SetViewed claims an agent's conversation as read up to where it now stands, stamping when the
-// transcript last grew rather than the clock so a turn landing mid-look is not read with it, or
-// puts the mark back when viewed is unset.
+// SetViewed claims an agent's conversation as read up to the last turn weave watched end,
+// stamping that rather than the clock so a turn landing mid-look is not read with it, or puts
+// the mark back when viewed is unset.
 func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
@@ -54,6 +54,31 @@ func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	}
 
 	return nil
+}
+
+// SetTurnEnded records that an agent's own CLI reported a turn of its ending, and is written
+// only from that report rather than from a state read off a pane, since a stamp kept against
+// what somebody has read cannot come from a guess.
+func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	if err := s.queries.SetAgentTurnEndedByID(ctx, id); err != nil {
+		return fmt.Errorf("failed to set the turn end for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// ListUnseenTurns reports the agents that have ended a turn the person has not looked at since.
+func (s *Store) ListUnseenTurns(ctx context.Context) ([]string, error) {
+	rows, err := s.queries.ListAgentsWithUnseenTurns(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the agents holding unseen turns: %w", err)
+	}
+
+	return rows, nil
 }
 
 // MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,

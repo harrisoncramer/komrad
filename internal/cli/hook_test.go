@@ -281,3 +281,68 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 
 	return strippedHost(t, server.URL)
 }
+
+// TestTurnEndHookRecordsTheBoundary covers codex's notify program, which is handed one JSON
+// argument and fires for more than a turn ending, so the type is what decides.
+func TestTurnEndHookRecordsTheBoundary(t *testing.T) {
+	tests := []struct {
+		name         string
+		agentID      string
+		args         []string
+		wantBoundary bool
+	}{
+		{
+			name:         "a completed turn is recorded",
+			agentID:      "agent-a",
+			args:         []string{`{"type":"agent-turn-complete","turn-id":"t1"}`},
+			wantBoundary: true,
+		},
+		{
+			name:    "anything else codex notifies about is not a turn ending",
+			agentID: "agent-a",
+			args:    []string{`{"type":"agent-something-else"}`},
+		},
+		{
+			name:    "a payload that will not parse records nothing rather than guessing",
+			agentID: "agent-a",
+			args:    []string{`{`},
+		},
+		{
+			name:         "a bare call with no payload is taken at its word",
+			agentID:      "agent-a",
+			wantBoundary: true,
+		},
+		{
+			name: "a caller that is not an agent has nothing to stamp",
+			args: []string{`{"type":"agent-turn-complete"}`},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var asked caller.Caller
+			var logged []string
+			var boundaries []string
+			addr := fakeMailServer(t, fakeMailParams{
+				asked:      &asked,
+				logged:     &logged,
+				boundaries: &boundaries,
+			})
+
+			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
+
+			var out, errs bytes.Buffer
+			cmd := turnEndHookCmd(state)
+			cmd.SetOut(&out)
+			cmd.SetErr(&errs)
+			cmd.SetArgs(tt.args)
+
+			require.NoError(t, cmd.Execute())
+			assert.Equal(t, tt.wantBoundary, len(boundaries) == 1)
+			if tt.wantBoundary {
+				assert.Equal(t, tt.agentID, boundaries[0])
+			}
+			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
+		})
+	}
+}
