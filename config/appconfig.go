@@ -215,10 +215,11 @@ type SelectionKeys struct {
 
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
 // agent's own directory. It is its own group rather than one of a screen's, since the
-// archive lists agents with directories too. Pressing it again while that shell is up hands
-// it the keyboard, and moving to another agent moves the shell to that agent's directory.
+// archive lists agents with directories too. The shell stays where it opened as the cursor
+// moves, since respawning its pane would kill whatever is running in it, so pressing the key
+// hands it the keyboard and only moves it when the hovered agent is rooted somewhere else.
 type TerminalKeys struct {
-	// Open a shell in the hovered agent's directory, or focus the one already open.
+	// Open a shell in the hovered agent's directory, focus the one already there, or move it here.
 	Open []string `mapstructure:"open"`
 }
 
