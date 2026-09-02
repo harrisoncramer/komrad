@@ -31,6 +31,10 @@ var ErrParentIsChild = errors.New("a child agent may not have children of its ow
 var ErrChildOwnsLaunch = errors.New("a child agent takes its launch from its parent")
 var ErrTooManyChildren = errors.New("too many children")
 
+// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
+// recorded, which is the one thing a child cannot be given a substitute for.
+var ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
+
 // ErrChildRidesAlong says a child was named on its own by an archive, a delete, or a restore
 // that left its parent out, which is the one thing a child cannot be without it.
 var ErrChildRidesAlong = errors.New("a child agent goes with its parent")
@@ -306,9 +310,9 @@ func notifyParents(ctx context.Context, notifier systemMailSender, agents []agen
 		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
 			continue
 		}
-		// A child only ever goes as part of its parent going, so the parent is on its way out
-		// too and mail about it would be addressed to an agent already archived.
-		if agent.ParentAgentID != nil {
+		// A child whose spawner is the parent it is attached to only ever goes as part of that
+		// parent going, so the mail would be addressed to an agent already on its way out.
+		if agent.ParentAgentID != nil && *agent.SpawnedByAgentID == *agent.ParentAgentID {
 			continue
 		}
 

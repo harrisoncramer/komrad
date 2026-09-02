@@ -248,7 +248,7 @@ func (m model) deleteFromArchiveConfirm(agents []agentstore.Agent) (tea.Model, t
 		return m, nil
 	}
 
-	form, confirmed := deleteAgentsForm(agents, m.keys.Form)
+	form, confirmed := deleteAgentsForm(agents, unnamedChildren(m.archive.agents, agents), m.keys.Form)
 
 	return m, m.openForm(formState{
 		kind:   formArchiveDelete,

@@ -228,9 +228,13 @@ func (s *LifecycleService) archiveChildrenOf(ctx context.Context, parents []agen
 		return nil, nil
 	}
 
-	if _, err := s.agents.Archive(ctx, agentIDs(live)); err != nil {
+	taken, err := s.agents.Archive(ctx, agentIDs(live))
+	if err != nil {
 		return nil, fmt.Errorf("failed to archive the %d children of %d archived agents: %w", len(live), len(parents), err)
 	}
+	// A pane a child was resumed into between the read and the write only reaches here through
+	// what the write took off the rows.
+	killPanes(ctx, s.tmux, taken)
 
 	return live, nil
 }

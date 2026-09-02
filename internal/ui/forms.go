@@ -358,11 +358,11 @@ func (m model) closeForm() (tea.Model, tea.Cmd) {
 	return reenter(m)
 }
 
-func deleteAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *bool) {
-	title := fmt.Sprintf("Permanently delete %d agents?", len(agents))
+func deleteAgentsForm(agents []agentstore.Agent, children int, keys config.FormKeys) (*huh.Form, *bool) {
+	title := "Permanently delete " + promptSubject(agents, children) + "?"
+
 	warning := "Their transcripts go with them and search will not find the conversations again."
-	if len(agents) == 1 {
-		title = fmt.Sprintf("Permanently delete agent %q?", agents[0].Name)
+	if len(agents) == 1 && children == 0 {
 		warning = "Its transcript goes with it and search will not find the conversation again."
 	}
 
@@ -402,9 +402,9 @@ const (
 	archiveChoiceArchiveDelete archiveChoice = "archive+delete"
 )
 
-// archiveTitle names what the prompt is about, counting in the children that were not asked
+// promptSubject names what a prompt is about, counting in the children that were not asked
 // about, since they go with their parents whether or not anybody named them.
-func archiveTitle(agents []agentstore.Agent, children int) string {
+func promptSubject(agents []agentstore.Agent, children int) string {
 	subject := fmt.Sprintf("%d agents", len(agents))
 	if len(agents) == 1 {
 		subject = fmt.Sprintf("agent %q", agents[0].Name)
@@ -420,11 +420,11 @@ func archiveTitle(agents []agentstore.Agent, children int) string {
 		subject += fmt.Sprintf(" and its %d children", children)
 	}
 
-	return "Archive " + subject + "?"
+	return subject
 }
 
 func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.FormKeys) (*huh.Form, *archiveChoice) {
-	title := archiveTitle(agents, children)
+	title := "Archive " + promptSubject(agents, children) + "?"
 
 	choice := archiveChoiceArchive
 

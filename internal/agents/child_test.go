@@ -117,6 +117,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			manager := newManager(tmux, st, "")
 
 			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+			require.NoError(t, st.Update(t.Context(), withCwd(parent, t.TempDir())))
 
 			params := tt.params(parent)
 			params.Prompt = "read the change"
@@ -169,7 +170,7 @@ func TestNewChildAgentRefusesAParentWithNoDirectory(t *testing.T) {
 		WorkflowID:    parent.WorkflowID,
 		ParentAgentID: parent.ID,
 	})
-	require.ErrorIs(t, err, ErrBadDirectory)
+	require.ErrorIs(t, err, ErrChildNeedsParentDirectory)
 }
 
 // TestNewChildAgentRefusesAChildOfAChild pins the one level, which is what keeps the ride-along
@@ -299,6 +300,26 @@ func TestArchiveOfAParentTellsTheChildNothing(t *testing.T) {
 	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
 	require.NoError(t, err)
 	assert.Empty(t, claimed)
+}
+
+// TestArchiveOfAParentTellsAThirdPartySpawner pins that an orchestrator which attached a child
+// to some other agent still hears the child is gone, since it is the one waiting on its mail.
+func TestArchiveOfAParentTellsAThirdPartySpawner(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+	ctx := t.Context()
+
+	orchestrator := seedRunning(t, st, tmux, "orchestrator", "%orchestrator", agentstore.StateIdle)
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	seedChildSpawnedBy(t, st, tmux, parent, orchestrator.ID)
+
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
+
+	claimed, err := st.Mail.Claim(ctx, orchestrator.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1)
+	assert.Contains(t, claimed[0].Body, "archived")
 }
 
 func withSpawner(agent agentstore.Agent, spawnerID string) agentstore.Agent {

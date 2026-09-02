@@ -669,23 +669,32 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, stat
 	return agent
 }
 
-// seedChild records an agent attached to a parent, in that parent's workflow and directory,
-// which is what a launch would have written for it.
+// seedChild records an agent attached to a parent that spawned it, which is the ordinary case:
+// an agent asks for a child of its own.
 func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.Agent) agentstore.Agent {
-	const name = "reviewer"
+	t.Helper()
 
+	return seedChildSpawnedBy(t, st, tmux, parent, parent.ID)
+}
+
+// seedChildSpawnedBy records an agent attached to a parent, in that parent's workflow and
+// directory, under whichever agent asked for it.
+func seedChildSpawnedBy(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.Agent, spawnerID string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
+	const name = "reviewer"
+
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:          name,
-		Pane:          "%" + name,
-		State:         agentstore.StateIdle,
-		Cwd:           parent.Cwd,
-		WorkflowID:    parent.WorkflowID,
-		ParentAgentID: &parent.ID,
-		SetupAction:   xptr.Ptr(""),
-		CleanupAction: xptr.Ptr(""),
+		Name:             name,
+		Pane:             "%" + name,
+		State:            agentstore.StateIdle,
+		Cwd:              parent.Cwd,
+		WorkflowID:       parent.WorkflowID,
+		ParentAgentID:    &parent.ID,
+		SpawnedByAgentID: &spawnerID,
+		SetupAction:      xptr.Ptr(""),
+		CleanupAction:    xptr.Ptr(""),
 	}))
 
 	got, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, name)

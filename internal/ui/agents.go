@@ -159,7 +159,7 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 		return m, nil
 	}
 
-	form, answer := archiveAgentsForm(agents, m.unnamedChildren(agents), m.keys.Form)
+	form, answer := archiveAgentsForm(agents, unnamedChildren(m.liveAgents(), agents), m.keys.Form)
 
 	return m, m.openForm(formState{
 		kind:   formAgentArchive,

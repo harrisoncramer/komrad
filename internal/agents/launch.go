@@ -186,6 +186,12 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 		return nil, fmt.Errorf("%w: %q is itself attached to another agent", ErrParentIsChild, parent.Name)
 	}
 
+	// This is ahead of what the request asked for so that the refusal names the parent's missing
+	// directory rather than reporting a conflict with a directory that is the empty string.
+	if parent.Cwd == "" {
+		return nil, fmt.Errorf("%w: %q has none recorded", ErrChildNeedsParentDirectory, parent.Name)
+	}
+
 	switch {
 	case strings.TrimSpace(p.Dir) != "":
 		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
@@ -197,13 +203,6 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
 	case p.ScheduleID != nil:
 		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", ErrChildOwnsLaunch)
-	}
-
-	// A child has only its parent's directory to run in, so a parent with none recorded would
-	// otherwise fall back to the workflow's, which is the fresh checkout a child exists to avoid
-	// being dropped into.
-	if parent.Cwd == "" {
-		return nil, fmt.Errorf("%w: %q has no directory recorded for a child to run in", ErrBadDirectory, parent.Name)
 	}
 
 	return parent, nil

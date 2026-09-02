@@ -208,17 +208,24 @@ func rowIndexOfKey(rows []agentRow, key string) int {
 	return -1
 }
 
-// unnamedChildren counts the children the given agents hold that are not among them, which is
-// what an archive or a delete takes along without having been asked.
-func (m model) unnamedChildren(agents []agentstore.Agent) int {
-	named := make(map[string]bool, len(agents))
-	for _, agent := range agents {
-		named[agent.ID] = true
+// unnamedChildren counts the children the named agents hold that are not among them, taking the
+// pool from the screen doing the asking, since the archive holds families the live listing does
+// not.
+func unnamedChildren(pool, named []agentstore.Agent) int {
+	held := make(map[string]bool, len(named))
+	for _, agent := range named {
+		held[agent.ID] = true
 	}
 
-	return xslice.Count(m.listing.agents, func(it agentItem) bool {
-		return it.agent.ParentAgentID != nil && named[*it.agent.ParentAgentID] && !named[it.agent.ID]
+	return xslice.Count(pool, func(agent agentstore.Agent) bool {
+		return agent.ParentAgentID != nil && held[*agent.ParentAgentID] && !held[agent.ID]
 	})
+}
+
+// liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
+// rather than over the marks beside them.
+func (m model) liveAgents() []agentstore.Agent {
+	return xslice.Map(m.listing.agents, func(it agentItem) agentstore.Agent { return it.agent })
 }
 
 func (m model) agentCount(workflowID string) int {

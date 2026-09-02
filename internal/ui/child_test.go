@@ -11,6 +11,7 @@ import (
 	"weave/internal/ui/layout"
 	"weave/lib/xptr"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -157,9 +158,9 @@ func TestChildDetailsLeadWithTheParent(t *testing.T) {
 	assert.Equal(t, "author", held.fields[0].value)
 }
 
-// TestArchiveTitleCountsTheChildren pins that the prompt says what goes with the agent named,
-// since the children are archived whether or not anybody asked about them.
-func TestArchiveTitleCountsTheChildren(t *testing.T) {
+// TestPromptSubjectCountsTheChildren pins that a prompt says what goes with the agent named,
+// since the children go whether or not anybody asked about them.
+func TestPromptSubjectCountsTheChildren(t *testing.T) {
 	tests := []struct {
 		name     string
 		agents   []agentstore.Agent
@@ -169,43 +170,72 @@ func TestArchiveTitleCountsTheChildren(t *testing.T) {
 		{
 			name:   "one agent with nothing attached",
 			agents: []agentstore.Agent{{Name: "author"}},
-			want:   `Archive agent "author"?`,
+			want:   `agent "author"`,
 		},
 		{
 			name:     "one agent with one child",
 			agents:   []agentstore.Agent{{Name: "author"}},
 			children: 1,
-			want:     `Archive agent "author" and its child?`,
+			want:     `agent "author" and its child`,
 		},
 		{
 			name:     "one agent with several",
 			agents:   []agentstore.Agent{{Name: "author"}},
 			children: 2,
-			want:     `Archive agent "author" and its 2 children?`,
+			want:     `agent "author" and its 2 children`,
 		},
 		{
 			name:     "a selection of agents",
 			agents:   []agentstore.Agent{{Name: "author"}, {Name: "fix-gutter"}},
 			children: 2,
-			want:     "Archive 2 agents and 2 children?",
+			want:     "2 agents and 2 children",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, archiveTitle(tt.agents, tt.children))
+			assert.Equal(t, tt.want, promptSubject(tt.agents, tt.children))
 		})
 	}
+}
+
+// TestDeletePromptSaysWhatGoesWithIt pins the hard delete asking about the children too, since
+// it is the prompt with nothing to undo it and the archive prompt already says so.
+func TestDeletePromptSaysWhatGoesWithIt(t *testing.T) {
+	form, _ := deleteAgentsForm([]agentstore.Agent{{ID: "a1", Name: "author"}}, 2, config.DefaultKeybindings().Form)
+	form.Init()
+	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
+
+	view := ansi.Strip(form.View())
+	assert.Contains(t, view, `Permanently delete agent "author" and its 2 children?`)
+	assert.Contains(t, view, "Their transcripts go with them")
 }
 
 // TestUnnamedChildren pins the count the prompt is given, which leaves out a child the caller
 // already named and another parent's children entirely.
 func TestUnnamedChildren(t *testing.T) {
-	m := familyTree()
+	pool := familyTree().liveAgents()
 
-	assert.Equal(t, 2, m.unnamedChildren([]agentstore.Agent{{ID: "a1"}}))
-	assert.Equal(t, 1, m.unnamedChildren([]agentstore.Agent{{ID: "a1"}, {ID: "a3", ParentAgentID: xptr.Ptr("a1")}}))
-	assert.Equal(t, 0, m.unnamedChildren([]agentstore.Agent{{ID: "a2"}}))
+	assert.Equal(t, 2, unnamedChildren(pool, []agentstore.Agent{{ID: "a1"}}))
+	assert.Equal(t, 1, unnamedChildren(pool, []agentstore.Agent{{ID: "a1"}, {ID: "a3", ParentAgentID: xptr.Ptr("a1")}}))
+	assert.Equal(t, 0, unnamedChildren(pool, []agentstore.Agent{{ID: "a2"}}))
+}
+
+// TestUnnamedChildrenReadsTheArchivesOwnRows pins the count coming from the screen doing the
+// asking, since the archive holds families the live listing does not.
+func TestUnnamedChildrenReadsTheArchivesOwnRows(t *testing.T) {
+	archived := []agentstore.Agent{
+		{ID: "b1", Name: "old-author"},
+		{
+			ID:            "b2",
+			Name:          "old-reviewer",
+			ParentAgentID: xptr.Ptr("b1"),
+		},
+	}
+
+	assert.Equal(t, 1, unnamedChildren(archived, []agentstore.Agent{{ID: "b1"}}))
+	assert.Equal(t, 0, unnamedChildren(familyTree().liveAgents(), []agentstore.Agent{{ID: "b1"}}),
+		"the live listing knows nothing about them")
 }
 
 // TestChildKeyOnAChildIsRefused pins that the key says why rather than opening a form whose
