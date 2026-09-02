@@ -62,6 +62,8 @@ func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
 	first, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 
+	env.trigger = "resume"
+	env.agentCwd = strings.TrimSpace(string(first.Stdout))
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
 
@@ -92,6 +94,7 @@ func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	require.NoError(t, err, "stderr: %s", first.Stderr)
 	tree := strings.TrimSpace(string(first.Stdout))
 
+	env.trigger = "resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -127,6 +130,7 @@ func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
 	edited := filepath.Join(tree, "node_modules", "mod.txt")
 	require.NoError(t, os.WriteFile(edited, []byte("patched\n"), 0o644))
 
+	env.trigger = "resume"
 	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
@@ -181,6 +185,7 @@ func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *
 	tree := strings.TrimSpace(string(first.Stdout))
 
 	runGit(t, repo, "worktree", "remove", "--force", tree)
+	env.trigger = "resume"
 	env.agentCwd = tree
 
 	branches, err := exec.Command("git", "-C", repo, "branch", "--list", "agent/agent-g").Output()
@@ -190,6 +195,116 @@ func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsGoneButTheBranchIsNot(t *
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
 	assertIsDir(t, strings.TrimSpace(string(second.Stdout)))
+}
+
+// TestBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds covers the worktrees directory
+// being pointed somewhere else after the agent was provisioned, where computing the path
+// afresh would send the resume at a directory the branch is not checked out in.
+func TestBuiltinWorktreeSetupOnResumeKeepsTheTreeTheAgentHolds(t *testing.T) {
+	repo := initRepo(t)
+	env := worktreeEnv{
+		agentID:      "agent-moved-dir",
+		repo:         repo,
+		agentCwd:     repo,
+		worktreesDir: t.TempDir(),
+	}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+
+	moved := t.TempDir()
+	env.trigger = "resume"
+	env.agentCwd = tree
+	env.worktreesDir = moved
+
+	second, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", second.Stderr)
+
+	assert.Equal(t, tree, strings.TrimSpace(string(second.Stdout)), "the resume goes back to the tree the agent already has")
+	assert.Contains(t, string(second.Stderr), "already exists", "the resume finds the worktree rather than trying to make it again")
+	assert.NoDirExists(t, filepath.Join(moved, "agent-moved-dir"), "nothing is made under the directory worktrees now live in")
+}
+
+// TestBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory covers the tree an agent
+// holds being gone as well as the worktrees directory having moved, where the registration the
+// old tree left behind still claims the branch until it is pruned.
+func TestBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory(t *testing.T) {
+	repo := initRepo(t)
+	env := worktreeEnv{
+		agentID:      "agent-moved-gone",
+		repo:         repo,
+		agentCwd:     repo,
+		worktreesDir: t.TempDir(),
+	}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+	require.NoError(t, os.RemoveAll(tree))
+
+	moved := t.TempDir()
+	env.trigger = "resume"
+	env.agentCwd = tree
+	env.worktreesDir = moved
+
+	second, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", second.Stderr)
+
+	rebuilt := strings.TrimSpace(string(second.Stdout))
+	assert.Equal(t, filepath.Join(moved, "agent-moved-gone"), rebuilt)
+	assertIsDir(t, rebuilt)
+	assertBranch(t, rebuilt, "agent/agent-moved-gone")
+}
+
+// TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory covers a create never going
+// back to a cwd, since the tree a create is asked for is the one the workflow names now.
+func TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T) {
+	repo := initRepo(t)
+	env := worktreeEnv{
+		agentID:      "agent-provision-dir",
+		repo:         repo,
+		agentCwd:     repo,
+		worktreesDir: t.TempDir(),
+	}
+
+	first, err := runBuiltin(t, "_worktree_setup", env)
+	require.NoError(t, err, "stderr: %s", first.Stderr)
+	tree := strings.TrimSpace(string(first.Stdout))
+
+	moved := t.TempDir()
+	env.agentCwd = tree
+	env.worktreesDir = moved
+
+	second, _ := runBuiltin(t, "_worktree_setup", env)
+	assert.Contains(t, string(second.Stderr), filepath.Join(moved, "agent-provision-dir"), "the create aims at the directory worktrees live in now")
+	assert.NotContains(t, string(second.Stderr), "already exists", "the tree the cwd names is not taken for a create")
+}
+
+// Explainer: the agent is named after the repository's own directory, so the name the tree
+// carries is not what refuses it.
+
+// TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo covers a create that failed before
+// setup replaced the directory, which leaves the agent's cwd naming the workflow's own
+// checkout: resuming into that would run the agent inside the repository.
+func TestBuiltinWorktreeSetupOnResumeRefusesACwdThatIsTheRepo(t *testing.T) {
+	repo := initRepo(t)
+	agentID := filepath.Base(repo)
+	worktreesDir := t.TempDir()
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      agentID,
+		repo:         repo,
+		agentCwd:     repo,
+		trigger:      "resume",
+		worktreesDir: worktreesDir,
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Equal(t, filepath.Join(worktreesDir, agentID), tree, "the repository is not taken for the agent's worktree")
+	assertIsDir(t, tree)
+	assertBranch(t, tree, "agent/"+agentID)
 }
 
 // TestBuiltinWorktreeSetupCopiesADirectory covers a copy path naming a directory rather
@@ -778,6 +893,8 @@ func TestBuiltinWorktreeSetupResumesAfterTheDirectoryIsDeletedOutright(t *testin
 
 	require.NoError(t, os.RemoveAll(tree))
 
+	env.trigger = "resume"
+	env.agentCwd = tree
 	second, err := runBuiltin(t, "_worktree_setup", env)
 	require.NoError(t, err, "stderr: %s", second.Stderr)
 	assertIsDir(t, strings.TrimSpace(string(second.Stdout)))
@@ -941,6 +1058,78 @@ func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing
 	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-blind"), "nothing was removed")
 }
 
+// TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved covers a worktree whose .git file
+// points into a repo that is no longer at that path: git cannot answer at all, so cleanup has
+// to fail rather than record a clean deprovision for a directory that is still on disk.
+func TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testing.T) {
+	repo := initRepo(t)
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-adrift",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+
+	resolvedTree, err := filepath.EvalSymlinks(tree)
+	require.NoError(t, err)
+	resolvedRepo, err := filepath.EvalSymlinks(repo)
+	require.NoError(t, err)
+
+	moved := filepath.Join(t.TempDir(), "moved")
+	require.NoError(t, os.Rename(repo, moved))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-adrift", agentCwd: tree})
+	require.Error(t, err, "the refusal is reported rather than exiting zero")
+
+	assertIsDir(t, tree)
+	assert.Contains(t, string(cleanup.Stderr), "git cannot read "+resolvedTree)
+	assert.Contains(t, string(cleanup.Stderr), filepath.Join(resolvedRepo, ".git", "worktrees", "agent-adrift"), "the message names the gitdir the .git file points at")
+	assert.NotEmpty(t, readBranchList(t, moved, "agent/agent-adrift"), "nothing was removed")
+}
+
+// TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone covers the retry of a delete
+// that failed partway: worktree remove already dropped the registration before it hit the
+// error, so the second run finds a directory git no longer knows anything about.
+func TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t *testing.T) {
+	repo := initRepo(t)
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-unregistered",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+
+	require.NoError(t, os.RemoveAll(filepath.Join(repo, ".git", "worktrees", "agent-unregistered")))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-unregistered", agentCwd: tree})
+	require.Error(t, err, "the refusal is reported rather than exiting zero")
+
+	assertIsDir(t, tree)
+	assert.Contains(t, string(cleanup.Stderr), "the registration is gone")
+	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-unregistered"), "the branch is left for a person to deal with")
+}
+
+// TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer covers the two
+// refusals meeting: the ownership claim is a fact about the path and the agent id alone, so a
+// tree weave never made still exits zero when there is no repo left to ask.
+func TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer(t *testing.T) {
+	repo := initRepo(t)
+	theirs := filepath.Join(t.TempDir(), "theirs")
+	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
+
+	moved := filepath.Join(t.TempDir(), "moved")
+	require.NoError(t, os.Rename(repo, moved))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-thief", agentCwd: theirs})
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+
+	assertIsDir(t, theirs)
+	assert.Contains(t, string(cleanup.Stderr), "is not named after agent-thief")
+	assert.NotEmpty(t, readBranchList(t, moved, "someone-else"), "someone else's branch survives")
+}
+
 func failingGitDir(t *testing.T, failFor string) string {
 	t.Helper()
 
@@ -963,6 +1152,7 @@ exec %q "$@"
 type worktreeEnv struct {
 	agentID      string
 	agentCwd     string
+	trigger      string
 	repo         string
 	worktreesDir string
 	baseBranch   string
@@ -973,9 +1163,15 @@ type worktreeEnv struct {
 }
 
 func (e worktreeEnv) toEnv() []string {
+	trigger := e.trigger
+	if trigger == "" {
+		trigger = "provision"
+	}
+
 	env := []string{
 		"WEAVE_AGENT_ID=" + e.agentID,
 		"WEAVE_AGENT_CWD=" + e.agentCwd,
+		"WEAVE_TRIGGER=" + trigger,
 		"WEAVE_WORKTREE_REPO=" + e.repo,
 		"WEAVE_WORKTREES_DIR=" + e.worktreesDir,
 		"WEAVE_WORKTREE_BASE_BRANCH=" + e.baseBranch,

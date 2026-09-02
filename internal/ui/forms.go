@@ -570,6 +570,10 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 	}
 }
 
+// Explainer: a list this short is left unbounded instead, since huh scrolls a select it was
+// given a height for even when every option would have fit, which hides the options above the
+// chosen one.
+
 // hookOptionsShown bounds one moment's list, so four moments and everything above them still
 // leave the form scrollable rather than one long list pushing the rest off the screen.
 const hookOptionsShown = 4
@@ -635,6 +639,9 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 
 	return fields
 }
+
+// Explainer: a list too long to draw whole says so, since there is nothing else on screen to
+// say the options carry on past the ones it can see.
 
 // hookFieldDescription leads with the empty case rather than appending it, since a description
 // long enough to be cut off at the width of a terminal would take the notice with it.

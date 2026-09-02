@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
@@ -154,7 +155,7 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	case trees.holder == "":
 	case sameDir(trees.holder, trees.main):
 		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
-	case owner != nil && owner.WorktreeRemoved:
+	case !dirExists(trees.holder):
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
 	case owner != nil && adopted(*owner, branch):
@@ -296,6 +297,14 @@ func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) 
 	}
 
 	return found, nil
+}
+
+// dirExists reports whether a path is a directory right now, since a worktree registration
+// outlives a directory somebody deleted without telling git.
+func dirExists(dir string) bool {
+	info, err := os.Stat(dir)
+
+	return err == nil && info.IsDir()
 }
 
 // sameDir compares two paths as the filesystem sees them, since a worktree listing reports
