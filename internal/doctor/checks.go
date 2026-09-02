@@ -12,9 +12,12 @@ func Checks(settings Settings) []Check {
 		TmuxShell(),
 		Config(),
 		DefaultHarness(),
+		Hooks(),
+		Worktrees(),
 		Database(),
 		Schema(),
 		ReadOnlyLogin(),
+		OrphanedWorktrees(),
 		Server(),
 	}
 

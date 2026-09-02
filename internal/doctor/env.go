@@ -21,9 +21,11 @@ type Env struct {
 	Output                func(ctx context.Context, name string, args ...string) (string, error)
 	LoadConfig            func() (*config.Config, error)
 	DoesLayerExist        func(path string) bool
+	InspectDir            func(path string) (DirState, error)
 	PingDatabase          func(ctx context.Context, url string) error
 	ReadPendingMigrations func(ctx context.Context, url string) ([]string, error)
 	ConnectReadOnly       func(ctx context.Context, url string) error
+	ReadWorktreeOwners    func(ctx context.Context, url string) (WorktreeOwners, error)
 	ProbeServer           func(ctx context.Context, addr string) ServerStatus
 }
 
@@ -63,9 +65,11 @@ func NewEnv(settings Settings) Env {
 
 			return err == nil
 		},
+		InspectDir:            inspectDir,
 		PingDatabase:          pingDatabase,
 		ReadPendingMigrations: readPendingMigrations,
 		ConnectReadOnly:       connectReadOnly,
+		ReadWorktreeOwners:    readWorktreeOwners,
 	}
 }
 
