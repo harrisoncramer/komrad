@@ -484,3 +484,78 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 	_, cmd = panel.dwellViewed(back.Add(viewedDwell))
 	assert.NotNil(t, cmd)
 }
+
+// TestPanelMakesEachTurnEarnItsOwnDwell covers a cursor left parked on one row while the agent
+// under it keeps working: the first turn is read after a second, and the turns that end
+// afterwards have to be looked at in their own right rather than being cleared on arrival by a
+// dwell measured from a look that happened hours ago.
+func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+
+	id := created.Msg.GetAgent().GetId()
+	instance.Stores.SeedTurnEnded(t, id)
+
+	tmux := &recordingTmux{}
+	popup := NewPopupWindow(tmux, "test-session")
+	popup.MarkOpen()
+
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			actions:   instance.Actions,
+		},
+		tmux:   tmux,
+		popup:  popup,
+		frame:  layout.New(tmux, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+	}
+
+	panel = settle(t, panel, panel.refreshCmd())
+	panel.tree.cursor = 1
+
+	at := time.Now()
+	panel, cmd := panel.dwellViewed(at)
+	require.Nil(t, cmd)
+
+	panel, cmd = panel.dwellViewed(at.Add(viewedDwell))
+	require.NotNil(t, cmd, "the first turn is read once the cursor has sat on it")
+	cmd()
+
+	panel = settle(t, panel, panel.refreshCmd())
+
+	// An hour of ticks over a row with nothing to read, which is a cursor somebody parked and
+	// walked away from.
+	later := at.Add(time.Hour)
+	panel, cmd = panel.dwellViewed(later)
+	require.Nil(t, cmd, "a row that has been read makes no calls")
+
+	instance.Stores.SeedTurnEnded(t, id)
+	panel = settle(t, panel, panel.refreshCmd())
+
+	hovered, ok := panel.selectedAgent()
+	require.True(t, ok)
+	require.True(t, hovered.unviewed, "a second turn ending is unread again")
+
+	panel, cmd = panel.dwellViewed(later.Add(time.Millisecond))
+	assert.Nil(t, cmd, "and is not claimed on arrival by the hour the cursor spent sitting there")
+
+	_, cmd = panel.dwellViewed(later.Add(viewedDwell * 2))
+	assert.NotNil(t, cmd, "only by a look of its own")
+}

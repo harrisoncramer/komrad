@@ -29,7 +29,7 @@ func TestStopHookDeliversMail(t *testing.T) {
 		wantText     []string
 	}{
 		{
-			name:    "a hook already running is not answered again",
+			name:    "a hook already running is not answered again, but its turn still ended",
 			agentID: "agent-a",
 			payload: `{"stop_hook_active":true}`,
 			mail: []mailItem{
@@ -39,6 +39,7 @@ func TestStopHookDeliversMail(t *testing.T) {
 					Body:     "which column?",
 				},
 			},
+			wantBoundary: true,
 		},
 		{
 			name:    "a caller that is not an agent has no mailbox",

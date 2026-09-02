@@ -86,7 +86,7 @@ func turnEndHookCmd(state *app) *cobra.Command {
 Codex runs this as its notify program, handing it one JSON argument. Weave keeps
 the moment against the agent so the panel can say it has finished something
 nobody has read. Anything but a completed turn is ignored.`,
-		Args:          cobra.MaximumNArgs(1),
+		Args:          cobra.ArbitraryArgs,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 	}
@@ -95,6 +95,8 @@ nobody has read. Anything but a completed turn is ignored.`,
 		if state.env.AgentID == "" {
 			return nil
 		}
+		// Any arity is taken, since a notify that grew an argument would otherwise fail its own
+		// validation, print into a discarded stream, and stop the marks with nothing saying why.
 		if len(args) > 0 {
 			var payload turnEndPayload
 			if err := json.Unmarshal([]byte(args[0]), &payload); err != nil {
@@ -137,11 +139,17 @@ turn end.`,
 
 			return nil
 		}
-		if payload.StopHookActive || state.env.AgentID == "" {
+		if state.env.AgentID == "" {
 			return nil
 		}
 
+		// Recorded before the re-entry check, since a turn the last delivery caused is still a
+		// turn ending, and it is the turn in which the agent answered its mail.
 		recordTurnBoundary(cmd.Context(), state)
+
+		if payload.StopHookActive {
+			return nil
+		}
 
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {
