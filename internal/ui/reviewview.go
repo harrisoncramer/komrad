@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"slices"
+	"strings"
 	"time"
 
 	"weave/internal/review"
@@ -19,14 +20,88 @@ var (
 	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	reviewAddedStyle   = lipgloss.NewStyle().Foreground(colorSuccess)
 	reviewRemovedStyle = lipgloss.NewStyle().Foreground(colorDanger)
+
+	// Reversed rather than merely coloured: a reader who keeps writing against a patch that has
+	// already moved has those comments pinned as ghosted or adrift when they finally reload, so
+	// this is worth a bar across the sidebar rather than a dim line they read past.
+	reviewStaleStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorWarning).Bold(true)
+	reviewDeadStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorMuted).Bold(true)
+	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(colorAccent)
+	reviewSentStyle      = lipgloss.NewStyle().Foreground(colorWarning)
+	reviewDeliveredStyle = lipgloss.NewStyle().Foreground(colorSuccess)
+	reviewExpiredStyle   = lipgloss.NewStyle().Foreground(colorDanger).Bold(true)
 )
+
+// reviewDeliveryOrder is the four states a comment of the person's own can stand in, ordered by
+// how much they are owed: what never went, what went and was lost, what is waiting, what landed.
+var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
+	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
+	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED,
+	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT,
+	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
+}
+
+// reviewDeliveryWord is what each state is called wherever it is drawn, so the count at the top
+// of the sidebar and the badge under a comment read as the same thing.
+func reviewDeliveryWord(state agentv1.ReviewDeliveryState) string {
+	switch state {
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
+		return "unsent"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED:
+		return "expired"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
+		return "waiting"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
+		return "delivered"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
+		return ""
+	}
+
+	return ""
+}
+
+func reviewDeliveryStyle(state agentv1.ReviewDeliveryState) lipgloss.Style {
+	switch state {
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
+		return reviewUnsentStyle
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED:
+		return reviewExpiredStyle
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
+		return reviewSentStyle
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
+		return reviewDeliveredStyle
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
+		return dimStyle
+	}
+
+	return dimStyle
+}
+
+// reviewDeliveryMark is the glyph a badge opens with, the same one the gutter uses where the
+// gutter has one, so a mark beside a line and a badge under a comment are read together.
+func reviewDeliveryMark(state agentv1.ReviewDeliveryState) string {
+	switch state {
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
+		return "◇"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED:
+		return "!"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
+		return "→"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
+		return "✓"
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
+		return ""
+	}
+
+	return ""
+}
 
 // reviewView draws the sidebar while the review is up, which is the thread the cursor is
 // standing on and the line it hangs off, since the diff itself is in the stage.
 func (m model) reviewView() string {
 	header := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
 		m.reviewStatView() +
-		dimStyle.Render("Conversation state: "+m.reviewConversationState()) + "\n\n" +
+		m.reviewDeliveryView() + "\n\n" +
 		m.review.filter.view() + m.reviewMatchCount()
 	help := m.renderHelp(m.reviewHelp())
 
@@ -50,7 +125,42 @@ func (m model) reviewHeadView() string {
 		return dimStyle.Render("nothing changed in this worktree") + "\n"
 	}
 
-	return m.reviewAnchorView()
+	return m.reviewDeadView() + m.reviewStaleView() + m.reviewAnchorView()
+}
+
+// reviewDeadView says there is nobody on the other end, since the diff opens for an agent that
+// cannot be written to and every key that would write is refused there.
+func (m model) reviewDeadView() string {
+	reason, dead := m.reviewIsReadOnly()
+	if !dead {
+		return ""
+	}
+
+	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
+}
+
+// reviewStaleView is the bar saying the worktree no longer looks like the diff on screen, drawn
+// above the place the cursor is standing since everything under it is being read against a patch
+// that has moved.
+func (m model) reviewStaleView() string {
+	if m.review.held == nil {
+		return ""
+	}
+
+	line := " THE DIFF HAS MOVED · " + keyLabel(m.keys.Review.Reload) + " to reload "
+
+	return reviewStaleStyle.Render(m.reviewFill(line)) + "\n"
+}
+
+// reviewFill pads a line out to the sidebar's width, so a background colour reads as a bar
+// rather than as a highlighted phrase.
+func (m model) reviewFill(line string) string {
+	width := max(20, m.width-2)
+	if run := lipgloss.Width(line); run < width {
+		line += strings.Repeat(" ", width-run)
+	}
+
+	return line
 }
 
 func (m model) reviewRestView() string {
@@ -188,55 +298,91 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 		head += " " + dimStyle.Render(when)
 	}
 
-	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n\n"
+	return head + "\n" + m.reviewWrap(message.GetBody()) + "\n" + reviewDeliveryBadge(message) + "\n"
 }
 
-// reviewConversationState is whose turn it is, in one phrase, ordered so that an answer to read
-// comes before work to send and work to send before waiting on somebody else.
-func (m model) reviewConversationState() string {
-	switch {
-	case len(m.review.threads) == 0:
-		return "nothing said yet"
-	case m.reviewUnreadByHuman():
-		return "the agent has replied"
-	case m.reviewAllSettled():
-		return "everything is settled"
-	case !m.reviewUnreadByAgent():
-		return "the agent is up to date"
-	case m.reviewAgentHasMail():
-		return "waiting on the agent"
+// reviewDeliveryBadge is how far one comment has got towards being read, drawn under the comment
+// itself because how the whole review is doing does not answer what this one is doing, and drawn
+// not at all for what the agent wrote, since nobody is waiting to be told about that.
+func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
+	state := message.GetDelivery()
+
+	word := reviewDeliveryWord(state)
+	if word == "" {
+		return ""
 	}
 
-	return "not sent yet"
+	badge := reviewDeliveryMark(state) + " " + word
+	if when := reviewTimeOf(reviewDeliveryStamp(message)); when != "" {
+		badge += " " + when
+	}
+
+	return reviewDeliveryStyle(state).Render("  "+badge) + "\n"
 }
 
-// reviewAllSettled is whether every thread has been finished with, which is the difference
-// between an agent that is up to date and a review that is done.
-func (m model) reviewAllSettled() bool {
-	return !slices.ContainsFunc(m.review.threads, func(thread *agentv1.ReviewThread) bool {
-		return thread.GetResolvedAt() == ""
-	})
+// reviewDeliveryStamp is the moment a badge names, which is the last thing that happened to the
+// comment rather than when it was written.
+func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
+	if delivered := message.GetDeliveredAt(); delivered != "" {
+		return delivered
+	}
+
+	return message.GetSentAt()
 }
 
-func (m model) reviewUnreadByHuman() bool {
-	return slices.ContainsFunc(m.review.threads, func(thread *agentv1.ReviewThread) bool {
-		return thread.GetUnreadByHuman()
-	})
+// reviewDeliveryView is how the person's own comments stand, counted rather than summarised: one
+// phrase for the whole review could never say what any one comment was doing, which is the thing
+// per-comment delivery exists to answer.
+func (m model) reviewDeliveryView() string {
+	counted := m.reviewDeliveryCounts()
+
+	parts := make([]string, 0, len(reviewDeliveryOrder))
+	for _, state := range reviewDeliveryOrder {
+		if counted[state] == 0 {
+			continue
+		}
+
+		parts = append(parts, reviewDeliveryStyle(state).Render(
+			fmt.Sprintf("%d %s", counted[state], reviewDeliveryWord(state))))
+	}
+
+	if len(parts) == 0 {
+		return dimStyle.Render("nothing written yet")
+	}
+
+	return strings.Join(parts, dimStyle.Render(" · "))
 }
 
-func (m model) reviewUnreadByAgent() bool {
-	return slices.ContainsFunc(m.review.threads, func(thread *agentv1.ReviewThread) bool {
-		return thread.GetUnreadByAgent()
-	})
+// reviewDeliveryCounts is how many of the person's comments stand in each state, counted over
+// every thread since delivery is a property of the comment rather than of where it is pinned.
+func (m model) reviewDeliveryCounts() map[agentv1.ReviewDeliveryState]int {
+	counted := map[agentv1.ReviewDeliveryState]int{}
+	for _, thread := range m.review.threads {
+		for _, message := range thread.GetMessages() {
+			counted[message.GetDelivery()]++
+		}
+	}
+
+	return counted
 }
 
-// reviewAgentHasMail reads the doorbell off the agents list rather than the review, since that
-// is the one thing on this screen that refreshes on its own: a notice the agent picks up stops
-// being drawn without a keypress.
-func (m model) reviewAgentHasMail() bool {
-	return slices.ContainsFunc(m.listing.agents, func(item agentItem) bool {
-		return item.agent.ID == m.review.agentID && item.unreadMail
-	})
+// reviewIsReadOnly is whether there is nobody there to receive a comment, and what to say about
+// it, since an archived agent has to be restored and a dormant one resumed before the review is
+// a conversation rather than a read.
+func (m model) reviewIsReadOnly() (string, bool) {
+	for _, item := range m.listing.agents {
+		if item.agent.ID != m.review.agentID {
+			continue
+		}
+
+		if item.alive {
+			return "", false
+		}
+
+		return "this agent is dormant · resume it before writing to it", true
+	}
+
+	return "this agent is archived · restore it before writing to it", true
 }
 
 func (m model) reviewWrap(body string) string {
@@ -260,6 +406,16 @@ func (m model) reviewComposeDesc() string {
 	}
 
 	return "start a thread here"
+}
+
+// reviewReloadDesc says what the reload key would do, since a diff the panel is already
+// holding costs nothing to swap in and a worktree with nothing new has to be read again.
+func (m model) reviewReloadDesc() string {
+	if m.review.held != nil {
+		return "reload the moved diff"
+	}
+
+	return "read the diff again"
 }
 
 // reviewResolveDesc says which way the settle key would go where the cursor is standing.
@@ -288,16 +444,25 @@ func (m model) reviewHelp() keyMap {
 	keys := m.keys.Review
 
 	move := m.moveBinding()
-	compose := binding(keys.Compose, m.reviewComposeDesc())
 
-	// Only the three things the screen is for are on the strip, since reviewing is reading and
-	// the rest of the keys are behind the help key.
+	// An agent nobody can write to keeps every key that reads and loses every key that sends, so
+	// the ones that would be refused cannot be pressed by accident.
+	var writing, composing []key.Binding
+	if _, dead := m.reviewIsReadOnly(); !dead {
+		composing = []key.Binding{binding(keys.Compose, m.reviewComposeDesc())}
+		writing = slices.Concat(composing, []key.Binding{
+			binding(keys.Resend, "ring expired again"),
+			binding(m.keys.Form.Submit, "send what you wrote"),
+		})
+	}
+
+	// Only the things the screen is for are on the strip, since reviewing is reading and the
+	// rest of the keys are behind the help key.
 	return keyMap{
-		short: []key.Binding{move, compose, m.helpBinding()},
+		short: slices.Concat([]key.Binding{move}, composing, []key.Binding{m.helpBinding()}),
 		full: slices.Concat(
 			[]key.Binding{
 				move,
-				compose,
 				pairBinding(keys.PageDown, keys.PageUp, "page"),
 				pairBinding(keys.HalfPageDown, keys.HalfPageUp, "half a page"),
 				pairBinding(keys.NextFile, keys.PrevFile, "next/previous file"),
@@ -308,12 +473,13 @@ func (m model) reviewHelp() keyMap {
 				binding([]string{recentrePrefix + "z", recentrePrefix + "t", recentrePrefix + "b"}, "recentre the view"),
 				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
 				binding(keys.EditFile, m.reviewEditorDesc()),
+				binding(keys.Reload, m.reviewReloadDesc()),
 				binding(keys.Resolve, m.reviewResolveDesc()),
 				binding(keys.ToggleViewed, m.reviewViewedDesc()),
 				binding(keys.DeleteThread, "delete the thread"),
-				binding(m.keys.Form.Submit, "tell the agent"),
-				binding(keys.Back, "back to the agents"),
 			},
+			writing,
+			[]key.Binding{binding(keys.Back, "back to the agents")},
 			m.globalHelp(),
 		),
 	}

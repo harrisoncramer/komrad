@@ -13,6 +13,25 @@ enum ReviewAuthorKind {
   REVIEW_AUTHOR_KIND_AGENT = 2;
 }
 
+// ReviewDeliveryState is how far one of the person's comments has got towards the agent reading
+// it. It is no stored field: it is read off the comment's own sent stamp and the newest doorbell
+// raised against it, since the stamp outlives mail the agent deletes or lets expire. Whether the
+// comment has been answered is a different question, read off the messages of the thread.
+enum ReviewDeliveryState {
+  // Delivery says nothing about this message, which is the case for anything the agent wrote,
+  // since nobody is waiting to be told about it.
+  REVIEW_DELIVERY_STATE_UNSPECIFIED = 0;
+  // Written down and not yet let go of.
+  REVIEW_DELIVERY_STATE_UNSENT = 1;
+  // Released, with a doorbell still waiting to be claimed.
+  REVIEW_DELIVERY_STATE_SENT = 2;
+  // Released, and the agent has claimed the doorbell.
+  REVIEW_DELIVERY_STATE_DELIVERED = 3;
+  // Released, and the doorbell ran out of time unclaimed or is gone, so ringing again is what
+  // reaches the agent.
+  REVIEW_DELIVERY_STATE_EXPIRED = 4;
+}
+
 // ReviewThread is one conversation pinned to a place in an agent's diff.
 message ReviewThread {
   string id = 1;
@@ -28,8 +47,6 @@ message ReviewThread {
   // Whether a thread is settled is a different question from whether the code under it has
   // moved, and it is this one that decides whether the thread is still asking for something.
   string resolved_at = 9;
-  // Whether the person reviewing has written something the agent has not been shown.
-  bool unread_by_agent = 10;
   // Whether the agent has replied since the person reviewing last looked.
   bool unread_by_human = 11;
   repeated ReviewMessage messages = 12;
@@ -48,15 +65,18 @@ message ReviewMessage {
   string body = 5;
   string created_at = 6;
   string updated_at = 7;
+  // How far this comment has got towards the agent reading it.
+  ReviewDeliveryState delivery = 8;
+  // When the person reviewing released this comment, empty while it is only written down.
+  string sent_at = 9;
+  // When the agent claimed the doorbell raised for this comment, empty until it has.
+  string delivered_at = 10;
 }
 
 message ListReviewThreadsRequest {
   // The agent whose diff is being reviewed. An agent reading its own threads may leave this
   // unset, since the call already carries which agent is asking.
   optional string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Whether reading marks the threads read. An agent reading to act on the feedback should,
-  // so the same threads are not announced again; the panel drawing a diff should not.
-  bool mark_read = 2;
 }
 
 message ListReviewThreadsResponse {
@@ -133,22 +153,39 @@ message DeleteReviewMessageRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
-// NotifyReviewThreadsRequest tells an agent it has review activity waiting. The threads
-// themselves are not sent: the agent is handed one piece of mail and looks the conversation
-// up for itself, so a message rewritten afterwards is simply read as it now stands.
-message NotifyReviewThreadsRequest {
+// ReleaseReviewMessagesRequest lets go of every comment on an agent's review the person has
+// written and not sent, and raises one piece of mail for each. The comments themselves are not
+// sent: the agent is handed a doorbell per comment and looks the conversation up for itself, so
+// a comment rewritten afterwards is simply read as it now stands.
+message ReleaseReviewMessagesRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.
   bool interrupt = 2;
 }
 
-message NotifyReviewThreadsResponse {
-  // How many threads the agent was told about, which is zero when it was already up to date.
-  int32 unread = 1;
-  // Whether a doorbell the agent has not read was already in its mailbox, in which case none
-  // was raised. Pressing the key again is not a second thing for it to read.
-  bool already_waiting = 2;
+message ReleaseReviewMessagesResponse {
+  // How many comments were released, which is zero when there was nothing left to let go of.
+  int32 released = 1;
+  // How many of those a doorbell was raised for. The rest kept the one already waiting to be
+  // read, since it says what a second would.
+  int32 rung = 2;
+}
+
+// RingReviewMessagesAgainRequest raises a doorbell again for every released comment whose own
+// ran out of time unclaimed, which is the only thing that reaches an agent that was not
+// listening when the review was let go of.
+message RingReviewMessagesAgainRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // Stop the agent where it stands before telling it.
+  bool interrupt = 2;
+}
+
+message RingReviewMessagesAgainResponse {
+  // How many released comments were found with no doorbell the agent could still read.
+  int32 expired = 1;
+  // How many of those a fresh doorbell was raised for.
+  int32 rung = 2;
 }
 
 // ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read.

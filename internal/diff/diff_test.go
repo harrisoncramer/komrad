@@ -108,3 +108,55 @@ func TestFingerprintStandsOnContentWhereThereAreNoHunks(t *testing.T) {
 	replaced.Content = "994211c..1f0a3bd"
 	assert.NotEqual(t, file.Fingerprint(), replaced.Fingerprint(), "the binary the agent replaced reads as unread")
 }
+
+// TestPatchFingerprintFollowsWhatTheDiffDraws covers the whole-patch hash the review screen
+// compares a background read against: it moves when the drawn change moves and holds when only
+// what the patch never showed has.
+func TestPatchFingerprintFollowsWhatTheDiffDraws(t *testing.T) {
+	greet := func(comment string) File {
+		return File{
+			OldPath: "greet.go",
+			NewPath: "greet.go",
+			Hunks: []Hunk{{
+				Header: "@@ -1,1 +1,2 @@",
+				Lines: []Line{
+					{
+						Kind:      Context,
+						Text:      "package greet",
+						OldNumber: 1,
+						NewNumber: 1,
+					},
+					{
+						Kind:      Addition,
+						Text:      comment,
+						NewNumber: 2,
+					},
+				},
+			}},
+		}
+	}
+
+	patch := Patch{
+		Root:   "/tmp/one",
+		Base:   "main",
+		Commit: "abc",
+		Files:  []File{greet("// greet")},
+	}
+	original := patch.Fingerprint()
+
+	elsewhere := Patch{
+		Root:   "/tmp/two",
+		Base:   "main",
+		Commit: "def",
+		Files:  []File{greet("// greet")},
+	}
+	assert.Equal(t, original, elsewhere.Fingerprint(), "the same change read from somewhere else is the same diff")
+
+	rewritten := Patch{Files: []File{greet("// hello")}}
+	assert.NotEqual(t, original, rewritten.Fingerprint(), "a line the agent rewrote is a diff that moved")
+
+	added := Patch{Files: []File{greet("// greet"), {NewPath: "next.go"}}}
+	assert.NotEqual(t, original, added.Fingerprint(), "and so is a file the agent added")
+
+	assert.NotEqual(t, Patch{}.Fingerprint(), original, "an empty patch is not the one on screen")
+}

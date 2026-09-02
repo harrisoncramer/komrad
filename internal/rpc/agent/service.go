@@ -98,7 +98,7 @@ type Service struct {
 }
 
 type reviewConversation interface {
-	ListReviewThreads(ctx context.Context, params agents.ListReviewThreadsParams) ([]agents.ReviewThreadWithMessages, error)
+	ListReviewThreads(ctx context.Context, agentID string) ([]agents.ReviewThreadWithMessages, error)
 	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
 	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
 	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
@@ -106,7 +106,8 @@ type reviewConversation interface {
 	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
 	DeleteReviewThread(ctx context.Context, params agents.DeleteReviewThreadParams) error
 	DeleteReviewMessage(ctx context.Context, params agents.DeleteReviewMessageParams) error
-	NotifyReviewThreads(ctx context.Context, params agents.NotifyReviewThreadsParams) (*agents.NotifyReviewThreadsResult, error)
+	ReleaseReviewMessages(ctx context.Context, params agents.ReleaseReviewMessagesParams) (*agents.ReleaseReviewMessagesResult, error)
+	RingReviewMessagesAgain(ctx context.Context, params agents.RingReviewMessagesAgainParams) (*agents.RingReviewMessagesAgainResult, error)
 	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
 	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }

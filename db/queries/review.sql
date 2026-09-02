@@ -8,7 +8,6 @@ WITH opened AS (
         new_start,
         new_end,
         quoted_lines,
-        last_human_activity_at,
         last_agent_activity_at)
     VALUES (
         @agent_id,
@@ -18,9 +17,6 @@ WITH opened AS (
         @new_start,
         @new_end,
         @quoted_lines,
-        CASE WHEN @author_kind::review_author_kind = 'human' THEN
-            NOW()
-        END,
         CASE WHEN @author_kind::review_author_kind = 'agent' THEN
             NOW()
         END)
@@ -49,48 +45,15 @@ FROM
     opened o;
 
 -- name: ListReviewThreads :many
-WITH shown AS (
-    SELECT
-        t.id,
-(t.resolved_at IS NULL
-            AND t.last_human_activity_at IS NOT NULL
-            AND (t.agent_read_at IS NULL
-                OR t.last_human_activity_at > t.agent_read_at)) AS unread_by_agent,
-(t.last_agent_activity_at IS NOT NULL
-            AND (t.human_read_at IS NULL
-                OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
-    FROM
-        review_threads t
-    WHERE
-        t.agent_id = @agent_id
-),
-claimed AS (
-    UPDATE
-        review_threads t
-    SET
-        agent_read_at = CASE WHEN @reader::review_author_kind = 'agent' THEN
-            COALESCE(t.last_human_activity_at, t.agent_read_at)
-        ELSE
-            t.agent_read_at
-        END,
-        human_read_at = CASE WHEN @reader::review_author_kind = 'human' THEN
-            COALESCE(t.last_agent_activity_at, t.human_read_at)
-        ELSE
-            t.human_read_at
-        END
-    WHERE
-        t.agent_id = @agent_id
-        AND @mark_read::boolean
-    RETURNING
-        t.id
-)
 SELECT
     t.*,
-    s.unread_by_agent,
-    s.unread_by_human
+(t.last_agent_activity_at IS NOT NULL
+        AND (t.human_read_at IS NULL
+            OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
-    JOIN shown s ON s.id = t.id
+WHERE
+    t.agent_id = @agent_id
 ORDER BY
     t.file_path,
     t.new_start,
@@ -109,16 +72,7 @@ WHERE
 UPDATE
     review_threads t
 SET
-    agent_read_at = CASE WHEN @reader::review_author_kind = 'agent' THEN
-        COALESCE(t.last_human_activity_at, t.agent_read_at)
-    ELSE
-        t.agent_read_at
-    END,
-    human_read_at = CASE WHEN @reader::review_author_kind = 'human' THEN
-        COALESCE(t.last_agent_activity_at, t.human_read_at)
-    ELSE
-        t.human_read_at
-    END
+    human_read_at = COALESCE(t.last_agent_activity_at, t.human_read_at)
 WHERE
     t.id = @id
 RETURNING
@@ -137,18 +91,6 @@ WHERE
     t.id = @id
 RETURNING
     *;
-
--- name: CountUnreadReviewThreads :one
-SELECT
-    COUNT(*)
-FROM
-    review_threads t
-WHERE
-    t.agent_id = @agent_id
-    AND t.resolved_at IS NULL
-    AND t.last_human_activity_at IS NOT NULL
-    AND (t.agent_read_at IS NULL
-        OR t.last_human_activity_at > t.agent_read_at);
 
 -- name: DeleteReviewThread :exec
 DELETE FROM review_threads
@@ -173,11 +115,6 @@ touched AS (
     UPDATE
         review_threads t
     SET
-        last_human_activity_at = CASE WHEN w.author_kind = 'human' THEN
-            NOW()
-        ELSE
-            t.last_human_activity_at
-        END,
         last_agent_activity_at = CASE WHEN w.author_kind = 'agent' THEN
             NOW()
         ELSE
@@ -211,11 +148,6 @@ touched AS (
     UPDATE
         review_threads t
     SET
-        last_human_activity_at = CASE WHEN w.author_kind = 'human' THEN
-            NOW()
-        ELSE
-            t.last_human_activity_at
-        END,
         last_agent_activity_at = CASE WHEN w.author_kind = 'agent' THEN
             NOW()
         ELSE
@@ -243,15 +175,119 @@ WHERE
     m.id = @id;
 
 -- name: ListReviewMessagesByThreads :many
-SELECT
-    m.*
-FROM
-    review_messages m
+WITH said AS (
+    SELECT
+        m.id
+    FROM
+        review_messages m
+    WHERE
+        m.thread_id = ANY (@thread_ids::uuid[])
+),
+doorbell AS (
+    SELECT DISTINCT ON (l.review_message_id)
+        l.review_message_id,
+        l.claimed_at,
+        l.expires_at
+    FROM
+        mail l
+    WHERE
+        l.review_message_id IN (
+            SELECT
+                said.id
+            FROM
+                said)
+        ORDER BY
+            l.review_message_id,
+            l.id DESC
+)
+    SELECT
+        m.*,
+        d.claimed_at AS delivered_at,
+(d.review_message_id IS NULL
+            OR (d.claimed_at IS NULL
+                AND d.expires_at <= NOW())) AS doorbell_expired
+    FROM
+        review_messages m
+    LEFT JOIN doorbell d ON d.review_message_id = m.id
 WHERE
-    m.thread_id = ANY (@thread_ids::uuid[])
-ORDER BY
-    m.thread_id,
-    m.id;
+    m.id IN (
+        SELECT
+            said.id
+        FROM
+            said)
+    ORDER BY
+        m.thread_id,
+        m.id;
+
+-- name: ReleaseUnsentReviewMessages :many
+WITH unsent AS (
+    SELECT
+        m.id
+    FROM
+        review_messages m
+        JOIN review_threads t ON t.id = m.thread_id
+    WHERE
+        t.agent_id = @agent_id
+        AND m.author_kind = 'human'
+        AND m.sent_at IS NULL)
+UPDATE
+    review_messages m
+SET
+    sent_at = NOW()
+WHERE
+    m.id IN (
+        SELECT
+            unsent.id
+        FROM
+            unsent)
+RETURNING
+    *;
+
+-- name: ListExpiredReviewMessages :many
+WITH released AS (
+    SELECT
+        m.id
+    FROM
+        review_messages m
+        JOIN review_threads t ON t.id = m.thread_id
+    WHERE
+        t.agent_id = @agent_id
+        AND m.author_kind = 'human'
+        AND m.sent_at IS NOT NULL
+),
+doorbell AS (
+    SELECT DISTINCT ON (l.review_message_id)
+        l.review_message_id,
+        l.claimed_at,
+        l.expires_at
+    FROM
+        mail l
+    WHERE
+        l.review_message_id IN (
+            SELECT
+                released.id
+            FROM
+                released)
+        ORDER BY
+            l.review_message_id,
+            l.id DESC
+)
+    SELECT
+        m.*
+    FROM
+        review_messages m
+    LEFT JOIN doorbell d ON d.review_message_id = m.id
+WHERE
+    m.id IN (
+        SELECT
+            released.id
+        FROM
+            released)
+        AND (d.review_message_id IS NULL
+            OR (d.claimed_at IS NULL
+                AND d.expires_at <= NOW()))
+    ORDER BY
+        m.id;
 
 -- name: DeleteReviewMessage :exec
 DELETE FROM review_messages

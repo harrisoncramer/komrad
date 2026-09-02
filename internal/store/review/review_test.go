@@ -2,10 +2,12 @@ package review
 
 import (
 	"testing"
+	"time"
 
 	"weave/internal/pgtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/google/uuid"
@@ -13,96 +15,202 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestUnreadClearsWhenTheAgentReads pins that a thread stops reading as unread once the agent
-// looks, which a second statement stamping activity after the message used to make impossible.
-func TestUnreadClearsWhenTheAgentReads(t *testing.T) {
+// TestReleasingStampsOnlyWhatThePersonHasNotSent covers pressing submit twice and the agent
+// replying in between: a comment is released once, and the agent's own words are never
+// released at all since nobody is waiting to be told about them.
+func TestReleasingStampsOnlyWhatThePersonHasNotSent(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	thread := openThread(t, st, agentID, "this needs a nil check")
+
+	reply, err := st.AddMessage(ctx, AddMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+		Body:          "done",
+	})
+	require.NoError(t, err)
+
+	released, err := st.ReleaseUnsentMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, released, 1, "only the person's comment is released")
+	assert.NotNil(t, released[0].SentAt)
+	assert.Equal(t, DeliverySent, released[0].Delivery, "released with no doorbell yet raised")
+
+	again, err := st.ReleaseUnsentMessages(ctx, agentID)
+	require.NoError(t, err)
+	assert.Empty(t, again, "a comment already let go of is not released a second time")
+
+	answered, err := st.GetMessage(ctx, reply.ID)
+	require.NoError(t, err)
+	assert.Nil(t, answered.SentAt)
+	assert.Equal(t, DeliveryNone, answered.Delivery, "delivery says nothing about the agent's own words")
+
+	written, err := st.AddMessage(ctx, AddMessageParams{
+		ThreadID:   thread.ID,
+		AuthorKind: AuthorHuman,
+		Body:       "and another thing",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryUnsent, written.Delivery)
+
+	third, err := st.ReleaseUnsentMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, third, 1, "a comment written after the release is released by the next one")
+	assert.Equal(t, written.ID, third[0].ID)
+}
+
+// TestRewritingAReleasedCommentLeavesItSent pins that an edit does not un-send a comment,
+// since the doorbell carries no feedback and the agent reads the comment as it now stands.
+func TestRewritingAReleasedCommentLeavesItSent(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 
 	openThread(t, st, agentID, "this needs a nil check")
 
-	looked, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent})
+	released, err := st.ReleaseUnsentMessages(ctx, agentID)
 	require.NoError(t, err)
-	require.Len(t, looked, 1)
-	assert.True(t, looked[0].UnreadByAgent, "a thread the agent has never read is unread")
+	require.Len(t, released, 1)
 
-	claimed, err := st.ListThreads(ctx, ListThreadsParams{
-		AgentID:  agentID,
-		Reader:   AuthorAgent,
-		MarkRead: true,
-	})
+	edited, err := st.EditMessage(ctx, released[0].ID, "this needs a nil check, and a test")
 	require.NoError(t, err)
-	require.Len(t, claimed, 1)
-	assert.True(t, claimed[0].UnreadByAgent, "the claiming read is still shown what it claimed")
+	require.NotNil(t, edited.SentAt)
+	assert.Equal(t, DeliverySent, edited.Delivery)
 
-	after, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent})
+	unsent, err := st.ReleaseUnsentMessages(ctx, agentID)
 	require.NoError(t, err)
-	require.Len(t, after, 1)
-	assert.False(t, after[0].UnreadByAgent, "reading it clears it")
+	assert.Empty(t, unsent, "rewriting is not something new to release")
 }
 
-// TestRewritingAMessageIsNewActivity pins that an edit reaches the other side, which created_at
-// could never show since rewriting a body does not move when it was written.
-func TestRewritingAMessageIsNewActivity(t *testing.T) {
-	tests := []struct {
-		name              string
-		editAs            AuthorKind
-		wantUnreadByAgent bool
-		wantUnreadByHuman bool
-	}{
-		{
-			name:              "the person rewriting their note is unread by the agent",
-			editAs:            AuthorHuman,
-			wantUnreadByAgent: true,
-			wantUnreadByHuman: false,
-		},
-		{
-			name:              "the agent rewriting its reply is unread by the person",
-			editAs:            AuthorAgent,
-			wantUnreadByAgent: false,
-			wantUnreadByHuman: true,
-		},
-	}
+// TestDeliveryFollowsTheDoorbell walks a released comment through the states the panel draws
+// from: waiting to be claimed, claimed, and run out of time unread.
+func TestDeliveryFollowsTheDoorbell(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
-			agentID := seedAgent(t, st)
+	thread := openThread(t, st, agentID, "this needs a nil check")
 
-			thread := openThread(t, st, agentID, "this needs a nil check")
+	released, err := st.ReleaseUnsentMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, released, 1)
+	comment := released[0].ID
 
-			asked, err := st.ListMessages(ctx, []string{thread.ID})
-			require.NoError(t, err)
-			require.Len(t, asked, 1)
+	assert.Equal(t, DeliveryExpired, delivery(t, st, thread.ID, comment),
+		"a released comment with no doorbell at all is what ringing again reaches")
 
-			answered, err := st.AddMessage(ctx, AddMessageParams{
-				ThreadID:      thread.ID,
-				AuthorKind:    AuthorAgent,
-				AuthorAgentID: &agentID,
-				Body:          "added one",
-			})
-			require.NoError(t, err)
+	doorbell := ring(t, st, agentID, comment, time.Hour)
+	assert.Equal(t, DeliverySent, delivery(t, st, thread.ID, comment))
 
-			catchUp(t, st, agentID)
+	expired, err := st.ListExpiredMessages(ctx, agentID)
+	require.NoError(t, err)
+	assert.Empty(t, expired, "a doorbell still waiting to be read is not rung again")
 
-			edited := asked[0].ID
-			if tt.editAs == AuthorAgent {
-				edited = answered.ID
-			}
+	_, err = st.mail.Claim(ctx, agentID, 10)
+	require.NoError(t, err)
+	assert.Equal(t, DeliveryDelivered, delivery(t, st, thread.ID, comment))
 
-			_, err = st.EditMessage(ctx, edited, "rewritten")
-			require.NoError(t, err)
+	require.NoError(t, st.mail.Delete(ctx, []string{doorbell}))
 
-			threads, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent})
-			require.NoError(t, err)
-			require.Len(t, threads, 1)
+	ring(t, st, agentID, comment, -time.Hour)
+	assert.Equal(t, DeliveryExpired, delivery(t, st, thread.ID, comment))
 
-			assert.Equal(t, tt.wantUnreadByAgent, threads[0].UnreadByAgent)
-			assert.Equal(t, tt.wantUnreadByHuman, threads[0].UnreadByHuman)
-		})
-	}
+	expired, err = st.ListExpiredMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, expired, 1, "a doorbell that ran out of time unread is rung again")
+	assert.Equal(t, comment, expired[0].ID)
+}
+
+// TestRingingAgainReusesTheDoorbellOfTheSameComment pins the unique index behind one waiting
+// doorbell per comment: an expired one is rung again in place rather than stacking a second.
+func TestRingingAgainReusesTheDoorbellOfTheSameComment(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	thread := openThread(t, st, agentID, "this needs a nil check")
+
+	released, err := st.ReleaseUnsentMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, released, 1)
+	comment := released[0].ID
+
+	first := ring(t, st, agentID, comment, -time.Hour)
+
+	_, err = st.mail.Send(ctx, mailstore.SendParams{
+		ToAgentID:       agentID,
+		Body:            "weave: there is review on your diff you have not read",
+		Kind:            mailstore.KindReviewActivity,
+		ReviewMessageID: &comment,
+		Hops:            1,
+		Deadline:        time.Hour,
+	})
+	require.NoError(t, err)
+
+	waiting, err := st.mail.CountPending(ctx, agentID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), waiting, "the expired doorbell is rung again rather than joined by a second")
+	assert.Equal(t, DeliverySent, delivery(t, st, thread.ID, comment))
+
+	held, err := st.mail.GetByID(ctx, first)
+	require.NoError(t, err)
+	assert.Equal(t, first, held.ID, "and it is the same row")
+}
+
+// TestDeletingACommentLeavesTheDoorbellTheAgentMayHaveRead pins the set null behind the
+// doorbell's link: taking a comment back must not delete mail the agent has already been
+// handed, since it cannot unread it.
+func TestDeletingACommentLeavesTheDoorbellTheAgentMayHaveRead(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	openThread(t, st, agentID, "this needs a nil check")
+
+	released, err := st.ReleaseUnsentMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, released, 1)
+	comment := released[0].ID
+
+	doorbell := ring(t, st, agentID, comment, time.Hour)
+
+	require.NoError(t, st.DeleteMessage(ctx, comment))
+
+	held, err := st.mail.GetByID(ctx, doorbell)
+	require.NoError(t, err)
+	require.NotNil(t, held)
+	assert.Nil(t, held.ReviewMessageID, "the doorbell stays, pointing at nothing")
+}
+
+// TestRewritingAReplyIsNewActivity pins that an edit reaches the person reviewing, which
+// created_at could never show since rewriting a body does not move when it was written.
+func TestRewritingAReplyIsNewActivity(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	thread := openThread(t, st, agentID, "this needs a nil check")
+
+	answered, err := st.AddMessage(ctx, AddMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+		Body:          "added one",
+	})
+	require.NoError(t, err)
+
+	catchUp(t, st, agentID)
+
+	_, err = st.EditMessage(ctx, answered.ID, "rewritten")
+	require.NoError(t, err)
+
+	threads, err := st.ListThreads(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, threads, 1)
+	assert.True(t, threads[0].UnreadByHuman, "the agent rewriting its reply is unread by the person")
 }
 
 // TestMarkThreadReadCatchesUpOneSide proves opening one conversation does not claim the rest,
@@ -126,10 +234,10 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 		require.NoError(t, err)
 	}
 
-	_, err := st.MarkThreadRead(ctx, first.ID, AuthorHuman)
+	_, err := st.MarkThreadRead(ctx, first.ID)
 	require.NoError(t, err)
 
-	threads, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorHuman})
+	threads, err := st.ListThreads(ctx, agentID)
 	require.NoError(t, err)
 	require.Len(t, threads, 2)
 
@@ -140,59 +248,6 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 
 	assert.False(t, byID[first.ID].UnreadByHuman, "the thread that was opened is caught up")
 	assert.True(t, byID[second.ID].UnreadByHuman, "the one that was not stays unread")
-	assert.True(t, byID[first.ID].UnreadByAgent, "the agent's side is untouched by the person reading")
-}
-
-// TestCountUnreadForAgent pins how much review an agent still has to read, which is what the
-// notice is raised from.
-func TestCountUnreadForAgent(t *testing.T) {
-	tests := []struct {
-		name      string
-		threads   int
-		agentRead bool
-		want      int64
-	}{
-		{
-			name: "an agent with no review has nothing to read",
-			want: 0,
-		},
-		{
-			name:      "a thread the agent has already read is not counted again",
-			threads:   1,
-			agentRead: true,
-			want:      0,
-		},
-		{
-			name:    "open threads with activity are counted",
-			threads: 2,
-			want:    2,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
-			agentID := seedAgent(t, st)
-
-			for range tt.threads {
-				openThread(t, st, agentID, "note")
-			}
-
-			if tt.agentRead {
-				_, err := st.ListThreads(ctx, ListThreadsParams{
-					AgentID:  agentID,
-					Reader:   AuthorAgent,
-					MarkRead: true,
-				})
-				require.NoError(t, err)
-			}
-
-			got, err := st.CountUnreadForAgent(ctx, agentID)
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, got)
-		})
-	}
 }
 
 // TestMissingRowsAnswerNotFound keeps the store's promise that an id naming nothing is an empty
@@ -224,7 +279,7 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 			_, err = st.GetMessage(ctx, tt.id)
 			require.ErrorIs(t, err, store.ErrNotFound)
 
-			_, err = st.MarkThreadRead(ctx, tt.id, AuthorHuman)
+			_, err = st.MarkThreadRead(ctx, tt.id)
 			require.ErrorIs(t, err, store.ErrNotFound)
 
 			_, err = st.EditMessage(ctx, tt.id, "rewritten")
@@ -272,6 +327,7 @@ func TestMarkingAFileViewedAgainReplacesTheShapeHeldForIt(t *testing.T) {
 type fixture struct {
 	*Store
 	agents   *agentstore.Store
+	mail     *mailstore.Store
 	workflow string
 }
 
@@ -288,8 +344,47 @@ func open(t *testing.T) *fixture {
 	return &fixture{
 		Store:    New(p.GetDB()),
 		agents:   agentstore.New(p.GetDB()),
+		mail:     mailstore.New(p.GetDB()),
 		workflow: created.ID,
 	}
+}
+
+// ring raises the doorbell for one comment and answers the id of the mail holding it, taking a
+// negative deadline as one that has already run out so a test reaches expired without waiting.
+func ring(t *testing.T, st *fixture, agentID, messageID string, deadline time.Duration) string {
+	t.Helper()
+
+	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
+		ToAgentID:       agentID,
+		Body:            "weave: there is review on your diff you have not read",
+		Kind:            mailstore.KindReviewActivity,
+		ReviewMessageID: &messageID,
+		Hops:            1,
+		Deadline:        deadline,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, sent)
+
+	return sent.ID
+}
+
+// delivery is the state the list reports for one comment, which is the only place the panel
+// reads it from.
+func delivery(t *testing.T, st *fixture, threadID, messageID string) DeliveryState {
+	t.Helper()
+
+	messages, err := st.ListMessages(t.Context(), []string{threadID})
+	require.NoError(t, err)
+
+	for _, message := range messages {
+		if message.ID == messageID {
+			return message.Delivery
+		}
+	}
+
+	t.Fatalf("no message %q in thread %q", messageID, threadID)
+
+	return DeliveryNone
 }
 
 func seedAgent(t *testing.T, st *fixture) string {
@@ -324,65 +419,49 @@ func openThread(t *testing.T, st *fixture, agentID, body string) *Thread {
 	return thread
 }
 
-// catchUp reads both sides up to date, so what a test asserts afterwards is only what the
-// step it is testing changed.
+// catchUp reads the person up to date on every thread, so what a test asserts afterwards is
+// only what the step it is testing changed.
 func catchUp(t *testing.T, st *fixture, agentID string) {
 	t.Helper()
 
-	for _, reader := range []AuthorKind{AuthorAgent, AuthorHuman} {
-		_, err := st.ListThreads(t.Context(), ListThreadsParams{
-			AgentID:  agentID,
-			Reader:   reader,
-			MarkRead: true,
-		})
+	threads, err := st.ListThreads(t.Context(), agentID)
+	require.NoError(t, err)
+
+	for _, thread := range threads {
+		_, err := st.MarkThreadRead(t.Context(), thread.ID)
 		require.NoError(t, err)
 	}
 }
 
-// TestSettlingAThreadTakesItOutOfWhatIsOwed pins that settling is the reviewer's judgement
-// alone, so the agent is not told about a settled thread however it has been read or rewritten.
-func TestSettlingAThreadTakesItOutOfWhatIsOwed(t *testing.T) {
+// TestSettlingAThreadIsCarriedByTheList pins that settling reaches the panel, since the panel
+// draws from the list and nothing else: a thread settled in the table and not in the list is
+// settled nowhere anybody can see.
+func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 
 	thread := openThread(t, st, agentID, "this needs a nil check")
 
-	owed, err := st.CountUnreadForAgent(ctx, agentID)
-	require.NoError(t, err)
-	require.Equal(t, int64(1), owed)
-
 	settled, err := st.SetThreadResolved(ctx, thread.ID, true)
 	require.NoError(t, err)
 	require.NotNil(t, settled)
 	assert.NotNil(t, settled.ResolvedAt)
 
-	owed, err = st.CountUnreadForAgent(ctx, agentID)
-	require.NoError(t, err)
-	assert.Zero(t, owed, "a settled thread is not something the agent still owes an answer to")
-
-	// The panel draws from the list and nothing else, so a thread that is settled in the table
-	// and not settled in the list is settled nowhere that anybody can see.
-	listed, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorHuman})
+	listed, err := st.ListThreads(ctx, agentID)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.NotNil(t, listed[0].ResolvedAt, "the list carries the settling")
-
-	// The doorbell and the agent's own listing have to agree, since a thread the count has
-	// stopped mentioning but the list still flags as owed is one the agent answers and reopens.
-	asAgent, err := st.ListThreads(ctx, ListThreadsParams{AgentID: agentID, Reader: AuthorAgent})
-	require.NoError(t, err)
-	require.Len(t, asAgent, 1)
-	assert.False(t, asAgent[0].UnreadByAgent, "a settled thread is not owed an answer either way")
 
 	reopened, err := st.SetThreadResolved(ctx, thread.ID, false)
 	require.NoError(t, err)
 	require.NotNil(t, reopened)
 	assert.Nil(t, reopened.ResolvedAt)
 
-	owed, err = st.CountUnreadForAgent(ctx, agentID)
+	listed, err = st.ListThreads(ctx, agentID)
 	require.NoError(t, err)
-	assert.Equal(t, int64(1), owed, "reopening puts it back")
+	require.Len(t, listed, 1)
+	assert.Nil(t, listed[0].ResolvedAt, "and it carries the reopening")
 }
 
 // TestSayingSomethingElseReopensAThread pins that a settled conversation somebody has since

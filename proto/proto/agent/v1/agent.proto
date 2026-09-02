@@ -429,7 +429,7 @@ service AgentService {
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {
     option (annotation.v1.tool) = {
       tool_name: "list_review_threads"
-      description: "Read the review conversations pinned to the lines of your own diff. Each thread names a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. This is where a person's feedback on your work actually lives: mail only tells you there is activity, it does not carry it. Set markRead to claim what you are shown, which is what stops the same threads being announced again, and leave it unset to look without claiming. Reply with add_review_message once you have made the change, saying what you did. id defaults to your own agent; give another agent's id to read the review of its work instead."
+      description: "Read the review conversations pinned to the lines of your own diff. Each thread names a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. This is where a person's feedback on your work actually lives: mail only tells you there is activity, it does not carry it. The line numbers are where the comment was written rather than where that code is now, since your own edits since then have moved it. quotedLines is the text it was written against, so when the file no longer matches the line you are given, search the file for that text and answer the comment where it now sits rather than treating it as stale. Reply with add_review_message once you have made the change, saying what you did. agentId defaults to your own agent; give another agent's id to read the review of its work instead."
     };
   }
   rpc CreateReviewThread(CreateReviewThreadRequest) returns (CreateReviewThreadResponse) {}
@@ -454,7 +454,8 @@ service AgentService {
   rpc DeleteReviewMessage(DeleteReviewMessageRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc NotifyReviewThreads(NotifyReviewThreadsRequest) returns (NotifyReviewThreadsResponse) {}
+  rpc ReleaseReviewMessages(ReleaseReviewMessagesRequest) returns (ReleaseReviewMessagesResponse) {}
+  rpc RingReviewMessagesAgain(RingReviewMessagesAgainRequest) returns (RingReviewMessagesAgainResponse) {}
   rpc SetReviewFileViewed(SetReviewFileViewedRequest) returns (SetReviewFileViewedResponse) {
     option idempotency_level = IDEMPOTENT;
   }

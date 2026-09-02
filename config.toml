@@ -210,6 +210,15 @@ prev_match     = ["N"]
 prev_thread    = ["T"]
 # Quit the panel.
 quit           = ["ctrl+c"]
+# Put the diff the panel is holding on screen, once the sidebar says the worktree has
+# moved under you. The diff is never swapped in on its own, since that would move the
+# code out from under a comment being written. With nothing held, this reads the
+# worktree again.
+reload         = ["R"]
+# Raise a doorbell again for every comment you released whose own ran out of time
+# before the agent read it, which is the only thing that reaches an agent that was
+# not listening when you let the review go.
+resend         = ["a"]
 # Settle the thread under the cursor, which marks it resolved without deleting it.
 resolve        = ["r"]
 # Fold away the file the cursor is in once you have read it, or open it again. A file

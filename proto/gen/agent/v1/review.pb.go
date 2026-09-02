@@ -72,6 +72,72 @@ func (ReviewAuthorKind) EnumDescriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{0}
 }
 
+// ReviewDeliveryState is how far one of the person's comments has got towards the agent reading
+// it. It is no stored field: it is read off the comment's own sent stamp and the newest doorbell
+// raised against it, since the stamp outlives mail the agent deletes or lets expire. Whether the
+// comment has been answered is a different question, read off the messages of the thread.
+type ReviewDeliveryState int32
+
+const (
+	// Delivery says nothing about this message, which is the case for anything the agent wrote,
+	// since nobody is waiting to be told about it.
+	ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED ReviewDeliveryState = 0
+	// Written down and not yet let go of.
+	ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT ReviewDeliveryState = 1
+	// Released, with a doorbell still waiting to be claimed.
+	ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT ReviewDeliveryState = 2
+	// Released, and the agent has claimed the doorbell.
+	ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED ReviewDeliveryState = 3
+	// Released, and the doorbell ran out of time unclaimed or is gone, so ringing again is what
+	// reaches the agent.
+	ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED ReviewDeliveryState = 4
+)
+
+// Enum value maps for ReviewDeliveryState.
+var (
+	ReviewDeliveryState_name = map[int32]string{
+		0: "REVIEW_DELIVERY_STATE_UNSPECIFIED",
+		1: "REVIEW_DELIVERY_STATE_UNSENT",
+		2: "REVIEW_DELIVERY_STATE_SENT",
+		3: "REVIEW_DELIVERY_STATE_DELIVERED",
+		4: "REVIEW_DELIVERY_STATE_EXPIRED",
+	}
+	ReviewDeliveryState_value = map[string]int32{
+		"REVIEW_DELIVERY_STATE_UNSPECIFIED": 0,
+		"REVIEW_DELIVERY_STATE_UNSENT":      1,
+		"REVIEW_DELIVERY_STATE_SENT":        2,
+		"REVIEW_DELIVERY_STATE_DELIVERED":   3,
+		"REVIEW_DELIVERY_STATE_EXPIRED":     4,
+	}
+)
+
+func (x ReviewDeliveryState) Enum() *ReviewDeliveryState {
+	p := new(ReviewDeliveryState)
+	*p = x
+	return p
+}
+
+func (x ReviewDeliveryState) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (ReviewDeliveryState) Descriptor() protoreflect.EnumDescriptor {
+	return file_agent_v1_review_proto_enumTypes[1].Descriptor()
+}
+
+func (ReviewDeliveryState) Type() protoreflect.EnumType {
+	return &file_agent_v1_review_proto_enumTypes[1]
+}
+
+func (x ReviewDeliveryState) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use ReviewDeliveryState.Descriptor instead.
+func (ReviewDeliveryState) EnumDescriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{1}
+}
+
 // ReviewThread is one conversation pinned to a place in an agent's diff.
 type ReviewThread struct {
 	state    protoimpl.MessageState `protogen:"open.v1"`
@@ -88,8 +154,6 @@ type ReviewThread struct {
 	// Whether a thread is settled is a different question from whether the code under it has
 	// moved, and it is this one that decides whether the thread is still asking for something.
 	ResolvedAt string `protobuf:"bytes,9,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
-	// Whether the person reviewing has written something the agent has not been shown.
-	UnreadByAgent bool `protobuf:"varint,10,opt,name=unread_by_agent,json=unreadByAgent,proto3" json:"unread_by_agent,omitempty"`
 	// Whether the agent has replied since the person reviewing last looked.
 	UnreadByHuman bool             `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
 	Messages      []*ReviewMessage `protobuf:"bytes,12,rep,name=messages,proto3" json:"messages,omitempty"`
@@ -192,13 +256,6 @@ func (x *ReviewThread) GetResolvedAt() string {
 	return ""
 }
 
-func (x *ReviewThread) GetUnreadByAgent() bool {
-	if x != nil {
-		return x.UnreadByAgent
-	}
-	return false
-}
-
 func (x *ReviewThread) GetUnreadByHuman() bool {
 	if x != nil {
 		return x.UnreadByHuman
@@ -239,6 +296,12 @@ type ReviewMessage struct {
 	Body          string  `protobuf:"bytes,5,opt,name=body,proto3" json:"body,omitempty"`
 	CreatedAt     string  `protobuf:"bytes,6,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     string  `protobuf:"bytes,7,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// How far this comment has got towards the agent reading it.
+	Delivery ReviewDeliveryState `protobuf:"varint,8,opt,name=delivery,proto3,enum=agent.v1.ReviewDeliveryState" json:"delivery,omitempty"`
+	// When the person reviewing released this comment, empty while it is only written down.
+	SentAt string `protobuf:"bytes,9,opt,name=sent_at,json=sentAt,proto3" json:"sent_at,omitempty"`
+	// When the agent claimed the doorbell raised for this comment, empty until it has.
+	DeliveredAt   string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -322,14 +385,32 @@ func (x *ReviewMessage) GetUpdatedAt() string {
 	return ""
 }
 
+func (x *ReviewMessage) GetDelivery() ReviewDeliveryState {
+	if x != nil {
+		return x.Delivery
+	}
+	return ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
+}
+
+func (x *ReviewMessage) GetSentAt() string {
+	if x != nil {
+		return x.SentAt
+	}
+	return ""
+}
+
+func (x *ReviewMessage) GetDeliveredAt() string {
+	if x != nil {
+		return x.DeliveredAt
+	}
+	return ""
+}
+
 type ListReviewThreadsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// The agent whose diff is being reviewed. An agent reading its own threads may leave this
 	// unset, since the call already carries which agent is asking.
-	AgentId *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
-	// Whether reading marks the threads read. An agent reading to act on the feedback should,
-	// so the same threads are not announced again; the panel drawing a diff should not.
-	MarkRead      bool `protobuf:"varint,2,opt,name=mark_read,json=markRead,proto3" json:"mark_read,omitempty"`
+	AgentId       *string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof" json:"agent_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -369,13 +450,6 @@ func (x *ListReviewThreadsRequest) GetAgentId() string {
 		return *x.AgentId
 	}
 	return ""
-}
-
-func (x *ListReviewThreadsRequest) GetMarkRead() bool {
-	if x != nil {
-		return x.MarkRead
-	}
-	return false
 }
 
 type ListReviewThreadsResponse struct {
@@ -1033,10 +1107,11 @@ func (x *DeleteReviewMessageRequest) GetId() string {
 	return ""
 }
 
-// NotifyReviewThreadsRequest tells an agent it has review activity waiting. The threads
-// themselves are not sent: the agent is handed one piece of mail and looks the conversation
-// up for itself, so a message rewritten afterwards is simply read as it now stands.
-type NotifyReviewThreadsRequest struct {
+// ReleaseReviewMessagesRequest lets go of every comment on an agent's review the person has
+// written and not sent, and raises one piece of mail for each. The comments themselves are not
+// sent: the agent is handed a doorbell per comment and looks the conversation up for itself, so
+// a comment rewritten afterwards is simply read as it now stands.
+type ReleaseReviewMessagesRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
@@ -1046,20 +1121,20 @@ type NotifyReviewThreadsRequest struct {
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *NotifyReviewThreadsRequest) Reset() {
-	*x = NotifyReviewThreadsRequest{}
+func (x *ReleaseReviewMessagesRequest) Reset() {
+	*x = ReleaseReviewMessagesRequest{}
 	mi := &file_agent_v1_review_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *NotifyReviewThreadsRequest) String() string {
+func (x *ReleaseReviewMessagesRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NotifyReviewThreadsRequest) ProtoMessage() {}
+func (*ReleaseReviewMessagesRequest) ProtoMessage() {}
 
-func (x *NotifyReviewThreadsRequest) ProtoReflect() protoreflect.Message {
+func (x *ReleaseReviewMessagesRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1071,50 +1146,50 @@ func (x *NotifyReviewThreadsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NotifyReviewThreadsRequest.ProtoReflect.Descriptor instead.
-func (*NotifyReviewThreadsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReleaseReviewMessagesRequest.ProtoReflect.Descriptor instead.
+func (*ReleaseReviewMessagesRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{16}
 }
 
-func (x *NotifyReviewThreadsRequest) GetAgentId() string {
+func (x *ReleaseReviewMessagesRequest) GetAgentId() string {
 	if x != nil {
 		return x.AgentId
 	}
 	return ""
 }
 
-func (x *NotifyReviewThreadsRequest) GetInterrupt() bool {
+func (x *ReleaseReviewMessagesRequest) GetInterrupt() bool {
 	if x != nil {
 		return x.Interrupt
 	}
 	return false
 }
 
-type NotifyReviewThreadsResponse struct {
+type ReleaseReviewMessagesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// How many threads the agent was told about, which is zero when it was already up to date.
-	Unread int32 `protobuf:"varint,1,opt,name=unread,proto3" json:"unread,omitempty"`
-	// Whether a doorbell the agent has not read was already in its mailbox, in which case none
-	// was raised. Pressing the key again is not a second thing for it to read.
-	AlreadyWaiting bool `protobuf:"varint,2,opt,name=already_waiting,json=alreadyWaiting,proto3" json:"already_waiting,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	// How many comments were released, which is zero when there was nothing left to let go of.
+	Released int32 `protobuf:"varint,1,opt,name=released,proto3" json:"released,omitempty"`
+	// How many of those a doorbell was raised for. The rest kept the one already waiting to be
+	// read, since it says what a second would.
+	Rung          int32 `protobuf:"varint,2,opt,name=rung,proto3" json:"rung,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
-func (x *NotifyReviewThreadsResponse) Reset() {
-	*x = NotifyReviewThreadsResponse{}
+func (x *ReleaseReviewMessagesResponse) Reset() {
+	*x = ReleaseReviewMessagesResponse{}
 	mi := &file_agent_v1_review_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *NotifyReviewThreadsResponse) String() string {
+func (x *ReleaseReviewMessagesResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*NotifyReviewThreadsResponse) ProtoMessage() {}
+func (*ReleaseReviewMessagesResponse) ProtoMessage() {}
 
-func (x *NotifyReviewThreadsResponse) ProtoReflect() protoreflect.Message {
+func (x *ReleaseReviewMessagesResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_review_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -1126,23 +1201,133 @@ func (x *NotifyReviewThreadsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use NotifyReviewThreadsResponse.ProtoReflect.Descriptor instead.
-func (*NotifyReviewThreadsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ReleaseReviewMessagesResponse.ProtoReflect.Descriptor instead.
+func (*ReleaseReviewMessagesResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{17}
 }
 
-func (x *NotifyReviewThreadsResponse) GetUnread() int32 {
+func (x *ReleaseReviewMessagesResponse) GetReleased() int32 {
 	if x != nil {
-		return x.Unread
+		return x.Released
 	}
 	return 0
 }
 
-func (x *NotifyReviewThreadsResponse) GetAlreadyWaiting() bool {
+func (x *ReleaseReviewMessagesResponse) GetRung() int32 {
 	if x != nil {
-		return x.AlreadyWaiting
+		return x.Rung
+	}
+	return 0
+}
+
+// RingReviewMessagesAgainRequest raises a doorbell again for every released comment whose own
+// ran out of time unclaimed, which is the only thing that reaches an agent that was not
+// listening when the review was let go of.
+type RingReviewMessagesAgainRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// Stop the agent where it stands before telling it.
+	Interrupt     bool `protobuf:"varint,2,opt,name=interrupt,proto3" json:"interrupt,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RingReviewMessagesAgainRequest) Reset() {
+	*x = RingReviewMessagesAgainRequest{}
+	mi := &file_agent_v1_review_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RingReviewMessagesAgainRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RingReviewMessagesAgainRequest) ProtoMessage() {}
+
+func (x *RingReviewMessagesAgainRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RingReviewMessagesAgainRequest.ProtoReflect.Descriptor instead.
+func (*RingReviewMessagesAgainRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *RingReviewMessagesAgainRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *RingReviewMessagesAgainRequest) GetInterrupt() bool {
+	if x != nil {
+		return x.Interrupt
 	}
 	return false
+}
+
+type RingReviewMessagesAgainResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// How many released comments were found with no doorbell the agent could still read.
+	Expired int32 `protobuf:"varint,1,opt,name=expired,proto3" json:"expired,omitempty"`
+	// How many of those a fresh doorbell was raised for.
+	Rung          int32 `protobuf:"varint,2,opt,name=rung,proto3" json:"rung,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *RingReviewMessagesAgainResponse) Reset() {
+	*x = RingReviewMessagesAgainResponse{}
+	mi := &file_agent_v1_review_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *RingReviewMessagesAgainResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*RingReviewMessagesAgainResponse) ProtoMessage() {}
+
+func (x *RingReviewMessagesAgainResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use RingReviewMessagesAgainResponse.ProtoReflect.Descriptor instead.
+func (*RingReviewMessagesAgainResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *RingReviewMessagesAgainResponse) GetExpired() int32 {
+	if x != nil {
+		return x.Expired
+	}
+	return 0
+}
+
+func (x *RingReviewMessagesAgainResponse) GetRung() int32 {
+	if x != nil {
+		return x.Rung
+	}
+	return 0
 }
 
 // ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read.
@@ -1161,7 +1346,7 @@ type ReviewViewedFile struct {
 
 func (x *ReviewViewedFile) Reset() {
 	*x = ReviewViewedFile{}
-	mi := &file_agent_v1_review_proto_msgTypes[18]
+	mi := &file_agent_v1_review_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1173,7 +1358,7 @@ func (x *ReviewViewedFile) String() string {
 func (*ReviewViewedFile) ProtoMessage() {}
 
 func (x *ReviewViewedFile) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[18]
+	mi := &file_agent_v1_review_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1186,7 +1371,7 @@ func (x *ReviewViewedFile) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ReviewViewedFile.ProtoReflect.Descriptor instead.
 func (*ReviewViewedFile) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{18}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ReviewViewedFile) GetAgentId() string {
@@ -1232,7 +1417,7 @@ type SetReviewFileViewedRequest struct {
 
 func (x *SetReviewFileViewedRequest) Reset() {
 	*x = SetReviewFileViewedRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[19]
+	mi := &file_agent_v1_review_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1244,7 +1429,7 @@ func (x *SetReviewFileViewedRequest) String() string {
 func (*SetReviewFileViewedRequest) ProtoMessage() {}
 
 func (x *SetReviewFileViewedRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[19]
+	mi := &file_agent_v1_review_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1257,7 +1442,7 @@ func (x *SetReviewFileViewedRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReviewFileViewedRequest.ProtoReflect.Descriptor instead.
 func (*SetReviewFileViewedRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{19}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *SetReviewFileViewedRequest) GetAgentId() string {
@@ -1298,7 +1483,7 @@ type SetReviewFileViewedResponse struct {
 
 func (x *SetReviewFileViewedResponse) Reset() {
 	*x = SetReviewFileViewedResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[20]
+	mi := &file_agent_v1_review_proto_msgTypes[22]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1310,7 +1495,7 @@ func (x *SetReviewFileViewedResponse) String() string {
 func (*SetReviewFileViewedResponse) ProtoMessage() {}
 
 func (x *SetReviewFileViewedResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[20]
+	mi := &file_agent_v1_review_proto_msgTypes[22]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1323,7 +1508,7 @@ func (x *SetReviewFileViewedResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SetReviewFileViewedResponse.ProtoReflect.Descriptor instead.
 func (*SetReviewFileViewedResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{20}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{22}
 }
 
 func (x *SetReviewFileViewedResponse) GetViewed() *ReviewViewedFile {
@@ -1342,7 +1527,7 @@ type ListReviewViewedFilesRequest struct {
 
 func (x *ListReviewViewedFilesRequest) Reset() {
 	*x = ListReviewViewedFilesRequest{}
-	mi := &file_agent_v1_review_proto_msgTypes[21]
+	mi := &file_agent_v1_review_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1354,7 +1539,7 @@ func (x *ListReviewViewedFilesRequest) String() string {
 func (*ListReviewViewedFilesRequest) ProtoMessage() {}
 
 func (x *ListReviewViewedFilesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[21]
+	mi := &file_agent_v1_review_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1367,7 +1552,7 @@ func (x *ListReviewViewedFilesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReviewViewedFilesRequest.ProtoReflect.Descriptor instead.
 func (*ListReviewViewedFilesRequest) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{21}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ListReviewViewedFilesRequest) GetAgentId() string {
@@ -1386,7 +1571,7 @@ type ListReviewViewedFilesResponse struct {
 
 func (x *ListReviewViewedFilesResponse) Reset() {
 	*x = ListReviewViewedFilesResponse{}
-	mi := &file_agent_v1_review_proto_msgTypes[22]
+	mi := &file_agent_v1_review_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1398,7 +1583,7 @@ func (x *ListReviewViewedFilesResponse) String() string {
 func (*ListReviewViewedFilesResponse) ProtoMessage() {}
 
 func (x *ListReviewViewedFilesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_agent_v1_review_proto_msgTypes[22]
+	mi := &file_agent_v1_review_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1411,7 +1596,7 @@ func (x *ListReviewViewedFilesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListReviewViewedFilesResponse.ProtoReflect.Descriptor instead.
 func (*ListReviewViewedFilesResponse) Descriptor() ([]byte, []int) {
-	return file_agent_v1_review_proto_rawDescGZIP(), []int{22}
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *ListReviewViewedFilesResponse) GetViewed() []*ReviewViewedFile {
@@ -1425,7 +1610,7 @@ var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
-	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xc9\x03\n" +
+	"\x15agent/v1/review.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\"\xa1\x03\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
@@ -1437,14 +1622,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\fquoted_lines\x18\b \x03(\tR\vquotedLines\x12\x1f\n" +
 	"\vresolved_at\x18\t \x01(\tR\n" +
 	"resolvedAt\x12&\n" +
-	"\x0funread_by_agent\x18\n" +
-	" \x01(\bR\runreadByAgent\x12&\n" +
 	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x123\n" +
 	"\bmessages\x18\f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\x8c\x02\n" +
+	"updated_at\x18\x0e \x01(\tR\tupdatedAt\"\x83\x03\n" +
 	"\rReviewMessage\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1b\n" +
 	"\tthread_id\x18\x02 \x01(\tR\bthreadId\x12;\n" +
@@ -1455,11 +1638,14 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x06 \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\a \x01(\tR\tupdatedAtB\x12\n" +
-	"\x10_author_agent_id\"m\n" +
+	"updated_at\x18\a \x01(\tR\tupdatedAt\x129\n" +
+	"\bdelivery\x18\b \x01(\x0e2\x1d.agent.v1.ReviewDeliveryStateR\bdelivery\x12\x17\n" +
+	"\asent_at\x18\t \x01(\tR\x06sentAt\x12!\n" +
+	"\fdelivered_at\x18\n" +
+	" \x01(\tR\vdeliveredAtB\x12\n" +
+	"\x10_author_agent_id\"P\n" +
 	"\x18ListReviewThreadsRequest\x12'\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01\x12\x1b\n" +
-	"\tmark_read\x18\x02 \x01(\bR\bmarkReadB\v\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01B\v\n" +
 	"\t_agent_id\"M\n" +
 	"\x19ListReviewThreadsResponse\x120\n" +
 	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\x94\x02\n" +
@@ -1499,13 +1685,19 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x19DeleteReviewThreadRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"5\n" +
 	"\x1aDeleteReviewMessageRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"^\n" +
-	"\x1aNotifyReviewThreadsRequest\x12\"\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"`\n" +
+	"\x1cReleaseReviewMessagesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1c\n" +
-	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\"^\n" +
-	"\x1bNotifyReviewThreadsResponse\x12\x16\n" +
-	"\x06unread\x18\x01 \x01(\x05R\x06unread\x12'\n" +
-	"\x0falready_waiting\x18\x02 \x01(\bR\x0ealreadyWaiting\"\x89\x01\n" +
+	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\"O\n" +
+	"\x1dReleaseReviewMessagesResponse\x12\x1a\n" +
+	"\breleased\x18\x01 \x01(\x05R\breleased\x12\x12\n" +
+	"\x04rung\x18\x02 \x01(\x05R\x04rung\"b\n" +
+	"\x1eRingReviewMessagesAgainRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1c\n" +
+	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\"O\n" +
+	"\x1fRingReviewMessagesAgainResponse\x12\x18\n" +
+	"\aexpired\x18\x01 \x01(\x05R\aexpired\x12\x12\n" +
+	"\x04rung\x18\x02 \x01(\x05R\x04rung\"\x89\x01\n" +
 	"\x10ReviewViewedFile\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12 \n" +
@@ -1525,7 +1717,13 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x10ReviewAuthorKind\x12\"\n" +
 	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
-	"\x18REVIEW_AUTHOR_KIND_AGENT\x10\x02B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x18REVIEW_AUTHOR_KIND_AGENT\x10\x02*\xc6\x01\n" +
+	"\x13ReviewDeliveryState\x12%\n" +
+	"!REVIEW_DELIVERY_STATE_UNSPECIFIED\x10\x00\x12 \n" +
+	"\x1cREVIEW_DELIVERY_STATE_UNSENT\x10\x01\x12\x1e\n" +
+	"\x1aREVIEW_DELIVERY_STATE_SENT\x10\x02\x12#\n" +
+	"\x1fREVIEW_DELIVERY_STATE_DELIVERED\x10\x03\x12!\n" +
+	"\x1dREVIEW_DELIVERY_STATE_EXPIRED\x10\x04B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_review_proto_rawDescOnce sync.Once
@@ -1539,50 +1737,54 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 	return file_agent_v1_review_proto_rawDescData
 }
 
-var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
+var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
+var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 25)
 var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
-	(*ReviewThread)(nil),                    // 1: agent.v1.ReviewThread
-	(*ReviewMessage)(nil),                   // 2: agent.v1.ReviewMessage
-	(*ListReviewThreadsRequest)(nil),        // 3: agent.v1.ListReviewThreadsRequest
-	(*ListReviewThreadsResponse)(nil),       // 4: agent.v1.ListReviewThreadsResponse
-	(*CreateReviewThreadRequest)(nil),       // 5: agent.v1.CreateReviewThreadRequest
-	(*CreateReviewThreadResponse)(nil),      // 6: agent.v1.CreateReviewThreadResponse
-	(*AddReviewMessageRequest)(nil),         // 7: agent.v1.AddReviewMessageRequest
-	(*AddReviewMessageResponse)(nil),        // 8: agent.v1.AddReviewMessageResponse
-	(*EditReviewMessageRequest)(nil),        // 9: agent.v1.EditReviewMessageRequest
-	(*EditReviewMessageResponse)(nil),       // 10: agent.v1.EditReviewMessageResponse
-	(*MarkReviewThreadReadRequest)(nil),     // 11: agent.v1.MarkReviewThreadReadRequest
-	(*MarkReviewThreadReadResponse)(nil),    // 12: agent.v1.MarkReviewThreadReadResponse
-	(*SetReviewThreadResolvedRequest)(nil),  // 13: agent.v1.SetReviewThreadResolvedRequest
-	(*SetReviewThreadResolvedResponse)(nil), // 14: agent.v1.SetReviewThreadResolvedResponse
-	(*DeleteReviewThreadRequest)(nil),       // 15: agent.v1.DeleteReviewThreadRequest
-	(*DeleteReviewMessageRequest)(nil),      // 16: agent.v1.DeleteReviewMessageRequest
-	(*NotifyReviewThreadsRequest)(nil),      // 17: agent.v1.NotifyReviewThreadsRequest
-	(*NotifyReviewThreadsResponse)(nil),     // 18: agent.v1.NotifyReviewThreadsResponse
-	(*ReviewViewedFile)(nil),                // 19: agent.v1.ReviewViewedFile
-	(*SetReviewFileViewedRequest)(nil),      // 20: agent.v1.SetReviewFileViewedRequest
-	(*SetReviewFileViewedResponse)(nil),     // 21: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesRequest)(nil),    // 22: agent.v1.ListReviewViewedFilesRequest
-	(*ListReviewViewedFilesResponse)(nil),   // 23: agent.v1.ListReviewViewedFilesResponse
+	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
+	(*ReviewThread)(nil),                    // 2: agent.v1.ReviewThread
+	(*ReviewMessage)(nil),                   // 3: agent.v1.ReviewMessage
+	(*ListReviewThreadsRequest)(nil),        // 4: agent.v1.ListReviewThreadsRequest
+	(*ListReviewThreadsResponse)(nil),       // 5: agent.v1.ListReviewThreadsResponse
+	(*CreateReviewThreadRequest)(nil),       // 6: agent.v1.CreateReviewThreadRequest
+	(*CreateReviewThreadResponse)(nil),      // 7: agent.v1.CreateReviewThreadResponse
+	(*AddReviewMessageRequest)(nil),         // 8: agent.v1.AddReviewMessageRequest
+	(*AddReviewMessageResponse)(nil),        // 9: agent.v1.AddReviewMessageResponse
+	(*EditReviewMessageRequest)(nil),        // 10: agent.v1.EditReviewMessageRequest
+	(*EditReviewMessageResponse)(nil),       // 11: agent.v1.EditReviewMessageResponse
+	(*MarkReviewThreadReadRequest)(nil),     // 12: agent.v1.MarkReviewThreadReadRequest
+	(*MarkReviewThreadReadResponse)(nil),    // 13: agent.v1.MarkReviewThreadReadResponse
+	(*SetReviewThreadResolvedRequest)(nil),  // 14: agent.v1.SetReviewThreadResolvedRequest
+	(*SetReviewThreadResolvedResponse)(nil), // 15: agent.v1.SetReviewThreadResolvedResponse
+	(*DeleteReviewThreadRequest)(nil),       // 16: agent.v1.DeleteReviewThreadRequest
+	(*DeleteReviewMessageRequest)(nil),      // 17: agent.v1.DeleteReviewMessageRequest
+	(*ReleaseReviewMessagesRequest)(nil),    // 18: agent.v1.ReleaseReviewMessagesRequest
+	(*ReleaseReviewMessagesResponse)(nil),   // 19: agent.v1.ReleaseReviewMessagesResponse
+	(*RingReviewMessagesAgainRequest)(nil),  // 20: agent.v1.RingReviewMessagesAgainRequest
+	(*RingReviewMessagesAgainResponse)(nil), // 21: agent.v1.RingReviewMessagesAgainResponse
+	(*ReviewViewedFile)(nil),                // 22: agent.v1.ReviewViewedFile
+	(*SetReviewFileViewedRequest)(nil),      // 23: agent.v1.SetReviewFileViewedRequest
+	(*SetReviewFileViewedResponse)(nil),     // 24: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesRequest)(nil),    // 25: agent.v1.ListReviewViewedFilesRequest
+	(*ListReviewViewedFilesResponse)(nil),   // 26: agent.v1.ListReviewViewedFilesResponse
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
-	2,  // 0: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
+	3,  // 0: agent.v1.ReviewThread.messages:type_name -> agent.v1.ReviewMessage
 	0,  // 1: agent.v1.ReviewMessage.author_kind:type_name -> agent.v1.ReviewAuthorKind
-	1,  // 2: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
-	1,  // 3: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
-	2,  // 4: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	2,  // 5: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
-	1,  // 6: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
-	1,  // 7: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
-	19, // 8: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	19, // 9: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	10, // [10:10] is the sub-list for method output_type
-	10, // [10:10] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	1,  // 2: agent.v1.ReviewMessage.delivery:type_name -> agent.v1.ReviewDeliveryState
+	2,  // 3: agent.v1.ListReviewThreadsResponse.threads:type_name -> agent.v1.ReviewThread
+	2,  // 4: agent.v1.CreateReviewThreadResponse.thread:type_name -> agent.v1.ReviewThread
+	3,  // 5: agent.v1.AddReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	3,  // 6: agent.v1.EditReviewMessageResponse.message:type_name -> agent.v1.ReviewMessage
+	2,  // 7: agent.v1.MarkReviewThreadReadResponse.thread:type_name -> agent.v1.ReviewThread
+	2,  // 8: agent.v1.SetReviewThreadResolvedResponse.thread:type_name -> agent.v1.ReviewThread
+	22, // 9: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	22, // 10: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
+	11, // [11:11] is the sub-list for method output_type
+	11, // [11:11] is the sub-list for method input_type
+	11, // [11:11] is the sub-list for extension type_name
+	11, // [11:11] is the sub-list for extension extendee
+	0,  // [0:11] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }
@@ -1597,8 +1799,8 @@ func file_agent_v1_review_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
-			NumEnums:      1,
-			NumMessages:   23,
+			NumEnums:      2,
+			NumMessages:   25,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

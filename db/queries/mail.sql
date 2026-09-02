@@ -6,6 +6,7 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
+    review_message_id,
     hops,
     expires_at)
 VALUES (
@@ -15,14 +16,13 @@ VALUES (
     @body,
     @kind,
     sqlc.narg('reply_to'),
+    sqlc.narg('review_message_id'),
     @hops,
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 ON CONFLICT (
-    to_agent_id,
-    kind)
+    review_message_id)
 WHERE
     claimed_at IS NULL
-    AND kind <> 'plain' ::mail_kind
         DO UPDATE SET
             from_agent_id = excluded.from_agent_id,
             from_name = excluded.from_name,
