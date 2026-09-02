@@ -14,9 +14,8 @@ import (
 )
 
 func unviewedTree() model {
-	tmux := &recordingTmux{}
+	tmux := &recordingTmux{sessionClient: panelViewer}
 	popup := NewPopupWindow(tmux, "test-session")
-	popup.MarkOpen()
 
 	return model{
 		frame: layout.New(tmux, config.DefaultLayout()),

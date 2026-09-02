@@ -22,6 +22,7 @@ func (t *bindingTmux) SetGlobal(name, value string) {
 }
 
 func (t *bindingTmux) ShowGlobal(name string) string           { return t.globals[name] }
+func (t *bindingTmux) GetSessionClient(string) string          { return "" }
 func (t *bindingTmux) SetSessionOption(string, string, string) {}
 func (t *bindingTmux) DetachSession(string)                    {}
 
@@ -38,12 +39,6 @@ type panelKeyRecorder struct {
 	err error
 }
 
-func (t *panelKeyRecorder) SetGlobalChecked(name, value string) error {
-	t.SetGlobal(name, value)
-
-	return t.err
-}
-
 func (t *panelKeyRecorder) BindKeyChecked(key string, command ...string) error {
 	t.BindKey(key, command...)
 
@@ -51,32 +46,23 @@ func (t *panelKeyRecorder) BindKeyChecked(key string, command ...string) error {
 }
 
 // TestBindPanelKey pins the binding naming this binary's own path, since a tmux server keeps
-// whatever PATH it started with for life.
+// whatever PATH it started with for life, and pins both branches going through it, since the
+// key press decides nothing for itself.
 func TestBindPanelKey(t *testing.T) {
 	tests := []struct {
-		name     string
-		chosen   string
-		open     string
-		wantKey  string
-		wantOpen string
+		name    string
+		chosen  string
+		wantKey string
 	}{
 		{
-			name:     "no chosen key falls back to the default",
-			chosen:   "",
-			wantKey:  defaultPanelKey,
-			wantOpen: "0",
+			name:    "no chosen key falls back to the default",
+			chosen:  "",
+			wantKey: defaultPanelKey,
 		},
 		{
-			name:     "the user's own key wins",
-			chosen:   "w",
-			wantKey:  "w",
-			wantOpen: "0",
-		},
-		{
-			name:     "a popup that is already up keeps saying so",
-			open:     "1",
-			wantKey:  defaultPanelKey,
-			wantOpen: "1",
+			name:    "the user's own key wins",
+			chosen:  "w",
+			wantKey: "w",
 		},
 	}
 
@@ -85,9 +71,6 @@ func TestBindPanelKey(t *testing.T) {
 			tmux := &panelKeyRecorder{}
 			if tt.chosen != "" {
 				tmux.SetGlobal(managerKeyOption, tt.chosen)
-			}
-			if tt.open != "" {
-				tmux.SetGlobal(managerOpenFlag, tt.open)
 			}
 
 			require.NoError(t, BindPanelKey(tmux, BindPanelKeyParams{
@@ -98,9 +81,11 @@ func TestBindPanelKey(t *testing.T) {
 			command, bound := tmux.bound[tt.wantKey]
 			require.True(t, bound, "the panel key is not bound")
 
-			assert.Equal(t, tt.wantOpen, tmux.globals[managerOpenFlag])
+			assert.NotContains(t, tmux.globals, "@weave_open",
+				"the binding writes no flag a later press could read back as stale")
 			assert.Equal(t, []string{
-				"if-shell", "-F", "#{==:#{@weave_open},1}",
+				"if-shell",
+				"/usr/local/bin/weave shown --config /etc/weave.toml --config /home/dev/weave.toml",
 				"run-shell -b '/usr/local/bin/weave hide --config /etc/weave.toml --config /home/dev/weave.toml'",
 				"display-popup -w 100% -h 100% -x C -y C -T ' weave ' " +
 					"-EE '/usr/local/bin/weave open --config /etc/weave.toml --config /home/dev/weave.toml'",
@@ -162,30 +147,25 @@ func TestBindPalette(t *testing.T) {
 	}
 }
 
-// TestIsShownTreatsAnUnreadableFlagAsShown covers the panel attached in a terminal by hand,
-// where no user server was ever recorded and so the flag can be neither written nor read, which
-// read as hidden would leave every unviewed mark on screen with no way to clear one.
-func TestIsShownTreatsAnUnreadableFlagAsShown(t *testing.T) {
+// TestIsShown covers the panel asking whether anybody is looking at it, which is a client on
+// its own session rather than anything a popup wrote down as it opened.
+func TestIsShown(t *testing.T) {
 	tests := []struct {
-		name string
-		flag string
-		want bool
+		name   string
+		client string
+		want   bool
 	}{
-		{name: "no user server has ever opened a popup", want: true},
 		{
-			name: "a popup is attached",
-			flag: "1",
-			want: true,
+			name:   "a client is attached to the panel's session",
+			client: "/dev/ttys004",
+			want:   true,
 		},
-		{name: "the popup is hidden", flag: "0"},
+		{name: "the popup was hidden, which detached it"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := &recordingTmux{}
-			if tt.flag != "" {
-				tmux.SetGlobal(managerOpenFlag, tt.flag)
-			}
+			tmux := &recordingTmux{sessionClient: tt.client}
 
 			assert.Equal(t, tt.want, NewPopupWindow(tmux, "test-session").IsShown())
 		})

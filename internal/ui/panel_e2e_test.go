@@ -380,9 +380,8 @@ func TestPanelClearsTheUnviewedMarkThroughTheService(t *testing.T) {
 	agent := created.Msg.GetAgent()
 	instance.Stores.SeedTurnEnded(t, agent.GetId())
 
-	tmux := &recordingTmux{}
+	tmux := &recordingTmux{sessionClient: panelViewer}
 	popup := NewPopupWindow(tmux, "test-session")
-	popup.MarkOpen()
 
 	panel := model{
 		api: api{
@@ -440,9 +439,8 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	tmux := &recordingTmux{}
+	tmux := &recordingTmux{sessionClient: panelViewer}
 	popup := NewPopupWindow(tmux, "test-session")
-	popup.MarkOpen()
 
 	panel := model{
 		api: api{
@@ -464,7 +462,7 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 	at := time.Now()
 	panel, _ = panel.dwellViewed(at)
 
-	popup.MarkClosed()
+	tmux.sessionClient = ""
 
 	// The agent finishes long after the cursor last moved, which is what makes a dwell measured
 	// from the cursor's arrival say the row was read.
@@ -475,7 +473,7 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 	panel, cmd := panel.dwellViewed(hidden)
 	require.Nil(t, cmd, "nobody was looking at it")
 
-	popup.MarkOpen()
+	tmux.sessionClient = panelViewer
 
 	back := hidden.Add(viewedDwell / 2)
 	panel, cmd = panel.dwellViewed(back)
@@ -509,9 +507,8 @@ func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
 	id := created.Msg.GetAgent().GetId()
 	instance.Stores.SeedTurnEnded(t, id)
 
-	tmux := &recordingTmux{}
+	tmux := &recordingTmux{sessionClient: panelViewer}
 	popup := NewPopupWindow(tmux, "test-session")
-	popup.MarkOpen()
 
 	panel := model{
 		api: api{

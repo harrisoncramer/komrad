@@ -51,8 +51,6 @@ it needs somewhere for agents to be put back into.`,
 			state.host.Record(socket)
 
 			state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
-			state.popup.MarkOpen()
-			defer state.popup.MarkClosed()
 
 			state.popup.BindHide()
 

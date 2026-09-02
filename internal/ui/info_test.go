@@ -104,6 +104,8 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 	assert.NotContains(t, fields, recordField{"worktree", "off"}, "a worktree workflow says what it cuts them from, not that it has none")
 }
 
+const panelViewer = "/dev/ttys004"
+
 type recordingTmux struct {
 	path          string
 	swaps         int
@@ -122,9 +124,11 @@ type recordingTmux struct {
 	respawnPanes  []string
 	respawnDirs   []string
 	deadPanes     map[string]bool
+	sessionClient string
 }
 
 func (t *recordingTmux) ShowGlobal(name string) string           { return t.globals[name] }
+func (t *recordingTmux) GetSessionClient(string) string          { return t.sessionClient }
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}
