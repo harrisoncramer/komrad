@@ -201,6 +201,11 @@ func TestMarkedTerms(t *testing.T) {
 			want: []string{"sandbox", "tenant"},
 		},
 		{
+			name: "a word with a capital outside ASCII keeps it, since the transcript is folded the same way",
+			in:   marked("Ökonomie"),
+			want: []string{"Ökonomie"},
+		},
+		{
 			name: "an unclosed mark is dropped",
 			in:   "the " + transcriptstore.SnippetOpen + "sandbox",
 		},
@@ -213,27 +218,33 @@ func TestMarkedTerms(t *testing.T) {
 	}
 }
 
-// TestMatchLines covers where the highlight goes, which the search index does not say: it
-// gives the turn and the words, so the lines are found within the turn here.
-func TestMatchLines(t *testing.T) {
+// TestMatchSpans covers where the highlight goes, which the search index does not say: it
+// gives the turn and the words, so the words are found within the turn here.
+func TestMatchSpans(t *testing.T) {
 	const content = "a sandbox up top\n\nthe Sandbox tenant\nruns sandboxed\n\nsandbox down below"
 
 	turn := int64(strings.Index(content, "the Sandbox"))
 	turnLen := int64(len("the Sandbox tenant\nruns sandboxed"))
+
+	at := func(from int, word string) span {
+		i := from + strings.Index(content[from:], word)
+
+		return span{start: i, end: i + len(word)}
+	}
 
 	tests := []struct {
 		name   string
 		offset int64
 		length int64
 		terms  []string
-		want   []int
+		want   []span
 	}{
 		{
-			name:   "every line of the turn spelling the word is marked",
+			name:   "every spelling of the word within the turn is marked",
 			offset: turn,
 			length: turnLen,
 			terms:  []string{"sandbox"},
-			want:   []int{3, 4},
+			want:   []span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandbox")},
 		},
 		{
 			name:   "the turns around it are left alone",
@@ -242,11 +253,17 @@ func TestMatchLines(t *testing.T) {
 			terms:  []string{"top"},
 		},
 		{
-			name:   "a line spelling two of the words is marked once",
+			name:   "two of the words spelled over the same letters merge",
 			offset: turn,
 			length: turnLen,
-			terms:  []string{"sandbox", "tenant"},
-			want:   []int{3, 4},
+			terms:  []string{"sandbox", "sandboxed"},
+			want:   []span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandboxed")},
+		},
+		{
+			name:   "the word inside a longer word is left alone",
+			offset: turn,
+			length: turnLen,
+			terms:  []string{"and"},
 		},
 		{
 			name:   "no word to look for marks nothing",
@@ -263,22 +280,85 @@ func TestMatchLines(t *testing.T) {
 			name:   "a turn running past the end stops at it",
 			offset: turn,
 			length: turnLen * 4,
-			terms:  []string{"sandbox"},
-			want:   []int{3, 4, 6},
+			terms:  []string{"tenant", "down"},
+			want:   []span{at(int(turn), "tenant"), at(int(turn), "down")},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, matchLines(content, tt.offset, tt.length, tt.terms))
+			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms))
 		})
 	}
 }
 
-// TestHitLinesAreTheHoveredHits covers the turn a highlight is measured from, which is the hit
+// TestMatchSpansMarksWholeWords pins the front of the match being a word boundary, which is
+// what the listing's own snippet marks, with the punctuation these transcripts are written
+// with reaching well past ASCII.
+func TestMatchSpansMarksWholeWords(t *testing.T) {
+	tests := []struct {
+		name    string
+		content string
+		want    bool
+	}{
+		{
+			name:    "a word of its own is marked",
+			content: "the sandbox here",
+			want:    true,
+		},
+		{
+			name:    "a curly quote in front of it is not part of the word",
+			content: "he said \u201csandbox\u201d once",
+			want:    true,
+		},
+		{
+			name:    "an em dash in front of it is not part of the word",
+			content: "the thing\u2014sandbox\u2014here",
+			want:    true,
+		},
+		{
+			name:    "a letter outside ASCII in front of it is part of the word",
+			content: "the Gr\u00fcnsandbox here",
+		},
+		{
+			name:    "a letter in front of it is part of the word",
+			content: "the presandbox here",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			spans := matchSpans(tt.content, 0, int64(len(tt.content)), []string{"sandbox"})
+
+			if !tt.want {
+				assert.Empty(t, spans, "the word is only spelled inside a longer one")
+
+				return
+			}
+
+			word := strings.Index(tt.content, "sandbox")
+			assert.Equal(t, []span{{start: word, end: word + len("sandbox")}}, spans)
+		})
+	}
+}
+
+// TestMatchSpansFoldsLikeTheTermsDo pins the two sides of the search being folded the same way:
+// a word the snippet marks with a capital outside ASCII is still found in the transcript, which
+// a Unicode fold on one side only would miss.
+func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
+	const content = "the Ökonomie report"
+
+	terms := markedTerms("the " + marked("Ökonomie") + " report")
+	word := strings.Index(content, "Ökonomie")
+
+	assert.Equal(t, []span{{start: word, end: word + len("Ökonomie")}},
+		matchSpans(content, 0, int64(len(content)), terms))
+}
+
+// TestHitSpansAreTheHoveredHits covers the turn a highlight is measured from, which is the hit
 // under the cursor rather than the preview in hand: an agent's hits sit next to each other, so
 // the transcript on hand can have been fetched for the hit before this one.
-func TestHitLinesAreTheHoveredHits(t *testing.T) {
+func TestHitSpansAreTheHoveredHits(t *testing.T) {
 	const content = "alpha reconcile one\n\nbeta reconcile two\n"
 
 	second := int64(strings.Index(content, "beta"))
@@ -291,7 +371,10 @@ func TestHitLinesAreTheHoveredHits(t *testing.T) {
 
 	stale := previewResult{agentID: "a1", content: content}
 
-	assert.Equal(t, []int{3}, matchFor(hit, stale).lines, "the hovered hit's own turn is marked")
+	word := strings.Index(content[second:], "reconcile") + int(second)
+
+	assert.Equal(t, []span{{start: word, end: word + len("reconcile")}},
+		matchFor(hit, stale).spans, "the hovered hit's own turn is marked")
 }
 
 // TestRenderSnippet confirms the store's match markers are consumed into styling
@@ -394,50 +477,6 @@ func TestClipToMatch(t *testing.T) {
 			opens := strings.Count(out, transcriptstore.SnippetOpen)
 			assert.Equal(t, opens, strings.Count(out, transcriptstore.SnippetClose),
 				"every marker left in the snippet is paired")
-		})
-	}
-}
-
-// TestLineAtOffset pins line zero meaning the top, which is where a preview with nothing to
-// centre on belongs.
-func TestLineAtOffset(t *testing.T) {
-	const content = "line one\nline two has postgres in it\nline three"
-
-	tests := []struct {
-		name   string
-		offset int64
-		want   int
-	}{
-		{
-			name:   "a negative offset anchors at the top",
-			offset: -1,
-			want:   0,
-		},
-		{
-			name:   "an offset past the end anchors at the top",
-			offset: int64(len(content) + 1),
-			want:   0,
-		},
-		{
-			name:   "the start of the transcript is its first line",
-			offset: 0,
-			want:   1,
-		},
-		{
-			name:   "an offset partway through reports the line it falls on",
-			offset: int64(strings.Index(content, "postgres")),
-			want:   2,
-		},
-		{
-			name:   "the last line is reached like any other",
-			offset: int64(strings.Index(content, "line three")),
-			want:   3,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, lineAtOffset(content, tt.offset))
 		})
 	}
 }
@@ -860,9 +899,14 @@ func headerLine(t *testing.T, view, name string) string {
 func TestJumpLandsOnTheMatch(t *testing.T) {
 	const turn = "the ledger is here"
 
-	transcript := strings.Repeat("filler\n", 40) + turn + "\n" + strings.Repeat("more\n", 40)
+	const previewWidth = 80
+
+	transcript := strings.Repeat("filler\n\n", 40) + turn + "\n\n" + strings.Repeat("more\n\n", 40)
 	offset := int64(strings.Index(transcript, turn))
-	wantLine := max(lineAtOffset(transcript, int64(strings.Index(transcript, "ledger")))-transcriptPreviewBefore, 1)
+	hitSpans := matchSpans(transcript, offset, int64(len(turn)), []string{"ledger"})
+	_, matched := renderTranscript(transcript, hitSpans, previewWidth)
+	wantLine := max(matched-transcriptPreviewBefore, 1)
+	require.Greater(t, wantLine, 1, "the match has to sit far enough down to open on")
 
 	tests := []struct {
 		name string
@@ -893,7 +937,7 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := &recordingTmux{}
+			tmux := &recordingTmux{width: previewWidth, height: 40}
 			m := filterModel()
 			m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
 			m.frame = layout.New(tmux, config.DefaultLayout())
@@ -925,7 +969,7 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 			require.True(t, ok)
 
 			staged := strings.Join(tmux.respawns, "\n")
-			assert.Contains(t, staged, "weave-transcript.txt", "the transcript is what the stage holds")
+			assert.Contains(t, staged, "weave-transcript.ansi", "the transcript is what the stage holds")
 			assert.Contains(t, staged, fmt.Sprintf("+%d ", wantLine), "the pager opens on the match")
 		})
 	}
@@ -988,7 +1032,7 @@ func TestMatchIsStagedOnce(t *testing.T) {
 	m.match = matchFocus{
 		agentID: "a2",
 		content: "one\ntwo\nthree\n",
-		lines:   []int{2},
+		spans:   []span{{start: 4, end: 7}},
 	}
 
 	for range 3 {
@@ -997,7 +1041,7 @@ func TestMatchIsStagedOnce(t *testing.T) {
 
 	staged := 0
 	for _, argv := range tmux.respawns {
-		if strings.Contains(argv, "weave-transcript.txt") {
+		if strings.Contains(argv, "weave-transcript.ansi") {
 			staged++
 		}
 	}
@@ -1013,12 +1057,12 @@ func TestMatchNeedsAPosition(t *testing.T) {
 	tests := []struct {
 		name   string
 		offset int64
-		want   []int
+		want   []span
 	}{
 		{
 			name:   "an offset the content holds",
 			offset: 4,
-			want:   []int{2},
+			want:   []span{{start: 4, end: 7}},
 		},
 		{
 			name:   "an offset past the end",
@@ -1040,7 +1084,7 @@ func TestMatchNeedsAPosition(t *testing.T) {
 			}
 			got := matchFor(hit, previewResult{agentID: "a2", content: content})
 
-			assert.Equal(t, tt.want, got.lines)
+			assert.Equal(t, tt.want, got.spans)
 			if tt.want == nil {
 				assert.Empty(t, got.agentID, "nothing is held on to")
 			}
