@@ -25,6 +25,7 @@ message SearchHit {
   int32 seq = 7;
   string role = 8;
   int64 content_offset = 9;
+  int64 content_length = 10;
 }
 
 message SearchTranscriptsResponse {

@@ -30,15 +30,23 @@ func render(markdown string, wrap int) string {
 
 var highlightStyle = ansi.NewStyle().Reverse(true)
 
-func highlighted(content string, line int) string {
-	lines := strings.Split(content, "\n")
-	if line < 1 || line > len(lines) {
+// highlighted marks every line a search hit matched on, so the words the hit was found by are
+// picked out of the conversation around them.
+func highlighted(content string, lines []int) string {
+	if len(lines) == 0 {
 		return content
 	}
 
-	lines[line-1] = highlightStyle.Styled(lines[line-1])
+	rows := strings.Split(content, "\n")
+	for _, line := range lines {
+		if line < 1 || line > len(rows) {
+			continue
+		}
 
-	return strings.Join(lines, "\n")
+		rows[line-1] = highlightStyle.Styled(rows[line-1])
+	}
+
+	return strings.Join(rows, "\n")
 }
 
 func writeStageFile(path, content string) bool {

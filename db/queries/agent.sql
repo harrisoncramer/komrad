@@ -596,6 +596,7 @@ ranked AS (
         c.seq,
         c.role,
         c.content_offset,
+        OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
         TS_HEADLINE('english', c.content, q.words, @headline) AS snippet,
@@ -615,6 +616,7 @@ SELECT
     r.seq,
     r.role,
     r.content_offset,
+    r.content_length,
     r.name,
     r.archived::boolean AS archived,
     r.snippet::text AS snippet,
@@ -657,15 +659,16 @@ ranked AS (
         c.seq,
         c.role,
         c.content_offset,
+        OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
         SUBSTRING(c.content FROM GREATEST(1,(
                     SELECT
                         MIN(POSITION(LOWER(t) IN LOWER(c.content)))
                     FROM UNNEST(q.terms) t
-                WHERE
-                    POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
-            FOR @width::int) AS snippet,
+                    WHERE
+                        POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
+                FOR @width::int) AS snippet,
         WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
     FROM
         agent_transcript_chunks c
@@ -684,6 +687,7 @@ SELECT
     r.seq,
     r.role,
     r.content_offset,
+    r.content_length,
     r.name,
     r.archived::boolean AS archived,
     r.snippet::text AS snippet,

@@ -51,21 +51,22 @@ func newLogContent(argv []string) layout.Content {
 	}
 }
 
-func newTranscriptContent(conversation string, highlightLine int) layout.Content {
+func newTranscriptContent(conversation string, lines []int) layout.Content {
+	open := 0
+	if len(lines) > 0 {
+		open = max(lines[0]-transcriptPreviewBefore, 1)
+	}
+
 	return layout.Content{
 		// The stage is drawn again on every refresh, so the key has to answer for the
-		// conversation as well as the line, or a transcript that has grown would stop restaging.
-		Key: fmt.Sprintf("transcript:%d:%d", highlightLine, maphash.String(transcriptSeed, conversation)),
+		// conversation as well as the matched lines, or a transcript that has grown would stop
+		// restaging.
+		Key: fmt.Sprintf("transcript:%v:%d", lines, maphash.String(transcriptSeed, conversation)),
 		Dir: homeDir(),
 		Render: func(layout.Target) ([]string, bool) {
 			path := filepath.Join(os.TempDir(), "weave-transcript.txt")
-			if !writeStageFile(path, highlighted(conversation, highlightLine)) {
+			if !writeStageFile(path, highlighted(conversation, lines)) {
 				return nil, false
-			}
-
-			open := 0
-			if highlightLine > 0 {
-				open = max(highlightLine-transcriptPreviewBefore, 1)
 			}
 
 			return pagerArgv(path, open), true

@@ -38,36 +38,41 @@ func TestPagerArgv(t *testing.T) {
 	}
 }
 
-// TestHighlighted covers the mark written into a transcript preview, which is what
-// makes the matched line findable in the conversation around it.
+// TestHighlighted covers the marks written into a transcript preview, which are what make the
+// matched lines findable in the conversation around them.
 func TestHighlighted(t *testing.T) {
-	content := "first\nsecond\nthird"
+	content := "first\nsecond match\nthird match"
 
 	tests := []struct {
-		name string
-		line int
-		want string
+		name  string
+		lines []int
+		want  string
 	}{
 		{
-			name: "no matched line leaves the transcript alone",
-			line: 0,
-			want: content,
+			name:  "nothing matched leaves the transcript alone",
+			lines: nil,
+			want:  content,
 		},
 		{
-			name: "a line past the end of the transcript leaves it alone",
-			line: 4,
-			want: content,
+			name:  "the matched line is marked and its neighbours are not",
+			lines: []int{2},
+			want:  "first\n\x1b[7msecond match\x1b[m\nthird match",
 		},
 		{
-			name: "the matched line is marked and its neighbours are not",
-			line: 2,
-			want: "first\n\x1b[7msecond\x1b[m\nthird",
+			name:  "every matched line takes a mark",
+			lines: []int{2, 3},
+			want:  "first\n\x1b[7msecond match\x1b[m\n\x1b[7mthird match\x1b[m",
+		},
+		{
+			name:  "a line past the end of the transcript marks nothing",
+			lines: []int{9},
+			want:  content,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, highlighted(content, tt.line))
+			assert.Equal(t, tt.want, highlighted(content, tt.lines))
 		})
 	}
 }

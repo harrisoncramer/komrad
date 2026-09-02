@@ -93,6 +93,7 @@ type SearchHit struct {
 	Seq           int32                  `protobuf:"varint,7,opt,name=seq,proto3" json:"seq,omitempty"`
 	Role          string                 `protobuf:"bytes,8,opt,name=role,proto3" json:"role,omitempty"`
 	ContentOffset int64                  `protobuf:"varint,9,opt,name=content_offset,json=contentOffset,proto3" json:"content_offset,omitempty"`
+	ContentLength int64                  `protobuf:"varint,10,opt,name=content_length,json=contentLength,proto3" json:"content_length,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -179,6 +180,13 @@ func (x *SearchHit) GetRole() string {
 func (x *SearchHit) GetContentOffset() int64 {
 	if x != nil {
 		return x.ContentOffset
+	}
+	return 0
+}
+
+func (x *SearchHit) GetContentLength() int64 {
+	if x != nil {
+		return x.ContentLength
 	}
 	return 0
 }
@@ -344,7 +352,7 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"pagination\x88\x01\x01\x12'\n" +
 	"\bagent_id\x18\x03 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x01R\aagentId\x88\x01\x01B\r\n" +
 	"\v_paginationB\v\n" +
-	"\t_agent_id\"\xd3\x01\n" +
+	"\t_agent_id\"\xfa\x01\n" +
 	"\tSearchHit\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x18\n" +
 	"\asnippet\x18\x02 \x01(\tR\asnippet\x12\x12\n" +
@@ -353,7 +361,9 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\x05score\x18\x06 \x01(\x01R\x05score\x12\x10\n" +
 	"\x03seq\x18\a \x01(\x05R\x03seq\x12\x12\n" +
 	"\x04role\x18\b \x01(\tR\x04role\x12%\n" +
-	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffset\"\xb4\x01\n" +
+	"\x0econtent_offset\x18\t \x01(\x03R\rcontentOffset\x12%\n" +
+	"\x0econtent_length\x18\n" +
+	" \x01(\x03R\rcontentLength\"\xb4\x01\n" +
 	"\x19SearchTranscriptsResponse\x12-\n" +
 	"\amatches\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\amatches\x12'\n" +
 	"\x04near\x18\x03 \x03(\v2\x13.agent.v1.SearchHitR\x04near\x12+\n" +

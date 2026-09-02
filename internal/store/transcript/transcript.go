@@ -31,6 +31,7 @@ type SearchHit struct {
 	Seq           int32
 	Role          string
 	ContentOffset int64
+	ContentLength int64
 	Snippet       string
 	Rank          float64
 }
@@ -289,6 +290,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 				Seq:           row.Seq,
 				Role:          row.Role,
 				ContentOffset: row.ContentOffset,
+				ContentLength: int64(row.ContentLength),
 				Snippet:       row.Snippet,
 				Rank:          row.Rank,
 			}
@@ -320,6 +322,7 @@ func (s *Store) Search(ctx context.Context, params SearchParams) (Results, error
 				Seq:           row.Seq,
 				Role:          row.Role,
 				ContentOffset: row.ContentOffset,
+				ContentLength: int64(row.ContentLength),
 				Snippet:       markMatches(row.Snippet, terms.positive),
 				Rank:          row.Rank,
 			}
