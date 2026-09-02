@@ -155,6 +155,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		Harness:        req.Msg.GetHarness(),
 		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 		SetupPane:      req.Msg.GetSetupPane(),
+		ParentAgentID:  req.Msg.GetParentAgentId(),
 	})
 	// Create-once is what the key is for, so a key already spent answers with the agent it
 	// launched rather than an error.

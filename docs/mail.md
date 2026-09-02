@@ -26,6 +26,16 @@ An idle agent ends no turn, so the nudge is the only way mail reaches one. Keys 
 
 A prompt already holding text is left alone, because the newline that submits the nudge would send whatever somebody was halfway through typing along with it. Such an agent is nudged once the prompt is empty again, and its mail expires unread if that never happens.
 
+## Children and their families
+
+A [child agent](agents.md) may only mail inside its own family, which is its parent and that parent's other children. Anything else is refused, and the refusal says to reply to the parent instead.
+
+The unit is the family rather than the pair, so two children of one parent can talk directly. That saves the parent having to relay every message between them, which would spend its context on being a switchboard. Two children of different parents are not in one family, and a child and an unrelated agent are not either.
+
+The rule bounds what a child may do rather than what may be done to it. Weave's own lifecycle mail reaches any child, and so does mail you send yourself, since neither carries a sending agent.
+
+A thread between two children is counted against the same hop limit as any other, so a pair cannot loop indefinitely without their parent.
+
 Because delivery happens as a turn ends, an agent cannot wait for mail inside a turn. Sitting in a sleep or a loop waiting for a reply is the one thing that stops the reply arriving. Agents are told to finish their turn instead.
 
 > Note, in the future, mail may be supplanted by or supplemented with [channels](https://code.claude.com/docs/en/channels), which push events into a running session rather than waiting for it to end a turn. They are a research preview today, plugin-only and behind an Anthropic allowlist, so the Stop hook remains how mail arrives.

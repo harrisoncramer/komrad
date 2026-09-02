@@ -34,6 +34,8 @@ message Agent {
   repeated AgentMetadata metadata = 16;
   optional string idempotency_key = 17;
   optional string spawned_by_agent_id = 20;
+  // The agent this one is attached to, where spawned_by_agent_id is only who called create.
+  optional string parent_agent_id = 26;
   optional string branch = 22;
   bool worktree_removed = 23;
   // Whether the agent has finished a turn the person has not looked at since.
@@ -95,6 +97,7 @@ message CreateAgentRequest {
     [rules.v1.action_name_or_blank]: true
   }];
   string setup_pane = 10 [(buf.validate.field).string.max_len = 20];
+  optional string parent_agent_id = 11 [(buf.validate.field).string.min_len = 1];
 }
 
 message CreateAgentResponse {
@@ -286,7 +289,7 @@ service AgentService {
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
-      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again."
+      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, which is the shape to reach for when the work needs a second pair of eyes on your own tree rather than an agent of its own: pass your own id from WEAVE_AGENT_ID. A child runs in its parent's directory and gets no worktree and no setup or cleanup action, so dir, setupAction, cleanupAction, and a workflow other than the parent's are all refused rather than quietly overridden. It may only mail its parent and its parent's other children, it cannot be archived or deleted on its own, and it goes when the parent goes. A child may not have children of its own."
       destructive: false
     };
   }
@@ -332,7 +335,7 @@ service AgentService {
   rpc SendMail(SendMailRequest) returns (SendMailResponse) {
     option (annotation.v1.tool) = {
       tool_name: "send_mail"
-      description: "Send one piece of mail to another agent, addressed by its id. Names are not accepted, since two workflows may each hold an agent of the same name; call list_agents to turn a name into the id it stands for. Nothing is delivered to a pane: the mail waits in the panel until the recipient reads its mail, so the recipient will not see it while it is busy and may not see it for a while. Use this to ask an agent working alongside you something only it knows, or to hand it a result it is waiting on, and say who you are and what you need in the mail itself. Set replyTo to the id of the mail you are answering so the two read as a thread, but a thread can only run so many hops before a send is refused, so wind it up with a clear answer or a decision rather than another round once it feels like it is dragging. Each call sends another piece of mail, so do not retry a call that may have succeeded, and do not send to yourself, which is refused. Returns not_found when no agent holds that id, failed_precondition when the recipient is archived, and resource_exhausted when the recipient is already holding a full mailbox of unread mail or when the thread has hit its hop limit."
+      description: "Send one piece of mail to another agent, addressed by its id. Names are not accepted, since two workflows may each hold an agent of the same name; call list_agents to turn a name into the id it stands for. Nothing is delivered to a pane: the mail waits in the panel until the recipient reads its mail, so the recipient will not see it while it is busy and may not see it for a while. Use this to ask an agent working alongside you something only it knows, or to hand it a result it is waiting on, and say who you are and what you need in the mail itself. Set replyTo to the id of the mail you are answering so the two read as a thread, but a thread can only run so many hops before a send is refused, so wind it up with a clear answer or a decision rather than another round once it feels like it is dragging. Each call sends another piece of mail, so do not retry a call that may have succeeded, and do not send to yourself, which is refused. Returns not_found when no agent holds that id, failed_precondition when the recipient is archived, and resource_exhausted when the recipient is already holding a full mailbox of unread mail or when the thread has hit its hop limit. A child agent may only mail its parent and its parent's other children; anything else is refused as permission_denied, so reply to your parent rather than looking for another way around."
       destructive: false
       idempotent: false
     };
@@ -364,7 +367,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "archive_agents"
-      description: "Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go."
+      description: "Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. The children of any agent named here are archived with it, since a child rides along with its parent rather than standing on its own. Naming a child whose parent is not in the same call is refused as failed_precondition."
       destructive: false
     };
   }
@@ -372,7 +375,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "restore_agents"
-      description: "Take a list of agents out of the archive, keyed by id, along with the workflows they belong to. They come back as dormant rows and nothing is started, so call resume_agent on each one to put its conversation back in a pane. Agents that are not archived are returned as they stand. The batch either goes whole or does not go: it returns not_found if any id holds no agent, already_exists when a live agent has taken a returning agent's name or two returning agents want one name, and resource_exhausted when the panel has no room for all of them at once."
+      description: "Take a list of agents out of the archive, keyed by id, along with the workflows they belong to. They come back as dormant rows and nothing is started, so call resume_agent on each one to put its conversation back in a pane. Agents that are not archived are returned as they stand. The batch either goes whole or does not go: it returns not_found if any id holds no agent, already_exists when a live agent has taken a returning agent's name or two returning agents want one name, and resource_exhausted when the panel has no room for all of them at once. The children of any agent named here come back with it, and a child cannot be restored on its own."
       destructive: false
     };
   }
@@ -388,7 +391,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "delete_agents"
-      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them."
+      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and naming a child whose parent is not in the same call is refused."
       destructive: true
     };
   }

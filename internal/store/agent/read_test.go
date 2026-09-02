@@ -324,3 +324,49 @@ func TestListByIDCarriesMetadata(t *testing.T) {
 	assert.Equal(t, []Metadata{{Key: "pr", Value: "https://example.test/1"}}, byID[auth.ID])
 	assert.Empty(t, byID[api.ID], "an agent that recorded nothing carries nothing")
 }
+
+// TestListChildren pins that a family is read in one call and that another parent's children
+// are not in it, since it is what an archive expands its id list with.
+func TestListChildren(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author"}))
+	parent, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NotNil(t, parent)
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "other-author"}))
+	other, err := f.Get(ctx, "other-author")
+	require.NoError(t, err)
+	require.NotNil(t, other)
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "test-runner", ParentAgentID: &parent.ID}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "their-reviewer", ParentAgentID: &other.ID}))
+
+	children, err := f.ListChildren(ctx, []string{parent.ID})
+	require.NoError(t, err)
+
+	names := make([]string, 0, len(children))
+	for _, child := range children {
+		names = append(names, child.Name)
+	}
+	assert.ElementsMatch(t, []string{"reviewer", "test-runner"}, names)
+
+	count, err := f.CountLiveChildren(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 2, count)
+
+	// The archived one is still a child, so it is still listed; what it stops counting against
+	// is the room the parent has for another.
+	require.NoError(t, f.archiveByName(ctx, "reviewer"))
+
+	children, err = f.ListChildren(ctx, []string{parent.ID})
+	require.NoError(t, err)
+	assert.Len(t, children, 2)
+
+	count, err = f.CountLiveChildren(ctx, parent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, 1, count)
+}

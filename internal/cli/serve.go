@@ -154,6 +154,7 @@ func serve(ctx context.Context, p serveParams) error {
 		DefaultHarness: state.defaultHarness,
 		DefaultFlags:   state.defaultFlags,
 		MaxAgents:      state.maxAgents,
+		MaxChildren:    state.maxChildren,
 		ContextPath:    state.contextPath,
 		HookCommand:    getStopHookBinaryPath(ctx),
 	})

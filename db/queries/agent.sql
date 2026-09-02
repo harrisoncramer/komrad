@@ -115,6 +115,7 @@ INSERT INTO agents(
     setup_action,
     cleanup_action,
     spawned_by_agent_id,
+    parent_agent_id,
     adopted_branch)
 VALUES (
     @id,
@@ -133,6 +134,7 @@ VALUES (
     sqlc.narg('setup_action'),
     sqlc.narg('cleanup_action'),
     sqlc.narg('spawned_by_agent_id'),
+    sqlc.narg('parent_agent_id'),
     @adopted_branch)
 RETURNING
     id;
@@ -229,6 +231,25 @@ WHERE
 RETURNING
     a.id,
     prior.pane_id;
+
+-- name: ListChildAgents :many
+SELECT
+    *
+FROM
+    agents
+WHERE
+    parent_agent_id = ANY (@parent_ids::uuid[])
+ORDER BY
+    id DESC;
+
+-- name: CountLiveChildAgents :one
+SELECT
+    COUNT(*)
+FROM
+    agents
+WHERE
+    parent_agent_id = @parent_agent_id
+    AND archived_at IS NULL;
 
 -- name: ListLiveWorkflowAgents :many
 SELECT

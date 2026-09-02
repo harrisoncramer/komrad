@@ -320,6 +320,7 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
+		binding(m.keys.Agents.Child, "attach a child (parents only)"),
 		binding(m.keys.Agents.Rename, "rename"),
 		binding(m.keys.Agents.NextUnviewed, "next unviewed"),
 		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),

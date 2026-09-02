@@ -124,6 +124,7 @@ type Agent struct {
 	InterruptedAt    *time.Time
 	AdoptedBranch    string
 	ViewedAt         *time.Time
+	ParentAgentID    *string
 }
 
 // Key/value facts an agent recorded about its own work.

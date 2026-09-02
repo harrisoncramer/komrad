@@ -371,6 +371,10 @@ table "agents" {
     null = true
     type = uuid
   }
+  column "parent_agent_id" {
+    null = true
+    type = uuid
+  }
   column "archived_at" {
     null = true
     type = timestamptz
@@ -437,6 +441,12 @@ table "agents" {
     on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
+  foreign_key "agents_parent_agent_id_fkey" {
+    columns     = [column.parent_agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
   index "agents_name_active" {
     unique  = true
     columns = [column.workflow_id, column.name]
@@ -447,6 +457,9 @@ table "agents" {
   }
   index "agents_schedule_id" {
     columns = [column.schedule_id]
+  }
+  index "agents_parent_agent_id" {
+    columns = [column.parent_agent_id]
   }
   index "agents_idempotency_key" {
     unique  = true

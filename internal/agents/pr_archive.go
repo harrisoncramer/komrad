@@ -297,6 +297,11 @@ func readyToArchive(agent agentstore.Agent) bool {
 	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
 		return false
 	}
+	// A child records no pull request of its own and leaves when its parent does, so a sweep
+	// never picks one up in its own right.
+	if agent.ParentAgentID != nil {
+		return false
+	}
 
 	return agent.State == agentstore.StateIdle || agent.Pane == ""
 }

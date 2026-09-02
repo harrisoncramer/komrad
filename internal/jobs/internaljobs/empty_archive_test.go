@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	agentstore "weave/internal/store/agent"
+	"weave/lib/xptr"
 
 	"github.com/riverqueue/river"
 	"github.com/stretchr/testify/assert"
@@ -78,6 +79,10 @@ type fakeArchive struct {
 	deleted int
 	pages   int
 
+	// asked is the ids each delete was given, since what the sweep leaves out of a page matters
+	// as much as what it deletes.
+	asked [][]string
+
 	// failOn is the page, counted from one, whose delete refuses, and zero is every page
 	// going through.
 	failOn int
@@ -118,6 +123,7 @@ func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstor
 
 func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 	f.pages++
+	f.asked = append(f.asked, ids)
 
 	if f.pages == f.failOn {
 		return errors.New("the delete would not go")
@@ -133,6 +139,12 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 	for _, id := range ids {
 		gone[id] = true
 	}
+	// A child goes with its parent, the way the service it stands in for takes them.
+	for _, agent := range f.agents {
+		if agent.ParentAgentID != nil && gone[*agent.ParentAgentID] {
+			gone[agent.ID] = true
+		}
+	}
 
 	kept := f.agents[:0]
 	for _, agent := range f.agents {
@@ -143,4 +155,21 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 	f.agents = kept
 
 	return nil
+}
+
+// TestEmptyArchiveAsksForTheParents pins that a page holding a child names only its parent,
+// since a child is deleted by naming the agent it is attached to and naming one alone is
+// refused.
+func TestEmptyArchiveAsksForTheParents(t *testing.T) {
+	archive := newFakeArchive(0)
+	archive.agents = []agentstore.Agent{
+		{ID: "000002", ParentAgentID: xptr.Ptr("000001")},
+		{ID: "000001"},
+	}
+	worker := NewEmptyArchiveWorker(archive, archive)
+
+	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
+
+	assert.Equal(t, [][]string{{"000001"}}, archive.asked)
+	assert.Empty(t, archive.agents, "and the child goes with it")
 }

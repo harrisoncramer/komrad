@@ -26,6 +26,18 @@ var ErrBadDirectory = errors.New("unusable working directory")
 var ErrTooManyAgents = errors.New("too many agents")
 var ErrAgentArchived = errors.New("agent is archived")
 var ErrSpawnerUnknown = errors.New("the spawning agent is not one this panel knows")
+var ErrParentNotFound = errors.New("parent agent not found")
+var ErrParentIsChild = errors.New("a child agent may not have children of its own")
+var ErrChildOwnsLaunch = errors.New("a child agent takes its launch from its parent")
+var ErrTooManyChildren = errors.New("too many children")
+
+// ErrChildRidesAlong says a child was named on its own by an archive, a delete, or a restore
+// that left its parent out, which is the one thing a child cannot be without it.
+var ErrChildRidesAlong = errors.New("a child agent goes with its parent")
+
+// ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
+// parent and that parent's other children.
+var ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")
 
 // ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
 // is returned alongside that agent rather than instead of it, so that a caller which has to
@@ -51,6 +63,21 @@ type agentGetter interface {
 
 type agentCounter interface {
 	CountLive(ctx context.Context) (int64, error)
+}
+
+type childCounter interface {
+	CountLiveChildren(ctx context.Context, parentID string) (int, error)
+}
+
+type childSlots interface {
+	childCounter
+	LockSlots(ctx context.Context) error
+}
+
+// childLister reads the agents attached to a set of parents, which is what an archive, a
+// delete, or a restore has to add to the ids it was given.
+type childLister interface {
+	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
 }
 
 type agentSlots interface {
@@ -277,6 +304,11 @@ func notifyParents(ctx context.Context, notifier systemMailSender, agents []agen
 
 	for _, agent := range agents {
 		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
+			continue
+		}
+		// A child only ever goes as part of its parent going, so the parent is on its way out
+		// too and mail about it would be addressed to an agent already archived.
+		if agent.ParentAgentID != nil {
 			continue
 		}
 

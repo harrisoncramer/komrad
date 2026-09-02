@@ -388,7 +388,7 @@ func (m model) archiveView() string {
 
 		agent := r.item.agent
 		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, m.archive.selected.has(agent.ID), true))
-		rows = append(rows, prefix+"  "+name+failedMark(agent)+scheduledMark(agent)+tagGlyph(agent, m.tags))
+		rows = append(rows, prefix+"  "+childMark(r.child)+name+failedMark(agent)+scheduledMark(agent)+tagGlyph(agent, m.tags))
 	}
 
 	return m.listView("Archive", rows, m.archive.cursor, below)

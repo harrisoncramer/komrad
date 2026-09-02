@@ -15,6 +15,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	"weave/lib/xptr"
 	"weave/lib/xstr"
 )
 
@@ -23,6 +24,7 @@ import (
 type launchAgentStore interface {
 	agentGetter
 	agentCounter
+	childCounter
 	nameChecker
 	agentFailWriter
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
@@ -41,6 +43,7 @@ type LaunchService struct {
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	maxAgents          int
+	maxChildren        int
 }
 
 type LaunchServiceParams struct {
@@ -54,6 +57,7 @@ type LaunchServiceParams struct {
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
+	MaxChildren        int
 }
 
 // NewLaunchService builds the service from its dependencies.
@@ -69,6 +73,7 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 		userDefaultHarness: p.UserDefaultHarness,
 		userDefaultFlags:   p.UserDefaultFlags,
 		maxAgents:          p.MaxAgents,
+		maxChildren:        p.MaxChildren,
 	}
 }
 
@@ -87,6 +92,7 @@ type NewAgentParams struct {
 	IdempotencyKey string
 	SetupPane      string
 	AdoptedBranch  string
+	ParentAgentID  string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -119,11 +125,21 @@ func (s *LaunchService) NewAgent(ctx context.Context, p NewAgentParams) (*agents
 		spawner = found
 	}
 
+	var parent *agentstore.Agent
+	if p.ParentAgentID != "" {
+		found, err := s.findParent(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		parent = found
+		p = childParams(p, *found)
+	}
+
 	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, p, spawner)
+	return s.launchAgent(ctx, p, spawner, parent)
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
@@ -149,6 +165,59 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 	}
 
 	return spawner, nil
+}
+
+// findParent resolves the agent a child is being attached to, and refuses a request that asks
+// for anything the parent decides instead: the checkout, the two actions, and the workflow are
+// its parent's rather than the caller's to choose, so a request naming one of them is answered
+// rather than quietly overridden.
+func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
+	parent, err := s.agents.GetByID(ctx, p.ParentAgentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrParentNotFound, p.ParentAgentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if parent.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q", ErrAgentArchived, parent.Name)
+	}
+	if parent.ParentAgentID != nil {
+		return nil, fmt.Errorf("%w: %q is itself attached to another agent", ErrParentIsChild, parent.Name)
+	}
+
+	switch {
+	case strings.TrimSpace(p.Dir) != "":
+		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
+	case p.SetupAction != nil && strings.TrimSpace(*p.SetupAction) != "":
+		return nil, fmt.Errorf("%w: it runs no setup action, since the checkout is already there", ErrChildOwnsLaunch)
+	case p.CleanupAction != nil && strings.TrimSpace(*p.CleanupAction) != "":
+		return nil, fmt.Errorf("%w: it runs no cleanup action, since the checkout is not its to tear down", ErrChildOwnsLaunch)
+	case p.WorkflowID != parent.WorkflowID:
+		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
+	case p.ScheduleID != nil:
+		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", ErrChildOwnsLaunch)
+	}
+
+	// A child has only its parent's directory to run in, so a parent with none recorded would
+	// otherwise fall back to the workflow's, which is the fresh checkout a child exists to avoid
+	// being dropped into.
+	if parent.Cwd == "" {
+		return nil, fmt.Errorf("%w: %q has no directory recorded for a child to run in", ErrBadDirectory, parent.Name)
+	}
+
+	return parent, nil
+}
+
+// childParams holds a child to what its parent gives it, writing the blank actions onto the row
+// rather than leaving them unset, since an unset action falls back to the workflow's and for a
+// worktree-enabled workflow that one would tear the parent's checkout down from under it.
+func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
+	p.Dir = parent.Cwd
+	p.SetupAction = xptr.Ptr("")
+	p.CleanupAction = xptr.Ptr("")
+
+	return p
 }
 
 type launchPlan struct {
@@ -246,14 +315,15 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		SessionID:        sessionID,
 		WorkflowID:       params.WorkflowID,
 		ScheduleID:       params.ScheduleID,
-		IdempotencyKey:   idempotencyKey(params.IdempotencyKey),
+		IdempotencyKey:   nullable(params.IdempotencyKey),
 		SpawnedByAgentID: spawnedBy,
+		ParentAgentID:    nullable(params.ParentAgentID),
 		Hidden:           params.Hidden,
 		AdoptedBranch:    params.AdoptedBranch,
 	}
 }
 
-func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawner *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
+func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
 	plan, err := s.planLaunch(ctx, p)
 	if err != nil {
 		return nil, err
@@ -267,7 +337,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
 	agent.State = agentstore.StateSettingUp
 
-	if err := s.createUnderCeiling(ctx, agent); err != nil {
+	if err := s.createUnderCeiling(ctx, agent, parent); err != nil {
 		return nil, err
 	}
 
@@ -340,6 +410,10 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		params.SpawnedByAgentID = spawner.ID
 		params.SpawnedByName = spawner.Name
 	}
+	if parent != nil {
+		params.ParentAgentID = parent.ID
+		params.ParentName = parent.Name
+	}
 
 	if err := s.launcher.launch(plan.harness, params); err != nil {
 		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
@@ -387,11 +461,14 @@ func namedDir(named string) (string, error) {
 	return dir, nil
 }
 
-func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent) error {
+func (s *LaunchService) createUnderCeiling(ctx context.Context, agent agentstore.Agent, parent *agentstore.Agent) error {
 	return s.tx.InTx(ctx, func(db store.DBTX) error {
 		agentStore := agentstore.New(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, 1); err != nil {
+			return err
+		}
+		if err := claimRoomForChildren(ctx, agentStore, s.maxChildren, parent); err != nil {
 			return err
 		}
 
@@ -430,6 +507,27 @@ func claimRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want 
 	}
 
 	return requireRoomForAgents(ctx, agents, maxAgents, want)
+}
+
+// claimRoomForChildren holds one parent to the children it may run at once, which is a lower
+// ceiling than the panel's because they all edit the one checkout.
+func claimRoomForChildren(ctx context.Context, agents childSlots, maxChildren int, parent *agentstore.Agent) error {
+	if parent == nil || maxChildren <= 0 {
+		return nil
+	}
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	held, err := agents.CountLiveChildren(ctx, parent.ID)
+	if err != nil {
+		return fmt.Errorf("failed to count the children of agent %q: %w", parent.Name, err)
+	}
+	if held+1 > maxChildren {
+		return fmt.Errorf("%w: %q already holds %d of %d, and they share one checkout", ErrTooManyChildren, parent.Name, held, maxChildren)
+	}
+
+	return nil
 }
 
 func requireRoomForAgents(ctx context.Context, agents agentCounter, maxAgents, want int) error {
@@ -475,10 +573,11 @@ func (s *LaunchService) isNameTaken(ctx context.Context, workflowID, name string
 	return taken
 }
 
-func idempotencyKey(key string) *string {
-	if key == "" {
+// nullable is a column the row leaves null when the launch names nothing for it.
+func nullable(value string) *string {
+	if value == "" {
 		return nil
 	}
 
-	return &key
+	return &value
 }

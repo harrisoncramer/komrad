@@ -42,6 +42,7 @@ type formKind int
 const (
 	formNone formKind = iota
 	formAgent
+	formChild
 	formAdopt
 	formRename
 	formAgentArchive
@@ -208,6 +209,22 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, available []act
 		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
 			Value(&values.CleanupAction).Options(agentActionOptions(available)...),
 	)
+
+	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+}
+
+// childAgentForm asks for the work and little else, since a child takes its directory and both
+// of its actions from the parent it is attached to rather than from whoever asked for it.
+func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) *huh.Form {
+	fields := []huh.Field{
+		huh.NewText().Key("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
+			Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
+		huh.NewInput().Key("harness").Title("Agent").Placeholder(orDash(parent.Harness)).Value(&values.Harness),
+		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
+		huh.NewNote().Description(fmt.Sprintf(
+			"Runs in %s, the parent's own checkout. No worktree, no setup action, archived when the parent is.", parent.Cwd)),
+	}
 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
@@ -385,11 +402,29 @@ const (
 	archiveChoiceArchiveDelete archiveChoice = "archive+delete"
 )
 
-func archiveAgentsForm(agents []agentstore.Agent, keys config.FormKeys) (*huh.Form, *archiveChoice) {
-	title := fmt.Sprintf("Archive %d agents?", len(agents))
+// archiveTitle names what the prompt is about, counting in the children that were not asked
+// about, since they go with their parents whether or not anybody named them.
+func archiveTitle(agents []agentstore.Agent, children int) string {
+	subject := fmt.Sprintf("%d agents", len(agents))
 	if len(agents) == 1 {
-		title = fmt.Sprintf("Archive agent %q?", agents[0].Name)
+		subject = fmt.Sprintf("agent %q", agents[0].Name)
 	}
+
+	switch {
+	case children == 0:
+	case len(agents) > 1:
+		subject += fmt.Sprintf(" and %d children", children)
+	case children == 1:
+		subject += " and its child"
+	default:
+		subject += fmt.Sprintf(" and its %d children", children)
+	}
+
+	return "Archive " + subject + "?"
+}
+
+func archiveAgentsForm(agents []agentstore.Agent, children int, keys config.FormKeys) (*huh.Form, *archiveChoice) {
+	title := archiveTitle(agents, children)
 
 	choice := archiveChoiceArchive
 

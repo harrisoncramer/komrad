@@ -13,6 +13,11 @@ func (m model) isReviewable(agent agentstore.Agent) bool {
 	if agent.Cwd == "" || agent.WorktreeRemoved {
 		return false
 	}
+	// A child sits in its parent's checkout, so the diff there is the parent's work and the
+	// review threads on it belong to the parent's row.
+	if agent.ParentAgentID != nil {
+		return false
+	}
 
 	index := slices.IndexFunc(m.listing.workflows, func(w workflowstore.Workflow) bool { return w.ID == agent.WorkflowID })
 	if index < 0 {

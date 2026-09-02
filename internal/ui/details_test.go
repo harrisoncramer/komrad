@@ -401,7 +401,7 @@ func TestAgentFields(t *testing.T) {
 			agent := agent
 			agent.Metadata = tt.metadata
 
-			fields := agentFields(agent, tt.schedule)
+			fields := agentFields(agent, tt.schedule, "")
 
 			labels := make([]string, 0, len(fields))
 			values := make([]string, 0, len(fields))

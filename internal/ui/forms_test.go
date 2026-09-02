@@ -774,7 +774,7 @@ func TestArchivePromptChoices(t *testing.T) {
 // TestArchivePromptOpensOnArchive covers the prompt as first drawn, since huh scrolls its
 // list to whatever value is bound and a submit would otherwise answer for nobody.
 func TestArchivePromptOpensOnArchive(t *testing.T) {
-	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, config.DefaultKeybindings().Form)
+	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.DefaultKeybindings().Form)
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: 80, Height: 24})
 

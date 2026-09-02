@@ -14,6 +14,10 @@
 default_harness = "claude"
 # How many unarchived agents may exist at once, past which a create is refused.
 max_agents      = 50
+# How many children one agent may hold at once, past which attaching another is refused.
+# Children share their parent's checkout, so this is deliberately a much lower ceiling
+# than max_agents.
+max_children    = 3
 # The tags the tag key cycles through, in order.
 # A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
 # or a hex value such as "#DCA561". The panel draws itself from the sixteen,
@@ -71,6 +75,9 @@ hide          = ["h"]
 tag           = ["t"]
 # Start a new agent.
 new           = ["c"]
+# Attach a child agent to the hovered agent, which runs in that agent's own checkout
+# with no worktree of its own and is archived along with it.
+child         = ["C"]
 # Put the hovered agent's unread mark back, or take it off, for the times weave's own
 # guess about what you have read is wrong. The mark you set by hand stands until you
 # move the cursor off the row.

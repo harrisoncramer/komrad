@@ -15,6 +15,7 @@ type app struct {
 	defaultHarness string
 	defaultFlags   map[string]string
 	maxAgents      int
+	maxChildren    int
 	tags           []config.Tag
 	logViewer      string
 	processViewer  string

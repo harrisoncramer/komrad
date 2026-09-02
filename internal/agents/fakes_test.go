@@ -17,6 +17,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
+	"weave/lib/xptr"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -382,16 +383,17 @@ type testAgents struct {
 }
 
 type agentServiceOptions struct {
-	tmux      fakeTmuxController
-	harnesses fakeHarnesses
-	addr      string
-	flags     string
-	lifecycle agentActions
-	maxAgents int
-	notifier  systemMailSender
-	logsDir   string
-	agents    testAgentStore
-	tx        txRunner
+	tmux        fakeTmuxController
+	harnesses   fakeHarnesses
+	addr        string
+	flags       string
+	lifecycle   agentActions
+	maxAgents   int
+	maxChildren int
+	notifier    systemMailSender
+	logsDir     string
+	agents      testAgentStore
+	tx          txRunner
 }
 
 func (s *testStore) agentService(options agentServiceOptions) *testAgents {
@@ -423,6 +425,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		UserDefaultHarness: testHarnessID,
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
+		MaxChildren:        options.maxChildren,
 	})
 
 	return &testAgents{
@@ -664,6 +667,33 @@ func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, stat
 	require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
 
 	return agent
+}
+
+// seedChild records an agent attached to a parent, in that parent's workflow and directory,
+// which is what a launch would have written for it.
+func seedChild(t *testing.T, st *testStore, tmux paneStamper, parent agentstore.Agent) agentstore.Agent {
+	const name = "reviewer"
+
+	t.Helper()
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:          name,
+		Pane:          "%" + name,
+		State:         agentstore.StateIdle,
+		Cwd:           parent.Cwd,
+		WorkflowID:    parent.WorkflowID,
+		ParentAgentID: &parent.ID,
+		SetupAction:   xptr.Ptr(""),
+		CleanupAction: xptr.Ptr(""),
+	}))
+
+	got, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+	require.NoError(t, tmux.SetPaneOwner(got.Pane, got.ID))
+
+	return *got
 }
 
 func seedSpawned(t *testing.T, st *testStore, parentID string) agentstore.Agent {

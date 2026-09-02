@@ -36,6 +36,7 @@ type Params struct {
 	DefaultHarness     string
 	DefaultFlags       map[string]string
 	MaxAgents          int
+	MaxChildren        int
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string

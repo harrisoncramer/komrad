@@ -107,6 +107,18 @@ func failedMark(agent agentstore.Agent) string {
 
 const workflowIcon = "⧉"
 
+const childIcon = "└"
+
+// childMark opens the column a child's state mark is pushed right by, drawn where its parent's
+// own mark sits so that every parent stays aligned with every other one.
+func childMark(child bool) string {
+	if !child {
+		return ""
+	}
+
+	return dimStyle.Render(childIcon) + " "
+}
+
 func archivedTag(w workflowstore.Workflow) string {
 	if w.ArchivedAt == nil {
 		return ""

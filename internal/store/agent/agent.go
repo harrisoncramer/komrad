@@ -55,9 +55,14 @@ type Agent struct {
 	Tag              *string
 	Metadata         []Metadata
 	SpawnedByAgentID *string
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	Branch           *string
+
+	// ParentAgentID is the agent this one is attached to, where SpawnedByAgentID is only who
+	// called create, so a child has no worktree of its own and is archived, deleted, and
+	// restored with that parent rather than by itself.
+	ParentAgentID *string
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	Branch        *string
 
 	// AdoptedBranch is the branch an agent was put on rather than one weave made for it,
 	// so it is what was asked for where Branch is what the cwd is on now.
@@ -127,6 +132,7 @@ func agentFromRow(agent models.Agent) Agent {
 		Hidden:           agent.IsHidden,
 		Tag:              agent.Tag,
 		SpawnedByAgentID: agent.SpawnedByAgentID,
+		ParentAgentID:    agent.ParentAgentID,
 		CreatedAt:        agent.CreatedAt,
 		UpdatedAt:        agent.UpdatedAt,
 		Branch:           agent.Branch,
