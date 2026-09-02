@@ -125,6 +125,7 @@ type Agent struct {
 	AdoptedBranch    string
 	ViewedAt         *time.Time
 	ParentAgentID    *string
+	TurnEndedAt      *time.Time
 }
 
 // Key/value facts an agent recorded about its own work.

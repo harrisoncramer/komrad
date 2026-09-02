@@ -15,9 +15,9 @@ const ScheduleReconcileInterval = 10 * time.Second
 
 const MailDeliveryInterval = 2 * time.Second
 
-// TranscriptSyncInterval is how often an agent's log is read for new turns, which is also how
-// long the unread mark can lag what the agent has actually written.
-const TranscriptSyncInterval = 5 * time.Second
+// TranscriptSyncInterval is how often an agent's log is read for new turns, which decides how
+// soon a conversation is searchable and nothing else.
+const TranscriptSyncInterval = 15 * time.Second
 
 const CwdSyncInterval = 15 * time.Second
 

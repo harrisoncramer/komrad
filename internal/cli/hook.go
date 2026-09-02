@@ -64,6 +64,55 @@ meant to be run by hand.`,
 	}
 
 	cmd.AddCommand(stopHookCmd(state))
+	cmd.AddCommand(turnEndHookCmd(state))
+
+	return cmd
+}
+
+// turnEndPayload is codex's notify argument, of which only the type is read, since the rest
+// names a turn weave already knows about from the caller headers.
+type turnEndPayload struct {
+	Type string `json:"type"`
+}
+
+const turnCompleteType = "agent-turn-complete"
+
+func turnEndHookCmd(state *app) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "turn-end",
+		Short: "Record that an agent's turn ended",
+		Long: `Record that an agent's turn ended.
+
+Codex runs this as its notify program, handing it one JSON argument. Weave keeps
+the moment against the agent so the panel can say it has finished something
+nobody has read. Anything but a completed turn is ignored.`,
+		Args:          cobra.ArbitraryArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, args []string) error {
+		if state.env.AgentID == "" {
+			return nil
+		}
+		// Any arity is taken, since a notify that grew an argument would otherwise fail its own
+		// validation, print into a discarded stream, and stop the marks with nothing saying why.
+		if len(args) > 0 {
+			var payload turnEndPayload
+			if err := json.Unmarshal([]byte(args[0]), &payload); err != nil {
+				reportHookProblem(cmd, "weave could not parse the notify payload, so no turn end was recorded", err)
+
+				return nil
+			}
+			if payload.Type != turnCompleteType {
+				return nil
+			}
+		}
+
+		recordTurnBoundary(cmd.Context(), state)
+
+		return nil
+	}
 
 	return cmd
 }
@@ -90,11 +139,17 @@ turn end.`,
 
 			return nil
 		}
-		if payload.StopHookActive || state.env.AgentID == "" {
+		if state.env.AgentID == "" {
 			return nil
 		}
 
+		// Recorded before the re-entry check, since a turn the last delivery caused is still a
+		// turn ending, and it is the turn in which the agent answered its mail.
 		recordTurnBoundary(cmd.Context(), state)
+
+		if payload.StopHookActive {
+			return nil
+		}
 
 		mail, err := readMail(cmd.Context(), state)
 		if err != nil {

@@ -1,4 +1,4 @@
-h1:sI+CaN3z9kTyomyoUaNeB6RIcrDHK2p6erClTKRg2I0=
+h1:xk7MGl1CscGbZWqWq3R/nvLVQJzvmJGLdLgt1L9poXc=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -18,3 +18,4 @@ h1:sI+CaN3z9kTyomyoUaNeB6RIcrDHK2p6erClTKRg2I0=
 20260901135930_agent_finished_and_viewed.sql h1:PTxmdvVWoQkoEF74wnPELTJlUH1u9Xc1g0LSOa4AJ0I=
 20260901154954_drop_agent_finished_at.sql h1:AAFeHw6Q1jxG8bmahirTZcXMxd1jzvCu8lgq3eNWs24=
 20260902055325_parent_agent_id.sql h1:pY1dRaHjbJDV3LrsxIEl/gQh7ezclksLQ82jN3tjjTw=
+20260902055847_agent_turn_ended_at.sql h1:ZQZiS+jDmlOt43JdOUzWnPup2EUVjNNixXZF6mHDpO4=

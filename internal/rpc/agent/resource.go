@@ -144,5 +144,6 @@ func renderSearchHit(hit transcriptstore.SearchHit) *agentv1.SearchHit {
 		Seq:           hit.Seq,
 		Role:          hit.Role,
 		ContentOffset: hit.ContentOffset,
+		ContentLength: hit.ContentLength,
 	}
 }

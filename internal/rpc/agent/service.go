@@ -60,6 +60,8 @@ type agentReadWriter interface {
 	SetTags(ctx context.Context, ids []string, tag *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetViewed(ctx context.Context, id string, viewed bool) error
+	SetTurnEnded(ctx context.Context, id string) error
+	ListUnseenTurns(ctx context.Context) ([]string, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
@@ -71,7 +73,6 @@ type archiveEmptier interface {
 type transcriptReader interface {
 	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
 	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
-	ListUnread(ctx context.Context) ([]string, error)
 }
 
 type mailer interface {
@@ -201,11 +202,11 @@ func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (fu
 	}
 	waiting := xslice.KeyBy(mailboxes, func(id string) string { return id })
 
-	unread, err := s.transcripts.ListUnread(ctx)
+	unseen, err := s.agents.ListUnseenTurns(ctx)
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the agents holding unread output")
+		return nil, rpcerr.Wrap(err, "failed to list the agents holding unseen turns")
 	}
-	unviewed := xslice.KeyBy(unread, func(id string) string { return id })
+	unviewed := xslice.KeyBy(unseen, func(id string) string { return id })
 
 	return func(a agentstore.Agent) agentMarks {
 		_, hasMail := waiting[a.ID]
@@ -351,7 +352,9 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending.
+// RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending, which
+// lets the reconciler reach an idle verdict sooner and stamps the row the unread mark is
+// measured against, making this the only path that writes one.
 func (s *Service) RecordTurnBoundary(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
@@ -359,6 +362,10 @@ func (s *Service) RecordTurnBoundary(ctx context.Context, _ *connect.Request[emp
 	}
 
 	s.reconciler.RecordTurnBoundary(id)
+
+	if err := s.agents.SetTurnEnded(ctx, id); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to record the turn end")
+	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }

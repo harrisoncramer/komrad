@@ -128,7 +128,7 @@ type serveParams struct {
 	Addr   string
 }
 
-func getStopHookBinaryPath(ctx context.Context) string {
+func getHookBinaryPath(ctx context.Context) string {
 	path, err := os.Executable()
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn,
@@ -156,7 +156,7 @@ func serve(ctx context.Context, p serveParams) error {
 		MaxAgents:      state.maxAgents,
 		MaxChildren:    state.maxChildren,
 		ContextPath:    state.contextPath,
-		HookCommand:    getStopHookBinaryPath(ctx),
+		HookCommand:    getHookBinaryPath(ctx),
 	})
 	if err != nil {
 		return err

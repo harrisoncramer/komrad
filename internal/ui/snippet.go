@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
 	transcriptstore "weave/internal/store/transcript"
@@ -136,4 +137,57 @@ func trimLastRune(s string) string {
 	}
 
 	return string(r[:len(r)-1])
+}
+
+// markedTerms pulls the words the search marked in a snippet, which are the forms the turn
+// actually spells rather than the words the query asked for, since a stemmed match spells the
+// word its own way.
+func markedTerms(snippet string) []string {
+	var terms []string
+	seen := make(map[string]bool)
+
+	rest := snippet
+	for {
+		i := strings.Index(rest, transcriptstore.SnippetOpen)
+		if i < 0 {
+			break
+		}
+		rest = rest[i+len(transcriptstore.SnippetOpen):]
+
+		j := strings.Index(rest, transcriptstore.SnippetClose)
+		if j < 0 {
+			break
+		}
+		term := strings.ToLower(strings.TrimSpace(rest[:j]))
+		rest = rest[j+len(transcriptstore.SnippetClose):]
+
+		if term == "" || seen[term] {
+			continue
+		}
+		seen[term] = true
+		terms = append(terms, term)
+	}
+
+	return terms
+}
+
+// matchLines reports the lines the marked words are spelled on within the one turn a hit came
+// from, which is as much as a hit says about where it matched: the search index gives a turn
+// and the words, never a position for the words themselves.
+func matchLines(content string, offset, length int64, terms []string) []int {
+	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
+		return nil
+	}
+
+	end := min(offset+length, int64(len(content)))
+	first := lineAtOffset(content, offset)
+
+	var lines []int
+	for i, line := range strings.Split(strings.ToLower(content[offset:end]), "\n") {
+		if slices.ContainsFunc(terms, func(term string) bool { return strings.Contains(line, term) }) {
+			lines = append(lines, first+i)
+		}
+	}
+
+	return lines
 }

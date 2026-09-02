@@ -56,7 +56,16 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		m.hover = hoverState{agentID: item.agent.ID, since: now}
 	}
 
-	if !item.unviewed || m.hover.held {
+	// A row with nothing to read keeps restarting the dwell, so the turn that lands next has to
+	// be looked at for a second of its own rather than being claimed on arrival by a cursor
+	// that was parked there through the turn before it.
+	if !item.unviewed {
+		m.hover.since = now
+
+		return m, nil
+	}
+
+	if m.hover.held {
 		return m, nil
 	}
 

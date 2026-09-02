@@ -215,3 +215,127 @@ func backdateNudge(t *testing.T, st *fixture, id string, age time.Duration) {
 		`UPDATE agents SET nudged_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
 	require.NoError(t, err)
 }
+
+// TestListUnseenTurnsFollowsTheReportedTurn covers the whole point of taking the mark off what
+// the agent's own CLI reported: an agent is unread because it said a turn of its ended, and
+// nothing weave thought it saw on a pane can say otherwise.
+func TestListUnseenTurnsFollowsTheReportedTurn(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+
+	unseen, err := st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unseen, "an agent that has ended no turn is not unread")
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	unseen, err = st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unseen, "and working is not finishing")
+
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	unseen, err = st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{created.ID}, unseen)
+
+	require.NoError(t, st.SetViewed(ctx, created.ID, true))
+	unseen, err = st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unseen, "and read once somebody has looked")
+
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	unseen, err = st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{created.ID}, unseen, "a turn ending after the look is unread again")
+}
+
+// TestSetViewedStampsTheTurnItRead pins that the mark records the turn weave had been told
+// about rather than the clock, so a turn landing mid-look is not read along with the look.
+func TestSetViewedStampsTheTurnItRead(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+
+	ended, err := st.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, ended.TurnEndedAt)
+
+	require.NoError(t, st.SetViewed(ctx, created.ID, true))
+	read, err := st.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	require.NotNil(t, read.ViewedAt)
+	assert.Equal(t, ended.TurnEndedAt.UTC(), read.ViewedAt.UTC())
+}
+
+// TestSetViewedPutsTheMarkBack covers the manual half, where somebody says they have not read
+// what weave decided they had.
+func TestSetViewedPutsTheMarkBack(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	require.NoError(t, st.SetViewed(ctx, created.ID, true))
+
+	require.NoError(t, st.SetViewed(ctx, created.ID, false))
+	back, err := st.GetByID(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Nil(t, back.ViewedAt)
+
+	unseen, err := st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{created.ID}, unseen)
+}
+
+// TestSetViewedOnAnAgentThatHasEndedNoTurn pins that claiming an agent weave has heard nothing
+// from records nothing, so the first turn it does finish is still news.
+func TestSetViewedOnAnAgentThatHasEndedNoTurn(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NoError(t, st.SetViewed(ctx, created.ID, true))
+
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+	unseen, err := st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, []string{created.ID}, unseen)
+}
+
+// TestListUnseenTurnsLeavesTheArchiveAlone pins that archiving an agent takes it out of the
+// mark, since an archived row has no place on the list the mark is drawn on.
+func TestListUnseenTurnsLeavesTheArchiveAlone(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NoError(t, st.SetTurnEnded(ctx, created.ID))
+
+	_, err = st.Archive(ctx, []string{created.ID})
+	require.NoError(t, err)
+
+	unseen, err := st.ListUnseenTurns(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, unseen)
+}
+
+// TestSetTurnEndedRefusesAnIDThatIsNotOne pins that a malformed id is an error rather than a
+// write that silently reaches nothing.
+func TestSetTurnEndedRefusesAnIDThatIsNotOne(t *testing.T) {
+	st := open(t)
+
+	require.ErrorIs(t, st.SetTurnEnded(t.Context(), "not-a-uuid"), store.ErrNotFound)
+}

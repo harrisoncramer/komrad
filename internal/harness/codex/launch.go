@@ -35,6 +35,10 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 		command += " -c " + harness.QuoteArg(`mcp_servers.weave.default_tools_approval_mode="approve"`)
 	}
 
+	if launch.HookCommand != "" {
+		command += " -c " + harness.QuoteArg(notifyProgram(launch.HookCommand))
+	}
+
 	if resuming {
 		command += " " + harness.QuoteArg(launch.SessionID)
 		if launch.Prompt == "" {
@@ -60,6 +64,12 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	}
 
 	return command + fmt.Sprintf(" -- \"$(cat '%s'; rm '%s')\"", path, path), nil
+}
+
+// notifyProgram is codex's only report of a turn ending, which it calls with one JSON argument
+// on turn completion, since none of its newer hooks fire for the main agent finishing.
+func notifyProgram(hookCommand string) string {
+	return fmt.Sprintf("notify=[%s,%s,%s]", tomlString(hookCommand), tomlString("hook"), tomlString("turn-end"))
 }
 
 func mcpHeaders() string {

@@ -316,29 +316,31 @@ UPDATE
     agents
 SET
     viewed_at = CASE WHEN @viewed::boolean THEN
-    (
-        SELECT
-            t.synced_at
-        FROM
-            agent_transcripts t
-        WHERE
-            t.agent_id = agents.id)
+        turn_ended_at
     ELSE
         NULL
     END
 WHERE
     id = @id;
 
--- name: ListAgentsWithUnreadTranscripts :many
+-- name: SetAgentTurnEndedByID :exec
+UPDATE
+    agents
+SET
+    turn_ended_at = NOW()
+WHERE
+    id = @id;
+
+-- name: ListAgentsWithUnseenTurns :many
 SELECT
-    t.agent_id
+    a.id
 FROM
-    agent_transcripts t
-    JOIN agents a ON a.id = t.agent_id
+    agents a
 WHERE
     a.archived_at IS NULL
+    AND a.turn_ended_at IS NOT NULL
     AND (a.viewed_at IS NULL
-        OR t.synced_at > a.viewed_at);
+        OR a.turn_ended_at > a.viewed_at);
 
 -- name: MarkAgentSettingUpIfLive :many
 UPDATE
@@ -617,6 +619,7 @@ ranked AS (
         c.seq,
         c.role,
         c.content_offset,
+        OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
         TS_HEADLINE('english', c.content, q.words, @headline) AS snippet,
@@ -636,6 +639,7 @@ SELECT
     r.seq,
     r.role,
     r.content_offset,
+    r.content_length,
     r.name,
     r.archived::boolean AS archived,
     r.snippet::text AS snippet,
@@ -678,15 +682,16 @@ ranked AS (
         c.seq,
         c.role,
         c.content_offset,
+        OCTET_LENGTH(c.content) AS content_length,
         a.name,
         a.archived_at IS NOT NULL AS archived,
         SUBSTRING(c.content FROM GREATEST(1,(
                     SELECT
                         MIN(POSITION(LOWER(t) IN LOWER(c.content)))
                     FROM UNNEST(q.terms) t
-                WHERE
-                    POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
-            FOR @width::int) AS snippet,
+                    WHERE
+                        POSITION(LOWER(t) IN LOWER(c.content)) > 0) - @lead::int)
+                FOR @width::int) AS snippet,
         WORD_SIMILARITY(ARRAY_TO_STRING(q.terms, ' '), c.content) AS rank
     FROM
         agent_transcript_chunks c
@@ -705,6 +710,7 @@ SELECT
     r.seq,
     r.role,
     r.content_offset,
+    r.content_length,
     r.name,
     r.archived::boolean AS archived,
     r.snippet::text AS snippet,
