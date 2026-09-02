@@ -72,6 +72,7 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			Metadata:         metadata,
 			IdempotencyKey:   stored.IdempotencyKey,
 			SpawnedByAgentId: stored.SpawnedByAgentID,
+			ParentAgentId:    stored.ParentAgentID,
 			Branch:           stored.Branch,
 			WorktreeRemoved:  stored.WorktreeRemoved,
 			Unviewed:         marks.unviewed,

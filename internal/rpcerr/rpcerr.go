@@ -32,6 +32,7 @@ var table = []mapping{
 	{agents.ErrRecipientNotFound, connect.CodeNotFound},
 	{agents.ErrReviewThreadNotFound, connect.CodeNotFound},
 	{agents.ErrReviewMessageNotFound, connect.CodeNotFound},
+	{agents.ErrParentNotFound, connect.CodeNotFound},
 
 	{store.ErrNameTaken, connect.CodeAlreadyExists},
 
@@ -45,11 +46,15 @@ var table = []mapping{
 	{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
+	{agents.ErrChildRidesAlong, connect.CodeFailedPrecondition},
+	{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 
 	{agents.ErrBadCron, connect.CodeInvalidArgument},
 	{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 	{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
 	{agents.ErrSpawnerUnknown, connect.CodeInvalidArgument},
+	{agents.ErrParentIsChild, connect.CodeInvalidArgument},
+	{agents.ErrChildOwnsLaunch, connect.CodeInvalidArgument},
 	{agents.ErrSelfAddressed, connect.CodeInvalidArgument},
 	{agents.ErrSenderUnknown, connect.CodeInvalidArgument},
 	{agents.ErrReplyToNotFound, connect.CodeInvalidArgument},
@@ -65,10 +70,12 @@ var table = []mapping{
 	{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
 	{agents.ErrMailboxFull, connect.CodeResourceExhausted},
 	{agents.ErrThreadCapped, connect.CodeResourceExhausted},
+	{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
 	{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
 
 	{agents.ErrReviewNotYours, connect.CodePermissionDenied},
 	{agents.ErrReviewHumanOnly, connect.CodePermissionDenied},
+	{agents.ErrOutsideFamily, connect.CodePermissionDenied},
 }
 
 // Replacement is what a caller is told in place of a sentinel's own message, given at the

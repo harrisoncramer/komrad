@@ -19,20 +19,53 @@ type agentRow struct {
 	item        agentItem
 	workflow    workflowstore.Workflow
 	hiddenCount int
+	// child says the row is drawn under the one above it rather than under the workflow, which
+	// is an indent and nothing else: it is an agent row like any other.
+	child bool
 }
 
 func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden bool) []agentRow {
-	byWorkflow := make(map[string][]agentItem)
+	children := make(map[string][]agentItem)
+	present := make(map[string]bool, len(agents))
+	for _, it := range agents {
+		present[it.agent.ID] = true
+		if it.agent.ParentAgentID != nil {
+			children[*it.agent.ParentAgentID] = append(children[*it.agent.ParentAgentID], it)
+		}
+	}
+
+	byWorkflow := make(map[string][]agentRow)
 	hiddenCounts := make(map[string]int)
 	for _, it := range agents {
-		if it.agent.Hidden {
-			hiddenCounts[it.agent.WorkflowID]++
-			if !showHidden {
-				continue
-			}
+		// A child is drawn where its parent is, and one whose parent is not in this listing has
+		// nowhere to be indented under, so it stands on its own rather than going missing.
+		if it.agent.ParentAgentID != nil && present[*it.agent.ParentAgentID] {
+			continue
 		}
 
-		byWorkflow[it.agent.WorkflowID] = append(byWorkflow[it.agent.WorkflowID], it)
+		workflowID := it.agent.WorkflowID
+		family := append([]agentItem{it}, children[it.agent.ID]...)
+		if it.agent.Hidden && !showHidden {
+			hiddenCounts[workflowID] += len(family)
+
+			continue
+		}
+
+		for _, member := range family {
+			if member.agent.Hidden {
+				hiddenCounts[workflowID]++
+				if !showHidden {
+					continue
+				}
+			}
+
+			byWorkflow[workflowID] = append(byWorkflow[workflowID], agentRow{
+				item: member,
+				// The indent says which row a child hangs off, so one standing at the head of
+				// its own family hangs off nothing.
+				child: member.agent.ID != it.agent.ID,
+			})
+		}
 	}
 
 	var rows []agentRow
@@ -42,8 +75,9 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 			workflow:    w,
 			hiddenCount: hiddenCounts[w.ID],
 		})
-		for _, it := range byWorkflow[w.ID] {
-			rows = append(rows, agentRow{item: it, workflow: w})
+		for _, row := range byWorkflow[w.ID] {
+			row.workflow = w
+			rows = append(rows, row)
 		}
 	}
 
@@ -172,6 +206,26 @@ func rowIndexOfKey(rows []agentRow, key string) int {
 	}
 
 	return -1
+}
+
+// unnamedChildren counts the children the named agents hold that are not among them, taking the
+// pool from the screen doing the asking, since the archive holds families the live listing does
+// not.
+func unnamedChildren(pool, named []agentstore.Agent) int {
+	held := make(map[string]bool, len(named))
+	for _, agent := range named {
+		held[agent.ID] = true
+	}
+
+	return xslice.Count(pool, func(agent agentstore.Agent) bool {
+		return agent.ParentAgentID != nil && held[*agent.ParentAgentID] && !held[agent.ID]
+	})
+}
+
+// liveAgents is the listing as bare rows, for what counts over the agents a screen is showing
+// rather than over the marks beside them.
+func (m model) liveAgents() []agentstore.Agent {
+	return xslice.Map(m.listing.agents, func(it agentItem) agentstore.Agent { return it.agent })
 }
 
 func (m model) agentCount(workflowID string) int {

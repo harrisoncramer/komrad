@@ -138,7 +138,7 @@ func TestScreensFitThePane(t *testing.T) {
 	const (
 		// Taller than the tallest legend on purpose, since a pane too short for its own chrome
 		// overflows by design.
-		height = 24
+		height = 25
 		total  = 40
 	)
 

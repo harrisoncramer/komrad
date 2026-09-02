@@ -169,3 +169,33 @@ func (s *Store) ListArchivedInWorkflow(ctx context.Context, workflowID string) (
 
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
+
+// ListChildren returns the agents attached to the given parents, archived ones included, so a
+// caller that has to include a family decides for itself which of them it wants.
+func (s *Store) ListChildren(ctx context.Context, parentIDs []string) ([]Agent, error) {
+	storable := keepStorableIDs(parentIDs)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListChildAgents(ctx, storable)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the children of %d agents: %w", len(storable), err)
+	}
+
+	return s.hydrateMetadataForAgents(ctx, rows)
+}
+
+// CountLiveChildren returns how many live agents are attached to one parent.
+func (s *Store) CountLiveChildren(ctx context.Context, parentID string) (int, error) {
+	if !store.IsID(parentID) {
+		return 0, nil
+	}
+
+	count, err := s.queries.CountLiveChildAgents(ctx, &parentID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the children of agent %q: %w", parentID, err)
+	}
+
+	return int(count), nil
+}

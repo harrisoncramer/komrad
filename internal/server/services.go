@@ -93,6 +93,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		UserDefaultHarness: p.DefaultHarness,
 		UserDefaultFlags:   p.DefaultFlags,
 		MaxAgents:          p.MaxAgents,
+		MaxChildren:        p.MaxChildren,
 	})
 	resumeService := agents.NewResumeService(agents.ResumeServiceParams{
 		Tmux:               p.Tmux,

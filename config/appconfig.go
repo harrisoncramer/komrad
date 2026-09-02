@@ -58,6 +58,12 @@ const DefaultMaxHops = 20
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
 const DefaultMaxAgents = 50
 
+// DefaultMaxChildren is how many children one agent may hold at once when the config names no
+// number. It is far lower than the panel's own ceiling because they all work in the one
+// checkout, so a third is usually a sign an orchestrator is fanning out where it wanted agents
+// of their own.
+const DefaultMaxChildren = 3
+
 // The connection settings a config that names none runs on. They live here rather than as
 // envDefault tags on the runtime config so that the built-in default sits underneath the
 // file, which is where the precedence chain wants it. A tag default would sit beside the
@@ -243,6 +249,9 @@ type AgentsKeys struct {
 	Tag []string `mapstructure:"tag"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
+	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
+	// with no worktree of its own and is archived along with it.
+	Child []string `mapstructure:"child"`
 	// Put the hovered agent's unread mark back, or take it off, for the times weave's own
 	// guess about what you have read is wrong. The mark you set by hand stands until you
 	// move the cursor off the row.
@@ -545,8 +554,12 @@ type Config struct {
 	// the names under [harness] below.
 	DefaultHarness string `mapstructure:"default_harness"`
 	// How many unarchived agents may exist at once, past which a create is refused.
-	MaxAgents int       `mapstructure:"max_agents"`
-	Harness   Harnesses `mapstructure:"harness"`
+	MaxAgents int `mapstructure:"max_agents"`
+	// How many children one agent may hold at once, past which attaching another is refused.
+	// Children share their parent's checkout, so this is deliberately a much lower ceiling
+	// than max_agents.
+	MaxChildren int       `mapstructure:"max_children"`
+	Harness     Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
 	// The tags the tag key cycles through, in order.
@@ -576,6 +589,7 @@ func Defaults() *Config {
 	return &Config{
 		DefaultHarness: DefaultHarness,
 		MaxAgents:      DefaultMaxAgents,
+		MaxChildren:    DefaultMaxChildren,
 		Layout:         DefaultLayout(),
 		Tags:           DefaultTags(),
 		Keybindings:    DefaultKeybindings(),
@@ -675,6 +689,7 @@ func DefaultKeybindings() Keybindings {
 			Hide:         []string{"h"},
 			Tag:          []string{"t"},
 			New:          []string{"c"},
+			Child:        []string{"C"},
 			ToggleViewed: []string{"u"},
 			NextUnviewed: []string{"n"},
 			PrevUnviewed: []string{"N"},
@@ -868,6 +883,9 @@ func (c Config) validate() error {
 	// one thing while the panel does another.
 	if c.MaxAgents < 0 {
 		return fmt.Errorf("max_agents: %d is not a number of agents", c.MaxAgents)
+	}
+	if c.MaxChildren < 0 {
+		return fmt.Errorf("max_children: %d is not a number of agents", c.MaxChildren)
 	}
 
 	return validateLayout(c.Layout)
@@ -1103,6 +1121,9 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if c.MaxAgents == 0 {
 		c.MaxAgents = DefaultMaxAgents
+	}
+	if c.MaxChildren == 0 {
+		c.MaxChildren = DefaultMaxChildren
 	}
 	if c.Layout.SidebarWidth == 0 {
 		c.Layout.SidebarWidth = DefaultSidebarWidth

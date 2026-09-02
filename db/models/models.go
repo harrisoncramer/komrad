@@ -124,6 +124,7 @@ type Agent struct {
 	InterruptedAt    *time.Time
 	AdoptedBranch    string
 	ViewedAt         *time.Time
+	ParentAgentID    *string
 	TurnEndedAt      *time.Time
 }
 

@@ -19,6 +19,8 @@ import (
 
 var errNoWorkflow = errors.New("every agent belongs to a workflow, so create one first")
 
+var errChildOfChild = errors.New("a child agent may not have children of its own")
+
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
@@ -110,6 +112,8 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.openAgentPR(item.agent)
 		case isBound(k, m.keys.Agents.Review):
 			return m.enterReview(item.agent)
+		case isBound(k, m.keys.Agents.Child):
+			return m.openNewChild(item.agent)
 		case isBound(k, m.keys.Agents.Rename):
 			return m.openRename(item.agent)
 		case isBound(k, m.keys.Agents.Archive):
@@ -155,7 +159,7 @@ func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.C
 		return m, nil
 	}
 
-	form, answer := archiveAgentsForm(agents, m.keys.Form)
+	form, answer := archiveAgentsForm(agents, unnamedChildren(m.liveAgents(), agents), m.keys.Form)
 
 	return m, m.openForm(formState{
 		kind:   formAgentArchive,
@@ -368,7 +372,7 @@ func (m model) agentsDetails() details {
 		id:     r.item.agent.ID,
 		kind:   "Agent",
 		title:  r.item.agent.Name,
-		fields: agentFields(r.item.agent, m.scheduleName(r.item.agent)),
+		fields: agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
 	}
 }
 
@@ -444,6 +448,20 @@ func isSameTag(a, b *string) bool {
 	return *a == *b
 }
 
+// parentName is what the agent a child is attached to is called, which is what the details show
+// rather than the id the row already carries.
+func (m model) parentName(agent agentstore.Agent) string {
+	if agent.ParentAgentID == nil {
+		return ""
+	}
+
+	if item, ok := m.liveAgent(*agent.ParentAgentID); ok {
+		return item.agent.Name
+	}
+
+	return *agent.ParentAgentID
+}
+
 func (m model) scheduleName(agent agentstore.Agent) string {
 	if agent.ScheduleID == nil {
 		return ""
@@ -512,7 +530,7 @@ func (m model) agentsView() string {
 		item := r.item
 		selected := m.tree.selected.has(item.agent.ID)
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
-		row := prefix + "  " + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed)
+		row := prefix + "  " + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}
 
@@ -554,6 +572,50 @@ func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormV
 			return rebuilt, rebuilt.Init()
 		},
 	})
+}
+
+// openNewChild attaches a child to the hovered agent, saying why on a child rather than opening
+// a form whose submit the service could only refuse.
+func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
+	if parent.ParentAgentID != nil {
+		m.report("Could not attach a child", errChildOfChild)
+
+		return m, nil
+	}
+
+	values := agentFormValues{Harness: parent.Harness, Flags: parent.Flags}
+
+	return m.openChildForm(parent, &values)
+}
+
+func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
+	return m, m.openForm(formState{
+		kind:   formChild,
+		form:   childAgentForm(m.keys.Form, values, parent),
+		update: model.updateForm,
+		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
+		rebuild: func(m model) (*huh.Form, tea.Cmd) {
+			rebuilt := childAgentForm(m.keys.Form, values, parent)
+
+			return rebuilt, rebuilt.Init()
+		},
+	})
+}
+
+// submitChild launches the child without sending anything about where it runs, since the
+// service takes the directory and both actions from the parent and refuses a request naming
+// them.
+func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
+	cmd := m.createCmd(createAgentParams{
+		Prompt:        values.Prompt,
+		Title:         values.Title,
+		Harness:       values.Harness,
+		Flags:         values.Flags,
+		WorkflowID:    parent.WorkflowID,
+		ParentAgentID: parent.ID,
+	})
+
+	return m, tea.Batch(cmd, m.holdForm())
 }
 
 func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {

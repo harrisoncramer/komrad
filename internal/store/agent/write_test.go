@@ -220,6 +220,50 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
 }
 
+// TestParentAgentID pins the attachment reading back on its own rather than through the
+// spawner column, since the two answer different questions about the same pair of agents.
+func TestParentAgentID(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author"}))
+	parent, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NotNil(t, parent)
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID}))
+	stored, err := f.Get(ctx, "reviewer")
+	require.NoError(t, err)
+	require.NotNil(t, stored)
+
+	require.NotNil(t, stored.ParentAgentID)
+	assert.Equal(t, parent.ID, *stored.ParentAgentID)
+	assert.Nil(t, stored.SpawnedByAgentID, "who called create is a separate fact")
+}
+
+// TestDeleteTakesTheChildren pins the cascade, which is the backstop under the service: a child
+// has nothing of its own to keep, so a row outliving its parent would only be a dangling one.
+func TestDeleteTakesTheChildren(t *testing.T) {
+	f := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "author"}))
+	parent, err := f.Get(ctx, "author")
+	require.NoError(t, err)
+	require.NotNil(t, parent)
+
+	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID}))
+	child, err := f.Get(ctx, "reviewer")
+	require.NoError(t, err)
+	require.NotNil(t, child)
+
+	_, deleteErr := f.Delete(ctx, []string{parent.ID})
+	require.NoError(t, deleteErr)
+
+	_, err = f.GetByID(ctx, child.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+}
+
 // TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it, since
 // nothing deletes them by hand and a missing cascade would leave rows keyed to a dead id.
 func TestDeleteTakesMetadata(t *testing.T) {

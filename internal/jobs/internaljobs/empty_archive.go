@@ -71,9 +71,16 @@ func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchi
 
 		cursor = &agentstore.Cursor{ID: batch[len(batch)-1].ID}
 
+		// A child is deleted by naming its parent, and naming one on its own is refused, so the
+		// page asks for the parents and the children on it go with whichever page holds theirs.
+		parents := xslice.Filter(batch, func(agent agentstore.Agent) bool { return agent.ParentAgentID == nil })
+		if len(parents) == 0 {
+			continue
+		}
+
 		// An agent whose cleanup is still running or failed is left behind rather than
 		// failing the batch, so a sweep can finish with rows still in the archive.
-		ids := xslice.Map(batch, func(agent agentstore.Agent) string { return agent.ID })
+		ids := xslice.Map(parents, func(agent agentstore.Agent) string { return agent.ID })
 		if err := w.agents.DeleteAgents(ctx, ids); err != nil {
 			failures = append(failures, fmt.Errorf("failed to delete %d archived agents: %w", len(ids), err))
 		}

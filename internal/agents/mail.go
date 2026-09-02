@@ -124,6 +124,34 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 	})
 }
 
+// familyID is what a family is named by, which is a parent's own id and for a child the parent
+// it is attached to, so that one comparison answers parent to child, child to parent, and one
+// child to another.
+func familyID(agent agentstore.Agent) string {
+	if agent.ParentAgentID != nil {
+		return *agent.ParentAgentID
+	}
+
+	return agent.ID
+}
+
+// requireSameFamily holds a child to its parent and that parent's other children, letting
+// through the mail weave raises itself and the mail a person sends, since these rules bound what
+// a child may do rather than what may be done to it.
+func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) error {
+	if sender == nil {
+		return nil
+	}
+	if sender.ParentAgentID == nil && recipient.ParentAgentID == nil {
+		return nil
+	}
+	if familyID(*sender) == familyID(recipient) {
+		return nil
+	}
+
+	return fmt.Errorf("%w: %q is outside %q's family, so reply to your parent rather than looking for another way around", ErrOutsideFamily, recipient.Name, sender.Name)
+}
+
 type sendParams struct {
 	From      string
 	ToAgentID string
@@ -157,6 +185,9 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 	if sender != nil && sender.ID == recipient.ID {
 		return nil, ErrSelfAddressed
+	}
+	if err := requireSameFamily(sender, *recipient); err != nil {
+		return nil, err
 	}
 
 	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)

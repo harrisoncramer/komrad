@@ -128,7 +128,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt(tt.context, "", "")
+			prompt := launcher.appendedSystemPrompt(launchParams{WorkflowContext: tt.context})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -175,7 +175,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 				LogPath: briefedLogPath,
 			})
 
-			prompt := launcher.appendedSystemPrompt("", tt.spawnedByAgentID, tt.spawnedByName)
+			prompt := launcher.appendedSystemPrompt(launchParams{SpawnedByAgentID: tt.spawnedByAgentID, SpawnedByName: tt.spawnedByName})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -237,7 +237,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 				ContextPath: path,
 			})
 
-			prompt := launcher.appendedSystemPrompt(tt.workflowContext, "", "")
+			prompt := launcher.appendedSystemPrompt(launchParams{WorkflowContext: tt.workflowContext})
 
 			for _, want := range tt.wantContain {
 				assert.Contains(t, prompt, want)
@@ -265,11 +265,11 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 		LogPath:     briefedLogPath,
 		ContextPath: path,
 	})
-	require.Contains(t, launcher.appendedSystemPrompt("", "", ""), "before-the-edit")
+	require.Contains(t, launcher.appendedSystemPrompt(launchParams{}), "before-the-edit")
 
 	require.NoError(t, os.WriteFile(path, []byte("after-the-edit"), 0o600))
 
-	prompt := launcher.appendedSystemPrompt("", "", "")
+	prompt := launcher.appendedSystemPrompt(launchParams{})
 	assert.Contains(t, prompt, "after-the-edit")
 	assert.NotContains(t, prompt, "before-the-edit")
 }

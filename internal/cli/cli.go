@@ -94,6 +94,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.keys = cfg.Keybindings
 			app.defaultHarness = cfg.DefaultHarness
 			app.maxAgents = cfg.MaxAgents
+			app.maxChildren = cfg.MaxChildren
 
 			manager := tmux.NewClient(env.TmuxSocket)
 			app.host = tmux.NewHost(manager, env.Tmux)

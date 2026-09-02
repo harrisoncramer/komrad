@@ -57,13 +57,24 @@ func (l *Launcher) buildBriefing() string {
 	return strings.ReplaceAll(text, logPathPlaceholder, l.logPath)
 }
 
-func (l *Launcher) appendedSystemPrompt(workflowContext, spawnedByAgentID, spawnedByName string) string {
-	parts := []string{l.buildBriefing(), delegateBriefing(spawnedByAgentID, spawnedByName), l.globalContext(), workflowContext}
+func (l *Launcher) appendedSystemPrompt(params launchParams) string {
+	parts := []string{l.buildBriefing(), relationBriefing(params), l.globalContext(), params.WorkflowContext}
 
 	trimmed := xslice.Map(parts, strings.TrimSpace)
 	kept := xslice.Filter(trimmed, func(s string) bool { return s != "" })
 
 	return strings.Join(kept, "\n\n")
+}
+
+// relationBriefing is what an agent is told about whoever it answers to, which for a child is
+// the rules it runs under as well, since those are the reason it was made this way rather than
+// as an agent of its own.
+func relationBriefing(params launchParams) string {
+	if params.ParentAgentID != "" {
+		return childBriefing(params.ParentName, params.ParentAgentID)
+	}
+
+	return delegateBriefing(params.SpawnedByAgentID, params.SpawnedByName)
 }
 
 func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
@@ -74,6 +85,15 @@ func delegateBriefing(spawnedByAgentID, spawnedByName string) string {
 	return fmt.Sprintf(
 		"You were spawned by agent %s (%s) to do this piece of work. Answer its mail as it arrives, and tell it when you are done rather than waiting to be asked.",
 		spawnedByName, spawnedByAgentID)
+}
+
+func childBriefing(parentName, parentAgentID string) string {
+	return fmt.Sprintf(`You are a child of agent %s (%s), attached to it rather than standing on your own. Answer its mail as it arrives, and tell it when you are done rather than waiting to be asked.
+
+You are sitting in that agent's own checkout, which you own nothing in. Read it, run it, and say what you found, but do not commit, push, stash, or switch branches: the parent is working there and its next act is to keep working where you are reading. Put back anything you changed to try something out.
+
+You have no worktree of your own and no actions of your own, and you cannot be archived or deleted by yourself: you go when the parent goes. Mail reaches your parent and that parent's other children, and nobody else, so reply to your parent rather than looking for another way around. Your parent will name your siblings if there are any you need.`,
+		parentName, parentAgentID)
 }
 
 func (l *Launcher) globalContext() string {
@@ -99,6 +119,8 @@ type launchParams struct {
 	AgentID          string
 	SpawnedByAgentID string
 	SpawnedByName    string
+	ParentAgentID    string
+	ParentName       string
 	Resume           bool
 }
 
@@ -107,7 +129,7 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		Flags:       params.Flags,
 		Prompt:      params.Prompt,
 		Dir:         params.Dir,
-		Context:     l.appendedSystemPrompt(params.WorkflowContext, params.SpawnedByAgentID, params.SpawnedByName),
+		Context:     l.appendedSystemPrompt(params),
 		SessionID:   params.SessionID,
 		AgentID:     params.AgentID,
 		MCPEndpoint: l.serverAddr,
