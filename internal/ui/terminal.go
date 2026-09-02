@@ -11,8 +11,9 @@ import (
 // fallbackShell is what the terminal runs when tmux answers for no default shell.
 const fallbackShell = "sh"
 
-// terminalContent is a shell in a directory, keyed by that directory rather than by the agent so
-// that moving between agents a workflow roots in one place leaves the shell alone.
+// terminalContent is a shell rooted where it was opened, under one key rather than one per
+// directory: drawing a region again respawns its pane, which kills whatever is running in it,
+// so a shell that is already up has to look the same on every restaging.
 func terminalContent(shell, dir string) layout.Content {
 	if shell == "" {
 		shell = fallbackShell
@@ -20,47 +21,45 @@ func terminalContent(shell, dir string) layout.Content {
 
 	// Naming the shell matters: a pane respawned with no command reruns whatever it held last.
 	return layout.Content{
-		Key:    "terminal:" + dir,
+		Key:    "terminal",
 		Dir:    dir,
 		Render: func(layout.Target) ([]string, bool) { return []string{shell}, true },
 	}
 }
 
-// terminalDir is where the shell belongs: under the cursor while it is on an agent, and where it
-// already is otherwise, so passing over a workflow header does not pull it out from under you.
-func (m model) terminalDir() string {
-	agent, ok := m.logTarget()
-	if !ok {
-		return m.info.subject
-	}
-
-	// An agent whose worktree has been removed has nowhere to put a shell.
-	if _, err := os.Stat(agent.Cwd); err != nil {
-		return m.info.subject
-	}
-
-	return agent.Cwd
-}
-
-// openTerminal puts a shell in the pane below the stage, rooted at the hovered agent's directory.
+// openTerminal puts a shell in the pane below the stage, rooted at the hovered agent's directory,
+// and moves the shell there when the key is pressed over an agent it is not already rooted in.
 func (m model) openTerminal() (tea.Model, tea.Cmd) {
 	if m.setupPending {
 		return m, nil
 	}
 
-	// A shell already up is kept current by the restaging, so the key is only asking for the keyboard.
-	if m.info.kind == infoTerminal && m.frame.IsOpen(layout.RegionInfo) {
+	focus := func() (tea.Model, tea.Cmd) {
 		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
+
 		return m, nil
 	}
 
+	up := m.info.kind == infoTerminal && m.frame.IsOpen(layout.RegionInfo)
+
 	agent, ok := m.logTarget()
 	if !ok {
+		// A row holding no directory of its own can only ask for the shell already there.
+		if up {
+			return focus()
+		}
+
 		return m, nil
+	}
+
+	// The shell is where the key asks for, so it wants the keyboard rather than a fresh start.
+	if up && agent.Cwd == m.info.subject {
+		return focus()
 	}
 
 	if _, err := os.Stat(agent.Cwd); err != nil {
 		m.report("Could not open a terminal", err)
+
 		return m, nil
 	}
 
@@ -68,15 +67,19 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	m.stageInfo()
-	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
-	return m, nil
+	return focus()
 }
 
 func (m model) terminalDesc() string {
-	if m.info.kind == infoTerminal {
-		return "back to the terminal"
+	if m.info.kind != infoTerminal {
+		return "terminal here"
 	}
 
-	return "terminal here"
+	// Pressing the key over an agent the shell is not rooted in moves it, so say so.
+	if agent, ok := m.logTarget(); ok && agent.Cwd != m.info.subject {
+		return "terminal here"
+	}
+
+	return "back to the terminal"
 }
