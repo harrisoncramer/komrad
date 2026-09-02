@@ -114,9 +114,12 @@ const (
 	// AgentServiceDeleteReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// DeleteReviewMessage RPC.
 	AgentServiceDeleteReviewMessageProcedure = "/agent.v1.AgentService/DeleteReviewMessage"
-	// AgentServiceNotifyReviewThreadsProcedure is the fully-qualified name of the AgentService's
-	// NotifyReviewThreads RPC.
-	AgentServiceNotifyReviewThreadsProcedure = "/agent.v1.AgentService/NotifyReviewThreads"
+	// AgentServiceReleaseReviewMessagesProcedure is the fully-qualified name of the AgentService's
+	// ReleaseReviewMessages RPC.
+	AgentServiceReleaseReviewMessagesProcedure = "/agent.v1.AgentService/ReleaseReviewMessages"
+	// AgentServiceRingReviewMessagesAgainProcedure is the fully-qualified name of the AgentService's
+	// RingReviewMessagesAgain RPC.
+	AgentServiceRingReviewMessagesAgainProcedure = "/agent.v1.AgentService/RingReviewMessagesAgain"
 	// AgentServiceSetReviewFileViewedProcedure is the fully-qualified name of the AgentService's
 	// SetReviewFileViewed RPC.
 	AgentServiceSetReviewFileViewedProcedure = "/agent.v1.AgentService/SetReviewFileViewed"
@@ -157,7 +160,8 @@ type AgentServiceClient interface {
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
-	NotifyReviewThreads(context.Context, *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error)
+	ReleaseReviewMessages(context.Context, *connect.Request[v1.ReleaseReviewMessagesRequest]) (*connect.Response[v1.ReleaseReviewMessagesResponse], error)
+	RingReviewMessagesAgain(context.Context, *connect.Request[v1.RingReviewMessagesAgainRequest]) (*connect.Response[v1.RingReviewMessagesAgainResponse], error)
 	SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error)
 	ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error)
 }
@@ -374,10 +378,16 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		notifyReviewThreads: connect.NewClient[v1.NotifyReviewThreadsRequest, v1.NotifyReviewThreadsResponse](
+		releaseReviewMessages: connect.NewClient[v1.ReleaseReviewMessagesRequest, v1.ReleaseReviewMessagesResponse](
 			httpClient,
-			baseURL+AgentServiceNotifyReviewThreadsProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("NotifyReviewThreads")),
+			baseURL+AgentServiceReleaseReviewMessagesProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ReleaseReviewMessages")),
+			connect.WithClientOptions(opts...),
+		),
+		ringReviewMessagesAgain: connect.NewClient[v1.RingReviewMessagesAgainRequest, v1.RingReviewMessagesAgainResponse](
+			httpClient,
+			baseURL+AgentServiceRingReviewMessagesAgainProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("RingReviewMessagesAgain")),
 			connect.WithClientOptions(opts...),
 		),
 		setReviewFileViewed: connect.NewClient[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse](
@@ -428,7 +438,8 @@ type agentServiceClient struct {
 	setReviewThreadResolved *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
 	deleteReviewThread      *connect.Client[v1.DeleteReviewThreadRequest, emptypb.Empty]
 	deleteReviewMessage     *connect.Client[v1.DeleteReviewMessageRequest, emptypb.Empty]
-	notifyReviewThreads     *connect.Client[v1.NotifyReviewThreadsRequest, v1.NotifyReviewThreadsResponse]
+	releaseReviewMessages   *connect.Client[v1.ReleaseReviewMessagesRequest, v1.ReleaseReviewMessagesResponse]
+	ringReviewMessagesAgain *connect.Client[v1.RingReviewMessagesAgainRequest, v1.RingReviewMessagesAgainResponse]
 	setReviewFileViewed     *connect.Client[v1.SetReviewFileViewedRequest, v1.SetReviewFileViewedResponse]
 	listReviewViewedFiles   *connect.Client[v1.ListReviewViewedFilesRequest, v1.ListReviewViewedFilesResponse]
 }
@@ -583,9 +594,14 @@ func (c *agentServiceClient) DeleteReviewMessage(ctx context.Context, req *conne
 	return c.deleteReviewMessage.CallUnary(ctx, req)
 }
 
-// NotifyReviewThreads calls agent.v1.AgentService.NotifyReviewThreads.
-func (c *agentServiceClient) NotifyReviewThreads(ctx context.Context, req *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error) {
-	return c.notifyReviewThreads.CallUnary(ctx, req)
+// ReleaseReviewMessages calls agent.v1.AgentService.ReleaseReviewMessages.
+func (c *agentServiceClient) ReleaseReviewMessages(ctx context.Context, req *connect.Request[v1.ReleaseReviewMessagesRequest]) (*connect.Response[v1.ReleaseReviewMessagesResponse], error) {
+	return c.releaseReviewMessages.CallUnary(ctx, req)
+}
+
+// RingReviewMessagesAgain calls agent.v1.AgentService.RingReviewMessagesAgain.
+func (c *agentServiceClient) RingReviewMessagesAgain(ctx context.Context, req *connect.Request[v1.RingReviewMessagesAgainRequest]) (*connect.Response[v1.RingReviewMessagesAgainResponse], error) {
+	return c.ringReviewMessagesAgain.CallUnary(ctx, req)
 }
 
 // SetReviewFileViewed calls agent.v1.AgentService.SetReviewFileViewed.
@@ -630,7 +646,8 @@ type AgentServiceHandler interface {
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
 	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
-	NotifyReviewThreads(context.Context, *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error)
+	ReleaseReviewMessages(context.Context, *connect.Request[v1.ReleaseReviewMessagesRequest]) (*connect.Response[v1.ReleaseReviewMessagesResponse], error)
+	RingReviewMessagesAgain(context.Context, *connect.Request[v1.RingReviewMessagesAgainRequest]) (*connect.Response[v1.RingReviewMessagesAgainResponse], error)
 	SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error)
 	ListReviewViewedFiles(context.Context, *connect.Request[v1.ListReviewViewedFilesRequest]) (*connect.Response[v1.ListReviewViewedFilesResponse], error)
 }
@@ -843,10 +860,16 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceNotifyReviewThreadsHandler := connect.NewUnaryHandler(
-		AgentServiceNotifyReviewThreadsProcedure,
-		svc.NotifyReviewThreads,
-		connect.WithSchema(agentServiceMethods.ByName("NotifyReviewThreads")),
+	agentServiceReleaseReviewMessagesHandler := connect.NewUnaryHandler(
+		AgentServiceReleaseReviewMessagesProcedure,
+		svc.ReleaseReviewMessages,
+		connect.WithSchema(agentServiceMethods.ByName("ReleaseReviewMessages")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceRingReviewMessagesAgainHandler := connect.NewUnaryHandler(
+		AgentServiceRingReviewMessagesAgainProcedure,
+		svc.RingReviewMessagesAgain,
+		connect.WithSchema(agentServiceMethods.ByName("RingReviewMessagesAgain")),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceSetReviewFileViewedHandler := connect.NewUnaryHandler(
@@ -924,8 +947,10 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceDeleteReviewThreadHandler.ServeHTTP(w, r)
 		case AgentServiceDeleteReviewMessageProcedure:
 			agentServiceDeleteReviewMessageHandler.ServeHTTP(w, r)
-		case AgentServiceNotifyReviewThreadsProcedure:
-			agentServiceNotifyReviewThreadsHandler.ServeHTTP(w, r)
+		case AgentServiceReleaseReviewMessagesProcedure:
+			agentServiceReleaseReviewMessagesHandler.ServeHTTP(w, r)
+		case AgentServiceRingReviewMessagesAgainProcedure:
+			agentServiceRingReviewMessagesAgainHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewFileViewedProcedure:
 			agentServiceSetReviewFileViewedHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewViewedFilesProcedure:
@@ -1059,8 +1084,12 @@ func (UnimplementedAgentServiceHandler) DeleteReviewMessage(context.Context, *co
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteReviewMessage is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) NotifyReviewThreads(context.Context, *connect.Request[v1.NotifyReviewThreadsRequest]) (*connect.Response[v1.NotifyReviewThreadsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.NotifyReviewThreads is not implemented"))
+func (UnimplementedAgentServiceHandler) ReleaseReviewMessages(context.Context, *connect.Request[v1.ReleaseReviewMessagesRequest]) (*connect.Response[v1.ReleaseReviewMessagesResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ReleaseReviewMessages is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) RingReviewMessagesAgain(context.Context, *connect.Request[v1.RingReviewMessagesAgainRequest]) (*connect.Response[v1.RingReviewMessagesAgainResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RingReviewMessagesAgain is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) SetReviewFileViewed(context.Context, *connect.Request[v1.SetReviewFileViewedRequest]) (*connect.Response[v1.SetReviewFileViewedResponse], error) {

@@ -342,6 +342,15 @@ type ReviewKeys struct {
 	PrevThread []string `mapstructure:"prev_thread"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
+	// Put the diff the panel is holding on screen, once the sidebar says the worktree has
+	// moved under you. The diff is never swapped in on its own, since that would move the
+	// code out from under a comment being written. With nothing held, this reads the
+	// worktree again.
+	Reload []string `mapstructure:"reload"`
+	// Raise a doorbell again for every comment you released whose own ran out of time
+	// before the agent read it, which is the only thing that reaches an agent that was
+	// not listening when you let the review go.
+	Resend []string `mapstructure:"resend"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
@@ -758,6 +767,8 @@ func DefaultKeybindings() Keybindings {
 			PrevMatch:    []string{"N"},
 			PrevThread:   []string{"T"},
 			Quit:         []string{"ctrl+c"},
+			Reload:       []string{"R"},
+			Resend:       []string{"a"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
 		},

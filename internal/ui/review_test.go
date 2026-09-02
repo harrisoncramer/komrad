@@ -30,7 +30,10 @@ type fakeReviewAgents struct {
 	settled  *agentv1.SetReviewThreadResolvedRequest
 	created  *agentv1.CreateReviewThreadRequest
 	replied  *agentv1.AddReviewMessageRequest
-	notified *agentv1.NotifyReviewThreadsRequest
+	released *agentv1.ReleaseReviewMessagesRequest
+	rang     *agentv1.RingReviewMessagesAgainRequest
+	expired  int32
+	rung     int32
 	marked   *agentv1.SetReviewFileViewedRequest
 }
 
@@ -67,13 +70,25 @@ func (f *fakeReviewAgents) SetReviewFileViewed(
 	return connect.NewResponse(&agentv1.SetReviewFileViewedResponse{}), nil
 }
 
-func (f *fakeReviewAgents) NotifyReviewThreads(
+func (f *fakeReviewAgents) ReleaseReviewMessages(
 	_ context.Context,
-	req *connect.Request[agentv1.NotifyReviewThreadsRequest],
-) (*connect.Response[agentv1.NotifyReviewThreadsResponse], error) {
-	f.notified = req.Msg
+	req *connect.Request[agentv1.ReleaseReviewMessagesRequest],
+) (*connect.Response[agentv1.ReleaseReviewMessagesResponse], error) {
+	f.released = req.Msg
 
-	return connect.NewResponse(&agentv1.NotifyReviewThreadsResponse{Unread: 1}), nil
+	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{Released: 1, Rung: 1}), nil
+}
+
+func (f *fakeReviewAgents) RingReviewMessagesAgain(
+	_ context.Context,
+	req *connect.Request[agentv1.RingReviewMessagesAgainRequest],
+) (*connect.Response[agentv1.RingReviewMessagesAgainResponse], error) {
+	f.rang = req.Msg
+
+	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{
+		Expired: f.expired,
+		Rung:    f.rung,
+	}), nil
 }
 
 func (f *fakeReviewAgents) AddReviewMessage(
@@ -743,61 +758,109 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	assert.Equal(t, reviewPanStep, m.reviewPanStep())
 }
 
-// TestReviewConversationStateSaysWhoseTurnItIs covers the line at the top of the sidebar, which
-// is the one place the review says where it stands.
-func TestReviewConversationStateSaysWhoseTurnItIs(t *testing.T) {
+func unsentComment() *agentv1.ReviewMessage {
+	return &agentv1.ReviewMessage{
+		Id:         "m1",
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
+	}
+}
+
+func sentComment() *agentv1.ReviewMessage {
+	return &agentv1.ReviewMessage{
+		Id:         "m1",
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT,
+		SentAt:     "2026-09-02T10:00:00Z",
+	}
+}
+
+// TestReviewDeliveryViewCountsTheComments covers the line at the top of the sidebar, which
+// counts the person's own comments by how far each has got rather than summarising the lot of
+// them into one phrase.
+func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 	tests := []struct {
-		name       string
-		threads    []*agentv1.ReviewThread
-		unreadMail bool
-		want       string
+		name    string
+		threads []*agentv1.ReviewThread
+		want    string
+		absent  string
 	}{
-		{name: "a review with nothing in it", want: "nothing said yet"},
 		{
-			name: "an answer the reviewer has not read comes before anything else",
+			name:   "a review with nothing in it",
+			want:   "nothing written yet",
+			absent: "unsent",
+		},
+		{
+			name: "written and never let go of",
 			threads: []*agentv1.ReviewThread{{
-				Id:            "t1",
-				UnreadByAgent: true,
-				UnreadByHuman: true,
+				Id:       "t1",
+				Messages: []*agentv1.ReviewMessage{unsentComment()},
 			}},
-			want: "the agent has replied",
+			want:   "1 unsent",
+			absent: "delivered",
 		},
 		{
-			name:    "everything read on both sides",
-			threads: []*agentv1.ReviewThread{{Id: "t1"}},
-			want:    "the agent is up to date",
+			name: "some sent and one still waiting to be written off",
+			threads: []*agentv1.ReviewThread{{
+				Id: "t1",
+				Messages: []*agentv1.ReviewMessage{
+					unsentComment(),
+					sentComment(),
+					deliveredComment(),
+					expiredComment(),
+				},
+			}},
+			want:   "1 unsent · 1 expired · 1 waiting · 1 delivered",
+			absent: "nothing written yet",
 		},
 		{
-			name:       "written, told, and not picked up yet",
-			threads:    []*agentv1.ReviewThread{{Id: "t1", UnreadByAgent: true}},
-			unreadMail: true,
-			want:       "waiting on the agent",
-		},
-		{
-			name:    "written and the agent never told",
-			threads: []*agentv1.ReviewThread{{Id: "t1", UnreadByAgent: true}},
-			want:    "not sent yet",
+			name: "what the agent said is nobody's delivery",
+			threads: []*agentv1.ReviewThread{{
+				Id: "t1",
+				Messages: []*agentv1.ReviewMessage{{
+					Id:         "m9",
+					AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT,
+					Body:       "done",
+				}},
+			}},
+			want:   "nothing written yet",
+			absent: "waiting",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				review: reviewState{agentID: "a1", threads: tt.threads},
-				listing: listing{agents: []agentItem{
-					{agent: agentstore.Agent{ID: "a1"}, unreadMail: tt.unreadMail},
-					{agent: agentstore.Agent{ID: "a2"}, unreadMail: true},
-				}},
-			}
+			m := model{review: reviewState{agentID: "a1", threads: tt.threads}}
 
-			assert.Equal(t, tt.want, m.reviewConversationState())
+			shown := ansi.Strip(m.reviewDeliveryView())
+			assert.Equal(t, tt.want, shown)
+			assert.NotContains(t, shown, tt.absent)
 		})
 	}
 }
 
-// TestReviewNotifyIsTheSubmitKey covers telling the agent its review is waiting on the same key
+func deliveredComment() *agentv1.ReviewMessage {
+	return &agentv1.ReviewMessage{
+		Id:          "m2",
+		AuthorKind:  agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		Delivery:    agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
+		SentAt:      "2026-09-02T10:00:00Z",
+		DeliveredAt: "2026-09-02T10:01:00Z",
+	}
+}
+
+func expiredComment() *agentv1.ReviewMessage {
+	return &agentv1.ReviewMessage{
+		Id:         "m3",
+		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED,
+		SentAt:     "2026-09-02T10:00:00Z",
+	}
+}
+
+// TestReviewReleaseIsTheSubmitKey covers telling the agent its review is waiting on the same key
 // that submits everywhere else.
-func TestReviewNotifyIsTheSubmitKey(t *testing.T) {
+func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
@@ -812,8 +875,8 @@ func TestReviewNotifyIsTheSubmitKey(t *testing.T) {
 	require.True(t, ok)
 	require.NoError(t, wrote.err)
 
-	require.NotNil(t, agents.notified)
-	assert.Equal(t, "a1", agents.notified.GetAgentId())
+	require.NotNil(t, agents.released)
+	assert.Equal(t, "a1", agents.released.GetAgentId())
 }
 
 // TestSettlingAThreadIsWhatQuietsIt covers settling being a key the reviewer presses, since
@@ -850,8 +913,8 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	assert.Equal(t, "t1", agents.settled.GetId())
 	assert.True(t, agents.settled.GetResolved())
 
-	assert.Contains(t, ansi.Strip(m.reviewView()), "everything is settled",
-		"the state line is where settling is said, not a line above the messages")
+	assert.Contains(t, reviewGutterFor(t, m, "t1"), "✓",
+		"the gutter is where settling is said, now the line above counts comments instead")
 
 	// Pressing it again reopens, since an answer that was not the end of it has to be able to
 	// come back.
@@ -897,7 +960,23 @@ func TestSettlingSurvivesTheCodeMoving(t *testing.T) {
 
 	require.NotNil(t, agents.settled, "a thread that came adrift settles like any other")
 	assert.Equal(t, "t1", agents.settled.GetId())
-	assert.Contains(t, ansi.Strip(m.reviewView()), "everything is settled")
+	assert.Contains(t, reviewGutterFor(t, m, "t1"), "✓")
+}
+
+// reviewGutterFor is the row a thread is drawn on, which is where the marks that say how a
+// thread stands are.
+func reviewGutterFor(t *testing.T, m model, id string) string {
+	t.Helper()
+
+	for y := range m.review.view.Len() {
+		if thread, ok := m.review.view.ThreadAt(y); ok && thread.GetId() == id {
+			return ansi.Strip(m.review.view.RenderRow(y, false, 120, 0))
+		}
+	}
+
+	t.Fatalf("thread %q is drawn on no row", id)
+
+	return ""
 }
 
 // TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff covers the one write that can pull a row

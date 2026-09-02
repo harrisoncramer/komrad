@@ -30,7 +30,8 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"DeleteReviewMessage":     true,
 	"MarkReviewThreadRead":    true,
 	"SetReviewThreadResolved": true,
-	"NotifyReviewThreads":     true,
+	"ReleaseReviewMessages":   true,
+	"RingReviewMessagesAgain": true,
 	"SetReviewFileViewed":     true,
 	"ListReviewViewedFiles":   true,
 }

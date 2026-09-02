@@ -95,6 +95,21 @@ type Patch struct {
 // IsEmpty reports whether the patch has nothing to show.
 func (p Patch) IsEmpty() bool { return len(p.Files) == 0 }
 
+// Fingerprint is what says a patch read again in the background differs from the one on screen,
+// built out of the per-file hashes so it holds to the same rule they do: a change the reader was
+// never shown is not one the patch has moved for.
+func (p Patch) Fingerprint() string {
+	var drawn strings.Builder
+
+	for _, file := range p.Files {
+		fmt.Fprintf(&drawn, "%s\x00", file.Fingerprint())
+	}
+
+	sum := sha256.Sum256([]byte(drawn.String()))
+
+	return hex.EncodeToString(sum[:])
+}
+
 // Stat is the size of a patch in the terms a reviewer reads first: how many files it touches,
 // and how many lines it puts in and takes out.
 type Stat struct {

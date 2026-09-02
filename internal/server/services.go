@@ -44,6 +44,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Threads:  st.review,
 		Messages: st.review,
 		Viewed:   st.review,
+		Agents:   st.agents,
 		Mailer:   mailService,
 		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
 			Agents:    st.agents,

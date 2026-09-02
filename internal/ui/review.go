@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/config"
 	"weave/internal/diff"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
@@ -77,6 +78,78 @@ type reviewState struct {
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
 	// the reader back where they left rather than at the top of the diff.
 	restore *review.Place
+
+	// activity is the conversation as it stood when the sidebar was last drawn, which a tick
+	// compares against so a refresh that would find nothing new never rebuilds anything.
+	activity reviewActivity
+
+	// polling is set while a conversation read is in flight, so a slow one is not asked for
+	// again by every tick that passes underneath it.
+	polling bool
+
+	// fingerprint is the patch on screen, which is what a background read is measured against.
+	fingerprint string
+
+	// held is a patch read in the background that no longer matches the one on screen, kept
+	// here rather than swapped in, since moving the diff under the reader is what the reload
+	// key exists to avoid.
+	held *heldPatch
+
+	// diffPolling is set while a background patch read is in flight, and diffPolled is when the
+	// last one started, since the worktree is read every few seconds rather than every tick.
+	diffPolling bool
+	diffPolled  time.Time
+}
+
+// heldPatch is a patch the background poll found and the marks that came with it, parsed and
+// waiting, so the reload key costs nothing but the redraw.
+type heldPatch struct {
+	patch  *diff.Patch
+	viewed []*agentv1.ReviewViewedFile
+}
+
+// reviewActivity is the cheap probe a conversation refresh is decided on, since repinning walks
+// every row of the patch and a tick that finds this unmoved does no work at all.
+type reviewActivity struct {
+	threads  int
+	messages int
+	// newest is the newest thing said or changed, and the counts beside it are what a stamp
+	// cannot see, since deleting a thread moves nothing forward.
+	newest string
+	// delivery is how many comments stand in each state, which is the half of the answer no
+	// stamp reaches: claiming a doorbell writes to mail alone, and a doorbell running out of
+	// time writes nowhere at all, so both are read off what the server answered rather than
+	// off when a row was last written.
+	delivery [reviewDeliveryStates]int
+}
+
+// reviewDeliveryStates is how many slots the delivery counts get, one per state the proto
+// defines with room over, so a state added there is counted without being named here.
+const reviewDeliveryStates = 8
+
+// deliverySlot is which count a state belongs in, folding a state this build has never heard of
+// into the unspecified slot, since an enum comes off the wire as whatever number was sent.
+func deliverySlot(state agentv1.ReviewDeliveryState) int {
+	if state < 0 || int(state) >= reviewDeliveryStates {
+		return 0
+	}
+
+	return int(state)
+}
+
+func reviewActivityOf(threads []*agentv1.ReviewThread) reviewActivity {
+	activity := reviewActivity{threads: len(threads)}
+	for _, thread := range threads {
+		activity.messages += len(thread.GetMessages())
+		activity.newest = max(activity.newest, thread.GetUpdatedAt())
+
+		for _, message := range thread.GetMessages() {
+			activity.newest = max(activity.newest, message.GetUpdatedAt())
+			activity.delivery[deliverySlot(message.GetDelivery())]++
+		}
+	}
+
+	return activity
 }
 
 // reviewFrames is the size of the pane the diff is drawn into, kept here because the frame
@@ -238,6 +311,9 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	m.review.view.SetViewed(stillViewed(msg.patch, msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 	m.review.threads = msg.threads
+	m.review.activity = reviewActivityOf(msg.threads)
+	m.review.fingerprint = msg.patch.Fingerprint()
+	m.review.held = nil
 	m.review.notice = reopenedNotice(msg.patch, msg.viewed)
 	m.review.cursor = m.review.view.First()
 	if place := m.review.restore; place != nil {
@@ -314,13 +390,19 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 	}
 
 	m.review.notice = msg.notice
-	m.review.threads = msg.threads
+	m.applyReviewThreads(msg.threads)
+}
+
+// applyReviewThreads draws the review as it now stands, keeping the reader where they were.
+func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
+	m.review.threads = threads
+	m.review.activity = reviewActivityOf(threads)
 
 	// Where the cursor is standing is taken before the threads are pinned again, since pinning
 	// rebuilds the rows the threads with nowhere to stand are drawn on, and a thread settled or
 	// deleted takes one of those rows away from under the cursor.
 	place, ok := m.review.view.GetPlace(m.review.cursor)
-	m.review.view.PinThreads(msg.threads)
+	m.review.view.PinThreads(threads)
 	m.keepReviewCursor(place, ok)
 
 	m.stageReview()
@@ -441,6 +523,12 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	m.review.notice = ""
 
+	// The diff opens for an agent that is not there, so the keys that would write to it are
+	// refused here rather than left to fail at the server.
+	if _, dead := m.reviewIsReadOnly(); dead && isReviewWrite(k, m.keys) {
+		return m.refuseReviewWrite()
+	}
+
 	switch {
 	case isBound(k, keys.Back):
 		return m.leaveReview()
@@ -492,10 +580,14 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.panReview(-m.reviewPanStep())
 	case isBound(k, keys.PanReset):
 		return m.panReview(-m.review.pan)
+	case isBound(k, keys.Reload):
+		return m.reloadReviewDiff()
 	case isBound(k, keys.EditFile):
 		return m.editReviewFile()
 	case isBound(k, keys.Compose):
 		return m.composeReview()
+	case isBound(k, keys.Resend):
+		return m.resendReview()
 	case isBound(k, keys.Resolve):
 		return m.resolveReviewThread()
 	case isBound(k, keys.ToggleViewed):
@@ -503,10 +595,28 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, keys.DeleteThread):
 		return m.deleteReviewThread()
 	case isBound(k, m.keys.Form.Submit):
-		return m.notifyReview()
+		return m.releaseReview()
 	}
 
 	return m, nil
+}
+
+// refuseReviewWrite says why a key that would write to the agent did nothing, since the key is
+// dropped from the help but a rebinding or a habit can still press it.
+func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
+	reason, _ := m.reviewIsReadOnly()
+	m.review.notice = reason
+
+	return m, nil
+}
+
+// isReviewWrite reports whether a key would put something in front of the agent, which is the
+// set that stands down on an agent with nobody there to read it, leaving out settling, deleting
+// and marking a file read, since those are the person's own records and send nothing.
+func isReviewWrite(k string, keys config.Keybindings) bool {
+	return isBound(k, keys.Review.Compose) ||
+		isBound(k, keys.Review.Resend) ||
+		isBound(k, keys.Form.Submit)
 }
 
 // recentrePrefix opens the vim recentring chord, zz, zt and zb, which is left as vim spells it.
@@ -601,6 +711,28 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	}
 
 	return m.review.view.ThreadAt(m.review.cursor)
+}
+
+// reloadReviewDiff puts the patch the background poll is holding on screen, and reads the
+// worktree again when it is holding none, so the key means reload either way.
+func (m model) reloadReviewDiff() (tea.Model, tea.Cmd) {
+	held := m.review.held
+	if held == nil {
+		return m.reloadReview()
+	}
+
+	if place, ok := m.review.view.GetPlace(m.review.cursor); ok {
+		m.review.restore = &place
+	}
+
+	m.applyReviewLoaded(reviewLoadedMsg{
+		agentID: m.review.agentID,
+		patch:   held.patch,
+		threads: m.review.threads,
+		viewed:  held.viewed,
+	})
+
+	return m, nil
 }
 
 // reloadReview reads the worktree again, holding the place the cursor is standing so the diff
@@ -923,15 +1055,15 @@ func (m model) deleteReviewThread() (tea.Model, tea.Cmd) {
 	})
 }
 
-// notifyReview tells the agent its review has something in it, without delivering any of it,
-// since the agent reads the threads itself.
-func (m model) notifyReview() (tea.Model, tea.Cmd) {
+// releaseReview lets go of every comment written and not yet sent, without delivering any of
+// them, since the agent reads the threads itself.
+func (m model) releaseReview() (tea.Model, tea.Cmd) {
 	agents, agentID := m.api.agents, m.review.agentID
 
 	// Nothing is said back: the doorbell landing in the agent's mailbox is what the conversation
 	// state at the top of the sidebar reads, and it says so until the agent picks it up.
 	return m, m.reviewWriteCmd("", func(ctx context.Context) error {
-		_, err := agents.NotifyReviewThreads(ctx, connect.NewRequest(&agentv1.NotifyReviewThreadsRequest{
+		_, err := agents.ReleaseReviewMessages(ctx, connect.NewRequest(&agentv1.ReleaseReviewMessagesRequest{
 			AgentId: agentID,
 		}))
 
@@ -939,15 +1071,64 @@ func (m model) notifyReview() (tea.Model, tea.Cmd) {
 	})
 }
 
+// resendReview raises a doorbell again for every released comment whose own ran out of time
+// unclaimed, which is the only thing that reaches an agent that was not listening when the
+// review was let go of.
+func (m model) resendReview() (tea.Model, tea.Cmd) {
+	agents, agentID := m.api.agents, m.review.agentID
+
+	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
+		resp, err := agents.RingReviewMessagesAgain(ctx, connect.NewRequest(&agentv1.RingReviewMessagesAgainRequest{
+			AgentId: agentID,
+		}))
+		if err != nil {
+			return "", err
+		}
+
+		return rangAgainNotice(resp.Msg.GetExpired(), resp.Msg.GetRung()), nil
+	})
+}
+
+// rangAgainNotice says what ringing again did, since finding nothing to ring and finding
+// something it could not ring are both quiet successes the reader would otherwise read as the
+// key not working.
+func rangAgainNotice(expired, rung int32) string {
+	switch {
+	case expired == 0:
+		return "nothing has run out of time"
+	case rung == 0:
+		return "nothing could be rung again"
+	}
+
+	return "rang " + comments(rung) + " again"
+}
+
+func comments(count int32) string {
+	if count == 1 {
+		return "1 comment"
+	}
+
+	return fmt.Sprintf("%d comments", count)
+}
+
 // reviewWriteCmd runs one write and reads the review back in the same breath.
 func (m model) reviewWriteCmd(notice string, write func(context.Context) error) tea.Cmd {
+	return m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
+		return notice, write(ctx)
+	})
+}
+
+// reviewWriteNoticeCmd is the same for a write whose notice is only known once it has run,
+// since what ringing again did is in the answer rather than in the asking.
+func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		if err := write(ctx); err != nil {
+		notice, err := write(ctx)
+		if err != nil {
 			return reviewWroteMsg{agentID: agentID, err: err}
 		}
 
@@ -970,4 +1151,148 @@ func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig 
 	}
 
 	return workflowstore.WorktreeConfig{}
+}
+
+// reviewDiffPollInterval is how often the worktree behind the diff is read again while the
+// screen is up, slower than the tick because git is being run and nothing waits on the answer:
+// the reader is told the diff has moved and reloads when they are ready.
+const reviewDiffPollInterval = 5 * time.Second
+
+// reviewRefreshedMsg is the conversation as a tick found it, which is only drawn when the
+// probe says something has been said since the sidebar was written.
+type reviewRefreshedMsg struct {
+	agentID string
+	threads []*agentv1.ReviewThread
+	err     error
+}
+
+// reviewDiffPolledMsg is the worktree as a background read found it, which is compared with
+// what is on screen rather than drawn over it.
+type reviewDiffPolledMsg struct {
+	agentID string
+	patch   *diff.Patch
+	viewed  []*agentv1.ReviewViewedFile
+	err     error
+}
+
+// refreshReviewCmd is what the panel's own tick asks for while the review is up: the
+// conversation every time, and the worktree every few seconds.
+func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
+	if m.screen != screenReview || m.review.view == nil {
+		return nil
+	}
+
+	// A reader mid-input is left alone, since the cursor, the window and the composer are theirs
+	// until the key that closes them, and the tick after that picks the work up.
+	if m.review.takesEveryKey() {
+		return nil
+	}
+
+	var cmds []tea.Cmd
+
+	if !m.review.polling {
+		m.review.polling = true
+		cmds = append(cmds, m.refreshReviewThreadsCmd())
+	}
+
+	if !m.review.diffPolling && now.Sub(m.review.diffPolled) >= reviewDiffPollInterval {
+		m.review.diffPolling = true
+		m.review.diffPolled = now
+		cmds = append(cmds, m.pollReviewDiffCmd())
+	}
+
+	return tea.Batch(cmds...)
+}
+
+func (m model) refreshReviewThreadsCmd() tea.Cmd {
+	agents, agentID := m.api.agents, m.review.agentID
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		threads, err := listReviewThreads(ctx, agents, agentID)
+
+		return reviewRefreshedMsg{
+			agentID: agentID,
+			threads: threads,
+			err:     err,
+		}
+	}
+}
+
+func (m model) pollReviewDiffCmd() tea.Cmd {
+	agents, agentID := m.api.agents, m.review.agentID
+	dir, base, exclude := m.review.dir, m.review.base, m.review.exclude
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		patch, err := diff.Load(ctx, diff.LoadParams{
+			Dir:     dir,
+			Base:    base,
+			Exclude: exclude,
+		})
+		if err != nil {
+			return reviewDiffPolledMsg{agentID: agentID, err: err}
+		}
+
+		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
+
+		return reviewDiffPolledMsg{
+			agentID: agentID,
+			patch:   patch,
+			viewed:  viewed,
+			err:     err,
+		}
+	}
+}
+
+func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
+	if msg.agentID != m.review.agentID {
+		return
+	}
+
+	m.review.polling = false
+
+	// A read that failed says nothing, since the banner belongs to the listing, the screen is
+	// still showing the conversation as it last stood, and the next tick asks again.
+	if msg.err != nil || m.review.view == nil {
+		return
+	}
+
+	// Input can have started while the read was in flight, and the probe is left where it was
+	// so the tick after the reader is done finds this again.
+	if m.review.takesEveryKey() {
+		return
+	}
+
+	if reviewActivityOf(msg.threads) == m.review.activity {
+		return
+	}
+
+	m.applyReviewThreads(msg.threads)
+}
+
+func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
+	if msg.agentID != m.review.agentID {
+		return
+	}
+
+	m.review.diffPolling = false
+
+	if msg.err != nil || msg.patch == nil {
+		return
+	}
+
+	// A worktree edited back to what the screen is already showing is not a move, so the notice
+	// goes away rather than standing until the reader reloads for nothing.
+	if msg.patch.Fingerprint() == m.review.fingerprint {
+		m.review.held = nil
+
+		return
+	}
+
+	m.review.held = &heldPatch{patch: msg.patch, viewed: msg.viewed}
 }

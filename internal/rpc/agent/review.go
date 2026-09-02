@@ -31,11 +31,7 @@ func (s *Service) ListReviewThreads(
 			errors.New("name the agent whose review you are reading"))
 	}
 
-	threads, err := s.review.ListReviewThreads(ctx, agents.ListReviewThreadsParams{
-		AgentID:  agentID,
-		MarkRead: req.Msg.GetMarkRead(),
-		Author:   author,
-	})
+	threads, err := s.review.ListReviewThreads(ctx, agentID)
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the review threads")
 	}
@@ -174,23 +170,45 @@ func (s *Service) DeleteReviewMessage(
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// NotifyReviewThreads tells an agent its diff has been reviewed.
-func (s *Service) NotifyReviewThreads(
+// ReleaseReviewMessages lets go of the comments the person has written and not sent, raising a
+// doorbell for each.
+func (s *Service) ReleaseReviewMessages(
 	ctx context.Context,
-	req *connect.Request[agentv1.NotifyReviewThreadsRequest],
-) (*connect.Response[agentv1.NotifyReviewThreadsResponse], error) {
-	result, err := s.review.NotifyReviewThreads(ctx, agents.NotifyReviewThreadsParams{
+	req *connect.Request[agentv1.ReleaseReviewMessagesRequest],
+) (*connect.Response[agentv1.ReleaseReviewMessagesResponse], error) {
+	result, err := s.review.ReleaseReviewMessages(ctx, agents.ReleaseReviewMessagesParams{
 		AgentID:   req.Msg.GetAgentId(),
 		Interrupt: req.Msg.GetInterrupt(),
 		Author:    reviewAuthorFrom(ctx),
 	})
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to notify the review threads")
+		return nil, rpcerr.Wrap(err, "failed to release the review")
 	}
 
-	return connect.NewResponse(&agentv1.NotifyReviewThreadsResponse{
-		Unread:         int32(result.Unread),
-		AlreadyWaiting: result.AlreadyWaiting,
+	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{
+		Released: int32(result.Released),
+		Rung:     int32(result.Rung),
+	}), nil
+}
+
+// RingReviewMessagesAgain raises a doorbell again for the released comments whose own expired
+// unclaimed.
+func (s *Service) RingReviewMessagesAgain(
+	ctx context.Context,
+	req *connect.Request[agentv1.RingReviewMessagesAgainRequest],
+) (*connect.Response[agentv1.RingReviewMessagesAgainResponse], error) {
+	result, err := s.review.RingReviewMessagesAgain(ctx, agents.RingReviewMessagesAgainParams{
+		AgentID:   req.Msg.GetAgentId(),
+		Interrupt: req.Msg.GetInterrupt(),
+		Author:    reviewAuthorFrom(ctx),
+	})
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to ring the review again")
+	}
+
+	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{
+		Expired: int32(result.Expired),
+		Rung:    int32(result.Rung),
 	}), nil
 }
 
@@ -262,7 +280,6 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 		NewStart:      thread.Thread.NewStart,
 		NewEnd:        thread.Thread.NewEnd,
 		QuotedLines:   thread.Thread.QuotedLines,
-		UnreadByAgent: thread.Thread.UnreadByAgent,
 		UnreadByHuman: thread.Thread.UnreadByHuman,
 		CreatedAt:     thread.Thread.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     thread.Thread.UpdatedAt.Format(time.RFC3339),
@@ -285,14 +302,41 @@ func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
 	}
 
-	return &agentv1.ReviewMessage{
+	answered := &agentv1.ReviewMessage{
 		Id:            message.ID,
 		ThreadId:      message.ThreadID,
 		AuthorKind:    kind,
 		AuthorAgentId: message.AuthorAgentID,
 		Body:          message.Body,
+		Delivery:      toReviewDeliveryState(message.Delivery),
 		CreatedAt:     message.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:     message.UpdatedAt.Format(time.RFC3339),
+	}
+
+	if at := message.SentAt; at != nil {
+		answered.SentAt = at.Format(time.RFC3339)
+	}
+	if at := message.DeliveredAt; at != nil {
+		answered.DeliveredAt = at.Format(time.RFC3339)
+	}
+
+	return answered
+}
+
+func toReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDeliveryState {
+	switch state {
+	case reviewstore.DeliveryUnsent:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT
+	case reviewstore.DeliverySent:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
+	case reviewstore.DeliveryDelivered:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED
+	case reviewstore.DeliveryExpired:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED
+	case reviewstore.DeliveryNone:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
+	default:
+		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
 	}
 }
 

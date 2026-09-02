@@ -29,14 +29,13 @@ func (c Cursor) Validate() error {
 	return nil
 }
 
-// Kind tells an agent's own mail, always KindPlain, from a notice weave raises itself and
-// holds at most one of unclaimed.
+// Kind tells an agent's own mail, always KindPlain, from a notice weave raises itself.
 type Kind string
 
 const (
-	// KindPlain is ordinary mail, never deduplicated.
+	// KindPlain is ordinary mail.
 	KindPlain Kind = Kind(models.MailKindPlain)
-	// KindReviewActivity says the agent's diff has review it has not read.
+	// KindReviewActivity is a doorbell for one comment on the agent's diff.
 	KindReviewActivity Kind = Kind(models.MailKindReviewActivity)
 )
 
@@ -48,10 +47,14 @@ type Mail struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
-	Hops        int32
-	ClaimedAt   *time.Time
-	ExpiresAt   time.Time
-	CreatedAt   time.Time
+
+	// ReviewMessageID is the review comment this mail is the doorbell for, nil for anything
+	// else, and it is what at most one unclaimed doorbell per comment is counted by.
+	ReviewMessageID *string
+	Hops            int32
+	ClaimedAt       *time.Time
+	ExpiresAt       time.Time
+	CreatedAt       time.Time
 }
 
 type Store struct {
@@ -68,20 +71,22 @@ type SendParams struct {
 	FromName    string
 	ToAgentID   string
 	Body        string
-	// Kind other than KindPlain is refused while one of the same kind is still deliverable,
-	// since a notice waiting to be read already says what another copy would.
-	Kind    Kind
-	ReplyTo *string
-	Hops    int32
+	Kind        Kind
+	ReplyTo     *string
+	// ReviewMessageID names the comment this is the doorbell for, and a doorbell is refused
+	// while a deliverable one for that comment is still waiting, since it already says what
+	// another copy would.
+	ReviewMessageID *string
+	Hops            int32
 	// How long the mail stays deliverable, counted from the database's clock rather than
 	// the caller's, since every read of expires_at compares it against NOW().
 	Deadline time.Duration
 }
 
-// ErrNoticePending is what Send answers when the recipient already holds an unclaimed notice of that kind.
-var ErrNoticePending = errors.New("a notice of this kind is already waiting")
+// ErrNoticePending is what Send answers when the recipient already holds an unclaimed doorbell for that comment.
+var ErrNoticePending = errors.New("a doorbell for that review comment is already waiting")
 
-// Send writes one piece of mail, answering ErrNoticePending when a notice of this kind is already waiting to be read, and ringing one again in place once it has expired unread.
+// Send writes one piece of mail, answering ErrNoticePending when a deliverable doorbell for the same comment is already waiting to be read, and ringing that one again in place once it has expired unread.
 func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	kind := params.Kind
 	if kind == "" {
@@ -89,17 +94,18 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	}
 
 	row, err := s.queries.InsertMail(ctx, models.InsertMailParams{
-		FromAgentID:    params.FromAgentID,
-		FromName:       params.FromName,
-		ToAgentID:      params.ToAgentID,
-		Body:           params.Body,
-		Kind:           models.MailKind(kind),
-		ReplyTo:        params.ReplyTo,
-		Hops:           params.Hops,
-		DeadlineMicros: params.Deadline.Microseconds(),
+		FromAgentID:     params.FromAgentID,
+		FromName:        params.FromName,
+		ToAgentID:       params.ToAgentID,
+		Body:            params.Body,
+		Kind:            models.MailKind(kind),
+		ReplyTo:         params.ReplyTo,
+		ReviewMessageID: params.ReviewMessageID,
+		Hops:            params.Hops,
+		DeadlineMicros:  params.Deadline.Microseconds(),
 	})
 	if db.IsNoRows(err) {
-		return nil, fmt.Errorf("%w: agent %q is already holding an unread %s notice", ErrNoticePending, params.ToAgentID, kind)
+		return nil, fmt.Errorf("%w: agent %q is already holding an unread doorbell for review message %q", ErrNoticePending, params.ToAgentID, derefID(params.ReviewMessageID))
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to send mail to agent %q: %w", params.ToAgentID, err)
@@ -267,18 +273,27 @@ func keepStorableIDs(ids []string) []string {
 	return xslice.Filter(ids, store.IsID)
 }
 
+func derefID(id *string) string {
+	if id == nil {
+		return ""
+	}
+
+	return *id
+}
+
 func mailFromRow(row models.Mail) Mail {
 	return Mail{
-		ID:          row.ID,
-		FromAgentID: row.FromAgentID,
-		FromName:    row.FromName,
-		ToAgentID:   row.ToAgentID,
-		Body:        row.Body,
-		Kind:        Kind(row.Kind),
-		ReplyTo:     row.ReplyTo,
-		Hops:        row.Hops,
-		ClaimedAt:   row.ClaimedAt,
-		ExpiresAt:   row.ExpiresAt,
-		CreatedAt:   row.CreatedAt,
+		ID:              row.ID,
+		FromAgentID:     row.FromAgentID,
+		FromName:        row.FromName,
+		ToAgentID:       row.ToAgentID,
+		Body:            row.Body,
+		Kind:            Kind(row.Kind),
+		ReplyTo:         row.ReplyTo,
+		ReviewMessageID: row.ReviewMessageID,
+		Hops:            row.Hops,
+		ClaimedAt:       row.ClaimedAt,
+		ExpiresAt:       row.ExpiresAt,
+		CreatedAt:       row.CreatedAt,
 	}
 }

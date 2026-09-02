@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 
@@ -39,18 +40,6 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.AddReviewMessage(ctx, AddReviewMessageParams{
 					ThreadID: reviewThreadID, Body: "done", Author: author,
-				})
-
-				return err
-			},
-			wantErr: ErrReviewNotYours,
-		},
-		{
-			name:   "another agent cannot claim a review it is not the subject of",
-			author: agentAuthor(otherAgentID),
-			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
-				_, err := service.MarkReviewThreadRead(ctx, MarkReviewThreadReadParams{
-					ID: reviewThreadID, Author: author,
 				})
 
 				return err
@@ -131,10 +120,30 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			},
 		},
 		{
-			name: "an agent cannot announce a review to itself",
+			name: "an agent cannot release a review to itself",
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
-				_, err := service.NotifyReviewThreads(ctx, NotifyReviewThreadsParams{
+				_, err := service.ReleaseReviewMessages(ctx, ReleaseReviewMessagesParams{
 					AgentID: reviewedAgentID, Author: author,
+				})
+
+				return err
+			},
+		},
+		{
+			name: "an agent cannot ring its own review again",
+			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
+				_, err := service.RingReviewMessagesAgain(ctx, RingReviewMessagesAgainParams{
+					AgentID: reviewedAgentID, Author: author,
+				})
+
+				return err
+			},
+		},
+		{
+			name: "an agent cannot claim a review thread as read for the person",
+			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
+				_, err := service.MarkReviewThreadRead(ctx, MarkReviewThreadReadParams{
+					ID: reviewThreadID, Author: author,
 				})
 
 				return err
@@ -211,59 +220,57 @@ func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 	}
 }
 
-// TestClaimingAnotherAgentsReviewIsRefused pins that reading somebody else's review is allowed
-// while claiming it as read is not.
-func TestClaimingAnotherAgentsReviewIsRefused(t *testing.T) {
+// TestReadingAnotherAgentsReviewIsAllowed pins that reading a review changes nothing, so any
+// agent may read any review and none of it is claimed by the looking.
+func TestReadingAnotherAgentsReviewIsAllowed(t *testing.T) {
 	service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
 
-	_, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
-		AgentID: reviewedAgentID, MarkRead: true, Author: agentAuthor(otherAgentID),
-	})
-	require.ErrorIs(t, err, ErrReviewNotYours)
-
-	_, err = service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
-		AgentID: reviewedAgentID, Author: agentAuthor(otherAgentID),
-	})
-	assert.NoError(t, err, "reading another agent's review without claiming it is allowed")
+	threads, err := service.ListReviewThreads(t.Context(), reviewedAgentID)
+	require.NoError(t, err)
+	assert.Len(t, threads, 1)
 }
 
-// TestNotifyReviewThreads pins when an agent is told about review activity, so an agent that
-// is up to date or already holding a notice is left alone.
-func TestNotifyReviewThreads(t *testing.T) {
+// TestReleaseReviewMessages pins what letting go of a review does: one doorbell per comment the
+// person has written and not sent, and nothing at all when there is nothing left to send.
+func TestReleaseReviewMessages(t *testing.T) {
 	tests := []struct {
 		name           string
-		unread         int64
+		unsent         int
 		alreadyWaiting bool
-		wantUnread     int64
-		wantWaiting    bool
+		wantReleased   int
+		wantRung       int
 		wantSent       int
 	}{
 		{
-			name:       "an agent that is up to date is told nothing",
-			unread:     0,
-			wantUnread: 0,
-			wantSent:   0,
+			name:         "a review with nothing unsent rings nobody",
+			unsent:       0,
+			wantReleased: 0,
+			wantRung:     0,
+			wantSent:     0,
 		},
 		{
-			name:           "a doorbell still unread does not get a second copy",
-			unread:         2,
+			name:         "every unsent comment gets a doorbell of its own",
+			unsent:       3,
+			wantReleased: 3,
+			wantRung:     3,
+			wantSent:     3,
+		},
+		{
+			name:           "a comment already holding a doorbell is not given a second",
+			unsent:         2,
 			alreadyWaiting: true,
-			wantUnread:     2,
-			wantWaiting:    true,
-			wantSent:       1,
-		},
-		{
-			name:       "an agent with unread review is told once",
-			unread:     2,
-			wantUnread: 2,
-			wantSent:   1,
+			wantReleased:   2,
+			wantRung:       0,
+			wantSent:       2,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			written := unsentMessages(tt.unsent)
+
 			reviews := newFakeReviewStore()
-			reviews.unread = tt.unread
+			reviews.unsent = written
 
 			notices := &fakeNoticeSender{}
 			if !tt.alreadyWaiting {
@@ -272,21 +279,80 @@ func TestNotifyReviewThreads(t *testing.T) {
 
 			service := reviewService(t, reviews, notices)
 
-			result, err := service.NotifyReviewThreads(t.Context(), NotifyReviewThreadsParams{
+			result, err := service.ReleaseReviewMessages(t.Context(), ReleaseReviewMessagesParams{
 				AgentID: reviewedAgentID, Author: humanAuthor(),
 			})
 			require.NoError(t, err)
 			require.NotNil(t, result)
 
-			assert.Equal(t, tt.wantUnread, result.Unread)
-			assert.Equal(t, tt.wantWaiting, result.AlreadyWaiting)
-			assert.Len(t, notices.sent, tt.wantSent)
+			assert.Equal(t, tt.wantReleased, result.Released)
+			assert.Equal(t, tt.wantRung, result.Rung)
+			require.Len(t, notices.sent, tt.wantSent)
 
-			if tt.wantSent > 0 {
-				assert.Equal(t, mailstore.KindReviewActivity, notices.sent[0].Kind)
+			for i, sent := range notices.sent {
+				assert.Equal(t, mailstore.KindReviewActivity, sent.Kind)
+				require.NotNil(t, sent.ReviewMessageID, "a doorbell names the comment it is for")
+				assert.Equal(t, written[i].ID, *sent.ReviewMessageID)
+				assert.NotContains(t, sent.Body, "needs a nil check", "a doorbell carries no feedback")
+				assert.Contains(t, sent.Body, "list_review_threads")
 			}
 		})
 	}
+}
+
+// TestRingReviewMessagesAgain pins that ringing again reaches only the comments whose doorbell
+// the agent can no longer read, since one still waiting says what a second would.
+func TestRingReviewMessagesAgain(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.expired = unsentMessages(2)
+
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	result, err := service.RingReviewMessagesAgain(t.Context(), RingReviewMessagesAgainParams{
+		AgentID: reviewedAgentID, Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, result)
+
+	assert.Equal(t, 2, result.Expired)
+	assert.Equal(t, 2, result.Rung)
+	assert.Len(t, notices.sent, 2)
+
+	reviews.expired = nil
+	notices.sent = nil
+
+	quiet, err := service.RingReviewMessagesAgain(t.Context(), RingReviewMessagesAgainParams{
+		AgentID: reviewedAgentID, Author: humanAuthor(),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, quiet)
+
+	assert.Zero(t, quiet.Expired)
+	assert.Empty(t, notices.sent, "a review nothing has expired on rings nobody")
+}
+
+// TestReleasingToAnArchivedAgentIsRefused pins that a review is not stamped as sent to an agent
+// that is not there to be told, since the stamp would say it had been.
+func TestReleasingToAnArchivedAgentIsRefused(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.unsent = unsentMessages(1)
+
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewServiceForAgent(t, reviews, notices, archivedAgent)
+
+	_, err := service.ReleaseReviewMessages(t.Context(), ReleaseReviewMessagesParams{
+		AgentID: reviewedAgentID, Author: humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrAgentArchived)
+
+	_, err = service.RingReviewMessagesAgain(t.Context(), RingReviewMessagesAgainParams{
+		AgentID: reviewedAgentID, Author: humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrAgentArchived)
+
+	assert.Empty(t, notices.sent, "nothing is rung")
+	assert.Empty(t, reviews.released, "and nothing is stamped as sent")
 }
 
 func humanAuthor() ReviewAuthor {
@@ -300,12 +366,52 @@ func agentAuthor(id string) ReviewAuthor {
 func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSender) *ReviewService {
 	t.Helper()
 
+	return reviewServiceForAgent(t, reviews, notices, liveAgent)
+}
+
+func reviewServiceForAgent(
+	t *testing.T,
+	reviews *fakeReviewStore,
+	notices *fakeNoticeSender,
+	find fakeAgentReaderFunc,
+) *ReviewService {
+	t.Helper()
+
 	return NewReviewService(ReviewServiceParams{
 		Threads:  reviews,
 		Messages: reviews,
 		Viewed:   reviews,
+		Agents:   find,
 		Mailer:   notices,
 	})
+}
+
+func liveAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+	return &agentstore.Agent{ID: id, Name: "worker"}, nil
+}
+
+func archivedAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+	return &agentstore.Agent{
+		ID:         id,
+		Name:       "worker",
+		ArchivedAt: &settledAt,
+	}, nil
+}
+
+// unsentMessages is n comments of the person's, which is what the store hands back from a
+// release and from a listing of what has expired.
+func unsentMessages(n int) []reviewstore.Message {
+	messages := make([]reviewstore.Message, 0, n)
+	for i := range n {
+		messages = append(messages, reviewstore.Message{
+			ID:         fmt.Sprintf("66666666-6666-6666-6666-66666666666%d", i),
+			ThreadID:   reviewThreadID,
+			AuthorKind: reviewstore.AuthorHuman,
+			Body:       "this needs a nil check",
+		})
+	}
+
+	return messages
 }
 
 // TestViewedFilesAreTheReviewersOwn pins that which files have been read is a record of the
@@ -365,7 +471,9 @@ type fakeReviewStore struct {
 	thread   reviewstore.Thread
 	messages map[string]reviewstore.Message
 	viewed   map[string]string
-	unread   int64
+	unsent   []reviewstore.Message
+	expired  []reviewstore.Message
+	released []reviewstore.Message
 }
 
 func newFakeReviewStore() *fakeReviewStore {
@@ -396,10 +504,7 @@ func (f *fakeReviewStore) CreateThread(
 	return &thread, nil
 }
 
-func (f *fakeReviewStore) ListThreads(
-	context.Context,
-	reviewstore.ListThreadsParams,
-) ([]reviewstore.Thread, error) {
+func (f *fakeReviewStore) ListThreads(context.Context, string) ([]reviewstore.Thread, error) {
 	return []reviewstore.Thread{f.thread}, nil
 }
 
@@ -413,11 +518,7 @@ func (f *fakeReviewStore) GetThread(_ context.Context, id string) (*reviewstore.
 	return &thread, nil
 }
 
-func (f *fakeReviewStore) MarkThreadRead(
-	_ context.Context,
-	_ string,
-	_ reviewstore.AuthorKind,
-) (*reviewstore.Thread, error) {
+func (f *fakeReviewStore) MarkThreadRead(_ context.Context, _ string) (*reviewstore.Thread, error) {
 	thread := f.thread
 
 	return &thread, nil
@@ -438,8 +539,15 @@ func (f *fakeReviewStore) SetThreadResolved(
 	return &thread, nil
 }
 
-func (f *fakeReviewStore) CountUnreadForAgent(context.Context, string) (int64, error) {
-	return f.unread, nil
+func (f *fakeReviewStore) ReleaseUnsentMessages(context.Context, string) ([]reviewstore.Message, error) {
+	f.released = f.unsent
+	f.unsent = nil
+
+	return f.released, nil
+}
+
+func (f *fakeReviewStore) ListExpiredMessages(context.Context, string) ([]reviewstore.Message, error) {
+	return f.expired, nil
 }
 
 func (f *fakeReviewStore) DeleteThread(context.Context, string) error { return nil }

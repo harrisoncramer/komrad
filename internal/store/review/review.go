@@ -5,11 +5,14 @@ package review
 import (
 	"context"
 	"fmt"
+	"slices"
+	"strings"
 	"time"
 
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // AuthorKind is who wrote a message.
@@ -22,9 +25,9 @@ const (
 	AuthorAgent AuthorKind = AuthorKind(models.ReviewAuthorKindAgent)
 )
 
-// Thread is one conversation pinned to a place in an agent's diff, with a read stamp taken
-// from the activity of the row that was shown rather than from the clock, so a message
-// written in between stays unread.
+// Thread is one conversation pinned to a place in an agent's diff, with the person's read
+// stamp taken from the activity of the row that was shown rather than from the clock, so a
+// reply written in between stays unread.
 type Thread struct {
 	ID                  string
 	AgentID             string
@@ -34,29 +37,53 @@ type Thread struct {
 	NewStart            int32
 	NewEnd              int32
 	QuotedLines         []string
-	LastHumanActivityAt *time.Time
 	LastAgentActivityAt *time.Time
-	AgentReadAt         *time.Time
 	HumanReadAt         *time.Time
 
 	// ResolvedAt is when the person reviewing settled the thread, nil while it is still owed an
 	// answer and untouched by the code moving underneath.
 	ResolvedAt    *time.Time
-	UnreadByAgent bool
 	UnreadByHuman bool
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 }
 
-// Message is one thing said in a thread.
+// DeliveryState is how far one of the person's comments has got towards the agent reading it,
+// read off the comment's own sent stamp and the newest doorbell raised against it rather than
+// stored, since the stamp outlives mail the agent deletes or lets expire.
+type DeliveryState string
+
+const (
+	// DeliveryNone is what delivery says about a message the agent wrote itself, which is
+	// nothing, since nobody is waiting to be told about it.
+	DeliveryNone DeliveryState = ""
+	// DeliveryUnsent is a comment written down and not yet let go of.
+	DeliveryUnsent DeliveryState = "unsent"
+	// DeliverySent is a released comment whose doorbell is still waiting to be claimed.
+	DeliverySent DeliveryState = "sent"
+	// DeliveryDelivered is a released comment whose doorbell the agent has claimed.
+	DeliveryDelivered DeliveryState = "delivered"
+	// DeliveryExpired is a released comment whose doorbell ran out of time unclaimed or is
+	// gone, so ringing again is what reaches the agent.
+	DeliveryExpired DeliveryState = "expired"
+)
+
+// Message is one thing said in a thread, carrying how far it has got towards being read.
 type Message struct {
 	ID            string
 	ThreadID      string
 	AuthorKind    AuthorKind
 	AuthorAgentID *string
 	Body          string
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+
+	// SentAt is when the person released this comment to the agent, nil while it is only
+	// written down.
+	SentAt *time.Time
+	// DeliveredAt is when the agent claimed the doorbell raised for it, nil until it has.
+	DeliveredAt *time.Time
+	Delivery    DeliveryState
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 type Store struct {
@@ -109,9 +136,7 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		NewStart:            row.NewStart,
 		NewEnd:              row.NewEnd,
 		QuotedLines:         row.QuotedLines,
-		LastHumanActivityAt: row.LastHumanActivityAt,
 		LastAgentActivityAt: row.LastAgentActivityAt,
-		AgentReadAt:         row.AgentReadAt,
 		HumanReadAt:         row.HumanReadAt,
 		ResolvedAt:          row.ResolvedAt,
 		CreatedAt:           row.CreatedAt,
@@ -119,28 +144,15 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 	}, nil
 }
 
-type ListThreadsParams struct {
-	AgentID string
-	// Reader is the side asking, which decides whose read stamp MarkRead moves.
-	Reader AuthorKind
-	// MarkRead claims what is returned in the same statement, so the unread flags on the answer
-	// are the ones the caller was shown.
-	MarkRead bool
-}
-
 // ListThreads is every thread on an agent, in the order they run down the diff.
-func (s *Store) ListThreads(ctx context.Context, params ListThreadsParams) ([]Thread, error) {
-	if !store.IsID(params.AgentID) {
+func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, error) {
+	if !store.IsID(agentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ListReviewThreads(ctx, models.ListReviewThreadsParams{
-		AgentID:  params.AgentID,
-		Reader:   models.ReviewAuthorKind(params.Reader),
-		MarkRead: params.MarkRead,
-	})
+	rows, err := s.queries.ListReviewThreads(ctx, agentID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to list the review threads on agent %q: %w", params.AgentID, err)
+		return nil, fmt.Errorf("failed to list the review threads on agent %q: %w", agentID, err)
 	}
 
 	threads := make([]Thread, 0, len(rows))
@@ -154,16 +166,11 @@ func (s *Store) ListThreads(ctx context.Context, params ListThreadsParams) ([]Th
 			NewStart:            row.NewStart,
 			NewEnd:              row.NewEnd,
 			QuotedLines:         row.QuotedLines,
-			LastHumanActivityAt: row.LastHumanActivityAt,
 			LastAgentActivityAt: row.LastAgentActivityAt,
-			AgentReadAt:         row.AgentReadAt,
 			HumanReadAt:         row.HumanReadAt,
 			ResolvedAt:          row.ResolvedAt,
 			CreatedAt:           row.CreatedAt,
 			UpdatedAt:           row.UpdatedAt,
-		}
-		if row.UnreadByAgent != nil {
-			thread.UnreadByAgent = *row.UnreadByAgent
 		}
 		if row.UnreadByHuman != nil {
 			thread.UnreadByHuman = *row.UnreadByHuman
@@ -195,17 +202,14 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 	return &thread, nil
 }
 
-// MarkThreadRead stamps one side's read column from the other side's activity column, which
-// is how a person opening a single conversation catches up on it without claiming the rest.
-func (s *Store) MarkThreadRead(ctx context.Context, id string, reader AuthorKind) (*Thread, error) {
+// MarkThreadRead stamps the person's read column from the agent's activity column, which is
+// how opening a single conversation catches up on it without claiming the rest.
+func (s *Store) MarkThreadRead(ctx context.Context, id string) (*Thread, error) {
 	if !store.IsID(id) {
 		return nil, threadNotFound(id)
 	}
 
-	row, err := s.queries.MarkReviewThreadRead(ctx, models.MarkReviewThreadReadParams{
-		ID:     id,
-		Reader: models.ReviewAuthorKind(reader),
-	})
+	row, err := s.queries.MarkReviewThreadRead(ctx, id)
 	if db.IsNoRows(err) {
 		return nil, threadNotFound(id)
 	}
@@ -238,21 +242,6 @@ func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool)
 	thread := threadFromRow(*row)
 
 	return &thread, nil
-}
-
-// CountUnreadForAgent is how many open threads hold something the agent has not been told
-// about, which is what a notification says and what decides whether there is anything to say.
-func (s *Store) CountUnreadForAgent(ctx context.Context, agentID string) (int64, error) {
-	if !store.IsID(agentID) {
-		return 0, nil
-	}
-
-	count, err := s.queries.CountUnreadReviewThreads(ctx, agentID)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count unread review threads for agent %q: %w", agentID, err)
-	}
-
-	return count, nil
 }
 
 // DeleteThread removes a thread and every message in it.
@@ -290,15 +279,19 @@ func (s *Store) AddMessage(ctx context.Context, params AddMessageParams) (*Messa
 		return nil, fmt.Errorf("failed to write a message in the review thread %q: %w", params.ThreadID, err)
 	}
 
-	return &Message{
+	message := Message{
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
+		SentAt:        row.SentAt,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
-	}, nil
+	}
+	message.Delivery = deliveryOf(message, false)
+
+	return &message, nil
 }
 
 // EditMessage rewrites a message and moves its author's activity stamp with it, so the other
@@ -319,15 +312,19 @@ func (s *Store) EditMessage(ctx context.Context, id, body string) (*Message, err
 		return nil, fmt.Errorf("failed to rewrite the review message %q: %w", id, err)
 	}
 
-	return &Message{
+	message := Message{
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
+		SentAt:        row.SentAt,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
-	}, nil
+	}
+	message.Delivery = deliveryOf(message, false)
+
+	return &message, nil
 }
 
 // GetMessage is one message, ErrNotFound for an id that names nothing.
@@ -349,7 +346,8 @@ func (s *Store) GetMessage(ctx context.Context, id string) (*Message, error) {
 	return &message, nil
 }
 
-// ListMessages is every message in the given threads, oldest first within each.
+// ListMessages is every message in the given threads, oldest first within each, each carrying
+// how far it has got towards being read.
 func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message, error) {
 	if len(threadIDs) == 0 {
 		return nil, nil
@@ -362,10 +360,53 @@ func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message
 
 	messages := make([]Message, 0, len(rows))
 	for _, row := range rows {
-		messages = append(messages, messageFromRow(*row))
+		message := Message{
+			ID:            row.ID,
+			ThreadID:      row.ThreadID,
+			AuthorKind:    AuthorKind(row.AuthorKind),
+			AuthorAgentID: row.AuthorAgentID,
+			Body:          row.Body,
+			SentAt:        row.SentAt,
+			DeliveredAt:   row.DeliveredAt,
+			CreatedAt:     row.CreatedAt,
+			UpdatedAt:     row.UpdatedAt,
+		}
+		message.Delivery = deliveryOf(message, row.DoorbellExpired != nil && *row.DoorbellExpired)
+
+		messages = append(messages, message)
 	}
 
 	return messages, nil
+}
+
+// ReleaseUnsentMessages lets go of every comment on an agent's review the person has written
+// and not sent, stamping each so the record of it outlives the doorbell the caller then rings.
+func (s *Store) ReleaseUnsentMessages(ctx context.Context, agentID string) ([]Message, error) {
+	if !store.IsID(agentID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ReleaseUnsentReviewMessages(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to release the unsent review messages on agent %q: %w", agentID, err)
+	}
+
+	return sortedMessages(rows), nil
+}
+
+// ListExpiredMessages is every released comment on an agent's review whose doorbell ran out of
+// time unclaimed or is no longer there, which is what ringing again reaches.
+func (s *Store) ListExpiredMessages(ctx context.Context, agentID string) ([]Message, error) {
+	if !store.IsID(agentID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListExpiredReviewMessages(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the expired review messages on agent %q: %w", agentID, err)
+	}
+
+	return sortedMessages(rows), nil
 }
 
 // DeleteMessage removes one message, leaving the thread it was in.
@@ -469,9 +510,7 @@ func threadFromRow(row models.ReviewThread) Thread {
 		NewStart:            row.NewStart,
 		NewEnd:              row.NewEnd,
 		QuotedLines:         row.QuotedLines,
-		LastHumanActivityAt: row.LastHumanActivityAt,
 		LastAgentActivityAt: row.LastAgentActivityAt,
-		AgentReadAt:         row.AgentReadAt,
 		HumanReadAt:         row.HumanReadAt,
 		ResolvedAt:          row.ResolvedAt,
 		CreatedAt:           row.CreatedAt,
@@ -479,15 +518,48 @@ func threadFromRow(row models.ReviewThread) Thread {
 	}
 }
 
+func sortedMessages(rows []*models.ReviewMessage) []Message {
+	messages := xslice.Map(rows, func(row *models.ReviewMessage) Message {
+		return messageFromRow(*row)
+	})
+
+	slices.SortFunc(messages, func(a, b Message) int {
+		return strings.Compare(a.ID, b.ID)
+	})
+
+	return messages
+}
+
 func messageFromRow(row models.ReviewMessage) Message {
-	return Message{
+	message := Message{
 		ID:            row.ID,
 		ThreadID:      row.ThreadID,
 		AuthorKind:    AuthorKind(row.AuthorKind),
 		AuthorAgentID: row.AuthorAgentID,
 		Body:          row.Body,
+		SentAt:        row.SentAt,
 		CreatedAt:     row.CreatedAt,
 		UpdatedAt:     row.UpdatedAt,
+	}
+	message.Delivery = deliveryOf(message, false)
+
+	return message
+}
+
+// deliveryOf reads a comment's state off its own stamps, so a row read without the doorbell
+// joined to it reads as sent, which is the last thing the comment itself is a record of.
+func deliveryOf(message Message, doorbellExpired bool) DeliveryState {
+	switch {
+	case message.AuthorKind != AuthorHuman:
+		return DeliveryNone
+	case message.SentAt == nil:
+		return DeliveryUnsent
+	case message.DeliveredAt != nil:
+		return DeliveryDelivered
+	case doorbellExpired:
+		return DeliveryExpired
+	default:
+		return DeliverySent
 	}
 }
 

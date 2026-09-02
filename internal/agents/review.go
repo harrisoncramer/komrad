@@ -27,27 +27,29 @@ var ErrReviewMessageNotFound = errors.New("review message not found")
 var ErrReviewNotYours = errors.New("that review belongs to another agent")
 
 // ErrReviewHumanOnly is answered when an agent asks for something only the person reviewing
-// does, such as opening, deleting, or announcing a review.
+// does, such as opening, deleting, or releasing a review.
 var ErrReviewHumanOnly = errors.New("only the person reviewing can do that")
 
 // reviewThreadReadWriter is the half of the store that keeps conversations: where they are
-// pinned, who has read them, and whether they are still owed an answer.
+// pinned, whether the person has read the replies, and whether they are still owed an answer.
 type reviewThreadReadWriter interface {
 	CreateThread(ctx context.Context, params reviewstore.CreateThreadParams) (*reviewstore.Thread, error)
-	ListThreads(ctx context.Context, params reviewstore.ListThreadsParams) ([]reviewstore.Thread, error)
+	ListThreads(ctx context.Context, agentID string) ([]reviewstore.Thread, error)
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
-	MarkThreadRead(ctx context.Context, id string, reader reviewstore.AuthorKind) (*reviewstore.Thread, error)
+	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
 	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
-	CountUnreadForAgent(ctx context.Context, agentID string) (int64, error)
 	DeleteThread(ctx context.Context, id string) error
 }
 
-// reviewMessageReadWriter is the other half: what was said in those conversations.
+// reviewMessageReadWriter is the other half: what was said in those conversations, and how far
+// each of the person's comments has got towards the agent reading it.
 type reviewMessageReadWriter interface {
 	AddMessage(ctx context.Context, params reviewstore.AddMessageParams) (*reviewstore.Message, error)
 	EditMessage(ctx context.Context, id, body string) (*reviewstore.Message, error)
 	GetMessage(ctx context.Context, id string) (*reviewstore.Message, error)
 	ListMessages(ctx context.Context, threadIDs []string) ([]reviewstore.Message, error)
+	ReleaseUnsentMessages(ctx context.Context, agentID string) ([]reviewstore.Message, error)
+	ListExpiredMessages(ctx context.Context, agentID string) ([]reviewstore.Message, error)
 	DeleteMessage(ctx context.Context, id string) error
 }
 
@@ -89,6 +91,7 @@ type ReviewServiceParams struct {
 	Threads     reviewThreadReadWriter
 	Messages    reviewMessageReadWriter
 	Viewed      reviewViewedFileReadWriter
+	Agents      agentGetter
 	Mailer      reviewNoticeSender
 	Interrupter agentInterrupter
 }
@@ -99,6 +102,7 @@ type ReviewService struct {
 	threads     reviewThreadReadWriter
 	messages    reviewMessageReadWriter
 	viewed      reviewViewedFileReadWriter
+	agents      agentGetter
 	mailer      reviewNoticeSender
 	interrupter agentInterrupter
 }
@@ -109,35 +113,19 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 		threads:     params.Threads,
 		messages:    params.Messages,
 		viewed:      params.Viewed,
+		agents:      params.Agents,
 		mailer:      params.Mailer,
 		interrupter: params.Interrupter,
 	}
 }
 
-type ListReviewThreadsParams struct {
-	AgentID string
-	// MarkRead claims what is returned, which an agent reading in order to act wants and the
-	// panel drawing a diff does not.
-	MarkRead bool
-	Author   ReviewAuthor
-}
-
-// ListReviewThreads is every thread on an agent's diff with its messages.
+// ListReviewThreads is every thread on an agent's diff with its messages, which anyone may
+// read since reading it changes nothing.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
-	params ListReviewThreadsParams,
+	agentID string,
 ) ([]ReviewThreadWithMessages, error) {
-	// Anyone may read anyone's review, but claiming another agent's would move a watermark on
-	// feedback that agent has never been shown.
-	if params.MarkRead && !params.Author.IsHuman() && !doesOwnAgent(params.Author, params.AgentID) {
-		return nil, fmt.Errorf("%w: %q", ErrReviewNotYours, params.AgentID)
-	}
-
-	threads, err := s.threads.ListThreads(ctx, reviewstore.ListThreadsParams{
-		AgentID:  params.AgentID,
-		Reader:   params.Author.Kind,
-		MarkRead: params.MarkRead,
-	})
+	threads, err := s.threads.ListThreads(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -261,17 +249,21 @@ type MarkReviewThreadReadParams struct {
 	Author ReviewAuthor
 }
 
-// MarkReviewThreadRead catches one side up on a single conversation, since claiming the whole
-// list would say the person had read threads they never opened.
+// MarkReviewThreadRead catches the person up on a single conversation, and is theirs alone,
+// since what the agent has been told is recorded per comment rather than per thread.
 func (s *ReviewService) MarkReviewThreadRead(
 	ctx context.Context,
 	params MarkReviewThreadReadParams,
 ) (*reviewstore.Thread, error) {
+	if !params.Author.IsHuman() {
+		return nil, fmt.Errorf("%w: marking a review thread read", ErrReviewHumanOnly)
+	}
+
 	if err := s.requireOwnThread(ctx, params.ID, params.Author); err != nil {
 		return nil, err
 	}
 
-	return s.threads.MarkThreadRead(ctx, params.ID, params.Author.Kind)
+	return s.threads.MarkThreadRead(ctx, params.ID)
 }
 
 type SetReviewThreadResolvedParams struct {
@@ -381,16 +373,21 @@ func (s *ReviewService) DeleteReviewMessage(ctx context.Context, params DeleteRe
 	return s.messages.DeleteMessage(ctx, params.ID)
 }
 
-// NotifyReviewThreadsResult reports what telling an agent about its review threads did.
-type NotifyReviewThreadsResult struct {
-	// Unread is how many open threads hold activity the agent has not read.
-	Unread int64
-	// AlreadyWaiting says the agent already holds an unread notice of this kind, so none was
-	// raised, and one that ran out of time before it was read does not count.
-	AlreadyWaiting bool
+// reviewDoorbellBody says that there is review to read and where to read it, and carries no
+// feedback, so a comment rewritten after it is sent is read as it now stands rather than twice.
+const reviewDoorbellBody = "weave: there is review on your diff you have not read, call list_review_threads"
+
+// ReleaseReviewMessagesResult reports what letting go of a review did.
+type ReleaseReviewMessagesResult struct {
+	// Released is how many comments were stamped as sent, which is the durable record that
+	// they were let go of.
+	Released int
+	// Rung is how many of those a doorbell was raised for, the rest keeping the one already
+	// waiting to be read, since it says what a second would.
+	Rung int
 }
 
-type NotifyReviewThreadsParams struct {
+type ReleaseReviewMessagesParams struct {
 	AgentID string
 	// Interrupt stops the agent where it stands before the mail is sent, so it reads the
 	// review now rather than at the end of whatever it is doing.
@@ -398,42 +395,131 @@ type NotifyReviewThreadsParams struct {
 	Author    ReviewAuthor
 }
 
-// NotifyReviewThreads tells an agent it has review activity waiting, as one piece of mail that
-// carries a count and the name of the tool to fetch with rather than the feedback itself.
-func (s *ReviewService) NotifyReviewThreads(
+// ReleaseReviewMessages lets go of every comment on an agent's review the person has written
+// and not sent, stamping each and raising one doorbell for it, so that a review is written,
+// reconsidered and let go of as one thought rather than reaching the agent a line at a time.
+func (s *ReviewService) ReleaseReviewMessages(
 	ctx context.Context,
-	params NotifyReviewThreadsParams,
-) (*NotifyReviewThreadsResult, error) {
+	params ReleaseReviewMessagesParams,
+) (*ReleaseReviewMessagesResult, error) {
 	if !params.Author.IsHuman() {
-		return nil, fmt.Errorf("%w: announcing a review", ErrReviewHumanOnly)
+		return nil, fmt.Errorf("%w: releasing a review", ErrReviewHumanOnly)
+	}
+	if err := s.requireLiveAgent(ctx, params.AgentID); err != nil {
+		return nil, err
 	}
 
-	unread, err := s.threads.CountUnreadForAgent(ctx, params.AgentID)
+	released, err := s.messages.ReleaseUnsentMessages(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
-	if unread == 0 {
-		return &NotifyReviewThreadsResult{}, nil
+	if len(released) == 0 {
+		return &ReleaseReviewMessagesResult{}, nil
 	}
 
 	if params.Interrupt {
 		s.interrupt(ctx, params.AgentID)
 	}
 
-	body := fmt.Sprintf(
-		"weave: %d review thread(s) on your diff have activity you have not read, call list_review_threads",
-		unread)
-
-	_, err = s.mailer.SendNotice(ctx, SendNoticeParams{
-		ToAgentID: params.AgentID,
-		Body:      body,
-		Kind:      mailstore.KindReviewActivity,
-	})
-	if err != nil && !errors.Is(err, mailstore.ErrNoticePending) {
+	rung, err := s.ring(ctx, params.AgentID, released)
+	if err != nil {
 		return nil, err
 	}
 
-	return &NotifyReviewThreadsResult{Unread: unread, AlreadyWaiting: err != nil}, nil
+	return &ReleaseReviewMessagesResult{Released: len(released), Rung: rung}, nil
+}
+
+// RingReviewMessagesAgainResult reports what ringing an agent's review again did.
+type RingReviewMessagesAgainResult struct {
+	// Expired is how many released comments were found with no doorbell the agent could still
+	// read.
+	Expired int
+	// Rung is how many of those a fresh doorbell was raised for.
+	Rung int
+}
+
+type RingReviewMessagesAgainParams struct {
+	AgentID string
+	// Interrupt stops the agent where it stands before the mail is sent.
+	Interrupt bool
+	Author    ReviewAuthor
+}
+
+// RingReviewMessagesAgain raises a doorbell again for every released comment whose own ran out
+// of time unclaimed, which is the only way those reach an agent that was not listening.
+func (s *ReviewService) RingReviewMessagesAgain(
+	ctx context.Context,
+	params RingReviewMessagesAgainParams,
+) (*RingReviewMessagesAgainResult, error) {
+	if !params.Author.IsHuman() {
+		return nil, fmt.Errorf("%w: ringing a review again", ErrReviewHumanOnly)
+	}
+	if err := s.requireLiveAgent(ctx, params.AgentID); err != nil {
+		return nil, err
+	}
+
+	expired, err := s.messages.ListExpiredMessages(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+	if len(expired) == 0 {
+		return &RingReviewMessagesAgainResult{}, nil
+	}
+
+	if params.Interrupt {
+		s.interrupt(ctx, params.AgentID)
+	}
+
+	rung, err := s.ring(ctx, params.AgentID, expired)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RingReviewMessagesAgainResult{Expired: len(expired), Rung: rung}, nil
+}
+
+// ring raises one doorbell per comment and answers how many it raised, leaving a comment that
+// already holds one the agent can still read with it rather than giving it a second.
+func (s *ReviewService) ring(ctx context.Context, agentID string, messages []reviewstore.Message) (int, error) {
+	rung := 0
+
+	for _, message := range messages {
+		id := message.ID
+
+		_, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+			ToAgentID:       agentID,
+			Body:            reviewDoorbellBody,
+			Kind:            mailstore.KindReviewActivity,
+			ReviewMessageID: &id,
+		})
+		if errors.Is(err, mailstore.ErrNoticePending) {
+			continue
+		}
+		if err != nil {
+			return rung, err
+		}
+
+		rung++
+	}
+
+	return rung, nil
+}
+
+// requireLiveAgent refuses a review of an agent that has been archived, since there is nobody
+// there to hand it to and stamping a comment sent would say it had been told.
+func (s *ReviewService) requireLiveAgent(ctx context.Context, agentID string) error {
+	agent, err := s.agents.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
+	if err != nil {
+		return err
+	}
+	if agent.ArchivedAt != nil {
+		return fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	return nil
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the
