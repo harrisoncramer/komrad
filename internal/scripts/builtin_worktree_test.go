@@ -941,6 +941,78 @@ func TestBuiltinWorktreeCleanupRefusesWhenTheWorktreeListCannotBeRead(t *testing
 	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-blind"), "nothing was removed")
 }
 
+// TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved covers a worktree whose .git file
+// points into a repo that is no longer at that path: git cannot answer at all, so cleanup has
+// to fail rather than record a clean deprovision for a directory that is still on disk.
+func TestBuiltinWorktreeCleanupRefusesATreeWhoseRepoHasMoved(t *testing.T) {
+	repo := initRepo(t)
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-adrift",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+
+	resolvedTree, err := filepath.EvalSymlinks(tree)
+	require.NoError(t, err)
+	resolvedRepo, err := filepath.EvalSymlinks(repo)
+	require.NoError(t, err)
+
+	moved := filepath.Join(t.TempDir(), "moved")
+	require.NoError(t, os.Rename(repo, moved))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-adrift", agentCwd: tree})
+	require.Error(t, err, "the refusal is reported rather than exiting zero")
+
+	assertIsDir(t, tree)
+	assert.Contains(t, string(cleanup.Stderr), "git cannot read "+resolvedTree)
+	assert.Contains(t, string(cleanup.Stderr), filepath.Join(resolvedRepo, ".git", "worktrees", "agent-adrift"), "the message names the gitdir the .git file points at")
+	assert.NotEmpty(t, readBranchList(t, moved, "agent/agent-adrift"), "nothing was removed")
+}
+
+// TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone covers the retry of a delete
+// that failed partway: worktree remove already dropped the registration before it hit the
+// error, so the second run finds a directory git no longer knows anything about.
+func TestBuiltinWorktreeCleanupRefusesATreeWhoseRegistrationIsGone(t *testing.T) {
+	repo := initRepo(t)
+	setup, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-unregistered",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", setup.Stderr)
+	tree := strings.TrimSpace(string(setup.Stdout))
+
+	require.NoError(t, os.RemoveAll(filepath.Join(repo, ".git", "worktrees", "agent-unregistered")))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-unregistered", agentCwd: tree})
+	require.Error(t, err, "the refusal is reported rather than exiting zero")
+
+	assertIsDir(t, tree)
+	assert.Contains(t, string(cleanup.Stderr), "the registration is gone")
+	assert.NotEmpty(t, readBranchList(t, repo, "agent/agent-unregistered"), "the branch is left for a person to deal with")
+}
+
+// TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer covers the two
+// refusals meeting: the ownership claim is a fact about the path and the agent id alone, so a
+// tree weave never made still exits zero when there is no repo left to ask.
+func TestBuiltinWorktreeCleanupLeavesAWorktreeItDoesNotOwnAloneWhenGitCannotAnswer(t *testing.T) {
+	repo := initRepo(t)
+	theirs := filepath.Join(t.TempDir(), "theirs")
+	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someone-else", theirs)
+
+	moved := filepath.Join(t.TempDir(), "moved")
+	require.NoError(t, os.Rename(repo, moved))
+
+	cleanup, err := runBuiltin(t, "_worktree_cleanup", worktreeEnv{agentID: "agent-thief", agentCwd: theirs})
+	require.NoError(t, err, "stderr: %s", cleanup.Stderr)
+
+	assertIsDir(t, theirs)
+	assert.Contains(t, string(cleanup.Stderr), "is not named after agent-thief")
+	assert.NotEmpty(t, readBranchList(t, moved, "someone-else"), "someone else's branch survives")
+}
+
 func failingGitDir(t *testing.T, failFor string) string {
 	t.Helper()
 

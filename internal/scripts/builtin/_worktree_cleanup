@@ -14,9 +14,6 @@ fi
 # unresolved one silently matches nothing on any machine whose temp or home path is a symlink.
 tree=$(cd "$tree" && pwd -P)
 
-common_dir=$(git -C "$tree" rev-parse --git-common-dir 2>/dev/null) || exit 0
-repo=$(dirname "$common_dir")
-
 # Being a worktree is not proof of being this agent's worktree: one made by hand passes the
 # check above, and the launch path reaches cleanup with the agent's cwd still set to whatever
 # the workflow named when setup never got as far as replacing it. Setup names the directory
@@ -28,6 +25,16 @@ if [ "$(basename "$tree")" != "$WEAVE_AGENT_ID" ]; then
 	echo "worktree cleanup: $tree is not named after $WEAVE_AGENT_ID, so it is not this agent's to remove" >&2
 	exit 0
 fi
+
+# The .git file names an absolute path back into the repo, so a repo that has moved and a
+# registration that is already gone both leave git with nothing to answer from. Exiting zero
+# on that would record a clean deprovision for a directory and a branch still on disk.
+if ! common_dir=$(git -C "$tree" rev-parse --git-common-dir 2>/dev/null); then
+	gitdir=$(sed -n 's|^gitdir: ||p' "$tree/.git")
+	echo "worktree cleanup: git cannot read $tree, whose .git names $gitdir; the repo has moved or the registration is gone, so that directory and the branch $branch have to be dealt with by hand" >&2
+	exit 1
+fi
+repo=$(dirname "$common_dir")
 
 # worktree remove --force reads a nested worktree as an ordinary untracked directory, deletes
 # its files, and leaves git holding a registration for a checkout that is no longer there. A
