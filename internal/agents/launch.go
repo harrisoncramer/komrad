@@ -284,10 +284,12 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		deprovisionAction = ""
 	}
 
-	// A child is raw intelligence spawned into a directory somebody else prepared, so no moment
-	// of its own fires: there is nothing to install that its parent has not installed.
+	// The hooks a workflow lists are read only for the agents that own their own directory, since
+	// a child runs in its parent's checkout and an agent whose provisioner is retired was handed
+	// somebody else's, where an install-deps hook would be working in a tree nobody asked it to
+	// touch.
 	hooks := wf.Hooks
-	if p.ParentAgentID != "" {
+	if p.ParentAgentID != "" || isProvisionerRetired(p.ProvisionAction) {
 		hooks = nil
 	}
 

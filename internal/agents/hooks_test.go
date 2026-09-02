@@ -7,6 +7,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -154,6 +155,40 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 	require.NotNil(t, child)
 
 	assert.Len(t, lifecycle.ranHooks(), before, "no moment fires for a child")
+}
+
+// TestARetiredProvisionerRunsNoHooks pins the other half of the ownership rule: an agent
+// handed somebody else's checkout, which is what adopting a branch a human has open does,
+// must not have install-deps run inside it.
+func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	lifecycle := &fakeLifecycle{dir: t.TempDir()}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:            "backend",
+		ProvisionAction: "make-worktree",
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+			{Event: workflowstore.HookPostLaunch, Action: "announce"},
+		},
+	})
+	require.NoError(t, err)
+
+	elsewhere := t.TempDir()
+	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:           "reviewer",
+		Dir:             elsewhere,
+		WorkflowID:      created.ID,
+		ProvisionAction: xptr.Ptr(""),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, agent)
+
+	assert.Equal(t, elsewhere, agent.Cwd, "it keeps the directory it was given")
+	assert.Empty(t, lifecycle.provision, "nothing was provisioned")
+	assert.Empty(t, lifecycle.ranHooks(), "so no moment fires against it")
 }
 
 // TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire pins the refusal, since a hook hung on

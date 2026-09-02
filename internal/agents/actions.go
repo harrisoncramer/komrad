@@ -181,6 +181,12 @@ func (s *ActionService) RunHookAction(ctx context.Context, agent agentstore.Agen
 		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
 	}
 
+	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
+	// rather than a reason to run the script somewhere else.
+	if err := requireUsableDir(agent.Cwd); err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
+	}
+
 	logger := s.actionLogger(ctx, name, event, agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
@@ -188,7 +194,7 @@ func (s *ActionService) RunHookAction(ctx context.Context, agent agentstore.Agen
 	logPath := s.claimActionLog(ctx, agent.ID, event, name)
 	result, err := s.runner.RunAndWait(ctx, actions.RunParams{
 		Action:  action,
-		Dir:     hookDir(agent.Cwd, action.GetDir()),
+		Dir:     agent.Cwd,
 		Env:     env,
 		Timeout: action.Header.TimeoutOr(hookTimeout),
 	})
@@ -203,16 +209,6 @@ func (s *ActionService) RunHookAction(ctx context.Context, agent agentstore.Agen
 	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 
 	return nil
-}
-
-// hookDir is where a hook runs, which is the agent's own directory once there is one and the
-// action's own only for an agent that has none recorded yet.
-func hookDir(agentCwd, actionDir string) string {
-	if info, err := os.Stat(agentCwd); err == nil && info.IsDir() {
-		return agentCwd
-	}
-
-	return actionDir
 }
 
 // RunResumeAction reruns the provision action before resuming an agent.
@@ -612,6 +608,23 @@ type actionKey struct {
 	name    string
 }
 
+// removeEmptyLog drops the file a run claimed but never wrote to, since a refusal is not a run
+// and a number spent on one would push a real run out of the fifty that are kept.
+func removeEmptyLog(ctx context.Context, path string) {
+	if path == "" {
+		return
+	}
+
+	info, err := os.Stat(path)
+	if err != nil || info.Size() > 0 {
+		return
+	}
+
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logging.From(ctx).Warn("failed to remove the log of a run that never started", "path", path, "error", err)
+	}
+}
+
 func (s *ActionService) claim(key actionKey) bool {
 	s.inFlightMu.Lock()
 	defer s.inFlightMu.Unlock()
@@ -652,6 +665,8 @@ func timeoutFallback(trigger string) time.Duration {
 func (s *ActionService) start(ctx context.Context, p startParams) error {
 	key := actionKey{agentID: p.agent.ID, name: p.action.Name}
 	if !s.claim(key) {
+		removeEmptyLog(ctx, p.logPath)
+
 		return fmt.Errorf("failed to run action %s: %w", p.action.Name, ErrActionAlreadyRunning)
 	}
 
@@ -683,6 +698,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 	})
 	if err != nil {
 		s.release(key)
+		removeEmptyLog(ctx, p.logPath)
 
 		return err
 	}

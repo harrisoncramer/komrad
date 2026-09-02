@@ -22,6 +22,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -157,17 +158,26 @@ func TestRunActionPayload(t *testing.T) {
 }
 
 // TestRunActionCarriesWorktreeEnvOnlyWhenEnabled covers the environment the two built-in
-// worktree actions read their config from: present, and reflecting the workflow's own
-// settings, when its worktree toggle is on, and absent entirely otherwise, since most
-// workflows are not worktrees and should not carry them.
+// worktree actions read their config from: present, and reflecting the workflow's own settings,
+// when its worktree toggle is on and the agent is one the pair provisioned, and absent
+// otherwise, since an agent handed somebody else's checkout has no worktree of its own.
 func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 	tests := []struct {
-		name     string
-		worktree workflowstore.WorktreeConfig
-		wantKeys []string
+		name      string
+		worktree  workflowstore.WorktreeConfig
+		provision *string
+		wantKeys  []string
 	}{
 		{
 			name: "disabled carries none of the worktree keys",
+		},
+		{
+			name: "enabled carries none of them for an agent that provisions nothing",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:    true,
+				BaseBranch: "develop",
+			},
+			provision: xptr.Ptr(""),
 		},
 		{
 			name: "enabled carries every worktree key, reflecting the workflow's own config",
@@ -196,9 +206,10 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 			runner := &recordingRunner{}
 			service := NewActionService(ActionParams{
 				Agents: fakeAgentReader{agent: &agentstore.Agent{
-					ID:         "a1",
-					Cwd:        "/worktrees/a1",
-					WorkflowID: "w1",
+					ID:              "a1",
+					Cwd:             "/worktrees/a1",
+					WorkflowID:      "w1",
+					ProvisionAction: tt.provision,
 				}},
 				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
 					ID: "w1", Name: "backend", Cwd: "/repo", Worktree: tt.worktree,
@@ -1166,6 +1177,36 @@ func TestRunHookActionCarriesWhatTheScriptSaid(t *testing.T) {
 	require.ErrorIs(t, err, ErrHookFailed)
 	assert.Contains(t, err.Error(), "install-deps")
 	assert.Contains(t, err.Error(), "no lockfile here")
+}
+
+// TestRunHookActionRefusesADirectoryThatIsGone pins a hook with nowhere to run failing rather
+// than relocating, since a script that installs into the actions directory instead of the
+// worktree is worse than one that says it could not run.
+func TestRunHookActionRefusesADirectoryThatIsGone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), t.TempDir())
+
+	err := svc.RunHookAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPreLaunch)
+
+	require.ErrorIs(t, err, ErrHookFailed)
+	assert.Contains(t, err.Error(), "/definitely/not/here")
+}
+
+// TestRunActionLeavesNoRunBehindWhenItWouldNotStart pins a refusal spending no number, since a
+// file claimed by a run that never happened would push a real one out of the fifty kept.
+func TestRunActionLeavesNoRunBehindWhenItWouldNotStart(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	err := svc.RunAction(t.Context(), "a1", "open-pr")
+
+	require.Error(t, err, "a file nobody made executable is not startable")
+	assert.Empty(t, config.ListActionLogRuns(logsDir, "a1"), "and it leaves no run behind")
 }
 
 // TestClaimActionLogNumbersEveryRun pins each run getting a file of its own rather than the

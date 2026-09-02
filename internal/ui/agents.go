@@ -485,12 +485,14 @@ const settingUpPlaceholder = "_setting up…_\n\nRunning the provision action. T
 const failureReasonKey = "error"
 
 func (m model) failedPlaceholder(agent agentstore.Agent) string {
-	label, trigger := "provision", config.TriggerProvision
+	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
+	// that failed is the newest of either rather than the newest provision run.
+	label, moments := "provision", []string{config.TriggerProvision, config.HookPreLaunch}
 	if agent.State == agentstore.StateFailedToCleanup {
-		label, trigger = "deprovision", config.TriggerDeprovision
+		label, moments = "deprovision", []string{config.TriggerDeprovision}
 	}
 
-	if run, ok := m.latestActionLogRun(agent.ID, trigger); ok {
+	if run, ok := m.latestActionLogRun(agent.ID, moments); ok {
 		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
 	}
 

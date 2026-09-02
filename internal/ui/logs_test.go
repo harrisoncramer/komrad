@@ -347,6 +347,43 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	assert.Contains(t, withoutLog, "tmux refused", "nothing else is left to say why, so the reason falls back to here")
 }
 
+// TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate pins the placeholder following the
+// run that actually failed, since a create can die at a pre-launch hook with the provision run
+// beside it green.
+func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	agent := agentstore.Agent{
+		ID:       "a1",
+		State:    agentstore.StateFailedToCreate,
+		Metadata: []agentstore.Metadata{{Key: "error", Value: "install-deps: mise refused"}},
+	}
+
+	writeRun(t, m.actionLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	writeRun(t, m.actionLogsDir, agent.ID, 2, config.HookPreLaunch, "install-deps")
+
+	assert.Contains(t, m.failedPlaceholder(agent), "run 002", "the hook's run is the one that failed")
+}
+
+// TestFailedPlaceholderSkipsARunWithNothingInIt pins a claimed but empty run being passed over,
+// since pointing at one opens an empty pager and says nothing about why.
+func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	agent := agentstore.Agent{
+		ID:       "a1",
+		State:    agentstore.StateFailedToCreate,
+		Metadata: []agentstore.Metadata{{Key: "error", Value: "tmux refused the window"}},
+	}
+
+	empty := writeRun(t, m.actionLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	require.NoError(t, os.Truncate(empty, 0))
+
+	assert.Contains(t, m.failedPlaceholder(agent), "tmux refused", "with nothing to read, the reason is what is left")
+}
+
 // TestLogKeysFollowTheArchiveCursor pins that the archive's own cursor picks which teardown
 // log is paged, not whatever the agents list was last left pointing at.
 func TestLogKeysFollowTheArchiveCursor(t *testing.T) {

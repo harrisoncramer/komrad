@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"os"
 	"slices"
 	"strings"
 
@@ -145,13 +146,19 @@ func (m model) actionLogRun(agentID string, back int) (config.ActionLogRun, bool
 	return runs[back], true
 }
 
-// latestActionLogRun is the most recent run of an action with the given trigger, which is what
-// a failed create or a failed teardown left behind.
-func (m model) latestActionLogRun(agentID, trigger string) (config.ActionLogRun, bool) {
+// latestActionLogRun is the most recent run at one of the given moments that has anything to
+// read, since a run refused before its script wrote a byte points at an empty pager.
+func (m model) latestActionLogRun(agentID string, moments []string) (config.ActionLogRun, bool) {
 	for _, run := range config.ListActionLogRuns(m.actionLogsDir, agentID) {
-		if run.Trigger == trigger {
-			return run, true
+		if !slices.Contains(moments, run.Trigger) {
+			continue
 		}
+
+		if info, err := os.Stat(run.Path); err != nil || info.Size() == 0 {
+			continue
+		}
+
+		return run, true
 	}
 
 	return config.ActionLogRun{}, false
