@@ -556,7 +556,7 @@ func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlots
 
 	parents, err := agents.ListByID(ctx, parentIDs)
 	if err != nil {
-		return fmt.Errorf("failed to look up the parents of %d restoring children: %w", len(restoring), err)
+		return fmt.Errorf("failed to look up %d parents of the restoring children: %w", len(parentIDs), err)
 	}
 
 	wanted := make([]parentRoom, 0, len(parents))
