@@ -100,7 +100,7 @@ func TestRenderTranscript(t *testing.T) {
 	assert.Contains(t, plain, "• a list item", "the markdown is rendered rather than shown as source")
 	assert.NotContains(t, rendered, "\x02", "the markers are consumed into styling")
 	assert.NotContains(t, rendered, "\x03", "the markers are consumed into styling")
-	assert.Contains(t, rendered, matchStyle.Render("ledger"), "the matched word is styled")
+	assert.Contains(t, rendered, stageMatchStyle.Render("ledger"), "the matched word is styled")
 
 	rows := strings.Split(plain, "\n")
 	require.Positive(t, line)
@@ -131,6 +131,26 @@ func TestRenderTranscriptEstimatesADroppedMatch(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(rendered), "ledger", "the rendering dropped the destination the match sat in")
 	assert.Greater(t, line, rows/2, "the preview opens down where the match sat")
 	assert.LessOrEqual(t, line, rows)
+}
+
+// TestRenderTranscriptKeepsTheStylingAroundAMatch covers a match inside a run the renderer
+// styled, inline code being where an identifier is matched, since the reset a styled word ends
+// with would otherwise strip the colour off the rest of the run.
+func TestRenderTranscriptKeepsTheStylingAroundAMatch(t *testing.T) {
+	withColor(t)
+
+	const content = "the `author_kind` column\n"
+
+	word := strings.Index(content, "author")
+	rendered, _ := renderTranscript(content, []span{{start: word, end: word + len("author")}}, 60)
+
+	code := strings.Index(rendered, "\x1b[")
+	require.GreaterOrEqual(t, code, 0, "the renderer styles inline code")
+
+	opened := rendered[code : code+strings.IndexByte(rendered[code:], 'm')+1]
+
+	assert.Contains(t, rendered, stageMatchStyle.Render("author")+opened,
+		"the code styling is opened again after the match")
 }
 
 // TestScrubMarks covers a transcript holding the search's own markers, which a captured pane

@@ -201,6 +201,10 @@ func scheduleColor(enabled bool) lipgloss.Color {
 
 var matchStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
 
+// stageMatchStyle marks a match in rendered markdown, where the warning colour the listing marks
+// with is already spoken for by inline code, so the word takes a block behind it instead.
+var stageMatchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorMuted)
+
 var brokenStyle = lipgloss.NewStyle().Foreground(colorDanger)
 
 func (m model) nameStyle(hovered, selected, inactive bool) lipgloss.Style {

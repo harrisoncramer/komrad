@@ -7,6 +7,8 @@ import (
 	"unicode/utf8"
 
 	transcriptstore "weave/internal/store/transcript"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 const snippetIndent = 4
@@ -100,13 +102,16 @@ func clipToMatch(snippet string, width int) string {
 }
 
 func renderSnippet(s string, width int) string {
-	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width))
+	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width), matchStyle)
 }
 
-// styleMarks consumes the store's match markers into styling, which is the same pass for a
-// snippet in the listing and for a whole transcript on the stage.
-func styleMarks(s string) string {
+// styleMarks consumes the store's match markers into styling, putting back whatever styling was
+// in force where a mark falls inside it, since the reset a styled word ends with would otherwise
+// strip the colour off the rest of a rendered run.
+func styleMarks(s string, style lipgloss.Style) string {
 	var b strings.Builder
+
+	active := ""
 	for {
 		i := strings.Index(s, transcriptstore.SnippetOpen)
 		if i < 0 {
@@ -114,6 +119,7 @@ func styleMarks(s string) string {
 			break
 		}
 		b.WriteString(s[:i])
+		active = activeSGR(active, s[:i])
 
 		rest := s[i+len(transcriptstore.SnippetOpen):]
 		j := strings.Index(rest, transcriptstore.SnippetClose)
@@ -121,11 +127,47 @@ func styleMarks(s string) string {
 			b.WriteString(rest)
 			break
 		}
-		b.WriteString(matchStyle.Render(rest[:j]))
+		b.WriteString(style.Render(rest[:j]))
+		b.WriteString(active)
 		s = rest[j+len(transcriptstore.SnippetClose):]
 	}
 
 	return b.String()
+}
+
+// activeSGR reports the styling still in force at the end of a chunk, where a reset clears it
+// and so does a line ending, since the renderer opens its styling again on every line.
+func activeSGR(active, chunk string) string {
+	for chunk != "" {
+		i := strings.IndexAny(chunk, "\x1b\n")
+		if i < 0 {
+			return active
+		}
+
+		if chunk[i] == '\n' {
+			active, chunk = "", chunk[i+1:]
+
+			continue
+		}
+
+		rest := chunk[i:]
+		end := strings.IndexByte(rest, 'm')
+		if !strings.HasPrefix(rest, "\x1b[") || end < 0 {
+			chunk = rest[1:]
+
+			continue
+		}
+
+		if params := rest[2:end]; params == "" || params == "0" {
+			active = ""
+		} else {
+			active = rest[:end+1]
+		}
+
+		chunk = rest[end+1:]
+	}
+
+	return active
 }
 
 func trimLastRune(s string) string {
