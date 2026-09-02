@@ -244,6 +244,20 @@ ORDER BY
     position,
     id;
 
+-- name: ListHooksForWorkflows :many
+SELECT
+    workflow_id,
+    event,
+    action
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = ANY (@workflow_ids::uuid[])
+ORDER BY
+    workflow_id,
+    position,
+    id;
+
 -- name: ListHooksForWorkflow :many
 SELECT
     event,

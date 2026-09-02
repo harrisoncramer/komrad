@@ -377,6 +377,47 @@ func (q *Queries) ListHooksForWorkflow(ctx context.Context, workflowID string) (
 	return items, nil
 }
 
+const listHooksForWorkflows = `-- name: ListHooksForWorkflows :many
+SELECT
+    workflow_id,
+    event,
+    action
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = ANY ($1::uuid[])
+ORDER BY
+    workflow_id,
+    position,
+    id
+`
+
+type ListHooksForWorkflowsRow struct {
+	WorkflowID string
+	Event      string
+	Action     string
+}
+
+func (q *Queries) ListHooksForWorkflows(ctx context.Context, workflowIds []string) ([]*ListHooksForWorkflowsRow, error) {
+	rows, err := q.db.Query(ctx, listHooksForWorkflows, workflowIds)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListHooksForWorkflowsRow
+	for rows.Next() {
+		var i ListHooksForWorkflowsRow
+		if err := rows.Scan(&i.WorkflowID, &i.Event, &i.Action); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorkflowHooks = `-- name: ListWorkflowHooks :many
 SELECT
     workflow_id,

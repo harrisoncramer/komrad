@@ -185,7 +185,8 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		return nil, fmt.Errorf("failed to list a page of workflows: %w", err)
 	}
 
-	hooks, err := s.hooksByWorkflow(ctx)
+	ids := xslice.Map(rows, func(row *models.ListWorkflowsPageRow) string { return row.Workflow.ID })
+	hooks, err := s.hooksForWorkflows(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
@@ -514,6 +515,26 @@ func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) 
 	rows, err := s.queries.ListWorkflowHooks(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read workflow hooks: %w", err)
+	}
+
+	hooks := make(map[string][]Hook)
+	for _, row := range rows {
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Action: row.Action})
+	}
+
+	return hooks, nil
+}
+
+// hooksForWorkflows reads the hooks of the workflows named, which is what a page of them wants
+// rather than the whole table.
+func (s *Store) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListHooksForWorkflows(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the hooks of %d workflows: %w", len(ids), err)
 	}
 
 	hooks := make(map[string][]Hook)

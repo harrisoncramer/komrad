@@ -227,15 +227,15 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-// TestActionsRoundTrip pins that the setup and cleanup actions come back as they were
-// written, naming none storing blank.
+// TestActionsRoundTrip pins that the provisioner's two halves come back as they were written,
+// naming none storing blank.
 func TestActionsRoundTrip(t *testing.T) {
 	tests := []struct {
-		name        string
-		create      Config
-		update      *Config
-		wantSetup   string
-		wantCleanup string
+		name            string
+		create          Config
+		update          *Config
+		wantProvision   string
+		wantDeprovision string
 	}{
 		{
 			name:   "naming none stores blank",
@@ -248,8 +248,8 @@ func TestActionsRoundTrip(t *testing.T) {
 				ProvisionAction:   "make-worktree",
 				DeprovisionAction: "drop-worktree",
 			},
-			wantSetup:   "make-worktree",
-			wantCleanup: "drop-worktree",
+			wantProvision:   "make-worktree",
+			wantDeprovision: "drop-worktree",
 		},
 		{
 			name: "an update writes both, so clearing one clears it",
@@ -258,8 +258,8 @@ func TestActionsRoundTrip(t *testing.T) {
 				ProvisionAction:   "make-worktree",
 				DeprovisionAction: "drop-worktree",
 			},
-			update:    &Config{Name: "backend", ProvisionAction: "provision"},
-			wantSetup: "provision",
+			update:        &Config{Name: "backend", ProvisionAction: "provision"},
+			wantProvision: "provision",
 		},
 	}
 
@@ -279,13 +279,13 @@ func TestActionsRoundTrip(t *testing.T) {
 			got, err := st.Get(ctx, created.ID)
 			require.NoError(t, err)
 			require.NotNil(t, got)
-			assert.Equal(t, tt.wantSetup, got.ProvisionAction)
-			assert.Equal(t, tt.wantCleanup, got.DeprovisionAction)
+			assert.Equal(t, tt.wantProvision, got.ProvisionAction)
+			assert.Equal(t, tt.wantDeprovision, got.DeprovisionAction)
 
 			listed, err := st.List(ctx)
 			require.NoError(t, err)
 			require.Len(t, listed, 1)
-			assert.Equal(t, tt.wantSetup, listed[0].ProvisionAction, "the listing carries them too")
+			assert.Equal(t, tt.wantProvision, listed[0].ProvisionAction, "the listing carries them too")
 		})
 	}
 }
@@ -617,4 +617,40 @@ func TestDelete(t *testing.T) {
 			assert.Zero(t, actionConfigs, "and its action config row too")
 		})
 	}
+}
+
+// TestHooksComeBackWithEveryReader pins the hooks reaching every shape a workflow is read in,
+// since the panel lists them, pages them, and gets them one at a time, and a reader that drops
+// them is a reader whose next write clears them.
+func TestHooksComeBackWithEveryReader(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	hooks := []Hook{
+		{Event: HookPreLaunch, Action: "install-deps"},
+		{Event: HookPreLaunch, Action: "copy-env"},
+		{Event: HookPostLaunch, Action: "announce"},
+	}
+
+	created, err := st.Create(ctx, Config{Name: "backend", Hooks: hooks})
+	require.NoError(t, err)
+	assert.Equal(t, hooks, created.Hooks, "create hands back what it wrote")
+
+	got, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, hooks, got.Hooks, "and so does a get")
+
+	listed, err := st.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, hooks, listed[0].Hooks, "and the listing")
+
+	page, err := st.ListPage(ctx, 10, nil, false)
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, hooks, page[0].Hooks, "and a page of it")
+
+	archived, err := st.GetIncludingArchived(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, hooks, archived.Hooks, "and the read that spans the archive")
 }
