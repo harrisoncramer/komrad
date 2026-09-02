@@ -99,6 +99,7 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 				Worktree: &workflowv1.WorktreeConfig{
 					Enabled:      true,
 					BaseBranch:   "develop",
+					Dir:          "/repo/.worktrees",
 					CopyPaths:    []string{".env"},
 					SymlinkPaths: []string{"node_modules"},
 				},
@@ -106,6 +107,7 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 			check: func(t *testing.T, created *workflowv1.Workflow) {
 				assert.True(t, created.GetWorktree().GetEnabled())
 				assert.Equal(t, "develop", created.GetWorktree().GetBaseBranch())
+				assert.Equal(t, "/repo/.worktrees", created.GetWorktree().GetDir())
 				assert.Equal(t, []string{".env"}, created.GetWorktree().GetCopyPaths())
 				assert.Equal(t, []string{"node_modules"}, created.GetWorktree().GetSymlinkPaths())
 			},
@@ -126,6 +128,35 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 			tt.check(t, created.Msg.GetWorkflow())
 		})
 	}
+}
+
+// TestUpdateWorkflowWorktreeDirSurvivesAReread pins the worktree directory against being
+// dropped on the way in: a field the write path forgets still reads back correctly from the
+// response it echoes, and only a second read shows it was never stored.
+func TestUpdateWorkflowWorktreeDirSurvivesAReread(t *testing.T) {
+	svc, _ := service(t)
+
+	created, err := svc.CreateWorkflow(t.Context(), connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  primaryCheckout(t),
+	}))
+	require.NoError(t, err)
+
+	id := created.Msg.GetWorkflow().GetId()
+	_, err = svc.UpdateWorkflow(t.Context(), connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
+		Id:   id,
+		Name: "backend",
+		Cwd:  primaryCheckout(t),
+		Worktree: &workflowv1.WorktreeConfig{
+			Enabled: true,
+			Dir:     "/repo/.worktrees",
+		},
+	}))
+	require.NoError(t, err)
+
+	got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
+	require.NoError(t, err)
+	assert.Equal(t, "/repo/.worktrees", got.Msg.GetWorkflow().GetWorktree().GetDir())
 }
 
 // TestGetWorkflow pins that an id nobody holds is not found rather than an empty workflow.

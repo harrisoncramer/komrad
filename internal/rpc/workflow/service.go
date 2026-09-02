@@ -127,6 +127,7 @@ func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.Worktre
 	return workflowstore.WorktreeConfig{
 		Enabled:      w.GetEnabled(),
 		BaseBranch:   w.GetBaseBranch(),
+		Dir:          w.GetDir(),
 		CopyPaths:    w.GetCopyPaths(),
 		SymlinkPaths: w.GetSymlinkPaths(),
 		DiffExclude:  w.GetDiffExclude(),
