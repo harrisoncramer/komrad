@@ -164,6 +164,57 @@ func (s *ActionService) RunProvisionAction(ctx context.Context, agent agentstore
 	}, pane)
 }
 
+var ErrHookFailed = errors.New("a hook failed")
+
+const hookTimeout = 10 * time.Minute
+
+// RunHookAction runs one of a workflow's hooks and waits for it, in the directory the agent
+// was provisioned rather than the one the action was found in, since a hook is there to work
+// on the checkout.
+func (s *ActionService) RunHookAction(ctx context.Context, agent agentstore.Agent, name, event string) error {
+	action, env, err := s.prepare(ctx, prepareParams{
+		agent:   agent,
+		name:    name,
+		trigger: event,
+	})
+	if err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
+	}
+
+	logger := s.actionLogger(ctx, name, event, agent)
+	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
+	began := time.Now()
+
+	logPath := s.claimActionLog(ctx, agent.ID, event, name)
+	result, err := s.runner.RunAndWait(ctx, actions.RunParams{
+		Action:  action,
+		Dir:     hookDir(agent.Cwd, action.GetDir()),
+		Env:     env,
+		Timeout: action.Header.TimeoutOr(hookTimeout),
+	})
+	writeActionLog(ctx, logPath, combinedOutput(result.Stdout, result.Stderr))
+
+	if err != nil {
+		logger.LogAttrs(ctx, slog.LevelError, "action failed", failedAction(result, err)...)
+
+		return fmt.Errorf("%w: %s: %w%s", ErrHookFailed, name, err, actionDetail(result.Stdout, result.Stderr, logPath))
+	}
+
+	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
+
+	return nil
+}
+
+// hookDir is where a hook runs, which is the agent's own directory once there is one and the
+// action's own only for an agent that has none recorded yet.
+func hookDir(agentCwd, actionDir string) string {
+	if info, err := os.Stat(agentCwd); err == nil && info.IsDir() {
+		return agentCwd
+	}
+
+	return actionDir
+}
+
 // RunResumeAction reruns the provision action before resuming an agent.
 func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{
@@ -852,7 +903,9 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 
 	env = append(env, gitPromptGuardEnv()...)
 
-	if workflow != nil && workflow.Worktree.Enabled {
+	// An agent that provisions nothing keeps the directory it was given, so its hooks must not
+	// be handed WEAVE_WORKTREE_REPO pointing at a worktree nobody made for it.
+	if workflow != nil && workflow.Worktree.Enabled && !isProvisionerRetired(agent.ProvisionAction) {
 		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {
 			return nil, err

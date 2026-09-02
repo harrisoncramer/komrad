@@ -281,3 +281,13 @@ type WorkflowConfig struct {
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
+
+// The scripts a workflow hangs on one moment in its agents' lives, run in position order.
+type WorkflowHook struct {
+	ID         string
+	WorkflowID string
+	Event      string
+	Action     string
+	Position   int32
+	CreatedAt  time.Time
+}

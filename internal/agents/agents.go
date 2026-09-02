@@ -147,6 +147,7 @@ type agentActions interface {
 	RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
 	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
+	RunHookAction(ctx context.Context, agent agentstore.Agent, name, event string) error
 }
 
 type systemMailSender interface {

@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -114,6 +115,8 @@ type workflowFormValues struct {
 	Provisioner          string
 	ProvisionAction      string
 	DeprovisionAction    string
+	PreLaunchHooks       string
+	PostLaunchHooks      string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -139,6 +142,8 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Provisioner:          provisioner,
 		ProvisionAction:      customAction(cfg.ProvisionAction),
 		DeprovisionAction:    customAction(cfg.DeprovisionAction),
+		PreLaunchHooks:       hookLines(cfg.Hooks, workflowstore.HookPreLaunch),
+		PostLaunchHooks:      hookLines(cfg.Hooks, workflowstore.HookPostLaunch),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -171,6 +176,10 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
 			DiffExclude:  splitLines(v.WorktreeDiffExclude),
 		},
+		Hooks: slices.Concat(
+			hooksFrom(v.PreLaunchHooks, workflowstore.HookPreLaunch),
+			hooksFrom(v.PostLaunchHooks, workflowstore.HookPostLaunch),
+		),
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
 
@@ -180,6 +189,25 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 	}
 
 	return cfg
+}
+
+// hookLines is one moment's hooks as the form edits them, one action name per line in the
+// order they run.
+func hookLines(hooks []workflowstore.Hook, event string) string {
+	var names []string
+	for _, hook := range hooks {
+		if hook.Event == event {
+			names = append(names, hook.Action)
+		}
+	}
+
+	return strings.Join(names, "\n")
+}
+
+func hooksFrom(text, event string) []workflowstore.Hook {
+	return xslice.Map(splitLines(text), func(name string) workflowstore.Hook {
+		return workflowstore.Hook{Event: event, Action: name}
+	})
 }
 
 func splitLines(text string) []string {
@@ -498,6 +526,7 @@ func workflowConfigForm(nameTitle string, values *workflowFormValues, available 
 		fields = append(fields, worktreeDetailFields(values)...)
 	}
 
+	fields = append(fields, hookFields(values)...)
 	fields = append(fields, archiveOnPRClosedField(values))
 
 	built := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
@@ -518,6 +547,19 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 		huh.NewText().Key("worktree_diff_exclude").Title("Diff excludes").
 			Description("one path or glob per line, left out of the diff the review screen draws, such as proto/gen or *.pb.go").
 			Lines(2).Value(&values.WorktreeDiffExclude),
+	}
+}
+
+// hookFields are the scripts hung on a moment rather than on the directory, so they are asked
+// for whatever the provisioner is.
+func hookFields(values *workflowFormValues) []huh.Field {
+	return []huh.Field{
+		huh.NewText().Key("pre_launch_hooks").Title("Pre-launch hooks").
+			Description("one action name per line, run in the agent's directory before its pane opens, such as install-deps").
+			Lines(2).Value(&values.PreLaunchHooks),
+		huh.NewText().Key("post_launch_hooks").Title("Post-launch hooks").
+			Description("one action name per line, run once the agent has been launched into its pane").
+			Lines(2).Value(&values.PostLaunchHooks),
 	}
 }
 

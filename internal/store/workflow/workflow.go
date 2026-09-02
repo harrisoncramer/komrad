@@ -15,6 +15,24 @@ import (
 	"weave/lib/xslice"
 )
 
+// The moments a workflow can hang a script on, each named for the event it hangs on and the
+// side of it that runs, so reading the name says when it fires.
+const (
+	HookPreLaunch  = "pre-launch"
+	HookPostLaunch = "post-launch"
+)
+
+// HookEvents are the moments a workflow can hang a script on, in the order they fire.
+func HookEvents() []string {
+	return []string{HookPreLaunch, HookPostLaunch}
+}
+
+// Hook is one script a workflow hangs on a moment, and a moment can hold several.
+type Hook struct {
+	Event  string
+	Action string
+}
+
 type Workflow struct {
 	ID                string
 	Name              string
@@ -25,6 +43,7 @@ type Workflow struct {
 	ProvisionAction   string
 	DeprovisionAction string
 	Worktree          WorktreeConfig
+	Hooks             []Hook
 	ArchiveOnPRClosed bool
 	ArchivedAt        *time.Time
 	UpdatedAt         time.Time
@@ -39,6 +58,7 @@ type Config struct {
 	ProvisionAction   string
 	DeprovisionAction string
 	Worktree          WorktreeConfig
+	Hooks             []Hook
 	ArchiveOnPRClosed bool
 }
 
@@ -53,6 +73,7 @@ func (w Workflow) Config() Config {
 		ProvisionAction:   w.ProvisionAction,
 		DeprovisionAction: w.DeprovisionAction,
 		Worktree:          w.Worktree,
+		Hooks:             w.Hooks,
 		ArchiveOnPRClosed: w.ArchiveOnPRClosed,
 	}
 }
@@ -69,6 +90,7 @@ func (c Config) Workflow(id string) Workflow {
 		ProvisionAction:   c.ProvisionAction,
 		DeprovisionAction: c.DeprovisionAction,
 		Worktree:          c.Worktree,
+		Hooks:             c.Hooks,
 		ArchiveOnPRClosed: c.ArchiveOnPRClosed,
 	}
 }
@@ -98,6 +120,11 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 
+	hooks, err := s.hooksByWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
 		return workflowFromRow(row.Workflow, workflowConfigFields{
 			Harness: row.Harness,
@@ -112,7 +139,7 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 			WorktreeDiffExclude:  row.WorktreeDiffExclude,
 			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-		})
+		}, hooks[row.Workflow.ID])
 	}), nil
 }
 
@@ -155,6 +182,11 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		return nil, fmt.Errorf("failed to list a page of workflows: %w", err)
 	}
 
+	hooks, err := s.hooksByWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
 		return workflowFromRow(row.Workflow, workflowConfigFields{
 			Harness: row.Harness,
@@ -169,7 +201,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 			WorktreeDiffExclude:  row.WorktreeDiffExclude,
 			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-		})
+		}, hooks[row.Workflow.ID])
 	}), nil
 }
 
@@ -187,6 +219,11 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
+	hooks, err := s.hooksFor(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
 		Harness: row.Harness,
 		Cwd:     row.Cwd,
@@ -200,7 +237,8 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 		WorktreeDiffExclude:  row.WorktreeDiffExclude,
 		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-	})
+	}, hooks)
+
 	return &workflow, nil
 }
 
@@ -241,6 +279,10 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
 	}
 
+	if err := s.setHooks(ctx, row.ID, cfg.Hooks); err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(*row, workflowConfigFields{
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
@@ -254,7 +296,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
-	})
+	}, cfg.Hooks)
+
 	return &workflow, nil
 }
 
@@ -310,7 +353,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}
 
-	return nil
+	return s.setHooks(ctx, id, cfg.Hooks)
 }
 
 // Archive hides a workflow from the panel without dropping the row, leaving the caller to
@@ -382,6 +425,11 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
+	hooks, err := s.hooksFor(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
 		Harness: row.Harness,
 		Cwd:     row.Cwd,
@@ -395,7 +443,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 		WorktreeDiffExclude:  row.WorktreeDiffExclude,
 		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-	})
+	}, hooks)
 
 	return &workflow, nil
 }
@@ -425,7 +473,55 @@ type actionConfigFields struct {
 	ArchiveOnPRClosed    bool
 }
 
-func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {
+// setHooks rewrites a workflow's hooks, since a caller sends back the whole list rather than
+// an edit to one of them, and the position they land in is the order they were sent.
+func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
+	if err := s.queries.DeleteWorkflowHooks(ctx, workflowID); err != nil {
+		return fmt.Errorf("failed to clear hooks for workflow %q: %w", workflowID, err)
+	}
+
+	for position, hook := range hooks {
+		if err := s.queries.InsertWorkflowHook(ctx, models.InsertWorkflowHookParams{
+			WorkflowID: workflowID,
+			Event:      hook.Event,
+			Action:     hook.Action,
+			Position:   int32(position),
+		}); err != nil {
+			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", hook.Event, hook.Action, workflowID, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error) {
+	rows, err := s.queries.ListHooksForWorkflow(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the hooks of workflow %q: %w", workflowID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListHooksForWorkflowRow) Hook {
+		return Hook{Event: row.Event, Action: row.Action}
+	}), nil
+}
+
+// hooksByWorkflow reads every workflow's hooks at once, so a listing costs one query for the
+// lot rather than one apiece.
+func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) {
+	rows, err := s.queries.ListWorkflowHooks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workflow hooks: %w", err)
+	}
+
+	hooks := make(map[string][]Hook)
+	for _, row := range rows {
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Action: row.Action})
+	}
+
+	return hooks, nil
+}
+
+func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields, hooks []Hook) Workflow {
 	return Workflow{
 		ID:                w.ID,
 		Name:              w.Name,
@@ -442,6 +538,7 @@ func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfi
 			SymlinkPaths: ac.WorktreeSymlinkPaths,
 			DiffExclude:  ac.WorktreeDiffExclude,
 		},
+		Hooks:             hooks,
 		ArchiveOnPRClosed: ac.ArchiveOnPRClosed,
 		ArchivedAt:        w.ArchivedAt,
 		UpdatedAt:         w.UpdatedAt,

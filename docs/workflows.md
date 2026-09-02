@@ -51,4 +51,4 @@ Nothing is deleted. The record, the transcript, and the worktree all survive, ex
 
 Open the panel with `prefix + g`. Press `w`, give it a name, leave everything else blank, and submit. Press `c` and give an agent a prompt. That is the whole minimum: a workflow with nothing but a name is just a folder.
 
-Then add to it as you learn what the group needs. A default directory once you are tired of typing it. Context once you have told three agents the same thing. A provisioner once you want them out of each other's way.
+Then add to it as you learn what the group needs. A default directory once you are tired of typing it. Context once you have told three agents the same thing. A provisioner once you want them out of each other's way. A pre-launch hook once the directory it provisions needs something installed in it.

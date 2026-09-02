@@ -49,6 +49,16 @@ func (q *Queries) DeleteWorkflowConfig(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteWorkflowHooks = `-- name: DeleteWorkflowHooks :exec
+DELETE FROM workflow_hooks
+WHERE workflow_id = $1
+`
+
+func (q *Queries) DeleteWorkflowHooks(ctx context.Context, workflowID string) error {
+	_, err := q.db.Exec(ctx, deleteWorkflowHooks, workflowID)
+	return err
+}
+
 const getWorkflow = `-- name: GetWorkflow :one
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.action_config_id, w.archived_at, w.created_at, w.updated_at,
@@ -297,6 +307,113 @@ func (q *Queries) InsertWorkflowConfig(ctx context.Context, arg InsertWorkflowCo
 	var id string
 	err := row.Scan(&id)
 	return id, err
+}
+
+const insertWorkflowHook = `-- name: InsertWorkflowHook :exec
+INSERT INTO workflow_hooks(
+    workflow_id,
+    event,
+    action,
+    position)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4)
+`
+
+type InsertWorkflowHookParams struct {
+	WorkflowID string
+	Event      string
+	Action     string
+	Position   int32
+}
+
+func (q *Queries) InsertWorkflowHook(ctx context.Context, arg InsertWorkflowHookParams) error {
+	_, err := q.db.Exec(ctx, insertWorkflowHook,
+		arg.WorkflowID,
+		arg.Event,
+		arg.Action,
+		arg.Position,
+	)
+	return err
+}
+
+const listHooksForWorkflow = `-- name: ListHooksForWorkflow :many
+SELECT
+    event,
+    action
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = $1
+ORDER BY
+    position,
+    id
+`
+
+type ListHooksForWorkflowRow struct {
+	Event  string
+	Action string
+}
+
+func (q *Queries) ListHooksForWorkflow(ctx context.Context, workflowID string) ([]*ListHooksForWorkflowRow, error) {
+	rows, err := q.db.Query(ctx, listHooksForWorkflow, workflowID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListHooksForWorkflowRow
+	for rows.Next() {
+		var i ListHooksForWorkflowRow
+		if err := rows.Scan(&i.Event, &i.Action); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listWorkflowHooks = `-- name: ListWorkflowHooks :many
+SELECT
+    workflow_id,
+    event,
+    action
+FROM
+    workflow_hooks
+ORDER BY
+    workflow_id,
+    position,
+    id
+`
+
+type ListWorkflowHooksRow struct {
+	WorkflowID string
+	Event      string
+	Action     string
+}
+
+func (q *Queries) ListWorkflowHooks(ctx context.Context) ([]*ListWorkflowHooksRow, error) {
+	rows, err := q.db.Query(ctx, listWorkflowHooks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListWorkflowHooksRow
+	for rows.Next() {
+		var i ListWorkflowHooksRow
+		if err := rows.Scan(&i.WorkflowID, &i.Event, &i.Action); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listWorkflows = `-- name: ListWorkflows :many

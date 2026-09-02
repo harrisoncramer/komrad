@@ -87,6 +87,9 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 		ProvisionAction:   w.GetProvisionAction(),
 		DeprovisionAction: w.GetDeprovisionAction(),
 		Worktree:          worktreeConfigFromProto(w.GetWorktree()),
+		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
+			return workflowstore.Hook{Event: hook.GetEvent(), Action: hook.GetAction()}
+		}),
 		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
 		ArchivedAt:        archived,
 	}

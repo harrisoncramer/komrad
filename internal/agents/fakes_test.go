@@ -498,6 +498,13 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentActions, m
 	})
 }
 
+// ranHook is one hook the fake was asked to run, in the order it was asked.
+type ranHook struct {
+	Event  string
+	Action string
+	Cwd    string
+}
+
 type fakeLifecycle struct {
 	dir                      string
 	resumeDir                string
@@ -506,6 +513,9 @@ type fakeLifecycle struct {
 	deprovisionStartErr      error
 	deprovisionRunErr        error
 	deprovisionRunErrByAgent map[string]error
+	hookErrs                 map[string]error
+	hooksMu                  sync.Mutex
+	hooks                    []ranHook
 	provision                []string
 	provisionPane            []string
 	resumed                  []string
@@ -534,6 +544,22 @@ func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, n
 	}
 
 	return f.dir, nil
+}
+
+func (f *fakeLifecycle) RunHookAction(_ context.Context, agent agentstore.Agent, name, event string) error {
+	f.hooksMu.Lock()
+	defer f.hooksMu.Unlock()
+
+	f.hooks = append(f.hooks, ranHook{Event: event, Action: name, Cwd: agent.Cwd})
+
+	return f.hookErrs[name]
+}
+
+func (f *fakeLifecycle) ranHooks() []ranHook {
+	f.hooksMu.Lock()
+	defer f.hooksMu.Unlock()
+
+	return slices.Clone(f.hooks)
 }
 
 func (f *fakeLifecycle) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {

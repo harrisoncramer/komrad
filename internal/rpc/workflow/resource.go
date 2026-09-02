@@ -4,6 +4,7 @@ import (
 	"time"
 
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 	workflowv1 "weave/proto/gen/workflow/v1"
 )
 
@@ -43,6 +44,9 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 				DiffExclude:  w.Worktree.DiffExclude,
 			},
 			ArchiveOnPrClosed: w.ArchiveOnPRClosed,
+			Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
+				return &workflowv1.WorkflowHook{Event: hook.Event, Action: hook.Action}
+			}),
 		},
 		cursor: workflowstore.Cursor{Name: w.Name, ID: w.ID},
 	}

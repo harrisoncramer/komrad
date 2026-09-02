@@ -17,7 +17,7 @@ An action runs in the actions directory it was found in.
 
 ## Execution
 
-Actions run at three different moments.
+Actions run at four different moments.
 
 ### As a workflow's provision action
 
@@ -42,6 +42,16 @@ printf '%s' "$tree" >"$WEAVE_SETUP_DIR_FILE"
 A workflow can also name the other half of its provisioner, which gives that directory back once one of its agents is deleted. Nothing waits for it, so the call returns as soon as the process exists, except on a failed launch, where it is awaited so the create cannot report having failed while the directory is still being taken back.
 
 Deprovision fires on delete, and on a failed launch. It does not fire on archive, and it is not read at all for an agent whose own provision action is blank, since such an agent keeps the directory it was given and has nothing to give back.
+
+### As a workflow's hook
+
+A workflow can also hang scripts on a moment in its agents' lives rather than on their directories. A moment can hold several, they run in the order they are listed, and they never name a directory of their own.
+
+`pre-launch` runs after the directory exists and before the pane is opened, which is where a dependency install goes. Weave waits for each one, and a failure abandons the create, since there is no agent yet: the hooks after it are skipped and the provisioner's other half runs so the directory does not survive a create that did not happen.
+
+`post-launch` runs once the CLI has been launched into the pane. Weave still waits for one before starting the next, but the chain runs in the background, so the call that created the agent returns straight away and a hook that fails there is reported rather than undone.
+
+A hook runs in the agent's own directory, which is the one the provisioner named, and reads the moment out of `WEAVE_TRIGGER` like any other action. A child agent runs no hooks at all, since it is spawned into a directory its parent already prepared.
 
 ### On demand
 
@@ -70,7 +80,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `provision`, `resume`, or `deprovision`.
+- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `provision`, `resume`, `deprovision`, `pre-launch`, or `post-launch`.
 - `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.

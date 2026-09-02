@@ -103,6 +103,10 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			SymlinkPaths: []string{"node_modules"},
 			DiffExclude:  []string{"proto/gen"},
 		},
+		Hooks: []*workflowv1.WorkflowHook{
+			{Event: "pre-launch", Action: "install-deps"},
+			{Event: "post-launch", Action: "announce"},
+		},
 	}})
 
 	require.Len(t, got, 1)
@@ -115,6 +119,10 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Flags:             "--model opus",
 		ProvisionAction:   "make-worktree",
 		DeprovisionAction: "drop-worktree",
+		Hooks: []workflowstore.Hook{
+			{Event: "pre-launch", Action: "install-deps"},
+			{Event: "post-launch", Action: "announce"},
+		},
 		ArchiveOnPRClosed: true,
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,

@@ -231,3 +231,43 @@ FROM
 WHERE
     w.id = @id
 LIMIT 1;
+
+-- name: ListWorkflowHooks :many
+SELECT
+    workflow_id,
+    event,
+    action
+FROM
+    workflow_hooks
+ORDER BY
+    workflow_id,
+    position,
+    id;
+
+-- name: ListHooksForWorkflow :many
+SELECT
+    event,
+    action
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = @workflow_id
+ORDER BY
+    position,
+    id;
+
+-- name: DeleteWorkflowHooks :exec
+DELETE FROM workflow_hooks
+WHERE workflow_id = @workflow_id;
+
+-- name: InsertWorkflowHook :exec
+INSERT INTO workflow_hooks(
+    workflow_id,
+    event,
+    action,
+    position)
+VALUES (
+    @workflow_id,
+    @event,
+    @action,
+    @position);

@@ -22,6 +22,19 @@ message Workflow {
   optional string archived_at = 9;
   WorktreeConfig worktree = 10;
   bool archive_on_pr_closed = 11;
+  repeated WorkflowHook hooks = 12;
+}
+
+message WorkflowHook {
+  string event = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 40
+  }];
+  string action = 2 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 255
+    [rules.v1.action_name_or_blank]: true
+  }];
 }
 
 message WorktreeConfig {
@@ -106,6 +119,7 @@ message CreateWorkflowRequest {
   }];
   WorktreeConfig worktree = 8;
   bool archive_on_pr_closed = 9;
+  repeated WorkflowHook hooks = 10 [(buf.validate.field).repeated.max_items = 50];
 }
 
 message CreateWorkflowResponse {
@@ -141,6 +155,7 @@ message UpdateWorkflowRequest {
   }];
   WorktreeConfig worktree = 9;
   bool archive_on_pr_closed = 10;
+  repeated WorkflowHook hooks = 11 [(buf.validate.field).repeated.max_items = 50];
 }
 
 message ArchiveWorkflowRequest {
@@ -177,7 +192,7 @@ service WorkflowService {
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. provisionAction names the action from list_actions that owns where each of its agents runs: it goes before the agent starts, it names the directory, and a failure abandons the launch. deprovisionAction names the half that gives that directory back once one of its agents is deleted, and is read only while provisionAction is set. Leave provisionAction blank for agents that keep the directory they are given, which retires both halves. worktree.enabled provisions every agent a git worktree off cwd instead: weave names both halves itself, so provisionAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. provisionAction names the action from list_actions that owns where each of its agents runs: it goes before the agent starts, it names the directory, and a failure abandons the launch. deprovisionAction names the half that gives that directory back once one of its agents is deleted, and is read only while provisionAction is set. Leave provisionAction blank for agents that keep the directory they are given, which retires both halves. worktree.enabled provisions every agent a git worktree off cwd instead: weave names both halves itself, so provisionAction must be blank when it is set. hooks hang scripts on a moment in its agents' lives rather than on their directories, each naming an event and an action: pre-launch runs in the agent's own directory before its pane opens and a failure abandons the create, post-launch runs once the CLI is in the pane and is not waited for. Several may hang on one moment and they run in the order given. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
       destructive: false
     };
   }
@@ -185,7 +200,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_workflow"
-      description: "Replace a workflow's name, context, directory, flags, and the provisioner that owns its agents' directories. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or provisionAction reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing deprovisionAction reaches agents already running, since it is read when it fires. worktree.enabled is the same decision spelled the other way: weave names both halves itself, so provisionAction must be blank when it is set, and turning it off clears both halves if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
+      description: "Replace a workflow's name, context, directory, flags, and the provisioner that owns its agents' directories. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or provisionAction reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing deprovisionAction reaches agents already running, since it is read when it fires. worktree.enabled is the same decision spelled the other way: weave names both halves itself, so provisionAction must be blank when it is set, and turning it off clears both halves if they still name the generated scripts. hooks is written whole like everything else, so send back the list you are not changing: each names an event, pre-launch or post-launch, and an action, and several may hang on one moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
       destructive: false
     };
   }

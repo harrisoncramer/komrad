@@ -18,6 +18,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -309,6 +310,12 @@ func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeC
 	}
 }
 
+func hooksToProto(hooks []workflowstore.Hook) []*workflowv1.WorkflowHook {
+	return xslice.Map(hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
+		return &workflowv1.WorkflowHook{Event: hook.Event, Action: hook.Action}
+	})
+}
+
 func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, error) {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
@@ -327,6 +334,7 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 		ProvisionAction:   cfg.ProvisionAction,
 		DeprovisionAction: cfg.DeprovisionAction,
 		Worktree:          worktreeConfigToProto(cfg.Worktree),
+		Hooks:             hooksToProto(cfg.Hooks),
 		ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
 	}))
 	if err != nil {
@@ -355,6 +363,7 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		ProvisionAction:   w.ProvisionAction,
 		DeprovisionAction: w.DeprovisionAction,
 		Worktree:          worktreeConfigToProto(w.Worktree),
+		Hooks:             hooksToProto(w.Hooks),
 		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 	}))
 

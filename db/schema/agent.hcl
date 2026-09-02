@@ -102,6 +102,49 @@ table "workflow_action_configs" {
   }
 }
 
+table "workflow_hooks" {
+  schema  = schema.public
+  comment = "The scripts a workflow hangs on one moment in its agents' lives, run in position order."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "workflow_id" {
+    null = false
+    type = uuid
+  }
+  column "event" {
+    null = false
+    type = text
+  }
+  column "action" {
+    null = false
+    type = text
+  }
+  column "position" {
+    null = false
+    type = integer
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "workflow_hooks_workflow_id_fkey" {
+    columns     = [column.workflow_id]
+    ref_columns = [table.workflows.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "workflow_hooks_workflow_id_position_idx" {
+    columns = [column.workflow_id, column.position]
+  }
+}
+
 table "workflows" {
   schema  = schema.public
   comment = "A named bucket of related agents. Pure organization; runs nothing."
