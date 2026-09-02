@@ -1363,11 +1363,11 @@ func TestLogTagsTheAction(t *testing.T) {
 	var written strings.Builder
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
 
-	action := "create-worktree"
+	script := "create-worktree"
 	_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{
 		Id:      &id,
 		Message: "preparing",
-		Action:  &action,
+		Script:  &script,
 	}))
 	require.NoError(t, err)
 

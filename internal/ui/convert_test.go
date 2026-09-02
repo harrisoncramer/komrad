@@ -102,8 +102,8 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			DiffExclude:  []string{"proto/gen"},
 		},
 		Hooks: []*workflowv1.WorkflowHook{
-			{Event: "pre-launch", Action: "install-deps"},
-			{Event: "post-launch", Action: "announce"},
+			{Event: "pre-launch", Script: "install-deps"},
+			{Event: "post-launch", Script: "announce"},
 		},
 	}})
 

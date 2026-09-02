@@ -6,7 +6,7 @@ import (
 
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
-	actionv1 "weave/proto/gen/action/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -179,7 +179,7 @@ func (m model) getAvailableHooks() []actionChoice {
 		return nil
 	}
 
-	return xslice.Map(listed, func(hook *actionv1.Hook) actionChoice {
+	return xslice.Map(listed, func(hook *hookv1.Hook) actionChoice {
 		return actionChoice{name: hook.GetName()}
 	})
 }

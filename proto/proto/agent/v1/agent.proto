@@ -199,9 +199,9 @@ message LogRequest {
       expression: "!this.matches('[[:cntrl:]]')"
     }
   ];
-  optional string action = 3 [(buf.validate.field).string = {
+  optional string script = 3 [(buf.validate.field).string = {
     max_len: 255
-    [rules.v1.action_name]: true
+    [rules.v1.script_name]: true
   }];
 }
 
@@ -321,7 +321,7 @@ service AgentService {
   rpc Log(LogRequest) returns (google.protobuf.Empty) {
     option (annotation.v1.tool) = {
       tool_name: "log"
-      description: "Write one line to weave's log, tagged to an agent. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. action names the action whose run this line belongs to, which is in WEAVE_ACTION."
+      description: "Write one line to weave's log, tagged to an agent. A script weave runs against an agent has its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running script, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. script names the script whose run this line belongs to, which is in WEAVE_SCRIPT."
       destructive: false
       idempotent: false
     };

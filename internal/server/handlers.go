@@ -12,7 +12,7 @@ import (
 	rpcconfig "weave/internal/rpc/config"
 	rpcschedule "weave/internal/rpc/schedule"
 	rpcworkflow "weave/internal/rpc/workflow"
-	"weave/proto/gen/action/v1/actionv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
@@ -68,7 +68,7 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 		rpcschedule.NewService(p.Stores.schedules, p.Services.schedule), options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
 		rpcconfig.NewService(p.Services.loadConfig), options...))
-	mux.Handle(actionv1connect.NewActionServiceHandler(
+	mux.Handle(hookv1connect.NewHookServiceHandler(
 		rpcaction.NewService(p.Services.action), options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: p.ReadOnly, BaseURL: "http://" + p.Addr})

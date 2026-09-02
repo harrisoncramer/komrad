@@ -342,8 +342,8 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 		slog.String(logging.TargetAgentID, agent.ID),
 		slog.String(logging.ActionAgentCwd, agent.Cwd),
 	}
-	if action := req.Msg.GetAction(); action != "" {
-		attrs = append(attrs, slog.String(logging.ActionName, action))
+	if script := req.Msg.GetScript(); script != "" {
+		attrs = append(attrs, slog.String(logging.ActionName, script))
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), attrs...)

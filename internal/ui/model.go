@@ -15,7 +15,7 @@ import (
 	"weave/config"
 	"weave/internal/errui"
 	"weave/internal/ui/layout"
-	"weave/proto/gen/action/v1/actionv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -54,7 +54,7 @@ type Deps struct {
 	Agents          agentv1connect.AgentServiceClient
 	Workflows       workflowv1connect.WorkflowServiceClient
 	Schedules       schedulev1connect.ScheduleServiceClient
-	Actions         actionv1connect.ActionServiceClient
+	Actions         hookv1connect.HookServiceClient
 	Keys            config.Keybindings
 	Tags            []config.Tag
 	Layout          config.Layout

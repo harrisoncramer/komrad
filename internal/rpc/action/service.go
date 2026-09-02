@@ -8,7 +8,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/rpcerr"
-	actionv1 "weave/proto/gen/action/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/durationpb"
@@ -31,15 +31,15 @@ func NewService(manager hookRunner) *Service {
 
 // ListHooks returns every file in the user's hooks directory, and a directory that is not
 // there is an empty listing rather than an error.
-func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
+func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
 	listed, err := s.actions.ListHooks()
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list hooks")
 	}
 
-	resources := make([]*actionv1.Hook, 0, len(listed))
+	resources := make([]*hookv1.Hook, 0, len(listed))
 	for _, hook := range listed {
-		resources = append(resources, &actionv1.Hook{
+		resources = append(resources, &hookv1.Hook{
 			Name:           hook.Name,
 			Executable:     hook.Executable,
 			Description:    hook.Header.Description,
@@ -48,12 +48,12 @@ func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]
 		})
 	}
 
-	return connect.NewResponse(&actionv1.ListHooksResponse{Hooks: resources}), nil
+	return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: resources}), nil
 }
 
 // OpenPullRequest fires the built-in script behind the panel's own key, which is the one script
 // weave runs on demand rather than at a moment of its own choosing.
-func (s *Service) OpenPullRequest(ctx context.Context, req *connect.Request[actionv1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+func (s *Service) OpenPullRequest(ctx context.Context, req *connect.Request[hookv1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.actions.OpenPullRequest(ctx, req.Msg.GetAgentId()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to open the pull request")
 	}

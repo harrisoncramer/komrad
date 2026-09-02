@@ -15,8 +15,8 @@ import (
 	"weave/internal/agents"
 	"weave/internal/interceptors"
 	"weave/internal/store"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -58,7 +58,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("an agent nobody has is not found", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "gone",
 		}))
 
@@ -67,7 +67,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("an agent id nothing could answer to is refused before the handler", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "",
 		}))
 
@@ -76,7 +76,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("opening starts the built-in and hands it the agent", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "a1",
 		}))
 		require.NoError(t, err)
@@ -97,7 +97,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 	})
 }
 
-func names(listed []*actionv1.Hook) []string {
+func names(listed []*hookv1.Hook) []string {
 	found := make([]string, 0, len(listed))
 	for _, hook := range listed {
 		found = append(found, hook.GetName())
@@ -106,7 +106,7 @@ func names(listed []*actionv1.Hook) []string {
 	return found
 }
 
-func actionClient(t *testing.T, hooks, builtins, work string) actionv1connect.ActionServiceClient {
+func actionClient(t *testing.T, hooks, builtins, work string) hookv1connect.HookServiceClient {
 	t.Helper()
 
 	validation, err := interceptors.NewValidation()
@@ -129,7 +129,7 @@ func actionClient(t *testing.T, hooks, builtins, work string) actionv1connect.Ac
 	})
 
 	mux := http.NewServeMux()
-	mux.Handle(actionv1connect.NewActionServiceHandler(
+	mux.Handle(hookv1connect.NewHookServiceHandler(
 		NewService(service),
 		connect.WithInterceptors(validation),
 	))
@@ -137,7 +137,7 @@ func actionClient(t *testing.T, hooks, builtins, work string) actionv1connect.Ac
 	server := httptest.NewServer(mux)
 	t.Cleanup(server.Close)
 
-	return actionv1connect.NewActionServiceClient(server.Client(), server.URL)
+	return hookv1connect.NewHookServiceClient(server.Client(), server.URL)
 }
 
 type stubAgents struct {

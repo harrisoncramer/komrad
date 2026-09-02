@@ -1034,7 +1034,7 @@ type LogRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Action        *string                `protobuf:"bytes,3,opt,name=action,proto3,oneof" json:"action,omitempty"`
+	Script        *string                `protobuf:"bytes,3,opt,name=script,proto3,oneof" json:"script,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1083,9 +1083,9 @@ func (x *LogRequest) GetMessage() string {
 	return ""
 }
 
-func (x *LogRequest) GetAction() string {
-	if x != nil && x.Action != nil {
-		return *x.Action
+func (x *LogRequest) GetScript() string {
+	if x != nil && x.Script != nil {
+		return *x.Script
 	}
 	return ""
 }
@@ -1529,9 +1529,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12\x88\x01\n" +
 	"\amessage\x18\x02 \x01(\tBn\xbaHk\xba\x01a\n" +
 	"\x11message.printable\x12.a log message must carry no control characters\x1a\x1c!this.matches('[[:cntrl:]]')r\x05\x10\x01\x18\x80\x10R\amessage\x12)\n" +
-	"\x06action\x18\x03 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01H\x01R\x06action\x88\x01\x01B\x05\n" +
+	"\x06script\x18\x03 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01H\x01R\x06script\x88\x01\x01B\x05\n" +
 	"\x03_idB\t\n" +
-	"\a_action\"<\n" +
+	"\a_script\"<\n" +
 	"\x14ArchiveAgentsRequest\x12$\n" +
 	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\"<\n" +
 	"\x14RestoreAgentsRequest\x12$\n" +
@@ -1547,7 +1547,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xea~\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xed~\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1563,9 +1563,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
 	"\x10set_agent_hidden\x12\xf2\x02Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
-	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xb5\x04\n" +
-	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xff\x03\x9a\xb5\x18\xfa\x03\n" +
-	"\x03log\x12\xee\x03Write one line to weave's log, tagged to an agent. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. action names the action whose run this line belongs to, which is in WEAVE_ACTION. \x00(\x00\x12\xad\v\n" +
+	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xb8\x04\n" +
+	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x82\x04\x9a\xb5\x18\xfd\x03\n" +
+	"\x03log\x12\xf1\x03Write one line to weave's log, tagged to an agent. A script weave runs against an agent has its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running script, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. script names the script whose run this line belongs to, which is in WEAVE_SCRIPT. \x00(\x00\x12\xad\v\n" +
 	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xe9\n" +
 	"\x9a\xb5\x18\xe4\n" +
 	"\n" +

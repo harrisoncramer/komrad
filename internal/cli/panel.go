@@ -6,7 +6,7 @@ import (
 	"weave/internal/agents"
 	"weave/internal/errui"
 	"weave/internal/ui"
-	"weave/proto/gen/action/v1/actionv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
@@ -52,7 +52,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
-			actionClient := actionv1connect.NewActionServiceClient(http.DefaultClient, base)
+			actionClient := hookv1connect.NewHookServiceClient(http.DefaultClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 

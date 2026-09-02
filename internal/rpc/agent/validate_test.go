@@ -290,13 +290,13 @@ func TestRequestValidation(t *testing.T) {
 			},
 		},
 		{
-			name: "a log action carrying a control character is refused",
+			name: "a log script carrying a control character is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				action := "run\x1b[31mred"
+				script := "run\x1b[31mred"
 				_, err := c.Log(t.Context(), connect.NewRequest(&agentv1.LogRequest{
 					Id:      xptr.Ptr(uuid.NewString()),
 					Message: "starting",
-					Action:  &action,
+					Script:  &script,
 				}))
 
 				return err

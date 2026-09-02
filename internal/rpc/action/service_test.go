@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
-	actionv1 "weave/proto/gen/action/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -69,7 +69,7 @@ func TestOpenPullRequestCodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := NewService(&fakeActions{err: tt.err})
 
-			_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+			_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 				AgentId: "a1",
 			}))
 
@@ -90,7 +90,7 @@ func TestOpenPullRequestPassesWhatItWasAsked(t *testing.T) {
 	manager := &fakeActions{}
 	service := NewService(manager)
 
-	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a7",
 	}))
 

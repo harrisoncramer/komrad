@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"weave/config"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
@@ -825,7 +825,7 @@ type formRecorder struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
-	actionv1connect.ActionServiceClient
+	hookv1connect.HookServiceClient
 	refuse           error
 	storedWorkflow   *workflowv1.Workflow
 	createdAgent     *agentv1.CreateAgentRequest
@@ -846,8 +846,8 @@ func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-func (f *formRecorder) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
-	return connect.NewResponse(&actionv1.ListHooksResponse{}), nil
+func (f *formRecorder) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
+	return connect.NewResponse(&hookv1.ListHooksResponse{}), nil
 }
 
 func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {

@@ -12,8 +12,8 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -429,11 +429,11 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 }
 
 type fakeActions struct {
-	actionv1connect.ActionServiceClient
+	hookv1connect.HookServiceClient
 }
 
-func (f *fakeActions) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
-	return connect.NewResponse(&actionv1.ListHooksResponse{Hooks: []*actionv1.Hook{
+func (f *fakeActions) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
+	return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{
 		{Name: "install-deps", Executable: true},
 		{Name: "unrunnable"},
 		{Name: "copy-env", Executable: true},
