@@ -124,7 +124,7 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 
 type ListReviewThreadsParams struct {
 	AgentID string
-	Reader  ReviewAuthor
+	Author  ReviewAuthor
 }
 
 // ListReviewThreads is every thread on an agent's diff with its messages, all of it for the
@@ -160,7 +160,7 @@ func (s *ReviewService) ListReviewThreads(
 	answered := make([]ReviewThreadWithMessages, 0, len(threads))
 	for _, thread := range threads {
 		messages := byThread[thread.ID]
-		if !params.Reader.IsHuman() {
+		if !params.Author.IsHuman() {
 			messages = releasedMessages(messages)
 			if len(messages) == 0 {
 				continue

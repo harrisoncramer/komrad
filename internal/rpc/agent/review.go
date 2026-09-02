@@ -33,7 +33,7 @@ func (s *Service) ListReviewThreads(
 
 	threads, err := s.review.ListReviewThreads(ctx, agents.ListReviewThreadsParams{
 		AgentID: agentID,
-		Reader:  author,
+		Author:  author,
 	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the review threads")

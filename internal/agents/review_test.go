@@ -233,7 +233,7 @@ func TestReadingAnotherAgentsReviewIsAllowed(t *testing.T) {
 
 	threads, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
 		AgentID: reviewedAgentID,
-		Reader:  agentAuthor(otherAgentID),
+		Author:  agentAuthor(otherAgentID),
 	})
 	require.NoError(t, err)
 	assert.Len(t, threads, 1)
@@ -277,7 +277,7 @@ func TestAnAgentReadsOnlyWhatTheReviewerLetGoOf(t *testing.T) {
 
 			threads, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
 				AgentID: reviewedAgentID,
-				Reader:  tt.reader,
+				Author:  tt.reader,
 			})
 			require.NoError(t, err)
 			require.Len(t, threads, 1)
@@ -314,7 +314,7 @@ func TestAThreadWithNothingReleasedIsHiddenFromTheAgent(t *testing.T) {
 
 	forHuman, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
 		AgentID: reviewedAgentID,
-		Reader:  humanAuthor(),
+		Author:  humanAuthor(),
 	})
 	require.NoError(t, err)
 	require.Len(t, forHuman, 1)
@@ -322,7 +322,7 @@ func TestAThreadWithNothingReleasedIsHiddenFromTheAgent(t *testing.T) {
 
 	forAgent, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
 		AgentID: reviewedAgentID,
-		Reader:  agentAuthor(reviewedAgentID),
+		Author:  agentAuthor(reviewedAgentID),
 	})
 	require.NoError(t, err)
 	assert.Empty(t, forAgent)
