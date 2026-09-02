@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"slices"
 	"strings"
 
 	transcriptstore "weave/internal/store/transcript"
@@ -136,4 +137,105 @@ func trimLastRune(s string) string {
 	}
 
 	return string(r[:len(r)-1])
+}
+
+// matchSpan is a byte range in a transcript that a search hit's words sit on.
+type matchSpan struct {
+	start int
+	end   int
+}
+
+// markedTerms pulls the words the search marked in a snippet, which are the forms the turn
+// actually spells rather than the words the query asked for, since a stemmed match spells the
+// word its own way.
+func markedTerms(snippet string) []string {
+	var terms []string
+	seen := make(map[string]bool)
+
+	rest := snippet
+	for {
+		i := strings.Index(rest, transcriptstore.SnippetOpen)
+		if i < 0 {
+			break
+		}
+		rest = rest[i+len(transcriptstore.SnippetOpen):]
+
+		j := strings.Index(rest, transcriptstore.SnippetClose)
+		if j < 0 {
+			break
+		}
+		term := strings.TrimSpace(rest[:j])
+		rest = rest[j+len(transcriptstore.SnippetClose):]
+
+		key := asciiLower(term)
+		if term == "" || seen[key] {
+			continue
+		}
+		seen[key] = true
+		terms = append(terms, term)
+	}
+
+	return terms
+}
+
+// matchSpans locates every place the marked words are spelled within the one turn a hit came
+// from, which is the whole of what a hit says about where it matched: the search index gives a
+// turn and the words, never the offsets of the words themselves.
+func matchSpans(content string, offset, length int64, terms []string) []matchSpan {
+	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
+		return nil
+	}
+
+	end := min(offset+length, int64(len(content)))
+	turn := asciiLower(content[offset:end])
+
+	var spans []matchSpan
+	for _, term := range terms {
+		lowered := asciiLower(term)
+
+		for at := 0; at < len(turn); {
+			i := strings.Index(turn[at:], lowered)
+			if i < 0 {
+				break
+			}
+
+			start := int(offset) + at + i
+			spans = append(spans, matchSpan{start: start, end: start + len(lowered)})
+			at += i + len(lowered)
+		}
+	}
+
+	if len(spans) == 0 {
+		return nil
+	}
+
+	slices.SortFunc(spans, func(a, b matchSpan) int { return a.start - b.start })
+
+	// Terms are looked for one at a time, so one word that contains another is found twice and
+	// the pair would style the same bytes twice over.
+	merged := make([]matchSpan, 0, len(spans))
+	for _, span := range spans {
+		if last := len(merged) - 1; last >= 0 && span.start < merged[last].end {
+			merged[last].end = max(merged[last].end, span.end)
+
+			continue
+		}
+
+		merged = append(merged, span)
+	}
+
+	return merged
+}
+
+// asciiLower folds a string for comparison without moving any byte, since the offsets taken off
+// the folded copy are used to slice the original.
+func asciiLower(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + ('a' - 'A')
+		}
+	}
+
+	return string(b)
 }

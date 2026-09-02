@@ -319,6 +319,8 @@ func TestSearchReturnsEveryMatchingTurn(t *testing.T) {
 		assert.Contains(t, hit.Snippet, SnippetOpen, "the match is marked in the snippet")
 		assert.Contains(t, content[hit.ContentOffset:], "reconciler",
 			"the offset lands on the turn that matched")
+		assert.Contains(t, content[hit.ContentOffset:hit.ContentOffset+hit.ContentLength], "reconciler",
+			"the length holds the whole turn the words are looked for in")
 	}
 	assert.NotEqual(t, hits[0].Seq, hits[1].Seq, "each hit names a different turn")
 }

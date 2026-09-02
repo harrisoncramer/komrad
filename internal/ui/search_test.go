@@ -179,6 +179,112 @@ func TestTrimLastRune(t *testing.T) {
 	}
 }
 
+func marked(s string) string {
+	return transcriptstore.SnippetOpen + s + transcriptstore.SnippetClose
+}
+
+// TestMarkedTerms covers the words a highlight is looked for by, which are read back off the
+// snippet because a stemmed match spells the query's word its own way.
+func TestMarkedTerms(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want []string
+	}{
+		{
+			name: "nothing marked names no word",
+			in:   "a turn that matched on a stem",
+		},
+		{
+			name: "every marked word is named once",
+			in:   "the " + marked("Sandbox") + " and the " + marked("sandbox") + " and " + marked("tenant"),
+			want: []string{"Sandbox", "tenant"},
+		},
+		{
+			name: "an unclosed mark is dropped",
+			in:   "the " + transcriptstore.SnippetOpen + "sandbox",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, markedTerms(tt.in))
+		})
+	}
+}
+
+// TestMatchSpans covers where the highlight goes, which the search index does not say: it
+// gives the turn and the words, so the words are found within the turn here.
+func TestMatchSpans(t *testing.T) {
+	const content = "a sandbox up top\n\nthe Sandbox tenant runs sandboxed\n\nsandbox down below"
+
+	turn := int64(strings.Index(content, "the Sandbox"))
+	turnLen := int64(len("the Sandbox tenant runs sandboxed"))
+
+	tests := []struct {
+		name   string
+		offset int64
+		length int64
+		terms  []string
+		want   []matchSpan
+	}{
+		{
+			name:   "every spelling of the word inside the turn is found",
+			offset: turn,
+			length: turnLen,
+			terms:  []string{"sandbox"},
+			want: []matchSpan{
+				{start: int(turn) + 4, end: int(turn) + 11},
+				{start: int(turn) + 24, end: int(turn) + 31},
+			},
+		},
+		{
+			name:   "the turns around it are left alone",
+			offset: turn,
+			length: turnLen,
+			terms:  []string{"top"},
+		},
+		{
+			name:   "a word inside another is marked once",
+			offset: turn,
+			length: turnLen,
+			terms:  []string{"sandboxed", "sandbox"},
+			want: []matchSpan{
+				{start: int(turn) + 4, end: int(turn) + 11},
+				{start: int(turn) + 24, end: int(turn) + 33},
+			},
+		},
+		{
+			name:   "no word to look for marks nothing",
+			offset: turn,
+			length: turnLen,
+		},
+		{
+			name:   "a turn past the end of the transcript marks nothing",
+			offset: int64(len(content) + 1),
+			length: turnLen,
+			terms:  []string{"sandbox"},
+		},
+		{
+			name:   "a turn running past the end stops at it",
+			offset: turn,
+			length: turnLen * 4,
+			terms:  []string{"sandbox"},
+			want: []matchSpan{
+				{start: int(turn) + 4, end: int(turn) + 11},
+				{start: int(turn) + 24, end: int(turn) + 31},
+				{start: strings.Index(content, "sandbox down"), end: strings.Index(content, "sandbox down") + 7},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms))
+		})
+	}
+}
+
 // TestRenderSnippet confirms the store's match markers are consumed into styling
 // and the snippet stays on one line, since the list gives it one row.
 func TestRenderSnippet(t *testing.T) {
@@ -743,9 +849,11 @@ func headerLine(t *testing.T, view, name string) string {
 // TestJumpLandsOnTheMatch covers enter carrying the position the snippet came from, so the
 // transcript opens where the match is rather than at the top of it.
 func TestJumpLandsOnTheMatch(t *testing.T) {
-	transcript := strings.Repeat("filler\n", 40) + "the ledger is here\n" + strings.Repeat("more\n", 40)
-	offset := int64(strings.Index(transcript, "ledger"))
-	wantLine := max(lineAtOffset(transcript, offset)-transcriptPreviewBefore, 1)
+	const turn = "the ledger is here"
+
+	transcript := strings.Repeat("filler\n", 40) + turn + "\n" + strings.Repeat("more\n", 40)
+	offset := int64(strings.Index(transcript, turn))
+	wantLine := max(lineAtOffset(transcript, int64(strings.Index(transcript, "ledger")))-transcriptPreviewBefore, 1)
 
 	tests := []struct {
 		name string
@@ -757,6 +865,7 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 				agentID: "a2",
 				name:    "payouts",
 				offset:  offset,
+				length:  int64(len(turn)),
 			},
 		},
 		{
@@ -766,6 +875,7 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 				name:     "old-work",
 				archived: true,
 				offset:   offset,
+				length:   int64(len(turn)),
 			},
 		},
 	}
@@ -796,6 +906,8 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 					agentID: tt.hit.agentID,
 					query:   "ledger",
 					offset:  offset,
+					length:  int64(len(turn)),
+					terms:   []string{"ledger"},
 					content: transcript,
 				},
 			}
@@ -833,11 +945,14 @@ func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
 			agentID: "a2",
 			name:    "payouts",
 			offset:  4,
+			length:  3,
 		}},
 		preview: previewResult{
 			agentID: "a2",
 			query:   "ledger",
 			offset:  4,
+			length:  3,
+			terms:   []string{"two"},
 			content: "one\ntwo\nthree\n",
 		},
 	}
@@ -867,7 +982,7 @@ func TestMatchIsStagedOnce(t *testing.T) {
 	m.match = matchFocus{
 		agentID: "a2",
 		content: "one\ntwo\nthree\n",
-		line:    2,
+		spans:   []matchSpan{{start: 4, end: 7}},
 	}
 
 	for range 3 {
@@ -884,20 +999,20 @@ func TestMatchIsStagedOnce(t *testing.T) {
 	assert.Equal(t, 1, staged, "the pager is left running across the passes that follow")
 }
 
-// TestMatchNeedsAPosition covers an offset the transcript does not hold, which reads as the
-// top of it: there is nothing there to take the stage away from the agent's own pane for.
+// TestMatchNeedsAPosition covers a turn the transcript does not hold, which spells none of the
+// words: there is nothing there to take the stage away from the agent's own pane for.
 func TestMatchNeedsAPosition(t *testing.T) {
 	const content = "one\ntwo\nthree\n"
 
 	tests := []struct {
 		name   string
 		offset int64
-		want   int
+		want   []matchSpan
 	}{
 		{
 			name:   "an offset the content holds",
 			offset: 4,
-			want:   2,
+			want:   []matchSpan{{start: 4, end: 7}},
 		},
 		{
 			name:   "an offset past the end",
@@ -911,11 +1026,22 @@ func TestMatchNeedsAPosition(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hit := searchHit{agentID: "a2", offset: tt.offset}
-			got := matchFor(hit, previewResult{agentID: "a2", content: content})
+			hit := searchHit{
+				agentID: "a2",
+				offset:  tt.offset,
+				length:  3,
+			}
+			preview := previewResult{
+				agentID: "a2",
+				offset:  tt.offset,
+				length:  3,
+				terms:   []string{"two"},
+				content: content,
+			}
+			got := matchFor(hit, preview)
 
-			assert.Equal(t, tt.want, got.line)
-			if tt.want == 0 {
+			assert.Equal(t, tt.want, got.spans)
+			if tt.want == nil {
 				assert.Empty(t, got.agentID, "nothing is held on to")
 			}
 		})

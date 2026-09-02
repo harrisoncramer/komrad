@@ -32,6 +32,7 @@ type searchHit struct {
 	name     string
 	archived bool
 	offset   int64
+	length   int64
 	snippet  string
 	near     bool
 }
@@ -49,6 +50,8 @@ type previewResult struct {
 	agentID string
 	query   string
 	offset  int64
+	length  int64
+	terms   []string
 	content string
 }
 
@@ -126,6 +129,7 @@ func renderHit(h *agentv1.SearchHit, near bool) searchHit {
 		name:     h.GetName(),
 		archived: h.GetArchived(),
 		offset:   h.GetContentOffset(),
+		length:   h.GetContentLength(),
 		snippet:  h.GetSnippet(),
 		near:     near,
 	}
@@ -162,6 +166,8 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 				agentID: hit.agentID,
 				query:   query,
 				offset:  hit.offset,
+				length:  hit.length,
+				terms:   markedTerms(hit.snippet),
 			}
 		}
 
@@ -169,6 +175,8 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 			agentID: hit.agentID,
 			query:   query,
 			offset:  hit.offset,
+			length:  hit.length,
+			terms:   markedTerms(hit.snippet),
 			content: resp.Msg.GetContent(),
 		}
 	}
@@ -185,7 +193,7 @@ func (m *model) applyPreview(result previewResult) {
 	}
 
 	m.search.preview = result
-	m.stageTranscript(result.content, lineAtOffset(result.content, result.offset))
+	m.stageTranscript(result.content, result.spans())
 }
 
 // groupSections gathers each agent's hits within its own section, since an agent with a word
@@ -228,14 +236,14 @@ func groupByAgent(hits []searchHit) []searchHit {
 
 const noTranscriptMarkdown = "_no transcript yet_"
 
-func (m *model) stageTranscript(conversation string, line int) {
+func (m *model) stageTranscript(conversation string, spans []matchSpan) {
 	if strings.TrimSpace(conversation) == "" {
 		m.frame.Show(layout.RegionStage, newTextContent(noTranscriptMarkdown))
 
 		return
 	}
 
-	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, line))
+	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, spans))
 }
 
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -361,7 +369,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 type matchFocus struct {
 	agentID string
 	content string
-	line    int
+	spans   []matchSpan
 }
 
 func matchFor(hit searchHit, preview previewResult) matchFocus {
@@ -369,18 +377,23 @@ func matchFor(hit searchHit, preview previewResult) matchFocus {
 		return matchFocus{}
 	}
 
-	// An offset the content does not hold reads as line zero, which is the top of the
-	// transcript and so nothing worth taking the stage for.
-	line := lineAtOffset(preview.content, hit.offset)
-	if line == 0 {
+	// A turn the content does not hold spells none of the words, and a transcript with nothing
+	// marked in it is nothing worth taking the stage for.
+	spans := preview.spans()
+	if len(spans) == 0 {
 		return matchFocus{}
 	}
 
 	return matchFocus{
 		agentID: hit.agentID,
 		content: preview.content,
-		line:    line,
+		spans:   spans,
 	}
+}
+
+// spans locates the matched words within the transcript, which is where the highlight goes.
+func (r previewResult) spans() []matchSpan {
+	return matchSpans(r.content, r.offset, r.length, r.terms)
 }
 
 // stageMatch puts the transcript a search hit came from on the stage at the line it matched on,
@@ -395,7 +408,7 @@ func (m *model) stageMatch(agentID string) bool {
 		return false
 	}
 
-	m.stageTranscript(m.match.content, m.match.line)
+	m.stageTranscript(m.match.content, m.match.spans)
 
 	return true
 }

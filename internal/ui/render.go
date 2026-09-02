@@ -28,17 +28,69 @@ func render(markdown string, wrap int) string {
 	return rendered
 }
 
-var highlightStyle = ansi.NewStyle().Reverse(true)
+var (
+	highlightStyle = ansi.NewStyle().Reverse(true)
+	matchTermStyle = ansi.NewStyle().Reverse(true).Bold().Underline(true)
+)
 
-func highlighted(content string, line int) string {
-	lines := strings.Split(content, "\n")
-	if line < 1 || line > len(lines) {
+// highlighted marks every line a search hit matched on, with the matched words themselves
+// carried further out of the line, since a whole line under the cursor says the turn matched
+// without saying which word did.
+func highlighted(content string, spans []matchSpan) string {
+	if len(spans) == 0 {
 		return content
 	}
 
-	lines[line-1] = highlightStyle.Styled(lines[line-1])
+	lines := strings.Split(content, "\n")
+
+	at := 0
+	for i, line := range lines {
+		start, end := at, at+len(line)
+		at = end + 1
+
+		within := spansIn(spans, start, end)
+		if len(within) == 0 {
+			continue
+		}
+
+		lines[i] = highlightLine(line, start, within)
+	}
 
 	return strings.Join(lines, "\n")
+}
+
+func spansIn(spans []matchSpan, start, end int) []matchSpan {
+	var within []matchSpan
+	for _, span := range spans {
+		if span.end > start && span.start < end {
+			within = append(within, span)
+		}
+	}
+
+	return within
+}
+
+func highlightLine(line string, base int, spans []matchSpan) string {
+	var b strings.Builder
+
+	at := 0
+	for _, span := range spans {
+		from, to := max(span.start-base, 0), min(span.end-base, len(line))
+		if from >= to {
+			continue
+		}
+		if from > at {
+			b.WriteString(highlightStyle.Styled(line[at:from]))
+		}
+		b.WriteString(matchTermStyle.Styled(line[from:to]))
+		at = to
+	}
+
+	if at < len(line) {
+		b.WriteString(highlightStyle.Styled(line[at:]))
+	}
+
+	return b.String()
 }
 
 func writeStageFile(path, content string) bool {
