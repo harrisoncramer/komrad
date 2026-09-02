@@ -40,10 +40,10 @@ const (
 	palettePopupHeight = "60%"
 )
 
-// BindHide binds the panel key on the manager's own tmux server to hiding the popup, since
-// that server sources the user's config too and would otherwise open a popup inside the popup.
-func (p *PopupWindow) BindHide() {
-	key := p.tmux.ShowGlobal(managerKeyOption)
+// BindHide binds the panel key, handed in because only the user's own server names it, on the
+// manager's own tmux server, which sources the user's config too and would otherwise open a
+// popup inside the popup.
+func (p *PopupWindow) BindHide(key string) {
 	if key == "" {
 		key = defaultPanelKey
 	}
@@ -52,6 +52,7 @@ func (p *PopupWindow) BindHide() {
 }
 
 type BindPaletteParams struct {
+	Key         string
 	Self        string
 	ConfigPaths []string
 }
@@ -59,7 +60,7 @@ type BindPaletteParams struct {
 // BindPalette binds the palette key on the manager's own tmux server, since an agent's pane
 // belongs to that server and the palette acts on the pane the key was pressed in.
 func (p *PopupWindow) BindPalette(params BindPaletteParams) {
-	key := p.tmux.ShowGlobal(paletteKeyOption)
+	key := params.Key
 	if key == "" {
 		key = defaultPaletteKey
 	}
@@ -81,8 +82,18 @@ func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 	p.tmux.BindKey(key, command...)
 }
 
-type panelKeyTmux interface {
+type keyNamer interface {
 	ShowGlobal(name string) string
+}
+
+// UserKeys returns the panel and palette keys as the user's own tmux server names them, empty
+// where it names neither, since that server is the only place either can be set.
+func UserKeys(t keyNamer) (panel, palette string) {
+	return t.ShowGlobal(managerKeyOption), t.ShowGlobal(paletteKeyOption)
+}
+
+type panelKeyTmux interface {
+	keyNamer
 	BindKeyChecked(key string, command ...string) error
 }
 

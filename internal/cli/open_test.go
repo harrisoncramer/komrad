@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
 
@@ -89,4 +90,25 @@ func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 			assert.Equal(t, tt.want, args[separator:])
 		})
 	}
+}
+
+// TestUserKeysReadsTheServerThePopupOpenedOn covers the keys the panel acts on coming off the
+// user's own server, since weave's own server sources their config too and would answer with a
+// value they never set at runtime.
+func TestUserKeysReadsTheServerThePopupOpenedOn(t *testing.T) {
+	hostSocket := throwawaySocket(t)
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
+		"new-session", "-d", "-s", "userland").Run())
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_key", "w").Run())
+	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_palette_key", "x").Run())
+
+	panel, palette := userKeys(hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}"))
+
+	assert.Equal(t, "w", panel)
+	assert.Equal(t, "x", palette)
+
+	panel, palette = userKeys("")
+
+	assert.Empty(t, panel, "with no server to ask, the popup falls back to the built-in keys")
+	assert.Empty(t, palette)
 }

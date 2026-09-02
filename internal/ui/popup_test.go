@@ -125,11 +125,9 @@ func TestBindPalette(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &bindingTmux{}
-			if tt.chosen != "" {
-				tmux.SetGlobal(paletteKeyOption, tt.chosen)
-			}
 
 			NewPopupWindow(tmux, "manager").BindPalette(BindPaletteParams{
+				Key:         tt.chosen,
 				Self:        "/usr/local/bin/weave",
 				ConfigPaths: []string{"/etc/weave.toml", "/home/dev/weave.toml"},
 			})
@@ -170,4 +168,47 @@ func TestIsShown(t *testing.T) {
 			assert.Equal(t, tt.want, NewPopupWindow(tmux, "test-session").IsShown())
 		})
 	}
+}
+
+// TestBindHide pins the key the popup closes on being the one handed in, since it is read off
+// the user's own server and this client is bound to the manager's.
+func TestBindHide(t *testing.T) {
+	tests := []struct {
+		name    string
+		chosen  string
+		wantKey string
+	}{
+		{
+			name:    "no chosen key falls back to the default",
+			wantKey: defaultPanelKey,
+		},
+		{
+			name:    "the user's own key wins",
+			chosen:  "w",
+			wantKey: "w",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &bindingTmux{}
+
+			NewPopupWindow(tmux, "manager").BindHide(tt.chosen)
+
+			assert.Equal(t, []string{"detach-client", "-s", "manager"}, tmux.bound[tt.wantKey],
+				"the panel key is not bound to hiding the popup")
+		})
+	}
+}
+
+// TestUserKeys pins both keys being read off the one server the user can have set them on.
+func TestUserKeys(t *testing.T) {
+	tmux := &bindingTmux{}
+	tmux.SetGlobal(managerKeyOption, "w")
+	tmux.SetGlobal(paletteKeyOption, "x")
+
+	panel, palette := UserKeys(tmux)
+
+	assert.Equal(t, "w", panel)
+	assert.Equal(t, "x", palette)
 }
