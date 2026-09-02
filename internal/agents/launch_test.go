@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"weave/internal/caller"
 	agentstore "weave/internal/store/agent"
@@ -957,6 +959,56 @@ func TestNewAgentCleansUpAFailedCreateWithNoSetupAction(t *testing.T) {
 	assert.Empty(t, lifecycle.setup)
 	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
 	assert.Equal(t, []string{dir}, lifecycle.cleanupCwd)
+}
+
+// slowCleanupLifecycle finishes its cleanup only once the call that started it has had a
+// chance to return, which is what tells an awaited teardown apart from a fired one.
+type slowCleanupLifecycle struct {
+	*fakeLifecycle
+	finished atomic.Bool
+}
+
+func (c *slowCleanupLifecycle) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+	if err := c.fakeLifecycle.RunCleanupAction(ctx, agent, name, nil); err != nil {
+		return err
+	}
+
+	go func() {
+		time.Sleep(20 * time.Millisecond)
+		c.finished.Store(true)
+		if done != nil {
+			done(nil)
+		}
+	}()
+
+	return nil
+}
+
+// TestNewAgentWaitsForTheCleanupOfAFailedCreate pins the teardown of a failed create being
+// waited for, since the row is closed out on the next line and a directory still being taken
+// back under it is a create that half happened.
+func TestNewAgentWaitsForTheCleanupOfAFailedCreate(t *testing.T) {
+	tmux := newFakeTmux()
+	tmux.newWindowErr = errors.New("tmux refused the window")
+	st := newStore(t)
+	lifecycle := &slowCleanupLifecycle{fakeLifecycle: &fakeLifecycle{dir: t.TempDir()}}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
+		Name:          "backend",
+		SetupAction:   "make-worktree",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.Error(t, err)
+
+	assert.True(t, lifecycle.finished.Load(), "the create returns only once its cleanup has finished")
 }
 
 // TestUniqueAgentName pins a taken name being stepped past rather than reused, counting only

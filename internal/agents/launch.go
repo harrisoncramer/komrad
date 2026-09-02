@@ -357,7 +357,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 			s.tmux.KillPane(pane)
 		}
 		if pastSetup {
-			runCleanup(teardown, s.actions, agent, plan.cleanupAction, nil)
+			awaitCleanup(teardown, s.actions, agent, plan.cleanupAction)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
@@ -429,6 +429,32 @@ const teardownTimeout = 30 * time.Second
 
 func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, cause error) {
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
+}
+
+// awaitCleanup runs a cleanup action and waits for it, so a create that failed has given back
+// the directory its setup built before the row is closed out against it.
+func awaitCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string) {
+	finished := make(chan error, 1)
+	runCleanup(ctx, cleanup, agent, name, func(cleanupErr error) {
+		finished <- cleanupErr
+	})
+
+	select {
+	case cleanupErr := <-finished:
+		if cleanupErr != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action of a failed create did not finish",
+				append([]slog.Attr{
+					slog.String(logging.ActionName, name),
+					slog.String(logging.ActionAgentID, agent.ID),
+					slog.String(logging.ActionAgentCwd, agent.Cwd),
+				}, logging.Err(cleanupErr)...)...)
+		}
+	case <-ctx.Done():
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the cleanup action of a failed create",
+			slog.String(logging.ActionName, name),
+			slog.String(logging.ActionAgentID, agent.ID),
+			slog.String(logging.ActionAgentCwd, agent.Cwd))
+	}
 }
 
 func (s *LaunchService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
