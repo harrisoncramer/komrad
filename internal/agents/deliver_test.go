@@ -241,6 +241,74 @@ func TestDeliver(t *testing.T) {
 	}
 }
 
+// TestDeliverSaysWhenANudgeWentNowhere pins which second nudge is worth a warning, since
+// nudged_at stands whether or not the agent answered the line it stamped.
+func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
+	nudgedAt := time.Date(2026, time.August, 4, 12, 0, 0, 0, time.UTC)
+	before := nudgedAt.Add(-time.Minute)
+	after := nudgedAt.Add(time.Minute)
+
+	tests := []struct {
+		name        string
+		nudgedAt    *time.Time
+		turnEndedAt *time.Time
+		want        string
+	}{
+		{
+			name: "an agent nobody has told before",
+			want: "INFO",
+		},
+		{
+			name:        "an agent that ended a turn after the last nudge",
+			nudgedAt:    &nudgedAt,
+			turnEndedAt: &after,
+			want:        "INFO",
+		},
+		{
+			name:        "an agent that has ended no turn since the last nudge",
+			nudgedAt:    &nudgedAt,
+			turnEndedAt: &before,
+			want:        "WARN",
+		},
+		{
+			name:     "an agent that has never reported a turn at all",
+			nudgedAt: &nudgedAt,
+			want:     "WARN",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agents := &fakeAgents{claimed: true, agent: &agentstore.Agent{
+				ID:          "agent-a",
+				Pane:        "%1",
+				State:       agentstore.StateIdle,
+				NudgedAt:    tt.nudgedAt,
+				TurnEndedAt: tt.turnEndedAt,
+			}}
+			panes := &fakePanes{alive: true, frame: idleFrame}
+
+			svc := NewDeliveryService(NewDeliveryServiceParams{
+				MailboxReader: &fakeMailboxReader{pending: 1},
+				NudgeClaimer:  agents,
+				PaneReader:    panes,
+				PaneTyper:     panes,
+				Harnesses:     fakeHarnesses{harness: &fakeHarness{}},
+			})
+
+			ctx, records := loggedContext(t)
+
+			got, err := svc.Deliver(ctx, "agent-a")
+			require.NoError(t, err)
+			require.Equal(t, DeliverySoon, got)
+
+			written := records()
+			require.Len(t, written, 1)
+			assert.Equal(t, tt.want, written[0]["severity_text"])
+		})
+	}
+}
+
 // TestDeliverReportsExpiredMail pins that mail nobody read before its deadline is reported
 // rather than dropped in silence.
 func TestDeliverReportsExpiredMail(t *testing.T) {

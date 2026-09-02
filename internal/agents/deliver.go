@@ -158,10 +158,9 @@ func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
 		return true
 	}
 
-	// A CLI still starting up holds the line in the terminal buffer but loses the newline, so
-	// the line sits in the prompt unsent until the retry, and a prompt already holding typed
-	// text is not idle either, since the newline would send whatever somebody was halfway
-	// through writing along with the nudge.
+	// A CLI still starting up takes the line into the terminal buffer and loses the newline, so
+	// the nudge is never submitted, and a prompt already holding typed text is not idle either,
+	// since the newline would send whatever somebody was halfway through writing along with it.
 	return hn.ReadActivity(s.paneTyper.CapturePane(agent.Pane)) == harness.ActivityIdle
 }
 
@@ -180,7 +179,7 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 
 	level := slog.LevelInfo
 	message := "told an agent to read its mail"
-	if agent.NudgedAt != nil {
+	if didLastNudgeGoNowhere(agent) {
 		level = slog.LevelWarn
 		message = "told an agent to read its mail again, so the last time went nowhere"
 	}
@@ -190,6 +189,17 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		slog.Int64(logging.UnreadMail, pending))
 
 	return nil
+}
+
+// didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no
+// turn since, which is the only reading under which the keys are known to have been swallowed,
+// since nudged_at stands until the next nudge whether or not the agent answered.
+func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
+	if agent.NudgedAt == nil {
+		return false
+	}
+
+	return agent.TurnEndedAt == nil || !agent.TurnEndedAt.After(*agent.NudgedAt)
 }
 
 func (s *DeliveryService) reportExpired(ctx context.Context, agent agentstore.Agent) {

@@ -26,6 +26,10 @@ const idleRegionLines = 6
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
+// dimSpan is the prompt Claude suggests inside an empty input box, which is text in the frame
+// but not text anybody typed.
+var dimSpan = regexp.MustCompile(`\x1b\[2m.*?\x1b\[(?:0|22)m`)
+
 // ReadActivity reads what a captured frame says Claude is doing, counting only a frame showing
 // the empty input box as idle and anything else unrecognised.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
@@ -48,13 +52,16 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 }
 
 func tailLines(frame string, n int) string {
-	frame = ansiSeq.ReplaceAllString(frame, "")
+	return strings.Join(tailRegion(ansiSeq.ReplaceAllString(frame, ""), n), "\n")
+}
+
+func tailRegion(frame string, n int) []string {
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
 	if len(lines) > n {
 		lines = lines[len(lines)-n:]
 	}
 
-	return strings.Join(lines, "\n")
+	return lines
 }
 
 func doesFrameShowWork(frame string) bool {
@@ -72,8 +79,8 @@ func doesFrameShowIdleInputBox(frame string) bool {
 	return ok
 }
 
-// doesInputBoxHoldText reports whether somebody has typed into the box, which is any text at
-// all, since Claude draws no placeholder in an empty one.
+// doesInputBoxHoldText reports whether somebody has typed into the box, which is any text the
+// box holds that Claude did not draw itself.
 func doesInputBoxHoldText(frame string) bool {
 	held, _ := inputBox(frame)
 
@@ -81,12 +88,21 @@ func doesInputBoxHoldText(frame string) bool {
 }
 
 // inputBox is what the box holds, which is every line between the rule that opens it and the
-// rule that closes it, so that text typed under the marker counts as much as text beside it.
+// rule that closes it, so that text typed under the marker counts as much as text beside it,
+// less the suggestion Claude draws there itself, which is nobody's unfinished work.
 func inputBox(frame string) (string, bool) {
-	lines := strings.Split(tailLines(frame, idleRegionLines), "\n")
+	drawn := tailRegion(frame, idleRegionLines)
 
-	for i, line := range lines {
-		if !boxRule.MatchString(line) || i+1 >= len(lines) {
+	// Stripping line by line keeps the two readings of the region the same length, where
+	// stripping the region whole would drop a line that came down to nothing.
+	lines := make([]string, len(drawn))
+	for i, line := range drawn {
+		lines[i] = ansiSeq.ReplaceAllString(dimSpan.ReplaceAllString(line, ""), "")
+		drawn[i] = ansiSeq.ReplaceAllString(line, "")
+	}
+
+	for i, line := range drawn {
+		if !boxRule.MatchString(line) || i+1 >= len(drawn) {
 			continue
 		}
 
@@ -96,12 +112,12 @@ func inputBox(frame string) (string, bool) {
 		}
 
 		held := []string{rest}
-		for _, line := range lines[i+2:] {
+		for j, line := range drawn[i+2:] {
 			if boxRule.MatchString(line) {
 				break
 			}
 
-			held = append(held, line)
+			held = append(held, lines[i+2+j])
 		}
 
 		return strings.Join(held, "\n"), true
