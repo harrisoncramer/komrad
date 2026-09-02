@@ -39,40 +39,40 @@ func TestPagerArgv(t *testing.T) {
 }
 
 // TestHighlighted covers the marks written into a transcript preview, which are what make the
-// matched words findable in the conversation around them.
+// matched lines findable in the conversation around them.
 func TestHighlighted(t *testing.T) {
 	content := "first\nsecond match\nthird match"
 
 	tests := []struct {
 		name  string
-		spans []matchSpan
+		lines []int
 		want  string
 	}{
 		{
 			name:  "nothing matched leaves the transcript alone",
-			spans: nil,
+			lines: nil,
 			want:  content,
 		},
 		{
-			name:  "the matched word is marked apart from the line holding it",
-			spans: []matchSpan{{start: 13, end: 18}},
-			want:  "first\n\x1b[7msecond \x1b[m\x1b[7;1;4mmatch\x1b[m\nthird match",
+			name:  "the matched line is marked and its neighbours are not",
+			lines: []int{2},
+			want:  "first\n\x1b[7msecond match\x1b[m\nthird match",
 		},
 		{
-			name:  "every match takes a mark",
-			spans: []matchSpan{{start: 13, end: 18}, {start: 25, end: 30}},
-			want:  "first\n\x1b[7msecond \x1b[m\x1b[7;1;4mmatch\x1b[m\n\x1b[7mthird \x1b[m\x1b[7;1;4mmatch\x1b[m",
+			name:  "every matched line takes a mark",
+			lines: []int{2, 3},
+			want:  "first\n\x1b[7msecond match\x1b[m\n\x1b[7mthird match\x1b[m",
 		},
 		{
-			name:  "a span past the end of the transcript marks nothing",
-			spans: []matchSpan{{start: 200, end: 210}},
+			name:  "a line past the end of the transcript marks nothing",
+			lines: []int{9},
 			want:  content,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, highlighted(content, tt.spans))
+			assert.Equal(t, tt.want, highlighted(content, tt.lines))
 		})
 	}
 }

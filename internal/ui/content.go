@@ -51,43 +51,27 @@ func newLogContent(argv []string) layout.Content {
 	}
 }
 
-func newTranscriptContent(conversation string, spans []matchSpan) layout.Content {
-	highlightLine := 0
-	if len(spans) > 0 {
-		highlightLine = lineAtOffset(conversation, int64(spans[0].start))
+func newTranscriptContent(conversation string, lines []int) layout.Content {
+	open := 0
+	if len(lines) > 0 {
+		open = max(lines[0]-transcriptPreviewBefore, 1)
 	}
 
 	return layout.Content{
 		// The stage is drawn again on every refresh, so the key has to answer for the
-		// conversation as well as the matches, or a transcript that has grown would stop
+		// conversation as well as the matched lines, or a transcript that has grown would stop
 		// restaging.
-		Key: fmt.Sprintf("transcript:%d:%d", spanHash(spans), maphash.String(transcriptSeed, conversation)),
+		Key: fmt.Sprintf("transcript:%v:%d", lines, maphash.String(transcriptSeed, conversation)),
 		Dir: homeDir(),
 		Render: func(layout.Target) ([]string, bool) {
 			path := filepath.Join(os.TempDir(), "weave-transcript.txt")
-			if !writeStageFile(path, highlighted(conversation, spans)) {
+			if !writeStageFile(path, highlighted(conversation, lines)) {
 				return nil, false
-			}
-
-			open := 0
-			if highlightLine > 0 {
-				open = max(highlightLine-transcriptPreviewBefore, 1)
 			}
 
 			return pagerArgv(path, open), true
 		},
 	}
-}
-
-// spanHash stands in for the matches themselves in a stage key, since a turn can hold hundreds
-// of them and the key is only ever compared.
-func spanHash(spans []matchSpan) uint64 {
-	var b strings.Builder
-	for _, span := range spans {
-		fmt.Fprintf(&b, "%d-%d,", span.start, span.end)
-	}
-
-	return maphash.String(transcriptSeed, b.String())
 }
 
 func newBlankContent() layout.Content {

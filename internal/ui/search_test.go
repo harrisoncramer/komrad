@@ -198,7 +198,7 @@ func TestMarkedTerms(t *testing.T) {
 		{
 			name: "every marked word is named once",
 			in:   "the " + marked("Sandbox") + " and the " + marked("sandbox") + " and " + marked("tenant"),
-			want: []string{"Sandbox", "tenant"},
+			want: []string{"sandbox", "tenant"},
 		},
 		{
 			name: "an unclosed mark is dropped",
@@ -213,31 +213,27 @@ func TestMarkedTerms(t *testing.T) {
 	}
 }
 
-// TestMatchSpans covers where the highlight goes, which the search index does not say: it
-// gives the turn and the words, so the words are found within the turn here.
-func TestMatchSpans(t *testing.T) {
-	const content = "a sandbox up top\n\nthe Sandbox tenant runs sandboxed\n\nsandbox down below"
+// TestMatchLines covers where the highlight goes, which the search index does not say: it
+// gives the turn and the words, so the lines are found within the turn here.
+func TestMatchLines(t *testing.T) {
+	const content = "a sandbox up top\n\nthe Sandbox tenant\nruns sandboxed\n\nsandbox down below"
 
 	turn := int64(strings.Index(content, "the Sandbox"))
-	turnLen := int64(len("the Sandbox tenant runs sandboxed"))
+	turnLen := int64(len("the Sandbox tenant\nruns sandboxed"))
 
 	tests := []struct {
-		name       string
-		offset     int64
-		length     int64
-		terms      []string
-		wholeWords bool
-		want       []matchSpan
+		name   string
+		offset int64
+		length int64
+		terms  []string
+		want   []int
 	}{
 		{
-			name:   "every spelling of the word inside the turn is found",
+			name:   "every line of the turn spelling the word is marked",
 			offset: turn,
 			length: turnLen,
 			terms:  []string{"sandbox"},
-			want: []matchSpan{
-				{start: int(turn) + 4, end: int(turn) + 11},
-				{start: int(turn) + 24, end: int(turn) + 31},
-			},
+			want:   []int{3, 4},
 		},
 		{
 			name:   "the turns around it are left alone",
@@ -246,22 +242,11 @@ func TestMatchSpans(t *testing.T) {
 			terms:  []string{"top"},
 		},
 		{
-			name:   "a word inside another is marked once",
+			name:   "a line spelling two of the words is marked once",
 			offset: turn,
 			length: turnLen,
-			terms:  []string{"sandboxed", "sandbox"},
-			want: []matchSpan{
-				{start: int(turn) + 4, end: int(turn) + 11},
-				{start: int(turn) + 24, end: int(turn) + 33},
-			},
-		},
-		{
-			name:       "a whole word does not mark the longer word holding it",
-			offset:     turn,
-			length:     turnLen,
-			terms:      []string{"sandbox"},
-			wholeWords: true,
-			want:       []matchSpan{{start: int(turn) + 4, end: int(turn) + 11}},
+			terms:  []string{"sandbox", "tenant"},
+			want:   []int{3, 4},
 		},
 		{
 			name:   "no word to look for marks nothing",
@@ -279,25 +264,21 @@ func TestMatchSpans(t *testing.T) {
 			offset: turn,
 			length: turnLen * 4,
 			terms:  []string{"sandbox"},
-			want: []matchSpan{
-				{start: int(turn) + 4, end: int(turn) + 11},
-				{start: int(turn) + 24, end: int(turn) + 31},
-				{start: strings.Index(content, "sandbox down"), end: strings.Index(content, "sandbox down") + 7},
-			},
+			want:   []int{3, 4, 6},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms, tt.wholeWords))
+			assert.Equal(t, tt.want, matchLines(content, tt.offset, tt.length, tt.terms))
 		})
 	}
 }
 
-// TestHitSpansAreTheHoveredHits covers the turn a highlight is measured from, which is the hit
+// TestHitLinesAreTheHoveredHits covers the turn a highlight is measured from, which is the hit
 // under the cursor rather than the preview in hand: an agent's hits sit next to each other, so
 // the transcript on hand can have been fetched for the hit before this one.
-func TestHitSpansAreTheHoveredHits(t *testing.T) {
+func TestHitLinesAreTheHoveredHits(t *testing.T) {
 	const content = "alpha reconcile one\n\nbeta reconcile two\n"
 
 	second := int64(strings.Index(content, "beta"))
@@ -310,24 +291,7 @@ func TestHitSpansAreTheHoveredHits(t *testing.T) {
 
 	stale := previewResult{agentID: "a1", content: content}
 
-	want := []matchSpan{{start: int(second) + 5, end: int(second) + 14}}
-	assert.Equal(t, want, matchFor(hit, stale).spans, "the hovered hit's own turn is marked")
-}
-
-// TestNearHitsMarkSubstrings covers the two sections marking different things, since a near hit
-// is by definition the letters glued into a longer word.
-func TestNearHitsMarkSubstrings(t *testing.T) {
-	const content = "the sandboxed tenant"
-
-	word := searchHit{length: int64(len(content)), snippet: marked("sandbox")}
-	near := searchHit{
-		length:  int64(len(content)),
-		snippet: marked("sandbox"),
-		near:    true,
-	}
-
-	assert.Empty(t, word.spans(content), "a word match stays on word boundaries")
-	assert.Equal(t, []matchSpan{{start: 4, end: 11}}, near.spans(content))
+	assert.Equal(t, []int{3}, matchFor(hit, stale).lines, "the hovered hit's own turn is marked")
 }
 
 // TestRenderSnippet confirms the store's match markers are consumed into styling
@@ -1024,7 +988,7 @@ func TestMatchIsStagedOnce(t *testing.T) {
 	m.match = matchFocus{
 		agentID: "a2",
 		content: "one\ntwo\nthree\n",
-		spans:   []matchSpan{{start: 4, end: 7}},
+		lines:   []int{2},
 	}
 
 	for range 3 {
@@ -1049,12 +1013,12 @@ func TestMatchNeedsAPosition(t *testing.T) {
 	tests := []struct {
 		name   string
 		offset int64
-		want   []matchSpan
+		want   []int
 	}{
 		{
 			name:   "an offset the content holds",
 			offset: 4,
-			want:   []matchSpan{{start: 4, end: 7}},
+			want:   []int{2},
 		},
 		{
 			name:   "an offset past the end",
@@ -1076,7 +1040,7 @@ func TestMatchNeedsAPosition(t *testing.T) {
 			}
 			got := matchFor(hit, previewResult{agentID: "a2", content: content})
 
-			assert.Equal(t, tt.want, got.spans)
+			assert.Equal(t, tt.want, got.lines)
 			if tt.want == nil {
 				assert.Empty(t, got.agentID, "nothing is held on to")
 			}

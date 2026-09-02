@@ -28,69 +28,25 @@ func render(markdown string, wrap int) string {
 	return rendered
 }
 
-var (
-	highlightStyle = ansi.NewStyle().Reverse(true)
-	matchTermStyle = ansi.NewStyle().Reverse(true).Bold().Underline(true)
-)
+var highlightStyle = ansi.NewStyle().Reverse(true)
 
-// highlighted marks every line a search hit matched on, with the matched words themselves
-// carried further out of the line, since a whole line under the cursor says the turn matched
-// without saying which word did.
-func highlighted(content string, spans []matchSpan) string {
-	if len(spans) == 0 {
+// highlighted marks every line a search hit matched on, so the words the hit was found by are
+// picked out of the conversation around them.
+func highlighted(content string, lines []int) string {
+	if len(lines) == 0 {
 		return content
 	}
 
-	lines := strings.Split(content, "\n")
-
-	at := 0
-	for i, line := range lines {
-		start, end := at, at+len(line)
-		at = end + 1
-
-		within := spansIn(spans, start, end)
-		if len(within) == 0 {
+	rows := strings.Split(content, "\n")
+	for _, line := range lines {
+		if line < 1 || line > len(rows) {
 			continue
 		}
 
-		lines[i] = highlightLine(line, start, within)
+		rows[line-1] = highlightStyle.Styled(rows[line-1])
 	}
 
-	return strings.Join(lines, "\n")
-}
-
-func spansIn(spans []matchSpan, start, end int) []matchSpan {
-	var within []matchSpan
-	for _, span := range spans {
-		if span.end > start && span.start < end {
-			within = append(within, span)
-		}
-	}
-
-	return within
-}
-
-func highlightLine(line string, base int, spans []matchSpan) string {
-	var b strings.Builder
-
-	at := 0
-	for _, span := range spans {
-		from, to := max(span.start-base, 0), min(span.end-base, len(line))
-		if from >= to {
-			continue
-		}
-		if from > at {
-			b.WriteString(highlightStyle.Styled(line[at:from]))
-		}
-		b.WriteString(matchTermStyle.Styled(line[from:to]))
-		at = to
-	}
-
-	if at < len(line) {
-		b.WriteString(highlightStyle.Styled(line[at:]))
-	}
-
-	return b.String()
+	return strings.Join(rows, "\n")
 }
 
 func writeStageFile(path, content string) bool {
