@@ -81,6 +81,10 @@ type fakeArchive struct {
 	deleted int
 	pages   int
 
+	// live is the agents outside the archive, which the sweep never pages through but does ask
+	// about when a child on a page names one as its parent.
+	live []agentstore.Agent
+
 	// asked is the ids each delete was given, since what the sweep leaves out of a page matters
 	// as much as what it deletes.
 	asked [][]string
@@ -97,10 +101,18 @@ type fakeArchive struct {
 func newFakeArchive(count int) *fakeArchive {
 	archive := &fakeArchive{}
 	for i := count; i > 0; i-- {
-		archive.agents = append(archive.agents, agentstore.Agent{ID: fmt.Sprintf("%06d", i)})
+		archive.agents = append(archive.agents, archivedRow(agentstore.Agent{ID: fmt.Sprintf("%06d", i)}))
 	}
 
 	return archive
+}
+
+// archivedRow stamps the archive time the store carries on a row the sweep reads, which is what
+// tells an archived parent from a live one.
+func archivedRow(agent agentstore.Agent) agentstore.Agent {
+	agent.ArchivedAt = xptr.Ptr(time.Now())
+
+	return agent
 }
 
 func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error) {
@@ -123,6 +135,8 @@ func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstor
 	return page, nil
 }
 
+// ListByID spans the archive and the live agents beside it, the way the store's own read does,
+// since what the sweep asks it is whether a parent is archived rather than whether it exists.
 func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Agent, error) {
 	wanted := make(map[string]bool, len(ids))
 	for _, id := range ids {
@@ -130,23 +144,13 @@ func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Ag
 	}
 
 	var found []agentstore.Agent
-	for _, agent := range f.agents {
+	for _, agent := range append(append([]agentstore.Agent{}, f.agents...), f.live...) {
 		if wanted[agent.ID] {
-			found = append(found, withArchived(agent))
+			found = append(found, agent)
 		}
 	}
 
 	return found, nil
-}
-
-// withArchived stamps the archive time the real store carries on every row the sweep reads,
-// which is what tells an archived parent from a live one.
-func withArchived(agent agentstore.Agent) agentstore.Agent {
-	if agent.ArchivedAt == nil {
-		agent.ArchivedAt = xptr.Ptr(time.Now())
-	}
-
-	return agent
 }
 
 func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
@@ -190,8 +194,8 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 	archive := newFakeArchive(0)
 	archive.agents = []agentstore.Agent{
-		{ID: "000002", ParentAgentID: xptr.Ptr("000001")},
-		{ID: "000001"},
+		archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")}),
+		archivedRow(agentstore.Agent{ID: "000001"}),
 	}
 	worker := NewEmptyArchiveWorker(archive, archive)
 
@@ -205,7 +209,8 @@ func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 // archived on its own, whose parent is still working and is never named by the sweep.
 func TestEmptyArchiveTakesAChildWhoseParentIsLive(t *testing.T) {
 	archive := newFakeArchive(0)
-	archive.agents = []agentstore.Agent{{ID: "000002", ParentAgentID: xptr.Ptr("000001")}}
+	archive.agents = []agentstore.Agent{archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")})}
+	archive.live = []agentstore.Agent{{ID: "000001"}}
 	worker := NewEmptyArchiveWorker(archive, archive)
 
 	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))

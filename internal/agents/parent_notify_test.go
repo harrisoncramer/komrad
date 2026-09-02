@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	"weave/internal/caller"
 	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -157,6 +158,92 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 			assert.Contains(t, claimed[0].Body, "deleted")
 		})
 	}
+}
+
+// TestDeleteOfAFamilyTellsNobodyAcrossTheSplit pins the batch a cleanup action splits: the
+// parent is held back for its own cleanup while its blank-action child goes straight through,
+// and the child's news is still nobody's to read.
+func TestDeleteOfAFamilyTellsNobodyAcrossTheSplit(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	notifier := &recordingNotifier{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		notifier:  notifier,
+	})
+	ctx := t.Context()
+
+	workflow, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:          "worktrees",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	parent := seedInWorkflow(t, st, workflow.ID, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, tmux.SetPaneOwner(parent.Pane, parent.ID))
+	seedChild(t, st, tmux, parent)
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{parent.ID}))
+
+	assert.Empty(t, notifier.to, "a parent on its way out is not told about the child going with it")
+}
+
+// TestDeleteOfASpawnerPairTellsNobody pins the other side of that split: two agents in a
+// worktree workflow are both held back for their own cleanup, so each callback has to weigh
+// its mail against the whole call rather than against the one agent it is finishing.
+func TestDeleteOfASpawnerPairTellsNobody(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	notifier := &recordingNotifier{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		notifier:  notifier,
+	})
+	ctx := t.Context()
+
+	workflow, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:          "worktrees",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	orchestrator := seedInWorkflow(t, st, workflow.ID, "orchestrator", "%orchestrator", agentstore.StateIdle)
+	require.NoError(t, tmux.SetPaneOwner(orchestrator.Pane, orchestrator.ID))
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:             "worker",
+		Pane:             "%worker",
+		State:            agentstore.StateThinking,
+		WorkflowID:       workflow.ID,
+		SpawnedByAgentID: &orchestrator.ID,
+	}))
+
+	worker, err := st.Agents.GetInWorkflow(ctx, workflow.ID, "worker")
+	require.NoError(t, err)
+	require.NotNil(t, worker)
+	require.NoError(t, tmux.SetPaneOwner(worker.Pane, worker.ID))
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{orchestrator.ID, worker.ID}))
+
+	assert.Empty(t, notifier.to, "a spawner deleted alongside its delegate is not written to")
+}
+
+// recordingNotifier keeps who was written to, since a delete takes the row the mail was
+// addressed to and the mailbox cannot be read afterwards.
+type recordingNotifier struct {
+	to []string
+}
+
+func (n *recordingNotifier) SendSystemMail(_ context.Context, toAgentID, _ string) (*mailstore.Mail, error) {
+	n.to = append(n.to, toAgentID)
+
+	return &mailstore.Mail{ToAgentID: toAgentID}, nil
 }
 
 // TestNotifyParentsSkipsTheActorsOwnDelegate pins that a parent is not mailed news it made
