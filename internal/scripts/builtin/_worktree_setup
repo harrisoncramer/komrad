@@ -5,6 +5,18 @@ set -eu
 repo="$WEAVE_WORKTREE_REPO"
 tree="$WEAVE_WORKTREES_DIR/$WEAVE_AGENT_ID"
 
+# The directory worktrees are made in can be pointed somewhere else while an agent is already
+# provisioned, and the tree it holds is where its branch is checked out, so a resume goes back
+# to that rather than to wherever worktrees live now. Holding a directory is not the claim: the
+# launch path reaches a resume with the agent's cwd still set to whatever the workflow named
+# when setup never got as far as replacing it, and taking that would put the agent inside the
+# repository. Setup names the directory after the agent, and a linked worktree carries a .git
+# file where a checkout carries a directory, which is the same claim cleanup makes.
+if [ "$WEAVE_TRIGGER" = resume ] && [ -d "$WEAVE_AGENT_CWD" ] &&
+	[ "$(basename "$WEAVE_AGENT_CWD")" = "$WEAVE_AGENT_ID" ] && [ -f "$WEAVE_AGENT_CWD/.git" ]; then
+	tree="$WEAVE_AGENT_CWD"
+fi
+
 apply_paths() {
 	list="$1"
 	kind="$2"
