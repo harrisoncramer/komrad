@@ -453,8 +453,11 @@ func (x *ListReviewThreadsRequest) GetAgentId() string {
 }
 
 type ListReviewThreadsResponse struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Threads       []*ReviewThread        `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The threads on that diff and what has been said in each. An agent reading a review is shown
+	// only the comments the person has let go of, and none of the panel's record of when each was
+	// released, so that a review is read once it is a review rather than as it is being written.
+	Threads       []*ReviewThread `protobuf:"bytes,1,rep,name=threads,proto3" json:"threads,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
