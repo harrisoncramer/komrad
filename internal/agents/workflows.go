@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"weave/config"
@@ -15,8 +16,8 @@ import (
 )
 
 const (
-	worktreeSetupAction   = "_worktree_setup"
-	worktreeCleanupAction = "_worktree_cleanup"
+	worktreeProvisionAction   = "_worktree_setup"
+	worktreeDeprovisionAction = "_worktree_cleanup"
 )
 
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
@@ -27,11 +28,9 @@ var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd na
 
 var ErrWorktreeCwdNotPrimaryCheckout = errors.New("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
-var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setup_action and cleanup_action at the built-in pair itself, so both must be blank")
-
-var ErrWorktreeActionsReserved = errors.New("setup_action and cleanup_action may not name the built-in worktree pair unless worktree.enabled is set")
-
 var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
+
+var ErrUnknownHookEvent = errors.New("a hook must name a moment weave fires")
 
 type workflowScheduleCounter interface {
 	CountLive(ctx context.Context, workflowID string) (int64, error)
@@ -105,26 +104,28 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
-	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
 	normalizeWorktree(&cfg)
 
 	if err := validateWorktreePaths(cfg); err != nil {
 		return nil, err
 	}
 
+	hooks, err := normalizeHooks(cfg.Hooks)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Hooks = hooks
+
 	if cfg.Worktree.Enabled {
-		if err := setWorktreeActions(&cfg); err != nil {
+		if err := requireWorktreeRepo(cfg); err != nil {
 			return nil, err
 		}
-	} else if namesReservedWorktreeAction(cfg) {
-		return nil, ErrWorktreeActionsReserved
 	}
 
 	// The workflow, its blueprint, and its action config are three rows, so a failure partway
 	// through must not leave any of them half-written.
 	var created *workflowstore.Workflow
-	err := w.tx.InTx(ctx, func(db store.DBTX) error {
+	err = w.tx.InTx(ctx, func(db store.DBTX) error {
 		var txErr error
 		created, txErr = workflowstore.New(db).Create(ctx, cfg)
 
@@ -155,30 +156,22 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
-	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
 	normalizeWorktree(&cfg)
 
 	if err := validateWorktreePaths(cfg); err != nil {
 		return err
 	}
 
-	switch {
-	case cfg.Worktree.Enabled:
-		if err := setWorktreeActions(&cfg); err != nil {
+	hooks, hooksErr := normalizeHooks(cfg.Hooks)
+	if hooksErr != nil {
+		return hooksErr
+	}
+	cfg.Hooks = hooks
+
+	if cfg.Worktree.Enabled {
+		if err := requireWorktreeRepo(cfg); err != nil {
 			return err
 		}
-	case existing.Worktree.Enabled:
-		// Turning worktree support off clears only the built-in pair, leaving alone anything a
-		// caller has since pointed somewhere else.
-		if cfg.SetupAction == worktreeSetupAction {
-			cfg.SetupAction = ""
-		}
-		if cfg.CleanupAction == worktreeCleanupAction {
-			cfg.CleanupAction = ""
-		}
-	case namesReservedWorktreeAction(cfg):
-		return ErrWorktreeActionsReserved
 	}
 
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
@@ -191,8 +184,25 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-func namesReservedWorktreeAction(cfg workflowstore.Config) bool {
-	return cfg.SetupAction == worktreeSetupAction || cfg.CleanupAction == worktreeCleanupAction
+// normalizeHooks trims what a caller sent and drops the blanks, since a select with None on it
+// sends the empty string, and refuses a moment weave does not fire rather than storing a script
+// nothing will ever run.
+func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
+	kept := make([]workflowstore.Hook, 0, len(hooks))
+	for _, hook := range hooks {
+		hook.Event = strings.TrimSpace(hook.Event)
+		hook.Action = strings.TrimSpace(hook.Action)
+		if hook.Action == "" {
+			continue
+		}
+		if !slices.Contains(workflowstore.HookEvents(), hook.Event) {
+			return nil, fmt.Errorf("%w: %q is not one of %s", ErrUnknownHookEvent, hook.Event, strings.Join(workflowstore.HookEvents(), ", "))
+		}
+
+		kept = append(kept, hook)
+	}
+
+	return kept, nil
 }
 
 func normalizeWorktree(cfg *workflowstore.Config) {
@@ -251,24 +261,14 @@ func validateWorktreePath(path string) error {
 	return nil
 }
 
-func setWorktreeActions(cfg *workflowstore.Config) error {
+// requireWorktreeRepo holds a workflow that provisions worktrees to a cwd it can cut them
+// from, since the worktree is weave's to make and it has nowhere to make it otherwise.
+func requireWorktreeRepo(cfg workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
 	}
-	if cfg.SetupAction != "" && cfg.SetupAction != worktreeSetupAction {
-		return ErrWorktreeOwnsActions
-	}
-	if cfg.CleanupAction != "" && cfg.CleanupAction != worktreeCleanupAction {
-		return ErrWorktreeOwnsActions
-	}
-	if err := requirePrimaryCheckout(cfg.Cwd); err != nil {
-		return err
-	}
 
-	cfg.SetupAction = worktreeSetupAction
-	cfg.CleanupAction = worktreeCleanupAction
-
-	return nil
+	return requirePrimaryCheckout(cfg.Cwd)
 }
 
 func requirePrimaryCheckout(cwd string) error {

@@ -18,6 +18,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -62,16 +63,15 @@ func (a api) setViewed(id string, viewed bool) error {
 }
 
 type createAgentParams struct {
-	Prompt        string
-	Title         string
-	Harness       string
-	Dir           string
-	Flags         string
-	SetupAction   *string
-	CleanupAction *string
-	WorkflowID    string
-	SetupPane     string
-	ParentAgentID string
+	Prompt           string
+	Title            string
+	Harness          string
+	Dir              string
+	Flags            string
+	ProvisionEnabled *bool
+	WorkflowID       string
+	SetupPane        string
+	ParentAgentID    string
 }
 
 // nilIfBlank leaves an optional field unset rather than sending it empty, which the request's
@@ -89,16 +89,15 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	defer cancel()
 
 	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:        params.Prompt,
-		Title:         params.Title,
-		Harness:       params.Harness,
-		Dir:           params.Dir,
-		Flags:         params.Flags,
-		SetupAction:   params.SetupAction,
-		CleanupAction: params.CleanupAction,
-		WorkflowId:    params.WorkflowID,
-		SetupPane:     params.SetupPane,
-		ParentAgentId: nilIfBlank(params.ParentAgentID),
+		Prompt:           params.Prompt,
+		Title:            params.Title,
+		Harness:          params.Harness,
+		Dir:              params.Dir,
+		Flags:            params.Flags,
+		ProvisionEnabled: params.ProvisionEnabled,
+		WorkflowId:       params.WorkflowID,
+		SetupPane:        params.SetupPane,
+		ParentAgentId:    nilIfBlank(params.ParentAgentID),
 	}))
 	if err != nil {
 		return nil, err
@@ -309,6 +308,12 @@ func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeC
 	}
 }
 
+func hooksToProto(hooks []workflowstore.Hook) []*workflowv1.WorkflowHook {
+	return xslice.Map(hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
+		return &workflowv1.WorkflowHook{Event: hook.Event, Action: hook.Action}
+	})
+}
+
 func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, error) {
 	name := strings.TrimSpace(cfg.Name)
 	if name == "" {
@@ -324,9 +329,8 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 		Harness:           cfg.Harness,
 		Cwd:               cfg.Cwd,
 		Flags:             cfg.Flags,
-		SetupAction:       cfg.SetupAction,
-		CleanupAction:     cfg.CleanupAction,
 		Worktree:          worktreeConfigToProto(cfg.Worktree),
+		Hooks:             hooksToProto(cfg.Hooks),
 		ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
 	}))
 	if err != nil {
@@ -352,9 +356,8 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		Harness:           w.Harness,
 		Cwd:               w.Cwd,
 		Flags:             w.Flags,
-		SetupAction:       w.SetupAction,
-		CleanupAction:     w.CleanupAction,
 		Worktree:          worktreeConfigToProto(w.Worktree),
+		Hooks:             hooksToProto(w.Hooks),
 		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 	}))
 
@@ -390,25 +393,24 @@ func (a api) deleteWorkflow(id string) error {
 	return err
 }
 
-func (a api) listActions() ([]*actionv1.Action, error) {
+func (a api) listHooks() ([]*actionv1.Hook, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	resp, err := a.actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	resp, err := a.actions.ListHooks(ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		return nil, err
 	}
 
-	return resp.Msg.GetActions(), nil
+	return resp.Msg.GetHooks(), nil
 }
 
-func (a api) runAction(agentID, name string) error {
+func (a api) openPullRequest(agentID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.actions.RunAction(ctx, connect.NewRequest(&actionv1.RunActionRequest{
+	_, err := a.actions.OpenPullRequest(ctx, connect.NewRequest(&actionv1.OpenPullRequestRequest{
 		AgentId: agentID,
-		Action:  name,
 	}))
 
 	return err

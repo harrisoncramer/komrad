@@ -88,14 +88,8 @@ message CreateAgentRequest {
     min_len: 1
     max_len: 200
   }];
-  optional string setup_action = 8 [(buf.validate.field).string = {
-    max_len: 255
-    [rules.v1.action_name_or_blank]: true
-  }];
-  optional string cleanup_action = 9 [(buf.validate.field).string = {
-    max_len: 255
-    [rules.v1.action_name_or_blank]: true
-  }];
+  optional bool provision_enabled = 8;
+  reserved 9;
   string setup_pane = 10 [(buf.validate.field).string.max_len = 20];
   optional string parent_agent_id = 11 [(buf.validate.field).string.min_len = 1];
 }
@@ -289,7 +283,7 @@ service AgentService {
   rpc CreateAgent(CreateAgentRequest) returns (CreateAgentResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
-      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, which is the shape to reach for when the work needs a second pair of eyes on your own tree rather than an agent of its own: pass your own id from WEAVE_AGENT_ID. A child runs in its parent's directory and gets no worktree and no setup or cleanup action, so dir, setupAction and cleanupAction are all refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own."
+      description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, which is the shape to reach for when the work needs a second pair of eyes on your own tree rather than an agent of its own: pass your own id from WEAVE_AGENT_ID. Set provisionEnabled to false to keep the directory you named rather than be given one: that is how an agent reads a checkout somebody else already has open, and it is what the reviewer case wants. Leave it unset to do whatever the workflow does. A child runs in its parent's directory and provisions nothing of its own, so dir and provisionEnabled are both refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own."
       destructive: false
     };
   }
@@ -391,7 +385,7 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "delete_agents"
-      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down."
+      description: "Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The worktree of each one is removed with it, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down."
       destructive: true
     };
   }

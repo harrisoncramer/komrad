@@ -13,7 +13,7 @@ import (
 )
 
 // TestNewChildAgentTakesItsLaunchFromTheParent pins what a child is given rather than asked
-// for: the parent's checkout, no actions of its own, and the parent's workflow.
+// for: the parent's checkout, no provisioner of its own, and the parent's workflow.
 func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -43,14 +43,12 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	assert.Equal(t, parent.ID, *child.ParentAgentID)
 	assert.Equal(t, parent.WorkflowID, child.WorkflowID)
 
-	// An unset action falls back to the workflow's, which for a worktree-enabled workflow would
-	// tear the parent's checkout down, so the blanks have to be on the row itself.
-	require.NotNil(t, child.SetupAction)
-	assert.Empty(t, *child.SetupAction)
-	require.NotNil(t, child.CleanupAction)
-	assert.Empty(t, *child.CleanupAction)
+	// An unset provisioner falls back to the workflow's, which for a worktree-enabled workflow
+	// would tear the parent's checkout down, so the blank has to be on the row itself.
+	require.NotNil(t, child.ProvisionEnabled)
+	assert.False(t, *child.ProvisionEnabled)
 
-	assert.Empty(t, cleanupActionFor(ctx, st.Workflows, *child), "and nothing is left to run against it")
+	assert.Empty(t, deprovisionActionFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
 }
 
 // TestNewChildAgentRefusals pins that a request asking for what the parent decides is answered
@@ -73,23 +71,12 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			wantErrIs: ErrChildOwnsLaunch,
 		},
 		{
-			name: "a setup action of its own",
+			name: "a provisioner of its own",
 			params: func(parent agentstore.Agent) NewAgentParams {
 				return NewAgentParams{
-					SetupAction:   xptr.Ptr("worktree"),
-					WorkflowID:    parent.WorkflowID,
-					ParentAgentID: parent.ID,
-				}
-			},
-			wantErrIs: ErrChildOwnsLaunch,
-		},
-		{
-			name: "a cleanup action of its own",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				return NewAgentParams{
-					CleanupAction: xptr.Ptr("teardown"),
-					WorkflowID:    parent.WorkflowID,
-					ParentAgentID: parent.ID,
+					ProvisionEnabled: xptr.Ptr(true),
+					WorkflowID:       parent.WorkflowID,
+					ParentAgentID:    parent.ID,
 				}
 			},
 			wantErrIs: ErrChildOwnsLaunch,

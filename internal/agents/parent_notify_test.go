@@ -176,10 +176,7 @@ func TestDeleteOfAFamilyTellsNobodyAcrossTheSplit(t *testing.T) {
 	})
 	ctx := t.Context()
 
-	workflow, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:          "worktrees",
-		CleanupAction: "drop-worktree",
-	})
+	workflow, err := st.Workflows.Create(ctx, worktreeConfig(t, "worktrees"))
 	require.NoError(t, err)
 
 	parent := seedInWorkflow(t, st, workflow.ID, "author", "%author", agentstore.StateIdle)
@@ -207,10 +204,7 @@ func TestDeleteOfASpawnerPairTellsNobody(t *testing.T) {
 	})
 	ctx := t.Context()
 
-	workflow, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:          "worktrees",
-		CleanupAction: "drop-worktree",
-	})
+	workflow, err := st.Workflows.Create(ctx, worktreeConfig(t, "worktrees"))
 	require.NoError(t, err)
 
 	orchestrator := seedInWorkflow(t, st, workflow.ID, "orchestrator", "%orchestrator", agentstore.StateIdle)

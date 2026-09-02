@@ -180,12 +180,15 @@ type DetailsKeys struct {
 	Focus []string `mapstructure:"focus"`
 }
 
-// LogsKeys is the binding that cycles the hovered agent's own logs through the info pane:
-// its setup log, its teardown log, then the background service's own log filtered to
-// that agent, and a press past the last one closes the pane.
+// LogsKeys are the bindings that read the hovered agent's own logs in the info pane. Open
+// cycles the most recent run of one of its actions, then the background service's own log
+// filtered to that agent, and a press past the last one closes the pane. Older steps back
+// through the runs before the one on screen, wrapping round to the most recent.
 type LogsKeys struct {
 	// Cycle the hovered agent's logs in the info pane.
 	Open []string `mapstructure:"open"`
+	// Step back to the run before the one the info pane is showing.
+	Older []string `mapstructure:"older"`
 }
 
 // FilterKeys is the binding that narrows the list on screen. It is its own group rather than
@@ -388,11 +391,12 @@ type ArchiveKeys struct {
 	Restore []string `mapstructure:"restore"`
 }
 
-// Actions is where weave finds the scripts a workflow, a schedule, or an agent runs.
-type Actions struct {
-	// Directory for actions: one executable file per action, named after the action.
-	// Files here override built-in actions with the same name.
-	// Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
+// Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
+type Hooks struct {
+	// Directory for hooks: one executable file per hook, named after the hook.
+	// A hook is a script or program weave runs at a moment a workflow names it against, in the
+	// agent's own directory, with agent info in WEAVE_AGENT as JSON and the moment in
+	// WEAVE_TRIGGER. Default is ~/.config/weave/hooks.
 	Dir string `mapstructure:"dir"`
 }
 
@@ -569,8 +573,8 @@ type Config struct {
 	Tags []Tag `mapstructure:"tags"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
-	// Where weave finds the scripts a workflow, a schedule, or an agent runs.
-	Actions Actions `mapstructure:"actions"`
+	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
+	Hooks Hooks `mapstructure:"hooks"`
 	// Where a workflow's generated worktree setup action creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
 	// The standing text every agent is started with, whatever workflow it is in.
@@ -724,7 +728,8 @@ func DefaultKeybindings() Keybindings {
 			Toggle: []string{"?"},
 		},
 		Logs: LogsKeys{
-			Open: []string{"l"},
+			Open:  []string{"l"},
+			Older: []string{"L"},
 		},
 		Nav: NavKeys{
 			Bottom: []string{"G"},
@@ -935,12 +940,10 @@ func ExpandHome(path string) string {
 	return filepath.Join(home, path[len("~/"):])
 }
 
-// GetActionsDir is where the actions live: the configured directory, or
-// ~/.config/weave/actions when the config names none. The default is filled in here rather
-// than filled into Config, since the generated config.toml spells every default out and one
-// machine's home directory would be wrong on every other machine.
-func (c Config) GetActionsDir() (string, error) {
-	if dir := strings.TrimSpace(c.Actions.Dir); dir != "" {
+// GetHooksDir is where weave looks for the scripts a workflow hangs on a moment: the
+// configured directory, or ~/.config/weave/hooks when the config names none.
+func (c Config) GetHooksDir() (string, error) {
+	if dir := strings.TrimSpace(c.Hooks.Dir); dir != "" {
 		return ExpandHome(dir), nil
 	}
 
@@ -949,7 +952,7 @@ func (c Config) GetActionsDir() (string, error) {
 		return "", err
 	}
 
-	return filepath.Join(home, "actions"), nil
+	return filepath.Join(home, "hooks"), nil
 }
 
 // GetWorktreesDir is where a generated worktree setup action creates its worktrees: the

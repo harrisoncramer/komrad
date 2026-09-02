@@ -4,7 +4,7 @@ Permanently remove a list of agents, keyed by id.
 
 ### Synopsis
 
-Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down.
+Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The worktree of each one is removed with it, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down.
 
 ```
 weave rpc delete-agents [flags]

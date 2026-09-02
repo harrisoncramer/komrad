@@ -15,9 +15,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestRunActionCodes covers the codes telling a name that answers to nothing apart from a file
-// that is there and will not run.
-func TestRunActionCodes(t *testing.T) {
+// TestOpenPullRequestCodes covers the codes telling an agent that answers to nothing apart from
+// a built-in script that is there and will not run.
+func TestOpenPullRequestCodes(t *testing.T) {
 	tests := []struct {
 		name     string
 		err      error
@@ -69,9 +69,8 @@ func TestRunActionCodes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service := NewService(&fakeActions{err: tt.err})
 
-			_, err := service.RunAction(context.Background(), connect.NewRequest(&actionv1.RunActionRequest{
+			_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
 				AgentId: "a1",
-				Action:  "open-pr",
 			}))
 
 			if tt.wantCode == 0 {
@@ -86,49 +85,47 @@ func TestRunActionCodes(t *testing.T) {
 	}
 }
 
-// TestRunActionPassesWhatItWasAsked covers the handler translating and nothing more.
-func TestRunActionPassesWhatItWasAsked(t *testing.T) {
+// TestOpenPullRequestPassesWhatItWasAsked covers the handler translating and nothing more.
+func TestOpenPullRequestPassesWhatItWasAsked(t *testing.T) {
 	manager := &fakeActions{}
 	service := NewService(manager)
 
-	_, err := service.RunAction(context.Background(), connect.NewRequest(&actionv1.RunActionRequest{
+	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
 		AgentId: "a7",
-		Action:  "open-linear",
 	}))
 
 	require.NoError(t, err)
 	assert.Equal(t, "a7", manager.agentID)
-	assert.Equal(t, "open-linear", manager.action)
 }
 
-// TestListActions covers an action with no declared timeout leaving the field unset, since a
-// zero would read as a run with no time at all.
-func TestListActions(t *testing.T) {
-	manager := &fakeActions{listed: []agents.Action{
+// TestListHooks covers a hook with no declared timeout leaving the field unset, since a zero
+// would read as a run with no time at all.
+func TestListHooks(t *testing.T) {
+	manager := &fakeActions{listedHooks: []agents.Action{
 		{
-			Name: "open-pr", Path: "/actions/open-pr", Executable: true,
+			Name: "install-deps", Path: "/hooks/install-deps", Executable: true,
 			Header: agents.ActionHeader{
-				Description: "Open the pull request this agent recorded.",
+				Description: "Install what the worktree needs before the agent starts.",
 				Timeout:     45 * time.Second,
 				Problems:    []string{"line 4: nope is not a directive weave knows"},
 			},
 		},
 		{
 			Name:       "compiled",
-			Path:       "/actions/compiled",
+			Path:       "/hooks/compiled",
 			Executable: true,
 		},
 	}}
 
-	resp, err := NewService(manager).ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := NewService(manager).ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
-	listed := resp.Msg.GetActions()
+	listed := resp.Msg.GetHooks()
 	require.Len(t, listed, 2)
 
-	assert.Equal(t, "open-pr", listed[0].GetName())
+	assert.Equal(t, "install-deps", listed[0].GetName())
 	assert.True(t, listed[0].GetExecutable())
-	assert.Equal(t, "Open the pull request this agent recorded.", listed[0].GetDescription())
+	assert.Equal(t, "Install what the worktree needs before the agent starts.", listed[0].GetDescription())
 	assert.Equal(t, 45*time.Second, listed[0].GetTimeout().AsDuration())
 	assert.Equal(t, []string{"line 4: nope is not a directive weave knows"}, listed[0].GetHeaderProblems())
 
@@ -136,35 +133,34 @@ func TestListActions(t *testing.T) {
 	assert.Nil(t, listed[1].GetTimeout(), "a file that declared no timeout sends none")
 }
 
-// TestListActionsFailure covers a directory that could not be read at all, which is the server's
+// TestListHooksFailure covers a directory that could not be read at all, which is the server's
 // problem rather than the caller's.
-func TestListActionsFailure(t *testing.T) {
+func TestListHooksFailure(t *testing.T) {
 	service := NewService(&fakeActions{listErr: errors.New("permission denied")})
 
-	_, err := service.ListActions(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	_, err := service.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 }
 
 type fakeActions struct {
-	listed  []agents.Action
-	listErr error
-	err     error
-	agentID string
-	action  string
+	listedHooks []agents.Action
+	listErr     error
+	err         error
+	agentID     string
 }
 
-func (f *fakeActions) ListActions() ([]agents.Action, error) {
+func (f *fakeActions) ListHooks() ([]agents.Action, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
 
-	return f.listed, nil
+	return f.listedHooks, nil
 }
 
-func (f *fakeActions) RunAction(_ context.Context, agentID, name string) error {
-	f.agentID, f.action = agentID, name
+func (f *fakeActions) OpenPullRequest(_ context.Context, agentID string) error {
+	f.agentID = agentID
 
 	return f.err
 }

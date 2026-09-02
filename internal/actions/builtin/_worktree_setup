@@ -1,5 +1,5 @@
 #!/bin/sh
-#WEAVE description="A workflow's setup action when its worktree toggle is on. Configure it from the workflow's edit form; it does not take an argument of its own."
+#WEAVE description="Weave's own script for making an agent a worktree, run when its workflow's worktree toggle is on. Not yours to name or fire."
 set -eu
 
 repo="$WEAVE_WORKTREE_REPO"
@@ -118,6 +118,17 @@ adopt_worktree() {
 # The worktree of an agent starting fresh work is its own branch cut from the base, named
 # after the agent so nothing else claims it.
 fresh_worktree() {
+	branch="agent/$WEAVE_AGENT_ID"
+
+	# A branch this agent already has holds commits of its own, so it is checked out as it
+	# stands rather than reset onto the base, which is what the -B below would do.
+	if has_ref "refs/heads/$branch"; then
+		mkdir -p "$WEAVE_WORKTREES_DIR"
+		echo "creating a worktree at $tree on the existing $branch" >&2
+		add_worktree "$tree" "$branch"
+		return
+	fi
+
 	base="$WEAVE_WORKTREE_BASE_BRANCH"
 
 	if [ -z "$base" ] && [ -n "$origin" ]; then
@@ -193,7 +204,7 @@ fresh_worktree() {
 	# --no-track leaves the branch with no upstream, so git status inside the worktree measures
 	# the agent against nothing but its own branch, and the add writes no branch config, which
 	# is the shared lock every concurrent create would otherwise fail on.
-	add_worktree --no-track -B "agent/$WEAVE_AGENT_ID" "$tree" "$point"
+	add_worktree --no-track -B "$branch" "$tree" "$point"
 
 	# The branch the add just made holds the commit now, so a ref that named the branch point
 	# for one command is not left behind in the human's repo.

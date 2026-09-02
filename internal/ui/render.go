@@ -73,7 +73,7 @@ func renderTranscript(conversation string, spans []span, width int) (string, int
 		line = estimatedLine(rendered, spans[0].start, len(conversation))
 	}
 
-	return styleMarks(rendered), line
+	return styleMarks(rendered, stageMatchStyle), line
 }
 
 func markedLine(rendered string) int {

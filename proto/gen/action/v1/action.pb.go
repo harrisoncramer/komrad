@@ -26,7 +26,7 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
-type Action struct {
+type Hook struct {
 	state          protoimpl.MessageState `protogen:"open.v1"`
 	Name           string                 `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
 	Executable     bool                   `protobuf:"varint,2,opt,name=executable,proto3" json:"executable,omitempty"`
@@ -37,20 +37,20 @@ type Action struct {
 	sizeCache      protoimpl.SizeCache
 }
 
-func (x *Action) Reset() {
-	*x = Action{}
+func (x *Hook) Reset() {
+	*x = Hook{}
 	mi := &file_action_v1_action_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *Action) String() string {
+func (x *Hook) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*Action) ProtoMessage() {}
+func (*Hook) ProtoMessage() {}
 
-func (x *Action) ProtoReflect() protoreflect.Message {
+func (x *Hook) ProtoReflect() protoreflect.Message {
 	mi := &file_action_v1_action_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -62,67 +62,67 @@ func (x *Action) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use Action.ProtoReflect.Descriptor instead.
-func (*Action) Descriptor() ([]byte, []int) {
+// Deprecated: Use Hook.ProtoReflect.Descriptor instead.
+func (*Hook) Descriptor() ([]byte, []int) {
 	return file_action_v1_action_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *Action) GetName() string {
+func (x *Hook) GetName() string {
 	if x != nil {
 		return x.Name
 	}
 	return ""
 }
 
-func (x *Action) GetExecutable() bool {
+func (x *Hook) GetExecutable() bool {
 	if x != nil {
 		return x.Executable
 	}
 	return false
 }
 
-func (x *Action) GetDescription() string {
+func (x *Hook) GetDescription() string {
 	if x != nil {
 		return x.Description
 	}
 	return ""
 }
 
-func (x *Action) GetTimeout() *durationpb.Duration {
+func (x *Hook) GetTimeout() *durationpb.Duration {
 	if x != nil {
 		return x.Timeout
 	}
 	return nil
 }
 
-func (x *Action) GetHeaderProblems() []string {
+func (x *Hook) GetHeaderProblems() []string {
 	if x != nil {
 		return x.HeaderProblems
 	}
 	return nil
 }
 
-type ListActionsResponse struct {
+type ListHooksResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
-	Actions       []*Action              `protobuf:"bytes,1,rep,name=actions,proto3" json:"actions,omitempty"`
+	Hooks         []*Hook                `protobuf:"bytes,1,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *ListActionsResponse) Reset() {
-	*x = ListActionsResponse{}
+func (x *ListHooksResponse) Reset() {
+	*x = ListHooksResponse{}
 	mi := &file_action_v1_action_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *ListActionsResponse) String() string {
+func (x *ListHooksResponse) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*ListActionsResponse) ProtoMessage() {}
+func (*ListHooksResponse) ProtoMessage() {}
 
-func (x *ListActionsResponse) ProtoReflect() protoreflect.Message {
+func (x *ListHooksResponse) ProtoReflect() protoreflect.Message {
 	mi := &file_action_v1_action_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -134,40 +134,39 @@ func (x *ListActionsResponse) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use ListActionsResponse.ProtoReflect.Descriptor instead.
-func (*ListActionsResponse) Descriptor() ([]byte, []int) {
+// Deprecated: Use ListHooksResponse.ProtoReflect.Descriptor instead.
+func (*ListHooksResponse) Descriptor() ([]byte, []int) {
 	return file_action_v1_action_proto_rawDescGZIP(), []int{1}
 }
 
-func (x *ListActionsResponse) GetActions() []*Action {
+func (x *ListHooksResponse) GetHooks() []*Hook {
 	if x != nil {
-		return x.Actions
+		return x.Hooks
 	}
 	return nil
 }
 
-type RunActionRequest struct {
+type OpenPullRequestRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	Action        string                 `protobuf:"bytes,2,opt,name=action,proto3" json:"action,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *RunActionRequest) Reset() {
-	*x = RunActionRequest{}
+func (x *OpenPullRequestRequest) Reset() {
+	*x = OpenPullRequestRequest{}
 	mi := &file_action_v1_action_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *RunActionRequest) String() string {
+func (x *OpenPullRequestRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*RunActionRequest) ProtoMessage() {}
+func (*OpenPullRequestRequest) ProtoMessage() {}
 
-func (x *RunActionRequest) ProtoReflect() protoreflect.Message {
+func (x *OpenPullRequestRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_action_v1_action_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -179,21 +178,14 @@ func (x *RunActionRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use RunActionRequest.ProtoReflect.Descriptor instead.
-func (*RunActionRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use OpenPullRequestRequest.ProtoReflect.Descriptor instead.
+func (*OpenPullRequestRequest) Descriptor() ([]byte, []int) {
 	return file_action_v1_action_proto_rawDescGZIP(), []int{2}
 }
 
-func (x *RunActionRequest) GetAgentId() string {
+func (x *OpenPullRequestRequest) GetAgentId() string {
 	if x != nil {
 		return x.AgentId
-	}
-	return ""
-}
-
-func (x *RunActionRequest) GetAction() string {
-	if x != nil {
-		return x.Action
 	}
 	return ""
 }
@@ -202,8 +194,8 @@ var File_action_v1_action_proto protoreflect.FileDescriptor
 
 const file_action_v1_action_proto_rawDesc = "" +
 	"\n" +
-	"\x16action/v1/action.proto\x12\taction.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\xcd\x01\n" +
-	"\x06Action\x12\x12\n" +
+	"\x16action/v1/action.proto\x12\taction.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1egoogle/protobuf/duration.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x14rules/v1/rules.proto\"\xcb\x01\n" +
+	"\x04Hook\x12\x12\n" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1e\n" +
 	"\n" +
 	"executable\x18\x02 \x01(\bR\n" +
@@ -212,18 +204,17 @@ const file_action_v1_action_proto_rawDesc = "" +
 	"\atimeout\x18\x04 \x01(\v2\x19.google.protobuf.DurationH\x00R\atimeout\x88\x01\x01\x12'\n" +
 	"\x0fheader_problems\x18\x05 \x03(\tR\x0eheaderProblemsB\n" +
 	"\n" +
-	"\b_timeout\"B\n" +
-	"\x13ListActionsResponse\x12+\n" +
-	"\aactions\x18\x01 \x03(\v2\x11.action.v1.ActionR\aactions\"\\\n" +
-	"\x10RunActionRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
-	"\x06action\x18\x02 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01R\x06action2\xf5\b\n" +
-	"\rActionService\x12\xab\x04\n" +
-	"\vListActions\x12\x16.google.protobuf.Empty\x1a\x1e.action.v1.ListActionsResponse\"\xe3\x03\x9a\xb5\x18\xdb\x03\n" +
-	"\flist_actions\x12\xca\x03List the actions the user has written, which are executable files in their actions directory. An action is a script or program that takes one agent as its input and does whatever the user wrote it to do, such as opening the pull request that agent recorded. The name is what run_action takes. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.\x90\x02\x01\x12\xb5\x04\n" +
-	"\tRunAction\x12\x1b.action.v1.RunActionRequest\x1a\x16.google.protobuf.Empty\"\xf2\x03\x9a\xb5\x18\xed\x03\n" +
+	"\b_timeout\":\n" +
+	"\x11ListHooksResponse\x12%\n" +
+	"\x05hooks\x18\x01 \x03(\v2\x0f.action.v1.HookR\x05hooks\"<\n" +
+	"\x16OpenPullRequestRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId2\x97\b\n" +
+	"\rActionService\x12\xd2\x04\n" +
+	"\tListHooks\x12\x16.google.protobuf.Empty\x1a\x1c.action.v1.ListHooksResponse\"\x8e\x04\x9a\xb5\x18\x86\x04\n" +
 	"\n" +
-	"run_action\x12\xde\x03Fire one of the user's actions on an agent, naming the action as list_actions reports it and the agent by id. The action is started and nothing waits for it, so a successful call means the process began and says nothing about what it did or whether it worked. Where its output goes is the action's own business. An error means it never started: no such action, no such agent, or a file the user has not made executable. Your own id is in the WEAVE_AGENT_ID environment variable.B$Z\"weave/proto/gen/action/v1;actionv1b\x06proto3"
+	"list_hooks\x12\xf7\x03List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's action field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.\x90\x02\x01\x12\xb0\x03\n" +
+	"\x0fOpenPullRequest\x12!.action.v1.OpenPullRequestRequest\x1a\x16.google.protobuf.Empty\"\xe1\x02\x9a\xb5\x18\xdc\x02\n" +
+	"\x11open_pull_request\x12\xc4\x02Open the pull request an agent recorded for itself, in the browser of whoever is at the panel. It is the panel's own key spelled as a call, so it answers as soon as the browser has been asked and says nothing about what the browser did. An error means it never got that far: no such agent, or no pull request recorded on it. \x00B$Z\"weave/proto/gen/action/v1;actionv1b\x06proto3"
 
 var (
 	file_action_v1_action_proto_rawDescOnce sync.Once
@@ -239,19 +230,19 @@ func file_action_v1_action_proto_rawDescGZIP() []byte {
 
 var file_action_v1_action_proto_msgTypes = make([]protoimpl.MessageInfo, 3)
 var file_action_v1_action_proto_goTypes = []any{
-	(*Action)(nil),              // 0: action.v1.Action
-	(*ListActionsResponse)(nil), // 1: action.v1.ListActionsResponse
-	(*RunActionRequest)(nil),    // 2: action.v1.RunActionRequest
-	(*durationpb.Duration)(nil), // 3: google.protobuf.Duration
-	(*emptypb.Empty)(nil),       // 4: google.protobuf.Empty
+	(*Hook)(nil),                   // 0: action.v1.Hook
+	(*ListHooksResponse)(nil),      // 1: action.v1.ListHooksResponse
+	(*OpenPullRequestRequest)(nil), // 2: action.v1.OpenPullRequestRequest
+	(*durationpb.Duration)(nil),    // 3: google.protobuf.Duration
+	(*emptypb.Empty)(nil),          // 4: google.protobuf.Empty
 }
 var file_action_v1_action_proto_depIdxs = []int32{
-	3, // 0: action.v1.Action.timeout:type_name -> google.protobuf.Duration
-	0, // 1: action.v1.ListActionsResponse.actions:type_name -> action.v1.Action
-	4, // 2: action.v1.ActionService.ListActions:input_type -> google.protobuf.Empty
-	2, // 3: action.v1.ActionService.RunAction:input_type -> action.v1.RunActionRequest
-	1, // 4: action.v1.ActionService.ListActions:output_type -> action.v1.ListActionsResponse
-	4, // 5: action.v1.ActionService.RunAction:output_type -> google.protobuf.Empty
+	3, // 0: action.v1.Hook.timeout:type_name -> google.protobuf.Duration
+	0, // 1: action.v1.ListHooksResponse.hooks:type_name -> action.v1.Hook
+	4, // 2: action.v1.ActionService.ListHooks:input_type -> google.protobuf.Empty
+	2, // 3: action.v1.ActionService.OpenPullRequest:input_type -> action.v1.OpenPullRequestRequest
+	1, // 4: action.v1.ActionService.ListHooks:output_type -> action.v1.ListHooksResponse
+	4, // 5: action.v1.ActionService.OpenPullRequest:output_type -> google.protobuf.Empty
 	4, // [4:6] is the sub-list for method output_type
 	2, // [2:4] is the sub-list for method input_type
 	2, // [2:2] is the sub-list for extension type_name

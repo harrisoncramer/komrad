@@ -100,8 +100,6 @@ type Agent struct {
 	Name             string
 	Cwd              string
 	Flags            string
-	SetupAction      *string
-	CleanupAction    *string
 	Prompt           string
 	PaneID           string
 	State            string
@@ -126,6 +124,7 @@ type Agent struct {
 	ViewedAt         *time.Time
 	ParentAgentID    *string
 	TurnEndedAt      *time.Time
+	ProvisionEnabled *bool
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -257,11 +256,9 @@ type Workflow struct {
 	UpdatedAt        time.Time
 }
 
-// The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead.
+// The worktree config a workflow provisions its agents with, and whether it provisions them at all.
 type WorkflowActionConfig struct {
 	ID                   string
-	SetupAction          string
-	CleanupAction        string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -280,4 +277,14 @@ type WorkflowConfig struct {
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// The scripts a workflow hangs on one moment in its agents' lives, run in position order.
+type WorkflowHook struct {
+	ID         string
+	WorkflowID string
+	Event      string
+	Action     string
+	Position   int32
+	CreatedAt  time.Time
 }

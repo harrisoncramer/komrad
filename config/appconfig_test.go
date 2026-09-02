@@ -552,16 +552,16 @@ func TestConfiguredPathsExpandHome(t *testing.T) {
 			read: Config.GetContextFile,
 		},
 		{
-			name: "an actions directory under ~ resolves to the home directory",
-			file: "[actions]\ndir = \"~/dotfiles/weave/actions\"\n",
-			want: func(home string) string { return filepath.Join(home, "dotfiles", "weave", "actions") },
-			read: Config.GetActionsDir,
+			name: "a hooks directory under ~ resolves to the home directory",
+			file: "[hooks]\ndir = \"~/dotfiles/weave/hooks\"\n",
+			want: func(home string) string { return filepath.Join(home, "dotfiles", "weave", "hooks") },
+			read: Config.GetHooksDir,
 		},
 		{
 			name: "a bare ~ is the home directory itself",
-			file: "[actions]\ndir = \"~\"\n",
+			file: "[hooks]\ndir = \"~\"\n",
 			want: func(home string) string { return home },
-			read: Config.GetActionsDir,
+			read: Config.GetHooksDir,
 		},
 		{
 			name: "a context file under ~ resolves to the home directory",

@@ -96,7 +96,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 
 	if errors.Is(err, agents.ErrBadDirectory) ||
 		errors.Is(err, agents.ErrWorkflowNotFound) ||
-		errors.Is(err, agents.ErrSetupFailed) ||
+		errors.Is(err, agents.ErrProvisionFailed) ||
 		errors.Is(err, agents.ErrTooManyAgents) {
 		return w.cancel(ctx, schedule.ID, schedulestore.LaunchResultCannotLaunch,
 			fmt.Errorf("schedule %q cannot launch: %w", schedule.Name, err))

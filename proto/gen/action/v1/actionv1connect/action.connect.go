@@ -34,17 +34,17 @@ const (
 // reflection-formatted method names, remove the leading slash and convert the remaining slash to a
 // period.
 const (
-	// ActionServiceListActionsProcedure is the fully-qualified name of the ActionService's ListActions
-	// RPC.
-	ActionServiceListActionsProcedure = "/action.v1.ActionService/ListActions"
-	// ActionServiceRunActionProcedure is the fully-qualified name of the ActionService's RunAction RPC.
-	ActionServiceRunActionProcedure = "/action.v1.ActionService/RunAction"
+	// ActionServiceListHooksProcedure is the fully-qualified name of the ActionService's ListHooks RPC.
+	ActionServiceListHooksProcedure = "/action.v1.ActionService/ListHooks"
+	// ActionServiceOpenPullRequestProcedure is the fully-qualified name of the ActionService's
+	// OpenPullRequest RPC.
+	ActionServiceOpenPullRequestProcedure = "/action.v1.ActionService/OpenPullRequest"
 )
 
 // ActionServiceClient is a client for the action.v1.ActionService service.
 type ActionServiceClient interface {
-	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
-	RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error)
+	ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error)
+	OpenPullRequest(context.Context, *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewActionServiceClient constructs a client for the action.v1.ActionService service. By default,
@@ -58,17 +58,17 @@ func NewActionServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 	baseURL = strings.TrimRight(baseURL, "/")
 	actionServiceMethods := v1.File_action_v1_action_proto.Services().ByName("ActionService").Methods()
 	return &actionServiceClient{
-		listActions: connect.NewClient[emptypb.Empty, v1.ListActionsResponse](
+		listHooks: connect.NewClient[emptypb.Empty, v1.ListHooksResponse](
 			httpClient,
-			baseURL+ActionServiceListActionsProcedure,
-			connect.WithSchema(actionServiceMethods.ByName("ListActions")),
+			baseURL+ActionServiceListHooksProcedure,
+			connect.WithSchema(actionServiceMethods.ByName("ListHooks")),
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
-		runAction: connect.NewClient[v1.RunActionRequest, emptypb.Empty](
+		openPullRequest: connect.NewClient[v1.OpenPullRequestRequest, emptypb.Empty](
 			httpClient,
-			baseURL+ActionServiceRunActionProcedure,
-			connect.WithSchema(actionServiceMethods.ByName("RunAction")),
+			baseURL+ActionServiceOpenPullRequestProcedure,
+			connect.WithSchema(actionServiceMethods.ByName("OpenPullRequest")),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -76,24 +76,24 @@ func NewActionServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 
 // actionServiceClient implements ActionServiceClient.
 type actionServiceClient struct {
-	listActions *connect.Client[emptypb.Empty, v1.ListActionsResponse]
-	runAction   *connect.Client[v1.RunActionRequest, emptypb.Empty]
+	listHooks       *connect.Client[emptypb.Empty, v1.ListHooksResponse]
+	openPullRequest *connect.Client[v1.OpenPullRequestRequest, emptypb.Empty]
 }
 
-// ListActions calls action.v1.ActionService.ListActions.
-func (c *actionServiceClient) ListActions(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error) {
-	return c.listActions.CallUnary(ctx, req)
+// ListHooks calls action.v1.ActionService.ListHooks.
+func (c *actionServiceClient) ListHooks(ctx context.Context, req *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error) {
+	return c.listHooks.CallUnary(ctx, req)
 }
 
-// RunAction calls action.v1.ActionService.RunAction.
-func (c *actionServiceClient) RunAction(ctx context.Context, req *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.runAction.CallUnary(ctx, req)
+// OpenPullRequest calls action.v1.ActionService.OpenPullRequest.
+func (c *actionServiceClient) OpenPullRequest(ctx context.Context, req *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+	return c.openPullRequest.CallUnary(ctx, req)
 }
 
 // ActionServiceHandler is an implementation of the action.v1.ActionService service.
 type ActionServiceHandler interface {
-	ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error)
-	RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error)
+	ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error)
+	OpenPullRequest(context.Context, *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error)
 }
 
 // NewActionServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -103,25 +103,25 @@ type ActionServiceHandler interface {
 // and JSON codecs. They also support gzip compression.
 func NewActionServiceHandler(svc ActionServiceHandler, opts ...connect.HandlerOption) (string, http.Handler) {
 	actionServiceMethods := v1.File_action_v1_action_proto.Services().ByName("ActionService").Methods()
-	actionServiceListActionsHandler := connect.NewUnaryHandler(
-		ActionServiceListActionsProcedure,
-		svc.ListActions,
-		connect.WithSchema(actionServiceMethods.ByName("ListActions")),
+	actionServiceListHooksHandler := connect.NewUnaryHandler(
+		ActionServiceListHooksProcedure,
+		svc.ListHooks,
+		connect.WithSchema(actionServiceMethods.ByName("ListHooks")),
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
-	actionServiceRunActionHandler := connect.NewUnaryHandler(
-		ActionServiceRunActionProcedure,
-		svc.RunAction,
-		connect.WithSchema(actionServiceMethods.ByName("RunAction")),
+	actionServiceOpenPullRequestHandler := connect.NewUnaryHandler(
+		ActionServiceOpenPullRequestProcedure,
+		svc.OpenPullRequest,
+		connect.WithSchema(actionServiceMethods.ByName("OpenPullRequest")),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/action.v1.ActionService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
-		case ActionServiceListActionsProcedure:
-			actionServiceListActionsHandler.ServeHTTP(w, r)
-		case ActionServiceRunActionProcedure:
-			actionServiceRunActionHandler.ServeHTTP(w, r)
+		case ActionServiceListHooksProcedure:
+			actionServiceListHooksHandler.ServeHTTP(w, r)
+		case ActionServiceOpenPullRequestProcedure:
+			actionServiceOpenPullRequestHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -131,10 +131,10 @@ func NewActionServiceHandler(svc ActionServiceHandler, opts ...connect.HandlerOp
 // UnimplementedActionServiceHandler returns CodeUnimplemented from all methods.
 type UnimplementedActionServiceHandler struct{}
 
-func (UnimplementedActionServiceHandler) ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListActionsResponse], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.ListActions is not implemented"))
+func (UnimplementedActionServiceHandler) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[v1.ListHooksResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.ListHooks is not implemented"))
 }
 
-func (UnimplementedActionServiceHandler) RunAction(context.Context, *connect.Request[v1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.RunAction is not implemented"))
+func (UnimplementedActionServiceHandler) OpenPullRequest(context.Context, *connect.Request[v1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("action.v1.ActionService.OpenPullRequest is not implemented"))
 }

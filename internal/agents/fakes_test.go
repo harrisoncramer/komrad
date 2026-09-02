@@ -498,27 +498,37 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentActions, m
 	})
 }
 
-type fakeLifecycle struct {
-	dir                  string
-	resumeDir            string
-	setupErr             error
-	resumeErr            error
-	cleanupStartErr      error
-	cleanupRunErr        error
-	cleanupRunErrByAgent map[string]error
-	setup                []string
-	setupPane            []string
-	resumed              []string
-	cleanup              []string
-	cleanupCwd           []string
-	cleanupCtxErr        []error
+// ranHook is one hook the fake was asked to run, in the order it was asked.
+type ranHook struct {
+	Event  string
+	Action string
+	Cwd    string
 }
 
-func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
-	f.setup = append(f.setup, name)
-	f.setupPane = append(f.setupPane, pane)
-	if f.setupErr != nil {
-		return "", f.setupErr
+type fakeLifecycle struct {
+	dir                      string
+	resumeDir                string
+	provisionErr             error
+	resumeErr                error
+	deprovisionStartErr      error
+	deprovisionRunErr        error
+	deprovisionRunErrByAgent map[string]error
+	hookErrs                 map[string]error
+	hooksMu                  sync.Mutex
+	hooks                    []ranHook
+	provision                []string
+	provisionPane            []string
+	resumed                  []string
+	deprovision              []string
+	deprovisionCwd           []string
+	deprovisionCtxErr        []error
+}
+
+func (f *fakeLifecycle) RunProvisionAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
+	f.provision = append(f.provision, name)
+	f.provisionPane = append(f.provisionPane, pane)
+	if f.provisionErr != nil {
+		return "", f.provisionErr
 	}
 
 	return f.dir, nil
@@ -536,18 +546,38 @@ func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, n
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
-	f.cleanup = append(f.cleanup, name)
-	f.cleanupCwd = append(f.cleanupCwd, agent.Cwd)
-	f.cleanupCtxErr = append(f.cleanupCtxErr, ctx.Err())
+func (f *fakeLifecycle) RunHookAction(_ context.Context, agent agentstore.Agent, name, event string) error {
+	f.hooksMu.Lock()
+	defer f.hooksMu.Unlock()
 
-	if f.cleanupStartErr != nil {
-		return f.cleanupStartErr
+	f.hooks = append(f.hooks, ranHook{
+		Event:  event,
+		Action: name,
+		Cwd:    agent.Cwd,
+	})
+
+	return f.hookErrs[name]
+}
+
+func (f *fakeLifecycle) ranHooks() []ranHook {
+	f.hooksMu.Lock()
+	defer f.hooksMu.Unlock()
+
+	return slices.Clone(f.hooks)
+}
+
+func (f *fakeLifecycle) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+	f.deprovision = append(f.deprovision, name)
+	f.deprovisionCwd = append(f.deprovisionCwd, agent.Cwd)
+	f.deprovisionCtxErr = append(f.deprovisionCtxErr, ctx.Err())
+
+	if f.deprovisionStartErr != nil {
+		return f.deprovisionStartErr
 	}
 
 	if done != nil {
-		runErr := f.cleanupRunErr
-		if byAgent, ok := f.cleanupRunErrByAgent[agent.ID]; ok {
+		runErr := f.deprovisionRunErr
+		if byAgent, ok := f.deprovisionRunErrByAgent[agent.ID]; ok {
 			runErr = byAgent
 		}
 		done(runErr)
@@ -693,8 +723,7 @@ func seedChildSpawnedBy(t *testing.T, st *testStore, tmux paneStamper, parent ag
 		WorkflowID:       parent.WorkflowID,
 		ParentAgentID:    &parent.ID,
 		SpawnedByAgentID: &spawnerID,
-		SetupAction:      xptr.Ptr(""),
-		CleanupAction:    xptr.Ptr(""),
+		ProvisionEnabled: xptr.Ptr(false),
 	}))
 
 	got, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, name)
@@ -789,6 +818,16 @@ func seedWorkflow(t *testing.T, st *testStore) string {
 	return created.ID
 }
 
+// disableProvisioner writes the one override an agent can carry, which is set when the agent is
+// created and never through an update.
+func disableProvisioner(t *testing.T, st *testStore, id string) {
+	t.Helper()
+
+	_, err := st.Pool.GetDB().Exec(t.Context(),
+		`UPDATE agents SET provision_enabled = FALSE WHERE id = $1`, id)
+	require.NoError(t, err)
+}
+
 func backdateNudge(t *testing.T, st *testStore, id string, age time.Duration) {
 	t.Helper()
 	_, err := st.Pool.GetDB().Exec(t.Context(),
@@ -801,4 +840,16 @@ func backdateStateChanged(t *testing.T, st *testStore, id string, age time.Durat
 	_, err := st.Pool.GetDB().Exec(t.Context(),
 		`UPDATE agents SET state_changed_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
 	require.NoError(t, err)
+}
+
+// worktreeConfig is a workflow that provisions worktrees, which is the only way a workflow has
+// anything to tear down now that it cannot name a script of its own.
+func worktreeConfig(t *testing.T, name string) workflowstore.Config {
+	t.Helper()
+
+	return workflowstore.Config{
+		Name:     name,
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	}
 }

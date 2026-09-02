@@ -37,7 +37,7 @@ var table = []mapping{
 	{store.ErrNameTaken, connect.CodeAlreadyExists},
 
 	{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
-	{agents.ErrSetupFailed, connect.CodeFailedPrecondition},
+	{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
 	{agents.ErrActionNotExecutable, connect.CodeFailedPrecondition},
 	{agents.ErrActionNotStartable, connect.CodeFailedPrecondition},
 	{agents.ErrActionDirMissing, connect.CodeFailedPrecondition},
@@ -62,8 +62,6 @@ var table = []mapping{
 	{agents.ErrAdoptForkBranch, connect.CodeInvalidArgument},
 	{agents.ErrAdoptNoResolver, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
-	{agents.ErrWorktreeOwnsActions, connect.CodeInvalidArgument},
-	{agents.ErrWorktreeActionsReserved, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 

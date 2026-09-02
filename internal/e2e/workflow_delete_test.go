@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -22,16 +20,9 @@ func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
-	const teardown = "teardown"
-	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, teardown), []byte(
-		"#!/bin/sh\nsleep 0.2\nexit 0\n",
-	), 0o755))
+	replaceWorktreeTeardown(t, instance, "#!/bin/sh\nsleep 0.2\nexit 0\n")
 
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:          "backend",
-		Cwd:           t.TempDir(),
-		CleanupAction: teardown,
-	}))
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t, "backend")))
 	require.NoError(t, err)
 	workflowID := workflow.Msg.GetWorkflow().GetId()
 

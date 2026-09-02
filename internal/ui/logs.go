@@ -43,18 +43,16 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
-var logCycle = []infoKind{infoSetupLog, infoTeardownLog, infoAgentLog}
+var logCycle = []infoKind{infoActionLog, infoAgentLog}
 
 func (m model) logsDesc() string {
 	switch m.info.kind {
-	case infoSetupLog:
-		return "teardown log"
-	case infoTeardownLog:
+	case infoActionLog:
 		return "agent log"
 	case infoAgentLog:
 		return "hide logs"
 	default:
-		return "setup log"
+		return "action log"
 	}
 }
 
@@ -95,30 +93,75 @@ func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) actionLogContent(kind string) layout.Content {
+// olderLog steps the info pane back to the run before the one it is showing, wrapping round
+// to the most recent, since one direction reaches every run and two keys for a handful of
+// files is a key too many.
+func (m model) olderLog() (tea.Model, tea.Cmd) {
+	if m.info.kind != infoActionLog {
+		return m, nil
+	}
+
 	agent, ok := m.logTarget()
 	if !ok {
-		return newTextContent("select an agent to see its " + kind + " log")
+		return m, nil
 	}
 
-	if !m.hasActionLog(agent.ID, kind) {
-		return newTextContent("no " + kind + " log yet")
+	runs := config.ListActionLogRuns(m.actionLogsDir, agent.ID)
+	if len(runs) < 2 {
+		return m, nil
 	}
 
-	path := config.ActionLogPath(m.actionLogsDir, agent.ID, kind)
+	m.info.run = (m.info.run + 1) % len(runs)
+	m.stageInfo()
 
-	return newLogContent(processLogArgv(m.processViewer, path))
+	return m, nil
 }
 
-// hasActionLog reports whether a setup or teardown action left anything to read for an agent.
-func (m model) hasActionLog(agentID, kind string) bool {
-	if m.actionLogsDir == "" {
-		return false
+func (m model) actionLogContent() layout.Content {
+	agent, ok := m.logTarget()
+	if !ok {
+		return newTextContent("select an agent to see its action log")
 	}
 
-	info, err := os.Stat(config.ActionLogPath(m.actionLogsDir, agentID, kind))
+	run, ok := m.actionLogRun(agent.ID, m.info.run)
+	if !ok {
+		return newTextContent("no action has run for this agent yet")
+	}
 
-	return err == nil && info.Size() > 0
+	return newLogContent(processLogArgv(m.processViewer, run.Path))
+}
+
+// actionLogRun is the run the pane is showing, counting back from the most recent, falling
+// back to the most recent one there when the one it was showing has since been pruned.
+func (m model) actionLogRun(agentID string, back int) (config.ActionLogRun, bool) {
+	runs := config.ListActionLogRuns(m.actionLogsDir, agentID)
+	if len(runs) == 0 {
+		return config.ActionLogRun{}, false
+	}
+
+	if back >= len(runs) {
+		back = 0
+	}
+
+	return runs[back], true
+}
+
+// latestActionLogRun is the most recent run at one of the given moments that has anything to
+// read, since a run refused before its script wrote a byte points at an empty pager.
+func (m model) latestActionLogRun(agentID string, moments []string) (config.ActionLogRun, bool) {
+	for _, run := range config.ListActionLogRuns(m.actionLogsDir, agentID) {
+		if !slices.Contains(moments, run.Trigger) {
+			continue
+		}
+
+		if info, err := os.Stat(run.Path); err != nil || info.Size() == 0 {
+			continue
+		}
+
+		return run, true
+	}
+
+	return config.ActionLogRun{}, false
 }
 
 func (m model) agentLogContent() layout.Content {
