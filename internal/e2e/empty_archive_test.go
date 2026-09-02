@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -80,16 +78,9 @@ func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
-	const teardown = "teardown"
-	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, teardown), []byte(
-		"#!/bin/sh\necho boom >&2\nexit 1\n",
-	), 0o755))
+	replaceWorktreeTeardown(t, instance, "#!/bin/sh\necho boom >&2\nexit 1\n")
 
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:              "backend",
-		Cwd:               t.TempDir(),
-		DeprovisionAction: teardown,
-	}))
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t, "backend")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{

@@ -97,7 +97,7 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 	ctx := t.Context()
 
 	out := filepath.Join(t.TempDir(), "opened.txt")
-	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, openPRAction), []byte(
+	require.NoError(t, os.WriteFile(filepath.Join(instance.GetBuiltinDir, "_open_pr"), []byte(
 		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT_ID\" > "+out+"\n",
 	), 0o755))
 
@@ -164,7 +164,7 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	ctx := t.Context()
 
 	out := filepath.Join(t.TempDir(), "opened.txt")
-	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, openPRAction), []byte(
+	require.NoError(t, os.WriteFile(filepath.Join(instance.GetBuiltinDir, "_open_pr"), []byte(
 		"#!/bin/sh\nprintf 'ran' > "+out+"\n",
 	), 0o755))
 

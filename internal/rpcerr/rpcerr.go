@@ -62,7 +62,6 @@ var table = []mapping{
 	{agents.ErrAdoptForkBranch, connect.CodeInvalidArgument},
 	{agents.ErrAdoptNoResolver, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
-	{agents.ErrWorktreeOwnsProvisioner, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 

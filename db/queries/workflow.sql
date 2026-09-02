@@ -4,8 +4,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -35,8 +33,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -60,8 +56,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -91,8 +85,6 @@ RETURNING
 
 -- name: InsertWorkflowActionConfig :one
 INSERT INTO workflow_action_configs(
-    provision_action,
-    deprovision_action,
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
@@ -100,8 +92,6 @@ INSERT INTO workflow_action_configs(
     worktree_diff_exclude,
     archive_on_pr_closed)
 VALUES (
-    @provision_action,
-    @deprovision_action,
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_copy_paths,
@@ -145,8 +135,6 @@ WHERE
 UPDATE
     workflow_action_configs
 SET
-    provision_action = @provision_action,
-    deprovision_action = @deprovision_action,
     worktree_enabled = @worktree_enabled,
     worktree_base_branch = @worktree_base_branch,
     worktree_copy_paths = @worktree_copy_paths,
@@ -216,8 +204,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,

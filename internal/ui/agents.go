@@ -11,6 +11,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -554,22 +555,21 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 // agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
 func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 	return agentFormValues{
-		Harness:           workflow.Harness,
-		Dir:               workflow.Cwd,
-		Flags:             workflow.Flags,
-		ProvisionAction:   inheritAction,
-		DeprovisionAction: inheritAction,
+		Harness:  workflow.Harness,
+		Dir:      workflow.Cwd,
+		Flags:    workflow.Flags,
+		Worktree: inheritWorktree,
 	}
 }
 
 func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
 	return m, m.openForm(formState{
 		kind:   formAgent,
-		form:   newAgentForm(m.keys.Form, values, m.getAvailableActions()),
+		form:   newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled),
 		update: model.updateForm,
 		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
 		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := newAgentForm(m.keys.Form, values, m.getAvailableActions())
+			rebuilt := newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled)
 
 			return rebuilt, rebuilt.Init()
 		},
@@ -673,7 +673,7 @@ func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValu
 	// Which of those two adoption does is the service's to work out, so the pane is claimed on the
 	// strength of the workflow alone.
 	var pane string
-	if workflow.ProvisionAction != "" && !m.setupPending {
+	if workflow.Worktree.Enabled && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -711,14 +711,11 @@ func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, te
 }
 
 func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
-	provisionAction := actionOverride(values.ProvisionAction)
-	effectiveProvision := workflow.ProvisionAction
-	if provisionAction != nil {
-		effectiveProvision = *provisionAction
-	}
+	provisionEnabled := worktreeOverride(values.Worktree)
+	provisions := workflow.Worktree.Enabled && (provisionEnabled == nil || *provisionEnabled)
 
 	var pane string
-	if effectiveProvision != "" && !m.setupPending {
+	if provisions && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -727,15 +724,14 @@ func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValu
 	}
 
 	params := createAgentParams{
-		Prompt:            values.Prompt,
-		Title:             values.Title,
-		Harness:           values.Harness,
-		Dir:               m.currentDir(values.Dir),
-		Flags:             values.Flags,
-		ProvisionAction:   provisionAction,
-		DeprovisionAction: actionOverride(values.DeprovisionAction),
-		WorkflowID:        workflow.ID,
-		SetupPane:         pane,
+		Prompt:           values.Prompt,
+		Title:            values.Title,
+		Harness:          values.Harness,
+		Dir:              m.currentDir(values.Dir),
+		Flags:            values.Flags,
+		ProvisionEnabled: provisionEnabled,
+		WorkflowID:       workflow.ID,
+		SetupPane:        pane,
 	}
 
 	cmd := m.createCmd(params)
@@ -749,15 +745,15 @@ func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValu
 	return next, tea.Batch(cmd, closeCmd)
 }
 
-func actionOverride(selected string) *string {
-	if selected == inheritAction {
-		return nil
+// worktreeOverride reads the one thing an agent can say for itself about its directory: unset
+// to follow the workflow, or false to keep the directory it was given.
+func worktreeOverride(selected string) *bool {
+	if selected == withoutWorktree {
+		return xptr.Ptr(false)
 	}
 
-	return &selected
+	return nil
 }
-
-const openPRAction = "_open_pr"
 
 const prMetadataKey = "pr"
 
@@ -780,6 +776,6 @@ func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 
 	return m, m.writeCmd(
 		"Could not open the pull request",
-		func(a api) error { return a.runAction(agentID, openPRAction) },
+		func(a api) error { return a.openPullRequest(agentID) },
 	)
 }

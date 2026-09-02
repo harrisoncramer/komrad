@@ -712,15 +712,14 @@ func seedChildSpawnedBy(t *testing.T, st *testStore, tmux paneStamper, parent ag
 	const name = "reviewer"
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:              name,
-		Pane:              "%" + name,
-		State:             agentstore.StateIdle,
-		Cwd:               parent.Cwd,
-		WorkflowID:        parent.WorkflowID,
-		ParentAgentID:     &parent.ID,
-		SpawnedByAgentID:  &spawnerID,
-		ProvisionAction:   xptr.Ptr(""),
-		DeprovisionAction: xptr.Ptr(""),
+		Name:             name,
+		Pane:             "%" + name,
+		State:            agentstore.StateIdle,
+		Cwd:              parent.Cwd,
+		WorkflowID:       parent.WorkflowID,
+		ParentAgentID:    &parent.ID,
+		SpawnedByAgentID: &spawnerID,
+		ProvisionEnabled: xptr.Ptr(false),
 	}))
 
 	got, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, name)
@@ -827,4 +826,16 @@ func backdateStateChanged(t *testing.T, st *testStore, id string, age time.Durat
 	_, err := st.Pool.GetDB().Exec(t.Context(),
 		`UPDATE agents SET state_changed_at = NOW() - $2::interval WHERE id = $1`, id, age.String())
 	require.NoError(t, err)
+}
+
+// worktreeConfig is a workflow that provisions worktrees, which is the only way a workflow has
+// anything to tear down now that it cannot name a script of its own.
+func worktreeConfig(t *testing.T, name string) workflowstore.Config {
+	t.Helper()
+
+	return workflowstore.Config{
+		Name:     name,
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	}
 }

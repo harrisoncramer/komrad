@@ -93,8 +93,6 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Harness:           "claude",
 		Cwd:               "/work/api",
 		Flags:             "--model opus",
-		ProvisionAction:   "make-worktree",
-		DeprovisionAction: "drop-worktree",
 		ArchiveOnPrClosed: true,
 		Worktree: &workflowv1.WorktreeConfig{
 			Enabled:      true,
@@ -111,14 +109,12 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 
 	require.Len(t, got, 1)
 	assert.Equal(t, workflowstore.Workflow{
-		ID:                "w1",
-		Name:              "api",
-		Context:           "shared notes",
-		Harness:           "claude",
-		Cwd:               "/work/api",
-		Flags:             "--model opus",
-		ProvisionAction:   "make-worktree",
-		DeprovisionAction: "drop-worktree",
+		ID:      "w1",
+		Name:    "api",
+		Context: "shared notes",
+		Harness: "claude",
+		Cwd:     "/work/api",
+		Flags:   "--model opus",
 		Hooks: []workflowstore.Hook{
 			{Event: "pre-launch", Action: "install-deps"},
 			{Event: "post-launch", Action: "announce"},

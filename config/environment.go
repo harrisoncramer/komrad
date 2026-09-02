@@ -77,10 +77,10 @@ func (e *Environment) ActionLogsDir() string {
 }
 
 // The moments an action can run at, which are what a script reads out of WEAVE_TRIGGER and
-// what a run's log file is named after, the first four belonging to the provisioner and the
-// rest being the moments a workflow can hang a hook on.
+// what a run's log file is named after: the worktree provisioner's own three, the panel's
+// open-pull-request key, and the moments a workflow can hang a hook on.
 const (
-	TriggerManual      = "manual"
+	TriggerOpenPR      = "open-pr"
 	TriggerProvision   = "provision"
 	TriggerResume      = "resume"
 	TriggerDeprovision = "deprovision"
@@ -94,7 +94,7 @@ const (
 // against, since a moment's own name may hold a hyphen.
 func ActionMoments() []string {
 	return []string{
-		TriggerManual,
+		TriggerOpenPR,
 		TriggerProvision,
 		TriggerResume,
 		TriggerDeprovision,

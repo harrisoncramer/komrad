@@ -1,5 +1,5 @@
-// Package action serves the action RPCs, which list the scripts a person has written and fire
-// one against an agent.
+// Package action serves what is left of the action RPCs: the hooks a person has written, and
+// the built-in script behind the panel's open-pull-request key.
 package action
 
 import (
@@ -15,47 +15,47 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type actionRunner interface {
-	ListActions() ([]agents.Action, error)
-	RunAction(ctx context.Context, agentID, name string) error
+type hookRunner interface {
+	ListHooks() ([]agents.Action, error)
+	OpenPullRequest(ctx context.Context, agentID string) error
 }
 
 type Service struct {
-	actions actionRunner
+	actions hookRunner
 }
 
 // NewService constructs the handler from the service that owns the rules.
-func NewService(manager actionRunner) *Service {
+func NewService(manager hookRunner) *Service {
 	return &Service{actions: manager}
 }
 
-// ListActions returns every file in the user's actions directory, and a directory that is not
+// ListHooks returns every file in the user's hooks directory, and a directory that is not
 // there is an empty listing rather than an error.
-func (s *Service) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
-	listed, err := s.actions.ListActions()
+func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
+	listed, err := s.actions.ListHooks()
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list actions")
+		return nil, rpcerr.Wrap(err, "failed to list hooks")
 	}
 
-	resources := make([]*actionv1.Action, 0, len(listed))
-	for _, action := range listed {
-		resources = append(resources, &actionv1.Action{
-			Name:           action.Name,
-			Executable:     action.Executable,
-			Description:    action.Header.Description,
-			Timeout:        declaredTimeout(action.Header.Timeout),
-			HeaderProblems: action.Header.Problems,
+	resources := make([]*actionv1.Hook, 0, len(listed))
+	for _, hook := range listed {
+		resources = append(resources, &actionv1.Hook{
+			Name:           hook.Name,
+			Executable:     hook.Executable,
+			Description:    hook.Header.Description,
+			Timeout:        declaredTimeout(hook.Header.Timeout),
+			HeaderProblems: hook.Header.Problems,
 		})
 	}
 
-	return connect.NewResponse(&actionv1.ListActionsResponse{Actions: resources}), nil
+	return connect.NewResponse(&actionv1.ListHooksResponse{Hooks: resources}), nil
 }
 
-// RunAction fires an action and answers as soon as the process exists, so the response is
-// empty and every failure it can report happened before the process started.
-func (s *Service) RunAction(ctx context.Context, req *connect.Request[actionv1.RunActionRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.actions.RunAction(ctx, req.Msg.GetAgentId(), req.Msg.GetAction()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to run the action")
+// OpenPullRequest fires the built-in script behind the panel's own key, which is the one script
+// weave runs on demand rather than at a moment of its own choosing.
+func (s *Service) OpenPullRequest(ctx context.Context, req *connect.Request[actionv1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := s.actions.OpenPullRequest(ctx, req.Msg.GetAgentId()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to open the pull request")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

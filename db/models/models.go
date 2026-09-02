@@ -96,36 +96,35 @@ func (ns NullReviewAuthorKind) Value() (driver.Value, error) {
 
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
-	ID                string
-	Name              string
-	Cwd               string
-	Flags             string
-	ProvisionAction   *string
-	DeprovisionAction *string
-	Prompt            string
-	PaneID            string
-	State             string
-	StateChangedAt    time.Time
-	Harness           string
-	SessionID         string
-	WorkflowID        string
-	ScheduleID        *string
-	IdempotencyKey    *string
-	SpawnedByAgentID  *string
-	ArchivedAt        *time.Time
-	IsHidden          bool
-	NudgedAt          *time.Time
-	Branch            *string
-	WorktreeRemoved   bool
-	Tag               *string
-	CreatedAt         time.Time
-	UpdatedAt         time.Time
-	StateSeenAt       time.Time
-	InterruptedAt     *time.Time
-	AdoptedBranch     string
-	ViewedAt          *time.Time
-	ParentAgentID     *string
-	TurnEndedAt       *time.Time
+	ID               string
+	Name             string
+	Cwd              string
+	Flags            string
+	Prompt           string
+	PaneID           string
+	State            string
+	StateChangedAt   time.Time
+	Harness          string
+	SessionID        string
+	WorkflowID       string
+	ScheduleID       *string
+	IdempotencyKey   *string
+	SpawnedByAgentID *string
+	ArchivedAt       *time.Time
+	IsHidden         bool
+	NudgedAt         *time.Time
+	Branch           *string
+	WorktreeRemoved  bool
+	Tag              *string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	StateSeenAt      time.Time
+	InterruptedAt    *time.Time
+	AdoptedBranch    string
+	ViewedAt         *time.Time
+	ParentAgentID    *string
+	TurnEndedAt      *time.Time
+	ProvisionEnabled *bool
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -257,11 +256,9 @@ type Workflow struct {
 	UpdatedAt        time.Time
 }
 
-// The provisioner that owns the directory of a workflow's agents, and the worktree config it can be turned on for instead.
+// The worktree config a workflow provisions its agents with, and whether it provisions them at all.
 type WorkflowActionConfig struct {
 	ID                   string
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string

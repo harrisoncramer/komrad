@@ -47,97 +47,66 @@ func TestDeprovisionActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.action.agent.cwd"])
 }
 
-// TestDeprovisionActionSaysNothingAboutAWorkflowNamingNone covers the quiet half, since a
-// workflow with no deprovision half is not a fault and a line about one would be noise on
-// every delete.
-func TestDeprovisionActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
+// TestDeprovisionActionSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half,
+// since a workflow whose agents keep the directory they are given is not a fault and a line
+// about one would be noise on every delete.
+func TestDeprovisionActionSaysNothingAboutAWorkflowThatProvisionsNothing(t *testing.T) {
 	ctx, records := loggedContext(t)
 
 	assert.Empty(t, deprovisionActionFor(ctx, fakeWorkflowReader{}, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
 	assert.Empty(t, records())
 }
 
-// TestDeprovisionActionOverridesTheWorkflow pins that an agent's own deprovision action is the
-// one that runs, rather than the workflow's.
-func TestDeprovisionActionOverridesTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", DeprovisionAction: "drop-worktree"}}
-	got := deprovisionActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:                "a1",
-		WorkflowID:        "wf1",
-		DeprovisionAction: xptr.Ptr("custom-cleanup"),
-	})
-	assert.Equal(t, "custom-cleanup", got)
-}
-
-// TestDeprovisionActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing
-// means nothing to give back at all rather than falling back to the workflow.
-func TestDeprovisionActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", DeprovisionAction: "drop-worktree"}}
-	got := deprovisionActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:                "a1",
-		WorkflowID:        "wf1",
-		DeprovisionAction: xptr.Ptr(""),
-	})
-	assert.Empty(t, got)
-}
-
-// TestProvisionActionOverridesTheWorkflow pins that an agent's own provision action is the one
-// that runs, rather than the workflow's.
-func TestProvisionActionOverridesTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", ProvisionAction: "make-worktree"}}
-	got := provisionActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:              "a1",
-		WorkflowID:      "wf1",
-		ProvisionAction: xptr.Ptr("custom-setup"),
-	})
-	assert.Equal(t, "custom-setup", got)
-}
-
-// TestProvisionActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing
-// means nothing provisioned at all rather than falling back to the workflow.
-func TestProvisionActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", ProvisionAction: "make-worktree"}}
-	got := provisionActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:              "a1",
-		WorkflowID:      "wf1",
-		ProvisionAction: xptr.Ptr(""),
-	})
-	assert.Empty(t, got)
-}
-
-// TestARetiredProvisionerRetiresItsDeprovisionHalf pins the rule that makes one field enough
-// for the reviewer, adopt and child cases: an agent told to provision nothing keeps the
-// directory it was given, so the other half is not consulted whoever set it.
-func TestARetiredProvisionerRetiresItsDeprovisionHalf(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{
-		ID:                "wf1",
-		ProvisionAction:   "make-worktree",
-		DeprovisionAction: "drop-worktree",
-	}}
-
+// TestTheWorktreeToggleIsTheWholeProvisioner pins what a workflow can say about an agent's
+// directory now that it cannot name a script: the built-in pair when the toggle is on, and
+// nothing at all otherwise.
+func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 	tests := []struct {
-		name        string
-		deprovision *string
+		name            string
+		worktree        bool
+		provision       *bool
+		wantProvision   string
+		wantDeprovision string
 	}{
 		{
-			name:        "inherited from the workflow",
-			deprovision: nil,
+			name:     "a workflow that provisions nothing has nothing to run either way",
+			worktree: false,
 		},
 		{
-			name:        "named by the caller",
-			deprovision: xptr.Ptr("drop-worktree"),
+			name:            "the toggle on names the built-in pair",
+			worktree:        true,
+			wantProvision:   worktreeProvisionAction,
+			wantDeprovision: worktreeDeprovisionAction,
+		},
+		{
+			name:      "an agent told to keep its own directory runs neither half",
+			worktree:  true,
+			provision: xptr.Ptr(false),
+		},
+		{
+			name:            "an agent following its workflow runs both",
+			worktree:        true,
+			provision:       xptr.Ptr(true),
+			wantProvision:   worktreeProvisionAction,
+			wantDeprovision: worktreeDeprovisionAction,
+		},
+		{
+			name:      "the override cannot conjure a worktree a workflow does not make",
+			worktree:  false,
+			provision: xptr.Ptr(true),
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := deprovisionActionFor(context.Background(), workflows, agentstore.Agent{
-				ID:                "a1",
-				WorkflowID:        "wf1",
-				ProvisionAction:   xptr.Ptr(""),
-				DeprovisionAction: tt.deprovision,
-			})
-			assert.Empty(t, got)
+			workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{
+				ID:       "wf1",
+				Worktree: workflowstore.WorktreeConfig{Enabled: tt.worktree},
+			}}
+			agent := agentstore.Agent{ID: "a1", WorkflowID: "wf1", ProvisionEnabled: tt.provision}
+
+			assert.Equal(t, tt.wantProvision, provisionActionFor(context.Background(), workflows, agent))
+			assert.Equal(t, tt.wantDeprovision, deprovisionActionFor(context.Background(), workflows, agent))
 		})
 	}
 }

@@ -27,15 +27,13 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 
 	return workflow{
 		Workflow: &workflowv1.Workflow{
-			Id:                w.ID,
-			Name:              w.Name,
-			Context:           w.Context,
-			Harness:           w.Harness,
-			Cwd:               w.Cwd,
-			Flags:             w.Flags,
-			ProvisionAction:   w.ProvisionAction,
-			DeprovisionAction: w.DeprovisionAction,
-			ArchivedAt:        archived,
+			Id:         w.ID,
+			Name:       w.Name,
+			Context:    w.Context,
+			Harness:    w.Harness,
+			Cwd:        w.Cwd,
+			Flags:      w.Flags,
+			ArchivedAt: archived,
 			Worktree: &workflowv1.WorktreeConfig{
 				Enabled:      w.Worktree.Enabled,
 				BaseBranch:   w.Worktree.BaseBranch,

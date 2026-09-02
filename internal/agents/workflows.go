@@ -28,8 +28,6 @@ var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd na
 
 var ErrWorktreeCwdNotPrimaryCheckout = errors.New("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
-var ErrWorktreeOwnsProvisioner = errors.New("a worktree-enabled workflow provisions its agents itself, so provision_action and deprovision_action must both be blank")
-
 var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
 
 var ErrUnknownHookEvent = errors.New("a hook must name a moment weave fires")
@@ -106,8 +104,6 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.ProvisionAction = strings.TrimSpace(cfg.ProvisionAction)
-	cfg.DeprovisionAction = strings.TrimSpace(cfg.DeprovisionAction)
 	normalizeWorktree(&cfg)
 
 	if err := validateWorktreePaths(cfg); err != nil {
@@ -121,7 +117,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	cfg.Hooks = hooks
 
 	if cfg.Worktree.Enabled {
-		if err := setWorktreeProvisioner(&cfg); err != nil {
+		if err := requireWorktreeRepo(cfg); err != nil {
 			return nil, err
 		}
 	}
@@ -160,8 +156,6 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.ProvisionAction = strings.TrimSpace(cfg.ProvisionAction)
-	cfg.DeprovisionAction = strings.TrimSpace(cfg.DeprovisionAction)
 	normalizeWorktree(&cfg)
 
 	if err := validateWorktreePaths(cfg); err != nil {
@@ -174,19 +168,9 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	}
 	cfg.Hooks = hooks
 
-	switch {
-	case cfg.Worktree.Enabled:
-		if err := setWorktreeProvisioner(&cfg); err != nil {
+	if cfg.Worktree.Enabled {
+		if err := requireWorktreeRepo(cfg); err != nil {
 			return err
-		}
-	case existing.Worktree.Enabled:
-		// Turning worktree support off clears only the built-in pair, leaving alone anything a
-		// caller has since pointed somewhere else.
-		if cfg.ProvisionAction == worktreeProvisionAction {
-			cfg.ProvisionAction = ""
-		}
-		if cfg.DeprovisionAction == worktreeDeprovisionAction {
-			cfg.DeprovisionAction = ""
 		}
 	}
 
@@ -277,26 +261,14 @@ func validateWorktreePath(path string) error {
 	return nil
 }
 
-// setWorktreeProvisioner points a workflow at the built-in pair, which is the one conflict
-// left: the toggle and a provisioner of your own answer the same question.
-func setWorktreeProvisioner(cfg *workflowstore.Config) error {
+// requireWorktreeRepo holds a workflow that provisions worktrees to a cwd it can cut them
+// from, since the worktree is weave's to make and it has nowhere to make it otherwise.
+func requireWorktreeRepo(cfg workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
 	}
-	if cfg.ProvisionAction != "" && cfg.ProvisionAction != worktreeProvisionAction {
-		return ErrWorktreeOwnsProvisioner
-	}
-	if cfg.DeprovisionAction != "" && cfg.DeprovisionAction != worktreeDeprovisionAction {
-		return ErrWorktreeOwnsProvisioner
-	}
-	if err := requirePrimaryCheckout(cfg.Cwd); err != nil {
-		return err
-	}
 
-	cfg.ProvisionAction = worktreeProvisionAction
-	cfg.DeprovisionAction = worktreeDeprovisionAction
-
-	return nil
+	return requirePrimaryCheckout(cfg.Cwd)
 }
 
 func requirePrimaryCheckout(cwd string) error {

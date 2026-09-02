@@ -79,21 +79,20 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 }
 
 type NewAgentParams struct {
-	Client            string
-	Title             string
-	Dir               string
-	Flags             string
-	ProvisionAction   *string
-	DeprovisionAction *string
-	Prompt            string
-	Harness           string
-	WorkflowID        string
-	ScheduleID        *string
-	Hidden            bool
-	IdempotencyKey    string
-	SetupPane         string
-	AdoptedBranch     string
-	ParentAgentID     string
+	Client           string
+	Title            string
+	Dir              string
+	Flags            string
+	ProvisionEnabled *bool
+	Prompt           string
+	Harness          string
+	WorkflowID       string
+	ScheduleID       *string
+	Hidden           bool
+	IdempotencyKey   string
+	SetupPane        string
+	AdoptedBranch    string
+	ParentAgentID    string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -196,7 +195,7 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	switch {
 	case strings.TrimSpace(p.Dir) != "":
 		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
-	case p.ProvisionAction != nil && strings.TrimSpace(*p.ProvisionAction) != "":
+	case p.ProvisionEnabled != nil && *p.ProvisionEnabled:
 		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", ErrChildOwnsLaunch)
 	case p.WorkflowID != parent.WorkflowID:
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
@@ -207,12 +206,12 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	return parent, nil
 }
 
-// childParams holds a child to what its parent gives it, writing the retired provisioner onto
-// the row rather than leaving it unset, since an unset one falls back to the workflow's and for
-// a worktree-enabled workflow that would tear the parent's checkout down from under it.
+// childParams holds a child to what its parent gives it, writing the disabled provisioner onto
+// the row rather than leaving it unset, since an unset one follows the workflow and for a
+// worktree-enabled workflow that would tear the parent's checkout down from under it.
 func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
 	p.Dir = parent.Cwd
-	p.ProvisionAction = xptr.Ptr("")
+	p.ProvisionEnabled = xptr.Ptr(false)
 
 	return p
 }
@@ -271,25 +270,19 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
-	provisionAction := wf.ProvisionAction
-	if p.ProvisionAction != nil {
-		provisionAction = strings.TrimSpace(*p.ProvisionAction)
-	}
-
-	deprovisionAction := wf.DeprovisionAction
-	if p.DeprovisionAction != nil {
-		deprovisionAction = strings.TrimSpace(*p.DeprovisionAction)
-	}
-	if isProvisionerRetired(p.ProvisionAction) {
-		deprovisionAction = ""
+	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
+	provisionAction, deprovisionAction := "", ""
+	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(p.ProvisionEnabled)
+	if provisions {
+		provisionAction, deprovisionAction = worktreeProvisionAction, worktreeDeprovisionAction
 	}
 
 	// The hooks a workflow lists are read only for the agents that own their own directory, since
-	// a child runs in its parent's checkout and an agent whose provisioner is retired was handed
-	// somebody else's, where an install-deps hook would be working in a tree nobody asked it to
-	// touch.
+	// a child runs in its parent's checkout and an agent told to keep the directory it was given
+	// was handed somebody else's, where an install-deps hook would be working in a tree nobody
+	// asked it to touch.
 	hooks := wf.Hooks
-	if p.ParentAgentID != "" || isProvisionerRetired(p.ProvisionAction) {
+	if p.ParentAgentID != "" || isProvisionerDisabled(p.ProvisionEnabled) {
 		hooks = nil
 	}
 
@@ -313,24 +306,23 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 	}
 
 	return agentstore.Agent{
-		ID:                id,
-		Name:              plan.name,
-		Pane:              pane,
-		Cwd:               dir,
-		Flags:             plan.flags,
-		ProvisionAction:   params.ProvisionAction,
-		DeprovisionAction: params.DeprovisionAction,
-		Prompt:            params.Prompt,
-		State:             agentstore.StateIdle,
-		Harness:           plan.harnessID,
-		SessionID:         sessionID,
-		WorkflowID:        params.WorkflowID,
-		ScheduleID:        params.ScheduleID,
-		IdempotencyKey:    nullable(params.IdempotencyKey),
-		SpawnedByAgentID:  spawnedBy,
-		ParentAgentID:     nullable(params.ParentAgentID),
-		Hidden:            params.Hidden,
-		AdoptedBranch:     params.AdoptedBranch,
+		ID:               id,
+		Name:             plan.name,
+		Pane:             pane,
+		Cwd:              dir,
+		Flags:            plan.flags,
+		ProvisionEnabled: params.ProvisionEnabled,
+		Prompt:           params.Prompt,
+		State:            agentstore.StateIdle,
+		Harness:          plan.harnessID,
+		SessionID:        sessionID,
+		WorkflowID:       params.WorkflowID,
+		ScheduleID:       params.ScheduleID,
+		IdempotencyKey:   nullable(params.IdempotencyKey),
+		SpawnedByAgentID: spawnedBy,
+		ParentAgentID:    nullable(params.ParentAgentID),
+		Hidden:           params.Hidden,
+		AdoptedBranch:    params.AdoptedBranch,
 	}
 }
 

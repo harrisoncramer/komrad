@@ -274,8 +274,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:              "worktrees",
-		Cwd:               t.TempDir(),
-		ProvisionAction:   "worktree-setup",
+		Cwd:               initRepo(t),
 		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
 		ArchiveOnPRClosed: true,
 	})
@@ -370,7 +369,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
 
 	lifecycle := &fakeLifecycle{resumeErr: errors.New("git worktree add: already checked out")}
-	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{Name: "workflow", ProvisionAction: "worktree-setup"}))
+	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{Name: "workflow", Cwd: initRepo(t), Worktree: workflowstore.WorktreeConfig{Enabled: true}}))
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
@@ -446,10 +445,9 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:            "worktrees",
-		Cwd:             t.TempDir(),
-		ProvisionAction: "worktree-setup",
-		Worktree:        workflowstore.WorktreeConfig{Enabled: true},
+		Name:     "worktrees",
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
@@ -498,10 +496,9 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:            "worktrees",
-		Cwd:             t.TempDir(),
-		ProvisionAction: "worktree-setup",
-		Worktree:        workflowstore.WorktreeConfig{Enabled: true},
+		Name:     "worktrees",
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
@@ -622,8 +619,9 @@ func TestResumeRunsTheProvisionAction(t *testing.T) {
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
-				Name:            "resume-" + tt.name,
-				ProvisionAction: "make-worktree",
+				Name:     "resume-" + tt.name,
+				Cwd:      initRepo(t),
+				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 			})
 			require.NoError(t, err)
 
@@ -633,7 +631,7 @@ func TestResumeRunsTheProvisionAction(t *testing.T) {
 
 			resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
 
-			assert.Equal(t, []string{"make-worktree"}, lifecycle.resumed, "the workflow's own action is what fired")
+			assert.Equal(t, []string{worktreeProvisionAction}, lifecycle.resumed, "the workflow's own action is what fired")
 
 			if tt.wantErr != "" {
 				require.Error(t, err)

@@ -63,16 +63,15 @@ func (a api) setViewed(id string, viewed bool) error {
 }
 
 type createAgentParams struct {
-	Prompt            string
-	Title             string
-	Harness           string
-	Dir               string
-	Flags             string
-	ProvisionAction   *string
-	DeprovisionAction *string
-	WorkflowID        string
-	SetupPane         string
-	ParentAgentID     string
+	Prompt           string
+	Title            string
+	Harness          string
+	Dir              string
+	Flags            string
+	ProvisionEnabled *bool
+	WorkflowID       string
+	SetupPane        string
+	ParentAgentID    string
 }
 
 // nilIfBlank leaves an optional field unset rather than sending it empty, which the request's
@@ -90,16 +89,15 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	defer cancel()
 
 	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:            params.Prompt,
-		Title:             params.Title,
-		Harness:           params.Harness,
-		Dir:               params.Dir,
-		Flags:             params.Flags,
-		ProvisionAction:   params.ProvisionAction,
-		DeprovisionAction: params.DeprovisionAction,
-		WorkflowId:        params.WorkflowID,
-		SetupPane:         params.SetupPane,
-		ParentAgentId:     nilIfBlank(params.ParentAgentID),
+		Prompt:           params.Prompt,
+		Title:            params.Title,
+		Harness:          params.Harness,
+		Dir:              params.Dir,
+		Flags:            params.Flags,
+		ProvisionEnabled: params.ProvisionEnabled,
+		WorkflowId:       params.WorkflowID,
+		SetupPane:        params.SetupPane,
+		ParentAgentId:    nilIfBlank(params.ParentAgentID),
 	}))
 	if err != nil {
 		return nil, err
@@ -331,8 +329,6 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 		Harness:           cfg.Harness,
 		Cwd:               cfg.Cwd,
 		Flags:             cfg.Flags,
-		ProvisionAction:   cfg.ProvisionAction,
-		DeprovisionAction: cfg.DeprovisionAction,
 		Worktree:          worktreeConfigToProto(cfg.Worktree),
 		Hooks:             hooksToProto(cfg.Hooks),
 		ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
@@ -360,8 +356,6 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		Harness:           w.Harness,
 		Cwd:               w.Cwd,
 		Flags:             w.Flags,
-		ProvisionAction:   w.ProvisionAction,
-		DeprovisionAction: w.DeprovisionAction,
 		Worktree:          worktreeConfigToProto(w.Worktree),
 		Hooks:             hooksToProto(w.Hooks),
 		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
@@ -399,25 +393,24 @@ func (a api) deleteWorkflow(id string) error {
 	return err
 }
 
-func (a api) listActions() ([]*actionv1.Action, error) {
+func (a api) listHooks() ([]*actionv1.Hook, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	resp, err := a.actions.ListActions(ctx, connect.NewRequest(&emptypb.Empty{}))
+	resp, err := a.actions.ListHooks(ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		return nil, err
 	}
 
-	return resp.Msg.GetActions(), nil
+	return resp.Msg.GetHooks(), nil
 }
 
-func (a api) runAction(agentID, name string) error {
+func (a api) openPullRequest(agentID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.actions.RunAction(ctx, connect.NewRequest(&actionv1.RunActionRequest{
+	_, err := a.actions.OpenPullRequest(ctx, connect.NewRequest(&actionv1.OpenPullRequestRequest{
 		AgentId: agentID,
-		Action:  name,
 	}))
 
 	return err

@@ -98,15 +98,14 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			assert.Contains(t, stored.Prompt, "look at it", "and still asked to do what it was asked to do")
 
 			if tt.wantOwnWorktree {
-				assert.Nil(t, stored.ProvisionAction, "the workflow's own provisioner makes the worktree")
-				assert.Nil(t, stored.DeprovisionAction)
+				assert.Nil(t, stored.ProvisionEnabled, "the workflow's own worktree is the one it gets")
 
 				return
 			}
 
 			assert.True(t, sameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
-			require.NotNil(t, stored.ProvisionAction)
-			assert.Empty(t, *stored.ProvisionAction, "nothing is provisioned for a checkout somebody else made")
+			require.NotNil(t, stored.ProvisionEnabled)
+			assert.False(t, *stored.ProvisionEnabled, "nothing is provisioned for a checkout somebody else made")
 			assert.Empty(t, deprovisionActionFor(t.Context(), st.Workflows, stored), "so nothing tears it down either")
 		})
 	}
@@ -387,11 +386,9 @@ func seedWorktreeWorkflow(t *testing.T, st *testStore, repo string) string {
 	t.Helper()
 
 	created, err := st.Workflows.Create(t.Context(), workflowstore.Config{
-		Name:              "workflow-" + uuid.NewString(),
-		Cwd:               repo,
-		ProvisionAction:   "_worktree_setup",
-		DeprovisionAction: "_worktree_cleanup",
-		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
+		Name:     "workflow-" + uuid.NewString(),
+		Cwd:      repo,
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, created)

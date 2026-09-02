@@ -55,10 +55,7 @@ func workflowConfigFields(w workflowstore.Workflow) []recordField {
 	}
 
 	if !w.Worktree.Enabled {
-		return append(fields,
-			recordField{"provision", orDash(w.ProvisionAction)},
-			recordField{"deprovision", orDash(w.DeprovisionAction)},
-		)
+		return append(fields, recordField{"worktree", "off"})
 	}
 
 	fields = append(fields,

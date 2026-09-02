@@ -30,17 +30,18 @@ func IsFailed(state string) bool {
 }
 
 type Agent struct {
-	ID                string
-	Name              string
-	Pane              string
-	Cwd               string
-	Flags             string
-	ProvisionAction   *string
-	DeprovisionAction *string
-	Prompt            string
-	State             string
-	StateChangedAt    time.Time
-	StateSeenAt       time.Time
+	ID    string
+	Name  string
+	Pane  string
+	Cwd   string
+	Flags string
+	// ProvisionEnabled overrides what the workflow does about the agent's directory: unset
+	// inherits it, and false means this agent keeps the directory it was given.
+	ProvisionEnabled *bool
+	Prompt           string
+	State            string
+	StateChangedAt   time.Time
+	StateSeenAt      time.Time
 	// ViewedAt is how much of an agent's conversation the person has read, measured against
 	// the last turn the agent reported ending rather than against the clock.
 	ViewedAt *time.Time
@@ -113,35 +114,34 @@ func keepStorableIDs(ids []string) []string {
 
 func agentFromRow(agent models.Agent) Agent {
 	return Agent{
-		ID:                agent.ID,
-		Name:              agent.Name,
-		Pane:              agent.PaneID,
-		Cwd:               agent.Cwd,
-		Flags:             agent.Flags,
-		ProvisionAction:   agent.ProvisionAction,
-		DeprovisionAction: agent.DeprovisionAction,
-		Prompt:            agent.Prompt,
-		State:             agent.State,
-		StateChangedAt:    agent.StateChangedAt,
-		StateSeenAt:       agent.StateSeenAt,
-		ViewedAt:          agent.ViewedAt,
-		TurnEndedAt:       agent.TurnEndedAt,
-		Harness:           agent.Harness,
-		SessionID:         agent.SessionID,
-		WorkflowID:        agent.WorkflowID,
-		ScheduleID:        agent.ScheduleID,
-		IdempotencyKey:    agent.IdempotencyKey,
-		ArchivedAt:        agent.ArchivedAt,
-		NudgedAt:          agent.NudgedAt,
-		Hidden:            agent.IsHidden,
-		Tag:               agent.Tag,
-		SpawnedByAgentID:  agent.SpawnedByAgentID,
-		ParentAgentID:     agent.ParentAgentID,
-		CreatedAt:         agent.CreatedAt,
-		UpdatedAt:         agent.UpdatedAt,
-		Branch:            agent.Branch,
-		AdoptedBranch:     agent.AdoptedBranch,
-		WorktreeRemoved:   agent.WorktreeRemoved,
-		InterruptedAt:     agent.InterruptedAt,
+		ID:               agent.ID,
+		Name:             agent.Name,
+		Pane:             agent.PaneID,
+		Cwd:              agent.Cwd,
+		Flags:            agent.Flags,
+		ProvisionEnabled: agent.ProvisionEnabled,
+		Prompt:           agent.Prompt,
+		State:            agent.State,
+		StateChangedAt:   agent.StateChangedAt,
+		StateSeenAt:      agent.StateSeenAt,
+		ViewedAt:         agent.ViewedAt,
+		TurnEndedAt:      agent.TurnEndedAt,
+		Harness:          agent.Harness,
+		SessionID:        agent.SessionID,
+		WorkflowID:       agent.WorkflowID,
+		ScheduleID:       agent.ScheduleID,
+		IdempotencyKey:   agent.IdempotencyKey,
+		ArchivedAt:       agent.ArchivedAt,
+		NudgedAt:         agent.NudgedAt,
+		Hidden:           agent.IsHidden,
+		Tag:              agent.Tag,
+		SpawnedByAgentID: agent.SpawnedByAgentID,
+		ParentAgentID:    agent.ParentAgentID,
+		CreatedAt:        agent.CreatedAt,
+		UpdatedAt:        agent.UpdatedAt,
+		Branch:           agent.Branch,
+		AdoptedBranch:    agent.AdoptedBranch,
+		WorktreeRemoved:  agent.WorktreeRemoved,
+		InterruptedAt:    agent.InterruptedAt,
 	}
 }

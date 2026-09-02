@@ -288,40 +288,39 @@ func runDeprovision(ctx context.Context, deprovision agentActions, agent agentst
 	}
 }
 
-// isProvisionerRetired reports whether an agent's own blank provision half has retired the
-// provisioner outright, leaving it the directory it was handed and nothing to give back, so the
-// deprovision half is not consulted at all.
-func isProvisionerRetired(override *string) bool {
-	return override != nil && strings.TrimSpace(*override) == ""
+// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
+// given rather than be provisioned one, which is what adopting a branch a human has open, a
+// child in its parent's checkout, and a reviewer reading somebody else's tree each mean.
+func isProvisionerDisabled(override *bool) bool {
+	return override != nil && !*override
+}
+
+// provisionsWorktree reports whether an agent's directory is weave's to make, which is its
+// workflow's worktree toggle unless the agent itself has been told to keep what it was given.
+func provisionsWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
+	if isProvisionerDisabled(agent.ProvisionEnabled) {
+		return false
+	}
+
+	wf := workflowFor(ctx, workflows, agent)
+
+	return wf != nil && wf.Worktree.Enabled
 }
 
 func deprovisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if isProvisionerRetired(agent.ProvisionAction) {
-		return ""
-	}
-	if agent.DeprovisionAction != nil {
-		return strings.TrimSpace(*agent.DeprovisionAction)
-	}
-
-	wf := workflowFor(ctx, workflows, agent)
-	if wf == nil {
+	if !provisionsWorktree(ctx, workflows, agent) {
 		return ""
 	}
 
-	return wf.DeprovisionAction
+	return worktreeDeprovisionAction
 }
 
 func provisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if agent.ProvisionAction != nil {
-		return strings.TrimSpace(*agent.ProvisionAction)
-	}
-
-	wf := workflowFor(ctx, workflows, agent)
-	if wf == nil {
+	if !provisionsWorktree(ctx, workflows, agent) {
 		return ""
 	}
 
-	return wf.ProvisionAction
+	return worktreeProvisionAction
 }
 
 func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) *workflowstore.Workflow {

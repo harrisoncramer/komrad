@@ -23,8 +23,9 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:            "backend",
-		ProvisionAction: "make-worktree",
+		Name:     "backend",
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
 			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
@@ -93,9 +94,9 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:              "backend",
-		ProvisionAction:   "make-worktree",
-		DeprovisionAction: "drop-worktree",
+		Name:     "backend",
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
 			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
@@ -114,7 +115,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	ran := lifecycle.ranHooks()
 	require.Len(t, ran, 1, "the hooks after the one that failed are skipped")
 	assert.Equal(t, "install-deps", ran[0].Action)
-	assert.Equal(t, []string{"drop-worktree"}, lifecycle.deprovision, "what the provisioner built is given back")
+	assert.Equal(t, []string{worktreeDeprovisionAction}, lifecycle.deprovision, "what the provisioner built is given back")
 
 	agents, listErr := st.List(t.Context())
 	require.NoError(t, listErr)
@@ -167,8 +168,9 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:            "backend",
-		ProvisionAction: "make-worktree",
+		Name:     "backend",
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
 			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
 			{Event: workflowstore.HookPostLaunch, Action: "announce"},
@@ -178,10 +180,10 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 
 	elsewhere := t.TempDir()
 	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:           "reviewer",
-		Dir:             elsewhere,
-		WorkflowID:      created.ID,
-		ProvisionAction: xptr.Ptr(""),
+		Title:            "reviewer",
+		Dir:              elsewhere,
+		WorkflowID:       created.ID,
+		ProvisionEnabled: xptr.Ptr(false),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, agent)

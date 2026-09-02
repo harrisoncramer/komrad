@@ -112,19 +112,17 @@ func TestCreateWithActionOverride(t *testing.T) {
 			agent: Agent{Name: "agent"},
 		},
 		{
-			name: "an override of none reads back an empty string, not nil",
+			name: "an override of none reads back false, not nil",
 			agent: Agent{
-				Name:              "agent",
-				ProvisionAction:   xptr.Ptr(""),
-				DeprovisionAction: xptr.Ptr(""),
+				Name:             "agent",
+				ProvisionEnabled: xptr.Ptr(false),
 			},
 		},
 		{
-			name: "a named override reads back the name",
+			name: "an override following the workflow reads back true",
 			agent: Agent{
-				Name:              "agent",
-				ProvisionAction:   xptr.Ptr("install-deps"),
-				DeprovisionAction: xptr.Ptr("drop-worktree"),
+				Name:             "agent",
+				ProvisionEnabled: xptr.Ptr(true),
 			},
 		},
 	}
@@ -139,8 +137,7 @@ func TestCreateWithActionOverride(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, stored)
 
-			assert.Equal(t, tt.agent.ProvisionAction, stored.ProvisionAction)
-			assert.Equal(t, tt.agent.DeprovisionAction, stored.DeprovisionAction)
+			assert.Equal(t, tt.agent.ProvisionEnabled, stored.ProvisionEnabled)
 		})
 	}
 }

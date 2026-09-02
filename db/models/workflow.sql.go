@@ -65,8 +65,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -88,8 +86,6 @@ type GetWorkflowRow struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -113,8 +109,6 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
-		&i.ProvisionAction,
-		&i.DeprovisionAction,
 		&i.WorktreeEnabled,
 		&i.WorktreeBaseBranch,
 		&i.WorktreeCopyPaths,
@@ -131,8 +125,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -153,8 +145,6 @@ type GetWorkflowIncludingArchivedRow struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -178,8 +168,6 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.Harness,
 		&i.Cwd,
 		&i.Flags,
-		&i.ProvisionAction,
-		&i.DeprovisionAction,
 		&i.WorktreeEnabled,
 		&i.WorktreeBaseBranch,
 		&i.WorktreeCopyPaths,
@@ -235,8 +223,6 @@ func (q *Queries) InsertWorkflow(ctx context.Context, arg InsertWorkflowParams) 
 
 const insertWorkflowActionConfig = `-- name: InsertWorkflowActionConfig :one
 INSERT INTO workflow_action_configs(
-    provision_action,
-    deprovision_action,
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
@@ -249,16 +235,12 @@ VALUES (
     $3,
     $4,
     $5,
-    $6,
-    $7,
-    $8)
+    $6)
 RETURNING
     id
 `
 
 type InsertWorkflowActionConfigParams struct {
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -269,8 +251,6 @@ type InsertWorkflowActionConfigParams struct {
 
 func (q *Queries) InsertWorkflowActionConfig(ctx context.Context, arg InsertWorkflowActionConfigParams) (string, error) {
 	row := q.db.QueryRow(ctx, insertWorkflowActionConfig,
-		arg.ProvisionAction,
-		arg.DeprovisionAction,
 		arg.WorktreeEnabled,
 		arg.WorktreeBaseBranch,
 		arg.WorktreeCopyPaths,
@@ -463,8 +443,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -488,8 +466,6 @@ type ListWorkflowsRow struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -519,8 +495,6 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
-			&i.ProvisionAction,
-			&i.DeprovisionAction,
 			&i.WorktreeEnabled,
 			&i.WorktreeBaseBranch,
 			&i.WorktreeCopyPaths,
@@ -544,8 +518,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.provision_action,
-    ac.deprovision_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -582,8 +554,6 @@ type ListWorkflowsPageRow struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -618,8 +588,6 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Harness,
 			&i.Cwd,
 			&i.Flags,
-			&i.ProvisionAction,
-			&i.DeprovisionAction,
 			&i.WorktreeEnabled,
 			&i.WorktreeBaseBranch,
 			&i.WorktreeCopyPaths,
@@ -689,14 +657,12 @@ const setWorkflowActions = `-- name: SetWorkflowActions :exec
 UPDATE
     workflow_action_configs
 SET
-    provision_action = $1,
-    deprovision_action = $2,
-    worktree_enabled = $3,
-    worktree_base_branch = $4,
-    worktree_copy_paths = $5,
-    worktree_symlink_paths = $6,
-    worktree_diff_exclude = $7,
-    archive_on_pr_closed = $8
+    worktree_enabled = $1,
+    worktree_base_branch = $2,
+    worktree_copy_paths = $3,
+    worktree_symlink_paths = $4,
+    worktree_diff_exclude = $5,
+    archive_on_pr_closed = $6
 WHERE
     id =(
         SELECT
@@ -704,12 +670,10 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $9)
+            workflows.id = $7)
 `
 
 type SetWorkflowActionsParams struct {
-	ProvisionAction      string
-	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -721,8 +685,6 @@ type SetWorkflowActionsParams struct {
 
 func (q *Queries) SetWorkflowActions(ctx context.Context, arg SetWorkflowActionsParams) error {
 	_, err := q.db.Exec(ctx, setWorkflowActions,
-		arg.ProvisionAction,
-		arg.DeprovisionAction,
 		arg.WorktreeEnabled,
 		arg.WorktreeBaseBranch,
 		arg.WorktreeCopyPaths,

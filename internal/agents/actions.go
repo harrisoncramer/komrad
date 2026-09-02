@@ -46,7 +46,7 @@ type actionRunner interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	TriggerManual      = config.TriggerManual
+	TriggerOpenPR      = config.TriggerOpenPR
 	TriggerProvision   = config.TriggerProvision
 	TriggerResume      = config.TriggerResume
 	TriggerDeprovision = config.TriggerDeprovision
@@ -105,18 +105,13 @@ func NewActionService(p ActionParams) *ActionService {
 
 const maxActionPrompt = 16 * 1024
 
-// ListActions returns the available actions in name order.
-func (s *ActionService) ListActions() ([]actions.Action, error) {
-	dirs, err := s.actionDirs()
-	if err != nil {
-		return nil, err
-	}
+// openPRScript is the built-in behind the panel's own key, and the one script weave runs
+// because a person asked rather than because a moment came round.
+const openPRScript = "_open_pr"
 
-	return s.catalog.List(dirs...)
-}
-
-// RunAction starts an action for an agent without waiting for it to finish.
-func (s *ActionService) RunAction(ctx context.Context, agentID, name string) error {
+// OpenPullRequest starts the built-in script that opens an agent's recorded pull request,
+// without waiting for the browser it asks.
+func (s *ActionService) OpenPullRequest(ctx context.Context, agentID string) error {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return ErrAgentNotFound
@@ -127,8 +122,8 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 
 	action, env, err := s.prepare(ctx, prepareParams{
 		agent:   *agent,
-		name:    name,
-		trigger: TriggerManual,
+		name:    openPRScript,
+		trigger: TriggerOpenPR,
 	})
 	if err != nil {
 		return err
@@ -138,8 +133,8 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		action:  action,
 		env:     env,
 		agent:   *agent,
-		trigger: TriggerManual,
-		logPath: s.claimActionLog(ctx, agent.ID, TriggerManual, name),
+		trigger: TriggerOpenPR,
+		logPath: s.claimActionLog(ctx, agent.ID, TriggerOpenPR, openPRScript),
 	})
 }
 
@@ -168,14 +163,26 @@ var ErrHookFailed = errors.New("a hook failed")
 
 const hookTimeout = 10 * time.Minute
 
+// ListHooks returns the available hooks in name order, which is what the workflow form offers
+// and the order they run in on a moment that holds several.
+func (s *ActionService) ListHooks() ([]actions.Action, error) {
+	dirs, err := s.hookDirs()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.catalog.List(dirs...)
+}
+
 // RunHookAction runs one of a workflow's hooks and waits for it, in the directory the agent
-// was provisioned rather than the one the action was found in, since a hook is there to work
-// on the checkout.
+// was provisioned rather than the one the hook was found in, since a hook is there to work on
+// the checkout.
 func (s *ActionService) RunHookAction(ctx context.Context, agent agentstore.Agent, name, event string) error {
 	action, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
 		trigger: event,
+		hook:    true,
 	})
 	if err != nil {
 		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
@@ -788,10 +795,18 @@ type prepareParams struct {
 	agent   agentstore.Agent
 	name    string
 	trigger string
+	// hook resolves the name against the hooks directory rather than the actions directory,
+	// since a hook is a script nothing fires by hand: a workflow names it against a moment.
+	hook bool
 }
 
 func (s *ActionService) prepare(ctx context.Context, p prepareParams) (actions.Action, []string, error) {
-	action, err := s.find(p.name)
+	find := s.find
+	if p.hook {
+		find = s.findHook
+	}
+
+	action, err := find(p.name)
 	if err != nil {
 		return actions.Action{}, nil, err
 	}
@@ -810,7 +825,11 @@ func (s *ActionService) prepare(ctx context.Context, p prepareParams) (actions.A
 }
 
 func (s *ActionService) find(name string) (actions.Action, error) {
-	dirs, err := s.actionDirs()
+	return s.catalog.Find(name, s.builtinDirs()...)
+}
+
+func (s *ActionService) findHook(name string) (actions.Action, error) {
+	dirs, err := s.hookDirs()
 	if err != nil {
 		return actions.Action{}, err
 	}
@@ -818,18 +837,24 @@ func (s *ActionService) find(name string) (actions.Action, error) {
 	return s.catalog.Find(name, dirs...)
 }
 
-func (s *ActionService) actionDirs() ([]string, error) {
+func (s *ActionService) hookDirs() ([]string, error) {
 	cfg, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	userDir, err := cfg.GetActionsDir()
+	dir, err := cfg.GetHooksDir()
 	if err != nil {
 		return nil, err
 	}
 
-	return []string{userDir, s.builtinDir}, nil
+	return []string{dir}, nil
+}
+
+// builtinDirs is where the scripts weave ships live, which is the only place a script that is
+// not a hook comes from now that nothing else can be named in a field.
+func (s *ActionService) builtinDirs() []string {
+	return []string{s.builtinDir}
 }
 
 type actionPayload struct {
@@ -921,7 +946,7 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 
 	// An agent that provisions nothing keeps the directory it was given, so its hooks must not
 	// be handed WEAVE_WORKTREE_REPO pointing at a worktree nobody made for it.
-	if workflow != nil && workflow.Worktree.Enabled && !isProvisionerRetired(agent.ProvisionAction) {
+	if workflow != nil && workflow.Worktree.Enabled && !isProvisionerDisabled(agent.ProvisionEnabled) {
 		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {
 			return nil, err

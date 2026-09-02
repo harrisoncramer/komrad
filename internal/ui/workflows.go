@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
+	actionv1 "weave/proto/gen/action/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -114,7 +116,13 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 	}
 
 	build := func(m model) (*huh.Form, int) {
-		return workflowConfigForm(title, values, m.getAvailableActions(), m.keys.Form)
+		return workflowConfigForm(workflowConfigParams{
+			NameTitle: title,
+			Values:    values,
+			Hooks:     m.getAvailableHooks(),
+			Keys:      m.keys.Form,
+			Height:    m.formHeight(),
+		})
 	}
 
 	form, _ := build(m)
@@ -162,22 +170,18 @@ func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.C
 	return m, tea.Batch(cmds...)
 }
 
-func (m model) getAvailableActions() []actionChoice {
-	listed, err := m.api.listActions()
+// getAvailableHooks is the hooks directory as the form offers it, and a directory that is not
+// there reads as an empty list rather than an error, since a person who has written no hooks
+// has nothing wrong with their setup.
+func (m model) getAvailableHooks() []actionChoice {
+	listed, err := m.api.listHooks()
 	if err != nil {
 		return nil
 	}
 
-	choices := make([]actionChoice, 0, len(listed))
-	for _, action := range listed {
-		if isInternalAction(action.GetName()) {
-			continue
-		}
-
-		choices = append(choices, actionChoice{name: action.GetName()})
-	}
-
-	return choices
+	return xslice.Map(listed, func(hook *actionv1.Hook) actionChoice {
+		return actionChoice{name: hook.GetName()}
+	})
 }
 
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {

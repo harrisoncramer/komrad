@@ -217,18 +217,18 @@ func TestWorkflowWrites(t *testing.T) {
 	}
 }
 
-// TestAvailableActionsSkipUnderscoredNames covers what the workflow form's provision and deprovision
-// fields are chosen from: files meant only to be sourced are excluded, since naming one
-// would run a fragment on its own.
-func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
+// TestAvailableHooksCarryTheWholeDirectory covers what the workflow form's hook fields are
+// chosen from, including a file waiting on a chmod, since one written and forgotten should be
+// pickable and then say why it would not run rather than never appearing.
+func TestAvailableHooksCarryTheWholeDirectory(t *testing.T) {
 	m := model{api: api{actions: &fakeActions{}}}
 
-	got := m.getAvailableActions()
+	got := m.getAvailableHooks()
 
 	assert.Equal(t, []actionChoice{
-		{name: "open-pr"},
+		{name: "install-deps"},
 		{name: "unrunnable"},
-		{name: "compiled"},
+		{name: "copy-env"},
 	}, got)
 }
 
@@ -432,11 +432,10 @@ type fakeActions struct {
 	actionv1connect.ActionServiceClient
 }
 
-func (f *fakeActions) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
-	return connect.NewResponse(&actionv1.ListActionsResponse{Actions: []*actionv1.Action{
-		{Name: "open-pr", Executable: true},
+func (f *fakeActions) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
+	return connect.NewResponse(&actionv1.ListHooksResponse{Hooks: []*actionv1.Hook{
+		{Name: "install-deps", Executable: true},
 		{Name: "unrunnable"},
-		{Name: "compiled", Executable: true},
-		{Name: "_internal", Executable: true},
+		{Name: "copy-env", Executable: true},
 	}}), nil
 }

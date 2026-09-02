@@ -89,21 +89,24 @@ type adoptFormValues struct {
 }
 
 type agentFormValues struct {
-	Prompt            string
-	Title             string
-	Harness           string
-	Dir               string
-	Flags             string
-	ProvisionAction   string
-	DeprovisionAction string
+	Prompt   string
+	Title    string
+	Harness  string
+	Dir      string
+	Flags    string
+	Worktree string
 }
 
-const inheritAction = "\x00inherit"
+// The two answers to the only question an agent can override, each a sentinel rather than the
+// empty string so that an unanswered form is telling apart from an answered one.
+const (
+	inheritWorktree = "\x00inherit"
+	withoutWorktree = "\x00none"
+)
 
 const (
 	provisionerNone     = "none"
 	provisionerWorktree = "worktree"
-	provisionerScript   = "script"
 )
 
 type workflowFormValues struct {
@@ -113,12 +116,10 @@ type workflowFormValues struct {
 	Cwd                  string
 	Flags                string
 	Provisioner          string
-	ProvisionAction      string
-	DeprovisionAction    string
-	PreLaunchHooks       string
-	PostLaunchHooks      string
-	PostResumeHooks      string
-	PostRestoreHooks     string
+	PreLaunchHooks       []string
+	PostLaunchHooks      []string
+	PostResumeHooks      []string
+	PostRestoreHooks     []string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -128,11 +129,8 @@ type workflowFormValues struct {
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 	provisioner := provisionerNone
-	switch {
-	case cfg.Worktree.Enabled:
+	if cfg.Worktree.Enabled {
 		provisioner = provisionerWorktree
-	case cfg.ProvisionAction != "" || cfg.DeprovisionAction != "":
-		provisioner = provisionerScript
 	}
 
 	return workflowFormValues{
@@ -142,28 +140,16 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
 		Provisioner:          provisioner,
-		ProvisionAction:      customAction(cfg.ProvisionAction),
-		DeprovisionAction:    customAction(cfg.DeprovisionAction),
-		PreLaunchHooks:       hookLines(cfg.Hooks, workflowstore.HookPreLaunch),
-		PostLaunchHooks:      hookLines(cfg.Hooks, workflowstore.HookPostLaunch),
-		PostResumeHooks:      hookLines(cfg.Hooks, workflowstore.HookPostResume),
-		PostRestoreHooks:     hookLines(cfg.Hooks, workflowstore.HookPostRestore),
+		PreLaunchHooks:       hookNames(cfg.Hooks, workflowstore.HookPreLaunch),
+		PostLaunchHooks:      hookNames(cfg.Hooks, workflowstore.HookPostLaunch),
+		PostResumeHooks:      hookNames(cfg.Hooks, workflowstore.HookPostResume),
+		PostRestoreHooks:     hookNames(cfg.Hooks, workflowstore.HookPostRestore),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	}
-}
-
-// customAction drops an action weave owns, since the custom fields only ever offer the ones a
-// person wrote and an internal name left in them reads as an action that has gone missing.
-func customAction(name string) string {
-	if isInternalAction(name) {
-		return ""
-	}
-
-	return name
 }
 
 func (v workflowFormValues) toConfig() workflowstore.Config {
@@ -189,17 +175,12 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
 
-	if v.Provisioner == provisionerScript {
-		cfg.ProvisionAction = v.ProvisionAction
-		cfg.DeprovisionAction = v.DeprovisionAction
-	}
-
 	return cfg
 }
 
-// hookLines is one moment's hooks as the form edits them, one action name per line in the
-// order they run.
-func hookLines(hooks []workflowstore.Hook, event string) string {
+// hookNames is the hooks a workflow hangs on one moment, which is what the multi-select for
+// that moment has ticked.
+func hookNames(hooks []workflowstore.Hook, event string) []string {
 	var names []string
 	for _, hook := range hooks {
 		if hook.Event == event {
@@ -207,11 +188,11 @@ func hookLines(hooks []workflowstore.Hook, event string) string {
 		}
 	}
 
-	return strings.Join(names, "\n")
+	return names
 }
 
-func hooksFrom(text, event string) []workflowstore.Hook {
-	return xslice.Map(splitLines(text), func(name string) workflowstore.Hook {
+func hooksFrom(names []string, event string) []workflowstore.Hook {
+	return xslice.Map(names, func(name string) workflowstore.Hook {
 		return workflowstore.Hook{Event: event, Action: name}
 	})
 }
@@ -235,18 +216,21 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 	}
 }
 
-func newAgentForm(keys config.FormKeys, values *agentFormValues, available []actionChoice) *huh.Form {
+// newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
+// them, since there is nothing to turn off in one that does not.
+func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) *huh.Form {
 	fields := append([]huh.Field{
 		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
 
-	fields = append(fields,
-		huh.NewSelect[string]().Key("provision").Title("Provision action").
-			Value(&values.ProvisionAction).Options(agentActionOptions(available)...),
-		huh.NewSelect[string]().Key("deprovision").Title("Deprovision action").
-			Value(&values.DeprovisionAction).Options(agentActionOptions(available)...),
-	)
+	if worktree {
+		fields = append(fields, huh.NewSelect[string]().Key("worktree").Title("Worktree").
+			Options(
+				huh.NewOption("Same as workflow: its own worktree", inheritWorktree),
+				huh.NewOption("None: run in the directory above", withoutWorktree),
+			).Value(&values.Worktree))
+	}
 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
@@ -496,17 +480,45 @@ func provisionerOptions() []huh.Option[string] {
 	return []huh.Option[string]{
 		huh.NewOption("None: agents keep the directory they are given", provisionerNone),
 		huh.NewOption("Worktree: a git worktree per agent", provisionerWorktree),
-		huh.NewOption("Script: your own provision and deprovision actions", provisionerScript),
 	}
 }
 
-func workflowConfigForm(nameTitle string, values *workflowFormValues, available []actionChoice, keys config.FormKeys) (form *huh.Form, focusFieldIndex int) {
+// formChromeLines is what the view draws above a form, a banner or a submitting notice, which
+// is room the form itself does not have.
+const formChromeLines = 2
+
+// minFormHeight is the floor a form is given on a terminal too short to hold one, since huh
+// scrolling a two-line window is still more use than a form drawn off the screen.
+const minFormHeight = 8
+
+// formHeight is the room a form has on screen, and zero until the first window size arrives so
+// that huh keeps its own default rather than being told the terminal is nothing tall.
+func (m model) formHeight() int {
+	if m.height <= 0 {
+		return 0
+	}
+
+	return max(m.height-formChromeLines, minFormHeight)
+}
+
+// workflowConfigParams is what the workflow form is drawn from: the values it edits, the hooks
+// it offers, and the height it has to fit inside.
+type workflowConfigParams struct {
+	NameTitle string
+	Values    *workflowFormValues
+	Hooks     []actionChoice
+	Keys      config.FormKeys
+	Height    int
+}
+
+func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex int) {
+	values, keys := p.Values, p.Keys
 	if values.Provisioner == "" {
 		values.Provisioner = provisionerWorktree
 	}
 
 	fields := append([]huh.Field{
-		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
+		huh.NewInput().Key("name").Title(p.NameTitle).Value(&values.Name),
 		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Lines(2).Value(&values.Context),
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
@@ -517,25 +529,20 @@ func workflowConfigForm(nameTitle string, values *workflowFormValues, available 
 			Options(provisionerOptions()...).Value(&values.Provisioner),
 	)
 
-	switch values.Provisioner {
-	case provisionerNone:
-	case provisionerScript:
-		// Options comes before Value so huh reads the zero value and leaves the list scrolled
-		// to the top, which holds only while None, carrying the empty action, leads it.
-		fields = append(fields,
-			huh.NewSelect[string]().Key("provision").Title("Provision action").
-				Options(actionOptions(available, values.ProvisionAction)...).Value(&values.ProvisionAction),
-			huh.NewSelect[string]().Key("deprovision").Title("Deprovision action").
-				Options(actionOptions(available, values.DeprovisionAction)...).Value(&values.DeprovisionAction),
-		)
-	default:
+	if values.Provisioner == provisionerWorktree {
 		fields = append(fields, worktreeDetailFields(values)...)
 	}
 
-	fields = append(fields, hookFields(values)...)
+	fields = append(fields, hookFields(values, p.Hooks)...)
 	fields = append(fields, archiveOnPRClosedField(values))
 
-	built := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	// The form is taller than most terminals now, so it is given the height it has to fit in and
+	// huh scrolls it around whichever field has the cursor.
+	built := huh.NewForm(huh.NewGroup(fields...)).
+		WithShowHelp(true).
+		WithKeyMap(multiFieldKeyMap(keys)).
+		WithTheme(formTheme()).
+		WithHeight(p.Height)
 
 	return built, toggleIndex
 }
@@ -556,23 +563,84 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 	}
 }
 
+// hookFieldHeight bounds one moment's list, so four moments and everything above them still
+// leave the form scrollable rather than one long list pushing the rest off the screen.
+const hookFieldHeight = 5
+
 // hookFields are the scripts hung on a moment rather than on the directory, so they are asked
 // for whatever the provisioner is.
-func hookFields(values *workflowFormValues) []huh.Field {
-	return []huh.Field{
-		huh.NewText().Key("pre_launch_hooks").Title("Pre-launch hooks").
-			Description("one action name per line, run in the agent's directory before its pane opens, such as install-deps").
-			Lines(2).Value(&values.PreLaunchHooks),
-		huh.NewText().Key("post_launch_hooks").Title("Post-launch hooks").
-			Description("one action name per line, run once the agent has been launched into its pane").
-			Lines(2).Value(&values.PostLaunchHooks),
-		huh.NewText().Key("post_resume_hooks").Title("Post-resume hooks").
-			Description("one action name per line, run once a dormant agent is back in a pane").
-			Lines(2).Value(&values.PostResumeHooks),
-		huh.NewText().Key("post_restore_hooks").Title("Post-restore hooks").
-			Description("one action name per line, run when an archived agent's row comes back").
-			Lines(2).Value(&values.PostRestoreHooks),
+func hookFields(values *workflowFormValues, available []actionChoice) []huh.Field {
+	moments := []struct {
+		key         string
+		title       string
+		description string
+		chosen      *[]string
+	}{
+		{
+			key:         "pre_launch_hooks",
+			title:       "Pre-launch hooks",
+			description: "run in the agent's directory before its pane opens, and a failure abandons the create",
+			chosen:      &values.PreLaunchHooks,
+		},
+		{
+			key:         "post_launch_hooks",
+			title:       "Post-launch hooks",
+			description: "run once the agent has been launched into its pane",
+			chosen:      &values.PostLaunchHooks,
+		},
+		{
+			key:         "post_resume_hooks",
+			title:       "Post-resume hooks",
+			description: "run once a dormant agent is back in a pane",
+			chosen:      &values.PostResumeHooks,
+		},
+		{
+			key:         "post_restore_hooks",
+			title:       "Post-restore hooks",
+			description: "run when an archived agent's row comes back",
+			chosen:      &values.PostRestoreHooks,
+		},
 	}
+
+	fields := make([]huh.Field, 0, len(moments))
+	for _, moment := range moments {
+		// Options comes before Value because huh marks an option selected by looking for it in
+		// the bound slice as that slice is bound, so options set afterwards start unticked.
+		fields = append(fields, huh.NewMultiSelect[string]().Key(moment.key).Title(moment.title).
+			Description(hookFieldDescription(moment.description, available)).
+			Options(hookOptions(available, *moment.chosen)...).
+			Value(moment.chosen).
+			Height(hookFieldHeight))
+	}
+
+	return fields
+}
+
+// hookFieldDescription says where to put a hook when there are none to tick, since an empty
+// list otherwise reads as a broken form rather than an empty directory.
+func hookFieldDescription(description string, available []actionChoice) string {
+	if len(available) == 0 {
+		return description + "; none found in your hooks directory"
+	}
+
+	return description
+}
+
+// hookOptions offers every hook in the directory, plus any this workflow already names that is
+// no longer there, since dropping one silently is how a saved form loses a hook.
+func hookOptions(available []actionChoice, chosen []string) []huh.Option[string] {
+	options := make([]huh.Option[string], 0, len(available)+len(chosen))
+	for _, hook := range available {
+		options = append(options, huh.NewOption(hook.name, hook.name))
+	}
+
+	for _, name := range chosen {
+		if !slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == name }) {
+			options = append(options, huh.NewOption(name+"  (missing)", name))
+		}
+	}
+
+	return options
 }
 
 func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
@@ -584,32 +652,6 @@ func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
 
 type actionChoice struct {
 	name string
-}
-
-func actionOptions(available []actionChoice, current string) []huh.Option[string] {
-	options := make([]huh.Option[string], 0, len(available)+2)
-	options = append(options, huh.NewOption("None", ""))
-
-	for _, action := range available {
-		options = append(options, huh.NewOption(actionChoiceLabel(action), action.name))
-	}
-
-	offered := slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == current })
-	if current != "" && !offered {
-		options = append(options, huh.NewOption(current+"  (missing)", current))
-	}
-
-	return options
-}
-
-func agentActionOptions(available []actionChoice) []huh.Option[string] {
-	label := "Same as workflow"
-	options := []huh.Option[string]{huh.NewOption(label, inheritAction)}
-	return append(options, actionOptions(available, "")...)
-}
-
-func actionChoiceLabel(action actionChoice) string {
-	return action.name
 }
 
 func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {

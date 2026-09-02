@@ -41,21 +41,11 @@ table "workflow_configs" {
 
 table "workflow_action_configs" {
   schema  = schema.public
-  comment = "The provisioner that owns the directory of a workflow's agents, and the worktree config it can be turned on for instead."
+  comment = "The worktree config a workflow provisions its agents with, and whether it provisions them at all."
   column "id" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
-  }
-  column "provision_action" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "deprovision_action" {
-    null    = false
-    type    = text
-    default = ""
   }
   column "worktree_enabled" {
     null    = false
@@ -351,13 +341,9 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "provision_action" {
+  column "provision_enabled" {
     null = true
-    type = text
-  }
-  column "deprovision_action" {
-    null = true
-    type = text
+    type = boolean
   }
   column "prompt" {
     null    = false

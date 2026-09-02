@@ -227,67 +227,32 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-// TestActionsRoundTrip pins that the provisioner's two halves come back as they were written,
-// naming none storing blank.
-func TestActionsRoundTrip(t *testing.T) {
-	tests := []struct {
-		name            string
-		create          Config
-		update          *Config
-		wantProvision   string
-		wantDeprovision string
-	}{
-		{
-			name:   "naming none stores blank",
-			create: Config{Name: "digest"},
-		},
-		{
-			name: "both are carried",
-			create: Config{
-				Name:              "backend",
-				ProvisionAction:   "make-worktree",
-				DeprovisionAction: "drop-worktree",
-			},
-			wantProvision:   "make-worktree",
-			wantDeprovision: "drop-worktree",
-		},
-		{
-			name: "an update writes both, so clearing one clears it",
-			create: Config{
-				Name:              "backend",
-				ProvisionAction:   "make-worktree",
-				DeprovisionAction: "drop-worktree",
-			},
-			update:        &Config{Name: "backend", ProvisionAction: "provision"},
-			wantProvision: "provision",
-		},
-	}
+// TestWorktreeToggleRoundTrips pins the whole of what a workflow says about its agents'
+// directories coming back as it was written, since a script of your own is no longer one of
+// the things it can say.
+func TestWorktreeToggleRoundTrips(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
+	created, err := st.Create(ctx, Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: WorktreeConfig{Enabled: true, BaseBranch: "develop"},
+	})
+	require.NoError(t, err)
+	assert.True(t, created.Worktree.Enabled)
+	assert.Equal(t, "develop", created.Worktree.BaseBranch)
 
-			created, err := st.Create(ctx, tt.create)
-			require.NoError(t, err)
-			assert.Equal(t, tt.create.ProvisionAction, created.ProvisionAction, "the create result carries what it was given")
+	require.NoError(t, st.Update(ctx, created.ID, Config{Name: "backend", Cwd: "/repo"}))
 
-			if tt.update != nil {
-				require.NoError(t, st.Update(ctx, created.ID, *tt.update))
-			}
+	got, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.False(t, got.Worktree.Enabled, "an update writes the toggle like every other field")
 
-			got, err := st.Get(ctx, created.ID)
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.wantProvision, got.ProvisionAction)
-			assert.Equal(t, tt.wantDeprovision, got.DeprovisionAction)
-
-			listed, err := st.List(ctx)
-			require.NoError(t, err)
-			require.Len(t, listed, 1)
-			assert.Equal(t, tt.wantProvision, listed[0].ProvisionAction, "the listing carries them too")
-		})
-	}
+	listed, err := st.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.False(t, listed[0].Worktree.Enabled, "and the listing carries it too")
 }
 
 // TestWorktreeConfigRoundTrip checks a workflow's worktree config survives the store,
@@ -415,7 +380,7 @@ func TestGetIncludingArchived(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend", DeprovisionAction: "drop-worktree"})
+				created, err := st.Create(ctx, Config{Name: "backend", Cwd: "/repo"})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -434,7 +399,7 @@ func TestGetIncludingArchived(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, got)
-			assert.Equal(t, "drop-worktree", got.DeprovisionAction)
+			assert.Equal(t, "/repo", got.Cwd)
 
 			if tt.archive {
 				assert.NotNil(t, got.ArchivedAt)

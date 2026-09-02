@@ -44,16 +44,20 @@ import (
 const settleTimeout = 10 * time.Second
 
 type Instance struct {
-	t             *testing.T
-	Agents        agentv1connect.AgentServiceClient
-	Workflows     workflowv1connect.WorkflowServiceClient
-	Schedules     schedulev1connect.ScheduleServiceClient
-	Actions       actionv1connect.ActionServiceClient
-	Config        configv1connect.ConfigServiceClient
-	Harness       *harnesstest.Harness
-	Tmux          *tmuxtest.Server
-	Stores        *storetest.Stores
-	GetActionsDir string
+	t         *testing.T
+	Agents    agentv1connect.AgentServiceClient
+	Workflows workflowv1connect.WorkflowServiceClient
+	Schedules schedulev1connect.ScheduleServiceClient
+	Actions   actionv1connect.ActionServiceClient
+	Config    configv1connect.ConfigServiceClient
+	Harness   *harnesstest.Harness
+	Tmux      *tmuxtest.Server
+	Stores    *storetest.Stores
+	// GetHooksDir is where a test writes the hooks a workflow can hang on a moment.
+	GetHooksDir string
+	// GetBuiltinDir is where the server installed the scripts weave ships, which a test
+	// overwrites when it needs one of them to behave differently.
+	GetBuiltinDir string
 	URL           string
 	server        *server.Server
 	working       bool
@@ -85,10 +89,10 @@ func Start(t *testing.T, p Params) *Instance {
 	stores := storetest.Open(t)
 
 	root := t.TempDir()
-	actionsDir := filepath.Join(root, "actions")
-	require.NoError(t, os.MkdirAll(actionsDir, 0o755))
+	hooksDir := filepath.Join(root, "hooks")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 
-	settings := fmt.Sprintf("[actions]\ndir = %q\n", actionsDir)
+	settings := fmt.Sprintf("[hooks]\ndir = %q\n", hooksDir)
 	if p.DeliveryDeadline != "" {
 		settings += fmt.Sprintf("\n[mail]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
 	}
@@ -142,7 +146,8 @@ func Start(t *testing.T, p Params) *Instance {
 		Harness:       fake,
 		Tmux:          tmuxServer,
 		Stores:        stores,
-		GetActionsDir: actionsDir,
+		GetHooksDir:   hooksDir,
+		GetBuiltinDir: filepath.Join(root, "cache", "weave-builtin-actions"),
 		URL:           url,
 		server:        built,
 	}

@@ -309,12 +309,10 @@ func TestScheduleFields(t *testing.T) {
 
 	t.Run("its own settings, then what the workflow hands each run", func(t *testing.T) {
 		fields := scheduleFields(sched, &workflowstore.Workflow{
-			Name:              "api",
-			Harness:           "codex",
-			Cwd:               "/work/api",
-			Flags:             "--model opus",
-			ProvisionAction:   "bootstrap",
-			DeprovisionAction: "teardown",
+			Name:    "api",
+			Harness: "codex",
+			Cwd:     "/work/api",
+			Flags:   "--model opus",
 		})
 
 		assert.Equal(t, []recordField{
@@ -324,8 +322,7 @@ func TestScheduleFields(t *testing.T) {
 			{"default agent", "codex"},
 			{"directory", "/work/api"},
 			{"flags", "--model opus"},
-			{"provision", "bootstrap"},
-			{"deprovision", "teardown"},
+			{"worktree", "off"},
 		}, fields)
 	})
 
@@ -333,7 +330,7 @@ func TestScheduleFields(t *testing.T) {
 		fields := scheduleFields(sched, &workflowstore.Workflow{Name: "api"})
 
 		assert.Contains(t, fields, recordField{"directory", "—"})
-		assert.Contains(t, fields, recordField{"deprovision", "—"})
+		assert.Contains(t, fields, recordField{"worktree", "off"})
 	})
 
 	t.Run("a schedule whose workflow was archived says so rather than showing a blank", func(t *testing.T) {

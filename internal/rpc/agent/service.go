@@ -146,17 +146,16 @@ func NewService(p NewServiceParams) *Service {
 // CreateAgent launches a background agent and returns it as stored.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
 	created, err := s.creator.NewAgent(ctx, agents.NewAgentParams{
-		Title:             req.Msg.GetTitle(),
-		Dir:               req.Msg.GetDir(),
-		Flags:             req.Msg.GetFlags(),
-		ProvisionAction:   req.Msg.ProvisionAction,
-		DeprovisionAction: req.Msg.DeprovisionAction,
-		Prompt:            req.Msg.GetPrompt(),
-		WorkflowID:        req.Msg.GetWorkflowId(),
-		Harness:           req.Msg.GetHarness(),
-		IdempotencyKey:    req.Msg.GetIdempotencyKey(),
-		SetupPane:         req.Msg.GetSetupPane(),
-		ParentAgentID:     req.Msg.GetParentAgentId(),
+		Title:            req.Msg.GetTitle(),
+		Dir:              req.Msg.GetDir(),
+		Flags:            req.Msg.GetFlags(),
+		ProvisionEnabled: req.Msg.ProvisionEnabled,
+		Prompt:           req.Msg.GetPrompt(),
+		WorkflowID:       req.Msg.GetWorkflowId(),
+		Harness:          req.Msg.GetHarness(),
+		IdempotencyKey:   req.Msg.GetIdempotencyKey(),
+		SetupPane:        req.Msg.GetSetupPane(),
+		ParentAgentID:    req.Msg.GetParentAgentId(),
 	})
 	// Create-once is what the key is for, so a key already spent answers with the agent it
 	// launched rather than an error.
