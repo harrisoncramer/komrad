@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	"weave/internal/caller"
 	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/stretchr/testify/assert"
@@ -157,6 +158,49 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 			assert.Contains(t, claimed[0].Body, "deleted")
 		})
 	}
+}
+
+// TestDeleteOfAFamilyTellsNobodyAcrossTheSplit pins the batch a cleanup action splits: the
+// parent is held back for its own cleanup while its blank-action child goes straight through,
+// and the child's news is still nobody's to read.
+func TestDeleteOfAFamilyTellsNobodyAcrossTheSplit(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	notifier := &recordingNotifier{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		notifier:  notifier,
+	})
+	ctx := t.Context()
+
+	workflow, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:          "worktrees",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	parent := seedInWorkflow(t, st, workflow.ID, "author", "%author", agentstore.StateIdle)
+	require.NoError(t, tmux.SetPaneOwner(parent.Pane, parent.ID))
+	seedChild(t, st, tmux, parent)
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{parent.ID}))
+
+	assert.Empty(t, notifier.to, "a parent on its way out is not told about the child going with it")
+}
+
+// recordingNotifier keeps who was written to, since a delete takes the row the mail was
+// addressed to and the mailbox cannot be read afterwards.
+type recordingNotifier struct {
+	to []string
+}
+
+func (n *recordingNotifier) SendSystemMail(_ context.Context, toAgentID, _ string) (*mailstore.Mail, error) {
+	n.to = append(n.to, toAgentID)
+
+	return &mailstore.Mail{ToAgentID: toAgentID}, nil
 }
 
 // TestNotifyParentsSkipsTheActorsOwnDelegate pins that a parent is not mailed news it made
