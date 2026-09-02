@@ -154,9 +154,10 @@ message DeleteReviewMessageRequest {
 }
 
 // ReleaseReviewMessagesRequest lets go of every comment on an agent's review the person has
-// written and not sent, and raises one piece of mail for each. The comments themselves are not
-// sent: the agent is handed a doorbell per comment and looks the conversation up for itself, so
-// a comment rewritten afterwards is simply read as it now stands.
+// written and not sent, and raises one doorbell they are all heard through. The comments
+// themselves are not sent: the agent is told there is review waiting and looks the
+// conversations up for itself, so a comment rewritten afterwards is simply read as it now
+// stands.
 message ReleaseReviewMessagesRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
@@ -167,13 +168,10 @@ message ReleaseReviewMessagesRequest {
 message ReleaseReviewMessagesResponse {
   // How many comments were released, which is zero when there was nothing left to let go of.
   int32 released = 1;
-  // How many of those a doorbell was raised for. The rest kept the one already waiting to be
-  // read, since it says what a second would.
-  int32 rung = 2;
 }
 
-// RingReviewMessagesAgainRequest raises a doorbell again for every released comment whose own
-// ran out of time unclaimed, which is the only thing that reaches an agent that was not
+// RingReviewMessagesAgainRequest raises a fresh doorbell for every released comment left with
+// none the agent can still read, which is the only thing that reaches an agent that was not
 // listening when the review was let go of.
 message RingReviewMessagesAgainRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
@@ -182,10 +180,9 @@ message RingReviewMessagesAgainRequest {
 }
 
 message RingReviewMessagesAgainResponse {
-  // How many released comments were found with no doorbell the agent could still read.
-  int32 expired = 1;
-  // How many of those a fresh doorbell was raised for.
-  int32 rung = 2;
+  // How many released comments the fresh doorbell was raised for, which is zero when there was
+  // nothing the agent could no longer hear.
+  int32 rung = 1;
 }
 
 // ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read.

@@ -33,15 +33,12 @@ func TestReleasingStampsOnlyWhatThePersonHasNotSent(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	released, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
+	released := release(t, st, agentID)
 	require.Len(t, released, 1, "only the person's comment is released")
 	assert.NotNil(t, released[0].SentAt)
-	assert.Equal(t, DeliverySent, released[0].Delivery, "released with no doorbell yet raised")
+	assert.Equal(t, DeliverySent, released[0].Delivery, "let go of, with its doorbell waiting to be read")
 
-	again, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
-	assert.Empty(t, again, "a comment already let go of is not released a second time")
+	assert.Empty(t, release(t, st, agentID), "a comment already let go of is not released a second time")
 
 	answered, err := st.GetMessage(ctx, reply.ID)
 	require.NoError(t, err)
@@ -56,8 +53,7 @@ func TestReleasingStampsOnlyWhatThePersonHasNotSent(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryUnsent, written.Delivery)
 
-	third, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
+	third := release(t, st, agentID)
 	require.Len(t, third, 1, "a comment written after the release is released by the next one")
 	assert.Equal(t, written.ID, third[0].ID)
 }
@@ -71,8 +67,7 @@ func TestRewritingAReleasedCommentLeavesItSent(t *testing.T) {
 
 	openThread(t, st, agentID, "this needs a nil check")
 
-	released, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
+	released := release(t, st, agentID)
 	require.Len(t, released, 1)
 
 	edited, err := st.EditMessage(ctx, released[0].ID, "this needs a nil check, and a test")
@@ -80,13 +75,11 @@ func TestRewritingAReleasedCommentLeavesItSent(t *testing.T) {
 	require.NotNil(t, edited.SentAt)
 	assert.Equal(t, DeliverySent, edited.Delivery)
 
-	unsent, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
-	assert.Empty(t, unsent, "rewriting is not something new to release")
+	assert.Empty(t, release(t, st, agentID), "rewriting is not something new to release")
 }
 
 // TestDeliveryFollowsTheDoorbell walks a released comment through the states the panel draws
-// from: waiting to be claimed, claimed, and run out of time unread.
+// from: waiting to be claimed, claimed, and left with no doorbell it can still be read through.
 func TestDeliveryFollowsTheDoorbell(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -94,15 +87,10 @@ func TestDeliveryFollowsTheDoorbell(t *testing.T) {
 
 	thread := openThread(t, st, agentID, "this needs a nil check")
 
-	released, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
+	released := release(t, st, agentID)
 	require.Len(t, released, 1)
 	comment := released[0].ID
 
-	assert.Equal(t, DeliveryExpired, delivery(t, st, thread.ID, comment),
-		"a released comment with no doorbell at all is what ringing again reaches")
-
-	doorbell := ring(t, st, agentID, comment, time.Hour)
 	assert.Equal(t, DeliverySent, delivery(t, st, thread.ID, comment))
 
 	expired, err := st.ListExpiredMessages(ctx, agentID)
@@ -113,76 +101,81 @@ func TestDeliveryFollowsTheDoorbell(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, DeliveryDelivered, delivery(t, st, thread.ID, comment))
 
-	require.NoError(t, st.mail.Delete(ctx, []string{doorbell}))
+	require.NoError(t, st.mail.Delete(ctx, []string{*doorbellOf(t, st, comment)}))
+	assert.Equal(t, DeliveryExpired, delivery(t, st, thread.ID, comment),
+		"a comment whose doorbell is gone is what ringing again reaches")
 
-	ring(t, st, agentID, comment, -time.Hour)
+	ring(t, st, agentID, -time.Hour, comment)
 	assert.Equal(t, DeliveryExpired, delivery(t, st, thread.ID, comment))
 
 	expired, err = st.ListExpiredMessages(ctx, agentID)
 	require.NoError(t, err)
 	require.Len(t, expired, 1, "a doorbell that ran out of time unread is rung again")
 	assert.Equal(t, comment, expired[0].ID)
+
+	ring(t, st, agentID, time.Hour, comment)
+	assert.Equal(t, DeliverySent, delivery(t, st, thread.ID, comment))
 }
 
-// TestRingingAgainReusesTheDoorbellOfTheSameComment pins the unique index behind one waiting
-// doorbell per comment: an expired one is rung again in place rather than stacking a second.
-func TestRingingAgainReusesTheDoorbellOfTheSameComment(t *testing.T) {
+// TestOneDoorbellCarriesAWholeRelease pins that letting go of a review costs one piece of mail
+// however many comments it holds, and that the comments sharing that doorbell each read its
+// state, since it is the truth about all of them at once.
+func TestOneDoorbellCarriesAWholeRelease(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+
+	first := openThread(t, st, agentID, "this needs a nil check")
+	second := openThread(t, st, agentID, "and this leaks a file handle")
+
+	released := release(t, st, agentID)
+	require.Len(t, released, 2)
+
+	waiting, err := st.mail.CountPending(ctx, agentID)
+	require.NoError(t, err)
+	assert.Equal(t, int64(1), waiting, "one doorbell says what two identical ones would")
+
+	assert.Equal(t, doorbellOf(t, st, released[0].ID), doorbellOf(t, st, released[1].ID),
+		"both comments were let go of through the same doorbell")
+
+	assert.Equal(t, DeliverySent, delivery(t, st, first.ID, released[0].ID))
+	assert.Equal(t, DeliverySent, delivery(t, st, second.ID, released[1].ID))
+
+	_, err = st.mail.Claim(ctx, agentID, 10)
+	require.NoError(t, err)
+
+	assert.Equal(t, DeliveryDelivered, delivery(t, st, first.ID, released[0].ID))
+	assert.Equal(t, DeliveryDelivered, delivery(t, st, second.ID, released[1].ID),
+		"reading the one doorbell is being told about every comment behind it")
+}
+
+// TestDeletingADoorbellLeavesTheCommentNeedingAnother pins the set null behind the comment's
+// link: an agent throwing away mail must not take the person's comment with it, and the
+// comment it pointed at is left reading as one to ring again.
+func TestDeletingADoorbellLeavesTheCommentNeedingAnother(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 
 	thread := openThread(t, st, agentID, "this needs a nil check")
 
-	released, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
+	released := release(t, st, agentID)
 	require.Len(t, released, 1)
 	comment := released[0].ID
 
-	first := ring(t, st, agentID, comment, -time.Hour)
+	require.NoError(t, st.mail.Delete(ctx, []string{*doorbellOf(t, st, comment)}))
 
-	_, err = st.mail.Send(ctx, mailstore.SendParams{
-		ToAgentID:       agentID,
-		Body:            "weave: there is review on your diff you have not read",
-		Kind:            mailstore.KindReviewActivity,
-		ReviewMessageID: &comment,
-		Hops:            1,
-		Deadline:        time.Hour,
-	})
-	require.NoError(t, err)
-
-	waiting, err := st.mail.CountPending(ctx, agentID)
-	require.NoError(t, err)
-	assert.Equal(t, int64(1), waiting, "the expired doorbell is rung again rather than joined by a second")
-	assert.Equal(t, DeliverySent, delivery(t, st, thread.ID, comment))
-
-	held, err := st.mail.GetByID(ctx, first)
-	require.NoError(t, err)
-	assert.Equal(t, first, held.ID, "and it is the same row")
-}
-
-// TestDeletingACommentLeavesTheDoorbellTheAgentMayHaveRead pins the set null behind the
-// doorbell's link: taking a comment back must not delete mail the agent has already been
-// handed, since it cannot unread it.
-func TestDeletingACommentLeavesTheDoorbellTheAgentMayHaveRead(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	agentID := seedAgent(t, st)
-
-	openThread(t, st, agentID, "this needs a nil check")
-
-	released, err := st.ReleaseUnsentMessages(ctx, agentID)
-	require.NoError(t, err)
-	require.Len(t, released, 1)
-	comment := released[0].ID
-
-	doorbell := ring(t, st, agentID, comment, time.Hour)
-
-	require.NoError(t, st.DeleteMessage(ctx, comment))
-
-	held, err := st.mail.GetByID(ctx, doorbell)
+	held, err := st.GetMessage(ctx, comment)
 	require.NoError(t, err)
 	require.NotNil(t, held)
-	assert.Nil(t, held.ReviewMessageID, "the doorbell stays, pointing at nothing")
+	assert.NotNil(t, held.SentAt, "the record that it was let go of outlives the mail that said so")
+
+	assert.Equal(t, DeliveryExpired, delivery(t, st, thread.ID, comment))
+
+	expired, err := st.ListExpiredMessages(ctx, agentID)
+	require.NoError(t, err)
+	require.Len(t, expired, 1)
+	assert.Equal(t, comment, expired[0].ID)
 }
 
 // TestRewritingAReplyIsNewActivity pins that an edit reaches the person reviewing, which
@@ -328,6 +321,7 @@ type fixture struct {
 	*Store
 	agents   *agentstore.Store
 	mail     *mailstore.Store
+	pool     store.DBTX
 	workflow string
 }
 
@@ -345,27 +339,65 @@ func open(t *testing.T) *fixture {
 		Store:    New(p.GetDB()),
 		agents:   agentstore.New(p.GetDB()),
 		mail:     mailstore.New(p.GetDB()),
+		pool:     p.GetDB(),
 		workflow: created.ID,
 	}
 }
 
-// ring raises the doorbell for one comment and answers the id of the mail holding it, taking a
-// negative deadline as one that has already run out so a test reaches expired without waiting.
-func ring(t *testing.T, st *fixture, agentID, messageID string, deadline time.Duration) string {
+// ring raises one doorbell and points the given comments at it, the way ringing again does,
+// taking a negative deadline as one that has already run out so a test reaches expired without
+// waiting.
+func ring(t *testing.T, st *fixture, agentID string, deadline time.Duration, messageIDs ...string) {
 	t.Helper()
+	ctx := t.Context()
 
-	sent, err := st.mail.Send(t.Context(), mailstore.SendParams{
-		ToAgentID:       agentID,
-		Body:            "weave: there is review on your diff you have not read",
-		Kind:            mailstore.KindReviewActivity,
-		ReviewMessageID: &messageID,
-		Hops:            1,
-		Deadline:        deadline,
+	sent, err := st.mail.Send(ctx, mailstore.SendParams{
+		ToAgentID: agentID,
+		Body:      "weave: there is review on your diff you have not read",
+		Kind:      mailstore.KindReviewActivity,
+		Hops:      1,
+		Deadline:  deadline,
 	})
 	require.NoError(t, err)
 	require.NotNil(t, sent)
 
-	return sent.ID
+	pointed, err := st.PointMessagesAtDoorbell(ctx, messageIDs, sent.ID)
+	require.NoError(t, err)
+	require.Len(t, pointed, len(messageIDs))
+}
+
+// release raises a doorbell and lets go of everything unsent under it, which is the order
+// ReviewService releases in so that nothing is stamped for a review that never rang.
+func release(t *testing.T, st *fixture, agentID string) []Message {
+	t.Helper()
+	ctx := t.Context()
+
+	sent, err := st.mail.Send(ctx, mailstore.SendParams{
+		ToAgentID: agentID,
+		Body:      "weave: there is review on your diff you have not read",
+		Kind:      mailstore.KindReviewActivity,
+		Hops:      1,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+
+	released, err := st.ReleaseUnsentMessages(ctx, agentID, sent.ID)
+	require.NoError(t, err)
+
+	return released
+}
+
+// doorbellOf is the mail a comment was released under, read straight out of the table since
+// nothing hands it back.
+func doorbellOf(t *testing.T, st *fixture, messageID string) *string {
+	t.Helper()
+
+	var held *string
+	require.NoError(t, st.pool.QueryRow(t.Context(),
+		"SELECT doorbell_mail_id FROM review_messages WHERE id = $1", messageID).Scan(&held))
+	require.NotNil(t, held, "the comment was released under a doorbell")
+
+	return held
 }
 
 // delivery is the state the list reports for one comment, which is the only place the panel

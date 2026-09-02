@@ -168,10 +168,8 @@ type Mail struct {
 	ExpiresAt   time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	// What the mail is, which is what lets the panel tell a doorbell weave raised itself from something an agent wrote. Ordinary mail is plain. It is not what decides whether a second copy may stack up: a doorbell is counted by the review comment it points at rather than by its kind.
+	// What the mail is, which is what lets the panel tell a doorbell weave raised itself from something an agent wrote. Ordinary mail is plain. It is also what a doorbell is counted by, since an agent needs only one unread doorbell of a kind however many comments are waiting behind it.
 	Kind MailKind
-	// The review comment this mail is the doorbell for, null for anything else. It is what one doorbell per comment is counted by, and it is set null rather than cascaded when that comment is deleted, since the agent may already have read the doorbell for a comment the person reviewing then took back.
-	ReviewMessageID *string
 }
 
 // One message in a review thread, written either by the person reviewing or by the agent replying.
@@ -188,6 +186,8 @@ type ReviewMessage struct {
 	UpdatedAt time.Time
 	// When this message was released to the agent, null while it is still only written down. It is the durable record that a comment was let go of, kept here rather than read off the mail raised for it, since an agent may delete that mail and mail expires.
 	SentAt *time.Time
+	// The mail that told the agent this comment was waiting, null while the comment is unsent. One doorbell covers every comment released under it, since they all say the same thing, and the delivery state the panel draws for a comment is read off whichever doorbell it points at. It is set null rather than cascaded when that mail is deleted, which is what makes a comment whose doorbell the agent threw away read as needing another.
+	DoorbellMailID *string
 }
 
 // One conversation pinned to a place in an agent's diff.
@@ -210,7 +210,7 @@ type ReviewThread struct {
 	HumanReadAt *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	// When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see. There is no mirror of it for the person's side, since what the agent has been told is recorded per message by review_messages.sent_at and the mail raised against it.
+	// When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see. There is no mirror of it for the person's side, since what the agent has been told is recorded per message by review_messages.sent_at and the doorbell it points at.
 	LastAgentActivityAt *time.Time
 	// When the person reviewing settled this thread, null while it is still owed an answer. It is what decides whether a thread is still asking for something, which is a different question from whether the code it was written against has moved since.
 	ResolvedAt *time.Time

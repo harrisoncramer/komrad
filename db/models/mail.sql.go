@@ -35,7 +35,7 @@ WHERE
         FROM
             pending)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, review_message_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 type ClaimMailParams struct {
@@ -66,7 +66,6 @@ func (q *Queries) ClaimMail(ctx context.Context, arg ClaimMailParams) ([]*Mail, 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
-			&i.ReviewMessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -108,7 +107,7 @@ func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
 
 const getMail = `-- name: GetMail :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, review_message_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 FROM
     mail m
 WHERE
@@ -132,14 +131,13 @@ func (q *Queries) GetMail(ctx context.Context, id string) (*Mail, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Kind,
-		&i.ReviewMessageID,
 	)
 	return &i, err
 }
 
 const getMailByID = `-- name: GetMailByID :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, review_message_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 FROM
     mail m
 WHERE
@@ -169,7 +167,6 @@ func (q *Queries) GetMailByID(ctx context.Context, ids []string) ([]*Mail, error
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
-			&i.ReviewMessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -181,6 +178,47 @@ func (q *Queries) GetMailByID(ctx context.Context, ids []string) ([]*Mail, error
 	return items, nil
 }
 
+const getPendingMailOfKind = `-- name: GetPendingMailOfKind :one
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+FROM
+    mail m
+WHERE
+    m.to_agent_id = $1
+    AND m.kind = $2
+    AND m.claimed_at IS NULL
+    AND m.expires_at > NOW()
+ORDER BY
+    m.id DESC
+LIMIT 1
+`
+
+type GetPendingMailOfKindParams struct {
+	ToAgentID string
+	Kind      MailKind
+}
+
+func (q *Queries) GetPendingMailOfKind(ctx context.Context, arg GetPendingMailOfKindParams) (*Mail, error) {
+	row := q.db.QueryRow(ctx, getPendingMailOfKind, arg.ToAgentID, arg.Kind)
+	var i Mail
+	err := row.Scan(
+		&i.ID,
+		&i.FromAgentID,
+		&i.FromName,
+		&i.ToAgentID,
+		&i.Body,
+		&i.ReplyTo,
+		&i.Hops,
+		&i.ClaimedAt,
+		&i.ReportedAt,
+		&i.ExpiresAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Kind,
+	)
+	return &i, err
+}
+
 const insertMail = `-- name: InsertMail :one
 INSERT INTO mail(
     from_agent_id,
@@ -189,7 +227,6 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
-    review_message_id,
     hops,
     expires_at)
 VALUES (
@@ -200,36 +237,20 @@ VALUES (
     $5,
     $6,
     $7,
-    $8,
-    NOW() + interval '1 microsecond' * $9::bigint)
-ON CONFLICT (
-    review_message_id)
-WHERE
-    claimed_at IS NULL
-        DO UPDATE SET
-            from_agent_id = excluded.from_agent_id,
-            from_name = excluded.from_name,
-            body = excluded.body,
-            reply_to = excluded.reply_to,
-            hops = excluded.hops,
-            expires_at = excluded.expires_at,
-            reported_at = NULL
-        WHERE
-            mail.expires_at <= NOW()
-        RETURNING
-            id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, review_message_id
+    NOW() + interval '1 microsecond' * $8::bigint)
+RETURNING
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 type InsertMailParams struct {
-	FromAgentID     *string
-	FromName        string
-	ToAgentID       string
-	Body            string
-	Kind            MailKind
-	ReplyTo         *string
-	ReviewMessageID *string
-	Hops            int32
-	DeadlineMicros  int64
+	FromAgentID    *string
+	FromName       string
+	ToAgentID      string
+	Body           string
+	Kind           MailKind
+	ReplyTo        *string
+	Hops           int32
+	DeadlineMicros int64
 }
 
 func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, error) {
@@ -240,7 +261,6 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		arg.Body,
 		arg.Kind,
 		arg.ReplyTo,
-		arg.ReviewMessageID,
 		arg.Hops,
 		arg.DeadlineMicros,
 	)
@@ -259,14 +279,13 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Kind,
-		&i.ReviewMessageID,
 	)
 	return &i, err
 }
 
 const listMailPage = `-- name: ListMailPage :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, review_message_id
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 FROM
     mail m
 WHERE
@@ -307,7 +326,6 @@ func (q *Queries) ListMailPage(ctx context.Context, arg ListMailPageParams) ([]*
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
-			&i.ReviewMessageID,
 		); err != nil {
 			return nil, err
 		}
@@ -406,7 +424,7 @@ WHERE
         FROM
             unreported)
     RETURNING
-        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, review_message_id
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
 `
 
 func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
@@ -432,7 +450,6 @@ func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*M
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
-			&i.ReviewMessageID,
 		); err != nil {
 			return nil, err
 		}

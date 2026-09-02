@@ -187,7 +187,6 @@ func (s *Service) ReleaseReviewMessages(
 
 	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{
 		Released: int32(result.Released),
-		Rung:     int32(result.Rung),
 	}), nil
 }
 
@@ -207,8 +206,7 @@ func (s *Service) RingReviewMessagesAgain(
 	}
 
 	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{
-		Expired: int32(result.Expired),
-		Rung:    int32(result.Rung),
+		Rung: int32(result.Rung),
 	}), nil
 }
 

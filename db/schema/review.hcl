@@ -53,7 +53,7 @@ table "review_threads" {
   column "last_agent_activity_at" {
     null    = true
     type    = timestamptz
-    comment = "When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see. There is no mirror of it for the person's side, since what the agent has been told is recorded per message by review_messages.sent_at and the mail raised against it."
+    comment = "When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see. There is no mirror of it for the person's side, since what the agent has been told is recorded per message by review_messages.sent_at and the doorbell it points at."
   }
   column "human_read_at" {
     null    = true
@@ -121,6 +121,11 @@ table "review_messages" {
     type    = timestamptz
     comment = "When this message was released to the agent, null while it is still only written down. It is the durable record that a comment was let go of, kept here rather than read off the mail raised for it, since an agent may delete that mail and mail expires."
   }
+  column "doorbell_mail_id" {
+    null    = true
+    type    = uuid
+    comment = "The mail that told the agent this comment was waiting, null while the comment is unsent. One doorbell covers every comment released under it, since they all say the same thing, and the delivery state the panel draws for a comment is read off whichever doorbell it points at. It is set null rather than cascaded when that mail is deleted, which is what makes a comment whose doorbell the agent threw away read as needing another."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -133,6 +138,12 @@ table "review_messages" {
   }
   primary_key {
     columns = [column.id]
+  }
+  foreign_key "review_messages_doorbell_mail_id_fkey" {
+    columns     = [column.doorbell_mail_id]
+    ref_columns = [table.mail.column.id]
+    on_delete   = SET_NULL
+    on_update   = NO_ACTION
   }
   foreign_key "review_messages_thread_id_fkey" {
     columns     = [column.thread_id]
@@ -148,6 +159,10 @@ table "review_messages" {
   }
   index "review_messages_thread_id" {
     columns = [column.thread_id, column.id]
+  }
+  index "review_messages_doorbell_mail_id" {
+    columns = [column.doorbell_mail_id]
+    comment = "Finds the comments a piece of mail is the doorbell for, which is what the foreign key walks when that mail is deleted."
   }
 }
 

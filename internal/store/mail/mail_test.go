@@ -7,7 +7,6 @@ import (
 	"weave/internal/pgtest"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
-	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/google/uuid"
@@ -576,7 +575,6 @@ const doorbell = "weave: there is review on your diff you have not read, call li
 type fixture struct {
 	*Store
 	agents   *agentstore.Store
-	review   *reviewstore.Store
 	workflow string
 }
 
@@ -593,33 +591,8 @@ func open(t *testing.T) *fixture {
 	return &fixture{
 		Store:    New(p.GetDB()),
 		agents:   agentstore.New(p.GetDB()),
-		review:   reviewstore.New(p.GetDB()),
 		workflow: created.ID,
 	}
-}
-
-// seedReviewComment pins a comment to an agent's diff and answers its id, which is what a
-// doorbell names and is counted by.
-func seedReviewComment(t *testing.T, st *fixture, agentID string) string {
-	t.Helper()
-	ctx := t.Context()
-
-	thread, err := st.review.CreateThread(ctx, reviewstore.CreateThreadParams{
-		AgentID:     agentID,
-		FilePath:    "internal/thing.go",
-		NewStart:    41,
-		NewEnd:      41,
-		QuotedLines: []string{"+\tdoThing()"},
-		Body:        "this needs a nil check",
-		AuthorKind:  reviewstore.AuthorHuman,
-	})
-	require.NoError(t, err)
-
-	messages, err := st.review.ListMessages(ctx, []string{thread.ID})
-	require.NoError(t, err)
-	require.Len(t, messages, 1)
-
-	return messages[0].ID
 }
 
 func seedAgent(t *testing.T, st *fixture, name string) string {
@@ -635,63 +608,54 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
-// TestOneUnclaimedDoorbellPerComment pins that releasing again while the first doorbell is
-// unread inserts nothing, since the doorbell waiting to be read already says what a second
-// would.
-func TestOneUnclaimedDoorbellPerComment(t *testing.T) {
+// TestPendingNoticeOfKindIsTheOneWaiting pins the lookup a caller reuses a doorbell through,
+// which finds only a notice of that kind the agent can still read, so a claimed or expired one
+// does not stand in for a doorbell that needs raising.
+func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
-	comment := seedReviewComment(t, st, recipient)
 
-	first, err := st.Send(ctx, SendParams{
-		ToAgentID:       recipient,
-		Body:            doorbell,
-		Kind:            KindReviewActivity,
-		ReviewMessageID: &comment,
-		Deadline:        time.Hour,
-	})
-	require.NoError(t, err)
-	require.NotNil(t, first)
+	_, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	require.ErrorIs(t, err, store.ErrNotFound, "an agent holding nothing has no doorbell to reuse")
 
 	_, err = st.Send(ctx, SendParams{
-		ToAgentID:       recipient,
-		Body:            doorbell,
-		Kind:            KindReviewActivity,
-		ReviewMessageID: &comment,
-		Deadline:        time.Hour,
-	})
-	require.ErrorIs(t, err, ErrNoticePending, "a doorbell still waiting to be read is not rung again")
-
-	other := seedReviewComment(t, st, recipient)
-
-	second, err := st.Send(ctx, SendParams{
-		ToAgentID:       recipient,
-		Body:            doorbell,
-		Kind:            KindReviewActivity,
-		ReviewMessageID: &other,
-		Deadline:        time.Hour,
+		ToAgentID: recipient,
+		Body:      "from a peer",
+		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, second, "a different comment gets a doorbell of its own")
 
-	pending, err := st.CountPending(ctx, recipient)
-	require.NoError(t, err)
-	assert.Equal(t, int64(2), pending)
-
-	claimed, err := st.Claim(ctx, recipient, 10)
-	require.NoError(t, err)
-	require.Len(t, claimed, 2)
-
-	after, err := st.Send(ctx, SendParams{
-		ToAgentID:       recipient,
-		Body:            doorbell,
-		Kind:            KindReviewActivity,
-		ReviewMessageID: &comment,
-		Deadline:        time.Hour,
+	stale, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      doorbell,
+		Kind:      KindReviewActivity,
+		Deadline:  -time.Hour,
 	})
 	require.NoError(t, err)
-	assert.NotNil(t, after, "once it has been read, the doorbell rings again")
+
+	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	require.ErrorIs(t, err, store.ErrNotFound, "a doorbell nobody claimed in time is not one the agent can still read")
+
+	live, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      doorbell,
+		Kind:      KindReviewActivity,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+
+	waiting, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	require.NoError(t, err)
+	require.NotNil(t, waiting)
+	assert.Equal(t, live.ID, waiting.ID, "the doorbell to reuse is the deliverable one")
+	assert.NotEqual(t, stale.ID, waiting.ID)
+
+	_, err = st.Claim(ctx, recipient, 10)
+	require.NoError(t, err)
+
+	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	assert.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, the next release raises its own")
 }
 
 // TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices weave raises,
@@ -749,32 +713,6 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, claimed, 1, "the notice that replaced it is the only one, and it is deliverable")
 	assert.Equal(t, "weave: 2 review thread(s) have activity", claimed[0].Body)
-}
-
-// TestExpiredDoorbellIsRungInPlace keeps the expired doorbell and the one replacing it as one
-// row, so a mailbox left alone for weeks holds one doorbell per comment rather than a row per
-// press.
-func TestExpiredDoorbellIsRungInPlace(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
-	comment := seedReviewComment(t, st, recipient)
-
-	for range 3 {
-		sent, err := st.Send(ctx, SendParams{
-			ToAgentID:       recipient,
-			Body:            doorbell,
-			Kind:            KindReviewActivity,
-			ReviewMessageID: &comment,
-			Deadline:        -time.Hour,
-		})
-		require.NoError(t, err)
-		require.NotNil(t, sent)
-	}
-
-	page, err := st.ListPage(ctx, recipient, 10, nil)
-	require.NoError(t, err)
-	assert.Len(t, page, 1)
 }
 
 // TestExpiredNoticeIsReportableAgain proves a revived notice can expire a second time and

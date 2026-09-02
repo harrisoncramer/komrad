@@ -32,8 +32,6 @@ var ErrMailNotFound = errors.New("no mail holds that id, deleting nothing")
 
 var ErrNoticeKindMissing = errors.New("a notice must name a kind other than plain")
 
-var ErrNoticeSubjectMissing = errors.New("a notice must name the review comment it is the doorbell for")
-
 const WeaveSenderName = "weave"
 
 type mailReadWriter interface {
@@ -41,6 +39,7 @@ type mailReadWriter interface {
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
+	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
 	Delete(ctx context.Context, ids []string) error
@@ -107,29 +106,32 @@ type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
 	// Kind is what the notice is about, which is how the panel tells it from mail an agent
-	// wrote.
+	// wrote and what holds an agent to one unread copy of it.
 	Kind mailstore.Kind
-	// ReviewMessageID is the review comment this is the doorbell for, and is what stops a
-	// second copy queueing up behind the first.
-	ReviewMessageID *string
 }
 
-// SendNotice sends mail as weave itself, answering mailstore.ErrNoticePending when a doorbell
-// for the same review comment is already waiting to be read.
+// SendNotice hands back the notice of that kind the agent is already holding unread and sends
+// one as weave itself only when it holds none, since a notice says that something is waiting
+// rather than carrying it, so a second copy behind the first would say nothing new while
+// spending a place in a mailbox other agents are also writing to.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
 	}
-	if params.ReviewMessageID == nil {
-		return nil, fmt.Errorf("%w: without one there is nothing to hold it to a single copy", ErrNoticeSubjectMissing)
+
+	waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	if waiting != nil {
+		return waiting, nil
 	}
 
 	return s.send(ctx, sendParams{
-		ToAgentID:       params.ToAgentID,
-		Body:            params.Body,
-		Kind:            params.Kind,
-		ReviewMessageID: params.ReviewMessageID,
-		System:          true,
+		ToAgentID: params.ToAgentID,
+		Body:      params.Body,
+		Kind:      params.Kind,
+		System:    true,
 	})
 }
 
@@ -162,12 +164,11 @@ func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) err
 }
 
 type sendParams struct {
-	From            string
-	ToAgentID       string
-	Body            string
-	ReplyTo         *string
-	Kind            mailstore.Kind
-	ReviewMessageID *string
+	From      string
+	ToAgentID string
+	Body      string
+	ReplyTo   *string
+	Kind      mailstore.Kind
 	// System marks mail weave raises itself rather than on a caller's behalf, which is what
 	// puts weave's own name on it instead of a sender's.
 	System bool
@@ -234,13 +235,12 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	send := mailstore.SendParams{
-		ToAgentID:       recipient.ID,
-		Body:            params.Body,
-		Kind:            params.Kind,
-		ReplyTo:         params.ReplyTo,
-		ReviewMessageID: params.ReviewMessageID,
-		Hops:            hops,
-		Deadline:        deadline,
+		ToAgentID: recipient.ID,
+		Body:      params.Body,
+		Kind:      params.Kind,
+		ReplyTo:   params.ReplyTo,
+		Hops:      hops,
+		Deadline:  deadline,
 	}
 	if sender != nil {
 		send.FromAgentID = &sender.ID

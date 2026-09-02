@@ -1085,19 +1085,15 @@ func (m model) resendReview() (tea.Model, tea.Cmd) {
 			return "", err
 		}
 
-		return rangAgainNotice(resp.Msg.GetExpired(), resp.Msg.GetRung()), nil
+		return rangAgainNotice(resp.Msg.GetRung()), nil
 	})
 }
 
-// rangAgainNotice says what ringing again did, since finding nothing to ring and finding
-// something it could not ring are both quiet successes the reader would otherwise read as the
-// key not working.
-func rangAgainNotice(expired, rung int32) string {
-	switch {
-	case expired == 0:
+// rangAgainNotice says what ringing again did, since finding nothing to ring is a quiet
+// success the reader would otherwise read as the key not working.
+func rangAgainNotice(rung int32) string {
+	if rung == 0 {
 		return "nothing has run out of time"
-	case rung == 0:
-		return "nothing could be rung again"
 	}
 
 	return "rang " + comments(rung) + " again"

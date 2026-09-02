@@ -9,6 +9,7 @@ import (
 	"weave/internal/store"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
+	"weave/lib/xslice"
 )
 
 // interruptSettleFor is how long the agent is given to act on the interrupt keys before the
@@ -48,7 +49,9 @@ type reviewMessageReadWriter interface {
 	EditMessage(ctx context.Context, id, body string) (*reviewstore.Message, error)
 	GetMessage(ctx context.Context, id string) (*reviewstore.Message, error)
 	ListMessages(ctx context.Context, threadIDs []string) ([]reviewstore.Message, error)
-	ReleaseUnsentMessages(ctx context.Context, agentID string) ([]reviewstore.Message, error)
+	CountUnsentMessages(ctx context.Context, agentID string) (int, error)
+	ReleaseUnsentMessages(ctx context.Context, agentID, doorbellMailID string) ([]reviewstore.Message, error)
+	PointMessagesAtDoorbell(ctx context.Context, ids []string, doorbellMailID string) ([]reviewstore.Message, error)
 	ListExpiredMessages(ctx context.Context, agentID string) ([]reviewstore.Message, error)
 	DeleteMessage(ctx context.Context, id string) error
 }
@@ -380,11 +383,8 @@ const reviewDoorbellBody = "weave: there is review on your diff you have not rea
 // ReleaseReviewMessagesResult reports what letting go of a review did.
 type ReleaseReviewMessagesResult struct {
 	// Released is how many comments were stamped as sent, which is the durable record that
-	// they were let go of.
+	// they were let go of, and is how many the one doorbell raised for them covers.
 	Released int
-	// Rung is how many of those a doorbell was raised for, the rest keeping the one already
-	// waiting to be read, since it says what a second would.
-	Rung int
 }
 
 type ReleaseReviewMessagesParams struct {
@@ -409,11 +409,11 @@ func (s *ReviewService) ReleaseReviewMessages(
 		return nil, err
 	}
 
-	released, err := s.messages.ReleaseUnsentMessages(ctx, params.AgentID)
+	unsent, err := s.messages.CountUnsentMessages(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
-	if len(released) == 0 {
+	if unsent == 0 {
 		return &ReleaseReviewMessagesResult{}, nil
 	}
 
@@ -421,20 +421,23 @@ func (s *ReviewService) ReleaseReviewMessages(
 		s.interrupt(ctx, params.AgentID)
 	}
 
-	rung, err := s.ring(ctx, params.AgentID, released)
+	doorbell, err := s.ring(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &ReleaseReviewMessagesResult{Released: len(released), Rung: rung}, nil
+	released, err := s.messages.ReleaseUnsentMessages(ctx, params.AgentID, doorbell.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReleaseReviewMessagesResult{Released: len(released)}, nil
 }
 
 // RingReviewMessagesAgainResult reports what ringing an agent's review again did.
 type RingReviewMessagesAgainResult struct {
-	// Expired is how many released comments were found with no doorbell the agent could still
-	// read.
-	Expired int
-	// Rung is how many of those a fresh doorbell was raised for.
+	// Rung is how many released comments the fresh doorbell was raised for, which is every one
+	// left with none the agent could still read.
 	Rung int
 }
 
@@ -470,39 +473,31 @@ func (s *ReviewService) RingReviewMessagesAgain(
 		s.interrupt(ctx, params.AgentID)
 	}
 
-	rung, err := s.ring(ctx, params.AgentID, expired)
+	doorbell, err := s.ring(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
 
-	return &RingReviewMessagesAgainResult{Expired: len(expired), Rung: rung}, nil
-}
+	ids := xslice.Map(expired, func(message reviewstore.Message) string { return message.ID })
 
-// ring raises one doorbell per comment and answers how many it raised, leaving a comment that
-// already holds one the agent can still read with it rather than giving it a second.
-func (s *ReviewService) ring(ctx context.Context, agentID string, messages []reviewstore.Message) (int, error) {
-	rung := 0
-
-	for _, message := range messages {
-		id := message.ID
-
-		_, err := s.mailer.SendNotice(ctx, SendNoticeParams{
-			ToAgentID:       agentID,
-			Body:            reviewDoorbellBody,
-			Kind:            mailstore.KindReviewActivity,
-			ReviewMessageID: &id,
-		})
-		if errors.Is(err, mailstore.ErrNoticePending) {
-			continue
-		}
-		if err != nil {
-			return rung, err
-		}
-
-		rung++
+	rung, err := s.messages.PointMessagesAtDoorbell(ctx, ids, doorbell.ID)
+	if err != nil {
+		return nil, err
 	}
 
-	return rung, nil
+	return &RingReviewMessagesAgainResult{Rung: len(rung)}, nil
+}
+
+// ring is the one doorbell a whole release is heard through, either the notice the agent is
+// already holding unread or a fresh one when it holds none, so that a review of any size costs
+// the mailbox a single piece of mail and leaves the rest of it for what other agents have to
+// say.
+func (s *ReviewService) ring(ctx context.Context, agentID string) (*mailstore.Mail, error) {
+	return s.mailer.SendNotice(ctx, SendNoticeParams{
+		ToAgentID: agentID,
+		Body:      reviewDoorbellBody,
+		Kind:      mailstore.KindReviewActivity,
+	})
 }
 
 // requireLiveAgent refuses a review of an agent that has been archived, since there is nobody

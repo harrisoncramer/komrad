@@ -379,16 +379,55 @@ func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message
 	return messages, nil
 }
 
+// CountUnsentMessages is how many comments on an agent's review the person has written and
+// not sent, which the caller reads before raising a doorbell so a review with nothing left in
+// it rings nobody.
+func (s *Store) CountUnsentMessages(ctx context.Context, agentID string) (int, error) {
+	if !store.IsID(agentID) {
+		return 0, nil
+	}
+
+	count, err := s.queries.CountUnsentReviewMessages(ctx, agentID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to count the unsent review messages on agent %q: %w", agentID, err)
+	}
+
+	return int(count), nil
+}
+
 // ReleaseUnsentMessages lets go of every comment on an agent's review the person has written
-// and not sent, stamping each so the record of it outlives the doorbell the caller then rings.
-func (s *Store) ReleaseUnsentMessages(ctx context.Context, agentID string) ([]Message, error) {
+// and not sent, stamping each as sent and pointing it at the doorbell that says so, which the
+// caller has already raised so that nothing is stamped for a review that never rang.
+func (s *Store) ReleaseUnsentMessages(ctx context.Context, agentID, doorbellMailID string) ([]Message, error) {
 	if !store.IsID(agentID) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.ReleaseUnsentReviewMessages(ctx, agentID)
+	rows, err := s.queries.ReleaseUnsentReviewMessages(ctx, models.ReleaseUnsentReviewMessagesParams{
+		AgentID:        agentID,
+		DoorbellMailID: &doorbellMailID,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to release the unsent review messages on agent %q: %w", agentID, err)
+	}
+
+	return sortedMessages(rows), nil
+}
+
+// PointMessagesAtDoorbell moves a batch of released comments onto a freshly raised doorbell,
+// which is what ringing again does once the one they were released under is beyond reading.
+func (s *Store) PointMessagesAtDoorbell(ctx context.Context, ids []string, doorbellMailID string) ([]Message, error) {
+	storable := xslice.Filter(ids, store.IsID)
+	if len(storable) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.PointReviewMessagesAtDoorbell(ctx, models.PointReviewMessagesAtDoorbellParams{
+		Ids:            storable,
+		DoorbellMailID: &doorbellMailID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to point %d review message(s) at the doorbell %q: %w", len(storable), doorbellMailID, err)
 	}
 
 	return sortedMessages(rows), nil

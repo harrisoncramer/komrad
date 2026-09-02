@@ -301,6 +301,7 @@ func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mai
 		FromName:    params.FromName,
 		ToAgentID:   params.ToAgentID,
 		Body:        params.Body,
+		Kind:        params.Kind,
 		ReplyTo:     params.ReplyTo,
 		Hops:        params.Hops,
 	}
@@ -330,6 +331,16 @@ func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailsto
 
 func (f *fakeMailbox) CountPending(context.Context, string) (int64, error) {
 	return f.pending, nil
+}
+
+func (f *fakeMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error) {
+	for _, held := range f.byID {
+		if held.ToAgentID == toAgentID && held.Kind == kind && held.ClaimedAt == nil {
+			return &held, nil
+		}
+	}
+
+	return nil, fmt.Errorf("%w: an unread %q notice", store.ErrNotFound, kind)
 }
 
 func (f *fakeMailbox) ListPage(_ context.Context, toAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
