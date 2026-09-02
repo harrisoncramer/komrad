@@ -40,8 +40,8 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-				Name:          "backend",
-				CleanupAction: "drop-worktree",
+				Name:              "backend",
+				DeprovisionAction: "drop-worktree",
 			})
 			require.NoError(t, err)
 
@@ -58,7 +58,7 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 				require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 			}
 
-			assert.Equal(t, tt.wantCleanup, lifecycle.cleanup)
+			assert.Equal(t, tt.wantCleanup, lifecycle.deprovision)
 		})
 	}
 }
@@ -74,8 +74,8 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	workflows := workflowsFor(st, tmux)
 
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -89,7 +89,7 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
+	assert.Equal(t, []string{"drop-worktree"}, lifecycle.deprovision)
 }
 
 // TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown:
@@ -98,12 +98,12 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -128,12 +128,12 @@ func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -163,12 +163,12 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -186,7 +186,7 @@ func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	require.Len(t, agents, 1)
 	assert.Contains(t, metadataValue(agents[0].Metadata), "worktree is dirty")
 
-	lifecycle.cleanupRunErr = errors.New("network unreachable")
+	lifecycle.deprovisionRunErr = errors.New("network unreachable")
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
 	agents, err = st.List(t.Context())
@@ -206,9 +206,9 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 	workflows := workflowsFor(st, tmux)
 
-	backend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	backend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", DeprovisionAction: "drop-worktree"})
 	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
+	frontend, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "frontend", DeprovisionAction: "drop-container"})
 	require.NoError(t, err)
 
 	ok, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
@@ -224,7 +224,7 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	lifecycle.cleanupRunErrByAgent = map[string]error{bad.ID: errors.New("container is still running")}
+	lifecycle.deprovisionRunErrByAgent = map[string]error{bad.ID: errors.New("container is still running")}
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{ok.ID, bad.ID}))
 
@@ -253,7 +253,7 @@ func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			st := newStore(t)
-			lifecycle := &fakeLifecycle{cleanupRunErr: tt.cleanupErr}
+			lifecycle := &fakeLifecycle{deprovisionRunErr: tt.cleanupErr}
 			logsDir := t.TempDir()
 			manager := st.agentService(agentServiceOptions{
 				tmux:      tmux,
@@ -265,7 +265,7 @@ func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 
 			cfg := workflowstore.Config{Name: "backend"}
 			if tt.name != "no cleanup configured" {
-				cfg.CleanupAction = "drop-worktree"
+				cfg.DeprovisionAction = "drop-worktree"
 			}
 			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), cfg)
 			require.NoError(t, err)
@@ -284,13 +284,13 @@ func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 
 			require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-			_, setupErr := os.Stat(setupPath)
+			_, provisionErr := os.Stat(setupPath)
 			_, teardownErr := os.Stat(teardownPath)
 			if tt.wantRemoved {
-				assert.True(t, os.IsNotExist(setupErr), "the setup log goes with a row that is really gone")
+				assert.True(t, os.IsNotExist(provisionErr), "the setup log goes with a row that is really gone")
 				assert.True(t, os.IsNotExist(teardownErr), "so does the teardown log")
 			} else {
-				assert.NoError(t, setupErr, "the row is still here to read the failure from, so its logs stay too")
+				assert.NoError(t, provisionErr, "the row is still here to read the failure from, so its logs stay too")
 				assert.NoError(t, teardownErr)
 			}
 		})

@@ -499,26 +499,26 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentActions, m
 }
 
 type fakeLifecycle struct {
-	dir                  string
-	resumeDir            string
-	setupErr             error
-	resumeErr            error
-	cleanupStartErr      error
-	cleanupRunErr        error
-	cleanupRunErrByAgent map[string]error
-	setup                []string
-	setupPane            []string
-	resumed              []string
-	cleanup              []string
-	cleanupCwd           []string
-	cleanupCtxErr        []error
+	dir                      string
+	resumeDir                string
+	provisionErr             error
+	resumeErr                error
+	deprovisionStartErr      error
+	deprovisionRunErr        error
+	deprovisionRunErrByAgent map[string]error
+	provision                []string
+	provisionPane            []string
+	resumed                  []string
+	deprovision              []string
+	deprovisionCwd           []string
+	deprovisionCtxErr        []error
 }
 
-func (f *fakeLifecycle) RunSetupAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
-	f.setup = append(f.setup, name)
-	f.setupPane = append(f.setupPane, pane)
-	if f.setupErr != nil {
-		return "", f.setupErr
+func (f *fakeLifecycle) RunProvisionAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
+	f.provision = append(f.provision, name)
+	f.provisionPane = append(f.provisionPane, pane)
+	if f.provisionErr != nil {
+		return "", f.provisionErr
 	}
 
 	return f.dir, nil
@@ -536,18 +536,18 @@ func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, n
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
-	f.cleanup = append(f.cleanup, name)
-	f.cleanupCwd = append(f.cleanupCwd, agent.Cwd)
-	f.cleanupCtxErr = append(f.cleanupCtxErr, ctx.Err())
+func (f *fakeLifecycle) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+	f.deprovision = append(f.deprovision, name)
+	f.deprovisionCwd = append(f.deprovisionCwd, agent.Cwd)
+	f.deprovisionCtxErr = append(f.deprovisionCtxErr, ctx.Err())
 
-	if f.cleanupStartErr != nil {
-		return f.cleanupStartErr
+	if f.deprovisionStartErr != nil {
+		return f.deprovisionStartErr
 	}
 
 	if done != nil {
-		runErr := f.cleanupRunErr
-		if byAgent, ok := f.cleanupRunErrByAgent[agent.ID]; ok {
+		runErr := f.deprovisionRunErr
+		if byAgent, ok := f.deprovisionRunErrByAgent[agent.ID]; ok {
 			runErr = byAgent
 		}
 		done(runErr)
@@ -686,15 +686,15 @@ func seedChildSpawnedBy(t *testing.T, st *testStore, tmux paneStamper, parent ag
 	const name = "reviewer"
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
-		Name:             name,
-		Pane:             "%" + name,
-		State:            agentstore.StateIdle,
-		Cwd:              parent.Cwd,
-		WorkflowID:       parent.WorkflowID,
-		ParentAgentID:    &parent.ID,
-		SpawnedByAgentID: &spawnerID,
-		SetupAction:      xptr.Ptr(""),
-		CleanupAction:    xptr.Ptr(""),
+		Name:              name,
+		Pane:              "%" + name,
+		State:             agentstore.StateIdle,
+		Cwd:               parent.Cwd,
+		WorkflowID:        parent.WorkflowID,
+		ParentAgentID:     &parent.ID,
+		SpawnedByAgentID:  &spawnerID,
+		ProvisionAction:   xptr.Ptr(""),
+		DeprovisionAction: xptr.Ptr(""),
 	}))
 
 	got, err := st.Agents.GetInWorkflow(ctx, parent.WorkflowID, name)

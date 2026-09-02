@@ -86,8 +86,8 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 		Harness:           req.Msg.GetHarness(),
 		Cwd:               req.Msg.GetCwd(),
 		Flags:             req.Msg.GetFlags(),
-		SetupAction:       req.Msg.GetSetupAction(),
-		CleanupAction:     req.Msg.GetCleanupAction(),
+		ProvisionAction:   req.Msg.GetProvisionAction(),
+		DeprovisionAction: req.Msg.GetDeprovisionAction(),
 		Worktree:          worktreeConfigFromProto(req.Msg.GetWorktree()),
 		ArchiveOnPRClosed: req.Msg.GetArchiveOnPrClosed(),
 	})
@@ -106,8 +106,8 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 		Harness:           req.Msg.GetHarness(),
 		Cwd:               req.Msg.GetCwd(),
 		Flags:             req.Msg.GetFlags(),
-		SetupAction:       req.Msg.GetSetupAction(),
-		CleanupAction:     req.Msg.GetCleanupAction(),
+		ProvisionAction:   req.Msg.GetProvisionAction(),
+		DeprovisionAction: req.Msg.GetDeprovisionAction(),
 		Worktree:          worktreeConfigFromProto(req.Msg.GetWorktree()),
 		ArchiveOnPRClosed: req.Msg.GetArchiveOnPrClosed(),
 	})

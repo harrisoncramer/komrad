@@ -1,5 +1,5 @@
 // Package workflow stores the workflows agents are filed under, which carry the working
-// directory, flags, shared context and setup and cleanup actions their agents start from.
+// directory, flags, shared context and the provisioner their agents start from.
 package workflow
 
 import (
@@ -22,8 +22,8 @@ type Workflow struct {
 	Harness           string
 	Cwd               string
 	Flags             string
-	SetupAction       string
-	CleanupAction     string
+	ProvisionAction   string
+	DeprovisionAction string
 	Worktree          WorktreeConfig
 	ArchiveOnPRClosed bool
 	ArchivedAt        *time.Time
@@ -36,8 +36,8 @@ type Config struct {
 	Harness           string
 	Cwd               string
 	Flags             string
-	SetupAction       string
-	CleanupAction     string
+	ProvisionAction   string
+	DeprovisionAction string
 	Worktree          WorktreeConfig
 	ArchiveOnPRClosed bool
 }
@@ -50,8 +50,8 @@ func (w Workflow) Config() Config {
 		Harness:           w.Harness,
 		Cwd:               w.Cwd,
 		Flags:             w.Flags,
-		SetupAction:       w.SetupAction,
-		CleanupAction:     w.CleanupAction,
+		ProvisionAction:   w.ProvisionAction,
+		DeprovisionAction: w.DeprovisionAction,
 		Worktree:          w.Worktree,
 		ArchiveOnPRClosed: w.ArchiveOnPRClosed,
 	}
@@ -66,8 +66,8 @@ func (c Config) Workflow(id string) Workflow {
 		Harness:           c.Harness,
 		Cwd:               c.Cwd,
 		Flags:             c.Flags,
-		SetupAction:       c.SetupAction,
-		CleanupAction:     c.CleanupAction,
+		ProvisionAction:   c.ProvisionAction,
+		DeprovisionAction: c.DeprovisionAction,
 		Worktree:          c.Worktree,
 		ArchiveOnPRClosed: c.ArchiveOnPRClosed,
 	}
@@ -104,8 +104,8 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 			Cwd:     row.Cwd,
 			Flags:   row.Flags,
 		}, actionConfigFields{
-			SetupAction:          row.SetupAction,
-			CleanupAction:        row.CleanupAction,
+			ProvisionAction:      row.ProvisionAction,
+			DeprovisionAction:    row.DeprovisionAction,
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -161,8 +161,8 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 			Cwd:     row.Cwd,
 			Flags:   row.Flags,
 		}, actionConfigFields{
-			SetupAction:          row.SetupAction,
-			CleanupAction:        row.CleanupAction,
+			ProvisionAction:      row.ProvisionAction,
+			DeprovisionAction:    row.DeprovisionAction,
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -192,8 +192,8 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		Cwd:     row.Cwd,
 		Flags:   row.Flags,
 	}, actionConfigFields{
-		SetupAction:          row.SetupAction,
-		CleanupAction:        row.CleanupAction,
+		ProvisionAction:      row.ProvisionAction,
+		DeprovisionAction:    row.DeprovisionAction,
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -218,8 +218,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	}
 
 	actionConfigID, err := s.queries.InsertWorkflowActionConfig(ctx, models.InsertWorkflowActionConfigParams{
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
+		ProvisionAction:      cfg.ProvisionAction,
+		DeprovisionAction:    cfg.DeprovisionAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -246,8 +246,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
 	}, actionConfigFields{
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
+		ProvisionAction:      cfg.ProvisionAction,
+		DeprovisionAction:    cfg.DeprovisionAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -289,8 +289,8 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 
 	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{
 		WorkflowID:           id,
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
+		ProvisionAction:      cfg.ProvisionAction,
+		DeprovisionAction:    cfg.DeprovisionAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -387,8 +387,8 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		Cwd:     row.Cwd,
 		Flags:   row.Flags,
 	}, actionConfigFields{
-		SetupAction:          row.SetupAction,
-		CleanupAction:        row.CleanupAction,
+		ProvisionAction:      row.ProvisionAction,
+		DeprovisionAction:    row.DeprovisionAction,
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
@@ -415,8 +415,8 @@ type workflowConfigFields struct {
 }
 
 type actionConfigFields struct {
-	SetupAction          string
-	CleanupAction        string
+	ProvisionAction      string
+	DeprovisionAction    string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -427,14 +427,14 @@ type actionConfigFields struct {
 
 func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {
 	return Workflow{
-		ID:            w.ID,
-		Name:          w.Name,
-		Context:       w.Context,
-		Harness:       cfg.Harness,
-		Cwd:           cfg.Cwd,
-		Flags:         cfg.Flags,
-		SetupAction:   ac.SetupAction,
-		CleanupAction: ac.CleanupAction,
+		ID:                w.ID,
+		Name:              w.Name,
+		Context:           w.Context,
+		Harness:           cfg.Harness,
+		Cwd:               cfg.Cwd,
+		Flags:             cfg.Flags,
+		ProvisionAction:   ac.ProvisionAction,
+		DeprovisionAction: ac.DeprovisionAction,
 		Worktree: WorktreeConfig{
 			Enabled:      ac.WorktreeEnabled,
 			BaseBranch:   ac.WorktreeBaseBranch,

@@ -341,7 +341,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	// unexplained if the banner stays quiet on the strength of the pane being open.
 	setupRan := result.setupPane && errui.SetupRan(result.err)
 	if setupRan {
-		m.reportBrief(result.summary, "the setup action failed, and its output is in the pane it ran in", result.err)
+		m.reportBrief(result.summary, "the provision action failed, and its output is in the pane it ran in", result.err)
 	} else {
 		m.report(result.summary, result.err)
 	}

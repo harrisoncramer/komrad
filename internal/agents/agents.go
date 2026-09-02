@@ -144,9 +144,9 @@ type harnessGetter interface {
 // agentActions is the seam onto the executables a user hangs off an agent's life, which are
 // fired on the way in, on the way back in, and on the way out.
 type agentActions interface {
-	RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
+	RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
 	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
-	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
+	RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
 }
 
 type systemMailSender interface {
@@ -196,9 +196,9 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 	}
 }
 
-// runCleanup starts a cleanup action, calling done exactly once with the outcome, including a
-// refusal to start.
-func runCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string, done func(error)) {
+// runDeprovision starts a deprovision action, calling done exactly once with the outcome,
+// including a refusal to start.
+func runDeprovision(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string, done func(error)) {
 	if cleanup == nil || name == "" {
 		if done != nil {
 			done(nil)
@@ -207,13 +207,13 @@ func runCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agen
 		return
 	}
 
-	if err := cleanup.RunCleanupAction(ctx, agent, name, done); err != nil {
+	if err := cleanup.RunDeprovisionAction(ctx, agent, name, done); err != nil {
 		attrs := []slog.Attr{
 			slog.String(logging.ActionName, name),
 			slog.String(logging.ActionAgentID, agent.ID),
 			slog.String(logging.ActionAgentCwd, agent.Cwd),
 		}
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovision action would not start", append(attrs, logging.Err(err)...)...)
 
 		if done != nil {
 			done(err)
@@ -221,22 +221,19 @@ func runCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agen
 	}
 }
 
-func cleanupActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if agent.CleanupAction != nil {
-		return *agent.CleanupAction
-	}
-
-	wf := workflowFor(ctx, workflows, agent)
-	if wf == nil {
-		return ""
-	}
-
-	return wf.CleanupAction
+// isProvisionerRetired reports whether an agent's own blank provision half has retired the
+// provisioner outright, leaving it the directory it was handed and nothing to give back, so the
+// deprovision half is not consulted at all.
+func isProvisionerRetired(override *string) bool {
+	return override != nil && strings.TrimSpace(*override) == ""
 }
 
-func setupActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if agent.SetupAction != nil {
-		return *agent.SetupAction
+func deprovisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+	if isProvisionerRetired(agent.ProvisionAction) {
+		return ""
+	}
+	if agent.DeprovisionAction != nil {
+		return *agent.DeprovisionAction
 	}
 
 	wf := workflowFor(ctx, workflows, agent)
@@ -244,7 +241,20 @@ func setupActionFor(ctx context.Context, workflows workflowReader, agent agentst
 		return ""
 	}
 
-	return wf.SetupAction
+	return wf.DeprovisionAction
+}
+
+func provisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+	if agent.ProvisionAction != nil {
+		return *agent.ProvisionAction
+	}
+
+	wf := workflowFor(ctx, workflows, agent)
+	if wf == nil {
+		return ""
+	}
+
+	return wf.ProvisionAction
 }
 
 func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) *workflowstore.Workflow {

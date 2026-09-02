@@ -34,8 +34,8 @@ type Workflow struct {
 	Cwd               string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags             string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	Harness           string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	SetupAction       string                 `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	CleanupAction     string                 `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	ProvisionAction   string                 `protobuf:"bytes,7,opt,name=provision_action,json=provisionAction,proto3" json:"provision_action,omitempty"`
+	DeprovisionAction string                 `protobuf:"bytes,8,opt,name=deprovision_action,json=deprovisionAction,proto3" json:"deprovision_action,omitempty"`
 	ArchivedAt        *string                `protobuf:"bytes,9,opt,name=archived_at,json=archivedAt,proto3,oneof" json:"archived_at,omitempty"`
 	Worktree          *WorktreeConfig        `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	ArchiveOnPrClosed bool                   `protobuf:"varint,11,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
@@ -115,16 +115,16 @@ func (x *Workflow) GetHarness() string {
 	return ""
 }
 
-func (x *Workflow) GetSetupAction() string {
+func (x *Workflow) GetProvisionAction() string {
 	if x != nil {
-		return x.SetupAction
+		return x.ProvisionAction
 	}
 	return ""
 }
 
-func (x *Workflow) GetCleanupAction() string {
+func (x *Workflow) GetDeprovisionAction() string {
 	if x != nil {
-		return x.CleanupAction
+		return x.DeprovisionAction
 	}
 	return ""
 }
@@ -425,8 +425,8 @@ type CreateWorkflowRequest struct {
 	Cwd               string                 `protobuf:"bytes,3,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags             string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
 	Harness           string                 `protobuf:"bytes,5,opt,name=harness,proto3" json:"harness,omitempty"`
-	SetupAction       string                 `protobuf:"bytes,6,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	CleanupAction     string                 `protobuf:"bytes,7,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	ProvisionAction   string                 `protobuf:"bytes,6,opt,name=provision_action,json=provisionAction,proto3" json:"provision_action,omitempty"`
+	DeprovisionAction string                 `protobuf:"bytes,7,opt,name=deprovision_action,json=deprovisionAction,proto3" json:"deprovision_action,omitempty"`
 	Worktree          *WorktreeConfig        `protobuf:"bytes,8,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	ArchiveOnPrClosed bool                   `protobuf:"varint,9,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	unknownFields     protoimpl.UnknownFields
@@ -498,16 +498,16 @@ func (x *CreateWorkflowRequest) GetHarness() string {
 	return ""
 }
 
-func (x *CreateWorkflowRequest) GetSetupAction() string {
+func (x *CreateWorkflowRequest) GetProvisionAction() string {
 	if x != nil {
-		return x.SetupAction
+		return x.ProvisionAction
 	}
 	return ""
 }
 
-func (x *CreateWorkflowRequest) GetCleanupAction() string {
+func (x *CreateWorkflowRequest) GetDeprovisionAction() string {
 	if x != nil {
-		return x.CleanupAction
+		return x.DeprovisionAction
 	}
 	return ""
 }
@@ -578,8 +578,8 @@ type UpdateWorkflowRequest struct {
 	Cwd               string                 `protobuf:"bytes,4,opt,name=cwd,proto3" json:"cwd,omitempty"`
 	Flags             string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	Harness           string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
-	SetupAction       string                 `protobuf:"bytes,7,opt,name=setup_action,json=setupAction,proto3" json:"setup_action,omitempty"`
-	CleanupAction     string                 `protobuf:"bytes,8,opt,name=cleanup_action,json=cleanupAction,proto3" json:"cleanup_action,omitempty"`
+	ProvisionAction   string                 `protobuf:"bytes,7,opt,name=provision_action,json=provisionAction,proto3" json:"provision_action,omitempty"`
+	DeprovisionAction string                 `protobuf:"bytes,8,opt,name=deprovision_action,json=deprovisionAction,proto3" json:"deprovision_action,omitempty"`
 	Worktree          *WorktreeConfig        `protobuf:"bytes,9,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	ArchiveOnPrClosed bool                   `protobuf:"varint,10,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	unknownFields     protoimpl.UnknownFields
@@ -658,16 +658,16 @@ func (x *UpdateWorkflowRequest) GetHarness() string {
 	return ""
 }
 
-func (x *UpdateWorkflowRequest) GetSetupAction() string {
+func (x *UpdateWorkflowRequest) GetProvisionAction() string {
 	if x != nil {
-		return x.SetupAction
+		return x.ProvisionAction
 	}
 	return ""
 }
 
-func (x *UpdateWorkflowRequest) GetCleanupAction() string {
+func (x *UpdateWorkflowRequest) GetDeprovisionAction() string {
 	if x != nil {
-		return x.CleanupAction
+		return x.DeprovisionAction
 	}
 	return ""
 }
@@ -866,16 +866,16 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xf4\x02\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x84\x03\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
 	"\acontext\x18\x03 \x01(\tR\acontext\x12\x10\n" +
 	"\x03cwd\x18\x04 \x01(\tR\x03cwd\x12\x14\n" +
 	"\x05flags\x18\x05 \x01(\tR\x05flags\x12\x18\n" +
-	"\aharness\x18\x06 \x01(\tR\aharness\x12!\n" +
-	"\fsetup_action\x18\a \x01(\tR\vsetupAction\x12%\n" +
-	"\x0ecleanup_action\x18\b \x01(\tR\rcleanupAction\x12$\n" +
+	"\aharness\x18\x06 \x01(\tR\aharness\x12)\n" +
+	"\x10provision_action\x18\a \x01(\tR\x0fprovisionAction\x12-\n" +
+	"\x12deprovision_action\x18\b \x01(\tR\x11deprovisionAction\x12$\n" +
 	"\varchived_at\x18\t \x01(\tH\x00R\n" +
 	"archivedAt\x88\x01\x01\x127\n" +
 	"\bworktree\x18\n" +
@@ -903,20 +903,20 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x12GetWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"H\n" +
 	"\x13GetWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xa1\x03\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xb1\x03\n" +
 	"\x15CreateWorkflowRequest\x12\x1e\n" +
 	"\x04name\x18\x01 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01R\x04name\x12#\n" +
 	"\acontext\x18\x02 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x03 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x04 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
-	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12/\n" +
-	"\fsetup_action\x18\x06 \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\vsetupAction\x123\n" +
-	"\x0ecleanup_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\x127\n" +
+	"\aharness\x18\x05 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
+	"\x10provision_action\x18\x06 \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\x0fprovisionAction\x12;\n" +
+	"\x12deprovision_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\x11deprovisionAction\x127\n" +
 	"\bworktree\x18\b \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x14archive_on_pr_closed\x18\t \x01(\bR\x11archiveOnPrClosed\"K\n" +
 	"\x16CreateWorkflowResponse\x121\n" +
-	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xba\x03\n" +
+	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"\xca\x03\n" +
 	"\x15UpdateWorkflowRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x1e\n" +
 	"\x04name\x18\x02 \x01(\tB\n" +
@@ -924,9 +924,9 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\acontext\x18\x03 \x01(\tB\t\xbaH\x06r\x04\x18І\x03R\acontext\x12\x1e\n" +
 	"\x03cwd\x18\x04 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03cwd\x12\"\n" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
-	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x12/\n" +
-	"\fsetup_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\vsetupAction\x123\n" +
-	"\x0ecleanup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\rcleanupAction\x127\n" +
+	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x127\n" +
+	"\x10provision_action\x18\a \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\x0fprovisionAction\x12;\n" +
+	"\x12deprovision_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01R\x11deprovisionAction\x127\n" +
 	"\bworktree\x18\t \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x14archive_on_pr_closed\x18\n" +
 	" \x01(\bR\x11archiveOnPrClosed\"1\n" +
@@ -937,22 +937,22 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xd6,\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xef-\n" +
 	"\x0fWorkflowService\x12\x96\x04\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xbd\x03\x9a\xb5\x18\xb5\x03\n" +
 	"\x0elist_workflows\x12\xa2\x03List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the action run before its agents start and the one run after they are deleted. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xc9\f\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xed\v\x9a\xb5\x18\xe8\v\n" +
-	"\x0fcreate_workflow\x12\xd2\vCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x12\xda\f\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\x8b\f\x9a\xb5\x18\x83\f\n" +
-	"\x0fupdate_workflow\x12\xed\vReplace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x90\x02\x02\x12\xff\x02\n" +
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xf6\r\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x9a\r\x9a\xb5\x18\x95\r\n" +
+	"\x0fcreate_workflow\x12\xff\fCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. provisionAction names the action from list_actions that owns where each of its agents runs: it goes before the agent starts, it names the directory, and a failure abandons the launch. deprovisionAction names the half that gives that directory back once one of its agents is deleted, and is read only while provisionAction is set. Leave provisionAction blank for agents that keep the directory they are given, which retires both halves. worktree.enabled provisions every agent a git worktree off cwd instead: weave names both halves itself, so provisionAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x12\xba\f\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xeb\v\x9a\xb5\x18\xe3\v\n" +
+	"\x0fupdate_workflow\x12\xcd\vReplace a workflow's name, context, directory, flags, and the provisioner that owns its agents' directories. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or provisionAction reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing deprovisionAction reaches agents already running, since it is read when it fires. worktree.enabled is the same decision spelled the other way: weave names both halves itself, so provisionAction must be blank when it is set, and turning it off clears both halves if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
 	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xd6\x04\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xf7\x03\x9a\xb5\x18\xef\x03\n" +
-	"\x10restore_workflow\x12\xd8\x03Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename. \x00\x90\x02\x02\x12\xf2\x05\n" +
-	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xa3\x05\x9a\xb5\x18\x9b\x05\n" +
-	"\x0fdelete_workflow\x12\x85\x05Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same cleanup-action handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose cleanup action is still running, or whose cleanup failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again. \x01\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
+	"\x10restore_workflow\x12\xd8\x03Take a workflow out of the archive, keyed by id, along with every agent archived inside it. The agents come back as dormant rows, so call resume_agent on the ones whose conversations you want in a pane. Returns not_found if the workflow is not archived. It is refused whole rather than in part, either because its agents would not fit under the number the panel is configured to hold, or because live agents have taken their names, which the error lists for you to rename. \x00\x90\x02\x02\x12\xfe\x05\n" +
+	"\x0eDeleteWorkflow\x12\".workflow.v1.DeleteWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xaf\x05\x9a\xb5\x18\xa7\x05\n" +
+	"\x0fdelete_workflow\x12\x91\x05Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same deprovision-action handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose deprovision action is still running, or whose deprovision failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again. \x01\x90\x02\x02B(Z&weave/proto/gen/workflow/v1;workflowv1b\x06proto3"
 
 var (
 	file_workflow_v1_workflow_proto_rawDescOnce sync.Once

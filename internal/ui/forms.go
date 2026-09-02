@@ -88,20 +88,21 @@ type adoptFormValues struct {
 }
 
 type agentFormValues struct {
-	Prompt        string
-	Title         string
-	Harness       string
-	Dir           string
-	Flags         string
-	SetupAction   string
-	CleanupAction string
+	Prompt            string
+	Title             string
+	Harness           string
+	Dir               string
+	Flags             string
+	ProvisionAction   string
+	DeprovisionAction string
 }
 
 const inheritAction = "\x00inherit"
 
 const (
-	setupTypeWorktree = "worktree"
-	setupTypeCustom   = "custom"
+	provisionerNone     = "none"
+	provisionerWorktree = "worktree"
+	provisionerScript   = "script"
 )
 
 type workflowFormValues struct {
@@ -110,9 +111,9 @@ type workflowFormValues struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
-	SetupType            string
-	SetupAction          string
-	CleanupAction        string
+	Provisioner          string
+	ProvisionAction      string
+	DeprovisionAction    string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -121,9 +122,12 @@ type workflowFormValues struct {
 }
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
-	setupType := setupTypeCustom
-	if cfg.Worktree.Enabled {
-		setupType = setupTypeWorktree
+	provisioner := provisionerNone
+	switch {
+	case cfg.Worktree.Enabled:
+		provisioner = provisionerWorktree
+	case cfg.ProvisionAction != "" || cfg.DeprovisionAction != "":
+		provisioner = provisionerScript
 	}
 
 	return workflowFormValues{
@@ -132,9 +136,9 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Harness:              cfg.Harness,
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
-		SetupType:            setupType,
-		SetupAction:          customAction(cfg.SetupAction),
-		CleanupAction:        customAction(cfg.CleanupAction),
+		Provisioner:          provisioner,
+		ProvisionAction:      customAction(cfg.ProvisionAction),
+		DeprovisionAction:    customAction(cfg.DeprovisionAction),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -161,7 +165,7 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 		Cwd:     v.Cwd,
 		Flags:   v.Flags,
 		Worktree: workflowstore.WorktreeConfig{
-			Enabled:      v.SetupType == setupTypeWorktree,
+			Enabled:      v.Provisioner == provisionerWorktree,
 			BaseBranch:   v.WorktreeBaseBranch,
 			CopyPaths:    splitLines(v.WorktreeCopyPaths),
 			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
@@ -170,9 +174,9 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
 
-	if v.SetupType == setupTypeCustom {
-		cfg.SetupAction = v.SetupAction
-		cfg.CleanupAction = v.CleanupAction
+	if v.Provisioner == provisionerScript {
+		cfg.ProvisionAction = v.ProvisionAction
+		cfg.DeprovisionAction = v.DeprovisionAction
 	}
 
 	return cfg
@@ -204,17 +208,17 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, available []act
 	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
 
 	fields = append(fields,
-		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Value(&values.SetupAction).Options(agentActionOptions(available)...),
-		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Value(&values.CleanupAction).Options(agentActionOptions(available)...),
+		huh.NewSelect[string]().Key("provision").Title("Provision action").
+			Value(&values.ProvisionAction).Options(agentActionOptions(available)...),
+		huh.NewSelect[string]().Key("deprovision").Title("Deprovision action").
+			Value(&values.DeprovisionAction).Options(agentActionOptions(available)...),
 	)
 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-// childAgentForm asks for the work and little else, since a child takes its directory and both
-// of its actions from the parent it is attached to rather than from whoever asked for it.
+// childAgentForm asks for the work and little else, since a child takes its directory from the
+// parent it is attached to and provisions nothing of its own.
 func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) *huh.Form {
 	fields := []huh.Field{
 		huh.NewText().Key("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
@@ -223,7 +227,7 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agents
 		huh.NewInput().Key("harness").Title("Agent").Placeholder(orDash(parent.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewNote().Description(fmt.Sprintf(
-			"Runs in %s, the parent's own checkout. No worktree, no setup action, archived when the parent is.", parent.Cwd)),
+			"Runs in %s, the parent's own checkout. No worktree, nothing provisioned, archived when the parent is.", parent.Cwd)),
 	}
 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
@@ -452,18 +456,19 @@ func workflowForm(title string, values *workflowFormValues, keys config.FormKeys
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-const setupTypeKey = "setup_type"
+const provisionerKey = "provisioner"
 
-func setupTypeOptions() []huh.Option[string] {
+func provisionerOptions() []huh.Option[string] {
 	return []huh.Option[string]{
-		huh.NewOption("Worktree: a git worktree per agent", setupTypeWorktree),
-		huh.NewOption("Custom: your own setup and cleanup actions", setupTypeCustom),
+		huh.NewOption("None: agents keep the directory they are given", provisionerNone),
+		huh.NewOption("Worktree: a git worktree per agent", provisionerWorktree),
+		huh.NewOption("Script: your own provision and deprovision actions", provisionerScript),
 	}
 }
 
 func workflowConfigForm(nameTitle string, values *workflowFormValues, available []actionChoice, keys config.FormKeys) (form *huh.Form, focusFieldIndex int) {
-	if values.SetupType == "" {
-		values.SetupType = setupTypeWorktree
+	if values.Provisioner == "" {
+		values.Provisioner = provisionerWorktree
 	}
 
 	fields := append([]huh.Field{
@@ -474,19 +479,20 @@ func workflowConfigForm(nameTitle string, values *workflowFormValues, available 
 	toggleIndex := len(fields)
 	fields = append(fields,
 
-		huh.NewSelect[string]().Key(setupTypeKey).Title("Setup type").
-			Options(setupTypeOptions()...).Value(&values.SetupType),
+		huh.NewSelect[string]().Key(provisionerKey).Title("Setup type").
+			Options(provisionerOptions()...).Value(&values.Provisioner),
 	)
 
-	switch values.SetupType {
-	case setupTypeCustom:
+	switch values.Provisioner {
+	case provisionerNone:
+	case provisionerScript:
 		// Options comes before Value so huh reads the zero value and leaves the list scrolled
 		// to the top, which holds only while None, carrying the empty action, leads it.
 		fields = append(fields,
-			huh.NewSelect[string]().Key("setup").Title("Setup action").
-				Options(actionOptions(available, values.SetupAction)...).Value(&values.SetupAction),
-			huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-				Options(actionOptions(available, values.CleanupAction)...).Value(&values.CleanupAction),
+			huh.NewSelect[string]().Key("provision").Title("Provision action").
+				Options(actionOptions(available, values.ProvisionAction)...).Value(&values.ProvisionAction),
+			huh.NewSelect[string]().Key("deprovision").Title("Deprovision action").
+				Options(actionOptions(available, values.DeprovisionAction)...).Value(&values.DeprovisionAction),
 		)
 	default:
 		fields = append(fields, worktreeDetailFields(values)...)

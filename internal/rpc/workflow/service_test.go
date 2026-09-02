@@ -94,10 +94,10 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 		{
 			name: "enabling it alongside a hand-named setup action is refused",
 			req: &workflowv1.CreateWorkflowRequest{
-				Name:        "backend",
-				Cwd:         "/repo",
-				SetupAction: "hand-written",
-				Worktree:    &workflowv1.WorktreeConfig{Enabled: true},
+				Name:            "backend",
+				Cwd:             "/repo",
+				ProvisionAction: "hand-written",
+				Worktree:        &workflowv1.WorktreeConfig{Enabled: true},
 			},
 			wantCode: connect.CodeInvalidArgument,
 		},
@@ -118,8 +118,8 @@ func TestCreateWorkflowWorktree(t *testing.T) {
 				assert.Equal(t, "develop", created.GetWorktree().GetBaseBranch())
 				assert.Equal(t, []string{".env"}, created.GetWorktree().GetCopyPaths())
 				assert.Equal(t, []string{"node_modules"}, created.GetWorktree().GetSymlinkPaths())
-				assert.NotEmpty(t, created.GetSetupAction())
-				assert.NotEmpty(t, created.GetCleanupAction())
+				assert.NotEmpty(t, created.GetProvisionAction())
+				assert.NotEmpty(t, created.GetDeprovisionAction())
 			},
 		},
 	}

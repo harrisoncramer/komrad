@@ -13,7 +13,7 @@ import (
 )
 
 // TestNewChildAgentTakesItsLaunchFromTheParent pins what a child is given rather than asked
-// for: the parent's checkout, no actions of its own, and the parent's workflow.
+// for: the parent's checkout, no provisioner of its own, and the parent's workflow.
 func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -43,14 +43,42 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	assert.Equal(t, parent.ID, *child.ParentAgentID)
 	assert.Equal(t, parent.WorkflowID, child.WorkflowID)
 
-	// An unset action falls back to the workflow's, which for a worktree-enabled workflow would
-	// tear the parent's checkout down, so the blanks have to be on the row itself.
-	require.NotNil(t, child.SetupAction)
-	assert.Empty(t, *child.SetupAction)
-	require.NotNil(t, child.CleanupAction)
-	assert.Empty(t, *child.CleanupAction)
+	// An unset provisioner falls back to the workflow's, which for a worktree-enabled workflow
+	// would tear the parent's checkout down, so the blank has to be on the row itself.
+	require.NotNil(t, child.ProvisionAction)
+	assert.Empty(t, *child.ProvisionAction)
 
-	assert.Empty(t, cleanupActionFor(ctx, st.Workflows, *child), "and nothing is left to run against it")
+	assert.Empty(t, deprovisionActionFor(ctx, st.Workflows, *child), "and a retired provisioner leaves nothing to run against it")
+}
+
+// TestNewChildAgentRetiresADeprovisionItWasHanded covers the half that is no longer refused:
+// a child provisions nothing, so a deprovision action named alongside it is never consulted
+// rather than being an argument the caller has to leave out.
+func TestNewChildAgentRetiresADeprovisionItWasHanded(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	parent, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	child, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:             "reviewer",
+		Prompt:            "read the change",
+		WorkflowID:        parent.WorkflowID,
+		ParentAgentID:     parent.ID,
+		DeprovisionAction: xptr.Ptr("teardown"),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, child)
+
+	assert.Empty(t, deprovisionActionFor(ctx, st.Workflows, *child), "the blank provision half retires it")
 }
 
 // TestNewChildAgentRefusals pins that a request asking for what the parent decides is answered
@@ -73,23 +101,12 @@ func TestNewChildAgentRefusals(t *testing.T) {
 			wantErrIs: ErrChildOwnsLaunch,
 		},
 		{
-			name: "a setup action of its own",
+			name: "a provisioner of its own",
 			params: func(parent agentstore.Agent) NewAgentParams {
 				return NewAgentParams{
-					SetupAction:   xptr.Ptr("worktree"),
-					WorkflowID:    parent.WorkflowID,
-					ParentAgentID: parent.ID,
-				}
-			},
-			wantErrIs: ErrChildOwnsLaunch,
-		},
-		{
-			name: "a cleanup action of its own",
-			params: func(parent agentstore.Agent) NewAgentParams {
-				return NewAgentParams{
-					CleanupAction: xptr.Ptr("teardown"),
-					WorkflowID:    parent.WorkflowID,
-					ParentAgentID: parent.ID,
+					ProvisionAction: xptr.Ptr("worktree"),
+					WorkflowID:      parent.WorkflowID,
+					ParentAgentID:   parent.ID,
 				}
 			},
 			wantErrIs: ErrChildOwnsLaunch,

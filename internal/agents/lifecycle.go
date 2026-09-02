@@ -33,7 +33,7 @@ type emptyWorkflowDeleter interface {
 }
 
 // LifecycleService moves agents between the live listing, the archive and gone, running the
-// cleanup action on the way out.
+// deprovision action on the way out.
 type LifecycleService struct {
 	tmux           paneKiller
 	agents         lifecycleAgentStore
@@ -74,7 +74,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 }
 
 // DeleteAgents stops agents and removes those with nothing left to tear down, holding back any
-// whose cleanup action is still running until it finishes.
+// whose deprovision action is still running until it finishes.
 func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
 	named, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -86,7 +86,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		return err
 	}
 
-	// A cleanup action must not run against a directory a CLI is still working in, and since the
+	// A deprovision action must not run against a directory a CLI is still working in, and since the
 	// children share their parent's, this is what keeps the parent's cleanup from tearing down a
 	// checkout one of them is still sitting in.
 	killOwnedPanes(ctx, s.tmux, agents)
@@ -95,7 +95,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 
 	var immediate []agentstore.Agent
 	for _, agent := range agents {
-		name := cleanupActionFor(ctx, s.workflows, agent)
+		name := deprovisionActionFor(ctx, s.workflows, agent)
 		if s.actions == nil || name == "" {
 			immediate = append(immediate, agent)
 
@@ -103,7 +103,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		}
 
 		// The row is never dropped before the action says whether it worked.
-		runCleanup(ctx, s.actions, agent, name, func(cleanupErr error) {
+		runDeprovision(ctx, s.actions, agent, name, func(cleanupErr error) {
 			if cleanupErr != nil {
 				s.failCleanup(bg, agent, cleanupErr)
 

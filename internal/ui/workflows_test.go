@@ -217,7 +217,7 @@ func TestWorkflowWrites(t *testing.T) {
 	}
 }
 
-// TestAvailableActionsSkipUnderscoredNames covers what the workflow form's setup and cleanup
+// TestAvailableActionsSkipUnderscoredNames covers what the workflow form's provision and deprovision
 // fields are chosen from: files meant only to be sourced are excluded, since naming one
 // would run a fragment on its own.
 func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {

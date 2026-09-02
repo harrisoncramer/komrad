@@ -15,8 +15,8 @@ import (
 )
 
 const (
-	worktreeSetupAction   = "_worktree_setup"
-	worktreeCleanupAction = "_worktree_cleanup"
+	worktreeProvisionAction   = "_worktree_setup"
+	worktreeDeprovisionAction = "_worktree_cleanup"
 )
 
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
@@ -27,9 +27,7 @@ var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd na
 
 var ErrWorktreeCwdNotPrimaryCheckout = errors.New("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
-var ErrWorktreeOwnsActions = errors.New("a worktree-enabled workflow points setup_action and cleanup_action at the built-in pair itself, so both must be blank")
-
-var ErrWorktreeActionsReserved = errors.New("setup_action and cleanup_action may not name the built-in worktree pair unless worktree.enabled is set")
+var ErrWorktreeOwnsProvisioner = errors.New("a worktree-enabled workflow provisions its agents itself, so provision_action must be blank")
 
 var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
 
@@ -105,8 +103,8 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
-	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
+	cfg.ProvisionAction = strings.TrimSpace(cfg.ProvisionAction)
+	cfg.DeprovisionAction = strings.TrimSpace(cfg.DeprovisionAction)
 	normalizeWorktree(&cfg)
 
 	if err := validateWorktreePaths(cfg); err != nil {
@@ -114,11 +112,9 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 	}
 
 	if cfg.Worktree.Enabled {
-		if err := setWorktreeActions(&cfg); err != nil {
+		if err := setWorktreeProvisioner(&cfg); err != nil {
 			return nil, err
 		}
-	} else if namesReservedWorktreeAction(cfg) {
-		return nil, ErrWorktreeActionsReserved
 	}
 
 	// The workflow, its blueprint, and its action config are three rows, so a failure partway
@@ -155,8 +151,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	cfg.Cwd = config.ExpandHome(strings.TrimSpace(cfg.Cwd))
 	cfg.Flags = strings.TrimSpace(cfg.Flags)
-	cfg.SetupAction = strings.TrimSpace(cfg.SetupAction)
-	cfg.CleanupAction = strings.TrimSpace(cfg.CleanupAction)
+	cfg.ProvisionAction = strings.TrimSpace(cfg.ProvisionAction)
+	cfg.DeprovisionAction = strings.TrimSpace(cfg.DeprovisionAction)
 	normalizeWorktree(&cfg)
 
 	if err := validateWorktreePaths(cfg); err != nil {
@@ -165,20 +161,18 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 
 	switch {
 	case cfg.Worktree.Enabled:
-		if err := setWorktreeActions(&cfg); err != nil {
+		if err := setWorktreeProvisioner(&cfg); err != nil {
 			return err
 		}
 	case existing.Worktree.Enabled:
 		// Turning worktree support off clears only the built-in pair, leaving alone anything a
 		// caller has since pointed somewhere else.
-		if cfg.SetupAction == worktreeSetupAction {
-			cfg.SetupAction = ""
+		if cfg.ProvisionAction == worktreeProvisionAction {
+			cfg.ProvisionAction = ""
 		}
-		if cfg.CleanupAction == worktreeCleanupAction {
-			cfg.CleanupAction = ""
+		if cfg.DeprovisionAction == worktreeDeprovisionAction {
+			cfg.DeprovisionAction = ""
 		}
-	case namesReservedWorktreeAction(cfg):
-		return ErrWorktreeActionsReserved
 	}
 
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
@@ -189,10 +183,6 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	}
 
 	return nil
-}
-
-func namesReservedWorktreeAction(cfg workflowstore.Config) bool {
-	return cfg.SetupAction == worktreeSetupAction || cfg.CleanupAction == worktreeCleanupAction
 }
 
 func normalizeWorktree(cfg *workflowstore.Config) {
@@ -251,22 +241,24 @@ func validateWorktreePath(path string) error {
 	return nil
 }
 
-func setWorktreeActions(cfg *workflowstore.Config) error {
+// setWorktreeProvisioner points a workflow at the built-in pair, which is the one conflict
+// left: the toggle and a provisioner of your own answer the same question.
+func setWorktreeProvisioner(cfg *workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
 	}
-	if cfg.SetupAction != "" && cfg.SetupAction != worktreeSetupAction {
-		return ErrWorktreeOwnsActions
+	if cfg.ProvisionAction != "" && cfg.ProvisionAction != worktreeProvisionAction {
+		return ErrWorktreeOwnsProvisioner
 	}
-	if cfg.CleanupAction != "" && cfg.CleanupAction != worktreeCleanupAction {
-		return ErrWorktreeOwnsActions
+	if cfg.DeprovisionAction != "" && cfg.DeprovisionAction != worktreeDeprovisionAction {
+		return ErrWorktreeOwnsProvisioner
 	}
 	if err := requirePrimaryCheckout(cfg.Cwd); err != nil {
 		return err
 	}
 
-	cfg.SetupAction = worktreeSetupAction
-	cfg.CleanupAction = worktreeCleanupAction
+	cfg.ProvisionAction = worktreeProvisionAction
+	cfg.DeprovisionAction = worktreeDeprovisionAction
 
 	return nil
 }

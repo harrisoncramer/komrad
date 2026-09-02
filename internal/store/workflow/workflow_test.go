@@ -244,9 +244,9 @@ func TestActionsRoundTrip(t *testing.T) {
 		{
 			name: "both are carried",
 			create: Config{
-				Name:          "backend",
-				SetupAction:   "make-worktree",
-				CleanupAction: "drop-worktree",
+				Name:              "backend",
+				ProvisionAction:   "make-worktree",
+				DeprovisionAction: "drop-worktree",
 			},
 			wantSetup:   "make-worktree",
 			wantCleanup: "drop-worktree",
@@ -254,11 +254,11 @@ func TestActionsRoundTrip(t *testing.T) {
 		{
 			name: "an update writes both, so clearing one clears it",
 			create: Config{
-				Name:          "backend",
-				SetupAction:   "make-worktree",
-				CleanupAction: "drop-worktree",
+				Name:              "backend",
+				ProvisionAction:   "make-worktree",
+				DeprovisionAction: "drop-worktree",
 			},
-			update:    &Config{Name: "backend", SetupAction: "provision"},
+			update:    &Config{Name: "backend", ProvisionAction: "provision"},
 			wantSetup: "provision",
 		},
 	}
@@ -270,7 +270,7 @@ func TestActionsRoundTrip(t *testing.T) {
 
 			created, err := st.Create(ctx, tt.create)
 			require.NoError(t, err)
-			assert.Equal(t, tt.create.SetupAction, created.SetupAction, "the create result carries what it was given")
+			assert.Equal(t, tt.create.ProvisionAction, created.ProvisionAction, "the create result carries what it was given")
 
 			if tt.update != nil {
 				require.NoError(t, st.Update(ctx, created.ID, *tt.update))
@@ -279,13 +279,13 @@ func TestActionsRoundTrip(t *testing.T) {
 			got, err := st.Get(ctx, created.ID)
 			require.NoError(t, err)
 			require.NotNil(t, got)
-			assert.Equal(t, tt.wantSetup, got.SetupAction)
-			assert.Equal(t, tt.wantCleanup, got.CleanupAction)
+			assert.Equal(t, tt.wantSetup, got.ProvisionAction)
+			assert.Equal(t, tt.wantCleanup, got.DeprovisionAction)
 
 			listed, err := st.List(ctx)
 			require.NoError(t, err)
 			require.Len(t, listed, 1)
-			assert.Equal(t, tt.wantSetup, listed[0].SetupAction, "the listing carries them too")
+			assert.Equal(t, tt.wantSetup, listed[0].ProvisionAction, "the listing carries them too")
 		})
 	}
 }
@@ -415,7 +415,7 @@ func TestGetIncludingArchived(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend", CleanupAction: "drop-worktree"})
+				created, err := st.Create(ctx, Config{Name: "backend", DeprovisionAction: "drop-worktree"})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -434,7 +434,7 @@ func TestGetIncludingArchived(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, got)
-			assert.Equal(t, "drop-worktree", got.CleanupAction)
+			assert.Equal(t, "drop-worktree", got.DeprovisionAction)
 
 			if tt.archive {
 				assert.NotNil(t, got.ArchivedAt)

@@ -410,9 +410,9 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 	assert.Equal(t, gone, payload.Cwd, "a script works out what to clean from the path itself")
 }
 
-// TestRunSetupAction covers the two things a workflow's setup action decides about a create,
+// TestRunProvisionAction covers the two things a workflow's setup action decides about a create,
 // which are whether it happens at all and where the agent ends up running.
-func TestRunSetupAction(t *testing.T) {
+func TestRunProvisionAction(t *testing.T) {
 	tests := []struct {
 		name    string
 		action  string
@@ -436,15 +436,15 @@ func TestRunSetupAction(t *testing.T) {
 		{
 			name:    "one that writes too much to its dir file is refused rather than believed",
 			action:  "loud",
-			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir+1)},
+			result:  runResult{dirFile: strings.Repeat("a", maxProvisionedDir+1)},
 			wantRan: []string{"loud"},
 			wantErr: true,
 		},
 		{
 			name:    "one that writes right up to the cap is believed rather than cut short",
 			action:  "loud",
-			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir)},
-			wantDir: strings.Repeat("a", maxSetupDir),
+			result:  runResult{dirFile: strings.Repeat("a", maxProvisionedDir)},
+			wantDir: strings.Repeat("a", maxProvisionedDir),
 			wantRan: []string{"loud"},
 		},
 		{
@@ -471,10 +471,10 @@ func TestRunSetupAction(t *testing.T) {
 			runner := &recordingRunner{results: map[string]runResult{tt.action: tt.result}}
 			service := actionService(t, dir, runner)
 
-			got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action, "")
+			got, err := service.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action, "")
 
 			if tt.wantErr {
-				require.ErrorIs(t, err, ErrSetupFailed)
+				require.ErrorIs(t, err, ErrProvisionFailed)
 				assert.Empty(t, got, "a refused setup names no directory")
 			} else {
 				require.NoError(t, err)
@@ -485,9 +485,9 @@ func TestRunSetupAction(t *testing.T) {
 	}
 }
 
-// TestRunSetupActionDoesNotHoldTheWholeDirFile pins that a setup writing a large log is
+// TestRunProvisionActionDoesNotHoldTheWholeDirFile pins that a setup writing a large log is
 // streamed rather than held in memory.
-func TestRunSetupActionDoesNotHoldTheWholeDirFile(t *testing.T) {
+func TestRunProvisionActionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	const wrote = 32 << 20
 
 	dir := t.TempDir()
@@ -499,20 +499,20 @@ func TestRunSetupActionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 
-	got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy", "")
+	got, err := service.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy", "")
 
 	runtime.ReadMemStats(&after)
 
-	require.ErrorIs(t, err, ErrSetupFailed)
+	require.ErrorIs(t, err, ErrProvisionFailed)
 	assert.Empty(t, got, "a refused setup names no directory")
 	assert.Contains(t, err.Error(), setupDirFileVar)
 	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(4<<20),
 		"the refusal read the whole dir file to arrive at it")
 }
 
-// TestRunSetupActionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
+// TestRunProvisionActionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
 // only makes sense at one moment can refuse the others itself.
-func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
+func TestRunProvisionActionTellsTheScriptWhatSetItOff(t *testing.T) {
 	tests := []struct {
 		name        string
 		fire        func(*ActionService, *recordingRunner) error
@@ -528,10 +528,10 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's setup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				_, err := s.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
+				_, err := s.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
 				return err
 			},
-			wantTrigger: TriggerSetup,
+			wantTrigger: TriggerProvision,
 		},
 		{
 			name: "fired as a workflow's setup on the way back up",
@@ -544,9 +544,9 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's cleanup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				return s.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", nil)
+				return s.RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", nil)
 			},
-			wantTrigger: TriggerCleanup,
+			wantTrigger: TriggerDeprovision,
 		},
 	}
 
@@ -563,9 +563,9 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 	}
 }
 
-// TestRunSetupActionCarriesTheReason pins the script's stderr travelling with the refusal,
+// TestRunProvisionActionCarriesTheReason pins the script's stderr travelling with the refusal,
 // since it is the only thing that says why.
-func TestRunSetupActionCarriesTheReason(t *testing.T) {
+func TestRunProvisionActionCarriesTheReason(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
 
@@ -573,7 +573,7 @@ func TestRunSetupActionCarriesTheReason(t *testing.T) {
 		"make-worktree": {stderr: "fatal: 'api-auth' is already checked out", err: actions.ErrFailed},
 	}}
 
-	_, err := actionService(t, dir, runner).RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
+	_, err := actionService(t, dir, runner).RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already checked out")
@@ -734,11 +734,11 @@ func (realPaneRunner) GetInfoPane() string        { return "" }
 func (realPaneRunner) ShowGlobal(string) string   { return "" }
 func (realPaneRunner) DefaultShell() string       { return "" }
 
-// TestRunCleanupActionRefusesOneThatIsGone pins a renamed script being reported rather than
+// TestRunDeprovisionActionRefusesOneThatIsGone pins a renamed script being reported rather than
 // pretended over, leaving the caller to decide the agent is still removable.
-func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
+func TestRunDeprovisionActionRefusesOneThatIsGone(t *testing.T) {
 	err := actionService(t, t.TempDir(), &recordingRunner{}).
-		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
+		RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
 
 	require.ErrorIs(t, err, actions.ErrActionNotFound)
 }
@@ -813,9 +813,9 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 	}
 }
 
-// TestSetupActionLogsBothEnds pins the log saying a run happened and what came of it, which is
+// TestProvisionActionLogsBothEnds pins the log saying a run happened and what came of it, which is
 // the half nothing else records.
-func TestSetupActionLogsBothEnds(t *testing.T) {
+func TestProvisionActionLogsBothEnds(t *testing.T) {
 	tests := []struct {
 		name       string
 		result     runResult
@@ -831,7 +831,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 			wantFields: map[string]any{
 				"process.exit.code":    float64(2),
 				"weave.action.stderr":  "fatal: 'api-auth' is already checked out",
-				"weave.action.trigger": TriggerSetup,
+				"weave.action.trigger": TriggerProvision,
 			},
 		},
 		{
@@ -855,7 +855,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 			ctx, records := loggedContext(t)
 
 			_, err := actionService(t, dir, runner).
-				RunSetupAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree", "")
+				RunProvisionAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree", "")
 			if tt.result.err != nil {
 				require.Error(t, err)
 			} else {
@@ -866,7 +866,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 
 			began := recordFor(t, written, "action started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, TriggerSetup, began["weave.action.trigger"])
+			assert.Equal(t, TriggerProvision, began["weave.action.trigger"])
 
 			got := recordFor(t, written, "action finished")
 			assert.Equal(t, "INFO", got["severity_text"], "the caller reports the refusal, this says a run happened")
@@ -878,9 +878,9 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 	}
 }
 
-// TestRunCleanupActionLogsUnderItsOwnTrigger covers the field that separates the two
+// TestRunDeprovisionActionLogsUnderItsOwnTrigger covers the field that separates the two
 // fire-and-forget paths in a log.
-func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
+func TestRunDeprovisionActionLogsUnderItsOwnTrigger(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
 
@@ -891,22 +891,22 @@ func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
 	var doneErr error
 	var doneCalled bool
 	require.NoError(t, actionService(t, dir, runner).
-		RunCleanupAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup", func(err error) {
+		RunDeprovisionAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup", func(err error) {
 			doneCalled = true
 			doneErr = err
 		}))
 
 	got := recordFor(t, records(), "action failed")
-	assert.Equal(t, TriggerCleanup, got["weave.action.trigger"])
+	assert.Equal(t, TriggerDeprovision, got["weave.action.trigger"])
 	assert.Equal(t, "a2", got["weave.action.agent.id"])
 	assert.Equal(t, gone, got["weave.action.agent.cwd"], "the row is gone, so the record is what names the directory")
 	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")
 	assert.ErrorIs(t, doneErr, actions.ErrFailed)
 }
 
-// TestRunCleanupActionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
+// TestRunDeprovisionActionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
 // worktree cleanup declines that way and would otherwise leave a tree on disk with no trace.
-func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
+func TestRunDeprovisionActionLogsWhatAZeroExitSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
 
@@ -917,7 +917,7 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	var doneErr error
 	var doneCalled bool
 	require.NoError(t, actionService(t, dir, runner).
-		RunCleanupAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup", func(err error) {
+		RunDeprovisionAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup", func(err error) {
 			doneCalled = true
 			doneErr = err
 		}))
@@ -929,9 +929,9 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	assert.NoError(t, doneErr)
 }
 
-// TestRunCleanupActionPersistsStdoutOnAFailure pins stdout being captured too, since a script
+// TestRunDeprovisionActionPersistsStdoutOnAFailure pins stdout being captured too, since a script
 // that fails through a plain echo and a bare exit would otherwise leave the log empty.
-func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
+func TestRunDeprovisionActionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte(
 		"#!/bin/sh\necho tearing down 1\necho tearing down 2\nexit 1\n",
@@ -941,7 +941,7 @@ func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
 
 	done := make(chan error, 1)
-	require.NoError(t, svc.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+	require.NoError(t, svc.RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
 		done <- err
 	}))
 
@@ -958,10 +958,10 @@ func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 	assert.Contains(t, string(persisted), "tearing down 2")
 }
 
-// TestRunSetupActionPersistsStdoutOnAFailure covers a setup script that fails through a
+// TestRunProvisionActionPersistsStdoutOnAFailure covers a setup script that fails through a
 // plain echo and a bare exit, never touching stderr, and checks the per-agent log, the
 // structured log, and the refusal a create call returns all carry what it said.
-func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
+func TestRunProvisionActionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte(
 		"#!/bin/sh\necho diagnosing 1\necho diagnosing 2\nexit 1\n",
@@ -971,7 +971,7 @@ func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
 	ctx, records := loggedContext(t)
 
-	_, err := svc.RunSetupAction(ctx, agentstore.Agent{ID: "a1"}, "setup", "")
+	_, err := svc.RunProvisionAction(ctx, agentstore.Agent{ID: "a1"}, "setup", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
@@ -1098,7 +1098,7 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 			svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
 
 			done := make(chan error, 1)
-			require.NoError(t, svc.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+			require.NoError(t, svc.RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
 				done <- err
 			}))
 
@@ -1223,7 +1223,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a cleanup that declares nothing gets the default ceiling",
 			action: "bare",
 			fire: func(s *ActionService, name string) error {
-				return s.RunCleanupAction(context.Background(), agent, name, nil)
+				return s.RunDeprovisionAction(context.Background(), agent, name, nil)
 			},
 			want: 2 * time.Minute,
 		},
@@ -1231,7 +1231,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a cleanup that declares no limit stays unbounded",
 			action: "unlimited",
 			fire: func(s *ActionService, name string) error {
-				return s.RunCleanupAction(context.Background(), agent, name, nil)
+				return s.RunDeprovisionAction(context.Background(), agent, name, nil)
 			},
 			want: 0,
 		},
@@ -1239,17 +1239,17 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a setup action that declares nothing keeps the ceiling a launch needs",
 			action: "bare",
 			fire: func(s *ActionService, name string) error {
-				_, err := s.RunSetupAction(context.Background(), agent, name, "")
+				_, err := s.RunProvisionAction(context.Background(), agent, name, "")
 
 				return err
 			},
-			want: setupTimeout,
+			want: provisionTimeout,
 		},
 		{
 			name:   "a setup action that declares one is held to what it declared",
 			action: "declared",
 			fire: func(s *ActionService, name string) error {
-				_, err := s.RunSetupAction(context.Background(), agent, name, "")
+				_, err := s.RunProvisionAction(context.Background(), agent, name, "")
 
 				return err
 			},
@@ -1354,7 +1354,7 @@ func TestRunActionConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		{
 			name: "a setup action is never guarded by the in-flight set",
 			fire: func(_ *testing.T, svc *ActionService) error {
-				_, err := svc.RunSetupAction(context.Background(), agentstore.Agent{ID: "a1"}, "slow", "")
+				_, err := svc.RunProvisionAction(context.Background(), agentstore.Agent{ID: "a1"}, "slow", "")
 
 				return err
 			},

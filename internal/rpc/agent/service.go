@@ -146,17 +146,17 @@ func NewService(p NewServiceParams) *Service {
 // CreateAgent launches a background agent and returns it as stored.
 func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
 	created, err := s.creator.NewAgent(ctx, agents.NewAgentParams{
-		Title:          req.Msg.GetTitle(),
-		Dir:            req.Msg.GetDir(),
-		Flags:          req.Msg.GetFlags(),
-		SetupAction:    req.Msg.SetupAction,
-		CleanupAction:  req.Msg.CleanupAction,
-		Prompt:         req.Msg.GetPrompt(),
-		WorkflowID:     req.Msg.GetWorkflowId(),
-		Harness:        req.Msg.GetHarness(),
-		IdempotencyKey: req.Msg.GetIdempotencyKey(),
-		SetupPane:      req.Msg.GetSetupPane(),
-		ParentAgentID:  req.Msg.GetParentAgentId(),
+		Title:             req.Msg.GetTitle(),
+		Dir:               req.Msg.GetDir(),
+		Flags:             req.Msg.GetFlags(),
+		ProvisionAction:   req.Msg.ProvisionAction,
+		DeprovisionAction: req.Msg.DeprovisionAction,
+		Prompt:            req.Msg.GetPrompt(),
+		WorkflowID:        req.Msg.GetWorkflowId(),
+		Harness:           req.Msg.GetHarness(),
+		IdempotencyKey:    req.Msg.GetIdempotencyKey(),
+		SetupPane:         req.Msg.GetSetupPane(),
+		ParentAgentID:     req.Msg.GetParentAgentId(),
 	})
 	// Create-once is what the key is for, so a key already spent answers with the agent it
 	// launched rather than an error.
@@ -464,7 +464,7 @@ func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1
 }
 
 // EmptyArchive queues the sweep that deletes the whole archive as a background job, since
-// every agent in it runs its own cleanup action and the request would be held open too long.
+// every agent in it runs its own deprovision action and the request would be held open too long.
 func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.archive.EmptyArchive(ctx); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to empty the archive")

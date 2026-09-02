@@ -162,11 +162,10 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	case owner != nil:
 		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
 	default:
-		// The checkout is somebody else's work, so both actions are blanked to stop the workflow
+		// The checkout is somebody else's work, so the provisioner is retired to stop the workflow
 		// making a second one and, on delete, removing a directory weave never created.
 		params.Dir = trees.holder
-		params.SetupAction = xptr.Ptr("")
-		params.CleanupAction = xptr.Ptr("")
+		params.ProvisionAction = xptr.Ptr("")
 	}
 
 	created, err := s.launch.NewAgent(ctx, params)

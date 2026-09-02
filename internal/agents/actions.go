@@ -46,10 +46,10 @@ type actionRunner interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	TriggerManual  = "manual"
-	TriggerSetup   = "setup"
-	TriggerResume  = "resume"
-	TriggerCleanup = "cleanup"
+	TriggerManual      = "manual"
+	TriggerProvision   = "provision"
+	TriggerResume      = "resume"
+	TriggerDeprovision = "deprovision"
 )
 
 type ActionService struct {
@@ -141,28 +141,28 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 	})
 }
 
-var ErrSetupFailed = errors.New("the setup action failed")
+var ErrProvisionFailed = errors.New("the provision action failed")
 
-const setupTimeout = 10 * time.Minute
+const provisionTimeout = 10 * time.Minute
 
-const cleanupTimeout = 2 * time.Minute
+const deprovisionTimeout = 2 * time.Minute
 
-const maxSetupDir = 4096
+const maxProvisionedDir = 4096
 
 const actionDetailCap = 400
 
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
-// RunSetupAction runs a setup action before creating an agent.
-func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+// RunProvisionAction runs the provision action that owns an agent's directory before creating it.
+func (s *ActionService) RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerSetup,
+		trigger: TriggerProvision,
 	}, pane)
 }
 
-// RunResumeAction reruns a setup action before resuming an agent.
+// RunResumeAction reruns the provision action before resuming an agent.
 func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{
 		agent:   agent,
@@ -178,23 +178,23 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 
 	action, env, err := s.prepare(ctx, p)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
+		return "", fmt.Errorf("%w: %w", ErrProvisionFailed, err)
 	}
 
-	dirFile, err := os.CreateTemp("", "weave-setup-dir-*")
+	dirFile, err := os.CreateTemp("", "weave-provision-dir-*")
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, err)
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, err)
 	}
 	dirPath := dirFile.Name()
 	closeErr := dirFile.Close()
 	defer func() {
 		if removeErr := os.Remove(dirPath); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
 			s.actionLogger(ctx, p.name, p.trigger, p.agent).LogAttrs(ctx, slog.LevelWarn,
-				"failed to remove the setup action's directory file", logging.Err(removeErr)...)
+				"failed to remove the provision action's directory file", logging.Err(removeErr)...)
 		}
 	}()
 	if closeErr != nil {
-		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, closeErr)
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, closeErr)
 	}
 
 	env = append(env, setupDirFileVar+"="+dirPath)
@@ -203,7 +203,7 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
 
-	timeout := action.Header.TimeoutOr(setupTimeout)
+	timeout := action.Header.TimeoutOr(provisionTimeout)
 	logPath := s.actionLogPath(p.agent.ID, config.ActionLogSetup)
 
 	var result actions.Result
@@ -222,16 +222,16 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 
 	if err != nil {
-		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
+		return "", fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
 	}
 
 	named, err := readSetupDir(dirPath)
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrSetupFailed, p.name, err)
+		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrProvisionFailed, p.name, err)
 	}
 
-	if len(named) > maxSetupDir {
-		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrSetupFailed, p.name, maxSetupDir, setupDirFileVar)
+	if len(named) > maxProvisionedDir {
+		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrProvisionFailed, p.name, maxProvisionedDir, setupDirFileVar)
 	}
 
 	return string(bytes.TrimSpace(named)), nil
@@ -251,7 +251,7 @@ wait "$teepid"
 rm -f "$6"
 echo "$ec" >"$4"
 if [ "$ec" -ne 0 ]; then
-  printf '\n[setup action exited %s -- press enter to close]\n' "$ec"
+  printf '\n[provision action exited %s -- press enter to close]\n' "$ec"
 fi
 tmux -L "$2" wait-for -S "$3"
 if [ "$ec" -ne 0 ]; then
@@ -260,7 +260,7 @@ fi
 `
 
 const setupPaneGaveUpWrapper = `
-printf '\n[setup action %s: gave up after %s]\n' "$1" "$2"
+printf '\n[provision action %s: gave up after %s]\n' "$1" "$2"
 exec "$3"
 `
 
@@ -309,7 +309,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w: the pane %s is gone", action.Name, actions.ErrNotStartable, pane)
 	}
 
-	exitFile, err := os.CreateTemp("", "weave-setup-exit-")
+	exitFile, err := os.CreateTemp("", "weave-provision-exit-")
 	if err != nil {
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
 	}
@@ -318,7 +318,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 
 	errPath := logPath
 	if errPath == "" {
-		errFile, err := os.CreateTemp("", "weave-setup-err-")
+		errFile, err := os.CreateTemp("", "weave-provision-err-")
 		if err != nil {
 			return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
 		}
@@ -327,7 +327,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 		defer removeTemp(ctx, errPath)
 	}
 
-	fifoFile, err := os.CreateTemp("", "weave-setup-fifo-")
+	fifoFile, err := os.CreateTemp("", "weave-provision-fifo-")
 	if err != nil {
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
 	}
@@ -336,7 +336,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 	removeTemp(ctx, fifoPath)
 	defer removeTemp(ctx, fifoPath)
 
-	channel := fmt.Sprintf("weave-setup-%s-%d", strings.TrimPrefix(pane, "%"), time.Now().UnixNano())
+	channel := fmt.Sprintf("weave-provision-%s-%d", strings.TrimPrefix(pane, "%"), time.Now().UnixNano())
 
 	waitCtx := ctx
 	if timeout > 0 {
@@ -465,16 +465,16 @@ func readSetupDir(path string) ([]byte, error) {
 	}
 	defer file.Close()
 
-	return io.ReadAll(io.LimitReader(file, maxSetupDir+1))
+	return io.ReadAll(io.LimitReader(file, maxProvisionedDir+1))
 }
 
-// RunCleanupAction starts a cleanup action without waiting for it to finish, calling done once
+// RunDeprovisionAction starts a deprovision action without waiting for it to finish, calling done once
 // with nil on success or the failure otherwise, and never when the action refuses to start.
-func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+func (s *ActionService) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	action, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerCleanup,
+		trigger: TriggerDeprovision,
 	})
 	if err != nil {
 		return err
@@ -484,7 +484,7 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 		action:  action,
 		env:     env,
 		agent:   agent,
-		trigger: TriggerCleanup,
+		trigger: TriggerDeprovision,
 		logPath: s.actionLogPath(agent.ID, config.ActionLogTeardown),
 		done:    done,
 	})
@@ -527,8 +527,8 @@ type startParams struct {
 }
 
 func timeoutFallback(trigger string) time.Duration {
-	if trigger == TriggerCleanup {
-		return cleanupTimeout
+	if trigger == TriggerDeprovision {
+		return deprovisionTimeout
 	}
 
 	return 0

@@ -226,7 +226,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 }
 
 func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
-	name := setupActionFor(ctx, s.workflows, agent)
+	name := provisionActionFor(ctx, s.workflows, agent)
 	if s.actions == nil || name == "" {
 		return "", nil
 	}

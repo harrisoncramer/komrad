@@ -116,9 +116,9 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
 
-	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", DeprovisionAction: "drop-worktree"})
 	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
+	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend", DeprovisionAction: "drop-container"})
 	require.NoError(t, err)
 
 	auth, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -136,7 +136,7 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, ui.ID}))
 
-	assert.ElementsMatch(t, []string{"drop-worktree", "drop-container"}, lifecycle.cleanup,
+	assert.ElementsMatch(t, []string{"drop-worktree", "drop-container"}, lifecycle.deprovision,
 		"which agent goes first is the listing's order rather than the caller's")
 
 	all, err := st.ListAll(ctx)
@@ -179,7 +179,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflowstore.Config{Name: "backend", DeprovisionAction: "drop-worktree"})
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -192,7 +192,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, uuid.NewString()})
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
-	assert.Empty(t, lifecycle.cleanup, "no workspace was torn down")
+	assert.Empty(t, lifecycle.deprovision, "no workspace was torn down")
 	assert.Empty(t, tmux.killedPanes, "and nothing was stopped")
 
 	all, err := st.ListAll(ctx)

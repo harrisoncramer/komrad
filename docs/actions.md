@@ -19,11 +19,11 @@ An action runs in the actions directory it was found in.
 
 Actions run at three different moments.
 
-### As a workflow's setup action
+### As a workflow's provision action
 
-Every [workflow](workflows.md) can name one action to run before each of its agents starts. This is the one place where the action is synchronous, as the launch waits for it.
+Every [workflow](workflows.md) can name one action that owns where each of its agents runs. This is the one place where the action is synchronous, as the launch waits for it, and a failure abandons the create.
 
-The same action runs with `WEAVE_TRIGGER=resume` if an agent is resumed later, such as when an agent is unarchived and restored.
+The same action runs with `WEAVE_TRIGGER=resume` if an agent is resumed later, since a dormant agent's directory is not guaranteed to still be there and the provisioner is the only thing that can put it back and say where it is.
 
 If it exits zero, weave reads `WEAVE_SETUP_DIR_FILE`, trims it, and uses that as the directory the agent runs in. Write nothing and the agent keeps the directory the workflow or the form chose. This is a file rather than stdout, so a script's own output, and whatever it shells out to, never gets mistaken for the answer:
 
@@ -37,11 +37,11 @@ echo "creating a worktree at $tree" # fine, this is just output
 printf '%s' "$tree" >"$WEAVE_SETUP_DIR_FILE"
 ```
 
-### As a workflow's cleanup action
+### As a workflow's deprovision action
 
-A workflow can also name an action to run once one of its agents is deleted. Nothing waits for it, so the call returns as soon as the process exists.
+A workflow can also name the other half of its provisioner, which gives that directory back once one of its agents is deleted. Nothing waits for it, so the call returns as soon as the process exists, except on a failed launch, where it is awaited so the create cannot report having failed while the directory is still being taken back.
 
-Cleanup fires on delete, and on a failed launch. It does not fire on archive.
+Deprovision fires on delete, and on a failed launch. It does not fire on archive, and it is not read at all for an agent whose own provision action is blank, since such an agent keeps the directory it was given and has nothing to give back.
 
 ### On demand
 
@@ -70,7 +70,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `setup`, `resume`, or `cleanup`.
+- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `provision`, `resume`, or `deprovision`.
 - `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
@@ -89,7 +89,7 @@ You can configure a small set of metadata for an action by adding _headers_ to t
 
 # Add whatever logic you want here.
 # What this writes to stdout or stderr is captured, kept in full in weave's log and
-# the per-agent action log, and cut to a few hundred bytes in a setup refusal's banner.
+# the per-agent action log, and cut to a few hundred bytes in a provision refusal's banner.
 # You can also send messages to the log manually, like this:
 weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
 ```
@@ -114,9 +114,9 @@ exec open "$url"
 
 Weave ships some actions by default.
 
-Action names starting with underscores like these are left out of the workflow form's setup and cleanup fields. Add your own to override the builtins.
+Action names starting with underscores like these are left out of the workflow form's provision and deprovision fields. Add your own to override the builtins.
 
-`_worktree_setup` and `_worktree_cleanup` back a workflow's `worktree.enabled` toggle. Setup copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it.
+`_worktree_setup` and `_worktree_cleanup` are the provisioner behind a workflow's `worktree.enabled` toggle, and are reached only by turning it on rather than by naming them in a field. The setup half copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it. A branch the agent already has is checked out as it stands rather than reset onto the base, so a directory removed by hand and made again keeps whatever the agent had committed.
 
-An agent that [adopted](agents.md) a branch arrives at setup with `WEAVE_WORKTREE_ADOPT_BRANCH` set, and the worktree is made on that branch instead of a new one cut from the base. Cleanup reads the same variable and leaves the branch where it is, since it was never weave's to delete.
+An agent that [adopted](agents.md) a branch arrives at provision with `WEAVE_WORKTREE_ADOPT_BRANCH` set, and the worktree is made on that branch instead of a new one cut from the base. The cleanup half reads the same variable and leaves the branch where it is, since it was never weave's to delete.
 

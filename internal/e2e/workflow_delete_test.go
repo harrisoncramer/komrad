@@ -28,9 +28,9 @@ func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 	), 0o755))
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:          "backend",
-		Cwd:           t.TempDir(),
-		CleanupAction: teardown,
+		Name:              "backend",
+		Cwd:               t.TempDir(),
+		DeprovisionAction: teardown,
 	}))
 	require.NoError(t, err)
 	workflowID := workflow.Msg.GetWorkflow().GetId()

@@ -78,21 +78,21 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 }
 
 type NewAgentParams struct {
-	Client         string
-	Title          string
-	Dir            string
-	Flags          string
-	SetupAction    *string
-	CleanupAction  *string
-	Prompt         string
-	Harness        string
-	WorkflowID     string
-	ScheduleID     *string
-	Hidden         bool
-	IdempotencyKey string
-	SetupPane      string
-	AdoptedBranch  string
-	ParentAgentID  string
+	Client            string
+	Title             string
+	Dir               string
+	Flags             string
+	ProvisionAction   *string
+	DeprovisionAction *string
+	Prompt            string
+	Harness           string
+	WorkflowID        string
+	ScheduleID        *string
+	Hidden            bool
+	IdempotencyKey    string
+	SetupPane         string
+	AdoptedBranch     string
+	ParentAgentID     string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -151,7 +151,7 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 	}
 
 	// The row is left where it stands rather than relaunched into, since its id names the
-	// worktree and branch the cleanup action is still tearing down in the background.
+	// worktree and branch the deprovision action is still tearing down in the background.
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
@@ -168,7 +168,7 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 }
 
 // findParent resolves the agent a child is being attached to, and refuses a request that asks
-// for anything the parent decides instead: the checkout, the two actions, and the workflow are
+// for anything the parent decides instead: the checkout, the provisioner, and the workflow are
 // its parent's rather than the caller's to choose, so a request naming one of them is answered
 // rather than quietly overridden.
 func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
@@ -195,10 +195,8 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	switch {
 	case strings.TrimSpace(p.Dir) != "":
 		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
-	case p.SetupAction != nil && strings.TrimSpace(*p.SetupAction) != "":
-		return nil, fmt.Errorf("%w: it runs no setup action, since the checkout is already there", ErrChildOwnsLaunch)
-	case p.CleanupAction != nil && strings.TrimSpace(*p.CleanupAction) != "":
-		return nil, fmt.Errorf("%w: it runs no cleanup action, since the checkout is not its to tear down", ErrChildOwnsLaunch)
+	case p.ProvisionAction != nil && strings.TrimSpace(*p.ProvisionAction) != "":
+		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", ErrChildOwnsLaunch)
 	case p.WorkflowID != parent.WorkflowID:
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
 	case p.ScheduleID != nil:
@@ -208,26 +206,25 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	return parent, nil
 }
 
-// childParams holds a child to what its parent gives it, writing the blank actions onto the row
-// rather than leaving them unset, since an unset action falls back to the workflow's and for a
-// worktree-enabled workflow that one would tear the parent's checkout down from under it.
+// childParams holds a child to what its parent gives it, writing the retired provisioner onto
+// the row rather than leaving it unset, since an unset one falls back to the workflow's and for
+// a worktree-enabled workflow that would tear the parent's checkout down from under it.
 func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
 	p.Dir = parent.Cwd
-	p.SetupAction = xptr.Ptr("")
-	p.CleanupAction = xptr.Ptr("")
+	p.ProvisionAction = xptr.Ptr("")
 
 	return p
 }
 
 type launchPlan struct {
-	name            string
-	harness         harness.Harness
-	harnessID       string
-	dir             string
-	flags           string
-	workflowContext string
-	setupAction     string
-	cleanupAction   string
+	name              string
+	harness           harness.Harness
+	harnessID         string
+	dir               string
+	flags             string
+	workflowContext   string
+	provisionAction   string
+	deprovisionAction string
 }
 
 func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
@@ -272,25 +269,28 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
-	setupAction := wf.SetupAction
-	if p.SetupAction != nil {
-		setupAction = strings.TrimSpace(*p.SetupAction)
+	provisionAction := wf.ProvisionAction
+	if p.ProvisionAction != nil {
+		provisionAction = strings.TrimSpace(*p.ProvisionAction)
 	}
 
-	cleanupAction := wf.CleanupAction
-	if p.CleanupAction != nil {
-		cleanupAction = strings.TrimSpace(*p.CleanupAction)
+	deprovisionAction := wf.DeprovisionAction
+	if p.DeprovisionAction != nil {
+		deprovisionAction = strings.TrimSpace(*p.DeprovisionAction)
+	}
+	if isProvisionerRetired(p.ProvisionAction) {
+		deprovisionAction = ""
 	}
 
 	return &launchPlan{
-		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
-		harness:         hn,
-		harnessID:       harnessID,
-		dir:             dir,
-		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
-		workflowContext: wf.Context,
-		setupAction:     setupAction,
-		cleanupAction:   cleanupAction,
+		name:              s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
+		harness:           hn,
+		harnessID:         harnessID,
+		dir:               dir,
+		flags:             strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
+		workflowContext:   wf.Context,
+		provisionAction:   provisionAction,
+		deprovisionAction: deprovisionAction,
 	}, nil
 }
 
@@ -301,24 +301,24 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 	}
 
 	return agentstore.Agent{
-		ID:               id,
-		Name:             plan.name,
-		Pane:             pane,
-		Cwd:              dir,
-		Flags:            plan.flags,
-		SetupAction:      params.SetupAction,
-		CleanupAction:    params.CleanupAction,
-		Prompt:           params.Prompt,
-		State:            agentstore.StateIdle,
-		Harness:          plan.harnessID,
-		SessionID:        sessionID,
-		WorkflowID:       params.WorkflowID,
-		ScheduleID:       params.ScheduleID,
-		IdempotencyKey:   nullable(params.IdempotencyKey),
-		SpawnedByAgentID: spawnedBy,
-		ParentAgentID:    nullable(params.ParentAgentID),
-		Hidden:           params.Hidden,
-		AdoptedBranch:    params.AdoptedBranch,
+		ID:                id,
+		Name:              plan.name,
+		Pane:              pane,
+		Cwd:               dir,
+		Flags:             plan.flags,
+		ProvisionAction:   params.ProvisionAction,
+		DeprovisionAction: params.DeprovisionAction,
+		Prompt:            params.Prompt,
+		State:             agentstore.StateIdle,
+		Harness:           plan.harnessID,
+		SessionID:         sessionID,
+		WorkflowID:        params.WorkflowID,
+		ScheduleID:        params.ScheduleID,
+		IdempotencyKey:    nullable(params.IdempotencyKey),
+		SpawnedByAgentID:  spawnedBy,
+		ParentAgentID:     nullable(params.ParentAgentID),
+		Hidden:            params.Hidden,
+		AdoptedBranch:     params.AdoptedBranch,
 	}
 }
 
@@ -357,12 +357,12 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 			s.tmux.KillPane(pane)
 		}
 		if pastSetup {
-			awaitCleanup(teardown, s.actions, agent, plan.cleanupAction)
+			awaitDeprovision(teardown, s.actions, agent, plan.deprovisionAction)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
 
-	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
+	setupName, err := s.runSetup(ctx, agent, plan.provisionAction, p.SetupPane)
 	if err != nil {
 		return nil, err
 	}
@@ -431,18 +431,18 @@ func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, 
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
-// awaitCleanup runs a cleanup action and waits for it, so a create that failed has given back
-// the directory its setup built before the row is closed out against it.
-func awaitCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string) {
+// awaitDeprovision runs a deprovision action and waits for it, so a create that failed has given
+// back the directory it provisioned before the row is closed out against it.
+func awaitDeprovision(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string) {
 	finished := make(chan error, 1)
-	runCleanup(ctx, cleanup, agent, name, func(cleanupErr error) {
+	runDeprovision(ctx, cleanup, agent, name, func(cleanupErr error) {
 		finished <- cleanupErr
 	})
 
 	select {
 	case cleanupErr := <-finished:
 		if cleanupErr != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action of a failed create did not finish",
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovision action of a failed create did not finish",
 				append([]slog.Attr{
 					slog.String(logging.ActionName, name),
 					slog.String(logging.ActionAgentID, agent.ID),
@@ -450,7 +450,7 @@ func awaitCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Ag
 				}, logging.Err(cleanupErr)...)...)
 		}
 	case <-ctx.Done():
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the cleanup action of a failed create",
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the deprovision action of a failed create",
 			slog.String(logging.ActionName, name),
 			slog.String(logging.ActionAgentID, agent.ID),
 			slog.String(logging.ActionAgentCwd, agent.Cwd))
@@ -462,7 +462,7 @@ func (s *LaunchService) runSetup(ctx context.Context, planned agentstore.Agent, 
 		return "", nil
 	}
 
-	return s.actions.RunSetupAction(ctx, planned, name, pane)
+	return s.actions.RunProvisionAction(ctx, planned, name, pane)
 }
 
 func (s *LaunchService) setupDir(planned, named string) (string, error) {
@@ -480,7 +480,7 @@ func namedDir(named string) (string, error) {
 
 	dir := config.ExpandHome(named)
 	if err := requireUsableDir(dir); err != nil {
-		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
+		return "", fmt.Errorf("%w: a provision action named %q: %w", ErrProvisionFailed, dir, err)
 	}
 
 	return dir, nil

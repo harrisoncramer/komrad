@@ -100,7 +100,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 				Prompt:  "go",
 				Enabled: true,
 			},
-			launchErr:        agents.ErrSetupFailed,
+			launchErr:        agents.ErrProvisionFailed,
 			wantCancel:       true,
 			wantLaunched:     true,
 			wantResultStatus: schedulestore.LaunchResultCannotLaunch,

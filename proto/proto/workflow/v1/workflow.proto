@@ -17,8 +17,8 @@ message Workflow {
   string cwd = 4;
   string flags = 5;
   string harness = 6;
-  string setup_action = 7;
-  string cleanup_action = 8;
+  string provision_action = 7;
+  string deprovision_action = 8;
   optional string archived_at = 9;
   WorktreeConfig worktree = 10;
   bool archive_on_pr_closed = 11;
@@ -96,11 +96,11 @@ message CreateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  string setup_action = 6 [(buf.validate.field).string = {
+  string provision_action = 6 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  string cleanup_action = 7 [(buf.validate.field).string = {
+  string deprovision_action = 7 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
@@ -131,11 +131,11 @@ message UpdateWorkflowRequest {
     max_len: 40
     pattern: "^[a-z0-9-]*$"
   }];
-  string setup_action = 7 [(buf.validate.field).string = {
+  string provision_action = 7 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
-  string cleanup_action = 8 [(buf.validate.field).string = {
+  string deprovision_action = 8 [(buf.validate.field).string = {
     max_len: 255
     [rules.v1.action_name_or_blank]: true
   }];
@@ -177,7 +177,7 @@ service WorkflowService {
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. setupAction names one action from list_actions to run before each of its agents starts, which blocks and abandons the launch if it fails; cleanupAction names the one run once one of its agents is deleted. Both are blank for none. worktree.enabled gives every agent its own git worktree off cwd instead: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. provisionAction names the action from list_actions that owns where each of its agents runs: it goes before the agent starts, it names the directory, and a failure abandons the launch. deprovisionAction names the half that gives that directory back once one of its agents is deleted, and is read only while provisionAction is set. Leave provisionAction blank for agents that keep the directory they are given, which retires both halves. worktree.enabled provisions every agent a git worktree off cwd instead: weave names both halves itself, so provisionAction must be blank when it is set. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
       destructive: false
     };
   }
@@ -185,7 +185,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_workflow"
-      description: "Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or the setup action reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing the cleanup action reaches agents already running, since it is read when it fires. worktree.enabled works the same way setupAction/cleanupAction do directly: weave generates and names the two actions itself, so setupAction and cleanupAction must be blank when it is set, and turning it off clears them if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
+      description: "Replace a workflow's name, context, directory, flags, and the provisioner that owns its agents' directories. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context or provisionAction reaches only agents spawned afterwards, since existing agents took a snapshot at launch; editing deprovisionAction reaches agents already running, since it is read when it fires. worktree.enabled is the same decision spelled the other way: weave names both halves itself, so provisionAction must be blank when it is set, and turning it off clears both halves if they still name the generated scripts. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
       destructive: false
     };
   }
@@ -209,7 +209,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "delete_workflow"
-      description: "Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same cleanup-action handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose cleanup action is still running, or whose cleanup failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again."
+      description: "Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same deprovision-action handling a direct agent delete uses. The archived schedules that launched into it go too, since nothing else ever removes them and they would keep the workflow alive. Returns not_found if the workflow does not exist or is not archived, and failed_precondition if a schedule inside it was moved from another workflow whose agents still hold it. An agent whose deprovision action is still running, or whose deprovision failed, is left behind rather than blocking the call, so the workflow can stay archived and be tried again."
       destructive: true
     };
   }

@@ -3,7 +3,7 @@
 //
 // It sits between the handlers, which only parse and translate, and the stores, which only
 // read and write rows. The rules that need more than one of those live here. Launching an
-// agent, for instance, is a check that the workflow has room under the ceiling, a setup action
+// agent, for instance, is a check that the workflow has room under the ceiling, a provision action
 // run to completion, a tmux window created, a harness asked for its command line, and a row
 // written, and none of those layers can decide the order on its own.
 //

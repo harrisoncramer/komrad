@@ -93,8 +93,8 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Harness:           "claude",
 		Cwd:               "/work/api",
 		Flags:             "--model opus",
-		SetupAction:       "make-worktree",
-		CleanupAction:     "drop-worktree",
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
 		ArchiveOnPrClosed: true,
 		Worktree: &workflowv1.WorktreeConfig{
 			Enabled:      true,
@@ -113,8 +113,8 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Harness:           "claude",
 		Cwd:               "/work/api",
 		Flags:             "--model opus",
-		SetupAction:       "make-worktree",
-		CleanupAction:     "drop-worktree",
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
 		ArchiveOnPRClosed: true,
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,

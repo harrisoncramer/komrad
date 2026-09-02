@@ -147,9 +147,9 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 	})
 }
 
-// swapSetupType redraws the form around the setup type just chosen and puts the cursor back on
-// the field that chose it, since the fields under it are not the ones that were there.
-func (m model) swapSetupType(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
+// swapProvisioner redraws the form around the provisioner just chosen and puts the cursor back
+// on the field that chose it, since the fields under it are not the ones that were there.
+func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
 	form, toggleIndex := build(m)
 
 	cmds := []tea.Cmd{form.Init()}
@@ -201,13 +201,13 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 }
 
 // updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
-// setup type across the message that may have switched it.
+// provisioner across the message that may have switched it.
 func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, int)) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.answerForm()
 	}
 
-	was := values.SetupType
+	was := values.Provisioner
 
 	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -222,9 +222,9 @@ func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build
 	case huh.StateNormal:
 	}
 
-	if values.SetupType != was {
+	if values.Provisioner != was {
 		var swapped tea.Cmd
-		m, swapped = m.swapSetupType(build)
+		m, swapped = m.swapProvisioner(build)
 		cmd = tea.Batch(cmd, swapped)
 	}
 

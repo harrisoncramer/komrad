@@ -13,23 +13,23 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRunCleanupLogsOneThatWouldNotStart covers the cleanup that never becomes a process at
-// all, which is what a renamed script leaves behind.
-func TestRunCleanupLogsOneThatWouldNotStart(t *testing.T) {
-	lifecycle := &fakeLifecycle{cleanupStartErr: actions.ErrActionNotFound}
+// TestRunDeprovisionLogsOneThatWouldNotStart covers the deprovision that never becomes a
+// process at all, which is what a renamed script leaves behind.
+func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
+	lifecycle := &fakeLifecycle{deprovisionStartErr: actions.ErrActionNotFound}
 	ctx, records := loggedContext(t)
 
-	runCleanup(ctx, lifecycle, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed", nil)
+	runDeprovision(ctx, lifecycle, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed", nil)
 
-	got := recordFor(t, records(), "the cleanup action would not start")
+	got := recordFor(t, records(), "the deprovision action would not start")
 	assert.Equal(t, "ERROR", got["severity_text"])
 	assert.Equal(t, "was-renamed", got["weave.action.name"])
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.action.agent.cwd"])
 }
 
-// TestCleanupActionLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
+// TestDeprovisionActionLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
 // answering, which skips a teardown as quietly as a workflow naming none.
-func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
+func TestDeprovisionActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	workflows := brokenWorkflowReader{err: errors.New("connection refused")}
 	ctx, records := loggedContext(t)
 
@@ -38,7 +38,7 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 		Cwd:        "/repo/.worktrees/auth",
 		WorkflowID: "wf1",
 	}
-	assert.Empty(t, cleanupActionFor(ctx, workflows, agent))
+	assert.Empty(t, deprovisionActionFor(ctx, workflows, agent))
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
@@ -47,62 +47,99 @@ func TestCleanupActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.action.agent.cwd"])
 }
 
-// TestCleanupActionSaysNothingAboutAWorkflowNamingNone covers the quiet half, since a
-// workflow with no cleanup is not a fault and a line about one would be noise on every
-// delete.
-func TestCleanupActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
+// TestDeprovisionActionSaysNothingAboutAWorkflowNamingNone covers the quiet half, since a
+// workflow with no deprovision half is not a fault and a line about one would be noise on
+// every delete.
+func TestDeprovisionActionSaysNothingAboutAWorkflowNamingNone(t *testing.T) {
 	ctx, records := loggedContext(t)
 
-	assert.Empty(t, cleanupActionFor(ctx, fakeWorkflowReader{}, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
+	assert.Empty(t, deprovisionActionFor(ctx, fakeWorkflowReader{}, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
 	assert.Empty(t, records())
 }
 
-// TestCleanupActionOverridesTheWorkflow pins that an agent's own cleanup action is the one
-// that runs, rather than the workflow's.
-func TestCleanupActionOverridesTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}}
-	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:            "a1",
-		WorkflowID:    "wf1",
-		CleanupAction: xptr.Ptr("custom-cleanup"),
+// TestDeprovisionActionOverridesTheWorkflow pins that an agent's own deprovision action is the
+// one that runs, rather than the workflow's.
+func TestDeprovisionActionOverridesTheWorkflow(t *testing.T) {
+	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", DeprovisionAction: "drop-worktree"}}
+	got := deprovisionActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:                "a1",
+		WorkflowID:        "wf1",
+		DeprovisionAction: xptr.Ptr("custom-cleanup"),
 	})
 	assert.Equal(t, "custom-cleanup", got)
 }
 
-// TestCleanupActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing
-// means no cleanup at all rather than falling back to the workflow.
-func TestCleanupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", CleanupAction: "drop-worktree"}}
-	got := cleanupActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:            "a1",
-		WorkflowID:    "wf1",
-		CleanupAction: xptr.Ptr(""),
+// TestDeprovisionActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing
+// means nothing to give back at all rather than falling back to the workflow.
+func TestDeprovisionActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
+	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", DeprovisionAction: "drop-worktree"}}
+	got := deprovisionActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:                "a1",
+		WorkflowID:        "wf1",
+		DeprovisionAction: xptr.Ptr(""),
 	})
 	assert.Empty(t, got)
 }
 
-// TestSetupActionOverridesTheWorkflow pins that an agent's own setup action is the one that
-// runs, rather than the workflow's.
-func TestSetupActionOverridesTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}}
-	got := setupActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:          "a1",
-		WorkflowID:  "wf1",
-		SetupAction: xptr.Ptr("custom-setup"),
+// TestProvisionActionOverridesTheWorkflow pins that an agent's own provision action is the one
+// that runs, rather than the workflow's.
+func TestProvisionActionOverridesTheWorkflow(t *testing.T) {
+	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", ProvisionAction: "make-worktree"}}
+	got := provisionActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:              "a1",
+		WorkflowID:      "wf1",
+		ProvisionAction: xptr.Ptr("custom-setup"),
 	})
 	assert.Equal(t, "custom-setup", got)
 }
 
-// TestSetupActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing means
-// no setup at all rather than falling back to the workflow.
-func TestSetupActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
-	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", SetupAction: "make-worktree"}}
-	got := setupActionFor(context.Background(), workflows, agentstore.Agent{
-		ID:          "a1",
-		WorkflowID:  "wf1",
-		SetupAction: xptr.Ptr(""),
+// TestProvisionActionOverrideToNoneWinsOverTheWorkflow pins that an override set to nothing
+// means nothing provisioned at all rather than falling back to the workflow.
+func TestProvisionActionOverrideToNoneWinsOverTheWorkflow(t *testing.T) {
+	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{ID: "wf1", ProvisionAction: "make-worktree"}}
+	got := provisionActionFor(context.Background(), workflows, agentstore.Agent{
+		ID:              "a1",
+		WorkflowID:      "wf1",
+		ProvisionAction: xptr.Ptr(""),
 	})
 	assert.Empty(t, got)
+}
+
+// TestARetiredProvisionerRetiresItsDeprovisionHalf pins the rule that makes one field enough
+// for the reviewer, adopt and child cases: an agent told to provision nothing keeps the
+// directory it was given, so the other half is not consulted whoever set it.
+func TestARetiredProvisionerRetiresItsDeprovisionHalf(t *testing.T) {
+	workflows := fakeWorkflowReader{workflow: &workflowstore.Workflow{
+		ID:                "wf1",
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
+	}}
+
+	tests := []struct {
+		name        string
+		deprovision *string
+	}{
+		{
+			name:        "inherited from the workflow",
+			deprovision: nil,
+		},
+		{
+			name:        "named by the caller",
+			deprovision: xptr.Ptr("drop-worktree"),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := deprovisionActionFor(context.Background(), workflows, agentstore.Agent{
+				ID:                "a1",
+				WorkflowID:        "wf1",
+				ProvisionAction:   xptr.Ptr(""),
+				DeprovisionAction: tt.deprovision,
+			})
+			assert.Empty(t, got)
+		})
+	}
 }
 
 type brokenWorkflowReader struct {

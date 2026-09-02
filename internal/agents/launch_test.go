@@ -522,27 +522,27 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 	provisioned := t.TempDir()
 
 	tests := []struct {
-		name      string
-		action    string
-		answered  string
-		setupErr  error
-		wantDir   string
-		wantSetup []string
-		wantErr   error
+		name         string
+		action       string
+		answered     string
+		provisionErr error
+		wantDir      string
+		wantSetup    []string
+		wantErr      error
 	}{
 		{
-			name:      "setup that fails abandons the create",
-			action:    "make-worktree",
-			setupErr:  ErrSetupFailed,
-			wantSetup: []string{"make-worktree"},
-			wantErr:   ErrSetupFailed,
+			name:         "setup that fails abandons the create",
+			action:       "make-worktree",
+			provisionErr: ErrProvisionFailed,
+			wantSetup:    []string{"make-worktree"},
+			wantErr:      ErrProvisionFailed,
 		},
 		{
 			name:      "a directory setup names that is not usable abandons the create",
 			action:    "make-worktree",
 			answered:  filepath.Join(t.TempDir(), "never-created"),
 			wantSetup: []string{"make-worktree"},
-			wantErr:   ErrSetupFailed,
+			wantErr:   ErrProvisionFailed,
 		},
 		{
 			name: "a workflow naming none launches where it was told to",
@@ -565,13 +565,13 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := newFakeTmux()
 			st := newStore(t)
-			lifecycle := &fakeLifecycle{dir: tt.answered, setupErr: tt.setupErr}
+			lifecycle := &fakeLifecycle{dir: tt.answered, provisionErr: tt.provisionErr}
 			h := &fakeHarness{}
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
 			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-				Name:        "backend",
-				SetupAction: tt.action,
+				Name:            "backend",
+				ProvisionAction: tt.action,
 			})
 			require.NoError(t, err)
 
@@ -582,7 +582,7 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 				WorkflowID: created.ID,
 			})
 
-			assert.Equal(t, tt.wantSetup, lifecycle.setup, "the workflow's own choice reaches the runner")
+			assert.Equal(t, tt.wantSetup, lifecycle.provision, "the workflow's own choice reaches the runner")
 
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
@@ -614,9 +614,9 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 	}
 }
 
-// TestNewAgentSetupActionOverride pins that an agent's own setup action is the one run,
+// TestNewAgentProvisionActionOverride pins that an agent's own setup action is the one run,
 // rather than the workflow's.
-func TestNewAgentSetupActionOverride(t *testing.T) {
+func TestNewAgentProvisionActionOverride(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
@@ -624,31 +624,31 @@ func TestNewAgentSetupActionOverride(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:        "backend",
-		SetupAction: "make-worktree",
+		Name:            "backend",
+		ProvisionAction: "make-worktree",
 	})
 	require.NoError(t, err)
 
 	_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:       "agent",
-		Dir:         t.TempDir(),
-		WorkflowID:  created.ID,
-		SetupAction: xptr.Ptr("install-deps"),
+		Title:           "agent",
+		Dir:             t.TempDir(),
+		WorkflowID:      created.ID,
+		ProvisionAction: xptr.Ptr("install-deps"),
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, []string{"install-deps"}, lifecycle.setup, "the agent's own choice runs instead of the workflow's")
+	assert.Equal(t, []string{"install-deps"}, lifecycle.provision, "the agent's own choice runs instead of the workflow's")
 
 	stored, err := st.Get(t.Context(), "agent")
 	require.NoError(t, err)
 	require.NotNil(t, stored)
-	require.NotNil(t, stored.SetupAction)
-	assert.Equal(t, "install-deps", *stored.SetupAction, "the override is what gets persisted, not the workflow's action")
+	require.NotNil(t, stored.ProvisionAction)
+	assert.Equal(t, "install-deps", *stored.ProvisionAction, "the override is what gets persisted, not the workflow's action")
 }
 
-// TestNewAgentSetupActionOverrideToNone pins that an override set to nothing means no setup
+// TestNewAgentProvisionActionOverrideToNone pins that an override set to nothing means no setup
 // at all rather than falling back to the workflow.
-func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
+func TestNewAgentProvisionActionOverrideToNone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	lifecycle := &fakeLifecycle{}
@@ -656,26 +656,26 @@ func TestNewAgentSetupActionOverrideToNone(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: h}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:        "backend",
-		SetupAction: "make-worktree",
+		Name:            "backend",
+		ProvisionAction: "make-worktree",
 	})
 	require.NoError(t, err)
 
 	_, err = manager.launch.NewAgent(t.Context(), NewAgentParams{
-		Title:       "agent",
-		Dir:         t.TempDir(),
-		WorkflowID:  created.ID,
-		SetupAction: xptr.Ptr(""),
+		Title:           "agent",
+		Dir:             t.TempDir(),
+		WorkflowID:      created.ID,
+		ProvisionAction: xptr.Ptr(""),
 	})
 	require.NoError(t, err)
 
-	assert.Empty(t, lifecycle.setup, "an explicit none refuses the workflow's action too")
+	assert.Empty(t, lifecycle.provision, "an explicit none refuses the workflow's action too")
 
 	stored, err := st.Get(t.Context(), "agent")
 	require.NoError(t, err)
 	require.NotNil(t, stored)
-	require.NotNil(t, stored.SetupAction)
-	assert.Empty(t, *stored.SetupAction)
+	require.NotNil(t, stored.ProvisionAction)
+	assert.Empty(t, *stored.ProvisionAction)
 }
 
 // TestNewAgentCeiling covers the ceiling, which has to refuse before anything is opened or
@@ -720,8 +720,8 @@ func TestNewAgentCeiling(t *testing.T) {
 			manager := st.agentServiceCapped(tmux, lifecycle, tt.maxAgents)
 
 			workflow, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-				Name:        "backend",
-				SetupAction: "make-worktree",
+				Name:            "backend",
+				ProvisionAction: "make-worktree",
 			})
 			require.NoError(t, err)
 
@@ -745,7 +745,7 @@ func TestNewAgentCeiling(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.Contains(t, err.Error(), "please archive one to continue", "the refusal says what to do about it")
-				assert.Empty(t, lifecycle.setup, "a refused create runs no setup action")
+				assert.Empty(t, lifecycle.provision, "a refused create runs no setup action")
 				assert.Len(t, tmux.newWindows, opened, "and opens no window")
 
 				return
@@ -828,9 +828,9 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 			created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-				Name:          "backend",
-				SetupAction:   "make-worktree",
-				CleanupAction: "drop-worktree",
+				Name:              "backend",
+				ProvisionAction:   "make-worktree",
+				DeprovisionAction: "drop-worktree",
 			})
 			require.NoError(t, err)
 
@@ -841,12 +841,12 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			})
 
 			require.Error(t, err)
-			assert.Equal(t, []string{"make-worktree"}, lifecycle.setup)
-			assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup, "what setup built is taken back")
+			assert.Equal(t, []string{"make-worktree"}, lifecycle.provision)
+			assert.Equal(t, []string{"drop-worktree"}, lifecycle.deprovision, "what setup built is taken back")
 
 			if tt.windowErr != nil || tt.setOwnerErr != nil || tt.sendKeysErr != nil {
-				require.Len(t, lifecycle.cleanupCwd, 1)
-				assert.Equal(t, tt.answered, lifecycle.cleanupCwd[0], "cleanup runs against what setup actually built, not the workflow's planned dir")
+				require.Len(t, lifecycle.deprovisionCwd, 1)
+				assert.Equal(t, tt.answered, lifecycle.deprovisionCwd[0], "cleanup runs against what setup actually built, not the workflow's planned dir")
 			}
 
 			agents, listErr := st.List(t.Context())
@@ -863,13 +863,13 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	lifecycle := &fakeLifecycle{setupErr: ErrSetupFailed}
+	lifecycle := &fakeLifecycle{provisionErr: ErrProvisionFailed}
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		SetupAction:   "make-worktree",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -879,8 +879,8 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 		WorkflowID: created.ID,
 	})
 
-	require.ErrorIs(t, err, ErrSetupFailed)
-	assert.Empty(t, lifecycle.cleanup)
+	require.ErrorIs(t, err, ErrProvisionFailed)
+	assert.Empty(t, lifecycle.deprovision)
 }
 
 // cancellingSetupLifecycle stands in for the caller going away while a setup action is
@@ -890,10 +890,10 @@ type cancellingSetupLifecycle struct {
 	cancel context.CancelFunc
 }
 
-func (c *cancellingSetupLifecycle) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+func (c *cancellingSetupLifecycle) RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
 	c.cancel()
 
-	return c.fakeLifecycle.RunSetupAction(ctx, agent, name, pane)
+	return c.fakeLifecycle.RunProvisionAction(ctx, agent, name, pane)
 }
 
 // TestNewAgentClosesOutACreateTheCallerAbandoned pins the write that marks a create failed
@@ -909,9 +909,9 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		SetupAction:   "make-worktree",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -928,14 +928,14 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
 	assert.NotEmpty(t, metadataValue(agents[0].Metadata), "the row says why it failed")
 
-	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup, "what setup built is taken back")
-	assert.Equal(t, []error{nil}, lifecycle.cleanupCtxErr, "cleanup gets a context it can still read the workflow on")
+	assert.Equal(t, []string{"drop-worktree"}, lifecycle.deprovision, "what setup built is taken back")
+	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")
 }
 
-// TestNewAgentCleansUpAFailedCreateWithNoSetupAction pins the deliberate reading of a
+// TestNewAgentCleansUpAFailedCreateWithNoProvisionAction pins the deliberate reading of a
 // workflow that declares cleanup but no setup: a failed create still hands the row to
 // cleanup, against the dir it was going to run in, the same way deleting such an agent does.
-func TestNewAgentCleansUpAFailedCreateWithNoSetupAction(t *testing.T) {
+func TestNewAgentCleansUpAFailedCreateWithNoProvisionAction(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.newWindowErr = errors.New("tmux refused the window")
 	st := newStore(t)
@@ -943,8 +943,8 @@ func TestNewAgentCleansUpAFailedCreateWithNoSetupAction(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 
@@ -956,9 +956,9 @@ func TestNewAgentCleansUpAFailedCreateWithNoSetupAction(t *testing.T) {
 	})
 	require.Error(t, err)
 
-	assert.Empty(t, lifecycle.setup)
-	assert.Equal(t, []string{"drop-worktree"}, lifecycle.cleanup)
-	assert.Equal(t, []string{dir}, lifecycle.cleanupCwd)
+	assert.Empty(t, lifecycle.provision)
+	assert.Equal(t, []string{"drop-worktree"}, lifecycle.deprovision)
+	assert.Equal(t, []string{dir}, lifecycle.deprovisionCwd)
 }
 
 // slowCleanupLifecycle finishes its cleanup only once the call that started it has had a
@@ -968,8 +968,8 @@ type slowCleanupLifecycle struct {
 	finished atomic.Bool
 }
 
-func (c *slowCleanupLifecycle) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
-	if err := c.fakeLifecycle.RunCleanupAction(ctx, agent, name, nil); err != nil {
+func (c *slowCleanupLifecycle) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+	if err := c.fakeLifecycle.RunDeprovisionAction(ctx, agent, name, nil); err != nil {
 		return err
 	}
 
@@ -995,9 +995,9 @@ func TestNewAgentWaitsForTheCleanupOfAFailedCreate(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
-		Name:          "backend",
-		SetupAction:   "make-worktree",
-		CleanupAction: "drop-worktree",
+		Name:              "backend",
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
 	})
 	require.NoError(t, err)
 

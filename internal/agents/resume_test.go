@@ -275,7 +275,7 @@ func TestAResumeInItsSetupIsNotArchivedOutFromUnderItself(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:              "worktrees",
 		Cwd:               t.TempDir(),
-		SetupAction:       "worktree-setup",
+		ProvisionAction:   "worktree-setup",
 		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
 		ArchiveOnPRClosed: true,
 	})
@@ -370,7 +370,7 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
 
 	lifecycle := &fakeLifecycle{resumeErr: errors.New("git worktree add: already checked out")}
-	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{Name: "workflow", SetupAction: "worktree-setup"}))
+	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{Name: "workflow", ProvisionAction: "worktree-setup"}))
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
@@ -446,10 +446,10 @@ func TestAnArchiveAfterTheMarkStopsTheResume(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:        "worktrees",
-		Cwd:         t.TempDir(),
-		SetupAction: "worktree-setup",
-		Worktree:    workflowstore.WorktreeConfig{Enabled: true},
+		Name:            "worktrees",
+		Cwd:             t.TempDir(),
+		ProvisionAction: "worktree-setup",
+		Worktree:        workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
@@ -498,10 +498,10 @@ func TestADeleteAfterTheMarkStopsTheResume(t *testing.T) {
 	ctx := t.Context()
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
-		Name:        "worktrees",
-		Cwd:         t.TempDir(),
-		SetupAction: "worktree-setup",
-		Worktree:    workflowstore.WorktreeConfig{Enabled: true},
+		Name:            "worktrees",
+		Cwd:             t.TempDir(),
+		ProvisionAction: "worktree-setup",
+		Worktree:        workflowstore.WorktreeConfig{Enabled: true},
 	})
 	require.NoError(t, err)
 
@@ -575,9 +575,9 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	assert.Len(t, tmux.killedPanes, 1, "the window it opened goes with it")
 }
 
-// TestResumeRunsTheSetupAction pins the setup action firing again on resume, which is the
+// TestResumeRunsTheProvisionAction pins the setup action firing again on resume, which is the
 // moment a workspace has to exist since nothing before it rebuilds one.
-func TestResumeRunsTheSetupAction(t *testing.T) {
+func TestResumeRunsTheProvisionAction(t *testing.T) {
 	tests := []struct {
 		name       string
 		named      string
@@ -593,7 +593,7 @@ func TestResumeRunsTheSetupAction(t *testing.T) {
 		{
 			name:    "an action naming somewhere that is not a directory is refused",
 			named:   "/definitely/not/here",
-			wantErr: "a setup action named",
+			wantErr: "a provision action named",
 		},
 		{
 			name:       "an action naming nowhere leaves the recorded directory alone",
@@ -622,8 +622,8 @@ func TestResumeRunsTheSetupAction(t *testing.T) {
 			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
 			created, err := st.Workflows.Create(ctx, workflowstore.Config{
-				Name:        "resume-" + tt.name,
-				SetupAction: "make-worktree",
+				Name:            "resume-" + tt.name,
+				ProvisionAction: "make-worktree",
 			})
 			require.NoError(t, err)
 
@@ -658,9 +658,9 @@ func TestResumeRunsTheSetupAction(t *testing.T) {
 	}
 }
 
-// TestResumeWithoutASetupActionFiresNothing covers the ordinary workflow, which names no
+// TestResumeWithoutAProvisionActionFiresNothing covers the ordinary workflow, which names no
 // setup action and comes back up the way it always has.
-func TestResumeWithoutASetupActionFiresNothing(t *testing.T) {
+func TestResumeWithoutAProvisionActionFiresNothing(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 	lifecycle := &fakeLifecycle{}

@@ -41,18 +41,18 @@ table "workflow_configs" {
 
 table "workflow_action_configs" {
   schema  = schema.public
-  comment = "The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead."
+  comment = "The provisioner that owns the directory of a workflow's agents, and the worktree config it can be turned on for instead."
   column "id" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
   }
-  column "setup_action" {
+  column "provision_action" {
     null    = false
     type    = text
     default = ""
   }
-  column "cleanup_action" {
+  column "deprovision_action" {
     null    = false
     type    = text
     default = ""
@@ -308,11 +308,11 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "setup_action" {
+  column "provision_action" {
     null = true
     type = text
   }
-  column "cleanup_action" {
+  column "deprovision_action" {
     null = true
     type = text
   }

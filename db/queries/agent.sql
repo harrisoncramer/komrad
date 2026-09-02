@@ -112,8 +112,8 @@ INSERT INTO agents(
     schedule_id,
     idempotency_key,
     is_hidden,
-    setup_action,
-    cleanup_action,
+    provision_action,
+    deprovision_action,
     spawned_by_agent_id,
     parent_agent_id,
     adopted_branch)
@@ -131,8 +131,8 @@ VALUES (
     sqlc.narg('schedule_id'),
     sqlc.narg('idempotency_key'),
     @is_hidden,
-    sqlc.narg('setup_action'),
-    sqlc.narg('cleanup_action'),
+    sqlc.narg('provision_action'),
+    sqlc.narg('deprovision_action'),
     sqlc.narg('spawned_by_agent_id'),
     sqlc.narg('parent_agent_id'),
     @adopted_branch)

@@ -64,8 +64,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "/work/api", sent.createdAgent.GetDir(), "the workflow's directory is prefilled and kept")
 				assert.Equal(t, "--model opus", sent.createdAgent.GetFlags())
 				assert.Equal(t, "w1", sent.createdAgent.GetWorkflowId())
-				assert.Nil(t, sent.createdAgent.SetupAction, "left on the default, the agent takes no override of its own")
-				assert.Nil(t, sent.createdAgent.CleanupAction, "left on the default, the agent takes no override of its own")
+				assert.Nil(t, sent.createdAgent.ProvisionAction, "left on the default, the agent takes no override of its own")
+				assert.Nil(t, sent.createdAgent.DeprovisionAction, "left on the default, the agent takes no override of its own")
 			},
 		},
 		{
@@ -88,13 +88,13 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(t *testing.T, m model) model {
 				values := workflowFormValues{
-					Name:          "web",
-					Context:       "the frontend",
-					Cwd:           "/work/web",
-					Flags:         "--model sonnet",
-					SetupType:     setupTypeCustom,
-					SetupAction:   "make-worktree",
-					CleanupAction: "drop-worktree",
+					Name:              "web",
+					Context:           "the frontend",
+					Cwd:               "/work/web",
+					Flags:             "--model sonnet",
+					Provisioner:       provisionerScript,
+					ProvisionAction:   "make-worktree",
+					DeprovisionAction: "drop-worktree",
 				}
 
 				opened, _ := m.openWorkflowConfigForm(&values, nil)
@@ -108,8 +108,8 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "the frontend", sent.createdWorkflow.GetContext())
 				assert.Equal(t, "/work/web", sent.createdWorkflow.GetCwd())
 				assert.Equal(t, "--model sonnet", sent.createdWorkflow.GetFlags())
-				assert.Equal(t, "make-worktree", sent.createdWorkflow.GetSetupAction())
-				assert.Equal(t, "drop-worktree", sent.createdWorkflow.GetCleanupAction())
+				assert.Equal(t, "make-worktree", sent.createdWorkflow.GetProvisionAction())
+				assert.Equal(t, "drop-worktree", sent.createdWorkflow.GetDeprovisionAction())
 			},
 		},
 		{
@@ -148,11 +148,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				target := m.listing.workflows[0]
 
 				values := workflowFormValuesFrom(workflowstore.Config{
-					Name:        target.Name,
-					Context:     "shared notes",
-					Cwd:         target.Cwd,
-					Flags:       target.Flags,
-					SetupAction: "make-worktree",
+					Name:            target.Name,
+					Context:         "shared notes",
+					Cwd:             target.Cwd,
+					Flags:           target.Flags,
+					ProvisionAction: "make-worktree",
 				})
 				values.Cwd = "/work/api-v2"
 
@@ -168,7 +168,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "api", sent.updatedWorkflow.GetName(), "and the ones that were not")
 				assert.Equal(t, "shared notes", sent.updatedWorkflow.GetContext())
 				assert.Equal(t, "--model opus", sent.updatedWorkflow.GetFlags())
-				assert.Equal(t, "make-worktree", sent.updatedWorkflow.GetSetupAction(), "the stored choice survives a round trip through the field")
+				assert.Equal(t, "make-worktree", sent.updatedWorkflow.GetProvisionAction(), "the stored choice survives a round trip through the field")
 			},
 		},
 		{
@@ -350,32 +350,32 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 // explicitly picking none, is sent as one.
 func TestNewAgentFormActionOverride(t *testing.T) {
 	tests := []struct {
-		name          string
-		setupAction   string
-		wantSetup     *string
-		cleanupAction string
-		wantCleanup   *string
+		name              string
+		provisionAction   string
+		wantSetup         *string
+		deprovisionAction string
+		wantCleanup       *string
 	}{
 		{
-			name:          "left on the default, neither field is sent",
-			setupAction:   inheritAction,
-			wantSetup:     nil,
-			cleanupAction: inheritAction,
-			wantCleanup:   nil,
+			name:              "left on the default, neither field is sent",
+			provisionAction:   inheritAction,
+			wantSetup:         nil,
+			deprovisionAction: inheritAction,
+			wantCleanup:       nil,
 		},
 		{
-			name:          "an explicit none is sent as an empty override, not nothing",
-			setupAction:   "",
-			wantSetup:     xptr.Ptr(""),
-			cleanupAction: "",
-			wantCleanup:   xptr.Ptr(""),
+			name:              "an explicit none is sent as an empty override, not nothing",
+			provisionAction:   "",
+			wantSetup:         xptr.Ptr(""),
+			deprovisionAction: "",
+			wantCleanup:       xptr.Ptr(""),
 		},
 		{
-			name:          "a named choice is sent as itself",
-			setupAction:   "install-deps",
-			wantSetup:     xptr.Ptr("install-deps"),
-			cleanupAction: "drop-worktree",
-			wantCleanup:   xptr.Ptr("drop-worktree"),
+			name:              "a named choice is sent as itself",
+			provisionAction:   "install-deps",
+			wantSetup:         xptr.Ptr("install-deps"),
+			deprovisionAction: "drop-worktree",
+			wantCleanup:       xptr.Ptr("drop-worktree"),
 		},
 	}
 
@@ -383,8 +383,8 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
 			m := formModel(sent)
-			m.listing.workflows[0].SetupAction = "make-worktree"
-			m.listing.workflows[0].CleanupAction = "drop-worktree"
+			m.listing.workflows[0].ProvisionAction = "make-worktree"
+			m.listing.workflows[0].DeprovisionAction = "drop-worktree"
 			workflow := m.listing.workflows[0]
 
 			values := agentPrefill(workflow)
@@ -394,8 +394,8 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 
 			// Chosen after the form is up, since huh clamps a select to the options it was given
 			// and the actions this panel lists are not among them.
-			values.SetupAction = tt.setupAction
-			values.CleanupAction = tt.cleanupAction
+			values.ProvisionAction = tt.provisionAction
+			values.DeprovisionAction = tt.deprovisionAction
 
 			updated, cmd := m.answerForm()
 			submitted, ok := updated.(model)
@@ -403,8 +403,8 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 			settle(t, submitted, cmd)
 
 			require.NotNil(t, sent.createdAgent)
-			assert.Equal(t, tt.wantSetup, sent.createdAgent.SetupAction)
-			assert.Equal(t, tt.wantCleanup, sent.createdAgent.CleanupAction)
+			assert.Equal(t, tt.wantSetup, sent.createdAgent.ProvisionAction)
+			assert.Equal(t, tt.wantCleanup, sent.createdAgent.DeprovisionAction)
 		})
 	}
 }
@@ -415,7 +415,7 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
 
 	agentForm := newAgentForm(config.DefaultKeybindings().Form,
-		&agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
+		&agentFormValues{ProvisionAction: inheritAction, DeprovisionAction: inheritAction},
 		available,
 	)
 	agentForm.Init()
@@ -424,9 +424,9 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	assert.Contains(t, agentView, "> Same as workflow", "the cleanup field opens with what it inherits marked as picked")
 
 	workflowForm, _ := workflowConfigForm("Workflow name", &workflowFormValues{
-		SetupType:     setupTypeCustom,
-		SetupAction:   "make-worktree",
-		CleanupAction: "drop-worktree",
+		Provisioner:       provisionerScript,
+		ProvisionAction:   "make-worktree",
+		DeprovisionAction: "drop-worktree",
 	}, available, config.DefaultKeybindings().Form)
 	workflowForm.Init()
 	workflowView := workflowForm.View()
@@ -438,15 +438,15 @@ func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 // workflow leaves behind, since the pair weave owns is not one a person may pick.
 func TestWorktreeWorkflowSwitchedToCustomOffersNoAction(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
-		Name:          "admin",
-		SetupAction:   "_worktree_setup",
-		CleanupAction: "_worktree_cleanup",
-		Worktree:      workflowstore.WorktreeConfig{Enabled: true},
+		Name:              "admin",
+		ProvisionAction:   "_worktree_setup",
+		DeprovisionAction: "_worktree_cleanup",
+		Worktree:          workflowstore.WorktreeConfig{Enabled: true},
 	})
-	assert.Empty(t, values.SetupAction)
-	assert.Empty(t, values.CleanupAction)
+	assert.Empty(t, values.ProvisionAction)
+	assert.Empty(t, values.DeprovisionAction)
 
-	values.SetupType = setupTypeCustom
+	values.Provisioner = provisionerScript
 
 	form, _ := workflowConfigForm("Workflow name", &values, nil, config.DefaultKeybindings().Form)
 	form.Init()
@@ -470,7 +470,7 @@ func TestActionOptionsLeadWithNone(t *testing.T) {
 func TestActionSelectShowsEveryOptionOnOpen(t *testing.T) {
 	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
 
-	values := workflowFormValues{SetupType: setupTypeCustom, SetupAction: "install-deps"}
+	values := workflowFormValues{Provisioner: provisionerScript, ProvisionAction: "install-deps"}
 
 	form, _ := workflowConfigForm("Workflow name", &values, available, config.DefaultKeybindings().Form)
 	form.Init()
@@ -576,9 +576,9 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
-// refusedAfterSetup is the refusal a setup action that ran and failed comes back as, which the
-// service marks so the panel does not print what the pane is already showing.
-func refusedAfterSetup(message string) error {
+// refusedAfterProvision is the refusal a provision action that ran and failed comes back as,
+// which the service marks so the panel does not print what the pane is already showing.
+func refusedAfterProvision(message string) error {
 	refused := connect.NewError(connect.CodeFailedPrecondition, errors.New(message))
 	refused.Meta().Set(caller.SetupRanHeader, "true")
 
@@ -586,7 +586,7 @@ func refusedAfterSetup(message string) error {
 }
 
 // TestNewAgentSubmitClosesImmediately covers the new-agent form closing on submit rather than
-// holding for the write, since a setup action can run for minutes.
+// holding for the write, since a provision action can run for minutes.
 func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -596,18 +596,18 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}{
 		{name: "a create that lands"},
 		{
-			name:       "a setup action that fails",
-			refuse:     refusedAfterSetup("the setup action failed: exit 7"),
+			name:       "a provision action that fails",
+			refuse:     refusedAfterProvision("the provision action failed: exit 7"),
 			wantOpen:   true,
-			wantDetail: "the setup action failed, and its output is in the pane it ran in",
+			wantDetail: "the provision action failed, and its output is in the pane it ran in",
 		},
 		{
-			name:       "a create refused before setup ever ran",
+			name:       "a create refused before the provisioner ever ran",
 			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
 			wantDetail: "not allowed",
 		},
 		{
-			name:       "a refusal the setup action never got as far as",
+			name:       "a refusal the provision action never got as far as",
 			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("that branch is already checked out")),
 			wantDetail: "that branch is already checked out",
 		},
@@ -621,7 +621,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			m.tmux = recorder
 			m.frame = layout.New(recorder, config.DefaultLayout())
 			m.frame.Attach("%0")
-			m.listing.workflows[0].SetupAction = "make-worktree"
+			m.listing.workflows[0].ProvisionAction = "make-worktree"
 
 			workflow := m.listing.workflows[0]
 
@@ -663,10 +663,10 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}
 }
 
-// TestSetupTypeRebuildsTheForm checks that switching setup type swaps the worktree fields
-// for the action pickers by rebuilding the form, and hands back whatever was typed into
-// the worktree fields if the setup type switches back.
-func TestSetupTypeRebuildsTheForm(t *testing.T) {
+// TestProvisionerRebuildsTheForm checks that switching the provisioner swaps the worktree
+// fields for the action pickers by rebuilding the form, and hands back whatever was typed into
+// the worktree fields if the provisioner switches back.
+func TestProvisionerRebuildsTheForm(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
 
@@ -681,47 +681,56 @@ func TestSetupTypeRebuildsTheForm(t *testing.T) {
 	}
 
 	worktreeView := m.form.form.View()
-	assert.Equal(t, setupTypeWorktree, values.SetupType, "worktree is the default")
+	assert.Equal(t, provisionerWorktree, values.Provisioner, "worktree is the default")
 	assert.Contains(t, worktreeView, "Worktree base branch", "worktree is the default, so its fields are already on screen")
 	assert.Contains(t, worktreeView, "Worktree copy paths")
 	assert.Contains(t, worktreeView, "Worktree symlink paths")
-	assert.NotContains(t, worktreeView, "Setup action")
+	assert.NotContains(t, worktreeView, "Provision action")
 
 	values.WorktreeCopyPaths = ".env"
 
 	updated, _ := m.form.update(m, keyMsg("down"))
 	m = asModel(t, updated)
 
-	require.Equal(t, setupTypeCustom, values.SetupType, "the keypress switched it")
-	customView := m.form.form.View()
-	assert.NotContains(t, customView, "Worktree base branch", "switching to custom removes the worktree fields, not blanks them")
-	assert.Contains(t, customView, "Setup action", "and adds the action pickers instead")
-	assert.Contains(t, customView, "Cleanup action")
+	require.Equal(t, provisionerScript, values.Provisioner, "the keypress switched it")
+	scriptView := m.form.form.View()
+	assert.NotContains(t, scriptView, "Worktree base branch", "switching to a script removes the worktree fields, not blanks them")
+	assert.Contains(t, scriptView, "Provision action", "and adds the action pickers instead")
+	assert.Contains(t, scriptView, "Deprovision action")
 
 	updated, _ = m.form.update(m, keyMsg("up"))
 	m = asModel(t, updated)
 
-	assert.Equal(t, setupTypeWorktree, values.SetupType)
+	assert.Equal(t, provisionerWorktree, values.Provisioner)
 	assert.Equal(t, ".env", values.WorktreeCopyPaths, "switching back hands back what was typed before")
 	assert.Contains(t, m.form.form.View(), "Worktree copy paths")
+
+	updated, _ = m.form.update(m, keyMsg("up"))
+	m = asModel(t, updated)
+
+	require.Equal(t, provisionerNone, values.Provisioner)
+	noneView := m.form.form.View()
+	assert.NotContains(t, noneView, "Worktree base branch", "None provisions nothing, so it asks nothing")
+	assert.NotContains(t, noneView, "Provision action")
 }
 
-// TestSetupTypeSelectShowsBothOptionsOnOpen covers a select opening on the non-default answer,
-// since huh scrolls to the bound value's index once it has both an accessor and options.
-func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
-	form, toggleIndex := workflowConfigForm("Workflow name", &workflowFormValues{SetupType: setupTypeCustom}, nil, config.DefaultKeybindings().Form)
+// TestProvisionerSelectShowsEveryOptionOnOpen covers a select opening on the non-default
+// answer, since huh scrolls to the bound value's index once it has both an accessor and options.
+func TestProvisionerSelectShowsEveryOptionOnOpen(t *testing.T) {
+	form, toggleIndex := workflowConfigForm("Workflow name", &workflowFormValues{Provisioner: provisionerScript}, nil, config.DefaultKeybindings().Form)
 	form.Init()
 	for range toggleIndex {
 		form.NextField()
 	}
 
 	view := form.View()
-	assert.Contains(t, view, "Worktree: a git worktree per agent", "the worktree option is not hidden just because custom is selected")
-	assert.Contains(t, view, "Custom: your own setup and cleanup actions")
+	assert.Contains(t, view, "None: agents keep the directory they are given", "no option is hidden just because a script is selected")
+	assert.Contains(t, view, "Worktree: a git worktree per agent")
+	assert.Contains(t, view, "Script: your own provision and deprovision actions")
 	assert.Less(t,
+		strings.Index(view, "None: agents keep the directory they are given"),
 		strings.Index(view, "Worktree: a git worktree per agent"),
-		strings.Index(view, "Custom: your own setup and cleanup actions"),
-		"worktree stays first regardless of which is selected",
+		"the options keep their order regardless of which is selected",
 	)
 }
 

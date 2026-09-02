@@ -62,16 +62,16 @@ func (a api) setViewed(id string, viewed bool) error {
 }
 
 type createAgentParams struct {
-	Prompt        string
-	Title         string
-	Harness       string
-	Dir           string
-	Flags         string
-	SetupAction   *string
-	CleanupAction *string
-	WorkflowID    string
-	SetupPane     string
-	ParentAgentID string
+	Prompt            string
+	Title             string
+	Harness           string
+	Dir               string
+	Flags             string
+	ProvisionAction   *string
+	DeprovisionAction *string
+	WorkflowID        string
+	SetupPane         string
+	ParentAgentID     string
 }
 
 // nilIfBlank leaves an optional field unset rather than sending it empty, which the request's
@@ -89,16 +89,16 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 	defer cancel()
 
 	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:        params.Prompt,
-		Title:         params.Title,
-		Harness:       params.Harness,
-		Dir:           params.Dir,
-		Flags:         params.Flags,
-		SetupAction:   params.SetupAction,
-		CleanupAction: params.CleanupAction,
-		WorkflowId:    params.WorkflowID,
-		SetupPane:     params.SetupPane,
-		ParentAgentId: nilIfBlank(params.ParentAgentID),
+		Prompt:            params.Prompt,
+		Title:             params.Title,
+		Harness:           params.Harness,
+		Dir:               params.Dir,
+		Flags:             params.Flags,
+		ProvisionAction:   params.ProvisionAction,
+		DeprovisionAction: params.DeprovisionAction,
+		WorkflowId:        params.WorkflowID,
+		SetupPane:         params.SetupPane,
+		ParentAgentId:     nilIfBlank(params.ParentAgentID),
 	}))
 	if err != nil {
 		return nil, err
@@ -324,8 +324,8 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 		Harness:           cfg.Harness,
 		Cwd:               cfg.Cwd,
 		Flags:             cfg.Flags,
-		SetupAction:       cfg.SetupAction,
-		CleanupAction:     cfg.CleanupAction,
+		ProvisionAction:   cfg.ProvisionAction,
+		DeprovisionAction: cfg.DeprovisionAction,
 		Worktree:          worktreeConfigToProto(cfg.Worktree),
 		ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
 	}))
@@ -352,8 +352,8 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		Harness:           w.Harness,
 		Cwd:               w.Cwd,
 		Flags:             w.Flags,
-		SetupAction:       w.SetupAction,
-		CleanupAction:     w.CleanupAction,
+		ProvisionAction:   w.ProvisionAction,
+		DeprovisionAction: w.DeprovisionAction,
 		Worktree:          worktreeConfigToProto(w.Worktree),
 		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 	}))

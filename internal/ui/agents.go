@@ -478,7 +478,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
-const settingUpPlaceholder = "_setting up…_\n\nRunning the setup action. This agent has no pane yet."
+const settingUpPlaceholder = "_setting up…_\n\nRunning the provision action. This agent has no pane yet."
 
 // failureReasonKey is the metadata key a failed create or cleanup records its reason under,
 // left out of agentFields since failedPlaceholder is what shows it.
@@ -552,11 +552,11 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 // agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
 func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 	return agentFormValues{
-		Harness:       workflow.Harness,
-		Dir:           workflow.Cwd,
-		Flags:         workflow.Flags,
-		SetupAction:   inheritAction,
-		CleanupAction: inheritAction,
+		Harness:           workflow.Harness,
+		Dir:               workflow.Cwd,
+		Flags:             workflow.Flags,
+		ProvisionAction:   inheritAction,
+		DeprovisionAction: inheritAction,
 	}
 }
 
@@ -671,7 +671,7 @@ func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValu
 	// Which of those two adoption does is the service's to work out, so the pane is claimed on the
 	// strength of the workflow alone.
 	var pane string
-	if workflow.SetupAction != "" && !m.setupPending {
+	if workflow.ProvisionAction != "" && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -709,14 +709,14 @@ func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, te
 }
 
 func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
-	setupAction := actionOverride(values.SetupAction)
-	effectiveSetup := workflow.SetupAction
-	if setupAction != nil {
-		effectiveSetup = *setupAction
+	provisionAction := actionOverride(values.ProvisionAction)
+	effectiveProvision := workflow.ProvisionAction
+	if provisionAction != nil {
+		effectiveProvision = *provisionAction
 	}
 
 	var pane string
-	if effectiveSetup != "" && !m.setupPending {
+	if effectiveProvision != "" && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -725,15 +725,15 @@ func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValu
 	}
 
 	params := createAgentParams{
-		Prompt:        values.Prompt,
-		Title:         values.Title,
-		Harness:       values.Harness,
-		Dir:           m.currentDir(values.Dir),
-		Flags:         values.Flags,
-		SetupAction:   setupAction,
-		CleanupAction: actionOverride(values.CleanupAction),
-		WorkflowID:    workflow.ID,
-		SetupPane:     pane,
+		Prompt:            values.Prompt,
+		Title:             values.Title,
+		Harness:           values.Harness,
+		Dir:               m.currentDir(values.Dir),
+		Flags:             values.Flags,
+		ProvisionAction:   provisionAction,
+		DeprovisionAction: actionOverride(values.DeprovisionAction),
+		WorkflowID:        workflow.ID,
+		SetupPane:         pane,
 	}
 
 	cmd := m.createCmd(params)

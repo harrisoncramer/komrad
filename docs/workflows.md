@@ -33,7 +33,7 @@ Archiving a workflow hides it and archives every agent inside it, in one transac
 
 It is refused while any schedule still launches into the workflow, since a schedule reads its directory and flags off the workflow when it fires and would have nowhere to run. Turn those schedules off first, deliberately.
 
-Archiving does not run the actions' cleanup actions, so whatever setup built is still on disk.
+Archiving does not run the deprovision action, so whatever was provisioned is still on disk.
 
 Restoration from the archive is all or nothing. It is refused if the returning agents would not fit under your configured agent ceiling.
 
@@ -45,10 +45,10 @@ Weave checks every couple of minutes, and only archives an agent that is idle or
 
 An agent archived this way carries a `pr_archived` metadata key naming the pull request it was archived for. That is what tells you why a row went away, and it is also what stops a restored agent from being archived again two minutes after you brought it back.
 
-Nothing is deleted. The record, the transcript, and the worktree all survive, exactly as if you had archived it by hand, and restoring the agent brings it back. If you want the disk back, delete the agent, which is what runs the cleanup action.
+Nothing is deleted. The record, the transcript, and the worktree all survive, exactly as if you had archived it by hand, and restoring the agent brings it back. If you want the disk back, delete the agent, which is what runs the deprovision action.
 
 ## Setting up your first one
 
 Open the panel with `prefix + g`. Press `w`, give it a name, leave everything else blank, and submit. Press `c` and give an agent a prompt. That is the whole minimum: a workflow with nothing but a name is just a folder.
 
-Then add to it as you learn what the group needs. A default directory once you are tired of typing it. Context once you have told three agents the same thing. A setup action once you want them out of each other's way.
+Then add to it as you learn what the group needs. A default directory once you are tired of typing it. Context once you have told three agents the same thing. A provisioner once you want them out of each other's way.

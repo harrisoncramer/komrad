@@ -35,7 +35,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc create-workflow](weave_rpc_create-workflow.md)	 - Create a workflow to group agents under.
 * [weave rpc delete-agents](weave_rpc_delete-agents.md)	 - Permanently remove a list of agents, keyed by id.
 * [weave rpc delete-mail](weave_rpc_delete-mail.md)	 - Permanently remove a list of mail, keyed by id.
-* [weave rpc delete-workflow](weave_rpc_delete-workflow.md)	 - Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same cleanup-action handling a direct agent delete uses.
+* [weave rpc delete-workflow](weave_rpc_delete-workflow.md)	 - Permanently delete an archived workflow along with whatever archived agents are still inside it, reusing the same deprovision-action handling a direct agent delete uses.
 * [weave rpc get-agent](weave_rpc_get-agent.md)	 - Fetch one agent by id, including whatever metadata it has recorded about its own work.
 * [weave rpc get-config](weave_rpc_get-config.md)	 - Read the panel's configuration as it is currently in force, keyed the same way the user's config file is.
 * [weave rpc get-schedule](weave_rpc_get-schedule.md)	 - Fetch one schedule by id.
@@ -61,5 +61,5 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc set-agent-tags](weave_rpc_set-agent-tags.md)	 - Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag.
 * [weave rpc set-schedule-enabled](weave_rpc_set-schedule-enabled.md)	 - Pause or resume one schedule without editing anything else.
 * [weave rpc update-schedule](weave_rpc_update-schedule.md)	 - Replace a schedule's name, cron expression, timezone, prompt, workflow, and whether the agents it launches start hidden from the panel.
-* [weave rpc update-workflow](weave_rpc_update-workflow.md)	 - Replace a workflow's name, context, directory, flags, and the actions run around its agents' lives.
+* [weave rpc update-workflow](weave_rpc_update-workflow.md)	 - Replace a workflow's name, context, directory, flags, and the provisioner that owns its agents' directories.
 
