@@ -34,7 +34,7 @@ Agents can adopt too, through `adopt` over [MCP](mcp.md).
 
 A child agent is attached to another agent rather than standing on its own. It runs in that agent's own directory, provisions nothing of its own, may only mail inside its family, and goes when the parent goes. The panel draws it indented under the row it belongs to.
 
-The shape this is for is a second pair of eyes on work already in progress: an author that wants its change read, or a test runner that reports what failed. Doing that with an ordinary agent means passing the parent's directory and turning its provisioner off by hand, and getting either wrong drops the agent into a fresh checkout where there is nothing to read. A child takes both from the parent, so there is nothing to get wrong.
+A child is the default shape when an agent spawns another, and what decides it is whether the new agent reads the parent's tree or writes in it. Reading is a second pair of eyes on work already in progress: an author that wants its change read, or a test runner that reports what failed. Writing work of its own needs a checkout of its own, so that agent stands on its own instead. Doing the reading case with an ordinary agent means passing the parent's directory and turning its provisioner off by hand, and getting either wrong drops the agent into a fresh checkout where there is nothing to read. A child takes both from the parent, so there is nothing to get wrong.
 
 Press `C` on the hovered agent to attach one. The form asks for the prompt, a title, the harness and the flags, and nothing about where it runs, since none of that is yours to choose here. Agents attach children too, through `create_agent` over [MCP](mcp.md) with `parentAgentId` set to their own id.
 
