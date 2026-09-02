@@ -93,6 +93,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.cycleLogs()
 	}
 
+	if m.screen != screenReview && isBound(key.String(), m.keys.Logs.Older) {
+		return m.olderLog()
+	}
+
 	if m.screen != screenReview && isBound(key.String(), m.keys.Terminal.Open) {
 		return m.openTerminal()
 	}

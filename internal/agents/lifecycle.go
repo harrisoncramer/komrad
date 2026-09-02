@@ -33,17 +33,18 @@ type emptyWorkflowDeleter interface {
 }
 
 // LifecycleService moves agents between the live listing, the archive and gone, running the
-// cleanup action on the way out.
+// deprovisioner on the way out.
 type LifecycleService struct {
 	tmux           paneKiller
 	agents         lifecycleAgentStore
 	workflows      workflowReader
 	emptyWorkflows emptyWorkflowDeleter
 	tx             txRunner
-	actions        agentActions
+	scripts        agentScripts
 	notifier       systemMailSender
 	logsDir        string
 	maxAgents      int
+	maxChildren    int
 }
 
 type LifecycleServiceParams struct {
@@ -52,10 +53,11 @@ type LifecycleServiceParams struct {
 	Workflows      workflowReader
 	EmptyWorkflows emptyWorkflowDeleter
 	Tx             txRunner
-	Actions        agentActions
+	Scripts        agentScripts
 	Notifier       systemMailSender
 	LogsDir        string
 	MaxAgents      int
+	MaxChildren    int
 }
 
 // NewLifecycleService builds the service from its dependencies.
@@ -66,15 +68,16 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 		workflows:      p.Workflows,
 		emptyWorkflows: p.EmptyWorkflows,
 		tx:             p.Tx,
-		actions:        p.Actions,
+		scripts:        p.Scripts,
 		notifier:       p.Notifier,
 		logsDir:        p.LogsDir,
 		maxAgents:      p.MaxAgents,
+		maxChildren:    p.MaxChildren,
 	}
 }
 
 // DeleteAgents stops agents and removes those with nothing left to tear down, holding back any
-// whose cleanup action is still running until it finishes.
+// whose deprovisioner is still running until it finishes.
 func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
 	named, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -86,8 +89,8 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		return err
 	}
 
-	// A cleanup action must not run against a directory a CLI is still working in, and since the
-	// children share their parent's, this is what keeps the parent's cleanup from tearing down a
+	// A deprovisioner must not run against a directory a CLI is still working in, and since the
+	// children share their parent's, this is what keeps the parent's deprovision from tearing down a
 	// checkout one of them is still sitting in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
@@ -95,17 +98,17 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 
 	var immediate []agentstore.Agent
 	for _, agent := range agents {
-		name := cleanupActionFor(ctx, s.workflows, agent)
-		if s.actions == nil || name == "" {
+		name := deprovisionerFor(ctx, s.workflows, agent)
+		if s.scripts == nil || name == "" {
 			immediate = append(immediate, agent)
 
 			continue
 		}
 
-		// The row is never dropped before the action says whether it worked.
-		runCleanup(ctx, s.actions, agent, name, func(cleanupErr error) {
-			if cleanupErr != nil {
-				s.failCleanup(bg, agent, cleanupErr)
+		// The row is never dropped before the script says whether it worked.
+		runDeprovision(ctx, s.scripts, agent, name, func(deprovisionErr error) {
+			if deprovisionErr != nil {
+				s.failCleanup(bg, agent, deprovisionErr)
 
 				return
 			}
@@ -118,7 +121,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 			}
 
 			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
-			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, "deleted")
+			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, agents, "deleted")
 		})
 	}
 
@@ -131,7 +134,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
-	notifyParents(ctx, s.notifier, immediate, "deleted")
+	notifyParents(ctx, s.notifier, immediate, agents, "deleted")
 
 	return nil
 }
@@ -175,7 +178,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	// A pane recorded in between only reaches here through what the write took off the rows.
 	killPanes(ctx, s.tmux, taken)
 
-	notifyParents(ctx, s.notifier, agents, "archived")
+	notifyParents(ctx, s.notifier, agents, agents, "archived")
 
 	return nil
 }
@@ -205,7 +208,7 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	archived = append(archived, children...)
 
 	killOwnedPanes(ctx, s.tmux, archived)
-	notifyParents(ctx, s.notifier, archived, "archived")
+	notifyParents(ctx, s.notifier, archived, archived, "archived")
 
 	return archived, errors.Join(failures...)
 }
@@ -251,6 +254,10 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, err
 	}
 
+	if err := s.requireParentsPresent(ctx, agents); err != nil {
+		return nil, err
+	}
+
 	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
 	if len(archived) == 0 {
 		return agents, nil
@@ -260,6 +267,9 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		agentStore, workflowStore := agentstore.New(db), workflowstore.New(db)
 
 		if err := claimRoomForAgents(ctx, agentStore, s.maxAgents, len(archived)); err != nil {
+			return err
+		}
+		if err := claimRoomForRestoredChildren(ctx, agentStore, s.maxChildren, archived); err != nil {
 			return err
 		}
 		if err := requireNamesFree(ctx, agentStore, archived); err != nil {
@@ -284,12 +294,80 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
 
-	return s.agents.ListByID(ctx, agentIDs(agents))
+	restored, err := s.agents.ListByID(ctx, agentIDs(agents))
+	if err != nil {
+		return nil, err
+	}
+
+	// The row is back but dormant, so a hook here is looking at the record rather than at a
+	// running agent: the pane comes back later, when somebody opens it, and fires post-resume.
+	for _, agent := range restored {
+		startHooks(ctx, hookRunParams{
+			scripts: s.scripts,
+			agent:   agent,
+			hooks:   agentHooks(ctx, s.workflows, agent),
+			event:   workflowstore.HookPostRestore,
+		})
+	}
+
+	return restored, nil
 }
 
-// withChildren adds the children of the agents a call named to the list it acts on, and refuses
-// a child named without its parent, since there is nothing it means to archive, delete, or
-// restore one apart from the agent it is attached to.
+// requireParentsPresent refuses a child coming back while the agent it hangs under is still
+// archived, since the panel draws it indented under a row that would not be there.
+func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []agentstore.Agent) error {
+	held := make(map[string]bool, len(agents))
+	for _, agent := range agents {
+		held[agent.ID] = true
+	}
+
+	var wanted []string
+	for _, agent := range agents {
+		if agent.ParentAgentID != nil && !held[*agent.ParentAgentID] {
+			wanted = append(wanted, *agent.ParentAgentID)
+		}
+	}
+	if len(wanted) == 0 {
+		return nil
+	}
+
+	parents, err := s.agents.ListByID(ctx, wanted)
+	if err != nil {
+		return fmt.Errorf("failed to look up the parents of %d children: %w", len(wanted), err)
+	}
+
+	live := make(map[string]bool, len(parents))
+	names := make(map[string]string, len(parents))
+	for _, parent := range parents {
+		live[parent.ID] = parent.ArchivedAt == nil
+		names[parent.ID] = parent.Name
+	}
+
+	for _, agent := range agents {
+		if agent.ParentAgentID == nil || held[*agent.ParentAgentID] {
+			continue
+		}
+		if !live[*agent.ParentAgentID] {
+			return fmt.Errorf("%w: restore %s to bring %q back with it",
+				ErrParentStillArchived, describeParent(names[*agent.ParentAgentID]), agent.Name)
+		}
+	}
+
+	return nil
+}
+
+// describeParent names the agent a child hangs under, falling back to a phrase for a parent no
+// longer in the listing at all.
+func describeParent(name string) string {
+	if name == "" {
+		return "the agent it is attached to"
+	}
+
+	return fmt.Sprintf("%q", name)
+}
+
+// withChildren adds the children of the agents a call named to the list it acts on, leaving a
+// child named on its own to be acted on alone.
 func (s *LifecycleService) withChildren(ctx context.Context, named []agentstore.Agent) ([]agentstore.Agent, error) {
 	held := make(map[string]bool, len(named))
 	for _, agent := range named {
@@ -300,11 +378,6 @@ func (s *LifecycleService) withChildren(ctx context.Context, named []agentstore.
 	for _, agent := range named {
 		if agent.ParentAgentID == nil {
 			parents = append(parents, agent.ID)
-
-			continue
-		}
-		if !held[*agent.ParentAgentID] {
-			return nil, fmt.Errorf("%w: %q is attached to an agent this call does not name", ErrChildRidesAlong, agent.Name)
 		}
 	}
 
@@ -363,24 +436,22 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	}
 
 	killPanes(ctx, s.tmux, taken)
-	s.removeActionLogs(ctx, ids)
+	s.removeRunLogs(ctx, ids)
 
 	return nil
 }
 
-// removeActionLogs drops the setup and teardown logs an agent leaves on disk once its row is
-// gone, logging a failure rather than returning it since a leftover file costs nothing.
-func (s *LifecycleService) removeActionLogs(ctx context.Context, ids []string) {
+// removeRunLogs drops the runs an agent leaves on disk once its row is gone, logging a
+// failure rather than returning it since a leftover file costs nothing.
+func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 	if s.logsDir == "" {
 		return
 	}
 
 	for _, id := range ids {
-		for _, kind := range []string{config.ActionLogSetup, config.ActionLogTeardown} {
-			path := config.ActionLogPath(s.logsDir, id, kind)
-			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-				logging.From(ctx).Warn("failed to remove an agent's action log", "path", path, "agent_id", id, "error", err)
-			}
+		path := config.RunLogDir(s.logsDir, id)
+		if err := os.RemoveAll(path); err != nil {
+			logging.From(ctx).Warn("failed to remove an agent's run logs", "path", path, "agent_id", id, "error", err)
 		}
 	}
 }

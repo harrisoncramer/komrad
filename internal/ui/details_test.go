@@ -388,7 +388,7 @@ func TestAgentFields(t *testing.T) {
 		{
 			name: "why a create or cleanup failed is left to the failed placeholder, not repeated here",
 			metadata: []agentstore.Metadata{
-				{Key: "error", Value: "the setup action failed: exited 1"},
+				{Key: "error", Value: "the provisioner failed: exited 1"},
 				{Key: "branch", Value: "harry/rate-limits"},
 			},
 			wantLabels: []string{"branch"},

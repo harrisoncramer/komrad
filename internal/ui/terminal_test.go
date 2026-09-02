@@ -55,7 +55,7 @@ func TestTerminalOpensInTheHoveredAgentDirectory(t *testing.T) {
 	shown := pressTerminal(t, m)
 
 	assert.Equal(t, infoTerminal, shown.info.kind)
-	assert.Equal(t, dir, shown.info.action, "the shell is pinned to the directory it opened in")
+	assert.Equal(t, dir, shown.info.subject, "the shell is pinned to the directory it opened in")
 	assert.Equal(t, 1, tmux.swaps, "the agent's own pane is left where it is")
 	require.Len(t, tmux.respawns, 1)
 	assert.Equal(t, "%2", tmux.respawnPanes[0], "the shell goes in the pane below")
@@ -69,10 +69,10 @@ func TestTerminalOpensInTheHoveredAgentDirectory(t *testing.T) {
 func TestTerminalReplacesOpenLogs(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
-	m.actionLogsDir = t.TempDir()
+	m.runLogsDir = t.TempDir()
 
 	logs := pressLogs(t, m)
-	require.Equal(t, infoSetupLog, logs.info.kind)
+	require.Equal(t, infoRunLog, logs.info.kind)
 	require.Len(t, tmux.belowAnchors, 1)
 
 	shown := pressTerminal(t, logs)
@@ -112,13 +112,13 @@ func TestTerminalFollowsTheCursor(t *testing.T) {
 	}})
 
 	opened := pressTerminal(t, m)
-	require.Equal(t, first, opened.info.action)
+	require.Equal(t, first, opened.info.subject)
 
 	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, second, panel.info.action)
+	assert.Equal(t, second, panel.info.subject)
 	assert.Equal(t, []string{first, second}, infoRespawns(tmux))
 }
 
@@ -134,7 +134,7 @@ func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, dir, panel.info.action)
+	assert.Equal(t, dir, panel.info.subject)
 	assert.Equal(t, []string{dir}, infoRespawns(tmux))
 
 	// The header holds no directory, but the shell under it is still what the key asks for.
@@ -163,7 +163,7 @@ func TestTerminalStaysPutOverAMissingWorktree(t *testing.T) {
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, dir, panel.info.action)
+	assert.Equal(t, dir, panel.info.subject)
 	assert.Equal(t, []string{dir}, infoRespawns(tmux))
 }
 
@@ -186,7 +186,7 @@ func TestTerminalStaysPutAcrossAWorkflowsAgents(t *testing.T) {
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, dir, panel.info.action)
+	assert.Equal(t, dir, panel.info.subject)
 	assert.Equal(t, []string{dir}, infoRespawns(tmux), "one directory is one shell")
 }
 

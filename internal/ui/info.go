@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"weave/config"
 	"weave/internal/ui/layout"
 )
 
@@ -10,19 +9,21 @@ type infoKind int
 const (
 	infoNothing infoKind = iota
 	infoSetup
-	infoSetupLog
-	infoTeardownLog
+	infoRunLog
 	infoAgentLog
 	infoTerminal
 	infoEditFile
 )
 
 type infoState struct {
-	kind   infoKind
-	action string
+	kind    infoKind
+	subject string
+	// run is how far back through an agent's runs the run-log pane has stepped, zero being
+	// the most recent, so the pane follows the newest run rather than a path that went stale.
+	run int
 }
 
-func (m *model) claimInfo(kind infoKind, action string) bool {
+func (m *model) claimInfo(kind infoKind, subject string) bool {
 	pane := m.frame.Open(layout.RegionInfo)
 	if pane == "" {
 		return false
@@ -31,7 +32,8 @@ func (m *model) claimInfo(kind infoKind, action string) bool {
 	m.tmux.SetInfoPane(pane)
 	m.frame.Claimed(layout.RegionInfo)
 	m.info.kind = kind
-	m.info.action = action
+	m.info.subject = subject
+	m.info.run = 0
 
 	return true
 }
@@ -47,20 +49,19 @@ func (m model) closeInfo() model {
 func (m *model) forgetInfo() {
 	m.tmux.SetInfoPane("")
 	m.info.kind = infoNothing
-	m.info.action = ""
+	m.info.subject = ""
+	m.info.run = 0
 }
 
 func (m *model) stageInfo() {
 	switch m.info.kind {
-	case infoSetupLog:
-		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogSetup))
-	case infoTeardownLog:
-		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogTeardown))
+	case infoRunLog:
+		m.frame.Show(layout.RegionInfo, m.runLogContent())
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:
-		m.info.action = m.terminalDir()
-		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.action))
+		m.info.subject = m.terminalDir()
+		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.subject))
 	case infoNothing, infoSetup, infoEditFile:
 	}
 }

@@ -421,20 +421,19 @@ func (x *ListAgentsResponse) GetNextPageToken() string {
 }
 
 type CreateAgentRequest struct {
-	state          protoimpl.MessageState `protogen:"open.v1"`
-	Prompt         string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
-	Title          string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
-	Dir            string                 `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
-	Flags          string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
-	WorkflowId     string                 `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
-	Harness        string                 `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
-	IdempotencyKey *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	SetupAction    *string                `protobuf:"bytes,8,opt,name=setup_action,json=setupAction,proto3,oneof" json:"setup_action,omitempty"`
-	CleanupAction  *string                `protobuf:"bytes,9,opt,name=cleanup_action,json=cleanupAction,proto3,oneof" json:"cleanup_action,omitempty"`
-	SetupPane      string                 `protobuf:"bytes,10,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
-	ParentAgentId  *string                `protobuf:"bytes,11,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
-	unknownFields  protoimpl.UnknownFields
-	sizeCache      protoimpl.SizeCache
+	state            protoimpl.MessageState `protogen:"open.v1"`
+	Prompt           string                 `protobuf:"bytes,1,opt,name=prompt,proto3" json:"prompt,omitempty"`
+	Title            string                 `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	Dir              string                 `protobuf:"bytes,3,opt,name=dir,proto3" json:"dir,omitempty"`
+	Flags            string                 `protobuf:"bytes,4,opt,name=flags,proto3" json:"flags,omitempty"`
+	WorkflowId       string                 `protobuf:"bytes,5,opt,name=workflow_id,json=workflowId,proto3" json:"workflow_id,omitempty"`
+	Harness          string                 `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
+	IdempotencyKey   *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
+	ProvisionEnabled *bool                  `protobuf:"varint,8,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
+	SetupPane        string                 `protobuf:"bytes,10,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
+	ParentAgentId    *string                `protobuf:"bytes,11,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *CreateAgentRequest) Reset() {
@@ -516,18 +515,11 @@ func (x *CreateAgentRequest) GetIdempotencyKey() string {
 	return ""
 }
 
-func (x *CreateAgentRequest) GetSetupAction() string {
-	if x != nil && x.SetupAction != nil {
-		return *x.SetupAction
+func (x *CreateAgentRequest) GetProvisionEnabled() bool {
+	if x != nil && x.ProvisionEnabled != nil {
+		return *x.ProvisionEnabled
 	}
-	return ""
-}
-
-func (x *CreateAgentRequest) GetCleanupAction() string {
-	if x != nil && x.CleanupAction != nil {
-		return *x.CleanupAction
-	}
-	return ""
+	return false
 }
 
 func (x *CreateAgentRequest) GetSetupPane() string {
@@ -1042,7 +1034,7 @@ type LogRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	Message       string                 `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
-	Action        *string                `protobuf:"bytes,3,opt,name=action,proto3,oneof" json:"action,omitempty"`
+	Script        *string                `protobuf:"bytes,3,opt,name=script,proto3,oneof" json:"script,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1091,9 +1083,9 @@ func (x *LogRequest) GetMessage() string {
 	return ""
 }
 
-func (x *LogRequest) GetAction() string {
-	if x != nil && x.Action != nil {
-		return *x.Action
+func (x *LogRequest) GetScript() string {
+	if x != nil && x.Script != nil {
+		return *x.Script
 	}
 	return ""
 }
@@ -1471,7 +1463,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xad\x05\n" +
+	"\x10_next_page_token\"\xe7\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
@@ -1482,17 +1474,16 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"workflowId\x12/\n" +
 	"\aharness\x18\a \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x124\n" +
-	"\fsetup_action\x18\b \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x01R\vsetupAction\x88\x01\x01\x128\n" +
-	"\x0ecleanup_action\x18\t \x01(\tB\f\xbaH\tr\aȻ\x18\x01\x18\xff\x01H\x02R\rcleanupAction\x88\x01\x01\x12&\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x120\n" +
+	"\x11provision_enabled\x18\b \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x12&\n" +
 	"\n" +
 	"setup_pane\x18\n" +
 	" \x01(\tB\a\xbaH\x04r\x02\x18\x14R\tsetupPane\x124\n" +
-	"\x0fparent_agent_id\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x03R\rparentAgentId\x88\x01\x01B\x12\n" +
-	"\x10_idempotency_keyB\x0f\n" +
-	"\r_setup_actionB\x11\n" +
-	"\x0f_cleanup_actionB\x12\n" +
-	"\x10_parent_agent_id\"<\n" +
+	"\x0fparent_agent_id\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\rparentAgentId\x88\x01\x01B\x12\n" +
+	"\x10_idempotency_keyB\x14\n" +
+	"\x12_provision_enabledB\x12\n" +
+	"\x10_parent_agent_idJ\x04\b\t\x10\n" +
+	"\"<\n" +
 	"\x13CreateAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xd0\x03\n" +
 	"\fAdoptRequest\x12 \n" +
@@ -1538,9 +1529,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12\x88\x01\n" +
 	"\amessage\x18\x02 \x01(\tBn\xbaHk\xba\x01a\n" +
 	"\x11message.printable\x12.a log message must carry no control characters\x1a\x1c!this.matches('[[:cntrl:]]')r\x05\x10\x01\x18\x80\x10R\amessage\x12)\n" +
-	"\x06action\x18\x03 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01H\x01R\x06action\x88\x01\x01B\x05\n" +
+	"\x06script\x18\x03 \x01(\tB\f\xbaH\tr\a\xc0\xbb\x18\x01\x18\xff\x01H\x01R\x06script\x88\x01\x01B\x05\n" +
 	"\x03_idB\t\n" +
-	"\a_action\"<\n" +
+	"\a_script\"<\n" +
 	"\x14ArchiveAgentsRequest\x12$\n" +
 	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\"<\n" +
 	"\x14RestoreAgentsRequest\x12$\n" +
@@ -1556,15 +1547,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x8f~\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xe2\x82\x01\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
 	"\vlist_agents\x12\x82\x03List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.\x90\x02\x01\x12\xaf\x02\n" +
 	"\bGetAgent\x12\x19.agent.v1.GetAgentRequest\x1a\x1a.agent.v1.GetAgentResponse\"\xeb\x01\x9a\xb5\x18\xe3\x01\n" +
-	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\xf4\t\n" +
-	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xa7\t\x9a\xb5\x18\xa2\t\n" +
-	"\fcreate_agent\x12\x8f\tLaunch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, which is the shape to reach for when the work needs a second pair of eyes on your own tree rather than an agent of its own: pass your own id from WEAVE_AGENT_ID. A child runs in its parent's directory and gets no worktree and no setup or cleanup action, so dir, setupAction and cleanupAction are all refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it cannot be archived or deleted on its own, and it goes when the parent goes. A child may not have children of its own. \x00\x12\xc6\x06\n" +
+	"\tget_agent\x12\xd5\x01Fetch one agent by id, including whatever metadata it has recorded about its own work. Spans the archived agents too, since an id is the one handle those still answer to. Returns not_found if no agent has that id.\x90\x02\x01\x12\x96\r\n" +
+	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xc9\f\x9a\xb5\x18\xc4\f\n" +
+	"\fcreate_agent\x12\xb1\fLaunch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, passing your own id from WEAVE_AGENT_ID, which is the default shape for an agent another agent spawns: reach for a child whenever the new agent reads the tree you are in, and leave it off when the new agent writes work of its own and so needs a checkout of its own, or when the person asking said they wanted an agent standing on its own. Set provisionEnabled to false to keep the directory you named rather than be given one: that is how an agent reads a checkout somebody else already has open, and it is what the reviewer case wants. Leave it unset to do whatever the workflow does. A child runs in its parent's directory and provisions nothing of its own, so dir and provisionEnabled are both refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own. \x00\x12\xc6\x06\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\x8b\x06\x9a\xb5\x18\x86\x06\n" +
 	"\x05adopt\x12\xfa\x05Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xdf\x05\n" +
 	"\aSetTags\x12\x18.agent.v1.SetTagsRequest\x1a\x16.google.protobuf.Empty\"\xa1\x05\x9a\xb5\x18\x99\x05\n" +
@@ -1572,9 +1563,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
 	"\x10set_agent_hidden\x12\xf2\x02Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
-	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xb5\x04\n" +
-	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\xff\x03\x9a\xb5\x18\xfa\x03\n" +
-	"\x03log\x12\xee\x03Write one line to weave's log, tagged to an agent. An action fired on an agent runs with its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running action, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. action names the action whose run this line belongs to, which is in WEAVE_ACTION. \x00(\x00\x12\xad\v\n" +
+	"\x12set_agent_metadata\x12\xeb\x05Record one fact about an agent's work under a key of your choosing, keyed by the agent's id, or clear that key by omitting the value. Use this on yourself as you work, whenever you learn something a person would want to jump to later: the Linear issue you are implementing, the pull request you opened, the branch you are on. Your own id is in the WEAVE_AGENT_ID environment variable. Store the full URL rather than a bare number, since the panel shows the value as it is. Keys are lowercase letters, digits, underscores, and dashes; call this once per key, which leaves every other key on the agent untouched. Do not record what the agent is currently doing, which is already its state, and do not paste findings here, which belong in your reply. \x00\x90\x02\x02\x12\xb8\x04\n" +
+	"\x03Log\x12\x14.agent.v1.LogRequest\x1a\x16.google.protobuf.Empty\"\x82\x04\x9a\xb5\x18\xfd\x03\n" +
+	"\x03log\x12\xf1\x03Write one line to weave's log, tagged to an agent. A script weave runs against an agent has its own stdout and stdin sent nowhere, and its stderr read back only when it fails, so this is how a running script, or anything else acting on an agent's behalf, says what it is doing on purpose. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to log about it instead. script names the script whose run this line belongs to, which is in WEAVE_SCRIPT. \x00(\x00\x12\xad\v\n" +
 	"\bSendMail\x12\x19.agent.v1.SendMailRequest\x1a\x1a.agent.v1.SendMailResponse\"\xe9\n" +
 	"\x9a\xb5\x18\xe4\n" +
 	"\n" +
@@ -1586,15 +1577,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\tlist_mail\x12\xbc\x04List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox. claimedAt is unset while a piece is still waiting, and set once the recipient has taken it. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to look at its mailbox instead, which is a deliberate read of somebody else's mail and is recorded as one. Returns one page, pass the response's nextPageToken back as pagination.cursor for the next one. Returns not_found if no agent has that id.\x90\x02\x01\x12\x86\x03\n" +
 	"\n" +
 	"DeleteMail\x12\x1b.agent.v1.DeleteMailRequest\x1a\x16.google.protobuf.Empty\"\xc2\x02\x9a\xb5\x18\xba\x02\n" +
-	"\vdelete_mail\x12\xa8\x02Permanently remove a list of mail, keyed by id. This does not claim the mail as read, it erases it: the recipient will never see it, whether or not it was claimed already. The batch either goes whole or does not go: it returns not_found, and deletes nothing at all, if any id given holds no mail. \x01\x90\x02\x02\x12\xc8\x05\n" +
-	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xfe\x04\x9a\xb5\x18\xf6\x04\n" +
-	"\x0earchive_agents\x12\xe1\x04Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. The children of any agent named here are archived with it, since a child rides along with its parent rather than standing on its own. Naming a child whose parent is not in the same call is refused as failed_precondition. \x00\x90\x02\x02\x12\xfc\x05\n" +
-	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\xa9\x05\x9a\xb5\x18\xa1\x05\n" +
-	"\x0erestore_agents\x12\x8c\x05Take a list of agents out of the archive, keyed by id, along with the workflows they belong to. They come back as dormant rows and nothing is started, so call resume_agent on each one to put its conversation back in a pane. Agents that are not archived are returned as they stand. The batch either goes whole or does not go: it returns not_found if any id holds no agent, already_exists when a live agent has taken a returning agent's name or two returning agents want one name, and resource_exhausted when the panel has no room for all of them at once. The children of any agent named here come back with it, and a child cannot be restored on its own. \x00\x90\x02\x02\x12\xe8\x02\n" +
+	"\vdelete_mail\x12\xa8\x02Permanently remove a list of mail, keyed by id. This does not claim the mail as read, it erases it: the recipient will never see it, whether or not it was claimed already. The batch either goes whole or does not go: it returns not_found, and deletes nothing at all, if any id given holds no mail. \x01\x90\x02\x02\x12\xf9\x05\n" +
+	"\rArchiveAgents\x12\x1e.agent.v1.ArchiveAgentsRequest\x1a\x16.google.protobuf.Empty\"\xaf\x05\x9a\xb5\x18\xa7\x05\n" +
+	"\x0earchive_agents\x12\x92\x05Stop a list of agents and hide them from the panel, keyed by id, keeping their records and transcripts. Prefer this to delete_agents: it is reversible with restore_agents, and search_transcripts still finds the conversations. The agents need not share a workflow. Returns not_found, and archives nothing at all, if any id given holds no agent, so a batch either goes whole or does not go. The children of any agent named here are archived with it, since a child rides along with its parent rather than standing on its own. A child named on its own is archived alone, which is how you finish with one reviewer while the agent it was reading for keeps working. \x00\x90\x02\x02\x12\xde\x06\n" +
+	"\rRestoreAgents\x12\x1e.agent.v1.RestoreAgentsRequest\x1a\x1f.agent.v1.RestoreAgentsResponse\"\x8b\x06\x9a\xb5\x18\x83\x06\n" +
+	"\x0erestore_agents\x12\xee\x05Take a list of agents out of the archive, keyed by id, along with the workflows they belong to. They come back as dormant rows and nothing is started, so call resume_agent on each one to put its conversation back in a pane. Agents that are not archived are returned as they stand. The batch either goes whole or does not go: it returns not_found if any id holds no agent, already_exists when a live agent has taken a returning agent's name or two returning agents want one name, and resource_exhausted when the panel has no room for all of them at once. The children of any agent named here come back with it, and a child named on its own is refused as failed_precondition unless its parent is already live, since its row is drawn under the parent's. \x00\x90\x02\x02\x12\xe8\x02\n" +
 	"\vResumeAgent\x12\x1c.agent.v1.ResumeAgentRequest\x1a\x1d.agent.v1.ResumeAgentResponse\"\x9b\x02\x9a\xb5\x18\x93\x02\n" +
-	"\fresume_agent\x12\x80\x02Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first. \x00\x90\x02\x02\x12\xa4\x05\n" +
-	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xdc\x04\x9a\xb5\x18\xd4\x04\n" +
-	"\rdelete_agents\x12\xc0\x04Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The workflow's cleanup action fires for each one, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and naming a child whose parent is not in the same call is refused. \x01\x90\x02\x02\x12\xd7\x02\n" +
+	"\fresume_agent\x12\x80\x02Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first. \x00\x90\x02\x02\x12\xbf\x05\n" +
+	"\fDeleteAgents\x12\x1d.agent.v1.DeleteAgentsRequest\x1a\x16.google.protobuf.Empty\"\xf7\x04\x9a\xb5\x18\xef\x04\n" +
+	"\rdelete_agents\x12\xdb\x04Permanently remove a list of agents, keyed by id. This is a hard delete, not the panel's archive: the records and the transcripts go with them and search will never find the conversations again. The worktree of each one is removed with it, so a batch can tear down real directories. Returns not_found, and deletes nothing at all, if any id given holds no agent. Prefer archive_agents, and prefer leaving agents alone unless asked to remove them. The children of any agent named here are deleted with it, and a child named on its own is deleted alone, since it holds no directory of its own to tear down. \x01\x90\x02\x02\x12\xd7\x02\n" +
 	"\vUpdateAgent\x12\x1c.agent.v1.UpdateAgentRequest\x1a\x16.google.protobuf.Empty\"\x91\x02\x9a\xb5\x18\x89\x02\n" +
 	"\frename_agent\x12\xf6\x01Rename an agent, keyed by its id rather than its current name. The name is a display label the store keys on; the running tmux window keeps whatever it was called at launch. It may not contain spaces, colons, dots, slashes, or control characters. \x00\x90\x02\x02\x12\xce\t\n" +
 	"\x11SearchTranscripts\x12\".agent.v1.SearchTranscriptsRequest\x1a#.agent.v1.SearchTranscriptsResponse\"\xef\b\x9a\xb5\x18\xe7\b\n" +

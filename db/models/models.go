@@ -100,8 +100,6 @@ type Agent struct {
 	Name             string
 	Cwd              string
 	Flags            string
-	SetupAction      *string
-	CleanupAction    *string
 	Prompt           string
 	PaneID           string
 	State            string
@@ -126,6 +124,7 @@ type Agent struct {
 	ViewedAt         *time.Time
 	ParentAgentID    *string
 	TurnEndedAt      *time.Time
+	ProvisionEnabled *bool
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -247,29 +246,14 @@ type Schedule struct {
 
 // A named bucket of related agents. Pure organization; runs nothing.
 type Workflow struct {
-	ID               string
-	Name             string
-	Context          string
-	WorkflowConfigID string
-	ActionConfigID   string
-	ArchivedAt       *time.Time
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-}
-
-// The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead.
-type WorkflowActionConfig struct {
-	ID                   string
-	SetupAction          string
-	CleanupAction        string
-	WorktreeEnabled      bool
-	WorktreeBaseBranch   string
-	WorktreeCopyPaths    []string
-	WorktreeSymlinkPaths []string
-	CreatedAt            time.Time
-	UpdatedAt            time.Time
-	WorktreeDiffExclude  []string
-	ArchiveOnPrClosed    bool
+	ID                  string
+	Name                string
+	Context             string
+	WorkflowConfigID    string
+	ProvisionerConfigID string
+	ArchivedAt          *time.Time
+	CreatedAt           time.Time
+	UpdatedAt           time.Time
 }
 
 // Default config (harness, cwd, flags) seeded into new agents of a workflow.
@@ -280,4 +264,27 @@ type WorkflowConfig struct {
 	Flags     string
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+// The scripts a workflow hangs on one moment in its agents' lives, run in position order.
+type WorkflowHook struct {
+	ID         string
+	WorkflowID string
+	Event      string
+	Script     string
+	Position   int32
+	CreatedAt  time.Time
+}
+
+// The worktree config a workflow provisions its agents with, and whether it provisions them at all.
+type WorkflowProvisionerConfig struct {
+	ID                   string
+	WorktreeEnabled      bool
+	WorktreeBaseBranch   string
+	WorktreeCopyPaths    []string
+	WorktreeSymlinkPaths []string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	WorktreeDiffExclude  []string
+	ArchiveOnPrClosed    bool
 }

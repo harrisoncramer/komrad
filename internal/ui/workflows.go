@@ -5,6 +5,8 @@ import (
 	"strings"
 
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xslice"
+	hookv1 "weave/proto/gen/hook/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -106,7 +108,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 
 // openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one when
 // target is nil and saving over the workflow it names otherwise, and is the one form that redraws
-// itself as the setup type is switched under it.
+// itself as the provisioner is switched under it.
 func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	title := "New workflow name"
 	if target != nil {
@@ -114,7 +116,13 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 	}
 
 	build := func(m model) (*huh.Form, int) {
-		return workflowConfigForm(title, values, m.getAvailableActions(), m.keys.Form)
+		return workflowConfigForm(workflowConfigParams{
+			NameTitle: title,
+			Values:    values,
+			Hooks:     m.getAvailableHooks(),
+			Keys:      m.keys.Form,
+			Height:    m.formHeight(),
+		})
 	}
 
 	form, _ := build(m)
@@ -147,9 +155,9 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 	})
 }
 
-// swapSetupType redraws the form around the setup type just chosen and puts the cursor back on
-// the field that chose it, since the fields under it are not the ones that were there.
-func (m model) swapSetupType(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
+// swapProvisioner redraws the form around the provisioner just chosen and puts the cursor back
+// on the field that chose it, since the fields under it are not the ones that were there.
+func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
 	form, toggleIndex := build(m)
 
 	cmds := []tea.Cmd{form.Init()}
@@ -162,22 +170,18 @@ func (m model) swapSetupType(build func(model) (*huh.Form, int)) (model, tea.Cmd
 	return m, tea.Batch(cmds...)
 }
 
-func (m model) getAvailableActions() []actionChoice {
-	listed, err := m.api.listActions()
+// getAvailableHooks is the hooks directory as the form offers it, and a directory that is not
+// there reads as an empty list rather than an error, since a person who has written no hooks
+// has nothing wrong with their setup.
+func (m model) getAvailableHooks() []hookChoice {
+	listed, err := m.api.listHooks()
 	if err != nil {
 		return nil
 	}
 
-	choices := make([]actionChoice, 0, len(listed))
-	for _, action := range listed {
-		if isInternalAction(action.GetName()) {
-			continue
-		}
-
-		choices = append(choices, actionChoice{name: action.GetName()})
-	}
-
-	return choices
+	return xslice.Map(listed, func(hook *hookv1.Hook) hookChoice {
+		return hookChoice{name: hook.GetName()}
+	})
 }
 
 func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -201,13 +205,13 @@ func (m model) archiveWorkflowConfirm(workflow workflowstore.Workflow) (tea.Mode
 }
 
 // updateWorkflowForm is the one form whose fields change as it is answered, so it watches the
-// setup type across the message that may have switched it.
+// provisioner across the message that may have switched it.
 func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build func(model) (*huh.Form, int)) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.answerForm()
 	}
 
-	was := values.SetupType
+	was := values.Provisioner
 
 	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -222,9 +226,9 @@ func (m model) updateWorkflowForm(msg tea.Msg, values *workflowFormValues, build
 	case huh.StateNormal:
 	}
 
-	if values.SetupType != was {
+	if values.Provisioner != was {
 		var swapped tea.Cmd
-		m, swapped = m.swapSetupType(build)
+		m, swapped = m.swapProvisioner(build)
 		cmd = tea.Batch(cmd, swapped)
 	}
 

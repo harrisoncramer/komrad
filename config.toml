@@ -153,7 +153,9 @@ toggle = ["?"]
 # about the service rather than about anything a screen lists.
 [keybindings.logs]
 # Cycle the hovered agent's logs in the info pane.
-open = ["l"]
+open  = ["l"]
+# Step back to the run before the one the info pane is showing.
+older = ["L"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
@@ -272,14 +274,15 @@ new     = ["w"]
 # Rename the workflow under the cursor.
 rename  = ["r"]
 
-# Where weave finds the scripts a workflow, a schedule, or an agent runs.
-[actions]
-# Directory for actions: one executable file per action, named after the action.
-# Files here override built-in actions with the same name.
-# Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
+# Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
+[hooks]
+# Directory for hooks: one executable file per hook, named after the hook.
+# A hook is a script or program weave runs at a moment a workflow names it against, in the
+# agent's own directory, with agent info in WEAVE_AGENT as JSON and the moment in
+# WEAVE_TRIGGER. Default is ~/.config/weave/hooks.
 dir = ""
 
-# Where a workflow's generated worktree setup action creates its worktrees.
+# Where a workflow's generated worktree provisioner creates its worktrees.
 [worktrees]
 # Directory generated worktrees are created under, one subdirectory per agent.
 # Left empty this is ~/.local/state/weave/worktrees.
@@ -308,7 +311,7 @@ max_hops          = 20
 level          = "info"
 # The default log viewer. Switch with fzf, rg, etc.
 viewer         = "tail -n +1 -F \"$WEAVE_LOG\" | grep --line-buffered \"$WEAVE_AGENT_ID\" | less -R +F"
-# The viewer for a setup or teardown action's own output, plain text rather than the
+# The viewer for a provisioner's or deprovisioner's own output, plain text rather than the
 # structured log's JSON lines.
 process_viewer = "less -R -X \"$WEAVE_LOG\""
 
@@ -328,7 +331,7 @@ addr                  = "127.0.0.1:8787"
 # The tmux socket weave runs its own server on. Nothing in your normal tmux sees
 # that server, which is why `tmux -L weave ls` is how you look at it directly.
 tmux_socket           = "weave"
-# Where weave keeps what it generates: the service log, the built-in actions it
+# Where weave keeps what it generates: the service log, the built-in scripts it
 # writes out on every start, and the temp files a harness passes a prompt through.
 # Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
 # Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.

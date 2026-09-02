@@ -12,8 +12,8 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -217,18 +217,18 @@ func TestWorkflowWrites(t *testing.T) {
 	}
 }
 
-// TestAvailableActionsSkipUnderscoredNames covers what the workflow form's setup and cleanup
-// fields are chosen from: files meant only to be sourced are excluded, since naming one
-// would run a fragment on its own.
-func TestAvailableActionsSkipUnderscoredNames(t *testing.T) {
-	m := model{api: api{actions: &fakeActions{}}}
+// TestAvailableHooksCarryTheWholeDirectory covers what the workflow form's hook fields are
+// chosen from, including a file waiting on a chmod, since one written and forgotten should be
+// pickable and then say why it would not run rather than never appearing.
+func TestAvailableHooksCarryTheWholeDirectory(t *testing.T) {
+	m := model{api: api{hooks: &fakeHooks{}}}
 
-	got := m.getAvailableActions()
+	got := m.getAvailableHooks()
 
-	assert.Equal(t, []actionChoice{
-		{name: "open-pr"},
+	assert.Equal(t, []hookChoice{
+		{name: "install-deps"},
 		{name: "unrunnable"},
-		{name: "compiled"},
+		{name: "copy-env"},
 	}, got)
 }
 
@@ -428,15 +428,14 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
 }
 
-type fakeActions struct {
-	actionv1connect.ActionServiceClient
+type fakeHooks struct {
+	hookv1connect.HookServiceClient
 }
 
-func (f *fakeActions) ListActions(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
-	return connect.NewResponse(&actionv1.ListActionsResponse{Actions: []*actionv1.Action{
-		{Name: "open-pr", Executable: true},
+func (f *fakeHooks) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
+	return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{
+		{Name: "install-deps", Executable: true},
 		{Name: "unrunnable"},
-		{Name: "compiled", Executable: true},
-		{Name: "_internal", Executable: true},
+		{Name: "copy-env", Executable: true},
 	}}), nil
 }

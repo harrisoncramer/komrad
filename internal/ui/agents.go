@@ -11,6 +11,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -478,20 +479,22 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
-const settingUpPlaceholder = "_setting up…_\n\nRunning the setup action. This agent has no pane yet."
+const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
 // failureReasonKey is the metadata key a failed create or cleanup records its reason under,
 // left out of agentFields since failedPlaceholder is what shows it.
 const failureReasonKey = "error"
 
 func (m model) failedPlaceholder(agent agentstore.Agent) string {
-	label, kind := "setup", config.ActionLogSetup
+	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
+	// that failed is the newest of either rather than the newest provision run.
+	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
 	if agent.State == agentstore.StateFailedToCleanup {
-		label, kind = "teardown", config.ActionLogTeardown
+		label, moments = "teardown", []string{config.TriggerDeprovision}
 	}
 
-	if m.hasActionLog(agent.ID, kind) {
-		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see the %s log.", label, label)
+	if run, ok := m.latestRunLog(agent.ID, moments); ok {
+		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
 	}
 
 	reason := ""
@@ -552,22 +555,21 @@ func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cm
 // agentPrefill is the new-agent form as the workflow leaves it, before anything is typed.
 func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 	return agentFormValues{
-		Harness:       workflow.Harness,
-		Dir:           workflow.Cwd,
-		Flags:         workflow.Flags,
-		SetupAction:   inheritAction,
-		CleanupAction: inheritAction,
+		Harness:  workflow.Harness,
+		Dir:      workflow.Cwd,
+		Flags:    workflow.Flags,
+		Worktree: inheritWorktree,
 	}
 }
 
 func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
 	return m, m.openForm(formState{
 		kind:   formAgent,
-		form:   newAgentForm(m.keys.Form, values, m.getAvailableActions()),
+		form:   newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled),
 		update: model.updateForm,
 		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
 		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := newAgentForm(m.keys.Form, values, m.getAvailableActions())
+			rebuilt := newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled)
 
 			return rebuilt, rebuilt.Init()
 		},
@@ -603,8 +605,8 @@ func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (
 }
 
 // submitChild launches the child without sending anything about where it runs, since the
-// service takes the directory and both actions from the parent and refuses a request naming
-// them.
+// service takes the directory and the provisioning from the parent and refuses a request
+// naming them.
 func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,
@@ -671,7 +673,7 @@ func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValu
 	// Which of those two adoption does is the service's to work out, so the pane is claimed on the
 	// strength of the workflow alone.
 	var pane string
-	if workflow.SetupAction != "" && !m.setupPending {
+	if workflow.Worktree.Enabled && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -709,14 +711,11 @@ func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, te
 }
 
 func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
-	setupAction := actionOverride(values.SetupAction)
-	effectiveSetup := workflow.SetupAction
-	if setupAction != nil {
-		effectiveSetup = *setupAction
-	}
+	provisionEnabled := worktreeOverride(values.Worktree)
+	provisions := workflow.Worktree.Enabled && (provisionEnabled == nil || *provisionEnabled)
 
 	var pane string
-	if effectiveSetup != "" && !m.setupPending {
+	if provisions && !m.setupPending {
 		m = m.closeInfo()
 		if m.claimInfo(infoSetup, "") {
 			pane = m.frame.Pane(layout.RegionInfo)
@@ -725,15 +724,14 @@ func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValu
 	}
 
 	params := createAgentParams{
-		Prompt:        values.Prompt,
-		Title:         values.Title,
-		Harness:       values.Harness,
-		Dir:           m.currentDir(values.Dir),
-		Flags:         values.Flags,
-		SetupAction:   setupAction,
-		CleanupAction: actionOverride(values.CleanupAction),
-		WorkflowID:    workflow.ID,
-		SetupPane:     pane,
+		Prompt:           values.Prompt,
+		Title:            values.Title,
+		Harness:          values.Harness,
+		Dir:              m.currentDir(values.Dir),
+		Flags:            values.Flags,
+		ProvisionEnabled: provisionEnabled,
+		WorkflowID:       workflow.ID,
+		SetupPane:        pane,
 	}
 
 	cmd := m.createCmd(params)
@@ -747,15 +745,15 @@ func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValu
 	return next, tea.Batch(cmd, closeCmd)
 }
 
-func actionOverride(selected string) *string {
-	if selected == inheritAction {
-		return nil
+// worktreeOverride reads the one thing an agent can say for itself about its directory: unset
+// to follow the workflow, or false to keep the directory it was given.
+func worktreeOverride(selected string) *bool {
+	if selected == withoutWorktree {
+		return xptr.Ptr(false)
 	}
 
-	return &selected
+	return nil
 }
-
-const openPRAction = "_open_pr"
 
 const prMetadataKey = "pr"
 
@@ -778,6 +776,6 @@ func (m model) openAgentPR(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 
 	return m, m.writeCmd(
 		"Could not open the pull request",
-		func(a api) error { return a.runAction(agentID, openPRAction) },
+		func(a api) error { return a.openPullRequest(agentID) },
 	)
 }

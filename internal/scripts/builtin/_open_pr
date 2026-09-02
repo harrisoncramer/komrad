@@ -1,0 +1,21 @@
+#!/bin/sh
+#WEAVE description="Open the pull request an agent recorded, in your browser. What the agents list's pull request key runs, on the agents that have one."
+set -eu
+
+# In two steps rather than a pipeline, so a weave that could not answer fails the script
+# rather than reaching jq as an empty response and reading as an agent with no pull request.
+agent=$(weave rpc get-agent --id "$WEAVE_AGENT_ID" --compact)
+url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "pr") | .value] | first // ""')
+
+if [ -z "$url" ]; then
+	echo "no pull request is recorded on this agent" >&2
+	exit 1
+fi
+
+# xdg-open is asked for first because a Linux `open` is openvt, which would take over a
+# virtual terminal rather than open anything.
+if command -v xdg-open >/dev/null 2>&1; then
+	exec xdg-open "$url"
+fi
+
+exec open "$url"

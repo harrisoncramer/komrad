@@ -106,8 +106,8 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	}
 }
 
-// TestDeleteAgentsFiresEveryWorkflowsCleanup pins each agent's own cleanup firing, since the
-// action belongs to the workflow rather than to the batch.
+// TestDeleteAgentsFiresEveryWorkflowsCleanup pins each agent's own worktree being removed,
+// since the directory belongs to the agent rather than to the batch.
 func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -116,9 +116,9 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	workflows := workflowsFor(st, tmux)
 	ctx := t.Context()
 
-	backend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	backend, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
-	frontend, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "frontend", CleanupAction: "drop-container"})
+	frontend, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "frontend"))
 	require.NoError(t, err)
 
 	auth, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -136,8 +136,8 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, ui.ID}))
 
-	assert.ElementsMatch(t, []string{"drop-worktree", "drop-container"}, lifecycle.cleanup,
-		"which agent goes first is the listing's order rather than the caller's")
+	assert.Equal(t, []string{worktreeDeprovisioner, worktreeDeprovisioner}, lifecycle.deprovision,
+		"one run per agent, whichever order the listing put them in")
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
@@ -179,7 +179,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 	ctx := t.Context()
 
-	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "drop-worktree"})
+	created, err := workflowsFor(st, tmux).NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := manager.launch.NewAgent(ctx, NewAgentParams{
@@ -192,7 +192,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	err = manager.lifecycle.DeleteAgents(ctx, []string{agent.ID, uuid.NewString()})
 
 	require.ErrorIs(t, err, ErrAgentNotFound)
-	assert.Empty(t, lifecycle.cleanup, "no workspace was torn down")
+	assert.Empty(t, lifecycle.deprovision, "no workspace was torn down")
 	assert.Empty(t, tmux.killedPanes, "and nothing was stopped")
 
 	all, err := st.ListAll(ctx)

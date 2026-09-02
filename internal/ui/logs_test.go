@@ -22,7 +22,7 @@ func logsModel(t *testing.T, tmux *recordingTmux) (model, string) {
 
 	m := infoModel(tmux)
 	m.logPath = path
-	m.actionLogsDir = t.TempDir()
+	m.runLogsDir = t.TempDir()
 	m.listing.agents[0].agent.ID = "a1"
 
 	return m, path
@@ -38,6 +38,30 @@ func pressLogs(t *testing.T, m model) model {
 	return panel
 }
 
+func pressOlderLog(t *testing.T, m model) model {
+	t.Helper()
+
+	next, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'L'}})
+	panel, ok := next.(model)
+	require.True(t, ok)
+
+	return panel
+}
+
+// writeRun leaves one run of a script on disk for an agent, which is what the panel reads
+// instead of a file per kind.
+func writeRun(t *testing.T, dir, agentID string, number int, trigger, script string) string {
+	t.Helper()
+
+	logDir := config.RunLogDir(dir, agentID)
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+
+	path := filepath.Join(logDir, config.RunLogName(number, trigger, script))
+	require.NoError(t, os.WriteFile(path, []byte("cloning worktree\n"), 0o644))
+
+	return path
+}
+
 // TestCycleLogsWalksTheStops pins the order the logs key moves through, and that it pages
 // each one into the pane below rather than disturbing the agent's own.
 func TestCycleLogsWalksTheStops(t *testing.T) {
@@ -48,24 +72,60 @@ func TestCycleLogsWalksTheStops(t *testing.T) {
 	require.Equal(t, 1, tmux.swaps, "the live agent is staged to begin with")
 
 	first := pressLogs(t, m)
-	assert.Equal(t, infoSetupLog, first.info.kind)
+	assert.Equal(t, infoRunLog, first.info.kind)
 	assert.Equal(t, 1, tmux.swaps, "the agent's pane is left where it is")
 	require.Len(t, tmux.respawns, 1)
 	assert.Equal(t, "%2", tmux.respawnPanes[0], "the log is paged into the pane below")
 
 	second := pressLogs(t, first)
-	assert.Equal(t, infoTeardownLog, second.info.kind)
+	assert.Equal(t, infoAgentLog, second.info.kind)
 
 	third := pressLogs(t, second)
-	assert.Equal(t, infoAgentLog, third.info.kind)
-
-	fourth := pressLogs(t, third)
-	assert.Equal(t, infoNothing, fourth.info.kind)
+	assert.Equal(t, infoNothing, third.info.kind)
 	assert.Contains(t, tmux.killed, "%2", "the log's own pane goes with it")
 
-	fifth := pressLogs(t, fourth)
-	assert.Equal(t, infoSetupLog, fifth.info.kind, "cycling past closed reopens at the first stop")
-	assert.Len(t, tmux.respawns, 4, "one respawn per stop already visited, plus the reopened one")
+	fourth := pressLogs(t, third)
+	assert.Equal(t, infoRunLog, fourth.info.kind, "cycling past closed reopens at the first stop")
+	assert.Len(t, tmux.respawns, 3, "one respawn per stop already visited, plus the reopened one")
+}
+
+// TestOlderLogStepsBackThroughTheRuns pins the way back through an agent's runs, which is
+// what one key onto the most recent one needs to be usable at all.
+func TestOlderLogStepsBackThroughTheRuns(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	first := writeRun(t, m.runLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
+	second := writeRun(t, m.runLogsDir, "a1", 2, config.TriggerResume, "make-worktree")
+
+	shown := pressLogs(t, m)
+	require.Equal(t, infoRunLog, shown.info.kind)
+	assert.Contains(t, shown.runLogContent().Key, second, "the pane opens on the most recent run")
+
+	stepped := pressOlderLog(t, shown)
+	assert.Equal(t, 1, stepped.info.run)
+	assert.Contains(t, stepped.runLogContent().Key, first, "and steps back to the one before it")
+
+	wrapped := pressOlderLog(t, stepped)
+	assert.Equal(t, 0, wrapped.info.run, "stepping past the oldest wraps round")
+	assert.Contains(t, wrapped.runLogContent().Key, second)
+}
+
+// TestOlderLogIsInertWithoutARunToStepTo pins the key doing nothing when there is nowhere to
+// step, rather than blanking the pane it is showing.
+func TestOlderLogIsInertWithoutARunToStepTo(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	writeRun(t, m.runLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
+
+	shown := pressLogs(t, m)
+	stepped := pressOlderLog(t, shown)
+
+	assert.Equal(t, 0, stepped.info.run, "one run has nothing before it")
+
+	closed := pressOlderLog(t, m)
+	assert.Equal(t, infoNothing, closed.info.kind, "and the key opens nothing of its own")
 }
 
 // TestCycleLogsDoesNothingWithoutASelectedAgent pins that the key is inert when there is no
@@ -105,7 +165,7 @@ func TestCycleLogsWorksAfterASetupHasResolved(t *testing.T) {
 
 	shown := pressLogs(t, m)
 
-	assert.Equal(t, infoSetupLog, shown.info.kind, "a resolved create no longer blocks the key, even though the crash pane is still up")
+	assert.Equal(t, infoRunLog, shown.info.kind, "a resolved create no longer blocks the key, even though the crash pane is still up")
 }
 
 // TestCycleLogsSurvivesACursorMove pins that moving the cursor leaves the staged log where it
@@ -115,13 +175,13 @@ func TestCycleLogsSurvivesACursorMove(t *testing.T) {
 	m, _ := logsModel(t, tmux)
 
 	shown := pressLogs(t, m)
-	require.Equal(t, infoSetupLog, shown.info.kind)
+	require.Equal(t, infoRunLog, shown.info.kind)
 
 	moved, _ := shown.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	panel, ok := moved.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, infoSetupLog, panel.info.kind)
+	assert.Equal(t, infoRunLog, panel.info.kind)
 }
 
 // TestCycleLogsTypeIntoAnOpenQuery pins that the key is a character while a search is being
@@ -139,27 +199,26 @@ func TestCycleLogsTypeIntoAnOpenQuery(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
-// TestActionLogContentPlaceholdersWhenEmpty pins the placeholder shown before an action has
+// TestRunLogContentPlaceholdersWhenEmpty pins the placeholder shown before a script has
 // written any log at all.
-func TestActionLogContentPlaceholdersWhenEmpty(t *testing.T) {
+func TestRunLogContentPlaceholdersWhenEmpty(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	content := m.actionLogContent(config.ActionLogSetup)
+	content := m.runLogContent()
 
-	assert.Contains(t, content.Key, "no setup log yet")
+	assert.Contains(t, content.Key, "no script has run")
 }
 
-// TestActionLogContentPagesTheDurableFile pins that an action log on disk is paged through
+// TestRunLogContentPagesTheDurableFile pins that a script log on disk is paged through
 // the configured viewer with the path exported to it.
-func TestActionLogContentPagesTheDurableFile(t *testing.T) {
+func TestRunLogContentPagesTheDurableFile(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 
-	path := config.ActionLogPath(m.actionLogsDir, "a1", config.ActionLogSetup)
-	require.NoError(t, os.WriteFile(path, []byte("cloning worktree\n"), 0o644))
+	path := writeRun(t, m.runLogsDir, "a1", 1, config.TriggerProvision, "make-worktree")
 
-	content := m.actionLogContent(config.ActionLogSetup)
+	content := m.runLogContent()
 	argv, ok := content.Render(layout.Target{})
 
 	require.True(t, ok)
@@ -167,14 +226,14 @@ func TestActionLogContentPagesTheDurableFile(t *testing.T) {
 	assert.Contains(t, argv[2], config.DefaultProcessViewer)
 }
 
-// TestActionLogContentWithNoAgentSelected pins the placeholder shown when there is no agent
-// whose action log could be read.
-func TestActionLogContentWithNoAgentSelected(t *testing.T) {
+// TestRunLogContentWithNoAgentSelected pins the placeholder shown when there is no agent
+// whose script log could be read.
+func TestRunLogContentWithNoAgentSelected(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
 	m.tree = treeState{}
 
-	content := m.actionLogContent(config.ActionLogSetup)
+	content := m.runLogContent()
 
 	assert.Contains(t, content.Key, "select an agent")
 }
@@ -260,9 +319,9 @@ func TestProcessLogArgvFallsBackToTheDefault(t *testing.T) {
 }
 
 // TestFailedPlaceholderPointsAtTheLogWhenThereIsOne covers the two ways a failed agent's
-// placeholder can go: when its action left a durable log, the placeholder just points at
+// placeholder can go: when its script left a durable log, the placeholder just points at
 // it, since repeating the reason there too would be the same failure shown twice; when there
-// is no log to point at — a failure that never reached an action at all, like a tmux refusal
+// is no log to point at — a failure that never reached a script at all, like a tmux refusal
 // — the reason is the only place left to read it, so it is shown inline instead.
 func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	tmux := &recordingTmux{}
@@ -276,8 +335,7 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 		},
 	}
 
-	path := config.ActionLogPath(m.actionLogsDir, agent.ID, config.ActionLogSetup)
-	require.NoError(t, os.WriteFile(path, []byte("cloning worktree\n"), 0o644))
+	path := writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
 
 	withLog := m.failedPlaceholder(agent)
 	assert.Contains(t, withLog, `Press "l"`)
@@ -287,6 +345,43 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 
 	withoutLog := m.failedPlaceholder(agent)
 	assert.Contains(t, withoutLog, "tmux refused", "nothing else is left to say why, so the reason falls back to here")
+}
+
+// TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate pins the placeholder following the
+// run that actually failed, since a create can die at a pre-launch hook with the provision run
+// beside it green.
+func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	agent := agentstore.Agent{
+		ID:       "a1",
+		State:    agentstore.StateFailedToCreate,
+		Metadata: []agentstore.Metadata{{Key: "error", Value: "install-deps: mise refused"}},
+	}
+
+	writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	writeRun(t, m.runLogsDir, agent.ID, 2, config.HookPreLaunch, "install-deps")
+
+	assert.Contains(t, m.failedPlaceholder(agent), "run 002", "the hook's run is the one that failed")
+}
+
+// TestFailedPlaceholderSkipsARunWithNothingInIt pins a claimed but empty run being passed over,
+// since pointing at one opens an empty pager and says nothing about why.
+func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	agent := agentstore.Agent{
+		ID:       "a1",
+		State:    agentstore.StateFailedToCreate,
+		Metadata: []agentstore.Metadata{{Key: "error", Value: "tmux refused the window"}},
+	}
+
+	empty := writeRun(t, m.runLogsDir, agent.ID, 1, config.TriggerProvision, "make-worktree")
+	require.NoError(t, os.Truncate(empty, 0))
+
+	assert.Contains(t, m.failedPlaceholder(agent), "tmux refused", "with nothing to read, the reason is what is left")
 }
 
 // TestLogKeysFollowTheArchiveCursor pins that the archive's own cursor picks which teardown
@@ -305,15 +400,14 @@ func TestLogKeysFollowTheArchiveCursor(t *testing.T) {
 	}
 
 	for _, id := range []string{"a1", "a2"} {
-		path := config.ActionLogPath(m.actionLogsDir, id, config.ActionLogTeardown)
-		require.NoError(t, os.WriteFile(path, []byte("boom\n"), 0o644))
+		writeRun(t, m.runLogsDir, id, 1, config.TriggerDeprovision, "drop-worktree")
 	}
 
-	assert.Contains(t, m.actionLogContent(config.ActionLogTeardown).Key, "a1", "the agents screen reads its own cursor")
+	assert.Contains(t, m.runLogContent().Key, "a1", "the agents screen reads its own cursor")
 
 	m.screen = screenArchive
 
-	assert.Contains(t, m.actionLogContent(config.ActionLogTeardown).Key, "a2")
+	assert.Contains(t, m.runLogContent().Key, "a2")
 
 	argv, ok := m.agentLogContent().Render(layout.Target{})
 	require.True(t, ok)

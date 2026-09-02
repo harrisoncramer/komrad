@@ -341,7 +341,7 @@ func TestFrameReleaseGuest(t *testing.T) {
 }
 
 // TestFrameClaimedForgetsWhatWasDrawn covers a region another process has taken over, which
-// is how an action that fills the pane itself says the frame no longer knows what is in it.
+// is how a script that fills the pane itself says the frame no longer knows what is in it.
 func TestFrameClaimedForgetsWhatWasDrawn(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())

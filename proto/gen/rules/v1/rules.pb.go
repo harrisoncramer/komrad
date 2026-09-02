@@ -50,16 +50,16 @@ var file_rules_v1_rules_proto_extTypes = []protoimpl.ExtensionInfo{
 		ExtendedType:  (*validate.StringRules)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         50104,
-		Name:          "rules.v1.action_name",
-		Tag:           "varint,50104,opt,name=action_name",
+		Name:          "rules.v1.script_name",
+		Tag:           "varint,50104,opt,name=script_name",
 		Filename:      "rules/v1/rules.proto",
 	},
 	{
 		ExtendedType:  (*validate.StringRules)(nil),
 		ExtensionType: (*bool)(nil),
 		Field:         50105,
-		Name:          "rules.v1.action_name_or_blank",
-		Tag:           "varint,50105,opt,name=action_name_or_blank",
+		Name:          "rules.v1.script_name_or_blank",
+		Tag:           "varint,50105,opt,name=script_name_or_blank",
 		Filename:      "rules/v1/rules.proto",
 	},
 	{
@@ -88,10 +88,10 @@ var (
 	E_AbsolutePath = &file_rules_v1_rules_proto_extTypes[1]
 	// optional bool absolute_path_or_blank = 50102;
 	E_AbsolutePathOrBlank = &file_rules_v1_rules_proto_extTypes[2]
-	// optional bool action_name = 50104;
-	E_ActionName = &file_rules_v1_rules_proto_extTypes[3]
-	// optional bool action_name_or_blank = 50105;
-	E_ActionNameOrBlank = &file_rules_v1_rules_proto_extTypes[4]
+	// optional bool script_name = 50104;
+	E_ScriptName = &file_rules_v1_rules_proto_extTypes[3]
+	// optional bool script_name_or_blank = 50105;
+	E_ScriptNameOrBlank = &file_rules_v1_rules_proto_extTypes[4]
 	// optional bool cron_expression = 50103;
 	E_CronExpression = &file_rules_v1_rules_proto_extTypes[5]
 	// optional bool relative_path = 50106;
@@ -113,13 +113,13 @@ const file_rules_v1_rules_proto_rawDesc = "" +
 	"\x16absolute_path_or_blank\x12\x19.buf.validate.StringRules\x18\xb6\x87\x03 \x01(\bB\x95\x01\xc2H\x91\x01\n" +
 	"\x8e\x01\n" +
 	"\x1dstring.absolute_path_or_blank\x12(must be blank, absolute, or start with ~\x1aC!rule || this == '' || this.startsWith('/') || this.startsWith('~')R\x13absolutePathOrBlank:\x90\x02\n" +
-	"\vaction_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\xd1\x01\xc2H\xcd\x01\n" +
+	"\vscript_name\x12\x19.buf.validate.StringRules\x18\xb8\x87\x03 \x01(\bB\xd1\x01\xc2H\xcd\x01\n" +
 	"\xca\x01\n" +
-	"\x12string.action_name\x12Mmust be a file name, with no slash, no leading dot, and no control characters\x1ae!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\n" +
-	"actionName:\xb2\x02\n" +
-	"\x14action_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xe3\x01\xc2H\xdf\x01\n" +
+	"\x12string.script_name\x12Mmust be a file name, with no slash, no leading dot, and no control characters\x1ae!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\n" +
+	"scriptName:\xb2\x02\n" +
+	"\x14script_name_or_blank\x12\x19.buf.validate.StringRules\x18\xb9\x87\x03 \x01(\bB\xe3\x01\xc2H\xdf\x01\n" +
 	"\xdc\x01\n" +
-	"\x1bstring.action_name_or_blank\x12Vmust be blank or a file name, with no slash, no leading dot, and no control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11actionNameOrBlank:\xe0\x01\n" +
+	"\x1bstring.script_name_or_blank\x12Vmust be blank or a file name, with no slash, no leading dot, and no control characters\x1ae!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))R\x11scriptNameOrBlank:\xe0\x01\n" +
 	"\x0fcron_expression\x12\x19.buf.validate.StringRules\x18\xb7\x87\x03 \x01(\bB\x99\x01\xc2H\x95\x01\n" +
 	"\x92\x01\n" +
 	"\x16string.cron_expression\x12?must be five whitespace-separated fields, such as '0 9 * * 1-5'\x1a7!rule || this.split(' ').filter(f, f != '').size() == 5R\x0ecronExpression:\x84\x02\n" +
@@ -134,8 +134,8 @@ var file_rules_v1_rules_proto_depIdxs = []int32{
 	0, // 0: rules.v1.shell_safe:extendee -> buf.validate.StringRules
 	0, // 1: rules.v1.absolute_path:extendee -> buf.validate.StringRules
 	0, // 2: rules.v1.absolute_path_or_blank:extendee -> buf.validate.StringRules
-	0, // 3: rules.v1.action_name:extendee -> buf.validate.StringRules
-	0, // 4: rules.v1.action_name_or_blank:extendee -> buf.validate.StringRules
+	0, // 3: rules.v1.script_name:extendee -> buf.validate.StringRules
+	0, // 4: rules.v1.script_name_or_blank:extendee -> buf.validate.StringRules
 	0, // 5: rules.v1.cron_expression:extendee -> buf.validate.StringRules
 	0, // 6: rules.v1.relative_path:extendee -> buf.validate.StringRules
 	7, // [7:7] is the sub-list for method output_type

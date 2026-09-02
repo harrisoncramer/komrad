@@ -15,8 +15,8 @@ import (
 	"weave/config"
 	"weave/internal/errui"
 	"weave/internal/ui/layout"
-	"weave/proto/gen/action/v1/actionv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -54,7 +54,7 @@ type Deps struct {
 	Agents          agentv1connect.AgentServiceClient
 	Workflows       workflowv1connect.WorkflowServiceClient
 	Schedules       schedulev1connect.ScheduleServiceClient
-	Actions         actionv1connect.ActionServiceClient
+	Hooks           hookv1connect.HookServiceClient
 	Keys            config.Keybindings
 	Tags            []config.Tag
 	Layout          config.Layout
@@ -63,7 +63,7 @@ type Deps struct {
 	LogPath         string
 	ProcessViewer   string
 	Editor          string
-	ActionLogsDir   string
+	RunLogsDir      string
 	ConfigErr       error
 	StartupErr      error
 	StartupFindings []errui.Finding
@@ -112,7 +112,7 @@ type model struct {
 	logViewer       string
 	processViewer   string
 	editor          string
-	actionLogsDir   string
+	runLogsDir      string
 	pane            string
 	// self is the weave binary, which the panel runs in the stage pane to draw into it.
 	self string
@@ -133,7 +133,7 @@ func newModel(deps Deps, isDark bool) model {
 			agents:    deps.Agents,
 			workflows: deps.Workflows,
 			schedules: deps.Schedules,
-			actions:   deps.Actions,
+			hooks:     deps.Hooks,
 		},
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
@@ -145,7 +145,7 @@ func newModel(deps Deps, isDark bool) model {
 		logViewer:       deps.LogViewer,
 		processViewer:   deps.ProcessViewer,
 		editor:          deps.Editor,
-		actionLogsDir:   deps.ActionLogsDir,
+		runLogsDir:      deps.RunLogsDir,
 		pane:            deps.Pane,
 		self:            deps.Self,
 		keys:            deps.Keys,

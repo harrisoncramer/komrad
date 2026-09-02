@@ -165,7 +165,7 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 		return previewResult{
 			agentID: hit.agentID,
 			query:   query,
-			content: resp.Msg.GetContent(),
+			content: scrubMarks(resp.Msg.GetContent()),
 		}
 	}
 }
@@ -181,7 +181,7 @@ func (m *model) applyPreview(result previewResult) {
 	}
 
 	m.search.preview = result
-	m.stageTranscript(result.content, hit.lines(result.content))
+	m.stageTranscript(result.content, hit.spans(result.content))
 }
 
 // groupSections gathers each agent's hits within its own section, since an agent with a word
@@ -224,14 +224,14 @@ func groupByAgent(hits []searchHit) []searchHit {
 
 const noTranscriptMarkdown = "_no transcript yet_"
 
-func (m *model) stageTranscript(conversation string, lines []int) {
+func (m *model) stageTranscript(conversation string, spans []span) {
 	if strings.TrimSpace(conversation) == "" {
 		m.frame.Show(layout.RegionStage, newTextContent(noTranscriptMarkdown))
 
 		return
 	}
 
-	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, lines))
+	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, spans))
 }
 
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -357,7 +357,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 type matchFocus struct {
 	agentID string
 	content string
-	lines   []int
+	spans   []span
 }
 
 func matchFor(hit searchHit, preview previewResult) matchFocus {
@@ -367,23 +367,23 @@ func matchFor(hit searchHit, preview previewResult) matchFocus {
 
 	// A turn the content does not hold spells none of the words, and a transcript with nothing
 	// marked in it is nothing worth taking the stage for.
-	lines := hit.lines(preview.content)
-	if len(lines) == 0 {
+	spans := hit.spans(preview.content)
+	if len(spans) == 0 {
 		return matchFocus{}
 	}
 
 	return matchFocus{
 		agentID: hit.agentID,
 		content: preview.content,
-		lines:   lines,
+		spans:   spans,
 	}
 }
 
-// lines locates this hit's own matched lines in the transcript, measured from the turn the hit
+// spans locates this hit's own matched words in the transcript, measured from the turn the hit
 // names rather than from whatever the preview last fetched, since an agent's hits sit next to
 // each other in the listing and the transcript on hand can belong to the one before it.
-func (h searchHit) lines(content string) []int {
-	return matchLines(content, h.offset, h.length, markedTerms(h.snippet))
+func (h searchHit) spans(content string) []span {
+	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet))
 }
 
 // stageMatch puts the transcript a search hit came from on the stage at the line it matched on,
@@ -398,7 +398,7 @@ func (m *model) stageMatch(agentID string) bool {
 		return false
 	}
 
-	m.stageTranscript(m.match.content, m.match.lines)
+	m.stageTranscript(m.match.content, m.match.spans)
 
 	return true
 }

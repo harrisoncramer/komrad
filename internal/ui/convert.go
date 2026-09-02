@@ -2,7 +2,6 @@ package ui
 
 import (
 	"slices"
-	"strings"
 	"time"
 
 	agentv1 "weave/proto/gen/agent/v1"
@@ -52,10 +51,6 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 	}
 }
 
-func isInternalAction(name string) bool {
-	return strings.HasPrefix(name, "_")
-}
-
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
 		return agentItem{
@@ -78,15 +73,16 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 	}
 
 	return workflowstore.Workflow{
-		ID:                w.GetId(),
-		Name:              w.GetName(),
-		Context:           w.GetContext(),
-		Harness:           w.GetHarness(),
-		Cwd:               w.GetCwd(),
-		Flags:             w.GetFlags(),
-		SetupAction:       w.GetSetupAction(),
-		CleanupAction:     w.GetCleanupAction(),
-		Worktree:          worktreeConfigFromProto(w.GetWorktree()),
+		ID:       w.GetId(),
+		Name:     w.GetName(),
+		Context:  w.GetContext(),
+		Harness:  w.GetHarness(),
+		Cwd:      w.GetCwd(),
+		Flags:    w.GetFlags(),
+		Worktree: worktreeConfigFromProto(w.GetWorktree()),
+		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
+			return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
+		}),
 		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
 		ArchivedAt:        archived,
 	}

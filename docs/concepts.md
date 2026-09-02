@@ -18,7 +18,7 @@ The panel reaches you through a popup. Pressing the weave keybinding runs a tmux
 
 ## Weave's API
 
-Every action fired to weave goes through an API. The panel calls them as a ConnectRPC client.
+Every call into weave goes through an API. The panel calls them as a ConnectRPC client.
 
 For instance, telling weave to archive an agent is a keypress in the manager panel, which hits Weave's server, which archives the agent.
 
@@ -36,7 +36,7 @@ The next layer, services, are `internal/agents` and `internal/rpc/*`. These indi
 
 The stores, which hold data, are in `internal/store` and the packages beneath it, one per domain. This package also holds database transactions.
 
-Separately, adapters are in `internal/tmux`, `internal/harness`, and `internal/actions`. Each one is a seam in front of something weave does not own. For instance, the `harness` package is where the boundary between different CLI agents (Claude vs. Codex) is kept.
+Separately, adapters are in `internal/tmux`, `internal/harness`, and `internal/scripts`. Each one is a seam in front of something weave does not own. For instance, the `harness` package is where the boundary between different CLI agents (Claude vs. Codex) is kept.
 
 ## Postgres
 
@@ -66,4 +66,4 @@ The store then writes the rows, inside one transaction if more than one domain i
 
 The panel learns about it on its next refresh, up to a second later, because it re-lists rather than being told. If the call failed, the error is reported on the panel's screen and nothing was written.
 
-The process is similar for an agent taking the same action: the call may come over MCP, but eventually it still reaches the same validators, services logic, and database transaction code.
+The process is similar for an agent doing the same thing: the call may come over MCP, but eventually it still reaches the same validators, services logic, and database transaction code.

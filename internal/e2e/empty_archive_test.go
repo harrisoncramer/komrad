@@ -1,8 +1,6 @@
 package e2e
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
@@ -74,22 +72,15 @@ func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 }
 
 // TestEmptyArchiveLeavesAFailedTeardownInTheArchive covers what the gesture promises against
-// a cleanup action that will not run: the row cannot be destroyed, so it has to be somewhere,
+// a deprovisioner that will not run: the row cannot be destroyed, so it has to be somewhere,
 // and the archive the user was emptying is the only place they would think to look for it.
 func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
 
-	const teardown = "teardown"
-	require.NoError(t, os.WriteFile(filepath.Join(instance.GetActionsDir, teardown), []byte(
-		"#!/bin/sh\necho boom >&2\nexit 1\n",
-	), 0o755))
+	replaceWorktreeTeardown(t, instance, "#!/bin/sh\necho boom >&2\nexit 1\n")
 
-	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:          "backend",
-		Cwd:           t.TempDir(),
-		CleanupAction: teardown,
-	}))
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(worktreeWorkflow(t, "backend")))
 	require.NoError(t, err)
 
 	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{

@@ -15,6 +15,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 	"weave/lib/xstr"
 )
@@ -39,7 +40,7 @@ type LaunchService struct {
 	tx                 txRunner
 	launcher           *Launcher
 	harnesses          harnessGetter
-	actions            agentActions
+	scripts            agentScripts
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	maxAgents          int
@@ -53,7 +54,7 @@ type LaunchServiceParams struct {
 	Tx                 txRunner
 	Launcher           *Launcher
 	Harnesses          harnessGetter
-	Actions            agentActions
+	Scripts            agentScripts
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
@@ -69,7 +70,7 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 		tx:                 p.Tx,
 		launcher:           p.Launcher,
 		harnesses:          p.Harnesses,
-		actions:            p.Actions,
+		scripts:            p.Scripts,
 		userDefaultHarness: p.UserDefaultHarness,
 		userDefaultFlags:   p.UserDefaultFlags,
 		maxAgents:          p.MaxAgents,
@@ -78,21 +79,20 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 }
 
 type NewAgentParams struct {
-	Client         string
-	Title          string
-	Dir            string
-	Flags          string
-	SetupAction    *string
-	CleanupAction  *string
-	Prompt         string
-	Harness        string
-	WorkflowID     string
-	ScheduleID     *string
-	Hidden         bool
-	IdempotencyKey string
-	SetupPane      string
-	AdoptedBranch  string
-	ParentAgentID  string
+	Client           string
+	Title            string
+	Dir              string
+	Flags            string
+	ProvisionEnabled *bool
+	Prompt           string
+	Harness          string
+	WorkflowID       string
+	ScheduleID       *string
+	Hidden           bool
+	IdempotencyKey   string
+	SetupPane        string
+	AdoptedBranch    string
+	ParentAgentID    string
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -151,7 +151,7 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 	}
 
 	// The row is left where it stands rather than relaunched into, since its id names the
-	// worktree and branch the cleanup action is still tearing down in the background.
+	// worktree and branch the deprovisioner is still tearing down in the background.
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
@@ -168,7 +168,7 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 }
 
 // findParent resolves the agent a child is being attached to, and refuses a request that asks
-// for anything the parent decides instead: the checkout, the two actions, and the workflow are
+// for anything the parent decides instead: the checkout, the provisioner, and the workflow are
 // its parent's rather than the caller's to choose, so a request naming one of them is answered
 // rather than quietly overridden.
 func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
@@ -195,10 +195,8 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	switch {
 	case strings.TrimSpace(p.Dir) != "":
 		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
-	case p.SetupAction != nil && strings.TrimSpace(*p.SetupAction) != "":
-		return nil, fmt.Errorf("%w: it runs no setup action, since the checkout is already there", ErrChildOwnsLaunch)
-	case p.CleanupAction != nil && strings.TrimSpace(*p.CleanupAction) != "":
-		return nil, fmt.Errorf("%w: it runs no cleanup action, since the checkout is not its to tear down", ErrChildOwnsLaunch)
+	case p.ProvisionEnabled != nil && *p.ProvisionEnabled:
+		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", ErrChildOwnsLaunch)
 	case p.WorkflowID != parent.WorkflowID:
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
 	case p.ScheduleID != nil:
@@ -208,13 +206,12 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	return parent, nil
 }
 
-// childParams holds a child to what its parent gives it, writing the blank actions onto the row
-// rather than leaving them unset, since an unset action falls back to the workflow's and for a
-// worktree-enabled workflow that one would tear the parent's checkout down from under it.
+// childParams holds a child to what its parent gives it, writing the disabled provisioner onto
+// the row rather than leaving it unset, since an unset one follows the workflow and for a
+// worktree-enabled workflow that would tear the parent's checkout down from under it.
 func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
 	p.Dir = parent.Cwd
-	p.SetupAction = xptr.Ptr("")
-	p.CleanupAction = xptr.Ptr("")
+	p.ProvisionEnabled = xptr.Ptr(false)
 
 	return p
 }
@@ -226,8 +223,9 @@ type launchPlan struct {
 	dir             string
 	flags           string
 	workflowContext string
-	setupAction     string
-	cleanupAction   string
+	provisioner     string
+	deprovisioner   string
+	hooks           []workflowstore.Hook
 }
 
 func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
@@ -272,14 +270,20 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
-	setupAction := wf.SetupAction
-	if p.SetupAction != nil {
-		setupAction = strings.TrimSpace(*p.SetupAction)
+	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
+	provisioner, deprovisioner := "", ""
+	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(p.ProvisionEnabled)
+	if provisions {
+		provisioner, deprovisioner = worktreeProvisioner, worktreeDeprovisioner
 	}
 
-	cleanupAction := wf.CleanupAction
-	if p.CleanupAction != nil {
-		cleanupAction = strings.TrimSpace(*p.CleanupAction)
+	// The hooks a workflow lists are read only for the agents that own their own directory, since
+	// a child runs in its parent's checkout and an agent told to keep the directory it was given
+	// was handed somebody else's, where an install-deps hook would be working in a tree nobody
+	// asked it to touch.
+	hooks := wf.Hooks
+	if p.ParentAgentID != "" || isProvisionerDisabled(p.ProvisionEnabled) {
+		hooks = nil
 	}
 
 	return &launchPlan{
@@ -289,8 +293,9 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		dir:             dir,
 		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
 		workflowContext: wf.Context,
-		setupAction:     setupAction,
-		cleanupAction:   cleanupAction,
+		provisioner:     provisioner,
+		deprovisioner:   deprovisioner,
+		hooks:           hooks,
 	}, nil
 }
 
@@ -306,8 +311,7 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		Pane:             pane,
 		Cwd:              dir,
 		Flags:            plan.flags,
-		SetupAction:      params.SetupAction,
-		CleanupAction:    params.CleanupAction,
+		ProvisionEnabled: params.ProvisionEnabled,
 		Prompt:           params.Prompt,
 		State:            agentstore.StateIdle,
 		Harness:          plan.harnessID,
@@ -341,7 +345,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	}
 
 	var pane string
-	pastSetup := false
+	provisioned := false
 	launched := false
 	defer func() {
 		if launched {
@@ -356,23 +360,32 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		if pane != "" {
 			s.tmux.KillPane(pane)
 		}
-		if pastSetup {
-			runCleanup(teardown, s.actions, agent, plan.cleanupAction, nil)
+		if provisioned {
+			awaitDeprovision(teardown, s.scripts, agent, plan.deprovisioner)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
 
-	setupName, err := s.runSetup(ctx, agent, plan.setupAction, p.SetupPane)
+	named, err := s.runProvision(ctx, agent, plan.provisioner, p.SetupPane)
 	if err != nil {
 		return nil, err
 	}
-	pastSetup = true
+	provisioned = true
 
-	dir, err := s.setupDir(plan.dir, setupName)
+	dir, err := s.provisionedDir(plan.dir, named)
 	if err != nil {
 		return nil, err
 	}
 	agent = plan.agent(p, id, sessionID, dir, "", spawner)
+
+	if err := runHooks(ctx, hookRunParams{
+		scripts: s.scripts,
+		agent:   agent,
+		hooks:   plan.hooks,
+		event:   workflowstore.HookPreLaunch,
+	}); err != nil {
+		return nil, err
+	}
 
 	pane, err = s.tmux.NewWindow(ManagerSession, plan.name, dir)
 	if err != nil {
@@ -420,6 +433,13 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 
 	launched = true
 
+	startHooks(ctx, hookRunParams{
+		scripts: s.scripts,
+		agent:   *created,
+		hooks:   plan.hooks,
+		event:   workflowstore.HookPostLaunch,
+	})
+
 	return created, nil
 }
 
@@ -431,15 +451,41 @@ func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, 
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
-func (s *LaunchService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
-	if s.actions == nil || name == "" {
+// awaitDeprovision runs a deprovisioner and waits for it, so a create that failed has given
+// back the directory it provisioned before the row is closed out against it.
+func awaitDeprovision(ctx context.Context, deprovision agentScripts, agent agentstore.Agent, name string) {
+	finished := make(chan error, 1)
+	runDeprovision(ctx, deprovision, agent, name, func(deprovisionErr error) {
+		finished <- deprovisionErr
+	})
+
+	select {
+	case deprovisionErr := <-finished:
+		if deprovisionErr != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner of a failed create did not finish",
+				append([]slog.Attr{
+					slog.String(logging.ScriptName, name),
+					slog.String(logging.ScriptAgentID, agent.ID),
+					slog.String(logging.ScriptAgentCwd, agent.Cwd),
+				}, logging.Err(deprovisionErr)...)...)
+		}
+	case <-ctx.Done():
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the deprovisioner of a failed create",
+			slog.String(logging.ScriptName, name),
+			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentCwd, agent.Cwd))
+	}
+}
+
+func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
+	if s.scripts == nil || name == "" {
 		return "", nil
 	}
 
-	return s.actions.RunSetupAction(ctx, planned, name, pane)
+	return s.scripts.RunProvision(ctx, planned, name, pane)
 }
 
-func (s *LaunchService) setupDir(planned, named string) (string, error) {
+func (s *LaunchService) provisionedDir(planned, named string) (string, error) {
 	if named == "" {
 		return planned, nil
 	}
@@ -454,7 +500,7 @@ func namedDir(named string) (string, error) {
 
 	dir := config.ExpandHome(named)
 	if err := requireUsableDir(dir); err != nil {
-		return "", fmt.Errorf("%w: a setup action named %q: %w", ErrSetupFailed, dir, err)
+		return "", fmt.Errorf("%w: a provisioner named %q: %w", ErrProvisionFailed, dir, err)
 	}
 
 	return dir, nil
@@ -518,12 +564,76 @@ func claimRoomForChildren(ctx context.Context, agents childSlots, maxChildren in
 		return err
 	}
 
-	held, err := agents.CountLiveChildren(ctx, parent.ID)
-	if err != nil {
-		return fmt.Errorf("failed to count the children of agent %q: %w", parent.Name, err)
+	return requireRoomForChildren(ctx, agents, maxChildren, []parentRoom{{
+		id:   parent.ID,
+		name: parent.Name,
+		want: 1,
+	}})
+}
+
+// claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
+// same ceiling a create is held to, since a child archived on its own may have been replaced
+// while it was gone.
+func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlots, maxChildren int, restoring []agentstore.Agent) error {
+	if maxChildren <= 0 {
+		return nil
 	}
-	if held+1 > maxChildren {
-		return fmt.Errorf("%w: %q already holds %d of %d, and they share one checkout", ErrTooManyChildren, parent.Name, held, maxChildren)
+
+	// The whole batch is counted against each parent at once, since children checked one at a
+	// time would each find room and walk past the ceiling together.
+	want := make(map[string]int, len(restoring))
+	var parentIDs []string
+	for _, agent := range restoring {
+		if agent.ParentAgentID == nil {
+			continue
+		}
+		if want[*agent.ParentAgentID] == 0 {
+			parentIDs = append(parentIDs, *agent.ParentAgentID)
+		}
+		want[*agent.ParentAgentID]++
+	}
+	if len(parentIDs) == 0 {
+		return nil
+	}
+
+	if err := agents.LockSlots(ctx); err != nil {
+		return err
+	}
+
+	parents, err := agents.ListByID(ctx, parentIDs)
+	if err != nil {
+		return fmt.Errorf("failed to look up %d parents of the restoring children: %w", len(parentIDs), err)
+	}
+
+	wanted := make([]parentRoom, 0, len(parents))
+	for _, parent := range parents {
+		wanted = append(wanted, parentRoom{
+			id:   parent.ID,
+			name: parent.Name,
+			want: want[parent.ID],
+		})
+	}
+
+	return requireRoomForChildren(ctx, agents, maxChildren, wanted)
+}
+
+// parentRoom is one parent and how many children a call wants to put under it.
+type parentRoom struct {
+	id   string
+	name string
+	want int
+}
+
+func requireRoomForChildren(ctx context.Context, agents childCounter, maxChildren int, wanted []parentRoom) error {
+	for _, parent := range wanted {
+		held, err := agents.CountLiveChildren(ctx, parent.id)
+		if err != nil {
+			return fmt.Errorf("failed to count the children of agent %q: %w", parent.name, err)
+		}
+		if held+parent.want > maxChildren {
+			return fmt.Errorf("%w: %q may run %d at once and this would make %d, and they share one checkout",
+				ErrTooManyChildren, parent.name, maxChildren, held+parent.want)
+		}
 	}
 
 	return nil

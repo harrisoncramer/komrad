@@ -3,17 +3,13 @@ package ui
 import (
 	"slices"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	transcriptstore "weave/internal/store/transcript"
+
+	"github.com/charmbracelet/lipgloss"
 )
-
-func lineAtOffset(content string, offset int64) int {
-	if offset < 0 || offset > int64(len(content)) {
-		return 0
-	}
-
-	return 1 + strings.Count(content[:offset], "\n")
-}
 
 const snippetIndent = 4
 
@@ -106,9 +102,16 @@ func clipToMatch(snippet string, width int) string {
 }
 
 func renderSnippet(s string, width int) string {
-	s = clipToMatch(strings.ReplaceAll(s, "\n", " "), width)
+	return styleMarks(clipToMatch(strings.ReplaceAll(s, "\n", " "), width), matchStyle)
+}
 
+// styleMarks consumes the store's match markers into styling, putting back whatever styling was
+// in force where a mark falls inside it, since the reset a styled word ends with would otherwise
+// strip the colour off the rest of a rendered run.
+func styleMarks(s string, style lipgloss.Style) string {
 	var b strings.Builder
+
+	active := ""
 	for {
 		i := strings.Index(s, transcriptstore.SnippetOpen)
 		if i < 0 {
@@ -116,6 +119,7 @@ func renderSnippet(s string, width int) string {
 			break
 		}
 		b.WriteString(s[:i])
+		active = activeSGR(active, s[:i])
 
 		rest := s[i+len(transcriptstore.SnippetOpen):]
 		j := strings.Index(rest, transcriptstore.SnippetClose)
@@ -123,11 +127,47 @@ func renderSnippet(s string, width int) string {
 			b.WriteString(rest)
 			break
 		}
-		b.WriteString(matchStyle.Render(rest[:j]))
+		b.WriteString(style.Render(rest[:j]))
+		b.WriteString(active)
 		s = rest[j+len(transcriptstore.SnippetClose):]
 	}
 
 	return b.String()
+}
+
+// activeSGR reports the styling still in force at the end of a chunk, where a reset clears it
+// and so does a line ending, since the renderer opens its styling again on every line.
+func activeSGR(active, chunk string) string {
+	for chunk != "" {
+		i := strings.IndexAny(chunk, "\x1b\n")
+		if i < 0 {
+			return active
+		}
+
+		if chunk[i] == '\n' {
+			active, chunk = "", chunk[i+1:]
+
+			continue
+		}
+
+		rest := chunk[i:]
+		end := strings.IndexByte(rest, 'm')
+		if !strings.HasPrefix(rest, "\x1b[") || end < 0 {
+			chunk = rest[1:]
+
+			continue
+		}
+
+		if params := rest[2:end]; params == "" || params == "0" {
+			active = ""
+		} else {
+			active = rest[:end+1]
+		}
+
+		chunk = rest[end+1:]
+	}
+
+	return active
 }
 
 func trimLastRune(s string) string {
@@ -158,7 +198,7 @@ func markedTerms(snippet string) []string {
 		if j < 0 {
 			break
 		}
-		term := strings.ToLower(strings.TrimSpace(rest[:j]))
+		term := foldASCII(strings.TrimSpace(rest[:j]))
 		rest = rest[j+len(transcriptstore.SnippetClose):]
 
 		if term == "" || seen[term] {
@@ -171,23 +211,98 @@ func markedTerms(snippet string) []string {
 	return terms
 }
 
-// matchLines reports the lines the marked words are spelled on within the one turn a hit came
-// from, which is as much as a hit says about where it matched: the search index gives a turn
-// and the words, never a position for the words themselves.
-func matchLines(content string, offset, length int64, terms []string) []int {
+// span is a stretch of a transcript a hit matched on, in bytes.
+type span struct {
+	start int
+	end   int
+}
+
+// matchSpans locates the marked words within the one turn a hit came from, which is as much as
+// a hit says about where it matched: the search index gives a turn and the words, never a
+// position for the words themselves.
+func matchSpans(content string, offset, length int64, terms []string) []span {
 	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
 		return nil
 	}
 
 	end := min(offset+length, int64(len(content)))
-	first := lineAtOffset(content, offset)
+	turn := foldASCII(content[offset:end])
 
-	var lines []int
-	for i, line := range strings.Split(strings.ToLower(content[offset:end]), "\n") {
-		if slices.ContainsFunc(terms, func(term string) bool { return strings.Contains(line, term) }) {
-			lines = append(lines, first+i)
+	var spans []span
+	for _, term := range terms {
+		folded := foldASCII(term)
+		if folded == "" {
+			continue
+		}
+
+		for at := 0; at < len(turn); {
+			i := strings.Index(turn[at:], folded)
+			if i < 0 {
+				break
+			}
+
+			// The listing's own snippet marks whole words, so a term found inside a longer word
+			// is not what the search matched on, while a match running past the word's end is
+			// kept for the stemmed hit that spells it.
+			if startsWord(turn, at+i) {
+				start := int(offset) + at + i
+				spans = append(spans, span{start: start, end: start + len(folded)})
+			}
+
+			at += i + len(folded)
 		}
 	}
 
-	return lines
+	slices.SortFunc(spans, func(a, b span) int { return a.start - b.start })
+
+	return mergeSpans(spans)
+}
+
+// startsWord reports whether an index falls at the front of a word, reading the rune before it
+// rather than the byte, since the punctuation these transcripts are written with runs well past
+// ASCII and a curly quote is no more a word than a straight one is.
+func startsWord(s string, at int) bool {
+	if at == 0 {
+		return true
+	}
+
+	r, _ := utf8.DecodeLastRuneInString(s[:at])
+
+	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
+}
+
+// mergeSpans folds overlapping spans together, since two of the matched words can be spelled
+// over the same letters and a mark written inside another mark would not close.
+func mergeSpans(spans []span) []span {
+	if len(spans) == 0 {
+		return nil
+	}
+
+	merged := []span{spans[0]}
+	for _, s := range spans[1:] {
+		last := len(merged) - 1
+		if s.start <= merged[last].end {
+			merged[last].end = max(merged[last].end, s.end)
+
+			continue
+		}
+
+		merged = append(merged, s)
+	}
+
+	return merged
+}
+
+// foldASCII lowercases the ASCII letters and leaves every other byte where it is, since the
+// spans it is used to find are byte offsets into the transcript and a Unicode fold can change
+// how long a string is.
+func foldASCII(s string) string {
+	b := []byte(s)
+	for i, c := range b {
+		if c >= 'A' && c <= 'Z' {
+			b[i] = c + 'a' - 'A'
+		}
+	}
+
+	return string(b)
 }

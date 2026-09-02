@@ -39,23 +39,13 @@ table "workflow_configs" {
   }
 }
 
-table "workflow_action_configs" {
+table "workflow_provisioner_configs" {
   schema  = schema.public
-  comment = "The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead."
+  comment = "The worktree config a workflow provisions its agents with, and whether it provisions them at all."
   column "id" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
-  }
-  column "setup_action" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "cleanup_action" {
-    null    = false
-    type    = text
-    default = ""
   }
   column "worktree_enabled" {
     null    = false
@@ -102,6 +92,49 @@ table "workflow_action_configs" {
   }
 }
 
+table "workflow_hooks" {
+  schema  = schema.public
+  comment = "The scripts a workflow hangs on one moment in its agents' lives, run in position order."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "workflow_id" {
+    null = false
+    type = uuid
+  }
+  column "event" {
+    null = false
+    type = text
+  }
+  column "script" {
+    null = false
+    type = text
+  }
+  column "position" {
+    null = false
+    type = integer
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "workflow_hooks_workflow_id_fkey" {
+    columns     = [column.workflow_id]
+    ref_columns = [table.workflows.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "workflow_hooks_workflow_id_position_idx" {
+    columns = [column.workflow_id, column.position]
+  }
+}
+
 table "workflows" {
   schema  = schema.public
   comment = "A named bucket of related agents. Pure organization; runs nothing."
@@ -123,7 +156,7 @@ table "workflows" {
     null = false
     type = uuid
   }
-  column "action_config_id" {
+  column "provisioner_config_id" {
     null = false
     type = uuid
   }
@@ -150,17 +183,17 @@ table "workflows" {
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
-  foreign_key "workflows_action_config_id_fkey" {
-    columns     = [column.action_config_id]
-    ref_columns = [table.workflow_action_configs.column.id]
+  foreign_key "workflows_provisioner_config_id_fkey" {
+    columns     = [column.provisioner_config_id]
+    ref_columns = [table.workflow_provisioner_configs.column.id]
     on_delete   = RESTRICT
     on_update   = NO_ACTION
   }
   index "workflows_workflow_config_id" {
     columns = [column.workflow_config_id]
   }
-  index "workflows_action_config_id" {
-    columns = [column.action_config_id]
+  index "workflows_provisioner_config_id" {
+    columns = [column.provisioner_config_id]
   }
 }
 
@@ -308,13 +341,9 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "setup_action" {
+  column "provision_enabled" {
     null = true
-    type = text
-  }
-  column "cleanup_action" {
-    null = true
-    type = text
+    type = boolean
   }
   column "prompt" {
     null    = false

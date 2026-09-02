@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"time"
+
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
@@ -79,6 +81,10 @@ type fakeArchive struct {
 	deleted int
 	pages   int
 
+	// live is the agents outside the archive, which the sweep never pages through but does ask
+	// about when a child on a page names one as its parent.
+	live []agentstore.Agent
+
 	// asked is the ids each delete was given, since what the sweep leaves out of a page matters
 	// as much as what it deletes.
 	asked [][]string
@@ -88,17 +94,25 @@ type fakeArchive struct {
 	failOn int
 
 	// keepRows is the delete succeeding while leaving the rows where they are, which is what
-	// the real one does for an agent whose cleanup action is still running.
+	// the real one does for an agent whose deprovisioner is still running.
 	keepRows bool
 }
 
 func newFakeArchive(count int) *fakeArchive {
 	archive := &fakeArchive{}
 	for i := count; i > 0; i-- {
-		archive.agents = append(archive.agents, agentstore.Agent{ID: fmt.Sprintf("%06d", i)})
+		archive.agents = append(archive.agents, archivedRow(agentstore.Agent{ID: fmt.Sprintf("%06d", i)}))
 	}
 
 	return archive
+}
+
+// archivedRow stamps the archive time the store carries on a row the sweep reads, which is what
+// tells an archived parent from a live one.
+func archivedRow(agent agentstore.Agent) agentstore.Agent {
+	agent.ArchivedAt = xptr.Ptr(time.Now())
+
+	return agent
 }
 
 func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error) {
@@ -119,6 +133,24 @@ func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstor
 	}
 
 	return page, nil
+}
+
+// ListByID spans the archive and the live agents beside it, the way the store's own read does,
+// since what the sweep asks it is whether a parent is archived rather than whether it exists.
+func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Agent, error) {
+	wanted := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		wanted[id] = true
+	}
+
+	var found []agentstore.Agent
+	for _, agent := range append(append([]agentstore.Agent{}, f.agents...), f.live...) {
+		if wanted[agent.ID] {
+			found = append(found, agent)
+		}
+	}
+
+	return found, nil
 }
 
 func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
@@ -157,14 +189,13 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 	return nil
 }
 
-// TestEmptyArchiveAsksForTheParents pins that a page holding a child names only its parent,
-// since a child is deleted by naming the agent it is attached to and naming one alone is
-// refused.
+// TestEmptyArchiveAsksForTheParents pins that a page holding a child whose parent is in the
+// archive too names only that parent, since the delete takes the child with it.
 func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 	archive := newFakeArchive(0)
 	archive.agents = []agentstore.Agent{
-		{ID: "000002", ParentAgentID: xptr.Ptr("000001")},
-		{ID: "000001"},
+		archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")}),
+		archivedRow(agentstore.Agent{ID: "000001"}),
 	}
 	worker := NewEmptyArchiveWorker(archive, archive)
 
@@ -172,4 +203,18 @@ func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 
 	assert.Equal(t, [][]string{{"000001"}}, archive.asked)
 	assert.Empty(t, archive.agents, "and the child goes with it")
+}
+
+// TestEmptyArchiveTakesAChildWhoseParentIsLive pins the row nothing else can reach: a child
+// archived on its own, whose parent is still working and is never named by the sweep.
+func TestEmptyArchiveTakesAChildWhoseParentIsLive(t *testing.T) {
+	archive := newFakeArchive(0)
+	archive.agents = []agentstore.Agent{archivedRow(agentstore.Agent{ID: "000002", ParentAgentID: xptr.Ptr("000001")})}
+	archive.live = []agentstore.Agent{{ID: "000001"}}
+	worker := NewEmptyArchiveWorker(archive, archive)
+
+	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
+
+	assert.Equal(t, [][]string{{"000002"}}, archive.asked)
+	assert.Empty(t, archive.agents, "the archive is left empty")
 }

@@ -19,7 +19,7 @@ import (
 )
 
 // TestWorktreeAgentsAreCreatedConcurrently covers a worktree workflow fanned out over the
-// API, where anything the setup action writes to shared git config puts every create on one
+// API, where anything the provisioner writes to shared git config puts every create on one
 // lock.
 func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	hermeticGit(t)
@@ -178,4 +178,23 @@ func readGitConfig(t *testing.T, dir, key string) string {
 	}
 
 	return strings.TrimSpace(string(output))
+}
+
+// replaceWorktreeTeardown writes over the built-in that gives an agent's worktree back, which
+// is the only deprovision there is now that a workflow cannot name a script of its own.
+func replaceWorktreeTeardown(t *testing.T, instance *weavetest.Instance, script string) {
+	t.Helper()
+
+	require.NoError(t, os.WriteFile(filepath.Join(instance.BuiltinDir, "_worktree_cleanup"), []byte(script), 0o755))
+}
+
+// worktreeWorkflow is the request for a workflow whose agents each get a worktree of their own.
+func worktreeWorkflow(t *testing.T, name string) *workflowv1.CreateWorkflowRequest {
+	t.Helper()
+
+	return &workflowv1.CreateWorkflowRequest{
+		Name:     name,
+		Cwd:      initGitRepo(t),
+		Worktree: &workflowv1.WorktreeConfig{Enabled: true},
+	}
 }

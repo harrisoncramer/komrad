@@ -66,15 +66,15 @@ func TestCreateAgent(t *testing.T) {
 			wantCode: connect.CodeInvalidArgument,
 		},
 		{
-			name:     "a setup action that refuses is a precondition, not an internal error",
+			name:     "a provisioner that refuses is a precondition, not an internal error",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: agents.ErrSetupFailed,
+			launchEr: agents.ErrProvisionFailed,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name:     "a setup action naming an unusable directory is the same precondition",
+			name:     "a provisioner naming an unusable directory is the same precondition",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: fmt.Errorf("%w: %w", agents.ErrSetupFailed, agents.ErrBadDirectory),
+			launchEr: fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -806,7 +806,7 @@ func TestSetMetadata(t *testing.T) {
 	}
 }
 
-// TestLog covers the channel a running action uses to say what it did, and the refusal of an
+// TestLog covers the channel a running script uses to say what it did, and the refusal of an
 // id nobody holds.
 func TestLog(t *testing.T) {
 	tests := []struct {
@@ -875,8 +875,8 @@ func TestLog(t *testing.T) {
 			record := logtest.Record(t, written.String())
 			assert.Equal(t, "fetched origin/main", record["body"])
 			assert.Equal(t, id, record[logging.TargetAgentID])
-			assert.Equal(t, "/repo", record[logging.ActionAgentCwd])
-			assert.NotContains(t, record, logging.ActionName, "no action was given")
+			assert.Equal(t, "/repo", record[logging.ScriptAgentCwd])
+			assert.NotContains(t, record, logging.ScriptName, "no script was given")
 		})
 	}
 }
@@ -1349,10 +1349,10 @@ func TestDeleteMailUnknownIDIsNotFound(t *testing.T) {
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
-// TestLogTagsTheAction covers the action field, which is unset for anything that is not a
-// running action and, when given, is worth its own field rather than folded into the
+// TestLogTagsTheScript covers the script field, which is unset for anything that is not a
+// running script and, when given, is worth its own field rather than folded into the
 // message.
-func TestLogTagsTheAction(t *testing.T) {
+func TestLogTagsTheScript(t *testing.T) {
 	svc, st := service(t)
 	id := st.SeedAgent(t, agentstore.Agent{
 		Name:  "alpha",
@@ -1363,16 +1363,16 @@ func TestLogTagsTheAction(t *testing.T) {
 	var written strings.Builder
 	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelInfo))
 
-	action := "create-worktree"
+	script := "create-worktree"
 	_, err := svc.Log(ctx, connect.NewRequest(&agentv1.LogRequest{
 		Id:      &id,
 		Message: "preparing",
-		Action:  &action,
+		Script:  &script,
 	}))
 	require.NoError(t, err)
 
 	record := logtest.Record(t, written.String())
-	assert.Equal(t, "create-worktree", record[logging.ActionName])
+	assert.Equal(t, "create-worktree", record[logging.ScriptName])
 }
 
 // allSearchHits flattens both sections of a response, for the tests that care which turns

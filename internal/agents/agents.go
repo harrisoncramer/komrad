@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"weave/internal/caller"
@@ -13,8 +14,8 @@ import (
 	"weave/internal/tmux"
 	"weave/lib/xslice"
 
-	"weave/internal/actions"
 	"weave/internal/harness"
+	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
@@ -35,9 +36,9 @@ var ErrTooManyChildren = errors.New("too many children")
 // recorded, which is the one thing a child cannot be given a substitute for.
 var ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
 
-// ErrChildRidesAlong says a child was named on its own by an archive, a delete, or a restore
-// that left its parent out, which is the one thing a child cannot be without it.
-var ErrChildRidesAlong = errors.New("a child agent goes with its parent")
+// ErrParentStillArchived says a restore named a child whose parent stays archived, leaving the
+// child a row with nothing to be drawn under.
+var ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
 
 // ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
 // parent and that parent's other children.
@@ -50,15 +51,15 @@ var ErrAlreadyLaunched = errors.New("this idempotency key already launched an ag
 
 var (
 	ErrHarnessUnknown      = harness.ErrNotRegistered
-	ErrActionNotFound      = actions.ErrActionNotFound
-	ErrActionNotExecutable = actions.ErrNotExecutable
-	ErrActionNotStartable  = actions.ErrNotStartable
-	ErrActionDirMissing    = actions.ErrDirMissing
+	ErrScriptNotFound      = scripts.ErrScriptNotFound
+	ErrScriptNotExecutable = scripts.ErrNotExecutable
+	ErrScriptNotStartable  = scripts.ErrNotStartable
+	ErrScriptDirMissing    = scripts.ErrDirMissing
 )
 
 type (
-	Action       = actions.Action
-	ActionHeader = actions.Header
+	Script       = scripts.Script
+	ScriptHeader = scripts.Header
 )
 
 type agentGetter interface {
@@ -76,6 +77,13 @@ type childCounter interface {
 type childSlots interface {
 	childCounter
 	LockSlots(ctx context.Context) error
+}
+
+// restoredChildSlots is what a restore holds a parent to its ceiling with: the count it already
+// runs, plus the rows its children's parent ids stand for, so a refusal can name the parent.
+type restoredChildSlots interface {
+	childSlots
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 }
 
 // childLister reads the agents attached to a set of parents, which is what an archive, a
@@ -141,12 +149,13 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// agentActions is the seam onto the executables a user hangs off an agent's life, which are
+// agentScripts is the seam onto the executables a user hangs off an agent's life, which are
 // fired on the way in, on the way back in, and on the way out.
-type agentActions interface {
-	RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
-	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
-	RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
+type agentScripts interface {
+	RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
+	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
+	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
+	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
 }
 
 type systemMailSender interface {
@@ -196,10 +205,81 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 	}
 }
 
-// runCleanup starts a cleanup action, calling done exactly once with the outcome, including a
-// refusal to start.
-func runCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string, done func(error)) {
-	if cleanup == nil || name == "" {
+// hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
+// against, and the moment itself, which is what the script reads out of WEAVE_TRIGGER.
+type hookRunParams struct {
+	scripts agentScripts
+	agent   agentstore.Agent
+	hooks   []workflowstore.Hook
+	event   string
+}
+
+// runHooks runs the hooks on one moment in order, waiting for each, and stops at the first that
+// fails so the ones after it are not handed a directory half prepared.
+func runHooks(ctx context.Context, p hookRunParams) error {
+	if p.scripts == nil {
+		return nil
+	}
+
+	for _, hook := range p.hooks {
+		if hook.Event != p.event {
+			continue
+		}
+
+		if err := p.scripts.RunHook(ctx, p.agent, hook.Script, p.event); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// startHooks runs a moment's hooks in the background, since the call that set the moment off has
+// nothing to wait for: the agent is already where the hooks are about to look, and one that
+// fails there is reported rather than undone.
+func startHooks(ctx context.Context, p hookRunParams) {
+	if p.scripts == nil || !slices.ContainsFunc(p.hooks, func(hook workflowstore.Hook) bool { return hook.Event == p.event }) {
+		return
+	}
+
+	bg := context.WithoutCancel(ctx)
+
+	go func() {
+		if err := runHooks(bg, hookRunParams{
+			scripts: p.scripts,
+			agent:   p.agent,
+			hooks:   p.hooks,
+			event:   p.event,
+		}); err != nil {
+			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
+				append([]slog.Attr{
+					slog.String(logging.RunTrigger, p.event),
+					slog.String(logging.ScriptAgentID, p.agent.ID),
+				}, logging.Err(err)...)...)
+		}
+	}()
+}
+
+// agentHooks are the hooks a workflow lists for one of its agents, which is none for an agent
+// working in a directory somebody else prepared: a child in its parent's checkout, or one told
+// to keep what it was given, where a hook would be writing into a tree nobody asked it to touch.
+func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
+	if agent.ParentAgentID != nil || isProvisionerDisabled(agent.ProvisionEnabled) {
+		return nil
+	}
+
+	wf := workflowFor(ctx, workflows, agent)
+	if wf == nil {
+		return nil
+	}
+
+	return wf.Hooks
+}
+
+// runDeprovision starts a deprovisioner, calling done exactly once with the outcome,
+// including a refusal to start.
+func runDeprovision(ctx context.Context, deprovision agentScripts, agent agentstore.Agent, name string, done func(error)) {
+	if deprovision == nil || name == "" {
 		if done != nil {
 			done(nil)
 		}
@@ -207,13 +287,13 @@ func runCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agen
 		return
 	}
 
-	if err := cleanup.RunCleanupAction(ctx, agent, name, done); err != nil {
+	if err := deprovision.RunDeprovision(ctx, agent, name, done); err != nil {
 		attrs := []slog.Attr{
-			slog.String(logging.ActionName, name),
-			slog.String(logging.ActionAgentID, agent.ID),
-			slog.String(logging.ActionAgentCwd, agent.Cwd),
+			slog.String(logging.ScriptName, name),
+			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentCwd, agent.Cwd),
 		}
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the cleanup action would not start", append(attrs, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner would not start", append(attrs, logging.Err(err)...)...)
 
 		if done != nil {
 			done(err)
@@ -221,30 +301,39 @@ func runCleanup(ctx context.Context, cleanup agentActions, agent agentstore.Agen
 	}
 }
 
-func cleanupActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if agent.CleanupAction != nil {
-		return *agent.CleanupAction
-	}
-
-	wf := workflowFor(ctx, workflows, agent)
-	if wf == nil {
-		return ""
-	}
-
-	return wf.CleanupAction
+// isProvisionerDisabled reports whether an agent has been told to keep the directory it was
+// given rather than be provisioned one, which is what adopting a branch a human has open, a
+// child in its parent's checkout, and a reviewer reading somebody else's tree each mean.
+func isProvisionerDisabled(override *bool) bool {
+	return override != nil && !*override
 }
 
-func setupActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if agent.SetupAction != nil {
-		return *agent.SetupAction
+// provisionsWorktree reports whether an agent's directory is weave's to make, which is its
+// workflow's worktree toggle unless the agent itself has been told to keep what it was given.
+func provisionsWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
+	if isProvisionerDisabled(agent.ProvisionEnabled) {
+		return false
 	}
 
 	wf := workflowFor(ctx, workflows, agent)
-	if wf == nil {
+
+	return wf != nil && wf.Worktree.Enabled
+}
+
+func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+	if !provisionsWorktree(ctx, workflows, agent) {
 		return ""
 	}
 
-	return wf.SetupAction
+	return worktreeDeprovisioner
+}
+
+func provisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+	if !provisionsWorktree(ctx, workflows, agent) {
+		return ""
+	}
+
+	return worktreeProvisioner
 }
 
 func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) *workflowstore.Workflow {
@@ -255,8 +344,8 @@ func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore
 	if err != nil {
 		attrs := []slog.Attr{
 			slog.String(logging.WorkflowID, agent.WorkflowID),
-			slog.String(logging.ActionAgentID, agent.ID),
-			slog.String(logging.ActionAgentCwd, agent.Cwd),
+			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentCwd, agent.Cwd),
 		}
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow behind an agent could not be read", append(attrs, logging.Err(err)...)...)
 
@@ -303,16 +392,23 @@ func failureReason(cause error) string {
 	return text
 }
 
-func notifyParents(ctx context.Context, notifier systemMailSender, agents []agentstore.Agent, reason string) {
+// notifyParents tells the spawner of each agent in told that it is gone, where going is every
+// agent the call is taking rather than only the ones being told about.
+func notifyParents(ctx context.Context, notifier systemMailSender, told, going []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
-	for _, agent := range agents {
+	leaving := make(map[string]bool, len(going))
+	for _, agent := range going {
+		leaving[agent.ID] = true
+	}
+
+	for _, agent := range told {
 		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
 			continue
 		}
-		// A child whose spawner is the parent it is attached to only ever goes as part of that
-		// parent going, so the mail would be addressed to an agent already on its way out.
-		if agent.ParentAgentID != nil && *agent.SpawnedByAgentID == *agent.ParentAgentID {
+		// A spawner going in the same call has nobody left to read the mail, which is what
+		// happens to a parent that takes its own children with it.
+		if leaving[*agent.SpawnedByAgentID] {
 			continue
 		}
 

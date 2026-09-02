@@ -88,20 +88,24 @@ type adoptFormValues struct {
 }
 
 type agentFormValues struct {
-	Prompt        string
-	Title         string
-	Harness       string
-	Dir           string
-	Flags         string
-	SetupAction   string
-	CleanupAction string
+	Prompt   string
+	Title    string
+	Harness  string
+	Dir      string
+	Flags    string
+	Worktree string
 }
 
-const inheritAction = "\x00inherit"
+// The two answers to the only question an agent can override, each a sentinel rather than the
+// empty string so that an unanswered form is telling apart from an answered one.
+const (
+	inheritWorktree = "\x00inherit"
+	withoutWorktree = "\x00none"
+)
 
 const (
-	setupTypeWorktree = "worktree"
-	setupTypeCustom   = "custom"
+	provisionerNone     = "none"
+	provisionerWorktree = "worktree"
 )
 
 type workflowFormValues struct {
@@ -110,9 +114,11 @@ type workflowFormValues struct {
 	Harness              string
 	Cwd                  string
 	Flags                string
-	SetupType            string
-	SetupAction          string
-	CleanupAction        string
+	Provisioner          string
+	PreLaunchHook        string
+	PostLaunchHook       string
+	PostResumeHook       string
+	PostRestoreHook      string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -121,9 +127,9 @@ type workflowFormValues struct {
 }
 
 func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
-	setupType := setupTypeCustom
+	provisioner := provisionerNone
 	if cfg.Worktree.Enabled {
-		setupType = setupTypeWorktree
+		provisioner = provisionerWorktree
 	}
 
 	return workflowFormValues{
@@ -132,25 +138,17 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Harness:              cfg.Harness,
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
-		SetupType:            setupType,
-		SetupAction:          customAction(cfg.SetupAction),
-		CleanupAction:        customAction(cfg.CleanupAction),
+		Provisioner:          provisioner,
+		PreLaunchHook:        hookNamed(cfg.Hooks, workflowstore.HookPreLaunch),
+		PostLaunchHook:       hookNamed(cfg.Hooks, workflowstore.HookPostLaunch),
+		PostResumeHook:       hookNamed(cfg.Hooks, workflowstore.HookPostResume),
+		PostRestoreHook:      hookNamed(cfg.Hooks, workflowstore.HookPostRestore),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
 		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	}
-}
-
-// customAction drops an action weave owns, since the custom fields only ever offer the ones a
-// person wrote and an internal name left in them reads as an action that has gone missing.
-func customAction(name string) string {
-	if isInternalAction(name) {
-		return ""
-	}
-
-	return name
 }
 
 func (v workflowFormValues) toConfig() workflowstore.Config {
@@ -161,21 +159,44 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 		Cwd:     v.Cwd,
 		Flags:   v.Flags,
 		Worktree: workflowstore.WorktreeConfig{
-			Enabled:      v.SetupType == setupTypeWorktree,
+			Enabled:      v.Provisioner == provisionerWorktree,
 			BaseBranch:   v.WorktreeBaseBranch,
 			CopyPaths:    splitLines(v.WorktreeCopyPaths),
 			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
 			DiffExclude:  splitLines(v.WorktreeDiffExclude),
 		},
+		Hooks: slices.Concat(
+			hookOn(v.PreLaunchHook, workflowstore.HookPreLaunch),
+			hookOn(v.PostLaunchHook, workflowstore.HookPostLaunch),
+			hookOn(v.PostResumeHook, workflowstore.HookPostResume),
+			hookOn(v.PostRestoreHook, workflowstore.HookPostRestore),
+		),
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
 
-	if v.SetupType == setupTypeCustom {
-		cfg.SetupAction = v.SetupAction
-		cfg.CleanupAction = v.CleanupAction
+	return cfg
+}
+
+// hookNamed is the hook a workflow hangs on one moment, which is what that moment's select is
+// sitting on, and the empty string for a moment nothing hangs on.
+func hookNamed(hooks []workflowstore.Hook, event string) string {
+	for _, hook := range hooks {
+		if hook.Event == event {
+			return hook.Script
+		}
 	}
 
-	return cfg
+	return ""
+}
+
+// hookOn is a moment's hook as the store takes it, which is one entry or none, since a moment
+// holds one.
+func hookOn(name, event string) []workflowstore.Hook {
+	if name == "" {
+		return nil
+	}
+
+	return []workflowstore.Hook{{Event: event, Script: name}}
 }
 
 func splitLines(text string) []string {
@@ -197,24 +218,27 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 	}
 }
 
-func newAgentForm(keys config.FormKeys, values *agentFormValues, available []actionChoice) *huh.Form {
+// newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
+// them, since there is nothing to turn off in one that does not.
+func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) *huh.Form {
 	fields := append([]huh.Field{
 		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
 
-	fields = append(fields,
-		huh.NewSelect[string]().Key("setup").Title("Setup action").
-			Value(&values.SetupAction).Options(agentActionOptions(available)...),
-		huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-			Value(&values.CleanupAction).Options(agentActionOptions(available)...),
-	)
+	if worktree {
+		fields = append(fields, huh.NewSelect[string]().Key("worktree").Title("Worktree").
+			Options(
+				huh.NewOption("Same as workflow: its own worktree", inheritWorktree),
+				huh.NewOption("None: run in the directory above", withoutWorktree),
+			).Value(&values.Worktree))
+	}
 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-// childAgentForm asks for the work and little else, since a child takes its directory and both
-// of its actions from the parent it is attached to rather than from whoever asked for it.
+// childAgentForm asks for the work and little else, since a child takes its directory from the
+// parent it is attached to and provisions nothing of its own.
 func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) *huh.Form {
 	fields := []huh.Field{
 		huh.NewText().Key("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
@@ -223,7 +247,7 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agents
 		huh.NewInput().Key("harness").Title("Agent").Placeholder(orDash(parent.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
 		huh.NewNote().Description(fmt.Sprintf(
-			"Runs in %s, the parent's own checkout. No worktree, no setup action, archived when the parent is.", parent.Cwd)),
+			"Runs in %s, the parent's own checkout. No worktree, nothing provisioned, archived when the parent is.", parent.Cwd)),
 	}
 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
@@ -452,49 +476,74 @@ func workflowForm(title string, values *workflowFormValues, keys config.FormKeys
 	).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-const setupTypeKey = "setup_type"
+const provisionerKey = "provisioner"
 
-func setupTypeOptions() []huh.Option[string] {
+func provisionerOptions() []huh.Option[string] {
 	return []huh.Option[string]{
-		huh.NewOption("Worktree: a git worktree per agent", setupTypeWorktree),
-		huh.NewOption("Custom: your own setup and cleanup actions", setupTypeCustom),
+		huh.NewOption("None: agents keep the directory they are given", provisionerNone),
+		huh.NewOption("Worktree: a git worktree per agent", provisionerWorktree),
 	}
 }
 
-func workflowConfigForm(nameTitle string, values *workflowFormValues, available []actionChoice, keys config.FormKeys) (form *huh.Form, focusFieldIndex int) {
-	if values.SetupType == "" {
-		values.SetupType = setupTypeWorktree
+// formChromeLines is what the view draws above a form, a banner or a submitting notice, which
+// is room the form itself does not have.
+const formChromeLines = 2
+
+// minFormHeight is the floor a form is given on a terminal too short to hold one, since huh
+// scrolling a two-line window is still more use than a form drawn off the screen.
+const minFormHeight = 8
+
+// formHeight is the room a form has on screen, and zero until the first window size arrives so
+// that huh keeps its own default rather than being told the terminal is nothing tall.
+func (m model) formHeight() int {
+	if m.height <= 0 {
+		return 0
+	}
+
+	return max(m.height-formChromeLines, minFormHeight)
+}
+
+// workflowConfigParams is what the workflow form is drawn from: the values it edits, the hooks
+// it offers, and the height it has to fit inside.
+type workflowConfigParams struct {
+	NameTitle string
+	Values    *workflowFormValues
+	Hooks     []hookChoice
+	Keys      config.FormKeys
+	Height    int
+}
+
+func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex int) {
+	values, keys := p.Values, p.Keys
+	if values.Provisioner == "" {
+		values.Provisioner = provisionerWorktree
 	}
 
 	fields := append([]huh.Field{
-		huh.NewInput().Key("name").Title(nameTitle).Value(&values.Name),
+		huh.NewInput().Key("name").Title(p.NameTitle).Value(&values.Name),
 		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Lines(2).Value(&values.Context),
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
 	toggleIndex := len(fields)
 	fields = append(fields,
-
-		huh.NewSelect[string]().Key(setupTypeKey).Title("Setup type").
-			Options(setupTypeOptions()...).Value(&values.SetupType),
+		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
+			Options(provisionerOptions()...).Value(&values.Provisioner),
 	)
 
-	switch values.SetupType {
-	case setupTypeCustom:
-		// Options comes before Value so huh reads the zero value and leaves the list scrolled
-		// to the top, which holds only while None, carrying the empty action, leads it.
-		fields = append(fields,
-			huh.NewSelect[string]().Key("setup").Title("Setup action").
-				Options(actionOptions(available, values.SetupAction)...).Value(&values.SetupAction),
-			huh.NewSelect[string]().Key("cleanup").Title("Cleanup action").
-				Options(actionOptions(available, values.CleanupAction)...).Value(&values.CleanupAction),
-		)
-	default:
+	if values.Provisioner == provisionerWorktree {
 		fields = append(fields, worktreeDetailFields(values)...)
 	}
 
+	fields = append(fields, hookFields(values, p.Hooks)...)
 	fields = append(fields, archiveOnPRClosedField(values))
 
-	built := huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
+	// The form is taller than most terminals now, so it is given the height it has to fit in and
+	// huh scrolls it around whichever field has the cursor.
+	built := huh.NewForm(huh.NewGroup(fields...)).
+		WithShowHelp(true).
+		WithKeyMap(multiFieldKeyMap(keys)).
+		WithTheme(formTheme()).
+		WithHeight(p.Height)
 
 	return built, toggleIndex
 }
@@ -515,6 +564,88 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 	}
 }
 
+// hookFieldHeight bounds one moment's list, so four moments and everything above them still
+// leave the form scrollable rather than one long list pushing the rest off the screen.
+const hookFieldHeight = 5
+
+// hookFields are the scripts hung on a moment rather than on the directory, one select each
+// since a moment holds one hook, and asked for whatever the provisioner is.
+func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field {
+	moments := []struct {
+		key         string
+		title       string
+		description string
+		chosen      *string
+	}{
+		{
+			key:         "pre_launch_hook",
+			title:       "Pre-launch hook",
+			description: "runs in the agent's directory before its pane opens, and a failure abandons the create",
+			chosen:      &values.PreLaunchHook,
+		},
+		{
+			key:         "post_launch_hook",
+			title:       "Post-launch hook",
+			description: "runs once the agent has been launched into its pane",
+			chosen:      &values.PostLaunchHook,
+		},
+		{
+			key:         "post_resume_hook",
+			title:       "Post-resume hook",
+			description: "runs once a dormant agent is back in a pane",
+			chosen:      &values.PostResumeHook,
+		},
+		{
+			key:         "post_restore_hook",
+			title:       "Post-restore hook",
+			description: "runs when an archived agent's row comes back",
+			chosen:      &values.PostRestoreHook,
+		},
+	}
+
+	fields := make([]huh.Field, 0, len(moments))
+	for _, moment := range moments {
+		// Options comes before Value so huh reads the zero value and leaves the list scrolled to
+		// the top, which holds only while None, carrying the empty name, leads it.
+		fields = append(fields, huh.NewSelect[string]().Key(moment.key).Title(moment.title).
+			Description(hookFieldDescription(moment.description, available)).
+			Options(hookOptions(available, *moment.chosen)...).
+			Value(moment.chosen).
+			Height(hookFieldHeight))
+	}
+
+	return fields
+}
+
+// hookFieldDescription leads with the empty case rather than appending it, since a description
+// long enough to be cut off at the width of a terminal would take the notice with it.
+func hookFieldDescription(description string, available []hookChoice) string {
+	if len(available) == 0 {
+		return "none found in your hooks directory; " + description
+	}
+
+	return description
+}
+
+// hookOptions offers None, every hook in the directory, and the one this workflow already names
+// if the directory no longer holds it, since dropping that silently is how a saved form loses a
+// hook a person put there.
+func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
+	options := make([]huh.Option[string], 0, len(available)+2)
+	options = append(options, huh.NewOption("None", ""))
+
+	for _, hook := range available {
+		options = append(options, huh.NewOption(hook.name, hook.name))
+	}
+
+	offered := slices.ContainsFunc(available, func(a hookChoice) bool { return a.name == chosen })
+	if chosen != "" && !offered {
+		options = append(options, huh.NewOption(chosen+"  (missing)", chosen))
+	}
+
+	return options
+}
+
 func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
 	return huh.NewConfirm().Key("archive_on_pr_closed").Title("Archive once the pull request closes?").
 		Description("an idle agent is archived when the pull request on its branch merges or closes; nothing is deleted").
@@ -522,34 +653,8 @@ func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
 		WithButtonAlignment(lipgloss.Left)
 }
 
-type actionChoice struct {
+type hookChoice struct {
 	name string
-}
-
-func actionOptions(available []actionChoice, current string) []huh.Option[string] {
-	options := make([]huh.Option[string], 0, len(available)+2)
-	options = append(options, huh.NewOption("None", ""))
-
-	for _, action := range available {
-		options = append(options, huh.NewOption(actionChoiceLabel(action), action.name))
-	}
-
-	offered := slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == current })
-	if current != "" && !offered {
-		options = append(options, huh.NewOption(current+"  (missing)", current))
-	}
-
-	return options
-}
-
-func agentActionOptions(available []actionChoice) []huh.Option[string] {
-	label := "Same as workflow"
-	options := []huh.Option[string]{huh.NewOption(label, inheritAction)}
-	return append(options, actionOptions(available, "")...)
-}
-
-func actionChoiceLabel(action actionChoice) string {
-	return action.name
 }
 
 func archiveWorkflowForm(name string, keys config.FormKeys) (*huh.Form, *bool) {

@@ -1,5 +1,5 @@
 // Package workflow stores the workflows agents are filed under, which carry the working
-// directory, flags, shared context and setup and cleanup actions their agents start from.
+// directory, flags, shared context and the provisioner their agents start from.
 package workflow
 
 import (
@@ -9,11 +9,32 @@ import (
 	"strings"
 	"time"
 
+	"weave/config"
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 	"weave/lib/xslice"
 )
+
+// The moments a workflow can hang a script on, each named for the event it hangs on and the
+// side of it that runs, so reading the name says when it fires.
+const (
+	HookPreLaunch   = config.HookPreLaunch
+	HookPostLaunch  = config.HookPostLaunch
+	HookPostResume  = config.HookPostResume
+	HookPostRestore = config.HookPostRestore
+)
+
+// HookEvents are the moments a workflow can hang a script on, in the order they fire.
+func HookEvents() []string {
+	return []string{HookPreLaunch, HookPostLaunch, HookPostResume, HookPostRestore}
+}
+
+// Hook is one script a workflow hangs on a moment, and a moment can hold several.
+type Hook struct {
+	Event  string
+	Script string
+}
 
 type Workflow struct {
 	ID                string
@@ -22,9 +43,8 @@ type Workflow struct {
 	Harness           string
 	Cwd               string
 	Flags             string
-	SetupAction       string
-	CleanupAction     string
 	Worktree          WorktreeConfig
+	Hooks             []Hook
 	ArchiveOnPRClosed bool
 	ArchivedAt        *time.Time
 	UpdatedAt         time.Time
@@ -36,9 +56,8 @@ type Config struct {
 	Harness           string
 	Cwd               string
 	Flags             string
-	SetupAction       string
-	CleanupAction     string
 	Worktree          WorktreeConfig
+	Hooks             []Hook
 	ArchiveOnPRClosed bool
 }
 
@@ -50,9 +69,8 @@ func (w Workflow) Config() Config {
 		Harness:           w.Harness,
 		Cwd:               w.Cwd,
 		Flags:             w.Flags,
-		SetupAction:       w.SetupAction,
-		CleanupAction:     w.CleanupAction,
 		Worktree:          w.Worktree,
+		Hooks:             w.Hooks,
 		ArchiveOnPRClosed: w.ArchiveOnPRClosed,
 	}
 }
@@ -66,9 +84,8 @@ func (c Config) Workflow(id string) Workflow {
 		Harness:           c.Harness,
 		Cwd:               c.Cwd,
 		Flags:             c.Flags,
-		SetupAction:       c.SetupAction,
-		CleanupAction:     c.CleanupAction,
 		Worktree:          c.Worktree,
+		Hooks:             c.Hooks,
 		ArchiveOnPRClosed: c.ArchiveOnPRClosed,
 	}
 }
@@ -98,21 +115,24 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 		return nil, fmt.Errorf("failed to list workflows: %w", err)
 	}
 
+	hooks, err := s.hooksByWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
 		return workflowFromRow(row.Workflow, workflowConfigFields{
 			Harness: row.Harness,
 			Cwd:     row.Cwd,
 			Flags:   row.Flags,
-		}, actionConfigFields{
-			SetupAction:          row.SetupAction,
-			CleanupAction:        row.CleanupAction,
+		}, provisionerConfigFields{
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 			WorktreeDiffExclude:  row.WorktreeDiffExclude,
 			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-		})
+		}, hooks[row.Workflow.ID])
 	}), nil
 }
 
@@ -155,21 +175,25 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		return nil, fmt.Errorf("failed to list a page of workflows: %w", err)
 	}
 
+	ids := xslice.Map(rows, func(row *models.ListWorkflowsPageRow) string { return row.Workflow.ID })
+	hooks, err := s.hooksForWorkflows(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
 		return workflowFromRow(row.Workflow, workflowConfigFields{
 			Harness: row.Harness,
 			Cwd:     row.Cwd,
 			Flags:   row.Flags,
-		}, actionConfigFields{
-			SetupAction:          row.SetupAction,
-			CleanupAction:        row.CleanupAction,
+		}, provisionerConfigFields{
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 			WorktreeDiffExclude:  row.WorktreeDiffExclude,
 			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-		})
+		}, hooks[row.Workflow.ID])
 	}), nil
 }
 
@@ -187,26 +211,30 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
+	hooks, err := s.hooksFor(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
 		Harness: row.Harness,
 		Cwd:     row.Cwd,
 		Flags:   row.Flags,
-	}, actionConfigFields{
-		SetupAction:          row.SetupAction,
-		CleanupAction:        row.CleanupAction,
+	}, provisionerConfigFields{
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 		WorktreeDiffExclude:  row.WorktreeDiffExclude,
 		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-	})
+	}, hooks)
+
 	return &workflow, nil
 }
 
 // Create inserts a workflow together with the config rows holding what new agents inherit
-// and the actions around their lives, all of which must land together so a caller outside a
-// transaction gets one through InTx.
+// and the provisioning of their directories, all of which must land together so a caller
+// outside a transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
@@ -217,9 +245,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
 	}
 
-	actionConfigID, err := s.queries.InsertWorkflowActionConfig(ctx, models.InsertWorkflowActionConfigParams{
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
+	provisionerConfigID, err := s.queries.InsertWorkflowProvisionerConfig(ctx, models.InsertWorkflowProvisionerConfigParams{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -228,33 +254,36 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to insert action config for workflow %q: %w", cfg.Name, err)
+		return nil, fmt.Errorf("failed to insert the provisioner config for workflow %q: %w", cfg.Name, err)
 	}
 
 	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
-		Name:             cfg.Name,
-		Context:          cfg.Context,
-		WorkflowConfigID: configID,
-		ActionConfigID:   actionConfigID,
+		Name:                cfg.Name,
+		Context:             cfg.Context,
+		WorkflowConfigID:    configID,
+		ProvisionerConfigID: provisionerConfigID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
+	}
+
+	if err := s.setHooks(ctx, row.ID, cfg.Hooks); err != nil {
+		return nil, err
 	}
 
 	workflow := workflowFromRow(*row, workflowConfigFields{
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
-	}, actionConfigFields{
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
+	}, provisionerConfigFields{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
-	})
+	}, cfg.Hooks)
+
 	return &workflow, nil
 }
 
@@ -272,7 +301,7 @@ func (s *Store) Rename(ctx context.Context, id, name string) error {
 	return nil
 }
 
-// Update rewrites a workflow's name, context, actions, and linked config, keyed by id, and
+// Update rewrites a workflow's name, context, hooks, and linked config, keyed by id, and
 // the writes must land together so a caller outside a transaction gets one through InTx.
 func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 	if !store.IsID(id) {
@@ -287,10 +316,8 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update context for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.SetWorkflowActions(ctx, models.SetWorkflowActionsParams{
+	if err := s.queries.SetWorkflowProvisioner(ctx, models.SetWorkflowProvisionerParams{
 		WorkflowID:           id,
-		SetupAction:          cfg.SetupAction,
-		CleanupAction:        cfg.CleanupAction,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
@@ -298,7 +325,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
 		ArchiveOnPrClosed:    cfg.ArchiveOnPRClosed,
 	}); err != nil {
-		return fmt.Errorf("failed to update actions for workflow %q: %w", id, err)
+		return fmt.Errorf("failed to update the provisioner for workflow %q: %w", id, err)
 	}
 
 	if err := s.queries.UpdateWorkflowConfig(ctx, models.UpdateWorkflowConfigParams{
@@ -310,7 +337,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		return fmt.Errorf("failed to update config for workflow %q: %w", id, err)
 	}
 
-	return nil
+	return s.setHooks(ctx, id, cfg.Hooks)
 }
 
 // Archive hides a workflow from the panel without dropping the row, leaving the caller to
@@ -360,8 +387,8 @@ func (s *Store) Delete(ctx context.Context, id string) error {
 		return fmt.Errorf("failed to delete config for workflow %q: %w", id, err)
 	}
 
-	if err := s.queries.DeleteWorkflowActionConfig(ctx, ids.ActionConfigID); err != nil {
-		return fmt.Errorf("failed to delete action config for workflow %q: %w", id, err)
+	if err := s.queries.DeleteWorkflowProvisionerConfig(ctx, ids.ProvisionerConfigID); err != nil {
+		return fmt.Errorf("failed to delete the provisioner config for workflow %q: %w", id, err)
 	}
 
 	return nil
@@ -382,20 +409,23 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
 	}
 
+	hooks, err := s.hooksFor(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+
 	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
 		Harness: row.Harness,
 		Cwd:     row.Cwd,
 		Flags:   row.Flags,
-	}, actionConfigFields{
-		SetupAction:          row.SetupAction,
-		CleanupAction:        row.CleanupAction,
+	}, provisionerConfigFields{
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 		WorktreeDiffExclude:  row.WorktreeDiffExclude,
 		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-	})
+	}, hooks)
 
 	return &workflow, nil
 }
@@ -414,9 +444,7 @@ type workflowConfigFields struct {
 	Flags   string
 }
 
-type actionConfigFields struct {
-	SetupAction          string
-	CleanupAction        string
+type provisionerConfigFields struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    []string
@@ -425,24 +453,91 @@ type actionConfigFields struct {
 	ArchiveOnPRClosed    bool
 }
 
-func workflowFromRow(w models.Workflow, cfg workflowConfigFields, ac actionConfigFields) Workflow {
+// setHooks rewrites a workflow's hooks, since a caller sends back the whole list rather than
+// an edit to one of them, and the position they land in is the order they were sent.
+func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
+	if err := s.queries.DeleteWorkflowHooks(ctx, workflowID); err != nil {
+		return fmt.Errorf("failed to clear hooks for workflow %q: %w", workflowID, err)
+	}
+
+	for position, hook := range hooks {
+		if err := s.queries.InsertWorkflowHook(ctx, models.InsertWorkflowHookParams{
+			WorkflowID: workflowID,
+			Event:      hook.Event,
+			Script:     hook.Script,
+			Position:   int32(position),
+		}); err != nil {
+			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", hook.Event, hook.Script, workflowID, err)
+		}
+	}
+
+	return nil
+}
+
+func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error) {
+	rows, err := s.queries.ListHooksForWorkflow(ctx, workflowID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the hooks of workflow %q: %w", workflowID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListHooksForWorkflowRow) Hook {
+		return Hook{Event: row.Event, Script: row.Script}
+	}), nil
+}
+
+// hooksByWorkflow reads every workflow's hooks at once, so a listing costs one query for the
+// lot rather than one apiece.
+func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) {
+	rows, err := s.queries.ListWorkflowHooks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read workflow hooks: %w", err)
+	}
+
+	hooks := make(map[string][]Hook)
+	for _, row := range rows {
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Script})
+	}
+
+	return hooks, nil
+}
+
+// hooksForWorkflows reads the hooks of the workflows named, which is what a page of them wants
+// rather than the whole table.
+func (s *Store) hooksForWorkflows(ctx context.Context, ids []string) (map[string][]Hook, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListHooksForWorkflows(ctx, ids)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the hooks of %d workflows: %w", len(ids), err)
+	}
+
+	hooks := make(map[string][]Hook)
+	for _, row := range rows {
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Script})
+	}
+
+	return hooks, nil
+}
+
+func workflowFromRow(w models.Workflow, cfg workflowConfigFields, pc provisionerConfigFields, hooks []Hook) Workflow {
 	return Workflow{
-		ID:            w.ID,
-		Name:          w.Name,
-		Context:       w.Context,
-		Harness:       cfg.Harness,
-		Cwd:           cfg.Cwd,
-		Flags:         cfg.Flags,
-		SetupAction:   ac.SetupAction,
-		CleanupAction: ac.CleanupAction,
+		ID:      w.ID,
+		Name:    w.Name,
+		Context: w.Context,
+		Harness: cfg.Harness,
+		Cwd:     cfg.Cwd,
+		Flags:   cfg.Flags,
 		Worktree: WorktreeConfig{
-			Enabled:      ac.WorktreeEnabled,
-			BaseBranch:   ac.WorktreeBaseBranch,
-			CopyPaths:    ac.WorktreeCopyPaths,
-			SymlinkPaths: ac.WorktreeSymlinkPaths,
-			DiffExclude:  ac.WorktreeDiffExclude,
+			Enabled:      pc.WorktreeEnabled,
+			BaseBranch:   pc.WorktreeBaseBranch,
+			CopyPaths:    pc.WorktreeCopyPaths,
+			SymlinkPaths: pc.WorktreeSymlinkPaths,
+			DiffExclude:  pc.WorktreeDiffExclude,
 		},
-		ArchiveOnPRClosed: ac.ArchiveOnPRClosed,
+		Hooks:             hooks,
+		ArchiveOnPRClosed: pc.ArchiveOnPRClosed,
 		ArchivedAt:        w.ArchivedAt,
 		UpdatedAt:         w.UpdatedAt,
 	}

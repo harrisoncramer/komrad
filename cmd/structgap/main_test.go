@@ -299,16 +299,16 @@ var (
 			src: `package p
 
 type (
-	Action = actions.Action
+	Script = scripts.Script
 
-	ActionHeader = actions.Header
+	ScriptHeader = scripts.Header
 )
 `,
 			want: `package p
 
 type (
-	Action       = actions.Action
-	ActionHeader = actions.Header
+	Script       = scripts.Script
+	ScriptHeader = scripts.Header
 )
 `,
 		},

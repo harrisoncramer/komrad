@@ -30,10 +30,10 @@ import (
 	"weave/internal/storetest"
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
-	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -44,19 +44,23 @@ import (
 const settleTimeout = 10 * time.Second
 
 type Instance struct {
-	t             *testing.T
-	Agents        agentv1connect.AgentServiceClient
-	Workflows     workflowv1connect.WorkflowServiceClient
-	Schedules     schedulev1connect.ScheduleServiceClient
-	Actions       actionv1connect.ActionServiceClient
-	Config        configv1connect.ConfigServiceClient
-	Harness       *harnesstest.Harness
-	Tmux          *tmuxtest.Server
-	Stores        *storetest.Stores
-	GetActionsDir string
-	URL           string
-	server        *server.Server
-	working       bool
+	t         *testing.T
+	Agents    agentv1connect.AgentServiceClient
+	Workflows workflowv1connect.WorkflowServiceClient
+	Schedules schedulev1connect.ScheduleServiceClient
+	Hooks     hookv1connect.HookServiceClient
+	Config    configv1connect.ConfigServiceClient
+	Harness   *harnesstest.Harness
+	Tmux      *tmuxtest.Server
+	Stores    *storetest.Stores
+	// HooksDir is where a test writes the hooks a workflow can hang on a moment.
+	HooksDir string
+	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
+	// when it needs one of them to behave differently.
+	BuiltinDir string
+	URL        string
+	server     *server.Server
+	working    bool
 }
 
 type Params struct {
@@ -85,10 +89,11 @@ func Start(t *testing.T, p Params) *Instance {
 	stores := storetest.Open(t)
 
 	root := t.TempDir()
-	actionsDir := filepath.Join(root, "actions")
-	require.NoError(t, os.MkdirAll(actionsDir, 0o755))
+	cacheDir := filepath.Join(root, "cache")
+	hooksDir := filepath.Join(root, "hooks")
+	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 
-	settings := fmt.Sprintf("[actions]\ndir = %q\n", actionsDir)
+	settings := fmt.Sprintf("[hooks]\ndir = %q\n", hooksDir)
 	if p.DeliveryDeadline != "" {
 		settings += fmt.Sprintf("\n[mail]\ndelivery_deadline = %q\n", p.DeliveryDeadline)
 	}
@@ -112,7 +117,7 @@ func Start(t *testing.T, p Params) *Instance {
 			ReadOnlyDatabaseURL: stores.ReadOnlyURL,
 			Addr:                addr,
 			TmuxSocket:          tmuxServer.Socket(),
-			CacheDir:            filepath.Join(root, "cache"),
+			CacheDir:            cacheDir,
 		},
 		ConfigPaths:        []string{configPath},
 		Logger:             logger,
@@ -133,18 +138,19 @@ func Start(t *testing.T, p Params) *Instance {
 	client, url := httpServer.Client(), httpServer.URL
 
 	return &Instance{
-		t:             t,
-		Agents:        agentv1connect.NewAgentServiceClient(client, url),
-		Workflows:     workflowv1connect.NewWorkflowServiceClient(client, url),
-		Schedules:     schedulev1connect.NewScheduleServiceClient(client, url),
-		Actions:       actionv1connect.NewActionServiceClient(client, url),
-		Config:        configv1connect.NewConfigServiceClient(client, url),
-		Harness:       fake,
-		Tmux:          tmuxServer,
-		Stores:        stores,
-		GetActionsDir: actionsDir,
-		URL:           url,
-		server:        built,
+		t:          t,
+		Agents:     agentv1connect.NewAgentServiceClient(client, url),
+		Workflows:  workflowv1connect.NewWorkflowServiceClient(client, url),
+		Schedules:  schedulev1connect.NewScheduleServiceClient(client, url),
+		Hooks:      hookv1connect.NewHookServiceClient(client, url),
+		Config:     configv1connect.NewConfigServiceClient(client, url),
+		Harness:    fake,
+		Tmux:       tmuxServer,
+		Stores:     stores,
+		HooksDir:   hooksDir,
+		BuiltinDir: server.BuiltinScriptsDir(cacheDir),
+		URL:        url,
+		server:     built,
 	}
 }
 

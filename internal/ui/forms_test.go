@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"weave/config"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -64,8 +64,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "/work/api", sent.createdAgent.GetDir(), "the workflow's directory is prefilled and kept")
 				assert.Equal(t, "--model opus", sent.createdAgent.GetFlags())
 				assert.Equal(t, "w1", sent.createdAgent.GetWorkflowId())
-				assert.Nil(t, sent.createdAgent.SetupAction, "left on the default, the agent takes no override of its own")
-				assert.Nil(t, sent.createdAgent.CleanupAction, "left on the default, the agent takes no override of its own")
+				assert.Nil(t, sent.createdAgent.ProvisionEnabled, "left on the default, the agent takes no override of its own")
 			},
 		},
 		{
@@ -88,13 +87,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			name: "the new-workflow form",
 			open: func(t *testing.T, m model) model {
 				values := workflowFormValues{
-					Name:          "web",
-					Context:       "the frontend",
-					Cwd:           "/work/web",
-					Flags:         "--model sonnet",
-					SetupType:     setupTypeCustom,
-					SetupAction:   "make-worktree",
-					CleanupAction: "drop-worktree",
+					Name:        "web",
+					Context:     "the frontend",
+					Cwd:         "/work/web",
+					Flags:       "--model sonnet",
+					Provisioner: provisionerNone,
 				}
 
 				opened, _ := m.openWorkflowConfigForm(&values, nil)
@@ -108,8 +105,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "the frontend", sent.createdWorkflow.GetContext())
 				assert.Equal(t, "/work/web", sent.createdWorkflow.GetCwd())
 				assert.Equal(t, "--model sonnet", sent.createdWorkflow.GetFlags())
-				assert.Equal(t, "make-worktree", sent.createdWorkflow.GetSetupAction())
-				assert.Equal(t, "drop-worktree", sent.createdWorkflow.GetCleanupAction())
+				assert.False(t, sent.createdWorkflow.GetWorktree().GetEnabled(), "None provisions nothing")
 			},
 		},
 		{
@@ -148,11 +144,11 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				target := m.listing.workflows[0]
 
 				values := workflowFormValuesFrom(workflowstore.Config{
-					Name:        target.Name,
-					Context:     "shared notes",
-					Cwd:         target.Cwd,
-					Flags:       target.Flags,
-					SetupAction: "make-worktree",
+					Name:     target.Name,
+					Context:  "shared notes",
+					Cwd:      target.Cwd,
+					Flags:    target.Flags,
+					Worktree: workflowstore.WorktreeConfig{Enabled: true},
 				})
 				values.Cwd = "/work/api-v2"
 
@@ -168,7 +164,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 				assert.Equal(t, "api", sent.updatedWorkflow.GetName(), "and the ones that were not")
 				assert.Equal(t, "shared notes", sent.updatedWorkflow.GetContext())
 				assert.Equal(t, "--model opus", sent.updatedWorkflow.GetFlags())
-				assert.Equal(t, "make-worktree", sent.updatedWorkflow.GetSetupAction(), "the stored choice survives a round trip through the field")
+				assert.True(t, sent.updatedWorkflow.GetWorktree().GetEnabled(), "the stored choice survives a round trip through the field")
 			},
 		},
 		{
@@ -345,37 +341,23 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	}
 }
 
-// TestNewAgentFormActionOverride covers the tri-state the action fields carry: left on
-// the default the agent takes no override at all, and any other choice, including
-// explicitly picking none, is sent as one.
-func TestNewAgentFormActionOverride(t *testing.T) {
+// TestNewAgentFormWorktreeOverride covers the one thing an agent can say for itself: left on
+// the default it takes no override at all, and choosing None is sent as one.
+func TestNewAgentFormWorktreeOverride(t *testing.T) {
 	tests := []struct {
-		name          string
-		setupAction   string
-		wantSetup     *string
-		cleanupAction string
-		wantCleanup   *string
+		name     string
+		chosen   string
+		wantSent *bool
 	}{
 		{
-			name:          "left on the default, neither field is sent",
-			setupAction:   inheritAction,
-			wantSetup:     nil,
-			cleanupAction: inheritAction,
-			wantCleanup:   nil,
+			name:     "left on the default, nothing is sent",
+			chosen:   inheritWorktree,
+			wantSent: nil,
 		},
 		{
-			name:          "an explicit none is sent as an empty override, not nothing",
-			setupAction:   "",
-			wantSetup:     xptr.Ptr(""),
-			cleanupAction: "",
-			wantCleanup:   xptr.Ptr(""),
-		},
-		{
-			name:          "a named choice is sent as itself",
-			setupAction:   "install-deps",
-			wantSetup:     xptr.Ptr("install-deps"),
-			cleanupAction: "drop-worktree",
-			wantCleanup:   xptr.Ptr("drop-worktree"),
+			name:     "choosing none is sent as an override, not as nothing",
+			chosen:   withoutWorktree,
+			wantSent: xptr.Ptr(false),
 		},
 	}
 
@@ -383,8 +365,7 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			sent := &formRecorder{}
 			m := formModel(sent)
-			m.listing.workflows[0].SetupAction = "make-worktree"
-			m.listing.workflows[0].CleanupAction = "drop-worktree"
+			m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{Enabled: true}
 			workflow := m.listing.workflows[0]
 
 			values := agentPrefill(workflow)
@@ -392,10 +373,7 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 			opened, _ := m.openAgentForm(workflow, &values)
 			m = asModel(t, opened)
 
-			// Chosen after the form is up, since huh clamps a select to the options it was given
-			// and the actions this panel lists are not among them.
-			values.SetupAction = tt.setupAction
-			values.CleanupAction = tt.cleanupAction
+			values.Worktree = tt.chosen
 
 			updated, cmd := m.answerForm()
 			submitted, ok := updated.(model)
@@ -403,82 +381,21 @@ func TestNewAgentFormActionOverride(t *testing.T) {
 			settle(t, submitted, cmd)
 
 			require.NotNil(t, sent.createdAgent)
-			assert.Equal(t, tt.wantSetup, sent.createdAgent.SetupAction)
-			assert.Equal(t, tt.wantCleanup, sent.createdAgent.CleanupAction)
+			assert.Equal(t, tt.wantSent, sent.createdAgent.ProvisionEnabled)
 		})
 	}
 }
 
-// TestActionSelectShowsTheCurrentChoiceOnOpen covers an action field opening on a visible
-// option, since huh.Select sizes its viewport when Options is called and not when Value is.
-func TestActionSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
-	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
-
+// TestWorktreeSelectShowsTheCurrentChoiceOnOpen covers the field opening on a visible option,
+// since huh.Select sizes its viewport when Options is called and not when Value is.
+func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	agentForm := newAgentForm(config.DefaultKeybindings().Form,
-		&agentFormValues{SetupAction: inheritAction, CleanupAction: inheritAction},
-		available,
+		&agentFormValues{Worktree: inheritWorktree},
+		true,
 	)
 	agentForm.Init()
-	agentView := agentForm.View()
-	assert.Contains(t, agentView, "> Same as workflow", "the setup field opens with what it inherits marked as picked")
-	assert.Contains(t, agentView, "> Same as workflow", "the cleanup field opens with what it inherits marked as picked")
 
-	workflowForm, _ := workflowConfigForm("Workflow name", &workflowFormValues{
-		SetupType:     setupTypeCustom,
-		SetupAction:   "make-worktree",
-		CleanupAction: "drop-worktree",
-	}, available, config.DefaultKeybindings().Form)
-	workflowForm.Init()
-	workflowView := workflowForm.View()
-	assert.Contains(t, workflowView, "> make-worktree", "editing a workflow opens with its own stored setup action marked as the one picked, not none")
-	assert.Contains(t, workflowView, "> drop-worktree", "editing a workflow opens with its own stored cleanup action marked as the one picked, not none")
-}
-
-// TestWorktreeWorkflowSwitchedToCustomOffersNoAction covers the action fields a worktree
-// workflow leaves behind, since the pair weave owns is not one a person may pick.
-func TestWorktreeWorkflowSwitchedToCustomOffersNoAction(t *testing.T) {
-	values := workflowFormValuesFrom(workflowstore.Config{
-		Name:          "admin",
-		SetupAction:   "_worktree_setup",
-		CleanupAction: "_worktree_cleanup",
-		Worktree:      workflowstore.WorktreeConfig{Enabled: true},
-	})
-	assert.Empty(t, values.SetupAction)
-	assert.Empty(t, values.CleanupAction)
-
-	values.SetupType = setupTypeCustom
-
-	form, _ := workflowConfigForm("Workflow name", &values, nil, config.DefaultKeybindings().Form)
-	form.Init()
-
-	view := form.View()
-	assert.NotContains(t, view, "_worktree_setup")
-	assert.NotContains(t, view, "_worktree_cleanup")
-	assert.Contains(t, view, "> None", "the field settles on no action rather than one it cannot offer")
-}
-
-// TestActionOptionsLeadWithNone covers what the workflow form's field ordering rests on: huh
-// reads the zero value as Options goes past, so None has to stay the first option.
-func TestActionOptionsLeadWithNone(t *testing.T) {
-	options := actionOptions([]actionChoice{{name: "install-deps"}}, "install-deps")
-	require.NotEmpty(t, options)
-	assert.Empty(t, options[0].Value)
-}
-
-// TestActionSelectShowsEveryOptionOnOpen covers the whole list being on screen when the field
-// opens on a choice partway down it, since huh scrolls its viewport to the selected row.
-func TestActionSelectShowsEveryOptionOnOpen(t *testing.T) {
-	available := []actionChoice{{name: "make-worktree"}, {name: "drop-worktree"}, {name: "install-deps"}}
-
-	values := workflowFormValues{SetupType: setupTypeCustom, SetupAction: "install-deps"}
-
-	form, _ := workflowConfigForm("Workflow name", &values, available, config.DefaultKeybindings().Form)
-	form.Init()
-
-	view := form.View()
-	assert.Contains(t, view, "None", "the option that clears the field stays reachable")
-	assert.Contains(t, view, "make-worktree")
-	assert.Contains(t, view, "> install-deps", "and the stored choice is still the one picked")
+	assert.Contains(t, agentForm.View(), "> Same as workflow", "the field opens with what it inherits marked as picked")
 }
 
 // TestRefusedSubmitKeepsTheForm covers a refused write leaving the form up with what was
@@ -492,7 +409,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 		typed  string
 	}{
 		{
-			name: "the new-agent form, with no setup action to run",
+			name: "the new-agent form, with no provisioner to run",
 			open: func(t *testing.T, m model) (model, func() string) {
 				workflow := m.listing.workflows[0]
 
@@ -576,9 +493,9 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
-// refusedAfterSetup is the refusal a setup action that ran and failed comes back as, which the
-// service marks so the panel does not print what the pane is already showing.
-func refusedAfterSetup(message string) error {
+// refusedAfterProvision is the refusal a provisioner that ran and failed comes back as,
+// which the service marks so the panel does not print what the pane is already showing.
+func refusedAfterProvision(message string) error {
 	refused := connect.NewError(connect.CodeFailedPrecondition, errors.New(message))
 	refused.Meta().Set(caller.SetupRanHeader, "true")
 
@@ -586,7 +503,7 @@ func refusedAfterSetup(message string) error {
 }
 
 // TestNewAgentSubmitClosesImmediately covers the new-agent form closing on submit rather than
-// holding for the write, since a setup action can run for minutes.
+// holding for the write, since a provisioner can run for minutes.
 func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -596,18 +513,18 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}{
 		{name: "a create that lands"},
 		{
-			name:       "a setup action that fails",
-			refuse:     refusedAfterSetup("the setup action failed: exit 7"),
+			name:       "a setup that fails",
+			refuse:     refusedAfterProvision("the provisioner failed: exit 7"),
 			wantOpen:   true,
-			wantDetail: "the setup action failed, and its output is in the pane it ran in",
+			wantDetail: "the setup failed, and its output is in the pane it ran in",
 		},
 		{
-			name:       "a create refused before setup ever ran",
+			name:       "a create refused before the provisioner ever ran",
 			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
 			wantDetail: "not allowed",
 		},
 		{
-			name:       "a refusal the setup action never got as far as",
+			name:       "a refusal the provisioner never got as far as",
 			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("that branch is already checked out")),
 			wantDetail: "that branch is already checked out",
 		},
@@ -621,7 +538,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			m.tmux = recorder
 			m.frame = layout.New(recorder, config.DefaultLayout())
 			m.frame.Attach("%0")
-			m.listing.workflows[0].SetupAction = "make-worktree"
+			m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{Enabled: true}
 
 			workflow := m.listing.workflows[0]
 
@@ -637,7 +554,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			assert.False(t, m.form.active(), "the form is gone the moment it was submitted")
 			assert.Equal(t, screenAgents, m.screen, "and the list it was drawn over is back")
 			assert.False(t, m.pendingForm)
-			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the setup action to stream into")
+			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the provisioner to stream into")
 			assert.Equal(t, "%2", recorder.infoPane)
 
 			got := settle(t, m, cmd)
@@ -647,7 +564,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 				assert.Equal(t, tt.wantDetail, got.banner.Detail)
 
 				if tt.wantOpen {
-					assert.Equal(t, infoSetup, got.info.kind, "left up so what the setup action printed can still be read")
+					assert.Equal(t, infoSetup, got.info.kind, "left up so what the provisioner printed can still be read")
 				} else {
 					assert.Equal(t, infoNothing, got.info.kind, "nothing ran in it, so it closes with the refusal")
 				}
@@ -663,10 +580,10 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}
 }
 
-// TestSetupTypeRebuildsTheForm checks that switching setup type swaps the worktree fields
-// for the action pickers by rebuilding the form, and hands back whatever was typed into
-// the worktree fields if the setup type switches back.
-func TestSetupTypeRebuildsTheForm(t *testing.T) {
+// TestProvisionerRebuildsTheForm checks that switching the provisioner swaps the worktree
+// fields for the hook pickers by rebuilding the form, and hands back whatever was typed into
+// the worktree fields if the provisioner switches back.
+func TestProvisionerRebuildsTheForm(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
 
@@ -675,53 +592,59 @@ func TestSetupTypeRebuildsTheForm(t *testing.T) {
 	opened, _ := m.openWorkflowConfigForm(&values, nil)
 	m = asModel(t, opened)
 
-	_, toggleIndex := workflowConfigForm("New workflow name", &values, nil, m.keys.Form)
+	_, toggleIndex := workflowConfigForm(workflowConfigParams{
+		NameTitle: "New workflow name",
+		Values:    &values,
+		Keys:      m.keys.Form,
+	})
 	for range toggleIndex {
 		m.form.form.NextField()
 	}
 
 	worktreeView := m.form.form.View()
-	assert.Equal(t, setupTypeWorktree, values.SetupType, "worktree is the default")
+	assert.Equal(t, provisionerWorktree, values.Provisioner, "worktree is the default")
 	assert.Contains(t, worktreeView, "Worktree base branch", "worktree is the default, so its fields are already on screen")
 	assert.Contains(t, worktreeView, "Worktree copy paths")
 	assert.Contains(t, worktreeView, "Worktree symlink paths")
-	assert.NotContains(t, worktreeView, "Setup action")
 
 	values.WorktreeCopyPaths = ".env"
 
-	updated, _ := m.form.update(m, keyMsg("down"))
+	updated, _ := m.form.update(m, keyMsg("up"))
 	m = asModel(t, updated)
 
-	require.Equal(t, setupTypeCustom, values.SetupType, "the keypress switched it")
-	customView := m.form.form.View()
-	assert.NotContains(t, customView, "Worktree base branch", "switching to custom removes the worktree fields, not blanks them")
-	assert.Contains(t, customView, "Setup action", "and adds the action pickers instead")
-	assert.Contains(t, customView, "Cleanup action")
+	require.Equal(t, provisionerNone, values.Provisioner, "the keypress switched it")
+	noneView := m.form.form.View()
+	assert.NotContains(t, noneView, "Worktree base branch", "None provisions nothing, so it asks nothing about a worktree")
+	assert.Contains(t, noneView, "Pre-launch hook", "the hooks are asked for whichever provisioner is chosen")
 
-	updated, _ = m.form.update(m, keyMsg("up"))
+	updated, _ = m.form.update(m, keyMsg("down"))
 	m = asModel(t, updated)
 
-	assert.Equal(t, setupTypeWorktree, values.SetupType)
+	assert.Equal(t, provisionerWorktree, values.Provisioner)
 	assert.Equal(t, ".env", values.WorktreeCopyPaths, "switching back hands back what was typed before")
 	assert.Contains(t, m.form.form.View(), "Worktree copy paths")
 }
 
-// TestSetupTypeSelectShowsBothOptionsOnOpen covers a select opening on the non-default answer,
-// since huh scrolls to the bound value's index once it has both an accessor and options.
-func TestSetupTypeSelectShowsBothOptionsOnOpen(t *testing.T) {
-	form, toggleIndex := workflowConfigForm("Workflow name", &workflowFormValues{SetupType: setupTypeCustom}, nil, config.DefaultKeybindings().Form)
+// TestProvisionerSelectShowsEveryOptionOnOpen covers a select opening on the non-default
+// answer, since huh scrolls to the bound value's index once it has both an accessor and options.
+func TestProvisionerSelectShowsEveryOptionOnOpen(t *testing.T) {
+	form, toggleIndex := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &workflowFormValues{Provisioner: provisionerNone},
+		Keys:      config.DefaultKeybindings().Form,
+	})
 	form.Init()
 	for range toggleIndex {
 		form.NextField()
 	}
 
 	view := form.View()
-	assert.Contains(t, view, "Worktree: a git worktree per agent", "the worktree option is not hidden just because custom is selected")
-	assert.Contains(t, view, "Custom: your own setup and cleanup actions")
+	assert.Contains(t, view, "None: agents keep the directory they are given", "neither option is hidden by the other being picked")
+	assert.Contains(t, view, "Worktree: a git worktree per agent")
 	assert.Less(t,
+		strings.Index(view, "None: agents keep the directory they are given"),
 		strings.Index(view, "Worktree: a git worktree per agent"),
-		strings.Index(view, "Custom: your own setup and cleanup actions"),
-		"worktree stays first regardless of which is selected",
+		"the options keep their order regardless of which is selected",
 	)
 }
 
@@ -882,7 +805,7 @@ func formModel(sent *formRecorder) model {
 			agents:    sent,
 			workflows: sent,
 			schedules: sent,
-			actions:   sent,
+			hooks:     sent,
 		},
 		tmux:  tmux,
 		popup: NewPopupWindow(tmux, "test-session"),
@@ -902,7 +825,7 @@ type formRecorder struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
-	actionv1connect.ActionServiceClient
+	hookv1connect.HookServiceClient
 	refuse           error
 	storedWorkflow   *workflowv1.Workflow
 	createdAgent     *agentv1.CreateAgentRequest
@@ -923,8 +846,8 @@ func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-func (f *formRecorder) ListActions(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListActionsResponse], error) {
-	return connect.NewResponse(&actionv1.ListActionsResponse{}), nil
+func (f *formRecorder) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
+	return connect.NewResponse(&hookv1.ListHooksResponse{}), nil
 }
 
 func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
@@ -1078,7 +1001,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
-	agent := newAgentForm(keys, &agentFormValues{}, nil)
+	agent := newAgentForm(keys, &agentFormValues{}, true)
 	agent.Init()
 	for range 6 {
 		agent.Update(huh.NextField())
@@ -1191,4 +1114,180 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 	opened := asModel(t, entered)
 
 	assert.Equal(t, screenAgents, opened.screen)
+}
+
+// TestWorkflowFormRoundTripsEveryHookMoment pins the form editing every moment there is, since
+// a moment it does not ask about is one an edit through the panel would silently drop.
+func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
+	hooks := []workflowstore.Hook{
+		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+		{Event: workflowstore.HookPostLaunch, Script: "announce"},
+		{Event: workflowstore.HookPostResume, Script: "announce-back"},
+		{Event: workflowstore.HookPostRestore, Script: "unlock"},
+	}
+
+	values := workflowFormValuesFrom(workflowstore.Config{Name: "backend", Hooks: hooks})
+
+	assert.Equal(t, "install-deps", values.PreLaunchHook, "a moment's hook is what its select is sitting on")
+	assert.Equal(t, hooks, values.toConfig().Hooks, "and every moment comes back as it went in")
+}
+
+// TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo pins what the form does with a workflow
+// written when a moment could hold several, since the select can only sit on one and saving
+// must not invent an order for the rest.
+func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name: "backend",
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+		},
+	})
+
+	assert.Equal(t, "install-deps", values.PreLaunchHook, "the one that ran first is the one on offer")
+	assert.Equal(t, []workflowstore.Hook{
+		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+	}, values.toConfig().Hooks, "and saving the form writes the one moment holds")
+}
+
+// TestHookFieldsOfferTheHooksDirectory pins the picker being a select over the hooks directory
+// rather than free text, and opening on what the workflow already names.
+func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name:  "backend",
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "copy-env"}},
+	})
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    40,
+	})
+	form.Init()
+
+	view := form.View()
+	assert.Contains(t, view, "Pre-launch hook")
+	assert.Contains(t, view, "install-deps", "every hook in the directory is offered")
+	assert.Contains(t, view, "copy-env")
+	assert.Equal(t, "copy-env", values.PreLaunchHook, "and the one it already names is the one picked")
+}
+
+// TestHookOptionsKeepAHookThatHasGone pins a hook the workflow names but the directory no
+// longer holds still being offered, since an option that is not there is a hook the next save
+// would drop without saying so.
+func TestHookOptionsKeepAHookThatHasGone(t *testing.T) {
+	options := hookOptions([]hookChoice{{name: "install-deps"}}, "copy-env")
+
+	require.Len(t, options, 3)
+	assert.Empty(t, options[0].Value, "None leads, so huh opens the list at the top")
+	assert.Equal(t, "install-deps", options[1].Value)
+	assert.Equal(t, "copy-env", options[2].Value, "the missing one keeps its name as the value so it round-trips")
+	assert.Contains(t, options[2].Key, "missing")
+}
+
+// TestHookFieldsSayWhereHooksGoWhenThereAreNone pins the empty case reading as an empty
+// directory rather than a broken form.
+func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
+	// None, so that the worktree fields are not on screen pushing the hook fields off it.
+	values := workflowFormValues{Provisioner: provisionerNone}
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    40,
+	})
+	form.Init()
+
+	assert.Contains(t, form.View(), "none found in your hooks directory")
+}
+
+// TestWorkflowFormScrollsToFitTheTerminal pins the form being given the room it has rather
+// than drawing past the bottom of the screen, since it now asks for four moments of hooks
+// under everything else and will not fit on a normal terminal.
+func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
+	values := workflowFormValues{Provisioner: provisionerWorktree}
+
+	const terminal = 24
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Hooks:     []hookChoice{{name: "install-deps"}},
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    model{height: terminal}.formHeight(),
+	})
+	form.Init()
+
+	// huh draws its help line outside the height it is given, which is what the chrome the
+	// height already leaves room for absorbs.
+	lines := strings.Count(form.View(), "\n") + 1
+	assert.LessOrEqual(t, lines, terminal, "the form is drawn inside the terminal it was measured against")
+	assert.Contains(t, form.View(), "Workflow name", "and opens at the top of itself")
+}
+
+// TestFormHeightLeavesRoomForTheChrome pins the height a form is given: the terminal less what
+// the view draws above it, nothing at all before the first window size arrives, and a floor on
+// a terminal too short to hold a form.
+func TestFormHeightLeavesRoomForTheChrome(t *testing.T) {
+	tests := []struct {
+		name   string
+		height int
+		want   int
+	}{
+		{
+			name:   "no size yet leaves huh its own default",
+			height: 0,
+			want:   0,
+		},
+		{
+			name:   "a terminal too short to hold a form gets the floor",
+			height: 4,
+			want:   minFormHeight,
+		},
+		{
+			name:   "otherwise it is the terminal less the chrome",
+			height: 40,
+			want:   40 - formChromeLines,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, model{height: tt.height}.formHeight())
+		})
+	}
+}
+
+// TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
+// cursor passes over them, since a picker that reorders or clears what it was given loses a
+// person's choice with nothing on screen to say so.
+func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPostLaunch, Script: "announce"},
+		},
+	})
+	before := values.toConfig().Hooks
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Hooks:     []hookChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    model{height: 40}.formHeight(),
+	})
+	form.Init()
+
+	// Every field, so each hook select is focused and blurred in turn.
+	for range 20 {
+		form.Update(huh.NextField())
+	}
+
+	assert.Equal(t, before, values.toConfig().Hooks, "walking the form leaves every moment as it was")
 }

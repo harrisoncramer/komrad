@@ -4,18 +4,16 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
-    ac.worktree_enabled,
-    ac.worktree_base_branch,
-    ac.worktree_copy_paths,
-    ac.worktree_symlink_paths,
-    ac.worktree_diff_exclude,
-    ac.archive_on_pr_closed
+    pc.worktree_enabled,
+    pc.worktree_base_branch,
+    pc.worktree_copy_paths,
+    pc.worktree_symlink_paths,
+    pc.worktree_diff_exclude,
+    pc.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
+    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE (@archived::boolean) =(w.archived_at IS NOT NULL)
     AND (sqlc.narg('cursor_id')::uuid IS NULL
         OR (LOWER(w.name)
@@ -35,18 +33,16 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
-    ac.worktree_enabled,
-    ac.worktree_base_branch,
-    ac.worktree_copy_paths,
-    ac.worktree_symlink_paths,
-    ac.worktree_diff_exclude,
-    ac.archive_on_pr_closed
+    pc.worktree_enabled,
+    pc.worktree_base_branch,
+    pc.worktree_copy_paths,
+    pc.worktree_symlink_paths,
+    pc.worktree_diff_exclude,
+    pc.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
+    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.archived_at IS NULL
 ORDER BY
@@ -60,18 +56,16 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
-    ac.worktree_enabled,
-    ac.worktree_base_branch,
-    ac.worktree_copy_paths,
-    ac.worktree_symlink_paths,
-    ac.worktree_diff_exclude,
-    ac.archive_on_pr_closed
+    pc.worktree_enabled,
+    pc.worktree_base_branch,
+    pc.worktree_copy_paths,
+    pc.worktree_symlink_paths,
+    pc.worktree_diff_exclude,
+    pc.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
+    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.id = @id
     AND w.archived_at IS NULL
@@ -89,10 +83,8 @@ VALUES (
 RETURNING
     id;
 
--- name: InsertWorkflowActionConfig :one
-INSERT INTO workflow_action_configs(
-    setup_action,
-    cleanup_action,
+-- name: InsertWorkflowProvisionerConfig :one
+INSERT INTO workflow_provisioner_configs(
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
@@ -100,8 +92,6 @@ INSERT INTO workflow_action_configs(
     worktree_diff_exclude,
     archive_on_pr_closed)
 VALUES (
-    @setup_action,
-    @cleanup_action,
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_copy_paths,
@@ -116,12 +106,12 @@ INSERT INTO workflows(
     name,
     context,
     workflow_config_id,
-    action_config_id)
+    provisioner_config_id)
 VALUES (
     @name,
     @context,
     @workflow_config_id,
-    @action_config_id)
+    @provisioner_config_id)
 RETURNING
     *;
 
@@ -141,12 +131,10 @@ SET
 WHERE
     id = @id;
 
--- name: SetWorkflowActions :exec
+-- name: SetWorkflowProvisioner :exec
 UPDATE
-    workflow_action_configs
+    workflow_provisioner_configs
 SET
-    setup_action = @setup_action,
-    cleanup_action = @cleanup_action,
     worktree_enabled = @worktree_enabled,
     worktree_base_branch = @worktree_base_branch,
     worktree_copy_paths = @worktree_copy_paths,
@@ -156,7 +144,7 @@ SET
 WHERE
     id =(
         SELECT
-            action_config_id
+            provisioner_config_id
         FROM
             workflows
         WHERE
@@ -200,14 +188,14 @@ DELETE FROM workflows
 WHERE id = @id
 RETURNING
     workflow_config_id,
-    action_config_id;
+    provisioner_config_id;
 
 -- name: DeleteWorkflowConfig :exec
 DELETE FROM workflow_configs
 WHERE id = @id;
 
--- name: DeleteWorkflowActionConfig :exec
-DELETE FROM workflow_action_configs
+-- name: DeleteWorkflowProvisionerConfig :exec
+DELETE FROM workflow_provisioner_configs
 WHERE id = @id;
 
 -- name: GetWorkflowIncludingArchived :one
@@ -216,18 +204,70 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
-    ac.worktree_enabled,
-    ac.worktree_base_branch,
-    ac.worktree_copy_paths,
-    ac.worktree_symlink_paths,
-    ac.worktree_diff_exclude,
-    ac.archive_on_pr_closed
+    pc.worktree_enabled,
+    pc.worktree_base_branch,
+    pc.worktree_copy_paths,
+    pc.worktree_symlink_paths,
+    pc.worktree_diff_exclude,
+    pc.archive_on_pr_closed
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
-    JOIN workflow_action_configs ac ON ac.id = w.action_config_id
+    JOIN workflow_provisioner_configs pc ON pc.id = w.provisioner_config_id
 WHERE
     w.id = @id
 LIMIT 1;
+
+-- name: ListWorkflowHooks :many
+SELECT
+    workflow_id,
+    event,
+    script
+FROM
+    workflow_hooks
+ORDER BY
+    workflow_id,
+    position,
+    id;
+
+-- name: ListHooksForWorkflows :many
+SELECT
+    workflow_id,
+    event,
+    script
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = ANY (@workflow_ids::uuid[])
+ORDER BY
+    workflow_id,
+    position,
+    id;
+
+-- name: ListHooksForWorkflow :many
+SELECT
+    event,
+    script
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = @workflow_id
+ORDER BY
+    position,
+    id;
+
+-- name: DeleteWorkflowHooks :exec
+DELETE FROM workflow_hooks
+WHERE workflow_id = @workflow_id;
+
+-- name: InsertWorkflowHook :exec
+INSERT INTO workflow_hooks(
+    workflow_id,
+    event,
+    script,
+    position)
+VALUES (
+    @workflow_id,
+    @event,
+    @script,
+    @position);

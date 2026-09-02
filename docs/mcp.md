@@ -36,7 +36,7 @@ One half is read-only SQL over the panel's Postgres: `list_tables`, `describe_ta
 
 The other half is the panel's own RPCs as tools. Each call goes back out over loopback to the Connect endpoint rather than into the handler, so a tool call takes the same path a real client does, validation included. Spawning, renaming, and removing an agent are only possible here, since the SQL half cannot write.
 
-Agents use the tools to take actions, as they allow writes, and the general SQL engine when the question is an aggregate or a join: how many agents in each workflow are still thinking, which of my children recorded a pull request URL, and so forth.
+Agents use the tools to change things, as they allow writes, and the general SQL engine when the question is an aggregate or a join: how many agents in each workflow are still thinking, which of my children recorded a pull request URL, and so forth.
 
 ## The read-only role
 

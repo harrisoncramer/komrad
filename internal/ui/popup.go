@@ -72,7 +72,7 @@ func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 		"-w", palettePopupWidth,
 		"-h", palettePopupHeight,
 		"-x", "C", "-y", "C",
-		"-T", " actions ",
+		"-T", " commands ",
 		"-EE", params.Self, "palette",
 	}
 	for _, path := range params.ConfigPaths {

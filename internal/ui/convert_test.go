@@ -93,8 +93,6 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		Harness:           "claude",
 		Cwd:               "/work/api",
 		Flags:             "--model opus",
-		SetupAction:       "make-worktree",
-		CleanupAction:     "drop-worktree",
 		ArchiveOnPrClosed: true,
 		Worktree: &workflowv1.WorktreeConfig{
 			Enabled:      true,
@@ -103,18 +101,24 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 			SymlinkPaths: []string{"node_modules"},
 			DiffExclude:  []string{"proto/gen"},
 		},
+		Hooks: []*workflowv1.WorkflowHook{
+			{Event: "pre-launch", Script: "install-deps"},
+			{Event: "post-launch", Script: "announce"},
+		},
 	}})
 
 	require.Len(t, got, 1)
 	assert.Equal(t, workflowstore.Workflow{
-		ID:                "w1",
-		Name:              "api",
-		Context:           "shared notes",
-		Harness:           "claude",
-		Cwd:               "/work/api",
-		Flags:             "--model opus",
-		SetupAction:       "make-worktree",
-		CleanupAction:     "drop-worktree",
+		ID:      "w1",
+		Name:    "api",
+		Context: "shared notes",
+		Harness: "claude",
+		Cwd:     "/work/api",
+		Flags:   "--model opus",
+		Hooks: []workflowstore.Hook{
+			{Event: "pre-launch", Script: "install-deps"},
+			{Event: "post-launch", Script: "announce"},
+		},
 		ArchiveOnPRClosed: true,
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,

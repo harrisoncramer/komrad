@@ -623,8 +623,8 @@ func TestArchiveMarkdown(t *testing.T) {
 	assert.NotContains(t, got, "dormant", "an archived agent is not one waiting to be opened")
 }
 
-// TestArchiveStagesWhyADeleteLeftARowBehind covers the stage for an agent whose cleanup
-// action failed, since the archive is the only place that failure is legible.
+// TestArchiveStagesWhyADeleteLeftARowBehind covers the stage for an agent whose
+// deprovisioner failed, since the archive is the only place that failure is legible.
 func TestArchiveStagesWhyADeleteLeftARowBehind(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}

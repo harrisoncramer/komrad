@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"testing"
 
-	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/errui"
 	"weave/internal/rpcerr"
+	"weave/internal/scripts"
 	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
@@ -29,7 +29,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrAgentNotFound, connect.CodeNotFound},
 		{agents.ErrWorkflowNotFound, connect.CodeNotFound},
 		{agents.ErrScheduleNotFound, connect.CodeNotFound},
-		{agents.ErrActionNotFound, connect.CodeNotFound},
+		{agents.ErrScriptNotFound, connect.CodeNotFound},
 		{agents.ErrMailNotFound, connect.CodeNotFound},
 		{agents.ErrRecipientNotFound, connect.CodeNotFound},
 		{agents.ErrReviewThreadNotFound, connect.CodeNotFound},
@@ -37,16 +37,16 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrParentNotFound, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
 		{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
-		{agents.ErrSetupFailed, connect.CodeFailedPrecondition},
-		{agents.ErrActionNotExecutable, connect.CodeFailedPrecondition},
-		{agents.ErrActionNotStartable, connect.CodeFailedPrecondition},
-		{agents.ErrActionDirMissing, connect.CodeFailedPrecondition},
-		{agents.ErrActionAlreadyRunning, connect.CodeFailedPrecondition},
+		{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
+		{agents.ErrScriptNotExecutable, connect.CodeFailedPrecondition},
+		{agents.ErrScriptNotStartable, connect.CodeFailedPrecondition},
+		{agents.ErrScriptDirMissing, connect.CodeFailedPrecondition},
+		{agents.ErrScriptAlreadyRunning, connect.CodeFailedPrecondition},
 		{agents.ErrWorkflowHasSchedules, connect.CodeFailedPrecondition},
 		{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
-		{agents.ErrChildRidesAlong, connect.CodeFailedPrecondition},
+		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 		{agents.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
@@ -61,8 +61,6 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrAdoptForkBranch, connect.CodeInvalidArgument},
 		{agents.ErrAdoptNoResolver, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
-		{agents.ErrWorktreeOwnsActions, connect.CodeInvalidArgument},
-		{agents.ErrWorktreeActionsReserved, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
@@ -126,10 +124,10 @@ func TestWrapSayingLeavesOthers(t *testing.T) {
 	assert.Contains(t, err.Error(), "too many agents")
 }
 
-// TestWrapMarksAnActionThatRan covers the failure whose reason is already on screen, which the
+// TestWrapMarksAScriptThatRan covers the failure whose reason is already on screen, which the
 // panel is told about so it does not print the output the pane is showing.
-func TestWrapMarksAnActionThatRan(t *testing.T) {
-	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrSetupFailed, actions.ErrFailed)
+func TestWrapMarksAScriptThatRan(t *testing.T) {
+	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrProvisionFailed, scripts.ErrFailed)
 
 	err := rpcerr.Wrap(ran, "failed to create the agent")
 
@@ -138,7 +136,7 @@ func TestWrapMarksAnActionThatRan(t *testing.T) {
 	assert.True(t, errui.SetupRan(err))
 }
 
-// TestWrapLeavesRefusalsUnmarked covers a refusal reached before any action ran, which the panel
+// TestWrapLeavesRefusalsUnmarked covers a refusal reached before any script ran, which the panel
 // has to report itself since nothing else says what happened.
 func TestWrapLeavesRefusalsUnmarked(t *testing.T) {
 	err := rpcerr.Wrap(agents.ErrAdoptBranchInUse, "failed to adopt")
