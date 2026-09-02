@@ -45,15 +45,6 @@ func TestChildAgent(t *testing.T) {
 	assert.Equal(t, parent.GetId(), child.GetParentAgentId())
 	assert.Equal(t, parent.GetCwd(), child.GetCwd(), "a child runs in its parent's checkout")
 
-	t.Run("a child cannot be archived on its own", func(t *testing.T) {
-		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
-			Ids: []string{child.GetId()},
-		}))
-		require.Error(t, err)
-		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-		assert.ElementsMatch(t, []string{"author", "reviewer"}, liveNames(t, instance))
-	})
-
 	t.Run("a child may only mail inside its family", func(t *testing.T) {
 		stranger := createAgent(t, instance, workflowID, "unrelated")
 
@@ -93,6 +84,36 @@ func TestChildAgent(t *testing.T) {
 		}))
 		require.NoError(t, err)
 
+		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
+	})
+
+	t.Run("a child is archived on its own", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{child.GetId()},
+		}))
+		require.NoError(t, err)
+
+		assert.ElementsMatch(t, []string{"author", "unrelated"}, liveNames(t, instance))
+		assert.ElementsMatch(t, []string{"reviewer"}, archivedNames(t, instance))
+	})
+
+	t.Run("a child cannot come back before its parent", func(t *testing.T) {
+		_, err := instance.Agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{
+			Ids: []string{parent.GetId()},
+		}))
+		require.NoError(t, err)
+
+		_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{child.GetId()},
+		}))
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+		assert.ElementsMatch(t, []string{"author", "reviewer"}, archivedNames(t, instance))
+
+		_, err = instance.Agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{
+			Ids: []string{parent.GetId(), child.GetId()},
+		}))
+		require.NoError(t, err)
 		assert.ElementsMatch(t, []string{"author", "reviewer", "unrelated"}, liveNames(t, instance))
 	})
 }

@@ -229,13 +229,12 @@ func withCwd(agent agentstore.Agent, dir string) agentstore.Agent {
 	return agent
 }
 
-// TestArchiveTakesTheChildren pins that a child goes with its parent, and that naming one on
-// its own is refused rather than leaving a row nothing is attached to.
+// TestArchiveTakesTheChildren pins that a child goes with its parent, whether or not the call
+// named it too.
 func TestArchiveTakesTheChildren(t *testing.T) {
 	tests := []struct {
-		name      string
-		archive   func(parent, child agentstore.Agent) []string
-		wantErrIs error
+		name    string
+		archive func(parent, child agentstore.Agent) []string
 	}{
 		{
 			name:    "the parent takes the child with it",
@@ -244,11 +243,6 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 		{
 			name:    "naming both is the same archive",
 			archive: func(parent, child agentstore.Agent) []string { return []string{parent.ID, child.ID} },
-		},
-		{
-			name:      "the child on its own is refused",
-			archive:   func(_, child agentstore.Agent) []string { return []string{child.ID} },
-			wantErrIs: ErrChildRidesAlong,
 		},
 	}
 
@@ -262,18 +256,7 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
 			child := seedChild(t, st, tmux, parent)
 
-			err := manager.lifecycle.ArchiveAgents(ctx, tt.archive(parent, child))
-			if tt.wantErrIs != nil {
-				require.ErrorIs(t, err, tt.wantErrIs)
-
-				live, listErr := st.List(ctx)
-				require.NoError(t, listErr)
-				assert.Len(t, live, 2, "the refusal archives neither")
-
-				return
-			}
-
-			require.NoError(t, err)
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, tt.archive(parent, child)))
 
 			live, err := st.List(ctx)
 			require.NoError(t, err)
@@ -281,6 +264,32 @@ func TestArchiveTakesTheChildren(t *testing.T) {
 			assert.Contains(t, tmux.killedPanes, child.Pane, "and the child's pane goes with its row")
 		})
 	}
+}
+
+// TestArchiveOfAChildLeavesTheParent pins that finishing with one child says nothing about the
+// agent it was reading for, which keeps working with its row where it was.
+func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+	ctx := t.Context()
+
+	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+	child := seedChild(t, st, tmux, parent)
+	require.NoError(t, st.Update(ctx, withSpawner(child, parent.ID)))
+
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{child.ID}))
+
+	live, err := st.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, live, 1, "only the child goes")
+	assert.Equal(t, parent.ID, live[0].ID)
+	assert.Contains(t, tmux.killedPanes, child.Pane)
+
+	claimed, err := st.Mail.Claim(ctx, parent.ID, 10)
+	require.NoError(t, err)
+	require.Len(t, claimed, 1, "the parent hears that what it was waiting on is gone")
+	assert.Contains(t, claimed[0].Body, "archived")
 }
 
 // TestArchiveOfAParentTellsTheChildNothing pins that a child archived alongside its parent
@@ -348,22 +357,24 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 	assert.Contains(t, tmux.killedPanes, child.Pane)
 }
 
-// TestDeleteRefusesAChildAlone pins that a child cannot be destroyed out from under the agent
-// it is answering.
-func TestDeleteRefusesAChildAlone(t *testing.T) {
+// TestDeleteTakesAChildAlone pins that a child can be destroyed by itself, since it holds no
+// directory of its own for the delete to tear down.
+func TestDeleteTakesAChildAlone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	manager := newManager(tmux, st, "")
+	manager := newManagerWithNotifier(tmux, st, newNotifier(st))
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
 	child := seedChild(t, st, tmux, parent)
 
-	require.ErrorIs(t, manager.lifecycle.DeleteAgents(ctx, []string{child.ID}), ErrChildRidesAlong)
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{child.ID}))
 
 	all, err := st.ListAll(ctx)
 	require.NoError(t, err)
-	assert.Len(t, all, 2)
+	require.Len(t, all, 1, "the parent is left as it was")
+	assert.Equal(t, parent.ID, all[0].ID)
+	assert.Contains(t, tmux.killedPanes, child.Pane)
 }
 
 // TestRestoreBringsTheChildrenBack pins that a parent taken out of the archive arrives with
@@ -389,6 +400,56 @@ func TestRestoreBringsTheChildrenBack(t *testing.T) {
 
 	assert.Equal(t, child.ID, agentByID(t, st, child.ID).ID)
 	assert.Nil(t, agentByID(t, st, child.ID).ArchivedAt)
+}
+
+// TestRestoreOfAChildNeedsItsParentBack pins the one direction the family rule still holds in:
+// a child comes back only once there is a live row for it to be drawn under.
+func TestRestoreOfAChildNeedsItsParentBack(t *testing.T) {
+	tests := []struct {
+		name        string
+		restoreBoth bool
+		wantErrIs   error
+	}{
+		{
+			name:        "the parent is live again",
+			restoreBoth: true,
+		},
+		{
+			name:      "the parent is still archived",
+			wantErrIs: ErrParentStillArchived,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := newFakeTmux()
+			st := newStore(t)
+			manager := newManagerWithNotifier(tmux, st, newNotifier(st))
+			ctx := t.Context()
+
+			parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
+			child := seedChild(t, st, tmux, parent)
+
+			require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
+			if tt.restoreBoth {
+				_, err := manager.lifecycle.RestoreAgents(ctx, []string{parent.ID})
+				require.NoError(t, err)
+				require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{child.ID}))
+			}
+
+			restored, err := manager.lifecycle.RestoreAgents(ctx, []string{child.ID})
+			if tt.wantErrIs != nil {
+				require.ErrorIs(t, err, tt.wantErrIs)
+				assert.NotNil(t, agentByID(t, st, child.ID).ArchivedAt, "the refusal restores nothing")
+
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Len(t, restored, 1)
+			assert.Nil(t, agentByID(t, st, child.ID).ArchivedAt)
+		})
+	}
 }
 
 // TestChildMailStaysInTheFamily pins who a child may reach: its parent and that parent's other

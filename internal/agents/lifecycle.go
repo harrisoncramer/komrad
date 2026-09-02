@@ -251,6 +251,10 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, err
 	}
 
+	if err := s.requireParentsPresent(ctx, agents); err != nil {
+		return nil, err
+	}
+
 	archived := xslice.Filter(agents, func(agent agentstore.Agent) bool { return agent.ArchivedAt != nil })
 	if len(archived) == 0 {
 		return agents, nil
@@ -287,9 +291,48 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	return s.agents.ListByID(ctx, agentIDs(agents))
 }
 
-// withChildren adds the children of the agents a call named to the list it acts on, and refuses
-// a child named without its parent, since there is nothing it means to archive, delete, or
-// restore one apart from the agent it is attached to.
+// requireParentsPresent refuses a child coming back while the agent it hangs under is still
+// archived, since the panel draws it indented under a row that would not be there.
+func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []agentstore.Agent) error {
+	held := make(map[string]bool, len(agents))
+	for _, agent := range agents {
+		held[agent.ID] = true
+	}
+
+	var wanted []string
+	for _, agent := range agents {
+		if agent.ParentAgentID != nil && !held[*agent.ParentAgentID] {
+			wanted = append(wanted, *agent.ParentAgentID)
+		}
+	}
+	if len(wanted) == 0 {
+		return nil
+	}
+
+	parents, err := s.agents.ListByID(ctx, wanted)
+	if err != nil {
+		return fmt.Errorf("failed to look up the parents of %d children: %w", len(wanted), err)
+	}
+
+	live := make(map[string]bool, len(parents))
+	for _, parent := range parents {
+		live[parent.ID] = parent.ArchivedAt == nil
+	}
+
+	for _, agent := range agents {
+		if agent.ParentAgentID == nil || held[*agent.ParentAgentID] {
+			continue
+		}
+		if !live[*agent.ParentAgentID] {
+			return fmt.Errorf("%w: %q is attached to an agent that is still archived", ErrParentStillArchived, agent.Name)
+		}
+	}
+
+	return nil
+}
+
+// withChildren adds the children of the agents a call named to the list it acts on, leaving a
+// child named on its own to be acted on alone.
 func (s *LifecycleService) withChildren(ctx context.Context, named []agentstore.Agent) ([]agentstore.Agent, error) {
 	held := make(map[string]bool, len(named))
 	for _, agent := range named {
@@ -300,11 +343,6 @@ func (s *LifecycleService) withChildren(ctx context.Context, named []agentstore.
 	for _, agent := range named {
 		if agent.ParentAgentID == nil {
 			parents = append(parents, agent.ID)
-
-			continue
-		}
-		if !held[*agent.ParentAgentID] {
-			return nil, fmt.Errorf("%w: %q is attached to an agent this call does not name", ErrChildRidesAlong, agent.Name)
 		}
 	}
 

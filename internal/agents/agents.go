@@ -35,9 +35,9 @@ var ErrTooManyChildren = errors.New("too many children")
 // recorded, which is the one thing a child cannot be given a substitute for.
 var ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
 
-// ErrChildRidesAlong says a child was named on its own by an archive, a delete, or a restore
-// that left its parent out, which is the one thing a child cannot be without it.
-var ErrChildRidesAlong = errors.New("a child agent goes with its parent")
+// ErrParentStillArchived says a restore named a child whose parent stays archived, leaving the
+// child a row with nothing to be drawn under.
+var ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
 
 // ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
 // parent and that parent's other children.
@@ -306,13 +306,18 @@ func failureReason(cause error) string {
 func notifyParents(ctx context.Context, notifier systemMailSender, agents []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
+	going := make(map[string]bool, len(agents))
+	for _, agent := range agents {
+		going[agent.ID] = true
+	}
+
 	for _, agent := range agents {
 		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
 			continue
 		}
-		// A child whose spawner is the parent it is attached to only ever goes as part of that
-		// parent going, so the mail would be addressed to an agent already on its way out.
-		if agent.ParentAgentID != nil && *agent.SpawnedByAgentID == *agent.ParentAgentID {
+		// A spawner going in the same call has nobody left to read the mail, which is what
+		// happens to a parent that takes its own children with it.
+		if going[*agent.SpawnedByAgentID] {
 			continue
 		}
 
