@@ -564,9 +564,15 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 	}
 }
 
-// hookFieldHeight bounds one moment's list, so four moments and everything above them still
-// leave the form scrollable rather than one long list pushing the rest off the screen.
-const hookFieldHeight = 5
+// hookOptionsShown bounds one moment's list, so four moments and everything above them still
+// leave the form scrollable rather than one long list pushing the rest off the screen. A list
+// this short is left unbounded instead, since huh scrolls a select it was given a height for
+// even when every option would have fit, which hides the options above the chosen one.
+const hookOptionsShown = 4
+
+// hookFieldChrome is the title and description above a moment's options, which huh takes out of
+// the height it is given before it sizes the list itself.
+const hookFieldChrome = 2
 
 // hookFields are the scripts hung on a moment rather than on the directory, one select each
 // since a moment holds one hook, and asked for whatever the provisioner is.
@@ -605,23 +611,36 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 
 	fields := make([]huh.Field, 0, len(moments))
 	for _, moment := range moments {
+		options := hookOptions(available, *moment.chosen)
+		scrolls := len(options) > hookOptionsShown
+
 		// Options comes before Value so huh reads the zero value and leaves the list scrolled to
 		// the top, which holds only while None, carrying the empty name, leads it.
-		fields = append(fields, huh.NewSelect[string]().Key(moment.key).Title(moment.title).
-			Description(hookFieldDescription(moment.description, available)).
-			Options(hookOptions(available, *moment.chosen)...).
-			Value(moment.chosen).
-			Height(hookFieldHeight))
+		field := huh.NewSelect[string]().Key(moment.key).Title(moment.title).
+			Description(hookFieldDescription(moment.description, available, scrolls)).
+			Options(options...).
+			Value(moment.chosen)
+		if scrolls {
+			field = field.Height(hookOptionsShown + hookFieldChrome)
+		}
+
+		fields = append(fields, field)
 	}
 
 	return fields
 }
 
 // hookFieldDescription leads with the empty case rather than appending it, since a description
-// long enough to be cut off at the width of a terminal would take the notice with it.
-func hookFieldDescription(description string, available []hookChoice) string {
+// long enough to be cut off at the width of a terminal would take the notice with it. A list too
+// long to draw whole says so, since there is nothing else on screen to say the options carry on
+// past the ones it can see.
+func hookFieldDescription(description string, available []hookChoice, scrolls bool) string {
 	if len(available) == 0 {
 		return "none found in your hooks directory; " + description
+	}
+
+	if scrolls {
+		return "↑/↓ for more; " + description
 	}
 
 	return description

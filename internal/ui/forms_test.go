@@ -1174,6 +1174,59 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 	assert.Equal(t, "copy-env", values.PreLaunchHook, "and the one it already names is the one picked")
 }
 
+// TestHookFieldsDrawEveryOptionThatFits pins a moment already naming a hook still offering the
+// options above it, since huh scrolls a select it was given a height for to whatever is chosen
+// and a form that hides None is a hook nobody can take off a moment.
+func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name: "backend",
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookPostLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookPostResume, Script: "copy-env"},
+			{Event: workflowstore.HookPostRestore, Script: "copy-env"},
+		},
+	})
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    60,
+	})
+	form.Init()
+
+	view := form.View()
+	assert.Equal(t, 4, strings.Count(view, "install-deps"), "every moment offers the hook above the one it names")
+	assert.NotContains(t, view, "↑/↓ for more", "and says nothing about scrolling for a list it draws whole")
+}
+
+// TestHookFieldsSayWhenTheListScrolls pins a hooks directory too long to draw whole telling a
+// person the list carries on, since huh draws no indicator of its own.
+func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
+	available := []hookChoice{
+		{name: "copy-env"},
+		{name: "install-deps"},
+		{name: "seed-db"},
+		{name: "warm-cache"},
+		{name: "link-modules"},
+	}
+
+	values := workflowFormValues{Provisioner: provisionerNone}
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Hooks:     available,
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    60,
+	})
+	form.Init()
+
+	assert.Contains(t, form.View(), "↑/↓ for more")
+}
+
 // TestHookOptionsKeepAHookThatHasGone pins a hook the workflow names but the directory no
 // longer holds still being offered, since an option that is not there is a hook the next save
 // would drop without saying so.
