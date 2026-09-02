@@ -21,7 +21,6 @@ This is what the panel key runs while the popup is open, so it is rarely typed.`
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			state.popup.Hide()
-			state.popup.MarkClosed()
 
 			return nil
 		},

@@ -35,6 +35,7 @@ the machine, start or stop the service, or call an endpoint from a script.
 * [weave readonly-role](weave_readonly-role.md)	 - Create the least-privilege role the MCP query tools connect as
 * [weave rpc](weave_rpc.md)	 - Call the service's endpoints, one subcommand per RPC
 * [weave serve](weave_serve.md)	 - Run the weave service in the foreground
+* [weave shown](weave_shown.md)	 - Say in the exit status whether the panel is on screen on this tmux server
 * [weave stage](weave_stage.md)	 - Draw a file into the panel's stage pane
 * [weave start](weave_start.md)	 - Start the service in the background if it is not already running
 * [weave stop](weave_stop.md)	 - Ask the running service to stop, and wait until it is gone

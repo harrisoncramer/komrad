@@ -30,13 +30,17 @@ starting one is what the panel key is for.`,
 					"press the panel key, or run `weave open`, to start it")
 			}
 
-			if socket := tmux.SocketFromEnv(state.env.Tmux); socket != "" {
+			socket := tmux.SocketFromEnv(state.env.Tmux)
+			if socket != "" {
 				state.host.Record(socket)
 				state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
 			}
 
-			state.popup.BindHide()
+			panelKey, paletteKey := userKeys(state, socket)
+
+			state.popup.BindHide(panelKey)
 			state.popup.BindPalette(ui.BindPaletteParams{
+				Key:         paletteKey,
 				Self:        getSelfPath(),
 				ConfigPaths: state.configPaths,
 			})

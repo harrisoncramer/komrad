@@ -17,21 +17,20 @@ func TestServersRouting(t *testing.T) {
 	managerSocket := newTestServer(t, "manager")
 
 	manager := NewClient(managerSocket)
-	host := NewHost(manager, "")
+	host := NewHost(manager)
 	servers := NewServers(manager, host)
 
 	assert.Empty(t, servers.GetClientPath(""), "with no host recorded there is no client to locate")
+	require.Error(t, servers.OpenWindow("", "probe", ""), "nor anywhere to put a window")
+
 	servers.SetGlobal("@probe", "1")
-	assert.Empty(t, manager.ShowGlobal("@probe"), "an unrecorded host is not silently the manager")
+	assert.Equal(t, "1", tmuxRun(t, managerSocket, "show-option", "-gqv", "@probe"),
+		"what the panel writes down stays on its own server, out of reach of a second user server")
+	assert.Empty(t, tmuxRun(t, hostSocket, "show-option", "-gqv", "@probe"))
 
 	host.Record(socketPath(t, hostSocket))
-
-	servers.SetGlobal("@weave_open", "1")
-	assert.Equal(t, "1", tmuxRun(t, hostSocket, "show-option", "-gqv", "@weave_open"),
-		"globals belong to the user's server, where the key binding reads them")
-	assert.Empty(t, tmuxRun(t, managerSocket, "show-option", "-gqv", "@weave_open"),
-		"and are not written to the manager's")
-	assert.Equal(t, "1", servers.ShowGlobal("@weave_open"), "and are read back from the same place")
+	assert.Equal(t, socketPath(t, hostSocket), servers.GetHostSocket(),
+		"the open command records the server it was pressed on for everything else to read")
 
 	servers.BindKey("g", "detach-client", "-s", "weave")
 	assert.Contains(t, tmuxRun(t, managerSocket, "list-keys", "-T", "prefix"), "weave",
@@ -40,36 +39,6 @@ func TestServersRouting(t *testing.T) {
 		"and not on the user's, whose binding opens the popup")
 
 	assert.NotEmpty(t, servers.GetClientPath(""), "the recorded host answers where its client sits")
-}
-
-// TestHostFallsBackToThisServer covers hiding the panel after weave's own server died, where
-// without a fallback the flag the key binding reads stays set and the panel key stops working.
-func TestHostFallsBackToThisServer(t *testing.T) {
-	hostSocket := newTestServer(t, "fallback-host")
-	managerSocket := newTestServer(t, "fallback-manager")
-
-	manager := NewClient(managerSocket)
-	host := NewHost(manager, paneEnv(socketPath(t, hostSocket)))
-	host.Record(socketPath(t, hostSocket))
-
-	require.NoError(t, exec.Command("tmux", "-L", managerSocket, "kill-server").Run())
-
-	NewServers(manager, host).SetGlobal("@weave_open", "0")
-	assert.Equal(t, "0", tmuxRun(t, hostSocket, "show-option", "-gqv", "@weave_open"),
-		"the flag the key binding reads is cleared with no recorded socket to be had")
-}
-
-// TestHostDoesNotFallBackToTheManager covers the panel's own process, whose TMUX names weave's
-// own server, where falling back would write the key binding's options onto the one server
-// nothing reads them from.
-func TestHostDoesNotFallBackToTheManager(t *testing.T) {
-	managerSocket := newTestServer(t, "no-fallback")
-
-	manager := NewClient(managerSocket)
-	host := NewHost(manager, paneEnv(socketPath(t, managerSocket)))
-
-	NewServers(manager, host).SetGlobal("@weave_open", "1")
-	assert.Empty(t, tmuxRun(t, managerSocket, "show-option", "-gqv", "@weave_open"))
 }
 
 // TestClientAtPath checks a client addressed by socket path reaches the same server as one
@@ -136,8 +105,6 @@ func newTestServer(t *testing.T, role string) string {
 
 	return socket
 }
-
-func paneEnv(path string) string { return path + ",1,0" }
 
 func socketPath(t *testing.T, socket string) string {
 	t.Helper()

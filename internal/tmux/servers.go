@@ -38,13 +38,12 @@ func SessionFromEnv(value string) string {
 
 type Host struct {
 	manager *Client
-	pane    string
 }
 
-// NewHost returns a Host that finds the user's server through the manager's, reading tmuxEnv
-// for the server this process is a pane on.
-func NewHost(manager *Client, tmuxEnv string) *Host {
-	return &Host{manager: manager, pane: SocketFromEnv(tmuxEnv)}
+// NewHost returns a Host that finds the user's server through the manager's, which holds the
+// socket of whichever server opened the panel last.
+func NewHost(manager *Client) *Host {
+	return &Host{manager: manager}
 }
 
 // Record stores the socket path of the user's server, called by the open command with the
@@ -62,19 +61,7 @@ func (h *Host) client() *Client {
 		return NewClientAtPath(path)
 	}
 
-	return h.paneClient()
-}
-
-func (h *Host) paneClient() *Client {
-	if h.pane == "" {
-		return nil
-	}
-
-	if manager, err := h.manager.SocketPath(); err == nil && manager == h.pane {
-		return nil
-	}
-
-	return NewClientAtPath(h.pane)
+	return nil
 }
 
 // GetClientPath returns a client's active pane working directory.
@@ -87,13 +74,6 @@ func (h *Host) GetClientPath(client string) string {
 	return host.GetClientPath(client)
 }
 
-// SetGlobal sets a global tmux option on the user's server.
-func (h *Host) SetGlobal(name, value string) {
-	if host := h.client(); host != nil {
-		host.SetGlobal(name, value)
-	}
-}
-
 // OpenWindow creates a window on the user's server for the client viewing the popup, the one
 // thing the panel puts on that server rather than reads off it.
 func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
@@ -103,16 +83,6 @@ func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
 	}
 
 	return host.OpenWindow(client, name, dir, argv...)
-}
-
-// ShowGlobal returns a global tmux option's value from the user's server, empty if unset.
-func (h *Host) ShowGlobal(name string) string {
-	host := h.client()
-	if host == nil {
-		return ""
-	}
-
-	return host.ShowGlobal(name)
 }
 
 type Servers struct {
@@ -130,20 +100,10 @@ func (s *Servers) GetClientPath(client string) string {
 	return s.host.GetClientPath(client)
 }
 
-// SetGlobal writes on the user's server, where the tmux key binding reads it.
-func (s *Servers) SetGlobal(name, value string) {
-	s.host.SetGlobal(name, value)
-}
-
-// ShowGlobal reads from the user's server, for the same reason.
-func (s *Servers) ShowGlobal(name string) string {
-	return s.host.ShowGlobal(name)
-}
-
-// GetHostSocket is the socket path of the user's server, read off the manager's own server
-// where the open command records it rather than through ShowGlobal above.
+// GetHostSocket is the socket path of the user's server, which the open command records here
+// so the panel and everything reading it agree on one answer.
 func (s *Servers) GetHostSocket() string {
-	return s.Client.ShowGlobal(hostSocketOption)
+	return s.ShowGlobal(hostSocketOption)
 }
 
 // OpenWindow goes to the user's server, unlike NewWindow beside it, since a window meant

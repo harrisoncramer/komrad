@@ -14,25 +14,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestHideClearsTheOpenFlagWithoutTheManagerServer covers the flag living on the user's
-// server, where left set it makes every press take the hide branch and the panel unreachable.
-func TestHideClearsTheOpenFlagWithoutTheManagerServer(t *testing.T) {
-	hostSocket := throwawaySocket(t)
-	out, err := exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
-		"new-session", "-d", "-s", "userland").CombinedOutput()
-	require.NoError(t, err, "tmux: %s", out)
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_open", "1").Run())
+// TestHideDetachesThePanelsClient covers hiding closing the popup by taking its client away
+// while leaving the session up, which is what the next open comes back to.
+func TestHideDetachesThePanelsClient(t *testing.T) {
+	managerSocket := throwawaySocket(t)
+	panelSession(t, managerSocket)
+	viewer := attachViewer(t, managerSocket)
 
-	state := hideState(throwawaySocket(t), hostPaneEnv(t, hostSocket))
+	state := hideState(managerSocket, "")
 
 	require.NoError(t, hideCmd(state).RunE(nil, nil))
-	assert.Equal(t, "0", hostGlobal(t, hostSocket, "@weave_open"),
-		"the panel key reads this flag, so a hide that leaves it set makes the key do nothing")
+	require.NoError(t, viewer.Wait())
+
+	assert.Empty(t, hostQuery(t, managerSocket, "list-clients", "-t", agents.ManagerSession, "-F", "#{client_name}"),
+		"the popup keeps its client until hide takes it away")
+	assert.NoError(t, exec.Command("tmux", "-L", managerSocket, "has-session", "-t", agents.ManagerSession).Run(),
+		"the session outlives the popup, so the next open lands on the view it left")
 }
 
 func hideState(socket, tmuxEnv string) *app {
 	manager := tmux.NewClient(socket)
-	host := tmux.NewHost(manager, tmuxEnv)
+	host := tmux.NewHost(manager)
 	servers := tmux.NewServers(manager, host)
 
 	return &app{
@@ -47,12 +49,6 @@ func hostPaneEnv(t *testing.T, socket string) string {
 	t.Helper()
 
 	return hostQuery(t, socket, "display-message", "-p", "#{socket_path}") + ",1,0"
-}
-
-func hostGlobal(t *testing.T, socket, name string) string {
-	t.Helper()
-
-	return hostQuery(t, socket, "show-option", "-gqv", name)
 }
 
 func hostQuery(t *testing.T, socket string, args ...string) string {

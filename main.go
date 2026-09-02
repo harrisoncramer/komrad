@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"os"
 
@@ -23,7 +22,7 @@ func run() int {
 		return 0
 	}
 
-	if !errors.Is(err, cli.ErrLogged) && !errors.Is(err, cli.ErrReported) {
+	if !cli.Quiet(err) {
 		fmt.Fprintln(os.Stderr, err)
 	}
 

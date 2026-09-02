@@ -7,6 +7,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 
@@ -21,6 +22,12 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+// Quiet reports whether an error leaves main nothing to print, either because the command has
+// already had its say or because a non-zero exit is the answer it was asked for.
+func Quiet(err error) bool {
+	return errors.Is(err, ErrLogged) || errors.Is(err, ErrReported) || errors.Is(err, ErrPanelHidden)
+}
 
 // NewRootCommand builds the weave command tree, which opens the panel when run with no
 // subcommand.
@@ -97,7 +104,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.maxChildren = cfg.MaxChildren
 
 			manager := tmux.NewClient(env.TmuxSocket)
-			app.host = tmux.NewHost(manager, env.Tmux)
+			app.host = tmux.NewHost(manager)
 			app.tmux = tmux.NewServers(manager, app.host)
 
 			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)
@@ -126,6 +133,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		openCmd(app),
 		attachCmd(app),
 		hideCmd(app),
+		shownCmd(app),
 		tmuxCmd(app),
 		serveCmd(app),
 		startCmd(app),

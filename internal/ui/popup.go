@@ -8,6 +8,7 @@ import (
 type popupTmux interface {
 	SetGlobal(name, value string)
 	ShowGlobal(name string) string
+	GetSessionClient(session string) string
 	SetSessionOption(target, name, value string)
 	BindKey(key string, command ...string)
 	DetachSession(name string)
@@ -24,8 +25,6 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
 
-const managerOpenFlag = "@weave_open"
-
 const managerClientFlag = "@weave_client"
 
 const managerKeyOption = "@weave_key"
@@ -41,10 +40,10 @@ const (
 	palettePopupHeight = "60%"
 )
 
-// BindHide binds the panel key on the manager's own tmux server to hiding the popup, since
-// that server sources the user's config too and would otherwise open a popup inside the popup.
-func (p *PopupWindow) BindHide() {
-	key := p.tmux.ShowGlobal(managerKeyOption)
+// BindHide binds the panel key, handed in because only the user's own server names it, on the
+// manager's own tmux server, which sources the user's config too and would otherwise open a
+// popup inside the popup.
+func (p *PopupWindow) BindHide(key string) {
 	if key == "" {
 		key = defaultPanelKey
 	}
@@ -53,6 +52,7 @@ func (p *PopupWindow) BindHide() {
 }
 
 type BindPaletteParams struct {
+	Key         string
 	Self        string
 	ConfigPaths []string
 }
@@ -60,7 +60,7 @@ type BindPaletteParams struct {
 // BindPalette binds the palette key on the manager's own tmux server, since an agent's pane
 // belongs to that server and the palette acts on the pane the key was pressed in.
 func (p *PopupWindow) BindPalette(params BindPaletteParams) {
-	key := p.tmux.ShowGlobal(paletteKeyOption)
+	key := params.Key
 	if key == "" {
 		key = defaultPaletteKey
 	}
@@ -82,9 +82,18 @@ func (p *PopupWindow) BindPalette(params BindPaletteParams) {
 	p.tmux.BindKey(key, command...)
 }
 
-type panelKeyTmux interface {
+type keyNamer interface {
 	ShowGlobal(name string) string
-	SetGlobalChecked(name, value string) error
+}
+
+// UserKeys returns the panel and palette keys as the user's own tmux server names them, empty
+// where it names neither, since that server is the only place either can be set.
+func UserKeys(t keyNamer) (panel, palette string) {
+	return t.ShowGlobal(managerKeyOption), t.ShowGlobal(paletteKeyOption)
+}
+
+type panelKeyTmux interface {
+	keyNamer
 	BindKeyChecked(key string, command ...string) error
 }
 
@@ -95,13 +104,15 @@ type BindPanelKeyParams struct {
 
 // Explainer: the panel runs in a tmux session of its own that stays alive between presses, so
 // hiding it detaches the popup's client and opening it attaches again, which is why reopening
-// lands on the exact view it left. The open command sets and clears the flag this binding
-// branches on. That session lives on a tmux server of its own, invisible to this one, so hiding
-// has to go through the weave binary, which knows the socket. Open finds this server from the
-// TMUX variable rather than being told, because tmux expands no #{format} inside a popup command
-// and the shell reads the unexpanded text as a comment. The popup opens with -EE rather than -E
-// so it closes on success but stays up with the error on screen when startup fails, and Escape
-// or C-c dismisses one held open that way.
+// lands on the exact view it left. That session lives on a tmux server of its own, invisible to
+// this one, so both branches go through the weave binary, which knows the socket. Open finds
+// this server from the TMUX variable rather than being told, because tmux expands no #{format}
+// inside a popup command and the shell reads the unexpanded text as a comment. The popup opens
+// with -EE rather than -E so it closes on success but stays up with the error on screen when
+// startup fails, and Escape or C-c dismisses one held open that way. Which branch runs is
+// settled by asking weave on every press whether the panel is on screen here, rather than by a
+// flag this server keeps, so a press can never read back a stale answer and refuse to open: an
+// answer weave cannot give reads as hidden, and hidden opens the popup.
 
 // BindPanelKey binds the panel key on the user's own tmux server, where it is pressed.
 func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
@@ -110,17 +121,11 @@ func BindPanelKey(t panelKeyTmux, params BindPanelKeyParams) error {
 		key = defaultPanelKey
 	}
 
-	if t.ShowGlobal(managerOpenFlag) == "" {
-		if err := t.SetGlobalChecked(managerOpenFlag, "0"); err != nil {
-			return err
-		}
-	}
-
 	hide := fmt.Sprintf("run-shell -b '%s'", panelCommand(params, "hide"))
 	open := fmt.Sprintf("display-popup -w 100%% -h 100%% -x C -y C -T ' weave ' -EE '%s'",
 		panelCommand(params, "open"))
 
-	return t.BindKeyChecked(key, "if-shell", "-F", fmt.Sprintf("#{==:#{%s},1}", managerOpenFlag), hide, open)
+	return t.BindKeyChecked(key, "if-shell", panelCommand(params, "shown"), hide, open)
 }
 
 func panelCommand(params BindPanelKeyParams, subcommand string) string {
@@ -132,19 +137,10 @@ func panelCommand(params BindPanelKeyParams, subcommand string) string {
 	return strings.Join(words, " ")
 }
 
-// MarkOpen records that the popup is shown.
-func (p *PopupWindow) MarkOpen() { p.tmux.SetGlobal(managerOpenFlag, "1") }
-
-// MarkClosed records that the popup is hidden.
-func (p *PopupWindow) MarkClosed() { p.tmux.SetGlobal(managerOpenFlag, "0") }
-
-// IsShown reports whether the popup has a client attached, which the panel cannot see for
-// itself, since hiding detaches the client and leaves this program running.
+// IsShown reports whether anything is attached to the panel's session, which is what the panel
+// cannot see for itself: hiding detaches the client and leaves this program running.
 func (p *PopupWindow) IsShown() bool {
-	// Unset reads as shown, since the flag is always "1" or "0" once anything has opened a popup
-	// on the user's server and is unreachable when no open recorded that server, so nothing to
-	// read means there is no popup to be hidden behind and the panel was attached by hand.
-	return p.tmux.ShowGlobal(managerOpenFlag) != "0"
+	return p.tmux.GetSessionClient(p.session) != ""
 }
 
 // SetInvokingClient records the tmux client that opened the current popup.
