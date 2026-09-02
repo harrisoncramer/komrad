@@ -248,10 +248,11 @@ func startHooks(ctx context.Context, p hookRunParams) {
 	}()
 }
 
-// agentHooks are the hooks a workflow lists for one of its agents, which is none for a child
-// since a child is spawned into a directory somebody else prepared.
+// agentHooks are the hooks a workflow lists for one of its agents, which is none for an agent
+// working in a directory somebody else prepared: a child in its parent's checkout, or one told
+// to keep what it was given, where a hook would be writing into a tree nobody asked it to touch.
 func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
-	if agent.ParentAgentID != nil {
+	if agent.ParentAgentID != nil || isProvisionerDisabled(agent.ProvisionEnabled) {
 		return nil
 	}
 

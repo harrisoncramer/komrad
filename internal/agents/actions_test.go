@@ -102,9 +102,9 @@ func TestOpenPullRequestRefusals(t *testing.T) {
 	}
 }
 
-// TestRunActionPayload covers what a script is handed, including the socket, without which keys
+// TestOpenPullRequestPayload covers what a script is handed, including the socket, without which keys
 // sent to the pane would go to the user's own tmux server.
-func TestRunActionPayload(t *testing.T) {
+func TestOpenPullRequestPayload(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
@@ -153,11 +153,11 @@ func TestRunActionPayload(t *testing.T) {
 	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
 }
 
-// TestRunActionCarriesWorktreeEnvOnlyWhenEnabled covers the environment the two built-in
+// TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne covers the environment the two built-in
 // worktree actions read their config from: present, and reflecting the workflow's own settings,
 // when its worktree toggle is on and the agent is one the pair provisioned, and absent
 // otherwise, since an agent handed somebody else's checkout has no worktree of its own.
-func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
+func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 	tests := []struct {
 		name      string
 		worktree  workflowstore.WorktreeConfig
@@ -388,9 +388,9 @@ func TestRunActionOnADormantAgent(t *testing.T) {
 	assert.False(t, payload.Alive)
 }
 
-// TestRunActionWithTheAgentDirectoryGone pins the agent's directory being a string in the
+// TestOpenPullRequestWithTheAgentDirectoryGone pins the agent's directory being a string in the
 // payload, never somewhere the action has to be able to stand.
-func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
+func TestOpenPullRequestWithTheAgentDirectoryGone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
@@ -751,8 +751,8 @@ func TestRunDeprovisionActionRefusesOneThatIsGone(t *testing.T) {
 	require.ErrorIs(t, err, actions.ErrActionNotFound)
 }
 
-// TestRunActionLogsWhatItDid covers the only account there is of an action nothing waits on.
-func TestRunActionLogsWhatItDid(t *testing.T) {
+// TestOpenPullRequestLogsWhatItDid covers the only account there is of an action nothing waits on.
+func TestOpenPullRequestLogsWhatItDid(t *testing.T) {
 	tests := []struct {
 		name       string
 		result     runResult
@@ -1191,9 +1191,9 @@ func TestRunHookActionRefusesADirectoryThatIsGone(t *testing.T) {
 	assert.Contains(t, err.Error(), "/definitely/not/here")
 }
 
-// TestRunActionLeavesNoRunBehindWhenItWouldNotStart pins a refusal spending no number, since a
+// TestARefusedRunLeavesNoRunBehind pins a refusal spending no number, since a
 // file claimed by a run that never happened would push a real one out of the fifty kept.
-func TestRunActionLeavesNoRunBehindWhenItWouldNotStart(t *testing.T) {
+func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
 
@@ -1422,9 +1422,9 @@ func TestActionTimeouts(t *testing.T) {
 	}
 }
 
-// TestRunActionRefusesASecondConcurrentRun covers holding the panel's own key down, which is
+// TestOpenPullRequestRefusesASecondConcurrentRun covers holding the panel's own key down, which is
 // the one way a person can ask for the same script on the same agent twice at once.
-func TestRunActionRefusesASecondConcurrentRun(t *testing.T) {
+func TestOpenPullRequestRefusesASecondConcurrentRun(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
@@ -1442,10 +1442,10 @@ func TestRunActionRefusesASecondConcurrentRun(t *testing.T) {
 	time.Sleep(500 * time.Millisecond)
 }
 
-// TestRunActionReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
+// TestOpenPullRequestReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
 // synchronously and its Done callback never fires at all, which is the one place a claim
 // could be stranded forever with nothing left to release it.
-func TestRunActionReleasesTheClaimWhenItNeverStarts(t *testing.T) {
+func TestOpenPullRequestReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o644))
 
@@ -1458,10 +1458,10 @@ func TestRunActionReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 	assert.NotErrorIs(t, err, ErrActionAlreadyRunning, "a refusal that never started must not strand the claim")
 }
 
-// TestRunActionConcurrencyGuardIsScopedNarrowly covers what the guard must not catch: the
+// TestConcurrencyGuardIsScopedNarrowly covers what the guard must not catch: the
 // same script against a different agent, a hook, and a provision action, all of which are
 // serialized by the thing that asked for them and must never be refused by this guard.
-func TestRunActionConcurrencyGuardIsScopedNarrowly(t *testing.T) {
+func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 	tests := []struct {
 		name string
 		fire func(svc *ActionService) error
@@ -1700,4 +1700,21 @@ func lookupEnv(env []string, key string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName pins where the scripts weave ships
+// come from now that a person's own directory is only ever read for hooks: a file of theirs
+// called _open_pr is a hook they may hang on a moment, not a replacement for weave's own.
+func TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
+	hooksDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, openPRScript), []byte("#!/bin/sh\n# theirs\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n# ours\n"), 0o755))
+
+	runner := &recordingRunner{}
+	service := actionService(t, hooksDir, runner)
+	service.builtinDir = builtinDir
+
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+
+	assert.Equal(t, builtinDir, runner.dir, "the one weave ships is the one that ran")
 }

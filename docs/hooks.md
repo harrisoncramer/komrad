@@ -19,7 +19,7 @@ A hook runs in the agent's own directory, which is the worktree when its workflo
 
 ## The moments
 
-A workflow can hang one hook on each of these.
+A workflow can hang one hook on each of these, picked in the workflow form from the hooks directory.
 
 `pre-launch` runs after the directory exists and before the pane is opened, which is where a dependency install goes. Weave waits for it, and a failure abandons the create: there is no agent yet, and the worktree is given back so one does not survive a create that did not happen.
 

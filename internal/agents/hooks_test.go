@@ -306,3 +306,73 @@ func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 
 	assert.Equal(t, workflowstore.HookPostRestore, lifecycle.ranHooks()[0].Event)
 }
+
+// TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn pins the moments off the create path
+// respecting the same rule the create path does: an agent that kept the directory it was given
+// is working in somebody else's tree, and a hook there would write into it.
+func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
+	tests := []struct {
+		name string
+		fire func(t *testing.T, manager *testAgents, agent agentstore.Agent)
+	}{
+		{
+			name: "a resume",
+			fire: func(t *testing.T, manager *testAgents, agent agentstore.Agent) {
+				t.Helper()
+
+				_, err := manager.resume.ResumeAgent(t.Context(), agent.ID)
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "a restore",
+			fire: func(t *testing.T, manager *testAgents, agent agentstore.Agent) {
+				t.Helper()
+
+				_, err := manager.lifecycle.RestoreAgents(t.Context(), []string{agent.ID})
+				require.NoError(t, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			tmux := newFakeTmux()
+			ctx := t.Context()
+
+			lifecycle := &fakeLifecycle{}
+			manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+			created, err := st.Workflows.Create(ctx, workflowstore.Config{
+				Name:     "backend",
+				Cwd:      initRepo(t),
+				Worktree: workflowstore.WorktreeConfig{Enabled: true},
+				Hooks: []workflowstore.Hook{
+					{Event: workflowstore.HookPostResume, Action: "announce-back"},
+					{Event: workflowstore.HookPostRestore, Action: "unlock"},
+				},
+			})
+			require.NoError(t, err)
+
+			agent := seedInWorkflow(t, st, created.ID, "reviewer", "%0", agentstore.StateIdle)
+			agent.Cwd = t.TempDir()
+			require.NoError(t, st.Agents.Update(ctx, agent))
+
+			// The override is written when an agent is created and never edited after, so the
+			// row is what has to carry it here rather than the copy in hand.
+			disableProvisioner(t, st, agent.ID)
+
+			if tt.name == "a restore" {
+				require.NoError(t, st.SoftDelete(ctx, "reviewer"))
+			}
+
+			tt.fire(t, manager, agent)
+
+			// Long enough for a hook chain to have started if one was going to.
+			require.Never(t, func() bool {
+				return len(lifecycle.ranHooks()) > 0
+			}, 300*time.Millisecond, 20*time.Millisecond, "no moment fires against a checkout the agent does not own")
+		})
+	}
+}

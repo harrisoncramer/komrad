@@ -19,6 +19,7 @@ message Workflow {
   string harness = 6;
   optional string archived_at = 9;
   WorktreeConfig worktree = 10;
+  reserved 7, 8;
   bool archive_on_pr_closed = 11;
   repeated WorkflowHook hooks = 12;
 }
@@ -110,6 +111,7 @@ message CreateWorkflowRequest {
   WorktreeConfig worktree = 8;
   bool archive_on_pr_closed = 9;
   repeated WorkflowHook hooks = 10 [(buf.validate.field).repeated.max_items = 50];
+  reserved 6, 7;
 }
 
 message CreateWorkflowResponse {
@@ -138,6 +140,7 @@ message UpdateWorkflowRequest {
   WorktreeConfig worktree = 9;
   bool archive_on_pr_closed = 10;
   repeated WorkflowHook hooks = 11 [(buf.validate.field).repeated.max_items = 50];
+  reserved 7, 8;
 }
 
 message ArchiveWorkflowRequest {

@@ -1,5 +1,5 @@
 #!/bin/sh
-#WEAVE description="A workflow's setup action when its worktree toggle is on. Configure it from the workflow's edit form; it does not take an argument of its own."
+#WEAVE description="Weave's own script for making an agent a worktree, run when its workflow's worktree toggle is on. Not yours to name or fire."
 set -eu
 
 repo="$WEAVE_WORKTREE_REPO"

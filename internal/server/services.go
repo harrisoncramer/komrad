@@ -26,6 +26,12 @@ type services struct {
 	reconciler *agents.Reconciler
 }
 
+// BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
+// which is the only place a script that is not a hook is resolved from.
+func BuiltinScriptsDir(cacheDir string) string {
+	return filepath.Join(cacheDir, "weave-builtin-actions")
+}
+
 func buildServices(p Params, st *stores) (*services, error) {
 	loadConfig := func() (*config.Config, error) { return config.Load(p.ConfigPaths) }
 
@@ -50,7 +56,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows: st.workflows,
 	})
 
-	builtinActionsDir := filepath.Join(p.Env.CacheDir, "weave-builtin-actions")
+	builtinActionsDir := BuiltinScriptsDir(p.Env.CacheDir)
 	if err := actions.InstallBuiltins(builtinActionsDir); err != nil {
 		return nil, err
 	}

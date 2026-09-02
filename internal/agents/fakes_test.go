@@ -814,6 +814,16 @@ func seedWorkflow(t *testing.T, st *testStore) string {
 	return created.ID
 }
 
+// disableProvisioner writes the one override an agent can carry, which is set when the agent is
+// created and never through an update.
+func disableProvisioner(t *testing.T, st *testStore, id string) {
+	t.Helper()
+
+	_, err := st.Pool.GetDB().Exec(t.Context(),
+		`UPDATE agents SET provision_enabled = FALSE WHERE id = $1`, id)
+	require.NoError(t, err)
+}
+
 func backdateNudge(t *testing.T, st *testStore, id string, age time.Duration) {
 	t.Helper()
 	_, err := st.Pool.GetDB().Exec(t.Context(),

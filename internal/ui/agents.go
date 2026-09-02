@@ -479,7 +479,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
-const settingUpPlaceholder = "_setting up…_\n\nRunning the provision action. This agent has no pane yet."
+const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
 // failureReasonKey is the metadata key a failed create or cleanup records its reason under,
 // left out of agentFields since failedPlaceholder is what shows it.
@@ -488,9 +488,9 @@ const failureReasonKey = "error"
 func (m model) failedPlaceholder(agent agentstore.Agent) string {
 	// A create dies at the provisioner or at one of the pre-launch hooks after it, so the run
 	// that failed is the newest of either rather than the newest provision run.
-	label, moments := "provision", []string{config.TriggerProvision, config.HookPreLaunch}
+	label, moments := "setup", []string{config.TriggerProvision, config.HookPreLaunch}
 	if agent.State == agentstore.StateFailedToCleanup {
-		label, moments = "deprovision", []string{config.TriggerDeprovision}
+		label, moments = "teardown", []string{config.TriggerDeprovision}
 	}
 
 	if run, ok := m.latestActionLogRun(agent.ID, moments); ok {

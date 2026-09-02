@@ -53,14 +53,14 @@ type Instance struct {
 	Harness   *harnesstest.Harness
 	Tmux      *tmuxtest.Server
 	Stores    *storetest.Stores
-	// GetHooksDir is where a test writes the hooks a workflow can hang on a moment.
-	GetHooksDir string
-	// GetBuiltinDir is where the server installed the scripts weave ships, which a test
-	// overwrites when it needs one of them to behave differently.
-	GetBuiltinDir string
-	URL           string
-	server        *server.Server
-	working       bool
+	// HooksDir is where a test writes the hooks a workflow can hang on a moment.
+	HooksDir string
+	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
+	// when it needs one of them to behave differently.
+	BuiltinDir string
+	URL        string
+	server     *server.Server
+	working    bool
 }
 
 type Params struct {
@@ -89,6 +89,7 @@ func Start(t *testing.T, p Params) *Instance {
 	stores := storetest.Open(t)
 
 	root := t.TempDir()
+	cacheDir := filepath.Join(root, "cache")
 	hooksDir := filepath.Join(root, "hooks")
 	require.NoError(t, os.MkdirAll(hooksDir, 0o755))
 
@@ -116,7 +117,7 @@ func Start(t *testing.T, p Params) *Instance {
 			ReadOnlyDatabaseURL: stores.ReadOnlyURL,
 			Addr:                addr,
 			TmuxSocket:          tmuxServer.Socket(),
-			CacheDir:            filepath.Join(root, "cache"),
+			CacheDir:            cacheDir,
 		},
 		ConfigPaths:        []string{configPath},
 		Logger:             logger,
@@ -137,19 +138,19 @@ func Start(t *testing.T, p Params) *Instance {
 	client, url := httpServer.Client(), httpServer.URL
 
 	return &Instance{
-		t:             t,
-		Agents:        agentv1connect.NewAgentServiceClient(client, url),
-		Workflows:     workflowv1connect.NewWorkflowServiceClient(client, url),
-		Schedules:     schedulev1connect.NewScheduleServiceClient(client, url),
-		Actions:       actionv1connect.NewActionServiceClient(client, url),
-		Config:        configv1connect.NewConfigServiceClient(client, url),
-		Harness:       fake,
-		Tmux:          tmuxServer,
-		Stores:        stores,
-		GetHooksDir:   hooksDir,
-		GetBuiltinDir: filepath.Join(root, "cache", "weave-builtin-actions"),
-		URL:           url,
-		server:        built,
+		t:          t,
+		Agents:     agentv1connect.NewAgentServiceClient(client, url),
+		Workflows:  workflowv1connect.NewWorkflowServiceClient(client, url),
+		Schedules:  schedulev1connect.NewScheduleServiceClient(client, url),
+		Actions:    actionv1connect.NewActionServiceClient(client, url),
+		Config:     configv1connect.NewConfigServiceClient(client, url),
+		Harness:    fake,
+		Tmux:       tmuxServer,
+		Stores:     stores,
+		HooksDir:   hooksDir,
+		BuiltinDir: server.BuiltinScriptsDir(cacheDir),
+		URL:        url,
+		server:     built,
 	}
 }
 

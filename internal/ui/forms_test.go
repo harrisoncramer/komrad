@@ -513,10 +513,10 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	}{
 		{name: "a create that lands"},
 		{
-			name:       "a provision action that fails",
+			name:       "a setup that fails",
 			refuse:     refusedAfterProvision("the provision action failed: exit 7"),
 			wantOpen:   true,
-			wantDetail: "the provision action failed, and its output is in the pane it ran in",
+			wantDetail: "the setup failed, and its output is in the pane it ran in",
 		},
 		{
 			name:       "a create refused before the provisioner ever ran",
@@ -615,7 +615,7 @@ func TestProvisionerRebuildsTheForm(t *testing.T) {
 	require.Equal(t, provisionerNone, values.Provisioner, "the keypress switched it")
 	noneView := m.form.form.View()
 	assert.NotContains(t, noneView, "Worktree base branch", "None provisions nothing, so it asks nothing about a worktree")
-	assert.Contains(t, noneView, "Pre-launch hooks", "the hooks are asked for whichever provisioner is chosen")
+	assert.Contains(t, noneView, "Pre-launch hook", "the hooks are asked for whichever provisioner is chosen")
 
 	updated, _ = m.form.update(m, keyMsg("down"))
 	m = asModel(t, updated)
@@ -1121,7 +1121,6 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 	hooks := []workflowstore.Hook{
 		{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-		{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
 		{Event: workflowstore.HookPostLaunch, Action: "announce"},
 		{Event: workflowstore.HookPostResume, Action: "announce-back"},
 		{Event: workflowstore.HookPostRestore, Action: "unlock"},
@@ -1129,12 +1128,30 @@ func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 
 	values := workflowFormValuesFrom(workflowstore.Config{Name: "backend", Hooks: hooks})
 
-	assert.Equal(t, []string{"install-deps", "copy-env"}, values.PreLaunchHooks, "a moment's hooks are what its multi-select has ticked")
+	assert.Equal(t, "install-deps", values.PreLaunchHook, "a moment's hook is what its select is sitting on")
 	assert.Equal(t, hooks, values.toConfig().Hooks, "and every moment comes back as it went in")
 }
 
-// TestHookFieldsOfferTheHooksDirectory pins the picker being a multi-select over the hooks
-// directory rather than free text, and opening with what the workflow already names ticked.
+// TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo pins what the form does with a workflow
+// written when a moment could hold several, since the select can only sit on one and saving
+// must not invent an order for the rest.
+func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name: "backend",
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
+		},
+	})
+
+	assert.Equal(t, "install-deps", values.PreLaunchHook, "the one that ran first is the one on offer")
+	assert.Equal(t, []workflowstore.Hook{
+		{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+	}, values.toConfig().Hooks, "and saving the form writes the one moment holds")
+}
+
+// TestHookFieldsOfferTheHooksDirectory pins the picker being a select over the hooks directory
+// rather than free text, and opening on what the workflow already names.
 func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
 		Name:  "backend",
@@ -1151,22 +1168,23 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 	form.Init()
 
 	view := form.View()
-	assert.Contains(t, view, "Pre-launch hooks")
+	assert.Contains(t, view, "Pre-launch hook")
 	assert.Contains(t, view, "install-deps", "every hook in the directory is offered")
 	assert.Contains(t, view, "copy-env")
-	assert.Equal(t, []string{"copy-env"}, values.PreLaunchHooks, "and the one it already names stays ticked")
+	assert.Equal(t, "copy-env", values.PreLaunchHook, "and the one it already names is the one picked")
 }
 
 // TestHookOptionsKeepAHookThatHasGone pins a hook the workflow names but the directory no
 // longer holds still being offered, since an option that is not there is a hook the next save
 // would drop without saying so.
 func TestHookOptionsKeepAHookThatHasGone(t *testing.T) {
-	options := hookOptions([]actionChoice{{name: "install-deps"}}, []string{"copy-env"})
+	options := hookOptions([]actionChoice{{name: "install-deps"}}, "copy-env")
 
-	require.Len(t, options, 2)
-	assert.Equal(t, "install-deps", options[0].Value)
-	assert.Equal(t, "copy-env", options[1].Value, "the missing one keeps its name as the value so it round-trips")
-	assert.Contains(t, options[1].Key, "missing")
+	require.Len(t, options, 3)
+	assert.Empty(t, options[0].Value, "None leads, so huh opens the list at the top")
+	assert.Equal(t, "install-deps", options[1].Value)
+	assert.Equal(t, "copy-env", options[2].Value, "the missing one keeps its name as the value so it round-trips")
+	assert.Contains(t, options[2].Key, "missing")
 }
 
 // TestHookFieldsSayWhereHooksGoWhenThereAreNone pins the empty case reading as an empty
@@ -1241,4 +1259,35 @@ func TestFormHeightLeavesRoomForTheChrome(t *testing.T) {
 			assert.Equal(t, tt.want, model{height: tt.height}.formHeight())
 		})
 	}
+}
+
+// TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
+// cursor passes over them, since a picker that reorders or clears what it was given loses a
+// person's choice with nothing on screen to say so.
+func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
+	values := workflowFormValuesFrom(workflowstore.Config{
+		Name:     "backend",
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+			{Event: workflowstore.HookPostLaunch, Action: "announce"},
+		},
+	})
+	before := values.toConfig().Hooks
+
+	form, _ := workflowConfigForm(workflowConfigParams{
+		NameTitle: "Workflow name",
+		Values:    &values,
+		Hooks:     []actionChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
+		Keys:      config.DefaultKeybindings().Form,
+		Height:    model{height: 40}.formHeight(),
+	})
+	form.Init()
+
+	// Every field, so each hook select is focused and blurred in turn.
+	for range 20 {
+		form.Update(huh.NextField())
+	}
+
+	assert.Equal(t, before, values.toConfig().Hooks, "walking the form leaves every moment as it was")
 }

@@ -10,7 +10,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
-	"weave/lib/xslice"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -116,10 +115,10 @@ type workflowFormValues struct {
 	Cwd                  string
 	Flags                string
 	Provisioner          string
-	PreLaunchHooks       []string
-	PostLaunchHooks      []string
-	PostResumeHooks      []string
-	PostRestoreHooks     []string
+	PreLaunchHook        string
+	PostLaunchHook       string
+	PostResumeHook       string
+	PostRestoreHook      string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -140,10 +139,10 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		Cwd:                  cfg.Cwd,
 		Flags:                cfg.Flags,
 		Provisioner:          provisioner,
-		PreLaunchHooks:       hookNames(cfg.Hooks, workflowstore.HookPreLaunch),
-		PostLaunchHooks:      hookNames(cfg.Hooks, workflowstore.HookPostLaunch),
-		PostResumeHooks:      hookNames(cfg.Hooks, workflowstore.HookPostResume),
-		PostRestoreHooks:     hookNames(cfg.Hooks, workflowstore.HookPostRestore),
+		PreLaunchHook:        hookNamed(cfg.Hooks, workflowstore.HookPreLaunch),
+		PostLaunchHook:       hookNamed(cfg.Hooks, workflowstore.HookPostLaunch),
+		PostResumeHook:       hookNamed(cfg.Hooks, workflowstore.HookPostResume),
+		PostRestoreHook:      hookNamed(cfg.Hooks, workflowstore.HookPostRestore),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -167,10 +166,10 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			DiffExclude:  splitLines(v.WorktreeDiffExclude),
 		},
 		Hooks: slices.Concat(
-			hooksFrom(v.PreLaunchHooks, workflowstore.HookPreLaunch),
-			hooksFrom(v.PostLaunchHooks, workflowstore.HookPostLaunch),
-			hooksFrom(v.PostResumeHooks, workflowstore.HookPostResume),
-			hooksFrom(v.PostRestoreHooks, workflowstore.HookPostRestore),
+			hookOn(v.PreLaunchHook, workflowstore.HookPreLaunch),
+			hookOn(v.PostLaunchHook, workflowstore.HookPostLaunch),
+			hookOn(v.PostResumeHook, workflowstore.HookPostResume),
+			hookOn(v.PostRestoreHook, workflowstore.HookPostRestore),
 		),
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
@@ -178,23 +177,26 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 	return cfg
 }
 
-// hookNames is the hooks a workflow hangs on one moment, which is what the multi-select for
-// that moment has ticked.
-func hookNames(hooks []workflowstore.Hook, event string) []string {
-	var names []string
+// hookNamed is the hook a workflow hangs on one moment, which is what that moment's select is
+// sitting on, and the empty string for a moment nothing hangs on.
+func hookNamed(hooks []workflowstore.Hook, event string) string {
 	for _, hook := range hooks {
 		if hook.Event == event {
-			names = append(names, hook.Action)
+			return hook.Action
 		}
 	}
 
-	return names
+	return ""
 }
 
-func hooksFrom(names []string, event string) []workflowstore.Hook {
-	return xslice.Map(names, func(name string) workflowstore.Hook {
-		return workflowstore.Hook{Event: event, Action: name}
-	})
+// hookOn is a moment's hook as the store takes it, which is one entry or none, since a moment
+// holds one.
+func hookOn(name, event string) []workflowstore.Hook {
+	if name == "" {
+		return nil
+	}
+
+	return []workflowstore.Hook{{Event: event, Action: name}}
 }
 
 func splitLines(text string) []string {
@@ -524,7 +526,6 @@ func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex
 
 	toggleIndex := len(fields)
 	fields = append(fields,
-
 		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
 			Options(provisionerOptions()...).Value(&values.Provisioner),
 	)
@@ -567,46 +568,46 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 // leave the form scrollable rather than one long list pushing the rest off the screen.
 const hookFieldHeight = 5
 
-// hookFields are the scripts hung on a moment rather than on the directory, so they are asked
-// for whatever the provisioner is.
+// hookFields are the scripts hung on a moment rather than on the directory, one select each
+// since a moment holds one hook, and asked for whatever the provisioner is.
 func hookFields(values *workflowFormValues, available []actionChoice) []huh.Field {
 	moments := []struct {
 		key         string
 		title       string
 		description string
-		chosen      *[]string
+		chosen      *string
 	}{
 		{
-			key:         "pre_launch_hooks",
-			title:       "Pre-launch hooks",
-			description: "run in the agent's directory before its pane opens, and a failure abandons the create",
-			chosen:      &values.PreLaunchHooks,
+			key:         "pre_launch_hook",
+			title:       "Pre-launch hook",
+			description: "runs in the agent's directory before its pane opens, and a failure abandons the create",
+			chosen:      &values.PreLaunchHook,
 		},
 		{
-			key:         "post_launch_hooks",
-			title:       "Post-launch hooks",
-			description: "run once the agent has been launched into its pane",
-			chosen:      &values.PostLaunchHooks,
+			key:         "post_launch_hook",
+			title:       "Post-launch hook",
+			description: "runs once the agent has been launched into its pane",
+			chosen:      &values.PostLaunchHook,
 		},
 		{
-			key:         "post_resume_hooks",
-			title:       "Post-resume hooks",
-			description: "run once a dormant agent is back in a pane",
-			chosen:      &values.PostResumeHooks,
+			key:         "post_resume_hook",
+			title:       "Post-resume hook",
+			description: "runs once a dormant agent is back in a pane",
+			chosen:      &values.PostResumeHook,
 		},
 		{
-			key:         "post_restore_hooks",
-			title:       "Post-restore hooks",
-			description: "run when an archived agent's row comes back",
-			chosen:      &values.PostRestoreHooks,
+			key:         "post_restore_hook",
+			title:       "Post-restore hook",
+			description: "runs when an archived agent's row comes back",
+			chosen:      &values.PostRestoreHook,
 		},
 	}
 
 	fields := make([]huh.Field, 0, len(moments))
 	for _, moment := range moments {
-		// Options comes before Value because huh marks an option selected by looking for it in
-		// the bound slice as that slice is bound, so options set afterwards start unticked.
-		fields = append(fields, huh.NewMultiSelect[string]().Key(moment.key).Title(moment.title).
+		// Options comes before Value so huh reads the zero value and leaves the list scrolled to
+		// the top, which holds only while None, carrying the empty name, leads it.
+		fields = append(fields, huh.NewSelect[string]().Key(moment.key).Title(moment.title).
 			Description(hookFieldDescription(moment.description, available)).
 			Options(hookOptions(available, *moment.chosen)...).
 			Value(moment.chosen).
@@ -616,28 +617,30 @@ func hookFields(values *workflowFormValues, available []actionChoice) []huh.Fiel
 	return fields
 }
 
-// hookFieldDescription says where to put a hook when there are none to tick, since an empty
-// list otherwise reads as a broken form rather than an empty directory.
+// hookFieldDescription leads with the empty case rather than appending it, since a description
+// long enough to be cut off at the width of a terminal would take the notice with it.
 func hookFieldDescription(description string, available []actionChoice) string {
 	if len(available) == 0 {
-		return description + "; none found in your hooks directory"
+		return "none found in your hooks directory; " + description
 	}
 
 	return description
 }
 
-// hookOptions offers every hook in the directory, plus any this workflow already names that is
-// no longer there, since dropping one silently is how a saved form loses a hook.
-func hookOptions(available []actionChoice, chosen []string) []huh.Option[string] {
-	options := make([]huh.Option[string], 0, len(available)+len(chosen))
+// hookOptions offers None, every hook in the directory, and the one this workflow already names
+// if the directory no longer holds it, since dropping that silently is how a saved form loses a
+// hook a person put there.
+func hookOptions(available []actionChoice, chosen string) []huh.Option[string] {
+	options := make([]huh.Option[string], 0, len(available)+2)
+	options = append(options, huh.NewOption("None", ""))
+
 	for _, hook := range available {
 		options = append(options, huh.NewOption(hook.name, hook.name))
 	}
 
-	for _, name := range chosen {
-		if !slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == name }) {
-			options = append(options, huh.NewOption(name+"  (missing)", name))
-		}
+	offered := slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == chosen })
+	if chosen != "" && !offered {
+		options = append(options, huh.NewOption(chosen+"  (missing)", chosen))
 	}
 
 	return options

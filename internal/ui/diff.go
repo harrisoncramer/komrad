@@ -13,9 +13,10 @@ func (m model) isReviewable(agent agentstore.Agent) bool {
 	if agent.Cwd == "" || agent.WorktreeRemoved {
 		return false
 	}
-	// A child sits in its parent's checkout, so the diff there is the parent's work and the
-	// review threads on it belong to the parent's row.
-	if agent.ParentAgentID != nil {
+	// A child sits in its parent's checkout, and an agent told to keep the directory it was given
+	// sits in somebody's own, so the diff there is that person's work and the review threads on
+	// it belong on their row rather than this one.
+	if agent.ParentAgentID != nil || (agent.ProvisionEnabled != nil && !*agent.ProvisionEnabled) {
 		return false
 	}
 
