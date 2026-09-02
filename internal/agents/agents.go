@@ -303,21 +303,23 @@ func failureReason(cause error) string {
 	return text
 }
 
-func notifyParents(ctx context.Context, notifier systemMailSender, agents []agentstore.Agent, reason string) {
+// notifyParents tells the spawner of each agent in told that it is gone, where going is every
+// agent the call is taking rather than only the ones being told about.
+func notifyParents(ctx context.Context, notifier systemMailSender, told, going []agentstore.Agent, reason string) {
 	actor := caller.From(ctx).AgentID
 
-	going := make(map[string]bool, len(agents))
-	for _, agent := range agents {
-		going[agent.ID] = true
+	leaving := make(map[string]bool, len(going))
+	for _, agent := range going {
+		leaving[agent.ID] = true
 	}
 
-	for _, agent := range agents {
+	for _, agent := range told {
 		if agent.SpawnedByAgentID == nil || *agent.SpawnedByAgentID == actor {
 			continue
 		}
 		// A spawner going in the same call has nobody left to read the mail, which is what
 		// happens to a parent that takes its own children with it.
-		if going[*agent.SpawnedByAgentID] {
+		if leaving[*agent.SpawnedByAgentID] {
 			continue
 		}
 

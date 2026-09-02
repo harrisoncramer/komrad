@@ -324,6 +324,8 @@ func (stubArchive) ListPage(context.Context, int64, *agentstore.Cursor, bool) ([
 	return nil, nil
 }
 
+func (stubArchive) ListByID(context.Context, []string) ([]agentstore.Agent, error) { return nil, nil }
+
 type stubRunning struct{}
 
 func (stubRunning) CountLiveForSchedule(context.Context, string) (int64, error) { return 0, nil }

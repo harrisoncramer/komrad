@@ -92,7 +92,7 @@ func childBriefing(parentName, parentAgentID string) string {
 
 You are sitting in that agent's own checkout, which you own nothing in. Read it, run it, and say what you found, but do not commit, push, stash, or switch branches: the parent is working there and its next act is to keep working where you are reading. Put back anything you changed to try something out.
 
-You have no worktree of your own and no actions of your own, and you cannot be archived or deleted by yourself: you go when the parent goes. Mail reaches your parent and that parent's other children, and nobody else, so reply to your parent rather than looking for another way around. Your parent will name your siblings if there are any you need.`,
+You have no worktree of your own and no actions of your own, and you go when the parent goes, though the parent may also finish with you on your own once you have answered it. Mail reaches your parent and that parent's other children, and nobody else, so reply to your parent rather than looking for another way around. Your parent will name your siblings if there are any you need.`,
 		parentName, parentAgentID)
 }
 

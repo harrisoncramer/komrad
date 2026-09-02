@@ -118,7 +118,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 			}
 
 			s.cleanupEmptyWorkflows(bg, []agentstore.Agent{agent})
-			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, "deleted")
+			notifyParents(bg, s.notifier, []agentstore.Agent{agent}, agents, "deleted")
 		})
 	}
 
@@ -131,7 +131,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	s.cleanupEmptyWorkflows(ctx, immediate)
-	notifyParents(ctx, s.notifier, immediate, "deleted")
+	notifyParents(ctx, s.notifier, immediate, agents, "deleted")
 
 	return nil
 }
@@ -175,7 +175,7 @@ func (s *LifecycleService) ArchiveAgents(ctx context.Context, ids []string) erro
 	// A pane recorded in between only reaches here through what the write took off the rows.
 	killPanes(ctx, s.tmux, taken)
 
-	notifyParents(ctx, s.notifier, agents, "archived")
+	notifyParents(ctx, s.notifier, agents, agents, "archived")
 
 	return nil
 }
@@ -205,7 +205,7 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	archived = append(archived, children...)
 
 	killOwnedPanes(ctx, s.tmux, archived)
-	notifyParents(ctx, s.notifier, archived, "archived")
+	notifyParents(ctx, s.notifier, archived, archived, "archived")
 
 	return archived, errors.Join(failures...)
 }
@@ -315,8 +315,10 @@ func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []a
 	}
 
 	live := make(map[string]bool, len(parents))
+	names := make(map[string]string, len(parents))
 	for _, parent := range parents {
 		live[parent.ID] = parent.ArchivedAt == nil
+		names[parent.ID] = parent.Name
 	}
 
 	for _, agent := range agents {
@@ -324,11 +326,22 @@ func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []a
 			continue
 		}
 		if !live[*agent.ParentAgentID] {
-			return fmt.Errorf("%w: %q is attached to an agent that is still archived", ErrParentStillArchived, agent.Name)
+			return fmt.Errorf("%w: restore %s to bring %q back with it",
+				ErrParentStillArchived, describeParent(names[*agent.ParentAgentID]), agent.Name)
 		}
 	}
 
 	return nil
+}
+
+// describeParent names the agent a child hangs under, falling back to a phrase for a parent no
+// longer in the listing at all.
+func describeParent(name string) string {
+	if name == "" {
+		return "the agent it is attached to"
+	}
+
+	return fmt.Sprintf("%q", name)
 }
 
 // withChildren adds the children of the agents a call named to the list it acts on, leaving a
