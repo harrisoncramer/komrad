@@ -106,7 +106,7 @@ func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea
 
 // openWorkflowConfigForm puts up the form for a workflow's whole configuration, creating one when
 // target is nil and saving over the workflow it names otherwise, and is the one form that redraws
-// itself as the setup type is switched under it.
+// itself as the provisioner is switched under it.
 func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workflowstore.Workflow) (tea.Model, tea.Cmd) {
 	title := "New workflow name"
 	if target != nil {

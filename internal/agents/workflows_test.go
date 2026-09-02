@@ -273,7 +273,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 }
 
 // TestUpdateWorkflowWorktree covers turning worktree support on through an update, and
-// turning it back off: off has to clear setup_action and cleanup_action when they still
+// turning it back off: off has to clear provision_action and deprovision_action when they still
 // name the built-in pair, and leave them alone when a caller has since pointed them at
 // something else.
 func TestUpdateWorkflowWorktree(t *testing.T) {

@@ -352,7 +352,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	}
 
 	var pane string
-	pastSetup := false
+	provisioned := false
 	launched := false
 	defer func() {
 		if launched {
@@ -367,19 +367,19 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		if pane != "" {
 			s.tmux.KillPane(pane)
 		}
-		if pastSetup {
+		if provisioned {
 			awaitDeprovision(teardown, s.actions, agent, plan.deprovisionAction)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
 
-	setupName, err := s.runSetup(ctx, agent, plan.provisionAction, p.SetupPane)
+	named, err := s.runProvision(ctx, agent, plan.provisionAction, p.SetupPane)
 	if err != nil {
 		return nil, err
 	}
-	pastSetup = true
+	provisioned = true
 
-	dir, err := s.setupDir(plan.dir, setupName)
+	dir, err := s.provisionedDir(plan.dir, named)
 	if err != nil {
 		return nil, err
 	}
@@ -491,21 +491,21 @@ func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, 
 
 // awaitDeprovision runs a deprovision action and waits for it, so a create that failed has given
 // back the directory it provisioned before the row is closed out against it.
-func awaitDeprovision(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string) {
+func awaitDeprovision(ctx context.Context, deprovision agentActions, agent agentstore.Agent, name string) {
 	finished := make(chan error, 1)
-	runDeprovision(ctx, cleanup, agent, name, func(cleanupErr error) {
-		finished <- cleanupErr
+	runDeprovision(ctx, deprovision, agent, name, func(deprovisionErr error) {
+		finished <- deprovisionErr
 	})
 
 	select {
-	case cleanupErr := <-finished:
-		if cleanupErr != nil {
+	case deprovisionErr := <-finished:
+		if deprovisionErr != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovision action of a failed create did not finish",
 				append([]slog.Attr{
 					slog.String(logging.ActionName, name),
 					slog.String(logging.ActionAgentID, agent.ID),
 					slog.String(logging.ActionAgentCwd, agent.Cwd),
-				}, logging.Err(cleanupErr)...)...)
+				}, logging.Err(deprovisionErr)...)...)
 		}
 	case <-ctx.Done():
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the deprovision action of a failed create",
@@ -515,7 +515,7 @@ func awaitDeprovision(ctx context.Context, cleanup agentActions, agent agentstor
 	}
 }
 
-func (s *LaunchService) runSetup(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
+func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
 	if s.actions == nil || name == "" {
 		return "", nil
 	}
@@ -523,7 +523,7 @@ func (s *LaunchService) runSetup(ctx context.Context, planned agentstore.Agent, 
 	return s.actions.RunProvisionAction(ctx, planned, name, pane)
 }
 
-func (s *LaunchService) setupDir(planned, named string) (string, error) {
+func (s *LaunchService) provisionedDir(planned, named string) (string, error) {
 	if named == "" {
 		return planned, nil
 	}

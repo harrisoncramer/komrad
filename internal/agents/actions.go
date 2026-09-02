@@ -278,7 +278,7 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 		return "", fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
 	}
 
-	named, err := readSetupDir(dirPath)
+	named, err := readProvisionedDir(dirPath)
 	if err != nil {
 		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrProvisionFailed, p.name, err)
 	}
@@ -573,7 +573,7 @@ func writeActionLog(ctx context.Context, path string, content []byte) {
 	}
 }
 
-func readSetupDir(path string) ([]byte, error) {
+func readProvisionedDir(path string) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err

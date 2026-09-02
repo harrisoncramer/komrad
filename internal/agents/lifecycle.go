@@ -87,7 +87,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 	}
 
 	// A deprovision action must not run against a directory a CLI is still working in, and since the
-	// children share their parent's, this is what keeps the parent's cleanup from tearing down a
+	// children share their parent's, this is what keeps the parent's deprovision from tearing down a
 	// checkout one of them is still sitting in.
 	killOwnedPanes(ctx, s.tmux, agents)
 
@@ -103,9 +103,9 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		}
 
 		// The row is never dropped before the action says whether it worked.
-		runDeprovision(ctx, s.actions, agent, name, func(cleanupErr error) {
-			if cleanupErr != nil {
-				s.failCleanup(bg, agent, cleanupErr)
+		runDeprovision(ctx, s.actions, agent, name, func(deprovisionErr error) {
+			if deprovisionErr != nil {
+				s.failCleanup(bg, agent, deprovisionErr)
 
 				return
 			}

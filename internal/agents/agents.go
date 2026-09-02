@@ -199,8 +199,8 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 
 // runDeprovision starts a deprovision action, calling done exactly once with the outcome,
 // including a refusal to start.
-func runDeprovision(ctx context.Context, cleanup agentActions, agent agentstore.Agent, name string, done func(error)) {
-	if cleanup == nil || name == "" {
+func runDeprovision(ctx context.Context, deprovision agentActions, agent agentstore.Agent, name string, done func(error)) {
+	if deprovision == nil || name == "" {
 		if done != nil {
 			done(nil)
 		}
@@ -208,7 +208,7 @@ func runDeprovision(ctx context.Context, cleanup agentActions, agent agentstore.
 		return
 	}
 
-	if err := cleanup.RunDeprovisionAction(ctx, agent, name, done); err != nil {
+	if err := deprovision.RunDeprovisionAction(ctx, agent, name, done); err != nil {
 		attrs := []slog.Attr{
 			slog.String(logging.ActionName, name),
 			slog.String(logging.ActionAgentID, agent.ID),
@@ -234,7 +234,7 @@ func deprovisionActionFor(ctx context.Context, workflows workflowReader, agent a
 		return ""
 	}
 	if agent.DeprovisionAction != nil {
-		return *agent.DeprovisionAction
+		return strings.TrimSpace(*agent.DeprovisionAction)
 	}
 
 	wf := workflowFor(ctx, workflows, agent)
@@ -247,7 +247,7 @@ func deprovisionActionFor(ctx context.Context, workflows workflowReader, agent a
 
 func provisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
 	if agent.ProvisionAction != nil {
-		return *agent.ProvisionAction
+		return strings.TrimSpace(*agent.ProvisionAction)
 	}
 
 	wf := workflowFor(ctx, workflows, agent)

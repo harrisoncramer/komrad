@@ -28,7 +28,7 @@ var ErrWorktreeNeedsCwd = errors.New("a worktree-enabled workflow needs a cwd na
 
 var ErrWorktreeCwdNotPrimaryCheckout = errors.New("a worktree-enabled workflow's cwd must be a primary checkout, not a linked worktree, a bare repo, or a submodule")
 
-var ErrWorktreeOwnsProvisioner = errors.New("a worktree-enabled workflow provisions its agents itself, so provision_action must be blank")
+var ErrWorktreeOwnsProvisioner = errors.New("a worktree-enabled workflow provisions its agents itself, so provision_action and deprovision_action must both be blank")
 
 var ErrWorktreeUnsafePath = errors.New("a worktree copy or symlink path must be a relative path inside the repo")
 

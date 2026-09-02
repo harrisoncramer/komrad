@@ -507,7 +507,7 @@ func workflowConfigForm(nameTitle string, values *workflowFormValues, available 
 	toggleIndex := len(fields)
 	fields = append(fields,
 
-		huh.NewSelect[string]().Key(provisionerKey).Title("Setup type").
+		huh.NewSelect[string]().Key(provisionerKey).Title("Provisioner").
 			Options(provisionerOptions()...).Value(&values.Provisioner),
 	)
 
