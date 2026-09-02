@@ -165,7 +165,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 // start, so this screen is all the reader gets, and has to carry the error itself and name
 // the file to fix.
 func TestConfig(t *testing.T) {
-	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes actions, agents, archive, filter, form, help, nav, schedules, selection, workflows")
+	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes scripts, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
 	rendered := strings.Join(strings.Fields(Config(narrowPane, err)), " ")
 

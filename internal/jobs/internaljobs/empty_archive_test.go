@@ -94,7 +94,7 @@ type fakeArchive struct {
 	failOn int
 
 	// keepRows is the delete succeeding while leaving the rows where they are, which is what
-	// the real one does for an agent whose cleanup action is still running.
+	// the real one does for an agent whose deprovisioner is still running.
 	keepRows bool
 }
 

@@ -493,7 +493,7 @@ func (m model) failedPlaceholder(agent agentstore.Agent) string {
 		label, moments = "teardown", []string{config.TriggerDeprovision}
 	}
 
-	if run, ok := m.latestActionLogRun(agent.ID, moments); ok {
+	if run, ok := m.latestRunLog(agent.ID, moments); ok {
 		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
 	}
 
@@ -605,8 +605,8 @@ func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (
 }
 
 // submitChild launches the child without sending anything about where it runs, since the
-// service takes the directory and both actions from the parent and refuses a request naming
-// them.
+// service takes the directory and the provisioning from the parent and refuses a request
+// naming them.
 func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,

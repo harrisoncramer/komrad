@@ -119,7 +119,7 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 
 func hooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
 	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
-		return workflowstore.Hook{Event: hook.GetEvent(), Action: hook.GetScript()}
+		return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 	})
 }
 

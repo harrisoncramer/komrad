@@ -41,7 +41,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	}
 
 	target := fmt.Sprintf("%s:%d", path, line)
-	if m.info.kind == infoEditFile && m.info.action == target {
+	if m.info.kind == infoEditFile && m.info.script == target {
 		return m.closeReviewEdit()
 	}
 

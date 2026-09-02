@@ -249,7 +249,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	assert.Empty(t, h.launches[1].Prompt, "the ask is made once, and the row it was read from now says idle")
 }
 
-// blockingLifecycle holds a resume inside its setup action until the test lets it go, which
+// blockingLifecycle holds a resume inside its provisioner until the test lets it go, which
 // is the window a background pass has to land in to reach a row a resume is already working
 // on.
 type blockingLifecycle struct {
@@ -258,7 +258,7 @@ type blockingLifecycle struct {
 	release chan struct{}
 }
 
-func (b *blockingLifecycle) RunResumeAction(context.Context, agentstore.Agent, string) (string, error) {
+func (b *blockingLifecycle) RunResume(context.Context, agentstore.Agent, string) (string, error) {
 	close(b.entered)
 	<-b.release
 
@@ -576,9 +576,9 @@ func TestAResumeThatFailsOnItsLastWritePutsBackWhatItFound(t *testing.T) {
 	assert.Len(t, tmux.killedPanes, 1, "the window it opened goes with it")
 }
 
-// TestResumeRunsTheProvisionAction pins the setup action firing again on resume, which is the
+// TestResumeRunsTheProvisioner pins the provisioner firing again on resume, which is the
 // moment a workspace has to exist since nothing before it rebuilds one.
-func TestResumeRunsTheProvisionAction(t *testing.T) {
+func TestResumeRunsTheProvisioner(t *testing.T) {
 	tests := []struct {
 		name       string
 		named      string
@@ -587,21 +587,21 @@ func TestResumeRunsTheProvisionAction(t *testing.T) {
 		wantErr    string
 	}{
 		{
-			name:      "an action that refuses keeps the agent dormant",
+			name:      "a script that refuses keeps the agent dormant",
 			resumeErr: errors.New("fatal: 'auth' is already checked out"),
 			wantErr:   "already checked out",
 		},
 		{
-			name:    "an action naming somewhere that is not a directory is refused",
+			name:    "a script naming somewhere that is not a directory is refused",
 			named:   "/definitely/not/here",
-			wantErr: "a provision action named",
+			wantErr: "a provisioner named",
 		},
 		{
-			name:       "an action naming nowhere leaves the recorded directory alone",
+			name:       "a script naming nowhere leaves the recorded directory alone",
 			wantWindow: true,
 		},
 		{
-			name:       "an action naming a directory brings the agent back up in it",
+			name:       "a script naming a directory brings the agent back up in it",
 			named:      "named",
 			wantWindow: true,
 		},
@@ -635,12 +635,12 @@ func TestResumeRunsTheProvisionAction(t *testing.T) {
 
 			resumed, err := manager.resume.ResumeAgent(ctx, agent.ID)
 
-			assert.Equal(t, []string{worktreeProvisionAction}, lifecycle.resumed, "the workflow's own action is what fired")
+			assert.Equal(t, []string{worktreeProvisioner}, lifecycle.resumed, "the workflow's own script is what fired")
 
 			if tt.wantErr != "" {
 				require.Error(t, err)
 				require.ErrorContains(t, err, tt.wantErr)
-				assert.Empty(t, tmux.newWindows, "a refused action opens no window")
+				assert.Empty(t, tmux.newWindows, "a refused script opens no window")
 				assert.Equal(t, recorded, agentByID(t, st, agent.ID).Cwd, "and moves nobody")
 
 				return
@@ -655,14 +655,14 @@ func TestResumeRunsTheProvisionAction(t *testing.T) {
 			}
 
 			assert.Equal(t, want, resumed.Cwd)
-			assert.Equal(t, want, tmux.newWindows["auth"], "the window opens where the action said")
+			assert.Equal(t, want, tmux.newWindows["auth"], "the window opens where the script said")
 		})
 	}
 }
 
-// TestResumeWithoutAProvisionActionFiresNothing covers the ordinary workflow, which names no
-// setup action and comes back up the way it always has.
-func TestResumeWithoutAProvisionActionFiresNothing(t *testing.T) {
+// TestResumeWithoutAProvisionerFiresNothing covers the ordinary workflow, which names no
+// provisioner and comes back up the way it always has.
+func TestResumeWithoutAProvisionerFiresNothing(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 	lifecycle := &fakeLifecycle{}

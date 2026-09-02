@@ -6,8 +6,8 @@ import (
 	"weave/internal/agents"
 	"weave/internal/errui"
 	"weave/internal/ui"
-	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -52,7 +52,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			agentClient := agentv1connect.NewAgentServiceClient(http.DefaultClient, base)
 			workflowClient := workflowv1connect.NewWorkflowServiceClient(http.DefaultClient, base)
 			scheduleClient := schedulev1connect.NewScheduleServiceClient(http.DefaultClient, base)
-			actionClient := hookv1connect.NewHookServiceClient(http.DefaultClient, base)
+			hookClient := hookv1connect.NewHookServiceClient(http.DefaultClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 
@@ -63,7 +63,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				Workflows:       workflowClient,
 				Schedules:       scheduleClient,
 				Keys:            state.keys,
-				Actions:         actionClient,
+				Hooks:           hookClient,
 				Tags:            state.tags,
 				Layout:          state.layout,
 				Addr:            state.env.Addr,
@@ -71,7 +71,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				LogViewer:       state.logViewer,
 				ProcessViewer:   state.processViewer,
 				Editor:          state.env.Editor,
-				ActionLogsDir:   state.env.ActionLogsDir(),
+				RunLogsDir:      state.env.RunLogsDir(),
 				ConfigErr:       state.configErr,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,

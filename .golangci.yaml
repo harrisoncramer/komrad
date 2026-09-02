@@ -52,8 +52,8 @@ linters:
               desc: the panel takes what it needs of tmux as a dependency, so the option names stay in the adapter
             - pkg: weave/internal/harness
               desc: which CLI an agent runs is the service's business, and reaches the panel as data
-            - pkg: weave/internal/actions
-              desc: the panel lists and fires actions over the API rather than reading the directory
+            - pkg: weave/internal/scripts
+              desc: the panel lists and fires scripts over the API rather than reading the directory
             - pkg: weave/internal/agents
               desc: the panel is a client of the service, not a caller of it in process
             - pkg: weave/db
@@ -68,8 +68,8 @@ linters:
               desc: a handler translates and nothing more, so what tmux can do reaches it through the service
             - pkg: weave/internal/harness
               desc: same reason, and the service restates the refusals a handler maps on
-            - pkg: weave/internal/actions
-              desc: same reason, with agents.Action naming an action for a handler that has to describe one
+            - pkg: weave/internal/scripts
+              desc: same reason, with agents.Script naming a script for a handler that has to describe one
             - pkg: weave/db
               desc: a handler holds no database connection
         domain:
@@ -100,7 +100,7 @@ linters:
           files:
             - "**/internal/tmux/**"
             - "**/internal/harness/**"
-            - "**/internal/actions/**"
+            - "**/internal/scripts/**"
           deny:
             - pkg: weave/internal/store
               desc: an adapter is a seam in front of something weave does not own, and knows nothing of rows

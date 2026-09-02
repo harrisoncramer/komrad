@@ -19,7 +19,7 @@ import (
 )
 
 // TestWorktreeAgentsAreCreatedConcurrently covers a worktree workflow fanned out over the
-// API, where anything the setup action writes to shared git config puts every create on one
+// API, where anything the provisioner writes to shared git config puts every create on one
 // lock.
 func TestWorktreeAgentsAreCreatedConcurrently(t *testing.T) {
 	hermeticGit(t)

@@ -136,7 +136,7 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{auth.ID, ui.ID}))
 
-	assert.Equal(t, []string{worktreeDeprovisionAction, worktreeDeprovisionAction}, lifecycle.deprovision,
+	assert.Equal(t, []string{worktreeDeprovisioner, worktreeDeprovisioner}, lifecycle.deprovision,
 		"one run per agent, whichever order the listing put them in")
 
 	all, err := st.ListAll(ctx)

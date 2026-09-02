@@ -1,4 +1,4 @@
-package actions
+package scripts
 
 import (
 	"context"
@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDiscover covers what the directory offers as an action, including a file that cannot be
+// TestDiscover covers what the directory offers as a script, including a file that cannot be
 // run, since a script that never appears reads as the panel being broken.
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
@@ -28,11 +28,11 @@ func TestDiscover(t *testing.T) {
 	found, err := Discover(dir)
 	require.NoError(t, err)
 
-	listed := map[string]Action{}
+	listed := map[string]Script{}
 	names := make([]string, 0, len(found))
-	for _, action := range found {
-		listed[action.Name] = action
-		names = append(names, action.Name)
+	for _, script := range found {
+		listed[script.Name] = script
+		names = append(names, script.Name)
 	}
 
 	tests := []struct {
@@ -42,7 +42,7 @@ func TestDiscover(t *testing.T) {
 		wantExecutable bool
 	}{
 		{
-			name:       "an editor's leftover is not an action",
+			name:       "an editor's leftover is not a script",
 			entry:      ".open-pr.swp",
 			wantListed: false,
 		},
@@ -52,7 +52,7 @@ func TestDiscover(t *testing.T) {
 			wantListed: false,
 		},
 		{
-			name:       "a fifo is not an action, however its mode reads",
+			name:       "a fifo is not a script, however its mode reads",
 			entry:      "fifo",
 			wantListed: false,
 		},
@@ -74,7 +74,7 @@ func TestDiscover(t *testing.T) {
 			wantExecutable: true,
 		},
 		{
-			name:           "an executable file is an action",
+			name:           "an executable file is a script",
 			entry:          "open-pr",
 			wantListed:     true,
 			wantExecutable: true,
@@ -83,14 +83,14 @@ func TestDiscover(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			action, ok := listed[tt.entry]
+			script, ok := listed[tt.entry]
 			require.Equal(t, tt.wantListed, ok)
 			if !tt.wantListed {
 				return
 			}
 
-			assert.Equal(t, tt.wantExecutable, action.Executable)
-			assert.Equal(t, filepath.Join(dir, tt.entry), action.Path)
+			assert.Equal(t, tt.wantExecutable, script.Executable)
+			assert.Equal(t, filepath.Join(dir, tt.entry), script.Path)
 		})
 	}
 
@@ -142,7 +142,7 @@ func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	require.Len(t, found, 1)
 
 	require.NoError(t, NewRunner().Run(RunParams{
-		Action: found[0],
+		Script: found[0],
 		Dir:    work,
 		Env:    []string{`WEAVE_AGENT={"name":"auth"}`},
 	}))
@@ -187,7 +187,7 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, found, 1)
 
-			err = NewRunner().Run(RunParams{Action: found[0], Dir: dir})
+			err = NewRunner().Run(RunParams{Script: found[0], Dir: dir})
 
 			require.Error(t, err)
 			if tt.wantIs != nil {
@@ -209,7 +209,7 @@ func TestRunRefusesAMissingDirectory(t *testing.T) {
 
 	gone := filepath.Join(t.TempDir(), "worktree-that-was-removed")
 
-	err = NewRunner().Run(RunParams{Action: found[0], Dir: gone})
+	err = NewRunner().Run(RunParams{Script: found[0], Dir: gone})
 
 	require.ErrorIs(t, err, ErrDirMissing)
 	assert.Contains(t, err.Error(), gone, "the refusal names the directory, not the script")
@@ -227,11 +227,11 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 
 	notADir := filepath.Join(dir, "open-pr")
 
-	assert.ErrorIs(t, NewRunner().Run(RunParams{Action: found[0], Dir: notADir}), ErrDirMissing)
+	assert.ErrorIs(t, NewRunner().Run(RunParams{Script: found[0], Dir: notADir}), ErrDirMissing)
 }
 
 // TestRunReportsTheOutcome covers the whole of what a caller with nothing waiting on an
-// action can learn about it.
+// script can learn about it.
 func TestRunReportsTheOutcome(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -270,7 +270,7 @@ func TestRunReportsTheOutcome(t *testing.T) {
 
 			reported := make(chan outcomeReport, 1)
 			require.NoError(t, NewRunner().Run(RunParams{
-				Action: found[0],
+				Script: found[0],
 				Dir:    dir,
 				Done: func(result Result, err error) {
 					reported <- outcomeReport{result: result, err: err}
@@ -288,7 +288,7 @@ func TestRunReportsTheOutcome(t *testing.T) {
 			}
 
 			require.ErrorIs(t, got.err, ErrFailed)
-			assert.Contains(t, got.err.Error(), "cleanup", "the failure names the action")
+			assert.Contains(t, got.err.Error(), "cleanup", "the failure names the script")
 		})
 	}
 }
@@ -307,7 +307,7 @@ func TestRunCapturesStdoutToo(t *testing.T) {
 
 	reported := make(chan outcomeReport, 1)
 	require.NoError(t, NewRunner().Run(RunParams{
-		Action: found[0],
+		Script: found[0],
 		Dir:    dir,
 		Done: func(result Result, _ error) {
 			reported <- outcomeReport{result: result}
@@ -331,15 +331,15 @@ func await(t *testing.T, reported chan outcomeReport) outcomeReport {
 	case got := <-reported:
 		return got
 	case <-time.After(5 * time.Second):
-		require.FailNow(t, "the action never reported what it did")
+		require.FailNow(t, "the script never reported what it did")
 
 		return outcomeReport{}
 	}
 }
 
-// TestRunAndWaitReportsWhatTheActionSaid covers the streams coming back apart, since a
-// caller reads stdout as the action's answer and stderr as what it told a person.
-func TestRunAndWaitReportsWhatTheActionSaid(t *testing.T) {
+// TestRunAndWaitReportsWhatTheScriptSaid covers the streams coming back apart, since a
+// caller reads stdout as the script's answer and stderr as what it told a person.
+func TestRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
 		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$WEAVE_TEST_ANSWER\"\n",
@@ -350,16 +350,16 @@ func TestRunAndWaitReportsWhatTheActionSaid(t *testing.T) {
 	require.Len(t, found, 1)
 
 	result, err := NewRunner().RunAndWait(t.Context(), RunParams{
-		Action: found[0],
+		Script: found[0],
 		Dir:    dir,
 		Env:    []string{"WEAVE_TEST_ANSWER=/work/api-auth"},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "/work/api-auth", strings.TrimSpace(string(result.Stdout)), "stdout carries what the action answered")
+	assert.Equal(t, "/work/api-auth", strings.TrimSpace(string(result.Stdout)), "stdout carries what the script answered")
 	assert.Equal(t, "progress", strings.TrimSpace(string(result.Stderr)), "stderr stays separate from it")
 }
 
-// TestRunAndWaitRefusesANonZeroExit covers an action that started fine and then disagreed,
+// TestRunAndWaitRefusesANonZeroExit covers a script that started fine and then disagreed,
 // whose result still comes back since its stderr is the only thing that says why.
 func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	dir := t.TempDir()
@@ -371,14 +371,14 @@ func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Script: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, ErrFailed)
-	assert.Contains(t, err.Error(), "install", "the refusal names the action")
+	assert.Contains(t, err.Error(), "install", "the refusal names the script")
 	assert.Equal(t, "no lockfile", strings.TrimSpace(string(result.Stderr)))
 }
 
-// TestRunAndWaitStopsAtTheDeadline covers an action that hangs, which without the deadline
+// TestRunAndWaitStopsAtTheDeadline covers a script that hangs, which without the deadline
 // leaves the launch waiting on it forever.
 func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	dir := t.TempDir()
@@ -394,10 +394,10 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 	defer cancel()
 
 	started := time.Now()
-	_, err = NewRunner().RunAndWait(ctx, RunParams{Action: found[0], Dir: dir})
+	_, err = NewRunner().RunAndWait(ctx, RunParams{Script: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
-	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
+	assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 }
 
 // TestRunStopsAtItsOwnDeadline covers a timeout on a run nothing is waiting for, where what
@@ -415,7 +415,7 @@ func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 	failed := make(chan error, 1)
 	started := time.Now()
 	require.NoError(t, NewRunner().Run(RunParams{
-		Action:  found[0],
+		Script:  found[0],
 		Dir:     dir,
 		Timeout: 100 * time.Millisecond,
 		Done:    func(_ Result, err error) { failed <- err },
@@ -425,7 +425,7 @@ func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 	case err := <-failed:
 		require.ErrorIs(t, err, ErrFailed)
 		assert.Contains(t, err.Error(), context.DeadlineExceeded.Error(), "the outcome says the deadline is what stopped it")
-		assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
+		assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 	case <-time.After(30 * time.Second):
 		t.Fatal("the run was never reported as finished")
 	}
@@ -445,19 +445,19 @@ func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 
 	started := time.Now()
 	_, err = NewRunner().RunAndWait(t.Context(), RunParams{
-		Action:  found[0],
+		Script:  found[0],
 		Dir:     dir,
 		Timeout: 100 * time.Millisecond,
 	})
 
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Contains(t, err.Error(), "gave up after 100ms", "the refusal names the limit it passed")
-	assert.Less(t, time.Since(started), 30*time.Second, "the action is killed rather than waited out")
+	assert.Less(t, time.Since(started), 30*time.Second, "the script is killed rather than waited out")
 }
 
-// TestRunAndWaitKeepsTheTailOfALoudAction covers the output cap, where the end of a failing
+// TestRunAndWaitKeepsTheTailOfALoudScript covers the output cap, where the end of a failing
 // script is the part that says why.
-func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
+func TestRunAndWaitKeepsTheTailOfALoudScript(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "loud"), []byte(
 		"#!/bin/sh\nawk 'BEGIN { for (i = 0; i < 20000; i++) print \"filler line\" }'\necho the-last-thing\n",
@@ -467,14 +467,14 @@ func TestRunAndWaitKeepsTheTailOfALoudAction(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Script: found[0], Dir: dir})
 	require.NoError(t, err)
 
 	assert.LessOrEqual(t, len(result.Stdout), outputLimit, "the stream is capped")
 	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
-// TestRunAndWaitAcceptsABackgroundChild pins that an action returning while a child of its
+// TestRunAndWaitAcceptsABackgroundChild pins that a script returning while a child of its
 // own is still running is finished, rather than waited on until the child exits.
 func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	dir := t.TempDir()
@@ -487,7 +487,7 @@ func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	require.Len(t, found, 1)
 
 	result, err := NewRunner().RunAndWait(t.Context(), RunParams{
-		Action:  found[0],
+		Script:  found[0],
 		Dir:     dir,
 		Timeout: 10 * time.Minute,
 	})
@@ -497,8 +497,8 @@ func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	assert.Equal(t, "ready", strings.TrimSpace(string(result.Stderr)), "what the script said still comes back")
 }
 
-// TestRunAndWaitRefusesWhatItCannotStart pins that an action that never started comes back as
-// not startable, naming which action it was.
+// TestRunAndWaitRefusesWhatItCannotStart pins that a script that never started comes back as
+// not startable, naming which script it was.
 func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-shebang"), []byte("#!/nope/sh\n"), 0o755))
@@ -507,10 +507,10 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
-	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Action: found[0], Dir: dir})
+	result, err := NewRunner().RunAndWait(t.Context(), RunParams{Script: found[0], Dir: dir})
 
 	require.ErrorIs(t, err, ErrNotStartable)
-	assert.Contains(t, err.Error(), "bad-shebang", "the refusal names the action")
+	assert.Contains(t, err.Error(), "bad-shebang", "the refusal names the script")
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
@@ -528,7 +528,7 @@ func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	cancel()
 
 	result, err := NewRunner().RunAndWait(ctx, RunParams{
-		Action:  found[0],
+		Script:  found[0],
 		Dir:     dir,
 		Timeout: time.Minute,
 	})

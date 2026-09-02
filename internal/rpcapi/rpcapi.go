@@ -10,10 +10,10 @@ package rpcapi
 import (
 	"iter"
 
-	hookv1 "weave/proto/gen/hook/v1"
 	agentv1 "weave/proto/gen/agent/v1"
 	annotationv1 "weave/proto/gen/annotation/v1"
 	configv1 "weave/proto/gen/config/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 

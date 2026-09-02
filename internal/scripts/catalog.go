@@ -1,4 +1,4 @@
-package actions
+package scripts
 
 import (
 	"errors"
@@ -12,7 +12,7 @@ import (
 	"weave/lib/xslice"
 )
 
-var ErrActionNotFound = errors.New("action not found")
+var ErrScriptNotFound = errors.New("script not found")
 
 type Catalog struct {
 	mu    sync.Mutex
@@ -24,10 +24,10 @@ func NewCatalog() *Catalog {
 	return &Catalog{}
 }
 
-// List returns every action across dirs in name order, where an earlier dir's file wins over
+// List returns every script across dirs in name order, where an earlier dir's file wins over
 // a later one offering the same name.
-func (c *Catalog) List(dirs ...string) ([]Action, error) {
-	var all []Action
+func (c *Catalog) List(dirs ...string) ([]Script, error) {
+	var all []Script
 
 	for _, dir := range dirs {
 		if dir == "" {
@@ -42,22 +42,22 @@ func (c *Catalog) List(dirs ...string) ([]Action, error) {
 		all = append(all, listed...)
 	}
 
-	found := xslice.UniqueBy(all, func(action Action) string { return action.Name })
-	slices.SortFunc(found, func(a, b Action) int { return strings.Compare(a.Name, b.Name) })
+	found := xslice.UniqueBy(all, func(script Script) string { return script.Name })
+	slices.SortFunc(found, func(a, b Script) int { return strings.Compare(a.Name, b.Name) })
 
 	return found, nil
 }
 
-// Find is the one action named name across dirs.
-func (c *Catalog) Find(name string, dirs ...string) (Action, error) {
+// Find is the one script named name across dirs.
+func (c *Catalog) Find(name string, dirs ...string) (Script, error) {
 	found, err := c.List(dirs...)
 	if err != nil {
-		return Action{}, err
+		return Script{}, err
 	}
 
-	for _, action := range found {
-		if action.Name == name {
-			return action, nil
+	for _, script := range found {
+		if script.Name == name {
+			return script, nil
 		}
 	}
 
@@ -66,25 +66,25 @@ func (c *Catalog) Find(name string, dirs ...string) (Action, error) {
 		primary = dirs[0]
 	}
 
-	return Action{}, fmt.Errorf("%w: %q is not in %s", ErrActionNotFound, name, primary)
+	return Script{}, fmt.Errorf("%w: %q is not in %s", ErrScriptNotFound, name, primary)
 }
 
 type dirScan struct {
 	modTime time.Time
-	actions []Action
+	scripts []Script
 }
 
-func (c *Catalog) scan(dir string) ([]Action, error) {
+func (c *Catalog) scan(dir string) ([]Script, error) {
 	modTime, err := dirModTime(dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to stat the actions directory %s: %w", dir, err)
+		return nil, fmt.Errorf("failed to stat the scripts directory %s: %w", dir, err)
 	}
 
 	c.mu.Lock()
 	cached, ok := c.cache[dir]
 	c.mu.Unlock()
 	if ok && cached.modTime.Equal(modTime) {
-		return cached.actions, nil
+		return cached.scripts, nil
 	}
 
 	listed, err := Discover(dir)
@@ -96,7 +96,7 @@ func (c *Catalog) scan(dir string) ([]Action, error) {
 	if c.cache == nil {
 		c.cache = make(map[string]dirScan)
 	}
-	c.cache[dir] = dirScan{modTime: modTime, actions: listed}
+	c.cache[dir] = dirScan{modTime: modTime, scripts: listed}
 	c.mu.Unlock()
 
 	return listed, nil

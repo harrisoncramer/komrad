@@ -166,7 +166,7 @@ func (m model) editFilterBinding(keys []string) []key.Binding {
 // olderLogBindings appear only while the info pane is showing a run, since stepping back
 // through runs means nothing when it is not.
 func (m model) olderLogBindings() []key.Binding {
-	if m.info.kind != infoActionLog {
+	if m.info.kind != infoRunLog {
 		return nil
 	}
 

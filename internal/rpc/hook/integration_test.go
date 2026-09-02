@@ -1,4 +1,4 @@
-package action
+package hook
 
 import (
 	"context"
@@ -11,9 +11,9 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/interceptors"
+	"weave/internal/scripts"
 	"weave/internal/store"
 	hookv1 "weave/proto/gen/hook/v1"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -27,9 +27,9 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestActionServiceOverHTTP drives the whole path over the wire with real scripts, which is the
+// TestHookServiceOverHTTP drives the whole path over the wire with real scripts, which is the
 // only way to reach the validation interceptor and the payload arriving in a process.
-func TestActionServiceOverHTTP(t *testing.T) {
+func TestHookServiceOverHTTP(t *testing.T) {
 	hooks := t.TempDir()
 	builtins := t.TempDir()
 
@@ -44,7 +44,7 @@ func TestActionServiceOverHTTP(t *testing.T) {
 		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT\" > payload.json\n",
 	), 0o755))
 
-	client := actionClient(t, hooks, builtins, work)
+	client := hookClient(t, hooks, builtins, work)
 
 	t.Run("a listing carries each hook and what it declares", func(t *testing.T) {
 		resp, err := client.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
@@ -106,17 +106,17 @@ func names(listed []*hookv1.Hook) []string {
 	return found
 }
 
-func actionClient(t *testing.T, hooks, builtins, work string) hookv1connect.HookServiceClient {
+func hookClient(t *testing.T, hooks, builtins, work string) hookv1connect.HookServiceClient {
 	t.Helper()
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
-	service := agents.NewActionService(agents.ActionParams{
+	service := agents.NewScriptService(agents.ScriptParams{
 		Agents:    stubAgents{cwd: work},
 		Workflows: stubWorkflows{},
 		Tmux:      stubPanes{},
-		Runner:    actions.NewRunner(),
+		Runner:    scripts.NewRunner(),
 		Load: func() (*config.Config, error) {
 			cfg := config.Defaults()
 			cfg.Hooks.Dir = hooks

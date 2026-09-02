@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestInfoStaysShut pins that only the log key and an action's editor open the pane below
+// TestInfoStaysShut pins that only the log key and a script's editor open the pane below
 // the stage.
 func TestInfoStaysShut(t *testing.T) {
 	tmux := &recordingTmux{}

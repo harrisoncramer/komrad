@@ -33,7 +33,7 @@ func HookEvents() []string {
 // Hook is one script a workflow hangs on a moment, and a moment can hold several.
 type Hook struct {
 	Event  string
-	Action string
+	Script string
 }
 
 type Workflow struct {
@@ -464,10 +464,10 @@ func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) e
 		if err := s.queries.InsertWorkflowHook(ctx, models.InsertWorkflowHookParams{
 			WorkflowID: workflowID,
 			Event:      hook.Event,
-			Action:     hook.Action,
+			Action:     hook.Script,
 			Position:   int32(position),
 		}); err != nil {
-			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", hook.Event, hook.Action, workflowID, err)
+			return fmt.Errorf("failed to add the %s hook %q to workflow %q: %w", hook.Event, hook.Script, workflowID, err)
 		}
 	}
 
@@ -481,7 +481,7 @@ func (s *Store) hooksFor(ctx context.Context, workflowID string) ([]Hook, error)
 	}
 
 	return xslice.Map(rows, func(row *models.ListHooksForWorkflowRow) Hook {
-		return Hook{Event: row.Event, Action: row.Action}
+		return Hook{Event: row.Event, Script: row.Action}
 	}), nil
 }
 
@@ -495,7 +495,7 @@ func (s *Store) hooksByWorkflow(ctx context.Context) (map[string][]Hook, error) 
 
 	hooks := make(map[string][]Hook)
 	for _, row := range rows {
-		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Action: row.Action})
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Action})
 	}
 
 	return hooks, nil
@@ -515,7 +515,7 @@ func (s *Store) hooksForWorkflows(ctx context.Context, ids []string) (map[string
 
 	hooks := make(map[string][]Hook)
 	for _, row := range rows {
-		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Action: row.Action})
+		hooks[row.WorkflowID] = append(hooks[row.WorkflowID], Hook{Event: row.Event, Script: row.Action})
 	}
 
 	return hooks, nil

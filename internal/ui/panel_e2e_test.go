@@ -52,7 +52,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
@@ -91,7 +91,7 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 }
 
 // TestPanelOpensThePullRequestKey pins the pull request key by the script it starts on the
-// agent the cursor was on, since the action it names is not in the panel's own list.
+// agent the cursor was on, since the script it names is not in the panel's own list.
 func TestPanelOpensThePullRequestKey(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -128,7 +128,7 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
@@ -188,7 +188,7 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
@@ -309,7 +309,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   client,
 		frame:  frame,
@@ -389,7 +389,7 @@ func TestPanelClearsTheUnviewedMarkThroughTheService(t *testing.T) {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   tmux,
 		popup:  popup,
@@ -449,7 +449,7 @@ func TestPanelLeavesTheMarkStandingWhileItIsHidden(t *testing.T) {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   tmux,
 		popup:  popup,
@@ -518,7 +518,7 @@ func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
 			agents:    instance.Agents,
 			workflows: instance.Workflows,
 			schedules: instance.Schedules,
-			actions:   instance.Actions,
+			hooks:     instance.Hooks,
 		},
 		tmux:   tmux,
 		popup:  popup,

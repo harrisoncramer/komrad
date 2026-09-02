@@ -39,7 +39,7 @@ type ResumeService struct {
 	workflows          workflowReader
 	launcher           *Launcher
 	harnesses          harnessGetter
-	actions            agentActions
+	scripts            agentScripts
 	fallbackResumeRoot string
 }
 
@@ -49,7 +49,7 @@ type ResumeServiceParams struct {
 	Workflows          workflowReader
 	Launcher           *Launcher
 	Harnesses          harnessGetter
-	Actions            agentActions
+	Scripts            agentScripts
 	FallbackResumeRoot string
 }
 
@@ -65,7 +65,7 @@ func NewResumeService(p ResumeServiceParams) *ResumeService {
 		workflows:          p.Workflows,
 		launcher:           p.Launcher,
 		harnesses:          p.Harnesses,
-		actions:            p.Actions,
+		scripts:            p.Scripts,
 		fallbackResumeRoot: p.FallbackResumeRoot,
 	}
 }
@@ -224,7 +224,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 	}
 
 	startHooks(ctx, hookRunParams{
-		actions: s.actions,
+		scripts: s.scripts,
 		agent:   agent,
 		hooks:   agentHooks(ctx, s.workflows, agent),
 		event:   workflowstore.HookPostResume,
@@ -234,12 +234,12 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 }
 
 func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
-	name := provisionActionFor(ctx, s.workflows, agent)
-	if s.actions == nil || name == "" {
+	name := provisionerFor(ctx, s.workflows, agent)
+	if s.scripts == nil || name == "" {
 		return "", nil
 	}
 
-	return s.actions.RunResumeAction(ctx, agent, name)
+	return s.scripts.RunResume(ctx, agent, name)
 }
 
 // turnUnfinished reports whether a state leaves a turn part-way through, which covers both the

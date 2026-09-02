@@ -25,7 +25,7 @@ func TestDeleteAgentRunsWorkflowCleanup(t *testing.T) {
 	}{
 		{
 			name:        "deleting an agent releases what setup built",
-			wantCleanup: []string{worktreeDeprovisionAction},
+			wantCleanup: []string{worktreeDeprovisioner},
 		},
 		{
 			name:    "archiving one keeps it",
@@ -84,11 +84,11 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	require.NoError(t, workflows.ArchiveWorkflow(t.Context(), created.ID))
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-	assert.Equal(t, []string{worktreeDeprovisionAction}, lifecycle.deprovision)
+	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision)
 }
 
 // TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown:
-// a delete whose cleanup action fails leaves the row behind, marked so, rather than
+// a delete whose deprovisioner fails leaves the row behind, marked so, rather than
 // dropping it the moment the delete was asked for and losing the only place left to see why.
 func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	tmux := newFakeTmux()
@@ -222,9 +222,9 @@ func TestDeleteAgentsHandlesMixedCleanupOutcomes(t *testing.T) {
 	assert.Contains(t, metadataValue(agents[0].Metadata), "container is still running")
 }
 
-// TestDeleteAgentRemovesItsActionLogs pins a delete taking the agent's logs with it, and
+// TestDeleteAgentRemovesItsRunLogs pins a delete taking the agent's logs with it, and
 // leaving them in place where the cleanup failed and they are all there is to read.
-func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
+func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 	tests := []struct {
 		name        string
 		cleanupErr  error
@@ -263,10 +263,10 @@ func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			logDir := config.ActionLogDir(logsDir, agent.ID)
+			logDir := config.RunLogDir(logsDir, agent.ID)
 			require.NoError(t, os.MkdirAll(logDir, 0o755))
-			provisionPath := filepath.Join(logDir, config.ActionLogName(1, config.TriggerProvision, "make-worktree"))
-			deprovisionPath := filepath.Join(logDir, config.ActionLogName(2, config.TriggerDeprovision, "drop-worktree"))
+			provisionPath := filepath.Join(logDir, config.RunLogName(1, config.TriggerProvision, "make-worktree"))
+			deprovisionPath := filepath.Join(logDir, config.RunLogName(2, config.TriggerDeprovision, "drop-worktree"))
 			require.NoError(t, os.WriteFile(provisionPath, []byte("cloning\n"), 0o644))
 			require.NoError(t, os.WriteFile(deprovisionPath, []byte("dropping\n"), 0o644))
 

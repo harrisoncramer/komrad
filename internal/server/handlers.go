@@ -7,14 +7,14 @@ import (
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
 	"weave/internal/mcp"
-	rpcaction "weave/internal/rpc/action"
 	rpcagent "weave/internal/rpc/agent"
 	rpcconfig "weave/internal/rpc/config"
+	rpchook "weave/internal/rpc/hook"
 	rpcschedule "weave/internal/rpc/schedule"
 	rpcworkflow "weave/internal/rpc/workflow"
-	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -69,7 +69,7 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(configv1connect.NewConfigServiceHandler(
 		rpcconfig.NewService(p.Services.loadConfig), options...))
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		rpcaction.NewService(p.Services.action), options...))
+		rpchook.NewService(p.Services.script), options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: p.ReadOnly, BaseURL: "http://" + p.Addr})
 	if err != nil {

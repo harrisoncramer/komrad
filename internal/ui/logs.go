@@ -43,16 +43,16 @@ func shellQuote(value string) string {
 	return "'" + strings.ReplaceAll(value, "'", `'\''`) + "'"
 }
 
-var logCycle = []infoKind{infoActionLog, infoAgentLog}
+var logCycle = []infoKind{infoRunLog, infoAgentLog}
 
 func (m model) logsDesc() string {
 	switch m.info.kind {
-	case infoActionLog:
+	case infoRunLog:
 		return "agent log"
 	case infoAgentLog:
 		return "hide logs"
 	default:
-		return "action log"
+		return "run log"
 	}
 }
 
@@ -97,7 +97,7 @@ func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 // to the most recent, since one direction reaches every run and two keys for a handful of
 // files is a key too many.
 func (m model) olderLog() (tea.Model, tea.Cmd) {
-	if m.info.kind != infoActionLog {
+	if m.info.kind != infoRunLog {
 		return m, nil
 	}
 
@@ -106,7 +106,7 @@ func (m model) olderLog() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	runs := config.ListActionLogRuns(m.actionLogsDir, agent.ID)
+	runs := config.ListRunLogs(m.runLogsDir, agent.ID)
 	if len(runs) < 2 {
 		return m, nil
 	}
@@ -117,26 +117,26 @@ func (m model) olderLog() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) actionLogContent() layout.Content {
+func (m model) runLogContent() layout.Content {
 	agent, ok := m.logTarget()
 	if !ok {
-		return newTextContent("select an agent to see its action log")
+		return newTextContent("select an agent to see its run log")
 	}
 
-	run, ok := m.actionLogRun(agent.ID, m.info.run)
+	run, ok := m.runLog(agent.ID, m.info.run)
 	if !ok {
-		return newTextContent("no action has run for this agent yet")
+		return newTextContent("no script has run for this agent yet")
 	}
 
 	return newLogContent(processLogArgv(m.processViewer, run.Path))
 }
 
-// actionLogRun is the run the pane is showing, counting back from the most recent, falling
-// back to the most recent one there when the one it was showing has since been pruned.
-func (m model) actionLogRun(agentID string, back int) (config.ActionLogRun, bool) {
-	runs := config.ListActionLogRuns(m.actionLogsDir, agentID)
+// runLog is the run the pane is showing, counting back from the most recent, falling back to
+// the most recent one there when the one it was showing has since been pruned.
+func (m model) runLog(agentID string, back int) (config.RunLog, bool) {
+	runs := config.ListRunLogs(m.runLogsDir, agentID)
 	if len(runs) == 0 {
-		return config.ActionLogRun{}, false
+		return config.RunLog{}, false
 	}
 
 	if back >= len(runs) {
@@ -146,10 +146,10 @@ func (m model) actionLogRun(agentID string, back int) (config.ActionLogRun, bool
 	return runs[back], true
 }
 
-// latestActionLogRun is the most recent run at one of the given moments that has anything to
-// read, since a run refused before its script wrote a byte points at an empty pager.
-func (m model) latestActionLogRun(agentID string, moments []string) (config.ActionLogRun, bool) {
-	for _, run := range config.ListActionLogRuns(m.actionLogsDir, agentID) {
+// latestRunLog is the most recent run at one of the given moments that has anything to read,
+// since a run refused before its script wrote a byte points at an empty pager.
+func (m model) latestRunLog(agentID string, moments []string) (config.RunLog, bool) {
+	for _, run := range config.ListRunLogs(m.runLogsDir, agentID) {
 		if !slices.Contains(moments, run.Trigger) {
 			continue
 		}
@@ -161,7 +161,7 @@ func (m model) latestActionLogRun(agentID string, moments []string) (config.Acti
 		return run, true
 	}
 
-	return config.ActionLogRun{}, false
+	return config.RunLog{}, false
 }
 
 func (m model) agentLogContent() layout.Content {

@@ -7,7 +7,7 @@ set -euo pipefail
 usage() {
 	echo "Usage: mise run bash:check"
 	echo
-	echo "Finds every shell script under mise/tasks and internal/actions/builtin, plus"
+	echo "Finds every shell script under mise/tasks and internal/scripts/builtin, plus"
 	echo "the tmux entry point, and runs shellcheck -x over them."
 }
 

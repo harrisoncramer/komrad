@@ -1,6 +1,6 @@
-// Package action serves what is left of the action RPCs: the hooks a person has written, and
-// the built-in script behind the panel's open-pull-request key.
-package action
+// Package hook serves the hooks a person has written, and the built-in script behind the
+// panel's open-pull-request key.
+package hook
 
 import (
 	"context"
@@ -16,23 +16,23 @@ import (
 )
 
 type hookRunner interface {
-	ListHooks() ([]agents.Action, error)
+	ListHooks() ([]agents.Script, error)
 	OpenPullRequest(ctx context.Context, agentID string) error
 }
 
 type Service struct {
-	actions hookRunner
+	scripts hookRunner
 }
 
 // NewService constructs the handler from the service that owns the rules.
 func NewService(manager hookRunner) *Service {
-	return &Service{actions: manager}
+	return &Service{scripts: manager}
 }
 
 // ListHooks returns every file in the user's hooks directory, and a directory that is not
 // there is an empty listing rather than an error.
 func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
-	listed, err := s.actions.ListHooks()
+	listed, err := s.scripts.ListHooks()
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list hooks")
 	}
@@ -54,7 +54,7 @@ func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]
 // OpenPullRequest fires the built-in script behind the panel's own key, which is the one script
 // weave runs on demand rather than at a moment of its own choosing.
 func (s *Service) OpenPullRequest(ctx context.Context, req *connect.Request[hookv1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.actions.OpenPullRequest(ctx, req.Msg.GetAgentId()); err != nil {
+	if err := s.scripts.OpenPullRequest(ctx, req.Msg.GetAgentId()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to open the pull request")
 	}
 

@@ -324,8 +324,8 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// Log writes one line to weave's log for an agent, which is how a running action says what
-// it did, since an action's own stdout goes nowhere.
+// Log writes one line to weave's log for an agent, which is how a running script says what
+// it did, since a script's own stdout goes nowhere.
 func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
 	id := callerScope(ctx, req.Msg.GetId())
 	if id == "" {
@@ -340,10 +340,10 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 
 	attrs := []slog.Attr{
 		slog.String(logging.TargetAgentID, agent.ID),
-		slog.String(logging.ActionAgentCwd, agent.Cwd),
+		slog.String(logging.ScriptAgentCwd, agent.Cwd),
 	}
 	if script := req.Msg.GetScript(); script != "" {
-		attrs = append(attrs, slog.String(logging.ActionName, script))
+		attrs = append(attrs, slog.String(logging.ScriptName, script))
 	}
 
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), attrs...)
@@ -463,7 +463,7 @@ func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1
 }
 
 // EmptyArchive queues the sweep that deletes the whole archive as a background job, since
-// every agent in it runs its own deprovision action and the request would be held open too long.
+// every agent in it runs its own deprovisioner and the request would be held open too long.
 func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.archive.EmptyArchive(ctx); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to empty the archive")

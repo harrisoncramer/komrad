@@ -16,8 +16,8 @@ import (
 )
 
 const (
-	worktreeProvisionAction   = "_worktree_setup"
-	worktreeDeprovisionAction = "_worktree_cleanup"
+	worktreeProvisioner   = "_worktree_setup"
+	worktreeDeprovisioner = "_worktree_cleanup"
 )
 
 var ErrWorkflowHasSchedules = errors.New("workflow still has schedules")
@@ -125,7 +125,7 @@ func (w *WorkflowService) NewWorkflow(ctx context.Context, cfg workflowstore.Con
 		}
 	}
 
-	// The workflow, its blueprint, and its action config are three rows, so a failure partway
+	// The workflow, its blueprint, and its script config are three rows, so a failure partway
 	// through must not leave any of them half-written.
 	var created *workflowstore.Workflow
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
@@ -194,8 +194,8 @@ func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 	kept := make([]workflowstore.Hook, 0, len(hooks))
 	for _, hook := range hooks {
 		hook.Event = strings.TrimSpace(hook.Event)
-		hook.Action = strings.TrimSpace(hook.Action)
-		if hook.Action == "" {
+		hook.Script = strings.TrimSpace(hook.Script)
+		if hook.Script == "" {
 			continue
 		}
 		if !slices.Contains(workflowstore.HookEvents(), hook.Event) {

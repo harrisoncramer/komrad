@@ -81,7 +81,7 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 		Flags:    w.GetFlags(),
 		Worktree: worktreeConfigFromProto(w.GetWorktree()),
 		Hooks: xslice.Map(w.GetHooks(), func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
-			return workflowstore.Hook{Event: hook.GetEvent(), Action: hook.GetScript()}
+			return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
 		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
 		ArchivedAt:        archived,
