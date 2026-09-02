@@ -222,11 +222,12 @@ func TestMatchSpans(t *testing.T) {
 	turnLen := int64(len("the Sandbox tenant runs sandboxed"))
 
 	tests := []struct {
-		name   string
-		offset int64
-		length int64
-		terms  []string
-		want   []matchSpan
+		name       string
+		offset     int64
+		length     int64
+		terms      []string
+		wholeWords bool
+		want       []matchSpan
 	}{
 		{
 			name:   "every spelling of the word inside the turn is found",
@@ -255,6 +256,14 @@ func TestMatchSpans(t *testing.T) {
 			},
 		},
 		{
+			name:       "a whole word does not mark the longer word holding it",
+			offset:     turn,
+			length:     turnLen,
+			terms:      []string{"sandbox"},
+			wholeWords: true,
+			want:       []matchSpan{{start: int(turn) + 4, end: int(turn) + 11}},
+		},
+		{
 			name:   "no word to look for marks nothing",
 			offset: turn,
 			length: turnLen,
@@ -280,9 +289,45 @@ func TestMatchSpans(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms))
+			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms, tt.wholeWords))
 		})
 	}
+}
+
+// TestHitSpansAreTheHoveredHits covers the turn a highlight is measured from, which is the hit
+// under the cursor rather than the preview in hand: an agent's hits sit next to each other, so
+// the transcript on hand can have been fetched for the hit before this one.
+func TestHitSpansAreTheHoveredHits(t *testing.T) {
+	const content = "alpha reconcile one\n\nbeta reconcile two\n"
+
+	second := int64(strings.Index(content, "beta"))
+	hit := searchHit{
+		agentID: "a1",
+		offset:  second,
+		length:  int64(len("beta reconcile two")),
+		snippet: marked("reconcile"),
+	}
+
+	stale := previewResult{agentID: "a1", content: content}
+
+	want := []matchSpan{{start: int(second) + 5, end: int(second) + 14}}
+	assert.Equal(t, want, matchFor(hit, stale).spans, "the hovered hit's own turn is marked")
+}
+
+// TestNearHitsMarkSubstrings covers the two sections marking different things, since a near hit
+// is by definition the letters glued into a longer word.
+func TestNearHitsMarkSubstrings(t *testing.T) {
+	const content = "the sandboxed tenant"
+
+	word := searchHit{length: int64(len(content)), snippet: marked("sandbox")}
+	near := searchHit{
+		length:  int64(len(content)),
+		snippet: marked("sandbox"),
+		near:    true,
+	}
+
+	assert.Empty(t, word.spans(content), "a word match stays on word boundaries")
+	assert.Equal(t, []matchSpan{{start: 4, end: 11}}, near.spans(content))
 }
 
 // TestRenderSnippet confirms the store's match markers are consumed into styling
@@ -866,6 +911,7 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 				name:    "payouts",
 				offset:  offset,
 				length:  int64(len(turn)),
+				snippet: marked("ledger"),
 			},
 		},
 		{
@@ -876,6 +922,7 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 				archived: true,
 				offset:   offset,
 				length:   int64(len(turn)),
+				snippet:  marked("ledger"),
 			},
 		},
 	}
@@ -905,9 +952,6 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 				preview: previewResult{
 					agentID: tt.hit.agentID,
 					query:   "ledger",
-					offset:  offset,
-					length:  int64(len(turn)),
-					terms:   []string{"ledger"},
 					content: transcript,
 				},
 			}
@@ -946,13 +990,11 @@ func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
 			name:    "payouts",
 			offset:  4,
 			length:  3,
+			snippet: marked("two"),
 		}},
 		preview: previewResult{
 			agentID: "a2",
 			query:   "ledger",
-			offset:  4,
-			length:  3,
-			terms:   []string{"two"},
 			content: "one\ntwo\nthree\n",
 		},
 	}
@@ -1030,15 +1072,9 @@ func TestMatchNeedsAPosition(t *testing.T) {
 				agentID: "a2",
 				offset:  tt.offset,
 				length:  3,
+				snippet: marked("two"),
 			}
-			preview := previewResult{
-				agentID: "a2",
-				offset:  tt.offset,
-				length:  3,
-				terms:   []string{"two"},
-				content: content,
-			}
-			got := matchFor(hit, preview)
+			got := matchFor(hit, previewResult{agentID: "a2", content: content})
 
 			assert.Equal(t, tt.want, got.spans)
 			if tt.want == nil {

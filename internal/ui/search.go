@@ -49,9 +49,6 @@ type searchResult struct {
 type previewResult struct {
 	agentID string
 	query   string
-	offset  int64
-	length  int64
-	terms   []string
 	content string
 }
 
@@ -162,21 +159,12 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 			AgentId: hit.agentID,
 		}))
 		if err != nil {
-			return previewResult{
-				agentID: hit.agentID,
-				query:   query,
-				offset:  hit.offset,
-				length:  hit.length,
-				terms:   markedTerms(hit.snippet),
-			}
+			return previewResult{agentID: hit.agentID, query: query}
 		}
 
 		return previewResult{
 			agentID: hit.agentID,
 			query:   query,
-			offset:  hit.offset,
-			length:  hit.length,
-			terms:   markedTerms(hit.snippet),
 			content: resp.Msg.GetContent(),
 		}
 	}
@@ -193,7 +181,7 @@ func (m *model) applyPreview(result previewResult) {
 	}
 
 	m.search.preview = result
-	m.stageTranscript(result.content, result.spans())
+	m.stageTranscript(result.content, hit.spans(result.content))
 }
 
 // groupSections gathers each agent's hits within its own section, since an agent with a word
@@ -379,7 +367,7 @@ func matchFor(hit searchHit, preview previewResult) matchFocus {
 
 	// A turn the content does not hold spells none of the words, and a transcript with nothing
 	// marked in it is nothing worth taking the stage for.
-	spans := preview.spans()
+	spans := hit.spans(preview.content)
 	if len(spans) == 0 {
 		return matchFocus{}
 	}
@@ -391,9 +379,13 @@ func matchFor(hit searchHit, preview previewResult) matchFocus {
 	}
 }
 
-// spans locates the matched words within the transcript, which is where the highlight goes.
-func (r previewResult) spans() []matchSpan {
-	return matchSpans(r.content, r.offset, r.length, r.terms)
+// spans locates this hit's own matched words within the transcript, measured from the turn the
+// hit names rather than from whatever the preview last fetched, since an agent's hits sit next
+// to each other in the listing and the transcript on hand can belong to the one before it.
+func (h searchHit) spans(content string) []matchSpan {
+	// The database marks a word match at word boundaries, while the near section is the one
+	// that means letters glued into a longer word, so only it looks for a substring.
+	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet), !h.near)
 }
 
 // stageMatch puts the transcript a search hit came from on the stage at the line it matched on,

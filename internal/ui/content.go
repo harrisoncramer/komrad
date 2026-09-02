@@ -61,7 +61,7 @@ func newTranscriptContent(conversation string, spans []matchSpan) layout.Content
 		// The stage is drawn again on every refresh, so the key has to answer for the
 		// conversation as well as the matches, or a transcript that has grown would stop
 		// restaging.
-		Key: fmt.Sprintf("transcript:%v:%d", spans, maphash.String(transcriptSeed, conversation)),
+		Key: fmt.Sprintf("transcript:%d:%d", spanHash(spans), maphash.String(transcriptSeed, conversation)),
 		Dir: homeDir(),
 		Render: func(layout.Target) ([]string, bool) {
 			path := filepath.Join(os.TempDir(), "weave-transcript.txt")
@@ -77,6 +77,17 @@ func newTranscriptContent(conversation string, spans []matchSpan) layout.Content
 			return pagerArgv(path, open), true
 		},
 	}
+}
+
+// spanHash stands in for the matches themselves in a stage key, since a turn can hold hundreds
+// of them and the key is only ever compared.
+func spanHash(spans []matchSpan) uint64 {
+	var b strings.Builder
+	for _, span := range spans {
+		fmt.Fprintf(&b, "%d-%d,", span.start, span.end)
+	}
+
+	return maphash.String(transcriptSeed, b.String())
 }
 
 func newBlankContent() layout.Content {

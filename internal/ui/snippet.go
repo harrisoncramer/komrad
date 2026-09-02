@@ -181,7 +181,7 @@ func markedTerms(snippet string) []string {
 // matchSpans locates every place the marked words are spelled within the one turn a hit came
 // from, which is the whole of what a hit says about where it matched: the search index gives a
 // turn and the words, never the offsets of the words themselves.
-func matchSpans(content string, offset, length int64, terms []string) []matchSpan {
+func matchSpans(content string, offset, length int64, terms []string, wholeWords bool) []matchSpan {
 	if len(terms) == 0 || offset < 0 || offset > int64(len(content)) || length <= 0 {
 		return nil
 	}
@@ -199,9 +199,14 @@ func matchSpans(content string, offset, length int64, terms []string) []matchSpa
 				break
 			}
 
-			start := int(offset) + at + i
-			spans = append(spans, matchSpan{start: start, end: start + len(lowered)})
-			at += i + len(lowered)
+			from, to := at+i, at+i+len(lowered)
+			at = to
+
+			if wholeWords && !bounded(turn, from, to) {
+				continue
+			}
+
+			spans = append(spans, matchSpan{start: int(offset) + from, end: int(offset) + to})
 		}
 	}
 
@@ -225,6 +230,23 @@ func matchSpans(content string, offset, length int64, terms []string) []matchSpa
 	}
 
 	return merged
+}
+
+// bounded reports whether a range stands as its own word, which is how the database marks a
+// word match: a query for "id" says nothing about the "id" inside "invalid".
+func bounded(s string, start, end int) bool {
+	return (start == 0 || !wordByte(s[start-1])) && (end == len(s) || !wordByte(s[end]))
+}
+
+// wordByte reports whether a byte can sit inside a word, counting every byte of a multi-byte
+// rune as one, since a letter beyond ASCII is still a letter.
+func wordByte(c byte) bool {
+	switch {
+	case c >= 'a' && c <= 'z', c >= '0' && c <= '9', c == '_', c >= 0x80:
+		return true
+	default:
+		return false
+	}
 }
 
 // asciiLower folds a string for comparison without moving any byte, since the offsets taken off
