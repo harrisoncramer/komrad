@@ -550,7 +550,11 @@ func (f *fakeLifecycle) RunHookAction(_ context.Context, agent agentstore.Agent,
 	f.hooksMu.Lock()
 	defer f.hooksMu.Unlock()
 
-	f.hooks = append(f.hooks, ranHook{Event: event, Action: name, Cwd: agent.Cwd})
+	f.hooks = append(f.hooks, ranHook{
+		Event:  event,
+		Action: name,
+		Cwd:    agent.Cwd,
+	})
 
 	return f.hookErrs[name]
 }

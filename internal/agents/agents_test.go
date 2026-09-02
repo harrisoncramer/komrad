@@ -103,7 +103,11 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 				ID:       "wf1",
 				Worktree: workflowstore.WorktreeConfig{Enabled: tt.worktree},
 			}}
-			agent := agentstore.Agent{ID: "a1", WorkflowID: "wf1", ProvisionEnabled: tt.provision}
+			agent := agentstore.Agent{
+				ID:               "a1",
+				WorkflowID:       "wf1",
+				ProvisionEnabled: tt.provision,
+			}
 
 			assert.Equal(t, tt.wantProvision, provisionActionFor(context.Background(), workflows, agent))
 			assert.Equal(t, tt.wantDeprovision, deprovisionActionFor(context.Background(), workflows, agent))

@@ -44,9 +44,17 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 
 	ran := lifecycle.ranHooks()
 	require.GreaterOrEqual(t, len(ran), 2)
-	assert.Equal(t, ranHook{Event: workflowstore.HookPreLaunch, Action: "install-deps", Cwd: provisioned}, ran[0],
+	assert.Equal(t, ranHook{
+		Event:  workflowstore.HookPreLaunch,
+		Action: "install-deps",
+		Cwd:    provisioned,
+	}, ran[0],
 		"the first pre-launch hook runs in the directory the provisioner named")
-	assert.Equal(t, ranHook{Event: workflowstore.HookPreLaunch, Action: "copy-env", Cwd: provisioned}, ran[1],
+	assert.Equal(t, ranHook{
+		Event:  workflowstore.HookPreLaunch,
+		Action: "copy-env",
+		Cwd:    provisioned,
+	}, ran[1],
 		"and the second runs after it, in the order the workflow lists them")
 }
 

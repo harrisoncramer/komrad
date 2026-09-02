@@ -238,7 +238,12 @@ func startHooks(ctx context.Context, p hookRunParams) {
 	bg := context.WithoutCancel(ctx)
 
 	go func() {
-		if err := runHooks(bg, hookRunParams{actions: p.actions, agent: p.agent, hooks: p.hooks, event: p.event}); err != nil {
+		if err := runHooks(bg, hookRunParams{
+			actions: p.actions,
+			agent:   p.agent,
+			hooks:   p.hooks,
+			event:   p.event,
+		}); err != nil {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
 				append([]slog.Attr{
 					slog.String(logging.ActionTrigger, p.event),

@@ -184,7 +184,11 @@ func parseActionLogName(name string) (*ActionLogRun, bool) {
 	// rather than at the next hyphen along.
 	for _, moment := range ActionMoments() {
 		if action, found := strings.CutPrefix(rest, moment+"-"); found {
-			return &ActionLogRun{Number: parsed, Trigger: moment, Action: action}, true
+			return &ActionLogRun{
+				Number:  parsed,
+				Trigger: moment,
+				Action:  action,
+			}, true
 		}
 	}
 
@@ -193,5 +197,9 @@ func parseActionLogName(name string) (*ActionLogRun, bool) {
 		return nil, false
 	}
 
-	return &ActionLogRun{Number: parsed, Trigger: trigger, Action: action}, true
+	return &ActionLogRun{
+		Number:  parsed,
+		Trigger: trigger,
+		Action:  action,
+	}, true
 }

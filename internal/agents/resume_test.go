@@ -369,7 +369,11 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	agent := seedInWorkflow(t, st, workflowID, "cut", "", agentstore.StateThinking)
 
 	lifecycle := &fakeLifecycle{resumeErr: errors.New("git worktree add: already checked out")}
-	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{Name: "workflow", Cwd: initRepo(t), Worktree: workflowstore.WorktreeConfig{Enabled: true}}))
+	require.NoError(t, st.Workflows.Update(ctx, workflowID, workflowstore.Config{
+		Name:     "workflow",
+		Cwd:      initRepo(t),
+		Worktree: workflowstore.WorktreeConfig{Enabled: true},
+	}))
 
 	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 
