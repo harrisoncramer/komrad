@@ -42,8 +42,11 @@ type Agent struct {
 	StateChangedAt time.Time
 	StateSeenAt    time.Time
 	// ViewedAt is how much of an agent's conversation the person has read, measured against
-	// when the transcript last grew rather than against anything read off the pane.
-	ViewedAt         *time.Time
+	// the last turn the agent reported ending rather than against the clock.
+	ViewedAt *time.Time
+	// TurnEndedAt is when the agent's own CLI last reported a turn of its ending, which is
+	// the only thing that ever moves it.
+	TurnEndedAt      *time.Time
 	Harness          string
 	SessionID        string
 	WorkflowID       string
@@ -117,6 +120,7 @@ func agentFromRow(agent models.Agent) Agent {
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,
 		ViewedAt:         agent.ViewedAt,
+		TurnEndedAt:      agent.TurnEndedAt,
 		Harness:          agent.Harness,
 		SessionID:        agent.SessionID,
 		WorkflowID:       agent.WorkflowID,

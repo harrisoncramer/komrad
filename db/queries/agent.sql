@@ -295,29 +295,31 @@ UPDATE
     agents
 SET
     viewed_at = CASE WHEN @viewed::boolean THEN
-    (
-        SELECT
-            t.synced_at
-        FROM
-            agent_transcripts t
-        WHERE
-            t.agent_id = agents.id)
+        turn_ended_at
     ELSE
         NULL
     END
 WHERE
     id = @id;
 
--- name: ListAgentsWithUnreadTranscripts :many
+-- name: SetAgentTurnEndedByID :exec
+UPDATE
+    agents
+SET
+    turn_ended_at = NOW()
+WHERE
+    id = @id;
+
+-- name: ListAgentsWithUnseenTurns :many
 SELECT
-    t.agent_id
+    a.id
 FROM
-    agent_transcripts t
-    JOIN agents a ON a.id = t.agent_id
+    agents a
 WHERE
     a.archived_at IS NULL
+    AND a.turn_ended_at IS NOT NULL
     AND (a.viewed_at IS NULL
-        OR t.synced_at > a.viewed_at);
+        OR a.turn_ended_at > a.viewed_at);
 
 -- name: MarkAgentSettingUpIfLive :many
 UPDATE

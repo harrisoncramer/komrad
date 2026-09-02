@@ -59,17 +59,6 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
-// ListUnread reports the agents whose conversation has grown since the person last read it,
-// which is a fact about the log on disk rather than anything weave thought it saw on a pane.
-func (s *Store) ListUnread(ctx context.Context) ([]string, error) {
-	rows, err := s.queries.ListAgentsWithUnreadTranscripts(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list the agents holding unread output: %w", err)
-	}
-
-	return rows, nil
-}
-
 // Get returns an agent's stored transcript, or a zero Transcript when none has been
 // synced yet, so a first sync sees an offset of 0 and indexes the whole file.
 func (s *Store) Get(ctx context.Context, agentID string) (Transcript, error) {

@@ -44,6 +44,9 @@ type Launch struct {
 	MCPEndpoint string
 	CacheDir    string
 	Dir         string
+	// HookCommand is the weave binary a harness points its own hooks at, and a harness that
+	// wires none, or whose CLI cannot report a turn of its ending, carries no unread mark at
+	// all, since that mark is only ever stamped from such a report.
 	HookCommand string
 	Resume      bool
 }

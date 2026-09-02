@@ -121,6 +121,14 @@ func (s *Stores) SeedTranscript(t *testing.T, agentID, content string) {
 	}))
 }
 
+// SeedTurnEnded records a turn of an agent's ending, which is how a test makes one look like
+// it has finished something nobody has read since.
+func (s *Stores) SeedTurnEnded(t *testing.T, agentID string) {
+	t.Helper()
+
+	require.NoError(t, s.Agents.SetTurnEnded(t.Context(), agentID))
+}
+
 // SeedWorkflow creates a workflow and returns it, for the tests that only need
 // something to file an agent under.
 func (s *Stores) SeedWorkflow(t *testing.T, cfg workflowstore.Config) *workflowstore.Workflow {
