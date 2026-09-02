@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"testing"
 
+	"time"
+
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
 
@@ -121,6 +123,32 @@ func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstor
 	return page, nil
 }
 
+func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Agent, error) {
+	wanted := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		wanted[id] = true
+	}
+
+	var found []agentstore.Agent
+	for _, agent := range f.agents {
+		if wanted[agent.ID] {
+			found = append(found, withArchived(agent))
+		}
+	}
+
+	return found, nil
+}
+
+// withArchived stamps the archive time the real store carries on every row the sweep reads,
+// which is what tells an archived parent from a live one.
+func withArchived(agent agentstore.Agent) agentstore.Agent {
+	if agent.ArchivedAt == nil {
+		agent.ArchivedAt = xptr.Ptr(time.Now())
+	}
+
+	return agent
+}
+
 func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 	f.pages++
 	f.asked = append(f.asked, ids)
@@ -157,9 +185,8 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 	return nil
 }
 
-// TestEmptyArchiveAsksForTheParents pins that a page holding a child names only its parent,
-// since a child is deleted by naming the agent it is attached to and naming one alone is
-// refused.
+// TestEmptyArchiveAsksForTheParents pins that a page holding a child whose parent is in the
+// archive too names only that parent, since the delete takes the child with it.
 func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 	archive := newFakeArchive(0)
 	archive.agents = []agentstore.Agent{
@@ -172,4 +199,17 @@ func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 
 	assert.Equal(t, [][]string{{"000001"}}, archive.asked)
 	assert.Empty(t, archive.agents, "and the child goes with it")
+}
+
+// TestEmptyArchiveTakesAChildWhoseParentIsLive pins the row nothing else can reach: a child
+// archived on its own, whose parent is still working and is never named by the sweep.
+func TestEmptyArchiveTakesAChildWhoseParentIsLive(t *testing.T) {
+	archive := newFakeArchive(0)
+	archive.agents = []agentstore.Agent{{ID: "000002", ParentAgentID: xptr.Ptr("000001")}}
+	worker := NewEmptyArchiveWorker(archive, archive)
+
+	require.NoError(t, worker.Work(t.Context(), &river.Job[EmptyArchiveArgs]{Args: EmptyArchiveArgs{}}))
+
+	assert.Equal(t, [][]string{{"000002"}}, archive.asked)
+	assert.Empty(t, archive.agents, "the archive is left empty")
 }

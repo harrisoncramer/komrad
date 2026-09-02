@@ -46,7 +46,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
-		{agents.ErrChildRidesAlong, connect.CodeFailedPrecondition},
+		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 		{agents.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
