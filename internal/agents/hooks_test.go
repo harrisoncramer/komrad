@@ -205,3 +205,67 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Action: "announce"}}, updated.Hooks,
 		"an update writes the whole list rather than adding to it")
 }
+
+// TestResumeFiresPostResumeHooks pins the moment a dormant agent comes back in, which is the
+// one hook a resume runs: the provisioner reruns before it, as it always has.
+func TestResumeFiresPostResumeHooks(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name: "backend",
+		Hooks: []workflowstore.Hook{
+			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+			{Event: workflowstore.HookPostResume, Action: "announce-back"},
+		},
+	})
+	require.NoError(t, err)
+
+	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	agent.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, agent))
+
+	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return len(lifecycle.ranHooks()) == 1
+	}, 5*time.Second, 10*time.Millisecond, "the post-resume hook runs once the pane is back")
+
+	ran := lifecycle.ranHooks()
+	assert.Equal(t, workflowstore.HookPostResume, ran[0].Event)
+	assert.Equal(t, "announce-back", ran[0].Action, "and pre-launch does not rerun")
+}
+
+// TestRestoreFiresPostRestoreHooks pins the moment the row comes back, which is not the moment
+// the pane does: a restored agent is dormant until somebody opens it.
+func TestRestoreFiresPostRestoreHooks(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:  "backend",
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Action: "unlock"}},
+	})
+	require.NoError(t, err)
+
+	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	require.NoError(t, st.SoftDelete(ctx, "auth"))
+
+	_, err = manager.lifecycle.RestoreAgents(ctx, []string{agent.ID})
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return len(lifecycle.ranHooks()) == 1
+	}, 5*time.Second, 10*time.Millisecond, "the post-restore hook runs once the row is back")
+
+	assert.Equal(t, workflowstore.HookPostRestore, lifecycle.ranHooks()[0].Event)
+}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"slices"
 	"strings"
 	"time"
 
@@ -385,7 +384,12 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	}
 	agent = plan.agent(p, id, sessionID, dir, "", spawner)
 
-	if err := s.runHooks(ctx, agent, plan.hooks, workflowstore.HookPreLaunch); err != nil {
+	if err := runHooks(ctx, hookRunParams{
+		actions: s.actions,
+		agent:   agent,
+		hooks:   plan.hooks,
+		event:   workflowstore.HookPreLaunch,
+	}); err != nil {
 		return nil, err
 	}
 
@@ -435,50 +439,14 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 
 	launched = true
 
-	s.startHooks(ctx, *created, plan.hooks, workflowstore.HookPostLaunch)
+	startHooks(ctx, hookRunParams{
+		actions: s.actions,
+		agent:   *created,
+		hooks:   plan.hooks,
+		event:   workflowstore.HookPostLaunch,
+	})
 
 	return created, nil
-}
-
-// runHooks runs the hooks on one moment in order, waiting for each, and stops at the first
-// that fails so the ones after it are not handed a directory half prepared.
-func (s *LaunchService) runHooks(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, event string) error {
-	if s.actions == nil {
-		return nil
-	}
-
-	for _, hook := range hooks {
-		if hook.Event != event {
-			continue
-		}
-
-		if err := s.actions.RunHookAction(ctx, agent, hook.Action, event); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-// startHooks runs a moment's hooks in the background, since the call that set the moment off
-// has nothing to wait for: the agent is already in its pane and a hook that fails there is
-// reported rather than undone.
-func (s *LaunchService) startHooks(ctx context.Context, agent agentstore.Agent, hooks []workflowstore.Hook, event string) {
-	if s.actions == nil || !slices.ContainsFunc(hooks, func(hook workflowstore.Hook) bool { return hook.Event == event }) {
-		return
-	}
-
-	bg := context.WithoutCancel(ctx)
-
-	go func() {
-		if err := s.runHooks(bg, agent, hooks, event); err != nil {
-			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
-				append([]slog.Attr{
-					slog.String(logging.ActionTrigger, event),
-					slog.String(logging.ActionAgentID, agent.ID),
-				}, logging.Err(err)...)...)
-		}
-	}()
 }
 
 // teardownTimeout stands in for the caller's own deadline once that no longer applies, so a

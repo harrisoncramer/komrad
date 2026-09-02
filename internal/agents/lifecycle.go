@@ -284,7 +284,23 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, fmt.Errorf("failed to restore %d agents: %w", len(archived), err)
 	}
 
-	return s.agents.ListByID(ctx, agentIDs(agents))
+	restored, err := s.agents.ListByID(ctx, agentIDs(agents))
+	if err != nil {
+		return nil, err
+	}
+
+	// The row is back but dormant, so a hook here is looking at the record rather than at a
+	// running agent: the pane comes back later, when somebody opens it, and fires post-resume.
+	for _, agent := range restored {
+		startHooks(ctx, hookRunParams{
+			actions: s.actions,
+			agent:   agent,
+			hooks:   agentHooks(ctx, s.workflows, agent),
+			event:   workflowstore.HookPostRestore,
+		})
+	}
+
+	return restored, nil
 }
 
 // withChildren adds the children of the agents a call named to the list it acts on, and refuses

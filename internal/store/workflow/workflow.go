@@ -18,13 +18,15 @@ import (
 // The moments a workflow can hang a script on, each named for the event it hangs on and the
 // side of it that runs, so reading the name says when it fires.
 const (
-	HookPreLaunch  = "pre-launch"
-	HookPostLaunch = "post-launch"
+	HookPreLaunch   = "pre-launch"
+	HookPostLaunch  = "post-launch"
+	HookPostResume  = "post-resume"
+	HookPostRestore = "post-restore"
 )
 
 // HookEvents are the moments a workflow can hang a script on, in the order they fire.
 func HookEvents() []string {
-	return []string{HookPreLaunch, HookPostLaunch}
+	return []string{HookPreLaunch, HookPostLaunch, HookPostResume, HookPostRestore}
 }
 
 // Hook is one script a workflow hangs on a moment, and a moment can hold several.

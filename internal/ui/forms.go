@@ -117,6 +117,8 @@ type workflowFormValues struct {
 	DeprovisionAction    string
 	PreLaunchHooks       string
 	PostLaunchHooks      string
+	PostResumeHooks      string
+	PostRestoreHooks     string
 	WorktreeBaseBranch   string
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
@@ -144,6 +146,8 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		DeprovisionAction:    customAction(cfg.DeprovisionAction),
 		PreLaunchHooks:       hookLines(cfg.Hooks, workflowstore.HookPreLaunch),
 		PostLaunchHooks:      hookLines(cfg.Hooks, workflowstore.HookPostLaunch),
+		PostResumeHooks:      hookLines(cfg.Hooks, workflowstore.HookPostResume),
+		PostRestoreHooks:     hookLines(cfg.Hooks, workflowstore.HookPostRestore),
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
@@ -179,6 +183,8 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 		Hooks: slices.Concat(
 			hooksFrom(v.PreLaunchHooks, workflowstore.HookPreLaunch),
 			hooksFrom(v.PostLaunchHooks, workflowstore.HookPostLaunch),
+			hooksFrom(v.PostResumeHooks, workflowstore.HookPostResume),
+			hooksFrom(v.PostRestoreHooks, workflowstore.HookPostRestore),
 		),
 		ArchiveOnPRClosed: v.ArchiveOnPRClosed,
 	}
@@ -560,6 +566,12 @@ func hookFields(values *workflowFormValues) []huh.Field {
 		huh.NewText().Key("post_launch_hooks").Title("Post-launch hooks").
 			Description("one action name per line, run once the agent has been launched into its pane").
 			Lines(2).Value(&values.PostLaunchHooks),
+		huh.NewText().Key("post_resume_hooks").Title("Post-resume hooks").
+			Description("one action name per line, run once a dormant agent is back in a pane").
+			Lines(2).Value(&values.PostResumeHooks),
+		huh.NewText().Key("post_restore_hooks").Title("Post-restore hooks").
+			Description("one action name per line, run when an archived agent's row comes back").
+			Lines(2).Value(&values.PostRestoreHooks),
 	}
 }
 

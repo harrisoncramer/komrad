@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 
 	"weave/internal/caller"
@@ -195,6 +196,71 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 			tmux.KillPane(owner.Pane)
 		}
 	}
+}
+
+// hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
+// against, and the moment itself, which is what the script reads out of WEAVE_TRIGGER.
+type hookRunParams struct {
+	actions agentActions
+	agent   agentstore.Agent
+	hooks   []workflowstore.Hook
+	event   string
+}
+
+// runHooks runs the hooks on one moment in order, waiting for each, and stops at the first that
+// fails so the ones after it are not handed a directory half prepared.
+func runHooks(ctx context.Context, p hookRunParams) error {
+	if p.actions == nil {
+		return nil
+	}
+
+	for _, hook := range p.hooks {
+		if hook.Event != p.event {
+			continue
+		}
+
+		if err := p.actions.RunHookAction(ctx, p.agent, hook.Action, p.event); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// startHooks runs a moment's hooks in the background, since the call that set the moment off has
+// nothing to wait for: the agent is already where the hooks are about to look, and one that
+// fails there is reported rather than undone.
+func startHooks(ctx context.Context, p hookRunParams) {
+	if p.actions == nil || !slices.ContainsFunc(p.hooks, func(hook workflowstore.Hook) bool { return hook.Event == p.event }) {
+		return
+	}
+
+	bg := context.WithoutCancel(ctx)
+
+	go func() {
+		if err := runHooks(bg, hookRunParams{actions: p.actions, agent: p.agent, hooks: p.hooks, event: p.event}); err != nil {
+			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
+				append([]slog.Attr{
+					slog.String(logging.ActionTrigger, p.event),
+					slog.String(logging.ActionAgentID, p.agent.ID),
+				}, logging.Err(err)...)...)
+		}
+	}()
+}
+
+// agentHooks are the hooks a workflow lists for one of its agents, which is none for a child
+// since a child is spawned into a directory somebody else prepared.
+func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.Agent) []workflowstore.Hook {
+	if agent.ParentAgentID != nil {
+		return nil
+	}
+
+	wf := workflowFor(ctx, workflows, agent)
+	if wf == nil {
+		return nil
+	}
+
+	return wf.Hooks
 }
 
 // runDeprovision starts a deprovision action, calling done exactly once with the outcome,

@@ -51,6 +51,8 @@ A workflow can also hang scripts on a moment in its agents' lives rather than on
 
 `post-launch` runs once the CLI has been launched into the pane. Weave still waits for one before starting the next, but the chain runs in the background, so the call that created the agent returns straight away and a hook that fails there is reported rather than undone.
 
+`post-resume` runs once a dormant agent is back in a pane, after the provisioner has rerun, and `post-restore` runs when an archived row comes back. Both run in the background like `post-launch`, and a failure is logged rather than undone.
+
 A hook runs in the agent's own directory, which is the one the provisioner named, and reads the moment out of `WEAVE_TRIGGER` like any other action. A child agent runs no hooks at all, since it is spawned into a directory its parent already prepared.
 
 ### On demand
@@ -80,7 +82,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_ACTIONS_DIR`, the directory the action came out of, which is how a script that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `provision`, `resume`, `deprovision`, `pre-launch`, or `post-launch`.
+- `WEAVE_TRIGGER`, what set the action off. One of `manual`, `provision`, `resume`, `deprovision`, `pre-launch`, `post-launch`, `post-resume`, or `post-restore`.
 - `WEAVE_ACTION`, this action's own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own actions do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.

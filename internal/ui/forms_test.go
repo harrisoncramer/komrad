@@ -1201,3 +1201,20 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 
 	assert.Equal(t, screenAgents, opened.screen)
 }
+
+// TestWorkflowFormRoundTripsEveryHookMoment pins the form editing every moment there is, since
+// a moment it does not ask about is one an edit through the panel would silently drop.
+func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
+	hooks := []workflowstore.Hook{
+		{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+		{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
+		{Event: workflowstore.HookPostLaunch, Action: "announce"},
+		{Event: workflowstore.HookPostResume, Action: "announce-back"},
+		{Event: workflowstore.HookPostRestore, Action: "unlock"},
+	}
+
+	values := workflowFormValuesFrom(workflowstore.Config{Name: "backend", Hooks: hooks})
+
+	assert.Equal(t, "install-deps\ncopy-env", values.PreLaunchHooks, "a moment's hooks are one action name per line, in order")
+	assert.Equal(t, hooks, values.toConfig().Hooks, "and every moment comes back as it went in")
+}
