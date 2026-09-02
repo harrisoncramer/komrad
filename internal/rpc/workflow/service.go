@@ -86,9 +86,8 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 		Harness:           req.Msg.GetHarness(),
 		Cwd:               req.Msg.GetCwd(),
 		Flags:             req.Msg.GetFlags(),
-		SetupAction:       req.Msg.GetSetupAction(),
-		CleanupAction:     req.Msg.GetCleanupAction(),
 		Worktree:          worktreeConfigFromProto(req.Msg.GetWorktree()),
+		Hooks:             hooksFromProto(req.Msg.GetHooks()),
 		ArchiveOnPRClosed: req.Msg.GetArchiveOnPrClosed(),
 	})
 	if err != nil {
@@ -106,9 +105,8 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 		Harness:           req.Msg.GetHarness(),
 		Cwd:               req.Msg.GetCwd(),
 		Flags:             req.Msg.GetFlags(),
-		SetupAction:       req.Msg.GetSetupAction(),
-		CleanupAction:     req.Msg.GetCleanupAction(),
 		Worktree:          worktreeConfigFromProto(req.Msg.GetWorktree()),
+		Hooks:             hooksFromProto(req.Msg.GetHooks()),
 		ArchiveOnPRClosed: req.Msg.GetArchiveOnPrClosed(),
 	})
 	if err != nil {
@@ -117,6 +115,12 @@ func (s *Service) UpdateWorkflow(ctx context.Context, req *connect.Request[workf
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+func hooksFromProto(hooks []*workflowv1.WorkflowHook) []workflowstore.Hook {
+	return xslice.Map(hooks, func(hook *workflowv1.WorkflowHook) workflowstore.Hook {
+		return workflowstore.Hook{Event: hook.GetEvent(), Action: hook.GetAction()}
+	})
 }
 
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {

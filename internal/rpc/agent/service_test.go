@@ -68,13 +68,13 @@ func TestCreateAgent(t *testing.T) {
 		{
 			name:     "a setup action that refuses is a precondition, not an internal error",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: agents.ErrSetupFailed,
+			launchEr: agents.ErrProvisionFailed,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "a setup action naming an unusable directory is the same precondition",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: fmt.Errorf("%w: %w", agents.ErrSetupFailed, agents.ErrBadDirectory),
+			launchEr: fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{

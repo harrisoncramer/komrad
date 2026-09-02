@@ -153,7 +153,9 @@ toggle = ["?"]
 # about the service rather than about anything a screen lists.
 [keybindings.logs]
 # Cycle the hovered agent's logs in the info pane.
-open = ["l"]
+open  = ["l"]
+# Step back to the run before the one the info pane is showing.
+older = ["L"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
@@ -263,11 +265,12 @@ new     = ["w"]
 # Rename the workflow under the cursor.
 rename  = ["r"]
 
-# Where weave finds the scripts a workflow, a schedule, or an agent runs.
-[actions]
-# Directory for actions: one executable file per action, named after the action.
-# Files here override built-in actions with the same name.
-# Actions run in the agent's directory with agent info in WEAVE_AGENT as JSON. Default is ~/.config/weave/actions.
+# Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
+[hooks]
+# Directory for hooks: one executable file per hook, named after the hook.
+# A hook is a script or program weave runs at a moment a workflow names it against, in the
+# agent's own directory, with agent info in WEAVE_AGENT as JSON and the moment in
+# WEAVE_TRIGGER. Default is ~/.config/weave/hooks.
 dir = ""
 
 # Where a workflow's generated worktree setup action creates its worktrees.

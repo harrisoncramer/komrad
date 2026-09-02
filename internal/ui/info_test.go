@@ -48,13 +48,11 @@ func TestWorkflowContextMarkdown(t *testing.T) {
 // then the defaults future agents under it inherit.
 func TestWorkflowFields(t *testing.T) {
 	fields := workflowFields(workflowstore.Workflow{
-		ID:            "w1",
-		Name:          "api",
-		Harness:       "codex",
-		Cwd:           "/repo/api",
-		Flags:         "--model opus",
-		SetupAction:   "bootstrap",
-		CleanupAction: "teardown",
+		ID:      "w1",
+		Name:    "api",
+		Harness: "codex",
+		Cwd:     "/repo/api",
+		Flags:   "--model opus",
 	}, 3)
 
 	assert.Equal(t, []recordField{
@@ -62,22 +60,19 @@ func TestWorkflowFields(t *testing.T) {
 		{"default agent", "codex"},
 		{"directory", "/repo/api"},
 		{"flags", "--model opus"},
-		{"setup", "bootstrap"},
-		{"cleanup", "teardown"},
+		{"worktree", "off"},
 		{"workflow_id", "w1"},
 	}, fields)
 }
 
 // TestWorkflowFieldsWorktree pins that a worktree workflow's details draw the worktree
-// settings the user chose rather than the setup and cleanup scripts weave generated.
+// settings the user chose.
 func TestWorkflowFieldsWorktree(t *testing.T) {
 	workflow := workflowstore.Workflow{
-		ID:            "w1",
-		Name:          "api",
-		Harness:       "codex",
-		Cwd:           "/repo/api",
-		SetupAction:   "weave-worktree-setup-w1",
-		CleanupAction: "weave-worktree-cleanup-w1",
+		ID:      "w1",
+		Name:    "api",
+		Harness: "codex",
+		Cwd:     "/repo/api",
 		Worktree: workflowstore.WorktreeConfig{
 			Enabled:      true,
 			BaseBranch:   "main",
@@ -106,7 +101,7 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 
 	assert.Contains(t, fields, recordField{"base branch", "—"})
 	assert.NotContains(t, fields, recordField{"copy", ""})
-	assert.NotContains(t, fields, recordField{"setup", "weave-worktree-setup-w1"})
+	assert.NotContains(t, fields, recordField{"worktree", "off"}, "a worktree workflow says what it cuts them from, not that it has none")
 }
 
 type recordingTmux struct {

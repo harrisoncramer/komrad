@@ -102,16 +102,15 @@ func TestUpdateWorkflow(t *testing.T) {
 }
 
 // TestNewWorkflowWithWorktree covers the validation a worktree-enabled create is held to,
-// and that enabling it points setup and cleanup at the built-in pair.
+// and that enabling it is the whole of what a workflow says about its agents' directories.
 func TestNewWorkflowWithWorktree(t *testing.T) {
 	repo := initRepo(t)
 
 	tests := []struct {
-		name        string
-		cfg         workflowstore.Config
-		wantErrIs   error
-		wantSetup   string
-		wantCleanup string
+		name         string
+		cfg          workflowstore.Config
+		wantErrIs    error
+		wantWorktree bool
 	}{
 		{
 			name:      "enabling it with no cwd is refused, since there is no repo to work against",
@@ -119,34 +118,13 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			wantErrIs: ErrWorktreeNeedsCwd,
 		},
 		{
-			name: "enabling it alongside a setup action is refused, since it would overwrite it",
-			cfg: workflowstore.Config{
-				Name:        "backend",
-				Cwd:         "/repo",
-				SetupAction: "hand-written",
-				Worktree:    workflowstore.WorktreeConfig{Enabled: true},
-			},
-			wantErrIs: ErrWorktreeOwnsActions,
-		},
-		{
-			name: "enabling it alongside a cleanup action is refused too",
-			cfg: workflowstore.Config{
-				Name:          "backend",
-				Cwd:           "/repo",
-				CleanupAction: "hand-written",
-				Worktree:      workflowstore.WorktreeConfig{Enabled: true},
-			},
-			wantErrIs: ErrWorktreeOwnsActions,
-		},
-		{
-			name: "enabling it points setup and cleanup at the built-in pair",
+			name: "enabling it points the provisioner at the built-in pair",
 			cfg: workflowstore.Config{
 				Name:     "backend",
 				Cwd:      repo,
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{".env"}},
 			},
-			wantSetup:   worktreeSetupAction,
-			wantCleanup: worktreeCleanupAction,
+			wantWorktree: true,
 		},
 		{
 			name: "an absolute copy path is refused, since the lists are relative to the repo",
@@ -191,26 +169,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 				Cwd:      repo,
 				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"config/local.env"}},
 			},
-			wantSetup:   worktreeSetupAction,
-			wantCleanup: worktreeCleanupAction,
-		},
-		{
-			name: "naming the built-in setup action without the toggle is refused",
-			cfg: workflowstore.Config{
-				Name:        "backend",
-				Cwd:         "/repo",
-				SetupAction: worktreeSetupAction,
-			},
-			wantErrIs: ErrWorktreeActionsReserved,
-		},
-		{
-			name: "naming the built-in cleanup action without the toggle is refused too",
-			cfg: workflowstore.Config{
-				Name:          "backend",
-				Cwd:           "/repo",
-				CleanupAction: worktreeCleanupAction,
-			},
-			wantErrIs: ErrWorktreeActionsReserved,
+			wantWorktree: true,
 		},
 	}
 
@@ -225,8 +184,7 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			assert.Equal(t, tt.wantSetup, created.SetupAction)
-			assert.Equal(t, tt.wantCleanup, created.CleanupAction)
+			assert.Equal(t, tt.wantWorktree, created.Worktree.Enabled)
 		})
 	}
 }
@@ -290,10 +248,8 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 	require.ErrorIs(t, err, ErrWorktreeUnsafePath)
 }
 
-// TestUpdateWorkflowWorktree covers turning worktree support on through an update, and
-// turning it back off: off has to clear setup_action and cleanup_action when they still
-// name the built-in pair, and leave them alone when a caller has since pointed them at
-// something else.
+// TestUpdateWorkflowWorktree covers turning worktree support on through an update and turning
+// it back off, which is the whole of what a workflow can say about its agents' directories.
 func TestUpdateWorkflowWorktree(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -310,47 +266,14 @@ func TestUpdateWorkflowWorktree(t *testing.T) {
 
 	afterEnable, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	assert.Equal(t, worktreeSetupAction, afterEnable.SetupAction)
-	assert.Equal(t, worktreeCleanupAction, afterEnable.CleanupAction)
+	assert.True(t, afterEnable.Worktree.Enabled)
 
 	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{Name: "backend", Cwd: "/repo"})
 	require.NoError(t, err)
 
 	afterDisable, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	assert.Empty(t, afterDisable.SetupAction, "disabling clears the built-in setup action")
-	assert.Empty(t, afterDisable.CleanupAction, "disabling clears the built-in cleanup action")
-}
-
-// TestUpdateWorkflowWorktreeRoundTripsTheBuiltinActions covers a caller that reads a
-// worktree-enabled workflow back and sends the whole thing right back unchanged, actions
-// included: SetupAction and CleanupAction come back from GetWorkflow already set to the
-// built-in pair, and sending those same values back with Worktree.Enabled still true must
-// not be mistaken for a hand-written conflict.
-func TestUpdateWorkflowWorktreeRoundTripsTheBuiltinActions(t *testing.T) {
-	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
-
-	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-		Name:     "backend",
-		Cwd:      initRepo(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
-	})
-	require.NoError(t, err)
-
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-		Name:          created.Name,
-		Cwd:           created.Cwd,
-		SetupAction:   created.SetupAction,
-		CleanupAction: created.CleanupAction,
-		Worktree:      created.Worktree,
-	})
-	require.NoError(t, err)
-
-	got, err := st.GetWorkflow(t.Context(), created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, worktreeSetupAction, got.SetupAction)
-	assert.Equal(t, worktreeCleanupAction, got.CleanupAction)
+	assert.False(t, afterDisable.Worktree.Enabled, "and off means the agents keep what they are given")
 }
 
 // TestUpdateWorkflowWorktreeDisablePreservesTheDetails checks that disabling worktree
@@ -437,51 +360,6 @@ func TestWorkflowArchiveOnPRClosed(t *testing.T) {
 	updated, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
 	assert.False(t, updated.ArchiveOnPRClosed)
-}
-
-// TestUpdateWorkflowRefusesTheReservedActionsWithoutTheToggle checks the same rule
-// TestNewWorkflowWithWorktree checks on create, this time on an update.
-func TestUpdateWorkflowRefusesTheReservedActionsWithoutTheToggle(t *testing.T) {
-	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
-
-	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{Name: "backend", Cwd: "/repo"})
-	require.NoError(t, err)
-
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-		Name: "backend", Cwd: "/repo", SetupAction: worktreeSetupAction,
-	})
-	require.ErrorIs(t, err, ErrWorktreeActionsReserved)
-
-	got, err := st.GetWorkflow(t.Context(), created.ID)
-	require.NoError(t, err)
-	assert.Empty(t, got.SetupAction, "the refused write never reached the row")
-}
-
-// TestUpdateWorkflowWorktreeDisableKeepsAHandWrittenOverride covers a caller who pointed
-// setup_action or cleanup_action somewhere else after enabling worktree support: turning it
-// off must not clobber that choice.
-func TestUpdateWorkflowWorktreeDisableKeepsAHandWrittenOverride(t *testing.T) {
-	st := newStore(t)
-	workflows := workflowsFor(st, newFakeTmux())
-
-	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
-		Name:     "backend",
-		Cwd:      initRepo(t),
-		Worktree: workflowstore.WorktreeConfig{Enabled: true},
-	})
-	require.NoError(t, err)
-
-	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
-		Name:        "backend",
-		Cwd:         "/repo",
-		SetupAction: "hand-written",
-	})
-	require.NoError(t, err)
-
-	got, err := st.GetWorkflow(t.Context(), created.ID)
-	require.NoError(t, err)
-	assert.Equal(t, "hand-written", got.SetupAction)
 }
 
 // TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite covers the same gap an archive of one
@@ -709,7 +587,7 @@ func TestRestoreWorkflowCeiling(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
 	manager := newManager(tmux, st, "")
-	workflows := st.workflowServiceCapped(tmux, 3)
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, maxAgents: 3})
 	ctx := t.Context()
 
 	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend"})
@@ -995,7 +873,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
-	lifecycle := &fakeLifecycle{cleanupRunErr: errors.New("worktree is dirty")}
+	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	agentSvc := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
 	workflows := NewWorkflowService(WorkflowParams{
 		Workflows:    st.Workflows,
@@ -1008,7 +886,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	})
 	ctx := t.Context()
 
-	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{Name: "backend", CleanupAction: "teardown"})
+	created, err := workflows.NewWorkflow(ctx, worktreeConfig(t, "backend"))
 	require.NoError(t, err)
 
 	agent, err := agentSvc.launch.NewAgent(ctx, NewAgentParams{

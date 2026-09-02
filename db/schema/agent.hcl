@@ -41,21 +41,11 @@ table "workflow_configs" {
 
 table "workflow_action_configs" {
   schema  = schema.public
-  comment = "The setup/cleanup actions a workflow's agents run around their lives, and the worktree config those actions can point at instead."
+  comment = "The worktree config a workflow provisions its agents with, and whether it provisions them at all."
   column "id" {
     null    = false
     type    = uuid
     default = sql("uuidv7()")
-  }
-  column "setup_action" {
-    null    = false
-    type    = text
-    default = ""
-  }
-  column "cleanup_action" {
-    null    = false
-    type    = text
-    default = ""
   }
   column "worktree_enabled" {
     null    = false
@@ -99,6 +89,49 @@ table "workflow_action_configs" {
   }
   primary_key {
     columns = [column.id]
+  }
+}
+
+table "workflow_hooks" {
+  schema  = schema.public
+  comment = "The scripts a workflow hangs on one moment in its agents' lives, run in position order."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "workflow_id" {
+    null = false
+    type = uuid
+  }
+  column "event" {
+    null = false
+    type = text
+  }
+  column "action" {
+    null = false
+    type = text
+  }
+  column "position" {
+    null = false
+    type = integer
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "workflow_hooks_workflow_id_fkey" {
+    columns     = [column.workflow_id]
+    ref_columns = [table.workflows.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "workflow_hooks_workflow_id_position_idx" {
+    columns = [column.workflow_id, column.position]
   }
 }
 
@@ -308,13 +341,9 @@ table "agents" {
     type    = text
     default = ""
   }
-  column "setup_action" {
+  column "provision_enabled" {
     null = true
-    type = text
-  }
-  column "cleanup_action" {
-    null = true
-    type = text
+    type = boolean
   }
   column "prompt" {
     null    = false

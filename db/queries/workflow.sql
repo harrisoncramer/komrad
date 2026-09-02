@@ -4,8 +4,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -35,8 +33,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -60,8 +56,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -91,8 +85,6 @@ RETURNING
 
 -- name: InsertWorkflowActionConfig :one
 INSERT INTO workflow_action_configs(
-    setup_action,
-    cleanup_action,
     worktree_enabled,
     worktree_base_branch,
     worktree_copy_paths,
@@ -100,8 +92,6 @@ INSERT INTO workflow_action_configs(
     worktree_diff_exclude,
     archive_on_pr_closed)
 VALUES (
-    @setup_action,
-    @cleanup_action,
     @worktree_enabled,
     @worktree_base_branch,
     @worktree_copy_paths,
@@ -145,8 +135,6 @@ WHERE
 UPDATE
     workflow_action_configs
 SET
-    setup_action = @setup_action,
-    cleanup_action = @cleanup_action,
     worktree_enabled = @worktree_enabled,
     worktree_base_branch = @worktree_base_branch,
     worktree_copy_paths = @worktree_copy_paths,
@@ -216,8 +204,6 @@ SELECT
     wc.harness,
     wc.cwd,
     wc.flags,
-    ac.setup_action,
-    ac.cleanup_action,
     ac.worktree_enabled,
     ac.worktree_base_branch,
     ac.worktree_copy_paths,
@@ -231,3 +217,57 @@ FROM
 WHERE
     w.id = @id
 LIMIT 1;
+
+-- name: ListWorkflowHooks :many
+SELECT
+    workflow_id,
+    event,
+    action
+FROM
+    workflow_hooks
+ORDER BY
+    workflow_id,
+    position,
+    id;
+
+-- name: ListHooksForWorkflows :many
+SELECT
+    workflow_id,
+    event,
+    action
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = ANY (@workflow_ids::uuid[])
+ORDER BY
+    workflow_id,
+    position,
+    id;
+
+-- name: ListHooksForWorkflow :many
+SELECT
+    event,
+    action
+FROM
+    workflow_hooks
+WHERE
+    workflow_id = @workflow_id
+ORDER BY
+    position,
+    id;
+
+-- name: DeleteWorkflowHooks :exec
+DELETE FROM workflow_hooks
+WHERE workflow_id = @workflow_id;
+
+-- name: InsertWorkflowHook :exec
+INSERT INTO workflow_hooks(
+    workflow_id,
+    event,
+    action,
+    position)
+VALUES (
+    @workflow_id,
+    @event,
+    @action,
+    @position);

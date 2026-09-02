@@ -13,6 +13,7 @@ import (
 	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 )
 
 // interruptedPrompt is what a resumed agent is asked on the way back in, since no CLI carries
@@ -222,11 +223,18 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		}
 	}
 
+	startHooks(ctx, hookRunParams{
+		actions: s.actions,
+		agent:   agent,
+		hooks:   agentHooks(ctx, s.workflows, agent),
+		event:   workflowstore.HookPostResume,
+	})
+
 	return nil
 }
 
 func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Agent) (string, error) {
-	name := setupActionFor(ctx, s.workflows, agent)
+	name := provisionActionFor(ctx, s.workflows, agent)
 	if s.actions == nil || name == "" {
 		return "", nil
 	}

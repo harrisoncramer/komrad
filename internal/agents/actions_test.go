@@ -22,70 +22,66 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestListActions pins that a file which cannot be run is still listed, since one written and
+// TestListHooks pins that a file which cannot be run is still listed, since one written and
 // forgotten should show up wanting a chmod rather than never appearing.
-func TestListActions(t *testing.T) {
+func TestListHooks(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n#WEAVE description=\"open it\"\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\n#WEAVE description=\"install it\"\n"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
 
-	listed, err := actionService(t, dir, &recordingRunner{}).ListActions()
+	listed, err := actionService(t, dir, &recordingRunner{}).ListHooks()
 	require.NoError(t, err)
 	require.Len(t, listed, 2)
 
-	assert.Equal(t, "open-pr", listed[0].Name)
+	assert.Equal(t, "install-deps", listed[0].Name)
 	assert.True(t, listed[0].Executable)
-	assert.Equal(t, "open it", listed[0].Header.Description)
+	assert.Equal(t, "install it", listed[0].Header.Description)
 
 	assert.Equal(t, "unrunnable", listed[1].Name)
 	assert.False(t, listed[1].Executable)
 }
 
-// TestListActionsWithNoDirectory pins that never having written one is the ordinary case
-// rather than a failure.
-func TestListActionsWithNoDirectory(t *testing.T) {
-	listed, err := actionService(t, filepath.Join(t.TempDir(), "never-created"), &recordingRunner{}).ListActions()
+// TestListHooksWithNoDirectory pins that never having written one is the ordinary case rather
+// than a failure.
+func TestListHooksWithNoDirectory(t *testing.T) {
+	listed, err := actionService(t, filepath.Join(t.TempDir(), "never-created"), &recordingRunner{}).ListHooks()
 
 	require.NoError(t, err)
 	assert.Empty(t, listed)
 }
 
-// TestRunActionRefusals covers everything that can go wrong, all of which is before the process
-// starts, since nothing waits for an action once it is running.
-func TestRunActionRefusals(t *testing.T) {
+// TestOpenPullRequestRefusals covers everything that can go wrong before the process starts,
+// since nothing waits for the built-in once it is running.
+func TestOpenPullRequestRefusals(t *testing.T) {
 	tests := []struct {
-		name    string
-		agentID string
-		action  string
-		wantIs  error
+		name        string
+		agentID     string
+		mode        os.FileMode
+		wantIs      error
+		leaveUnmade bool
 	}{
 		{
 			name:    "an agent that is not there",
 			agentID: "missing",
-			action:  "open-pr",
+			mode:    0o755,
 			wantIs:  ErrAgentNotFound,
 		},
 		{
-			name:    "an action the directory does not hold",
-			agentID: "a1",
-			action:  "never-written",
-			wantIs:  actions.ErrActionNotFound,
+			name:        "a build shipping no such script",
+			agentID:     "a1",
+			leaveUnmade: true,
+			wantIs:      actions.ErrActionNotFound,
 		},
 		{
-			name:    "a name climbing out of the directory finds nothing",
+			name:    "a script nobody made executable",
 			agentID: "a1",
-			action:  "../../../../bin/echo",
-			wantIs:  actions.ErrActionNotFound,
-		},
-		{
-			name:    "a file the user has not made executable",
-			agentID: "a1",
-			action:  "unrunnable",
+			mode:    0o644,
 			wantIs:  actions.ErrNotExecutable,
 		},
 	}
@@ -93,11 +89,12 @@ func TestRunActionRefusals(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
+			if !tt.leaveUnmade {
+				require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), tt.mode))
+			}
 
 			runner := &recordingRunner{}
-			err := actionService(t, dir, runner).RunAction(context.Background(), tt.agentID, tt.action)
+			err := actionService(t, dir, runner).OpenPullRequest(context.Background(), tt.agentID)
 
 			require.ErrorIs(t, err, tt.wantIs)
 			assert.Empty(t, runner.ran, "nothing started")
@@ -105,18 +102,18 @@ func TestRunActionRefusals(t *testing.T) {
 	}
 }
 
-// TestRunActionPayload covers what a script is handed, including the socket, without which keys
+// TestOpenPullRequestPayload covers what a script is handed, including the socket, without which keys
 // sent to the pane would go to the user's own tmux server.
-func TestRunActionPayload(t *testing.T) {
+func TestOpenPullRequestPayload(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := actionService(t, dir, runner)
 
-	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
 
-	require.Equal(t, []string{"open-pr"}, runner.ran)
+	require.Equal(t, []string{openPRScript}, runner.ran)
 	assert.Equal(t, dir, runner.dir, "an action starts among its own siblings, not in the agent")
 
 	values := map[string]string{}
@@ -131,7 +128,7 @@ func TestRunActionPayload(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:8787", values["WEAVE_ADDR"])
 	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
 	assert.Equal(t, dir, values["WEAVE_ACTIONS_DIR"])
-	assert.Equal(t, "open-pr", values["WEAVE_ACTION"], "its own name, for a script that wants to tag its own log lines")
+	assert.Equal(t, openPRScript, values["WEAVE_ACTION"], "its own name, for a script that wants to tag its own log lines")
 	assert.Equal(t, "%3", values["WEAVE_INFO_PANE"], "the pane the panel laid out for a script to fill")
 	assert.Equal(t, "/tmp/host-socket", values["WEAVE_HOST_TMUX_SOCKET"])
 	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
@@ -156,18 +153,27 @@ func TestRunActionPayload(t *testing.T) {
 	assert.NotContains(t, values["WEAVE_AGENT"], "transcript", "a transcript is far past what an environment holds")
 }
 
-// TestRunActionCarriesWorktreeEnvOnlyWhenEnabled covers the environment the two built-in
-// worktree actions read their config from: present, and reflecting the workflow's own
-// settings, when its worktree toggle is on, and absent entirely otherwise, since most
-// workflows are not worktrees and should not carry them.
-func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
+// TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne covers the environment the two built-in
+// worktree actions read their config from: present, and reflecting the workflow's own settings,
+// when its worktree toggle is on and the agent is one the pair provisioned, and absent
+// otherwise, since an agent handed somebody else's checkout has no worktree of its own.
+func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 	tests := []struct {
-		name     string
-		worktree workflowstore.WorktreeConfig
-		wantKeys []string
+		name      string
+		worktree  workflowstore.WorktreeConfig
+		provision *bool
+		wantKeys  []string
 	}{
 		{
 			name: "disabled carries none of the worktree keys",
+		},
+		{
+			name: "enabled carries none of them for an agent that provisions nothing",
+			worktree: workflowstore.WorktreeConfig{
+				Enabled:    true,
+				BaseBranch: "develop",
+			},
+			provision: xptr.Ptr(false),
 		},
 		{
 			name: "enabled carries every worktree key, reflecting the workflow's own config",
@@ -189,32 +195,33 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			actionsDir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(actionsDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+			builtinDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 			worktreesDir := t.TempDir()
 
 			runner := &recordingRunner{}
 			service := NewActionService(ActionParams{
 				Agents: fakeAgentReader{agent: &agentstore.Agent{
-					ID:         "a1",
-					Cwd:        "/worktrees/a1",
-					WorkflowID: "w1",
+					ID:               "a1",
+					Cwd:              "/worktrees/a1",
+					WorkflowID:       "w1",
+					ProvisionEnabled: tt.provision,
 				}},
 				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
 					ID: "w1", Name: "backend", Cwd: "/repo", Worktree: tt.worktree,
 				}},
-				Tmux:   fakePaneOwner{},
-				Runner: runner,
+				Tmux:       fakePaneOwner{},
+				Runner:     runner,
+				BuiltinDir: builtinDir,
 				Load: func() (*config.Config, error) {
 					cfg := config.Defaults()
-					cfg.Actions.Dir = actionsDir
 					cfg.Worktrees.Dir = worktreesDir
 
 					return cfg, nil
 				},
 			})
 
-			require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+			require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
 
 			values := map[string]string{}
 			for _, entry := range runner.env {
@@ -250,7 +257,7 @@ func TestRunActionCarriesWorktreeEnvOnlyWhenEnabled(t *testing.T) {
 // script told nothing cannot tell that from a workflow with no name.
 func TestRunActionNamesAnArchivedWorkflow(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := actionService(t, dir, runner)
@@ -259,7 +266,7 @@ func TestRunActionNamesAnArchivedWorkflow(t *testing.T) {
 		archived: true,
 	}
 
-	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
 
 	var payload actionPayload
 	for _, entry := range runner.env {
@@ -275,7 +282,7 @@ func TestRunActionNamesAnArchivedWorkflow(t *testing.T) {
 // handed shares a kernel limit that would fail the run instead.
 func TestRunActionBoundsALongPrompt(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := actionService(t, dir, runner)
@@ -286,7 +293,7 @@ func TestRunActionBoundsALongPrompt(t *testing.T) {
 		Prompt: strings.Repeat("prompt ", maxActionPrompt),
 	}}
 
-	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
 
 	var encoded string
 	for _, entry := range runner.env {
@@ -363,13 +370,13 @@ func TestHead(t *testing.T) {
 // left to send keys into a pane somebody else has taken over.
 func TestRunActionOnADormantAgent(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := actionService(t, dir, runner)
 	service.tmux = fakePaneOwner{owner: "somebody-else"}
 
-	require.NoError(t, service.RunAction(context.Background(), "a1", "open-pr"))
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
 
 	var payload actionPayload
 	for _, entry := range runner.env {
@@ -381,11 +388,11 @@ func TestRunActionOnADormantAgent(t *testing.T) {
 	assert.False(t, payload.Alive)
 }
 
-// TestRunActionWithTheAgentDirectoryGone pins the agent's directory being a string in the
+// TestOpenPullRequestWithTheAgentDirectoryGone pins the agent's directory being a string in the
 // payload, never somewhere the action has to be able to stand.
-func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
+func TestOpenPullRequestWithTheAgentDirectoryGone(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 	gone := filepath.Join(t.TempDir(), "removed-worktree")
 	runner := &recordingRunner{}
@@ -396,7 +403,7 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 		Cwd:  gone,
 	}}
 
-	require.NoError(t, service.RunAction(context.Background(), "a1", "cleanup"))
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
 
 	assert.Equal(t, dir, runner.dir)
 
@@ -410,9 +417,9 @@ func TestRunActionWithTheAgentDirectoryGone(t *testing.T) {
 	assert.Equal(t, gone, payload.Cwd, "a script works out what to clean from the path itself")
 }
 
-// TestRunSetupAction covers the two things a workflow's setup action decides about a create,
+// TestRunProvisionAction covers the two things a workflow's setup action decides about a create,
 // which are whether it happens at all and where the agent ends up running.
-func TestRunSetupAction(t *testing.T) {
+func TestRunProvisionAction(t *testing.T) {
 	tests := []struct {
 		name    string
 		action  string
@@ -436,15 +443,15 @@ func TestRunSetupAction(t *testing.T) {
 		{
 			name:    "one that writes too much to its dir file is refused rather than believed",
 			action:  "loud",
-			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir+1)},
+			result:  runResult{dirFile: strings.Repeat("a", maxProvisionedDir+1)},
 			wantRan: []string{"loud"},
 			wantErr: true,
 		},
 		{
 			name:    "one that writes right up to the cap is believed rather than cut short",
 			action:  "loud",
-			result:  runResult{dirFile: strings.Repeat("a", maxSetupDir)},
-			wantDir: strings.Repeat("a", maxSetupDir),
+			result:  runResult{dirFile: strings.Repeat("a", maxProvisionedDir)},
+			wantDir: strings.Repeat("a", maxProvisionedDir),
 			wantRan: []string{"loud"},
 		},
 		{
@@ -471,10 +478,10 @@ func TestRunSetupAction(t *testing.T) {
 			runner := &recordingRunner{results: map[string]runResult{tt.action: tt.result}}
 			service := actionService(t, dir, runner)
 
-			got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action, "")
+			got, err := service.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.action, "")
 
 			if tt.wantErr {
-				require.ErrorIs(t, err, ErrSetupFailed)
+				require.ErrorIs(t, err, ErrProvisionFailed)
 				assert.Empty(t, got, "a refused setup names no directory")
 			} else {
 				require.NoError(t, err)
@@ -485,9 +492,9 @@ func TestRunSetupAction(t *testing.T) {
 	}
 }
 
-// TestRunSetupActionDoesNotHoldTheWholeDirFile pins that a setup writing a large log is
+// TestRunProvisionActionDoesNotHoldTheWholeDirFile pins that a setup writing a large log is
 // streamed rather than held in memory.
-func TestRunSetupActionDoesNotHoldTheWholeDirFile(t *testing.T) {
+func TestRunProvisionActionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	const wrote = 32 << 20
 
 	dir := t.TempDir()
@@ -499,20 +506,20 @@ func TestRunSetupActionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 
-	got, err := service.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy", "")
+	got, err := service.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy", "")
 
 	runtime.ReadMemStats(&after)
 
-	require.ErrorIs(t, err, ErrSetupFailed)
+	require.ErrorIs(t, err, ErrProvisionFailed)
 	assert.Empty(t, got, "a refused setup names no directory")
 	assert.Contains(t, err.Error(), setupDirFileVar)
 	assert.Less(t, after.TotalAlloc-before.TotalAlloc, uint64(4<<20),
 		"the refusal read the whole dir file to arrive at it")
 }
 
-// TestRunSetupActionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
+// TestRunProvisionActionTellsTheScriptWhatSetItOff covers WEAVE_TRIGGER, which is how a script that
 // only makes sense at one moment can refuse the others itself.
-func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
+func TestRunProvisionActionTellsTheScriptWhatSetItOff(t *testing.T) {
 	tests := []struct {
 		name        string
 		fire        func(*ActionService, *recordingRunner) error
@@ -521,17 +528,17 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired by hand",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				return s.RunAction(t.Context(), "a1", "make-worktree")
+				return s.OpenPullRequest(t.Context(), "a1")
 			},
-			wantTrigger: TriggerManual,
+			wantTrigger: TriggerOpenPR,
 		},
 		{
 			name: "fired as a workflow's setup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				_, err := s.RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
+				_, err := s.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
 				return err
 			},
-			wantTrigger: TriggerSetup,
+			wantTrigger: TriggerProvision,
 		},
 		{
 			name: "fired as a workflow's setup on the way back up",
@@ -544,9 +551,9 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's cleanup",
 			fire: func(s *ActionService, _ *recordingRunner) error {
-				return s.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", nil)
+				return s.RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", nil)
 			},
-			wantTrigger: TriggerCleanup,
+			wantTrigger: TriggerDeprovision,
 		},
 	}
 
@@ -554,6 +561,7 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 			runner := &recordingRunner{}
 			require.NoError(t, tt.fire(actionService(t, dir, runner), runner))
@@ -563,9 +571,9 @@ func TestRunSetupActionTellsTheScriptWhatSetItOff(t *testing.T) {
 	}
 }
 
-// TestRunSetupActionCarriesTheReason pins the script's stderr travelling with the refusal,
+// TestRunProvisionActionCarriesTheReason pins the script's stderr travelling with the refusal,
 // since it is the only thing that says why.
-func TestRunSetupActionCarriesTheReason(t *testing.T) {
+func TestRunProvisionActionCarriesTheReason(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
 
@@ -573,7 +581,7 @@ func TestRunSetupActionCarriesTheReason(t *testing.T) {
 		"make-worktree": {stderr: "fatal: 'api-auth' is already checked out", err: actions.ErrFailed},
 	}}
 
-	_, err := actionService(t, dir, runner).RunSetupAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
+	_, err := actionService(t, dir, runner).RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already checked out")
@@ -734,17 +742,17 @@ func (realPaneRunner) GetInfoPane() string        { return "" }
 func (realPaneRunner) ShowGlobal(string) string   { return "" }
 func (realPaneRunner) DefaultShell() string       { return "" }
 
-// TestRunCleanupActionRefusesOneThatIsGone pins a renamed script being reported rather than
+// TestRunDeprovisionActionRefusesOneThatIsGone pins a renamed script being reported rather than
 // pretended over, leaving the caller to decide the agent is still removable.
-func TestRunCleanupActionRefusesOneThatIsGone(t *testing.T) {
+func TestRunDeprovisionActionRefusesOneThatIsGone(t *testing.T) {
 	err := actionService(t, t.TempDir(), &recordingRunner{}).
-		RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
+		RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "was-renamed", nil)
 
 	require.ErrorIs(t, err, actions.ErrActionNotFound)
 }
 
-// TestRunActionLogsWhatItDid covers the only account there is of an action nothing waits on.
-func TestRunActionLogsWhatItDid(t *testing.T) {
+// TestOpenPullRequestLogsWhatItDid covers the only account there is of an action nothing waits on.
+func TestOpenPullRequestLogsWhatItDid(t *testing.T) {
 	tests := []struct {
 		name       string
 		result     runResult
@@ -759,8 +767,8 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 			wantFields: map[string]any{
 				"process.exit.code":     float64(0),
 				"weave.action.stderr":   nil,
-				"weave.action.name":     "cleanup",
-				"weave.action.trigger":  TriggerManual,
+				"weave.action.name":     openPRScript,
+				"weave.action.trigger":  TriggerOpenPR,
 				"weave.action.agent.id": "a1",
 			},
 		},
@@ -784,18 +792,18 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
-			runner := &recordingRunner{results: map[string]runResult{"cleanup": tt.result}}
+			runner := &recordingRunner{results: map[string]runResult{openPRScript: tt.result}}
 			ctx, records := loggedContext(t)
 
-			require.NoError(t, actionService(t, dir, runner).RunAction(ctx, "a1", "cleanup"))
+			require.NoError(t, actionService(t, dir, runner).OpenPullRequest(ctx, "a1"))
 
 			written := records()
 
 			began := recordFor(t, written, "action started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, "cleanup", began["weave.action.name"])
+			assert.Equal(t, openPRScript, began["weave.action.name"])
 
 			got := recordFor(t, written, tt.wantBody)
 			assert.Equal(t, tt.wantLevel, got["severity_text"])
@@ -813,9 +821,9 @@ func TestRunActionLogsWhatItDid(t *testing.T) {
 	}
 }
 
-// TestSetupActionLogsBothEnds pins the log saying a run happened and what came of it, which is
+// TestProvisionActionLogsBothEnds pins the log saying a run happened and what came of it, which is
 // the half nothing else records.
-func TestSetupActionLogsBothEnds(t *testing.T) {
+func TestProvisionActionLogsBothEnds(t *testing.T) {
 	tests := []struct {
 		name       string
 		result     runResult
@@ -831,7 +839,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 			wantFields: map[string]any{
 				"process.exit.code":    float64(2),
 				"weave.action.stderr":  "fatal: 'api-auth' is already checked out",
-				"weave.action.trigger": TriggerSetup,
+				"weave.action.trigger": TriggerProvision,
 			},
 		},
 		{
@@ -855,7 +863,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 			ctx, records := loggedContext(t)
 
 			_, err := actionService(t, dir, runner).
-				RunSetupAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree", "")
+				RunProvisionAction(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree", "")
 			if tt.result.err != nil {
 				require.Error(t, err)
 			} else {
@@ -866,7 +874,7 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 
 			began := recordFor(t, written, "action started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, TriggerSetup, began["weave.action.trigger"])
+			assert.Equal(t, TriggerProvision, began["weave.action.trigger"])
 
 			got := recordFor(t, written, "action finished")
 			assert.Equal(t, "INFO", got["severity_text"], "the caller reports the refusal, this says a run happened")
@@ -878,9 +886,9 @@ func TestSetupActionLogsBothEnds(t *testing.T) {
 	}
 }
 
-// TestRunCleanupActionLogsUnderItsOwnTrigger covers the field that separates the two
+// TestRunDeprovisionActionLogsUnderItsOwnTrigger covers the field that separates the two
 // fire-and-forget paths in a log.
-func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
+func TestRunDeprovisionActionLogsUnderItsOwnTrigger(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
 
@@ -891,22 +899,22 @@ func TestRunCleanupActionLogsUnderItsOwnTrigger(t *testing.T) {
 	var doneErr error
 	var doneCalled bool
 	require.NoError(t, actionService(t, dir, runner).
-		RunCleanupAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup", func(err error) {
+		RunDeprovisionAction(ctx, agentstore.Agent{ID: "a2", Cwd: gone}, "cleanup", func(err error) {
 			doneCalled = true
 			doneErr = err
 		}))
 
 	got := recordFor(t, records(), "action failed")
-	assert.Equal(t, TriggerCleanup, got["weave.action.trigger"])
+	assert.Equal(t, TriggerDeprovision, got["weave.action.trigger"])
 	assert.Equal(t, "a2", got["weave.action.agent.id"])
 	assert.Equal(t, gone, got["weave.action.agent.cwd"], "the row is gone, so the record is what names the directory")
 	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")
 	assert.ErrorIs(t, doneErr, actions.ErrFailed)
 }
 
-// TestRunCleanupActionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
+// TestRunDeprovisionActionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
 // worktree cleanup declines that way and would otherwise leave a tree on disk with no trace.
-func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
+func TestRunDeprovisionActionLogsWhatAZeroExitSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
 
@@ -917,7 +925,7 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	var doneErr error
 	var doneCalled bool
 	require.NoError(t, actionService(t, dir, runner).
-		RunCleanupAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup", func(err error) {
+		RunDeprovisionAction(ctx, agentstore.Agent{ID: "a3", Cwd: "/repo/wt"}, "cleanup", func(err error) {
 			doneCalled = true
 			doneErr = err
 		}))
@@ -929,9 +937,9 @@ func TestRunCleanupActionLogsWhatAZeroExitSaid(t *testing.T) {
 	assert.NoError(t, doneErr)
 }
 
-// TestRunCleanupActionPersistsStdoutOnAFailure pins stdout being captured too, since a script
+// TestRunDeprovisionActionPersistsStdoutOnAFailure pins stdout being captured too, since a script
 // that fails through a plain echo and a bare exit would otherwise leave the log empty.
-func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
+func TestRunDeprovisionActionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte(
 		"#!/bin/sh\necho tearing down 1\necho tearing down 2\nexit 1\n",
@@ -941,7 +949,7 @@ func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
 
 	done := make(chan error, 1)
-	require.NoError(t, svc.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+	require.NoError(t, svc.RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
 		done <- err
 	}))
 
@@ -952,16 +960,16 @@ func TestRunCleanupActionPersistsStdoutOnAFailure(t *testing.T) {
 		t.Fatal("the cleanup action never reported finishing")
 	}
 
-	persisted, err := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogTeardown))
+	persisted, err := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
 	require.NoError(t, err)
 	assert.Contains(t, string(persisted), "tearing down 1")
 	assert.Contains(t, string(persisted), "tearing down 2")
 }
 
-// TestRunSetupActionPersistsStdoutOnAFailure covers a setup script that fails through a
+// TestRunProvisionActionPersistsStdoutOnAFailure covers a setup script that fails through a
 // plain echo and a bare exit, never touching stderr, and checks the per-agent log, the
 // structured log, and the refusal a create call returns all carry what it said.
-func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
+func TestRunProvisionActionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte(
 		"#!/bin/sh\necho diagnosing 1\necho diagnosing 2\nexit 1\n",
@@ -971,12 +979,12 @@ func TestRunSetupActionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
 	ctx, records := loggedContext(t)
 
-	_, err := svc.RunSetupAction(ctx, agentstore.Agent{ID: "a1"}, "setup", "")
+	_, err := svc.RunProvisionAction(ctx, agentstore.Agent{ID: "a1"}, "setup", "")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
 
-	persisted, readErr := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogSetup))
+	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
 	require.NoError(t, readErr)
 	assert.Contains(t, string(persisted), "diagnosing 1")
 	assert.Contains(t, string(persisted), "diagnosing 2")
@@ -1098,7 +1106,7 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 			svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
 
 			done := make(chan error, 1)
-			require.NoError(t, svc.RunCleanupAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
+			require.NoError(t, svc.RunDeprovisionAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: dir}, "teardown", func(err error) {
 				done <- err
 			}))
 
@@ -1109,7 +1117,7 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 				t.Fatal("the cleanup action never reported finishing")
 			}
 
-			persisted, readErr := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogTeardown))
+			persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
 			require.NoError(t, readErr)
 			output := string(persisted)
 
@@ -1119,6 +1127,166 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 			assert.Contains(t, output, "SSH_ASKPASS="+tt.sshAskpass)
 		})
 	}
+}
+
+// TestRunHookActionRunsInTheAgentsDirectory drives a real script through the runner, since
+// where a hook runs is the whole point of one: it is there to work on the checkout rather than
+// on the directory the script itself lives in.
+func TestRunHookActionRunsInTheAgentsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
+		"#!/bin/sh\nset -eu\necho installing in \"$PWD\"\npwd >installed\nprintf '%s' \"$WEAVE_TRIGGER\" >>installed\n",
+	), 0o755))
+
+	logsDir := t.TempDir()
+	worktree := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	err := svc.RunHookAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: worktree}, "install-deps", workflowstore.HookPreLaunch)
+	require.NoError(t, err)
+
+	landed, readErr := os.ReadFile(filepath.Join(worktree, "installed"))
+	require.NoError(t, readErr, "the hook ran in the agent's own directory rather than the action's")
+	assert.Contains(t, string(landed), workflowstore.HookPreLaunch, "and read the moment out of WEAVE_TRIGGER")
+
+	runs := config.ListActionLogRuns(logsDir, "a1")
+	require.Len(t, runs, 1)
+	assert.Equal(t, workflowstore.HookPreLaunch, runs[0].Trigger)
+	assert.Equal(t, "install-deps", runs[0].Action)
+
+	logged, logErr := os.ReadFile(runs[0].Path)
+	require.NoError(t, logErr)
+	assert.Contains(t, string(logged), "installing in", "and its output is kept under the run that made it")
+}
+
+// TestRunHookActionCarriesWhatTheScriptSaid pins the refusal a failing hook hands back, since
+// that string is what abandons a create and is the only place a person sees why.
+func TestRunHookActionCarriesWhatTheScriptSaid(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
+		"#!/bin/sh\necho no lockfile here >&2\nexit 3\n",
+	), 0o755))
+
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), t.TempDir())
+
+	err := svc.RunHookAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+
+	require.ErrorIs(t, err, ErrHookFailed)
+	assert.Contains(t, err.Error(), "install-deps")
+	assert.Contains(t, err.Error(), "no lockfile here")
+}
+
+// TestRunHookActionRefusesADirectoryThatIsGone pins a hook with nowhere to run failing rather
+// than relocating, since a script that installs into the actions directory instead of the
+// worktree is worse than one that says it could not run.
+func TestRunHookActionRefusesADirectoryThatIsGone(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
+
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), t.TempDir())
+
+	err := svc.RunHookAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: "/definitely/not/here"}, "install-deps", workflowstore.HookPreLaunch)
+
+	require.ErrorIs(t, err, ErrHookFailed)
+	assert.Contains(t, err.Error(), "/definitely/not/here")
+}
+
+// TestARefusedRunLeavesNoRunBehind pins a refusal spending no number, since a
+// file claimed by a run that never happened would push a real one out of the fifty kept.
+func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	err := svc.OpenPullRequest(t.Context(), "a1")
+
+	require.Error(t, err, "a file nobody made executable is not startable")
+	assert.Empty(t, config.ListActionLogRuns(logsDir, "a1"), "and it leaves no run behind")
+}
+
+// TestClaimActionLogNumbersEveryRun pins each run getting a file of its own rather than the
+// two fixed names that came before, since a resume used to overwrite the log of the create.
+func TestClaimActionLogNumbersEveryRun(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\necho made it\n"), 0o755))
+
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	for range 2 {
+		_, err := svc.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "setup", "")
+		require.NoError(t, err)
+	}
+
+	runs := config.ListActionLogRuns(logsDir, "a1")
+
+	require.Len(t, runs, 2, "the second run does not overwrite the first")
+	assert.Equal(t, 2, runs[0].Number)
+	assert.Equal(t, 1, runs[1].Number)
+	assert.Equal(t, config.TriggerProvision, runs[0].Trigger)
+	assert.Equal(t, "setup", runs[0].Action)
+
+	for _, run := range runs {
+		content, readErr := os.ReadFile(run.Path)
+		require.NoError(t, readErr)
+		assert.Contains(t, string(content), "made it", "each run holds its own output")
+	}
+}
+
+// TestClaimActionLogPrunesTheOldestRuns pins the pruning, since an agent resumed daily for a
+// year would otherwise keep a file for every one of them.
+func TestClaimActionLogPrunesTheOldestRuns(t *testing.T) {
+	dir := t.TempDir()
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	logDir := config.ActionLogDir(logsDir, "a1")
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	for number := 1; number <= config.MaxActionLogRuns; number++ {
+		name := config.ActionLogName(number, config.TriggerOpenPR, openPRScript)
+		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
+	}
+
+	path := svc.claimActionLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
+	require.NotEmpty(t, path)
+
+	runs := config.ListActionLogRuns(logsDir, "a1")
+
+	require.Len(t, runs, config.MaxActionLogRuns)
+	assert.Equal(t, config.MaxActionLogRuns+1, runs[0].Number, "the newest run is the one just claimed")
+	assert.Equal(t, 2, runs[len(runs)-1].Number, "the oldest went to make room for it")
+}
+
+// TestClaimActionLogStepsPastANameAlreadyTaken pins the exclusive create, since a manual
+// action and a launch can begin at the same moment and neither may write over the other.
+func TestClaimActionLogStepsPastANameAlreadyTaken(t *testing.T) {
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, t.TempDir(), actions.NewRunner(), logsDir)
+
+	logDir := config.ActionLogDir(logsDir, "a1")
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	taken := filepath.Join(logDir, config.ActionLogName(1, config.TriggerOpenPR, openPRScript))
+	require.NoError(t, os.WriteFile(taken, []byte("someone else\n"), 0o644))
+
+	path := svc.claimActionLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
+
+	assert.NotEqual(t, taken, path, "the name already there is left as it stands")
+	content, err := os.ReadFile(taken)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "someone else")
+}
+
+// onlyRunLog is the one run an agent has recorded, since a test that ran a single action has
+// no reason to know which number it was given.
+func onlyRunLog(t *testing.T, logsDir, agentID string) string {
+	t.Helper()
+
+	runs := config.ListActionLogRuns(logsDir, agentID)
+	require.Len(t, runs, 1)
+
+	return runs[0].Path
 }
 
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
@@ -1158,52 +1326,10 @@ func recordFor(t *testing.T, records []map[string]any, body string) map[string]a
 	return nil
 }
 
-// TestListActionsReadsTheUserOverTheBuiltins pins a file the user writes standing in for the
-// one weave ships of the same name, with the rest of both sets offered alongside.
-func TestListActionsReadsTheUserOverTheBuiltins(t *testing.T) {
-	userDir, builtinDir := t.TempDir(), t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(userDir, "_editor"), []byte("#!/bin/sh\n# mine\n"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(userDir, "open-pr"), []byte("#!/bin/sh\n"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_editor"), []byte("#!/bin/sh\n# shipped\n"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_terminal"), []byte("#!/bin/sh\n"), 0o755))
-
-	service := actionService(t, userDir, &recordingRunner{})
-	service.builtinDir = builtinDir
-
-	listed, err := service.ListActions()
-	require.NoError(t, err)
-	require.Len(t, listed, 3, "one name is claimed twice and counted once")
-
-	names := make([]string, 0, len(listed))
-	for _, action := range listed {
-		names = append(names, action.Name)
-	}
-	assert.Equal(t, []string{"_editor", "_terminal", "open-pr"}, names, "in name order across both")
-
-	assert.Equal(t, filepath.Join(userDir, "_editor"), listed[0].Path, "the user's file is the one on offer")
-}
-
-// TestRunActionRunsABuiltinAmongItsOwnSiblings pins a shipped action running in the directory
-// it came out of, where the scripts it sits beside are.
-func TestRunActionRunsABuiltinAmongItsOwnSiblings(t *testing.T) {
-	userDir, builtinDir := t.TempDir(), t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, "_terminal"), []byte("#!/bin/sh\n"), 0o755))
-
-	runner := &recordingRunner{}
-	service := actionService(t, userDir, runner)
-	service.builtinDir = builtinDir
-
-	require.NoError(t, service.RunAction(context.Background(), "a1", "_terminal"))
-
-	require.Equal(t, []string{"_terminal"}, runner.ran)
-	assert.Equal(t, builtinDir, runner.dir)
-	assert.Contains(t, runner.env, "WEAVE_ACTIONS_DIR="+builtinDir)
-}
-
 // TestActionTimeouts covers how long a run gets, where the file's own declaration wins and
 // only a launch blocked on the action falls back to a ceiling.
 func TestActionTimeouts(t *testing.T) {
-	agent := agentstore.Agent{ID: "a1", Cwd: "/repo"}
+	agent := agentstore.Agent{ID: "a1", Cwd: t.TempDir()}
 
 	tests := []struct {
 		name   string
@@ -1212,10 +1338,10 @@ func TestActionTimeouts(t *testing.T) {
 		want   time.Duration
 	}{
 		{
-			name:   "a manual run of an action that declares nothing is unbounded",
-			action: "bare",
-			fire: func(s *ActionService, name string) error {
-				return s.RunAction(context.Background(), "a1", name)
+			name:   "the built-in behind the panel's own key is unbounded",
+			action: openPRScript,
+			fire: func(s *ActionService, _ string) error {
+				return s.OpenPullRequest(context.Background(), "a1")
 			},
 			want: 0,
 		},
@@ -1223,7 +1349,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a cleanup that declares nothing gets the default ceiling",
 			action: "bare",
 			fire: func(s *ActionService, name string) error {
-				return s.RunCleanupAction(context.Background(), agent, name, nil)
+				return s.RunDeprovisionAction(context.Background(), agent, name, nil)
 			},
 			want: 2 * time.Minute,
 		},
@@ -1231,7 +1357,7 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a cleanup that declares no limit stays unbounded",
 			action: "unlimited",
 			fire: func(s *ActionService, name string) error {
-				return s.RunCleanupAction(context.Background(), agent, name, nil)
+				return s.RunDeprovisionAction(context.Background(), agent, name, nil)
 			},
 			want: 0,
 		},
@@ -1239,17 +1365,17 @@ func TestActionTimeouts(t *testing.T) {
 			name:   "a setup action that declares nothing keeps the ceiling a launch needs",
 			action: "bare",
 			fire: func(s *ActionService, name string) error {
-				_, err := s.RunSetupAction(context.Background(), agent, name, "")
+				_, err := s.RunProvisionAction(context.Background(), agent, name, "")
 
 				return err
 			},
-			want: setupTimeout,
+			want: provisionTimeout,
 		},
 		{
 			name:   "a setup action that declares one is held to what it declared",
 			action: "declared",
 			fire: func(s *ActionService, name string) error {
-				_, err := s.RunSetupAction(context.Background(), agent, name, "")
+				_, err := s.RunProvisionAction(context.Background(), agent, name, "")
 
 				return err
 			},
@@ -1266,10 +1392,10 @@ func TestActionTimeouts(t *testing.T) {
 			want: 30 * time.Second,
 		},
 		{
-			name:   "a manual run of an action that declares one is bounded by it",
+			name:   "a hook that declares one is bounded by it",
 			action: "declared",
 			fire: func(s *ActionService, name string) error {
-				return s.RunAction(context.Background(), "a1", name)
+				return s.RunHookAction(context.Background(), agent, name, workflowstore.HookPreLaunch)
 			},
 			want: 30 * time.Second,
 		},
@@ -1285,6 +1411,7 @@ func TestActionTimeouts(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "unlimited"), []byte(
 				"#!/bin/sh\n#WEAVE timeout=\"none\"\n",
 			), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 			runner := &recordingRunner{}
 			require.NoError(t, tt.fire(actionService(t, dir, runner), tt.action))
@@ -1295,66 +1422,66 @@ func TestActionTimeouts(t *testing.T) {
 	}
 }
 
-// TestRunActionRefusesASecondConcurrentRun covers holding enter on the actions list, or an
-// agent calling run_action in a loop, against the same action on the same agent.
-func TestRunActionRefusesASecondConcurrentRun(t *testing.T) {
+// TestOpenPullRequestRefusesASecondConcurrentRun covers holding the panel's own key down, which is
+// the one way a person can ask for the same script on the same agent twice at once.
+func TestOpenPullRequestRefusesASecondConcurrentRun(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "slow"), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
 	svc := actionService(t, dir, actions.NewRunner())
 
-	require.NoError(t, svc.RunAction(context.Background(), "a1", "slow"))
+	require.NoError(t, svc.OpenPullRequest(context.Background(), "a1"))
 
-	err := svc.RunAction(context.Background(), "a1", "slow")
+	err := svc.OpenPullRequest(context.Background(), "a1")
 	require.ErrorIs(t, err, ErrActionAlreadyRunning)
 
 	require.Eventually(t, func() bool {
-		return svc.RunAction(context.Background(), "a1", "slow") == nil
+		return svc.OpenPullRequest(context.Background(), "a1") == nil
 	}, 5*time.Second, 20*time.Millisecond, "the claim is released once the first run finishes")
 
 	time.Sleep(500 * time.Millisecond)
 }
 
-// TestRunActionReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
+// TestOpenPullRequestReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
 // synchronously and its Done callback never fires at all, which is the one place a claim
 // could be stranded forever with nothing left to release it.
-func TestRunActionReleasesTheClaimWhenItNeverStarts(t *testing.T) {
+func TestOpenPullRequestReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o644))
 
 	svc := actionService(t, dir, actions.NewRunner())
 
-	require.ErrorIs(t, svc.RunAction(context.Background(), "a1", "unrunnable"), actions.ErrNotExecutable)
+	require.ErrorIs(t, svc.OpenPullRequest(context.Background(), "a1"), actions.ErrNotExecutable)
 
-	err := svc.RunAction(context.Background(), "a1", "unrunnable")
+	err := svc.OpenPullRequest(context.Background(), "a1")
 	require.ErrorIs(t, err, actions.ErrNotExecutable)
 	assert.NotErrorIs(t, err, ErrActionAlreadyRunning, "a refusal that never started must not strand the claim")
 }
 
-// TestRunActionConcurrencyGuardIsScopedNarrowly covers what the guard must not catch: a
-// different action, a different agent, and a setup action, which is already serialized by
-// the create it blocks and must never be refused by this guard on top of that.
-func TestRunActionConcurrencyGuardIsScopedNarrowly(t *testing.T) {
+// TestConcurrencyGuardIsScopedNarrowly covers what the guard must not catch: the
+// same script against a different agent, a hook, and a provision action, all of which are
+// serialized by the thing that asked for them and must never be refused by this guard.
+func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 	tests := []struct {
 		name string
-		fire func(t *testing.T, svc *ActionService) error
+		fire func(svc *ActionService) error
 	}{
 		{
-			name: "a different action for the same agent runs alongside it",
-			fire: func(_ *testing.T, svc *ActionService) error {
-				return svc.RunAction(context.Background(), "a1", "other")
+			name: "the same script for a different agent runs alongside it",
+			fire: func(svc *ActionService) error {
+				return svc.OpenPullRequest(context.Background(), "a2")
 			},
 		},
 		{
-			name: "the same action for a different agent runs alongside it",
-			fire: func(_ *testing.T, svc *ActionService) error {
-				return svc.RunAction(context.Background(), "a2", "slow")
+			name: "a hook is never guarded by the in-flight set",
+			fire: func(svc *ActionService) error {
+				return svc.RunHookAction(context.Background(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, openPRScript, workflowstore.HookPreLaunch)
 			},
 		},
 		{
-			name: "a setup action is never guarded by the in-flight set",
-			fire: func(_ *testing.T, svc *ActionService) error {
-				_, err := svc.RunSetupAction(context.Background(), agentstore.Agent{ID: "a1"}, "slow", "")
+			name: "a provision action is never guarded by the in-flight set",
+			fire: func(svc *ActionService) error {
+				_, err := svc.RunProvisionAction(context.Background(), agentstore.Agent{ID: "a1"}, openPRScript, "")
 
 				return err
 			},
@@ -1364,17 +1491,16 @@ func TestRunActionConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(dir, "slow"), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(dir, "other"), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
 			svc := actionService(t, dir, actions.NewRunner())
 			svc.agents = fakeAgentReaderFunc(func(_ context.Context, id string) (*agentstore.Agent, error) {
 				return &agentstore.Agent{ID: id}, nil
 			})
 
-			require.NoError(t, svc.RunAction(context.Background(), "a1", "slow"))
+			require.NoError(t, svc.OpenPullRequest(context.Background(), "a1"))
 
-			assert.NoError(t, tt.fire(t, svc))
+			assert.NoError(t, tt.fire(svc))
 
 			time.Sleep(500 * time.Millisecond)
 		})
@@ -1419,15 +1545,16 @@ func actionServiceWithLogsDir(t *testing.T, dir string, runner actionRunner, log
 		Runner: runner,
 		Load: func() (*config.Config, error) {
 			cfg := config.Defaults()
-			cfg.Actions.Dir = dir
+			cfg.Hooks.Dir = dir
 
 			return cfg, nil
 		},
-		Addr:    "127.0.0.1:8787",
-		Socket:  "weave",
-		Editor:  "nvim",
-		BinPath: "/opt/weave/bin/weave",
-		LogsDir: logsDir,
+		BuiltinDir: dir,
+		Addr:       "127.0.0.1:8787",
+		Socket:     "weave",
+		Editor:     "nvim",
+		BinPath:    "/opt/weave/bin/weave",
+		LogsDir:    logsDir,
 	})
 }
 
@@ -1573,4 +1700,21 @@ func lookupEnv(env []string, key string) (string, bool) {
 	}
 
 	return "", false
+}
+
+// TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName pins where the scripts weave ships
+// come from now that a person's own directory is only ever read for hooks: a file of theirs
+// called _open_pr is a hook they may hang on a moment, not a replacement for weave's own.
+func TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
+	hooksDir, builtinDir := t.TempDir(), t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, openPRScript), []byte("#!/bin/sh\n# theirs\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n# ours\n"), 0o755))
+
+	runner := &recordingRunner{}
+	service := actionService(t, hooksDir, runner)
+	service.builtinDir = builtinDir
+
+	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+
+	assert.Equal(t, builtinDir, runner.dir, "the one weave ships is the one that ran")
 }

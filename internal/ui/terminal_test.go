@@ -72,7 +72,7 @@ func TestTerminalReplacesOpenLogs(t *testing.T) {
 	m.actionLogsDir = t.TempDir()
 
 	logs := pressLogs(t, m)
-	require.Equal(t, infoSetupLog, logs.info.kind)
+	require.Equal(t, infoActionLog, logs.info.kind)
 	require.Len(t, tmux.belowAnchors, 1)
 
 	shown := pressTerminal(t, logs)

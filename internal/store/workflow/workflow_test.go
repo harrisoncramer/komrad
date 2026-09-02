@@ -227,67 +227,32 @@ func TestConfigRoundTrip(t *testing.T) {
 	}
 }
 
-// TestActionsRoundTrip pins that the setup and cleanup actions come back as they were
-// written, naming none storing blank.
-func TestActionsRoundTrip(t *testing.T) {
-	tests := []struct {
-		name        string
-		create      Config
-		update      *Config
-		wantSetup   string
-		wantCleanup string
-	}{
-		{
-			name:   "naming none stores blank",
-			create: Config{Name: "digest"},
-		},
-		{
-			name: "both are carried",
-			create: Config{
-				Name:          "backend",
-				SetupAction:   "make-worktree",
-				CleanupAction: "drop-worktree",
-			},
-			wantSetup:   "make-worktree",
-			wantCleanup: "drop-worktree",
-		},
-		{
-			name: "an update writes both, so clearing one clears it",
-			create: Config{
-				Name:          "backend",
-				SetupAction:   "make-worktree",
-				CleanupAction: "drop-worktree",
-			},
-			update:    &Config{Name: "backend", SetupAction: "provision"},
-			wantSetup: "provision",
-		},
-	}
+// TestWorktreeToggleRoundTrips pins the whole of what a workflow says about its agents'
+// directories coming back as it was written, since a script of your own is no longer one of
+// the things it can say.
+func TestWorktreeToggleRoundTrips(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
+	created, err := st.Create(ctx, Config{
+		Name:     "backend",
+		Cwd:      "/repo",
+		Worktree: WorktreeConfig{Enabled: true, BaseBranch: "develop"},
+	})
+	require.NoError(t, err)
+	assert.True(t, created.Worktree.Enabled)
+	assert.Equal(t, "develop", created.Worktree.BaseBranch)
 
-			created, err := st.Create(ctx, tt.create)
-			require.NoError(t, err)
-			assert.Equal(t, tt.create.SetupAction, created.SetupAction, "the create result carries what it was given")
+	require.NoError(t, st.Update(ctx, created.ID, Config{Name: "backend", Cwd: "/repo"}))
 
-			if tt.update != nil {
-				require.NoError(t, st.Update(ctx, created.ID, *tt.update))
-			}
+	got, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.False(t, got.Worktree.Enabled, "an update writes the toggle like every other field")
 
-			got, err := st.Get(ctx, created.ID)
-			require.NoError(t, err)
-			require.NotNil(t, got)
-			assert.Equal(t, tt.wantSetup, got.SetupAction)
-			assert.Equal(t, tt.wantCleanup, got.CleanupAction)
-
-			listed, err := st.List(ctx)
-			require.NoError(t, err)
-			require.Len(t, listed, 1)
-			assert.Equal(t, tt.wantSetup, listed[0].SetupAction, "the listing carries them too")
-		})
-	}
+	listed, err := st.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.False(t, listed[0].Worktree.Enabled, "and the listing carries it too")
 }
 
 // TestWorktreeConfigRoundTrip checks a workflow's worktree config survives the store,
@@ -415,7 +380,7 @@ func TestGetIncludingArchived(t *testing.T) {
 
 			id := missingID
 			if tt.create {
-				created, err := st.Create(ctx, Config{Name: "backend", CleanupAction: "drop-worktree"})
+				created, err := st.Create(ctx, Config{Name: "backend", Cwd: "/repo"})
 				require.NoError(t, err)
 				id = created.ID
 			}
@@ -434,7 +399,7 @@ func TestGetIncludingArchived(t *testing.T) {
 			require.NoError(t, err)
 
 			require.NotNil(t, got)
-			assert.Equal(t, "drop-worktree", got.CleanupAction)
+			assert.Equal(t, "/repo", got.Cwd)
 
 			if tt.archive {
 				assert.NotNil(t, got.ArchivedAt)
@@ -617,4 +582,40 @@ func TestDelete(t *testing.T) {
 			assert.Zero(t, actionConfigs, "and its action config row too")
 		})
 	}
+}
+
+// TestHooksComeBackWithEveryReader pins the hooks reaching every shape a workflow is read in,
+// since the panel lists them, pages them, and gets them one at a time, and a reader that drops
+// them is a reader whose next write clears them.
+func TestHooksComeBackWithEveryReader(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	hooks := []Hook{
+		{Event: HookPreLaunch, Action: "install-deps"},
+		{Event: HookPreLaunch, Action: "copy-env"},
+		{Event: HookPostLaunch, Action: "announce"},
+	}
+
+	created, err := st.Create(ctx, Config{Name: "backend", Hooks: hooks})
+	require.NoError(t, err)
+	assert.Equal(t, hooks, created.Hooks, "create hands back what it wrote")
+
+	got, err := st.Get(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, hooks, got.Hooks, "and so does a get")
+
+	listed, err := st.List(ctx)
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.Equal(t, hooks, listed[0].Hooks, "and the listing")
+
+	page, err := st.ListPage(ctx, 10, nil, false)
+	require.NoError(t, err)
+	require.Len(t, page, 1)
+	assert.Equal(t, hooks, page[0].Hooks, "and a page of it")
+
+	archived, err := st.GetIncludingArchived(ctx, created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, hooks, archived.Hooks, "and the read that spans the archive")
 }

@@ -37,7 +37,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrParentNotFound, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
 		{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
-		{agents.ErrSetupFailed, connect.CodeFailedPrecondition},
+		{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
 		{agents.ErrActionNotExecutable, connect.CodeFailedPrecondition},
 		{agents.ErrActionNotStartable, connect.CodeFailedPrecondition},
 		{agents.ErrActionDirMissing, connect.CodeFailedPrecondition},
@@ -46,7 +46,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
-		{agents.ErrChildRidesAlong, connect.CodeFailedPrecondition},
+		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 		{agents.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
@@ -61,8 +61,6 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrAdoptForkBranch, connect.CodeInvalidArgument},
 		{agents.ErrAdoptNoResolver, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
-		{agents.ErrWorktreeOwnsActions, connect.CodeInvalidArgument},
-		{agents.ErrWorktreeActionsReserved, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
@@ -129,7 +127,7 @@ func TestWrapSayingLeavesOthers(t *testing.T) {
 // TestWrapMarksAnActionThatRan covers the failure whose reason is already on screen, which the
 // panel is told about so it does not print the output the pane is showing.
 func TestWrapMarksAnActionThatRan(t *testing.T) {
-	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrSetupFailed, actions.ErrFailed)
+	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrProvisionFailed, actions.ErrFailed)
 
 	err := rpcerr.Wrap(ran, "failed to create the agent")
 

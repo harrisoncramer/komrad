@@ -46,10 +46,10 @@ type actionRunner interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	TriggerManual  = "manual"
-	TriggerSetup   = "setup"
-	TriggerResume  = "resume"
-	TriggerCleanup = "cleanup"
+	TriggerOpenPR      = config.TriggerOpenPR
+	TriggerProvision   = config.TriggerProvision
+	TriggerResume      = config.TriggerResume
+	TriggerDeprovision = config.TriggerDeprovision
 )
 
 type ActionService struct {
@@ -67,6 +67,7 @@ type ActionService struct {
 	catalog    *actions.Catalog
 	inFlightMu sync.Mutex
 	inFlight   map[actionKey]struct{}
+	logRunMu   sync.Mutex
 }
 
 type ActionParams struct {
@@ -104,18 +105,13 @@ func NewActionService(p ActionParams) *ActionService {
 
 const maxActionPrompt = 16 * 1024
 
-// ListActions returns the available actions in name order.
-func (s *ActionService) ListActions() ([]actions.Action, error) {
-	dirs, err := s.actionDirs()
-	if err != nil {
-		return nil, err
-	}
+// openPRScript is the built-in behind the panel's own key, and the one script weave runs
+// because a person asked rather than because a moment came round.
+const openPRScript = "_open_pr"
 
-	return s.catalog.List(dirs...)
-}
-
-// RunAction starts an action for an agent without waiting for it to finish.
-func (s *ActionService) RunAction(ctx context.Context, agentID, name string) error {
+// OpenPullRequest starts the built-in script that opens an agent's recorded pull request,
+// without waiting for the browser it asks.
+func (s *ActionService) OpenPullRequest(ctx context.Context, agentID string) error {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return ErrAgentNotFound
@@ -126,8 +122,8 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 
 	action, env, err := s.prepare(ctx, prepareParams{
 		agent:   *agent,
-		name:    name,
-		trigger: TriggerManual,
+		name:    openPRScript,
+		trigger: TriggerOpenPR,
 	})
 	if err != nil {
 		return err
@@ -137,32 +133,92 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		action:  action,
 		env:     env,
 		agent:   *agent,
-		trigger: TriggerManual,
+		trigger: TriggerOpenPR,
+		logPath: s.claimActionLog(ctx, agent.ID, TriggerOpenPR, openPRScript),
 	})
 }
 
-var ErrSetupFailed = errors.New("the setup action failed")
+var ErrProvisionFailed = errors.New("the provision action failed")
 
-const setupTimeout = 10 * time.Minute
+const provisionTimeout = 10 * time.Minute
 
-const cleanupTimeout = 2 * time.Minute
+const deprovisionTimeout = 2 * time.Minute
 
-const maxSetupDir = 4096
+const maxProvisionedDir = 4096
 
 const actionDetailCap = 400
 
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
-// RunSetupAction runs a setup action before creating an agent.
-func (s *ActionService) RunSetupAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+// RunProvisionAction runs the provision action that owns an agent's directory before creating it.
+func (s *ActionService) RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerSetup,
+		trigger: TriggerProvision,
 	}, pane)
 }
 
-// RunResumeAction reruns a setup action before resuming an agent.
+var ErrHookFailed = errors.New("a hook failed")
+
+const hookTimeout = 10 * time.Minute
+
+// ListHooks returns the available hooks in name order, which is what the workflow form offers
+// and the order they run in on a moment that holds several.
+func (s *ActionService) ListHooks() ([]actions.Action, error) {
+	dirs, err := s.hookDirs()
+	if err != nil {
+		return nil, err
+	}
+
+	return s.catalog.List(dirs...)
+}
+
+// RunHookAction runs one of a workflow's hooks and waits for it, in the directory the agent
+// was provisioned rather than the one the hook was found in, since a hook is there to work on
+// the checkout.
+func (s *ActionService) RunHookAction(ctx context.Context, agent agentstore.Agent, name, event string) error {
+	action, env, err := s.prepare(ctx, prepareParams{
+		agent:   agent,
+		name:    name,
+		trigger: event,
+		hook:    true,
+	})
+	if err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
+	}
+
+	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
+	// rather than a reason to run the script somewhere else.
+	if err := requireUsableDir(agent.Cwd); err != nil {
+		return fmt.Errorf("%w: %s: %w", ErrHookFailed, name, err)
+	}
+
+	logger := s.actionLogger(ctx, name, event, agent)
+	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
+	began := time.Now()
+
+	logPath := s.claimActionLog(ctx, agent.ID, event, name)
+	result, err := s.runner.RunAndWait(ctx, actions.RunParams{
+		Action:  action,
+		Dir:     agent.Cwd,
+		Env:     env,
+		Timeout: action.Header.TimeoutOr(hookTimeout),
+	})
+	writeActionLog(ctx, logPath, combinedOutput(result.Stdout, result.Stderr))
+
+	if err != nil {
+		logger.LogAttrs(ctx, slog.LevelError, "action failed", failedAction(result, err)...)
+
+		return fmt.Errorf("%w: %s: %w%s", ErrHookFailed, name, err, actionDetail(result.Stdout, result.Stderr, logPath))
+	}
+
+	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
+
+	return nil
+}
+
+// RunResumeAction reruns the provision action before resuming an agent.
 func (s *ActionService) RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	return s.runAwaitedAction(ctx, prepareParams{
 		agent:   agent,
@@ -178,23 +234,23 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 
 	action, env, err := s.prepare(ctx, p)
 	if err != nil {
-		return "", fmt.Errorf("%w: %w", ErrSetupFailed, err)
+		return "", fmt.Errorf("%w: %w", ErrProvisionFailed, err)
 	}
 
-	dirFile, err := os.CreateTemp("", "weave-setup-dir-*")
+	dirFile, err := os.CreateTemp("", "weave-provision-dir-*")
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, err)
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, err)
 	}
 	dirPath := dirFile.Name()
 	closeErr := dirFile.Close()
 	defer func() {
 		if removeErr := os.Remove(dirPath); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
 			s.actionLogger(ctx, p.name, p.trigger, p.agent).LogAttrs(ctx, slog.LevelWarn,
-				"failed to remove the setup action's directory file", logging.Err(removeErr)...)
+				"failed to remove the provision action's directory file", logging.Err(removeErr)...)
 		}
 	}()
 	if closeErr != nil {
-		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrSetupFailed, p.name, closeErr)
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, closeErr)
 	}
 
 	env = append(env, setupDirFileVar+"="+dirPath)
@@ -203,8 +259,8 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	logger.LogAttrs(ctx, slog.LevelInfo, "action started")
 	began := time.Now()
 
-	timeout := action.Header.TimeoutOr(setupTimeout)
-	logPath := s.actionLogPath(p.agent.ID, config.ActionLogSetup)
+	timeout := action.Header.TimeoutOr(provisionTimeout)
+	logPath := s.claimActionLog(ctx, p.agent.ID, p.trigger, p.name)
 
 	var result actions.Result
 	if pane != "" {
@@ -222,16 +278,16 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	logger.LogAttrs(ctx, slog.LevelInfo, "action finished", finishedAction(result, began)...)
 
 	if err != nil {
-		return "", fmt.Errorf("%w: %w%s", ErrSetupFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
+		return "", fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, actionDetail(result.Stdout, result.Stderr, logPath))
 	}
 
-	named, err := readSetupDir(dirPath)
+	named, err := readProvisionedDir(dirPath)
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrSetupFailed, p.name, err)
+		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrProvisionFailed, p.name, err)
 	}
 
-	if len(named) > maxSetupDir {
-		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrSetupFailed, p.name, maxSetupDir, setupDirFileVar)
+	if len(named) > maxProvisionedDir {
+		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrProvisionFailed, p.name, maxProvisionedDir, setupDirFileVar)
 	}
 
 	return string(bytes.TrimSpace(named)), nil
@@ -251,7 +307,7 @@ wait "$teepid"
 rm -f "$6"
 echo "$ec" >"$4"
 if [ "$ec" -ne 0 ]; then
-  printf '\n[setup action exited %s -- press enter to close]\n' "$ec"
+  printf '\n[provision action exited %s -- press enter to close]\n' "$ec"
 fi
 tmux -L "$2" wait-for -S "$3"
 if [ "$ec" -ne 0 ]; then
@@ -260,7 +316,7 @@ fi
 `
 
 const setupPaneGaveUpWrapper = `
-printf '\n[setup action %s: gave up after %s]\n' "$1" "$2"
+printf '\n[provision action %s: gave up after %s]\n' "$1" "$2"
 exec "$3"
 `
 
@@ -309,7 +365,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w: the pane %s is gone", action.Name, actions.ErrNotStartable, pane)
 	}
 
-	exitFile, err := os.CreateTemp("", "weave-setup-exit-")
+	exitFile, err := os.CreateTemp("", "weave-provision-exit-")
 	if err != nil {
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
 	}
@@ -318,7 +374,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 
 	errPath := logPath
 	if errPath == "" {
-		errFile, err := os.CreateTemp("", "weave-setup-err-")
+		errFile, err := os.CreateTemp("", "weave-provision-err-")
 		if err != nil {
 			return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
 		}
@@ -327,7 +383,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 		defer removeTemp(ctx, errPath)
 	}
 
-	fifoFile, err := os.CreateTemp("", "weave-setup-fifo-")
+	fifoFile, err := os.CreateTemp("", "weave-provision-fifo-")
 	if err != nil {
 		return actions.Result{}, fmt.Errorf("failed to run action %s: %w", action.Name, err)
 	}
@@ -336,7 +392,7 @@ func (s *ActionService) runInPane(ctx context.Context, action actions.Action, en
 	removeTemp(ctx, fifoPath)
 	defer removeTemp(ctx, fifoPath)
 
-	channel := fmt.Sprintf("weave-setup-%s-%d", strings.TrimPrefix(pane, "%"), time.Now().UnixNano())
+	channel := fmt.Sprintf("weave-provision-%s-%d", strings.TrimPrefix(pane, "%"), time.Now().UnixNano())
 
 	waitCtx := ctx
 	if timeout > 0 {
@@ -419,12 +475,74 @@ func tailBytes(b []byte, limit int) []byte {
 	return b[len(b)-limit:]
 }
 
-func (s *ActionService) actionLogPath(agentID, kind string) string {
+// maxLogRunAttempts bounds the walk up through numbers a second process has already taken,
+// since a run whose log could not be named is still a run that has to happen.
+const maxLogRunAttempts = 64
+
+// claimActionLog names the file one run writes to and creates it empty, taking the number
+// under the lock and by an exclusive create, since a manual action and a launch can begin at
+// the same moment and what the directory said an instant ago is not what it says now.
+func (s *ActionService) claimActionLog(ctx context.Context, agentID, trigger, name string) string {
 	if s.logsDir == "" || agentID == "" {
 		return ""
 	}
 
-	return config.ActionLogPath(s.logsDir, agentID, kind)
+	s.logRunMu.Lock()
+	defer s.logRunMu.Unlock()
+
+	dir := config.ActionLogDir(s.logsDir, agentID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		logging.From(ctx).Warn("failed to make an agent's action log directory", "path", dir, "error", err)
+
+		return ""
+	}
+
+	number := 1
+	if runs := config.ListActionLogRuns(s.logsDir, agentID); len(runs) > 0 {
+		number = runs[0].Number + 1
+	}
+
+	for range maxLogRunAttempts {
+		path := filepath.Join(dir, config.ActionLogName(number, trigger, name))
+
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			number++
+
+			continue
+		}
+		if err != nil {
+			logging.From(ctx).Warn("failed to open an action log", "path", path, "error", err)
+
+			return ""
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			logging.From(ctx).Warn("failed to close an action log", "path", path, "error", closeErr)
+		}
+
+		pruneActionLogs(ctx, s.logsDir, agentID)
+
+		return path
+	}
+
+	logging.From(ctx).Warn("failed to name a run of an action", "agent_id", agentID, "action", name)
+
+	return ""
+}
+
+// pruneActionLogs drops the runs past the last MaxActionLogRuns, so an agent resumed daily
+// keeps a readable handful rather than a file for every day of it.
+func pruneActionLogs(ctx context.Context, logsDir, agentID string) {
+	runs := config.ListActionLogRuns(logsDir, agentID)
+	if len(runs) <= config.MaxActionLogRuns {
+		return
+	}
+
+	for _, run := range runs[config.MaxActionLogRuns:] {
+		if err := os.Remove(run.Path); err != nil && !os.IsNotExist(err) {
+			logging.From(ctx).Warn("failed to prune an action log", "path", run.Path, "error", err)
+		}
+	}
 }
 
 func appendNote(ctx context.Context, path string, stderr []byte, note string) []byte {
@@ -458,23 +576,23 @@ func writeActionLog(ctx context.Context, path string, content []byte) {
 	}
 }
 
-func readSetupDir(path string) ([]byte, error) {
+func readProvisionedDir(path string) ([]byte, error) {
 	file, err := os.Open(path)
 	if err != nil {
 		return nil, err
 	}
 	defer file.Close()
 
-	return io.ReadAll(io.LimitReader(file, maxSetupDir+1))
+	return io.ReadAll(io.LimitReader(file, maxProvisionedDir+1))
 }
 
-// RunCleanupAction starts a cleanup action without waiting for it to finish, calling done once
+// RunDeprovisionAction starts a deprovision action without waiting for it to finish, calling done once
 // with nil on success or the failure otherwise, and never when the action refuses to start.
-func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+func (s *ActionService) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	action, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
-		trigger: TriggerCleanup,
+		trigger: TriggerDeprovision,
 	})
 	if err != nil {
 		return err
@@ -484,8 +602,8 @@ func (s *ActionService) RunCleanupAction(ctx context.Context, agent agentstore.A
 		action:  action,
 		env:     env,
 		agent:   agent,
-		trigger: TriggerCleanup,
-		logPath: s.actionLogPath(agent.ID, config.ActionLogTeardown),
+		trigger: TriggerDeprovision,
+		logPath: s.claimActionLog(ctx, agent.ID, TriggerDeprovision, name),
 		done:    done,
 	})
 }
@@ -495,6 +613,23 @@ var ErrActionAlreadyRunning = errors.New("the action is already running for this
 type actionKey struct {
 	agentID string
 	name    string
+}
+
+// removeEmptyLog drops the file a run claimed but never wrote to, since a refusal is not a run
+// and a number spent on one would push a real run out of the fifty that are kept.
+func removeEmptyLog(ctx context.Context, path string) {
+	if path == "" {
+		return
+	}
+
+	info, err := os.Stat(path)
+	if err != nil || info.Size() > 0 {
+		return
+	}
+
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logging.From(ctx).Warn("failed to remove the log of a run that never started", "path", path, "error", err)
+	}
 }
 
 func (s *ActionService) claim(key actionKey) bool {
@@ -527,8 +662,8 @@ type startParams struct {
 }
 
 func timeoutFallback(trigger string) time.Duration {
-	if trigger == TriggerCleanup {
-		return cleanupTimeout
+	if trigger == TriggerDeprovision {
+		return deprovisionTimeout
 	}
 
 	return 0
@@ -537,6 +672,8 @@ func timeoutFallback(trigger string) time.Duration {
 func (s *ActionService) start(ctx context.Context, p startParams) error {
 	key := actionKey{agentID: p.agent.ID, name: p.action.Name}
 	if !s.claim(key) {
+		removeEmptyLog(ctx, p.logPath)
+
 		return fmt.Errorf("failed to run action %s: %w", p.action.Name, ErrActionAlreadyRunning)
 	}
 
@@ -568,6 +705,7 @@ func (s *ActionService) start(ctx context.Context, p startParams) error {
 	})
 	if err != nil {
 		s.release(key)
+		removeEmptyLog(ctx, p.logPath)
 
 		return err
 	}
@@ -657,10 +795,18 @@ type prepareParams struct {
 	agent   agentstore.Agent
 	name    string
 	trigger string
+	// hook resolves the name against the hooks directory rather than the actions directory,
+	// since a hook is a script nothing fires by hand: a workflow names it against a moment.
+	hook bool
 }
 
 func (s *ActionService) prepare(ctx context.Context, p prepareParams) (actions.Action, []string, error) {
-	action, err := s.find(p.name)
+	find := s.find
+	if p.hook {
+		find = s.findHook
+	}
+
+	action, err := find(p.name)
 	if err != nil {
 		return actions.Action{}, nil, err
 	}
@@ -679,7 +825,11 @@ func (s *ActionService) prepare(ctx context.Context, p prepareParams) (actions.A
 }
 
 func (s *ActionService) find(name string) (actions.Action, error) {
-	dirs, err := s.actionDirs()
+	return s.catalog.Find(name, s.builtinDirs()...)
+}
+
+func (s *ActionService) findHook(name string) (actions.Action, error) {
+	dirs, err := s.hookDirs()
 	if err != nil {
 		return actions.Action{}, err
 	}
@@ -687,18 +837,24 @@ func (s *ActionService) find(name string) (actions.Action, error) {
 	return s.catalog.Find(name, dirs...)
 }
 
-func (s *ActionService) actionDirs() ([]string, error) {
+func (s *ActionService) hookDirs() ([]string, error) {
 	cfg, err := s.load()
 	if err != nil {
 		return nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	userDir, err := cfg.GetActionsDir()
+	dir, err := cfg.GetHooksDir()
 	if err != nil {
 		return nil, err
 	}
 
-	return []string{userDir, s.builtinDir}, nil
+	return []string{dir}, nil
+}
+
+// builtinDirs is where the scripts weave ships live, which is the only place a script that is
+// not a hook comes from now that nothing else can be named in a field.
+func (s *ActionService) builtinDirs() []string {
+	return []string{s.builtinDir}
 }
 
 type actionPayload struct {
@@ -788,7 +944,9 @@ func (s *ActionService) env(ctx context.Context, p actionEnvParams) ([]string, e
 
 	env = append(env, gitPromptGuardEnv()...)
 
-	if workflow != nil && workflow.Worktree.Enabled {
+	// An agent that provisions nothing keeps the directory it was given, so its hooks must not
+	// be handed WEAVE_WORKTREE_REPO pointing at a worktree nobody made for it.
+	if workflow != nil && workflow.Worktree.Enabled && !isProvisionerDisabled(agent.ProvisionEnabled) {
 		worktreeEnv, err := s.worktreeEnv(*workflow, agent)
 		if err != nil {
 			return nil, err

@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"weave/config"
 	"weave/internal/ui/layout"
 )
 
@@ -10,8 +9,7 @@ type infoKind int
 const (
 	infoNothing infoKind = iota
 	infoSetup
-	infoSetupLog
-	infoTeardownLog
+	infoActionLog
 	infoAgentLog
 	infoTerminal
 	infoEditFile
@@ -20,6 +18,9 @@ const (
 type infoState struct {
 	kind   infoKind
 	action string
+	// run is how far back through an agent's action runs the pane has stepped, zero being
+	// the most recent, so the pane follows the newest run rather than a path that went stale.
+	run int
 }
 
 func (m *model) claimInfo(kind infoKind, action string) bool {
@@ -32,6 +33,7 @@ func (m *model) claimInfo(kind infoKind, action string) bool {
 	m.frame.Claimed(layout.RegionInfo)
 	m.info.kind = kind
 	m.info.action = action
+	m.info.run = 0
 
 	return true
 }
@@ -48,14 +50,13 @@ func (m *model) forgetInfo() {
 	m.tmux.SetInfoPane("")
 	m.info.kind = infoNothing
 	m.info.action = ""
+	m.info.run = 0
 }
 
 func (m *model) stageInfo() {
 	switch m.info.kind {
-	case infoSetupLog:
-		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogSetup))
-	case infoTeardownLog:
-		m.frame.Show(layout.RegionInfo, m.actionLogContent(config.ActionLogTeardown))
+	case infoActionLog:
+		m.frame.Show(layout.RegionInfo, m.actionLogContent())
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:

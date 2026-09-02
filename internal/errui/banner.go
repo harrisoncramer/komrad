@@ -55,7 +55,7 @@ func TraceOf(err error) string {
 	return ""
 }
 
-// SetupRan reports whether the failure was an action of the caller's own running and exiting
+// SetupRan reports whether the failure was a script weave ran on the way in, running and exiting
 // non-zero, which is the one failure whose output the caller is already looking at.
 func SetupRan(err error) bool {
 	var connectErr *connect.Error
