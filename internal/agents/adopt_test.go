@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"errors"
+	"os"
 	"path/filepath"
 	"testing"
 
@@ -53,6 +54,11 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			held: "another worktree",
 		},
 		{
+			name:            "a branch whose only checkout was deleted without telling git",
+			held:            "a worktree that is gone",
+			wantOwnWorktree: true,
+		},
+		{
 			name:      "a branch the workflow's own checkout is sitting on",
 			held:      "the repo",
 			wantErrIs: ErrAdoptBranchInUse,
@@ -73,6 +79,10 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			case "another worktree":
 				elsewhere = filepath.Join(t.TempDir(), "theirs")
 				runGit(t, repo, "worktree", "add", "--quiet", elsewhere, "someones/work")
+			case "a worktree that is gone":
+				stale := filepath.Join(t.TempDir(), "stale")
+				runGit(t, repo, "worktree", "add", "--quiet", stale, "someones/work")
+				require.NoError(t, os.RemoveAll(stale))
 			case "the repo":
 				runGit(t, repo, "checkout", "--quiet", "someones/work")
 			}
@@ -182,6 +192,35 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 
 	assert.NotEqual(t, first.ID, second.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
 	assert.Equal(t, "someones/work", agentByID(t, st, second.ID).AdoptedBranch)
+}
+
+// TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory pins that a checkout deleted by hand
+// does not hold the branch against an adoption, since git keeps the registration until
+// somebody prunes it and nothing about the branch is really in use.
+func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	repo := initRepo(t)
+	workflow := seedWorktreeWorkflow(t, st, repo)
+
+	sitting := filepath.Join(t.TempDir(), "sitting")
+	runGit(t, repo, "worktree", "add", "--quiet", "-b", "someones/work", sitting)
+
+	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+		Name: "sitting", Cwd: sitting, State: agentstore.StateIdle,
+		WorkflowID: workflow, AdoptedBranch: "someones/work",
+	}))
+	require.NoError(t, st.SoftDelete(t.Context(), "sitting"))
+	require.NoError(t, os.RemoveAll(sitting))
+
+	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.NoError(t, err)
+
+	stored := agentByID(t, st, created.ID)
+	assert.Equal(t, "someones/work", stored.AdoptedBranch)
+	assert.Nil(t, stored.ProvisionEnabled, "a worktree of its own is made rather than the directory that is not there")
 }
 
 // TestAdoptRefusesWithoutAWorktreeWorkflow pins that adoption is refused where agents share
