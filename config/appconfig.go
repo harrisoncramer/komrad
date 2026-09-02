@@ -180,12 +180,15 @@ type DetailsKeys struct {
 	Focus []string `mapstructure:"focus"`
 }
 
-// LogsKeys is the binding that cycles the hovered agent's own logs through the info pane:
-// its setup log, its teardown log, then the background service's own log filtered to
-// that agent, and a press past the last one closes the pane.
+// LogsKeys are the bindings that read the hovered agent's own logs in the info pane. Open
+// cycles the most recent run of one of its actions, then the background service's own log
+// filtered to that agent, and a press past the last one closes the pane. Older steps back
+// through the runs before the one on screen, wrapping round to the most recent.
 type LogsKeys struct {
 	// Cycle the hovered agent's logs in the info pane.
 	Open []string `mapstructure:"open"`
+	// Step back to the run before the one the info pane is showing.
+	Older []string `mapstructure:"older"`
 }
 
 // FilterKeys is the binding that narrows the list on screen. It is its own group rather than
@@ -724,7 +727,8 @@ func DefaultKeybindings() Keybindings {
 			Toggle: []string{"?"},
 		},
 		Logs: LogsKeys{
-			Open: []string{"l"},
+			Open:  []string{"l"},
+			Older: []string{"L"},
 		},
 		Nav: NavKeys{
 			Bottom: []string{"G"},

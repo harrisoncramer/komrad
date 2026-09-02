@@ -78,6 +78,18 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 
 Every action also runs with `GIT_TERMINAL_PROMPT=0` and `GCM_INTERACTIVE=never`, and with `GIT_ASKPASS` and `SSH_ASKPASS` forced empty, so a git call against expired credentials fails rather than opening a prompt nothing answers. A non-interactive askpass you already configured is left as you set it.
 
+## Where a run's output is kept
+
+Every run of an action writes a file of its own under the cache directory, numbered so the runs read newest first:
+
+    weave-action-logs/<agent-id>/001-provision-_worktree_setup.log
+                                 002-pre-launch-install-deps.log
+                                 003-manual-open-pr.log
+
+The number counts up per agent and the name says what set the run off, so nothing overwrites anything: an agent resumed twice has three provision runs to compare rather than one file that was written over. Only the last fifty runs are kept, and they all go when the agent is deleted.
+
+In the panel the logs key opens the most recent run in the info pane, and `L` steps back through the runs before it, wrapping round to the most recent. An agent that failed to be created, or failed to be torn down, points at the run that actually failed rather than guessing between two files.
+
 ## Action Metadata
 
 You can configure a small set of metadata for an action by adding _headers_ to the top of the file.

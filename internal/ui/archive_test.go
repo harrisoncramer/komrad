@@ -638,7 +638,7 @@ func TestArchiveStagesWhyADeleteLeftARowBehind(t *testing.T) {
 
 	staged := m.archiveDocument(m.archive.agents[0])
 
-	assert.Contains(t, staged, "teardown failed")
+	assert.Contains(t, staged, "deprovision failed")
 	assert.Contains(t, staged, "the worktree is dirty")
 	assert.NotContains(t, staged, "Restore brings it back", "this row is not one merely waiting to be restored")
 }

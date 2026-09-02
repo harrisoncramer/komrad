@@ -1,8 +1,11 @@
 package config
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 
 	"weave/lib/xslice"
@@ -67,18 +70,100 @@ func (e *Environment) LogPath() string {
 	return filepath.Join(e.CacheDir, "weave.log")
 }
 
-// ActionLogsDir is where a setup or teardown action's own output is kept, one file per
-// agent per kind, so it is still there to read after the pane it ran in has closed.
+// ActionLogsDir is where an action's own output is kept, one directory per agent and one file
+// per run inside it, so it is still there to read after the pane it ran in has closed.
 func (e *Environment) ActionLogsDir() string {
 	return filepath.Join(e.CacheDir, "weave-action-logs")
 }
 
+// The triggers an action can run under, which are what a script reads out of WEAVE_TRIGGER
+// and what a run's log file is named after.
 const (
-	ActionLogSetup    = "setup"
-	ActionLogTeardown = "teardown"
+	TriggerManual      = "manual"
+	TriggerProvision   = "provision"
+	TriggerResume      = "resume"
+	TriggerDeprovision = "deprovision"
 )
 
-// ActionLogPath is where one agent's setup or teardown log lives under dir.
-func ActionLogPath(dir, agentID, kind string) string {
-	return filepath.Join(dir, agentID+"-"+kind+".log")
+// MaxActionLogRuns is how many runs an agent keeps, older ones being pruned as new ones are
+// written, since an agent resumed daily for a year would otherwise hold a file for every one
+// of those days.
+const MaxActionLogRuns = 50
+
+// ActionLogDir is where one agent's action logs live under dir.
+func ActionLogDir(dir, agentID string) string {
+	return filepath.Join(dir, agentID)
+}
+
+// ActionLogRun is one run of an action, as the name of the file it wrote records it.
+type ActionLogRun struct {
+	Number  int
+	Trigger string
+	Action  string
+	Path    string
+}
+
+// ActionLogName is the file one run writes to, numbered so the runs can be listed newest
+// first without reading any of them and named so a run says what set it off.
+func ActionLogName(number int, trigger, action string) string {
+	return fmt.Sprintf("%03d-%s-%s.log", number, trigger, action)
+}
+
+// ListActionLogRuns reads the runs an agent has recorded, newest first, parsing the number
+// rather than sorting on it, since a run past the ninth hundred is wider than the ones before
+// it and would otherwise sort under them.
+func ListActionLogRuns(dir, agentID string) []ActionLogRun {
+	if dir == "" || agentID == "" {
+		return nil
+	}
+
+	logDir := ActionLogDir(dir, agentID)
+	entries, err := os.ReadDir(logDir)
+	if err != nil {
+		return nil
+	}
+
+	runs := make([]ActionLogRun, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+
+		run, ok := parseActionLogName(entry.Name())
+		if !ok {
+			continue
+		}
+		run.Path = filepath.Join(logDir, entry.Name())
+		runs = append(runs, *run)
+	}
+
+	slices.SortFunc(runs, func(a, b ActionLogRun) int {
+		return b.Number - a.Number
+	})
+
+	return runs
+}
+
+func parseActionLogName(name string) (*ActionLogRun, bool) {
+	trimmed, ok := strings.CutSuffix(name, ".log")
+	if !ok {
+		return nil, false
+	}
+
+	number, rest, ok := strings.Cut(trimmed, "-")
+	if !ok {
+		return nil, false
+	}
+
+	parsed, err := strconv.Atoi(number)
+	if err != nil {
+		return nil, false
+	}
+
+	trigger, action, ok := strings.Cut(rest, "-")
+	if !ok {
+		return nil, false
+	}
+
+	return &ActionLogRun{Number: parsed, Trigger: trigger, Action: action}, true
 }

@@ -1,11 +1,13 @@
 package config
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestLoadAddsProcessEnvironment pins which process variables are read into the environment
@@ -45,4 +47,41 @@ func TestLayerPathsUsesPlatformPathList(t *testing.T) {
 	t.Setenv("WEAVE_CONFIG", strings.Join(want, string(filepath.ListSeparator)))
 
 	assert.Equal(t, want, LayerPaths())
+}
+
+// TestListActionLogRuns pins the order the panel reads runs in and what it leaves out, since
+// the number is parsed rather than sorted on: a run past the ninth hundred is wider than the
+// ones before it and would otherwise sort under them.
+func TestListActionLogRuns(t *testing.T) {
+	dir := t.TempDir()
+	logDir := ActionLogDir(dir, "a1")
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+
+	for _, name := range []string{
+		ActionLogName(999, TriggerProvision, "make-worktree"),
+		ActionLogName(1000, TriggerManual, "open-pr"),
+		ActionLogName(1, TriggerProvision, "make-worktree"),
+		"notes.txt",
+		"garbled.log",
+	} {
+		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
+	}
+
+	runs := ListActionLogRuns(dir, "a1")
+
+	require.Len(t, runs, 3, "only the numbered logs are runs")
+	assert.Equal(t, 1000, runs[0].Number, "the newest run is first")
+	assert.Equal(t, TriggerManual, runs[0].Trigger)
+	assert.Equal(t, "open-pr", runs[0].Action)
+	assert.Equal(t, 999, runs[1].Number)
+	assert.Equal(t, 1, runs[2].Number)
+	assert.Equal(t, filepath.Join(logDir, ActionLogName(1000, TriggerManual, "open-pr")), runs[0].Path)
+}
+
+// TestListActionLogRunsWithNothingToRead pins the empty answer, since an agent that has run
+// no action has no directory at all and that is not a fault.
+func TestListActionLogRunsWithNothingToRead(t *testing.T) {
+	assert.Empty(t, ListActionLogRuns(t.TempDir(), "a1"))
+	assert.Empty(t, ListActionLogRuns("", "a1"))
+	assert.Empty(t, ListActionLogRuns(t.TempDir(), ""))
 }

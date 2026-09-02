@@ -46,10 +46,10 @@ type actionRunner interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	TriggerManual      = "manual"
-	TriggerProvision   = "provision"
-	TriggerResume      = "resume"
-	TriggerDeprovision = "deprovision"
+	TriggerManual      = config.TriggerManual
+	TriggerProvision   = config.TriggerProvision
+	TriggerResume      = config.TriggerResume
+	TriggerDeprovision = config.TriggerDeprovision
 )
 
 type ActionService struct {
@@ -67,6 +67,7 @@ type ActionService struct {
 	catalog    *actions.Catalog
 	inFlightMu sync.Mutex
 	inFlight   map[actionKey]struct{}
+	logRunMu   sync.Mutex
 }
 
 type ActionParams struct {
@@ -138,6 +139,7 @@ func (s *ActionService) RunAction(ctx context.Context, agentID, name string) err
 		env:     env,
 		agent:   *agent,
 		trigger: TriggerManual,
+		logPath: s.claimActionLog(ctx, agent.ID, TriggerManual, name),
 	})
 }
 
@@ -204,7 +206,7 @@ func (s *ActionService) runAwaitedAction(ctx context.Context, p prepareParams, p
 	began := time.Now()
 
 	timeout := action.Header.TimeoutOr(provisionTimeout)
-	logPath := s.actionLogPath(p.agent.ID, config.ActionLogSetup)
+	logPath := s.claimActionLog(ctx, p.agent.ID, p.trigger, p.name)
 
 	var result actions.Result
 	if pane != "" {
@@ -419,12 +421,74 @@ func tailBytes(b []byte, limit int) []byte {
 	return b[len(b)-limit:]
 }
 
-func (s *ActionService) actionLogPath(agentID, kind string) string {
+// maxLogRunAttempts bounds the walk up through numbers a second process has already taken,
+// since a run whose log could not be named is still a run that has to happen.
+const maxLogRunAttempts = 64
+
+// claimActionLog names the file one run writes to and creates it empty, taking the number
+// under the lock and by an exclusive create, since a manual action and a launch can begin at
+// the same moment and what the directory said an instant ago is not what it says now.
+func (s *ActionService) claimActionLog(ctx context.Context, agentID, trigger, name string) string {
 	if s.logsDir == "" || agentID == "" {
 		return ""
 	}
 
-	return config.ActionLogPath(s.logsDir, agentID, kind)
+	s.logRunMu.Lock()
+	defer s.logRunMu.Unlock()
+
+	dir := config.ActionLogDir(s.logsDir, agentID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		logging.From(ctx).Warn("failed to make an agent's action log directory", "path", dir, "error", err)
+
+		return ""
+	}
+
+	number := 1
+	if runs := config.ListActionLogRuns(s.logsDir, agentID); len(runs) > 0 {
+		number = runs[0].Number + 1
+	}
+
+	for range maxLogRunAttempts {
+		path := filepath.Join(dir, config.ActionLogName(number, trigger, name))
+
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			number++
+
+			continue
+		}
+		if err != nil {
+			logging.From(ctx).Warn("failed to open an action log", "path", path, "error", err)
+
+			return ""
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			logging.From(ctx).Warn("failed to close an action log", "path", path, "error", closeErr)
+		}
+
+		pruneActionLogs(ctx, s.logsDir, agentID)
+
+		return path
+	}
+
+	logging.From(ctx).Warn("failed to name a run of an action", "agent_id", agentID, "action", name)
+
+	return ""
+}
+
+// pruneActionLogs drops the runs past the last MaxActionLogRuns, so an agent resumed daily
+// keeps a readable handful rather than a file for every day of it.
+func pruneActionLogs(ctx context.Context, logsDir, agentID string) {
+	runs := config.ListActionLogRuns(logsDir, agentID)
+	if len(runs) <= config.MaxActionLogRuns {
+		return
+	}
+
+	for _, run := range runs[config.MaxActionLogRuns:] {
+		if err := os.Remove(run.Path); err != nil && !os.IsNotExist(err) {
+			logging.From(ctx).Warn("failed to prune an action log", "path", run.Path, "error", err)
+		}
+	}
 }
 
 func appendNote(ctx context.Context, path string, stderr []byte, note string) []byte {
@@ -485,7 +549,7 @@ func (s *ActionService) RunDeprovisionAction(ctx context.Context, agent agentsto
 		env:     env,
 		agent:   agent,
 		trigger: TriggerDeprovision,
-		logPath: s.actionLogPath(agent.ID, config.ActionLogTeardown),
+		logPath: s.claimActionLog(ctx, agent.ID, TriggerDeprovision, name),
 		done:    done,
 	})
 }

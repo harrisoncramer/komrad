@@ -3,6 +3,7 @@ package agents
 import (
 	"errors"
 	"os"
+	"path/filepath"
 	"testing"
 
 	"weave/config"
@@ -277,21 +278,20 @@ func TestDeleteAgentRemovesItsActionLogs(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			setupPath := config.ActionLogPath(logsDir, agent.ID, config.ActionLogSetup)
-			teardownPath := config.ActionLogPath(logsDir, agent.ID, config.ActionLogTeardown)
-			require.NoError(t, os.WriteFile(setupPath, []byte("cloning\n"), 0o644))
-			require.NoError(t, os.WriteFile(teardownPath, []byte("dropping\n"), 0o644))
+			logDir := config.ActionLogDir(logsDir, agent.ID)
+			require.NoError(t, os.MkdirAll(logDir, 0o755))
+			provisionPath := filepath.Join(logDir, config.ActionLogName(1, config.TriggerProvision, "make-worktree"))
+			deprovisionPath := filepath.Join(logDir, config.ActionLogName(2, config.TriggerDeprovision, "drop-worktree"))
+			require.NoError(t, os.WriteFile(provisionPath, []byte("cloning\n"), 0o644))
+			require.NoError(t, os.WriteFile(deprovisionPath, []byte("dropping\n"), 0o644))
 
 			require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
 
-			_, provisionErr := os.Stat(setupPath)
-			_, teardownErr := os.Stat(teardownPath)
+			_, dirErr := os.Stat(logDir)
 			if tt.wantRemoved {
-				assert.True(t, os.IsNotExist(provisionErr), "the setup log goes with a row that is really gone")
-				assert.True(t, os.IsNotExist(teardownErr), "so does the teardown log")
+				assert.True(t, os.IsNotExist(dirErr), "every run goes with a row that is really gone")
 			} else {
-				assert.NoError(t, provisionErr, "the row is still here to read the failure from, so its logs stay too")
-				assert.NoError(t, teardownErr)
+				assert.NoError(t, dirErr, "the row is still here to read the failure from, so its runs stay too")
 			}
 		})
 	}

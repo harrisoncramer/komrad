@@ -485,13 +485,13 @@ const settingUpPlaceholder = "_setting up…_\n\nRunning the provision action. T
 const failureReasonKey = "error"
 
 func (m model) failedPlaceholder(agent agentstore.Agent) string {
-	label, kind := "setup", config.ActionLogSetup
+	label, trigger := "provision", config.TriggerProvision
 	if agent.State == agentstore.StateFailedToCleanup {
-		label, kind = "teardown", config.ActionLogTeardown
+		label, trigger = "deprovision", config.TriggerDeprovision
 	}
 
-	if m.hasActionLog(agent.ID, kind) {
-		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see the %s log.", label, label)
+	if run, ok := m.latestActionLogRun(agent.ID, trigger); ok {
+		return fmt.Sprintf("_%s failed_\n\nPress \"l\" to see run %03d, which is the one that failed.", label, run.Number)
 	}
 
 	reason := ""

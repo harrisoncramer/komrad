@@ -952,7 +952,7 @@ func TestRunDeprovisionActionPersistsStdoutOnAFailure(t *testing.T) {
 		t.Fatal("the cleanup action never reported finishing")
 	}
 
-	persisted, err := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogTeardown))
+	persisted, err := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
 	require.NoError(t, err)
 	assert.Contains(t, string(persisted), "tearing down 1")
 	assert.Contains(t, string(persisted), "tearing down 2")
@@ -976,7 +976,7 @@ func TestRunProvisionActionPersistsStdoutOnAFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
 
-	persisted, readErr := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogSetup))
+	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
 	require.NoError(t, readErr)
 	assert.Contains(t, string(persisted), "diagnosing 1")
 	assert.Contains(t, string(persisted), "diagnosing 2")
@@ -1109,7 +1109,7 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 				t.Fatal("the cleanup action never reported finishing")
 			}
 
-			persisted, readErr := os.ReadFile(config.ActionLogPath(logsDir, "a1", config.ActionLogTeardown))
+			persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
 			require.NoError(t, readErr)
 			output := string(persisted)
 
@@ -1119,6 +1119,89 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 			assert.Contains(t, output, "SSH_ASKPASS="+tt.sshAskpass)
 		})
 	}
+}
+
+// TestClaimActionLogNumbersEveryRun pins each run getting a file of its own rather than the
+// two fixed names that came before, since a resume used to overwrite the log of the create.
+func TestClaimActionLogNumbersEveryRun(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\necho made it\n"), 0o755))
+
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	for range 2 {
+		_, err := svc.RunProvisionAction(t.Context(), agentstore.Agent{ID: "a1"}, "setup", "")
+		require.NoError(t, err)
+	}
+
+	runs := config.ListActionLogRuns(logsDir, "a1")
+
+	require.Len(t, runs, 2, "the second run does not overwrite the first")
+	assert.Equal(t, 2, runs[0].Number)
+	assert.Equal(t, 1, runs[1].Number)
+	assert.Equal(t, config.TriggerProvision, runs[0].Trigger)
+	assert.Equal(t, "setup", runs[0].Action)
+
+	for _, run := range runs {
+		content, readErr := os.ReadFile(run.Path)
+		require.NoError(t, readErr)
+		assert.Contains(t, string(content), "made it", "each run holds its own output")
+	}
+}
+
+// TestClaimActionLogPrunesTheOldestRuns pins the pruning, since an agent resumed daily for a
+// year would otherwise keep a file for every one of them.
+func TestClaimActionLogPrunesTheOldestRuns(t *testing.T) {
+	dir := t.TempDir()
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	logDir := config.ActionLogDir(logsDir, "a1")
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	for number := 1; number <= config.MaxActionLogRuns; number++ {
+		name := config.ActionLogName(number, config.TriggerManual, "open-pr")
+		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
+	}
+
+	path := svc.claimActionLog(t.Context(), "a1", config.TriggerManual, "open-pr")
+	require.NotEmpty(t, path)
+
+	runs := config.ListActionLogRuns(logsDir, "a1")
+
+	require.Len(t, runs, config.MaxActionLogRuns)
+	assert.Equal(t, config.MaxActionLogRuns+1, runs[0].Number, "the newest run is the one just claimed")
+	assert.Equal(t, 2, runs[len(runs)-1].Number, "the oldest went to make room for it")
+}
+
+// TestClaimActionLogStepsPastANameAlreadyTaken pins the exclusive create, since a manual
+// action and a launch can begin at the same moment and neither may write over the other.
+func TestClaimActionLogStepsPastANameAlreadyTaken(t *testing.T) {
+	logsDir := t.TempDir()
+	svc := actionServiceWithLogsDir(t, t.TempDir(), actions.NewRunner(), logsDir)
+
+	logDir := config.ActionLogDir(logsDir, "a1")
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+	taken := filepath.Join(logDir, config.ActionLogName(1, config.TriggerManual, "open-pr"))
+	require.NoError(t, os.WriteFile(taken, []byte("someone else\n"), 0o644))
+
+	path := svc.claimActionLog(t.Context(), "a1", config.TriggerManual, "open-pr")
+
+	assert.NotEqual(t, taken, path, "the name already there is left as it stands")
+	content, err := os.ReadFile(taken)
+	require.NoError(t, err)
+	assert.Contains(t, string(content), "someone else")
+}
+
+// onlyRunLog is the one run an agent has recorded, since a test that ran a single action has
+// no reason to know which number it was given.
+func onlyRunLog(t *testing.T, logsDir, agentID string) string {
+	t.Helper()
+
+	runs := config.ListActionLogRuns(logsDir, agentID)
+	require.Len(t, runs, 1)
+
+	return runs[0].Path
 }
 
 func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {

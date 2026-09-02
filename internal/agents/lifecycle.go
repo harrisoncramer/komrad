@@ -368,19 +368,17 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	return nil
 }
 
-// removeActionLogs drops the setup and teardown logs an agent leaves on disk once its row is
-// gone, logging a failure rather than returning it since a leftover file costs nothing.
+// removeActionLogs drops the runs an agent leaves on disk once its row is gone, logging a
+// failure rather than returning it since a leftover file costs nothing.
 func (s *LifecycleService) removeActionLogs(ctx context.Context, ids []string) {
 	if s.logsDir == "" {
 		return
 	}
 
 	for _, id := range ids {
-		for _, kind := range []string{config.ActionLogSetup, config.ActionLogTeardown} {
-			path := config.ActionLogPath(s.logsDir, id, kind)
-			if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-				logging.From(ctx).Warn("failed to remove an agent's action log", "path", path, "agent_id", id, "error", err)
-			}
+		path := config.ActionLogDir(s.logsDir, id)
+		if err := os.RemoveAll(path); err != nil {
+			logging.From(ctx).Warn("failed to remove an agent's action logs", "path", path, "agent_id", id, "error", err)
 		}
 	}
 }
