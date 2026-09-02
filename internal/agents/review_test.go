@@ -3,6 +3,7 @@ package agents
 import (
 	"context"
 	"fmt"
+	"slices"
 	"testing"
 	"time"
 
@@ -11,6 +12,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
+	"weave/lib/xslice"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,9 +24,12 @@ const (
 	humanMessageID  = "33333333-3333-3333-3333-333333333333"
 	agentMessageID  = "44444444-4444-4444-4444-444444444444"
 	reviewThreadID  = "55555555-5555-5555-5555-555555555555"
+	draftMessageID  = "66666666-6666-6666-6666-666666666666"
 )
 
 var settledAt = time.Date(2026, time.August, 27, 12, 0, 0, 0, time.UTC)
+
+var writtenAt = time.Date(2026, time.August, 27, 11, 0, 0, 0, time.UTC)
 
 // TestOnlyTheTargetAgentWritesToAReview covers the hole where any agent could reply in or
 // claim a conversation addressed to a different agent purely by naming its thread id.
@@ -226,9 +231,101 @@ func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 func TestReadingAnotherAgentsReviewIsAllowed(t *testing.T) {
 	service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
 
-	threads, err := service.ListReviewThreads(t.Context(), reviewedAgentID)
+	threads, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
+		AgentID: reviewedAgentID,
+		Author:  agentAuthor(otherAgentID),
+	})
 	require.NoError(t, err)
 	assert.Len(t, threads, 1)
+}
+
+// TestAnAgentReadsOnlyWhatTheReviewerLetGoOf covers the hole where every comment the person
+// had written and not released was handed over the moment an agent made the call the doorbell
+// asks for, so a review could be read as it was typed rather than once it was a review.
+func TestAnAgentReadsOnlyWhatTheReviewerLetGoOf(t *testing.T) {
+	tests := []struct {
+		name       string
+		reader     ReviewAuthor
+		wantBodies []string
+	}{
+		{
+			name:   "the person reviewing reads their own draft back",
+			reader: humanAuthor(),
+			wantBodies: []string{
+				"this needs a nil check",
+				"done",
+				"and I have not decided about this one",
+			},
+		},
+		{
+			name:       "the agent under review reads only the released comment and its own reply",
+			reader:     agentAuthor(reviewedAgentID),
+			wantBodies: []string{"this needs a nil check", "done"},
+		},
+		{
+			name:       "an agent reading somebody else's review is filtered the same way",
+			reader:     agentAuthor(otherAgentID),
+			wantBodies: []string{"this needs a nil check", "done"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviews := newFakeReviewStore()
+			reviews.messages[draftMessageID] = draftMessage()
+			service := reviewService(t, reviews, &fakeNoticeSender{})
+
+			threads, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
+				AgentID: reviewedAgentID,
+				Author:  tt.reader,
+			})
+			require.NoError(t, err)
+			require.Len(t, threads, 1)
+
+			bodies := xslice.Map(threads[0].Messages, func(m reviewstore.Message) string { return m.Body })
+			assert.Equal(t, tt.wantBodies, bodies)
+
+			if tt.reader.IsHuman() {
+				assert.True(t, threads[0].Thread.UnreadByHuman, "the panel still draws its own unread mark")
+				assert.Equal(t, &settledAt, threads[0].Messages[0].SentAt)
+				assert.Equal(t, reviewstore.DeliverySent, threads[0].Messages[0].Delivery)
+
+				return
+			}
+
+			for _, message := range threads[0].Messages {
+				assert.Nil(t, message.SentAt, "when the person let a comment go is theirs to know")
+				assert.Nil(t, message.DeliveredAt)
+				assert.Equal(t, reviewstore.DeliveryNone, message.Delivery)
+			}
+			assert.False(t, threads[0].Thread.UnreadByHuman,
+				"whether the person has read the reply is their own progress")
+		})
+	}
+}
+
+// TestAThreadWithNothingReleasedIsHiddenFromTheAgent pins that where the person is looking is
+// theirs until they let a comment go, since the file, the lines and the diff they quoted say
+// what is being written about even with none of the words read.
+func TestAThreadWithNothingReleasedIsHiddenFromTheAgent(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.messages = map[string]reviewstore.Message{draftMessageID: draftMessage()}
+	service := reviewService(t, reviews, &fakeNoticeSender{})
+
+	forHuman, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
+		AgentID: reviewedAgentID,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+	require.Len(t, forHuman, 1)
+	assert.Equal(t, "greet.go", forHuman[0].Thread.FilePath)
+
+	forAgent, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
+		AgentID: reviewedAgentID,
+		Author:  agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err)
+	assert.Empty(t, forAgent)
 }
 
 // TestReleaseReviewMessages pins what letting go of a review does: one doorbell however many
@@ -492,18 +589,45 @@ func newFakeReviewStore() *fakeReviewStore {
 	agentID := reviewedAgentID
 
 	return &fakeReviewStore{
-		thread: reviewstore.Thread{ID: reviewThreadID, AgentID: reviewedAgentID},
+		thread: reviewstore.Thread{
+			ID:            reviewThreadID,
+			AgentID:       reviewedAgentID,
+			FilePath:      "greet.go",
+			QuotedLines:   []string{"+\tgreet(nil)"},
+			UnreadByHuman: true,
+		},
 		messages: map[string]reviewstore.Message{
 			humanMessageID: {
-				ID: humanMessageID, ThreadID: reviewThreadID, AuthorKind: reviewstore.AuthorHuman,
+				ID:         humanMessageID,
+				ThreadID:   reviewThreadID,
+				AuthorKind: reviewstore.AuthorHuman,
+				Body:       "this needs a nil check",
+				SentAt:     &settledAt,
+				Delivery:   reviewstore.DeliverySent,
+				CreatedAt:  writtenAt,
 			},
 			agentMessageID: {
 				ID:            agentMessageID,
 				ThreadID:      reviewThreadID,
 				AuthorKind:    reviewstore.AuthorAgent,
 				AuthorAgentID: &agentID,
+				Body:          "done",
+				CreatedAt:     writtenAt.Add(time.Minute),
 			},
 		},
+	}
+}
+
+// draftMessage is a comment the person has written down and not let go of, which is the state
+// every comment passes through while a review is being composed.
+func draftMessage() reviewstore.Message {
+	return reviewstore.Message{
+		ID:         draftMessageID,
+		ThreadID:   reviewThreadID,
+		AuthorKind: reviewstore.AuthorHuman,
+		Body:       "and I have not decided about this one",
+		Delivery:   reviewstore.DeliveryUnsent,
+		CreatedAt:  writtenAt.Add(2 * time.Minute),
 	}
 }
 
@@ -651,8 +775,23 @@ func (f *fakeReviewStore) GetMessage(_ context.Context, id string) (*reviewstore
 	return &message, nil
 }
 
-func (f *fakeReviewStore) ListMessages(context.Context, []string) ([]reviewstore.Message, error) {
-	return nil, nil
+func (f *fakeReviewStore) ListMessages(_ context.Context, threadIDs []string) ([]reviewstore.Message, error) {
+	wanted := map[string]bool{}
+	for _, id := range threadIDs {
+		wanted[id] = true
+	}
+
+	messages := make([]reviewstore.Message, 0, len(f.messages))
+	for _, message := range f.messages {
+		if wanted[message.ThreadID] {
+			messages = append(messages, message)
+		}
+	}
+	slices.SortFunc(messages, func(a, b reviewstore.Message) int {
+		return a.CreatedAt.Compare(b.CreatedAt)
+	})
+
+	return messages, nil
 }
 
 func (f *fakeReviewStore) DeleteMessage(context.Context, string) error { return nil }

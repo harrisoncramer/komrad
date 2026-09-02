@@ -98,7 +98,10 @@ type Service struct {
 }
 
 type reviewConversation interface {
-	ListReviewThreads(ctx context.Context, agentID string) ([]agents.ReviewThreadWithMessages, error)
+	ListReviewThreads(
+		ctx context.Context,
+		params agents.ListReviewThreadsParams,
+	) ([]agents.ReviewThreadWithMessages, error)
 	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
 	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
 	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
