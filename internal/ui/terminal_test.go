@@ -153,6 +153,34 @@ func TestTerminalMovesWhenAskedOnAnotherAgent(t *testing.T) {
 	assert.Equal(t, []string{"%2", "%2"}, tmux.selected, "the shell takes the keyboard where it lands")
 }
 
+// TestTerminalStaysPutOnASiblingSharingTheDirectory pins that the key pressed over another agent
+// rooted in the same directory leaves the shell running, since where the shell belongs is a
+// directory rather than an agent and a workflow may root all of its agents in one.
+func TestTerminalStaysPutOnASiblingSharingTheDirectory(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, dir := terminalModel(t, tmux)
+
+	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+		ID:         "a2",
+		Name:       "billing",
+		Cwd:        dir,
+		WorkflowID: "w1",
+	}})
+
+	opened := pressTerminal(t, m)
+
+	moved, _ := opened.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	panel, ok := moved.(model)
+	require.True(t, ok)
+	require.Equal(t, "back to the terminal", panel.terminalDesc())
+
+	again := pressTerminal(t, panel)
+
+	assert.Equal(t, dir, again.info.subject)
+	assert.Equal(t, []string{dir}, infoRespawns(tmux), "one directory is one shell")
+	assert.Equal(t, []string{"%2", "%2"}, tmux.selected, "the shell takes the keyboard")
+}
+
 // TestTerminalStaysPutOverAWorkflowHeader pins that a row holding no directory of its own leaves
 // the shell where it is, since the cursor passes over a header on the way to every agent.
 func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
@@ -176,7 +204,8 @@ func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
 }
 
 // TestTerminalRefusesToMoveToAMissingWorktree pins that the key pressed over an agent whose
-// directory has gone reports why and leaves the shell already up alone.
+// directory has gone reports why, leaves the shell already up alone, and still hands it the
+// keyboard, since a cursor parked on such a row would otherwise put the pane out of reach.
 func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
@@ -200,6 +229,7 @@ func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 	assert.Equal(t, []string{dir}, infoRespawns(tmux))
 	require.NotNil(t, refused.banner)
 	assert.Contains(t, refused.banner.Summary, "Could not open a terminal")
+	assert.Equal(t, []string{"%2", "%2"}, tmux.selected)
 }
 
 // TestTerminalSurvivesTheRestaging pins that the stage being drawn again, which happens on every

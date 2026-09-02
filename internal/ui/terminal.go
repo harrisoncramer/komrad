@@ -11,9 +11,8 @@ import (
 // fallbackShell is what the terminal runs when tmux answers for no default shell.
 const fallbackShell = "sh"
 
-// terminalContent is a shell rooted where it was opened, under one key rather than one per
-// directory: drawing a region again respawns its pane, which kills whatever is running in it,
-// so a shell that is already up has to look the same on every restaging.
+// terminalContent is a shell rooted where it was opened, keyed so that drawing the region again
+// leaves it alone: respawning a pane kills whatever is running in it.
 func terminalContent(shell, dir string) layout.Content {
 	if shell == "" {
 		shell = fallbackShell
@@ -59,6 +58,11 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 
 	if _, err := os.Stat(agent.Cwd); err != nil {
 		m.report("Could not open a terminal", err)
+
+		// The shell up is still worth the keyboard, and the banner says why it did not move.
+		if up {
+			return focus()
+		}
 
 		return m, nil
 	}
