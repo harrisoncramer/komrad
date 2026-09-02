@@ -76,14 +76,34 @@ func (e *Environment) ActionLogsDir() string {
 	return filepath.Join(e.CacheDir, "weave-action-logs")
 }
 
-// The triggers an action can run under, which are what a script reads out of WEAVE_TRIGGER
-// and what a run's log file is named after.
+// The moments an action can run at, which are what a script reads out of WEAVE_TRIGGER and
+// what a run's log file is named after, the first four belonging to the provisioner and the
+// rest being the moments a workflow can hang a hook on.
 const (
 	TriggerManual      = "manual"
 	TriggerProvision   = "provision"
 	TriggerResume      = "resume"
 	TriggerDeprovision = "deprovision"
+	HookPreLaunch      = "pre-launch"
+	HookPostLaunch     = "post-launch"
+	HookPostResume     = "post-resume"
+	HookPostRestore    = "post-restore"
 )
+
+// ActionMoments is every moment by name, which is the set a run's file name is read back
+// against, since a moment's own name may hold a hyphen.
+func ActionMoments() []string {
+	return []string{
+		TriggerManual,
+		TriggerProvision,
+		TriggerResume,
+		TriggerDeprovision,
+		HookPreLaunch,
+		HookPostLaunch,
+		HookPostResume,
+		HookPostRestore,
+	}
+}
 
 // MaxActionLogRuns is how many runs an agent keeps, older ones being pruned as new ones are
 // written, since an agent resumed daily for a year would otherwise hold a file for every one
@@ -158,6 +178,14 @@ func parseActionLogName(name string) (*ActionLogRun, bool) {
 	parsed, err := strconv.Atoi(number)
 	if err != nil {
 		return nil, false
+	}
+
+	// A moment's name holds a hyphen of its own, so the split is against the moments there are
+	// rather than at the next hyphen along.
+	for _, moment := range ActionMoments() {
+		if action, found := strings.CutPrefix(rest, moment+"-"); found {
+			return &ActionLogRun{Number: parsed, Trigger: moment, Action: action}, true
+		}
 	}
 
 	trigger, action, ok := strings.Cut(rest, "-")

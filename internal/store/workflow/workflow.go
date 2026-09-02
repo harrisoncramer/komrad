@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/config"
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
@@ -18,10 +19,10 @@ import (
 // The moments a workflow can hang a script on, each named for the event it hangs on and the
 // side of it that runs, so reading the name says when it fires.
 const (
-	HookPreLaunch   = "pre-launch"
-	HookPostLaunch  = "post-launch"
-	HookPostResume  = "post-resume"
-	HookPostRestore = "post-restore"
+	HookPreLaunch   = config.HookPreLaunch
+	HookPostLaunch  = config.HookPostLaunch
+	HookPostResume  = config.HookPostResume
+	HookPostRestore = config.HookPostRestore
 )
 
 // HookEvents are the moments a workflow can hang a script on, in the order they fire.

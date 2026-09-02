@@ -1121,6 +1121,53 @@ func TestActionEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 	}
 }
 
+// TestRunHookActionRunsInTheAgentsDirectory drives a real script through the runner, since
+// where a hook runs is the whole point of one: it is there to work on the checkout rather than
+// on the directory the script itself lives in.
+func TestRunHookActionRunsInTheAgentsDirectory(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
+		"#!/bin/sh\nset -eu\necho installing in \"$PWD\"\npwd >installed\nprintf '%s' \"$WEAVE_TRIGGER\" >>installed\n",
+	), 0o755))
+
+	logsDir := t.TempDir()
+	worktree := t.TempDir()
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), logsDir)
+
+	err := svc.RunHookAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: worktree}, "install-deps", workflowstore.HookPreLaunch)
+	require.NoError(t, err)
+
+	landed, readErr := os.ReadFile(filepath.Join(worktree, "installed"))
+	require.NoError(t, readErr, "the hook ran in the agent's own directory rather than the action's")
+	assert.Contains(t, string(landed), workflowstore.HookPreLaunch, "and read the moment out of WEAVE_TRIGGER")
+
+	runs := config.ListActionLogRuns(logsDir, "a1")
+	require.Len(t, runs, 1)
+	assert.Equal(t, workflowstore.HookPreLaunch, runs[0].Trigger)
+	assert.Equal(t, "install-deps", runs[0].Action)
+
+	logged, logErr := os.ReadFile(runs[0].Path)
+	require.NoError(t, logErr)
+	assert.Contains(t, string(logged), "installing in", "and its output is kept under the run that made it")
+}
+
+// TestRunHookActionCarriesWhatTheScriptSaid pins the refusal a failing hook hands back, since
+// that string is what abandons a create and is the only place a person sees why.
+func TestRunHookActionCarriesWhatTheScriptSaid(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
+		"#!/bin/sh\necho no lockfile here >&2\nexit 3\n",
+	), 0o755))
+
+	svc := actionServiceWithLogsDir(t, dir, actions.NewRunner(), t.TempDir())
+
+	err := svc.RunHookAction(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+
+	require.ErrorIs(t, err, ErrHookFailed)
+	assert.Contains(t, err.Error(), "install-deps")
+	assert.Contains(t, err.Error(), "no lockfile here")
+}
+
 // TestClaimActionLogNumbersEveryRun pins each run getting a file of its own rather than the
 // two fixed names that came before, since a resume used to overwrite the log of the create.
 func TestClaimActionLogNumbersEveryRun(t *testing.T) {
