@@ -257,7 +257,7 @@ toggle = ["v"]
 # The key that opens a shell in the hovered agent's directory, shared by every
 # screen that lists agents.
 [keybindings.terminal]
-# Open a shell in the hovered agent's directory, or focus the one already open.
+# Open a shell in the hovered agent's directory, focus the one already there, or move it here.
 open = ["T"]
 
 # The bindings that create and change workflows, from the agents list.
