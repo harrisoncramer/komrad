@@ -589,6 +589,7 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 
 type workflowServiceOptions struct {
 	tmux        *fakeTmux
+	lifecycle   agentScripts
 	maxAgents   int
 	maxChildren int
 	notifier    systemMailSender
@@ -609,6 +610,7 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		Schedules:    s.Schedules,
 		Tmux:         options.tmux,
 		Tx:           s.Pool,
+		Scripts:      options.lifecycle,
 		MaxAgents:    options.maxAgents,
 		MaxChildren:  options.maxChildren,
 		Notifier:     options.notifier,

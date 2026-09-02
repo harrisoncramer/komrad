@@ -299,16 +299,15 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, err
 	}
 
-	// The row is back but dormant, so a hook here is looking at the record rather than at a
-	// running agent: the pane comes back later, when somebody opens it, and fires post-resume.
-	for _, agent := range restored {
-		startHooks(ctx, hookRunParams{
-			scripts: s.scripts,
-			agent:   agent,
-			hooks:   agentHooks(ctx, s.workflows, agent),
-			event:   workflowstore.HookPostRestore,
-		})
+	// The read-back is every agent the caller named, since one that was already live comes back
+	// as it stands, but only the ones this call took out of the archive have been restored.
+	wasArchived := make(map[string]bool, len(archived))
+	for _, agent := range archived {
+		wasArchived[agent.ID] = true
 	}
+	startRestoreHooks(ctx, s.scripts, s.workflows, xslice.Filter(restored, func(agent agentstore.Agent) bool {
+		return wasArchived[agent.ID]
+	}))
 
 	return restored, nil
 }

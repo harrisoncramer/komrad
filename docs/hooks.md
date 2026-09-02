@@ -25,7 +25,7 @@ A workflow can hang one hook on each of these, picked in the workflow form from 
 
 `post-launch` runs once the CLI has been launched into the pane. It runs in the background, so the call that created the agent returns straight away and a hook that fails there is reported rather than undone.
 
-`post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. `post-restore` runs when an archived row comes back. Both run in the background like `post-launch`.
+`post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. `post-restore` runs when an archived row comes back, whether it was restored on its own or with the workflow it sits in. Both run in the background like `post-launch`.
 
 A child agent runs no hooks at all, and neither does an agent told to keep the directory it was given, since both are working in a checkout somebody else prepared and a hook there would be writing into a tree nobody asked it to touch.
 
