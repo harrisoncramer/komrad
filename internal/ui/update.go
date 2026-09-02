@@ -123,7 +123,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, viewed := m.dwellViewed(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing), true
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, next.markRunsReadCmd()), true
 	case refreshResult:
 		if m.applyRefresh(msg) {
 			next, cmd := m.reloadReview()

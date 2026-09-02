@@ -233,6 +233,41 @@ func (m model) markViewedCmd(id string) tea.Cmd {
 	}
 }
 
+// markRunsReadCmd claims the failed runs of the agent whose run log is on screen, on the same
+// terms the transcript's own mark is claimed: what the person is looking at counts as read, and
+// a call that does not land is made again by the next tick that still finds the row marked.
+func (m model) markRunsReadCmd() tea.Cmd {
+	if m.info.kind != infoRunLog {
+		return nil
+	}
+
+	agent, ok := m.logTarget()
+	if !ok || !m.failedRunShowing(agent.ID) {
+		return nil
+	}
+
+	clients := m.api
+	id := agent.ID
+
+	return func() tea.Msg {
+		_ = clients.markRunsRead(id) //nolint:errcheck // the next tick makes the call again
+
+		return nil
+	}
+}
+
+// failedRunShowing reports whether the agent the run-log pane is on is still carrying a mark,
+// so a settled panel makes no calls at all.
+func (m model) failedRunShowing(agentID string) bool {
+	for _, item := range m.listing.agents {
+		if item.agent.ID == agentID {
+			return item.failedRun
+		}
+	}
+
+	return false
+}
+
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	clients := m.api
 	m.beginWrite()

@@ -26,6 +26,7 @@ type agentMarks struct {
 	alive      bool
 	unreadMail bool
 	unviewed   bool
+	failedRun  bool
 }
 
 func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
@@ -76,6 +77,7 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			Branch:           stored.Branch,
 			WorktreeRemoved:  stored.WorktreeRemoved,
 			Unviewed:         marks.unviewed,
+			FailedRun:        marks.failedRun,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

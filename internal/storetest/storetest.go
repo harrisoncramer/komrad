@@ -14,6 +14,7 @@ import (
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	runstore "weave/internal/store/run"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
@@ -31,6 +32,7 @@ type Stores struct {
 	Schedules   *schedulestore.Store
 	Transcripts *transcriptstore.Store
 	Mail        *mailstore.Store
+	Runs        *runstore.Store
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -53,6 +55,7 @@ func Open(t *testing.T) *Stores {
 		Schedules:   schedulestore.New(pool.GetDB()),
 		Transcripts: transcriptstore.New(pool.GetDB()),
 		Mail:        mailstore.New(pool.GetDB()),
+		Runs:        runstore.New(pool.GetDB()),
 	}
 }
 

@@ -62,6 +62,17 @@ func (a api) setViewed(id string, viewed bool) error {
 	return err
 }
 
+// markRunsRead claims the failed runs an agent is holding, which is what opening its run log
+// counts as.
+func (a api) markRunsRead(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
+	defer cancel()
+
+	_, err := a.agents.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: id}))
+
+	return err
+}
+
 type createAgentParams struct {
 	Prompt           string
 	Title            string

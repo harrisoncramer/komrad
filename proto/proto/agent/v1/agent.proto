@@ -40,6 +40,8 @@ message Agent {
   bool worktree_removed = 23;
   // Whether the agent has finished a turn the person has not looked at since.
   bool unviewed = 24;
+  // Whether a script weave fired for the agent failed and nobody has looked at it since.
+  bool failed_run = 27;
   string state_changed_at = 25;
 }
 
@@ -167,6 +169,10 @@ message SetAgentViewedRequest {
   // Whether the person has read what the agent finished. Unsetting it puts the mark back, which
   // is what the toggle does on its way out.
   bool viewed = 2;
+}
+
+message MarkRunsReadRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message SetMetadataRequest {
@@ -418,6 +424,9 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
   }
   rpc SetAgentViewed(SetAgentViewedRequest) returns (google.protobuf.Empty) {
+    option idempotency_level = IDEMPOTENT;
+  }
+  rpc MarkRunsRead(MarkRunsReadRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {

@@ -22,6 +22,7 @@ import (
 	paginationv1 "weave/proto/gen/pagination/v1"
 
 	agentstore "weave/internal/store/agent"
+	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 
@@ -340,6 +341,64 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 	}
 	assert.False(t, unread[alpha.ID], "alpha sent the mail, it did not receive any")
 	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
+}
+
+// TestListAgentsReportsAFailedRun covers the mark a failed script puts on an agent's row, which
+// is the whole reason the runs are recorded rather than only logged.
+func TestListAgentsReportsAFailedRun(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+
+	failed, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
+		AgentID: beta.ID,
+		Trigger: "post-launch",
+		Script:  "install-deps",
+	})
+	require.NoError(t, err)
+	require.NoError(t, st.Runs.Finish(t.Context(), runstore.FinishParams{ID: failed, Failure: "a hook failed"}))
+
+	fine, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
+		AgentID: alpha.ID,
+		Trigger: "post-launch",
+		Script:  "install-deps",
+	})
+	require.NoError(t, err)
+	require.NoError(t, st.Runs.Finish(t.Context(), runstore.FinishParams{ID: fine, ExitCode: xptr.Ptr(int32(0))}))
+
+	marks := func() map[string]bool {
+		listed, listErr := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+		require.NoError(t, listErr)
+		require.Len(t, listed.Msg.GetAgents(), 2)
+
+		held := make(map[string]bool, 2)
+		for _, a := range listed.Msg.GetAgents() {
+			held[a.GetId()] = a.GetFailedRun()
+		}
+
+		return held
+	}
+
+	held := marks()
+	assert.False(t, held[alpha.ID], "a run that succeeded is nothing to read")
+	assert.True(t, held[beta.ID])
+
+	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: beta.ID}))
+	require.NoError(t, err)
+	assert.True(t, got.Msg.GetAgent().GetFailedRun(), "the single lookup reads it the same way")
+
+	_, err = svc.MarkRunsRead(t.Context(), connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: beta.ID}))
+	require.NoError(t, err)
+
+	assert.False(t, marks()[beta.ID], "looking at the run log clears the mark")
 }
 
 // TestGetAgentReportsUnreadMail covers the single-agent lookup reading the mailbox the same
@@ -1039,6 +1098,7 @@ func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
+		Runs:        st.Runs,
 	})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2007,6 +2067,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
+		Runs:        st.Runs,
 		Creator:     launcher,
 		Adopter:     launcher,
 		Liveness:    launcher,

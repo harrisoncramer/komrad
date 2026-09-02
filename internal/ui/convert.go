@@ -58,6 +58,7 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 			alive:      agent.GetAlive(),
 			unreadMail: agent.GetUnreadMail(),
 			unviewed:   agent.GetUnviewed(),
+			failedRun:  agent.GetFailedRun(),
 		}
 	})
 }

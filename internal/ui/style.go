@@ -165,6 +165,18 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
+const failedRunIcon = "⚑"
+
+// failedRunMark says a script weave fired for the agent failed and nobody has read it, which
+// the state icon cannot carry because a hook can fail while the agent itself is working away.
+func failedRunMark(failed bool) string {
+	if !failed {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(failedRunIcon)
+}
+
 const worktreeRemovedIcon = "⊘"
 
 func worktreeRemovedMark(agent agentstore.Agent) string {
