@@ -13,7 +13,10 @@ const (
 	busyFrame  = "· Cooking… (1m 50s · ↓ 5.4k tokens)\n───────\n❯ \n───────"
 	idleFrame  = "───────────────\n❯ \n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
 	typedFrame = "───────────────\n❯ half a question about\n───────────────\n  -- INSERT -- ⏵⏵ bypass permissions on"
-	waitFrame  = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
+	// suggestedFrame is the box Claude draws after a turn ends, holding the prompt it suggests
+	// next in the dim it draws its own furniture in.
+	suggestedFrame = "───────────────\n\x1b[39m❯ \x1b[2mcheck if the author fixed anything yet\x1b[0m\n───────────────\n  -- INSERT --"
+	waitFrame      = "Teleport anywhere for one day. Where?\n❯ 1. Tokyo\n  2. Patagonia\n\nEnter to select · ↑/↓ to navigate · Esc to cancel"
 )
 
 const toolBlock = "\n" +
@@ -69,6 +72,21 @@ func TestReadActivity(t *testing.T) {
 			name:  "a transcript echoing a sent message above an empty box",
 			frame: "❯ what did I ask again\n\n⏺ You asked this.\n───────────────\n❯ \n───────────────\n  -- INSERT --",
 			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "the prompt Claude suggests in an empty box is not somebody's draft",
+			frame: suggestedFrame,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a suggestion long enough to wrap under the marker is still not a draft",
+			frame: "───────────────\n\x1b[39m❯ \x1b[2mcheck whether the reviewer\x1b[0m\n\x1b[2m  came back with anything\x1b[22m\n───────────────\n  -- INSERT --",
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a draft typed under a box rule Claude drew dim",
+			frame: "\x1b[2m───────────────\x1b[0m\n❯ half a question about\n\x1b[2m───────────────\x1b[0m\n  -- INSERT --",
+			want:  harness.ActivityComposing,
 		},
 		{
 			name:  "an input box whose marker carries colour",
