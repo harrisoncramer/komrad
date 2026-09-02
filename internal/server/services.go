@@ -142,6 +142,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Schedules:    st.schedules,
 		Tmux:         p.Tmux,
 		Tx:           st.pool,
+		Scripts:      scriptService,
 		MaxAgents:    p.MaxAgents,
 		MaxChildren:  p.MaxChildren,
 		Notifier:     mailService,

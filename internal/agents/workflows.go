@@ -37,6 +37,7 @@ type workflowScheduleCounter interface {
 }
 
 type workflowAgentLister interface {
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 	ListLiveInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
 }
@@ -53,6 +54,7 @@ type WorkflowService struct {
 	schedules    workflowScheduleCounter
 	tmux         paneKiller
 	tx           txRunner
+	scripts      agentScripts
 	maxAgents    int
 	maxChildren  int
 	notifier     systemMailSender
@@ -66,6 +68,7 @@ type WorkflowParams struct {
 	Schedules    workflowScheduleCounter
 	Tmux         paneKiller
 	Tx           txRunner
+	Scripts      agentScripts
 	MaxAgents    int
 	MaxChildren  int
 	Notifier     systemMailSender
@@ -81,6 +84,7 @@ func NewWorkflowService(p WorkflowParams) *WorkflowService {
 		schedules:    p.Schedules,
 		tmux:         p.Tmux,
 		tx:           p.Tx,
+		scripts:      p.Scripts,
 		maxAgents:    p.MaxAgents,
 		maxChildren:  p.MaxChildren,
 		notifier:     p.Notifier,
@@ -349,6 +353,7 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 		return nil, fmt.Errorf("%w: %q is not archived", ErrWorkflowNotFound, id)
 	}
 
+	var restoring []agentstore.Agent
 	err = w.tx.InTx(ctx, func(db store.DBTX) error {
 		agents := agentstore.New(db)
 
@@ -376,11 +381,22 @@ func (w *WorkflowService) RestoreWorkflow(ctx context.Context, id string) (*work
 			return err
 		}
 
+		restoring = archived
+
 		return stampRestoredPRs(ctx, agents, archived)
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to restore workflow %q: %w", existing.Name, err)
 	}
+
+	// Restoring the folder leaves its agents in the state restoring them one at a time does, so
+	// it owes them the same hook, over the set the transaction found archived rather than
+	// everything now inside the workflow.
+	restored, err := w.agents.ListByID(ctx, agentIDs(restoring))
+	if err != nil {
+		return nil, err
+	}
+	startRestoreHooks(ctx, w.scripts, w.store, restored)
 
 	return w.store.Get(ctx, id)
 }

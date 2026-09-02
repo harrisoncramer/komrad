@@ -260,6 +260,20 @@ func startHooks(ctx context.Context, p hookRunParams) {
 	}()
 }
 
+// startRestoreHooks tells every agent a restore took out of the archive that its row is back
+// but dormant, so a hook here is looking at the record rather than at a running agent: the pane
+// comes back later, when somebody opens it, and fires post-resume of its own.
+func startRestoreHooks(ctx context.Context, scripts agentScripts, workflows workflowReader, restored []agentstore.Agent) {
+	for _, agent := range restored {
+		startHooks(ctx, hookRunParams{
+			scripts: scripts,
+			agent:   agent,
+			hooks:   agentHooks(ctx, workflows, agent),
+			event:   workflowstore.HookPostRestore,
+		})
+	}
+}
+
 // agentHooks are the hooks a workflow lists for one of its agents, which is none for an agent
 // working in a directory somebody else prepared: a child in its parent's checkout, or one told
 // to keep what it was given, where a hook would be writing into a tree nobody asked it to touch.

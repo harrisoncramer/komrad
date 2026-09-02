@@ -384,3 +384,83 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 		})
 	}
 }
+
+// TestRestoreFiresPostRestoreOnlyOnWhatWasArchived pins the set a restore owes its hooks, since
+// a batch may name an agent running right now and telling that one it just came out of the
+// archive runs a script in the directory of an agent mid-turn.
+func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	lifecycle := &fakeLifecycle{}
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
+
+	created, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:  "backend",
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+	})
+	require.NoError(t, err)
+
+	archived := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	archived.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, archived))
+
+	live := seedInWorkflow(t, st, created.ID, "billing", "%1", agentstore.StateThinking)
+	live.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, live))
+
+	require.NoError(t, st.SoftDelete(ctx, "auth"))
+
+	restored, err := manager.lifecycle.RestoreAgents(ctx, []string{archived.ID, live.ID})
+	require.NoError(t, err)
+	assert.Len(t, restored, 2, "an agent that was not archived still comes back as it stands")
+
+	require.Eventually(t, func() bool {
+		return len(lifecycle.ranHooks()) > 0
+	}, 5*time.Second, 10*time.Millisecond, "the archived agent's post-restore hook runs")
+
+	// Long enough for a second chain to have started if one was going to.
+	require.Never(t, func() bool {
+		return len(lifecycle.ranHooks()) > 1
+	}, 300*time.Millisecond, 20*time.Millisecond, "and the one that was never archived is owed nothing")
+
+	assert.Equal(t, archived.Cwd, lifecycle.ranHooks()[0].Cwd, "the hook ran in the restored agent's directory")
+}
+
+// TestRestoreWorkflowFiresPostRestoreHooks pins the sibling path owing the same thing, since
+// restoring the folder is the ordinary way a batch of agents comes back and it leaves them in
+// the state restoring them one at a time does.
+func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	lifecycle := &fakeLifecycle{}
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, lifecycle: lifecycle})
+
+	created, err := workflows.NewWorkflow(ctx, workflowstore.Config{
+		Name:  "backend",
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
+	})
+	require.NoError(t, err)
+
+	agent := seedInWorkflow(t, st, created.ID, "auth", "%0", agentstore.StateIdle)
+	agent.Cwd = t.TempDir()
+	require.NoError(t, st.Agents.Update(ctx, agent))
+
+	require.NoError(t, workflows.ArchiveWorkflow(ctx, created.ID))
+
+	_, err = workflows.RestoreWorkflow(ctx, created.ID)
+	require.NoError(t, err)
+
+	require.Eventually(t, func() bool {
+		return len(lifecycle.ranHooks()) > 0
+	}, 5*time.Second, 10*time.Millisecond, "the post-restore hook runs for the agent inside")
+
+	assert.Equal(t, []ranHook{{
+		Event:  workflowstore.HookPostRestore,
+		Script: "unlock",
+		Cwd:    agent.Cwd,
+	}}, lifecycle.ranHooks())
+}
