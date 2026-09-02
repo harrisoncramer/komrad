@@ -233,8 +233,8 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 }
 
 // Create inserts a workflow together with the config rows holding what new agents inherit
-// and the provisioning of their directories, all of which must land together so a caller outside
-// transaction gets one through InTx.
+// and the provisioning of their directories, all of which must land together so a caller
+// outside a transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,

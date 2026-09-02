@@ -16,14 +16,14 @@ const (
 )
 
 type infoState struct {
-	kind   infoKind
-	script string
-	// run is how far back through an agent's script runs the pane has stepped, zero being
+	kind    infoKind
+	subject string
+	// run is how far back through an agent's runs the run-log pane has stepped, zero being
 	// the most recent, so the pane follows the newest run rather than a path that went stale.
 	run int
 }
 
-func (m *model) claimInfo(kind infoKind, script string) bool {
+func (m *model) claimInfo(kind infoKind, subject string) bool {
 	pane := m.frame.Open(layout.RegionInfo)
 	if pane == "" {
 		return false
@@ -32,7 +32,7 @@ func (m *model) claimInfo(kind infoKind, script string) bool {
 	m.tmux.SetInfoPane(pane)
 	m.frame.Claimed(layout.RegionInfo)
 	m.info.kind = kind
-	m.info.script = script
+	m.info.subject = subject
 	m.info.run = 0
 
 	return true
@@ -49,7 +49,7 @@ func (m model) closeInfo() model {
 func (m *model) forgetInfo() {
 	m.tmux.SetInfoPane("")
 	m.info.kind = infoNothing
-	m.info.script = ""
+	m.info.subject = ""
 	m.info.run = 0
 }
 
@@ -60,8 +60,8 @@ func (m *model) stageInfo() {
 	case infoAgentLog:
 		m.frame.Show(layout.RegionInfo, m.agentLogContent())
 	case infoTerminal:
-		m.info.script = m.terminalDir()
-		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.script))
+		m.info.subject = m.terminalDir()
+		m.frame.Show(layout.RegionInfo, terminalContent(m.shell, m.info.subject))
 	case infoNothing, infoSetup, infoEditFile:
 	}
 }

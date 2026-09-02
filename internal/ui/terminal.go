@@ -31,12 +31,12 @@ func terminalContent(shell, dir string) layout.Content {
 func (m model) terminalDir() string {
 	agent, ok := m.logTarget()
 	if !ok {
-		return m.info.script
+		return m.info.subject
 	}
 
 	// An agent whose worktree has been removed has nowhere to put a shell.
 	if _, err := os.Stat(agent.Cwd); err != nil {
-		return m.info.script
+		return m.info.subject
 	}
 
 	return agent.Cwd
