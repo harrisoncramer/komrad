@@ -5,8 +5,9 @@ import (
 	"os"
 	"strings"
 
+	transcriptstore "weave/internal/store/transcript"
+
 	"github.com/charmbracelet/glamour"
-	"github.com/charmbracelet/x/ansi"
 )
 
 func render(markdown string, wrap int) string {
@@ -28,25 +29,47 @@ func render(markdown string, wrap int) string {
 	return rendered
 }
 
-var highlightStyle = ansi.NewStyle().Reverse(true)
-
-// highlighted marks every line a search hit matched on, so the words the hit was found by are
-// picked out of the conversation around them.
-func highlighted(content string, lines []int) string {
-	if len(lines) == 0 {
+// markSpans writes the search's own markers around the stretches a hit matched on, before the
+// markdown is rendered, since the rendering reflows the text and the marks have to travel with
+// the words rather than with the lines they started on.
+func markSpans(content string, spans []span) string {
+	if len(spans) == 0 {
 		return content
 	}
 
-	rows := strings.Split(content, "\n")
-	for _, line := range lines {
-		if line < 1 || line > len(rows) {
+	var b strings.Builder
+	at := 0
+	for _, s := range spans {
+		if s.start < at || s.end > len(content) {
 			continue
 		}
 
-		rows[line-1] = highlightStyle.Styled(rows[line-1])
+		b.WriteString(content[at:s.start])
+		b.WriteString(transcriptstore.SnippetOpen)
+		b.WriteString(content[s.start:s.end])
+		b.WriteString(transcriptstore.SnippetClose)
+		at = s.end
+	}
+	b.WriteString(content[at:])
+
+	return b.String()
+}
+
+// renderTranscript draws a transcript as the markdown it is written in, with the matched words
+// styled, and reports the line the first of them ended up on.
+func renderTranscript(conversation string, spans []span, width int) (string, int) {
+	rendered := render(markSpans(conversation, spans), width)
+
+	line := 0
+	for i, row := range strings.Split(rendered, "\n") {
+		if strings.Contains(row, transcriptstore.SnippetOpen) {
+			line = i + 1
+
+			break
+		}
 	}
 
-	return strings.Join(rows, "\n")
+	return styleMarks(rendered), line
 }
 
 func writeStageFile(path, content string) bool {

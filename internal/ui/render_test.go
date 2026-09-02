@@ -1,9 +1,12 @@
 package ui
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // TestPagerArgv covers the command a pane runs, which carries the line to open on for a
@@ -38,41 +41,74 @@ func TestPagerArgv(t *testing.T) {
 	}
 }
 
-// TestHighlighted covers the marks written into a transcript preview, which are what make the
-// matched lines findable in the conversation around them.
-func TestHighlighted(t *testing.T) {
-	content := "first\nsecond match\nthird match"
+// TestMarkSpans covers the markers written into a transcript before it is rendered, which are
+// what carry the match through a rendering that reflows the lines it sat on.
+func TestMarkSpans(t *testing.T) {
+	const content = "first\nsecond match\nthird match"
+
+	at := func(word string) span {
+		i := strings.Index(content, word)
+
+		return span{start: i, end: i + len(word)}
+	}
 
 	tests := []struct {
 		name  string
-		lines []int
+		spans []span
 		want  string
 	}{
 		{
 			name:  "nothing matched leaves the transcript alone",
-			lines: nil,
+			spans: nil,
 			want:  content,
 		},
 		{
-			name:  "the matched line is marked and its neighbours are not",
-			lines: []int{2},
-			want:  "first\n\x1b[7msecond match\x1b[m\nthird match",
+			name:  "the matched word is marked and the words around it are not",
+			spans: []span{at("second")},
+			want:  "first\n\x02second\x03 match\nthird match",
 		},
 		{
-			name:  "every matched line takes a mark",
-			lines: []int{2, 3},
-			want:  "first\n\x1b[7msecond match\x1b[m\n\x1b[7mthird match\x1b[m",
+			name:  "every matched word takes a mark",
+			spans: []span{at("first"), at("second")},
+			want:  "\x02first\x03\n\x02second\x03 match\nthird match",
 		},
 		{
-			name:  "a line past the end of the transcript marks nothing",
-			lines: []int{9},
+			name:  "a span past the end of the transcript marks nothing",
+			spans: []span{{start: len(content) + 1, end: len(content) + 4}},
 			want:  content,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, highlighted(content, tt.lines))
+			assert.Equal(t, tt.want, markSpans(content, tt.spans))
 		})
 	}
+}
+
+// TestRenderTranscript covers the preview being the markdown a conversation is written in
+// rather than its source, with the matched word styled where the rendering put it.
+func TestRenderTranscript(t *testing.T) {
+	const content = "# A heading\n\n- a list item\n\nthe ledger is here\n"
+
+	word := strings.Index(content, "ledger")
+	rendered, line := renderTranscript(content, []span{{start: word, end: word + len("ledger")}}, 40)
+
+	plain := ansi.Strip(rendered)
+	assert.Contains(t, plain, "• a list item", "the markdown is rendered rather than shown as source")
+	assert.NotContains(t, plain, "\x02", "the markers are consumed into styling")
+	assert.Contains(t, rendered, matchStyle.Render("ledger"), "the matched word is styled")
+
+	rows := strings.Split(plain, "\n")
+	require.Positive(t, line)
+	assert.Contains(t, rows[line-1], "ledger", "the line reported is the one the match landed on")
+}
+
+// TestRenderTranscriptWithoutAMatch covers a transcript staged with nothing marked in it, which
+// is what a jump with no position left to it looks like.
+func TestRenderTranscriptWithoutAMatch(t *testing.T) {
+	rendered, line := renderTranscript("plain prose\n", nil, 40)
+
+	assert.Equal(t, 0, line, "no match means no line to open on")
+	assert.Contains(t, ansi.Strip(rendered), "plain prose")
 }
