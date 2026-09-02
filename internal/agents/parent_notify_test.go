@@ -296,7 +296,7 @@ func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
 func TestArchiveWorkflowTellsAParentOutsideIt(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
-	workflows := st.workflowServiceWithNotifier(tmux, 0, newNotifier(st))
+	workflows := st.workflowService(workflowServiceOptions{tmux: tmux, notifier: newNotifier(st)})
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "parent", "%parent", agentstore.StateIdle)
