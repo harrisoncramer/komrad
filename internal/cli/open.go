@@ -52,7 +52,7 @@ it needs somewhere for agents to be put back into.`,
 
 			state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
 
-			panelKey, paletteKey := userKeys(socket)
+			panelKey, paletteKey := userKeys(state, socket)
 
 			state.popup.BindHide(panelKey)
 
@@ -133,9 +133,13 @@ func envWithoutTmux() []string {
 	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
 
-// userKeys asks the server the popup opened on which keys the user named, since a key they set
-// at runtime reaches that server alone.
-func userKeys(socket string) (panel, palette string) {
+// userKeys asks whichever server the user is at, this process's own when it is running in tmux
+// and otherwise the one the last open recorded, since a key set at runtime lives there alone.
+func userKeys(state *app, socket string) (panel, palette string) {
+	if socket == "" {
+		socket = state.tmux.GetHostSocket()
+	}
+
 	if socket == "" {
 		return "", ""
 	}

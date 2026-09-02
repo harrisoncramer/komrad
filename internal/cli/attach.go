@@ -36,7 +36,7 @@ starting one is what the panel key is for.`,
 				state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
 			}
 
-			panelKey, paletteKey := userKeys(socket)
+			panelKey, paletteKey := userKeys(state, socket)
 
 			state.popup.BindHide(panelKey)
 			state.popup.BindPalette(ui.BindPaletteParams{
