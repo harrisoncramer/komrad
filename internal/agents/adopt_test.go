@@ -106,7 +106,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			assert.True(t, sameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
 			require.NotNil(t, stored.ProvisionEnabled)
 			assert.False(t, *stored.ProvisionEnabled, "nothing is provisioned for a checkout somebody else made")
-			assert.Empty(t, deprovisionActionFor(t.Context(), st.Workflows, stored), "so nothing tears it down either")
+			assert.Empty(t, deprovisionerFor(t.Context(), st.Workflows, stored), "so nothing tears it down either")
 		})
 	}
 }

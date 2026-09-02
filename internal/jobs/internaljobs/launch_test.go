@@ -93,7 +93,7 @@ func TestLaunchAgentWorker(t *testing.T) {
 			wantResultStatus: schedulestore.LaunchResultCannotLaunch,
 		},
 		{
-			name: "a setup action that refuses cancels",
+			name: "a provisioner that refuses cancels",
 			schedule: &schedulestore.Schedule{
 				ID:      "s1",
 				Name:    "morning-ci",

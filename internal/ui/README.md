@@ -118,7 +118,7 @@ in behind it. internal/cli maps one to the other at the boundary.
 
 ## What this package may not import
 
-Enforced by depguard, listed in .golangci.yaml. No tmux, no harness, no actions, no service
+Enforced by depguard, listed in .golangci.yaml. No tmux, no harness, no scripts, no service
 package, no database. The panel takes what it needs of tmux as a dependency so the option
 names stay in the adapter, speaks to the service over the API like any other client, and
 holds no connection of its own.

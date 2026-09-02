@@ -7,10 +7,10 @@ import (
 	"testing"
 
 	"weave/config"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -409,7 +409,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 		typed  string
 	}{
 		{
-			name: "the new-agent form, with no setup action to run",
+			name: "the new-agent form, with no provisioner to run",
 			open: func(t *testing.T, m model) (model, func() string) {
 				workflow := m.listing.workflows[0]
 
@@ -493,7 +493,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
-// refusedAfterProvision is the refusal a provision action that ran and failed comes back as,
+// refusedAfterProvision is the refusal a provisioner that ran and failed comes back as,
 // which the service marks so the panel does not print what the pane is already showing.
 func refusedAfterProvision(message string) error {
 	refused := connect.NewError(connect.CodeFailedPrecondition, errors.New(message))
@@ -503,7 +503,7 @@ func refusedAfterProvision(message string) error {
 }
 
 // TestNewAgentSubmitClosesImmediately covers the new-agent form closing on submit rather than
-// holding for the write, since a provision action can run for minutes.
+// holding for the write, since a provisioner can run for minutes.
 func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -514,7 +514,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 		{name: "a create that lands"},
 		{
 			name:       "a setup that fails",
-			refuse:     refusedAfterProvision("the provision action failed: exit 7"),
+			refuse:     refusedAfterProvision("the provisioner failed: exit 7"),
 			wantOpen:   true,
 			wantDetail: "the setup failed, and its output is in the pane it ran in",
 		},
@@ -524,7 +524,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			wantDetail: "not allowed",
 		},
 		{
-			name:       "a refusal the provision action never got as far as",
+			name:       "a refusal the provisioner never got as far as",
 			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("that branch is already checked out")),
 			wantDetail: "that branch is already checked out",
 		},
@@ -554,7 +554,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			assert.False(t, m.form.active(), "the form is gone the moment it was submitted")
 			assert.Equal(t, screenAgents, m.screen, "and the list it was drawn over is back")
 			assert.False(t, m.pendingForm)
-			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the setup action to stream into")
+			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the provisioner to stream into")
 			assert.Equal(t, "%2", recorder.infoPane)
 
 			got := settle(t, m, cmd)
@@ -564,7 +564,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 				assert.Equal(t, tt.wantDetail, got.banner.Detail)
 
 				if tt.wantOpen {
-					assert.Equal(t, infoSetup, got.info.kind, "left up so what the setup action printed can still be read")
+					assert.Equal(t, infoSetup, got.info.kind, "left up so what the provisioner printed can still be read")
 				} else {
 					assert.Equal(t, infoNothing, got.info.kind, "nothing ran in it, so it closes with the refusal")
 				}
@@ -581,7 +581,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 }
 
 // TestProvisionerRebuildsTheForm checks that switching the provisioner swaps the worktree
-// fields for the action pickers by rebuilding the form, and hands back whatever was typed into
+// fields for the hook pickers by rebuilding the form, and hands back whatever was typed into
 // the worktree fields if the provisioner switches back.
 func TestProvisionerRebuildsTheForm(t *testing.T) {
 	sent := &formRecorder{}
@@ -805,7 +805,7 @@ func formModel(sent *formRecorder) model {
 			agents:    sent,
 			workflows: sent,
 			schedules: sent,
-			actions:   sent,
+			hooks:     sent,
 		},
 		tmux:  tmux,
 		popup: NewPopupWindow(tmux, "test-session"),
@@ -825,7 +825,7 @@ type formRecorder struct {
 	agentv1connect.AgentServiceClient
 	workflowv1connect.WorkflowServiceClient
 	schedulev1connect.ScheduleServiceClient
-	actionv1connect.ActionServiceClient
+	hookv1connect.HookServiceClient
 	refuse           error
 	storedWorkflow   *workflowv1.Workflow
 	createdAgent     *agentv1.CreateAgentRequest
@@ -846,8 +846,8 @@ func (f *formRecorder) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-func (f *formRecorder) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
-	return connect.NewResponse(&actionv1.ListHooksResponse{}), nil
+func (f *formRecorder) ListHooks(context.Context, *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
+	return connect.NewResponse(&hookv1.ListHooksResponse{}), nil
 }
 
 func (f *formRecorder) CreateAgent(_ context.Context, req *connect.Request[agentv1.CreateAgentRequest]) (*connect.Response[agentv1.CreateAgentResponse], error) {
@@ -1120,10 +1120,10 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 // a moment it does not ask about is one an edit through the panel would silently drop.
 func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 	hooks := []workflowstore.Hook{
-		{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-		{Event: workflowstore.HookPostLaunch, Action: "announce"},
-		{Event: workflowstore.HookPostResume, Action: "announce-back"},
-		{Event: workflowstore.HookPostRestore, Action: "unlock"},
+		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+		{Event: workflowstore.HookPostLaunch, Script: "announce"},
+		{Event: workflowstore.HookPostResume, Script: "announce-back"},
+		{Event: workflowstore.HookPostRestore, Script: "unlock"},
 	}
 
 	values := workflowFormValuesFrom(workflowstore.Config{Name: "backend", Hooks: hooks})
@@ -1139,14 +1139,14 @@ func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
 		Name: "backend",
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
 		},
 	})
 
 	assert.Equal(t, "install-deps", values.PreLaunchHook, "the one that ran first is the one on offer")
 	assert.Equal(t, []workflowstore.Hook{
-		{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
+		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
 	}, values.toConfig().Hooks, "and saving the form writes the one moment holds")
 }
 
@@ -1155,13 +1155,13 @@ func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
 func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Action: "copy-env"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "copy-env"}},
 	})
 
 	form, _ := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
 		Values:    &values,
-		Hooks:     []actionChoice{{name: "install-deps"}, {name: "copy-env"}},
+		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
 		Keys:      config.DefaultKeybindings().Form,
 		Height:    40,
 	})
@@ -1178,7 +1178,7 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 // longer holds still being offered, since an option that is not there is a hook the next save
 // would drop without saying so.
 func TestHookOptionsKeepAHookThatHasGone(t *testing.T) {
-	options := hookOptions([]actionChoice{{name: "install-deps"}}, "copy-env")
+	options := hookOptions([]hookChoice{{name: "install-deps"}}, "copy-env")
 
 	require.Len(t, options, 3)
 	assert.Empty(t, options[0].Value, "None leads, so huh opens the list at the top")
@@ -1215,7 +1215,7 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 	form, _ := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
 		Values:    &values,
-		Hooks:     []actionChoice{{name: "install-deps"}},
+		Hooks:     []hookChoice{{name: "install-deps"}},
 		Keys:      config.DefaultKeybindings().Form,
 		Height:    model{height: terminal}.formHeight(),
 	})
@@ -1269,8 +1269,8 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 		Name:     "backend",
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPostLaunch, Action: "announce"},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPostLaunch, Script: "announce"},
 		},
 	})
 	before := values.toConfig().Hooks
@@ -1278,7 +1278,7 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 	form, _ := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
 		Values:    &values,
-		Hooks:     []actionChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
+		Hooks:     []hookChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
 		Keys:      config.DefaultKeybindings().Form,
 		Height:    model{height: 40}.formHeight(),
 	})

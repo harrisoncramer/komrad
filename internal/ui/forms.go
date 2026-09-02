@@ -182,7 +182,7 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 func hookNamed(hooks []workflowstore.Hook, event string) string {
 	for _, hook := range hooks {
 		if hook.Event == event {
-			return hook.Action
+			return hook.Script
 		}
 	}
 
@@ -196,7 +196,7 @@ func hookOn(name, event string) []workflowstore.Hook {
 		return nil
 	}
 
-	return []workflowstore.Hook{{Event: event, Action: name}}
+	return []workflowstore.Hook{{Event: event, Script: name}}
 }
 
 func splitLines(text string) []string {
@@ -508,7 +508,7 @@ func (m model) formHeight() int {
 type workflowConfigParams struct {
 	NameTitle string
 	Values    *workflowFormValues
-	Hooks     []actionChoice
+	Hooks     []hookChoice
 	Keys      config.FormKeys
 	Height    int
 }
@@ -570,7 +570,7 @@ const hookFieldHeight = 5
 
 // hookFields are the scripts hung on a moment rather than on the directory, one select each
 // since a moment holds one hook, and asked for whatever the provisioner is.
-func hookFields(values *workflowFormValues, available []actionChoice) []huh.Field {
+func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field {
 	moments := []struct {
 		key         string
 		title       string
@@ -619,7 +619,7 @@ func hookFields(values *workflowFormValues, available []actionChoice) []huh.Fiel
 
 // hookFieldDescription leads with the empty case rather than appending it, since a description
 // long enough to be cut off at the width of a terminal would take the notice with it.
-func hookFieldDescription(description string, available []actionChoice) string {
+func hookFieldDescription(description string, available []hookChoice) string {
 	if len(available) == 0 {
 		return "none found in your hooks directory; " + description
 	}
@@ -630,7 +630,7 @@ func hookFieldDescription(description string, available []actionChoice) string {
 // hookOptions offers None, every hook in the directory, and the one this workflow already names
 // if the directory no longer holds it, since dropping that silently is how a saved form loses a
 // hook a person put there.
-func hookOptions(available []actionChoice, chosen string) []huh.Option[string] {
+func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
 	options = append(options, huh.NewOption("None", ""))
 
@@ -638,7 +638,7 @@ func hookOptions(available []actionChoice, chosen string) []huh.Option[string] {
 		options = append(options, huh.NewOption(hook.name, hook.name))
 	}
 
-	offered := slices.ContainsFunc(available, func(a actionChoice) bool { return a.name == chosen })
+	offered := slices.ContainsFunc(available, func(a hookChoice) bool { return a.name == chosen })
 	if chosen != "" && !offered {
 		options = append(options, huh.NewOption(chosen+"  (missing)", chosen))
 	}
@@ -653,7 +653,7 @@ func archiveOnPRClosedField(values *workflowFormValues) huh.Field {
 		WithButtonAlignment(lipgloss.Left)
 }
 
-type actionChoice struct {
+type hookChoice struct {
 	name string
 }
 

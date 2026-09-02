@@ -30,10 +30,10 @@ import (
 	"weave/internal/storetest"
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
-	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	"weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -48,7 +48,7 @@ type Instance struct {
 	Agents    agentv1connect.AgentServiceClient
 	Workflows workflowv1connect.WorkflowServiceClient
 	Schedules schedulev1connect.ScheduleServiceClient
-	Actions   actionv1connect.ActionServiceClient
+	Hooks     hookv1connect.HookServiceClient
 	Config    configv1connect.ConfigServiceClient
 	Harness   *harnesstest.Harness
 	Tmux      *tmuxtest.Server
@@ -142,7 +142,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Agents:     agentv1connect.NewAgentServiceClient(client, url),
 		Workflows:  workflowv1connect.NewWorkflowServiceClient(client, url),
 		Schedules:  schedulev1connect.NewScheduleServiceClient(client, url),
-		Actions:    actionv1connect.NewActionServiceClient(client, url),
+		Hooks:      hookv1connect.NewHookServiceClient(client, url),
 		Config:     configv1connect.NewConfigServiceClient(client, url),
 		Harness:    fake,
 		Tmux:       tmuxServer,

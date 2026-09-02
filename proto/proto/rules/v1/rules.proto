@@ -25,14 +25,14 @@ extend buf.validate.StringRules {
     expression: "!rule || this == '' || this.startsWith('/') || this.startsWith('~')"
   }];
 
-  bool action_name = 50104 [(buf.validate.predefined).cel = {
-    id: "string.action_name"
+  bool script_name = 50104 [(buf.validate.predefined).cel = {
+    id: "string.script_name"
     message: "must be a file name, with no slash, no leading dot, and no control characters"
     expression: "!rule || (this != '' && !this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];
 
-  bool action_name_or_blank = 50105 [(buf.validate.predefined).cel = {
-    id: "string.action_name_or_blank"
+  bool script_name_or_blank = 50105 [(buf.validate.predefined).cel = {
+    id: "string.script_name_or_blank"
     message: "must be blank or a file name, with no slash, no leading dot, and no control characters"
     expression: "!rule || this == '' || (!this.contains('/') && !this.startsWith('.') && !this.matches('[[:cntrl:]]'))"
   }];

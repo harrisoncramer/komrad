@@ -33,14 +33,14 @@ type emptyWorkflowDeleter interface {
 }
 
 // LifecycleService moves agents between the live listing, the archive and gone, running the
-// deprovision action on the way out.
+// deprovisioner on the way out.
 type LifecycleService struct {
 	tmux           paneKiller
 	agents         lifecycleAgentStore
 	workflows      workflowReader
 	emptyWorkflows emptyWorkflowDeleter
 	tx             txRunner
-	actions        agentActions
+	scripts        agentScripts
 	notifier       systemMailSender
 	logsDir        string
 	maxAgents      int
@@ -53,7 +53,7 @@ type LifecycleServiceParams struct {
 	Workflows      workflowReader
 	EmptyWorkflows emptyWorkflowDeleter
 	Tx             txRunner
-	Actions        agentActions
+	Scripts        agentScripts
 	Notifier       systemMailSender
 	LogsDir        string
 	MaxAgents      int
@@ -68,7 +68,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 		workflows:      p.Workflows,
 		emptyWorkflows: p.EmptyWorkflows,
 		tx:             p.Tx,
-		actions:        p.Actions,
+		scripts:        p.Scripts,
 		notifier:       p.Notifier,
 		logsDir:        p.LogsDir,
 		maxAgents:      p.MaxAgents,
@@ -77,7 +77,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 }
 
 // DeleteAgents stops agents and removes those with nothing left to tear down, holding back any
-// whose deprovision action is still running until it finishes.
+// whose deprovisioner is still running until it finishes.
 func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error {
 	named, err := s.requireEveryAgent(ctx, ids)
 	if err != nil {
@@ -89,7 +89,7 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 		return err
 	}
 
-	// A deprovision action must not run against a directory a CLI is still working in, and since the
+	// A deprovisioner must not run against a directory a CLI is still working in, and since the
 	// children share their parent's, this is what keeps the parent's deprovision from tearing down a
 	// checkout one of them is still sitting in.
 	killOwnedPanes(ctx, s.tmux, agents)
@@ -98,15 +98,15 @@ func (s *LifecycleService) DeleteAgents(ctx context.Context, ids []string) error
 
 	var immediate []agentstore.Agent
 	for _, agent := range agents {
-		name := deprovisionActionFor(ctx, s.workflows, agent)
-		if s.actions == nil || name == "" {
+		name := deprovisionerFor(ctx, s.workflows, agent)
+		if s.scripts == nil || name == "" {
 			immediate = append(immediate, agent)
 
 			continue
 		}
 
-		// The row is never dropped before the action says whether it worked.
-		runDeprovision(ctx, s.actions, agent, name, func(deprovisionErr error) {
+		// The row is never dropped before the script says whether it worked.
+		runDeprovision(ctx, s.scripts, agent, name, func(deprovisionErr error) {
 			if deprovisionErr != nil {
 				s.failCleanup(bg, agent, deprovisionErr)
 
@@ -303,7 +303,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 	// running agent: the pane comes back later, when somebody opens it, and fires post-resume.
 	for _, agent := range restored {
 		startHooks(ctx, hookRunParams{
-			actions: s.actions,
+			scripts: s.scripts,
 			agent:   agent,
 			hooks:   agentHooks(ctx, s.workflows, agent),
 			event:   workflowstore.HookPostRestore,
@@ -436,22 +436,22 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	}
 
 	killPanes(ctx, s.tmux, taken)
-	s.removeActionLogs(ctx, ids)
+	s.removeRunLogs(ctx, ids)
 
 	return nil
 }
 
-// removeActionLogs drops the runs an agent leaves on disk once its row is gone, logging a
+// removeRunLogs drops the runs an agent leaves on disk once its row is gone, logging a
 // failure rather than returning it since a leftover file costs nothing.
-func (s *LifecycleService) removeActionLogs(ctx context.Context, ids []string) {
+func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 	if s.logsDir == "" {
 		return
 	}
 
 	for _, id := range ids {
-		path := config.ActionLogDir(s.logsDir, id)
+		path := config.RunLogDir(s.logsDir, id)
 		if err := os.RemoveAll(path); err != nil {
-			logging.From(ctx).Warn("failed to remove an agent's action logs", "path", path, "agent_id", id, "error", err)
+			logging.From(ctx).Warn("failed to remove an agent's run logs", "path", path, "agent_id", id, "error", err)
 		}
 	}
 }

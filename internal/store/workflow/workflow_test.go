@@ -575,11 +575,11 @@ func TestDelete(t *testing.T) {
 				return
 			}
 
-			var configs, actionConfigs int
+			var configs, provisionerConfigs int
 			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_configs").Scan(&configs))
-			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_action_configs").Scan(&actionConfigs))
+			require.NoError(t, pool.GetRawPool().QueryRow(ctx, "SELECT count(*) FROM workflow_provisioner_configs").Scan(&provisionerConfigs))
 			assert.Zero(t, configs, "its config row goes with it")
-			assert.Zero(t, actionConfigs, "and its action config row too")
+			assert.Zero(t, provisionerConfigs, "and its provisioner config row too")
 		})
 	}
 }
@@ -592,9 +592,9 @@ func TestHooksComeBackWithEveryReader(t *testing.T) {
 	ctx := t.Context()
 
 	hooks := []Hook{
-		{Event: HookPreLaunch, Action: "install-deps"},
-		{Event: HookPreLaunch, Action: "copy-env"},
-		{Event: HookPostLaunch, Action: "announce"},
+		{Event: HookPreLaunch, Script: "install-deps"},
+		{Event: HookPreLaunch, Script: "copy-env"},
+		{Event: HookPostLaunch, Script: "announce"},
 	}
 
 	created, err := st.Create(ctx, Config{Name: "backend", Hooks: hooks})

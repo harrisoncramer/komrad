@@ -43,7 +43,7 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			},
 			ArchiveOnPrClosed: w.ArchiveOnPRClosed,
 			Hooks: xslice.Map(w.Hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
-				return &workflowv1.WorkflowHook{Event: hook.Event, Action: hook.Action}
+				return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 			}),
 		},
 		cursor: workflowstore.Cursor{Name: w.Name, ID: w.ID},

@@ -867,7 +867,7 @@ func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) 
 	assert.Len(t, all, 2, "the agents inside it are left alone")
 }
 
-// TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a cleanup action that will
+// TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind covers a deprovisioner that will
 // not run: DeleteAgents cannot destroy that row, so the workflow it is still in cannot be
 // destroyed either, and neither is an error the caller sees, the same as emptying the archive.
 func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {

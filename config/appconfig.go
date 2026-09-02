@@ -181,7 +181,7 @@ type DetailsKeys struct {
 }
 
 // LogsKeys are the bindings that read the hovered agent's own logs in the info pane. Open
-// cycles the most recent run of one of its actions, then the background service's own log
+// cycles the most recent run of one of its scripts, then the background service's own log
 // filtered to that agent, and a press past the last one closes the pane. Older steps back
 // through the runs before the one on screen, wrapping round to the most recent.
 type LogsKeys struct {
@@ -400,7 +400,7 @@ type Hooks struct {
 	Dir string `mapstructure:"dir"`
 }
 
-// Worktrees is where a workflow's generated git worktree setup action puts what it creates.
+// Worktrees is where a workflow's generated git worktree provisioner puts what it creates.
 type Worktrees struct {
 	// Directory generated worktrees are created under, one subdirectory per agent.
 	// Left empty this is ~/.local/state/weave/worktrees.
@@ -517,7 +517,7 @@ type Log struct {
 	Level string `mapstructure:"level"`
 	// The default log viewer. Switch with fzf, rg, etc.
 	Viewer string `mapstructure:"viewer"`
-	// The viewer for a setup or teardown action's own output, plain text rather than the
+	// The viewer for a provisioner's or deprovisioner's own output, plain text rather than the
 	// structured log's JSON lines.
 	ProcessViewer string `mapstructure:"process_viewer"`
 }
@@ -544,7 +544,7 @@ type Connection struct {
 	// The tmux socket weave runs its own server on. Nothing in your normal tmux sees
 	// that server, which is why `tmux -L weave ls` is how you look at it directly.
 	TmuxSocket string `mapstructure:"tmux_socket"`
-	// Where weave keeps what it generates: the service log, the built-in actions it
+	// Where weave keeps what it generates: the service log, the built-in scripts it
 	// writes out on every start, and the temp files a harness passes a prompt through.
 	// Left empty this is ~/Library/Caches/weave on a Mac and ~/.cache/weave on Linux.
 	// Everything under it is weave's to delete and rewrite, so nothing of yours belongs here.
@@ -575,7 +575,7 @@ type Config struct {
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
 	Hooks Hooks `mapstructure:"hooks"`
-	// Where a workflow's generated worktree setup action creates its worktrees.
+	// Where a workflow's generated worktree provisioner creates its worktrees.
 	Worktrees Worktrees `mapstructure:"worktrees"`
 	// The standing text every agent is started with, whatever workflow it is in.
 	Context Context `mapstructure:"context"`
@@ -955,9 +955,9 @@ func (c Config) GetHooksDir() (string, error) {
 	return filepath.Join(home, "hooks"), nil
 }
 
-// GetWorktreesDir is where a generated worktree setup action creates its worktrees: the
+// GetWorktreesDir is where a generated worktree provisioner creates its worktrees: the
 // configured directory, or ~/.local/state/weave/worktrees when the config names none. The
-// default is filled in here rather than into Config for the reason the actions directory's
+// default is filled in here rather than into Config for the reason the hooks directory's
 // is, since one machine's home directory spelled into the generated config would be wrong
 // on every other machine.
 func (c Config) GetWorktreesDir() (string, error) {
@@ -975,7 +975,7 @@ func (c Config) GetWorktreesDir() (string, error) {
 
 // GetContextFile is the standing text every agent is started with: the configured file, or
 // ~/.config/weave/context.md when the config names none. The default is filled in here for
-// the reason the actions directory's is, since one machine's home directory spelled into
+// the reason the hooks directory's is, since one machine's home directory spelled into
 // the generated config would be wrong on every other machine.
 func (c Config) GetContextFile() (string, error) {
 	if file := strings.TrimSpace(c.Context.File); file != "" {

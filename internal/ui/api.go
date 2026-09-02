@@ -6,10 +6,10 @@ import (
 	"strings"
 	"time"
 
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	schedulev1 "weave/proto/gen/schedule/v1"
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
@@ -32,7 +32,7 @@ type api struct {
 	agents    agentv1connect.AgentServiceClient
 	workflows workflowv1connect.WorkflowServiceClient
 	schedules schedulev1connect.ScheduleServiceClient
-	actions   actionv1connect.ActionServiceClient
+	hooks     hookv1connect.HookServiceClient
 }
 
 func (a api) renameAgent(agent agentstore.Agent, name string) error {
@@ -310,7 +310,7 @@ func worktreeConfigToProto(w workflowstore.WorktreeConfig) *workflowv1.WorktreeC
 
 func hooksToProto(hooks []workflowstore.Hook) []*workflowv1.WorkflowHook {
 	return xslice.Map(hooks, func(hook workflowstore.Hook) *workflowv1.WorkflowHook {
-		return &workflowv1.WorkflowHook{Event: hook.Event, Action: hook.Action}
+		return &workflowv1.WorkflowHook{Event: hook.Event, Script: hook.Script}
 	})
 }
 
@@ -393,11 +393,11 @@ func (a api) deleteWorkflow(id string) error {
 	return err
 }
 
-func (a api) listHooks() ([]*actionv1.Hook, error) {
+func (a api) listHooks() ([]*hookv1.Hook, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	resp, err := a.actions.ListHooks(ctx, connect.NewRequest(&emptypb.Empty{}))
+	resp, err := a.hooks.ListHooks(ctx, connect.NewRequest(&emptypb.Empty{}))
 	if err != nil {
 		return nil, err
 	}
@@ -409,7 +409,7 @@ func (a api) openPullRequest(agentID string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.actions.OpenPullRequest(ctx, connect.NewRequest(&actionv1.OpenPullRequestRequest{
+	_, err := a.hooks.OpenPullRequest(ctx, connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: agentID,
 	}))
 

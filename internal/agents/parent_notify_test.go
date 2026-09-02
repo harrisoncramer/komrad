@@ -160,8 +160,8 @@ func TestDeleteTellsAParentItsDelegateIsGone(t *testing.T) {
 	}
 }
 
-// TestDeleteOfAFamilyTellsNobodyAcrossTheSplit pins the batch a cleanup action splits: the
-// parent is held back for its own cleanup while its blank-action child goes straight through,
+// TestDeleteOfAFamilyTellsNobodyAcrossTheSplit pins the batch a deprovisioner splits: the
+// parent is held back for its own cleanup while its blank-script child goes straight through,
 // and the child's news is still nobody's to read.
 func TestDeleteOfAFamilyTellsNobodyAcrossTheSplit(t *testing.T) {
 	tmux := newFakeTmux()
@@ -320,17 +320,17 @@ func TestArchiveWorkflowTellsAParentOutsideIt(t *testing.T) {
 func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 	tests := []struct {
 		name   string
-		action func(lifecycle *LifecycleService, ctx context.Context, id string) error
+		script func(lifecycle *LifecycleService, ctx context.Context, id string) error
 	}{
 		{
 			name: "archive",
-			action: func(lifecycle *LifecycleService, ctx context.Context, id string) error {
+			script: func(lifecycle *LifecycleService, ctx context.Context, id string) error {
 				return lifecycle.ArchiveAgents(ctx, []string{id})
 			},
 		},
 		{
 			name: "delete",
-			action: func(lifecycle *LifecycleService, ctx context.Context, id string) error {
+			script: func(lifecycle *LifecycleService, ctx context.Context, id string) error {
 				return lifecycle.DeleteAgents(ctx, []string{id})
 			},
 		},
@@ -352,7 +352,7 @@ func TestNotifyParentDoesNotBlockOnAFullMailbox(t *testing.T) {
 				require.NoError(t, err)
 			}
 
-			require.NoError(t, tt.action(manager.lifecycle, ctx, child.ID))
+			require.NoError(t, tt.script(manager.lifecycle, ctx, child.ID))
 
 			pending, err := st.Mail.CountPending(ctx, parent.ID)
 			require.NoError(t, err)

@@ -14,8 +14,8 @@ import (
 	"weave/internal/tmux"
 	"weave/lib/xslice"
 
-	"weave/internal/actions"
 	"weave/internal/harness"
+	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	workflowstore "weave/internal/store/workflow"
@@ -51,15 +51,15 @@ var ErrAlreadyLaunched = errors.New("this idempotency key already launched an ag
 
 var (
 	ErrHarnessUnknown      = harness.ErrNotRegistered
-	ErrActionNotFound      = actions.ErrActionNotFound
-	ErrActionNotExecutable = actions.ErrNotExecutable
-	ErrActionNotStartable  = actions.ErrNotStartable
-	ErrActionDirMissing    = actions.ErrDirMissing
+	ErrScriptNotFound      = scripts.ErrScriptNotFound
+	ErrScriptNotExecutable = scripts.ErrNotExecutable
+	ErrScriptNotStartable  = scripts.ErrNotStartable
+	ErrScriptDirMissing    = scripts.ErrDirMissing
 )
 
 type (
-	Action       = actions.Action
-	ActionHeader = actions.Header
+	Script       = scripts.Script
+	ScriptHeader = scripts.Header
 )
 
 type agentGetter interface {
@@ -149,13 +149,13 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// agentActions is the seam onto the executables a user hangs off an agent's life, which are
+// agentScripts is the seam onto the executables a user hangs off an agent's life, which are
 // fired on the way in, on the way back in, and on the way out.
-type agentActions interface {
-	RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
-	RunResumeAction(ctx context.Context, agent agentstore.Agent, name string) (string, error)
-	RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
-	RunHookAction(ctx context.Context, agent agentstore.Agent, name, event string) error
+type agentScripts interface {
+	RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
+	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
+	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
+	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error
 }
 
 type systemMailSender interface {
@@ -208,7 +208,7 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 // hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
 // against, and the moment itself, which is what the script reads out of WEAVE_TRIGGER.
 type hookRunParams struct {
-	actions agentActions
+	scripts agentScripts
 	agent   agentstore.Agent
 	hooks   []workflowstore.Hook
 	event   string
@@ -217,7 +217,7 @@ type hookRunParams struct {
 // runHooks runs the hooks on one moment in order, waiting for each, and stops at the first that
 // fails so the ones after it are not handed a directory half prepared.
 func runHooks(ctx context.Context, p hookRunParams) error {
-	if p.actions == nil {
+	if p.scripts == nil {
 		return nil
 	}
 
@@ -226,7 +226,7 @@ func runHooks(ctx context.Context, p hookRunParams) error {
 			continue
 		}
 
-		if err := p.actions.RunHookAction(ctx, p.agent, hook.Action, p.event); err != nil {
+		if err := p.scripts.RunHook(ctx, p.agent, hook.Script, p.event); err != nil {
 			return err
 		}
 	}
@@ -238,7 +238,7 @@ func runHooks(ctx context.Context, p hookRunParams) error {
 // nothing to wait for: the agent is already where the hooks are about to look, and one that
 // fails there is reported rather than undone.
 func startHooks(ctx context.Context, p hookRunParams) {
-	if p.actions == nil || !slices.ContainsFunc(p.hooks, func(hook workflowstore.Hook) bool { return hook.Event == p.event }) {
+	if p.scripts == nil || !slices.ContainsFunc(p.hooks, func(hook workflowstore.Hook) bool { return hook.Event == p.event }) {
 		return
 	}
 
@@ -246,15 +246,15 @@ func startHooks(ctx context.Context, p hookRunParams) {
 
 	go func() {
 		if err := runHooks(bg, hookRunParams{
-			actions: p.actions,
+			scripts: p.scripts,
 			agent:   p.agent,
 			hooks:   p.hooks,
 			event:   p.event,
 		}); err != nil {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
 				append([]slog.Attr{
-					slog.String(logging.ActionTrigger, p.event),
-					slog.String(logging.ActionAgentID, p.agent.ID),
+					slog.String(logging.RunTrigger, p.event),
+					slog.String(logging.ScriptAgentID, p.agent.ID),
 				}, logging.Err(err)...)...)
 		}
 	}()
@@ -276,9 +276,9 @@ func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.
 	return wf.Hooks
 }
 
-// runDeprovision starts a deprovision action, calling done exactly once with the outcome,
+// runDeprovision starts a deprovisioner, calling done exactly once with the outcome,
 // including a refusal to start.
-func runDeprovision(ctx context.Context, deprovision agentActions, agent agentstore.Agent, name string, done func(error)) {
+func runDeprovision(ctx context.Context, deprovision agentScripts, agent agentstore.Agent, name string, done func(error)) {
 	if deprovision == nil || name == "" {
 		if done != nil {
 			done(nil)
@@ -287,13 +287,13 @@ func runDeprovision(ctx context.Context, deprovision agentActions, agent agentst
 		return
 	}
 
-	if err := deprovision.RunDeprovisionAction(ctx, agent, name, done); err != nil {
+	if err := deprovision.RunDeprovision(ctx, agent, name, done); err != nil {
 		attrs := []slog.Attr{
-			slog.String(logging.ActionName, name),
-			slog.String(logging.ActionAgentID, agent.ID),
-			slog.String(logging.ActionAgentCwd, agent.Cwd),
+			slog.String(logging.ScriptName, name),
+			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentCwd, agent.Cwd),
 		}
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovision action would not start", append(attrs, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner would not start", append(attrs, logging.Err(err)...)...)
 
 		if done != nil {
 			done(err)
@@ -320,20 +320,20 @@ func provisionsWorktree(ctx context.Context, workflows workflowReader, agent age
 	return wf != nil && wf.Worktree.Enabled
 }
 
-func deprovisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
 	if !provisionsWorktree(ctx, workflows, agent) {
 		return ""
 	}
 
-	return worktreeDeprovisionAction
+	return worktreeDeprovisioner
 }
 
-func provisionActionFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
+func provisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
 	if !provisionsWorktree(ctx, workflows, agent) {
 		return ""
 	}
 
-	return worktreeProvisionAction
+	return worktreeProvisioner
 }
 
 func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) *workflowstore.Workflow {
@@ -344,8 +344,8 @@ func workflowFor(ctx context.Context, workflows workflowReader, agent agentstore
 	if err != nil {
 		attrs := []slog.Attr{
 			slog.String(logging.WorkflowID, agent.WorkflowID),
-			slog.String(logging.ActionAgentID, agent.ID),
-			slog.String(logging.ActionAgentCwd, agent.Cwd),
+			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentCwd, agent.Cwd),
 		}
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the workflow behind an agent could not be read", append(attrs, logging.Err(err)...)...)
 

@@ -4,7 +4,7 @@ List the hooks the user has written, which are executable files in their hooks d
 
 ### Synopsis
 
-List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's action field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.
+List the hooks the user has written, which are executable files in their hooks directory. A hook is a script or program that takes one agent as its input, and a workflow names one against a moment in its agents' lives, such as pre-launch or post-resume. The name is what create_workflow and update_workflow take in a hook's script field. A file listed with executable false cannot be run until the user chmods it, and the description and timeout are what the file's own header comments declare about it.
 
 ```
 weave rpc list-hooks [flags]

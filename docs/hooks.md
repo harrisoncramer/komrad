@@ -38,9 +38,9 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
-- `WEAVE_ACTIONS_DIR`, the directory the script came out of, which is how one that cds elsewhere finds its siblings again.
+- `WEAVE_SCRIPT_DIR`, the directory the script came out of, which is how one that cds elsewhere finds its siblings again.
 - `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, or, for the scripts weave ships, `provision`, `resume`, `deprovision`, or `open-pr`.
-- `WEAVE_ACTION`, its own name, for tagging its own log lines.
+- `WEAVE_SCRIPT`, its own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own scripts do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
 - `EDITOR` and `WEAVE_SHELL`
@@ -51,9 +51,9 @@ Every script also runs with `GIT_TERMINAL_PROMPT=0` and `GCM_INTERACTIVE=never`,
 
 Every run writes a file of its own under the cache directory, numbered so the runs read newest first:
 
-    weave-action-logs/<agent-id>/001-provision-_worktree_setup.log
-                                 002-pre-launch-install-deps.log
-                                 003-post-launch-announce.log
+    weave-run-logs/<agent-id>/001-provision-_worktree_setup.log
+                              002-pre-launch-install-deps.log
+                              003-post-launch-announce.log
 
 The number counts up per agent and the name says what set the run off, so nothing overwrites anything: an agent resumed twice has three provision runs to compare rather than one file that was written over. Only the last fifty runs are kept, and they all go when the agent is deleted.
 
@@ -72,7 +72,7 @@ You can configure a small set of metadata for a hook by adding _headers_ to the 
 # What this writes to stdout or stderr is captured, kept in full in weave's log and
 # the per-agent run log, and cut to a few hundred bytes in a refusal's banner.
 # You can also send messages to the log manually, like this:
-weave rpc log --message 'Hello world' --action "$WEAVE_ACTION"
+weave rpc log --message 'Hello world' --script "$WEAVE_SCRIPT"
 ```
 
 This hook will abort and fail if it cannot execute within 1 second.

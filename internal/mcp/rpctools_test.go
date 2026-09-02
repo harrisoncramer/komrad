@@ -3,9 +3,9 @@ package mcp
 import (
 	"testing"
 
-	actionv1 "weave/proto/gen/action/v1"
 	agentv1 "weave/proto/gen/agent/v1"
 	configv1 "weave/proto/gen/config/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	"weave/internal/rpcapi"
@@ -45,7 +45,7 @@ func TestEveryMethodIsAnnotated(t *testing.T) {
 		{name: "agent service", file: agentv1.File_agent_v1_agent_proto},
 		{name: "workflow service", file: workflowv1.File_workflow_v1_workflow_proto},
 		{name: "config service", file: configv1.File_config_v1_config_proto},
-		{name: "action service", file: actionv1.File_action_v1_action_proto},
+		{name: "hook service", file: hookv1.File_hook_v1_hook_proto},
 	}
 
 	for _, tt := range tests {

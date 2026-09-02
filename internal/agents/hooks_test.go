@@ -27,9 +27,9 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
-			{Event: workflowstore.HookPostLaunch, Action: "announce"},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookPostLaunch, Script: "announce"},
 		},
 	})
 	require.NoError(t, err)
@@ -46,13 +46,13 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 	require.GreaterOrEqual(t, len(ran), 2)
 	assert.Equal(t, ranHook{
 		Event:  workflowstore.HookPreLaunch,
-		Action: "install-deps",
+		Script: "install-deps",
 		Cwd:    provisioned,
 	}, ran[0],
 		"the first pre-launch hook runs in the directory the provisioner named")
 	assert.Equal(t, ranHook{
 		Event:  workflowstore.HookPreLaunch,
-		Action: "copy-env",
+		Script: "copy-env",
 		Cwd:    provisioned,
 	}, ran[1],
 		"and the second runs after it, in the order the workflow lists them")
@@ -68,7 +68,7 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Action: "announce"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
 	})
 	require.NoError(t, err)
 
@@ -86,7 +86,7 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 
 	ran := lifecycle.ranHooks()
 	assert.Equal(t, workflowstore.HookPostLaunch, ran[0].Event)
-	assert.Equal(t, "announce", ran[0].Action)
+	assert.Equal(t, "announce", ran[0].Script)
 }
 
 // TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing pre-launch hook taking the
@@ -106,8 +106,8 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
 		},
 	})
 	require.NoError(t, err)
@@ -122,8 +122,8 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 
 	ran := lifecycle.ranHooks()
 	require.Len(t, ran, 1, "the hooks after the one that failed are skipped")
-	assert.Equal(t, "install-deps", ran[0].Action)
-	assert.Equal(t, []string{worktreeDeprovisionAction}, lifecycle.deprovision, "what the provisioner built is given back")
+	assert.Equal(t, "install-deps", ran[0].Script)
+	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what the provisioner built is given back")
 
 	agents, listErr := st.List(t.Context())
 	require.NoError(t, listErr)
@@ -141,7 +141,7 @@ func TestNewChildAgentRunsNoHooks(t *testing.T) {
 
 	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Action: "install-deps"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPreLaunch, Script: "install-deps"}},
 	})
 	require.NoError(t, err)
 
@@ -180,8 +180,8 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 		Cwd:      initRepo(t),
 		Worktree: workflowstore.WorktreeConfig{Enabled: true},
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPostLaunch, Action: "announce"},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPostLaunch, Script: "announce"},
 		},
 	})
 	require.NoError(t, err)
@@ -209,7 +209,7 @@ func TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire(t *testing.T) {
 
 	_, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: "pre-lunch", Action: "install-deps"}},
+		Hooks: []workflowstore.Hook{{Event: "pre-lunch", Script: "install-deps"}},
 	})
 
 	require.ErrorIs(t, err, ErrUnknownHookEvent)
@@ -224,10 +224,10 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
 		Name: "backend",
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
-			{Event: workflowstore.HookPostLaunch, Action: "announce"},
-			{Event: workflowstore.HookPreLaunch, Action: ""},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+			{Event: workflowstore.HookPostLaunch, Script: "announce"},
+			{Event: workflowstore.HookPreLaunch, Script: ""},
 		},
 	})
 	require.NoError(t, err)
@@ -235,19 +235,19 @@ func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	got, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
 	assert.Equal(t, []workflowstore.Hook{
-		{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-		{Event: workflowstore.HookPreLaunch, Action: "copy-env"},
-		{Event: workflowstore.HookPostLaunch, Action: "announce"},
+		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+		{Event: workflowstore.HookPreLaunch, Script: "copy-env"},
+		{Event: workflowstore.HookPostLaunch, Script: "announce"},
 	}, got.Hooks, "the blank a None select sends is dropped rather than stored")
 
 	require.NoError(t, workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Action: "announce"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}},
 	}))
 
 	updated, err := st.GetWorkflow(t.Context(), created.ID)
 	require.NoError(t, err)
-	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Action: "announce"}}, updated.Hooks,
+	assert.Equal(t, []workflowstore.Hook{{Event: workflowstore.HookPostLaunch, Script: "announce"}}, updated.Hooks,
 		"an update writes the whole list rather than adding to it")
 }
 
@@ -264,8 +264,8 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name: "backend",
 		Hooks: []workflowstore.Hook{
-			{Event: workflowstore.HookPreLaunch, Action: "install-deps"},
-			{Event: workflowstore.HookPostResume, Action: "announce-back"},
+			{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
+			{Event: workflowstore.HookPostResume, Script: "announce-back"},
 		},
 	})
 	require.NoError(t, err)
@@ -283,7 +283,7 @@ func TestResumeFiresPostResumeHooks(t *testing.T) {
 
 	ran := lifecycle.ranHooks()
 	assert.Equal(t, workflowstore.HookPostResume, ran[0].Event)
-	assert.Equal(t, "announce-back", ran[0].Action, "and pre-launch does not rerun")
+	assert.Equal(t, "announce-back", ran[0].Script, "and pre-launch does not rerun")
 }
 
 // TestRestoreFiresPostRestoreHooks pins the moment the row comes back, which is not the moment
@@ -298,7 +298,7 @@ func TestRestoreFiresPostRestoreHooks(t *testing.T) {
 
 	created, err := st.Workflows.Create(ctx, workflowstore.Config{
 		Name:  "backend",
-		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Action: "unlock"}},
+		Hooks: []workflowstore.Hook{{Event: workflowstore.HookPostRestore, Script: "unlock"}},
 	})
 	require.NoError(t, err)
 
@@ -357,8 +357,8 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 				Cwd:      initRepo(t),
 				Worktree: workflowstore.WorktreeConfig{Enabled: true},
 				Hooks: []workflowstore.Hook{
-					{Event: workflowstore.HookPostResume, Action: "announce-back"},
-					{Event: workflowstore.HookPostRestore, Action: "unlock"},
+					{Event: workflowstore.HookPostResume, Script: "announce-back"},
+					{Event: workflowstore.HookPostRestore, Script: "unlock"},
 				},
 			})
 			require.NoError(t, err)

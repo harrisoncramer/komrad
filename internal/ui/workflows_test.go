@@ -12,8 +12,8 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
-	actionv1 "weave/proto/gen/action/v1"
-	"weave/proto/gen/action/v1/actionv1connect"
+	hookv1 "weave/proto/gen/hook/v1"
+	"weave/proto/gen/hook/v1/hookv1connect"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -221,11 +221,11 @@ func TestWorkflowWrites(t *testing.T) {
 // chosen from, including a file waiting on a chmod, since one written and forgotten should be
 // pickable and then say why it would not run rather than never appearing.
 func TestAvailableHooksCarryTheWholeDirectory(t *testing.T) {
-	m := model{api: api{actions: &fakeActions{}}}
+	m := model{api: api{hooks: &fakeHooks{}}}
 
 	got := m.getAvailableHooks()
 
-	assert.Equal(t, []actionChoice{
+	assert.Equal(t, []hookChoice{
 		{name: "install-deps"},
 		{name: "unrunnable"},
 		{name: "copy-env"},
@@ -428,12 +428,12 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	assert.True(t, sent.updatedWorkflow.GetArchiveOnPrClosed())
 }
 
-type fakeActions struct {
-	actionv1connect.ActionServiceClient
+type fakeHooks struct {
+	hookv1connect.HookServiceClient
 }
 
-func (f *fakeActions) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[actionv1.ListHooksResponse], error) {
-	return connect.NewResponse(&actionv1.ListHooksResponse{Hooks: []*actionv1.Hook{
+func (f *fakeHooks) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
+	return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: []*hookv1.Hook{
 		{Name: "install-deps", Executable: true},
 		{Name: "unrunnable"},
 		{Name: "copy-env", Executable: true},

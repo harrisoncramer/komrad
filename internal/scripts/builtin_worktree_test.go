@@ -1,4 +1,4 @@
-package actions
+package scripts
 
 import (
 	"context"
@@ -14,9 +14,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBuiltinWorktreeSetup exercises the shipped _worktree_setup action for real, the way
-// a workflow's setup action actually runs: installed to disk, found by name, and run
-// through the same Runner every other action uses.
+// TestBuiltinWorktreeSetup exercises the shipped _worktree_setup script for real, the way
+// a workflow's provisioner actually runs: installed to disk, found by name, and run
+// through the same Runner every other script uses.
 func TestBuiltinWorktreeSetup(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
@@ -47,7 +47,7 @@ func TestBuiltinWorktreeSetup(t *testing.T) {
 	assert.Equal(t, filepath.Join(repo, "node_modules"), link)
 }
 
-// TestBuiltinWorktreeSetupIsIdempotentOnResume covers the one thing a setup action has to
+// TestBuiltinWorktreeSetupIsIdempotentOnResume covers the one thing a provisioner has to
 // get right: rerunning it against a worktree that is still there must not fail or make a
 // second one, and must print the same path both times.
 func TestBuiltinWorktreeSetupIsIdempotentOnResume(t *testing.T) {
@@ -653,7 +653,7 @@ func TestBuiltinWorktreeSetupRefusesABaseTheRepoCannotReach(t *testing.T) {
 		worktreesDir: worktreesDir,
 		baseBranch:   "no-such-branch",
 	})
-	require.Error(t, err, "the setup action fails rather than handing the add a reference nothing resolved")
+	require.Error(t, err, "the provisioner fails rather than handing the add a reference nothing resolved")
 
 	assert.Contains(t, string(result.Stderr), "no-such-branch is not a branch")
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-bad-base"), "no worktree was made")
@@ -678,7 +678,7 @@ func TestBuiltinWorktreeSetupRefusesRatherThanGuessingTheBase(t *testing.T) {
 		repo:         repo,
 		worktreesDir: worktreesDir,
 	})
-	require.Error(t, err, "the setup action fails rather than picking a branch of its own")
+	require.Error(t, err, "the provisioner fails rather than picking a branch of its own")
 
 	assert.Contains(t, string(result.Stderr), "could not work out which branch")
 	assert.NoDirExists(t, filepath.Join(worktreesDir, "agent-no-base"), "no worktree was made")
@@ -707,8 +707,8 @@ func TestBuiltinWorktreeCleanup(t *testing.T) {
 	assert.Empty(t, strings.TrimSpace(string(branches)), "the branch is gone")
 }
 
-// TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/actions.md requires
-// of every cleanup action: a workflow's cleanup must not block a delete whatever state its
+// TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone covers what docs/scripts.md requires
+// of every deprovisioner: a workflow's cleanup must not block a delete whatever state its
 // target is in, so running cleanup against a directory that was never a worktree, or was
 // already removed, must still exit zero.
 func TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
@@ -997,16 +997,16 @@ func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	dir := t.TempDir()
 	require.NoError(t, InstallBuiltins(dir))
 
-	action, err := findBuiltin(dir, name)
+	script, err := findBuiltin(dir, name)
 	require.NoError(t, err)
 
 	dirFile, err := os.CreateTemp(t.TempDir(), "setup-dir-*")
 	require.NoError(t, err)
 	require.NoError(t, dirFile.Close())
 
-	run := runAction(actionRun{
+	run := runScript(scriptRun{
 		runner:  NewRunner(),
-		action:  action,
+		script:  script,
 		env:     env,
 		dirPath: dirFile.Name(),
 	})
@@ -1014,32 +1014,32 @@ func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 	return run.result, run.err
 }
 
-func findBuiltin(dir, name string) (*Action, error) {
+func findBuiltin(dir, name string) (*Script, error) {
 	discovered, err := Discover(dir)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, action := range discovered {
-		if action.Name == name {
-			return &action, nil
+	for _, script := range discovered {
+		if script.Name == name {
+			return &script, nil
 		}
 	}
 
-	return nil, fmt.Errorf("%s is not a builtin action", name)
+	return nil, fmt.Errorf("%s is not a builtin script", name)
 }
 
-type actionRun struct {
+type scriptRun struct {
 	runner  Runner
-	action  *Action
+	script  *Script
 	env     worktreeEnv
 	dirPath string
 }
 
-func runAction(run actionRun) outcome {
+func runScript(run scriptRun) outcome {
 	result, err := run.runner.RunAndWait(context.Background(), RunParams{
-		Action: *run.action,
-		Dir:    run.action.GetDir(),
+		Script: *run.script,
+		Dir:    run.script.GetDir(),
 		Env:    append(run.env.toEnv(), "WEAVE_SETUP_DIR_FILE="+run.dirPath),
 	})
 
@@ -1061,7 +1061,7 @@ func runBuiltinConcurrently(t *testing.T, name string, envs []worktreeEnv) []out
 	dir := t.TempDir()
 	require.NoError(t, InstallBuiltins(dir))
 
-	action, err := findBuiltin(dir, name)
+	script, err := findBuiltin(dir, name)
 	require.NoError(t, err)
 
 	runner := NewRunner()
@@ -1075,9 +1075,9 @@ func runBuiltinConcurrently(t *testing.T, name string, envs []worktreeEnv) []out
 		go func() {
 			defer wg.Done()
 
-			outcomes[i] = runAction(actionRun{
+			outcomes[i] = runScript(scriptRun{
 				runner:  runner,
-				action:  action,
+				script:  script,
 				env:     env,
 				dirPath: filepath.Join(dirFiles, fmt.Sprintf("setup-dir-%d", i)),
 			})

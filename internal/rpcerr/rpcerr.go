@@ -6,9 +6,9 @@ import (
 	"errors"
 	"fmt"
 
-	"weave/internal/actions"
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/scripts"
 	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
@@ -27,7 +27,7 @@ var table = []mapping{
 	{agents.ErrAgentNotFound, connect.CodeNotFound},
 	{agents.ErrWorkflowNotFound, connect.CodeNotFound},
 	{agents.ErrScheduleNotFound, connect.CodeNotFound},
-	{agents.ErrActionNotFound, connect.CodeNotFound},
+	{agents.ErrScriptNotFound, connect.CodeNotFound},
 	{agents.ErrMailNotFound, connect.CodeNotFound},
 	{agents.ErrRecipientNotFound, connect.CodeNotFound},
 	{agents.ErrReviewThreadNotFound, connect.CodeNotFound},
@@ -38,10 +38,10 @@ var table = []mapping{
 
 	{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
 	{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
-	{agents.ErrActionNotExecutable, connect.CodeFailedPrecondition},
-	{agents.ErrActionNotStartable, connect.CodeFailedPrecondition},
-	{agents.ErrActionDirMissing, connect.CodeFailedPrecondition},
-	{agents.ErrActionAlreadyRunning, connect.CodeFailedPrecondition},
+	{agents.ErrScriptNotExecutable, connect.CodeFailedPrecondition},
+	{agents.ErrScriptNotStartable, connect.CodeFailedPrecondition},
+	{agents.ErrScriptDirMissing, connect.CodeFailedPrecondition},
+	{agents.ErrScriptAlreadyRunning, connect.CodeFailedPrecondition},
 	{agents.ErrWorkflowHasSchedules, connect.CodeFailedPrecondition},
 	{agents.ErrScheduleHasAgents, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
@@ -115,10 +115,10 @@ func Wrap(err error, failure string, replacements ...Replacement) error {
 	return marked(err, connect.NewError(connect.CodeInternal, fmt.Errorf("%s: %w", failure, err)))
 }
 
-// marked says an action ran and exited non-zero, which is the one failure whose output the
+// marked says a script ran and exited non-zero, which is the one failure whose output the
 // caller may already be watching in the pane it ran in.
 func marked(cause error, wrapped *connect.Error) error {
-	if errors.Is(cause, actions.ErrFailed) {
+	if errors.Is(cause, scripts.ErrFailed) {
 		wrapped.Meta().Set(caller.SetupRanHeader, "true")
 	}
 

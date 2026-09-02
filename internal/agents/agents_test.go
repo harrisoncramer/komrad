@@ -5,7 +5,7 @@ import (
 	"errors"
 	"testing"
 
-	"weave/internal/actions"
+	"weave/internal/scripts"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
@@ -16,20 +16,20 @@ import (
 // TestRunDeprovisionLogsOneThatWouldNotStart covers the deprovision that never becomes a
 // process at all, which is what a renamed script leaves behind.
 func TestRunDeprovisionLogsOneThatWouldNotStart(t *testing.T) {
-	lifecycle := &fakeLifecycle{deprovisionStartErr: actions.ErrActionNotFound}
+	lifecycle := &fakeLifecycle{deprovisionStartErr: scripts.ErrScriptNotFound}
 	ctx, records := loggedContext(t)
 
 	runDeprovision(ctx, lifecycle, agentstore.Agent{ID: "a1", Cwd: "/repo/.worktrees/auth"}, "was-renamed", nil)
 
-	got := recordFor(t, records(), "the deprovision action would not start")
+	got := recordFor(t, records(), "the deprovisioner would not start")
 	assert.Equal(t, "ERROR", got["severity_text"])
-	assert.Equal(t, "was-renamed", got["weave.action.name"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["weave.action.agent.cwd"])
+	assert.Equal(t, "was-renamed", got["weave.script.name"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
 
-// TestDeprovisionActionLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
+// TestDeprovisionerLogsAWorkflowThatWouldNotRead covers the read that breaks rather than
 // answering, which skips a teardown as quietly as a workflow naming none.
-func TestDeprovisionActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
+func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	workflows := brokenWorkflowReader{err: errors.New("connection refused")}
 	ctx, records := loggedContext(t)
 
@@ -38,22 +38,22 @@ func TestDeprovisionActionLogsAWorkflowThatWouldNotRead(t *testing.T) {
 		Cwd:        "/repo/.worktrees/auth",
 		WorkflowID: "wf1",
 	}
-	assert.Empty(t, deprovisionActionFor(ctx, workflows, agent))
+	assert.Empty(t, deprovisionerFor(ctx, workflows, agent))
 
 	got := recordFor(t, records(), "the workflow behind an agent could not be read")
 	assert.Equal(t, "ERROR", got["severity_text"])
 	assert.Equal(t, "wf1", got["weave.workflow.id"])
-	assert.Equal(t, "a1", got["weave.action.agent.id"])
-	assert.Equal(t, "/repo/.worktrees/auth", got["weave.action.agent.cwd"])
+	assert.Equal(t, "a1", got["weave.script.agent.id"])
+	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
 
-// TestDeprovisionActionSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half,
+// TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half,
 // since a workflow whose agents keep the directory they are given is not a fault and a line
 // about one would be noise on every delete.
-func TestDeprovisionActionSaysNothingAboutAWorkflowThatProvisionsNothing(t *testing.T) {
+func TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing(t *testing.T) {
 	ctx, records := loggedContext(t)
 
-	assert.Empty(t, deprovisionActionFor(ctx, fakeWorkflowReader{}, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
+	assert.Empty(t, deprovisionerFor(ctx, fakeWorkflowReader{}, agentstore.Agent{ID: "a1", WorkflowID: "wf1"}))
 	assert.Empty(t, records())
 }
 
@@ -75,8 +75,8 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 		{
 			name:            "the toggle on names the built-in pair",
 			worktree:        true,
-			wantProvision:   worktreeProvisionAction,
-			wantDeprovision: worktreeDeprovisionAction,
+			wantProvision:   worktreeProvisioner,
+			wantDeprovision: worktreeDeprovisioner,
 		},
 		{
 			name:      "an agent told to keep its own directory runs neither half",
@@ -87,8 +87,8 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 			name:            "an agent following its workflow runs both",
 			worktree:        true,
 			provision:       xptr.Ptr(true),
-			wantProvision:   worktreeProvisionAction,
-			wantDeprovision: worktreeDeprovisionAction,
+			wantProvision:   worktreeProvisioner,
+			wantDeprovision: worktreeDeprovisioner,
 		},
 		{
 			name:      "the override cannot conjure a worktree a workflow does not make",
@@ -109,8 +109,8 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 				ProvisionEnabled: tt.provision,
 			}
 
-			assert.Equal(t, tt.wantProvision, provisionActionFor(context.Background(), workflows, agent))
-			assert.Equal(t, tt.wantDeprovision, deprovisionActionFor(context.Background(), workflows, agent))
+			assert.Equal(t, tt.wantProvision, provisionerFor(context.Background(), workflows, agent))
+			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(context.Background(), workflows, agent))
 		})
 	}
 }

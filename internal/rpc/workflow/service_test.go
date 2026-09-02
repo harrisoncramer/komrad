@@ -75,7 +75,7 @@ func TestCreateWorkflow(t *testing.T) {
 
 // TestCreateWorkflowWorktree covers the worktree config round trip through the handler,
 // and the two ways enabling it is refused: no cwd to work against, and a setup or cleanup
-// action the caller named itself, which weave would otherwise silently overwrite.
+// script the caller named itself, which weave would otherwise silently overwrite.
 func TestCreateWorkflowWorktree(t *testing.T) {
 	tests := []struct {
 		name     string

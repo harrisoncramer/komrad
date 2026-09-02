@@ -72,7 +72,7 @@ func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 }
 
 // TestEmptyArchiveLeavesAFailedTeardownInTheArchive covers what the gesture promises against
-// a cleanup action that will not run: the row cannot be destroyed, so it has to be somewhere,
+// a deprovisioner that will not run: the row cannot be destroyed, so it has to be somewhere,
 // and the archive the user was emptying is the only place they would think to look for it.
 func TestEmptyArchiveLeavesAFailedTeardownInTheArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})

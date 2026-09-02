@@ -40,7 +40,7 @@ type LaunchService struct {
 	tx                 txRunner
 	launcher           *Launcher
 	harnesses          harnessGetter
-	actions            agentActions
+	scripts            agentScripts
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	maxAgents          int
@@ -54,7 +54,7 @@ type LaunchServiceParams struct {
 	Tx                 txRunner
 	Launcher           *Launcher
 	Harnesses          harnessGetter
-	Actions            agentActions
+	Scripts            agentScripts
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
@@ -70,7 +70,7 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 		tx:                 p.Tx,
 		launcher:           p.Launcher,
 		harnesses:          p.Harnesses,
-		actions:            p.Actions,
+		scripts:            p.Scripts,
 		userDefaultHarness: p.UserDefaultHarness,
 		userDefaultFlags:   p.UserDefaultFlags,
 		maxAgents:          p.MaxAgents,
@@ -151,7 +151,7 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 	}
 
 	// The row is left where it stands rather than relaunched into, since its id names the
-	// worktree and branch the deprovision action is still tearing down in the background.
+	// worktree and branch the deprovisioner is still tearing down in the background.
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
@@ -217,15 +217,15 @@ func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
 }
 
 type launchPlan struct {
-	name              string
-	harness           harness.Harness
-	harnessID         string
-	dir               string
-	flags             string
-	workflowContext   string
-	provisionAction   string
-	deprovisionAction string
-	hooks             []workflowstore.Hook
+	name            string
+	harness         harness.Harness
+	harnessID       string
+	dir             string
+	flags           string
+	workflowContext string
+	provisioner     string
+	deprovisioner   string
+	hooks           []workflowstore.Hook
 }
 
 func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
@@ -271,10 +271,10 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 	}
 
 	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
-	provisionAction, deprovisionAction := "", ""
+	provisioner, deprovisioner := "", ""
 	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(p.ProvisionEnabled)
 	if provisions {
-		provisionAction, deprovisionAction = worktreeProvisionAction, worktreeDeprovisionAction
+		provisioner, deprovisioner = worktreeProvisioner, worktreeDeprovisioner
 	}
 
 	// The hooks a workflow lists are read only for the agents that own their own directory, since
@@ -287,15 +287,15 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 	}
 
 	return &launchPlan{
-		name:              s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
-		harness:           hn,
-		harnessID:         harnessID,
-		dir:               dir,
-		flags:             strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
-		workflowContext:   wf.Context,
-		provisionAction:   provisionAction,
-		deprovisionAction: deprovisionAction,
-		hooks:             hooks,
+		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
+		harness:         hn,
+		harnessID:       harnessID,
+		dir:             dir,
+		flags:           strings.TrimSpace(s.userDefaultFlags[harnessID] + " " + agentFlags),
+		workflowContext: wf.Context,
+		provisioner:     provisioner,
+		deprovisioner:   deprovisioner,
+		hooks:           hooks,
 	}, nil
 }
 
@@ -361,12 +361,12 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 			s.tmux.KillPane(pane)
 		}
 		if provisioned {
-			awaitDeprovision(teardown, s.actions, agent, plan.deprovisionAction)
+			awaitDeprovision(teardown, s.scripts, agent, plan.deprovisioner)
 		}
 		s.failCreate(teardown, agent, launchErr)
 	}()
 
-	named, err := s.runProvision(ctx, agent, plan.provisionAction, p.SetupPane)
+	named, err := s.runProvision(ctx, agent, plan.provisioner, p.SetupPane)
 	if err != nil {
 		return nil, err
 	}
@@ -379,7 +379,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	agent = plan.agent(p, id, sessionID, dir, "", spawner)
 
 	if err := runHooks(ctx, hookRunParams{
-		actions: s.actions,
+		scripts: s.scripts,
 		agent:   agent,
 		hooks:   plan.hooks,
 		event:   workflowstore.HookPreLaunch,
@@ -434,7 +434,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	launched = true
 
 	startHooks(ctx, hookRunParams{
-		actions: s.actions,
+		scripts: s.scripts,
 		agent:   *created,
 		hooks:   plan.hooks,
 		event:   workflowstore.HookPostLaunch,
@@ -451,9 +451,9 @@ func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, 
 	failAs(ctx, s.agents, agent, agentstore.StateFailedToCreate, "create", cause)
 }
 
-// awaitDeprovision runs a deprovision action and waits for it, so a create that failed has given
+// awaitDeprovision runs a deprovisioner and waits for it, so a create that failed has given
 // back the directory it provisioned before the row is closed out against it.
-func awaitDeprovision(ctx context.Context, deprovision agentActions, agent agentstore.Agent, name string) {
+func awaitDeprovision(ctx context.Context, deprovision agentScripts, agent agentstore.Agent, name string) {
 	finished := make(chan error, 1)
 	runDeprovision(ctx, deprovision, agent, name, func(deprovisionErr error) {
 		finished <- deprovisionErr
@@ -462,27 +462,27 @@ func awaitDeprovision(ctx context.Context, deprovision agentActions, agent agent
 	select {
 	case deprovisionErr := <-finished:
 		if deprovisionErr != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovision action of a failed create did not finish",
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "the deprovisioner of a failed create did not finish",
 				append([]slog.Attr{
-					slog.String(logging.ActionName, name),
-					slog.String(logging.ActionAgentID, agent.ID),
-					slog.String(logging.ActionAgentCwd, agent.Cwd),
+					slog.String(logging.ScriptName, name),
+					slog.String(logging.ScriptAgentID, agent.ID),
+					slog.String(logging.ScriptAgentCwd, agent.Cwd),
 				}, logging.Err(deprovisionErr)...)...)
 		}
 	case <-ctx.Done():
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the deprovision action of a failed create",
-			slog.String(logging.ActionName, name),
-			slog.String(logging.ActionAgentID, agent.ID),
-			slog.String(logging.ActionAgentCwd, agent.Cwd))
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "gave up waiting for the deprovisioner of a failed create",
+			slog.String(logging.ScriptName, name),
+			slog.String(logging.ScriptAgentID, agent.ID),
+			slog.String(logging.ScriptAgentCwd, agent.Cwd))
 	}
 }
 
 func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
-	if s.actions == nil || name == "" {
+	if s.scripts == nil || name == "" {
 		return "", nil
 	}
 
-	return s.actions.RunProvisionAction(ctx, planned, name, pane)
+	return s.scripts.RunProvision(ctx, planned, name, pane)
 }
 
 func (s *LaunchService) provisionedDir(planned, named string) (string, error) {
@@ -500,7 +500,7 @@ func namedDir(named string) (string, error) {
 
 	dir := config.ExpandHome(named)
 	if err := requireUsableDir(dir); err != nil {
-		return "", fmt.Errorf("%w: a provision action named %q: %w", ErrProvisionFailed, dir, err)
+		return "", fmt.Errorf("%w: a provisioner named %q: %w", ErrProvisionFailed, dir, err)
 	}
 
 	return dir, nil

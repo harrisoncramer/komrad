@@ -147,7 +147,7 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	agents := &formRecorder{}
 	tmux := &recordingTmux{}
 	m := model{
-		api:    api{agents: agents, actions: agents},
+		api:    api{agents: agents, hooks: agents},
 		tmux:   tmux,
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
@@ -199,8 +199,8 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 }
 
 // TestUnrelatedWriteDoesNotCloseTheSetupPane covers a rename or an archive landing while a
-// create's setup action is still streaming into its pane: that write's own success is not
-// the create's, so it must not tear down the pane out from under the setup action.
+// create's provisioner is still streaming into its pane: that write's own success is not
+// the create's, so it must not tear down the pane out from under the provisioner.
 func TestUnrelatedWriteDoesNotCloseTheSetupPane(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := model{
@@ -225,7 +225,7 @@ func TestCreatedWorkflowReceivesFocus(t *testing.T) {
 		api: api{
 			agents:    recorder,
 			workflows: recorder,
-			actions:   recorder,
+			hooks:     recorder,
 		},
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:    config.DefaultKeybindings(),

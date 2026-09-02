@@ -6,7 +6,7 @@ import (
 
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
-	actionv1 "weave/proto/gen/action/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -173,14 +173,14 @@ func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.C
 // getAvailableHooks is the hooks directory as the form offers it, and a directory that is not
 // there reads as an empty list rather than an error, since a person who has written no hooks
 // has nothing wrong with their setup.
-func (m model) getAvailableHooks() []actionChoice {
+func (m model) getAvailableHooks() []hookChoice {
 	listed, err := m.api.listHooks()
 	if err != nil {
 		return nil
 	}
 
-	return xslice.Map(listed, func(hook *actionv1.Hook) actionChoice {
-		return actionChoice{name: hook.GetName()}
+	return xslice.Map(listed, func(hook *hookv1.Hook) hookChoice {
+		return hookChoice{name: hook.GetName()}
 	})
 }
 

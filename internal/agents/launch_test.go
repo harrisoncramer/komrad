@@ -516,7 +516,7 @@ func TestNewAgentInsideWorkflow(t *testing.T) {
 	}
 }
 
-// TestNewAgentRunsWorkflowSetup covers the two things a workflow's setup action decides
+// TestNewAgentRunsWorkflowSetup covers the two things a workflow's provisioner decides
 // about a create, which are whether it happens at all and where the agent ends up running.
 func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 	provisioned := t.TempDir()
@@ -534,14 +534,14 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 			name:         "setup that fails abandons the create",
 			worktree:     true,
 			provisionErr: ErrProvisionFailed,
-			wantSetup:    []string{worktreeProvisionAction},
+			wantSetup:    []string{worktreeProvisioner},
 			wantErr:      ErrProvisionFailed,
 		},
 		{
 			name:      "a directory setup names that is not usable abandons the create",
 			worktree:  true,
 			answered:  filepath.Join(t.TempDir(), "never-created"),
-			wantSetup: []string{worktreeProvisionAction},
+			wantSetup: []string{worktreeProvisioner},
 			wantErr:   ErrProvisionFailed,
 		},
 		{
@@ -550,14 +550,14 @@ func TestNewAgentRunsWorkflowSetup(t *testing.T) {
 		{
 			name:      "setup that names no directory leaves the create where it was",
 			worktree:  true,
-			wantSetup: []string{worktreeProvisionAction},
+			wantSetup: []string{worktreeProvisioner},
 		},
 		{
 			name:      "the directory setup names is where the agent runs",
 			worktree:  true,
 			answered:  provisioned,
 			wantDir:   provisioned,
-			wantSetup: []string{worktreeProvisionAction},
+			wantSetup: []string{worktreeProvisioner},
 		},
 	}
 
@@ -716,7 +716,7 @@ func TestNewAgentCeiling(t *testing.T) {
 			if tt.wantErr != nil {
 				require.ErrorIs(t, err, tt.wantErr)
 				assert.Contains(t, err.Error(), "please archive one to continue", "the refusal says what to do about it")
-				assert.Empty(t, lifecycle.provision, "a refused create runs no setup action")
+				assert.Empty(t, lifecycle.provision, "a refused create runs no provisioner")
 				assert.Len(t, tmux.newWindows, opened, "and opens no window")
 
 				return
@@ -757,7 +757,7 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	require.ErrorIs(t, err, ErrTooManyAgents)
 }
 
-// TestNewAgentCleansUpAfterASetupThatRan pins every refusal past the setup script undoing
+// TestNewAgentCleansUpAfterASetupThatRan pins every refusal past the provisioner undoing
 // its work, since a worktree no row names is never reached again.
 func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 	tests := []struct {
@@ -812,8 +812,8 @@ func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 			})
 
 			require.Error(t, err)
-			assert.Equal(t, []string{worktreeProvisionAction}, lifecycle.provision)
-			assert.Equal(t, []string{worktreeDeprovisionAction}, lifecycle.deprovision, "what setup built is taken back")
+			assert.Equal(t, []string{worktreeProvisioner}, lifecycle.provision)
+			assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 
 			if tt.windowErr != nil || tt.setOwnerErr != nil || tt.sendKeysErr != nil {
 				require.Len(t, lifecycle.deprovisionCwd, 1)
@@ -854,17 +854,17 @@ func TestNewAgentDoesNotCleanUpASetupThatRefused(t *testing.T) {
 	assert.Empty(t, lifecycle.deprovision)
 }
 
-// cancellingSetupLifecycle stands in for the caller going away while a setup action is
+// cancellingSetupLifecycle stands in for the caller going away while a provisioner is
 // running: the create's own context is dead by the time the launch tries to write anything.
 type cancellingSetupLifecycle struct {
 	*fakeLifecycle
 	cancel context.CancelFunc
 }
 
-func (c *cancellingSetupLifecycle) RunProvisionAction(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+func (c *cancellingSetupLifecycle) RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
 	c.cancel()
 
-	return c.fakeLifecycle.RunProvisionAction(ctx, agent, name, pane)
+	return c.fakeLifecycle.RunProvision(ctx, agent, name, pane)
 }
 
 // TestNewAgentClosesOutACreateTheCallerAbandoned pins the write that marks a create failed
@@ -899,7 +899,7 @@ func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State, "an abandoned create is not left setting up forever")
 	assert.NotEmpty(t, metadataValue(agents[0].Metadata), "the row says why it failed")
 
-	assert.Equal(t, []string{worktreeDeprovisionAction}, lifecycle.deprovision, "what setup built is taken back")
+	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision, "what setup built is taken back")
 	assert.Equal(t, []error{nil}, lifecycle.deprovisionCtxErr, "cleanup gets a context it can still read the workflow on")
 }
 
@@ -910,8 +910,8 @@ type slowCleanupLifecycle struct {
 	finished atomic.Bool
 }
 
-func (c *slowCleanupLifecycle) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
-	if err := c.fakeLifecycle.RunDeprovisionAction(ctx, agent, name, nil); err != nil {
+func (c *slowCleanupLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+	if err := c.fakeLifecycle.RunDeprovision(ctx, agent, name, nil); err != nil {
 		return err
 	}
 

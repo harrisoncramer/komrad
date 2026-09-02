@@ -48,7 +48,7 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 	require.NotNil(t, child.ProvisionEnabled)
 	assert.False(t, *child.ProvisionEnabled)
 
-	assert.Empty(t, deprovisionActionFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
+	assert.Empty(t, deprovisionerFor(ctx, st.Workflows, *child), "and a provisioner turned off leaves nothing to run against it")
 }
 
 // TestNewChildAgentRefusals pins that a request asking for what the parent decides is answered

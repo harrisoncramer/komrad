@@ -56,7 +56,7 @@ Archiving an agent (the `z` key by default) stops the agent, kills its pane, and
 
 The prompt that key opens offers archiving and "Archive and delete", which archives and then destroys the agent outright.
 
-To see the full archive press the `Z` key. You can restore agents from the archive, or permanently delete them. Be careful: deletion destroys the row, the metadata, the flattened transcript, and its search index, and it removes the agent's worktree, so a delete can tear down real directories on disk. Search will never find that conversation again. All actions can also be done in bulk via API, or via the panel, by selecting multiple agents with the `v` or `V` keys.
+To see the full archive press the `Z` key. You can restore agents from the archive, or permanently delete them. Be careful: deletion destroys the row, the metadata, the flattened transcript, and its search index, and it removes the agent's worktree, so a delete can tear down real directories on disk. Search will never find that conversation again. All of these can also be done in bulk via API, or via the panel, by selecting multiple agents with the `v` or `V` keys.
 
 An archived workflow can be deleted the same way: hover its header row in the archive and press `d`. Its archived agents go with it through the same deprovision handling as deleting them directly, so a row whose deprovision is still running, or whose deprovision fails, is left behind and the workflow stays archived until nothing is left in it.
 

@@ -387,7 +387,7 @@ type agentServiceOptions struct {
 	harnesses   fakeHarnesses
 	addr        string
 	flags       string
-	lifecycle   agentActions
+	lifecycle   agentScripts
 	maxAgents   int
 	maxChildren int
 	notifier    systemMailSender
@@ -421,7 +421,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		Tx:                 tx,
 		Launcher:           launcher,
 		Harnesses:          options.harnesses,
-		Actions:            options.lifecycle,
+		Scripts:            options.lifecycle,
 		UserDefaultHarness: testHarnessID,
 		UserDefaultFlags:   map[string]string{testHarnessID: options.flags},
 		MaxAgents:          options.maxAgents,
@@ -436,7 +436,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Workflows: s.Workflows,
 			Launcher:  launcher,
 			Harnesses: options.harnesses,
-			Actions:   options.lifecycle,
+			Scripts:   options.lifecycle,
 		}),
 		adopt: NewAdoptService(AdoptServiceParams{
 			Agents:    agents,
@@ -449,7 +449,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Workflows:      s.Workflows,
 			EmptyWorkflows: emptied,
 			Tx:             tx,
-			Actions:        options.lifecycle,
+			Scripts:        options.lifecycle,
 			Notifier:       options.notifier,
 			LogsDir:        options.logsDir,
 			MaxAgents:      options.maxAgents,
@@ -480,7 +480,7 @@ type fakeTmuxController interface {
 	paneWriter
 }
 
-func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentActions) *testAgents {
+func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScripts) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesses,
@@ -489,7 +489,7 @@ func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses
 	})
 }
 
-func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentActions, maxAgents int) *testAgents {
+func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentScripts, maxAgents int) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
@@ -502,7 +502,7 @@ func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentActions, m
 // ranHook is one hook the fake was asked to run, in the order it was asked.
 type ranHook struct {
 	Event  string
-	Action string
+	Script string
 	Cwd    string
 }
 
@@ -525,7 +525,7 @@ type fakeLifecycle struct {
 	deprovisionCtxErr        []error
 }
 
-func (f *fakeLifecycle) RunProvisionAction(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
+func (f *fakeLifecycle) RunProvision(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
 	f.provision = append(f.provision, name)
 	f.provisionPane = append(f.provisionPane, pane)
 	if f.provisionErr != nil {
@@ -535,7 +535,7 @@ func (f *fakeLifecycle) RunProvisionAction(_ context.Context, _ agentstore.Agent
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, name string) (string, error) {
+func (f *fakeLifecycle) RunResume(_ context.Context, _ agentstore.Agent, name string) (string, error) {
 	f.resumed = append(f.resumed, name)
 	if f.resumeErr != nil {
 		return "", f.resumeErr
@@ -547,13 +547,13 @@ func (f *fakeLifecycle) RunResumeAction(_ context.Context, _ agentstore.Agent, n
 	return f.dir, nil
 }
 
-func (f *fakeLifecycle) RunHookAction(_ context.Context, agent agentstore.Agent, name, event string) error {
+func (f *fakeLifecycle) RunHook(_ context.Context, agent agentstore.Agent, name, event string) error {
 	f.hooksMu.Lock()
 	defer f.hooksMu.Unlock()
 
 	f.hooks = append(f.hooks, ranHook{
 		Event:  event,
-		Action: name,
+		Script: name,
 		Cwd:    agent.Cwd,
 	})
 
@@ -567,7 +567,7 @@ func (f *fakeLifecycle) ranHooks() []ranHook {
 	return slices.Clone(f.hooks)
 }
 
-func (f *fakeLifecycle) RunDeprovisionAction(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
+func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error {
 	f.deprovision = append(f.deprovision, name)
 	f.deprovisionCwd = append(f.deprovisionCwd, agent.Cwd)
 	f.deprovisionCtxErr = append(f.deprovisionCtxErr, ctx.Err())

@@ -1,4 +1,4 @@
-package actions
+package scripts
 
 import (
 	"bytes"
@@ -158,7 +158,7 @@ func (h *Header) applyTimeout(text string, line int) {
 	}
 
 	if timeout <= 0 {
-		h.note(line, fmt.Sprintf("%q is not a duration an action can run within", text))
+		h.note(line, fmt.Sprintf("%q is not a duration a script can run within", text))
 
 		return
 	}

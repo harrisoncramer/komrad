@@ -1,4 +1,4 @@
-package action
+package hook
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
-	actionv1 "weave/proto/gen/action/v1"
+	hookv1 "weave/proto/gen/hook/v1"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -29,28 +29,28 @@ func TestOpenPullRequestCodes(t *testing.T) {
 			wantCode: connect.CodeNotFound,
 		},
 		{
-			name:     "an action the directory does not hold",
-			err:      agents.ErrActionNotFound,
+			name:     "a script the directory does not hold",
+			err:      agents.ErrScriptNotFound,
 			wantCode: connect.CodeNotFound,
 		},
 		{
 			name:     "a file the user has not made executable",
-			err:      agents.ErrActionNotExecutable,
+			err:      agents.ErrScriptNotExecutable,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "a shebang naming an interpreter that is not there",
-			err:      agents.ErrActionNotStartable,
+			err:      agents.ErrScriptNotStartable,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
 			name:     "an agent whose directory has been removed from under it",
-			err:      agents.ErrActionDirMissing,
+			err:      agents.ErrScriptDirMissing,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
-			name:     "the same action already running for the same agent",
-			err:      agents.ErrActionAlreadyRunning,
+			name:     "the same script already running for the same agent",
+			err:      agents.ErrScriptAlreadyRunning,
 			wantCode: connect.CodeFailedPrecondition,
 		},
 		{
@@ -59,7 +59,7 @@ func TestOpenPullRequestCodes(t *testing.T) {
 			wantCode: connect.CodeInternal,
 		},
 		{
-			name:     "a started action answers with nothing to say",
+			name:     "a started script answers with nothing to say",
 			err:      nil,
 			wantCode: 0,
 		},
@@ -67,9 +67,9 @@ func TestOpenPullRequestCodes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(&fakeActions{err: tt.err})
+			service := NewService(&fakeHooks{err: tt.err})
 
-			_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+			_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 				AgentId: "a1",
 			}))
 
@@ -87,10 +87,10 @@ func TestOpenPullRequestCodes(t *testing.T) {
 
 // TestOpenPullRequestPassesWhatItWasAsked covers the handler translating and nothing more.
 func TestOpenPullRequestPassesWhatItWasAsked(t *testing.T) {
-	manager := &fakeActions{}
+	manager := &fakeHooks{}
 	service := NewService(manager)
 
-	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&actionv1.OpenPullRequestRequest{
+	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a7",
 	}))
 
@@ -101,10 +101,10 @@ func TestOpenPullRequestPassesWhatItWasAsked(t *testing.T) {
 // TestListHooks covers a hook with no declared timeout leaving the field unset, since a zero
 // would read as a run with no time at all.
 func TestListHooks(t *testing.T) {
-	manager := &fakeActions{listedHooks: []agents.Action{
+	manager := &fakeHooks{listedHooks: []agents.Script{
 		{
 			Name: "install-deps", Path: "/hooks/install-deps", Executable: true,
-			Header: agents.ActionHeader{
+			Header: agents.ScriptHeader{
 				Description: "Install what the worktree needs before the agent starts.",
 				Timeout:     45 * time.Second,
 				Problems:    []string{"line 4: nope is not a directive weave knows"},
@@ -136,7 +136,7 @@ func TestListHooks(t *testing.T) {
 // TestListHooksFailure covers a directory that could not be read at all, which is the server's
 // problem rather than the caller's.
 func TestListHooksFailure(t *testing.T) {
-	service := NewService(&fakeActions{listErr: errors.New("permission denied")})
+	service := NewService(&fakeHooks{listErr: errors.New("permission denied")})
 
 	_, err := service.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 
@@ -144,14 +144,14 @@ func TestListHooksFailure(t *testing.T) {
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
 }
 
-type fakeActions struct {
-	listedHooks []agents.Action
+type fakeHooks struct {
+	listedHooks []agents.Script
 	listErr     error
 	err         error
 	agentID     string
 }
 
-func (f *fakeActions) ListHooks() ([]agents.Action, error) {
+func (f *fakeHooks) ListHooks() ([]agents.Script, error) {
 	if f.listErr != nil {
 		return nil, f.listErr
 	}
@@ -159,7 +159,7 @@ func (f *fakeActions) ListHooks() ([]agents.Action, error) {
 	return f.listedHooks, nil
 }
 
-func (f *fakeActions) OpenPullRequest(_ context.Context, agentID string) error {
+func (f *fakeHooks) OpenPullRequest(_ context.Context, agentID string) error {
 	f.agentID = agentID
 
 	return f.err

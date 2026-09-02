@@ -9,7 +9,7 @@ adminURL() {
 }
 
 shell_scripts() {
-	local roots=(mise/tasks internal/actions/builtin)
+	local roots=(mise/tasks internal/scripts/builtin)
 
 	for root in "${roots[@]}"; do
 		if [ ! -d "$root" ]; then

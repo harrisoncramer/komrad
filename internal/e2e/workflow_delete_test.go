@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestDeleteWorkflowFinishesOnceCleanupCatchesUp covers a cleanup action that takes real
+// TestDeleteWorkflowFinishesOnceCleanupCatchesUp covers a deprovisioner that takes real
 // time, where checking only once would leave the workflow archived though nothing failed.
 func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
@@ -41,11 +41,11 @@ func TestDeleteWorkflowFinishesOnceCleanupCatchesUp(t *testing.T) {
 
 	got, err := instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
 	require.NoError(t, err)
-	assert.NotNil(t, got, "the workflow is not gone yet, since the cleanup action has not finished")
+	assert.NotNil(t, got, "the workflow is not gone yet, since the deprovisioner has not finished")
 
 	require.EventuallyWithT(t, func(c *assert.CollectT) {
 		_, err := instance.Stores.Agents.GetByID(ctx, created.Msg.GetAgent().GetId())
-		assert.ErrorIs(c, err, store.ErrNotFound, "its agent is gone once the cleanup action finishes")
+		assert.ErrorIs(c, err, store.ErrNotFound, "its agent is gone once the deprovisioner finishes")
 
 		_, err = instance.Stores.Workflows.GetIncludingArchived(ctx, workflowID)
 		assert.ErrorIs(c, err, store.ErrNotFound, "and the workflow it emptied out goes with it, with no second delete")

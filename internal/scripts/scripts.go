@@ -1,14 +1,14 @@
-// Package actions is the seam in front of the scripts a person writes, which weave runs against
-// one agent: the setup that prepares its directory before it starts, the cleanup that tears the
-// directory down after it is deleted, and the ones fired by hand from the panel.
+// Package scripts is the seam in front of the scripts a person writes, which weave runs against
+// one agent: the provisioner that makes its directory before it starts, the deprovisioner that
+// tears that directory down after it is deleted, and the hooks bound to moments in its life.
 //
-// An action is an executable file in the actions directory, and its header comments declare
+// A script is an executable file in one of those directories, and its header comments declare
 // what it does and how long it may take. weave reads that header for the listing, hands the
 // agent to the script as its environment, and holds it to the timeout. Because they are
-// ordinary files, what an action does is the person's business rather than weave's, which is
+// ordinary files, what a script does is the person's business rather than weave's, which is
 // what makes opening a pull request or making a worktree something the tool does not have to
 // know about.
-package actions
+package scripts
 
 import (
 	"bytes"
@@ -31,21 +31,21 @@ var ErrNotStartable = errors.New("the file could not be started")
 
 var ErrDirMissing = errors.New("the directory to run in does not exist")
 
-var ErrFailed = errors.New("the action exited non-zero")
+var ErrFailed = errors.New("the script exited non-zero")
 
 const killDelay = 2 * time.Second
 
 const outputLimit = 64 << 10
 
-type Action struct {
+type Script struct {
 	Name       string
 	Path       string
 	Executable bool
 	Header     Header
 }
 
-// GetDir is the directory an action runs in.
-func (a Action) GetDir() string {
+// GetDir is the directory a script runs in.
+func (a Script) GetDir() string {
 	return filepath.Dir(a.Path)
 }
 
@@ -56,19 +56,19 @@ func NewRunner() Runner {
 	return Runner{}
 }
 
-// Discover lists the actions in dir by name with what each header declares, treating a
-// missing directory as no actions rather than an error.
-func Discover(dir string) ([]Action, error) {
+// Discover lists the scripts in dir by name with what each header declares, treating a
+// missing directory as no scripts rather than an error.
+func Discover(dir string) ([]Script, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
 
-		return nil, fmt.Errorf("failed to read the actions directory %s: %w", dir, err)
+		return nil, fmt.Errorf("failed to read the scripts directory %s: %w", dir, err)
 	}
 
-	found := make([]Action, 0, len(entries))
+	found := make([]Script, 0, len(entries))
 	for _, entry := range entries {
 		if strings.HasPrefix(entry.Name(), ".") {
 			continue
@@ -80,7 +80,7 @@ func Discover(dir string) ([]Action, error) {
 			continue
 		}
 
-		found = append(found, Action{
+		found = append(found, Script{
 			Name:       entry.Name(),
 			Path:       path,
 			Executable: info.Mode().Perm()&0o111 != 0,
@@ -92,7 +92,7 @@ func Discover(dir string) ([]Action, error) {
 }
 
 type RunParams struct {
-	Action  Action
+	Script  Script
 	Dir     string
 	Env     []string
 	Timeout time.Duration
@@ -105,15 +105,15 @@ type Result struct {
 	ExitCode int
 }
 
-// Run starts an action and returns once the process exists rather than once it has finished,
+// Run starts a script and returns once the process exists rather than once it has finished,
 // reporting only a failure to start.
 func (r Runner) Run(p RunParams) error {
-	if !p.Action.Executable {
-		return fmt.Errorf("failed to run action %s: %w", p.Action.Name, ErrNotExecutable)
+	if !p.Script.Executable {
+		return fmt.Errorf("failed to run script %s: %w", p.Script.Name, ErrNotExecutable)
 	}
 
 	if info, err := os.Stat(p.Dir); err != nil || !info.IsDir() {
-		return fmt.Errorf("failed to run action %s in %s: %w", p.Action.Name, p.Dir, ErrDirMissing)
+		return fmt.Errorf("failed to run script %s in %s: %w", p.Script.Name, p.Dir, ErrDirMissing)
 	}
 
 	var output tail
@@ -126,7 +126,7 @@ func (r Runner) Run(p RunParams) error {
 
 	// The file is executed directly rather than through a shell, so nothing in the environment
 	// is parsed as a command line.
-	cmd := exec.CommandContext(ctx, p.Action.Path)
+	cmd := exec.CommandContext(ctx, p.Script.Path)
 	cmd.Dir = p.Dir
 	cmd.Env = append(os.Environ(), p.Env...)
 	// Stdin stays nil so a script cannot read keystrokes meant for the panel, and stdout and
@@ -140,7 +140,7 @@ func (r Runner) Run(p RunParams) error {
 	if err := cmd.Start(); err != nil {
 		cancel()
 
-		return fmt.Errorf("failed to run action %s: %w: %w", p.Action.Name, ErrNotStartable, err)
+		return fmt.Errorf("failed to run script %s: %w: %w", p.Script.Name, ErrNotStartable, err)
 	}
 
 	go func() {
@@ -157,7 +157,7 @@ func (r Runner) Run(p RunParams) error {
 		}
 
 		p.Done(r.outcome(outcomeParams{
-			action:  p.Action,
+			script:  p.Script,
 			state:   cmd.ProcessState,
 			stderr:  output.kept(),
 			waitErr: waitErr,
@@ -167,15 +167,15 @@ func (r Runner) Run(p RunParams) error {
 	return nil
 }
 
-// RunAndWait runs an action and waits for it, returning the result whether or not the action
+// RunAndWait runs a script and waits for it, returning the result whether or not the script
 // succeeded since a non-zero exit is when its stderr is worth showing.
 func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
-	if !p.Action.Executable {
-		return Result{}, fmt.Errorf("failed to run action %s: %w", p.Action.Name, ErrNotExecutable)
+	if !p.Script.Executable {
+		return Result{}, fmt.Errorf("failed to run script %s: %w", p.Script.Name, ErrNotExecutable)
 	}
 
 	if info, err := os.Stat(p.Dir); err != nil || !info.IsDir() {
-		return Result{}, fmt.Errorf("failed to run action %s in %s: %w", p.Action.Name, p.Dir, ErrDirMissing)
+		return Result{}, fmt.Errorf("failed to run script %s in %s: %w", p.Script.Name, p.Dir, ErrDirMissing)
 	}
 
 	if p.Timeout > 0 {
@@ -186,7 +186,7 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 
 	var stdout, stderr tail
 
-	cmd := exec.CommandContext(ctx, p.Action.Path)
+	cmd := exec.CommandContext(ctx, p.Script.Path)
 	cmd.Dir = p.Dir
 	cmd.Env = append(os.Environ(), p.Env...)
 	cmd.Stdout = &stdout
@@ -200,10 +200,10 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	if err := cmd.Start(); err != nil {
 		result := Result{ExitCode: r.exitCode(cmd.ProcessState)}
 		if expired := ctx.Err(); expired != nil {
-			return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
+			return result, fmt.Errorf("failed to run script %s: %w%s", p.Script.Name, expired, gaveUpAfter(p.Timeout))
 		}
 
-		return result, fmt.Errorf("failed to run action %s: %w: %w", p.Action.Name, ErrNotStartable, err)
+		return result, fmt.Errorf("failed to run script %s: %w: %w", p.Script.Name, ErrNotStartable, err)
 	}
 
 	waitErr := cmd.Wait()
@@ -214,11 +214,11 @@ func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 			ExitCode: r.exitCode(cmd.ProcessState),
 		}
 
-		return result, fmt.Errorf("failed to run action %s: %w%s", p.Action.Name, expired, gaveUpAfter(p.Timeout))
+		return result, fmt.Errorf("failed to run script %s: %w%s", p.Script.Name, expired, gaveUpAfter(p.Timeout))
 	}
 
 	return r.outcome(outcomeParams{
-		action:  p.Action,
+		script:  p.Script,
 		state:   cmd.ProcessState,
 		stdout:  stdout.kept(),
 		stderr:  stderr.kept(),
@@ -241,7 +241,7 @@ func gaveUpAfter(timeout time.Duration) string {
 }
 
 type outcomeParams struct {
-	action  Action
+	script  Script
 	state   *os.ProcessState
 	stdout  []byte
 	stderr  []byte
@@ -258,7 +258,7 @@ func (r Runner) outcome(p outcomeParams) (Result, error) {
 		return result, nil
 	}
 
-	return result, fmt.Errorf("failed to run action %s: %w: %w", p.action.Name, ErrFailed, p.waitErr)
+	return result, fmt.Errorf("failed to run script %s: %w: %w", p.script.Name, ErrFailed, p.waitErr)
 }
 
 type tail struct {

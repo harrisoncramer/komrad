@@ -6,13 +6,13 @@ import (
 	"path/filepath"
 
 	"weave/config"
-	"weave/internal/actions"
 	"weave/internal/agents"
+	"weave/internal/scripts"
 )
 
 type services struct {
 	loadConfig func() (*config.Config, error)
-	action     *agents.ActionService
+	script     *agents.ScriptService
 	mail       *agents.MailService
 	review     *agents.ReviewService
 	schedule   *agents.ScheduleService
@@ -29,7 +29,7 @@ type services struct {
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
 // which is the only place a script that is not a hook is resolved from.
 func BuiltinScriptsDir(cacheDir string) string {
-	return filepath.Join(cacheDir, "weave-builtin-actions")
+	return filepath.Join(cacheDir, "weave-builtin-scripts")
 }
 
 func buildServices(p Params, st *stores) (*services, error) {
@@ -56,26 +56,26 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows: st.workflows,
 	})
 
-	builtinActionsDir := BuiltinScriptsDir(p.Env.CacheDir)
-	if err := actions.InstallBuiltins(builtinActionsDir); err != nil {
+	builtinScriptsDir := BuiltinScriptsDir(p.Env.CacheDir)
+	if err := scripts.InstallBuiltins(builtinScriptsDir); err != nil {
 		return nil, err
 	}
 
-	actionLogsDir := p.Env.ActionLogsDir()
-	if err := os.MkdirAll(actionLogsDir, 0o755); err != nil {
-		return nil, fmt.Errorf("failed to create %s: %w", actionLogsDir, err)
+	runLogsDir := p.Env.RunLogsDir()
+	if err := os.MkdirAll(runLogsDir, 0o755); err != nil {
+		return nil, fmt.Errorf("failed to create %s: %w", runLogsDir, err)
 	}
 
-	actionService := agents.NewActionService(agents.ActionParams{
+	scriptService := agents.NewScriptService(agents.ScriptParams{
 		Agents:     st.agents,
 		Workflows:  st.workflows,
 		Tmux:       p.Tmux,
-		Runner:     actions.NewRunner(),
+		Runner:     scripts.NewRunner(),
 		Load:       loadConfig,
 		Addr:       p.Addr,
 		Socket:     p.Env.TmuxSocket,
-		BuiltinDir: builtinActionsDir,
-		LogsDir:    actionLogsDir,
+		BuiltinDir: builtinScriptsDir,
+		LogsDir:    runLogsDir,
 		Editor:     p.Env.Editor,
 		BinPath:    p.HookCommand,
 	})
@@ -95,7 +95,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Tx:                 st.pool,
 		Launcher:           harnessLauncher,
 		Harnesses:          p.Harnesses,
-		Actions:            actionService,
+		Scripts:            scriptService,
 		UserDefaultHarness: p.DefaultHarness,
 		UserDefaultFlags:   p.DefaultFlags,
 		MaxAgents:          p.MaxAgents,
@@ -107,7 +107,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows:          st.workflows,
 		Launcher:           harnessLauncher,
 		Harnesses:          p.Harnesses,
-		Actions:            actionService,
+		Scripts:            scriptService,
 		FallbackResumeRoot: p.FallbackResumeRoot,
 	})
 	adoptService := agents.NewAdoptService(agents.AdoptServiceParams{
@@ -127,9 +127,9 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows:      st.workflows,
 		EmptyWorkflows: emptyWorkflows,
 		Tx:             st.pool,
-		Actions:        actionService,
+		Scripts:        scriptService,
 		Notifier:       mailService,
-		LogsDir:        actionLogsDir,
+		LogsDir:        runLogsDir,
 		MaxAgents:      p.MaxAgents,
 		MaxChildren:    p.MaxChildren,
 	})
@@ -148,7 +148,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 
 	return &services{
 		loadConfig: loadConfig,
-		action:     actionService,
+		script:     scriptService,
 		mail:       mailService,
 		review:     reviewService,
 		schedule:   scheduleService,
