@@ -123,6 +123,7 @@ type workflowFormValues struct {
 	WorktreeCopyPaths    string
 	WorktreeSymlinkPaths string
 	WorktreeDiffExclude  string
+	WorktreeDir          string
 	ArchiveOnPRClosed    bool
 }
 
@@ -147,6 +148,7 @@ func workflowFormValuesFrom(cfg workflowstore.Config) workflowFormValues {
 		WorktreeCopyPaths:    strings.Join(cfg.Worktree.CopyPaths, "\n"),
 		WorktreeSymlinkPaths: strings.Join(cfg.Worktree.SymlinkPaths, "\n"),
 		WorktreeDiffExclude:  strings.Join(cfg.Worktree.DiffExclude, "\n"),
+		WorktreeDir:          cfg.Worktree.Dir,
 		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
 	}
 }
@@ -164,6 +166,7 @@ func (v workflowFormValues) toConfig() workflowstore.Config {
 			CopyPaths:    splitLines(v.WorktreeCopyPaths),
 			SymlinkPaths: splitLines(v.WorktreeSymlinkPaths),
 			DiffExclude:  splitLines(v.WorktreeDiffExclude),
+			Dir:          strings.TrimSpace(v.WorktreeDir),
 		},
 		Hooks: slices.Concat(
 			hookOn(v.PreLaunchHook, workflowstore.HookPreLaunch),
@@ -552,6 +555,9 @@ func worktreeDetailFields(values *workflowFormValues) []huh.Field {
 	return []huh.Field{
 		huh.NewInput().Key("worktree_base_branch").Title("Worktree base branch").
 			Placeholder("repo's default branch").Value(&values.WorktreeBaseBranch),
+		huh.NewInput().Key("worktree_dir").Title("Worktree parent directory").
+			Description("where this workflow's worktrees are made, for a repo that expects them somewhere of its own").
+			Placeholder("the configured worktrees directory").Value(&values.WorktreeDir),
 		huh.NewText().Key("worktree_copy_paths").Title("Worktree copy paths").
 			Description("one repo-relative path per line, copied fresh into every worktree, such as .env").
 			Lines(2).Value(&values.WorktreeCopyPaths),

@@ -1718,3 +1718,71 @@ func TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
 
 	assert.Equal(t, builtinDir, runner.dir, "the one weave ships is the one that ran")
 }
+
+// TestWorktreeEnvPrefersTheWorkflowsOwnDirectory covers which parent a worktree is made in:
+// the workflow's own when it names one, expanded from a home-relative path, and the configured
+// directory every workflow shares when it does not.
+func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
+	home, err := os.UserHomeDir()
+	require.NoError(t, err)
+
+	tests := []struct {
+		name string
+		dir  string
+		want func(configured string) string
+	}{
+		{
+			name: "blank falls back to the configured directory every workflow shares",
+			want: func(configured string) string { return configured },
+		},
+		{
+			name: "an absolute directory is where this workflow's worktrees go",
+			dir:  "/repo/.worktrees",
+			want: func(string) string { return "/repo/.worktrees" },
+		},
+		{
+			name: "a home-relative directory is expanded, since the scripts get a path rather than a shell",
+			dir:  "~/repo/.worktrees",
+			want: func(string) string { return filepath.Join(home, "repo/.worktrees") },
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			builtinDir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+			configured := t.TempDir()
+
+			runner := &recordingRunner{}
+			service := NewScriptService(ScriptParams{
+				Agents: fakeAgentReader{agent: &agentstore.Agent{
+					ID: "a1", Cwd: "/worktrees/a1", WorkflowID: "w1",
+				}},
+				Workflows: fakeWorkflowReader{workflow: &workflowstore.Workflow{
+					ID: "w1", Name: "backend", Cwd: "/repo",
+					Worktree: workflowstore.WorktreeConfig{Enabled: true, Dir: tt.dir},
+				}},
+				Tmux:       fakePaneOwner{},
+				Runner:     runner,
+				BuiltinDir: builtinDir,
+				Load: func() (*config.Config, error) {
+					cfg := config.Defaults()
+					cfg.Worktrees.Dir = configured
+
+					return cfg, nil
+				},
+			})
+
+			require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+
+			values := map[string]string{}
+			for _, entry := range runner.env {
+				key, value, found := strings.Cut(entry, "=")
+				require.True(t, found)
+				values[key] = value
+			}
+
+			assert.Equal(t, tt.want(configured), values["WEAVE_WORKTREES_DIR"])
+		})
+	}
+}

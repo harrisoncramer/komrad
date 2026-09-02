@@ -988,12 +988,17 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, agent agent
 		return nil, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	worktreesDir, err := loaded.GetWorktreesDir()
-	if err != nil {
-		return nil, err
-	}
-
 	cfg := workflow.Worktree
+
+	// The configured directory is shared by every workflow, so a repository that expects its
+	// worktrees in a particular place is served by the workflow naming that place itself.
+	worktreesDir := config.ExpandHome(cfg.Dir)
+	if worktreesDir == "" {
+		worktreesDir, err = loaded.GetWorktreesDir()
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return []string{
 		"WEAVE_WORKTREE_REPO=" + config.ExpandHome(strings.TrimSpace(workflow.Cwd)),

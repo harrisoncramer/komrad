@@ -37,6 +37,7 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			Worktree: &workflowv1.WorktreeConfig{
 				Enabled:      w.Worktree.Enabled,
 				BaseBranch:   w.Worktree.BaseBranch,
+				Dir:          w.Worktree.Dir,
 				CopyPaths:    w.Worktree.CopyPaths,
 				SymlinkPaths: w.Worktree.SymlinkPaths,
 				DiffExclude:  w.Worktree.DiffExclude,

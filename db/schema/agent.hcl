@@ -57,6 +57,11 @@ table "workflow_provisioner_configs" {
     type    = text
     default = ""
   }
+  column "worktree_dir" {
+    null    = false
+    type    = text
+    default = ""
+  }
   column "worktree_copy_paths" {
     null    = false
     type    = sql("text[]")

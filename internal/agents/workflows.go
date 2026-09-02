@@ -214,6 +214,7 @@ func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 
 func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
+	cfg.Worktree.Dir = strings.TrimSpace(cfg.Worktree.Dir)
 	cfg.Worktree.CopyPaths = trimPaths(cfg.Worktree.CopyPaths)
 	cfg.Worktree.SymlinkPaths = trimPaths(cfg.Worktree.SymlinkPaths)
 	cfg.Worktree.DiffExclude = trimPaths(cfg.Worktree.DiffExclude)

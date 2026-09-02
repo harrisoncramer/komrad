@@ -67,6 +67,7 @@ SELECT
     wc.flags,
     pc.worktree_enabled,
     pc.worktree_base_branch,
+    pc.worktree_dir,
     pc.worktree_copy_paths,
     pc.worktree_symlink_paths,
     pc.worktree_diff_exclude,
@@ -88,6 +89,7 @@ type GetWorkflowRow struct {
 	Flags                string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -111,6 +113,7 @@ func (q *Queries) GetWorkflow(ctx context.Context, id string) (*GetWorkflowRow, 
 		&i.Flags,
 		&i.WorktreeEnabled,
 		&i.WorktreeBaseBranch,
+		&i.WorktreeDir,
 		&i.WorktreeCopyPaths,
 		&i.WorktreeSymlinkPaths,
 		&i.WorktreeDiffExclude,
@@ -127,6 +130,7 @@ SELECT
     wc.flags,
     pc.worktree_enabled,
     pc.worktree_base_branch,
+    pc.worktree_dir,
     pc.worktree_copy_paths,
     pc.worktree_symlink_paths,
     pc.worktree_diff_exclude,
@@ -147,6 +151,7 @@ type GetWorkflowIncludingArchivedRow struct {
 	Flags                string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -170,6 +175,7 @@ func (q *Queries) GetWorkflowIncludingArchived(ctx context.Context, id string) (
 		&i.Flags,
 		&i.WorktreeEnabled,
 		&i.WorktreeBaseBranch,
+		&i.WorktreeDir,
 		&i.WorktreeCopyPaths,
 		&i.WorktreeSymlinkPaths,
 		&i.WorktreeDiffExclude,
@@ -281,6 +287,7 @@ const insertWorkflowProvisionerConfig = `-- name: InsertWorkflowProvisionerConfi
 INSERT INTO workflow_provisioner_configs(
     worktree_enabled,
     worktree_base_branch,
+    worktree_dir,
     worktree_copy_paths,
     worktree_symlink_paths,
     worktree_diff_exclude,
@@ -291,7 +298,8 @@ VALUES (
     $3,
     $4,
     $5,
-    $6)
+    $6,
+    $7)
 RETURNING
     id
 `
@@ -299,6 +307,7 @@ RETURNING
 type InsertWorkflowProvisionerConfigParams struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -309,6 +318,7 @@ func (q *Queries) InsertWorkflowProvisionerConfig(ctx context.Context, arg Inser
 	row := q.db.QueryRow(ctx, insertWorkflowProvisionerConfig,
 		arg.WorktreeEnabled,
 		arg.WorktreeBaseBranch,
+		arg.WorktreeDir,
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,
@@ -445,6 +455,7 @@ SELECT
     wc.flags,
     pc.worktree_enabled,
     pc.worktree_base_branch,
+    pc.worktree_dir,
     pc.worktree_copy_paths,
     pc.worktree_symlink_paths,
     pc.worktree_diff_exclude,
@@ -468,6 +479,7 @@ type ListWorkflowsRow struct {
 	Flags                string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -497,6 +509,7 @@ func (q *Queries) ListWorkflows(ctx context.Context) ([]*ListWorkflowsRow, error
 			&i.Flags,
 			&i.WorktreeEnabled,
 			&i.WorktreeBaseBranch,
+			&i.WorktreeDir,
 			&i.WorktreeCopyPaths,
 			&i.WorktreeSymlinkPaths,
 			&i.WorktreeDiffExclude,
@@ -520,6 +533,7 @@ SELECT
     wc.flags,
     pc.worktree_enabled,
     pc.worktree_base_branch,
+    pc.worktree_dir,
     pc.worktree_copy_paths,
     pc.worktree_symlink_paths,
     pc.worktree_diff_exclude,
@@ -556,6 +570,7 @@ type ListWorkflowsPageRow struct {
 	Flags                string
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -590,6 +605,7 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 			&i.Flags,
 			&i.WorktreeEnabled,
 			&i.WorktreeBaseBranch,
+			&i.WorktreeDir,
 			&i.WorktreeCopyPaths,
 			&i.WorktreeSymlinkPaths,
 			&i.WorktreeDiffExclude,
@@ -678,10 +694,11 @@ UPDATE
 SET
     worktree_enabled = $1,
     worktree_base_branch = $2,
-    worktree_copy_paths = $3,
-    worktree_symlink_paths = $4,
-    worktree_diff_exclude = $5,
-    archive_on_pr_closed = $6
+    worktree_dir = $3,
+    worktree_copy_paths = $4,
+    worktree_symlink_paths = $5,
+    worktree_diff_exclude = $6,
+    archive_on_pr_closed = $7
 WHERE
     id =(
         SELECT
@@ -689,12 +706,13 @@ WHERE
         FROM
             workflows
         WHERE
-            workflows.id = $7)
+            workflows.id = $8)
 `
 
 type SetWorkflowProvisionerParams struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -706,6 +724,7 @@ func (q *Queries) SetWorkflowProvisioner(ctx context.Context, arg SetWorkflowPro
 	_, err := q.db.Exec(ctx, setWorkflowProvisioner,
 		arg.WorktreeEnabled,
 		arg.WorktreeBaseBranch,
+		arg.WorktreeDir,
 		arg.WorktreeCopyPaths,
 		arg.WorktreeSymlinkPaths,
 		arg.WorktreeDiffExclude,

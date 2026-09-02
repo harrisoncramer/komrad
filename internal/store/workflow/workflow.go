@@ -93,6 +93,7 @@ func (c Config) Workflow(id string) Workflow {
 type WorktreeConfig struct {
 	Enabled      bool
 	BaseBranch   string
+	Dir          string
 	CopyPaths    []string
 	SymlinkPaths []string
 	DiffExclude  []string
@@ -128,6 +129,7 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 		}, provisionerConfigFields{
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
+			WorktreeDir:          row.WorktreeDir,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 			WorktreeDiffExclude:  row.WorktreeDiffExclude,
@@ -189,6 +191,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 		}, provisionerConfigFields{
 			WorktreeEnabled:      row.WorktreeEnabled,
 			WorktreeBaseBranch:   row.WorktreeBaseBranch,
+			WorktreeDir:          row.WorktreeDir,
 			WorktreeCopyPaths:    row.WorktreeCopyPaths,
 			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 			WorktreeDiffExclude:  row.WorktreeDiffExclude,
@@ -223,6 +226,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 	}, provisionerConfigFields{
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
+		WorktreeDir:          row.WorktreeDir,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 		WorktreeDiffExclude:  row.WorktreeDiffExclude,
@@ -248,6 +252,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	provisionerConfigID, err := s.queries.InsertWorkflowProvisionerConfig(ctx, models.InsertWorkflowProvisionerConfigParams{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeDir:          cfg.Worktree.Dir,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
@@ -278,6 +283,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	}, provisionerConfigFields{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeDir:          cfg.Worktree.Dir,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
@@ -320,6 +326,7 @@ func (s *Store) Update(ctx context.Context, id string, cfg Config) error {
 		WorkflowID:           id,
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
+		WorktreeDir:          cfg.Worktree.Dir,
 		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
 		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
 		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
@@ -421,6 +428,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 	}, provisionerConfigFields{
 		WorktreeEnabled:      row.WorktreeEnabled,
 		WorktreeBaseBranch:   row.WorktreeBaseBranch,
+		WorktreeDir:          row.WorktreeDir,
 		WorktreeCopyPaths:    row.WorktreeCopyPaths,
 		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
 		WorktreeDiffExclude:  row.WorktreeDiffExclude,
@@ -447,6 +455,7 @@ type workflowConfigFields struct {
 type provisionerConfigFields struct {
 	WorktreeEnabled      bool
 	WorktreeBaseBranch   string
+	WorktreeDir          string
 	WorktreeCopyPaths    []string
 	WorktreeSymlinkPaths []string
 	WorktreeDiffExclude  []string
@@ -532,6 +541,7 @@ func workflowFromRow(w models.Workflow, cfg workflowConfigFields, pc provisioner
 		Worktree: WorktreeConfig{
 			Enabled:      pc.WorktreeEnabled,
 			BaseBranch:   pc.WorktreeBaseBranch,
+			Dir:          pc.WorktreeDir,
 			CopyPaths:    pc.WorktreeCopyPaths,
 			SymlinkPaths: pc.WorktreeSymlinkPaths,
 			DiffExclude:  pc.WorktreeDiffExclude,

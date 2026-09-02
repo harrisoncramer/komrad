@@ -201,6 +201,7 @@ type WorktreeConfig struct {
 	CopyPaths     []string               `protobuf:"bytes,3,rep,name=copy_paths,json=copyPaths,proto3" json:"copy_paths,omitempty"`
 	SymlinkPaths  []string               `protobuf:"bytes,4,rep,name=symlink_paths,json=symlinkPaths,proto3" json:"symlink_paths,omitempty"`
 	DiffExclude   []string               `protobuf:"bytes,5,rep,name=diff_exclude,json=diffExclude,proto3" json:"diff_exclude,omitempty"`
+	Dir           string                 `protobuf:"bytes,6,opt,name=dir,proto3" json:"dir,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -268,6 +269,13 @@ func (x *WorktreeConfig) GetDiffExclude() []string {
 		return x.DiffExclude
 	}
 	return nil
+}
+
+func (x *WorktreeConfig) GetDir() string {
+	if x != nil {
+		return x.Dir
+	}
+	return ""
 }
 
 type ListWorkflowsRequest struct {
@@ -911,7 +919,7 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\f_archived_atJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +
 	"\x05event\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18(R\x05event\x12&\n" +
-	"\x06script\x18\x02 \x01(\tB\x0e\xbaH\vr\tȻ\x18\x01\x10\x01\x18\xff\x01R\x06script\"\x81\x02\n" +
+	"\x06script\x18\x02 \x01(\tB\x0e\xbaH\vr\tȻ\x18\x01\x10\x01\x18\xff\x01R\x06script\"\xa1\x02\n" +
 	"\x0eWorktreeConfig\x12\x18\n" +
 	"\aenabled\x18\x01 \x01(\bR\aenabled\x12-\n" +
 	"\vbase_branch\x18\x02 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xff\x01R\n" +
@@ -919,7 +927,8 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
 	"copy_paths\x18\x03 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\tcopyPaths\x128\n" +
 	"\rsymlink_paths\x18\x04 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\fsymlinkPaths\x128\n" +
-	"\fdiff_exclude\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\x102\"\vr\tл\x18\x01\x10\x01\x18\xff\x01R\vdiffExclude\"\x81\x01\n" +
+	"\fdiff_exclude\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\x102\"\vr\tл\x18\x01\x10\x01\x18\xff\x01R\vdiffExclude\x12\x1e\n" +
+	"\x03dir\x18\x06 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\"\x81\x01\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
@@ -966,16 +975,16 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xea-\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xbc1\n" +
 	"\x0fWorkflowService\x12\xfd\x03\n" +
 	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa4\x03\x9a\xb5\x18\x9c\x03\n" +
 	"\x0elist_workflows\x12\x89\x03List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\x99\x0e\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xbd\r\x9a\xb5\x18\xb8\r\n" +
-	"\x0fcreate_workflow\x12\xa2\rCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. hooks hang your own scripts on a moment in those agents' lives, each naming an event and a hook from list_hooks: pre-launch runs in the agent's own directory before its pane opens and a failure abandons the create, while post-launch, post-resume and post-restore run in the background once the pane is up, the agent is back in a pane, or the archived row has come back. One hook per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x12\xb5\f\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xe6\v\x9a\xb5\x18\xde\v\n" +
-	"\x0fupdate_workflow\x12\xc8\vReplace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. hooks is written whole like everything else, so send back the list you are not changing: each names an event, one of pre-launch, post-launch, post-resume or post-restore, and a hook from list_hooks, one per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x90\x02\x02\x12\xff\x02\n" +
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xee\x0f\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x92\x0f\x9a\xb5\x18\x8d\x0f\n" +
+	"\x0fcreate_workflow\x12\xf7\x0eCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. worktree.dir is the parent those worktrees are made in, for a repository whose own tooling expects them somewhere particular; left blank they go in the configured worktrees directory, which every workflow shares. hooks hang your own scripts on a moment in those agents' lives, each naming an event and a hook from list_hooks: pre-launch runs in the agent's own directory before its pane opens and a failure abandons the create, while post-launch, post-resume and post-restore run in the background once the pane is up, the agent is back in a pane, or the archived row has come back. One hook per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x12\xb2\x0e\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xe3\r\x9a\xb5\x18\xdb\r\n" +
+	"\x0fupdate_workflow\x12\xc5\rReplace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir is the parent new worktrees are made in and reaches only agents spawned afterwards, since an agent already provisioned holds the directory it was given; left blank they go in the configured worktrees directory, which every workflow shares. hooks is written whole like everything else, so send back the list you are not changing: each names an event, one of pre-launch, post-launch, post-resume or post-restore, and a hook from list_hooks, one per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
 	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xd6\x04\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xf7\x03\x9a\xb5\x18\xef\x03\n" +

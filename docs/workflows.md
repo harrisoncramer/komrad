@@ -12,6 +12,14 @@ Ultimately, each workflow setting for an agent can be overridden at the moment w
 
 Workflows also hold shared context. Represented as free text, this is appended to the system prompt of every agent created inside the workflow.
 
+## Where the worktrees go
+
+A worktree workflow makes its worktrees in the directory your [config](configuration.md) names under `[worktrees]`, which every workflow shares. Some repositories will not have that: their own tooling expects worktrees in a particular place, and finds nothing when an agent's checkout is somewhere else. The chariot monorepo assigns each worktree under `.worktrees` its own ports and docker project, keyed on the directory it sits in.
+
+A workflow can name its own parent directory for that reason. Set it and this workflow's worktrees are made there instead, still one per agent and still named after the agent. Left blank it falls back to the configured directory.
+
+It reaches only agents spawned afterwards, since an agent already provisioned holds the directory it was given, and moving that out from under it would leave weave looking for a checkout that is no longer there.
+
 Which CLI the agents run is known as the "harness." Currently, `claude` and `codex` are supported. Like all settings, agents already spawned keep the harness they started on, so changing this only affects new ones.
 
 ## The context

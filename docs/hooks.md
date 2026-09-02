@@ -101,7 +101,7 @@ exec open "$url"
 
 Weave ships three scripts of its own, in a directory of its own that nothing configures. They are weave's implementation rather than anything to name or replace, and they are shell today only because that is what they were written in.
 
-`_worktree_setup` and `_worktree_cleanup` are the provisioner behind a workflow's `worktree.enabled` toggle, and are reached only by turning it on. The setup half copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it. A branch the agent already has is checked out as it stands rather than reset onto the base, so a directory removed by hand and made again keeps whatever the agent had committed.
+`_worktree_setup` and `_worktree_cleanup` are the provisioner behind a workflow's `worktree.enabled` toggle, and are reached only by turning it on. They make the worktree under the workflow's own `worktree.dir` when it names one, and under the configured worktrees directory otherwise. The setup half copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it. A branch the agent already has is checked out as it stands rather than reset onto the base, so a directory removed by hand and made again keeps whatever the agent had committed.
 
 An agent that [adopted](agents.md) a branch arrives at provision with `WEAVE_WORKTREE_ADOPT_BRANCH` set, and the worktree is made on that branch instead of a new one cut from the base. The cleanup half reads the same variable and leaves the branch where it is, since it was never weave's to delete.
 
