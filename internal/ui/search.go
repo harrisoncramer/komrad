@@ -165,7 +165,7 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 		return previewResult{
 			agentID: hit.agentID,
 			query:   query,
-			content: resp.Msg.GetContent(),
+			content: scrubMarks(resp.Msg.GetContent()),
 		}
 	}
 }

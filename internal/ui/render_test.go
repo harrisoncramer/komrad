@@ -89,6 +89,8 @@ func TestMarkSpans(t *testing.T) {
 // TestRenderTranscript covers the preview being the markdown a conversation is written in
 // rather than its source, with the matched word styled where the rendering put it.
 func TestRenderTranscript(t *testing.T) {
+	withColor(t)
+
 	const content = "# A heading\n\n- a list item\n\nthe ledger is here\n"
 
 	word := strings.Index(content, "ledger")
@@ -96,7 +98,8 @@ func TestRenderTranscript(t *testing.T) {
 
 	plain := ansi.Strip(rendered)
 	assert.Contains(t, plain, "• a list item", "the markdown is rendered rather than shown as source")
-	assert.NotContains(t, plain, "\x02", "the markers are consumed into styling")
+	assert.NotContains(t, rendered, "\x02", "the markers are consumed into styling")
+	assert.NotContains(t, rendered, "\x03", "the markers are consumed into styling")
 	assert.Contains(t, rendered, matchStyle.Render("ledger"), "the matched word is styled")
 
 	rows := strings.Split(plain, "\n")
@@ -111,4 +114,32 @@ func TestRenderTranscriptWithoutAMatch(t *testing.T) {
 
 	assert.Equal(t, 0, line, "no match means no line to open on")
 	assert.Contains(t, ansi.Strip(rendered), "plain prose")
+}
+
+// TestRenderTranscriptEstimatesADroppedMatch covers a match inside a construct the rendering
+// drops whole, which takes the marker with it: the preview still opens near where the match
+// sat rather than at the top of a conversation that can run for thousands of lines.
+func TestRenderTranscriptEstimatesADroppedMatch(t *testing.T) {
+	head := strings.Repeat("filler paragraph\n\n", 60)
+	content := head + "[the report](http://ledger.example.com)\n"
+
+	word := strings.Index(content, "ledger")
+	rendered, line := renderTranscript(content, []span{{start: word, end: word + len("ledger")}}, 40)
+
+	rows := strings.Count(rendered, "\n") + 1
+
+	assert.NotContains(t, ansi.Strip(rendered), "ledger", "the rendering dropped the destination the match sat in")
+	assert.Greater(t, line, rows/2, "the preview opens down where the match sat")
+	assert.LessOrEqual(t, line, rows)
+}
+
+// TestScrubMarks covers a transcript holding the search's own markers, which a captured pane
+// can, since a stray one would pair with a real match's closing marker.
+func TestScrubMarks(t *testing.T) {
+	const content = "a \x02stray\x03 marker in the log"
+
+	scrubbed := scrubMarks(content)
+
+	assert.Equal(t, "a  stray  marker in the log", scrubbed)
+	assert.Len(t, scrubbed, len(content), "the offsets the search reports still point where they did")
 }

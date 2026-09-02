@@ -201,6 +201,11 @@ func TestMarkedTerms(t *testing.T) {
 			want: []string{"sandbox", "tenant"},
 		},
 		{
+			name: "a word with a capital outside ASCII keeps it, since the transcript is folded the same way",
+			in:   marked("Ökonomie"),
+			want: []string{"Ökonomie"},
+		},
+		{
 			name: "an unclosed mark is dropped",
 			in:   "the " + transcriptstore.SnippetOpen + "sandbox",
 		},
@@ -255,6 +260,12 @@ func TestMatchSpans(t *testing.T) {
 			want:   []span{at(int(turn), "Sandbox"), at(strings.Index(content, "runs "), "sandboxed")},
 		},
 		{
+			name:   "the word inside a longer word is left alone",
+			offset: turn,
+			length: turnLen,
+			terms:  []string{"and"},
+		},
+		{
 			name:   "no word to look for marks nothing",
 			offset: turn,
 			length: turnLen,
@@ -279,6 +290,19 @@ func TestMatchSpans(t *testing.T) {
 			assert.Equal(t, tt.want, matchSpans(content, tt.offset, tt.length, tt.terms))
 		})
 	}
+}
+
+// TestMatchSpansFoldsLikeTheTermsDo pins the two sides of the search being folded the same way:
+// a word the snippet marks with a capital outside ASCII is still found in the transcript, which
+// a Unicode fold on one side only would miss.
+func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
+	const content = "the Ökonomie report"
+
+	terms := markedTerms("the " + marked("Ökonomie") + " report")
+	word := strings.Index(content, "Ökonomie")
+
+	assert.Equal(t, []span{{start: word, end: word + len("Ökonomie")}},
+		matchSpans(content, 0, int64(len(content)), terms))
 }
 
 // TestHitSpansAreTheHoveredHits covers the turn a highlight is measured from, which is the hit

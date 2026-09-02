@@ -154,7 +154,7 @@ func markedTerms(snippet string) []string {
 		if j < 0 {
 			break
 		}
-		term := strings.ToLower(strings.TrimSpace(rest[:j]))
+		term := foldASCII(strings.TrimSpace(rest[:j]))
 		rest = rest[j+len(transcriptstore.SnippetClose):]
 
 		if term == "" || seen[term] {
@@ -197,8 +197,14 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 				break
 			}
 
-			start := int(offset) + at + i
-			spans = append(spans, span{start: start, end: start + len(folded)})
+			// The listing's own snippet marks whole words, so a term found inside a longer word
+			// is not what the search matched on, while a match running past the word's end is
+			// kept for the stemmed hit that spells it.
+			if startsWord(turn, at+i) {
+				start := int(offset) + at + i
+				spans = append(spans, span{start: start, end: start + len(folded)})
+			}
+
 			at += i + len(folded)
 		}
 	}
@@ -206,6 +212,25 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 	slices.SortFunc(spans, func(a, b span) int { return a.start - b.start })
 
 	return mergeSpans(spans)
+}
+
+// startsWord reports whether an index falls at the front of a word, where every byte a word can
+// be spelled with counts, the bytes of a multi-byte rune among them.
+func startsWord(s string, at int) bool {
+	if at == 0 {
+		return true
+	}
+
+	c := s[at-1]
+
+	switch {
+	case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z', c >= '0' && c <= '9':
+		return false
+	case c == '_', c >= 0x80:
+		return false
+	}
+
+	return true
 }
 
 // mergeSpans folds overlapping spans together, since two of the matched words can be spelled
