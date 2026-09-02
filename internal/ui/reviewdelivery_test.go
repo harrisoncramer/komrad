@@ -184,38 +184,30 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 // not listening when the review was let go of, and what it says it did.
 func TestReviewResendRingsTheExpiredCommentsAgain(t *testing.T) {
 	tests := []struct {
-		name    string
-		expired int32
-		rung    int32
-		want    string
+		name string
+		rung int32
+		want string
 	}{
 		{
 			name: "nothing has run out of time",
 			want: "nothing has run out of time",
 		},
 		{
-			name:    "one comment rung again",
-			expired: 1,
-			rung:    1,
-			want:    "rang 1 comment again",
+			name: "one comment rung again",
+			rung: 1,
+			want: "rang 1 comment again",
 		},
 		{
-			name:    "several",
-			expired: 3,
-			rung:    3,
-			want:    "rang 3 comments again",
-		},
-		{
-			name:    "found but not rung, which is a quiet success the reader would misread",
-			expired: 2,
-			want:    "nothing could be rung again",
+			name: "several",
+			rung: 3,
+			want: "rang 3 comments again",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := reviewRepo(t)
-			agents := &fakeReviewAgents{expired: tt.expired, rung: tt.rung}
+			agents := &fakeReviewAgents{rung: tt.rung}
 			m, _ := reviewModel(t, agents, dir)
 			m = openReview(t, m)
 

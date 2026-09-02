@@ -231,53 +231,42 @@ func TestReadingAnotherAgentsReviewIsAllowed(t *testing.T) {
 	assert.Len(t, threads, 1)
 }
 
-// TestReleaseReviewMessages pins what letting go of a review does: one doorbell per comment the
-// person has written and not sent, and nothing at all when there is nothing left to send.
+// TestReleaseReviewMessages pins what letting go of a review does: one doorbell however many
+// comments the person has written and not sent, and nothing at all when there is nothing left
+// to send.
 func TestReleaseReviewMessages(t *testing.T) {
 	tests := []struct {
-		name           string
-		unsent         int
-		alreadyWaiting bool
-		wantReleased   int
-		wantRung       int
-		wantSent       int
+		name         string
+		unsent       int
+		wantReleased int
+		wantSent     int
 	}{
 		{
 			name:         "a review with nothing unsent rings nobody",
 			unsent:       0,
 			wantReleased: 0,
-			wantRung:     0,
 			wantSent:     0,
 		},
 		{
-			name:         "every unsent comment gets a doorbell of its own",
-			unsent:       3,
-			wantReleased: 3,
-			wantRung:     3,
-			wantSent:     3,
+			name:         "one comment rings once",
+			unsent:       1,
+			wantReleased: 1,
+			wantSent:     1,
 		},
 		{
-			name:           "a comment already holding a doorbell is not given a second",
-			unsent:         2,
-			alreadyWaiting: true,
-			wantReleased:   2,
-			wantRung:       0,
-			wantSent:       2,
+			name:         "three comments still ring once",
+			unsent:       3,
+			wantReleased: 3,
+			wantSent:     1,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			written := unsentMessages(tt.unsent)
-
 			reviews := newFakeReviewStore()
-			reviews.unsent = written
+			reviews.unsent = unsentMessages(tt.unsent)
 
-			notices := &fakeNoticeSender{}
-			if !tt.alreadyWaiting {
-				notices.answer = &mailstore.Mail{ID: "mail-1"}
-			}
-
+			notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
 			service := reviewService(t, reviews, notices)
 
 			result, err := service.ReleaseReviewMessages(t.Context(), ReleaseReviewMessagesParams{
@@ -287,22 +276,43 @@ func TestReleaseReviewMessages(t *testing.T) {
 			require.NotNil(t, result)
 
 			assert.Equal(t, tt.wantReleased, result.Released)
-			assert.Equal(t, tt.wantRung, result.Rung)
 			require.Len(t, notices.sent, tt.wantSent)
 
-			for i, sent := range notices.sent {
-				assert.Equal(t, mailstore.KindReviewActivity, sent.Kind)
-				require.NotNil(t, sent.ReviewMessageID, "a doorbell names the comment it is for")
-				assert.Equal(t, written[i].ID, *sent.ReviewMessageID)
-				assert.NotContains(t, sent.Body, "needs a nil check", "a doorbell carries no feedback")
-				assert.Contains(t, sent.Body, "list_review_threads")
+			if tt.wantSent == 0 {
+				return
 			}
+
+			assert.Equal(t, "mail-1", reviews.doorbell, "the comments are stamped against the doorbell that rang")
+
+			sent := notices.sent[0]
+			assert.Equal(t, mailstore.KindReviewActivity, sent.Kind)
+			assert.NotContains(t, sent.Body, "needs a nil check", "a doorbell carries no feedback")
+			assert.Contains(t, sent.Body, "list_review_threads")
 		})
 	}
 }
 
-// TestRingReviewMessagesAgain pins that ringing again reaches only the comments whose doorbell
-// the agent can no longer read, since one still waiting says what a second would.
+// TestNothingIsStampedWhenTheDoorbellCannotBeRaised pins the order a release runs in, since a
+// comment stamped as sent with nothing raised for it reads in the panel as one the agent let
+// run out of time rather than one it was never told about.
+func TestNothingIsStampedWhenTheDoorbellCannotBeRaised(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.unsent = unsentMessages(3)
+
+	notices := &fakeNoticeSender{err: ErrMailboxFull}
+	service := reviewService(t, reviews, notices)
+
+	_, err := service.ReleaseReviewMessages(t.Context(), ReleaseReviewMessagesParams{
+		AgentID: reviewedAgentID, Author: humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrMailboxFull)
+
+	assert.Empty(t, reviews.released, "a review that could not be rung is still the person's to send")
+	assert.Len(t, reviews.unsent, 3)
+}
+
+// TestRingReviewMessagesAgain pins that ringing again raises one fresh doorbell and moves every
+// comment beyond reading onto it, and that a review nothing has expired on rings nobody.
 func TestRingReviewMessagesAgain(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.expired = unsentMessages(2)
@@ -316,9 +326,9 @@ func TestRingReviewMessagesAgain(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
-	assert.Equal(t, 2, result.Expired)
 	assert.Equal(t, 2, result.Rung)
-	assert.Len(t, notices.sent, 2)
+	assert.Len(t, notices.sent, 1, "both comments are heard through the one doorbell")
+	assert.Equal(t, "mail-1", reviews.doorbell)
 
 	reviews.expired = nil
 	notices.sent = nil
@@ -329,7 +339,7 @@ func TestRingReviewMessagesAgain(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, quiet)
 
-	assert.Zero(t, quiet.Expired)
+	assert.Zero(t, quiet.Rung)
 	assert.Empty(t, notices.sent, "a review nothing has expired on rings nobody")
 }
 
@@ -475,6 +485,7 @@ type fakeReviewStore struct {
 	unsent   []reviewstore.Message
 	expired  []reviewstore.Message
 	released []reviewstore.Message
+	doorbell string
 }
 
 func newFakeReviewStore() *fakeReviewStore {
@@ -540,11 +551,31 @@ func (f *fakeReviewStore) SetThreadResolved(
 	return &thread, nil
 }
 
-func (f *fakeReviewStore) ReleaseUnsentMessages(context.Context, string) ([]reviewstore.Message, error) {
+func (f *fakeReviewStore) CountUnsentMessages(context.Context, string) (int, error) {
+	return len(f.unsent), nil
+}
+
+func (f *fakeReviewStore) ReleaseUnsentMessages(_ context.Context, _, doorbellMailID string) ([]reviewstore.Message, error) {
 	f.released = f.unsent
 	f.unsent = nil
+	f.doorbell = doorbellMailID
 
 	return f.released, nil
+}
+
+func (f *fakeReviewStore) PointMessagesAtDoorbell(_ context.Context, ids []string, doorbellMailID string) ([]reviewstore.Message, error) {
+	f.doorbell = doorbellMailID
+
+	pointed := make([]reviewstore.Message, 0, len(ids))
+	for _, id := range ids {
+		pointed = append(pointed, reviewstore.Message{
+			ID:         id,
+			ThreadID:   reviewThreadID,
+			AuthorKind: reviewstore.AuthorHuman,
+		})
+	}
+
+	return pointed, nil
 }
 
 func (f *fakeReviewStore) ListExpiredMessages(context.Context, string) ([]reviewstore.Message, error) {
@@ -629,13 +660,14 @@ func (f *fakeReviewStore) DeleteMessage(context.Context, string) error { return 
 type fakeNoticeSender struct {
 	sent   []SendNoticeParams
 	answer *mailstore.Mail
+	err    error
 }
 
 func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	f.sent = append(f.sent, params)
 
-	if f.answer == nil {
-		return nil, mailstore.ErrNoticePending
+	if f.err != nil {
+		return nil, f.err
 	}
 
 	return f.answer, nil

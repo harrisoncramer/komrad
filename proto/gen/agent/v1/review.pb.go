@@ -1108,9 +1108,10 @@ func (x *DeleteReviewMessageRequest) GetId() string {
 }
 
 // ReleaseReviewMessagesRequest lets go of every comment on an agent's review the person has
-// written and not sent, and raises one piece of mail for each. The comments themselves are not
-// sent: the agent is handed a doorbell per comment and looks the conversation up for itself, so
-// a comment rewritten afterwards is simply read as it now stands.
+// written and not sent, and raises one doorbell they are all heard through. The comments
+// themselves are not sent: the agent is told there is review waiting and looks the
+// conversations up for itself, so a comment rewritten afterwards is simply read as it now
+// stands.
 type ReleaseReviewMessagesRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
 	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
@@ -1168,10 +1169,7 @@ func (x *ReleaseReviewMessagesRequest) GetInterrupt() bool {
 type ReleaseReviewMessagesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// How many comments were released, which is zero when there was nothing left to let go of.
-	Released int32 `protobuf:"varint,1,opt,name=released,proto3" json:"released,omitempty"`
-	// How many of those a doorbell was raised for. The rest kept the one already waiting to be
-	// read, since it says what a second would.
-	Rung          int32 `protobuf:"varint,2,opt,name=rung,proto3" json:"rung,omitempty"`
+	Released      int32 `protobuf:"varint,1,opt,name=released,proto3" json:"released,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1213,15 +1211,8 @@ func (x *ReleaseReviewMessagesResponse) GetReleased() int32 {
 	return 0
 }
 
-func (x *ReleaseReviewMessagesResponse) GetRung() int32 {
-	if x != nil {
-		return x.Rung
-	}
-	return 0
-}
-
-// RingReviewMessagesAgainRequest raises a doorbell again for every released comment whose own
-// ran out of time unclaimed, which is the only thing that reaches an agent that was not
+// RingReviewMessagesAgainRequest raises a fresh doorbell for every released comment left with
+// none the agent can still read, which is the only thing that reaches an agent that was not
 // listening when the review was let go of.
 type RingReviewMessagesAgainRequest struct {
 	state   protoimpl.MessageState `protogen:"open.v1"`
@@ -1278,10 +1269,9 @@ func (x *RingReviewMessagesAgainRequest) GetInterrupt() bool {
 
 type RingReviewMessagesAgainResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// How many released comments were found with no doorbell the agent could still read.
-	Expired int32 `protobuf:"varint,1,opt,name=expired,proto3" json:"expired,omitempty"`
-	// How many of those a fresh doorbell was raised for.
-	Rung          int32 `protobuf:"varint,2,opt,name=rung,proto3" json:"rung,omitempty"`
+	// How many released comments the fresh doorbell was raised for, which is zero when there was
+	// nothing the agent could no longer hear.
+	Rung          int32 `protobuf:"varint,1,opt,name=rung,proto3" json:"rung,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1314,13 +1304,6 @@ func (x *RingReviewMessagesAgainResponse) ProtoReflect() protoreflect.Message {
 // Deprecated: Use RingReviewMessagesAgainResponse.ProtoReflect.Descriptor instead.
 func (*RingReviewMessagesAgainResponse) Descriptor() ([]byte, []int) {
 	return file_agent_v1_review_proto_rawDescGZIP(), []int{19}
-}
-
-func (x *RingReviewMessagesAgainResponse) GetExpired() int32 {
-	if x != nil {
-		return x.Expired
-	}
-	return 0
 }
 
 func (x *RingReviewMessagesAgainResponse) GetRung() int32 {
@@ -1688,16 +1671,14 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"`\n" +
 	"\x1cReleaseReviewMessagesRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1c\n" +
-	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\"O\n" +
+	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\";\n" +
 	"\x1dReleaseReviewMessagesResponse\x12\x1a\n" +
-	"\breleased\x18\x01 \x01(\x05R\breleased\x12\x12\n" +
-	"\x04rung\x18\x02 \x01(\x05R\x04rung\"b\n" +
+	"\breleased\x18\x01 \x01(\x05R\breleased\"b\n" +
 	"\x1eRingReviewMessagesAgainRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\x1c\n" +
-	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\"O\n" +
-	"\x1fRingReviewMessagesAgainResponse\x12\x18\n" +
-	"\aexpired\x18\x01 \x01(\x05R\aexpired\x12\x12\n" +
-	"\x04rung\x18\x02 \x01(\x05R\x04rung\"\x89\x01\n" +
+	"\tinterrupt\x18\x02 \x01(\bR\tinterrupt\"5\n" +
+	"\x1fRingReviewMessagesAgainResponse\x12\x12\n" +
+	"\x04rung\x18\x01 \x01(\x05R\x04rung\"\x89\x01\n" +
 	"\x10ReviewViewedFile\x12\x19\n" +
 	"\bagent_id\x18\x01 \x01(\tR\aagentId\x12\x1b\n" +
 	"\tfile_path\x18\x02 \x01(\tR\bfilePath\x12 \n" +

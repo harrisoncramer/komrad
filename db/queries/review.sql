@@ -175,49 +175,31 @@ WHERE
     m.id = @id;
 
 -- name: ListReviewMessagesByThreads :many
-WITH said AS (
-    SELECT
-        m.id
-    FROM
-        review_messages m
-    WHERE
-        m.thread_id = ANY (@thread_ids::uuid[])
-),
-doorbell AS (
-    SELECT DISTINCT ON (l.review_message_id)
-        l.review_message_id,
-        l.claimed_at,
-        l.expires_at
-    FROM
-        mail l
-    WHERE
-        l.review_message_id IN (
-            SELECT
-                said.id
-            FROM
-                said)
-        ORDER BY
-            l.review_message_id,
-            l.id DESC
-)
-    SELECT
-        m.*,
-        d.claimed_at AS delivered_at,
-(d.review_message_id IS NULL
-            OR (d.claimed_at IS NULL
-                AND d.expires_at <= NOW())) AS doorbell_expired
-    FROM
-        review_messages m
-    LEFT JOIN doorbell d ON d.review_message_id = m.id
+SELECT
+    m.*,
+    d.claimed_at AS delivered_at,
+(d.id IS NULL
+        OR (d.claimed_at IS NULL
+            AND d.expires_at <= NOW())) AS doorbell_expired
+FROM
+    review_messages m
+    LEFT JOIN mail d ON d.id = m.doorbell_mail_id
 WHERE
-    m.id IN (
-        SELECT
-            said.id
-        FROM
-            said)
-    ORDER BY
-        m.thread_id,
-        m.id;
+    m.thread_id = ANY (@thread_ids::uuid[])
+ORDER BY
+    m.thread_id,
+    m.id;
+
+-- name: CountUnsentReviewMessages :one
+SELECT
+    COUNT(*)
+FROM
+    review_messages m
+    JOIN review_threads t ON t.id = m.thread_id
+WHERE
+    t.agent_id = @agent_id
+    AND m.author_kind = 'human'
+    AND m.sent_at IS NULL;
 
 -- name: ReleaseUnsentReviewMessages :many
 WITH unsent AS (
@@ -233,7 +215,8 @@ WITH unsent AS (
 UPDATE
     review_messages m
 SET
-    sent_at = NOW()
+    sent_at = NOW(),
+    doorbell_mail_id = @doorbell_mail_id
 WHERE
     m.id IN (
         SELECT
@@ -243,51 +226,32 @@ WHERE
 RETURNING
     *;
 
--- name: ListExpiredReviewMessages :many
-WITH released AS (
-    SELECT
-        m.id
-    FROM
-        review_messages m
-        JOIN review_threads t ON t.id = m.thread_id
-    WHERE
-        t.agent_id = @agent_id
-        AND m.author_kind = 'human'
-        AND m.sent_at IS NOT NULL
-),
-doorbell AS (
-    SELECT DISTINCT ON (l.review_message_id)
-        l.review_message_id,
-        l.claimed_at,
-        l.expires_at
-    FROM
-        mail l
-    WHERE
-        l.review_message_id IN (
-            SELECT
-                released.id
-            FROM
-                released)
-        ORDER BY
-            l.review_message_id,
-            l.id DESC
-)
-    SELECT
-        m.*
-    FROM
-        review_messages m
-    LEFT JOIN doorbell d ON d.review_message_id = m.id
+-- name: PointReviewMessagesAtDoorbell :many
+UPDATE
+    review_messages m
+SET
+    doorbell_mail_id = @doorbell_mail_id
 WHERE
-    m.id IN (
-        SELECT
-            released.id
-        FROM
-            released)
-        AND (d.review_message_id IS NULL
-            OR (d.claimed_at IS NULL
-                AND d.expires_at <= NOW()))
-    ORDER BY
-        m.id;
+    m.id = ANY (@ids::uuid[])
+RETURNING
+    *;
+
+-- name: ListExpiredReviewMessages :many
+SELECT
+    m.*
+FROM
+    review_messages m
+    JOIN review_threads t ON t.id = m.thread_id
+    LEFT JOIN mail d ON d.id = m.doorbell_mail_id
+WHERE
+    t.agent_id = @agent_id
+    AND m.author_kind = 'human'
+    AND m.sent_at IS NOT NULL
+    AND (d.id IS NULL
+        OR (d.claimed_at IS NULL
+            AND d.expires_at <= NOW()))
+ORDER BY
+    m.id;
 
 -- name: DeleteReviewMessage :exec
 DELETE FROM review_messages

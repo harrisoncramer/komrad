@@ -32,7 +32,6 @@ type fakeReviewAgents struct {
 	replied  *agentv1.AddReviewMessageRequest
 	released *agentv1.ReleaseReviewMessagesRequest
 	rang     *agentv1.RingReviewMessagesAgainRequest
-	expired  int32
 	rung     int32
 	marked   *agentv1.SetReviewFileViewedRequest
 }
@@ -76,7 +75,7 @@ func (f *fakeReviewAgents) ReleaseReviewMessages(
 ) (*connect.Response[agentv1.ReleaseReviewMessagesResponse], error) {
 	f.released = req.Msg
 
-	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{Released: 1, Rung: 1}), nil
+	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{Released: 1}), nil
 }
 
 func (f *fakeReviewAgents) RingReviewMessagesAgain(
@@ -85,10 +84,7 @@ func (f *fakeReviewAgents) RingReviewMessagesAgain(
 ) (*connect.Response[agentv1.RingReviewMessagesAgainResponse], error) {
 	f.rang = req.Msg
 
-	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{
-		Expired: f.expired,
-		Rung:    f.rung,
-	}), nil
+	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{Rung: f.rung}), nil
 }
 
 func (f *fakeReviewAgents) AddReviewMessage(

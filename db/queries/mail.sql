@@ -6,7 +6,6 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
-    review_message_id,
     hops,
     expires_at)
 VALUES (
@@ -16,25 +15,24 @@ VALUES (
     @body,
     @kind,
     sqlc.narg('reply_to'),
-    sqlc.narg('review_message_id'),
     @hops,
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
-ON CONFLICT (
-    review_message_id)
+RETURNING
+    *;
+
+-- name: GetPendingMailOfKind :one
+SELECT
+    *
+FROM
+    mail m
 WHERE
-    claimed_at IS NULL
-        DO UPDATE SET
-            from_agent_id = excluded.from_agent_id,
-            from_name = excluded.from_name,
-            body = excluded.body,
-            reply_to = excluded.reply_to,
-            hops = excluded.hops,
-            expires_at = excluded.expires_at,
-            reported_at = NULL
-        WHERE
-            mail.expires_at <= NOW()
-        RETURNING
-            *;
+    m.to_agent_id = @to_agent_id
+    AND m.kind = @kind
+    AND m.claimed_at IS NULL
+    AND m.expires_at > NOW()
+ORDER BY
+    m.id DESC
+LIMIT 1;
 
 -- name: GetMail :one
 SELECT
