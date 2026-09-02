@@ -31,7 +31,10 @@ func (s *Service) ListReviewThreads(
 			errors.New("name the agent whose review you are reading"))
 	}
 
-	threads, err := s.review.ListReviewThreads(ctx, agentID)
+	threads, err := s.review.ListReviewThreads(ctx, agents.ListReviewThreadsParams{
+		AgentID: agentID,
+		Author:  author,
+	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the review threads")
 	}

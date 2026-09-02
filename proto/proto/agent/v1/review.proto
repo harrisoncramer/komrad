@@ -80,6 +80,9 @@ message ListReviewThreadsRequest {
 }
 
 message ListReviewThreadsResponse {
+  // The threads on that diff and what has been said in each. An agent reading a review is shown
+  // only the comments the person has let go of, and none of the panel's record of when each was
+  // released, so that a review is read once it is a review rather than as it is being written.
   repeated ReviewThread threads = 1;
 }
 

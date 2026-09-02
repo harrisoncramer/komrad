@@ -122,13 +122,19 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 	}
 }
 
-// ListReviewThreads is every thread on an agent's diff with its messages, which anyone may
-// read since reading it changes nothing.
+type ListReviewThreadsParams struct {
+	AgentID string
+	Author  ReviewAuthor
+}
+
+// ListReviewThreads is every thread on an agent's diff with its messages, all of it for the
+// person reviewing and only what they have let go of for an agent, so that a review is read
+// once it is a review rather than over their shoulder as it is typed.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
-	agentID string,
+	params ListReviewThreadsParams,
 ) ([]ReviewThreadWithMessages, error) {
-	threads, err := s.threads.ListThreads(ctx, agentID)
+	threads, err := s.threads.ListThreads(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -153,10 +159,39 @@ func (s *ReviewService) ListReviewThreads(
 
 	answered := make([]ReviewThreadWithMessages, 0, len(threads))
 	for _, thread := range threads {
-		answered = append(answered, ReviewThreadWithMessages{Thread: thread, Messages: byThread[thread.ID]})
+		messages := byThread[thread.ID]
+		if !params.Author.IsHuman() {
+			messages = releasedMessages(messages)
+			if len(messages) == 0 {
+				continue
+			}
+			thread.UnreadByHuman = false
+		}
+
+		answered = append(answered, ReviewThreadWithMessages{Thread: thread, Messages: messages})
 	}
 
 	return answered, nil
+}
+
+// releasedMessages is what an agent may be shown of a conversation: the comments the person
+// has let go of and the agent's own replies, stripped of when each was released and how far it
+// travelled, which is the person's own record of what the agent has been told.
+func releasedMessages(messages []reviewstore.Message) []reviewstore.Message {
+	released := make([]reviewstore.Message, 0, len(messages))
+	for _, message := range messages {
+		if message.AuthorKind == reviewstore.AuthorHuman && message.SentAt == nil {
+			continue
+		}
+
+		message.SentAt = nil
+		message.DeliveredAt = nil
+		message.Delivery = reviewstore.DeliveryNone
+
+		released = append(released, message)
+	}
+
+	return released
 }
 
 type CreateReviewThreadParams struct {
