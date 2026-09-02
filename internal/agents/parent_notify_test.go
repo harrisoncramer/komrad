@@ -191,6 +191,49 @@ func TestDeleteOfAFamilyTellsNobodyAcrossTheSplit(t *testing.T) {
 	assert.Empty(t, notifier.to, "a parent on its way out is not told about the child going with it")
 }
 
+// TestDeleteOfASpawnerPairTellsNobody pins the other side of that split: two agents in a
+// worktree workflow are both held back for their own cleanup, so each callback has to weigh
+// its mail against the whole call rather than against the one agent it is finishing.
+func TestDeleteOfASpawnerPairTellsNobody(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	notifier := &recordingNotifier{}
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		notifier:  notifier,
+	})
+	ctx := t.Context()
+
+	workflow, err := st.Workflows.Create(ctx, workflowstore.Config{
+		Name:          "worktrees",
+		CleanupAction: "drop-worktree",
+	})
+	require.NoError(t, err)
+
+	orchestrator := seedInWorkflow(t, st, workflow.ID, "orchestrator", "%orchestrator", agentstore.StateIdle)
+	require.NoError(t, tmux.SetPaneOwner(orchestrator.Pane, orchestrator.ID))
+
+	require.NoError(t, st.Create(ctx, agentstore.Agent{
+		Name:             "worker",
+		Pane:             "%worker",
+		State:            agentstore.StateThinking,
+		WorkflowID:       workflow.ID,
+		SpawnedByAgentID: &orchestrator.ID,
+	}))
+
+	worker, err := st.Agents.GetInWorkflow(ctx, workflow.ID, "worker")
+	require.NoError(t, err)
+	require.NotNil(t, worker)
+	require.NoError(t, tmux.SetPaneOwner(worker.Pane, worker.ID))
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(ctx, []string{orchestrator.ID, worker.ID}))
+
+	assert.Empty(t, notifier.to, "a spawner deleted alongside its delegate is not written to")
+}
+
 // recordingNotifier keeps who was written to, since a delete takes the row the mail was
 // addressed to and the mailbox cannot be read afterwards.
 type recordingNotifier struct {

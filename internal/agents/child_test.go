@@ -276,7 +276,6 @@ func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
 	child := seedChild(t, st, tmux, parent)
-	require.NoError(t, st.Update(ctx, withSpawner(child, parent.ID)))
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{child.ID}))
 
@@ -301,8 +300,7 @@ func TestArchiveOfAParentTellsTheChildNothing(t *testing.T) {
 	ctx := t.Context()
 
 	parent := seedRunning(t, st, tmux, "author", "%author", agentstore.StateIdle)
-	child := seedChild(t, st, tmux, parent)
-	require.NoError(t, st.Update(ctx, withSpawner(child, parent.ID)))
+	seedChild(t, st, tmux, parent)
 
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{parent.ID}))
 
@@ -329,12 +327,6 @@ func TestArchiveOfAParentTellsAThirdPartySpawner(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, claimed, 1)
 	assert.Contains(t, claimed[0].Body, "archived")
-}
-
-func withSpawner(agent agentstore.Agent, spawnerID string) agentstore.Agent {
-	agent.SpawnedByAgentID = &spawnerID
-
-	return agent
 }
 
 // TestDeleteTakesTheChildren pins that deleting a parent removes the children too, and that
