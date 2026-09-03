@@ -64,7 +64,6 @@ type ScriptService struct {
 	logsDir    string
 	editor     string
 	binPath    string
-	catalog    *scripts.Catalog
 	inFlightMu sync.Mutex
 	inFlight   map[scriptKey]struct{}
 	logRunMu   sync.Mutex
@@ -98,7 +97,6 @@ func NewScriptService(p ScriptParams) *ScriptService {
 		logsDir:    p.LogsDir,
 		editor:     p.Editor,
 		binPath:    p.BinPath,
-		catalog:    scripts.NewCatalog(),
 		inFlight:   make(map[scriptKey]struct{}),
 	}
 }
@@ -171,7 +169,7 @@ func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 		return nil, err
 	}
 
-	return s.catalog.List(dirs...)
+	return scripts.List(dirs...)
 }
 
 // RunHook runs one of a workflow's hooks and waits for it, in the directory the agent was
@@ -835,7 +833,7 @@ func (s *ScriptService) prepare(ctx context.Context, p prepareParams) (scripts.S
 }
 
 func (s *ScriptService) find(name string) (scripts.Script, error) {
-	return s.catalog.Find(name, s.builtinDirs()...)
+	return scripts.Find(name, s.builtinDirs()...)
 }
 
 func (s *ScriptService) findHook(name string) (scripts.Script, error) {
@@ -844,7 +842,7 @@ func (s *ScriptService) findHook(name string) (scripts.Script, error) {
 		return scripts.Script{}, err
 	}
 
-	return s.catalog.Find(name, dirs...)
+	return scripts.Find(name, dirs...)
 }
 
 func (s *ScriptService) hookDirs() ([]string, error) {
