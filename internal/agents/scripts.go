@@ -596,8 +596,7 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 	}
 	record.id = id
 
-	// The rows are held to the bound the log files are, so a row is never left pointing at
-	// output the sweep has already taken.
+	// Bounded by the log-file count so a row never outlives the output it points at.
 	if err := s.runs.Prune(ctx, agentID, config.MaxRunLogs); err != nil {
 		logging.From(ctx).Warn("failed to prune an agent's runs", "agent_id", agentID, "error", err)
 	}
@@ -632,7 +631,6 @@ func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
 	}
 }
 
-// runExitCode is the status a script left behind, which a process that never ran has none of.
 func runExitCode(result scripts.Result) *int32 {
 	if result.ExitCode < 0 {
 		return nil
