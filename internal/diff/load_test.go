@@ -238,3 +238,72 @@ func TestANewFileIsNotAModeChange(t *testing.T) {
 	assert.Equal(t, []string{"new file"}, fileIn(t, root, "added.go").Metadata)
 	assert.Equal(t, []string{"deleted file"}, fileIn(t, root, "kept.go").Metadata)
 }
+
+// TestATopLevelADirectoryKeepsItsSegment covers a repository whose own tree holds a directory
+// named after the diff prefix, where a second strip on top of the parser's own would eat the
+// segment and collide two distinct files on the one path the viewed mark and the pinned threads
+// are held against.
+func TestATopLevelADirectoryKeepsItsSegment(t *testing.T) {
+	root := repo(t)
+	write(t, root, "a/mod.go", "package a\n")
+	write(t, root, "b/mod.go", "package b\n")
+	write(t, root, "a/old.go", "package a\n\nfunc Old() {}\nfunc Older() {}\n")
+	write(t, root, "a/modeonly.go", "package a\n")
+	write(t, root, "a/logo.png", "\x89PNG\r\n\x1a\n\x00AAAA")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "add a top-level a and b")
+	run(t, root, "checkout", "-b", "work")
+
+	write(t, root, "a/mod.go", "package a\n\nfunc A() {}\n")
+	write(t, root, "b/mod.go", "package b\n\nfunc B() {}\n")
+	run(t, root, "mv", "a/old.go", "a/new.go")
+	write(t, root, "a/brand.go", "package a\n\nfunc Brand() {}\nfunc Brander() {}\n")
+	run(t, root, "add", "a/brand.go")
+	run(t, root, "rm", "-q", "kept.go")
+	require.NoError(t, os.Chmod(filepath.Join(root, "a/modeonly.go"), 0o755))
+	write(t, root, "a/logo.png", "\x89PNG\r\n\x1a\n\x00ZZZZZZZZ")
+	write(t, root, "b/untracked.go", "package b\n")
+
+	patch, err := Load(context.Background(), LoadParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{
+		"a/brand.go", "a/logo.png", "a/mod.go", "a/modeonly.go", "a/new.go",
+		"b/mod.go", "b/untracked.go", "kept.go",
+	}, paths(patch))
+
+	assert.Equal(t, []string{"renamed from a/old.go"}, fileIn(t, root, "a/new.go").Metadata)
+
+	// The paths downstream reads the source with, so a mangled one loses the colouring.
+	changed := fileIn(t, root, "a/mod.go")
+	assert.Equal(t, "package a\n\nfunc A() {}\n", changed.NewSource)
+	assert.Equal(t, "package a\n", changed.OldSource)
+
+	deleted := fileIn(t, root, "kept.go")
+	assert.Equal(t, []string{"deleted file"}, deleted.Metadata)
+	assert.Equal(t, "a/mod.go", fileIn(t, root, "a/mod.go").OldPath)
+}
+
+// TestAPathSurvivesTheUserSDiffPrefixConfig keeps true the parser's one assumption, that the
+// first segment of the name on the header line is a prefix to drop, which a global
+// diff.noprefix would otherwise turn into a real directory eaten off every path.
+func TestAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
+	for _, settings := range [][]string{
+		{"diff.noprefix", "true"},
+		{"diff.mnemonicPrefix", "true"},
+		{"diff.srcPrefix", "src/"},
+		{"diff.dstPrefix", "dst/"},
+	} {
+		t.Run(settings[0], func(t *testing.T) {
+			root := repo(t)
+			run(t, root, "checkout", "-b", "work")
+			run(t, root, "config", settings[0], settings[1])
+
+			write(t, root, "proto/gen/api.pb.go", "package gen\n\nvar Generated = true\n")
+
+			patch, err := Load(context.Background(), LoadParams{Dir: root, Base: "main"})
+			require.NoError(t, err)
+			assert.Equal(t, []string{"proto/gen/api.pb.go"}, paths(patch))
+		})
+	}
+}
