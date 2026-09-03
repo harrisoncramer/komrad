@@ -71,10 +71,17 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	}, nil
 }
 
+// diffArgs pins the prefix git writes on the header line, since the parser drops the first
+// segment of that name whatever it is, so a user whose own config asks for no prefix or a
+// different one would have a real directory eaten off every path in the patch.
 func diffArgs(commit string, exclude []string) []string {
 	args := []string{
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",
+		"-c", "diff.noprefix=false",
+		"-c", "diff.mnemonicPrefix=false",
+		"-c", "diff.srcPrefix=a/",
+		"-c", "diff.dstPrefix=b/",
 		"--no-pager", "diff",
 		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3", "--full-index",
 		commit, "--", ".",
@@ -126,7 +133,7 @@ func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, e
 
 	files := make([]File, 0, len(parsed))
 	for _, current := range parsed {
-		file := File{OldPath: cleanPath(current.OldName), NewPath: cleanPath(current.NewName)}
+		file := File{OldPath: filePath(current.OldName), NewPath: filePath(current.NewName)}
 
 		switch {
 		case current.IsBinary:
@@ -136,7 +143,7 @@ func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, e
 		case current.IsDelete:
 			file.Metadata = append(file.Metadata, "deleted file")
 		case current.IsRename:
-			file.Metadata = append(file.Metadata, "renamed from "+cleanPath(current.OldName))
+			file.Metadata = append(file.Metadata, "renamed from "+filePath(current.OldName))
 		}
 
 		if mode := modeChange(current); mode != "" {
@@ -324,16 +331,11 @@ func readWorkingTree(root, path string) string {
 	return string(content)
 }
 
-// cleanPath drops the a/ and b/ prefixes git writes, and reads /dev/null as no file at all.
-func cleanPath(path string) string {
-	if path == "" || path == "/dev/null" {
+// filePath reads /dev/null as no file at all, which is the whole of it, since the name arrives
+// with the diff prefix already off.
+func filePath(path string) string {
+	if path == "/dev/null" {
 		return ""
-	}
-
-	for _, prefix := range []string{"a/", "b/"} {
-		if strings.HasPrefix(path, prefix) {
-			return strings.TrimPrefix(path, prefix)
-		}
 	}
 
 	return path
