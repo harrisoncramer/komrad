@@ -99,18 +99,36 @@ func reviewDeliveryMark(state agentv1.ReviewDeliveryState) string {
 // reviewView draws the sidebar while the review is up, which is the thread the cursor is
 // standing on and the line it hangs off, since the diff itself is in the stage.
 func (m model) reviewView() string {
-	header := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
-		m.reviewStatView() +
-		m.reviewDeliveryView() + "\n\n" +
-		m.review.filter.view() + m.reviewMatchCount()
+	header := m.reviewHeader()
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
-	rest := tailRows(m.reviewRestView(), m.listLines(header, help, head))
+	record := m.detailsView()
+	rest := tailRows(m.reviewRestView(), m.listLines(header, help, record, head))
 
-	return header + padRows(head+rest, m.listLines(header, help)) + help
+	return header + padRows(head+rest, m.listLines(header, help, record)) + record + help
+}
+
+func (m model) reviewHeader() string {
+	return m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
+		m.reviewStatView() +
+		m.reviewDeliveryView() + "\n\n" +
+		m.review.filter.view() + m.reviewMatchCount()
+}
+
+// reviewFitsDetails is whether the sidebar has a line left over once the record has taken its
+// share, since this one carries a head and a conversation the lists do not and drawing the
+// record anyway would run past the bottom of the pane.
+func (m model) reviewFitsDetails() bool {
+	// Measured with the keys on the diff, which keeps this out of its own answer, since focus is
+	// only ever taken by a key handler and so a copy that starts unfocused stays that way.
+	m.details.focused = false
+
+	spare := m.spareLines(m.reviewHeader(), m.renderHelp(m.reviewHelp()), m.reviewHeadView())
+
+	return spare > m.detailsLines()+detailsChromeLines
 }
 
 // reviewHeadView is the fixed top of the sidebar: whatever is standing in the way of a review,
@@ -385,6 +403,41 @@ func (m model) reviewIsReadOnly() (string, bool) {
 	return "this agent is archived · restore it before writing to it", true
 }
 
+// reviewDetails is the record drawn under the review sidebar, which is the agent whose diff is
+// up together with what the diff itself was measured against.
+func (m model) reviewDetails() details {
+	index := slices.IndexFunc(m.listing.agents, func(item agentItem) bool { return item.agent.ID == m.review.agentID })
+	if index < 0 {
+		return details{}
+	}
+
+	agent := m.listing.agents[index].agent
+	fields := agentFields(agent, m.scheduleName(agent), m.parentName(agent))
+
+	return details{
+		id:     agent.ID,
+		kind:   "Agent",
+		title:  agent.Name,
+		fields: append(fields, m.reviewFields()...),
+	}
+}
+
+// reviewFields are the facts the diff itself carries, which the agent's own record does not
+// hold: what it was measured against and what was kept out of it.
+func (m model) reviewFields() []recordField {
+	base := m.review.base
+	if m.review.view != nil {
+		base = m.review.view.Base()
+	}
+
+	fields := []recordField{{"base branch", orDash(base)}}
+	if len(m.review.exclude) > 0 {
+		fields = append(fields, recordField{"excludes", strings.Join(m.review.exclude, ", ")})
+	}
+
+	return fields
+}
+
 func (m model) reviewWrap(body string) string {
 	return lipgloss.NewStyle().Width(max(20, m.width-2)).Render(body)
 }
@@ -477,6 +530,7 @@ func (m model) reviewHelp() keyMap {
 				binding(keys.Resolve, m.reviewResolveDesc()),
 				binding(keys.ToggleViewed, m.reviewViewedDesc()),
 				binding(keys.DeleteThread, "delete the thread"),
+				m.detailsBinding(),
 			},
 			writing,
 			[]key.Binding{binding(keys.Back, "back to the agents")},

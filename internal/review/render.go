@@ -18,6 +18,17 @@ const GutterWidth = 13
 
 const tabWidth = 4
 
+// Cursor is how the row the reader is standing on is drawn, dim while the keys are somewhere
+// else, since the diff keeps its highlight in a pane of its own and would otherwise read as
+// though the keyboard were still on it.
+type Cursor int
+
+const (
+	NoCursor Cursor = iota
+	LiveCursor
+	DimCursor
+)
+
 const (
 	threadMark = "●"
 	unreadMark = "◆"
@@ -39,24 +50,25 @@ const (
 )
 
 var (
-	addedBackground   = lipgloss.AdaptiveColor{Light: "#dafbe1", Dark: "#1b3823"}
-	deletedBackground = lipgloss.AdaptiveColor{Light: "#ffebe9", Dark: "#402222"}
-	cursorBackground  = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
-	matchBackground   = lipgloss.AdaptiveColor{Light: "#fde68a", Dark: "#7c5c00"}
-	plainBackground   = lipgloss.NoColor{}
-	gutterStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	fileStyle         = lipgloss.NewStyle().Bold(true)
-	metadataStyle     = lipgloss.NewStyle().Faint(true)
-	hunkStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
-	threadMarkStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
-	settledMarkStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	expiredMarkStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
-	unsentMarkStyle   = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
+	addedBackground     = lipgloss.AdaptiveColor{Light: "#dafbe1", Dark: "#1b3823"}
+	deletedBackground   = lipgloss.AdaptiveColor{Light: "#ffebe9", Dark: "#402222"}
+	cursorBackground    = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
+	dimCursorBackground = lipgloss.AdaptiveColor{Light: "#e5e7eb", Dark: "#2b3038"}
+	matchBackground     = lipgloss.AdaptiveColor{Light: "#fde68a", Dark: "#7c5c00"}
+	plainBackground     = lipgloss.NoColor{}
+	gutterStyle         = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
+	fileStyle           = lipgloss.NewStyle().Bold(true)
+	metadataStyle       = lipgloss.NewStyle().Faint(true)
+	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
+	threadMarkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
+	settledMarkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
+	expiredMarkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
+	unsentMarkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
 )
 
 // RenderRow draws one row of the diff at the width it is shown at, taking the cursor as an
 // argument since only the row under it is redrawn as it moves.
-func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
+func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 	current, ok := v.getRow(y)
 	if !ok {
 		return ""
@@ -64,13 +76,13 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 
 	switch current.kind {
 	case fileRow:
-		return v.renderFileRow(y, current, isCursor, width)
+		return v.renderFileRow(y, current, cursor, width)
 	case metadataRow:
 		return ansi.Truncate(metadataStyle.Render("  "+current.text), width, "…")
 	case hunkRow:
 		return ansi.Truncate(hunkStyle.Render(current.text), width, "…")
 	case threadRow:
-		return v.renderThreadRow(current, isCursor, width)
+		return v.renderThreadRow(current, cursor, width)
 	case lineRow:
 	}
 
@@ -79,7 +91,7 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 		return ""
 	}
 
-	background := getBackground(line.Kind, isCursor)
+	background := getBackground(line.Kind, cursor)
 	content := renderTokens(v.getStyledLine(current, line), line.Text, background, v.matchesIn(y))
 
 	return v.renderGutter(y, line, background) +
@@ -88,8 +100,8 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 
 // renderFileRow draws a file's header, which once the file is collapsed has to say what is
 // folded under it, since it is then the only row that file has.
-func (v *View) renderFileRow(y int, current row, isCursor bool, width int) string {
-	background := getBackground(diff.Context, isCursor)
+func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) string {
+	background := getBackground(diff.Context, cursor)
 	style := fileStyle.Background(background)
 
 	var out strings.Builder
@@ -108,7 +120,7 @@ func (v *View) renderFileRow(y int, current row, isCursor bool, width int) strin
 	}
 
 	text = ansi.Truncate(text, width, "…")
-	if padding := width - lipgloss.Width(text); isCursor && padding > 0 {
+	if padding := width - lipgloss.Width(text); cursor != NoCursor && padding > 0 {
 		text += style.Render(strings.Repeat(" ", padding))
 	}
 
@@ -187,8 +199,8 @@ func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDelivery
 
 // renderThreadRow draws a thread with no line left to stand on, saying where it was written
 // and what it opened with.
-func (v *View) renderThreadRow(current row, isCursor bool, width int) string {
-	background := getBackground(diff.Context, isCursor)
+func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
+	background := getBackground(diff.Context, cursor)
 	style := lipgloss.NewStyle().Background(background)
 
 	mark, markStyle := v.markFor(current.thread)
@@ -221,14 +233,21 @@ func formatNumber(value int) string {
 	return fmt.Sprint(value)
 }
 
-func getBackground(kind diff.LineKind, isCursor bool) lipgloss.TerminalColor {
-	switch {
-	case isCursor:
+func getBackground(kind diff.LineKind, cursor Cursor) lipgloss.TerminalColor {
+	switch cursor {
+	case LiveCursor:
 		return cursorBackground
-	case kind == diff.Addition:
+	case DimCursor:
+		return dimCursorBackground
+	case NoCursor:
+	}
+
+	switch kind {
+	case diff.Addition:
 		return addedBackground
-	case kind == diff.Deletion:
+	case diff.Deletion:
 		return deletedBackground
+	case diff.Context:
 	}
 
 	return plainBackground

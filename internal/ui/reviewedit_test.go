@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"weave/internal/review"
 	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -150,7 +151,7 @@ func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 
 			var drawn strings.Builder
 			for y := range m.review.view.Len() {
-				drawn.WriteString(m.review.view.RenderRow(y, false, 120, 0))
+				drawn.WriteString(m.review.view.RenderRow(y, review.NoCursor, 120, 0))
 			}
 
 			assert.Contains(t, drawn.String(), "edited in the editor", "the reloaded diff shows what the editor wrote")

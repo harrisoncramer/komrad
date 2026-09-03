@@ -57,6 +57,15 @@ type detailsSpec struct {
 	// quit is the screen's own quit binding, since the details take the keys while they hold
 	// the cursor and quitting has to keep working.
 	quit func(config.Keybindings) []string
+
+	// refocus is called when the record takes the keys or gives them back, and is nil on a screen
+	// that draws nothing saying where the keys are, which the review does: the row the reader is
+	// on is drawn in a pane of its own and has to be repainted to dim.
+	refocus func(*model)
+
+	// fits is whether the screen has the room to draw the record at all, nil on a screen that
+	// always has it, and what stops the keys being taken by a record the pane cannot show.
+	fits func(model) bool
 }
 
 // filterSpec is how a filtered list keeps its cursor on the row it was on as the pattern changes
@@ -136,6 +145,12 @@ func (s screen) spec() screenSpec {
 			view:   model.reviewView,
 			stage:  (*model).stageReview,
 			typing: func(m model) bool { return m.review.doesTakeEveryKey() },
+			details: &detailsSpec{
+				hovered: model.reviewDetails,
+				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
+				refocus: (*model).repaintReviewFocus,
+				fits:    model.reviewFitsDetails,
+			},
 		}
 	}
 

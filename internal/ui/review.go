@@ -159,17 +159,28 @@ type reviewFrames struct {
 	height int
 }
 
-// window is the screenful starting at top, with the cursor's own row drawn as the cursor.
-func (f *reviewFrames) window(view *review.View, top, cursor, pan int) string {
+// window is the screenful starting at top, with the cursor's own row drawn as the cursor, dim
+// while the keys are on the record under the sidebar rather than on the diff.
+func (f *reviewFrames) window(view *review.View, top, cursor, pan int, focused bool) string {
 	height := max(f.height, 1)
 
 	start := max(min(top, view.Len()-height), 0)
+
+	held := review.LiveCursor
+	if !focused {
+		held = review.DimCursor
+	}
 
 	// Only the rows the pane can show are drawn, since a nine thousand row diff takes a tenth of
 	// a second to draw whole and panning would pay that on every keypress.
 	rows := make([]string, 0, height)
 	for y := start; y < min(start+height, view.Len()); y++ {
-		rows = append(rows, view.RenderRow(y, y == cursor, f.width, pan))
+		mark := review.NoCursor
+		if y == cursor {
+			mark = held
+		}
+
+		rows = append(rows, view.RenderRow(y, mark, f.width, pan))
 	}
 
 	// Padded out rather than left short, so a diff smaller than the pane is followed by blank
@@ -444,6 +455,14 @@ func (m *model) stageReview() {
 	}
 }
 
+// repaintReviewFocus redraws the diff after the record has taken the keys or given them back,
+// since the cursor row is painted dim while they are away.
+func (m *model) repaintReviewFocus() {
+	if err := m.repaintReview(); err != nil {
+		m.report("Could not draw the diff", err)
+	}
+}
+
 // repaintReview rewrites the screenful the stage is showing and tells the pager to re-read it.
 func (m model) repaintReview() error {
 	pane := m.frame.Pane(layout.RegionStage)
@@ -454,7 +473,7 @@ func (m model) repaintReview() error {
 		return nil
 	}
 
-	if !writeStageFile(reviewStagePath, frames.window(m.review.view, m.review.top, m.review.cursor, m.review.pan)) {
+	if !writeStageFile(reviewStagePath, frames.window(m.review.view, m.review.top, m.review.cursor, m.review.pan, !m.isDetailsFocused())) {
 		return fmt.Errorf("failed to write the diff to %s", reviewStagePath)
 	}
 
@@ -476,7 +495,7 @@ func (m model) reviewContent() layout.Content {
 			state.frames.width = max(target.Width, review.GutterWidth+20)
 			state.frames.height = max(target.Height, 1)
 
-			if !writeStageFile(reviewStagePath, state.frames.window(state.view, state.top, state.cursor, state.pan)) {
+			if !writeStageFile(reviewStagePath, state.frames.window(state.view, state.top, state.cursor, state.pan, !m.isDetailsFocused())) {
 				return nil, false
 			}
 
