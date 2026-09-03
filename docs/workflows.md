@@ -14,7 +14,7 @@ Workflows also hold shared context. Represented as free text, this is appended t
 
 ## Where the worktrees go
 
-A worktree workflow makes its worktrees in the directory your [config](configuration.md) names under `[worktrees]`, which every workflow shares. Some repositories will not have that: their own tooling expects worktrees in a particular place, and finds nothing when an agent's checkout is somewhere else. The chariot monorepo assigns each worktree under `.worktrees` its own ports and docker project, keyed on the directory it sits in.
+A worktree workflow makes its worktrees in the directory your [config](configuration.md) names under `[worktrees]`, which every workflow shares. Some repositories will not have that: their own tooling expects worktrees in a particular place, and finds nothing when an agent's checkout is somewhere else. A monorepo might assign each worktree under `.worktrees` its own ports and docker project, keyed on the directory it sits in.
 
 A workflow can name its own parent directory for that reason. Set it and this workflow's worktrees are made there instead, still one per agent and still named after the agent. Left blank it falls back to the configured directory.
 

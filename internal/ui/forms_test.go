@@ -1064,7 +1064,7 @@ func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	assert.Equal(t, "claude", values.Harness, "the workflow's harness and flags are prefilled")
 	assert.Equal(t, "--model opus", values.Flags)
 
-	values.Ref = "https://github.com/chariot-giving/admin/pull/1069"
+	values.Ref = "https://github.com/acmecorp/admin/pull/1069"
 	values.Prompt = "pick it up"
 
 	opened, _ := m.openAdoptForm(workflow, &values)
@@ -1077,7 +1077,7 @@ func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	settle(t, submitted, cmd)
 
 	require.NotNil(t, sent.adoptedAgent)
-	assert.Equal(t, "https://github.com/chariot-giving/admin/pull/1069", sent.adoptedAgent.GetRef())
+	assert.Equal(t, "https://github.com/acmecorp/admin/pull/1069", sent.adoptedAgent.GetRef())
 	assert.Equal(t, "pick it up", sent.adoptedAgent.GetPrompt())
 	assert.Equal(t, "w1", sent.adoptedAgent.GetWorkflowId())
 	assert.Nil(t, sent.createdAgent, "adoption does not go through create")
