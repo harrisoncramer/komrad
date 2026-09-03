@@ -355,26 +355,47 @@ func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
 		matchSpans(content, 0, int64(len(content)), terms))
 }
 
-// TestHitSpansAreTheHoveredHits covers the turn a highlight is measured from, which is the hit
-// under the cursor rather than the preview in hand: an agent's hits sit next to each other, so
-// the transcript on hand can have been fetched for the hit before this one.
-func TestHitSpansAreTheHoveredHits(t *testing.T) {
+// TestHitSpansCoverTheHoveredTurn covers the turn a highlight is measured from, which is the hit
+// under the cursor rather than the preview in hand, since an agent's hits sit next to each other
+// and the transcript on hand can have been fetched for the hit before this one.
+func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
 	const content = "alpha reconcile one\n\nbeta reconcile two\n"
 
 	second := int64(strings.Index(content, "beta"))
-	hit := searchHit{
-		agentID: "a1",
-		offset:  second,
-		length:  int64(len("beta reconcile two")),
-		snippet: marked("reconcile"),
-	}
-
-	stale := previewResult{agentID: "a1", content: content}
-
 	word := strings.Index(content[second:], "reconcile") + int(second)
 
-	assert.Equal(t, []span{{start: word, end: word + len("reconcile")}},
-		matchFor(hit, stale).spans, "the hovered hit's own turn is marked")
+	tests := []struct {
+		name   string
+		offset int64
+		want   []span
+	}{
+		{
+			name:   "the hovered hit's own turn is marked",
+			offset: second,
+			want:   []span{{start: word, end: word + len("reconcile")}},
+		},
+		{
+			name:   "an offset past the end marks nothing",
+			offset: int64(len(content) + 1),
+		},
+		{
+			name:   "an offset below zero marks nothing",
+			offset: -1,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			hit := searchHit{
+				agentID: "a1",
+				offset:  tt.offset,
+				length:  int64(len("beta reconcile two")),
+				snippet: marked("reconcile"),
+			}
+
+			assert.Equal(t, tt.want, hit.spans(content))
+		})
+	}
 }
 
 // TestRenderSnippet confirms the store's match markers are consumed into styling
@@ -894,50 +915,43 @@ func headerLine(t *testing.T, view, name string) string {
 	return ""
 }
 
-// TestJumpLandsOnTheMatch covers enter carrying the position the snippet came from, so the
-// transcript opens where the match is rather than at the top of it.
-func TestJumpLandsOnTheMatch(t *testing.T) {
-	const turn = "the ledger is here"
-
-	const previewWidth = 80
-
-	transcript := strings.Repeat("filler\n\n", 40) + turn + "\n\n" + strings.Repeat("more\n\n", 40)
-	offset := int64(strings.Index(transcript, turn))
-	hitSpans := matchSpans(transcript, offset, int64(len(turn)), []string{"ledger"})
-	_, matched := renderTranscript(transcript, hitSpans, previewWidth)
-	wantLine := max(matched-transcriptPreviewBefore, 1)
-	require.Greater(t, wantLine, 1, "the match has to sit far enough down to open on")
-
+// TestJumpLeavesTheSearchBehind covers the stage going with the screen, since the transcript the
+// hits were previewed against belongs to the search and the row the jump lands on has its own.
+func TestJumpLeavesTheSearchBehind(t *testing.T) {
 	tests := []struct {
-		name string
-		hit  searchHit
+		name       string
+		hit        searchHit
+		wantSwaps  int
+		wantStaged string
 	}{
 		{
-			name: "a live hit",
+			name: "a live hit takes the agent's own pane",
 			hit: searchHit{
 				agentID: "a2",
 				name:    "payouts",
-				offset:  offset,
-				length:  int64(len(turn)),
-				snippet: marked("ledger"),
+				offset:  4,
+				length:  3,
+				snippet: marked("two"),
 			},
+			wantSwaps: 1,
 		},
 		{
-			name: "an archived hit",
+			name: "an archived hit takes the archive's own record",
 			hit: searchHit{
 				agentID:  "a3",
 				name:     "old-work",
 				archived: true,
-				offset:   offset,
-				length:   int64(len(turn)),
-				snippet:  marked("ledger"),
+				offset:   4,
+				length:   3,
+				snippet:  marked("two"),
 			},
+			wantStaged: "weave-stage.ansi",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tmux := &recordingTmux{width: previewWidth, height: 40}
+			tmux := &recordingTmux{width: 80, height: 40}
 			m := filterModel()
 			m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
 			m.frame = layout.New(tmux, config.DefaultLayout())
@@ -949,37 +963,34 @@ func TestJumpLandsOnTheMatch(t *testing.T) {
 			}
 			m.screen = screenSearch
 			m.listing.agents[1].alive = true
+			m.listing.agents[1].agent.Pane = "%9"
 			m.archive.agents = []agentstore.Agent{{
 				ID:         "a3",
 				Name:       "old-work",
 				WorkflowID: "w1",
 			}}
-			m.search = searchState{
-				query: "ledger",
-				hits:  []searchHit{tt.hit},
-				preview: previewResult{
-					agentID: tt.hit.agentID,
-					query:   "ledger",
-					content: transcript,
-				},
-			}
+			m.search = searchState{query: "ledger", hits: []searchHit{tt.hit}}
 
 			updated, _ := m.route(keyMsg("enter"))
-			_, ok := updated.(model)
+			landed, ok := updated.(model)
 			require.True(t, ok)
 
 			staged := strings.Join(tmux.respawns, "\n")
-			assert.Contains(t, staged, "weave-transcript.ansi", "the transcript is what the stage holds")
-			assert.Contains(t, staged, fmt.Sprintf("+%d ", wantLine), "the pager opens on the match")
+			assert.NotContains(t, staged, "weave-transcript.ansi", "the preview does not follow the jump")
+			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
+			if tt.wantStaged != "" {
+				assert.Contains(t, staged, tt.wantStaged, "the row's own record is what is paged")
+			}
+			assert.Empty(t, landed.search.query, "the search is let go of")
+			assert.Empty(t, landed.search.hits, "the search is let go of")
 		})
 	}
 }
 
-// TestMatchGivesTheStageBackWhenTheCursorMoves pins the landing being the hit's own row and
-// nothing more, so the tree goes back to drawing what it always draws as soon as the cursor
-// moves off it.
-func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
-	tmux := &recordingTmux{}
+// TestJumpDropsALatePreview covers the transcript a hit was still being fetched for landing
+// after the jump has left, which used to put the search back over the agent it jumped to.
+func TestJumpDropsALatePreview(t *testing.T) {
+	tmux := &recordingTmux{width: 80, height: 40}
 	m := filterModel()
 	m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
 	m.frame = layout.New(tmux, config.DefaultLayout())
@@ -991,6 +1002,7 @@ func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
 	}
 	m.screen = screenSearch
 	m.listing.agents[1].alive = true
+	m.listing.agents[1].agent.Pane = "%9"
 	m.search = searchState{
 		query: "ledger",
 		hits: []searchHit{{
@@ -1000,96 +1012,17 @@ func TestMatchGivesTheStageBackWhenTheCursorMoves(t *testing.T) {
 			length:  3,
 			snippet: marked("two"),
 		}},
-		preview: previewResult{
-			agentID: "a2",
-			query:   "ledger",
-			content: "one\ntwo\nthree\n",
-		},
 	}
 
-	jumped, _ := m.route(keyMsg("enter"))
-	landed, ok := jumped.(model)
-	require.True(t, ok)
-	require.Equal(t, "a2", landed.match.agentID)
-
-	moved, _ := landed.route(keyMsg("k"))
-	next, ok := moved.(model)
+	updated, _ := m.route(keyMsg("enter"))
+	landed, ok := updated.(model)
 	require.True(t, ok)
 
-	assert.Empty(t, next.match.agentID, "the transcript is let go of")
-}
+	late := previewResult{agentID: "a2", query: "ledger", content: "one\ntwo\nthree\n"}
+	landed.applyPreview(late)
 
-// TestMatchIsStagedOnce pins the landing surviving the refresh, which redraws the stage every
-// second: a pager restarted under the reader cannot be scrolled or searched.
-func TestMatchIsStagedOnce(t *testing.T) {
-	tmux := &recordingTmux{}
-	m := filterModel()
-	m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
-	m.frame = layout.New(tmux, config.DefaultLayout())
-	m.frame.Attach("%0")
-	m.tree.cursor = 2
-	m.listing.agents[1].alive = true
-	m.match = matchFocus{
-		agentID: "a2",
-		content: "one\ntwo\nthree\n",
-		spans:   []span{{start: 4, end: 7}},
-	}
-
-	for range 3 {
-		m.stageSelection()
-	}
-
-	staged := 0
-	for _, argv := range tmux.respawns {
-		if strings.Contains(argv, "weave-transcript.ansi") {
-			staged++
-		}
-	}
-
-	assert.Equal(t, 1, staged, "the pager is left running across the passes that follow")
-}
-
-// TestMatchNeedsAPosition covers a turn the transcript does not hold, which spells none of the
-// words: there is nothing there to take the stage away from the agent's own pane for.
-func TestMatchNeedsAPosition(t *testing.T) {
-	const content = "one\ntwo\nthree\n"
-
-	tests := []struct {
-		name   string
-		offset int64
-		want   []span
-	}{
-		{
-			name:   "an offset the content holds",
-			offset: 4,
-			want:   []span{{start: 4, end: 7}},
-		},
-		{
-			name:   "an offset past the end",
-			offset: int64(len(content) + 1),
-		},
-		{
-			name:   "an offset below zero",
-			offset: -1,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			hit := searchHit{
-				agentID: "a2",
-				offset:  tt.offset,
-				length:  3,
-				snippet: marked("two"),
-			}
-			got := matchFor(hit, previewResult{agentID: "a2", content: content})
-
-			assert.Equal(t, tt.want, got.spans)
-			if tt.want == nil {
-				assert.Empty(t, got.agentID, "nothing is held on to")
-			}
-		})
-	}
+	staged := strings.Join(tmux.respawns, "\n")
+	assert.NotContains(t, staged, "weave-transcript.ansi", "the late preview is dropped")
 }
 
 // TestSearchViewFitsThePane covers a common query returning more hits than the pane is tall,
