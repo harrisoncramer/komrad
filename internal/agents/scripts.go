@@ -821,14 +821,10 @@ func (s *ScriptService) start(ctx context.Context, p startParams) error {
 			writeRunLog(ctx, p.run.logPath, combinedOutput(result.Stdout, result.Stderr))
 			if err != nil {
 				s.failRun(ctx, p.run, result, fmt.Errorf("%s: %w", p.script.Name, err))
-			} else {
-				s.finishRun(ctx, p.run, result, nil)
-			}
-
-			if err != nil {
 				logger.LogAttrs(ctx, slog.LevelError, "script failed",
 					append(failedScript(result, err), slog.Int64(logging.DurationMS, elapsedMS(began)))...)
 			} else {
+				s.finishRun(ctx, p.run, result, nil)
 				logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 			}
 
