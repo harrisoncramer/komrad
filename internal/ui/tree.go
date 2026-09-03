@@ -237,6 +237,9 @@ type agentItem struct {
 	alive      bool
 	unreadMail bool
 	unviewed   bool
+	failedRun  bool
+	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
+	failedRunLog *int32
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

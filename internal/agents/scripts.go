@@ -24,6 +24,7 @@ import (
 	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
+	runstore "weave/internal/store/run"
 	workflowstore "weave/internal/store/workflow"
 )
 
@@ -43,6 +44,13 @@ type scriptRunner interface {
 	RunAndWait(ctx context.Context, p scripts.RunParams) (scripts.Result, error)
 }
 
+type runRecorder interface {
+	Begin(ctx context.Context, params runstore.BeginParams) (string, error)
+	Finish(ctx context.Context, params runstore.FinishParams) error
+	Abandon(ctx context.Context, id string) error
+	Prune(ctx context.Context, agentID string, keep int) error
+}
+
 type configLoader func() (*config.Config, error)
 
 const (
@@ -57,6 +65,7 @@ type ScriptService struct {
 	workflows  workflowReader
 	tmux       tmuxReader
 	runner     scriptRunner
+	runs       runRecorder
 	load       configLoader
 	addr       string
 	socket     string
@@ -74,6 +83,7 @@ type ScriptParams struct {
 	Workflows  workflowReader
 	Tmux       tmuxReader
 	Runner     scriptRunner
+	Runs       runRecorder
 	Load       configLoader
 	Addr       string
 	Socket     string
@@ -90,6 +100,7 @@ func NewScriptService(p ScriptParams) *ScriptService {
 		workflows:  p.Workflows,
 		tmux:       p.Tmux,
 		runner:     p.Runner,
+		runs:       p.Runs,
 		load:       p.Load,
 		addr:       p.Addr,
 		socket:     p.Socket,
@@ -132,7 +143,7 @@ func (s *ScriptService) OpenPullRequest(ctx context.Context, agentID string) err
 		env:     env,
 		agent:   *agent,
 		trigger: TriggerOpenPR,
-		logPath: s.claimRunLog(ctx, agent.ID, TriggerOpenPR, openPRScript),
+		run:     s.beginRun(ctx, agent.ID, TriggerOpenPR, openPRScript),
 	})
 }
 
@@ -176,7 +187,7 @@ func (s *ScriptService) ListHooks() ([]scripts.Script, error) {
 // provisioned rather than the one the hook was found in, since a hook is there to work on the
 // checkout.
 func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error {
-	logPath := s.claimRunLog(ctx, agent.ID, event, name)
+	record := s.beginRun(ctx, agent.ID, event, name)
 
 	script, env, err := s.prepare(ctx, prepareParams{
 		agent:   agent,
@@ -185,13 +196,13 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		hook:    true,
 	})
 	if err != nil {
-		return refuseHook(ctx, logPath, name, err)
+		return s.refuseHook(ctx, record, name, err)
 	}
 
 	// A hook is there to work on the agent's own directory, so one that has gone is a refusal
 	// rather than a reason to run the script somewhere else.
 	if err := requireUsableDir(agent.Cwd); err != nil {
-		return refuseHook(ctx, logPath, name, err)
+		return s.refuseHook(ctx, record, name, err)
 	}
 
 	logger := s.runLogger(ctx, name, event, agent)
@@ -204,14 +215,18 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 		Env:     env,
 		Timeout: script.Header.TimeoutOr(hookTimeout),
 	})
-	writeRunLog(ctx, logPath, combinedOutput(result.Stdout, result.Stderr))
+	writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 
 	if err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "script failed", failedScript(result, err)...)
+		failed := fmt.Errorf("%w: %s: %w%s", ErrHookFailed, name, err, scriptDetail(result.Stdout, result.Stderr, record.logPath))
+		noteEmptyLog(ctx, record.logPath, failed)
+		s.finishRun(ctx, record, result, failed)
 
-		return fmt.Errorf("%w: %s: %w%s", ErrHookFailed, name, err, scriptDetail(result.Stdout, result.Stderr, logPath))
+		return failed
 	}
 
+	s.finishRun(ctx, record, result, nil)
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
 	return nil
@@ -219,9 +234,10 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 
 // refuseHook puts the reason a hook never started into the log the panel offers for it, since
 // a run number holding nothing opens an empty pager on the one screen that was meant to say why.
-func refuseHook(ctx context.Context, logPath, name string, cause error) error {
+func (s *ScriptService) refuseHook(ctx context.Context, record runRecord, name string, cause error) error {
 	err := fmt.Errorf("%w: %s: %w", ErrHookFailed, name, cause)
-	writeRunLog(ctx, logPath, []byte(err.Error()+"\n"))
+	writeRunLog(ctx, record.logPath, []byte(err.Error()+"\n"))
+	s.finishRun(ctx, record, scripts.Result{ExitCode: -1}, err)
 
 	return err
 }
@@ -268,11 +284,11 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane st
 	began := time.Now()
 
 	timeout := script.Header.TimeoutOr(provisionTimeout)
-	logPath := s.claimRunLog(ctx, p.agent.ID, p.trigger, p.name)
+	record := s.beginRun(ctx, p.agent.ID, p.trigger, p.name)
 
 	var result scripts.Result
 	if pane != "" {
-		result, err = s.runInPane(ctx, script, env, pane, logPath, timeout)
+		result, err = s.runInPane(ctx, script, env, pane, record.logPath, timeout)
 	} else {
 		result, err = s.runner.RunAndWait(ctx, scripts.RunParams{
 			Script:  script,
@@ -280,14 +296,20 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane st
 			Env:     env,
 			Timeout: timeout,
 		})
-		writeRunLog(ctx, logPath, combinedOutput(result.Stdout, result.Stderr))
+		writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 	}
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
 	if err != nil {
-		return "", fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, scriptDetail(result.Stdout, result.Stderr, logPath))
+		failed := fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, scriptDetail(result.Stdout, result.Stderr, record.logPath))
+		noteEmptyLog(ctx, record.logPath, failed)
+		s.finishRun(ctx, record, result, failed)
+
+		return "", failed
 	}
+
+	s.finishRun(ctx, record, result, nil)
 
 	named, err := readProvisionedDir(dirPath)
 	if err != nil {
@@ -361,21 +383,21 @@ func (s *ScriptService) waitForPane(ctx context.Context, pane, channel string) e
 
 func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, env []string, pane, logPath string, timeout time.Duration) (scripts.Result, error) {
 	if !script.Executable {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptNotExecutable)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptNotExecutable)
 	}
 
 	dir := script.GetDir()
 	if info, statErr := os.Stat(dir); statErr != nil || !info.IsDir() {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s in %s: %w", script.Name, dir, ErrScriptDirMissing)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s in %s: %w", script.Name, dir, ErrScriptDirMissing)
 	}
 
 	if !s.tmux.IsPaneAlive(pane) {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w: the pane %s is gone", script.Name, scripts.ErrNotStartable, pane)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w: the pane %s is gone", script.Name, scripts.ErrNotStartable, pane)
 	}
 
 	exitFile, err := os.CreateTemp("", "weave-provision-exit-")
 	if err != nil {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
 	}
 	exitFile.Close()
 	defer removeTemp(ctx, exitFile.Name())
@@ -384,7 +406,7 @@ func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, en
 	if errPath == "" {
 		errFile, err := os.CreateTemp("", "weave-provision-err-")
 		if err != nil {
-			return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
+			return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
 		}
 		errFile.Close()
 		errPath = errFile.Name()
@@ -393,7 +415,7 @@ func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, en
 
 	fifoFile, err := os.CreateTemp("", "weave-provision-fifo-")
 	if err != nil {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
 	}
 	fifoPath := fifoFile.Name()
 	fifoFile.Close()
@@ -490,9 +512,9 @@ const maxLogRunAttempts = 64
 // claimRunLog names the file one run writes to and creates it empty, taking the number under
 // the lock and by an exclusive create, since a run fired by hand and a launch can begin at the
 // same moment and what the directory said an instant ago is not what it says now.
-func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name string) string {
+func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name string) (string, int) {
 	if s.logsDir == "" || agentID == "" {
-		return ""
+		return "", 0
 	}
 
 	s.logRunMu.Lock()
@@ -502,7 +524,7 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		logging.From(ctx).Warn("failed to make an agent's run log directory", "path", dir, "error", err)
 
-		return ""
+		return "", 0
 	}
 
 	number := 1
@@ -522,7 +544,7 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 		if err != nil {
 			logging.From(ctx).Warn("failed to open a run log", "path", path, "error", err)
 
-			return ""
+			return "", 0
 		}
 		if closeErr := file.Close(); closeErr != nil {
 			logging.From(ctx).Warn("failed to close a run log", "path", path, "error", closeErr)
@@ -530,12 +552,91 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 
 		pruneRunLogs(ctx, s.logsDir, agentID)
 
-		return path
+		return path, number
 	}
 
 	logging.From(ctx).Warn("failed to name a run of a script", "agent_id", agentID, "script", name)
 
-	return ""
+	return "", 0
+}
+
+// runRecord is one run as weave is watching it.
+type runRecord struct {
+	logPath string
+	id      string
+}
+
+// beginRun claims a run's log file and opens the row that indexes it, so a script that fails/succeeds later has somewhere to be recorded.
+func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name string) runRecord {
+	path, number := s.claimRunLog(ctx, agentID, trigger, name)
+	record := runRecord{logPath: path}
+
+	if s.runs == nil || agentID == "" {
+		return record
+	}
+
+	var logNumber *int32
+	if number > 0 {
+		claimed := int32(number)
+		logNumber = &claimed
+	}
+
+	id, err := s.runs.Begin(ctx, runstore.BeginParams{
+		AgentID:   agentID,
+		Trigger:   trigger,
+		Script:    name,
+		LogNumber: logNumber,
+	})
+	if err != nil {
+		logging.From(ctx).Warn("failed to record a run of a script", "agent_id", agentID, "script", name, "error", err)
+
+		return record
+	}
+	record.id = id
+
+	// Bounded by the log-file count so a row never outlives the output it points at.
+	if err := s.runs.Prune(ctx, agentID, config.MaxRunLogs); err != nil {
+		logging.From(ctx).Warn("failed to prune an agent's runs", "agent_id", agentID, "error", err)
+	}
+
+	return record
+}
+
+// finishRun closes a run's row with what the script exited on and why it failed, if it did.
+func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
+	if s.runs == nil || record.id == "" {
+		return
+	}
+
+	if err := s.runs.Finish(ctx, runstore.FinishParams{
+		ID:       record.id,
+		ExitCode: runExitCode(result),
+		Failure:  failureReason(cause),
+	}); err != nil {
+		logging.From(ctx).Warn("failed to close the record of a run", "run_id", record.id, "error", err)
+	}
+}
+
+// abandonRun drops the row of a run that never started, alongside the empty log removed for the
+// same reason: a refusal is not a run and should not count against what an agent keeps.
+func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
+	if s.runs == nil || record.id == "" {
+		return
+	}
+
+	if err := s.runs.Abandon(ctx, record.id); err != nil {
+		logging.From(ctx).Warn("failed to drop the record of a run that never started", "run_id", record.id, "error", err)
+	}
+}
+
+func runExitCode(result scripts.Result) *int32 {
+	if result.ExitCode < 0 {
+		return nil
+	}
+
+	code := int32(result.ExitCode)
+
+	return &code
 }
 
 // pruneRunLogs drops the runs past the last MaxRunLogs, so an agent resumed daily keeps a
@@ -572,6 +673,20 @@ func appendNote(ctx context.Context, path string, stderr []byte, note string) []
 	}
 
 	return tailBytes(append(stderr, line...), setupPaneOutputLimit)
+}
+
+// noteEmptyLog puts the reason into a log its run never wrote a byte to, since a pane refused
+// before it was respawned leaves the number claimed for it opening an empty pager.
+func noteEmptyLog(ctx context.Context, path string, cause error) {
+	if path == "" {
+		return
+	}
+
+	if info, err := os.Stat(path); err != nil || info.Size() > 0 {
+		return
+	}
+
+	writeRunLog(ctx, path, []byte(cause.Error()+"\n"))
 }
 
 func writeRunLog(ctx context.Context, path string, content []byte) {
@@ -611,7 +726,7 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 		env:     env,
 		agent:   agent,
 		trigger: TriggerDeprovision,
-		logPath: s.claimRunLog(ctx, agent.ID, TriggerDeprovision, name),
+		run:     s.beginRun(ctx, agent.ID, TriggerDeprovision, name),
 		done:    done,
 	})
 }
@@ -665,7 +780,7 @@ type startParams struct {
 	env     []string
 	agent   agentstore.Agent
 	trigger string
-	logPath string
+	run     runRecord
 	done    func(error)
 }
 
@@ -680,7 +795,8 @@ func timeoutFallback(trigger string) time.Duration {
 func (s *ScriptService) start(ctx context.Context, p startParams) error {
 	key := scriptKey{agentID: p.agent.ID, name: p.script.Name}
 	if !s.claim(key) {
-		removeEmptyLog(ctx, p.logPath)
+		removeEmptyLog(ctx, p.run.logPath)
+		s.abandonRun(ctx, p.run)
 
 		return fmt.Errorf("failed to run script %s: %w", p.script.Name, ErrScriptAlreadyRunning)
 	}
@@ -697,7 +813,8 @@ func (s *ScriptService) start(ctx context.Context, p startParams) error {
 		Done: func(result scripts.Result, err error) {
 			defer s.release(key)
 
-			writeRunLog(ctx, p.logPath, combinedOutput(result.Stdout, result.Stderr))
+			writeRunLog(ctx, p.run.logPath, combinedOutput(result.Stdout, result.Stderr))
+			s.finishRun(ctx, p.run, result, err)
 
 			if err != nil {
 				logger.LogAttrs(ctx, slog.LevelError, "script failed",
@@ -713,7 +830,8 @@ func (s *ScriptService) start(ctx context.Context, p startParams) error {
 	})
 	if err != nil {
 		s.release(key)
-		removeEmptyLog(ctx, p.logPath)
+		removeEmptyLog(ctx, p.run.logPath)
+		s.abandonRun(ctx, p.run)
 
 		return err
 	}

@@ -20,6 +20,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
+	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
@@ -66,6 +67,13 @@ type agentReadWriter interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
+// runReader is the record of the scripts weave fired, which the listing reads to say whether
+// an agent is holding a failure nobody has looked at.
+type runReader interface {
+	ListUnreadFailures(ctx context.Context) ([]runstore.Failure, error)
+	MarkRead(ctx context.Context, agentID string) error
+}
+
 type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
@@ -95,6 +103,7 @@ type Service struct {
 	reconciler  turnBoundaryRecorder
 	archive     archiveEmptier
 	review      reviewConversation
+	runs        runReader
 }
 
 type reviewConversation interface {
@@ -127,6 +136,7 @@ type NewServiceParams struct {
 	Reconciler  turnBoundaryRecorder
 	Archive     archiveEmptier
 	Review      reviewConversation
+	Runs        runReader
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
@@ -144,6 +154,7 @@ func NewService(p NewServiceParams) *Service {
 		reconciler:  p.Reconciler,
 		archive:     p.Archive,
 		review:      p.Review,
+		runs:        p.Runs,
 	}
 }
 
@@ -211,14 +222,23 @@ func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (fu
 	}
 	unviewed := xslice.KeyBy(unseen, func(id string) string { return id })
 
+	failures, err := s.runs.ListUnreadFailures(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the agents holding a failed run")
+	}
+	failed := xslice.KeyBy(failures, func(failure runstore.Failure) string { return failure.AgentID })
+
 	return func(a agentstore.Agent) agentMarks {
 		_, hasMail := waiting[a.ID]
 		_, hasOutput := unviewed[a.ID]
+		failure, hasFailure := failed[a.ID]
 
 		return agentMarks{
-			alive:      running[a.ID],
-			unreadMail: hasMail,
-			unviewed:   hasOutput,
+			alive:        running[a.ID],
+			unreadMail:   hasMail,
+			unviewed:     hasOutput,
+			failedRun:    hasFailure,
+			failedRunLog: failure.LogNumber,
 		}
 	}, nil
 }
@@ -303,6 +323,16 @@ func (s *Service) SetHidden(ctx context.Context, req *connect.Request[agentv1.Se
 func (s *Service) SetAgentViewed(ctx context.Context, req *connect.Request[agentv1.SetAgentViewedRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.agents.SetViewed(ctx, req.Msg.GetId(), req.Msg.GetViewed()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to set whether the agent was viewed")
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// MarkRunsRead claims the failed runs an agent is holding, which is what looking at its run log
+// does, and carries no tool annotation for the same reason SetAgentViewed does not.
+func (s *Service) MarkRunsRead(ctx context.Context, req *connect.Request[agentv1.MarkRunsReadRequest]) (*connect.Response[emptypb.Empty], error) {
+	if err := s.runs.MarkRead(ctx, req.Msg.GetId()); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to claim the agent's failed runs")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil

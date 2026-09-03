@@ -324,6 +324,76 @@ table "agent_metadata" {
   }
 }
 
+table "agent_runs" {
+  schema  = schema.public
+  comment = "One run of a script weave fired for an agent, indexing the output it left on disk."
+  column "id" {
+    null    = false
+    type    = uuid
+    default = sql("uuidv7()")
+  }
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  column "trigger" {
+    null = false
+    type = text
+  }
+  column "script" {
+    null = false
+    type = text
+  }
+  column "log_number" {
+    null = true
+    type = integer
+  }
+  column "started_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  column "finished_at" {
+    null = true
+    type = timestamptz
+  }
+  column "exit_code" {
+    null = true
+    type = integer
+  }
+  column "failure" {
+    null    = false
+    type    = text
+    default = ""
+  }
+  column "viewed_at" {
+    null = true
+    type = timestamptz
+  }
+  primary_key {
+    columns = [column.id]
+  }
+  foreign_key "agent_runs_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "agent_runs_agent_id_started_at" {
+    on {
+      column = column.agent_id
+    }
+    on {
+      column = column.started_at
+      desc   = true
+    }
+  }
+  index "agent_runs_unread_failures" {
+    columns = [column.agent_id]
+    where   = "failure <> '' AND viewed_at IS NULL"
+  }
+}
+
 table "agents" {
   schema  = schema.public
   comment = "One background Claude agent, everything needed to restore it."

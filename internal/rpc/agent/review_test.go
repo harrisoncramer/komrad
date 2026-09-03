@@ -98,5 +98,6 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 		Agents: st.Agents,
 		Mail:   mail,
 		Review: review,
+		Runs:   st.Runs,
 	}), st
 }

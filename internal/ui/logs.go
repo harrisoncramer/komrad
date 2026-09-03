@@ -76,7 +76,8 @@ func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if _, ok := m.logTarget(); !ok {
+	agent, ok := m.logTarget()
+	if !ok {
 		return m, nil
 	}
 
@@ -87,6 +88,12 @@ func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 
 	if !m.claimInfo(logCycle[idx+1], "") {
 		return m, nil
+	}
+
+	// A mark says there is a failed run to read, so the pane opens on that run rather than on
+	// whatever ran last, which on an agent resumed since is a run that went fine.
+	if m.info.kind == infoRunLog {
+		m.info.run = m.runAt(agent.ID, m.failedRunLog(agent.ID))
 	}
 	m.stageInfo()
 
@@ -144,6 +151,34 @@ func (m model) runLog(agentID string, back int) (config.RunLog, bool) {
 	}
 
 	return runs[back], true
+}
+
+// runAt is how far back through an agent's runs a log number sits, zero being the most recent
+// and zero again when nothing on disk carries that number.
+func (m model) runAt(agentID string, number *int32) int {
+	if number == nil {
+		return 0
+	}
+
+	for at, run := range config.ListRunLogs(m.runLogsDir, agentID) {
+		if run.Number == int(*number) {
+			return at
+		}
+	}
+
+	return 0
+}
+
+// failedRunLog is the run log an agent's unread failure was written to, which is nothing at all
+// for a row carrying no mark.
+func (m model) failedRunLog(agentID string) *int32 {
+	for _, item := range m.listing.agents {
+		if item.agent.ID == agentID {
+			return item.failedRunLog
+		}
+	}
+
+	return nil
 }
 
 // latestRunLog is the most recent run at one of the given moments that has anything to read,

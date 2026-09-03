@@ -136,6 +136,20 @@ type AgentMetadatum struct {
 	UpdatedAt time.Time
 }
 
+// One run of a script weave fired for an agent, indexing the output it left on disk.
+type AgentRun struct {
+	ID         string
+	AgentID    string
+	Trigger    string
+	Script     string
+	LogNumber  *int32
+	StartedAt  time.Time
+	FinishedAt *time.Time
+	ExitCode   *int32
+	Failure    string
+	ViewedAt   *time.Time
+}
+
 // Flattened transcript for an agent, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with an agent.
 type AgentTranscript struct {
 	AgentID      string

@@ -393,14 +393,17 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 	}
 }
 
+// failureReason is a cause as a row can hold it, since a script's own output reaches this and
+// Postgres takes neither a NUL nor the half rune a cut made by byte count leaves behind.
 func failureReason(cause error) string {
 	if cause == nil {
 		return ""
 	}
 
-	text := strings.Join(strings.Fields(cause.Error()), " ")
+	text := strings.ToValidUTF8(strings.ReplaceAll(cause.Error(), "\x00", ""), "")
+	text = strings.Join(strings.Fields(text), " ")
 	if len(text) > maxFailureReasonLen {
-		text = text[:maxFailureReasonLen]
+		text = strings.ToValidUTF8(text[:maxFailureReasonLen], "")
 	}
 
 	return text
