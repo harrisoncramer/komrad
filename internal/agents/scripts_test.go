@@ -2102,6 +2102,7 @@ func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
 			require.NoError(t, err)
 			require.NotEmpty(t, said, "the run the flag points at should say why rather than opening an empty pager")
 			assert.Contains(t, string(said), tt.script, "and it names the script that failed")
+			assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 		})
 	}
 }
