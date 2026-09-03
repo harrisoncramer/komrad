@@ -2055,3 +2055,54 @@ func TestAHookThatCannotStartLeavesARunLogSayingWhy(t *testing.T) {
 	require.NoError(t, readErr)
 	assert.Contains(t, string(logged), "install-deps")
 }
+
+// TestSilentAsyncFailureSaysWhyInItsLog covers the two triggers nothing waits on, where a
+// script that exits non-zero having printed nothing raises the flag on the agent's row and
+// the run that flag points at is the only place a person can read why.
+func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
+	tests := []struct {
+		name   string
+		script string
+		fire   func(*ScriptService) error
+	}{
+		{
+			name:   "fired by hand",
+			script: openPRScript,
+			fire: func(s *ScriptService) error {
+				return s.OpenPullRequest(t.Context(), fixtureAgentID)
+			},
+		},
+		{
+			name:   "fired as a workflow's cleanup",
+			script: "teardown",
+			fire: func(s *ScriptService) error {
+				return s.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "teardown", nil)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, tt.script), []byte("#!/bin/sh\n"), 0o755))
+
+			logsDir := t.TempDir()
+			runner := &recordingRunner{results: map[string]runResult{
+				tt.script: {exitCode: 7, err: scripts.ErrFailed},
+			}}
+			svc, recorder := scriptServiceRecording(t, dir, runner, logsDir)
+
+			require.NoError(t, tt.fire(svc))
+
+			_, finished := recorder.rows()
+			require.Len(t, finished, 1)
+			require.NotEmpty(t, finished[0].Failure, "the row is a failure, so it wears the flag")
+
+			said, err := os.ReadFile(onlyRunLog(t, logsDir))
+			require.NoError(t, err)
+			require.NotEmpty(t, said, "the run the flag points at should say why rather than opening an empty pager")
+			assert.Contains(t, string(said), tt.script, "and it names the script that failed")
+			assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
+		})
+	}
+}
