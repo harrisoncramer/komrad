@@ -81,7 +81,7 @@ const prBranch = "harry-fix"
 
 const prRepo = "harrisoncramer/weave"
 
-func seedPRAgent(t *testing.T, st *testStore, workflowID, state, pane, url string) agentstore.Agent {
+func seedPRAgent(t *testing.T, st *testStore, workflowID string, state agentstore.State, pane, url string) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -154,7 +154,7 @@ func TestPRArchiverSync(t *testing.T) {
 		name              string
 		worktreeDisabled  bool
 		archiveOnPRClosed bool
-		agentState        string
+		agentState        agentstore.State
 		pane              string
 		url               string
 		prState           string

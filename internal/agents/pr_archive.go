@@ -294,7 +294,7 @@ func (a *PRArchiver) forgetExpiredQuiet() {
 // isReadyToArchive reports whether an agent can lose its pane without losing work, which means one
 // sitting idle or one already dormant with no pane to lose.
 func isReadyToArchive(agent agentstore.Agent) bool {
-	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
+	if !agent.State.DoesPaneDecide() {
 		return false
 	}
 	// A child records no pull request of its own and leaves when its parent does, so a sweep

@@ -34,7 +34,7 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		Cwd:             s.GetCwd(),
 		Flags:           s.GetFlags(),
 		Prompt:          s.GetPrompt(),
-		State:           s.GetState(),
+		State:           agentstore.State(s.GetState()),
 		Harness:         s.GetHarness(),
 		SessionID:       s.GetSessionId(),
 		WorkflowID:      s.GetWorkflowId(),

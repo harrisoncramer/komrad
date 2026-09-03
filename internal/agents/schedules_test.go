@@ -290,7 +290,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 	tests := []struct {
 		name  string
-		state string
+		state agentstore.State
 		frame string
 		want  int64
 	}{

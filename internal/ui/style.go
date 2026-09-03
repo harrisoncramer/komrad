@@ -44,8 +44,12 @@ func cursorStyleFor(focused bool) lipgloss.Style {
 	return blurredCursorStyle
 }
 
-func stateIcon(state string) string {
+// Both switches below carry no default, so a state added later fails the exhaustive check here
+// rather than quietly drawing as an idle row.
+func stateIcon(state agentstore.State) string {
 	switch state {
+	case agentstore.StateIdle:
+		return "•"
 	case agentstore.StateWaiting:
 		return "!"
 	case agentstore.StateThinking:
@@ -54,23 +58,25 @@ func stateIcon(state string) string {
 		return "○"
 	case agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		return "✗"
-	default:
-		return "•"
 	}
+
+	return "•"
 }
 
-func stateColor(state string) lipgloss.Color {
+func stateColor(state agentstore.State) lipgloss.Color {
 	switch state {
+	case agentstore.StateIdle, agentstore.StateSettingUp:
+		return colorMuted
 	case agentstore.StateWaiting, agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		return colorDanger
 	case agentstore.StateThinking:
 		return colorWarning
-	default:
-		return colorMuted
 	}
+
+	return colorMuted
 }
 
-func stateMark(state string) string {
+func stateMark(state agentstore.State) string {
 	return lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 }
 
@@ -98,7 +104,7 @@ func noStateMark() string {
 // failedMark is the archive's only state icon, since an archived agent's last live state says
 // nothing but a failed create or cleanup is why the row is still there.
 func failedMark(agent agentstore.Agent) string {
-	if !agentstore.IsFailed(agent.State) {
+	if !agent.State.IsFailed() {
 		return ""
 	}
 

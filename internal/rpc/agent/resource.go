@@ -61,7 +61,7 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			Flags:            stored.Flags,
 			Prompt:           stored.Prompt,
 			PaneId:           stored.Pane,
-			State:            stored.State,
+			State:            string(stored.State),
 			SessionId:        stored.SessionID,
 			Harness:          stored.Harness,
 			WorkflowId:       stored.WorkflowID,

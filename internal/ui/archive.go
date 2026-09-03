@@ -352,7 +352,7 @@ func (m *model) stageArchive() {
 // archiveDocument is what the stage pages for an archived agent, which is why a delete failed
 // when it failed, since the archive is the only place that can be read.
 func (m model) archiveDocument(agent agentstore.Agent) string {
-	if agentstore.IsFailed(agent.State) {
+	if agent.State.IsFailed() {
 		return m.failedPlaceholder(agent)
 	}
 

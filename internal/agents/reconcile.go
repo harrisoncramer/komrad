@@ -51,7 +51,7 @@ type paneObserver interface {
 
 type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
-	SetStateByID(ctx context.Context, id, state string) error
+	SetStateByID(ctx context.Context, id string, state agentstore.State) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
@@ -260,7 +260,7 @@ func (r *Reconciler) prune(listed map[string]struct{}) {
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus) {
-	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
+	if !agent.State.DoesPaneDecide() {
 		return
 	}
 
@@ -373,7 +373,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	// A pane that goes part-way through a turn took that turn with it, and nothing brings it
 	// back, so the resume has to be told to ask for it again.
 	var interrupted *time.Time
-	if isTurnUnfinished(agent.State) {
+	if agent.State.IsTurnUnfinished() {
 		at := r.now()
 		interrupted = &at
 	}
@@ -394,7 +394,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	return forgotten
 }
 
-func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state string) {
+func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) {
 	r.clearDebounce(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
 	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
@@ -405,7 +405,7 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state st
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to write an agent's reconciled state",
 			append([]slog.Attr{
 				slog.String(logging.AgentID, agent.ID),
-				slog.String(logging.AgentState, state),
+				slog.String(logging.AgentState, string(state)),
 			}, logging.Err(err)...)...)
 
 		return

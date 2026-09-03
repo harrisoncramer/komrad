@@ -28,7 +28,7 @@ func (f *fakePRFinder) FindPR(context.Context, string, string) (string, error) {
 	return f.url, f.err
 }
 
-func seedWithBranch(t *testing.T, st *testStore, state string) agentstore.Agent {
+func seedWithBranch(t *testing.T, st *testStore, state agentstore.State) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 	workflowID := seedWorkflow(t, st)

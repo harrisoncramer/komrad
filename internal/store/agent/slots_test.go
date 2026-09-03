@@ -13,7 +13,7 @@ import (
 func TestCountLiveForSchedule(t *testing.T) {
 	tests := []struct {
 		name          string
-		states        []string
+		states        []State
 		archive       bool
 		lookElsewhere bool
 		want          int64
@@ -23,33 +23,33 @@ func TestCountLiveForSchedule(t *testing.T) {
 		},
 		{
 			name:   "an agent still thinking counts",
-			states: []string{StateThinking},
+			states: []State{StateThinking},
 			want:   1,
 		},
 		{
 			name:   "so does one waiting on a prompt, which is unfinished work",
-			states: []string{StateWaiting},
+			states: []State{StateWaiting},
 			want:   1,
 		},
 		{
 			name:   "an idle one does not",
-			states: []string{StateIdle},
+			states: []State{StateIdle},
 			want:   0,
 		},
 		{
 			name:   "several unfinished agents are all counted",
-			states: []string{StateThinking, StateWaiting, StateIdle},
+			states: []State{StateThinking, StateWaiting, StateIdle},
 			want:   2,
 		},
 		{
 			name:    "an archived agent is not running, whatever state it stopped in",
-			states:  []string{StateThinking},
+			states:  []State{StateThinking},
 			archive: true,
 			want:    0,
 		},
 		{
 			name:          "another schedule's agents are not this one's",
-			states:        []string{StateThinking},
+			states:        []State{StateThinking},
 			lookElsewhere: true,
 			want:          0,
 		},
@@ -90,7 +90,7 @@ func TestCountLiveForSchedule(t *testing.T) {
 func TestCountLive(t *testing.T) {
 	tests := []struct {
 		name    string
-		states  []string
+		states  []State
 		hide    bool
 		archive bool
 		want    int64
@@ -100,28 +100,28 @@ func TestCountLive(t *testing.T) {
 		},
 		{
 			name:   "an agent still thinking counts",
-			states: []string{StateThinking},
+			states: []State{StateThinking},
 			want:   1,
 		},
 		{
 			name:   "so does an idle one, which is still a row to be dealt with",
-			states: []string{StateIdle},
+			states: []State{StateIdle},
 			want:   1,
 		},
 		{
 			name:   "every state at once",
-			states: []string{StateThinking, StateWaiting, StateIdle},
+			states: []State{StateThinking, StateWaiting, StateIdle},
 			want:   3,
 		},
 		{
 			name:   "a hidden agent counts, since hiding it stopped nothing",
-			states: []string{StateThinking},
+			states: []State{StateThinking},
 			hide:   true,
 			want:   1,
 		},
 		{
 			name:    "an archived agent does not, which is how the count comes down",
-			states:  []string{StateThinking, StateIdle},
+			states:  []State{StateThinking, StateIdle},
 			archive: true,
 			want:    0,
 		},

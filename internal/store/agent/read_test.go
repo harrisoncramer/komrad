@@ -331,19 +331,31 @@ func TestListChildren(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author"}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
 	parent, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NotNil(t, parent)
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "other-author"}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "other-author", State: StateIdle}))
 	other, err := f.Get(ctx, "other-author")
 	require.NoError(t, err)
 	require.NotNil(t, other)
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID}))
-	require.NoError(t, f.Create(ctx, Agent{Name: "test-runner", ParentAgentID: &parent.ID}))
-	require.NoError(t, f.Create(ctx, Agent{Name: "their-reviewer", ParentAgentID: &other.ID}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "reviewer",
+		ParentAgentID: &parent.ID,
+		State:         StateIdle,
+	}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "test-runner",
+		ParentAgentID: &parent.ID,
+		State:         StateIdle,
+	}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "their-reviewer",
+		ParentAgentID: &other.ID,
+		State:         StateIdle,
+	}))
 
 	children, err := f.ListChildren(ctx, []string{parent.ID})
 	require.NoError(t, err)

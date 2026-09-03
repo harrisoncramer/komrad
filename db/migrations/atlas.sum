@@ -1,4 +1,4 @@
-h1:WkQmUYM+rhJnfbBsZ+BD4XdIIU4ThDabGLws6cMkp9o=
+h1:wySlVk6bZvJYiE+Tn3K5+2Y2I8f2ZDXav56vT59Fimg=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -27,3 +27,4 @@ h1:WkQmUYM+rhJnfbBsZ+BD4XdIIU4ThDabGLws6cMkp9o=
 20260902172130_review_doorbell_per_release.sql h1:cOHW2nDz0OchVU8tDQmqC7WkrGPhLaNxhREaOSrl+j8=
 20260902192517_worktree_dir.sql h1:mnDdZReh+KU7HzjOs+kGTPE0DiCo74aYBfTpCp3TEg4=
 20260902224239_agent_runs.sql h1:/IYJKV7ByhdT0vi0i8CCiS9s6nCY8Og0yJaJXdwr034=
+20260903122508_agent_state_enum.sql h1:k2Oao/+cna4LbOdEdDXg8Mm0YeMA2rM1siGWYT1B4oU=

@@ -194,7 +194,7 @@ func TestGetAgent(t *testing.T) {
 
 			require.NoError(t, err)
 			assert.Equal(t, "/tmp", got.Msg.GetAgent().GetCwd())
-			assert.Equal(t, agentstore.StateThinking, got.Msg.GetAgent().GetState())
+			assert.Equal(t, string(agentstore.StateThinking), got.Msg.GetAgent().GetState())
 
 			created := got.Msg.GetAgent().GetCreatedAt()
 			require.NotEmpty(t, created, "the creation time is emitted")

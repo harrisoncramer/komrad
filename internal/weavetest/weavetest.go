@@ -27,6 +27,7 @@ import (
 	"weave/internal/harnesstest"
 	"weave/internal/logging"
 	"weave/internal/server"
+	agentstore "weave/internal/store/agent"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
@@ -211,7 +212,7 @@ func (i *Instance) ReconcileSchedules() {
 
 // Settle moves an agent to an activity and reconciles until the store agrees, so a test says
 // where an agent ends up rather than how many passes that takes.
-func (i *Instance) Settle(agentID string, activity harness.Activity, want string) {
+func (i *Instance) Settle(agentID string, activity harness.Activity, want agentstore.State) {
 	i.t.Helper()
 
 	require.NoError(i.t, i.Harness.SetActivity(agentID, activity))
