@@ -338,6 +338,11 @@ type Place struct {
 	NewLine  int
 	OldLine  int
 
+	// Header is set when the cursor was standing on the header of a file drawn whole, which a
+	// search by file name lands on and which has no line under it to come back to, and left
+	// unset for a collapsed file so that opening that file again puts the cursor into it.
+	Header bool
+
 	// ThreadID is set when the cursor was standing on a thread that had come adrift rather than
 	// on a line, since those rows have no coordinates to come back to.
 	ThreadID string
@@ -350,9 +355,12 @@ func (v *View) GetPlace(y int) (Place, bool) {
 		return Place{ThreadID: current.thread.GetId()}, true
 	}
 
-	// A collapsed file has no line under the cursor, so the file itself is the place.
+	// A file header has no line under the cursor, so the file itself is the place.
 	if ok && current.kind == fileRow {
-		return Place{FilePath: v.patch.Files[current.file].Path()}, true
+		return Place{
+			FilePath: v.patch.Files[current.file].Path(),
+			Header:   !v.isCollapsed(current.file),
+		}, true
 	}
 
 	key, ok := v.getKey(y)
@@ -380,6 +388,10 @@ func (v *View) Locate(place Place) (int, bool) {
 		}
 
 		return 0, false
+	}
+
+	if place.Header {
+		return v.fileHeader(place.FilePath)
 	}
 
 	// A file read since the cursor was last in it is drawn as its header alone, which is the
@@ -416,7 +428,17 @@ func (v *View) Locate(place Place) (int, bool) {
 // collapsedHeader is the header row of a file drawn collapsed, and false for a file drawn
 // whole, which has lines of its own to stand on.
 func (v *View) collapsedHeader(path string) (int, bool) {
-	if path == "" || !v.viewed[path] {
+	if !v.viewed[path] {
+		return 0, false
+	}
+
+	return v.fileHeader(path)
+}
+
+// fileHeader is the row a file is named on, which every file has whether it is drawn collapsed
+// or whole.
+func (v *View) fileHeader(path string) (int, bool) {
+	if path == "" {
 		return 0, false
 	}
 
