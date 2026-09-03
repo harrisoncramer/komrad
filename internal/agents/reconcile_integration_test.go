@@ -2,6 +2,7 @@ package agents
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	"weave/internal/harness"
@@ -144,4 +145,126 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	}
 
 	return registry
+}
+
+// TestReconcileHoldsAListingThatLostTheBoard pins that a listing missing most of the panes is
+// treated as tmux answering badly rather than as that many agents exiting at once, since
+// acting on it takes the pane off every row while the panes themselves keep running.
+func TestReconcileHoldsAListingThatLostTheBoard(t *testing.T) {
+	it := tmuxtest.New(t)
+	st := newStore(t)
+	ctx := context.Background()
+	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
+
+	it.Spawn("bystander", "sleep 300")
+	board := seedBoard(t, it, st, 5)
+
+	for _, agent := range board {
+		it.Kill(agent.Name)
+	}
+
+	for range paneLossHoldLimit {
+		if err := rec.Reconcile(ctx); err != nil {
+			t.Fatalf("reconcile: %v", err)
+		}
+	}
+
+	for _, agent := range board {
+		after := agentByID(t, st, agent.ID)
+		if after.Pane != agent.Pane {
+			t.Fatalf("%s: want the pane kept, got %q", agent.Name, after.Pane)
+		}
+		if after.State != agentstore.StateThinking {
+			t.Fatalf("%s: want thinking, got %q", agent.Name, after.State)
+		}
+		if after.InterruptedAt != nil {
+			t.Fatalf("%s: want no interruption recorded, got %v", agent.Name, *after.InterruptedAt)
+		}
+	}
+}
+
+// TestReconcileBelievesTheLossOnceTheHoldRunsOut pins the other side of that: a tmux server
+// that really did restart keeps answering the same way, and the board has to follow it.
+func TestReconcileBelievesTheLossOnceTheHoldRunsOut(t *testing.T) {
+	it := tmuxtest.New(t)
+	st := newStore(t)
+	ctx := context.Background()
+	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
+
+	it.Spawn("bystander", "sleep 300")
+	board := seedBoard(t, it, st, 5)
+
+	for _, agent := range board {
+		it.Kill(agent.Name)
+	}
+
+	for range paneLossHoldLimit + 1 {
+		if err := rec.Reconcile(ctx); err != nil {
+			t.Fatalf("reconcile: %v", err)
+		}
+	}
+
+	for _, agent := range board {
+		after := agentByID(t, st, agent.ID)
+		if after.Pane != "" {
+			t.Fatalf("%s: want the pane forgotten, still holds %q", agent.Name, after.Pane)
+		}
+		if after.State != agentstore.StateIdle {
+			t.Fatalf("%s: want idle, got %q", agent.Name, after.State)
+		}
+		if after.InterruptedAt == nil {
+			t.Fatalf("%s: want the unfinished turn recorded as interrupted", agent.Name)
+		}
+	}
+}
+
+// TestReconcileForgetsOneAgentThatExits pins that the guard costs an ordinary exit nothing,
+// which is the case it has to stay out of the way of.
+func TestReconcileForgetsOneAgentThatExits(t *testing.T) {
+	it := tmuxtest.New(t)
+	st := newStore(t)
+	ctx := context.Background()
+	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
+
+	board := seedBoard(t, it, st, 5)
+	gone := board[0]
+	it.Kill(gone.Name)
+
+	if err := rec.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	after := agentByID(t, st, gone.ID)
+	if after.Pane != "" {
+		t.Fatalf("the agent that exited: want the pane forgotten, still holds %q", after.Pane)
+	}
+	if after.State != agentstore.StateIdle {
+		t.Fatalf("the agent that exited: want idle, got %q", after.State)
+	}
+
+	for _, agent := range board[1:] {
+		still := agentByID(t, st, agent.ID)
+		if still.Pane != agent.Pane {
+			t.Fatalf("%s: want the pane kept, got %q", agent.Name, still.Pane)
+		}
+		if still.State != agentstore.StateThinking {
+			t.Fatalf("%s: want thinking, got %q", agent.Name, still.State)
+		}
+	}
+}
+
+// seedBoard spawns count agents that are all working, which is the board a lost listing has
+// the most to take from.
+func seedBoard(t *testing.T, it *tmuxtest.Server, st *testStore, count int) []agentstore.Agent {
+	t.Helper()
+
+	board := make([]agentstore.Agent, 0, count)
+	for i := range count {
+		name := fmt.Sprintf("agent-%d", i)
+		pane := it.Spawn(name, `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
+		board = append(board, seedRunning(t, st, it.Client(), name, pane, agentstore.StateThinking))
+		it.WaitForFrame(pane, "Cooking…")
+	}
+
+	return board
 }
