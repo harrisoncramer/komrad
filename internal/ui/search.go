@@ -426,7 +426,8 @@ func (m model) hitHeader(hit searchHit) string {
 
 	return "  " + stateMark(displayState(item)) + " " + name +
 		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
-		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed)
+		tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
+		failedRunMark(item.failedRun)
 }
 
 // searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own

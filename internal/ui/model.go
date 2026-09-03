@@ -95,6 +95,7 @@ type model struct {
 	listing         listing
 	tree            treeState
 	hover           hoverState
+	runHover        hoverState
 	schedules       scheduleState
 	archive         archiveState
 	search          searchState

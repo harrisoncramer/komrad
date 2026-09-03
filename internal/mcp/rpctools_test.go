@@ -24,6 +24,7 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
 	"RecordTurnBoundary":      true,
 	"SetAgentViewed":          true,
+	"MarkRunsRead":            true,
 	"CreateReviewThread":      true,
 	"EditReviewMessage":       true,
 	"DeleteReviewThread":      true,

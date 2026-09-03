@@ -121,9 +121,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	switch msg := msg.(type) {
 	case refreshTickMsg:
 		next, viewed := m.dwellViewed(msg.at)
+		next, readRuns := next.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing), true
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns), true
 	case refreshResult:
 		if m.applyRefresh(msg) {
 			next, cmd := m.reloadReview()

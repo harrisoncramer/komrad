@@ -72,6 +72,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows:  st.workflows,
 		Tmux:       p.Tmux,
 		Runner:     scripts.NewRunner(),
+		Runs:       st.runs,
 		Load:       loadConfig,
 		Addr:       p.Addr,
 		Socket:     p.Env.TmuxSocket,

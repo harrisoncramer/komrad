@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -21,6 +22,7 @@ import (
 	"weave/internal/tmuxtest"
 
 	agentstore "weave/internal/store/agent"
+	runstore "weave/internal/store/run"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
 
@@ -693,14 +695,14 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		server.Run("kill-pane", "-t", pane)
 
 		script := filepath.Join(dir, "ok")
-		_, err := svc.runInPane(t.Context(), scripts.Script{
+		result, err := svc.runInPane(t.Context(), scripts.Script{
 			Name:       "ok",
 			Path:       script,
 			Executable: true,
 		}, nil, pane, "", time.Second)
 
-		require.Error(t, err)
-		assert.ErrorIs(t, err, scripts.ErrNotStartable)
+		require.ErrorIs(t, err, scripts.ErrNotStartable)
+		assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 	})
 
 	t.Run("a pane killed while it is running", func(t *testing.T) {
@@ -960,7 +962,7 @@ func TestRunDeprovisionPersistsStdoutOnAFailure(t *testing.T) {
 		t.Fatal("the deprovisioner never reported finishing")
 	}
 
-	persisted, err := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
+	persisted, err := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, err)
 	assert.Contains(t, string(persisted), "tearing down 1")
 	assert.Contains(t, string(persisted), "tearing down 2")
@@ -984,7 +986,7 @@ func TestRunProvisionPersistsStdoutOnAFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
 
-	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
+	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, readErr)
 	assert.Contains(t, string(persisted), "diagnosing 1")
 	assert.Contains(t, string(persisted), "diagnosing 2")
@@ -1117,7 +1119,7 @@ func TestScriptEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 				t.Fatal("the deprovisioner never reported finishing")
 			}
 
-			persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
+			persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 			require.NoError(t, readErr)
 			output := string(persisted)
 
@@ -1234,6 +1236,200 @@ func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
 	assert.Empty(t, config.ListRunLogs(logsDir, "a1"), "and it leaves no run behind")
 }
 
+// fakeRunRecorder stands in for the run table, holding what a test wants to read back about
+// the rows the service opened and closed.
+type fakeRunRecorder struct {
+	mu        sync.Mutex
+	begun     []runstore.BeginParams
+	finished  []runstore.FinishParams
+	abandoned []string
+	pruned    []string
+}
+
+func (f *fakeRunRecorder) Begin(_ context.Context, params runstore.BeginParams) (string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.begun = append(f.begun, params)
+
+	return fmt.Sprintf("run-%d", len(f.begun)), nil
+}
+
+func (f *fakeRunRecorder) Finish(_ context.Context, params runstore.FinishParams) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.finished = append(f.finished, params)
+
+	return nil
+}
+
+func (f *fakeRunRecorder) Abandon(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.abandoned = append(f.abandoned, id)
+
+	return nil
+}
+
+func (f *fakeRunRecorder) Prune(_ context.Context, agentID string, _ int) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.pruned = append(f.pruned, agentID)
+
+	return nil
+}
+
+func (f *fakeRunRecorder) rows() ([]runstore.BeginParams, []runstore.FinishParams) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.begun, f.finished
+}
+
+func scriptServiceRecording(t *testing.T, dir string, runner scriptRunner, logsDir string) (*ScriptService, *fakeRunRecorder) {
+	t.Helper()
+
+	recorder := &fakeRunRecorder{}
+	svc := scriptServiceWithLogsDir(t, dir, runner, logsDir)
+	svc.runs = recorder
+
+	return svc, recorder
+}
+
+// TestRunHookRecordsTheRun covers the row a hook leaves behind, which is what puts a failure on
+// the agent's own line instead of only in the service log.
+func TestRunHookRecordsTheRun(t *testing.T) {
+	tests := []struct {
+		name         string
+		script       string
+		cwd          func(t *testing.T) string
+		wantExitCode *int32
+		wantFailure  string
+	}{
+		{
+			name:         "a hook that succeeded",
+			script:       "#!/bin/sh\necho installing\n",
+			cwd:          func(t *testing.T) string { t.Helper(); return t.TempDir() },
+			wantExitCode: xptr.Ptr(int32(0)),
+		},
+		{
+			name:         "a hook that exited badly",
+			script:       "#!/bin/sh\necho no lockfile here >&2\nexit 3\n",
+			cwd:          func(t *testing.T) string { t.Helper(); return t.TempDir() },
+			wantExitCode: xptr.Ptr(int32(3)),
+			wantFailure:  "no lockfile here",
+		},
+		{
+			name:        "a hook refused before it started has no status of its own",
+			script:      "#!/bin/sh\nexit 0\n",
+			cwd:         func(*testing.T) string { return "/definitely/not/here" },
+			wantFailure: "unusable working directory",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(tt.script), 0o755))
+
+			logsDir := t.TempDir()
+			svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+
+			err := svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: tt.cwd(t)}, "install-deps", workflowstore.HookPostLaunch)
+			if tt.wantFailure == "" {
+				require.NoError(t, err)
+			} else {
+				require.Error(t, err)
+			}
+
+			begun, finished := recorder.rows()
+
+			require.Len(t, begun, 1)
+			assert.Equal(t, "a1", begun[0].AgentID)
+			assert.Equal(t, workflowstore.HookPostLaunch, begun[0].Trigger)
+			assert.Equal(t, "install-deps", begun[0].Script)
+			require.NotNil(t, begun[0].LogNumber, "the row points at the log the output went to")
+			assert.Equal(t, int32(1), *begun[0].LogNumber)
+
+			require.Len(t, finished, 1)
+			assert.Equal(t, "run-1", finished[0].ID)
+			assert.Equal(t, tt.wantExitCode, finished[0].ExitCode)
+			if tt.wantFailure == "" {
+				assert.Empty(t, finished[0].Failure)
+
+				return
+			}
+			assert.Contains(t, finished[0].Failure, "install-deps", "the row says which script it was")
+			assert.Contains(t, finished[0].Failure, tt.wantFailure)
+		})
+	}
+}
+
+// TestAHookThatFailedSilentlySaysSoInItsLog covers a hook exiting non-zero having printed
+// nothing, where the mark would otherwise point the person at a zero-byte pager.
+func TestAHookThatFailedSilentlySaysSoInItsLog(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 4\n"), 0o755))
+
+	logsDir := t.TempDir()
+	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
+	require.ErrorIs(t, err, ErrHookFailed)
+
+	_, finished := recorder.rows()
+	require.Len(t, finished, 1)
+	require.NotNil(t, finished[0].ExitCode)
+	assert.Equal(t, int32(4), *finished[0].ExitCode)
+
+	logged, readErr := os.ReadFile(onlyRunLog(t, logsDir))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(logged), "install-deps", "the run the mark points at says why rather than opening empty")
+}
+
+// TestARefusedRunDropsItsRow pins the row going with the empty log file, since a refusal is not
+// a run and one recorded as such would spend a number and stand as a failure to be read.
+func TestARefusedRunDropsItsRow(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), t.TempDir())
+
+	require.Error(t, svc.OpenPullRequest(t.Context(), "a1"), "a file nobody made executable is not startable")
+
+	begun, finished := recorder.rows()
+	require.Len(t, begun, 1)
+	assert.Empty(t, finished)
+	assert.Equal(t, []string{"run-1"}, recorder.abandoned)
+}
+
+// TestAProvisionerRefusedInItsPaneSaysSo covers the pane path's own refusals, where the script
+// never runs and so writes nothing: the row must not read as a clean exit and the number claimed
+// for it must not open an empty pager.
+func TestAProvisionerRefusedInItsPaneSaysSo(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	logsDir := t.TempDir()
+	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+
+	_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup", "%3")
+
+	require.ErrorIs(t, err, ErrProvisionFailed)
+
+	_, finished := recorder.rows()
+	require.Len(t, finished, 1)
+	assert.Nil(t, finished[0].ExitCode, "a script nobody made executable never exited at all")
+	assert.Contains(t, finished[0].Failure, "setup")
+
+	logged, readErr := os.ReadFile(onlyRunLog(t, logsDir))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(logged), "setup", "and the run the mark points at says why rather than opening empty")
+}
+
 // TestClaimRunLogNumbersEveryRun pins each run getting a file of its own rather than the
 // two fixed names that came before, since a resume used to overwrite the log of the create.
 func TestClaimRunLogNumbersEveryRun(t *testing.T) {
@@ -1277,8 +1473,9 @@ func TestClaimRunLogPrunesTheOldestRuns(t *testing.T) {
 		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
 	}
 
-	path := svc.claimRunLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
+	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
 	require.NotEmpty(t, path)
+	assert.Equal(t, config.MaxRunLogs+1, number)
 
 	runs := config.ListRunLogs(logsDir, "a1")
 
@@ -1298,20 +1495,24 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 	taken := filepath.Join(logDir, config.RunLogName(1, config.TriggerOpenPR, openPRScript))
 	require.NoError(t, os.WriteFile(taken, []byte("someone else\n"), 0o644))
 
-	path := svc.claimRunLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
+	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
 
 	assert.NotEqual(t, taken, path, "the name already there is left as it stands")
+	assert.Equal(t, 2, number, "it steps past the number that was taken")
 	content, err := os.ReadFile(taken)
 	require.NoError(t, err)
 	assert.Contains(t, string(content), "someone else")
 }
 
-// onlyRunLog is the one run an agent has recorded, since a test that ran a single script has
-// no reason to know which number it was given.
-func onlyRunLog(t *testing.T, logsDir, agentID string) string {
+// fixtureAgentID is the agent every script test in this file runs against.
+const fixtureAgentID = "a1"
+
+// onlyRunLog is the one run the fixture's agent has recorded, since a test that ran a single
+// script has no reason to know which number it was given.
+func onlyRunLog(t *testing.T, logsDir string) string {
 	t.Helper()
 
-	runs := config.ListRunLogs(logsDir, agentID)
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
 
 	return runs[0].Path
