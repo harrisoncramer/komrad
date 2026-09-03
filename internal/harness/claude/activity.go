@@ -12,10 +12,10 @@ var (
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 )
 
-// retryLine is the banner Claude draws while it retries an API error, which carries no ellipsis
-// and so matches no working line, and is keyed on the countdown rather than on the status code
-// it names, since the code varies with whatever the API returned.
-var retryLine = regexp.MustCompile(`(?mi)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+.*retrying in\s.*attempt\s+\d+\s*/\s*\d+`)
+// retryLine is the banner Claude draws while it retries an API error, keyed on a countdown that
+// closes its own line rather than on the status code it names, since the code varies with
+// whatever the API returned and prose quoting the banner reads as the banner otherwise.
+var retryLine = regexp.MustCompile(`(?mi)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+.*retrying in\s.*attempt\s+\d+\s*/\s*\d+\s*$`)
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 

@@ -203,6 +203,16 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWorking,
 		},
 		{
+			name:  "a countdown quoted in a bullet inside the live region is not a countdown",
+			frame: "  • `✻ 529 Overloaded · Retrying in 11s · attempt 6/10` is what it draws\n\n" + idleFrame,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a countdown quoted in a blockquote inside the live region is not a countdown",
+			frame: "The banner reads\n  > Retrying in 11s · attempt 6/10 while it waits\n\n" + idleFrame,
+			want:  harness.ActivityIdle,
+		},
+		{
 			name:  "the summary of a turn that died to an API error is not a retry",
 			frame: "⏺ API Error: Repeated 529 Overloaded errors. The API is at capacity.\n\n✻ Worked for 1s · done 11:43 AM\n" + idleFrame,
 			want:  harness.ActivityIdle,
@@ -236,10 +246,6 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 		{
 			name:  "prose well above the live region",
 			frame: "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`." + strings.Repeat("\n", liveRegionLines) + idleFrame,
-		},
-		{
-			name:  "a retry countdown quoted in prose is not a countdown",
-			frame: "I match `✻ 529 Overloaded · Retrying in 11s · attempt 6/10`, badly." + strings.Repeat("\n", liveRegionLines) + idleFrame,
 		},
 		{
 			name:  "waiting phrases a dozen lines up",
