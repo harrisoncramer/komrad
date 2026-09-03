@@ -1191,6 +1191,34 @@ func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 	assert.Contains(t, err.Error(), "/definitely/not/here")
 }
 
+// TestChmodMakesAHookRunnable pins the one action the listing tells a person to take: a hook
+// listed as unrunnable is refused, and a chmod is enough to make the next run go through
+// without weave being restarted.
+func TestChmodMakesAHookRunnable(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "install-deps")
+	require.NoError(t, os.WriteFile(path, []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), t.TempDir())
+
+	listed, err := svc.ListHooks()
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	require.False(t, listed[0].Executable)
+
+	err = svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch)
+	require.ErrorIs(t, err, scripts.ErrNotExecutable)
+
+	require.NoError(t, os.Chmod(path, 0o755))
+
+	listed, err = svc.ListHooks()
+	require.NoError(t, err)
+	require.Len(t, listed, 1)
+	assert.True(t, listed[0].Executable)
+
+	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch))
+}
+
 // TestARefusedRunLeavesNoRunBehind pins a refusal spending no number, since a
 // file claimed by a run that never happened would push a real one out of the fifty kept.
 func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
