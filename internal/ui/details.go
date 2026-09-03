@@ -30,7 +30,7 @@ func (m model) hoveredDetails() details {
 	return spec.hovered(m)
 }
 
-func (m model) detailsScreen() bool {
+func (m model) isDetailsScreen() bool {
 	return m.screen.spec().details != nil
 }
 
@@ -42,23 +42,23 @@ func (m model) detailsCursor(held details) int {
 	return min(m.details.cursor, max(len(held.fields)-1, 0))
 }
 
-func (m model) detailsDrawn(held details) bool {
+func (m model) isDetailsDrawn(held details) bool {
 	return len(held.fields) > 0 && m.detailsLines() > 0
 }
 
-func (m model) detailsFocused() bool {
-	return m.details.focused && m.detailsDrawn(m.hoveredDetails())
+func (m model) isDetailsFocused() bool {
+	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }
 
 func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
-	if m.detailsFocused() {
+	if m.isDetailsFocused() {
 		m.details.focused = false
 
 		return m, nil
 	}
 
 	held := m.hoveredDetails()
-	if !m.detailsDrawn(held) {
+	if !m.isDetailsDrawn(held) {
 		return m, nil
 	}
 
@@ -73,7 +73,7 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 	held := m.hoveredDetails()
 
-	if !m.detailsDrawn(held) {
+	if !m.isDetailsDrawn(held) {
 		m.details.focused = false
 
 		return m, nil
@@ -140,7 +140,7 @@ const detailsChromeLines = 4
 
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
-	if !m.detailsDrawn(held) {
+	if !m.isDetailsDrawn(held) {
 		return ""
 	}
 

@@ -12,7 +12,7 @@ type selection struct {
 	ids []string
 }
 
-func (s selection) active() bool {
+func (s selection) isActive() bool {
 	return len(s.ids) > 0
 }
 
@@ -67,7 +67,7 @@ func (s selection) extend(rows []agentRow, cursor int) selection {
 }
 
 func (s selection) pruned(rows []agentRow) selection {
-	if !s.active() {
+	if !s.isActive() {
 		return s
 	}
 
@@ -129,13 +129,13 @@ func (s selection) without(ids ...string) selection {
 
 func (m model) applySelectionKey(k string, sel selection, rows []agentRow, cursor int) (selection, bool) {
 	switch {
-	case sel.active() && isBound(k, m.keys.Selection.Clear):
+	case sel.isActive() && isBound(k, m.keys.Selection.Clear):
 		return selection{}, true
 	case isBound(k, m.keys.Selection.Toggle):
 		return sel.toggle(rows, cursor), true
 	case isBound(k, m.keys.Selection.Range):
 
-		if !sel.active() {
+		if !sel.isActive() {
 			return sel.toggle(rows, cursor), true
 		}
 

@@ -325,7 +325,7 @@ func TestArchiveDeleteConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, client.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.False(t, got.form.active(), "the prompt is down")
+			assert.False(t, got.form.isActive(), "the prompt is down")
 		})
 	}
 }
@@ -369,7 +369,7 @@ func TestArchiveDeleteWorkflowConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantDeleted, workflows.deleted)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.False(t, got.form.active(), "the prompt is down")
+			assert.False(t, got.form.isActive(), "the prompt is down")
 		})
 	}
 }
@@ -412,7 +412,7 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 
 			assert.Equal(t, tt.wantEmptied, client.emptied)
 			assert.Equal(t, screenArchive, got.screen, "the prompt returns to the archive it was opened from")
-			assert.False(t, got.form.active(), "the prompt is down")
+			assert.False(t, got.form.isActive(), "the prompt is down")
 		})
 	}
 }

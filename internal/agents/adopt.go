@@ -38,9 +38,9 @@ type pullRequestResolver interface {
 	Repository(ctx context.Context, dir string) (string, error)
 }
 
-// adoptAgentStore is the slice of the agent store adoption reads, which is every agent the
+// adoptAgentReadWriter is the slice of the agent store adoption reads, which is every agent the
 // panel holds, since the question is which of them already has the branch or the directory.
-type adoptAgentStore interface {
+type adoptAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
@@ -49,14 +49,14 @@ type adoptAgentStore interface {
 // AdoptService puts an agent on a branch somebody else made, working out which checkout is to
 // hold that branch before handing the launch itself over.
 type AdoptService struct {
-	agents       adoptAgentStore
+	agents       adoptAgentReadWriter
 	workflows    workflowReader
 	launch       *LaunchService
 	pullRequests pullRequestResolver
 }
 
 type AdoptServiceParams struct {
-	Agents    adoptAgentStore
+	Agents    adoptAgentReadWriter
 	Workflows workflowReader
 	Launch    *LaunchService
 	// PullRequests arms adoption's ability to take a pull request rather than a branch, and a
@@ -153,12 +153,12 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 
 	switch {
 	case trees.holder == "":
-	case sameDir(trees.holder, trees.main):
+	case isSameDir(trees.holder, trees.main):
 		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
-	case !dirExists(trees.holder):
+	case !doesDirExist(trees.holder):
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
-	case owner != nil && adopted(*owner, branch):
+	case owner != nil && isAdopted(*owner, branch):
 		return owner, nil
 	case owner != nil:
 		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
@@ -190,7 +190,7 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 // resolveAdoption turns what was typed into the branch to adopt, reading the pull request
 // behind it when that is what it names.
 func (s *AdoptService) resolveAdoption(ctx context.Context, repo, ref string) (*PullRequest, string, error) {
-	if !looksLikePullRequest(ref) {
+	if !isPullRequestRef(ref) {
 		return nil, ref, nil
 	}
 	if s.pullRequests == nil {
@@ -229,7 +229,7 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	}
 
 	for _, agent := range agents {
-		if agent.WorkflowID == workflowID && adopted(agent, branch) {
+		if agent.WorkflowID == workflowID && isAdopted(agent, branch) {
 			return &agent, nil
 		}
 	}
@@ -237,9 +237,9 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, fmt.Errorf("%w: no agent in workflow %q is adopted onto %q", store.ErrNotFound, workflowID, branch)
 }
 
-// adopted reports whether an agent is the one working on a branch right now, which rules out an
+// isAdopted reports whether an agent is the one working on a branch right now, which rules out an
 // agent whose worktree is gone and an archived one whose worktree is still its own to remove.
-func adopted(agent agentstore.Agent, branch string) bool {
+func isAdopted(agent agentstore.Agent, branch string) bool {
 	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
 }
 
@@ -252,7 +252,7 @@ func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Age
 	}
 
 	for _, agent := range agents {
-		if agent.Cwd != "" && sameDir(agent.Cwd, dir) {
+		if agent.Cwd != "" && isSameDir(agent.Cwd, dir) {
 			return &agent, nil
 		}
 	}
@@ -299,17 +299,17 @@ func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) 
 	return found, nil
 }
 
-// dirExists reports whether a path is a directory right now, since a worktree registration
+// doesDirExist reports whether a path is a directory right now, since a worktree registration
 // outlives a directory somebody deleted without telling git.
-func dirExists(dir string) bool {
+func doesDirExist(dir string) bool {
 	info, err := os.Stat(dir)
 
 	return err == nil && info.IsDir()
 }
 
-// sameDir compares two paths as the filesystem sees them, since a worktree listing reports
+// isSameDir compares two paths as the filesystem sees them, since a worktree listing reports
 // resolved paths and a configured cwd is whatever somebody typed.
-func sameDir(a, b string) bool {
+func isSameDir(a, b string) bool {
 	resolvedA, err := filepath.EvalSymlinks(a)
 	if err != nil {
 		resolvedA = a

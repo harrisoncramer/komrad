@@ -9,11 +9,11 @@ import (
 // PaneLiveness answers whether an agent is still running, which is a question about tmux alone:
 // an agent is running exactly while the pane its row names is still stamped as its own.
 type PaneLiveness struct {
-	tmux paneOwners
+	tmux paneOwnerReader
 }
 
 // NewPaneLiveness builds the reader over the tmux server.
-func NewPaneLiveness(panes paneOwners) *PaneLiveness {
+func NewPaneLiveness(panes paneOwnerReader) *PaneLiveness {
 	return &PaneLiveness{tmux: panes}
 }
 

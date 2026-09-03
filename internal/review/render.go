@@ -131,7 +131,7 @@ func (v *View) openThreadsIn(path string) int {
 // pinned to it.
 func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalColor) string {
 	mark, markStyle := " ", threadMarkStyle
-	if thread, ok := v.ThreadAt(y); ok {
+	if thread, ok := v.GetThreadAt(y); ok {
 		mark, markStyle = v.markFor(thread)
 	}
 
@@ -153,9 +153,9 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 		return unreadMark, threadMarkStyle
 	case thread.GetResolvedAt() != "":
 		return settledMark, settledMarkStyle
-	case holdsDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED):
+	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED):
 		return expiredMark, expiredMarkStyle
-	case holdsDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
+	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
 		return unsentMark, unsentMarkStyle
 	case v.IsGhosted(thread):
 		return ghostMark, threadMarkStyle
@@ -164,9 +164,9 @@ func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	return threadMark, threadMarkStyle
 }
 
-// holdsDelivery reports whether any comment in a thread stands in one delivery state, which is
+// doesHoldDelivery reports whether any comment in a thread stands in one delivery state, which is
 // what the gutter marks and what the sidebar counts.
-func holdsDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDeliveryState) bool {
+func doesHoldDelivery(thread *agentv1.ReviewThread, state agentv1.ReviewDeliveryState) bool {
 	return slices.ContainsFunc(thread.GetMessages(), func(message *agentv1.ReviewMessage) bool {
 		return message.GetDelivery() == state
 	})
@@ -181,7 +181,7 @@ func (v *View) renderThreadRow(current row, isCursor bool, width int) string {
 	mark, markStyle := v.markFor(current.thread)
 
 	head := strings.Repeat(" ", max(GutterWidth-2, 0))
-	said := WhereOf(current.thread)
+	said := FormatThreadLocation(current.thread)
 	if opening := firstLine(current.thread); opening != "" {
 		said += "  " + opening
 	}
@@ -271,9 +271,9 @@ func cutBy(text string, at int, found []span) []piece {
 
 	start := 0
 	for offset := range len(text) + 1 {
-		if offset == len(text) || inSpan(at+offset, found) != inSpan(at+start, found) {
+		if offset == len(text) || isInSpan(at+offset, found) != isInSpan(at+start, found) {
 			if offset > start {
-				pieces = append(pieces, piece{text: text[start:offset], matched: inSpan(at+start, found)})
+				pieces = append(pieces, piece{text: text[start:offset], matched: isInSpan(at+start, found)})
 			}
 
 			start = offset
@@ -283,7 +283,7 @@ func cutBy(text string, at int, found []span) []piece {
 	return pieces
 }
 
-func inSpan(offset int, found []span) bool {
+func isInSpan(offset int, found []span) bool {
 	for _, at := range found {
 		if offset >= at.start && offset < at.end {
 			return true

@@ -135,7 +135,7 @@ func (s screen) spec() screenSpec {
 			key:    model.updateReview,
 			view:   model.reviewView,
 			stage:  (*model).stageReview,
-			typing: func(m model) bool { return m.review.takesEveryKey() },
+			typing: func(m model) bool { return m.review.doesTakeEveryKey() },
 		}
 	}
 

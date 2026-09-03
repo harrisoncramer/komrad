@@ -47,14 +47,14 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-func tailLines(frame string, n int) string {
-	return strings.Join(tailRegion(ansiSeq.ReplaceAllString(frame, ""), n), "\n")
+func tailLines(frame string, count int) string {
+	return strings.Join(tailRegion(ansiSeq.ReplaceAllString(frame, ""), count), "\n")
 }
 
-func tailRegion(frame string, n int) []string {
+func tailRegion(frame string, count int) []string {
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
+	if len(lines) > count {
+		lines = lines[len(lines)-count:]
 	}
 
 	return lines

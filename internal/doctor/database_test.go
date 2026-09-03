@@ -95,7 +95,7 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 			env := dbEnv(fakeSchema{}, tt.connectErr, nil)
 			env.DatabaseURL = tt.url
 
-			result := Database().Run(t.Context(), env)
+			result := newDatabaseCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -109,7 +109,7 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 // TestDatabaseCheckHidesThePassword covers that a report is safe to paste: the address is
 // the part worth reading and the password is not part of it.
 func TestDatabaseCheckHidesThePassword(t *testing.T) {
-	result := Database().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
+	result := newDatabaseCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
 
 	assert.NotContains(t, result.Detail, "weave:weave")
 	assert.NotContains(t, result.Detail, "sslmode")
@@ -148,8 +148,8 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 			env := dbEnv(fakeSchema{}, refused(), nil)
 			env.DatabaseURL = tt.url
 
-			assert.Equal(t, tt.want, Database().Run(t.Context(), env).Fix)
-			assert.NotContains(t, Database().Run(t.Context(), env).Fix, "mise",
+			assert.Equal(t, tt.want, newDatabaseCheck().Run(t.Context(), env).Fix)
+			assert.NotContains(t, newDatabaseCheck().Run(t.Context(), env).Fix, "mise",
 				"a fix never names a command that only exists inside a checkout")
 		})
 	}
@@ -159,7 +159,7 @@ func TestDatabaseFixAssumesNoCheckout(t *testing.T) {
 // description of the goal.
 func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
 	missing := &pgconn.PgError{Code: "3D000", Message: `database "weave" does not exist`}
-	result := Database().Run(t.Context(), dbEnv(fakeSchema{}, missing, nil))
+	result := newDatabaseCheck().Run(t.Context(), dbEnv(fakeSchema{}, missing, nil))
 
 	assert.Equal(t, "createdb weave, or point the database url at one that exists", result.Fix)
 }
@@ -168,7 +168,7 @@ func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
 // the service migrates on the way up.
 func TestSchemaCheck(t *testing.T) {
 	t.Run("up to date", func(t *testing.T) {
-		result := Schema().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
+		result := newSchemaCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
 
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "up to date", result.Detail)
@@ -176,7 +176,7 @@ func TestSchemaCheck(t *testing.T) {
 
 	t.Run("behind", func(t *testing.T) {
 		schema := fakeSchema{pending: []string{"20260727000000_initial.sql", "20260801000000_next.sql"}}
-		result := Schema().Run(t.Context(), dbEnv(schema, nil, nil))
+		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
 		assert.Equal(t, StatusWarn, result.Status, "the service applies these itself on the way up")
 		assert.Equal(t, "schema_behind", CodeOf(result.Err))
@@ -185,14 +185,14 @@ func TestSchemaCheck(t *testing.T) {
 
 	t.Run("one behind reads as one", func(t *testing.T) {
 		schema := fakeSchema{pending: []string{"20260727000000_initial.sql"}}
-		result := Schema().Run(t.Context(), dbEnv(schema, nil, nil))
+		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
 		assert.Contains(t, result.Err.Error(), "1 migration not")
 	})
 
 	t.Run("a ledger that will not read", func(t *testing.T) {
 		schema := fakeSchema{err: errors.New("permission denied for table schema_migrations")}
-		result := Schema().Run(t.Context(), dbEnv(schema, nil, nil))
+		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "schema_unreadable", CodeOf(result.Err))
@@ -203,7 +203,7 @@ func TestSchemaCheck(t *testing.T) {
 // before it listens, and the panel shows a startup error naming none of this.
 func TestReadOnlyLoginCheck(t *testing.T) {
 	t.Run("a login that works", func(t *testing.T) {
-		result := ReadOnlyLogin().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
+		result := newReadOnlyLoginCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
 
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "postgres://weave_readonly@localhost:5460/weave", result.Detail)
@@ -211,7 +211,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 
 	t.Run("a login that does not exist yet", func(t *testing.T) {
 		refusal := &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "weave_readonly"`}
-		result := ReadOnlyLogin().Run(t.Context(), dbEnv(fakeSchema{}, nil, refusal))
+		result := newReadOnlyLoginCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, refusal))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "readonly_login_unusable", CodeOf(result.Err))
@@ -224,7 +224,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		env := dbEnv(fakeSchema{}, nil, nil)
 		env.ReadOnlyDatabaseURL = "postgres://weave_readonly:weave_readonly@localhost:5461/weave?sslmode=disable"
 
-		result := ReadOnlyLogin().Run(t.Context(), env)
+		result := newReadOnlyLoginCheck().Run(t.Context(), env)
 
 		require.Equal(t, StatusWarn, result.Status,
 			"both logins connect, so nothing else in the report says the MCP tools are reading somewhere else")
@@ -237,7 +237,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		env := dbEnv(fakeSchema{}, nil, nil)
 		env.ReadOnlyDatabaseURL = ""
 
-		result := ReadOnlyLogin().Run(t.Context(), env)
+		result := newReadOnlyLoginCheck().Run(t.Context(), env)
 
 		require.Equal(t, StatusFail, result.Status,
 			"an empty url connects as whoever is running weave, so it cannot be handed to the pool")
@@ -248,7 +248,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		env := dbEnv(fakeSchema{}, nil, nil)
 		env.ReadOnlyDatabaseURL = env.DatabaseURL
 
-		result := ReadOnlyLogin().Run(t.Context(), env)
+		result := newReadOnlyLoginCheck().Run(t.Context(), env)
 
 		require.Equal(t, StatusFail, result.Status,
 			"this connects cleanly and hands the MCP endpoint the writable role, so it has to be caught by name")

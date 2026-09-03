@@ -88,8 +88,8 @@ type keyNamer interface {
 
 // UserKeys returns the panel and palette keys as the user's own tmux server names them, empty
 // where it names neither, since that server is the only place either can be set.
-func UserKeys(t keyNamer) (panel, palette string) {
-	return t.ShowGlobal(managerKeyOption), t.ShowGlobal(paletteKeyOption)
+func UserKeys(namer keyNamer) (panel, palette string) {
+	return namer.ShowGlobal(managerKeyOption), namer.ShowGlobal(paletteKeyOption)
 }
 
 type panelKeyTmux interface {

@@ -6,9 +6,9 @@ type Finding struct {
 	Fix    string
 }
 
-// Config is shown instead of the panel when the config file could not be read, since
+// RenderConfigError is shown instead of the panel when the config file could not be read, since
 // printing to stderr would write to a popup tmux destroys in the same instant.
-func Config(width int, err error) string {
+func RenderConfigError(width int, err error) string {
 	return Screen{
 		Width: width,
 		Title: "Your configuration could not be read",
@@ -23,9 +23,9 @@ func Config(width int, err error) string {
 	}.Render()
 }
 
-// Startup is shown instead of the panel when the server could not be started, as a takeover
+// RenderStartupError is shown instead of the panel when the server could not be started, as a takeover
 // rather than the unreachable screen since nothing retries a failed first attempt.
-func Startup(width int, err error, findings []Finding) string {
+func RenderStartupError(width int, err error, findings []Finding) string {
 	screen := Screen{
 		Width: width,
 		Title: "The agent server could not be started",
@@ -52,9 +52,9 @@ func Startup(width int, err error, findings []Finding) string {
 	return screen.Render()
 }
 
-// Unreachable takes over every other screen while the service is not answering, since a
+// RenderUnreachableError takes over every other screen while the service is not answering, since a
 // stale agent list left on screen would read as an empty store.
-func Unreachable(width int, addr string, err error) string {
+func RenderUnreachableError(width int, addr string, err error) string {
 	screen := Screen{
 		Width: width,
 		Title: "Cannot reach the server",

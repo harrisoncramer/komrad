@@ -365,10 +365,10 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 // production type is expected to satisfy the whole of it, since each service asks only for its
 // own slice.
 type testAgentStore interface {
-	launchAgentStore
-	resumeAgentStore
-	adoptAgentStore
-	lifecycleAgentStore
+	launchAgentReadWriter
+	resumeAgentReadWriter
+	adoptAgentReadWriter
+	lifecycleAgentReadWriter
 }
 
 // testAgents is what a test drives instead of one service, holding the pieces an AgentService
@@ -387,7 +387,7 @@ type agentServiceOptions struct {
 	harnesses   fakeHarnesses
 	addr        string
 	flags       string
-	lifecycle   agentScripts
+	lifecycle   agentScriptRunner
 	maxAgents   int
 	maxChildren int
 	notifier    systemMailSender
@@ -480,7 +480,7 @@ type fakeTmuxController interface {
 	paneWriter
 }
 
-func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScripts) *testAgents {
+func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses fakeHarnesses, lifecycle agentScriptRunner) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: harnesses,
@@ -489,7 +489,7 @@ func (s *testStore) agentServiceWithLifecycle(tmux fakeTmuxController, harnesses
 	})
 }
 
-func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentScripts, maxAgents int) *testAgents {
+func (s *testStore) agentServiceCapped(tmux *fakeTmux, lifecycle agentScriptRunner, maxAgents int) *testAgents {
 	return s.agentService(agentServiceOptions{
 		tmux:      tmux,
 		harnesses: fakeHarnesses{harness: &fakeHarness{}},
@@ -589,7 +589,7 @@ func (f *fakeLifecycle) RunDeprovision(ctx context.Context, agent agentstore.Age
 
 type workflowServiceOptions struct {
 	tmux        *fakeTmux
-	lifecycle   agentScripts
+	lifecycle   agentScriptRunner
 	maxAgents   int
 	maxChildren int
 	notifier    systemMailSender

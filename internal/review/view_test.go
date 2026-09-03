@@ -69,7 +69,7 @@ func TestEditTargetIsWhereTheLineLivesNow(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			path, line, ok := view.EditTarget(tt.row)
+			path, line, ok := view.GetEditTarget(tt.row)
 
 			assert.True(t, ok)
 			assert.Equal(t, "greet.go", path)
@@ -99,7 +99,7 @@ func TestEditTargetLooksForwardWhenNothingCameBefore(t *testing.T) {
 		)},
 	}), false)
 
-	_, line, ok := view.EditTarget(2)
+	_, line, ok := view.GetEditTarget(2)
 
 	assert.True(t, ok)
 	assert.Equal(t, 1, line)
@@ -119,7 +119,7 @@ func TestEditTargetRefusesADeletedFile(t *testing.T) {
 		)},
 	}), false)
 
-	_, _, ok := view.EditTarget(2)
+	_, _, ok := view.GetEditTarget(2)
 
 	assert.False(t, ok)
 }
@@ -152,7 +152,7 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 		},
 	), false)
 
-	path, line, ok := view.EditTarget(2)
+	path, line, ok := view.GetEditTarget(2)
 
 	assert.True(t, ok)
 	assert.Equal(t, "emptied.go", path)
@@ -164,7 +164,7 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 func TestJumpHunkWalksTheHunkBeforeLeavingIt(t *testing.T) {
 	view := twoHunkView()
 
-	first := view.First()
+	first := view.GetFirstRow()
 
 	second := view.JumpHunk(first, 1)
 	require.Greater(t, second, first, "forwards is the next hunk")
@@ -213,7 +213,7 @@ func TestViewedFileCollapsesToItsHeader(t *testing.T) {
 	require.Equal(t, 5, view.Len())
 	assert.True(t, view.IsViewed("greet.go"))
 
-	read, total := view.ViewedCount()
+	read, total := view.CountViewedFiles()
 	assert.Equal(t, 1, read)
 	assert.Equal(t, 2, total)
 
@@ -228,9 +228,9 @@ func TestCursorCanRestOnACollapsedHeader(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 	view.SetFileViewed("greet.go", true)
 
-	assert.Equal(t, 0, view.First(), "the fold leaves the header as the first row to rest on")
+	assert.Equal(t, 0, view.GetFirstRow(), "the fold leaves the header as the first row to rest on")
 
-	file, ok := view.FileAt(0)
+	file, ok := view.GetFileAt(0)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 }
@@ -241,9 +241,9 @@ func TestJumpFileLandsOnACollapsedHeader(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 	view.SetFileViewed("wave.go", true)
 
-	landed := view.JumpFile(view.First(), 1)
+	landed := view.JumpFile(view.GetFirstRow(), 1)
 
-	file, ok := view.FileAt(landed)
+	file, ok := view.GetFileAt(landed)
 	require.True(t, ok)
 	assert.Equal(t, "wave.go", file.Path())
 }
@@ -253,7 +253,7 @@ func TestJumpFileLandsOnACollapsedHeader(t *testing.T) {
 func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 	view := NewView(twoFilePatch(), false)
 
-	inside := view.Move(view.First(), 1)
+	inside := view.Move(view.GetFirstRow(), 1)
 	place, ok := view.GetPlace(inside)
 	require.True(t, ok)
 
@@ -271,7 +271,7 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 	back, ok := view.Locate(place)
 	require.True(t, ok)
 
-	file, ok := view.FileAt(back)
+	file, ok := view.GetFileAt(back)
 	require.True(t, ok)
 	assert.Equal(t, "greet.go", file.Path())
 	assert.True(t, view.isPinnable(back), "opening the file again lands the cursor on a line of it")

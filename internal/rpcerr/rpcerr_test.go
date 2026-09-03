@@ -133,7 +133,7 @@ func TestWrapMarksAScriptThatRan(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-	assert.True(t, errui.SetupRan(err))
+	assert.True(t, errui.DidSetupRun(err))
 }
 
 // TestWrapLeavesRefusalsUnmarked covers a refusal reached before any script ran, which the panel
@@ -143,5 +143,5 @@ func TestWrapLeavesRefusalsUnmarked(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-	assert.False(t, errui.SetupRan(err))
+	assert.False(t, errui.DidSetupRun(err))
 }

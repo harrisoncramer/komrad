@@ -144,18 +144,18 @@ func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	assert.Contains(t, buf.String(), "a tmux command failed", "a real failure is not silenced")
 }
 
-// TestRunsShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports,
+// TestIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports,
 // since neither CLI reports the binary weave launched.
-func TestRunsShellReadsMeasuredCommands(t *testing.T) {
+func TestIsRunningShellReadsMeasuredCommands(t *testing.T) {
 	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
 	for _, command := range shells {
-		assert.True(t, PaneStatus{Command: command}.RunsShell(), "%q is a shell", command)
+		assert.True(t, PaneStatus{Command: command}.IsRunningShell(), "%q is a shell", command)
 	}
 
 	// Claude sets its own process title so a pane reports its version, and Codex reports the
 	// wrapper script it was installed as.
 	others := []string{"2.1.241", ".codex-wrapped", "codex", "claude", "node", "cat", ""}
 	for _, command := range others {
-		assert.False(t, PaneStatus{Command: command}.RunsShell(), "%q is not a shell", command)
+		assert.False(t, PaneStatus{Command: command}.IsRunningShell(), "%q is not a shell", command)
 	}
 }

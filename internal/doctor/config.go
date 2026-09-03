@@ -24,9 +24,9 @@ var (
 	}
 )
 
-// Config asserts the user's config layers parse and names them in merge order, since with
+// newConfigCheck asserts the user's config layers parse and names them in merge order, since with
 // more than one file the loader is the only thing that knows where a value came from.
-func Config() Check {
+func newConfigCheck() Check {
 	return Check{
 		Name:        "config",
 		Description: "the panel reads its keybindings, defaults and connection from TOML files",
@@ -86,10 +86,10 @@ func describeConfigFix(env Env) string {
 	return "write " + env.ConfigLayers[0].Path + ", or drop --config to run on the defaults"
 }
 
-// DefaultHarness asserts the CLI a new agent runs is one this build knows how to run; the
+// newDefaultHarnessCheck asserts the CLI a new agent runs is one this build knows how to run; the
 // config takes a name rather than a choice, so a misspelling is otherwise only found when
 // somebody tries to create an agent.
-func DefaultHarness() Check {
+func newDefaultHarnessCheck() Check {
 	return Check{
 		Name:        "default harness",
 		Description: "the agent CLI a new agent runs when nothing names one",
@@ -116,9 +116,9 @@ func DefaultHarness() Check {
 	}
 }
 
-// HarnessBinary asserts one agent CLI is on PATH, since a missing one leaves the pane
+// newHarnessBinaryCheck asserts one agent CLI is on PATH, since a missing one leaves the pane
 // printing "command not found" and going idle, which the reconciler reads as finished.
-func HarnessBinary(agent HarnessInfo) Check {
+func newHarnessBinaryCheck(agent HarnessInfo) Check {
 	return Check{
 		Name:        agent.ID,
 		Description: "agents on the " + agent.ID + " harness run this command",

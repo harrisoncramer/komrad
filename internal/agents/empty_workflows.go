@@ -13,7 +13,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-type emptyWorkflowStore interface {
+type emptyWorkflowGetDeleter interface {
 	GetIncludingArchived(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	Delete(ctx context.Context, id string) error
 }
@@ -23,7 +23,7 @@ type workflowResidentLister interface {
 	NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error)
 }
 
-type emptyWorkflowSchedules interface {
+type workflowScheduleListDeleter interface {
 	ListInWorkflow(ctx context.Context, workflowID string) ([]schedulestore.Schedule, error)
 	Delete(ctx context.Context, id string) error
 }
@@ -33,15 +33,15 @@ type emptyWorkflowSchedules interface {
 // what lets it sit underneath both the agent delete that empties a workflow out and the workflow
 // delete that asks the same question of itself.
 type EmptyWorkflowDeleter struct {
-	workflows emptyWorkflowStore
+	workflows emptyWorkflowGetDeleter
 	agents    workflowResidentLister
-	schedules emptyWorkflowSchedules
+	schedules workflowScheduleListDeleter
 }
 
 type EmptyWorkflowDeleterParams struct {
-	Workflows emptyWorkflowStore
+	Workflows emptyWorkflowGetDeleter
 	Agents    workflowResidentLister
-	Schedules emptyWorkflowSchedules
+	Schedules workflowScheduleListDeleter
 }
 
 // NewEmptyWorkflowDeleter builds the deleter over the three stores a workflow's removal touches.

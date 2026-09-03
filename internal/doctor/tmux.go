@@ -38,9 +38,9 @@ var (
 
 var minTmux = tmuxVersion{major: 3, minor: 3}
 
-// TmuxBinary asserts tmux is installed; the popup, the agent panes, and the manager server
+// newTmuxBinaryCheck asserts tmux is installed; the popup, the agent panes, and the manager server
 // are all tmux, so nothing works without it.
-func TmuxBinary() Check {
+func newTmuxBinaryCheck() Check {
 	return Check{
 		Name:        "tmux",
 		Description: "tmux runs the panel popup and every agent pane",
@@ -55,9 +55,9 @@ func TmuxBinary() Check {
 	}
 }
 
-// TmuxVersion asserts the installed tmux is new enough for the key binding, warning rather
+// newTmuxVersionCheck asserts the installed tmux is new enough for the key binding, warning rather
 // than failing on a version it cannot parse since forks and OpenBSD spell it their own way.
-func TmuxVersion() Check {
+func newTmuxVersionCheck() Check {
 	return Check{
 		Name:        "tmux version",
 		Description: "the panel's popup needs tmux " + minTmux.String() + " or newer",
@@ -135,9 +135,9 @@ func parseTmuxVersion(reported string) (tmuxVersion, error) {
 	return tmuxVersion{major: majorNumber, minor: minorNumber}, nil
 }
 
-// TmuxShell asserts the shell tmux starts agent panes with can parse the command that starts
+// newTmuxShellCheck asserts the shell tmux starts agent panes with can parse the command that starts
 // an agent, which otherwise fails as a syntax error and leaves the panel refusing to open.
-func TmuxShell() Check {
+func newTmuxShellCheck() Check {
 	return Check{
 		Name:        "tmux shell",
 		Description: "agent panes are started through tmux's default-shell",

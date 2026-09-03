@@ -10,15 +10,15 @@ import (
 // shown is the first thing that broke rather than the last thing it caused.
 func (m model) View() string {
 	if m.configErr != nil {
-		return errui.Config(m.width, m.configErr)
+		return errui.RenderConfigError(m.width, m.configErr)
 	}
 
 	if m.startupErr != nil {
-		return errui.Startup(m.width, m.startupErr, m.startupFindings)
+		return errui.RenderStartupError(m.width, m.startupErr, m.startupFindings)
 	}
 
 	if m.unreachable != nil {
-		return errui.Unreachable(m.width, m.addr, m.unreachable)
+		return errui.RenderUnreachableError(m.width, m.addr, m.unreachable)
 	}
 
 	var chrome string
@@ -33,7 +33,7 @@ func (m model) View() string {
 }
 
 func (m model) screenView() string {
-	if m.form.active() {
+	if m.form.isActive() {
 		return m.form.form.View()
 	}
 

@@ -118,7 +118,7 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.archive.selected.active() {
+	if m.archive.selected.isActive() {
 		return m.updateArchiveSelection(key)
 	}
 
@@ -127,7 +127,7 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.openFilter()
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
-	case m.filter.standing() && isBound(k, m.keys.Archive.Back):
+	case m.filter.isStanding() && isBound(k, m.keys.Archive.Back):
 		return m.openFilter()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
@@ -341,7 +341,7 @@ func (m *model) stageArchive() {
 		m.stageDocument(emptyArchiveMarkdown)
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
-	case m.stageMatch(r.item.agent.ID):
+	case m.doesStageMatch(r.item.agent.ID):
 	default:
 		m.stageDocument(m.archiveDocument(r.item.agent))
 	}

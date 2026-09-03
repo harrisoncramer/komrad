@@ -87,7 +87,7 @@ func TestServerCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := Server().Run(t.Context(), serverEnv(tt.status))
+			result := newServerCheck().Run(t.Context(), serverEnv(tt.status))
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -99,7 +99,7 @@ func TestServerCheck(t *testing.T) {
 // broken: the panel spawns the server the first time it opens, so nothing serving before
 // then is the expected state.
 func TestServerDownIsNotAProblem(t *testing.T) {
-	report := Run(t.Context(), serverEnv(ServerStatus{}), []Check{Server()})
+	report := Run(t.Context(), serverEnv(ServerStatus{}), []Check{newServerCheck()})
 
 	assert.True(t, report.Summary.Healthy)
 	assert.Equal(t, 1, report.Summary.Warn)
@@ -108,7 +108,7 @@ func TestServerDownIsNotAProblem(t *testing.T) {
 // TestStaleServerNamesBothBuilds covers that the message carries the two versions, since
 // which one is stale is the whole question and neither is guessable from the other.
 func TestStaleServerNamesBothBuilds(t *testing.T) {
-	result := Server().Run(t.Context(), serverEnv(ServerStatus{
+	result := newServerCheck().Run(t.Context(), serverEnv(ServerStatus{
 		Answering: true, Ready: true, Version: "v1.0.0",
 	}))
 
@@ -127,14 +127,14 @@ func TestStaleServerFixDependsOnThePanel(t *testing.T) {
 	}
 
 	t.Run("no panel running", func(t *testing.T) {
-		result := Server().Run(t.Context(), withPanel(stale, false))
+		result := newServerCheck().Run(t.Context(), withPanel(stale, false))
 
 		assert.Equal(t, "weave stop, then reopen the panel", result.Fix,
 			"the next open creates the session and spawns the current build")
 	})
 
 	t.Run("a panel is running", func(t *testing.T) {
-		result := Server().Run(t.Context(), withPanel(stale, true))
+		result := newServerCheck().Run(t.Context(), withPanel(stale, true))
 
 		assert.NotContains(t, result.Fix, "weave stop",
 			"stopping the server under a live panel strands it, since nothing re-runs ensureServer")
@@ -147,7 +147,7 @@ func TestStaleServerFixDependsOnThePanel(t *testing.T) {
 // TestNotReadyWaitsRatherThanRestarts covers that a database coming back needs no
 // intervention: the pool reconnects, so the server recovers and the panel clears itself.
 func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
-	result := Server().Run(t.Context(), withPanel(ServerStatus{
+	result := newServerCheck().Run(t.Context(), withPanel(ServerStatus{
 		Answering: true, Version: "v1.2.3", Current: true,
 	}, true))
 
@@ -208,7 +208,7 @@ func TestListenAddressIsCheckedFirst(t *testing.T) {
 			})
 			env.Addr = tt.addr
 
-			result := Server().Run(t.Context(), env)
+			result := newServerCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))

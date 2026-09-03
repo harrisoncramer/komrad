@@ -61,8 +61,8 @@ var (
 	}
 )
 
-// Database asserts Postgres is there and will let weave in.
-func Database() Check {
+// newDatabaseCheck asserts Postgres is there and will let weave in.
+func newDatabaseCheck() Check {
 	return Check{
 		Name:        "database",
 		Description: "every agent, workflow, and schedule weave knows about lives in Postgres",
@@ -86,9 +86,9 @@ func Database() Check {
 	}
 }
 
-// Schema asserts the database has every migration this build ships; being behind is not a
+// newSchemaCheck asserts the database has every migration this build ships; being behind is not a
 // failure the user has to fix, since the service migrates on the way up.
-func Schema() Check {
+func newSchemaCheck() Check {
 	return Check{
 		Name:        "schema",
 		Description: "the tables weave reads have to match the build reading them",
@@ -111,10 +111,10 @@ func Schema() Check {
 	}
 }
 
-// ReadOnlyLogin asserts the least-privilege login exists and can connect; the service opens
+// newReadOnlyLoginCheck asserts the least-privilege login exists and can connect; the service opens
 // a second pool as this login and refuses to start when it cannot, so this check connects
 // the same way the service does rather than something close to it.
-func ReadOnlyLogin() Check {
+func newReadOnlyLoginCheck() Check {
 	return Check{
 		Name:        "readonly login",
 		Description: "the MCP query tools read through a login that can only read",

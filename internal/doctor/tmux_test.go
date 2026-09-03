@@ -158,14 +158,14 @@ func TestTmuxVersionOrdering(t *testing.T) {
 // code rather than only a sentence.
 func TestTmuxBinaryCheck(t *testing.T) {
 	t.Run("tmux is installed", func(t *testing.T) {
-		result := TmuxBinary().Run(t.Context(), tmuxOnPath("/usr/bin/tmux", nil))
+		result := newTmuxBinaryCheck().Run(t.Context(), tmuxOnPath("/usr/bin/tmux", nil))
 
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "/usr/bin/tmux", result.Detail, "where it landed is reported, since two tmuxes on one machine is the confusing case")
 	})
 
 	t.Run("tmux is not installed", func(t *testing.T) {
-		result := TmuxBinary().Run(t.Context(), tmuxOnPath("", exec.ErrNotFound))
+		result := newTmuxBinaryCheck().Run(t.Context(), tmuxOnPath("", exec.ErrNotFound))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "tmux_missing", CodeOf(result.Err))
@@ -221,7 +221,7 @@ func TestTmuxVersionCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := TmuxVersion().Run(t.Context(), tmuxReporting(tt.reported, tt.outErr))
+			result := newTmuxVersionCheck().Run(t.Context(), tmuxReporting(tt.reported, tt.outErr))
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -232,7 +232,7 @@ func TestTmuxVersionCheck(t *testing.T) {
 // TestTmuxVersionNeedsTheBinary covers that the version check does not repeat the missing
 // binary as a second failure, which is what the declared dependency is for.
 func TestTmuxVersionNeedsTheBinary(t *testing.T) {
-	assert.Contains(t, TmuxVersion().Needs, TmuxBinary().Name)
+	assert.Contains(t, newTmuxVersionCheck().Needs, newTmuxBinaryCheck().Name)
 }
 
 func tmuxServers(answers map[string]string) Env {
@@ -306,7 +306,7 @@ func TestTmuxShellCheck(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := TmuxShell().Run(t.Context(), tmuxServers(tt.answers))
+			result := newTmuxShellCheck().Run(t.Context(), tmuxServers(tt.answers))
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -333,7 +333,7 @@ func TestTmuxShellStartsNoServer(t *testing.T) {
 		},
 	}
 
-	TmuxShell().Run(t.Context(), env)
+	newTmuxShellCheck().Run(t.Context(), env)
 
 	require.NotEmpty(t, calls)
 	for _, args := range calls {

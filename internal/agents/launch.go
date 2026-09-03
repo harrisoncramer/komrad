@@ -20,9 +20,9 @@ import (
 	"weave/lib/xstr"
 )
 
-// launchAgentStore is the slice of the agent store a launch writes to, from the key it spends
+// launchAgentReadWriter is the slice of the agent store a launch writes to, from the key it spends
 // through to the row it reads back.
-type launchAgentStore interface {
+type launchAgentReadWriter interface {
 	agentGetter
 	agentCounter
 	childCounter
@@ -35,12 +35,12 @@ type launchAgentStore interface {
 
 type LaunchService struct {
 	tmux               paneController
-	agents             launchAgentStore
+	agents             launchAgentReadWriter
 	workflows          workflowReader
 	tx                 txRunner
 	launcher           *Launcher
 	harnesses          harnessGetter
-	scripts            agentScripts
+	scripts            agentScriptRunner
 	userDefaultHarness string
 	userDefaultFlags   map[string]string
 	maxAgents          int
@@ -49,12 +49,12 @@ type LaunchService struct {
 
 type LaunchServiceParams struct {
 	Tmux               paneController
-	Agents             launchAgentStore
+	Agents             launchAgentReadWriter
 	Workflows          workflowReader
 	Tx                 txRunner
 	Launcher           *Launcher
 	Harnesses          harnessGetter
-	Scripts            agentScripts
+	Scripts            agentScriptRunner
 	UserDefaultHarness string
 	UserDefaultFlags   map[string]string
 	MaxAgents          int
@@ -453,7 +453,7 @@ func (s *LaunchService) failCreate(ctx context.Context, agent agentstore.Agent, 
 
 // awaitDeprovision runs a deprovisioner and waits for it, so a create that failed has given
 // back the directory it provisioned before the row is closed out against it.
-func awaitDeprovision(ctx context.Context, deprovision agentScripts, agent agentstore.Agent, name string) {
+func awaitDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string) {
 	finished := make(chan error, 1)
 	runDeprovision(ctx, deprovision, agent, name, func(deprovisionErr error) {
 		finished <- deprovisionErr
@@ -543,7 +543,7 @@ func requireUsableDir(dir string) error {
 	return nil
 }
 
-func claimRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want int) error {
+func claimRoomForAgents(ctx context.Context, agents agentSlotLocker, maxAgents, want int) error {
 	if maxAgents <= 0 || want <= 0 {
 		return nil
 	}
@@ -556,7 +556,7 @@ func claimRoomForAgents(ctx context.Context, agents agentSlots, maxAgents, want 
 
 // claimRoomForChildren holds one parent to the children it may run at once, which is a lower
 // ceiling than the panel's because they all edit the one checkout.
-func claimRoomForChildren(ctx context.Context, agents childSlots, maxChildren int, parent *agentstore.Agent) error {
+func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildren int, parent *agentstore.Agent) error {
 	if parent == nil || maxChildren <= 0 {
 		return nil
 	}
@@ -574,7 +574,7 @@ func claimRoomForChildren(ctx context.Context, agents childSlots, maxChildren in
 // claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
 // same ceiling a create is held to, since a child archived on its own may have been replaced
 // while it was gone.
-func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlots, maxChildren int, restoring []agentstore.Agent) error {
+func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotLocker, maxChildren int, restoring []agentstore.Agent) error {
 	if maxChildren <= 0 {
 		return nil
 	}

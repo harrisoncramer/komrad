@@ -157,8 +157,8 @@ var shellCommands = map[string]bool{
 	"nu": true, "-nu": true,
 }
 
-// RunsShell reports whether the pane's foreground program is a plain shell.
-func (p PaneStatus) RunsShell() bool { return shellCommands[p.Command] }
+// IsRunningShell reports whether the pane's foreground program is a plain shell.
+func (p PaneStatus) IsRunningShell() bool { return shellCommands[p.Command] }
 
 // GetPanes returns every pane on the server keyed to what it says about itself.
 func (c *Client) GetPanes() (map[string]PaneStatus, error) {

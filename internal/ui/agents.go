@@ -41,7 +41,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.tree.selected.active() {
+	if m.tree.selected.isActive() {
 		return m.updateAgentsSelection(key)
 	}
 
@@ -54,7 +54,7 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
 	}
-	if m.filter.standing() && isBound(k, m.keys.Agents.Back) {
+	if m.filter.isStanding() && isBound(k, m.keys.Agents.Back) {
 		return m.openFilter()
 	}
 	if isBound(k, m.keys.Workflows.New) {
@@ -389,7 +389,7 @@ func (m *model) stageSelection() {
 	switch {
 	case r.header:
 		m.stageDocument(workflowContextMarkdown(r.workflow))
-	case m.stageMatch(r.item.agent.ID):
+	case m.doesStageMatch(r.item.agent.ID):
 	case r.item.agent.State == agentstore.StateSettingUp:
 		m.stageDocument(settingUpPlaceholder)
 	case agentstore.IsFailed(r.item.agent.State):

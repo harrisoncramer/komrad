@@ -116,7 +116,7 @@ func TestSearchReachesTheThreadsAtTheFoot(t *testing.T) {
 
 	at, ok := view.JumpMatch(-1, 1)
 	require.True(t, ok)
-	assert.Equal(t, view.Last(), at, "the match is the thread's own row")
+	assert.Equal(t, view.GetLastRow(), at, "the match is the thread's own row")
 }
 
 // TestSearchIsRunAgainWhenTheRowsMove covers pinning rebuilding the foot section, which leaves
@@ -140,5 +140,5 @@ func TestSearchIsRunAgainWhenTheRowsMove(t *testing.T) {
 
 	at, ok := view.JumpMatch(-1, 1)
 	assert.False(t, ok)
-	assert.LessOrEqual(t, at, view.Last())
+	assert.LessOrEqual(t, at, view.GetLastRow())
 }

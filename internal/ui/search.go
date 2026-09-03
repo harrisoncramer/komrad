@@ -386,9 +386,9 @@ func (h searchHit) spans(content string) []span {
 	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet))
 }
 
-// stageMatch puts the transcript a search hit came from on the stage at the line it matched on,
+// doesStageMatch puts the transcript a search hit came from on the stage at the line it matched on,
 // reporting whether it took the stage, and holds it until the cursor moves to another agent.
-func (m *model) stageMatch(agentID string) bool {
+func (m *model) doesStageMatch(agentID string) bool {
 	if m.match.agentID == "" {
 		return false
 	}

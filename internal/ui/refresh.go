@@ -186,7 +186,7 @@ func (m *model) applyRefresh(result refreshResult) bool {
 
 	// A form drawn over the list holds the stage as it was when it went up, and the review
 	// draws a diff this pass knows nothing about.
-	if spec := m.screen.spec(); spec.fromListing && !m.form.active() {
+	if spec := m.screen.spec(); spec.fromListing && !m.form.isActive() {
 		spec.stage(m)
 	}
 
@@ -339,7 +339,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 	// Only a script that ran leaves its reason in the pane, and every other failure is left
 	// unexplained if the banner stays quiet on the strength of the pane being open.
-	setupRan := result.setupPane && errui.SetupRan(result.err)
+	setupRan := result.setupPane && errui.DidSetupRun(result.err)
 	if setupRan {
 		m.reportBrief(result.summary, "the setup failed, and its output is in the pane it ran in", result.err)
 	} else {

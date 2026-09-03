@@ -455,9 +455,9 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 	m = openReview(t, m)
 
 	first := m.review.cursor
-	anchor, ok := m.review.view.GetAnchor(m.review.view.Last())
+	anchor, ok := m.review.view.GetAnchor(m.review.view.GetLastRow())
 	require.True(t, ok)
-	require.NotEqual(t, first, m.review.view.Last())
+	require.NotEqual(t, first, m.review.view.GetLastRow())
 
 	agents.threads = []*agentv1.ReviewThread{{
 		Id:          "t1",
@@ -470,12 +470,12 @@ func TestReviewJumpsToASingleThread(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
-	require.Equal(t, m.review.view.Last(), m.review.cursor, "t should reach the only thread")
+	require.Equal(t, m.review.view.GetLastRow(), m.review.cursor, "t should reach the only thread")
 
 	// Standing on it, t has nowhere forward to go and has to stay put.
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
-	assert.Equal(t, m.review.view.Last(), m.review.cursor)
+	assert.Equal(t, m.review.view.GetLastRow(), m.review.cursor)
 }
 
 // TestReviewAdriftThreadIsReachable covers a thread whose file is not in the diff, which gets
@@ -502,7 +502,7 @@ func TestReviewAdriftThreadIsReachable(t *testing.T) {
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
 
-	thread, ok := m.review.view.ThreadAt(m.review.cursor)
+	thread, ok := m.review.view.GetThreadAt(m.review.cursor)
 	require.True(t, ok, "t should reach the thread that came adrift")
 	require.Equal(t, "t1", thread.GetId())
 
@@ -965,7 +965,7 @@ func reviewGutterFor(t *testing.T, m model, id string) string {
 	t.Helper()
 
 	for y := range m.review.view.Len() {
-		if thread, ok := m.review.view.ThreadAt(y); ok && thread.GetId() == id {
+		if thread, ok := m.review.view.GetThreadAt(y); ok && thread.GetId() == id {
 			return ansi.Strip(m.review.view.RenderRow(y, false, 120, 0))
 		}
 	}
@@ -995,11 +995,11 @@ func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
 	m = next.(model)
-	require.Equal(t, m.review.view.Last(), m.review.cursor)
+	require.Equal(t, m.review.view.GetLastRow(), m.review.cursor)
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
 
-	assert.LessOrEqual(t, m.review.cursor, m.review.view.Last(), "the cursor stays on a row that exists")
+	assert.LessOrEqual(t, m.review.cursor, m.review.view.GetLastRow(), "the cursor stays on a row that exists")
 	assert.NotPanics(t, func() { m.stageReview() })
 }
 
@@ -1262,7 +1262,7 @@ func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
 	m = next.(model)
 	require.False(t, m.review.filter.typing)
-	require.True(t, m.review.filter.standing())
+	require.True(t, m.review.filter.isStanding())
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
 	m = next.(model)

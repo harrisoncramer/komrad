@@ -74,15 +74,15 @@ type childCounter interface {
 	CountLiveChildren(ctx context.Context, parentID string) (int, error)
 }
 
-type childSlots interface {
+type childSlotLocker interface {
 	childCounter
 	LockSlots(ctx context.Context) error
 }
 
-// restoredChildSlots is what a restore holds a parent to its ceiling with: the count it already
+// restoredChildSlotLocker is what a restore holds a parent to its ceiling with: the count it already
 // runs, plus the rows its children's parent ids stand for, so a refusal can name the parent.
-type restoredChildSlots interface {
-	childSlots
+type restoredChildSlotLocker interface {
+	childSlotLocker
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
 }
 
@@ -92,7 +92,7 @@ type childLister interface {
 	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
 }
 
-type agentSlots interface {
+type agentSlotLocker interface {
 	agentCounter
 	LockSlots(ctx context.Context) error
 }
@@ -117,16 +117,16 @@ type paneKiller interface {
 	KillPane(pane string)
 }
 
-// paneOwners is what tmux is asked to settle whether an agent is still running, one pane at a
+// paneOwnerReader is what tmux is asked to settle whether an agent is still running, one pane at a
 // time or in a listing.
-type paneOwners interface {
+type paneOwnerReader interface {
 	paneLister
 	GetPaneOwner(pane string) string
 }
 
 type paneController interface {
 	paneKiller
-	paneOwners
+	paneOwnerReader
 	NewWindow(session, name, dir string) (string, error)
 	SetPaneOwner(pane, agentID string) error
 	GetClientPath(client string) string
@@ -149,9 +149,9 @@ type harnessGetter interface {
 	GetByID(id string) (harness.Harness, error)
 }
 
-// agentScripts is the seam onto the executables a user hangs off an agent's life, which are
+// agentScriptRunner is the seam onto the executables a user hangs off an agent's life, which are
 // fired on the way in, on the way back in, and on the way out.
-type agentScripts interface {
+type agentScriptRunner interface {
 	RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
 	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
@@ -208,7 +208,7 @@ func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPan
 // hookRunParams is one moment's worth of work: the hooks a workflow lists, the agent they run
 // against, and the moment itself, which is what the script reads out of WEAVE_TRIGGER.
 type hookRunParams struct {
-	scripts agentScripts
+	scripts agentScriptRunner
 	agent   agentstore.Agent
 	hooks   []workflowstore.Hook
 	event   string
@@ -263,7 +263,7 @@ func startHooks(ctx context.Context, p hookRunParams) {
 // startRestoreHooks tells every agent a restore took out of the archive that its row is back
 // but dormant, so a hook here is looking at the record rather than at a running agent: the pane
 // comes back later, when somebody opens it, and fires post-resume of its own.
-func startRestoreHooks(ctx context.Context, scripts agentScripts, workflows workflowReader, restored []agentstore.Agent) {
+func startRestoreHooks(ctx context.Context, scripts agentScriptRunner, workflows workflowReader, restored []agentstore.Agent) {
 	for _, agent := range restored {
 		startHooks(ctx, hookRunParams{
 			scripts: scripts,
@@ -292,7 +292,7 @@ func agentHooks(ctx context.Context, workflows workflowReader, agent agentstore.
 
 // runDeprovision starts a deprovisioner, calling done exactly once with the outcome,
 // including a refusal to start.
-func runDeprovision(ctx context.Context, deprovision agentScripts, agent agentstore.Agent, name string, done func(error)) {
+func runDeprovision(ctx context.Context, deprovision agentScriptRunner, agent agentstore.Agent, name string, done func(error)) {
 	if deprovision == nil || name == "" {
 		if done != nil {
 			done(nil)
@@ -322,9 +322,9 @@ func isProvisionerDisabled(override *bool) bool {
 	return override != nil && !*override
 }
 
-// provisionsWorktree reports whether an agent's directory is weave's to make, which is its
+// doesProvisionWorktree reports whether an agent's directory is weave's to make, which is its
 // workflow's worktree toggle unless the agent itself has been told to keep what it was given.
-func provisionsWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
+func doesProvisionWorktree(ctx context.Context, workflows workflowReader, agent agentstore.Agent) bool {
 	if isProvisionerDisabled(agent.ProvisionEnabled) {
 		return false
 	}
@@ -335,7 +335,7 @@ func provisionsWorktree(ctx context.Context, workflows workflowReader, agent age
 }
 
 func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if !provisionsWorktree(ctx, workflows, agent) {
+	if !doesProvisionWorktree(ctx, workflows, agent) {
 		return ""
 	}
 
@@ -343,7 +343,7 @@ func deprovisionerFor(ctx context.Context, workflows workflowReader, agent agent
 }
 
 func provisionerFor(ctx context.Context, workflows workflowReader, agent agentstore.Agent) string {
-	if !provisionsWorktree(ctx, workflows, agent) {
+	if !doesProvisionWorktree(ctx, workflows, agent) {
 		return ""
 	}
 

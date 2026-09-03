@@ -60,7 +60,7 @@ func (cs *CwdSyncer) Sync(ctx context.Context) error {
 			}
 		}
 
-		if !equalBranch(agent.Branch, branch) {
+		if !isSameBranch(agent.Branch, branch) {
 			if err := cs.agents.SetBranchByID(ctx, agent.ID, branch); err != nil {
 				failures = append(failures, fmt.Errorf("failed to set branch for %q: %w", agent.Name, err))
 			}
@@ -113,7 +113,7 @@ func readBranch(ctx context.Context, dir string) *string {
 	return &branch
 }
 
-func equalBranch(a, b *string) bool {
+func isSameBranch(a, b *string) bool {
 	if a == nil || b == nil {
 		return a == b
 	}

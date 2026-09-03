@@ -140,7 +140,7 @@ func TestToggleSelectionEmptyFolder(t *testing.T) {
 
 	after := press(t, m, keyMsg("v"))
 	assert.Empty(t, after.tree.selected.ids)
-	assert.False(t, after.tree.selected.active())
+	assert.False(t, after.tree.selected.isActive())
 }
 
 // TestSelectRange covers the key that takes in everything between the cursor and the nearest
@@ -214,14 +214,14 @@ func TestSelectionKeysStandDown(t *testing.T) {
 
 	renamed := press(t, m, keyMsg("r"))
 	assert.Equal(t, screenAgents, renamed.screen, "rename does not open its form")
-	assert.False(t, renamed.form.active())
+	assert.False(t, renamed.form.isActive())
 
 	moved := press(t, m, keyMsg("j"))
 	assert.Equal(t, 2, moved.tree.cursor, "the cursor still moves")
 
 	cleared := press(t, m, keyMsg("esc"))
 	assert.Empty(t, cleared.tree.selected.ids)
-	assert.False(t, cleared.tree.selected.active())
+	assert.False(t, cleared.tree.selected.isActive())
 }
 
 // TestPruneSelection covers a selected agent losing its row, which would otherwise hold the

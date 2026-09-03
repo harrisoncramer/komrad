@@ -33,7 +33,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 // editReviewFile opens the file under the cursor in a split under the diff, on the line the
 // cursor is standing on, and takes that split away again when it is already open there.
 func (m model) editReviewFile() (tea.Model, tea.Cmd) {
-	path, line, ok := m.review.view.EditTarget(m.review.cursor)
+	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
 	if !ok {
 		m.review.notice = "that file was deleted, so there is nothing to open"
 

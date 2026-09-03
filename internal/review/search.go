@@ -136,7 +136,7 @@ func (v *View) JumpMatch(y, direction int) (int, bool) {
 // marker, so a pattern like `^\+` finds additions.
 func (v *View) matchText(y int) (string, bool) {
 	if current, ok := v.getRow(y); ok && current.kind == threadRow {
-		return WhereOf(current.thread) + " " + firstLine(current.thread), true
+		return FormatThreadLocation(current.thread) + " " + firstLine(current.thread), true
 	}
 
 	return v.quoteAt(y)

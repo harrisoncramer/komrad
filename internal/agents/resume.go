@@ -23,9 +23,9 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// resumeAgentStore is the slice of the agent store a resume writes to, which is the row's state
+// resumeAgentReadWriter is the slice of the agent store a resume writes to, which is the row's state
 // and the pane it comes back in.
-type resumeAgentStore interface {
+type resumeAgentReadWriter interface {
 	agentGetter
 	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
 	SetStateByID(ctx context.Context, id, state string) error
@@ -35,21 +35,21 @@ type resumeAgentStore interface {
 
 type ResumeService struct {
 	tmux               paneController
-	agents             resumeAgentStore
+	agents             resumeAgentReadWriter
 	workflows          workflowReader
 	launcher           *Launcher
 	harnesses          harnessGetter
-	scripts            agentScripts
+	scripts            agentScriptRunner
 	fallbackResumeRoot string
 }
 
 type ResumeServiceParams struct {
 	Tmux               paneController
-	Agents             resumeAgentStore
+	Agents             resumeAgentReadWriter
 	Workflows          workflowReader
 	Launcher           *Launcher
 	Harnesses          harnessGetter
-	Scripts            agentScripts
+	Scripts            agentScriptRunner
 	FallbackResumeRoot string
 }
 
@@ -170,7 +170,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
 	// the interrupted turn is stamped here rather than left to the reconciler.
-	if agent.InterruptedAt == nil && turnUnfinished(agent.State) {
+	if agent.InterruptedAt == nil && isTurnUnfinished(agent.State) {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
@@ -242,9 +242,9 @@ func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Age
 	return s.scripts.RunResume(ctx, agent, name)
 }
 
-// turnUnfinished reports whether a state leaves a turn part-way through, which covers both the
+// isTurnUnfinished reports whether a state leaves a turn part-way through, which covers both the
 // model still working and a tool call whose question nobody answered.
-func turnUnfinished(state string) bool {
+func isTurnUnfinished(state string) bool {
 	return state == agentstore.StateThinking || state == agentstore.StateWaiting
 }
 

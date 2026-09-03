@@ -104,7 +104,7 @@ func TestHooksCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := dirsEnv(configWithDirs(t, dir, ""), tt.state, WorktreeOwners{}, nil)
 
-			result := Hooks().Run(t.Context(), env)
+			result := newHooksCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -126,7 +126,7 @@ func TestHooksCheckReportsThePathAsTyped(t *testing.T) {
 	env := dirsEnv(configWithDirs(t, typed, ""),
 		map[string]DirState{resolved: presentDir([]string{"notify"}, nil, true)}, WorktreeOwners{}, nil)
 
-	result := Hooks().Run(t.Context(), env)
+	result := newHooksCheck().Run(t.Context(), env)
 
 	assert.Equal(t, StatusOK, result.Status)
 	assert.Contains(t, result.Detail, typed)
@@ -183,7 +183,7 @@ func TestWorktreesCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := dirsEnv(configWithDirs(t, "", dir), tt.state, WorktreeOwners{}, nil)
 
-			result := Worktrees().Run(t.Context(), env)
+			result := newWorktreesCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -257,7 +257,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			env := dirsEnv(configWithDirs(t, "", shared), tt.state, tt.owners, tt.ownersErr)
 
-			result := OrphanedWorktrees().Run(t.Context(), env)
+			result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -288,7 +288,7 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 		own:    presentDir(nil, []string{"01a9"}, true),
 	}, WorktreeOwners{AgentIDs: []string{"01a0"}, WorkflowDirs: []string{own}}, nil)
 
-	result := OrphanedWorktrees().Run(t.Context(), env)
+	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 	assert.Equal(t, StatusWarn, result.Status)
 	assert.Equal(t, "worktrees_unowned", CodeOf(result.Err))
@@ -305,7 +305,7 @@ func TestOrphanedWorktreesCheckNamesOnlyAFewOrphans(t *testing.T) {
 	env := dirsEnv(configWithDirs(t, "", shared),
 		map[string]DirState{shared: presentDir(nil, left, true)}, WorktreeOwners{}, nil)
 
-	result := OrphanedWorktrees().Run(t.Context(), env)
+	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 	assert.Equal(t, StatusWarn, result.Status)
 	assert.Contains(t, result.Err.Error(), "5 worktrees in "+shared)

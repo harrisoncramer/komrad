@@ -54,7 +54,7 @@ type WorkflowService struct {
 	schedules    workflowScheduleCounter
 	tmux         paneKiller
 	tx           txRunner
-	scripts      agentScripts
+	scripts      agentScriptRunner
 	maxAgents    int
 	maxChildren  int
 	notifier     systemMailSender
@@ -68,7 +68,7 @@ type WorkflowParams struct {
 	Schedules    workflowScheduleCounter
 	Tmux         paneKiller
 	Tx           txRunner
-	Scripts      agentScripts
+	Scripts      agentScriptRunner
 	MaxAgents    int
 	MaxChildren  int
 	Notifier     systemMailSender

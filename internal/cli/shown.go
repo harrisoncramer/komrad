@@ -31,7 +31,7 @@ rather than refusing to.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			if !panelShownHere(state) {
+			if !isPanelShownHere(state) {
 				return ErrPanelHidden
 			}
 
@@ -40,9 +40,9 @@ rather than refusing to.`,
 	}
 }
 
-// panelShownHere answers for this server alone, since a panel on screen somewhere else is one
+// isPanelShownHere answers for this server alone, since a panel on screen somewhere else is one
 // this press is asking to have here.
-func panelShownHere(state *app) bool {
+func isPanelShownHere(state *app) bool {
 	socket := tmux.SocketFromEnv(state.env.Tmux)
 	if socket == "" {
 		return false

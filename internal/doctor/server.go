@@ -39,10 +39,10 @@ type ServerStatus struct {
 	Current   bool
 }
 
-// Server reports who holds the address the panel talks through, since an address held by
+// newServerCheck reports who holds the address the panel talks through, since an address held by
 // something else leaves the panel failing to bind and reporting a startup error naming none
 // of it.
-func Server() Check {
+func newServerCheck() Check {
 	return Check{
 		Name:        "server",
 		Description: "the panel reads and changes agents through a local service",

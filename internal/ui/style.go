@@ -21,11 +21,11 @@ var (
 )
 
 func (m model) titleStyle() lipgloss.Style {
-	return titleStyleFor(!m.detailsFocused())
+	return titleStyleFor(!m.isDetailsFocused())
 }
 
 func (m model) rowCursorStyle() lipgloss.Style {
-	return cursorStyleFor(!m.detailsFocused())
+	return cursorStyleFor(!m.isDetailsFocused())
 }
 
 func titleStyleFor(focused bool) lipgloss.Style {

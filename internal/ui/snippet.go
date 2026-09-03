@@ -244,7 +244,7 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 			// The listing's own snippet marks whole words, so a term found inside a longer word
 			// is not what the search matched on, while a match running past the word's end is
 			// kept for the stemmed hit that spells it.
-			if startsWord(turn, at+i) {
+			if doesStartWord(turn, at+i) {
 				start := int(offset) + at + i
 				spans = append(spans, span{start: start, end: start + len(folded)})
 			}
@@ -258,10 +258,10 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 	return mergeSpans(spans)
 }
 
-// startsWord reports whether an index falls at the front of a word, reading the rune before it
+// doesStartWord reports whether an index falls at the front of a word, reading the rune before it
 // rather than the byte, since the punctuation these transcripts are written with runs well past
 // ASCII and a curly quote is no more a word than a straight one is.
-func startsWord(s string, at int) bool {
+func doesStartWord(s string, at int) bool {
 	if at == 0 {
 		return true
 	}

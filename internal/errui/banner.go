@@ -44,9 +44,9 @@ func (b Banner) Render(width int) string {
 	return out.String()
 }
 
-// TraceOf is the id the service logged a failure under, which it returns on the error's
+// GetTrace is the id the service logged a failure under, which it returns on the error's
 // metadata, and blank for a failure that never reached the service or came back without one.
-func TraceOf(err error) string {
+func GetTrace(err error) string {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
 		return connectErr.Meta().Get(caller.TraceHeader)
@@ -55,9 +55,9 @@ func TraceOf(err error) string {
 	return ""
 }
 
-// SetupRan reports whether the failure was a script weave ran on the way in, running and exiting
+// DidSetupRun reports whether the failure was a script weave ran on the way in, running and exiting
 // non-zero, which is the one failure whose output the caller is already looking at.
-func SetupRan(err error) bool {
+func DidSetupRun(err error) bool {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
 		return connectErr.Meta().Get(caller.SetupRanHeader) == "true"
@@ -66,10 +66,10 @@ func SetupRan(err error) bool {
 	return false
 }
 
-// Reason reduces a service error to the part worth reading: a connect error stringifies
+// GetReason reduces a service error to the part worth reading: a connect error stringifies
 // with its code in front of the message, and the code says less to a person reading it
 // than the message does.
-func Reason(err error) string {
+func GetReason(err error) string {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {
 		return connectErr.Message()

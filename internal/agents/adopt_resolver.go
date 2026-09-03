@@ -79,9 +79,9 @@ func (GHPullRequests) Repository(ctx context.Context, dir string) (string, error
 	return repositoryFromRemote(strings.TrimSpace(string(out))), nil
 }
 
-// looksLikePullRequest reports whether a reference names a pull request rather than a branch,
+// isPullRequestRef reports whether a reference names a pull request rather than a branch,
 // which means a GitHub URL, a bare number, or a number behind a hash.
-func looksLikePullRequest(ref string) bool {
+func isPullRequestRef(ref string) bool {
 	if strings.Contains(ref, "/pull/") {
 		return true
 	}

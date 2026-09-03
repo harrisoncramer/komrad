@@ -51,11 +51,11 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-func tailLines(frame string, n int) string {
+func tailLines(frame string, count int) string {
 	frame = ansiSeq.ReplaceAllString(frame, "")
 	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	if len(lines) > n {
-		lines = lines[len(lines)-n:]
+	if len(lines) > count {
+		lines = lines[len(lines)-count:]
 	}
 
 	return strings.Join(lines, "\n")

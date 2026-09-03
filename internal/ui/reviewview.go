@@ -187,13 +187,13 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return m.nameStyle(true, false, true).Render(clipName(review.WhereOf(thread))) + "\n"
+			return m.nameStyle(true, false, true).Render(clipName(review.FormatThreadLocation(thread))) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	out := m.nameStyle(true, false, true).Render(clipName(review.Where(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
+	out := m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
 	for _, quoted := range anchor.QuotedLines {
 		out += reviewQuoteStyle.Render(m.reviewWrap(quoted)) + "\n"
 	}
@@ -222,7 +222,7 @@ func (m model) reviewStatView() string {
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 
-	if read, total := m.review.view.ViewedCount(); read > 0 {
+	if read, total := m.review.view.CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
@@ -232,7 +232,7 @@ func (m model) reviewStatView() string {
 // reviewMatchCount is where in the search the cursor is standing, drawn under the pattern the
 // panel's own filter is already showing.
 func (m model) reviewMatchCount() string {
-	if m.review.view == nil || !m.review.filter.standing() {
+	if m.review.view == nil || !m.review.filter.isStanding() {
 		return ""
 	}
 
@@ -279,7 +279,7 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	out := dimStyle.Render("  written against "+clipName(review.WhereOf(thread))) + "\n"
+	out := dimStyle.Render("  written against "+clipName(review.FormatThreadLocation(thread))) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += reviewQuoteStyle.Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
@@ -433,7 +433,7 @@ func (m model) reviewViewedDesc() string {
 		return "mark the file viewed"
 	}
 
-	if file, ok := m.review.view.FileAt(m.review.cursor); ok && m.review.view.IsViewed(file.Path()) {
+	if file, ok := m.review.view.GetFileAt(m.review.cursor); ok && m.review.view.IsViewed(file.Path()) {
 		return "open the file again"
 	}
 

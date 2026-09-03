@@ -87,11 +87,11 @@ type trackedAgent struct {
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
 // captures, and the state store.
-func NewReconciler(t paneObserver, harnesses harnessGetter, s agentStateWriter) *Reconciler {
+func NewReconciler(panes paneObserver, harnesses harnessGetter, states agentStateWriter) *Reconciler {
 	return &Reconciler{
-		tmux:      t,
+		tmux:      panes,
 		harnesses: harnesses,
-		store:     s,
+		store:     states,
 		tracked:   map[string]trackedAgent{},
 		now:       time.Now,
 	}
@@ -163,9 +163,9 @@ func (r *Reconciler) clearDebounce(agentID string) {
 	r.tracked[agentID] = entry
 }
 
-// shellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
+// hasShellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
 // than the grace a CLI gets to start, noting the first sighting when this is one.
-func (r *Reconciler) shellGraceElapsed(agentID string) bool {
+func (r *Reconciler) hasShellGraceElapsed(agentID string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -216,8 +216,8 @@ func (r *Reconciler) holdUnrecognized(agentID string, hash uint64) bool {
 
 // WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its own,
 // and an agent going idle is never checked while it is unset.
-func (r *Reconciler) WithPRFinder(f prFinder) *Reconciler {
-	r.prFinder = f
+func (r *Reconciler) WithPRFinder(finder prFinder) *Reconciler {
+	r.prFinder = finder
 
 	return r
 }
@@ -272,8 +272,8 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		return
 	}
 
-	if pane.RunsShell() {
-		if !r.shellGraceElapsed(agent.ID) {
+	if pane.IsRunningShell() {
+		if !r.hasShellGraceElapsed(agent.ID) {
 			return
 		}
 
@@ -373,7 +373,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	// A pane that goes part-way through a turn took that turn with it, and nothing brings it
 	// back, so the resume has to be told to ask for it again.
 	var interrupted *time.Time
-	if turnUnfinished(agent.State) {
+	if isTurnUnfinished(agent.State) {
 		at := r.now()
 		interrupted = &at
 	}

@@ -315,7 +315,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	m.review.fingerprint = msg.patch.Fingerprint()
 	m.review.held = nil
 	m.review.notice = reopenedNotice(msg.patch, msg.viewed)
-	m.review.cursor = m.review.view.First()
+	m.review.cursor = m.review.view.GetFirstRow()
 	if place := m.review.restore; place != nil {
 		if found, ok := m.review.view.Locate(*place); ok {
 			m.review.cursor = found
@@ -413,7 +413,7 @@ func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 func (m *model) keepReviewCursor(place review.Place, ok bool) {
 	was := m.review.cursor
 
-	m.review.cursor = min(m.review.cursor, m.review.view.Last())
+	m.review.cursor = min(m.review.cursor, m.review.view.GetLastRow())
 	if ok {
 		if found, located := m.review.view.Locate(place); located {
 			m.review.cursor = found
@@ -491,9 +491,9 @@ func (m model) reviewStageArgv(path string) []string {
 	return []string{self, "stage", path}
 }
 
-// takesEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
+// doesTakeEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
 // the panel belongs here instead.
-func (r reviewState) takesEveryKey() bool {
+func (r reviewState) doesTakeEveryKey() bool {
 	return r.composing || r.filter.typing || r.pending != ""
 }
 
@@ -539,9 +539,9 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveReviewCursor(m.review.view.Move(m.review.cursor, -1))
 	case isBound(k, m.keys.Nav.Top):
-		return m.moveReviewCursor(m.review.view.First())
+		return m.moveReviewCursor(m.review.view.GetFirstRow())
 	case isBound(k, m.keys.Nav.Bottom):
-		return m.moveReviewCursor(m.review.view.Last())
+		return m.moveReviewCursor(m.review.view.GetLastRow())
 	case isBound(k, keys.PageDown):
 		return m.pageReview(m.reviewPage())
 	case isBound(k, keys.PageUp):
@@ -693,7 +693,7 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 	next, ok := m.review.view.JumpMatch(m.review.cursor, direction)
 	if !ok {
 		m.review.notice = "nothing to search for yet"
-		if m.review.filter.standing() {
+		if m.review.filter.isStanding() {
 			m.review.notice = "no matches"
 		}
 
@@ -710,7 +710,7 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 		return nil, false
 	}
 
-	return m.review.view.ThreadAt(m.review.cursor)
+	return m.review.view.GetThreadAt(m.review.cursor)
 }
 
 // reloadReviewDiff puts the patch the background poll is holding on screen, and reads the
@@ -765,7 +765,7 @@ func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.cursor = next
-	m.review.top = max(min(m.review.view.FileTop(next), m.review.view.Len()-1), 0)
+	m.review.top = max(min(m.review.view.GetFileTopRow(next), m.review.view.Len()-1), 0)
 	m.review.pinTop = true
 	m.review.pinFloor = m.review.top
 	m.stageReview()
@@ -1003,7 +1003,7 @@ func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
 // again, stepping on to the next file when it has just been folded, since reviewing is a walk
 // down them.
 func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
-	file, ok := m.review.view.FileAt(m.review.cursor)
+	file, ok := m.review.view.GetFileAt(m.review.cursor)
 	if !ok {
 		return m, nil
 	}
@@ -1180,7 +1180,7 @@ func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
 
 	// A reader mid-input is left alone, since the cursor, the window and the composer are theirs
 	// until the key that closes them, and the tick after that picks the work up.
-	if m.review.takesEveryKey() {
+	if m.review.doesTakeEveryKey() {
 		return nil
 	}
 
@@ -1260,7 +1260,7 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 
 	// Input can have started while the read was in flight, and the probe is left where it was
 	// so the tick after the reader is done finds this again.
-	if m.review.takesEveryKey() {
+	if m.review.doesTakeEveryKey() {
 		return
 	}
 

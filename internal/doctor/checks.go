@@ -7,21 +7,21 @@ import "weave/lib/xslice"
 // depend on one declared before it, since it reads that check's conclusion.
 func Checks(settings Settings) []Check {
 	checks := []Check{
-		TmuxBinary(),
-		TmuxVersion(),
-		TmuxShell(),
-		Config(),
-		DefaultHarness(),
-		Hooks(),
-		Worktrees(),
-		Database(),
-		Schema(),
-		ReadOnlyLogin(),
-		OrphanedWorktrees(),
-		Server(),
+		newTmuxBinaryCheck(),
+		newTmuxVersionCheck(),
+		newTmuxShellCheck(),
+		newConfigCheck(),
+		newDefaultHarnessCheck(),
+		newHooksCheck(),
+		newWorktreesCheck(),
+		newDatabaseCheck(),
+		newSchemaCheck(),
+		newReadOnlyLoginCheck(),
+		newOrphanedWorktreesCheck(),
+		newServerCheck(),
 	}
 
-	checks = append(checks, xslice.Map(settings.Harnesses, HarnessBinary)...)
+	checks = append(checks, xslice.Map(settings.Harnesses, newHarnessBinaryCheck)...)
 
 	return checks
 }

@@ -113,7 +113,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 				return
 			}
 
-			assert.True(t, sameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
+			assert.True(t, isSameDir(elsewhere, stored.Cwd), "the agent is launched into the checkout that already holds the branch")
 			require.NotNil(t, stored.ProvisionEnabled)
 			assert.False(t, *stored.ProvisionEnabled, "nothing is provisioned for a checkout somebody else made")
 			assert.Empty(t, deprovisionerFor(t.Context(), st.Workflows, stored), "so nothing tears it down either")
@@ -394,7 +394,7 @@ func TestLooksLikePullRequest(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.ref, func(t *testing.T) {
-			assert.Equal(t, tt.want, looksLikePullRequest(tt.ref))
+			assert.Equal(t, tt.want, isPullRequestRef(tt.ref))
 		})
 	}
 }

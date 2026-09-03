@@ -46,7 +46,7 @@ func TestPinHoldsWhenLinesShiftBeneathIt(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 1, 1, " package greet")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.ThreadAt(3)
+	found, ok := view.GetThreadAt(3)
 	require.True(t, ok, "the thread should still be on the line it was written against")
 	assert.Equal(t, "t1", found.GetId())
 	assert.False(t, view.IsGhosted(thread))
@@ -70,7 +70,7 @@ func TestPinFollowsCodeThatMoved(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 0, 12, "+func Hello() string {")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.ThreadAt(2)
+	found, ok := view.GetThreadAt(2)
 	require.True(t, ok)
 	assert.Equal(t, "t1", found.GetId())
 	assert.False(t, view.IsGhosted(thread))
@@ -99,7 +99,7 @@ func TestPinGhostsWhenTheLineChangedUnderIt(t *testing.T) {
 	thread := threadAt("t1", "greet.go", 4, 4, " return \"hello\"")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	found, ok := view.ThreadAt(2)
+	found, ok := view.GetThreadAt(2)
 	require.True(t, ok, "the thread stays on its old-side line")
 	assert.Equal(t, "t1", found.GetId())
 	assert.True(t, view.IsGhosted(thread))
@@ -154,8 +154,8 @@ func TestAdriftThreadGetsItsOwnRow(t *testing.T) {
 
 	require.Equal(t, lines+2, view.Len(), "one row saying what the section is, and one for the thread")
 
-	last := view.Last()
-	found, ok := view.ThreadAt(last)
+	last := view.GetLastRow()
+	found, ok := view.GetThreadAt(last)
 	require.True(t, ok)
 	assert.Equal(t, "t1", found.GetId())
 	assert.Equal(t, adrift, view.placed[thread.GetId()])
@@ -247,11 +247,11 @@ func TestASecondThreadOnALineGetsItsOwnRow(t *testing.T) {
 	second := threadAt("t2", "greet.go", 1, 1, " package greet")
 	view.PinThreads([]*agentv1.ReviewThread{first, second})
 
-	onTheLine, ok := view.ThreadAt(2)
+	onTheLine, ok := view.GetThreadAt(2)
 	require.True(t, ok)
 	assert.Equal(t, "t1", onTheLine.GetId())
 
-	atTheFoot, ok := view.ThreadAt(view.Last())
+	atTheFoot, ok := view.GetThreadAt(view.GetLastRow())
 	require.True(t, ok, "the second thread is reachable rather than hidden behind the first")
 	assert.Equal(t, "t2", atTheFoot.GetId())
 	assert.Equal(t, adrift, view.placed[second.GetId()])
@@ -278,13 +278,13 @@ func TestAdriftThreadsSortByLineNotByText(t *testing.T) {
 		threadAt("t2", "gone.go", 0, 9, "+nine"),
 	})
 
-	last := view.Last()
+	last := view.GetLastRow()
 
-	ninth, ok := view.ThreadAt(last - 1)
+	ninth, ok := view.GetThreadAt(last - 1)
 	require.True(t, ok)
 	assert.Equal(t, "t2", ninth.GetId(), "line 9 comes before line 10")
 
-	tenth, ok := view.ThreadAt(last)
+	tenth, ok := view.GetThreadAt(last)
 	require.True(t, ok)
 	assert.Equal(t, "t1", tenth.GetId())
 }

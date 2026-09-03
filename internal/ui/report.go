@@ -8,7 +8,7 @@ func (m *model) reportBrief(summary, detail string, err error) {
 	m.banner = &errui.Banner{
 		Summary: summary,
 		Detail:  detail,
-		Trace:   errui.TraceOf(err),
+		Trace:   errui.GetTrace(err),
 	}
 }
 
@@ -21,7 +21,7 @@ func (m *model) report(summary string, err error) {
 
 	m.banner = &errui.Banner{
 		Summary: summary,
-		Detail:  errui.Reason(err),
-		Trace:   errui.TraceOf(err),
+		Detail:  errui.GetReason(err),
+		Trace:   errui.GetTrace(err),
 	}
 }

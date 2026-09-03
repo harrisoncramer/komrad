@@ -54,8 +54,8 @@ const (
 	formArchiveEmpty
 )
 
-// active reports whether a form is up and holding the keys.
-func (f formState) active() bool {
+// isActive reports whether a form is up and holding the keys.
+func (f formState) isActive() bool {
 	return f.form != nil
 }
 
@@ -327,7 +327,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 func (m *model) holdForm() tea.Cmd {
 	m.pendingForm = true
 
-	if m.form.active() && m.form.form.State == huh.StateCompleted {
+	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
 	}
 

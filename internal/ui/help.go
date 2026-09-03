@@ -29,7 +29,7 @@ func byLabel(bindings []key.Binding) []key.Binding {
 }
 
 func (m model) renderHelp(k keyMap) string {
-	if m.detailsFocused() {
+	if m.isDetailsFocused() {
 		k = m.detailsHelp()
 	}
 	if m.filter.typing {
@@ -148,7 +148,7 @@ func filterHelp() keyMap {
 }
 
 func (m model) filterBinding() key.Binding {
-	if m.filter.standing() {
+	if m.filter.isStanding() {
 		return binding(m.keys.Filter.Open, "filter: "+m.filter.query)
 	}
 
@@ -156,7 +156,7 @@ func (m model) filterBinding() key.Binding {
 }
 
 func (m model) editFilterBinding(keys []string) []key.Binding {
-	if !m.filter.standing() {
+	if !m.filter.isStanding() {
 		return nil
 	}
 
@@ -187,7 +187,7 @@ func (m model) globalHelp() []key.Binding {
 }
 
 func (m model) agentHelp() keyMap {
-	if m.tree.selected.active() {
+	if m.tree.selected.isActive() {
 		hovered, _ := m.hoveredRow()
 
 		return m.selectionHelp(
@@ -223,7 +223,7 @@ func (m model) agentHelp() keyMap {
 
 func (m model) detailsBinding() key.Binding {
 	desc := "details"
-	if m.detailsFocused() {
+	if m.isDetailsFocused() {
 		desc = "back to the list"
 	}
 
@@ -372,7 +372,7 @@ func (m model) scheduleHelp() keyMap {
 }
 
 func (m model) archiveHelp() keyMap {
-	if m.archive.selected.active() {
+	if m.archive.selected.isActive() {
 		hovered, _ := rowAt(m.archiveRows(), m.archive.cursor)
 
 		return m.selectionHelp(

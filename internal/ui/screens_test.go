@@ -51,6 +51,6 @@ func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
 	got, ok := closed.(model)
 	require.True(t, ok)
 
-	assert.False(t, got.form.active(), "closing takes the prompt down")
+	assert.False(t, got.form.isActive(), "closing takes the prompt down")
 	assert.Equal(t, screenSchedules, got.screen, "and lands back where it was opened from")
 }

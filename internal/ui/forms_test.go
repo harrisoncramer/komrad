@@ -335,7 +335,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 			got := settle(t, submitted, cmd)
 
 			require.Nil(t, got.banner, "the service accepted the write")
-			assert.False(t, got.form.active(), "a write the service took closes the form")
+			assert.False(t, got.form.isActive(), "a write the service took closes the form")
 			tt.check(t, sent)
 		})
 	}
@@ -551,7 +551,7 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			updated, cmd := m.answerForm()
 			m = asModel(t, updated)
 
-			assert.False(t, m.form.active(), "the form is gone the moment it was submitted")
+			assert.False(t, m.form.isActive(), "the form is gone the moment it was submitted")
 			assert.Equal(t, screenAgents, m.screen, "and the list it was drawn over is back")
 			assert.False(t, m.pendingForm)
 			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the provisioner to stream into")

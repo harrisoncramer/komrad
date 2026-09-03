@@ -30,7 +30,7 @@ const (
 	prStateClosed = "CLOSED"
 )
 
-type prArchiveAgentStore interface {
+type prArchiveAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
@@ -44,7 +44,7 @@ type prArchiveAgentArchiver interface {
 }
 
 type PRArchiverParams struct {
-	Agents       prArchiveAgentStore
+	Agents       prArchiveAgentReadWriter
 	Workflows    prArchiveWorkflowGetter
 	Archiver     prArchiveAgentArchiver
 	PullRequests pullRequestResolver
@@ -53,7 +53,7 @@ type PRArchiverParams struct {
 // PRArchiver archives an agent once the pull request it recorded has merged or closed, for
 // the workflows that asked for it.
 type PRArchiver struct {
-	agents       prArchiveAgentStore
+	agents       prArchiveAgentReadWriter
 	workflows    prArchiveWorkflowGetter
 	archiver     prArchiveAgentArchiver
 	pullRequests pullRequestResolver
@@ -99,7 +99,7 @@ func (a *PRArchiver) Sync(ctx context.Context) error {
 	var finished []agentstore.Agent
 	for _, agent := range agents {
 		url, ok := recordedPR(agent)
-		if !ok || !readyToArchive(agent) || a.isQuiet(agent.ID) {
+		if !ok || !isReadyToArchive(agent) || a.isQuiet(agent.ID) {
 			continue
 		}
 
@@ -113,7 +113,7 @@ func (a *PRArchiver) Sync(ctx context.Context) error {
 			continue
 		}
 
-		if a.closed(ctx, agent, url, wf.repo) {
+		if a.isPullRequestClosed(ctx, agent, url, wf.repo) {
 			finished = append(finished, agent)
 		}
 	}
@@ -167,9 +167,9 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 	}
 }
 
-// closed reports whether the pull request an agent recorded has merged or closed and is still
+// isPullRequestClosed reports whether the pull request an agent recorded has merged or isPullRequestClosed and is still
 // the one weave thinks it is, leaving the agent alone when the lookup fails.
-func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, repo string) bool {
+func (a *PRArchiver) isPullRequestClosed(ctx context.Context, agent agentstore.Agent, url, repo string) bool {
 	lookupCtx, cancel := context.WithTimeout(ctx, prStateTimeout)
 	defer cancel()
 
@@ -189,7 +189,7 @@ func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, re
 		return false
 	}
 
-	if !answersAbout(agent, *pr, repo) {
+	if !doesAnswerAbout(agent, *pr, repo) {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "an agent's recorded pull request is not the one it is working on, so it was left alone",
 			slog.String(logging.AgentID, agent.ID),
 			slog.String(logging.PullRequestURL, pr.URL))
@@ -202,9 +202,9 @@ func (a *PRArchiver) closed(ctx context.Context, agent agentstore.Agent, url, re
 	return true
 }
 
-// answersAbout reports whether a finished pull request is still the one this agent is on,
+// doesAnswerAbout reports whether a finished pull request is still the one this agent is on,
 // since nothing refreshes the recorded one.
-func answersAbout(agent agentstore.Agent, pr PullRequest, repo string) bool {
+func doesAnswerAbout(agent agentstore.Agent, pr PullRequest, repo string) bool {
 	// One casing comes from a pull request URL and the other from a git remote.
 	if repo != "" && pr.Repository != "" && !strings.EqualFold(pr.Repository, repo) {
 		return false
@@ -291,9 +291,9 @@ func (a *PRArchiver) forgetExpiredQuiet() {
 	}
 }
 
-// readyToArchive reports whether an agent can lose its pane without losing work, which means one
+// isReadyToArchive reports whether an agent can lose its pane without losing work, which means one
 // sitting idle or one already dormant with no pane to lose.
-func readyToArchive(agent agentstore.Agent) bool {
+func isReadyToArchive(agent agentstore.Agent) bool {
 	if agent.State == agentstore.StateSettingUp || agentstore.IsFailed(agent.State) {
 		return false
 	}
@@ -341,13 +341,13 @@ func prLookupDir(agent agentstore.Agent) string {
 	return agent.Cwd
 }
 
-type prStampStore interface {
+type metadataSetter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
 // stampRestoredPRs records the pull request each restored agent carries as one already dealt
 // with, so the next pass does not archive an agent somebody just brought back by hand.
-func stampRestoredPRs(ctx context.Context, store prStampStore, restored []agentstore.Agent) error {
+func stampRestoredPRs(ctx context.Context, agents metadataSetter, restored []agentstore.Agent) error {
 	var failures []error
 	for _, agent := range restored {
 		url, ok := recordedPR(agent)
@@ -357,7 +357,7 @@ func stampRestoredPRs(ctx context.Context, store prStampStore, restored []agents
 
 		// The pull request's state is not read, since that means asking GitHub while somebody
 		// waits on a keypress.
-		if _, err := store.SetMetadata(ctx, agentstore.SetMetadataParams{
+		if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 			ID:    agent.ID,
 			Key:   prArchivedMetadataKey,
 			Value: &url,

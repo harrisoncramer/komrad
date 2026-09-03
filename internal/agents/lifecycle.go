@@ -17,9 +17,9 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// lifecycleAgentStore is the slice of the agent store archiving, restoring and deleting write
+// lifecycleAgentReadWriter is the slice of the agent store archiving, restoring and deleting write
 // to outside a transaction; the writes that have to be atomic go through the tx-scoped store.
-type lifecycleAgentStore interface {
+type lifecycleAgentReadWriter interface {
 	agentFailWriter
 	childLister
 	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
@@ -36,11 +36,11 @@ type emptyWorkflowDeleter interface {
 // deprovisioner on the way out.
 type LifecycleService struct {
 	tmux           paneKiller
-	agents         lifecycleAgentStore
+	agents         lifecycleAgentReadWriter
 	workflows      workflowReader
 	emptyWorkflows emptyWorkflowDeleter
 	tx             txRunner
-	scripts        agentScripts
+	scripts        agentScriptRunner
 	notifier       systemMailSender
 	logsDir        string
 	maxAgents      int
@@ -49,11 +49,11 @@ type LifecycleService struct {
 
 type LifecycleServiceParams struct {
 	Tmux           paneKiller
-	Agents         lifecycleAgentStore
+	Agents         lifecycleAgentReadWriter
 	Workflows      workflowReader
 	EmptyWorkflows emptyWorkflowDeleter
 	Tx             txRunner
-	Scripts        agentScripts
+	Scripts        agentScriptRunner
 	Notifier       systemMailSender
 	LogsDir        string
 	MaxAgents      int

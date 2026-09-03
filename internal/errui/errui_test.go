@@ -125,11 +125,11 @@ func TestScreensFitTheirPane(t *testing.T) {
 	}{
 		{
 			name:     "the config screen",
-			rendered: Config(narrowPane, err),
+			rendered: RenderConfigError(narrowPane, err),
 		},
 		{
 			name: "the startup screen",
-			rendered: Startup(narrowPane, err, []Finding{{
+			rendered: RenderStartupError(narrowPane, err, []Finding{{
 				Name:   "readonly login",
 				Reason: `the least-privilege login the MCP tools connect as does not work: password authentication failed for user "weave_readonly"`,
 				Fix:    "weave readonly-role",
@@ -137,18 +137,18 @@ func TestScreensFitTheirPane(t *testing.T) {
 		},
 		{
 			name: "the config screen carrying a detail of several lines",
-			rendered: Config(narrowPane, errors.New(
+			rendered: RenderConfigError(narrowPane, errors.New(
 				"failed to parse config /home/u/.config/weave/config.toml: "+
 					"default_harnes is not a setting; the top level takes default_harness, max_agents\n"+
 					"layout.splitt is not a setting; [layout] takes sidebar_side, sidebar_width, info_side, info_height")),
 		},
 		{
 			name:     "the unreachable screen",
-			rendered: Unreachable(narrowPane, "127.0.0.1:8787", err),
+			rendered: RenderUnreachableError(narrowPane, "127.0.0.1:8787", err),
 		},
 		{
 			name:     "a refused write's banner",
-			rendered: Banner{Summary: `Could not rename agent "api-refactor"`, Detail: Reason(err)}.Render(narrowPane),
+			rendered: Banner{Summary: `Could not rename agent "api-refactor"`, Detail: GetReason(err)}.Render(narrowPane),
 		},
 	}
 
@@ -167,7 +167,7 @@ func TestScreensFitTheirPane(t *testing.T) {
 func TestConfig(t *testing.T) {
 	err := errors.New("failed to parse config /home/u/.config/weave/config.toml: keybindings.list is not a setting; [keybindings] takes scripts, agents, archive, filter, form, help, nav, schedules, selection, workflows")
 
-	rendered := strings.Join(strings.Fields(Config(narrowPane, err)), " ")
+	rendered := strings.Join(strings.Fields(RenderConfigError(narrowPane, err)), " ")
 
 	assert.Contains(t, rendered, "Your configuration could not be read")
 	assert.Contains(t, rendered, "keybindings.list is not a setting")
@@ -180,7 +180,7 @@ func TestConfig(t *testing.T) {
 func TestStartup(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
-	rendered := strings.Join(strings.Fields(Startup(narrowPane, err, nil)), " ")
+	rendered := strings.Join(strings.Fields(RenderStartupError(narrowPane, err, nil)), " ")
 
 	assert.Contains(t, rendered, "The agent server could not be started")
 	assert.Contains(t, rendered, "connect: connection refused")
@@ -194,7 +194,7 @@ func TestStartup(t *testing.T) {
 func TestStartupCarriesTheFindings(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db read-only")
 
-	rendered := strings.Join(strings.Fields(Startup(widePane, err, []Finding{{
+	rendered := strings.Join(strings.Fields(RenderStartupError(widePane, err, []Finding{{
 		Name:   "readonly login",
 		Reason: "the least-privilege login the MCP tools connect as does not work",
 		Fix:    "weave readonly-role",
@@ -220,7 +220,7 @@ func TestUnreachable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rendered := Unreachable(narrowPane, tt.addr, errors.New("connection refused"))
+			rendered := RenderUnreachableError(narrowPane, tt.addr, errors.New("connection refused"))
 
 			assert.Contains(t, rendered, "Cannot reach the server")
 			assert.Contains(t, rendered, "connection refused")
@@ -265,7 +265,7 @@ func TestReason(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, Reason(tt.err))
+			assert.Equal(t, tt.want, GetReason(tt.err))
 		})
 	}
 }
@@ -297,7 +297,7 @@ func TestTraceOf(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, TraceOf(tt.err))
+			assert.Equal(t, tt.want, GetTrace(tt.err))
 		})
 	}
 }

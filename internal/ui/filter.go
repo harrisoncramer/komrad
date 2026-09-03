@@ -15,7 +15,7 @@ type filterState struct {
 	broken  bool
 }
 
-func (f filterState) standing() bool {
+func (f filterState) isStanding() bool {
 	return f.query != ""
 }
 
@@ -190,7 +190,7 @@ func (m model) filterView() string {
 }
 
 func (f filterState) view() string {
-	if !f.typing && !f.standing() {
+	if !f.typing && !f.isStanding() {
 		return ""
 	}
 

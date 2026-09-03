@@ -132,8 +132,8 @@ func (v *View) placementFor(y int, quote string) placement {
 	return ghosted
 }
 
-// Where names a place in the diff, on whichever side the line actually lives.
-func Where(filePath string, oldStart, newStart int) string {
+// FormatLocation names a place in the diff, on whichever side the line actually lives.
+func FormatLocation(filePath string, oldStart, newStart int) string {
 	if newStart > 0 {
 		return fmt.Sprintf("%s:%d", filePath, newStart)
 	}
@@ -141,9 +141,9 @@ func Where(filePath string, oldStart, newStart int) string {
 	return fmt.Sprintf("%s:%d (removed)", filePath, oldStart)
 }
 
-// WhereOf is Where for a thread, which is the form every caller outside a new anchor wants.
-func WhereOf(thread *agentv1.ReviewThread) string {
-	return Where(thread.GetFilePath(), int(thread.GetOldStart()), int(thread.GetNewStart()))
+// FormatThreadLocation is Where for a thread, which is the form every caller outside a new anchor wants.
+func FormatThreadLocation(thread *agentv1.ReviewThread) string {
+	return FormatLocation(thread.GetFilePath(), int(thread.GetOldStart()), int(thread.GetNewStart()))
 }
 
 // lineOf is the line a thread was written against, on whichever side it lives.

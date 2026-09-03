@@ -41,14 +41,14 @@ func configEnv(cfg *config.Config, loadErr error, exists bool, installed ...stri
 // finding, and that a file which will not parse is the failure it is.
 func TestConfigCheck(t *testing.T) {
 	t.Run("no file at all", func(t *testing.T) {
-		result := Config().Run(t.Context(), configEnv(config.Defaults(), nil, false))
+		result := newConfigCheck().Run(t.Context(), configEnv(config.Defaults(), nil, false))
 
 		assert.Equal(t, StatusOK, result.Status, "the default install has no config file")
 		assert.Contains(t, result.Detail, "(absent)")
 	})
 
 	t.Run("a file that parses", func(t *testing.T) {
-		result := Config().Run(t.Context(), configEnv(config.Defaults(), nil, true))
+		result := newConfigCheck().Run(t.Context(), configEnv(config.Defaults(), nil, true))
 
 		assert.Equal(t, StatusOK, result.Status)
 		assert.Equal(t, "/home/u/.config/weave/config.toml", result.Detail,
@@ -58,7 +58,7 @@ func TestConfigCheck(t *testing.T) {
 
 	t.Run("a file that does not parse", func(t *testing.T) {
 		broken := errors.New(`failed to parse config: 'keybindings' has invalid keys: list`)
-		result := Config().Run(t.Context(), configEnv(nil, broken, true))
+		result := newConfigCheck().Run(t.Context(), configEnv(nil, broken, true))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.Equal(t, "config_unreadable", CodeOf(result.Err))
@@ -69,7 +69,7 @@ func TestConfigCheck(t *testing.T) {
 
 	t.Run("a file that was named but never written", func(t *testing.T) {
 		missing := errors.New("failed to read config /home/u/.config/weave/config.toml: there is no file there")
-		result := Config().Run(t.Context(), configEnv(nil, missing, false))
+		result := newConfigCheck().Run(t.Context(), configEnv(nil, missing, false))
 
 		assert.Equal(t, StatusFail, result.Status)
 		assert.NotContains(t, result.Fix, "fix or delete",
@@ -116,7 +116,7 @@ func TestDefaultHarnessCheck(t *testing.T) {
 			cfg := config.Defaults()
 			cfg.DefaultHarness = tt.harness
 
-			result := DefaultHarness().Run(t.Context(), configEnv(cfg, nil, true))
+			result := newDefaultHarnessCheck().Run(t.Context(), configEnv(cfg, nil, true))
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
@@ -177,7 +177,7 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			cfg := config.Defaults()
 			cfg.DefaultHarness = tt.configured
 
-			result := HarnessBinary(tt.agent).Run(t.Context(), configEnv(cfg, nil, true, tt.installed...))
+			result := newHarnessBinaryCheck(tt.agent).Run(t.Context(), configEnv(cfg, nil, true, tt.installed...))
 
 			assert.Equal(t, tt.want, result.Status)
 			assert.Equal(t, tt.wantCode, CodeOf(result.Err))

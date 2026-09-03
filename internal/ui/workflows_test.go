@@ -212,7 +212,7 @@ func TestWorkflowWrites(t *testing.T) {
 			}
 
 			require.Error(t, err)
-			assert.Equal(t, tt.wantReason, errui.Reason(err), "the service's message is what a banner would carry")
+			assert.Equal(t, tt.wantReason, errui.GetReason(err), "the service's message is what a banner would carry")
 		})
 	}
 }

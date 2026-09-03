@@ -22,7 +22,7 @@ func run() int {
 		return 0
 	}
 
-	if !cli.Quiet(err) {
+	if !cli.IsQuiet(err) {
 		fmt.Fprintln(os.Stderr, err)
 	}
 

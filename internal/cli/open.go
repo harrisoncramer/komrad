@@ -84,12 +84,12 @@ func attachManagerSession(ctx context.Context, state *app) error {
 	return nil
 }
 
-func managerSessionRunning(ctx context.Context, state *app) bool {
+func isManagerSessionRunning(ctx context.Context, state *app) bool {
 	return state.tmuxCommand(ctx, "has-session", "-t", agents.ManagerSession).Run() == nil
 }
 
 func ensureManagerSession(ctx context.Context, state *app) error {
-	if managerSessionRunning(ctx, state) {
+	if isManagerSessionRunning(ctx, state) {
 		return nil
 	}
 

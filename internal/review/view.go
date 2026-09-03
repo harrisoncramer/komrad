@@ -182,8 +182,8 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 // which way it is going.
 func (v *View) IsViewed(path string) bool { return v.viewed[path] }
 
-// ViewedCount is how many of the patch's files have been read, and how many there are.
-func (v *View) ViewedCount() (int, int) {
+// CountViewedFiles returns how many of the patch's files have been read, and how many there are.
+func (v *View) CountViewedFiles() (int, int) {
 	read := 0
 	for _, file := range v.patch.Files {
 		if v.viewed[file.Path()] {
@@ -194,8 +194,8 @@ func (v *View) ViewedCount() (int, int) {
 	return read, len(v.patch.Files)
 }
 
-// FileAt is the file the cursor is inside, which is what a mark of having read one is put on.
-func (v *View) FileAt(y int) (diff.File, bool) { return v.getFile(y) }
+// GetFileAt returns the file the cursor is inside, which is what a mark of having read one is put on.
+func (v *View) GetFileAt(y int) (diff.File, bool) { return v.getFile(y) }
 
 // isCollapsed reports whether a file is drawn as its header alone.
 func (v *View) isCollapsed(fileIndex int) bool {
@@ -288,8 +288,8 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	}
 }
 
-// ThreadAt is the thread a row carries, which is what the gutter marks.
-func (v *View) ThreadAt(y int) (*agentv1.ReviewThread, bool) {
+// GetThreadAt returns the thread a row carries, which is what the gutter marks.
+func (v *View) GetThreadAt(y int) (*agentv1.ReviewThread, bool) {
 	thread, ok := v.pinned[y]
 
 	return thread, ok
@@ -325,8 +325,8 @@ func (v *View) isPinnable(y int) bool {
 		(current.kind == fileRow && v.isCollapsed(current.file))
 }
 
-// First is where the cursor starts: the first row that stands for a line.
-func (v *View) First() int {
+// GetFirstRow returns where the cursor starts: the first row that stands for a line.
+func (v *View) GetFirstRow() int {
 	return max(v.scan(-1, 1), 0)
 }
 
@@ -436,8 +436,8 @@ func abs(n int) int {
 	return n
 }
 
-// Last is the last row the cursor can rest on.
-func (v *View) Last() int {
+// GetLastRow returns the last row the cursor can rest on.
+func (v *View) GetLastRow() int {
 	return max(v.scan(len(v.rows), -1), 0)
 }
 
@@ -506,9 +506,9 @@ func (v *View) JumpFile(y, direction int) int {
 	return y
 }
 
-// FileTop is the row the file at y starts on, so a jump into it can put its header at the top
+// GetFileTopRow returns the row the file at y starts on, so a jump into it can put its header at the top
 // of the pane rather than leaving the scroll margin to decide.
-func (v *View) FileTop(y int) int {
+func (v *View) GetFileTopRow(y int) int {
 	current, ok := v.getRow(y)
 	if !ok {
 		return y
@@ -580,7 +580,7 @@ func (v *View) hunkTop(y int, current row) int {
 // JumpThread moves to the next or previous line carrying a thread.
 func (v *View) JumpThread(y, direction int) int {
 	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
-		if _, ok := v.ThreadAt(next); ok {
+		if _, ok := v.GetThreadAt(next); ok {
 			return next
 		}
 	}
@@ -673,9 +673,9 @@ func (v *View) getStyledLine(current row, line diff.Line) styledLine {
 	return lineAt(source.new, line.NewNumber)
 }
 
-// EditTarget is the file the cursor is in and the line to open it on, answering with the
+// GetEditTarget returns the file the cursor is in and the line to open it on, answering with the
 // nearest surviving line when the cursor is on a deleted one.
-func (v *View) EditTarget(y int) (string, int, bool) {
+func (v *View) GetEditTarget(y int) (string, int, bool) {
 	file, ok := v.getFile(y)
 	if !ok || file.NewPath == "" {
 		return "", 0, false

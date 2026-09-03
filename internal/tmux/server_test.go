@@ -108,7 +108,7 @@ func TestPaneOwners(t *testing.T) {
 	assert.Empty(t, panes[bare].Owner, "an unstamped pane answers to nobody")
 	assert.NotContains(t, panes, killed, "a pane that is gone is absent rather than stale")
 	assert.Equal(t, client.GetPaneOwner(stamped), panes[stamped].Owner, "the batch agrees with the single lookup")
-	assert.True(t, panes[stamped].RunsShell(), "a pane weave opened is a shell until something is launched in it")
+	assert.True(t, panes[stamped].IsRunningShell(), "a pane weave opened is a shell until something is launched in it")
 }
 
 // TestSiblingPanesFindsTheRestOfTheWindow covers a restarted panel finding what the last one

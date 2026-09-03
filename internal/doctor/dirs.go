@@ -70,9 +70,9 @@ type WorktreeOwners struct {
 	WorkflowDirs []string
 }
 
-// Hooks reports the directory a workflow's hooks are read from, which is asked about here
+// newHooksCheck reports the directory a workflow's hooks are read from, which is asked about here
 // because a directory that is not there reads as a machine with no hooks.
-func Hooks() Check {
+func newHooksCheck() Check {
 	return Check{
 		Name:        "hooks",
 		Description: "a workflow hangs the user's own scripts on moments in its agents' lives",
@@ -108,9 +108,9 @@ func Hooks() Check {
 	}
 }
 
-// Worktrees reports the directory a provisioning workflow cuts its worktrees in, since a
+// newWorktreesCheck reports the directory a provisioning workflow cuts its worktrees in, since a
 // provisioner that cannot make one there refuses the create.
-func Worktrees() Check {
+func newWorktreesCheck() Check {
 	return Check{
 		Name:        "worktrees",
 		Description: "a workflow that provisions its agents gives each one a worktree here",
@@ -152,9 +152,9 @@ func Worktrees() Check {
 	}
 }
 
-// OrphanedWorktrees reports worktree directories no agent answers for, which nothing else
+// newOrphanedWorktreesCheck reports worktree directories no agent answers for, which nothing else
 // notices because a worktree is only removed when the agent holding it is deleted.
-func OrphanedWorktrees() Check {
+func newOrphanedWorktreesCheck() Check {
 	return Check{
 		Name:        "orphaned worktrees",
 		Description: "a worktree outlives its agent when the agent's row goes without it",

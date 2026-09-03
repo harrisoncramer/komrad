@@ -48,7 +48,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.banner != nil && !m.form.active() {
+	if m.banner != nil && !m.form.isActive() {
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
 			m.banner = nil
 
@@ -64,7 +64,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.form.active() {
+	if m.form.isActive() {
 		return m.form.update(m, msg)
 	}
 
@@ -101,8 +101,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openTerminal()
 	}
 
-	if m.detailsScreen() {
-		if m.detailsFocused() {
+	if m.isDetailsScreen() {
+		if m.isDetailsFocused() {
 			return m.updateDetails(key)
 		}
 		if isBound(key.String(), m.keys.Details.Focus) {
