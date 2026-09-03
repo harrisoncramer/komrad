@@ -82,7 +82,7 @@ func TestResumeDir(t *testing.T) {
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
-	cut := func(t *testing.T, state, session string) (*testAgents, *testStore, *fakeHarness, agentstore.Agent) {
+	cut := func(t *testing.T, state agentstore.State, session string) (*testAgents, *testStore, *fakeHarness, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)
@@ -128,7 +128,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	// What `mise run restart` does: the tmux server goes whole and weave's own server goes
 	// with it, so no reconcile pass ever watches the panes go and the store is left holding
 	// a turn that is already over.
-	unwatched := func(t *testing.T, state string) (*testAgents, *testStore, *fakeHarness, agentstore.Agent) {
+	unwatched := func(t *testing.T, state agentstore.State) (*testAgents, *testStore, *fakeHarness, agentstore.Agent) {
 		t.Helper()
 
 		st := newStore(t)

@@ -86,6 +86,12 @@ func (s *Stores) SeedAgent(t *testing.T, agent agentstore.Agent) *agentstore.Age
 		agent.WorkflowID = s.SeedWorkflow(t, workflowstore.Config{Name: "workflow-for-" + agent.Name}).ID
 	}
 
+	// The state column is an enum with no member for the empty string, so a test that does not
+	// care which state its agent is in gets the one a fresh agent launches in.
+	if agent.State == "" {
+		agent.State = agentstore.StateIdle
+	}
+
 	require.NoError(t, s.Agents.Create(t.Context(), agent))
 
 	stored, err := s.Agents.GetInWorkflow(t.Context(), agent.WorkflowID, agent.Name)

@@ -10,6 +10,52 @@ import (
 	"time"
 )
 
+type AgentState string
+
+const (
+	AgentStateIdle            AgentState = "idle"
+	AgentStateThinking        AgentState = "thinking"
+	AgentStateWaiting         AgentState = "waiting"
+	AgentStateSettingUp       AgentState = "setting_up"
+	AgentStateFailedToCreate  AgentState = "failed_to_create"
+	AgentStateFailedToCleanup AgentState = "failed_to_cleanup"
+)
+
+func (e *AgentState) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AgentState(s)
+	case string:
+		*e = AgentState(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AgentState: %T", src)
+	}
+	return nil
+}
+
+type NullAgentState struct {
+	AgentState AgentState
+	Valid      bool // Valid is true if AgentState is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAgentState) Scan(value interface{}) error {
+	if value == nil {
+		ns.AgentState, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AgentState.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAgentState) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AgentState), nil
+}
+
 type MailKind string
 
 const (
@@ -96,13 +142,14 @@ func (ns NullReviewAuthorKind) Value() (driver.Value, error) {
 
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
-	ID               string
-	Name             string
-	Cwd              string
-	Flags            string
-	Prompt           string
-	PaneID           string
-	State            string
+	ID     string
+	Name   string
+	Cwd    string
+	Flags  string
+	Prompt string
+	PaneID string
+	// What the agent is doing, which the reconcile loop writes from what it read off the pane. The three failure and setup values are the ones no frame read ever decides.
+	State            AgentState
 	StateChangedAt   time.Time
 	Harness          string
 	SessionID        string

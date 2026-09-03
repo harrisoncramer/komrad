@@ -143,7 +143,7 @@ func TestOpenPullRequestPayload(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(values["WEAVE_AGENT"]), &payload))
 
 	assert.Equal(t, "auth", payload.Name)
-	assert.Equal(t, agentstore.StateWaiting, payload.State)
+	assert.Equal(t, string(agentstore.StateWaiting), payload.State)
 	assert.True(t, payload.Alive, "the pane still belongs to this agent")
 	assert.Equal(t, "%9", payload.Pane)
 	assert.Equal(t, "backend", payload.Workflow, "the workflow reads as its name, not the id a script cannot use")

@@ -1020,7 +1020,7 @@ func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, e
 	payload := scriptPayload{
 		ID:        agent.ID,
 		Name:      agent.Name,
-		State:     agent.State,
+		State:     string(agent.State),
 		Alive:     isPaneOwnedBy(s.tmux.GetPaneOwner(agent.Pane), agent.ID),
 		Cwd:       agent.Cwd,
 		Harness:   agent.Harness,

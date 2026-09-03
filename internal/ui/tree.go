@@ -244,9 +244,9 @@ type agentItem struct {
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the
 // store still holds whatever the agent stopped in.
-func displayState(item agentItem) string {
+func displayState(item agentItem) agentstore.State {
 	state := item.agent.State
-	if !item.alive && state != agentstore.StateSettingUp && !agentstore.IsFailed(state) {
+	if !item.alive && state.DoesPaneDecide() {
 		return agentstore.StateIdle
 	}
 

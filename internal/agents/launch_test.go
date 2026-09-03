@@ -250,7 +250,7 @@ func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 
 	tests := []struct {
 		name         string
-		state        string
+		state        agentstore.State
 		wantRelaunch bool
 	}{
 		{

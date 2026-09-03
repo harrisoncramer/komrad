@@ -28,7 +28,7 @@ func (s *Store) Create(ctx context.Context, agent Agent) error {
 		Flags:            agent.Flags,
 		Prompt:           agent.Prompt,
 		PaneID:           agent.Pane,
-		State:            agent.State,
+		State:            models.AgentState(agent.State),
 		Harness:          agent.Harness,
 		SessionID:        agent.SessionID,
 		WorkflowID:       agent.WorkflowID,
@@ -54,7 +54,7 @@ func (s *Store) Update(ctx context.Context, agent Agent) error {
 		Flags:      agent.Flags,
 		Prompt:     agent.Prompt,
 		PaneID:     agent.Pane,
-		State:      agent.State,
+		State:      models.AgentState(agent.State),
 		SessionID:  agent.SessionID,
 		WorkflowID: agent.WorkflowID,
 	}); err != nil {
@@ -77,7 +77,7 @@ func (s *Store) UpdateIfLive(ctx context.Context, agent Agent) (bool, error) {
 		Flags:      agent.Flags,
 		Prompt:     agent.Prompt,
 		PaneID:     agent.Pane,
-		State:      agent.State,
+		State:      models.AgentState(agent.State),
 		SessionID:  agent.SessionID,
 		WorkflowID: agent.WorkflowID,
 	})

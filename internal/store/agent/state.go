@@ -29,12 +29,13 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 
 // SetStateByID records the state a reconcile pass observed, stamping when it was seen
 // whether or not the value moved.
-func (s *Store) SetStateByID(ctx context.Context, id, state string) error {
+func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
-	if err := s.queries.SetAgentStateByID(ctx, models.SetAgentStateByIDParams{ID: id, State: state}); err != nil {
+	params := models.SetAgentStateByIDParams{ID: id, State: models.AgentState(state)}
+	if err := s.queries.SetAgentStateByID(ctx, params); err != nil {
 		return fmt.Errorf("failed to set state for id %q: %w", id, err)
 	}
 

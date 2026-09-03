@@ -18,7 +18,7 @@ func TestSetStateByID(t *testing.T) {
 		name      string
 		target    string
 		wantErr   error
-		wantState string
+		wantState State
 	}{
 		{
 			name:      "an id no agent holds",

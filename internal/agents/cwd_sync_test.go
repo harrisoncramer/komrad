@@ -80,6 +80,7 @@ func TestCwdSyncerSync(t *testing.T) {
 			workflowID := seedWorkflow(t, st)
 			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 				Name:       "a",
+				State:      agentstore.StateIdle,
 				WorkflowID: workflowID,
 				Cwd:        tt.cwd,
 			}))
@@ -112,6 +113,7 @@ func TestCwdSyncerSyncSkipsTheGitCallForARemovedCwd(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 		Name:       "a",
+		State:      agentstore.StateIdle,
 		WorkflowID: workflowID,
 		Cwd:        removedDir(t),
 	}))
@@ -146,6 +148,7 @@ func TestCwdSyncerSyncClearsAStaleBranch(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 		Name:       "a",
+		State:      agentstore.StateIdle,
 		WorkflowID: workflowID,
 		Cwd:        repo,
 	}))
@@ -180,6 +183,7 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 		Name:       "a",
+		State:      agentstore.StateIdle,
 		WorkflowID: workflowID,
 		Cwd:        removedDir(t),
 	}))
@@ -229,6 +233,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 			workflowID := seedWorkflow(t, st)
 			require.NoError(t, st.Agents.Create(ctx, agentstore.Agent{
 				Name:       "a",
+				State:      agentstore.StateIdle,
 				WorkflowID: workflowID,
 				Cwd:        tt.cwd,
 			}))

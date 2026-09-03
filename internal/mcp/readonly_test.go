@@ -210,7 +210,7 @@ SELECT i FROM n`
 			wantRows: 1,
 			check: func(t *testing.T, res *queryResult) {
 				assert.Equal(t, "auth", res.Rows[0]["name"])
-				assert.Equal(t, agentstore.StateWaiting, res.Rows[0]["state"])
+				assert.Equal(t, string(agentstore.StateWaiting), res.Rows[0]["state"])
 			},
 		},
 		{

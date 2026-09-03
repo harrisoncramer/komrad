@@ -109,12 +109,13 @@ func TestCreateWithProvisionOverride(t *testing.T) {
 	}{
 		{
 			name:  "no override reads back nil",
-			agent: Agent{Name: "agent"},
+			agent: Agent{Name: "agent", State: StateIdle},
 		},
 		{
 			name: "an override of none reads back false, not nil",
 			agent: Agent{
 				Name:             "agent",
+				State:            StateIdle,
 				ProvisionEnabled: xptr.Ptr(false),
 			},
 		},
@@ -122,6 +123,7 @@ func TestCreateWithProvisionOverride(t *testing.T) {
 			name: "an override following the workflow reads back true",
 			agent: Agent{
 				Name:             "agent",
+				State:            StateIdle,
 				ProvisionEnabled: xptr.Ptr(true),
 			},
 		},
@@ -148,7 +150,7 @@ func TestSpawnedByAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "parent"}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "parent", State: StateIdle}))
 	parent, err := f.Get(ctx, "parent")
 	require.NoError(t, err)
 	require.NotNil(t, parent)
@@ -168,7 +170,7 @@ func TestSpawnedByAgentID(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			child := Agent{Name: "child-" + uuid.NewString()}
+			child := Agent{Name: "child-" + uuid.NewString(), State: StateIdle}
 			if tt.spawnedByAgent {
 				child.SpawnedByAgentID = &parent.ID
 			}
@@ -196,12 +198,16 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "parent"}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "parent", State: StateIdle}))
 	parent, err := f.Get(ctx, "parent")
 	require.NoError(t, err)
 	require.NotNil(t, parent)
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "child", SpawnedByAgentID: &parent.ID}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:             "child",
+		SpawnedByAgentID: &parent.ID,
+		State:            StateIdle,
+	}))
 	child, err := f.Get(ctx, "child")
 	require.NoError(t, err)
 	require.NotNil(t, child)
@@ -223,12 +229,16 @@ func TestParentAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author"}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
 	parent, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NotNil(t, parent)
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "reviewer",
+		ParentAgentID: &parent.ID,
+		State:         StateIdle,
+	}))
 	stored, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
 	require.NotNil(t, stored)
@@ -244,12 +254,16 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "author"}))
+	require.NoError(t, f.Create(ctx, Agent{Name: "author", State: StateIdle}))
 	parent, err := f.Get(ctx, "author")
 	require.NoError(t, err)
 	require.NotNil(t, parent)
 
-	require.NoError(t, f.Create(ctx, Agent{Name: "reviewer", ParentAgentID: &parent.ID}))
+	require.NoError(t, f.Create(ctx, Agent{
+		Name:          "reviewer",
+		ParentAgentID: &parent.ID,
+		State:         StateIdle,
+	}))
 	child, err := f.Get(ctx, "reviewer")
 	require.NoError(t, err)
 	require.NotNil(t, child)

@@ -28,7 +28,7 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 type resumeAgentReadWriter interface {
 	agentGetter
 	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
-	SetStateByID(ctx context.Context, id, state string) error
+	SetStateByID(ctx context.Context, id string, state agentstore.State) error
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
 }
@@ -170,7 +170,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	// A tmux server killed whole takes every pane and the reconciler's view of them at once, so
 	// the interrupted turn is stamped here rather than left to the reconciler.
-	if agent.InterruptedAt == nil && isTurnUnfinished(agent.State) {
+	if agent.InterruptedAt == nil && agent.State.IsTurnUnfinished() {
 		at := time.Now()
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, &at); err != nil {
 			return fmt.Errorf("failed to record the cut-off turn for %q: %w", agent.Name, err)
@@ -240,12 +240,6 @@ func (s *ResumeService) runResumeSetup(ctx context.Context, agent agentstore.Age
 	}
 
 	return s.scripts.RunResume(ctx, agent, name)
-}
-
-// isTurnUnfinished reports whether a state leaves a turn part-way through, which covers both the
-// model still working and a tool call whose question nobody answered.
-func isTurnUnfinished(state string) bool {
-	return state == agentstore.StateThinking || state == agentstore.StateWaiting
 }
 
 func (s *ResumeService) getResumeDir(agent agentstore.Agent) string {

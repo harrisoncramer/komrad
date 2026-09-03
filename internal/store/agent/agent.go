@@ -15,18 +15,44 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
+// State is what an agent is doing, and the database holds the same six values as an enum, so a
+// value that is not one of them fails the write rather than travelling as a row nothing matches.
+type State string
+
 const (
-	StateThinking        = "thinking"
-	StateWaiting         = "waiting"
-	StateIdle            = "idle"
-	StateSettingUp       = "setting_up"
-	StateFailedToCreate  = "failed_to_create"
-	StateFailedToCleanup = "failed_to_cleanup"
+	StateThinking        State = State(models.AgentStateThinking)
+	StateWaiting         State = State(models.AgentStateWaiting)
+	StateIdle            State = State(models.AgentStateIdle)
+	StateSettingUp       State = State(models.AgentStateSettingUp)
+	StateFailedToCreate  State = State(models.AgentStateFailedToCreate)
+	StateFailedToCleanup State = State(models.AgentStateFailedToCleanup)
 )
 
+// DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight
+// and an agent that failed both refuse, since neither is a pane the reconciler may judge.
+func (s State) DoesPaneDecide() bool {
+	// Written without a default so that a seventh state fails the exhaustive check here, which
+	// forces it to be answered for but not to be given the same answer as the reconciler, the
+	// archive sweep, the resume and the row's own icon happen to share today.
+	switch s {
+	case StateIdle, StateThinking, StateWaiting:
+		return true
+	case StateSettingUp, StateFailedToCreate, StateFailedToCleanup:
+		return false
+	}
+
+	return false
+}
+
 // IsFailed reports whether a state is one of the two an agent reaches by failing.
-func IsFailed(state string) bool {
-	return state == StateFailedToCreate || state == StateFailedToCleanup
+func (s State) IsFailed() bool {
+	return s == StateFailedToCreate || s == StateFailedToCleanup
+}
+
+// IsTurnUnfinished reports whether a state leaves a turn part-way through, which covers both the
+// model still working and a tool call whose question nobody answered.
+func (s State) IsTurnUnfinished() bool {
+	return s == StateThinking || s == StateWaiting
 }
 
 type Agent struct {
@@ -39,7 +65,7 @@ type Agent struct {
 	// inherits it, and false means this agent keeps the directory it was given.
 	ProvisionEnabled *bool
 	Prompt           string
-	State            string
+	State            State
 	StateChangedAt   time.Time
 	StateSeenAt      time.Time
 	// ViewedAt is how much of an agent's conversation the person has read, measured against
@@ -121,7 +147,7 @@ func agentFromRow(agent models.Agent) Agent {
 		Flags:            agent.Flags,
 		ProvisionEnabled: agent.ProvisionEnabled,
 		Prompt:           agent.Prompt,
-		State:            agent.State,
+		State:            State(agent.State),
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,
 		ViewedAt:         agent.ViewedAt,

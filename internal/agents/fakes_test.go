@@ -617,13 +617,13 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 	})
 }
 
-func seed(t *testing.T, st *testStore, name, pane, state string) agentstore.Agent {
+func seed(t *testing.T, st *testStore, name, pane string, state agentstore.State) agentstore.Agent {
 	t.Helper()
 
 	return seedInWorkflow(t, st, "", name, pane, state)
 }
 
-func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane, state string) agentstore.Agent {
+func seedInWorkflow(t *testing.T, st *testStore, workflowID, name, pane string, state agentstore.State) agentstore.Agent {
 	t.Helper()
 	ctx := t.Context()
 
@@ -694,7 +694,7 @@ type paneStamper interface {
 	SetPaneOwner(pane, agentID string) error
 }
 
-func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane, state string) agentstore.Agent {
+func seedRunning(t *testing.T, st *testStore, tmux paneStamper, name, pane string, state agentstore.State) agentstore.Agent {
 	t.Helper()
 	agent := seed(t, st, name, pane, state)
 	require.NoError(t, tmux.SetPaneOwner(pane, agent.ID))
@@ -764,7 +764,7 @@ func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration
 	require.NoError(t, err)
 }
 
-func stateOf(t *testing.T, st *testStore, name string) string {
+func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
 	t.Helper()
 	got, err := st.Get(context.Background(), name)
 	require.NoError(t, err)

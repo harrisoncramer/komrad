@@ -298,7 +298,7 @@ func (m model) jumpUnviewed(delta int) (tea.Model, tea.Cmd) {
 
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
-		if item.alive || item.agent.State == agentstore.StateSettingUp || agentstore.IsFailed(item.agent.State) {
+		if item.alive || !item.agent.State.DoesPaneDecide() {
 			return m, nil
 		}
 
@@ -392,7 +392,7 @@ func (m *model) stageSelection() {
 	case m.doesStageMatch(r.item.agent.ID):
 	case r.item.agent.State == agentstore.StateSettingUp:
 		m.stageDocument(settingUpPlaceholder)
-	case agentstore.IsFailed(r.item.agent.State):
+	case r.item.agent.State.IsFailed():
 		m.stageDocument(m.failedPlaceholder(r.item.agent))
 	case r.item.alive:
 		m.frame.ShowGuest(r.item.agent.Pane)

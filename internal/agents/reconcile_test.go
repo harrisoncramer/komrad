@@ -20,11 +20,11 @@ import (
 func TestReconcileSinglePass(t *testing.T) {
 	tests := []struct {
 		name      string
-		fromState string
+		fromState agentstore.State
 		owned     bool
 		command   string
 		frame     string
-		want      string
+		want      agentstore.State
 	}{
 		{
 			name:      "a pane that is not the agent's settles thinking to idle",
@@ -239,9 +239,9 @@ func TestReconcileOverPasses(t *testing.T) {
 		name              string
 		passes            []string
 		archiveBeforeLast bool
-		wantAfterFirst    string
-		wantBeforeLast    string
-		want              string
+		wantAfterFirst    agentstore.State
+		wantBeforeLast    agentstore.State
+		want              agentstore.State
 		wantMisses        *int
 	}{
 		{
@@ -365,7 +365,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	tests := []struct {
 		name  string
 		frame string
-		want  string
+		want  agentstore.State
 	}{
 		{
 			name:  "a boundary against a frame still showing work does not move it",

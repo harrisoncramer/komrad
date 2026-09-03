@@ -373,7 +373,7 @@ const maxFailureReasonLen = 480
 
 // failAs marks an agent as having failed create or cleanup and leaves the row where it was, so
 // a delete that cannot finish leaves an archived row in the archive the user was clearing.
-func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state, verb string, cause error) {
+func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) {
 	agent.State = state
 	if err := agents.Update(ctx, agent); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),

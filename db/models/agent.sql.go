@@ -568,7 +568,7 @@ type InsertAgentParams struct {
 	Flags            string
 	Prompt           string
 	PaneID           string
-	State            string
+	State            AgentState
 	Harness          string
 	SessionID        string
 	WorkflowID       string
@@ -1868,7 +1868,7 @@ WHERE
 `
 
 type SetAgentStateByIDParams struct {
-	State string
+	State AgentState
 	ID    string
 }
 
@@ -1999,7 +1999,7 @@ type UpdateAgentParams struct {
 	Flags      string
 	Prompt     string
 	PaneID     string
-	State      string
+	State      AgentState
 	SessionID  interface{}
 	WorkflowID string
 	ID         string
@@ -2051,7 +2051,7 @@ type UpdateAgentIfLiveParams struct {
 	Flags      string
 	Prompt     string
 	PaneID     string
-	State      string
+	State      AgentState
 	SessionID  interface{}
 	WorkflowID string
 	ID         string
