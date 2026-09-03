@@ -164,6 +164,9 @@ func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, fla
 
 func describeField(field protoreflect.FieldDescriptor) string {
 	parts := []string{field.Kind().String()}
+	if field.Kind() == protoreflect.EnumKind {
+		parts = []string{strings.Join(enumNames(field.Enum()), "|")}
+	}
 	if rpcapi.IsRequired(field) {
 		parts = append(parts, "required")
 	}
@@ -185,6 +188,17 @@ func describeField(field protoreflect.FieldDescriptor) string {
 	}
 
 	return strings.Join(parts, ", ")
+}
+
+// enumNames is what an enum's values are spelled with, since the flag takes the name rather
+// than the number behind it.
+func enumNames(values protoreflect.EnumDescriptor) []string {
+	names := make([]string, 0, values.Values().Len())
+	for i := range values.Values().Len() {
+		names = append(names, string(values.Values().Get(i).Name()))
+	}
+
+	return names
 }
 
 func (f *requestFields) request(set *pflag.FlagSet, raw string) (map[string]any, error) {

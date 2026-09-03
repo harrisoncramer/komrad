@@ -113,6 +113,8 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 			return m.openAgentPR(item.agent)
 		case isBound(k, m.keys.Agents.Review):
 			return m.enterReview(item.agent)
+		case isBound(k, m.keys.Agents.Mail):
+			return m.enterMail(item.agent)
 		case isBound(k, m.keys.Agents.Child):
 			return m.openNewChild(item.agent)
 		case isBound(k, m.keys.Agents.Rename):

@@ -354,6 +354,17 @@ func (f *fakeMailbox) ListPage(_ context.Context, toAgentID string, _ int32, _ *
 	return page, nil
 }
 
+func (f *fakeMailbox) ListSentPage(_ context.Context, fromAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
+	var page []mailstore.Mail
+	for _, m := range f.byID {
+		if m.FromAgentID != nil && *m.FromAgentID == fromAgentID {
+			page = append(page, m)
+		}
+	}
+
+	return page, nil
+}
+
 func (f *fakeMailbox) ListByID(_ context.Context, ids []string) ([]mailstore.Mail, error) {
 	var found []mailstore.Mail
 	for _, id := range ids {

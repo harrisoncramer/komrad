@@ -371,6 +371,25 @@ func (m model) scheduleHelp() keyMap {
 	}
 }
 
+func (m model) mailHelp() keyMap {
+	editFilter := m.editFilterBinding(m.keys.Mail.Back)
+
+	rows := []key.Binding{binding(m.keys.Mail.Back, "back")}
+	if _, ok := m.hoveredMail(); ok {
+		rows = append(rows, binding(m.keys.Mail.Thread, "thread"))
+	}
+
+	return keyMap{
+		short: slices.Concat(rows[:1], editFilter, []key.Binding{m.helpBinding()}),
+		full: slices.Concat(
+			rows,
+			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+			editFilter,
+			m.globalHelp(),
+		),
+	}
+}
+
 func (m model) archiveHelp() keyMap {
 	if m.archive.selected.isActive() {
 		hovered, _ := rowAt(m.archiveRows(), m.archive.cursor)

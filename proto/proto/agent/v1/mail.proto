@@ -7,6 +7,20 @@ import "pagination/v1/pagination.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
 
+// MailKind tells an agent's own mail from a notice weave raised itself.
+enum MailKind {
+  MAIL_KIND_UNSPECIFIED = 0;
+  MAIL_KIND_PLAIN = 1;
+  MAIL_KIND_REVIEW_ACTIVITY = 2;
+}
+
+// MailDirection is which half of an agent's correspondence a listing asks for.
+enum MailDirection {
+  MAIL_DIRECTION_UNSPECIFIED = 0;
+  MAIL_DIRECTION_RECEIVED = 1;
+  MAIL_DIRECTION_SENT = 2;
+}
+
 message Mail {
   string id = 1;
   optional string from_agent_id = 2;
@@ -17,6 +31,8 @@ message Mail {
   string created_at = 7;
   optional string claimed_at = 8;
   string expires_at = 9;
+  MailKind kind = 10;
+  int32 hops = 11;
 }
 
 message SendMailRequest {
@@ -43,6 +59,7 @@ message ReadMailResponse {
 message ListMailRequest {
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
   optional pagination.v1.Pagination pagination = 2;
+  MailDirection direction = 3;
 }
 
 message ListMailResponse {

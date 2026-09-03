@@ -118,6 +118,17 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 	return value, nil
 }
 
+// enumSchema describes an enum by the names its values are spelled with, since connect's JSON
+// codec takes the name rather than the number a model would have to look up.
+func enumSchema(values protoreflect.EnumDescriptor) map[string]any {
+	names := make([]string, 0, values.Values().Len())
+	for i := range values.Values().Len() {
+		names = append(names, string(values.Values().Get(i).Name()))
+	}
+
+	return map[string]any{"type": "string", "enum": names}
+}
+
 func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {
 	switch field.Kind() {
 	case protoreflect.MessageKind:
@@ -130,6 +141,8 @@ func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 		return map[string]any{"type": "integer"}, nil
 	case protoreflect.FloatKind, protoreflect.DoubleKind:
 		return map[string]any{"type": "number"}, nil
+	case protoreflect.EnumKind:
+		return enumSchema(field.Enum()), nil
 	default:
 		return nil, fmt.Errorf("field %q has kind %s, which the tool schema does not describe yet", field.Name(), field.Kind())
 	}

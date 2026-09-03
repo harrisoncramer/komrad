@@ -41,6 +41,7 @@ type mailReadWriter interface {
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
+	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
 	Delete(ctx context.Context, ids []string) error
 	ListUnreadMailboxes(ctx context.Context) ([]string, error)
@@ -288,6 +289,24 @@ func (s *MailService) ListMail(ctx context.Context, agentID string, limit int32,
 	}
 
 	listed, err := s.mailReadWriter.ListPage(ctx, agent.ID, limit, cursor)
+	if err != nil {
+		return nil, err
+	}
+
+	return listed, nil
+}
+
+// ListSentMail returns one page of the mail an agent sent, most recent first.
+func (s *MailService) ListSentMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error) {
+	agent, err := s.agentFinder.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	listed, err := s.mailReadWriter.ListSentPage(ctx, agent.ID, limit, cursor)
 	if err != nil {
 		return nil, err
 	}
