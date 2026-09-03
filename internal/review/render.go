@@ -64,7 +64,7 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 
 	switch current.kind {
 	case fileRow:
-		return v.renderFileRow(current, isCursor, width)
+		return v.renderFileRow(y, current, isCursor, width)
 	case metadataRow:
 		return ansi.Truncate(metadataStyle.Render("  "+current.text), width, "…")
 	case hunkRow:
@@ -88,18 +88,31 @@ func (v *View) RenderRow(y int, isCursor bool, width, offset int) string {
 
 // renderFileRow draws a file's header, which once the file is collapsed has to say what is
 // folded under it, since it is then the only row that file has.
-func (v *View) renderFileRow(current row, isCursor bool, width int) string {
-	text := current.text
+func (v *View) renderFileRow(y int, current row, isCursor bool, width int) string {
+	background := getBackground(diff.Context, isCursor)
+	style := fileStyle.Background(background)
+
+	var out strings.Builder
+	for _, piece := range cutBy(current.text, 0, v.rawMatches(y)) {
+		pieceStyle := style
+		if piece.matched {
+			pieceStyle = style.Background(matchBackground)
+		}
+
+		out.WriteString(pieceStyle.Render(piece.text))
+	}
+
+	text := out.String()
 	if v.isCollapsed(current.file) {
-		text += "  " + viewedMark + " viewed  " + v.fileSummary(current.file)
+		text += style.Render("  " + viewedMark + " viewed  " + v.fileSummary(current.file))
 	}
 
-	style := fileStyle
-	if isCursor {
-		style = style.Background(cursorBackground).Width(width)
+	text = ansi.Truncate(text, width, "…")
+	if padding := width - lipgloss.Width(text); isCursor && padding > 0 {
+		text += style.Render(strings.Repeat(" ", padding))
 	}
 
-	return style.Render(ansi.Truncate(text, width, "…"))
+	return text
 }
 
 // fileSummary is how much a collapsed file is hiding: the lines it changed, and how many

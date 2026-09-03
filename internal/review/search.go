@@ -133,10 +133,20 @@ func (v *View) JumpMatch(y, direction int) (int, bool) {
 }
 
 // matchText is what a row offers to a search, which for a line is the text as drawn with its
-// marker, so a pattern like `^\+` finds additions.
+// marker, so a pattern like `^\+` finds additions, and for a file header its path, so a search
+// reaches a file by name.
 func (v *View) matchText(y int) (string, bool) {
-	if current, ok := v.getRow(y); ok && current.kind == threadRow {
+	current, ok := v.getRow(y)
+	if !ok {
+		return "", false
+	}
+
+	switch current.kind {
+	case fileRow:
+		return current.text, true
+	case threadRow:
 		return FormatThreadLocation(current.thread) + " " + firstLine(current.thread), true
+	case metadataRow, hunkRow, lineRow:
 	}
 
 	return v.quoteAt(y)
@@ -155,14 +165,20 @@ func (v *View) quoteAt(y int) (string, bool) {
 	return markerFor(line.Kind) + line.Text, true
 }
 
-// matchesIn is where the pattern was found in a row's content, with the marker's width taken
-// off, since the content is drawn after the gutter and the marker is drawn in it.
-func (v *View) matchesIn(y int) []span {
+// rawMatches is where the pattern was found in a row's text, measured against the text the
+// search was run over.
+func (v *View) rawMatches(y int) []span {
 	if v.search == nil {
 		return nil
 	}
 
-	found := v.search.matches[y]
+	return v.search.matches[y]
+}
+
+// matchesIn is where the pattern was found in a row's content, with the marker's width taken
+// off, since the content is drawn after the gutter and the marker is drawn in it.
+func (v *View) matchesIn(y int) []span {
+	found := v.rawMatches(y)
 	if len(found) == 0 {
 		return nil
 	}

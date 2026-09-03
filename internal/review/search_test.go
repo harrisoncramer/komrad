@@ -7,6 +7,9 @@ import (
 	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -141,4 +144,47 @@ func TestSearchIsRunAgainWhenTheRowsMove(t *testing.T) {
 	at, ok := view.JumpMatch(-1, 1)
 	assert.False(t, ok)
 	assert.LessOrEqual(t, at, view.GetLastRow())
+}
+
+// TestSearchFindsFileNames covers the file headers, which are rows the cursor rests on and are
+// how somebody reaches a file in a diff too long to scroll through.
+func TestSearchFindsFileNames(t *testing.T) {
+	view := twoHunkView()
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`greet\.go`)))
+
+	at, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+	assert.Equal(t, 0, at, "the match is the file's own header")
+}
+
+// TestSearchFindsAViewedFileName covers a file that has been read, whose header is the only row
+// it has left and so the only way back into it.
+func TestSearchFindsAViewedFileName(t *testing.T) {
+	view := twoHunkView()
+	view.SetFileViewed("greet.go", true)
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`greet\.go`)))
+
+	at, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+	assert.Equal(t, 0, at)
+}
+
+// TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it,
+// since a jump that lands on a row saying nothing about why leaves the reader hunting for it.
+func TestFileNameMatchIsPainted(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+
+	view := twoHunkView()
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
+
+	drawn := view.RenderRow(0, false, 40, 0)
+	assert.Equal(t, "greet.go", ansi.Strip(drawn))
+	assert.Contains(t, drawn, fileStyle.Background(matchBackground).Render("eet.g"))
+
+	onCursor := view.RenderRow(0, true, 40, 0)
+	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")
 }

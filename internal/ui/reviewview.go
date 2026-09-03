@@ -236,7 +236,7 @@ func (m model) reviewMatchCount() string {
 		return ""
 	}
 
-	where := matchingLines(m.review.view.MatchCount())
+	where := matchesFound(m.review.view.MatchCount())
 	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
 		where = fmt.Sprintf("%d of %d", at, m.review.view.MatchCount())
 	}
@@ -250,12 +250,12 @@ func (m model) reviewMatchCount() string {
 	return dimStyle.Render("  "+where) + "\n\n"
 }
 
-func matchingLines(count int) string {
+func matchesFound(count int) string {
 	if count == 1 {
-		return "1 matching line"
+		return "1 match"
 	}
 
-	return fmt.Sprintf("%d matching lines", count)
+	return fmt.Sprintf("%d matches", count)
 }
 
 func (m model) reviewThreadView() string {
