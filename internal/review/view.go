@@ -310,9 +310,10 @@ func (v *View) IsGhosted(thread *agentv1.ReviewThread) bool {
 	return v.placed[thread.GetId()] == ghosted
 }
 
-// isPinnable reports whether a row is one the cursor can rest on: a real line of a file, a
+// isPinnable reports whether stepping the cursor may leave it on a row: a real line of a file, a
 // thread that has no line left to be read on, or the header of a collapsed file, which is the
-// only row that file has left to be opened again from.
+// only row that file has left to be opened again from, though a search jump lands on an expanded
+// file header too.
 func (v *View) isPinnable(y int) bool {
 	if y < 0 || y >= len(v.rows) {
 		return false

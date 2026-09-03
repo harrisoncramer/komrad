@@ -7,6 +7,9 @@ import (
 	"weave/internal/diff"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -166,4 +169,22 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 	at, ok := view.JumpMatch(-1, 1)
 	require.True(t, ok)
 	assert.Equal(t, 0, at)
+}
+
+// TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it,
+// since a jump that lands on a row saying nothing about why leaves the reader hunting for it.
+func TestFileNameMatchIsPainted(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+
+	view := twoHunkView()
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
+
+	drawn := view.RenderRow(0, false, 40, 0)
+	assert.Equal(t, "greet.go", ansi.Strip(drawn))
+	assert.Contains(t, drawn, fileStyle.Background(matchBackground).Render("eet.g"))
+
+	onCursor := view.RenderRow(0, true, 40, 0)
+	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")
 }
