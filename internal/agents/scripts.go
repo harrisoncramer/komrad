@@ -220,8 +220,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 	if err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "script failed", failedScript(result, err)...)
 		failed := fmt.Errorf("%w: %s: %w%s", ErrHookFailed, name, err, scriptDetail(result.Stdout, result.Stderr, record.logPath))
-		noteEmptyLog(ctx, record.logPath, failed)
-		s.finishRun(ctx, record, result, failed)
+		s.failRun(ctx, record, result, failed)
 
 		return failed
 	}
@@ -303,8 +302,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane st
 
 	if err != nil {
 		failed := fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, scriptDetail(result.Stdout, result.Stderr, record.logPath))
-		noteEmptyLog(ctx, record.logPath, failed)
-		s.finishRun(ctx, record, result, failed)
+		s.failRun(ctx, record, result, failed)
 
 		return "", failed
 	}
@@ -602,6 +600,13 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 	return record
 }
 
+// failRun closes the row of a run that failed, putting the reason in its log when the script
+// itself said nothing, since the row's mark sends a person to that log and nowhere else.
+func (s *ScriptService) failRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
+	noteEmptyLog(ctx, record.logPath, cause)
+	s.finishRun(ctx, record, result, cause)
+}
+
 // finishRun closes a run's row with what the script exited on and why it failed, if it did.
 func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
 	if s.runs == nil || record.id == "" {
@@ -814,7 +819,11 @@ func (s *ScriptService) start(ctx context.Context, p startParams) error {
 			defer s.release(key)
 
 			writeRunLog(ctx, p.run.logPath, combinedOutput(result.Stdout, result.Stderr))
-			s.finishRun(ctx, p.run, result, err)
+			if err != nil {
+				s.failRun(ctx, p.run, result, fmt.Errorf("%s: %w", p.script.Name, err))
+			} else {
+				s.finishRun(ctx, p.run, result, nil)
+			}
 
 			if err != nil {
 				logger.LogAttrs(ctx, slog.LevelError, "script failed",
