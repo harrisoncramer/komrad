@@ -16,11 +16,10 @@ import (
 )
 
 type searchState struct {
-	typing  bool
-	query   string
-	hits    []searchHit
-	cursor  int
-	preview previewResult
+	typing bool
+	query  string
+	hits   []searchHit
+	cursor int
 }
 
 const searchLimit = 10
@@ -180,7 +179,6 @@ func (m *model) applyPreview(result previewResult) {
 		return
 	}
 
-	m.search.preview = result
 	m.stageTranscript(result.content, hit.spans(result.content))
 }
 
@@ -332,7 +330,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.match = matchFor(hit, m.search.preview)
+	m.search = searchState{}
 
 	if hit.archived {
 		m.archive.focus = hit.agentID
@@ -352,55 +350,11 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// matchFocus is where a search hit sat in its agent's transcript, kept because the screen the
-// jump lands on redraws its stage from the row under the cursor every refresh.
-type matchFocus struct {
-	agentID string
-	content string
-	spans   []span
-}
-
-func matchFor(hit searchHit, preview previewResult) matchFocus {
-	if preview.agentID != hit.agentID || strings.TrimSpace(preview.content) == "" {
-		return matchFocus{}
-	}
-
-	// A turn the content does not hold spells none of the words, and a transcript with nothing
-	// marked in it is nothing worth taking the stage for.
-	spans := hit.spans(preview.content)
-	if len(spans) == 0 {
-		return matchFocus{}
-	}
-
-	return matchFocus{
-		agentID: hit.agentID,
-		content: preview.content,
-		spans:   spans,
-	}
-}
-
 // spans locates this hit's own matched words in the transcript, measured from the turn the hit
 // names rather than from whatever the preview last fetched, since an agent's hits sit next to
 // each other in the listing and the transcript on hand can belong to the one before it.
 func (h searchHit) spans(content string) []span {
 	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet))
-}
-
-// doesStageMatch puts the transcript a search hit came from on the stage at the line it matched on,
-// reporting whether it took the stage, and holds it until the cursor moves to another agent.
-func (m *model) doesStageMatch(agentID string) bool {
-	if m.match.agentID == "" {
-		return false
-	}
-	if m.match.agentID != agentID {
-		m.match = matchFocus{}
-
-		return false
-	}
-
-	m.stageTranscript(m.match.content, m.match.spans)
-
-	return true
 }
 
 // hitHeader names the agent a run of hits came from, wearing the same marks its row wears on

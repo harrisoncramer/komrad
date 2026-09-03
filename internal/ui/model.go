@@ -100,7 +100,6 @@ type model struct {
 	archive         archiveState
 	search          searchState
 	review          reviewState
-	match           matchFocus
 	filter          filterState
 	form            formState
 	pendingForm     bool
