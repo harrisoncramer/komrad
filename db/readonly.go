@@ -14,11 +14,13 @@ func GrantReadOnlyRole(ctx context.Context, pool *pgxpool.Pool, name, password s
 	if err != nil {
 		return fmt.Errorf("failed to begin granting the read-only role: %w", err)
 	}
+
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, `SELECT set_config('weave.readonly_role', $1, true)`, name); err != nil {
 		return fmt.Errorf("failed to set the read-only role name: %w", err)
 	}
+
 	if _, err := tx.Exec(ctx, `SELECT set_config('weave.readonly_password', $1, true)`, password); err != nil {
 		return fmt.Errorf("failed to set the read-only role password: %w", err)
 	}
