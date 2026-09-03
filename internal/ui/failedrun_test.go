@@ -201,6 +201,40 @@ func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
 	}
 }
 
+// TestRunPositionNamesWhichRunIsOnScreen covers the label on the older-run key, since that key
+// wraps in one direction and is otherwise the only way to tell where through the runs you are.
+func TestRunPositionNamesWhichRunIsOnScreen(t *testing.T) {
+	tests := []struct {
+		name string
+		runs int
+		back int
+		want string
+	}{
+		{name: "an agent that has run nothing", runs: 0, want: "older run"},
+		{name: "a single run is not worth counting", runs: 1, want: "older run"},
+		{name: "the newest of three", runs: 3, back: 0, want: "run 3/3"},
+		{name: "one step back", runs: 3, back: 1, want: "run 2/3"},
+		{name: "the oldest kept", runs: 3, back: 2, want: "run 1/3"},
+		{name: "a position past what is left falls to the newest", runs: 3, back: 9, want: "run 1/3"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			logsDir := t.TempDir()
+			if tt.runs > 0 {
+				seedRunLogs(t, logsDir, "a1", tt.runs)
+			}
+
+			m, _ := failedRunTree()
+			m.runLogsDir = logsDir
+			m.tree.cursor = 1
+			m.info.run = tt.back
+
+			assert.Equal(t, tt.want, m.runPosition())
+		})
+	}
+}
+
 // TestRunsReadRestartsWhenTheCursorMoves pins the hold belonging to the row rather than to the
 // pane, so walking the tree with the run log open never claims the rows travelled over.
 func TestRunsReadRestartsWhenTheCursorMoves(t *testing.T) {

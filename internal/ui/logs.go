@@ -124,6 +124,22 @@ func (m model) olderLog() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// runPosition labels the older-run key with where through an agent's runs the pane has got,
+// counting from the newest, and stays short because a longer description blanks the legend.
+func (m model) runPosition() string {
+	agent, ok := m.logTarget()
+	if !ok {
+		return "older run"
+	}
+
+	total := len(config.ListRunLogs(m.runLogsDir, agent.ID))
+	if total < 2 {
+		return "older run"
+	}
+
+	return fmt.Sprintf("run %d/%d", total-min(m.info.run, total-1), total)
+}
+
 func (m model) runLogContent() layout.Content {
 	agent, ok := m.logTarget()
 	if !ok {

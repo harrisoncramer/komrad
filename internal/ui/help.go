@@ -163,14 +163,14 @@ func (m model) editFilterBinding(keys []string) []key.Binding {
 	return []key.Binding{binding(keys, "edit filter")}
 }
 
-// olderLogBindings appear only while the info pane is showing a run, since stepping back
-// through runs means nothing when it is not.
+// olderLogBindings appear only while the info pane is showing a run, naming which of an agent's
+// runs is on screen because one wrapping direction gives no other way to tell.
 func (m model) olderLogBindings() []key.Binding {
 	if m.info.kind != infoRunLog {
 		return nil
 	}
 
-	return []key.Binding{binding(m.keys.Logs.Older, "older run")}
+	return []key.Binding{binding(m.keys.Logs.Older, m.runPosition())}
 }
 
 func (m model) helpBinding() key.Binding {
