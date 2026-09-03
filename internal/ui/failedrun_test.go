@@ -139,19 +139,7 @@ func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 // pane would otherwise open on that one and clear the mark.
 func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 	logsDir := t.TempDir()
-	logDir := config.RunLogDir(logsDir, "a1")
-	require.NoError(t, os.MkdirAll(logDir, 0o755))
-
-	for _, run := range []struct {
-		number  int
-		trigger string
-	}{
-		{number: 1, trigger: config.HookPostLaunch},
-		{number: 2, trigger: config.TriggerResume},
-	} {
-		name := config.RunLogName(run.number, run.trigger, "setup")
-		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
-	}
+	seedRunLogs(t, logsDir, "a1", 2)
 
 	m, _ := failedRunTree()
 	m.runLogsDir = logsDir
@@ -166,6 +154,51 @@ func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 	require.NotNil(t, m.failedRunLog("a1"))
 	assert.Equal(t, int32(1), *m.failedRunLog("a1"))
 	assert.Nil(t, m.failedRunLog("a2"), "a row carrying no mark names no run")
+}
+
+// TestTheRunLogFollowsTheCursorOntoTheFailedRun covers the pane's target changing under a
+// position worked out for the agent before it, which is how a mark got cleared while a run that
+// went fine was on screen.
+func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
+	at := time.Now()
+
+	logsDir := t.TempDir()
+	seedRunLogs(t, logsDir, "a1", 2)
+	seedRunLogs(t, logsDir, "a2", 2)
+
+	m, _ := failedRunTree()
+	m.runLogsDir = logsDir
+	m.listing.agents[0].failedRunLog = xptr.Ptr(int32(1))
+	m.info.kind = infoRunLog
+
+	// The pane was opened on the unmarked agent, so it sits on that agent's newest run.
+	m.tree.cursor = 2
+	m, _ = m.dwellRunsRead(at)
+	require.Equal(t, 0, m.info.run)
+
+	// The cursor reaches the agent that failed, whose newest run is the one that went fine.
+	m.tree.cursor = 1
+	m, cmd := m.dwellRunsRead(at.Add(time.Second))
+
+	assert.Nil(t, cmd, "the tick it arrived on claims nothing")
+	assert.Equal(t, 1, m.info.run, "the pane moved to the run the mark is about")
+
+	_, cmd = m.dwellRunsRead(at.Add(time.Second).Add(viewedDwell))
+	assert.NotNil(t, cmd, "and only then is the mark claimed")
+}
+
+// seedRunLogs writes an agent count numbered run logs, oldest first, since what the pane shows
+// is a position in that listing rather than a number.
+func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
+	t.Helper()
+
+	logDir := config.RunLogDir(logsDir, agentID)
+	require.NoError(t, os.MkdirAll(logDir, 0o755))
+
+	for number := 1; number <= count; number++ {
+		name := config.RunLogName(number, config.HookPostLaunch, "setup")
+		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
+	}
 }
 
 // TestRunsReadRestartsWhenTheCursorMoves pins the hold belonging to the row rather than to the

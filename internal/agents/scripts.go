@@ -224,6 +224,7 @@ func (s *ScriptService) RunHook(ctx context.Context, agent agentstore.Agent, nam
 	if err != nil {
 		logger.LogAttrs(ctx, slog.LevelError, "script failed", failedScript(result, err)...)
 		failed := fmt.Errorf("%w: %s: %w%s", ErrHookFailed, name, err, scriptDetail(result.Stdout, result.Stderr, record.logPath))
+		noteEmptyLog(ctx, record.logPath, failed)
 		s.finishRun(ctx, record, result, failed)
 
 		return failed

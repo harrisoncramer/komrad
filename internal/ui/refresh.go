@@ -247,6 +247,13 @@ func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 	// already parked on the agent earns a look of its own rather than being claimed on arrival.
 	if m.runHover.agentID != agent.ID {
 		m.runHover = hoverState{agentID: agent.ID, since: now}
+
+		// The pane follows the cursor, so the run it shows is worked out again for the agent it
+		// has just reached rather than left at the position the last one opened on.
+		if at := m.runAt(agent.ID, m.failedRunLog(agent.ID)); at != m.info.run {
+			m.info.run = at
+			m.stageInfo()
+		}
 	}
 
 	if !m.failedRunShowing(agent.ID) {

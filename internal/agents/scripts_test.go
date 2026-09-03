@@ -1340,6 +1340,28 @@ func TestRunHookRecordsTheRun(t *testing.T) {
 	}
 }
 
+// TestAHookThatFailedSilentlySaysSoInItsLog covers a hook exiting non-zero having printed
+// nothing, where the mark would otherwise point the person at a zero-byte pager.
+func TestAHookThatFailedSilentlySaysSoInItsLog(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 4\n"), 0o755))
+
+	logsDir := t.TempDir()
+	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+
+	err := svc.RunHook(t.Context(), agentstore.Agent{ID: fixtureAgentID, Cwd: t.TempDir()}, "install-deps", workflowstore.HookPostLaunch)
+	require.ErrorIs(t, err, ErrHookFailed)
+
+	_, finished := recorder.rows()
+	require.Len(t, finished, 1)
+	require.NotNil(t, finished[0].ExitCode)
+	assert.Equal(t, int32(4), *finished[0].ExitCode)
+
+	logged, readErr := os.ReadFile(onlyRunLog(t, logsDir))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(logged), "install-deps", "the run the mark points at says why rather than opening empty")
+}
+
 // TestARefusedRunDropsItsRow pins the row going with the empty log file, since a refusal is not
 // a run and one recorded as such would spend a number and stand as a failure to be read.
 func TestARefusedRunDropsItsRow(t *testing.T) {
