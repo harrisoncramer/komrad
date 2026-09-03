@@ -215,21 +215,26 @@ func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.BaseBranch = strings.TrimSpace(cfg.Worktree.BaseBranch)
 	cfg.Worktree.Dir = strings.TrimSpace(cfg.Worktree.Dir)
-	cfg.Worktree.CopyPaths = trimPaths(cfg.Worktree.CopyPaths)
-	cfg.Worktree.SymlinkPaths = trimPaths(cfg.Worktree.SymlinkPaths)
-	cfg.Worktree.DiffExclude = trimPaths(cfg.Worktree.DiffExclude)
+	cfg.Worktree.CopyPaths = cleanPaths(cfg.Worktree.CopyPaths)
+	cfg.Worktree.SymlinkPaths = cleanPaths(cfg.Worktree.SymlinkPaths)
+	cfg.Worktree.DiffExclude = cleanPaths(cfg.Worktree.DiffExclude)
 }
 
-func trimPaths(paths []string) []string {
+// cleanPaths drops the blank entries and stores the shortest spelling of the rest, since the
+// setup script refuses an entry holding a dot segment and ./.env names the same file as .env.
+func cleanPaths(paths []string) []string {
 	if paths == nil {
 		return nil
 	}
 
 	kept := make([]string, 0, len(paths))
 	for _, path := range paths {
-		if trimmed := strings.TrimSpace(path); trimmed != "" {
-			kept = append(kept, trimmed)
+		trimmed := strings.TrimSpace(path)
+		if trimmed == "" {
+			continue
 		}
+
+		kept = append(kept, filepath.Clean(trimmed))
 	}
 
 	return kept
@@ -259,6 +264,9 @@ func validateWorktreePath(path string) error {
 	for _, segment := range segments {
 		if segment == ".." {
 			return fmt.Errorf("%w: %q climbs out of the repo", ErrWorktreeUnsafePath, path)
+		}
+		if segment == "." {
+			return fmt.Errorf("%w: %q is the repo rather than something in it", ErrWorktreeUnsafePath, path)
 		}
 	}
 

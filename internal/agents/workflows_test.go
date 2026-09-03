@@ -171,6 +171,33 @@ func TestNewWorkflowWithWorktree(t *testing.T) {
 			},
 			wantWorktree: true,
 		},
+		{
+			name: "a copy path naming the repo itself is refused, since it would clear the worktree",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"."}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
+		{
+			name: "a symlink path that cleans away to the repo itself is refused too",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{"vendor/.."}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
+		{
+			name: "a path reaching the git directory the long way round is refused",
+			cfg: workflowstore.Config{
+				Name:     "backend",
+				Cwd:      "/repo",
+				Worktree: workflowstore.WorktreeConfig{Enabled: true, CopyPaths: []string{"vendor/../.git"}},
+			},
+			wantErrIs: ErrWorktreeUnsafePath,
+		},
 	}
 
 	for _, tt := range tests {
@@ -246,6 +273,49 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 		Worktree: workflowstore.WorktreeConfig{Enabled: true, SymlinkPaths: []string{"../elsewhere"}},
 	})
 	require.ErrorIs(t, err, ErrWorktreeUnsafePath)
+}
+
+// TestWorkflowWorktreePathsAreStoredCleaned covers the spelling a workflow's paths are stored
+// in, since the setup script refuses an entry holding a dot segment and so a path written ./.env
+// would be accepted here and then skipped when it mattered.
+func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
+	st := newStore(t)
+	workflows := workflowsFor(st, newFakeTmux())
+	repo := initRepo(t)
+
+	created, err := workflows.NewWorkflow(t.Context(), workflowstore.Config{
+		Name: "backend",
+		Cwd:  repo,
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			CopyPaths:    []string{"./.env", "config/./local.env"},
+			SymlinkPaths: []string{"./node_modules/"},
+			DiffExclude:  []string{"./proto/gen"},
+		},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{".env", "config/local.env"}, created.Worktree.CopyPaths)
+	assert.Equal(t, []string{"node_modules"}, created.Worktree.SymlinkPaths)
+	assert.Equal(t, []string{"proto/gen"}, created.Worktree.DiffExclude)
+
+	err = workflows.UpdateWorkflow(t.Context(), created.ID, workflowstore.Config{
+		Name: "backend",
+		Cwd:  repo,
+		Worktree: workflowstore.WorktreeConfig{
+			Enabled:      true,
+			CopyPaths:    []string{"./secrets/api.key"},
+			SymlinkPaths: []string{"./vendor"},
+			DiffExclude:  []string{"./db/models"},
+		},
+	})
+	require.NoError(t, err)
+
+	updated, err := st.GetWorkflow(t.Context(), created.ID)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"secrets/api.key"}, updated.Worktree.CopyPaths)
+	assert.Equal(t, []string{"vendor"}, updated.Worktree.SymlinkPaths)
+	assert.Equal(t, []string{"db/models"}, updated.Worktree.DiffExclude)
 }
 
 // TestUpdateWorkflowWorktree covers turning worktree support on through an update and turning
