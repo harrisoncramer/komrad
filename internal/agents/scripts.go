@@ -44,8 +44,6 @@ type scriptRunner interface {
 	RunAndWait(ctx context.Context, p scripts.RunParams) (scripts.Result, error)
 }
 
-// runRecorder is the row weave keeps for every script it fires, which is what puts a failed
-// hook on the agent instead of only in the log.
 type runRecorder interface {
 	Begin(ctx context.Context, params runstore.BeginParams) (string, error)
 	Finish(ctx context.Context, params runstore.FinishParams) error
