@@ -401,11 +401,11 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 	}{
 		{
 			name:        "a blank directory takes the workflow's",
-			workflowCwd: "~/chariot/chariot",
+			workflowCwd: "~/acmecorp/monorepo",
 		},
 		{
 			name:        "what the caller asked for wins over the workflow's",
-			dir:         "~/chariot/chariot",
+			dir:         "~/acmecorp/monorepo",
 			workflowCwd: "/no/such/directory",
 		},
 		{
@@ -414,7 +414,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 		},
 		{
 			name: "a ~ path is expanded before tmux sees it",
-			dir:  "~/chariot/chariot",
+			dir:  "~/acmecorp/monorepo",
 		},
 	}
 
@@ -423,7 +423,7 @@ func TestNewAgentGetsDirectory(t *testing.T) {
 			home := t.TempDir()
 			t.Setenv("HOME", home)
 
-			want := filepath.Join(home, "chariot", "chariot")
+			want := filepath.Join(home, "acmecorp", "monorepo")
 			require.NoError(t, os.MkdirAll(want, 0o755))
 
 			tmux := newFakeTmux()

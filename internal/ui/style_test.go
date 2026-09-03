@@ -21,7 +21,7 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	withBranch := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{{agent: agentstore.Agent{
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{{agent: agentstore.Agent{
 			ID:         "a1",
 			Name:       "worker",
 			WorkflowID: "w1",
@@ -83,7 +83,7 @@ func TestAgentsViewShowsWorktreeRemoved(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
 			{agent: agentstore.Agent{
 				ID:              "a1",
 				Name:            "worker",
@@ -120,7 +120,7 @@ func TestAgentsViewUnreadMail(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}}, agents: []agentItem{
+		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
 			{agent: agentstore.Agent{
 				ID:         "a1",
 				Name:       "waiting-on-reply",

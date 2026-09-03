@@ -55,7 +55,7 @@ func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		listing: listing{
-			workflows: []workflowstore.Workflow{{ID: "w1", Name: "chariot"}},
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}},
 			agents: agentItemsFrom([]*agentv1.Agent{
 				{
 					Id:              "a1",

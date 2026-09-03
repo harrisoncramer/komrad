@@ -268,21 +268,21 @@ func TestAdoptFromAPullRequest(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "").withPullRequests(fakePullRequests{
-		repository: "chariot-giving/admin",
+		repository: "acmecorp/admin",
 		pr: &PullRequest{
-			URL:        "https://github.com/chariot-giving/admin/pull/1069",
+			URL:        "https://github.com/acmecorp/admin/pull/1069",
 			Number:     1069,
 			Title:      "upload a logo",
 			Branch:     "harry/eng-3518-logo-upload",
 			BaseBranch: "main",
-			Repository: "chariot-giving/admin",
+			Repository: "acmecorp/admin",
 		},
 	})
 
 	repo := initRepo(t)
 
 	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{
-		Ref:        "https://github.com/chariot-giving/admin/pull/1069",
+		Ref:        "https://github.com/acmecorp/admin/pull/1069",
 		WorkflowID: seedWorktreeWorkflow(t, st, repo),
 	})
 	require.NoError(t, err)
@@ -290,8 +290,8 @@ func TestAdoptFromAPullRequest(t *testing.T) {
 	stored := agentByID(t, st, created.ID)
 	assert.Equal(t, "harry/eng-3518-logo-upload", stored.AdoptedBranch, "the branch comes from the pull request")
 	assert.Equal(t, "pr-1069", stored.Name, "an unnamed adoption is named after the pull request")
-	assert.Contains(t, stored.Prompt, "https://github.com/chariot-giving/admin/pull/1069")
-	assert.Equal(t, "https://github.com/chariot-giving/admin/pull/1069", prMetadata(stored), "the pull request is recorded as the agent starts")
+	assert.Contains(t, stored.Prompt, "https://github.com/acmecorp/admin/pull/1069")
+	assert.Equal(t, "https://github.com/acmecorp/admin/pull/1069", prMetadata(stored), "the pull request is recorded as the agent starts")
 }
 
 // TestAdoptRefusesAPullRequestItCannotWorkOn covers the two references that resolve
@@ -306,11 +306,11 @@ func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 		{
 			name: "a pull request on another repository",
 			resolver: fakePullRequests{
-				repository: "chariot-giving/admin",
+				repository: "acmecorp/admin",
 				pr: &PullRequest{
-					URL:        "https://github.com/chariot-giving/chariot/pull/12",
+					URL:        "https://github.com/acmecorp/monorepo/pull/12",
 					Branch:     "harry/elsewhere",
-					Repository: "chariot-giving/chariot",
+					Repository: "acmecorp/monorepo",
 				},
 			},
 			wantErrIs: ErrAdoptRepoMismatch,
@@ -318,11 +318,11 @@ func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 		{
 			name: "a pull request from a fork",
 			resolver: fakePullRequests{
-				repository: "chariot-giving/admin",
+				repository: "acmecorp/admin",
 				pr: &PullRequest{
-					URL:             "https://github.com/chariot-giving/admin/pull/13",
+					URL:             "https://github.com/acmecorp/admin/pull/13",
 					Branch:          "patch-1",
-					Repository:      "chariot-giving/admin",
+					Repository:      "acmecorp/admin",
 					CrossRepository: true,
 				},
 			},
@@ -345,7 +345,7 @@ func TestAdoptRefusesAPullRequestItCannotWorkOn(t *testing.T) {
 			}
 
 			_, err := manager.adopt.Adopt(t.Context(), AdoptParams{
-				Ref:        "https://github.com/chariot-giving/admin/pull/1069",
+				Ref:        "https://github.com/acmecorp/admin/pull/1069",
 				WorkflowID: seedWorktreeWorkflow(t, st, initRepo(t)),
 			})
 
@@ -381,7 +381,7 @@ func TestLooksLikePullRequest(t *testing.T) {
 		ref  string
 		want bool
 	}{
-		{ref: "https://github.com/chariot-giving/admin/pull/1069", want: true},
+		{ref: "https://github.com/acmecorp/admin/pull/1069", want: true},
 		{ref: "1069", want: true},
 		{ref: "#1069", want: true},
 		{ref: "harry/eng-3518-logo-upload"},
@@ -406,10 +406,10 @@ func TestRepositoryFromRemote(t *testing.T) {
 		remote string
 		want   string
 	}{
-		{remote: "git@github.com:chariot-giving/admin.git", want: "chariot-giving/admin"},
-		{remote: "https://github.com/chariot-giving/admin.git", want: "chariot-giving/admin"},
-		{remote: "https://github.com/chariot-giving/admin", want: "chariot-giving/admin"},
-		{remote: "ssh://git@github.com/chariot-giving/admin.git", want: "chariot-giving/admin"},
+		{remote: "git@github.com:acmecorp/admin.git", want: "acmecorp/admin"},
+		{remote: "https://github.com/acmecorp/admin.git", want: "acmecorp/admin"},
+		{remote: "https://github.com/acmecorp/admin", want: "acmecorp/admin"},
+		{remote: "ssh://git@github.com/acmecorp/admin.git", want: "acmecorp/admin"},
 		{remote: "/some/local/clone", want: ""},
 		{remote: "file:///some/local/clone", want: ""},
 	}
