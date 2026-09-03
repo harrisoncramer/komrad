@@ -919,9 +919,10 @@ func headerLine(t *testing.T, view, name string) string {
 // hits were previewed against belongs to the search and the row the jump lands on has its own.
 func TestJumpLeavesTheSearchBehind(t *testing.T) {
 	tests := []struct {
-		name      string
-		hit       searchHit
-		wantSwaps int
+		name       string
+		hit        searchHit
+		wantSwaps  int
+		wantStaged string
 	}{
 		{
 			name: "a live hit takes the agent's own pane",
@@ -944,6 +945,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				length:   3,
 				snippet:  marked("two"),
 			},
+			wantStaged: "weave-stage.ansi",
 		},
 	}
 
@@ -976,6 +978,9 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			staged := strings.Join(tmux.respawns, "\n")
 			assert.NotContains(t, staged, "weave-transcript.ansi", "the preview does not follow the jump")
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
+			if tt.wantStaged != "" {
+				assert.Contains(t, staged, tt.wantStaged, "the row's own record is what is paged")
+			}
 			assert.Empty(t, landed.search.query, "the search is let go of")
 			assert.Empty(t, landed.search.hits, "the search is let go of")
 		})
