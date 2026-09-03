@@ -109,6 +109,17 @@ func New(db store.DBTX) *Store {
 	return &Store{queries: models.New(db)}
 }
 
+// ListWorktreeDirs returns the directories the workflows cut their worktrees in, which is
+// where a check for a worktree nothing accounts for has to look.
+func (s *Store) ListWorktreeDirs(ctx context.Context) ([]string, error) {
+	dirs, err := s.queries.ListWorkflowWorktreeDirs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the directories workflows cut worktrees in: %w", err)
+	}
+
+	return dirs, nil
+}
+
 // List returns every live workflow, by name.
 func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	rows, err := s.queries.ListWorkflows(ctx)

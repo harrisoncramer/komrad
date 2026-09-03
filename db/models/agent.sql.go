@@ -614,6 +614,39 @@ type InsertTranscriptChunksParams struct {
 	ContentOffset int64
 }
 
+const listAgentDirs = `-- name: ListAgentDirs :many
+SELECT
+    id,
+    cwd
+FROM
+    agents
+`
+
+type ListAgentDirsRow struct {
+	ID  string
+	Cwd string
+}
+
+func (q *Queries) ListAgentDirs(ctx context.Context) ([]*ListAgentDirsRow, error) {
+	rows, err := q.db.Query(ctx, listAgentDirs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListAgentDirsRow
+	for rows.Next() {
+		var i ListAgentDirsRow
+		if err := rows.Scan(&i.ID, &i.Cwd); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAgentMetadata = `-- name: ListAgentMetadata :many
 SELECT
     agent_id,

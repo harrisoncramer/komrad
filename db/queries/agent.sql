@@ -748,3 +748,10 @@ WHERE
     AND workflow_id <> @workflow_id
 ORDER BY
     id DESC;
+
+-- name: ListAgentDirs :many
+SELECT
+    id,
+    cwd
+FROM
+    agents;

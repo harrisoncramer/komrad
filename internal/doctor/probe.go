@@ -12,6 +12,8 @@ import (
 
 	"weave/db"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	workflowstore "weave/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -21,14 +23,6 @@ const connectTimeout = 5 * time.Second
 // writeAccess is the mode syscall.Access takes for a write, which the syscall package has no
 // name of its own for.
 const writeAccess = 0x2
-
-const (
-	listAgentOwners          = `SELECT id::text, cwd FROM agents`
-	listWorkflowWorktreeDirs = `SELECT DISTINCT provisioners.worktree_dir
-FROM workflows
-JOIN workflow_provisioner_configs AS provisioners ON provisioners.id = workflows.provisioner_config_id
-WHERE btrim(provisioners.worktree_dir) <> ''`
-)
 
 func pingDatabase(ctx context.Context, url string) error {
 	pool, err := openReadOnlyPool(ctx, url)
@@ -142,44 +136,23 @@ func readWorktreeOwners(ctx context.Context, url string) (WorktreeOwners, error)
 	ctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 
-	var owners WorktreeOwners
-
-	rows, err := pool.Query(ctx, listAgentOwners)
+	agents, err := agentstore.New(pool).ListDirs(ctx)
 	if err != nil {
 		return WorktreeOwners{}, err
 	}
-	for rows.Next() {
-		var id, cwd string
-		if err := rows.Scan(&id, &cwd); err != nil {
-			rows.Close()
 
-			return WorktreeOwners{}, err
-		}
-
-		owners.AgentIDs = append(owners.AgentIDs, id)
-		if trimmed := strings.TrimSpace(cwd); trimmed != "" {
+	var owners WorktreeOwners
+	for _, agent := range agents {
+		owners.AgentIDs = append(owners.AgentIDs, agent.ID)
+		if trimmed := strings.TrimSpace(agent.Cwd); trimmed != "" {
 			owners.AgentDirs = append(owners.AgentDirs, trimmed)
 		}
 	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return WorktreeOwners{}, err
-	}
 
-	dirs, err := pool.Query(ctx, listWorkflowWorktreeDirs)
+	owners.WorkflowDirs, err = workflowstore.New(pool).ListWorktreeDirs(ctx)
 	if err != nil {
 		return WorktreeOwners{}, err
 	}
-	defer dirs.Close()
 
-	for dirs.Next() {
-		var dir string
-		if err := dirs.Scan(&dir); err != nil {
-			return WorktreeOwners{}, err
-		}
-
-		owners.WorkflowDirs = append(owners.WorkflowDirs, dir)
-	}
-
-	return owners, dirs.Err()
+	return owners, nil
 }

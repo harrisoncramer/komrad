@@ -278,3 +278,12 @@ VALUES (
     @event,
     @script,
     @position);
+
+-- name: ListWorkflowWorktreeDirs :many
+SELECT DISTINCT
+    provisioners.worktree_dir
+FROM
+    workflows
+    JOIN workflow_provisioner_configs AS provisioners ON provisioners.id = workflows.provisioner_config_id
+WHERE
+    BTRIM(provisioners.worktree_dir) <> '';

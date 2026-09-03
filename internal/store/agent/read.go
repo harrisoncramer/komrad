@@ -7,6 +7,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // List returns every persisted agent, newest first.
@@ -30,6 +31,26 @@ func (c Cursor) Validate() error {
 	}
 
 	return nil
+}
+
+// AgentDir is the directory one agent holds, which is all a check on the worktrees weave
+// made needs to know about it.
+type AgentDir struct {
+	ID  string
+	Cwd string
+}
+
+// ListDirs returns the directory every agent holds, archived ones included since a dormant
+// agent is restored into the tree it still owns.
+func (s *Store) ListDirs(ctx context.Context) ([]AgentDir, error) {
+	rows, err := s.queries.ListAgentDirs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the directories agents hold: %w", err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListAgentDirsRow) AgentDir {
+		return AgentDir{ID: row.ID, Cwd: row.Cwd}
+	}), nil
 }
 
 // ListPage returns one page of live or archived agents, newest first.

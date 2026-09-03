@@ -447,6 +447,36 @@ func (q *Queries) ListWorkflowHooks(ctx context.Context) ([]*ListWorkflowHooksRo
 	return items, nil
 }
 
+const listWorkflowWorktreeDirs = `-- name: ListWorkflowWorktreeDirs :many
+SELECT DISTINCT
+    provisioners.worktree_dir
+FROM
+    workflows
+    JOIN workflow_provisioner_configs AS provisioners ON provisioners.id = workflows.provisioner_config_id
+WHERE
+    BTRIM(provisioners.worktree_dir) <> ''
+`
+
+func (q *Queries) ListWorkflowWorktreeDirs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.Query(ctx, listWorkflowWorktreeDirs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var worktree_dir string
+		if err := rows.Scan(&worktree_dir); err != nil {
+			return nil, err
+		}
+		items = append(items, worktree_dir)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorkflows = `-- name: ListWorkflows :many
 SELECT
     w.id, w.name, w.context, w.workflow_config_id, w.provisioner_config_id, w.archived_at, w.created_at, w.updated_at,
