@@ -28,6 +28,14 @@ type stopHookPayload struct {
 	StopHookActive bool `json:"stop_hook_active"`
 }
 
+// stopFailurePayload is what Claude hands the StopFailure event, of which weave reads only the
+// two fields saying why the turn died, and logs the kind as it arrives rather than mapping it
+// onto anything of weave's own.
+type stopFailurePayload struct {
+	Error                string `json:"error"`
+	LastAssistantMessage string `json:"last_assistant_message"`
+}
+
 type stopHookOutput struct {
 	HookSpecificOutput stopHookContext `json:"hookSpecificOutput"`
 }
@@ -64,6 +72,7 @@ meant to be run by hand.`,
 	}
 
 	cmd.AddCommand(stopHookCmd(state))
+	cmd.AddCommand(stopFailureHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
 
 	return cmd
@@ -133,8 +142,8 @@ turn end.`,
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		payload, err := readStopHookPayload(cmd.InOrStdin())
-		if err != nil {
+		var payload stopHookPayload
+		if err := readHookPayload(cmd.InOrStdin(), &payload); err != nil {
 			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
 
 			return nil
@@ -176,25 +185,75 @@ turn end.`,
 	return cmd
 }
 
+func stopFailureHookCmd(state *app) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "stop-failure",
+		Short: "Record that an agent's turn ended in an API error",
+		Long: `Record that an agent's turn ended in an API error.
+
+The agent CLI runs this on its StopFailure event, which is the only turn end it
+reports when a turn dies rather than finishes. Weave keeps the moment against the
+agent so the panel and the delivery loop see the turn end, and writes why it died
+into the agent's log. Nothing is printed back, since a dead turn takes no
+continuation, so any unread mail is left for the panel to nudge the agent about.`,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		var payload stopFailurePayload
+		if err := readHookPayload(cmd.InOrStdin(), &payload); err != nil {
+			reportHookProblem(cmd, "weave read no hook payload, so it recorded a turn end with no reason", err)
+		}
+		if state.env.AgentID == "" {
+			return nil
+		}
+
+		recordTurnBoundary(cmd.Context(), state)
+
+		if err := logToPanel(cmd.Context(), state, describeTurnFailure(payload)); err != nil {
+			reportHookProblem(cmd, "weave did not log why the turn failed", err)
+		}
+
+		return nil
+	}
+
+	return cmd
+}
+
+func describeTurnFailure(payload stopFailurePayload) string {
+	kind := payload.Error
+	if kind == "" {
+		kind = "an unnamed error"
+	}
+
+	line := "the turn ended in " + kind
+	if payload.LastAssistantMessage != "" {
+		line += ": " + payload.LastAssistantMessage
+	}
+
+	return line
+}
+
 func reportHookProblem(cmd *cobra.Command, what string, err error) {
 	cmd.PrintErrf("%s: %v\n", what, err)
 }
 
-func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
+func readHookPayload(stdin io.Reader, payload any) error {
 	body, err := io.ReadAll(stdin)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read the hook payload: %w", err)
+		return fmt.Errorf("failed to read the hook payload: %w", err)
 	}
 	if len(body) == 0 {
-		return &stopHookPayload{}, nil
+		return nil
 	}
 
-	var payload stopHookPayload
-	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("failed to parse the hook payload: %w", err)
+	if err := json.Unmarshal(body, payload); err != nil {
+		return fmt.Errorf("failed to parse the hook payload: %w", err)
 	}
 
-	return &payload, nil
+	return nil
 }
 
 func recordTurnBoundary(ctx context.Context, state *app) {
@@ -237,26 +296,28 @@ func readMail(ctx context.Context, state *app) (*deliveredMail, error) {
 }
 
 func recordDelivery(ctx context.Context, state *app, mail []mailItem) error {
-	path, err := toolPath(logTool)
-	if err != nil {
-		return err
-	}
-
 	ids := make([]string, 0, len(mail))
 	for _, item := range mail {
 		ids = append(ids, item.ID)
+	}
+
+	return logToPanel(ctx, state, fmt.Sprintf("the stop hook delivered %d piece(s) of mail: %s", len(mail), strings.Join(ids, ", ")))
+}
+
+func logToPanel(ctx context.Context, state *app, message string) error {
+	path, err := toolPath(logTool)
+	if err != nil {
+		return err
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
 	_, err = callRPC(ctx, callRPCParams{
-		Addr: state.env.Addr,
-		Path: path,
-		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
-		Request: map[string]any{
-			"message": fmt.Sprintf("the stop hook delivered %d piece(s) of mail: %s", len(mail), strings.Join(ids, ", ")),
-		},
+		Addr:    state.env.Addr,
+		Path:    path,
+		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+		Request: map[string]any{"message": message},
 	})
 
 	return err

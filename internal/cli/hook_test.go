@@ -235,6 +235,82 @@ func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	assert.Contains(t, errOut.String(), "weave could not be reached")
 }
 
+// TestStopFailureHookRecordsTheBoundary covers the event Claude fires when a turn dies rather
+// than finishes, which is the only turn end weave hears in that case.
+func TestStopFailureHookRecordsTheBoundary(t *testing.T) {
+	tests := []struct {
+		name         string
+		agentID      string
+		payload      string
+		wantBoundary bool
+		wantLogged   []string
+	}{
+		{
+			name:         "the error kind and the message say why in the agent's log",
+			agentID:      "agent-a",
+			payload:      `{"error":"server_error","last_assistant_message":"API Error: 529 Overloaded."}`,
+			wantBoundary: true,
+			wantLogged:   []string{"server_error", "529 Overloaded"},
+		},
+		{
+			name:         "a payload naming no kind still ends the turn",
+			agentID:      "agent-a",
+			payload:      `{}`,
+			wantBoundary: true,
+			wantLogged:   []string{"an unnamed error"},
+		},
+		{
+			name:         "a payload that will not parse still ends the turn",
+			agentID:      "agent-a",
+			payload:      `{`,
+			wantBoundary: true,
+			wantLogged:   []string{"an unnamed error"},
+		},
+		{
+			name:    "a caller that is not an agent has nothing to stamp",
+			payload: `{"error":"rate_limit"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var asked caller.Caller
+			var logged []string
+			var boundaries []string
+			addr := fakeMailServer(t, fakeMailParams{
+				asked:      &asked,
+				logged:     &logged,
+				boundaries: &boundaries,
+			})
+
+			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
+
+			var out, errs bytes.Buffer
+			cmd := stopFailureHookCmd(state)
+			cmd.SetIn(bytes.NewBufferString(tt.payload))
+			cmd.SetOut(&out)
+			cmd.SetErr(&errs)
+			cmd.SetArgs([]string{})
+
+			require.NoError(t, cmd.Execute())
+			assert.Equal(t, tt.wantBoundary, len(boundaries) == 1, "a turn that died is still a turn ending")
+			assert.Empty(t, out.String(), "a dead turn takes no continuation, so nothing is printed back")
+			assert.Empty(t, asked.AgentID, "the mailbox is left alone, since claimed mail would go nowhere")
+
+			if len(tt.wantLogged) == 0 {
+				assert.Empty(t, logged)
+
+				return
+			}
+
+			require.Len(t, logged, 1)
+			for _, want := range tt.wantLogged {
+				assert.Contains(t, logged[0], want)
+			}
+		})
+	}
+}
+
 type fakeMailParams struct {
 	mail       []mailItem
 	asked      *caller.Caller

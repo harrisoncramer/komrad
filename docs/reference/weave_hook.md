@@ -26,5 +26,6 @@ meant to be run by hand.
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
 * [weave hook stop](weave_hook_stop.md)	 - Deliver an agent's unread mail as its turn ends
+* [weave hook stop-failure](weave_hook_stop-failure.md)	 - Record that an agent's turn ended in an API error
 * [weave hook turn-end](weave_hook_turn-end.md)	 - Record that an agent's turn ended
 

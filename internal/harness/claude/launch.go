@@ -74,10 +74,15 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	settings := map[string]any{
 		"permissions": map[string]any{"deny": deniedAgents},
 	}
+	// StopFailure is hooked alongside Stop because Claude fires one or the other: a turn killed
+	// by an API error reaches only StopFailure, and weave would otherwise hear no turn end at all.
 	if hookCommand != "" {
 		settings["hooks"] = map[string]any{
 			"Stop": []any{map[string]any{
 				"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook stop"}},
+			}},
+			"StopFailure": []any{map[string]any{
+				"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook stop-failure"}},
 			}},
 		}
 	}

@@ -42,6 +42,17 @@ const dimRuleFrame = "\x1b[2m" + wideRule + "\n" +
 	"\x1b[2m" + wideRule + "\n" +
 	"\x1b[0m  -- INSERT --"
 
+// retryFrame is the banner Claude draws over an empty box while it retries an API error,
+// captured out of a real tmux pane during a repeated 529.
+const retryFrame = "\x1b[38;5;203m\x1b[49m✻\x1b[39m \x1b[38;5;203mAPI error\x1b[38;5;102m · Retrying in 1s · attempt 1/10\x1b[39m\n" +
+	"\n" + idleFrame
+
+// codedRetryFrame is the same banner once Claude has a status code and a hint to name, where
+// the text after the glyph opens with the code rather than with a word.
+const codedRetryFrame = "✻ 529 Overloaded · Retrying in 11s · attempt 6/10\n" +
+	"  ⎿  If it persists, check your inference gateway (127.0.0.1:8799).\n" +
+	"\n" + idleFrame
+
 const toolBlock = "\n" +
 	"  ⎿  ◼ Schema + migration + sqlc for workflows\n" +
 	"     ◻ Store layer: Workflow type + WorkflowID + CRUD\n" +
@@ -182,6 +193,21 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWorking,
 		},
 		{
+			name:  "the retry countdown over an empty box is a turn still running",
+			frame: retryFrame,
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "a retry banner naming a status code rather than a word",
+			frame: codedRetryFrame,
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "the summary of a turn that died to an API error is not a retry",
+			frame: "⏺ API Error: Repeated 529 Overloaded errors. The API is at capacity.\n\n✻ Worked for 1s · done 11:43 AM\n" + idleFrame,
+			want:  harness.ActivityIdle,
+		},
+		{
 			name:  "a busy frame is working rather than waiting",
 			frame: busyFrame,
 			want:  harness.ActivityWorking,
@@ -210,6 +236,10 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 		{
 			name:  "prose well above the live region",
 			frame: "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`." + strings.Repeat("\n", liveRegionLines) + idleFrame,
+		},
+		{
+			name:  "a retry countdown quoted in prose is not a countdown",
+			frame: "I match `✻ 529 Overloaded · Retrying in 11s · attempt 6/10`, badly." + strings.Repeat("\n", liveRegionLines) + idleFrame,
 		},
 		{
 			name:  "waiting phrases a dozen lines up",

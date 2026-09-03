@@ -12,6 +12,11 @@ var (
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 )
 
+// retryLine is the banner Claude draws while it retries an API error, which carries no ellipsis
+// and so matches no working line, and is keyed on the countdown rather than on the status code
+// it names, since the code varies with whatever the API returned.
+var retryLine = regexp.MustCompile(`(?mi)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+.*retrying in\s.*attempt\s+\d+\s*/\s*\d+`)
+
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
 var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
@@ -62,7 +67,7 @@ func tailRegion(frame string, count int) []string {
 
 func doesFrameShowWork(frame string) bool {
 	region := tailLines(frame, liveRegionLines)
-	return workingLine.MatchString(region) || workingTimer.MatchString(region)
+	return workingLine.MatchString(region) || workingTimer.MatchString(region) || retryLine.MatchString(region)
 }
 
 func doesFrameShowWaiting(frame string) bool {

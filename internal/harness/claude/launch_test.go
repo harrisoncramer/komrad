@@ -381,6 +381,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			stop, ok := settings.Hooks["Stop"]
 			if !tt.wantHook {
 				assert.False(t, ok, "no hook is registered")
+				assert.NotContains(t, settings.Hooks, "StopFailure")
 
 				return
 			}
@@ -390,6 +391,13 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			require.Len(t, stop[0].Hooks, 1)
 			assert.Equal(t, "command", stop[0].Hooks[0].Type)
 			assert.Equal(t, tt.hookCommand+" hook stop", stop[0].Hooks[0].Command)
+
+			failure, ok := settings.Hooks["StopFailure"]
+			require.True(t, ok, "the StopFailure event is hooked, since a turn that dies reaches only that one")
+			require.Len(t, failure, 1)
+			require.Len(t, failure[0].Hooks, 1)
+			assert.Equal(t, "command", failure[0].Hooks[0].Type)
+			assert.Equal(t, tt.hookCommand+" hook stop-failure", failure[0].Hooks[0].Command)
 		})
 	}
 }
