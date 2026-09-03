@@ -277,6 +277,68 @@ func TestFoldingKeepsTheCursorInTheFile(t *testing.T) {
 	assert.True(t, view.isPinnable(back), "opening the file again lands the cursor on a line of it")
 }
 
+// TestHeaderFoundByASearchIsHeldAcrossARebuild covers the one row only a search reaches: the
+// header of a file drawn whole, which the reader is left standing on and which has no line
+// under it for the place to be read off.
+func TestHeaderFoundByASearchIsHeldAcrossARebuild(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile("wave.go")))
+	header, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+
+	place, ok := view.GetPlace(header)
+	require.True(t, ok)
+	require.True(t, place.Header)
+
+	view.PinThreads(nil)
+
+	back, ok := view.Locate(place)
+	require.True(t, ok)
+	assert.Equal(t, header, back, "the header the search found is where the reader is put back")
+}
+
+// TestHeaderFoundByASearchSurvivesTheFold covers the same place read again once the file has
+// been folded away under it, where the header is the only row the file has left.
+func TestHeaderFoundByASearchSurvivesTheFold(t *testing.T) {
+	view := NewView(twoFilePatch(), false)
+
+	place, ok := view.GetPlace(0)
+	require.True(t, ok)
+	require.True(t, place.Header)
+
+	view.SetFileViewed("greet.go", true)
+
+	back, ok := view.Locate(place)
+	require.True(t, ok)
+	assert.Equal(t, 0, back)
+}
+
+// TestHeaderOfAFileWithNoLinesIsHeld covers a rename or a mode change, which is drawn as a
+// header with nothing under it, so there is no line for the place to fall back to.
+func TestHeaderOfAFileWithNoLinesIsHeld(t *testing.T) {
+	view := NewView(patchWith(
+		diff.File{OldPath: "old.go", NewPath: "new.go", Metadata: []string{"renamed"}},
+		diff.File{
+			OldPath: "greet.go",
+			NewPath: "greet.go",
+			Hunks: []diff.Hunk{hunkOf(diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			})},
+		},
+	), false)
+
+	place, ok := view.GetPlace(0)
+	require.True(t, ok)
+
+	back, ok := view.Locate(place)
+	require.True(t, ok)
+	assert.Equal(t, 0, back)
+}
+
 // TestThreadInACollapsedFileIsNotAdrift pins that folding a file away does not send the
 // conversations in it to the section for threads with nothing left to stand on.
 func TestThreadInACollapsedFileIsNotAdrift(t *testing.T) {

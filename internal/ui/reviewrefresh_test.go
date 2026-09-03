@@ -247,6 +247,53 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 	assert.Equal(t, matches, m.review.view.MatchCount(), "the search still holds the rows it found")
 }
 
+// TestReviewRefreshKeepsAFileNameSearch covers the place a search by file name leaves the
+// cursor: the header of a file drawn whole, which nothing else puts it on, and which a reply
+// arriving would otherwise drag it off and out of the search.
+func TestReviewRefreshKeepsAFileNameSearch(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.review.filter.setQuery("greet.go")
+	m.searchReview()
+	require.Equal(t, 1, m.review.view.MatchCount())
+
+	header := m.review.cursor
+
+	// A thread has to be pinned to a line, so the reply is anchored where the search is not.
+	m.review.cursor = m.review.view.GetFirstRow()
+	threads := reviewReply(t, m)
+	m.review.cursor = header
+
+	m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: threads})
+
+	assert.Equal(t, header, m.review.cursor)
+	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), "1 of 1",
+		"the sidebar still says where in the search the reader is")
+}
+
+// TestReviewReloadKeepsAFileNameSearch covers the same header held across the reload key, which
+// reads the worktree again and builds the rows from nothing.
+func TestReviewReloadKeepsAFileNameSearch(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.filter.setQuery("greet.go")
+	m.searchReview()
+	header := m.review.cursor
+
+	next, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	next.applyReviewLoaded(loaded)
+
+	assert.Equal(t, header, next.review.cursor)
+}
+
 // TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed, since the
 // reader is mid-review and the next tick asks again.
 func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
