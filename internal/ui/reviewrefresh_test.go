@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/review"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -437,7 +438,7 @@ func TestReviewReloadKeySwapsTheHeldPatchIn(t *testing.T) {
 
 	var drawn string
 	for y := range m.review.view.Len() {
-		drawn += m.review.view.RenderRow(y, false, 120, 0)
+		drawn += m.review.view.RenderRow(y, review.NoCursor, 120, 0)
 	}
 	assert.Contains(t, drawn, "written by the agent")
 }

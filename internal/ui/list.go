@@ -12,12 +12,22 @@ func (m model) listLines(chrome ...string) int {
 		return 0
 	}
 
+	return max(m.spareLines(chrome...), 1)
+}
+
+// spareLines is what the pane has left once the chrome has taken its share, unclamped, which is
+// how a section that would not fit is dropped rather than drawn past the bottom of the pane.
+func (m model) spareLines(chrome ...string) int {
+	if m.height <= 0 {
+		return 0
+	}
+
 	lines := m.height - m.bannerLines()
 	for _, part := range chrome {
 		lines -= strings.Count(part, "\n")
 	}
 
-	return max(lines, 1)
+	return lines
 }
 
 func (m model) bannerLines() int {

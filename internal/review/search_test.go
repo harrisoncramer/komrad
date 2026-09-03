@@ -181,10 +181,10 @@ func TestFileNameMatchIsPainted(t *testing.T) {
 	view := twoHunkView()
 	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`eet\.g`)))
 
-	drawn := view.RenderRow(0, false, 40, 0)
+	drawn := view.RenderRow(0, NoCursor, 40, 0)
 	assert.Equal(t, "greet.go", ansi.Strip(drawn))
 	assert.Contains(t, drawn, fileStyle.Background(matchBackground).Render("eet.g"))
 
-	onCursor := view.RenderRow(0, true, 40, 0)
+	onCursor := view.RenderRow(0, LiveCursor, 40, 0)
 	assert.Equal(t, 40, lipgloss.Width(onCursor), "the cursor's row reaches the edge of the pane")
 }

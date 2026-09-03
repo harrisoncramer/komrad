@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"strconv"
+	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -966,7 +967,7 @@ func reviewGutterFor(t *testing.T, m model, id string) string {
 
 	for y := range m.review.view.Len() {
 		if thread, ok := m.review.view.GetThreadAt(y); ok && thread.GetId() == id {
-			return ansi.Strip(m.review.view.RenderRow(y, false, 120, 0))
+			return ansi.Strip(m.review.view.RenderRow(y, review.NoCursor, 120, 0))
 		}
 	}
 

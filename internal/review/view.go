@@ -212,6 +212,9 @@ func (v *View) Len() int { return len(v.rows) }
 // Stat is the size of the patch behind the view.
 func (v *View) Stat() diff.Stat { return v.patch.Stat() }
 
+// Base is what the diff was measured against.
+func (v *View) Base() string { return v.patch.Base }
+
 // PinThreads works out where each thread is drawn now that the agent has been editing under
 // it, and never drops one for having moved.
 func (v *View) PinThreads(threads []*agentv1.ReviewThread) {

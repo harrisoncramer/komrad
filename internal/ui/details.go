@@ -43,7 +43,16 @@ func (m model) detailsCursor(held details) int {
 }
 
 func (m model) isDetailsDrawn(held details) bool {
-	return len(held.fields) > 0 && m.detailsLines() > 0
+	if len(held.fields) == 0 || m.detailsLines() == 0 {
+		return false
+	}
+
+	spec := m.screen.spec().details
+	if spec == nil || spec.fits == nil {
+		return true
+	}
+
+	return spec.fits(m)
 }
 
 func (m model) isDetailsFocused() bool {
@@ -54,7 +63,7 @@ func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
 	if m.isDetailsFocused() {
 		m.details.focused = false
 
-		return m, nil
+		return m.refocused(), nil
 	}
 
 	held := m.hoveredDetails()
@@ -66,7 +75,20 @@ func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
 	m.details.cursor = 0
 	m.details.row = held.id
 
-	return m, nil
+	return m.refocused(), nil
+}
+
+// refocused tells the screen the keys have moved between its list and the record under it, since
+// a screen drawing its own pane has to repaint to say so.
+func (m model) refocused() model {
+	spec := m.screen.spec().details
+	if spec == nil || spec.refocus == nil {
+		return m
+	}
+
+	spec.refocus(&m)
+
+	return m
 }
 
 func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -76,7 +98,7 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if !m.isDetailsDrawn(held) {
 		m.details.focused = false
 
-		return m, nil
+		return m.refocused(), nil
 	}
 
 	cursor := m.detailsCursor(held)
@@ -84,6 +106,8 @@ func (m model) updateDetails(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case isBound(k, m.keys.Details.Focus), k == "esc":
 		m.details.focused = false
+
+		return m.refocused(), nil
 	case isBound(k, m.quitKeys()):
 		return m, m.hide()
 	case isBound(k, m.keys.Nav.Up):
