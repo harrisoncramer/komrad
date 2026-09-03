@@ -142,3 +142,28 @@ func TestSearchIsRunAgainWhenTheRowsMove(t *testing.T) {
 	assert.False(t, ok)
 	assert.LessOrEqual(t, at, view.GetLastRow())
 }
+
+// TestSearchFindsFileNames covers the file headers, which are rows the cursor rests on and are
+// how somebody reaches a file in a diff too long to scroll through.
+func TestSearchFindsFileNames(t *testing.T) {
+	view := twoHunkView()
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`greet\.go`)))
+
+	at, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+	assert.Equal(t, 0, at, "the match is the file's own header")
+}
+
+// TestSearchFindsAViewedFileName covers a file that has been read, whose header is the only row
+// it has left and so the only way back into it.
+func TestSearchFindsAViewedFileName(t *testing.T) {
+	view := twoHunkView()
+	view.SetFileViewed("greet.go", true)
+
+	require.Equal(t, 1, view.SetPattern(regexp.MustCompile(`greet\.go`)))
+
+	at, ok := view.JumpMatch(-1, 1)
+	require.True(t, ok)
+	assert.Equal(t, 0, at)
+}
