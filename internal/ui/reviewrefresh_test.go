@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -292,6 +293,60 @@ func TestReviewReloadKeepsAFileNameSearch(t *testing.T) {
 	next.applyReviewLoaded(loaded)
 
 	assert.Equal(t, header, next.review.cursor)
+	assert.Contains(t, ansi.Strip(next.reviewMatchCount()), "1 of 1",
+		"the sidebar still says where in the search the reader is")
+}
+
+// TestReviewReloadKeepsTheSearch pins the whole search surviving the reload key, since the
+// prompt goes on showing the pattern either way and a count of nothing under it reads as the
+// lines having left the diff.
+func TestReviewReloadKeepsTheSearch(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.filter.setQuery("hello")
+	m.searchReview()
+	matches := m.review.view.MatchCount()
+	require.Positive(t, matches)
+
+	next, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	next.applyReviewLoaded(loaded)
+
+	assert.Equal(t, matches, next.review.view.MatchCount())
+	assert.Contains(t, ansi.Strip(next.reviewMatchCount()), fmt.Sprintf("1 of %d", matches))
+
+	_, jumped := next.review.view.JumpMatch(next.review.cursor, 1)
+	assert.True(t, jumped, "the search still has rows to step through")
+}
+
+// TestReviewReloadDiffKeepsTheSearch covers the other way the reload key redraws the diff, which
+// swaps in the patch the background poll is already holding rather than reading the worktree.
+func TestReviewReloadDiffKeepsTheSearch(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.filter.setQuery("hello")
+	m.searchReview()
+	matches := m.review.view.MatchCount()
+	require.Positive(t, matches)
+
+	_, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	m.review.held = &heldPatch{patch: loaded.patch, viewed: loaded.viewed}
+
+	swapped, _ := m.reloadReviewDiff()
+	next, ok := swapped.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, matches, next.review.view.MatchCount())
+	assert.Contains(t, ansi.Strip(next.reviewMatchCount()), fmt.Sprintf("1 of %d", matches))
 }
 
 // TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed, since the

@@ -310,6 +310,11 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetViewed(stillViewed(msg.patch, msg.viewed))
 	m.review.view.PinThreads(msg.threads)
+
+	// The pattern lives on the ui model rather than the view, so a view built from nothing has
+	// to be given it back, once the marks and the threads have settled the rows it walks.
+	m.review.view.SetPattern(m.review.filter.pattern)
+
 	m.review.threads = msg.threads
 	m.review.activity = reviewActivityOf(msg.threads)
 	m.review.fingerprint = msg.patch.Fingerprint()
