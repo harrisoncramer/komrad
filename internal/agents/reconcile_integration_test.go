@@ -8,6 +8,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	agentstore "weave/internal/store/agent"
+	"weave/internal/tmux"
 	"weave/internal/tmuxtest"
 )
 
@@ -147,10 +148,10 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	return registry
 }
 
-// TestReconcileHoldsAListingThatLostTheBoard pins that a listing missing most of the panes is
-// treated as tmux answering badly rather than as that many agents exiting at once, since
-// acting on it takes the pane off every row while the panes themselves keep running.
-func TestReconcileHoldsAListingThatLostTheBoard(t *testing.T) {
+// TestReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is
+// not acted on, since a listing that came back short reads exactly like one that came back
+// right and forgetting the pane costs the agent a binding nothing restores.
+func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
 	ctx := context.Background()
@@ -163,45 +164,27 @@ func TestReconcileHoldsAListingThatLostTheBoard(t *testing.T) {
 		it.Kill(agent.Name)
 	}
 
-	for range paneLossHoldLimit {
+	for range paneAbsenceLimit - 1 {
 		if err := rec.Reconcile(ctx); err != nil {
 			t.Fatalf("reconcile: %v", err)
 		}
 	}
 
 	for _, agent := range board {
-		after := agentByID(t, st, agent.ID)
-		if after.Pane != agent.Pane {
-			t.Fatalf("%s: want the pane kept, got %q", agent.Name, after.Pane)
+		held := agentByID(t, st, agent.ID)
+		if held.Pane != agent.Pane {
+			t.Fatalf("%s: want the pane kept, got %q", agent.Name, held.Pane)
 		}
-		if after.State != agentstore.StateThinking {
-			t.Fatalf("%s: want thinking, got %q", agent.Name, after.State)
+		if held.State != agentstore.StateThinking {
+			t.Fatalf("%s: want thinking, got %q", agent.Name, held.State)
 		}
-		if after.InterruptedAt != nil {
-			t.Fatalf("%s: want no interruption recorded, got %v", agent.Name, *after.InterruptedAt)
+		if held.InterruptedAt != nil {
+			t.Fatalf("%s: want no interruption recorded, got %v", agent.Name, *held.InterruptedAt)
 		}
 	}
-}
 
-// TestReconcileBelievesTheLossOnceTheHoldRunsOut pins the other side of that: a tmux server
-// that really did restart keeps answering the same way, and the board has to follow it.
-func TestReconcileBelievesTheLossOnceTheHoldRunsOut(t *testing.T) {
-	it := tmuxtest.New(t)
-	st := newStore(t)
-	ctx := context.Background()
-	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
-
-	it.Spawn("bystander", "sleep 300")
-	board := seedBoard(t, it, st, 5)
-
-	for _, agent := range board {
-		it.Kill(agent.Name)
-	}
-
-	for range paneLossHoldLimit + 1 {
-		if err := rec.Reconcile(ctx); err != nil {
-			t.Fatalf("reconcile: %v", err)
-		}
+	if err := rec.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile: %v", err)
 	}
 
 	for _, agent := range board {
@@ -218,9 +201,38 @@ func TestReconcileBelievesTheLossOnceTheHoldRunsOut(t *testing.T) {
 	}
 }
 
-// TestReconcileForgetsOneAgentThatExits pins that the guard costs an ordinary exit nothing,
-// which is the case it has to stay out of the way of.
-func TestReconcileForgetsOneAgentThatExits(t *testing.T) {
+// TestReconcileHoldsAPaneWhateverElseTheListingKept pins that the hold is per pane rather
+// than measured against the size of the loss, so a listing that dropped a minority of the
+// board is held on the same terms as one that dropped all of it.
+func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
+	it := tmuxtest.New(t)
+	st := newStore(t)
+	ctx := context.Background()
+	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
+
+	board := seedBoard(t, it, st, 8)
+	for _, agent := range board[:3] {
+		it.Kill(agent.Name)
+	}
+
+	if err := rec.Reconcile(ctx); err != nil {
+		t.Fatalf("reconcile: %v", err)
+	}
+
+	for _, agent := range board {
+		after := agentByID(t, st, agent.ID)
+		if after.Pane != agent.Pane {
+			t.Fatalf("%s: want the pane kept, got %q", agent.Name, after.Pane)
+		}
+		if after.InterruptedAt != nil {
+			t.Fatalf("%s: want no interruption recorded, got %v", agent.Name, *after.InterruptedAt)
+		}
+	}
+}
+
+// TestReconcileForgetsAPaneThatStaysGone pins that an ordinary exit still settles, the hold
+// costing it the passes it takes to tell an exit from a listing that came back short.
+func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
 	ctx := context.Background()
@@ -230,8 +242,10 @@ func TestReconcileForgetsOneAgentThatExits(t *testing.T) {
 	gone := board[0]
 	it.Kill(gone.Name)
 
-	if err := rec.Reconcile(ctx); err != nil {
-		t.Fatalf("reconcile: %v", err)
+	for range paneAbsenceLimit {
+		if err := rec.Reconcile(ctx); err != nil {
+			t.Fatalf("reconcile: %v", err)
+		}
 	}
 
 	after := agentByID(t, st, gone.ID)
@@ -253,8 +267,53 @@ func TestReconcileForgetsOneAgentThatExits(t *testing.T) {
 	}
 }
 
-// seedBoard spawns count agents that are all working, which is the board a lost listing has
-// the most to take from.
+// TestReconcileReturnsAHoldWhenTheListingComesBack pins that a pane the listing mentions
+// again returns what its absence had accrued, so a run of blips never adds up to an exit.
+func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
+	it := tmuxtest.New(t)
+	st := newStore(t)
+	ctx := context.Background()
+	dropping := &listingDroppingPanes{Client: it.Client()}
+	rec := NewReconciler(dropping, mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
+
+	board := seedBoard(t, it, st, 5)
+
+	for range paneAbsenceLimit * 3 {
+		dropping.drop = !dropping.drop
+		if err := rec.Reconcile(ctx); err != nil {
+			t.Fatalf("reconcile: %v", err)
+		}
+	}
+
+	for _, agent := range board {
+		after := agentByID(t, st, agent.ID)
+		if after.Pane != agent.Pane {
+			t.Fatalf("%s: want the pane kept, got %q", agent.Name, after.Pane)
+		}
+		if after.InterruptedAt != nil {
+			t.Fatalf("%s: want no interruption recorded, got %v", agent.Name, *after.InterruptedAt)
+		}
+	}
+}
+
+// listingDroppingPanes is a tmux that answers about panes that are all still running while
+// leaving every one of them out of the listing, which is the shape of a degraded read.
+type listingDroppingPanes struct {
+	*tmux.Client
+	drop bool
+}
+
+func (l *listingDroppingPanes) GetPanes() (map[string]tmux.PaneStatus, error) {
+	panes, err := l.Client.GetPanes()
+	if err != nil || !l.drop {
+		return panes, err
+	}
+
+	return map[string]tmux.PaneStatus{}, nil
+}
+
+// seedBoard spawns count agents that are all working, which is the board a listing that came
+// back short has the most to take from.
 func seedBoard(t *testing.T, it *tmuxtest.Server, st *testStore, count int) []agentstore.Agent {
 	t.Helper()
 

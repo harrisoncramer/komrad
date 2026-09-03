@@ -32,8 +32,6 @@ const (
 	LifecycleReason        = "weave.lifecycle.reason"
 	AgentState             = "weave.agent.state"
 	UnrecognizedFrameCount = "weave.agent.unrecognized_frame_count"
-	PanesMissing           = "weave.panes.missing"
-	PanesHeld              = "weave.panes.held"
 	MCPTool                = "mcp.tool.name"
 	ScriptName             = "weave.script.name"
 	RunTrigger             = "weave.run.trigger"

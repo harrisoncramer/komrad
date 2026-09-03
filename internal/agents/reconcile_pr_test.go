@@ -70,7 +70,8 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 	st := newStore(t)
 	seedWithBranch(t, st, agentstore.StateThinking)
 
-	tmux := newFakeTmux() // pane not owned, so the agent settles idle in this one pass
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = "" // a pane that is not the agent's, so it settles idle in this one pass
 	finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
@@ -99,6 +100,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		require.NoError(t, err)
 
 		tmux := newFakeTmux()
+		tmux.owners["%1"] = ""
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/2"}
 
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
@@ -114,6 +116,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 		tmux := newFakeTmux()
+		tmux.owners["%1"] = ""
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
@@ -144,6 +147,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		seedWithBranch(t, st, agentstore.StateThinking)
 
 		tmux := newFakeTmux()
+		tmux.owners["%1"] = ""
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 		require.NoError(t, rec.Reconcile(context.Background()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
@@ -159,6 +163,7 @@ func TestReconcileSwallowsALookupFailure(t *testing.T) {
 	seedWithBranch(t, st, agentstore.StateThinking)
 
 	tmux := newFakeTmux()
+	tmux.owners["%1"] = ""
 	finder := &fakePRFinder{err: errors.New("gh: command not found")}
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
@@ -177,6 +182,7 @@ func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
 	agent := seedWithBranch(t, st, agentstore.StateThinking)
 
 	tmux := newFakeTmux()
+	tmux.owners["%1"] = ""
 	finder := &fakePRFinder{err: errors.New("API rate limit exceeded for installation ID 123.")}
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)

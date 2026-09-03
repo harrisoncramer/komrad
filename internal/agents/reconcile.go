@@ -22,15 +22,10 @@ const unrecognizedHoldLimit = 5
 
 const reconcileShellGrace = 10 * time.Second
 
-// paneLossFloor is how many of the panes the board is judged by have to be absent from one
-// listing before the loss reads as tmux answering badly rather than as that many agents
-// happening to exit inside the same pass.
-const paneLossFloor = 3
-
-// paneLossHoldLimit is how many passes in a row may be skipped over such a listing, bounded
-// because a server that really did restart keeps answering the same way and the board would
-// otherwise stay bound to panes nothing is running in.
-const paneLossHoldLimit = 3
+// paneAbsenceLimit is how many listings in a row have to leave a pane out before the pane is
+// believed gone, since one listing that came back short is indistinguishable from one that
+// came back right and would cost the agent a binding nothing restores.
+const paneAbsenceLimit = 3
 
 const stateSeenCoalesce = 30 * time.Second
 
@@ -80,7 +75,6 @@ type Reconciler struct {
 	mu                sync.Mutex
 	tracked           map[string]trackedAgent
 	unrecognizedTotal int
-	paneLossHolds     int
 	now               func() time.Time
 }
 
@@ -88,6 +82,7 @@ type Reconciler struct {
 // counters and timestamps the panes drove rather than anything the store holds.
 type trackedAgent struct {
 	misses            int
+	paneAbsences      int
 	shellSince        time.Time
 	turnBoundary      time.Time
 	rateLimitedUntil  time.Time
@@ -168,10 +163,33 @@ func (r *Reconciler) clearDebounce(agentID string) {
 	}
 
 	entry.misses = 0
+	entry.paneAbsences = 0
 	entry.shellSince = time.Time{}
 	entry.turnBoundary = time.Time{}
 	entry.unrecognizedHolds = 0
 	r.tracked[agentID] = entry
+}
+
+// hasPaneAbsenceSettled reports whether a pane the listing left out has been left out often
+// enough to act on, returning what an earlier absence accrued once the listing mentions it again.
+func (r *Reconciler) hasPaneAbsenceSettled(agentID string, onServer bool) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entry, ok := r.tracked[agentID]
+	if onServer {
+		if ok && entry.paneAbsences > 0 {
+			entry.paneAbsences = 0
+			r.tracked[agentID] = entry
+		}
+
+		return true
+	}
+
+	entry.paneAbsences++
+	r.tracked[agentID] = entry
+
+	return entry.paneAbsences >= paneAbsenceLimit
 }
 
 // hasShellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
@@ -246,77 +264,16 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to read panes for reconcile: %w", err)
 	}
 
-	if r.holdsForPaneLoss(ctx, agents, panes) {
-		return nil
-	}
-
 	listed := make(map[string]struct{}, len(agents))
 	for _, agent := range agents {
 		listed[agent.ID] = struct{}{}
-		r.reconcileAgent(ctx, agent, panes[agent.Pane])
+		pane, onServer := panes[agent.Pane]
+		r.reconcileAgent(ctx, agent, pane, onServer)
 	}
 
 	r.prune(listed)
 
 	return nil
-}
-
-// holdsForPaneLoss reports whether a listing has lost so much of the board that a degraded
-// read is likelier than that many exits, and whether there is hold left to skip the pass on.
-func (r *Reconciler) holdsForPaneLoss(ctx context.Context, agents []agentstore.Agent, panes map[string]tmux.PaneStatus) bool {
-	// A pane the listing does mention is an answer either way, so only one it leaves out counts.
-	held, missing := 0, 0
-	for _, agent := range agents {
-		if agent.Pane == "" || !agent.State.DoesPaneDecide() {
-			continue
-		}
-
-		held++
-		if _, listed := panes[agent.Pane]; !listed {
-			missing++
-		}
-	}
-
-	if missing < paneLossFloor || missing*2 <= held {
-		r.releasePaneLossHolds()
-
-		return false
-	}
-
-	if !r.spendPaneLossHold() {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "believing a pane listing that lost most of the board, having held out for it long enough",
-			slog.Int(logging.PanesMissing, missing),
-			slog.Int(logging.PanesHeld, held))
-
-		return false
-	}
-
-	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "skipping a reconcile pass over a pane listing that lost most of the board",
-		slog.Int(logging.PanesMissing, missing),
-		slog.Int(logging.PanesHeld, held))
-
-	return true
-}
-
-// spendPaneLossHold takes one of the passes a mass loss may be held over, reporting false once
-// they are all spent and staying there until a whole listing returns them.
-func (r *Reconciler) spendPaneLossHold() bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.paneLossHolds >= paneLossHoldLimit {
-		return false
-	}
-	r.paneLossHolds++
-
-	return true
-}
-
-func (r *Reconciler) releasePaneLossHolds() {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	r.paneLossHolds = 0
 }
 
 // prune forgets the agents the listing no longer holds, so an archived or deleted one leaves
@@ -332,8 +289,12 @@ func (r *Reconciler) prune(listed map[string]struct{}) {
 	})
 }
 
-func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus) {
+func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, onServer bool) {
 	if !agent.State.DoesPaneDecide() {
+		return
+	}
+
+	if agent.Pane != "" && !r.hasPaneAbsenceSettled(agent.ID, onServer) {
 		return
 	}
 
