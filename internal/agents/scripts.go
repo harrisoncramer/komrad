@@ -562,15 +562,13 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 	return "", 0
 }
 
-// runRecord is one run as weave is watching it: the file its output goes to and the row that
-// says it happened, either of which can be missing without the run being any less real.
+// runRecord is one run as weave is watching it.
 type runRecord struct {
 	logPath string
 	id      string
 }
 
-// beginRun claims a run's log file and opens the row that indexes it, so a script that fails
-// later has somewhere to be recorded other than the service log.
+// beginRun claims a run's log file and opens the row that indexes it, so a script that fails/succeeds later has somewhere to be recorded.
 func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name string) runRecord {
 	path, number := s.claimRunLog(ctx, agentID, trigger, name)
 	record := runRecord{logPath: path}
