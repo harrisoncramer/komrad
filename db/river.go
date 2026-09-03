@@ -13,8 +13,7 @@ import (
 // application's so that Atlas and River each manage their own migration ledger.
 const RiverSchema = "river"
 
-// MigrateRiver creates River's own tables without anyone installing the River CLI, kept
-// apart from Migrate since only the process running the queue needs them.
+// MigrateRiver creates River's own tables without anyone installing the River CLI.
 func MigrateRiver(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := pool.Exec(ctx, fmt.Sprintf("CREATE SCHEMA IF NOT EXISTS %q", RiverSchema)); err != nil {
 		return fmt.Errorf("failed to create the river schema: %w", err)
