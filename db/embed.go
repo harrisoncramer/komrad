@@ -1,6 +1,10 @@
 // Package db embeds the Atlas migrations and applies them, so a deployment can
 // bring its own schema up to date by running the binary rather than by having
 // the atlas CLI on the box.
+//
+// It does this by embedding all of the migrations into the binary and then acquiring
+// an advisory lock (so that two migrations cannot run migrations at the same time) and
+// running them each, in sequential order, against the database.
 package db
 
 import (
@@ -42,9 +46,7 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 	return migrate(ctx, pool, files)
 }
 
-// migrate applies the migrations in files, which is the embedded set on every
-// real run and a written-out one under test, where how a pass behaves across
-// several files is what is being checked.
+// migrate applies the migrations in files
 func migrate(ctx context.Context, pool *pgxpool.Pool, files fs.FS) error {
 	versions, err := listMigrationVersions(files)
 	if err != nil {
@@ -86,12 +88,12 @@ func Pending(ctx context.Context, pool *pgxpool.Pool) ([]string, error) {
 		return nil, err
 	}
 
-	return pendingVersions(ctx, pool, versions)
+	return getMigrationsToRun(ctx, pool, versions)
 }
 
 // isPending reports whether any migration has yet to run.
 func isPending(ctx context.Context, pool *pgxpool.Pool, versions []string) (bool, error) {
-	pending, err := pendingVersions(ctx, pool, versions)
+	pending, err := getMigrationsToRun(ctx, pool, versions)
 	if err != nil {
 		return false, err
 	}
@@ -106,9 +108,8 @@ type queryer interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
-// pendingVersions is which of versions the database has no record of, which is all of them
-// when schema_migrations does not exist yet.
-func pendingVersions(ctx context.Context, q queryer, versions []string) ([]string, error) {
+// getMigrationsToRun is which of versions the database has no record of yet.
+func getMigrationsToRun(ctx context.Context, q queryer, versions []string) ([]string, error) {
 	rows, err := q.Query(ctx,
 		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
 	if IsUndefinedTable(err) {
@@ -119,15 +120,16 @@ func pendingVersions(ctx context.Context, q queryer, versions []string) ([]strin
 	}
 	defer rows.Close()
 
-	applied := make(map[string]bool, len(versions))
+	appliedMigrations := make(map[string]bool, len(versions))
 	for rows.Next() {
 		var version string
 		if err := rows.Scan(&version); err != nil {
 			return nil, fmt.Errorf("failed to read an applied migration: %w", err)
 		}
 
-		applied[version] = true
+		appliedMigrations[version] = true
 	}
+
 	// The table can be missing on a database that has never been migrated, which the
 	// query above only reports once the rows are walked.
 	if err := rows.Err(); err != nil {
@@ -138,7 +140,7 @@ func pendingVersions(ctx context.Context, q queryer, versions []string) ([]strin
 		return nil, fmt.Errorf("failed to read applied migrations: %w", err)
 	}
 
-	pending := xslice.Filter(versions, func(version string) bool { return !applied[version] })
+	pending := xslice.Filter(versions, func(version string) bool { return !appliedMigrations[version] })
 
 	return pending, nil
 }
@@ -167,19 +169,19 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 		return fmt.Errorf("failed to create schema_migrations: %w", err)
 	}
 
-	pending, err := pendingVersions(ctx, conn, set.versions)
+	pendingMigrations, err := getMigrationsToRun(ctx, conn, set.versions)
 	if err != nil {
 		return err
 	}
-	if len(pending) == 0 {
+	if len(pendingMigrations) == 0 {
 		return nil
 	}
 
-	if err := refuseSharedDatabase(ctx, conn, pending); err != nil {
+	if err := refuseSharedDatabase(ctx, conn, pendingMigrations); err != nil {
 		return err
 	}
 
-	for _, version := range pending {
+	for _, version := range pendingMigrations {
 		sqlText, err := fs.ReadFile(set.files, version)
 		if err != nil {
 			return fmt.Errorf("failed to read migration %q: %w", version, err)
@@ -194,10 +196,12 @@ func apply(ctx context.Context, pool *pgxpool.Pool, set migrationSet) error {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to apply migration %q: %w", version, err)
 		}
+
 		if _, err := tx.Exec(ctx, `INSERT INTO schema_migrations (version) VALUES ($1)`, version); err != nil {
 			_ = tx.Rollback(ctx)
 			return fmt.Errorf("failed to record migration %q: %w", version, err)
 		}
+
 		if err := tx.Commit(ctx); err != nil {
 			return fmt.Errorf("failed to commit migration %q: %w", version, err)
 		}
