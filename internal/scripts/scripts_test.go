@@ -514,6 +514,47 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
+// TestRunAndWaitRefusesBeforeItStarts covers the two guards that answer before there is a
+// process at all, since a bare Result reads as a clean exit and a caller recording the status
+// beside the failure would say the script both succeeded and failed.
+func TestRunAndWaitRefusesBeforeItStarts(t *testing.T) {
+	tests := []struct {
+		name    string
+		mode    os.FileMode
+		dir     func(t *testing.T, found string) string
+		wantErr error
+	}{
+		{
+			name:    "a file nobody made executable",
+			mode:    0o644,
+			dir:     func(t *testing.T, found string) string { t.Helper(); return found },
+			wantErr: ErrNotExecutable,
+		},
+		{
+			name:    "a directory that is not there",
+			mode:    0o755,
+			dir:     func(*testing.T, string) string { return "/definitely/not/here" },
+			wantErr: ErrDirMissing,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := t.TempDir()
+			require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), tt.mode))
+
+			found, err := Discover(dir)
+			require.NoError(t, err)
+			require.Len(t, found, 1)
+
+			result, err := NewRunner().RunAndWait(t.Context(), RunParams{Script: found[0], Dir: tt.dir(t, dir)})
+
+			require.ErrorIs(t, err, tt.wantErr)
+			assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
+		})
+	}
+}
+
 // TestRunAndWaitRefusesAContextAlreadyDone pins that a context cancelled before the call runs
 // nothing at all.
 func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {

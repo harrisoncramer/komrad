@@ -171,11 +171,11 @@ func (r Runner) Run(p RunParams) error {
 // succeeded since a non-zero exit is when its stderr is worth showing.
 func (r Runner) RunAndWait(ctx context.Context, p RunParams) (Result, error) {
 	if !p.Script.Executable {
-		return Result{}, fmt.Errorf("failed to run script %s: %w", p.Script.Name, ErrNotExecutable)
+		return Result{ExitCode: noExitCode}, fmt.Errorf("failed to run script %s: %w", p.Script.Name, ErrNotExecutable)
 	}
 
 	if info, err := os.Stat(p.Dir); err != nil || !info.IsDir() {
-		return Result{}, fmt.Errorf("failed to run script %s in %s: %w", p.Script.Name, p.Dir, ErrDirMissing)
+		return Result{ExitCode: noExitCode}, fmt.Errorf("failed to run script %s in %s: %w", p.Script.Name, p.Dir, ErrDirMissing)
 	}
 
 	if p.Timeout > 0 {
@@ -280,9 +280,13 @@ func (t *tail) kept() []byte {
 	return t.buf.Bytes()
 }
 
+// noExitCode is what a process that never ran left behind, which is not zero: a caller
+// recording the status alongside the failure would otherwise read it as a clean exit.
+const noExitCode = -1
+
 func (Runner) exitCode(state *os.ProcessState) int {
 	if state == nil {
-		return -1
+		return noExitCode
 	}
 
 	return state.ExitCode()
