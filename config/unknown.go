@@ -71,7 +71,7 @@ func listKnownKeys(table string) []string {
 	current := reflect.TypeOf(Config{})
 
 	if table != "" {
-		for _, segment := range strings.Split(table, ".") {
+		for segment := range strings.SplitSeq(table, ".") {
 			next, found := findFieldType(current, segment)
 			if !found {
 				return nil
