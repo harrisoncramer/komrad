@@ -15,78 +15,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestOpenPullRequestCodes covers the codes telling an agent that answers to nothing apart from
-// a built-in script that is there and will not run.
-func TestOpenPullRequestCodes(t *testing.T) {
-	tests := []struct {
-		name     string
-		err      error
-		wantCode connect.Code
-	}{
-		{
-			name:     "an agent that is not there",
-			err:      agents.ErrAgentNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a script the directory does not hold",
-			err:      agents.ErrScriptNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "a file the user has not made executable",
-			err:      agents.ErrScriptNotExecutable,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "a shebang naming an interpreter that is not there",
-			err:      agents.ErrScriptNotStartable,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "an agent whose directory has been removed from under it",
-			err:      agents.ErrScriptDirMissing,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "the same script already running for the same agent",
-			err:      agents.ErrScriptAlreadyRunning,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "anything else is ours rather than theirs",
-			err:      errors.New("the config would not parse"),
-			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "a started script answers with nothing to say",
-			err:      nil,
-			wantCode: 0,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			service := NewService(&fakeHooks{err: tt.err})
-
-			_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
-				AgentId: "a1",
-			}))
-
-			if tt.wantCode == 0 {
-				require.NoError(t, err)
-
-				return
-			}
-
-			require.Error(t, err)
-			assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-		})
-	}
-}
-
-// TestOpenPullRequestPassesWhatItWasAsked covers the handler translating and nothing more.
-func TestOpenPullRequestPassesWhatItWasAsked(t *testing.T) {
+// TestOpenPullRequest covers the handler translating and nothing more, the code each sentinel earns being rpcerr's own.
+func TestOpenPullRequest(t *testing.T) {
 	manager := &fakeHooks{}
 	service := NewService(manager)
 
@@ -96,6 +26,15 @@ func TestOpenPullRequestPassesWhatItWasAsked(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Equal(t, "a7", manager.agentID)
+
+	refused := NewService(&fakeHooks{err: agents.ErrScriptNotExecutable})
+
+	_, err = refused.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+		AgentId: "a1",
+	}))
+
+	require.Error(t, err)
+	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 }
 
 // TestListHooks covers a hook with no declared timeout leaving the field unset, since a zero

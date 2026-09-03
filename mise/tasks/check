@@ -8,8 +8,10 @@ usage() {
 	echo
 	echo "Runs the whole suite and reports which steps failed rather than stopping at"
 	echo "the first, so one run tells you everything that is wrong. The formatters are"
-	echo "called in their reporting mode, though go:structs and gen:check rewrite what"
-	echo "drifted and fail so you can see what they had to do."
+	echo "called in their reporting mode, though gen:check rewrites what drifted"
+	echo "and fails so you can see what it had to do. Struct formatting is not"
+	echo "here: run 'go-structs' from the dotfiles, which touches only the files"
+	echo "your branch changes."
 	echo
 	echo "The tests need Postgres, so run 'mise run docker:up' first. Drift in"
 	echo "config.toml is caught by the config tests, which regenerate it in memory"
@@ -33,7 +35,6 @@ STEPS=(
 	"bash:check"
 	"bash:fmt --check"
 	"go:fmt --check"
-	"go:structs"
 	"db:fmt --check"
 	"db:validate"
 	"go:lint"

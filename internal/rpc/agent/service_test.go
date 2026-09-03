@@ -35,8 +35,7 @@ import (
 
 const missingID = "00000000-0000-0000-0000-000000000000"
 
-// TestCreateAgent pins the code each refusal the service can raise is answered with, and what
-// the handler passes down when the request is accepted.
+// TestCreateAgent pins what the handler passes down and that a launcher's refusal reaches the caller as a code, the mapping itself being rpcerr's own.
 func TestCreateAgent(t *testing.T) {
 	workflow := "wf-1"
 
@@ -48,40 +47,10 @@ func TestCreateAgent(t *testing.T) {
 		check    func(t *testing.T, got agents.NewAgentParams)
 	}{
 		{
-			name:     "a launch that cannot start is an internal error",
+			name:     "a launch that cannot start is refused rather than reported as spawned",
 			req:      &agentv1.CreateAgentRequest{Prompt: "go"},
 			launchEr: errors.New("tmux is not running"),
 			wantCode: connect.CodeInternal,
-		},
-		{
-			name:     "an unknown workflow is the caller's mistake",
-			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: agents.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name:     "an unusable directory is refused",
-			req:      &agentv1.CreateAgentRequest{Prompt: "go", Dir: "/no/such/dir"},
-			launchEr: agents.ErrBadDirectory,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a provisioner that refuses is a precondition, not an internal error",
-			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: agents.ErrProvisionFailed,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "a provisioner naming an unusable directory is the same precondition",
-			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "a full panel is resource exhausted",
-			req:      &agentv1.CreateAgentRequest{Prompt: "go", WorkflowId: workflow},
-			launchEr: agents.ErrTooManyAgents,
-			wantCode: connect.CodeResourceExhausted,
 		},
 		{
 			name: "an omitted directory reaches the launcher empty, for the workflow to fill",
@@ -128,8 +97,7 @@ func TestCreateAgent(t *testing.T) {
 	}
 }
 
-// TestAdopt pins the code each adoption refusal is answered with, and what the handler passes
-// down when the request is accepted.
+// TestAdopt pins what the handler passes down and that a launcher's refusal reaches the caller as a code, the mapping itself being rpcerr's own.
 func TestAdopt(t *testing.T) {
 	workflow := "wf-1"
 
@@ -141,34 +109,10 @@ func TestAdopt(t *testing.T) {
 		check    func(t *testing.T, got agents.AdoptParams)
 	}{
 		{
-			name:     "a workflow whose agents share one checkout is a precondition",
+			name:     "a refusal is answered rather than reported as adopted",
 			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
 			adoptErr: agents.ErrAdoptNeedsWorktree,
 			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "a branch something else has checked out is a precondition too",
-			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
-			adoptErr: agents.ErrAdoptBranchInUse,
-			wantCode: connect.CodeFailedPrecondition,
-		},
-		{
-			name:     "a pull request on another repository is the caller's mistake",
-			req:      &agentv1.AdoptRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
-			adoptErr: agents.ErrAdoptRepoMismatch,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "a pull request from a fork is refused the same way",
-			req:      &agentv1.AdoptRequest{Ref: "https://github.com/o/r/pull/1", WorkflowId: workflow},
-			adoptErr: agents.ErrAdoptForkBranch,
-			wantCode: connect.CodeInvalidArgument,
-		},
-		{
-			name:     "an unknown workflow is not found",
-			req:      &agentv1.AdoptRequest{Ref: "main", WorkflowId: workflow},
-			adoptErr: agents.ErrWorkflowNotFound,
-			wantCode: connect.CodeNotFound,
 		},
 		{
 			name: "every field reaches the launcher",

@@ -92,6 +92,17 @@ func TestWrapNil(t *testing.T) {
 	assert.NoError(t, rpcerr.Wrap(nil, "failed to do the thing"))
 }
 
+// TestWrapCarriesTwoSentinels covers an error holding two of the table's sentinels at once, where the table's order alone decides the code.
+func TestWrapCarriesTwoSentinels(t *testing.T) {
+	err := rpcerr.Wrap(
+		fmt.Errorf("%w: %w", agents.ErrProvisionFailed, agents.ErrBadDirectory),
+		"failed to create agent",
+	)
+
+	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err),
+		"the provisioner refusing is what the caller can act on")
+}
+
 // TestWrapUnknown covers the error a caller cannot fix, which is internal and says only what
 // the handler was doing.
 func TestWrapUnknown(t *testing.T) {
