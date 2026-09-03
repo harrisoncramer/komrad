@@ -108,6 +108,26 @@ func TestBuiltinWorktreeSetupOnResumeStillWorksAgainstTheRepo(t *testing.T) {
 	assert.Equal(t, "SECRET=1\n", string(content))
 }
 
+// TestBuiltinWorktreeSetupRefusesAPathWithADotSegment pins the script's own refusal, which has
+// to stay safe on the spellings the service now cleans away before it stores them.
+func TestBuiltinWorktreeSetupRefusesAPathWithADotSegment(t *testing.T) {
+	repo := initRepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(repo, ".env"), []byte("SECRET=1\n"), 0o644))
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-dot-segment",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+		copyPaths:    []string{"./.env"},
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	tree := strings.TrimSpace(string(result.Stdout))
+	assert.Contains(t, string(result.Stderr), "is not a path inside the worktree")
+	assert.NoFileExists(t, filepath.Join(tree, ".env"))
+	assertIsDir(t, tree)
+}
+
 // TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers copy and symlink lists being
 // applied only to a worktree this run created, since copying over a directory nests it deeper.
 func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
