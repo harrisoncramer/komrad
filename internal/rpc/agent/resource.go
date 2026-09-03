@@ -27,6 +27,9 @@ type agentMarks struct {
 	unreadMail bool
 	unviewed   bool
 	failedRun  bool
+	// failedRunLog is the log the failure went to, which is what opens the pane on the run
+	// that failed rather than on whatever ran last.
+	failedRunLog *int32
 }
 
 func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
@@ -78,6 +81,7 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			WorktreeRemoved:  stored.WorktreeRemoved,
 			Unviewed:         marks.unviewed,
 			FailedRun:        marks.failedRun,
+			FailedRunLog:     marks.failedRunLog,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

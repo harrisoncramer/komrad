@@ -695,14 +695,14 @@ func TestRunInPaneStreamsToARealPane(t *testing.T) {
 		server.Run("kill-pane", "-t", pane)
 
 		script := filepath.Join(dir, "ok")
-		_, err := svc.runInPane(t.Context(), scripts.Script{
+		result, err := svc.runInPane(t.Context(), scripts.Script{
 			Name:       "ok",
 			Path:       script,
 			Executable: true,
 		}, nil, pane, "", time.Second)
 
-		require.Error(t, err)
-		assert.ErrorIs(t, err, scripts.ErrNotStartable)
+		require.ErrorIs(t, err, scripts.ErrNotStartable)
+		assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 	})
 
 	t.Run("a pane killed while it is running", func(t *testing.T) {
@@ -962,7 +962,7 @@ func TestRunDeprovisionPersistsStdoutOnAFailure(t *testing.T) {
 		t.Fatal("the deprovisioner never reported finishing")
 	}
 
-	persisted, err := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
+	persisted, err := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, err)
 	assert.Contains(t, string(persisted), "tearing down 1")
 	assert.Contains(t, string(persisted), "tearing down 2")
@@ -986,7 +986,7 @@ func TestRunProvisionPersistsStdoutOnAFailure(t *testing.T) {
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
 
-	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
+	persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 	require.NoError(t, readErr)
 	assert.Contains(t, string(persisted), "diagnosing 1")
 	assert.Contains(t, string(persisted), "diagnosing 2")
@@ -1119,7 +1119,7 @@ func TestScriptEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 				t.Fatal("the deprovisioner never reported finishing")
 			}
 
-			persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir, "a1"))
+			persisted, readErr := os.ReadFile(onlyRunLog(t, logsDir))
 			require.NoError(t, readErr)
 			output := string(persisted)
 
@@ -1356,6 +1356,30 @@ func TestARefusedRunDropsItsRow(t *testing.T) {
 	assert.Equal(t, []string{"run-1"}, recorder.abandoned)
 }
 
+// TestAProvisionerRefusedInItsPaneSaysSo covers the pane path's own refusals, where the script
+// never runs and so writes nothing: the row must not read as a clean exit and the number claimed
+// for it must not open an empty pager.
+func TestAProvisionerRefusedInItsPaneSaysSo(t *testing.T) {
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+
+	logsDir := t.TempDir()
+	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
+
+	_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup", "%3")
+
+	require.ErrorIs(t, err, ErrProvisionFailed)
+
+	_, finished := recorder.rows()
+	require.Len(t, finished, 1)
+	assert.Nil(t, finished[0].ExitCode, "a script nobody made executable never exited at all")
+	assert.Contains(t, finished[0].Failure, "setup")
+
+	logged, readErr := os.ReadFile(onlyRunLog(t, logsDir))
+	require.NoError(t, readErr)
+	assert.Contains(t, string(logged), "setup", "and the run the mark points at says why rather than opening empty")
+}
+
 // TestClaimRunLogNumbersEveryRun pins each run getting a file of its own rather than the
 // two fixed names that came before, since a resume used to overwrite the log of the create.
 func TestClaimRunLogNumbersEveryRun(t *testing.T) {
@@ -1430,12 +1454,15 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 	assert.Contains(t, string(content), "someone else")
 }
 
-// onlyRunLog is the one run an agent has recorded, since a test that ran a single script has
-// no reason to know which number it was given.
-func onlyRunLog(t *testing.T, logsDir, agentID string) string {
+// fixtureAgentID is the agent every script test in this file runs against.
+const fixtureAgentID = "a1"
+
+// onlyRunLog is the one run the fixture's agent has recorded, since a test that ran a single
+// script has no reason to know which number it was given.
+func onlyRunLog(t *testing.T, logsDir string) string {
 	t.Helper()
 
-	runs := config.ListRunLogs(logsDir, agentID)
+	runs := config.ListRunLogs(logsDir, fixtureAgentID)
 	require.Len(t, runs, 1)
 
 	return runs[0].Path

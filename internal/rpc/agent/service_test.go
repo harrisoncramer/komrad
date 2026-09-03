@@ -359,9 +359,10 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 	})
 
 	failed, err := st.Runs.Begin(t.Context(), runstore.BeginParams{
-		AgentID: beta.ID,
-		Trigger: "post-launch",
-		Script:  "install-deps",
+		AgentID:   beta.ID,
+		Trigger:   "post-launch",
+		Script:    "install-deps",
+		LogNumber: xptr.Ptr(int32(4)),
 	})
 	require.NoError(t, err)
 	require.NoError(t, st.Runs.Finish(t.Context(), runstore.FinishParams{ID: failed, Failure: "a hook failed"}))
@@ -394,6 +395,7 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: beta.ID}))
 	require.NoError(t, err)
 	assert.True(t, got.Msg.GetAgent().GetFailedRun(), "the single lookup reads it the same way")
+	assert.Equal(t, int32(4), got.Msg.GetAgent().GetFailedRunLog(), "and names the run to open on")
 
 	_, err = svc.MarkRunsRead(t.Context(), connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: beta.ID}))
 	require.NoError(t, err)

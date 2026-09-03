@@ -55,7 +55,9 @@ type Agent struct {
 	// Whether the agent has finished a turn the person has not looked at since.
 	Unviewed bool `protobuf:"varint,24,opt,name=unviewed,proto3" json:"unviewed,omitempty"`
 	// Whether a script weave fired for the agent failed and nobody has looked at it since.
-	FailedRun      bool   `protobuf:"varint,27,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
+	FailedRun bool `protobuf:"varint,27,opt,name=failed_run,json=failedRun,proto3" json:"failed_run,omitempty"`
+	// The run log that failure was written to, which is the run the panel opens on.
+	FailedRunLog   *int32 `protobuf:"varint,28,opt,name=failed_run_log,json=failedRunLog,proto3,oneof" json:"failed_run_log,omitempty"`
 	StateChangedAt string `protobuf:"bytes,25,opt,name=state_changed_at,json=stateChangedAt,proto3" json:"state_changed_at,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
@@ -264,6 +266,13 @@ func (x *Agent) GetFailedRun() bool {
 		return x.FailedRun
 	}
 	return false
+}
+
+func (x *Agent) GetFailedRunLog() int32 {
+	if x != nil && x.FailedRunLog != nil {
+		return *x.FailedRunLog
+	}
+	return 0
 }
 
 func (x *Agent) GetStateChangedAt() string {
@@ -1463,7 +1472,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xa9\a\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xe7\a\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1497,7 +1506,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10worktree_removed\x18\x17 \x01(\bR\x0fworktreeRemoved\x12\x1a\n" +
 	"\bunviewed\x18\x18 \x01(\bR\bunviewed\x12\x1d\n" +
 	"\n" +
-	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12(\n" +
+	"failed_run\x18\x1b \x01(\bR\tfailedRun\x12)\n" +
+	"\x0efailed_run_log\x18\x1c \x01(\x05H\aR\ffailedRunLog\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAtB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\x06\n" +
@@ -1505,7 +1515,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10_idempotency_keyB\x16\n" +
 	"\x14_spawned_by_agent_idB\x12\n" +
 	"\x10_parent_agent_idB\t\n" +
-	"\a_branch\"7\n" +
+	"\a_branchB\x11\n" +
+	"\x0f_failed_run_log\"7\n" +
 	"\rAgentMetadata\x12\x10\n" +
 	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
 	"\x05value\x18\x02 \x01(\tR\x05value\"~\n" +

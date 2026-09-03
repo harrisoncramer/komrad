@@ -20,6 +20,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
+	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
@@ -69,7 +70,7 @@ type agentReadWriter interface {
 // runReader is the record of the scripts weave fired, which the listing reads to say whether
 // an agent is holding a failure nobody has looked at.
 type runReader interface {
-	ListUnreadFailures(ctx context.Context) ([]string, error)
+	ListUnreadFailures(ctx context.Context) ([]runstore.Failure, error)
 	MarkRead(ctx context.Context, agentID string) error
 }
 
@@ -225,18 +226,19 @@ func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (fu
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the agents holding a failed run")
 	}
-	failed := xslice.KeyBy(failures, func(id string) string { return id })
+	failed := xslice.KeyBy(failures, func(failure runstore.Failure) string { return failure.AgentID })
 
 	return func(a agentstore.Agent) agentMarks {
 		_, hasMail := waiting[a.ID]
 		_, hasOutput := unviewed[a.ID]
-		_, hasFailure := failed[a.ID]
+		failure, hasFailure := failed[a.ID]
 
 		return agentMarks{
-			alive:      running[a.ID],
-			unreadMail: hasMail,
-			unviewed:   hasOutput,
-			failedRun:  hasFailure,
+			alive:        running[a.ID],
+			unreadMail:   hasMail,
+			unviewed:     hasOutput,
+			failedRun:    hasFailure,
+			failedRunLog: failure.LogNumber,
 		}
 	}, nil
 }

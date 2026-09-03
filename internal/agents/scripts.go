@@ -306,6 +306,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane st
 
 	if err != nil {
 		failed := fmt.Errorf("%w: %w%s", ErrProvisionFailed, err, scriptDetail(result.Stdout, result.Stderr, record.logPath))
+		noteEmptyLog(ctx, record.logPath, failed)
 		s.finishRun(ctx, record, result, failed)
 
 		return "", failed
@@ -385,21 +386,21 @@ func (s *ScriptService) waitForPane(ctx context.Context, pane, channel string) e
 
 func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, env []string, pane, logPath string, timeout time.Duration) (scripts.Result, error) {
 	if !script.Executable {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptNotExecutable)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptNotExecutable)
 	}
 
 	dir := script.GetDir()
 	if info, statErr := os.Stat(dir); statErr != nil || !info.IsDir() {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s in %s: %w", script.Name, dir, ErrScriptDirMissing)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s in %s: %w", script.Name, dir, ErrScriptDirMissing)
 	}
 
 	if !s.tmux.IsPaneAlive(pane) {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w: the pane %s is gone", script.Name, scripts.ErrNotStartable, pane)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w: the pane %s is gone", script.Name, scripts.ErrNotStartable, pane)
 	}
 
 	exitFile, err := os.CreateTemp("", "weave-provision-exit-")
 	if err != nil {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
 	}
 	exitFile.Close()
 	defer removeTemp(ctx, exitFile.Name())
@@ -408,7 +409,7 @@ func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, en
 	if errPath == "" {
 		errFile, err := os.CreateTemp("", "weave-provision-err-")
 		if err != nil {
-			return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
+			return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
 		}
 		errFile.Close()
 		errPath = errFile.Name()
@@ -417,7 +418,7 @@ func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, en
 
 	fifoFile, err := os.CreateTemp("", "weave-provision-fifo-")
 	if err != nil {
-		return scripts.Result{}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
+		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
 	}
 	fifoPath := fifoFile.Name()
 	fifoFile.Close()
@@ -679,6 +680,20 @@ func appendNote(ctx context.Context, path string, stderr []byte, note string) []
 	}
 
 	return tailBytes(append(stderr, line...), setupPaneOutputLimit)
+}
+
+// noteEmptyLog puts the reason into a log its run never wrote a byte to, since a pane refused
+// before it was respawned leaves the number claimed for it opening an empty pager.
+func noteEmptyLog(ctx context.Context, path string, cause error) {
+	if path == "" {
+		return
+	}
+
+	if info, err := os.Stat(path); err != nil || info.Size() > 0 {
+		return
+	}
+
+	writeRunLog(ctx, path, []byte(cause.Error()+"\n"))
 }
 
 func writeRunLog(ctx context.Context, path string, content []byte) {

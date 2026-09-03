@@ -9,6 +9,7 @@ import (
 
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 type Store struct {
@@ -100,14 +101,23 @@ func (s *Store) Prune(ctx context.Context, agentID string, keep int) error {
 	return nil
 }
 
+// Failure is one agent's most recent failed run nobody has looked at, and the log its output
+// went to, which is what opens the pane on the run that failed rather than on the last one.
+type Failure struct {
+	AgentID   string
+	LogNumber *int32
+}
+
 // ListUnreadFailures returns the agents holding a failed run nobody has looked at.
-func (s *Store) ListUnreadFailures(ctx context.Context) ([]string, error) {
-	ids, err := s.queries.ListAgentsWithUnreadFailures(ctx)
+func (s *Store) ListUnreadFailures(ctx context.Context) ([]Failure, error) {
+	rows, err := s.queries.ListAgentsWithUnreadFailures(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to list the agents holding a failed run: %w", err)
 	}
 
-	return ids, nil
+	return xslice.Map(rows, func(row *models.ListAgentsWithUnreadFailuresRow) Failure {
+		return Failure{AgentID: row.AgentID, LogNumber: row.LogNumber}
+	}), nil
 }
 
 // MarkRead claims every failed run an agent is holding, which is what looking at its run log

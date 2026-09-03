@@ -128,7 +128,10 @@ func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 				return
 			}
 
-			assert.Equal(t, []string{agentID}, unread)
+			require.Len(t, unread, 1)
+			assert.Equal(t, agentID, unread[0].AgentID)
+			require.NotNil(t, unread[0].LogNumber, "the mark carries the run to open on")
+			assert.Equal(t, int32(7), *unread[0].LogNumber)
 
 			require.NoError(t, f.MarkRead(t.Context(), agentID))
 
@@ -137,6 +140,31 @@ func TestFinishRecordsWhatTheRunDid(t *testing.T) {
 			assert.Empty(t, unread, "reading it clears the mark")
 		})
 	}
+}
+
+// TestUnreadFailuresNameTheNewestRun pins the mark pointing at the run that failed last rather
+// than at whichever of an agent's failures the rows happened to come back in.
+func TestUnreadFailuresNameTheNewestRun(t *testing.T) {
+	f := open(t)
+	agentID := f.seedAgent(t)
+
+	for number := range 3 {
+		id, err := f.Begin(t.Context(), BeginParams{
+			AgentID:   agentID,
+			Trigger:   "post-launch",
+			Script:    "setup",
+			LogNumber: xptr.Ptr(int32(number + 1)),
+		})
+		require.NoError(t, err)
+		require.NoError(t, f.Finish(t.Context(), FinishParams{ID: id, Failure: "it failed"}))
+	}
+
+	unread, err := f.ListUnreadFailures(t.Context())
+	require.NoError(t, err)
+
+	require.Len(t, unread, 1, "one mark per agent however many of its runs failed")
+	require.NotNil(t, unread[0].LogNumber)
+	assert.Equal(t, int32(3), *unread[0].LogNumber)
 }
 
 // TestAbandonDropsTheRow covers the refusal that is not a run at all, where the log file is

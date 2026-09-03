@@ -42,6 +42,8 @@ message Agent {
   bool unviewed = 24;
   // Whether a script weave fired for the agent failed and nobody has looked at it since.
   bool failed_run = 27;
+  // The run log that failure was written to, which is the run the panel opens on.
+  optional int32 failed_run_log = 28;
   string state_changed_at = 25;
 }
 

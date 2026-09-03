@@ -233,27 +233,51 @@ func (m model) markViewedCmd(id string) tea.Cmd {
 	}
 }
 
-// markRunsReadCmd claims the failed runs of the agent whose run log is on screen, on the same
-// terms the transcript's own mark is claimed: what the person is looking at counts as read, and
-// a call that does not land is made again by the next tick that still finds the row marked.
-func (m model) markRunsReadCmd() tea.Cmd {
+// dwellRunsRead claims an agent's failed runs once its run log has been on screen long enough
+// to have been read, on the same terms the transcript's own mark is claimed under.
+func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
+	agent, ok := m.runLogTarget()
+	if !ok {
+		m.runHover = hoverState{}
+
+		return m, nil
+	}
+
+	// The row is tracked whether or not it is marked, so a run that fails while the pane is
+	// already parked on the agent earns a look of its own rather than being claimed on arrival.
+	if m.runHover.agentID != agent.ID {
+		m.runHover = hoverState{agentID: agent.ID, since: now}
+	}
+
+	if !m.failedRunShowing(agent.ID) {
+		m.runHover.since = now
+
+		return m, nil
+	}
+
+	if now.Sub(m.runHover.since) < viewedDwell {
+		return m, nil
+	}
+
+	// A hidden panel restarts the dwell, so coming back to it is a fresh look rather than a
+	// mark that was earned while nobody was watching.
+	if !m.popup.IsShown() {
+		m.runHover.since = now
+
+		return m, nil
+	}
+
+	return m, m.markRunsReadCmd(agent.ID)
+}
+
+// runLogTarget is the agent whose runs the info pane is showing, which is none at all while
+// that pane is showing anything else.
+func (m model) runLogTarget() (agentstore.Agent, bool) {
 	if m.info.kind != infoRunLog {
-		return nil
+		return agentstore.Agent{}, false
 	}
 
-	agent, ok := m.logTarget()
-	if !ok || !m.failedRunShowing(agent.ID) {
-		return nil
-	}
-
-	clients := m.api
-	id := agent.ID
-
-	return func() tea.Msg {
-		_ = clients.markRunsRead(id) //nolint:errcheck // the next tick makes the call again
-
-		return nil
-	}
+	return m.logTarget()
 }
 
 // failedRunShowing reports whether the agent the run-log pane is on is still carrying a mark,
@@ -266,6 +290,19 @@ func (m model) failedRunShowing(agentID string) bool {
 	}
 
 	return false
+}
+
+// markRunsReadCmd claims an agent's failed runs without going through the write path, since the
+// mark is a note about a row already on screen, and one that does not land is made again by the
+// next tick that still finds the row marked.
+func (m model) markRunsReadCmd(id string) tea.Cmd {
+	clients := m.api
+
+	return func() tea.Msg {
+		_ = clients.markRunsRead(id) //nolint:errcheck // the next tick makes the call again
+
+		return nil
+	}
 }
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
