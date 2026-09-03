@@ -221,8 +221,7 @@ func normalizeWorktree(cfg *workflowstore.Config) {
 }
 
 // cleanPaths drops the blank entries and stores the shortest spelling of the rest, since the
-// setup script applies a path only when every segment of it names something and ./.env means
-// the same file as .env.
+// setup script refuses an entry holding a dot segment and ./.env names the same file as .env.
 func cleanPaths(paths []string) []string {
 	if paths == nil {
 		return nil

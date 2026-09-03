@@ -276,8 +276,8 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 }
 
 // TestWorkflowWorktreePathsAreStoredCleaned covers the spelling a workflow's paths are stored
-// in, since the setup script applies an entry only when every segment of it names something and
-// so a path written ./.env would be accepted here and then skipped when it mattered.
+// in, since the setup script refuses an entry holding a dot segment and so a path written ./.env
+// would be accepted here and then skipped when it mattered.
 func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
