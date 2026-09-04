@@ -74,12 +74,8 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	settings := map[string]any{
 		"permissions": map[string]any{"deny": deniedAgents},
 	}
-	if hookCommand != "" {
-		settings["hooks"] = map[string]any{
-			"Stop": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook stop"}},
-			}},
-		}
+	if hooks := hookSettings(hookCommand); len(hooks) > 0 {
+		settings["hooks"] = hooks
 	}
 
 	body, err := json.Marshal(settings)
@@ -93,6 +89,29 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// InstalledHooks is the events weave answers, each one named against the subcommand of weave's
+// own hook command that reads its payload.
+var InstalledHooks = map[string]string{
+	EventStop: "stop",
+}
+
+// hookSettings is the hooks block Claude loads at session start, which is empty when weave has
+// no binary to point the events at.
+func hookSettings(hookCommand string) map[string]any {
+	if hookCommand == "" {
+		return nil
+	}
+
+	hooks := make(map[string]any, len(InstalledHooks))
+	for event, subcommand := range InstalledHooks {
+		hooks[event] = []any{map[string]any{
+			"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook " + subcommand}},
+		}}
+	}
+
+	return hooks
 }
 
 func (h *Harness) writeMCPConfig(endpoint string) (string, error) {

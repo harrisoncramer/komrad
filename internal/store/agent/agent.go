@@ -73,7 +73,11 @@ type Agent struct {
 	ViewedAt *time.Time
 	// TurnEndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
 	// nothing reported one, settled off the pane by the reconciler.
-	TurnEndedAt      *time.Time
+	TurnEndedAt *time.Time
+
+	// ReportedReason is what the agent's own CLI last reported it was doing, which annotates
+	// the state the pane decided rather than deciding one of its own.
+	ReportedReason   string
 	Harness          string
 	SessionID        string
 	WorkflowID       string
@@ -152,6 +156,7 @@ func agentFromRow(agent models.Agent) Agent {
 		StateSeenAt:      agent.StateSeenAt,
 		ViewedAt:         agent.ViewedAt,
 		TurnEndedAt:      agent.TurnEndedAt,
+		ReportedReason:   agent.ReportedReason,
 		Harness:          agent.Harness,
 		SessionID:        agent.SessionID,
 		WorkflowID:       agent.WorkflowID,

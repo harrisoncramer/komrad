@@ -98,6 +98,11 @@ type trackedAgent struct {
 	frameHash         uint64
 	frameHashSeen     bool
 	unrecognizedHolds int
+
+	// reportedReason is what the agent's own CLI last said it was doing, kept beside when it
+	// said so, since a reason is only worth as much as how recently it was reported.
+	reportedReason   string
+	reportedReasonAt time.Time
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
@@ -120,6 +125,25 @@ func (r *Reconciler) RecordTurnBoundary(agentID string) {
 	entry := r.tracked[agentID]
 	entry.turnBoundary = r.now()
 	r.tracked[agentID] = entry
+}
+
+// RecordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
+// state the pane decided and never moves it.
+func (r *Reconciler) RecordReportedReason(agentID, reason string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entry := r.tracked[agentID]
+	entry.reportedReason = reason
+	entry.reportedReasonAt = r.now()
+	r.tracked[agentID] = entry
+}
+
+func (r *Reconciler) reportedReason(agentID string) string {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.tracked[agentID].reportedReason
 }
 
 func (r *Reconciler) hasFreshTurnBoundary(agentID string, since time.Time) bool {

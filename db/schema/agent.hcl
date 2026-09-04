@@ -459,6 +459,12 @@ table "agents" {
     null = true
     type = timestamptz
   }
+  column "reported_reason" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than deciding one of its own. Empty means nothing is reported, which is what a turn ending leaves behind."
+  }
   column "harness" {
     null    = false
     type    = text

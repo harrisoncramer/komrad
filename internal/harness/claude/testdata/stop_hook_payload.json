@@ -1,0 +1,12 @@
+{
+  "session_id": "25645b52-40ee-4516-aaac-d424884b8337",
+  "transcript_path": "/Users/harrisoncramer/.claude/projects/-private-tmp/25645b52-40ee-4516-aaac-d424884b8337.jsonl",
+  "cwd": "/private/tmp",
+  "prompt_id": "ed59d8e4-4ded-45b5-84fc-786193360600",
+  "permission_mode": "default",
+  "hook_event_name": "Stop",
+  "stop_hook_active": false,
+  "last_assistant_message": "ok",
+  "background_tasks": [],
+  "session_crons": []
+}

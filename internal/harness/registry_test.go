@@ -16,8 +16,11 @@ func (s stub) GetBinary() string                   { return s.id }
 func (s stub) BuildCommand(Launch) (string, error) { return "", nil }
 func (s stub) MintSessionID() string               { return "" }
 
-func (s stub) FindSession(string) (string, error)     { return "", nil }
-func (s stub) ReadActivity(string) Activity           { return ActivityUnknown }
+func (s stub) FindSession(string) (string, error) { return "", nil }
+func (s stub) ReadActivity(string) Activity       { return ActivityUnknown }
+func (s stub) ReadReport(string, []byte) (Report, error) {
+	return Report{}, nil
+}
 func (s stub) GetInterruptKeys() []string             { return nil }
 func (s stub) GetLogPath(string) string               { return "" }
 func (s stub) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }

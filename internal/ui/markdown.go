@@ -91,6 +91,12 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 		fields = append(fields, recordField{"attached to", orDash(parent)})
 	}
 
+	// What the agent is doing now leads the configuration it was launched with, which does not
+	// change while anybody is reading it.
+	if agent.ReportedReason != "" {
+		fields = append(fields, recordField{"doing", agent.ReportedReason})
+	}
+
 	fields = append(fields, []recordField{
 		{"agent", orDash(agent.Harness)},
 		{"directory", orDash(agent.Cwd)},

@@ -329,6 +329,14 @@ SET
 WHERE
     id = @id;
 
+-- name: SetAgentReportedReasonByID :exec
+UPDATE
+    agents
+SET
+    reported_reason = @reported_reason
+WHERE
+    id = @id;
+
 -- name: ListAgentsWithUnseenTurns :many
 SELECT
     a.id

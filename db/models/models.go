@@ -173,6 +173,8 @@ type Agent struct {
 	ParentAgentID    *string
 	TurnEndedAt      *time.Time
 	ProvisionEnabled *bool
+	// What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than deciding one of its own. Empty means nothing is reported, which is what a turn ending leaves behind.
+	ReportedReason string
 }
 
 // Key/value facts an agent recorded about its own work.

@@ -14,6 +14,10 @@ import (
 
 const binary = "claude"
 
+// HarnessID is the id an agent running Claude Code is recorded under, which is what names the
+// harness a hook subcommand reads its payload with.
+const HarnessID = binary
+
 type Harness struct {
 	projectsDir string
 }

@@ -137,6 +137,10 @@ func TestSettersRefuseAnIDThatIsNotOne(t *testing.T) {
 			name:  "the session",
 			write: func(s *Store, id string) error { return s.SetSessionID(t.Context(), id, "session") },
 		},
+		{
+			name:  "the reported reason",
+			write: func(s *Store, id string) error { return s.SetReportedReason(t.Context(), id, "Bash") },
+		},
 	}
 
 	for _, tt := range tests {
@@ -375,6 +379,29 @@ func TestListUnseenTurnsLeavesTheArchiveAlone(t *testing.T) {
 	unseen, err := st.ListUnseenTurns(ctx)
 	require.NoError(t, err)
 	assert.Empty(t, unseen)
+}
+
+// TestSetReportedReasonRoundTrips pins that what an agent's CLI reported lands on the row and
+// that an empty reason clears it, which is what a turn ending reports.
+func TestSetReportedReasonRoundTrips(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	require.Empty(t, created.ReportedReason, "a fresh agent has reported nothing")
+
+	require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
+	reported, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Equal(t, "Bash", reported.ReportedReason)
+
+	require.NoError(t, st.SetReportedReason(ctx, created.ID, ""))
+	cleared, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Empty(t, cleared.ReportedReason)
 }
 
 // TestSetTurnEndedRefusesAnIDThatIsNotOne pins that a malformed id is an error rather than a

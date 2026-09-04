@@ -10,6 +10,8 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
 	"weave/internal/rpcapi"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -17,8 +19,6 @@ import (
 )
 
 const hookTimeout = 5 * time.Second
-
-const stopHookEvent = "Stop"
 
 const readMailTool = "read_mail"
 
@@ -109,7 +109,7 @@ nobody has read. Anything but a completed turn is ignored.`,
 			}
 		}
 
-		recordTurnBoundary(cmd.Context(), state)
+		recordReport(cmd.Context(), state, harness.Report{TurnEnded: true})
 
 		return nil
 	}
@@ -133,7 +133,14 @@ turn end.`,
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		payload, err := readStopHookPayload(cmd.InOrStdin())
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
+
+			return nil
+		}
+
+		payload, err := readStopHookPayload(body)
 		if err != nil {
 			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
 
@@ -145,7 +152,7 @@ turn end.`,
 
 		// Recorded before the re-entry check, since a turn the last delivery caused is still a
 		// turn ending, and it is the turn in which the agent answered its mail.
-		recordTurnBoundary(cmd.Context(), state)
+		reportHookEvent(cmd, state, claude.HarnessID, claude.EventStop, body)
 
 		if payload.StopHookActive {
 			return nil
@@ -167,7 +174,7 @@ turn end.`,
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(stopHookOutput{
 			HookSpecificOutput: stopHookContext{
-				HookEventName:     stopHookEvent,
+				HookEventName:     claude.EventStop,
 				AdditionalContext: renderMail(mail.Mail),
 			},
 		})
@@ -180,11 +187,7 @@ func reportHookProblem(cmd *cobra.Command, what string, err error) {
 	cmd.PrintErrf("%s: %v\n", what, err)
 }
 
-func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
-	body, err := io.ReadAll(stdin)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the hook payload: %w", err)
-	}
+func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 	if len(body) == 0 {
 		return &stopHookPayload{}, nil
 	}
@@ -197,15 +200,38 @@ func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
 	return &payload, nil
 }
 
-func recordTurnBoundary(ctx context.Context, state *app) {
+// reportHookEvent hands one hook payload to the harness that fired it and records what it read,
+// which is the path every event weave installs takes.
+func reportHookEvent(cmd *cobra.Command, state *app, harnessID, event string, payload []byte) {
+	hn, err := state.harnesses.GetByID(harnessID)
+	if err != nil {
+		reportHookProblem(cmd, "weave has no harness to read the hook payload with, so nothing was recorded", err)
+
+		return
+	}
+
+	report, err := hn.ReadReport(event, payload)
+	if err != nil {
+		reportHookProblem(cmd, "weave could not read the hook payload, so nothing was recorded", err)
+
+		return
+	}
+
+	recordReport(cmd.Context(), state, report)
+}
+
+func recordReport(ctx context.Context, state *app, report harness.Report) {
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
 	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // its one caller has nothing to do with a failure here
-		Addr:    state.env.Addr,
-		Path:    agentv1connect.AgentServiceRecordTurnBoundaryProcedure,
-		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
-		Request: map[string]any{},
+		Addr: state.env.Addr,
+		Path: agentv1connect.AgentServiceRecordReportProcedure,
+		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+		Request: map[string]any{
+			"reason":    report.Reason,
+			"turnEnded": report.TurnEnded,
+		},
 	})
 }
 

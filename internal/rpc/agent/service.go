@@ -27,8 +27,11 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type turnBoundaryRecorder interface {
+// reportRecorder is where what an agent's own CLI reports about itself reaches the reconcile
+// loop, which keeps the report beside what it read off the pane.
+type reportRecorder interface {
 	RecordTurnBoundary(agentID string)
+	RecordReportedReason(agentID, reason string)
 }
 
 type agentCreator interface {
@@ -62,6 +65,7 @@ type agentReadWriter interface {
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetViewed(ctx context.Context, id string, viewed bool) error
 	SetTurnEnded(ctx context.Context, id string) error
+	SetReportedReason(ctx context.Context, id, reason string) error
 	ListUnseenTurns(ctx context.Context) ([]string, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
@@ -100,7 +104,7 @@ type Service struct {
 	liveness    agentLiveness
 	lifecycle   agentLifecycle
 	resumer     agentResumer
-	reconciler  turnBoundaryRecorder
+	reconciler  reportRecorder
 	archive     archiveEmptier
 	review      reviewConversation
 	runs        runReader
@@ -133,7 +137,7 @@ type NewServiceParams struct {
 	Liveness    agentLiveness
 	Lifecycle   agentLifecycle
 	Resumer     agentResumer
-	Reconciler  turnBoundaryRecorder
+	Reconciler  reportRecorder
 	Archive     archiveEmptier
 	Review      reviewConversation
 	Runs        runReader
@@ -385,13 +389,25 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending, which
-// lets the reconciler reach an idle verdict sooner and stamps the row the unread mark is
-// measured against, ahead of the reconciler doing the same off the pane.
-func (s *Service) RecordTurnBoundary(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+// RecordReport takes what the calling agent's own CLI read out of one of its hook payloads: the
+// reason goes on the row beside the state the pane decided, and a turn it reports ending lets
+// the reconciler reach an idle verdict sooner and stamps the row the unread mark is measured
+// against, ahead of the reconciler doing the same off the pane.
+func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1.RecordReportRequest]) (*connect.Response[emptypb.Empty], error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the caller has no agent id of its own"))
+	}
+
+	reason := req.Msg.GetReason()
+	s.reconciler.RecordReportedReason(id, reason)
+
+	if err := s.agents.SetReportedReason(ctx, id, reason); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to record what the agent reported it was doing")
+	}
+
+	if !req.Msg.GetTurnEnded() {
+		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
 
 	s.reconciler.RecordTurnBoundary(id)

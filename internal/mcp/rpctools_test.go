@@ -22,7 +22,7 @@ import (
 // has looked at, rather than the agent's.
 var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
-	"RecordTurnBoundary":      true,
+	"RecordReport":            true,
 	"SetAgentViewed":          true,
 	"MarkRunsRead":            true,
 	"CreateReviewThread":      true,

@@ -71,6 +71,21 @@ func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 	return nil
 }
 
+// SetReportedReason records what an agent's own CLI last reported it was doing, an empty reason
+// clearing whatever was reported before it.
+func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	params := models.SetAgentReportedReasonByIDParams{ID: id, ReportedReason: reason}
+	if err := s.queries.SetAgentReportedReasonByID(ctx, params); err != nil {
+		return fmt.Errorf("failed to set the reported reason for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
 // ListUnseenTurns reports the agents that have ended a turn the person has not looked at since,
 // leaving off one that has gone back to work, since a row going again is not waiting on a reader
 // and the turn it is in the middle of will end with a mark of its own.
