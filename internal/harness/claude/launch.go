@@ -19,7 +19,7 @@ var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
 // since it is typed into a pane and parsed by the shell running there.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	command := harness.EnvPrefix(launch) + binary
+	command := harness.EnvPrefix(launch) + h.GetBinary()
 
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
 		command += " " + quoted
