@@ -29,6 +29,9 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "api_retry_banner.txt", want: harness.ActivityWorking},
 		{file: "api_error_ended_the_turn.txt", want: harness.ActivityIdle},
 		{file: "a_screen_no_pattern_matches.txt", want: harness.ActivityUnrecognized},
+		// Every agent draws this for a few seconds after the panel restarts, so the panel
+		// showing a wave of uncertain rows on startup is this frame rather than a fault.
+		{file: "a_pane_the_cli_has_not_drawn_yet.txt", want: harness.ActivityUnrecognized},
 	}
 
 	for _, tt := range tests {
