@@ -18,8 +18,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMailRows covers the order and the rail, since a conversation split by direction or drawn
-// out of order is the thing this screen exists not to do.
+// TestMailRows covers the shape of the list: threads newest first, the newest message first
+// inside each, and a line naming who each thread is with.
 func TestMailRows(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -33,17 +33,56 @@ func TestMailRows(t *testing.T) {
 			wantRows: []string{},
 		},
 		{
-			name:     "both halves are merged into one list in the order they happened",
-			inbox:    []*agentv1.Mail{received("m1", "neovim-fan", "vim wins"), received("m3", "weave", "review waiting")},
-			outbox:   []*agentv1.Mail{sent("m2", "emacs wins")},
-			wantRows: []string{"← neovim-fan", "→ emacs-fan", "← weave"},
+			name:   "a thread holds its messages, newest first, under a line naming it",
+			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
+			outbox: []*agentv1.Mail{replyTo("m2")},
+			wantRows: []string{
+				"# emacs-fan",
+				"→ emacs wins",
+				"← vim wins",
+			},
 		},
 		{
-			name:     "a filter narrows on the body as well as the correspondent",
-			inbox:    []*agentv1.Mail{received("m1", "neovim-fan", "vim wins"), received("m3", "weave", "review waiting")},
-			outbox:   []*agentv1.Mail{sent("m2", "emacs wins")},
-			filter:   "wins",
-			wantRows: []string{"← neovim-fan", "→ emacs-fan"},
+			name: "the thread something last happened in stands at the top",
+			inbox: []*agentv1.Mail{
+				received("m1", "neovim-fan", "vim wins"),
+				received("m3", "weave", "review waiting"),
+			},
+			outbox: []*agentv1.Mail{replyTo("m2")},
+			wantRows: []string{
+				"# weave",
+				"← review waiting",
+				"# emacs-fan",
+				"→ emacs wins",
+				"← vim wins",
+			},
+		},
+		{
+			name: "a reply pulls its own thread back to the top over a quieter one",
+			inbox: []*agentv1.Mail{
+				received("m1", "neovim-fan", "vim wins"),
+				received("m2", "weave", "review waiting"),
+			},
+			outbox: []*agentv1.Mail{replyTo("m3")},
+			wantRows: []string{
+				"# emacs-fan",
+				"→ emacs wins",
+				"← vim wins",
+				"# weave",
+				"← review waiting",
+			},
+		},
+		{
+			name: "a thread narrowed away takes its line with it",
+			inbox: []*agentv1.Mail{
+				received("m1", "neovim-fan", "vim wins"),
+				received("m2", "weave", "review waiting"),
+			},
+			filter: "vim",
+			wantRows: []string{
+				"# neovim-fan",
+				"← vim wins",
+			},
 		},
 	}
 
@@ -55,7 +94,13 @@ func TestMailRows(t *testing.T) {
 
 			got := make([]string, 0, len(m.mailRows()))
 			for _, r := range m.mailRows() {
-				got = append(got, mailDirectionMark(r.sent)+" "+m.mailCounterparty(r))
+				if r.header {
+					got = append(got, "# "+r.label)
+
+					continue
+				}
+
+				got = append(got, mailDirectionMark(r.sent)+" "+r.item.GetBody())
 			}
 
 			assert.Equal(t, tt.wantRows, got)
@@ -63,74 +108,41 @@ func TestMailRows(t *testing.T) {
 	}
 }
 
-// TestMailRails covers the gutter, which is the whole of how a thread is told from the messages
-// that landed while it was running.
-func TestMailRails(t *testing.T) {
+// TestMailCursorStepsOverThreadLines covers the cursor, which moves through messages however
+// much furniture stands between them, since a thread line answers for no record and no stage.
+func TestMailCursorStepsOverThreadLines(t *testing.T) {
+	keys := config.DefaultKeybindings()
+
 	tests := []struct {
-		name        string
-		inbox       []*agentv1.Mail
-		outbox      []*agentv1.Mail
-		wantGutters []string
+		name       string
+		key        string
+		cursor     int
+		wantCursor int
 	}{
-		{
-			name:        "a message nothing answers gets no rail",
-			inbox:       []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			wantGutters: []string{""},
-		},
-		{
-			name:        "a reply opens the rail at the message it answers and closes it on itself",
-			inbox:       []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox:      []*agentv1.Mail{replyTo("m2", "emacs wins", "m1")},
-			wantGutters: []string{"┌", "└"},
-		},
-		{
-			name:  "the rail runs past whatever landed in the middle of the thread",
-			inbox: []*agentv1.Mail{received("m1", "neovim-fan", "vim wins"), received("m3", "weave", "review waiting")},
-			outbox: []*agentv1.Mail{
-				replyTo("m2", "emacs wins", "m1"),
-				replyTo("m4", "one more thing", "m2"),
-			},
-			wantGutters: []string{"┌", "├", "│", "└"},
-		},
-		{
-			name: "a thread opening after another closed takes the lane it gave back",
-			inbox: []*agentv1.Mail{
-				received("m1", "neovim-fan", "vim wins"),
-				received("m2", "emacs-fan", "org-mode wins"),
-				received("m4", "planner", "what is the plan"),
-			},
-			outbox: []*agentv1.Mail{
-				replyTo("m3", "answering the first", "m1"),
-				replyTo("m5", "answering the planner", "m4"),
-				replyTo("m6", "answering the second at last", "m2"),
-			},
-			wantGutters: []string{"┌ ", "│┌", "└│", "┌│", "└│", " └"},
-		},
-		{
-			name: "two threads running at once take a lane each",
-			inbox: []*agentv1.Mail{
-				received("m1", "neovim-fan", "vim wins"),
-				received("m2", "emacs-fan", "org-mode wins"),
-			},
-			outbox: []*agentv1.Mail{
-				replyTo("m3", "answering the first", "m1"),
-				replyTo("m4", "answering the second", "m2"),
-			},
-			wantGutters: []string{"┌ ", "│┌", "└│", " └"},
-		},
+		{name: "down out of a thread lands on the next thread's newest", key: "j", cursor: 1, wantCursor: 3},
+		{name: "up back into it lands on the thread above", key: "k", cursor: 3, wantCursor: 1},
+		{name: "bottom lands on the last message rather than a line", key: "G", cursor: 1, wantCursor: 4},
+		{name: "down at the last message stays put", key: "j", cursor: 4, wantCursor: 4},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := mailModel(config.DefaultKeybindings())
-			m.mail.inbox, m.mail.outbox = tt.inbox, tt.outbox
-
-			got := make([]string, 0, len(m.mailRows()))
-			for _, r := range m.mailRows() {
-				got = append(got, r.gutter)
+			m := mailModel(keys)
+			m.mail.inbox = []*agentv1.Mail{
+				received("m1", "neovim-fan", "vim wins"),
+				received("m3", "weave", "review waiting"),
 			}
+			m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
+			m.mail.cursor = tt.cursor
 
-			assert.Equal(t, tt.wantGutters, got)
+			updated, _ := m.updateMail(keyMsg(tt.key))
+			got, ok := updated.(model)
+			require.True(t, ok)
+
+			assert.Equal(t, tt.wantCursor, got.mail.cursor)
+			held, on := got.hoveredMail()
+			require.True(t, on, "the cursor is never left on a thread line")
+			assert.False(t, held.header)
 		})
 	}
 }
@@ -147,19 +159,19 @@ func TestMailThreadWord(t *testing.T) {
 		{
 			name:   "an unread reply of ours is waiting on the other agent",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{replyTo("m2", "emacs wins", "m1")},
+			outbox: []*agentv1.Mail{replyTo("m2")},
 			want:   "2 messages · waiting on emacs-fan",
 		},
 		{
 			name:   "a reply they took reads as read",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{claimed(replyTo("m2", "emacs wins", "m1"))},
+			outbox: []*agentv1.Mail{claimed(replyTo("m2"))},
 			want:   "2 messages · read your last",
 		},
 		{
 			name:   "a reply of ours nobody took in time says so",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{stale(replyTo("m2", "emacs wins", "m1"))},
+			outbox: []*agentv1.Mail{stale(replyTo("m2"))},
 			want:   "2 messages · your last expired unread",
 		},
 		{
@@ -187,19 +199,21 @@ func TestMailRowClock(t *testing.T) {
 
 	m := mailModel(config.DefaultKeybindings())
 	m.height, m.width = 40, 90
+	// The older message takes the lower id, since the ids are uuidv7 in the real thing and
+	// carry the same order the stamps do.
 	m.mail.inbox = []*agentv1.Mail{
-		received("m1", "neovim-fan", "vim wins"),
-		agedAt(received("m2", "emacs-fan", "org-mode wins"), old),
+		agedAt(received("m1", "emacs-fan", "org-mode wins"), old),
+		received("m2", "neovim-fan", "vim wins"),
 	}
 
 	rows := m.mailRows()
 
-	today, err := time.Parse(time.RFC3339, rows[0].item.GetCreatedAt())
+	today, err := time.Parse(time.RFC3339, rows[1].item.GetCreatedAt())
 	require.NoError(t, err)
 
-	assert.Equal(t, today.Local().Format("3:04pm"), mailClock(rows[0].item.GetCreatedAt()))
-	assert.Equal(t, old.Local().Format("Jan 2"), mailClock(rows[1].item.GetCreatedAt()))
-	assert.Contains(t, ansi.Strip(m.mailRowView(rows[1], false)), old.Local().Format("Jan 2"))
+	assert.Equal(t, today.Local().Format("3:04pm"), mailClock(rows[1].item.GetCreatedAt()))
+	assert.Equal(t, old.Local().Format("Jan 2"), mailClock(rows[3].item.GetCreatedAt()))
+	assert.Contains(t, ansi.Strip(m.mailRowView(rows[3], false)), old.Local().Format("Jan 2"))
 }
 
 // TestMailKeys covers what each key does on the mailbox, since every one of them but back
@@ -217,42 +231,22 @@ func TestMailKeys(t *testing.T) {
 		{
 			name:       "back returns to the agents tree",
 			key:        "esc",
+			cursor:     1,
 			wantScreen: screenAgents,
 		},
 		{
-			name:       "down moves onto the next message",
+			name:       "down moves onto the next message of the same thread",
 			key:        "j",
-			cursor:     0,
-			wantScreen: screenMail,
-			wantCursor: 1,
-		},
-		{
-			name:       "bottom jumps to the newest message",
-			key:        "G",
-			cursor:     0,
-			wantScreen: screenMail,
-			wantCursor: 2,
-		},
-		{
-			name:       "next in thread steps over the message that landed in between",
-			key:        "t",
-			cursor:     0,
-			wantScreen: screenMail,
-			wantCursor: 2,
-		},
-		{
-			name:       "previous in thread steps back over it",
-			key:        "T",
-			cursor:     2,
-			wantScreen: screenMail,
-			wantCursor: 0,
-		},
-		{
-			name:       "next in thread on a message nothing answers stays put",
-			key:        "t",
 			cursor:     1,
 			wantScreen: screenMail,
-			wantCursor: 1,
+			wantCursor: 2,
+		},
+		{
+			name:       "bottom jumps to the oldest message",
+			key:        "G",
+			cursor:     1,
+			wantScreen: screenMail,
+			wantCursor: 4,
 		},
 	}
 
@@ -263,7 +257,7 @@ func TestMailKeys(t *testing.T) {
 				received("m1", "neovim-fan", "vim wins"),
 				received("m2", "weave", "review waiting"),
 			}
-			m.mail.outbox = []*agentv1.Mail{replyTo("m3", "emacs wins", "m1")}
+			m.mail.outbox = []*agentv1.Mail{replyTo("m3")}
 			m.mail.cursor = tt.cursor
 
 			updated, _ := m.updateMail(keyMsg(tt.key))
@@ -315,7 +309,7 @@ func TestMailState(t *testing.T) {
 func TestMailDetailsNameTheCorrespondents(t *testing.T) {
 	m := mailModel(config.DefaultKeybindings())
 	m.mail.outbox = []*agentv1.Mail{sent("m1", "emacs wins")}
-	m.mail.cursor = 0
+	m.mail.cursor = 1
 
 	held := m.mailDetails()
 
@@ -326,22 +320,24 @@ func TestMailDetailsNameTheCorrespondents(t *testing.T) {
 	assert.Equal(t, "unread", fieldValue(t, held, "state"))
 }
 
-// TestMailViewDrawsOneConversation covers the sidebar as a reader sees it, where both halves
-// of the correspondence stand in one list under a count of what is owed an answer.
-func TestMailViewDrawsOneConversation(t *testing.T) {
+// TestMailViewDrawsThreads covers the sidebar as a reader sees it: a line naming each thread,
+// its messages under it, and no trace of the inbox and outbox the mailbox used to be split into.
+func TestMailViewDrawsThreads(t *testing.T) {
 	m := mailModel(config.DefaultKeybindings())
 	m.height, m.width = 40, 70
 	m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
-	m.mail.outbox = []*agentv1.Mail{replyTo("m2", "emacs wins", "m1")}
+	m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
+	m.mail.cursor = 1
 
 	drawn := ansi.Strip(m.mailView())
 
 	assert.Contains(t, drawn, "Mail · reviewer")
 	assert.Contains(t, drawn, "2 messages · 2 waiting")
-	assert.Contains(t, drawn, "← neovim-fan")
-	assert.Contains(t, drawn, "→ emacs-fan")
-	assert.Contains(t, drawn, "┌")
-	assert.Contains(t, drawn, "└")
+	assert.Contains(t, drawn, "emacs-fan")
+	assert.Contains(t, drawn, "→ ")
+	assert.Contains(t, drawn, "← ")
+	assert.Contains(t, drawn, "emacs wins")
+	assert.Contains(t, drawn, "vim wins")
 	assert.NotContains(t, drawn, "Inbox")
 	assert.NotContains(t, drawn, "Outbox")
 }
@@ -355,7 +351,7 @@ func TestMailRowsFitTheSidebar(t *testing.T) {
 		wantSnippet bool
 	}{
 		{name: "a wide sidebar carries the opening of the message", width: 80, wantSnippet: true},
-		{name: "a narrow one drops it rather than wrapping", width: 30, wantSnippet: false},
+		{name: "a narrow one drops it rather than wrapping", width: 20, wantSnippet: false},
 	}
 
 	for _, tt := range tests {
@@ -364,7 +360,7 @@ func TestMailRowsFitTheSidebar(t *testing.T) {
 			m.height, m.width = 40, tt.width
 			m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
 
-			drawn := ansi.Strip(m.mailRowView(m.mailRows()[0], false))
+			drawn := ansi.Strip(m.mailRowView(m.mailRows()[1], false))
 
 			assert.Equal(t, tt.wantSnippet, strings.Contains(drawn, "vim wins"))
 			assert.LessOrEqual(t, lipgloss.Width(drawn)+2, tt.width, "the row and the cursor before it fit the pane")
@@ -382,7 +378,7 @@ func TestMailRowsFillTheSidebar(t *testing.T) {
 			m.height, m.width = 40, width
 			m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", strings.Repeat("wide ", 40))}
 
-			drawn := ansi.Strip(m.mailRowView(m.mailRows()[0], false))
+			drawn := ansi.Strip(m.mailRowView(m.mailRows()[1], false))
 
 			assert.Equal(t, width-mailCursorWidth, lipgloss.Width(drawn), "the row and the cursor before it are the pane")
 		})
@@ -413,10 +409,10 @@ func TestMailThreadStage(t *testing.T) {
 		received("m1", "neovim-fan", "vim wins"),
 		received("m3", "weave", "review waiting"),
 	}
-	m.mail.outbox = []*agentv1.Mail{replyTo("m2", "emacs wins", "m1")}
+	m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
 	m.mail.cursor = 1
 
-	drawn := m.mailThreadMarkdown(m.mailRows()[1])
+	drawn := m.mailThreadMarkdown(m.mailRows()[3])
 
 	assert.Contains(t, drawn, "vim wins", "the message the reply answers")
 	assert.Contains(t, drawn, "emacs wins", "the reply itself")
@@ -429,8 +425,7 @@ func TestMailThreadStage(t *testing.T) {
 func TestMailLoadedKeepsTheCursorOnItsMail(t *testing.T) {
 	m := mailModel(config.DefaultKeybindings())
 	m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
-	m.mail.landed = true
-	m.mail.cursor = 0
+	m.mail.cursor = 1
 
 	m.applyMailLoaded(mailLoadedMsg{
 		agentID: m.mail.agentID,
@@ -440,39 +435,41 @@ func TestMailLoadedKeepsTheCursorOnItsMail(t *testing.T) {
 		},
 	})
 
-	require.Len(t, m.mailRows(), 2)
+	require.Len(t, m.mailRows(), 4)
 	held, ok := m.hoveredMail()
 	require.True(t, ok)
 	assert.Equal(t, "m1", held.item.GetId())
 }
 
-// TestMailLandsOnTheNewestMessage covers where the cursor sits when a mailbox opens, including
-// one that was quiet at the time, which must not spend its landing on nothing and leave the
-// reader on the oldest arrival.
-func TestMailLandsOnTheNewestMessage(t *testing.T) {
+// TestMailOpensOnTheNewestMessage covers where the cursor sits when a mailbox opens, which is
+// the newest message of the thread something last happened in, since that is what the ordering
+// puts at the top and the cursor steps over the line above it.
+func TestMailOpensOnTheNewestMessage(t *testing.T) {
 	arrivals := []*agentv1.Mail{
 		received("m1", "neovim-fan", "vim wins"),
 		received("m2", "emacs-fan", "org-mode wins"),
 		received("m3", "weave", "review waiting"),
 	}
 
-	t.Run("a first read lands on the newest", func(t *testing.T) {
+	t.Run("a first read opens on it", func(t *testing.T) {
 		m := mailModel(config.DefaultKeybindings())
 
 		m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: arrivals})
 
-		assert.Equal(t, 2, m.mail.cursor)
+		held, ok := m.hoveredMail()
+		require.True(t, ok)
+		assert.Equal(t, "m3", held.item.GetId())
 	})
 
-	t.Run("an empty first read leaves the landing to the read that brings something back", func(t *testing.T) {
+	t.Run("a mailbox that was quiet at the time opens on what arrives next", func(t *testing.T) {
 		m := mailModel(config.DefaultKeybindings())
 
 		m.applyMailLoaded(mailLoadedMsg{agentID: "a1"})
-		require.False(t, m.mail.landed, "nothing came back, so nothing was landed on")
-
 		m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: arrivals})
 
-		assert.Equal(t, 2, m.mail.cursor)
+		held, ok := m.hoveredMail()
+		require.True(t, ok)
+		assert.Equal(t, "m3", held.item.GetId())
 	})
 }
 
@@ -565,8 +562,12 @@ func sent(id, body string) *agentv1.Mail {
 	}
 }
 
-func replyTo(id, body, parent string) *agentv1.Mail {
-	item := sent(id, body)
+// replyTo is a message this agent sent in answer to m1, which is the fixture every thread in
+// this file is built out of.
+func replyTo(id string) *agentv1.Mail {
+	parent := "m1"
+
+	item := sent(id, "emacs wins")
 	item.ReplyTo = &parent
 
 	return item

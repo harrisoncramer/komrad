@@ -375,9 +375,6 @@ func (m model) mailHelp() keyMap {
 	editFilter := m.editFilterBinding(m.keys.Mail.Back)
 
 	rows := []key.Binding{binding(m.keys.Mail.Back, "back")}
-	if _, ok := m.hoveredMail(); ok {
-		rows = append(rows, pairBinding(m.keys.Mail.NextInThread, m.keys.Mail.PrevInThread, "in thread"))
-	}
 
 	return keyMap{
 		short: slices.Concat(rows[:1], editFilter, []key.Binding{m.helpBinding()}),

@@ -163,14 +163,9 @@ older = ["L"]
 # The mailbox of one agent, and the key that opens it from the agents list.
 [keybindings.mail]
 # Leave the mailbox for the agents list.
-back           = ["esc"]
-# Jump to the next message of the thread the cursor is in, stepping over whatever
-# landed in between.
-next_in_thread = ["t"]
-# Jump to the previous message of that thread.
-prev_in_thread = ["T"]
+back = ["esc"]
 # Quit the panel.
-quit           = ["ctrl+c"]
+quit = ["ctrl+c"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
