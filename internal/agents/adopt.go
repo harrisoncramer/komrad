@@ -75,7 +75,6 @@ func NewAdoptService(p AdoptServiceParams) *AdoptService {
 }
 
 type AdoptParams struct {
-	Client         string
 	Ref            string
 	Title          string
 	Flags          string
@@ -125,7 +124,6 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	}
 
 	params := NewAgentParams{
-		Client:         p.Client,
 		Title:          adoptTitle(p.Title, pr, branch),
 		Flags:          p.Flags,
 		Prompt:         adoptPrompt(pr, branch, p.Prompt),

@@ -6,6 +6,8 @@ import (
 
 const hostSocketOption = "@weave_host_socket"
 
+const hostPathOption = "@weave_host_path"
+
 const InvokingClientOption = "@weave_client"
 
 const InfoPaneOption = "@weave_info_pane"
@@ -35,57 +37,40 @@ func SessionFromEnv(value string) string {
 	return "$" + fields[tmuxEnvFields-1]
 }
 
-type Host struct {
-	manager *Client
+type Servers struct {
+	*Client
 }
 
-// NewHost returns a Host that finds the user's server through the manager's, which holds the
-// socket of whichever server opened the panel last.
-func NewHost(manager *Client) *Host {
-	return &Host{manager: manager}
+// NewServers wraps a client for the manager's server with what the panel has written down about
+// the user's, which is all it knows of a server it never dials.
+func NewServers(manager *Client) *Servers {
+	return &Servers{Client: manager}
 }
 
-// Record stores the socket path of the user's server, called by the open command with the
-// path tmux interpolated, so every open points the panel at the server that opened it.
-func (h *Host) Record(path string) {
+// RecordHostSocket stores the socket path of the user's server, called by the open command with
+// the path tmux interpolated, so every open points the panel at the server that opened it.
+func (s *Servers) RecordHostSocket(path string) {
 	if path == "" {
 		return
 	}
 
-	h.manager.SetGlobal(hostSocketOption, path)
+	s.SetGlobal(hostSocketOption, path)
 }
 
-func (h *Host) client() *Client {
-	if path := h.manager.ShowGlobal(hostSocketOption); path != "" {
-		return NewClientAtPath(path)
+// RecordHostPath stores where the client that opened the panel is sitting, read on the user's own
+// server by the commands that run there, since the panel cannot ask a server it does not run.
+func (s *Servers) RecordHostPath(path string) {
+	if path == "" {
+		return
 	}
 
-	return nil
+	s.SetGlobal(hostPathOption, path)
 }
 
-// GetClientPath returns a client's active pane working directory.
-func (h *Host) GetClientPath(client string) string {
-	host := h.client()
-	if host == nil {
-		return ""
-	}
-
-	return host.GetClientPath(client)
-}
-
-type Servers struct {
-	*Client
-	host *Host
-}
-
-// NewServers pairs a client for the manager's server with the user's server.
-func NewServers(manager *Client, host *Host) *Servers {
-	return &Servers{Client: manager, host: host}
-}
-
-// GetClientPath asks the user's server, the only one the invoking client exists on.
-func (s *Servers) GetClientPath(client string) string {
-	return s.host.GetClientPath(client)
+// HostPath is the working directory of the pane the panel was opened over, which is where an
+// agent given no directory of its own goes.
+func (s *Servers) HostPath() string {
+	return s.ShowGlobal(hostPathOption)
 }
 
 // GetHostSocket is the socket path of the user's server, which the open command records here

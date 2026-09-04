@@ -118,7 +118,7 @@ func TestUserKeysReadsTheServerTheUserIsAt(t *testing.T) {
 	assert.Equal(t, "w", panel, "the popup reads the server it opened on")
 	assert.Equal(t, "x", palette)
 
-	state.host.Record(hostPath)
+	state.tmux.RecordHostSocket(hostPath)
 	panel, palette = userKeys(state, "")
 
 	assert.Equal(t, "w", panel, "attaching from outside tmux still reads the server the panel was opened from")

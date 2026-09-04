@@ -103,9 +103,7 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			app.maxAgents = cfg.MaxAgents
 			app.maxChildren = cfg.MaxChildren
 
-			manager := tmux.NewClient(env.TmuxSocket)
-			app.host = tmux.NewHost(manager)
-			app.tmux = tmux.NewServers(manager, app.host)
+			app.tmux = tmux.NewServers(tmux.NewClient(env.TmuxSocket))
 
 			app.popup = ui.NewPopupWindow(app.tmux, agents.ManagerSession)
 			contextPath, err := cfg.GetContextFile()

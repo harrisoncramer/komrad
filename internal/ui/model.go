@@ -40,7 +40,7 @@ func Run(deps Deps) error {
 
 type uiTmux interface {
 	layout.Tmux
-	GetClientPath(client string) string
+	HostPath() string
 	DefaultShell() string
 	SetInfoPane(pane string)
 	SelectPane(pane string)
@@ -170,7 +170,7 @@ func (m model) currentDir(dir string) string {
 	if trimmed := strings.TrimSpace(dir); trimmed != "" {
 		return trimmed
 	}
-	if path := m.tmux.GetClientPath(m.popup.InvokingClient()); path != "" {
+	if path := m.tmux.HostPath(); path != "" {
 		return path
 	}
 
