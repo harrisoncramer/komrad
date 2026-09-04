@@ -98,11 +98,8 @@ type trackedAgent struct {
 	frameHash         uint64
 	frameHashSeen     bool
 	unrecognizedHolds int
-
-	// reportedReason is what the agent's own CLI last said it was doing, kept beside when it
-	// said so, since a reason is only worth as much as how recently it was reported.
-	reportedReason   string
-	reportedReasonAt time.Time
+	reportedReason    string
+	reportedReasonAt  time.Time
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
