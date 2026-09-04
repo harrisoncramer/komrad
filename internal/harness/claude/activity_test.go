@@ -1,7 +1,6 @@
 package claude
 
 import (
-	"strings"
 	"testing"
 
 	"weave/internal/harness"
@@ -201,15 +200,24 @@ func TestReadActivity(t *testing.T) {
 }
 
 // TestReadActivityIgnoresTranscriptProse checks transcript text carrying a marker phrase is not
-// read as a live prompt, since only the bottom of the frame counts.
+// read as a live prompt, however close to the box it sits, since a finished turn ends with
+// the same glyphs and phrases a live one draws.
 func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string
 		frame string
 	}{
 		{
-			name:  "prose well above the live region",
-			frame: "I match `Enter to select` and `Do you want`, and the timer `· Cooking… (1m 50s)`." + strings.Repeat("\n", liveRegionLines) + idleFrame,
+			name:  "prose directly above the box",
+			frame: "⏺ I match `Enter to select` and `Do you want`, and the timer\n  `· Cooking… (1m 50s)`.\n" + idleFrame,
+		},
+		{
+			name:  "an answer ending in a truncated path",
+			frame: "⏺ Spawned it at ~/.local/state/weave/worktrees/01a069a0-… — not a child.\n" + idleFrame,
+		},
+		{
+			name:  "an answer quoting a spinner, wrapped",
+			frame: "  Live spinner sits above the box and carries a timer (✶ Choreographing… (2m\n  41s · ↓ 8.8k tokens)).\n" + idleFrame,
 		},
 		{
 			name:  "waiting phrases a dozen lines up",

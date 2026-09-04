@@ -8,36 +8,63 @@ import (
 )
 
 var (
-	workingLine  = regexp.MustCompile(`(?m)^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…`)
+	workingLine  = regexp.MustCompile(`^\s*[^\s\p{L}⎿❯│─╭╮╰╯-]\s+\p{L}.*…`)
 	workingTimer = regexp.MustCompile(`…\s*\(\s*\d+m?\s*\d*\s*s`)
 )
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
+// optionCursor is the cursor Claude draws beside the chosen answer of a question, which is
+// the only sign of one left when a tall preview beside the options pushes the footer off the
+// bottom of the pane.
+var optionCursor = regexp.MustCompile(`^\s*❯\s+\d+\.\s`)
+
 var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
+
+// transcriptMarker opens a line of the conversation above the box, whether a tool call, an
+// answer, a person's own turn, or one of the notes Claude ends a turn with.
+var transcriptMarker = regexp.MustCompile(`^\s*[⏺❯※]`)
+
+// hintLine is the note Claude draws under a status line, which sits between that line and the
+// box without ending the region a status can be found in.
+var hintLine = regexp.MustCompile(`^\s*⎿`)
 
 const promptMarker = "❯"
 
-const liveRegionLines = 30
+// boxSearchLines is how far up the rule opening the input box is looked for, which reaches
+// well past the box itself since one holding a long unsent message is several lines tall.
+const boxSearchLines = 30
 
 const waitingRegionLines = 6
 
-const idleRegionLines = 6
-
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// ReadActivity reads what a captured frame says Claude is doing, counting only a frame showing
-// the empty input box as idle and anything else unrecognised.
+// inputBox is where Claude draws its prompt and the anchor every other reading of a frame is
+// taken from, holding the index of the rule that opens it and the text it carries, less the
+// prompt Claude suggests there itself.
+type inputBox struct {
+	Rule int
+	Held string
+}
+
+// ReadActivity reads what a captured frame says Claude is doing, taking every reading
+// relative to the input box rather than from a count of lines off the bottom, since the
+// conversation above it holds the same glyphs and phrases a live status line does.
 func (h *Harness) ReadActivity(frame string) harness.Activity {
-	switch {
-	case frame == "":
+	if frame == "" {
 		return harness.ActivityUnknown
-	case doesFrameShowWork(frame):
+	}
+
+	lines, held := frameLines(frame)
+	box, boxed := findInputBox(lines, held)
+
+	switch {
+	case doesFrameShowWork(lines, box, boxed):
 		return harness.ActivityWorking
-	case doesFrameShowWaiting(frame):
+	case doesFrameShowWaiting(lines, boxed):
 		return harness.ActivityWaiting
-	case doesFrameShowIdleInputBox(frame):
-		if doesInputBoxHoldText(frame) {
+	case boxed:
+		if strings.TrimSpace(box.Held) != "" {
 			return harness.ActivityComposing
 		}
 
@@ -47,78 +74,110 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-func tailLines(frame string, count int) string {
-	return strings.Join(tailRegion(ansiSeq.ReplaceAllString(frame, ""), count), "\n")
-}
+// frameLines splits a captured frame into the lines its structure is read from and the same
+// lines less the text Claude draws dim, which is the prompt it suggests rather than anything
+// anybody typed, taken off first because dim is itself an escape sequence.
+func frameLines(frame string) ([]string, []string) {
+	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
+	held := harness.StripDim(drawn)
 
-func tailRegion(frame string, count int) []string {
-	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	if len(lines) > count {
-		lines = lines[len(lines)-count:]
-	}
-
-	return lines
-}
-
-func doesFrameShowWork(frame string) bool {
-	region := tailLines(frame, liveRegionLines)
-	return workingLine.MatchString(region) || workingTimer.MatchString(region)
-}
-
-func doesFrameShowWaiting(frame string) bool {
-	return waitingFooter.MatchString(tailLines(frame, waitingRegionLines))
-}
-
-func doesFrameShowIdleInputBox(frame string) bool {
-	_, ok := inputBox(frame)
-
-	return ok
-}
-
-// doesInputBoxHoldText reports whether somebody has typed into the box, which is any text the
-// box holds that Claude did not draw itself.
-func doesInputBoxHoldText(frame string) bool {
-	held, _ := inputBox(frame)
-
-	return strings.TrimSpace(held) != ""
-}
-
-// inputBox is what the box holds, which is every line between the rule that opens it and the
-// rule that closes it, so that text typed under the marker counts as much as text beside it,
-// less the prompt Claude suggests there itself, which is nobody's unfinished work.
-func inputBox(frame string) (string, bool) {
-	drawn := tailRegion(frame, idleRegionLines)
-
-	lines := harness.StripDim(drawn)
-	for i, line := range lines {
+	lines := make([]string, len(drawn))
+	for i, line := range drawn {
 		lines[i] = ansiSeq.ReplaceAllString(line, "")
+		held[i] = ansiSeq.ReplaceAllString(held[i], "")
 	}
 
-	for i, line := range drawn {
-		drawn[i] = ansiSeq.ReplaceAllString(line, "")
-	}
+	return lines, held
+}
 
-	for i, line := range drawn {
-		if !boxRule.MatchString(line) || i+1 >= len(drawn) {
+// findInputBox is the box nearest the bottom of the frame, which is the rule carrying the
+// prompt marker on the line under it, since the rules opening and closing a box are drawn
+// alike and the marker is the only thing that tells them apart.
+func findInputBox(lines, held []string) (inputBox, bool) {
+	for i := len(lines) - 2; i >= 0 && i >= len(lines)-boxSearchLines; i-- {
+		if !boxRule.MatchString(lines[i]) {
 			continue
 		}
 
-		rest, ok := strings.CutPrefix(lines[i+1], promptMarker)
+		rest, ok := strings.CutPrefix(held[i+1], promptMarker)
 		if !ok {
 			continue
 		}
 
-		held := []string{rest}
-		for j, line := range drawn[i+2:] {
-			if boxRule.MatchString(line) {
-				break
-			}
-
-			held = append(held, lines[i+2+j])
+		typed := []string{rest}
+		for j := i + 2; j < len(lines) && !boxRule.MatchString(lines[j]); j++ {
+			typed = append(typed, held[j])
 		}
 
-		return strings.Join(held, "\n"), true
+		return inputBox{Rule: i, Held: strings.Join(typed, "\n")}, true
 	}
 
-	return "", false
+	return inputBox{}, false
+}
+
+// doesFrameShowWork reads only the lines between the box and the conversation above it, since
+// that is where Claude draws what it is doing and everything higher is transcript carrying the
+// same ellipses and timers a status line does.
+func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
+	for _, line := range statusRegion(lines, box, boxed) {
+		if workingLine.MatchString(line) || workingTimer.MatchString(line) {
+			return true
+		}
+	}
+
+	return false
+}
+
+// statusRegion is the lines between the box and the conversation above it, which is the
+// blanks and hints Claude draws under a status line and the status line itself, taking only
+// the lines starting in the first column since Claude indents everything it says under a
+// marker and keeps that column for its own.
+func statusRegion(lines []string, box inputBox, boxed bool) []string {
+	start := len(lines) - 1
+	if boxed {
+		start = box.Rule - 1
+	}
+
+	var region []string
+
+	for i := start; i >= 0; i-- {
+		switch {
+		case transcriptMarker.MatchString(lines[i]), boxRule.MatchString(lines[i]):
+			return region
+		case strings.TrimSpace(lines[i]) == "", hintLine.MatchString(lines[i]):
+			continue
+		case strings.HasPrefix(lines[i], " "), strings.HasPrefix(lines[i], "\t"):
+			continue
+		}
+
+		region = append(region, lines[i])
+	}
+
+	return region
+}
+
+// doesFrameShowWaiting reads the footer under a question and falls back to the cursor beside
+// its options for one tall enough to have pushed that footer off the pane, reading neither
+// while the box is drawn since a question replaces it.
+func doesFrameShowWaiting(lines []string, boxed bool) bool {
+	if boxed {
+		return false
+	}
+
+	region := lines
+	if len(region) > waitingRegionLines {
+		region = region[len(region)-waitingRegionLines:]
+	}
+
+	if waitingFooter.MatchString(strings.Join(region, "\n")) {
+		return true
+	}
+
+	for i := len(lines) - 1; i >= 0 && i >= len(lines)-boxSearchLines; i-- {
+		if optionCursor.MatchString(lines[i]) {
+			return true
+		}
+	}
+
+	return false
 }
