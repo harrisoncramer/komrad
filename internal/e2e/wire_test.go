@@ -65,6 +65,15 @@ func TestListMailDirectionOverJSON(t *testing.T) {
 			request: `{"id":%q,"directoin":"MAIL_DIRECTION_SENT"}`,
 		},
 		{
+			name:    "the number of a direction reads that half",
+			request: `{"id":%q,"direction":2}`,
+			want:    "what alpha said",
+		},
+		{
+			name:    "a number no direction has is refused",
+			request: `{"id":%q,"direction":99}`,
+		},
+		{
 			name:        "spelling out the charset reaches the same codec",
 			contentType: "application/json; charset=utf-8",
 			request:     `{"id":%q,"direction":"SENT"}`,
