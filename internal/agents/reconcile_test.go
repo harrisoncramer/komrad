@@ -737,8 +737,9 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	assert.NotNil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the settled turn is what the mark is measured against")
 }
 
-// TestReconcileLeavesTheStampToTheHookWhenItReported pins that a boundary the CLI reported is
-// left as the hook wrote it, so the pane stays the floor rather than the writer.
+// TestReconcileLeavesTheStampToTheHookWhenItReported pins that a boundary the CLI reported
+// settles the agent without the reconciler stamping, so the pane stays the floor under the
+// mark rather than a second writer racing the hook for it.
 func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -755,7 +756,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	require.NoError(t, rec.Reconcile(ctx))
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
-	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the hook's own write is the stamp on this path")
+	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the reconciler leaves this path to the hook")
 }
 
 // TestReconcileStampsNoTurnForAPaneItForgot pins that an agent whose pane went away is not
