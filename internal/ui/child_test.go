@@ -251,3 +251,31 @@ func TestChildKeyOnAChildIsRefused(t *testing.T) {
 	require.NotNil(t, refused.banner)
 	assert.Contains(t, refused.banner.Detail, "may not have children")
 }
+
+// TestHiddenChildCountsOnItsParent pins the tally landing on the row the child hangs off rather
+// than on the workflow, since the parent is where a person went looking for it.
+func TestHiddenChildCountsOnItsParent(t *testing.T) {
+	m := familyTree()
+	m.listing.agents[2].agent.Hidden = true
+
+	rows := m.agentRows()
+	assert.Equal(t, []string{
+		"header:weave",
+		"agent:author",
+		"agent:test-runner",
+		"agent:fix-gutter",
+	}, describeRows(rows))
+	assert.Equal(t, 0, rows[0].hiddenCount, "the workflow does not count it")
+	assert.Equal(t, 1, rows[1].hiddenCount)
+
+	m.height = 20
+	view := ansi.Strip(m.agentsView())
+	for _, line := range strings.Split(view, "\n") {
+		if strings.Contains(line, "author") {
+			assert.Contains(t, line, "+1")
+		}
+	}
+
+	m.tree.showHidden = true
+	assert.NotContains(t, ansi.Strip(m.agentsView()), "+1")
+}

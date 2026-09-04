@@ -15,10 +15,12 @@ type treeState struct {
 }
 
 type agentRow struct {
-	header      bool
-	item        agentItem
-	workflow    workflowstore.Workflow
+	header bool
+	item   agentItem
+	// hiddenCount is the rows this one stands in for: a workflow header counts the hidden
+	// agents under it, and a parent counts its own hidden children.
 	hiddenCount int
+	workflow    workflowstore.Workflow
 	// child says the row is drawn under the one above it rather than under the workflow, which
 	// is an indent and nothing else: it is an agent row like any other.
 	child bool
@@ -45,27 +47,35 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 
 		workflowID := it.agent.WorkflowID
 		family := append([]agentItem{it}, children[it.agent.ID]...)
-		if it.agent.Hidden && !showHidden {
+		if it.agent.Hidden {
+			// Hiding the head takes the rows under it too, so the whole family stands in the
+			// workflow's own count.
 			hiddenCounts[workflowID] += len(family)
-
-			continue
+			if !showHidden {
+				continue
+			}
 		}
 
+		rows := byWorkflow[workflowID]
+		head := len(rows)
 		for _, member := range family {
-			if member.agent.Hidden {
-				hiddenCounts[workflowID]++
+			// A hidden child leaves its count on the parent drawn above it rather than on the
+			// workflow, since that row is where a person went looking for it.
+			if member.agent.Hidden && member.agent.ID != it.agent.ID {
+				rows[head].hiddenCount++
 				if !showHidden {
 					continue
 				}
 			}
 
-			byWorkflow[workflowID] = append(byWorkflow[workflowID], agentRow{
+			rows = append(rows, agentRow{
 				item: member,
 				// The indent says which row a child hangs off, so one standing at the head of
 				// its own family hangs off nothing.
 				child: member.agent.ID != it.agent.ID,
 			})
 		}
+		byWorkflow[workflowID] = rows
 	}
 
 	var rows []agentRow
