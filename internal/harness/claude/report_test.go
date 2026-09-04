@@ -16,7 +16,7 @@ import (
 func TestReadReport(t *testing.T) {
 	tests := []struct {
 		name    string
-		event   string
+		event   harness.Event
 		payload string
 		want    harness.Report
 		wantErr bool

@@ -174,7 +174,7 @@ turn end.`,
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(stopHookOutput{
 			HookSpecificOutput: stopHookContext{
-				HookEventName:     claude.EventStop,
+				HookEventName:     string(claude.EventStop),
 				AdditionalContext: renderMail(mail.Mail),
 			},
 		})
@@ -202,7 +202,7 @@ func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 
 // reportHookEvent hands one hook payload to the harness that fired it and records what it read,
 // which is the path every event weave installs takes.
-func reportHookEvent(cmd *cobra.Command, state *app, harnessID, event string, payload []byte) {
+func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) {
 	hn, err := state.harnesses.GetByID(harnessID)
 	if err != nil {
 		reportHookProblem(cmd, "weave has no harness to read the hook payload with, so nothing was recorded", err)

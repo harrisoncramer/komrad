@@ -18,7 +18,7 @@ func (s stub) MintSessionID() string               { return "" }
 
 func (s stub) FindSession(string) (string, error) { return "", nil }
 func (s stub) ReadActivity(string) Activity       { return ActivityUnknown }
-func (s stub) ReadReport(string, []byte) (Report, error) {
+func (s stub) ReadReport(Event, []byte) (Report, error) {
 	return Report{}, nil
 }
 func (s stub) GetInterruptKeys() []string             { return nil }

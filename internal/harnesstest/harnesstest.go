@@ -282,6 +282,6 @@ func flatten(data []byte) []harness.Turn {
 }
 
 // ReadReport reads nothing, since the test harness runs no hooks of its own.
-func (h *Harness) ReadReport(string, []byte) (harness.Report, error) {
+func (h *Harness) ReadReport(harness.Event, []byte) (harness.Report, error) {
 	return harness.Report{}, nil
 }

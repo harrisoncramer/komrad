@@ -98,7 +98,7 @@ type HookInstall struct {
 }
 
 // InstalledHooks is the events weave answers, keyed by the event Claude fires.
-var InstalledHooks = map[string]HookInstall{
+var InstalledHooks = map[harness.Event]HookInstall{
 	EventStop: {Subcommand: "stop"},
 }
 
@@ -111,7 +111,7 @@ func hookSettings(hookCommand string) map[string]any {
 
 	hooks := make(map[string]any, len(InstalledHooks))
 	for event, install := range InstalledHooks {
-		hooks[event] = []any{map[string]any{
+		hooks[string(event)] = []any{map[string]any{
 			"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook " + install.Subcommand}},
 		}}
 	}

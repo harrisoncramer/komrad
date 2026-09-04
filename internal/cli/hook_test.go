@@ -159,7 +159,7 @@ func TestStopHookDeliversMail(t *testing.T) {
 
 			var printed stopHookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
-			assert.Equal(t, claude.EventStop, printed.HookSpecificOutput.HookEventName)
+			assert.Equal(t, string(claude.EventStop), printed.HookSpecificOutput.HookEventName)
 
 			for _, want := range tt.wantText {
 				assert.Contains(t, printed.HookSpecificOutput.AdditionalContext, want)
