@@ -22,6 +22,12 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "question_with_its_footer.txt", want: harness.ActivityWaiting},
 		{file: "question_whose_footer_a_preview_pushed_off.txt", want: harness.ActivityWaiting},
 		{file: "question_whose_cursor_a_preview_pushed_off.txt", want: harness.ActivityWaiting},
+		{file: "streaming_reply_hides_the_status_line.txt", want: harness.ActivityWorking},
+		{file: "scrolled_away_from_a_live_turn.txt", want: harness.ActivityWorking},
+		{file: "scrolled_away_after_the_turn_ended.txt", want: harness.ActivityIdle},
+		{file: "panel_whose_footer_the_pane_cut_off.txt", want: harness.ActivityWaiting},
+		{file: "api_retry_banner.txt", want: harness.ActivityWorking},
+		{file: "api_error_ended_the_turn.txt", want: harness.ActivityIdle},
 	}
 
 	for _, tt := range tests {

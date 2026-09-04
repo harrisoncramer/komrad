@@ -1,0 +1,24 @@
+the prompt asks, nothing more.
+  </panel_briefing>
+
+  Run `sleep 8`, then ask me a clarifying question about which of three file
+  layouts I want, and wait for my answer without doing anything else.
+
+
+[2m• [0mI’ll pause for eight seconds, then ask you to choose the layout.
+
+[1m[38;5;2m•[0m [1mRan[0m [38;2;127;180;202msleep 8[39m
+[2m  └ (no output)[0m
+
+[2m────────────────────────────────────────────────────────────────────────────────
+
+• [0mWhich file layout do you want: feature-based, layer-based, or a flat
+  structure?
+
+[2m────────────────────────────────────────────────────────────────────────────────
+
+
+[0;1m›[0m a codex draft that nobody sent, long enough to wrap across the composer more
+  than once so the frame shows it
+
+  [38;2;130;156;207mgpt-5.6-sol low fast[2m[39m · [0m[38;2;154;184;117m~/weave-test/local/scratch/statedetect[39m
