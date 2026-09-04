@@ -45,6 +45,18 @@ message Agent {
   // The run log that failure was written to, which is the run the panel opens on.
   optional int32 failed_run_log = 28;
   string state_changed_at = 25;
+  // What the agent's CLI reported spending over the panel's recent window, absent when it
+  // reported nothing in that window.
+  optional TokenUsage recent_tokens = 29;
+}
+
+// TokenUsage keeps the counts a CLI reports separately rather than one figure, since how a
+// cache read weighs against a fresh input token is not something weave knows.
+message TokenUsage {
+  int64 input = 1;
+  int64 cache_read = 2;
+  int64 cache_write = 3;
+  int64 output = 4;
 }
 
 message AgentMetadata {

@@ -267,7 +267,9 @@ func (h *Harness) Say(sessionID, role, content string) error {
 	return nil
 }
 
-func flatten(data []byte) []harness.Turn {
+// flatten reads the fake log as a turn per line, reporting no usage at all, which stands for a
+// CLI whose log says nothing about tokens.
+func flatten(data []byte) ([]harness.Turn, []harness.Usage) {
 	var turns []harness.Turn
 	for raw := range strings.SplitSeq(string(data), "\n") {
 		role, content, ok := strings.Cut(raw, "\t")
@@ -278,5 +280,5 @@ func flatten(data []byte) []harness.Turn {
 		turns = append(turns, harness.Turn{Role: role, Content: harness.CleanText(content)})
 	}
 
-	return turns
+	return turns, nil
 }

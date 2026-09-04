@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/internal/harness"
 
@@ -78,7 +79,8 @@ func TestFlattenTranscript(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, flattenTranscript([]byte(tt.in)))
+			turns, _ := flattenTranscript([]byte(tt.in))
+			assert.Equal(t, tt.want, turns)
 		})
 	}
 }
@@ -149,6 +151,77 @@ func TestReadLog(t *testing.T) {
 			assert.Equal(t, tt.wantTurns, read.Turns)
 			assert.Equal(t, tt.wantConsumed, read.Consumed)
 			assert.Equal(t, tt.wantRestart, read.Restart)
+		})
+	}
+}
+
+// TestFlattenTranscriptUsage runs the parse over a real excerpt, since Claude repeats the
+// whole usage object on every content block of a reply and a hand-written sample would not.
+func TestFlattenTranscriptUsage(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "usage_reported_per_content_block.jsonl"))
+	require.NoError(t, err)
+
+	_, usage := flattenTranscript(body)
+
+	assert.Equal(t, []harness.Usage{
+		{
+			Key:        "msg_011Cej76GRM49VwfvbF72CQK",
+			At:         time.Date(2026, 9, 4, 21, 25, 49, 12_000_000, time.UTC),
+			Input:      2,
+			CacheRead:  38267,
+			CacheWrite: 25559,
+			Output:     279,
+		},
+		{
+			Key:        "msg_011Cej76bJepGMYYdU2taVqu",
+			At:         time.Date(2026, 9, 4, 21, 25, 53, 558_000_000, time.UTC),
+			Input:      2,
+			CacheRead:  63826,
+			CacheWrite: 11758,
+			Output:     315,
+		},
+		{
+			Key:        "msg_011Cej76wBjTsMRCBpGCMTXa",
+			At:         time.Date(2026, 9, 4, 21, 25, 58, 96_000_000, time.UTC),
+			Input:      2,
+			CacheRead:  75584,
+			CacheWrite: 423,
+			Output:     232,
+		},
+	}, usage, "each reply is counted once even though it is written a line per block")
+}
+
+// TestFlattenTranscriptUsageSkipsWhatItCannotKey pins the lines that carry no usage weave can
+// place, since a reply counted under the wrong key would be counted twice.
+func TestFlattenTranscriptUsageSkipsWhatItCannotKey(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{
+			name: "a line with no usage at all",
+			in:   `{"type":"assistant","timestamp":"2026-09-04T21:25:49.012Z","message":{"id":"msg_1","content":[]}}`,
+		},
+		{
+			name: "a line with no message id",
+			in: `{"type":"assistant","timestamp":"2026-09-04T21:25:49.012Z",` +
+				`"message":{"content":[],"usage":{"output_tokens":9}}}`,
+		},
+		{
+			name: "a line with no timestamp",
+			in:   `{"type":"assistant","message":{"id":"msg_1","content":[],"usage":{"output_tokens":9}}}`,
+		},
+		{
+			name: "a line whose timestamp is not a time",
+			in: `{"type":"assistant","timestamp":"yesterday",` +
+				`"message":{"id":"msg_1","content":[],"usage":{"output_tokens":9}}}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, usage := flattenTranscript([]byte(tt.in))
+			assert.Empty(t, usage)
 		})
 	}
 }

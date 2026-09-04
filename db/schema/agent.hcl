@@ -399,6 +399,54 @@ table "agent_runs" {
   }
 }
 
+table "agent_token_usage" {
+  schema  = schema.public
+  comment = "One exchange an agent's CLI reported the token counts for, summed over a window to say which agent is spending."
+  column "agent_id" {
+    null = false
+    type = uuid
+  }
+  column "key" {
+    null = false
+    type = text
+  }
+  column "at" {
+    null = false
+    type = timestamptz
+  }
+  column "input_tokens" {
+    null = false
+    type = bigint
+  }
+  column "cache_read_tokens" {
+    null = false
+    type = bigint
+  }
+  column "cache_write_tokens" {
+    null = false
+    type = bigint
+  }
+  column "output_tokens" {
+    null = false
+    type = bigint
+  }
+  primary_key {
+    columns = [column.agent_id, column.key]
+  }
+  foreign_key "agent_token_usage_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "agent_token_usage_at" {
+    on {
+      column = column.at
+      desc   = true
+    }
+  }
+}
+
 table "agents" {
   schema  = schema.public
   comment = "One background Claude agent, everything needed to restore it."

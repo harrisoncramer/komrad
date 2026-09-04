@@ -24,6 +24,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
+	usagestore "weave/internal/store/usage"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -285,6 +286,38 @@ func TestListAgentsReportsUnreadMail(t *testing.T) {
 	}
 	assert.False(t, unread[alpha.ID], "alpha sent the mail, it did not receive any")
 	assert.True(t, unread[beta.ID], "beta has not read what alpha sent")
+}
+
+// TestListAgentsReportsRecentTokens covers the window the listing reads over, since an agent
+// that spent everything it spent before the window has to come back with nothing.
+func TestListAgentsReportsRecentTokens(t *testing.T) {
+	svc, st := service(t)
+	busy := st.SeedAgent(t, agentstore.Agent{Name: "busy", Cwd: "/repo", State: agentstore.StateIdle})
+	quiet := st.SeedAgent(t, agentstore.Agent{Name: "quiet", Cwd: "/repo", State: agentstore.StateIdle})
+
+	now := time.Now()
+	require.NoError(t, st.Usage.Append(t.Context(), busy.ID, []usagestore.Reported{
+		{Key: "msg_1", At: now.Add(-time.Hour), Input: 2, CacheRead: 38267, CacheWrite: 25559, Output: 279},
+	}))
+	require.NoError(t, st.Usage.Append(t.Context(), quiet.ID, []usagestore.Reported{
+		{Key: "msg_2", At: now.Add(-usagestore.RecentWindow - time.Hour), Input: 9, Output: 9},
+	}))
+
+	listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+	require.NoError(t, err)
+	require.Len(t, listed.Msg.GetAgents(), 2)
+
+	reported := make(map[string]*agentv1.TokenUsage, 2)
+	for _, a := range listed.Msg.GetAgents() {
+		reported[a.GetId()] = a.GetRecentTokens()
+	}
+
+	assert.Nil(t, reported[quiet.ID], "what an agent spent before the window is not in it")
+	require.NotNil(t, reported[busy.ID])
+	assert.Equal(t, int64(2), reported[busy.ID].GetInput())
+	assert.Equal(t, int64(38267), reported[busy.ID].GetCacheRead())
+	assert.Equal(t, int64(25559), reported[busy.ID].GetCacheWrite())
+	assert.Equal(t, int64(279), reported[busy.ID].GetOutput())
 }
 
 // TestListAgentsReportsAFailedRun covers the mark a failed script puts on an agent's row, which
@@ -1045,6 +1078,7 @@ func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
+		Usage:       st.Usage,
 	})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2076,6 +2110,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
+		Usage:       st.Usage,
 		Creator:     launcher,
 		Adopter:     launcher,
 		Liveness:    launcher,

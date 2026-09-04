@@ -9,6 +9,8 @@ import (
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	usagestore "weave/internal/store/usage"
+	"weave/lib/xslice"
 )
 
 type transcriptReadWriter interface {
@@ -16,6 +18,11 @@ type transcriptReadWriter interface {
 	Upsert(ctx context.Context, params transcriptstore.UpsertParams) error
 	AppendTurns(ctx context.Context, agentID string, turns []transcriptstore.Turn) error
 	DeleteTurns(ctx context.Context, agentID string) error
+}
+
+type usageWriter interface {
+	Append(ctx context.Context, agentID string, reported []usagestore.Reported) error
+	Prune(ctx context.Context) error
 }
 
 type agentSessionLister interface {
@@ -26,12 +33,14 @@ type agentSessionLister interface {
 type TranscriptSyncer struct {
 	agents    agentSessionLister
 	store     transcriptReadWriter
+	usage     usageWriter
 	harnesses harnessGetter
 }
 
 type TranscriptSyncerParams struct {
 	Agents      agentSessionLister
 	Transcripts transcriptReadWriter
+	Usage       usageWriter
 	Harnesses   harnessGetter
 }
 
@@ -41,6 +50,7 @@ func NewTranscriptSyncer(p TranscriptSyncerParams) *TranscriptSyncer {
 	return &TranscriptSyncer{
 		agents:    p.Agents,
 		store:     p.Transcripts,
+		usage:     p.Usage,
 		harnesses: p.Harnesses,
 	}
 }
@@ -63,6 +73,10 @@ func (ts *TranscriptSyncer) Sync(ctx context.Context) error {
 			// agent behind it unindexed.
 			failures = append(failures, fmt.Errorf("failed to sync transcript for %q: %w", agent.Name, err))
 		}
+	}
+
+	if err := ts.usage.Prune(ctx); err != nil {
+		failures = append(failures, err)
 	}
 
 	return errors.Join(failures...)
@@ -138,7 +152,26 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	return ts.store.AppendTurns(ctx, agent.ID, turns)
+	if err := ts.store.AppendTurns(ctx, agent.ID, turns); err != nil {
+		return err
+	}
+
+	// A re-read after a restart replays the same exchanges under the same keys, so the usage
+	// rows are left to settle on their own rather than dropped alongside the turns.
+	return ts.usage.Append(ctx, agent.ID, reportedUsage(read.Usage))
+}
+
+func reportedUsage(reported []harness.Usage) []usagestore.Reported {
+	return xslice.Map(reported, func(u harness.Usage) usagestore.Reported {
+		return usagestore.Reported{
+			Key:        u.Key,
+			At:         u.At,
+			Input:      u.Input,
+			CacheRead:  u.CacheRead,
+			CacheWrite: u.CacheWrite,
+			Output:     u.Output,
+		}
+	})
 }
 
 func appendTurns(existing string, turns []harness.Turn) (string, []transcriptstore.Turn) {

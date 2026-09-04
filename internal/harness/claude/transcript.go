@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"weave/internal/harness"
 )
@@ -30,11 +31,21 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 }
 
 type transcriptLine struct {
-	Type    string `json:"type"`
-	IsMeta  bool   `json:"isMeta"`
-	Message *struct {
+	Type      string `json:"type"`
+	IsMeta    bool   `json:"isMeta"`
+	Timestamp string `json:"timestamp"`
+	Message   *struct {
+		ID      string          `json:"id"`
 		Content json.RawMessage `json:"content"`
+		Usage   *messageUsage   `json:"usage"`
 	} `json:"message"`
+}
+
+type messageUsage struct {
+	InputTokens              int64 `json:"input_tokens"`
+	CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+	CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+	OutputTokens             int64 `json:"output_tokens"`
 }
 
 type contentBlock struct {
@@ -42,8 +53,12 @@ type contentBlock struct {
 	Text string `json:"text"`
 }
 
-func flattenTranscript(data []byte) []harness.Turn {
-	var turns []harness.Turn
+func flattenTranscript(data []byte) ([]harness.Turn, []harness.Usage) {
+	var (
+		turns []harness.Turn
+		usage []harness.Usage
+	)
+	counted := map[string]bool{}
 	for raw := range strings.SplitSeq(string(data), "\n") {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
@@ -61,12 +76,40 @@ func flattenTranscript(data []byte) []harness.Turn {
 			continue
 		}
 
+		if reported, ok := lineUsage(line); ok && !counted[reported.Key] {
+			counted[reported.Key] = true
+			usage = append(usage, reported)
+		}
+
 		if text := blockText(line.Message.Content); text != "" {
 			turns = append(turns, harness.Turn{Role: line.Type, Content: text})
 		}
 	}
 
-	return turns
+	return turns, usage
+}
+
+// lineUsage reads what one line reported spending, keyed by the message id because Claude
+// writes a line per content block and repeats the whole usage object on every one of them.
+func lineUsage(line transcriptLine) (harness.Usage, bool) {
+	reported := line.Message.Usage
+	if reported == nil || line.Message.ID == "" {
+		return harness.Usage{}, false
+	}
+
+	at, err := time.Parse(time.RFC3339, line.Timestamp)
+	if err != nil {
+		return harness.Usage{}, false
+	}
+
+	return harness.Usage{
+		Key:        line.Message.ID,
+		At:         at,
+		Input:      reported.InputTokens,
+		CacheRead:  reported.CacheReadInputTokens,
+		CacheWrite: reported.CacheCreationInputTokens,
+		Output:     reported.OutputTokens,
+	}, true
 }
 
 func blockText(content json.RawMessage) string {

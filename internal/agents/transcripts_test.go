@@ -6,12 +6,14 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	"weave/internal/harness/codex"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
+	usagestore "weave/internal/store/usage"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -129,6 +131,7 @@ func TestTranscriptSyncer(t *testing.T) {
 			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
+				Usage:       st.Usage,
 				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 			})
 			require.NoError(t, syncer.Sync(ctx))
@@ -190,6 +193,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: store,
+		Usage:       st.Usage,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
 	})
 
@@ -277,6 +281,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
+		Usage:       st.Usage,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
 	})
 
@@ -323,6 +328,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
+				Usage:       st.Usage,
 				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
 			})
 			require.NoError(t, syncer.Sync(ctx))
@@ -333,6 +339,54 @@ func TestSyncAdoptsSessions(t *testing.T) {
 			assert.Equal(t, tt.want, adopter.SessionID)
 		})
 	}
+}
+
+// TestSyncRecordsWhatTheLogReportedSpending drives the whole path from a real transcript to the
+// windowed sum, since a lifetime figure is the shape this was built not to be.
+func TestSyncRecordsWhatTheLogReportedSpending(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	projects := t.TempDir()
+
+	agent := seedWithSessionID(t, st, testSessionID, "agent")
+
+	body, err := os.ReadFile(filepath.Join("..", "harness", "claude", "testdata",
+		"usage_reported_per_content_block.jsonl"))
+	require.NoError(t, err)
+
+	path := writeLog(t, projects, string(body))
+
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Usage:       st.Usage,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+	})
+	require.NoError(t, syncer.Sync(ctx))
+
+	// The excerpt is stamped with the day it was written, so the window has to reach back that
+	// far for the sum to hold anything at all.
+	since := time.Date(2026, 9, 4, 0, 0, 0, 0, time.UTC)
+
+	totals, err := st.Usage.SumSince(ctx, since)
+	require.NoError(t, err)
+	assert.Equal(t, []usagestore.Totals{{
+		AgentID:    agent.ID,
+		Input:      6,
+		CacheRead:  177677,
+		CacheWrite: 37740,
+		Output:     826,
+	}}, totals, "three replies written a line per content block are counted three times, not seven")
+
+	// A second pass over the same bytes reads nothing, and a pass over a log rewritten shorter
+	// replays the exchanges under the keys they are already stored against.
+	require.NoError(t, syncer.Sync(ctx))
+	require.NoError(t, os.WriteFile(path, body, 0o644))
+	require.NoError(t, syncer.Sync(ctx))
+
+	again, err := st.Usage.SumSince(ctx, since)
+	require.NoError(t, err)
+	assert.Equal(t, totals, again, "a log read twice is not counted twice")
 }
 
 // TestSyncAdoptedSessionIsIndexed pins that the transcript turning up under an adopted id is
@@ -363,6 +417,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
+		Usage:       st.Usage,
 		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
 	})
 

@@ -17,6 +17,7 @@ import (
 	runstore "weave/internal/store/run"
 	schedulestore "weave/internal/store/schedule"
 	transcriptstore "weave/internal/store/transcript"
+	usagestore "weave/internal/store/usage"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/jackc/pgx/v5/pgconn"
@@ -33,6 +34,7 @@ type Stores struct {
 	Transcripts *transcriptstore.Store
 	Mail        *mailstore.Store
 	Runs        *runstore.Store
+	Usage       *usagestore.Store
 }
 
 // Open builds the stores over a database of this test's own, closed when the
@@ -56,6 +58,7 @@ func Open(t *testing.T) *Stores {
 		Transcripts: transcriptstore.New(pool.GetDB()),
 		Mail:        mailstore.New(pool.GetDB()),
 		Runs:        runstore.New(pool.GetDB()),
+		Usage:       usagestore.New(pool.GetDB()),
 	}
 }
 

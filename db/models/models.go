@@ -198,6 +198,17 @@ type AgentRun struct {
 	ViewedAt   *time.Time
 }
 
+// One exchange an agent's CLI reported the token counts for, summed over a window to say which agent is spending.
+type AgentTokenUsage struct {
+	AgentID          string
+	Key              string
+	At               time.Time
+	InputTokens      int64
+	CacheReadTokens  int64
+	CacheWriteTokens int64
+	OutputTokens     int64
+}
+
 // Flattened transcript for an agent, synced from Claude's on-disk JSONL and indexed for search. Strict 1:1 with an agent.
 type AgentTranscript struct {
 	AgentID      string

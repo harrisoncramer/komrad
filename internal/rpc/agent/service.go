@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
@@ -22,6 +23,7 @@ import (
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
+	usagestore "weave/internal/store/usage"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -74,6 +76,12 @@ type runReader interface {
 	MarkRead(ctx context.Context, agentID string) error
 }
 
+// usageReader is what the CLIs reported spending, which the listing sums over the recent
+// window so a person can see which agent the tokens are going to.
+type usageReader interface {
+	SumSince(ctx context.Context, since time.Time) ([]usagestore.Totals, error)
+}
+
 type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
@@ -104,6 +112,7 @@ type Service struct {
 	archive     archiveEmptier
 	review      reviewConversation
 	runs        runReader
+	usage       usageReader
 }
 
 type reviewConversation interface {
@@ -137,6 +146,7 @@ type NewServiceParams struct {
 	Archive     archiveEmptier
 	Review      reviewConversation
 	Runs        runReader
+	Usage       usageReader
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
@@ -155,6 +165,7 @@ func NewService(p NewServiceParams) *Service {
 		archive:     p.Archive,
 		review:      p.Review,
 		runs:        p.Runs,
+		usage:       p.Usage,
 	}
 }
 
@@ -228,18 +239,29 @@ func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (fu
 	}
 	failed := xslice.KeyBy(failures, func(failure runstore.Failure) string { return failure.AgentID })
 
+	totals, err := s.usage.SumSince(ctx, time.Now().Add(-usagestore.RecentWindow))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to sum what the agents spent recently")
+	}
+	spent := xslice.KeyBy(totals, func(t usagestore.Totals) string { return t.AgentID })
+
 	return func(a agentstore.Agent) agentMarks {
 		_, hasMail := waiting[a.ID]
 		_, hasOutput := unviewed[a.ID]
 		failure, hasFailure := failed[a.ID]
 
-		return agentMarks{
+		marks := agentMarks{
 			alive:        running[a.ID],
 			unreadMail:   hasMail,
 			unviewed:     hasOutput,
 			failedRun:    hasFailure,
 			failedRunLog: failure.LogNumber,
 		}
+		if totals, ok := spent[a.ID]; ok {
+			marks.recentTokens = &totals
+		}
+
+		return marks
 	}, nil
 }
 

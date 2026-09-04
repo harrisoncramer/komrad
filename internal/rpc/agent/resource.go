@@ -6,6 +6,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	transcriptstore "weave/internal/store/transcript"
+	usagestore "weave/internal/store/usage"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 )
@@ -30,6 +31,9 @@ type agentMarks struct {
 	// failedRunLog is the log the failure went to, which is what opens the pane on the run
 	// that failed rather than on whatever ran last.
 	failedRunLog *int32
+	// recentTokens is what the agent's CLI reported spending over the recent window, nil for
+	// an agent that reported nothing in it.
+	recentTokens *usagestore.Totals
 }
 
 func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
@@ -82,8 +86,22 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			Unviewed:         marks.unviewed,
 			FailedRun:        marks.failedRun,
 			FailedRunLog:     marks.failedRunLog,
+			RecentTokens:     renderTokenUsage(marks.recentTokens),
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
+	}
+}
+
+func renderTokenUsage(totals *usagestore.Totals) *agentv1.TokenUsage {
+	if totals == nil {
+		return nil
+	}
+
+	return &agentv1.TokenUsage{
+		Input:      totals.Input,
+		CacheRead:  totals.CacheRead,
+		CacheWrite: totals.CacheWrite,
+		Output:     totals.Output,
 	}
 }
 

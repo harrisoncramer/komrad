@@ -64,6 +64,7 @@ func buildLoops(p buildLoopsParams) []Loop {
 			Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
 				Agents:      p.Stores.agents,
 				Transcripts: p.Stores.transcripts,
+				Usage:       p.Stores.usage,
 				Harnesses:   p.Harnesses,
 			}).Sync,
 		},

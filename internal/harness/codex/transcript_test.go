@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"weave/internal/harness"
 
@@ -94,9 +95,44 @@ func TestFlattenRollout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, flattenRollout([]byte(tt.in)))
+			turns, _ := flattenRollout([]byte(tt.in))
+			assert.Equal(t, tt.want, turns)
 		})
 	}
+}
+
+// TestFlattenRolloutUsage runs the parse over real token_count events, where Codex counts its
+// cached reads inside the input figure rather than beside it as Claude does.
+func TestFlattenRolloutUsage(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "token_count_events.jsonl"))
+	require.NoError(t, err)
+
+	turns, usage := flattenRollout(body)
+
+	assert.Empty(t, turns, "a token_count event says nothing that belongs in the transcript")
+	assert.Equal(t, []harness.Usage{
+		{
+			Key:       "2026-07-31T22:05:35.887Z#16741",
+			At:        time.Date(2026, 7, 31, 22, 5, 35, 887_000_000, time.UTC),
+			Input:     6720,
+			CacheRead: 9984,
+			Output:    37,
+		},
+		{
+			Key:       "2026-07-31T22:05:50.596Z#33605",
+			At:        time.Date(2026, 7, 31, 22, 5, 50, 596_000_000, time.UTC),
+			Input:     622,
+			CacheRead: 16128,
+			Output:    114,
+		},
+		{
+			Key:       "2026-07-31T22:05:51.913Z#56260",
+			At:        time.Date(2026, 7, 31, 22, 5, 51, 913_000_000, time.UTC),
+			Input:     12628,
+			CacheRead: 9984,
+			Output:    43,
+		},
+	}, usage, "each event reports what that exchange added rather than the running total")
 }
 
 // TestReadLog covers what one pass over a rollout reports, which is what the syncer's

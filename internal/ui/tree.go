@@ -250,6 +250,9 @@ type agentItem struct {
 	failedRun  bool
 	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
 	failedRunLog *int32
+	// recentTokens is what the agent's CLI reported spending over the panel's recent window,
+	// nil for an agent whose log said nothing in it.
+	recentTokens *tokenUsage
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

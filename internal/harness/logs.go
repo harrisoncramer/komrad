@@ -9,7 +9,7 @@ import (
 
 // ReadAppendOnlyLog reads what the log at path holds past offset and hands those bytes to
 // flatten, which suits any log written a record per line and never rewritten.
-func ReadAppendOnlyLog(path string, offset int64, flatten func([]byte) []Turn) (LogRead, error) {
+func ReadAppendOnlyLog(path string, offset int64, flatten func([]byte) ([]Turn, []Usage)) (LogRead, error) {
 	info, err := os.Stat(path)
 	if err != nil {
 		return LogRead{}, nil //nolint:nilerr // a log that is not on disk yet is not an error
@@ -30,7 +30,8 @@ func ReadAppendOnlyLog(path string, offset int64, flatten func([]byte) []Turn) (
 		return LogRead{}, err
 	}
 
-	read.Turns, read.Consumed = flatten(appended), consumed
+	read.Turns, read.Usage = flatten(appended)
+	read.Consumed = consumed
 
 	return read, nil
 }

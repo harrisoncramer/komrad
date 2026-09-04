@@ -64,6 +64,7 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 			Archive:     jobs.NewEnqueuer(p.Jobs),
 			Review:      p.Services.review,
 			Runs:        p.Stores.runs,
+			Usage:       p.Stores.usage,
 		}), options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
 		rpcworkflow.NewService(p.Stores.workflows, p.Services.workflow), options...))

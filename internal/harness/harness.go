@@ -11,6 +11,7 @@ package harness
 import (
 	"fmt"
 	"strings"
+	"time"
 )
 
 const AgentIDEnv = "WEAVE_AGENT_ID"
@@ -95,8 +96,22 @@ type Turn struct {
 	Content string
 }
 
+// Usage is one report a CLI wrote about what an exchange with the model cost, keeping the
+// counts apart because weave has no way to weigh a cache read against a fresh input token.
+type Usage struct {
+	// Key identifies the exchange within the agent's own log, so a line the sync loop reads
+	// twice is stored once rather than counted twice.
+	Key        string
+	At         time.Time
+	Input      int64
+	CacheRead  int64
+	CacheWrite int64
+	Output     int64
+}
+
 type LogRead struct {
 	Turns    []Turn
+	Usage    []Usage
 	Consumed int64
 	Restart  bool
 }

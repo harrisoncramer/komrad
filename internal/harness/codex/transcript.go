@@ -2,8 +2,10 @@ package codex
 
 import (
 	"encoding/json"
+	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"weave/internal/harness"
 )
@@ -30,12 +32,24 @@ func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
 }
 
 type rolloutRecord struct {
-	Type    string `json:"type"`
-	Payload struct {
+	Type      string `json:"type"`
+	Timestamp string `json:"timestamp"`
+	Payload   struct {
 		Type    string         `json:"type"`
 		Role    string         `json:"role"`
 		Content []contentBlock `json:"content"`
+		Info    *struct {
+			Last  tokenCounts `json:"last_token_usage"`
+			Total tokenCounts `json:"total_token_usage"`
+		} `json:"info"`
 	} `json:"payload"`
+}
+
+type tokenCounts struct {
+	InputTokens       int64 `json:"input_tokens"`
+	CachedInputTokens int64 `json:"cached_input_tokens"`
+	OutputTokens      int64 `json:"output_tokens"`
+	TotalTokens       int64 `json:"total_tokens"`
 }
 
 type contentBlock struct {
@@ -50,8 +64,11 @@ const (
 	briefingClose = "</panel_briefing>"
 )
 
-func flattenRollout(data []byte) []harness.Turn {
-	var turns []harness.Turn
+func flattenRollout(data []byte) ([]harness.Turn, []harness.Usage) {
+	var (
+		turns []harness.Turn
+		usage []harness.Usage
+	)
 	for _, raw := range strings.Split(string(data), "\n") {
 		raw = strings.TrimSpace(raw)
 		if raw == "" {
@@ -60,6 +77,11 @@ func flattenRollout(data []byte) []harness.Turn {
 
 		var record rolloutRecord
 		if err := json.Unmarshal([]byte(raw), &record); err != nil {
+			continue
+		}
+		if reported, ok := recordUsage(record); ok {
+			usage = append(usage, reported)
+
 			continue
 		}
 		if record.Type != "response_item" || record.Payload.Type != "message" {
@@ -80,7 +102,31 @@ func flattenRollout(data []byte) []harness.Turn {
 		turns = append(turns, harness.Turn{Role: record.Payload.Role, Content: text})
 	}
 
-	return turns
+	return turns, usage
+}
+
+// recordUsage reads one token_count event as what that exchange added, keyed by the running
+// total the same event carries, which rises with every exchange and so names it uniquely.
+func recordUsage(record rolloutRecord) (harness.Usage, bool) {
+	info := record.Payload.Info
+	if record.Type != "event_msg" || record.Payload.Type != "token_count" || info == nil {
+		return harness.Usage{}, false
+	}
+
+	at, err := time.Parse(time.RFC3339, record.Timestamp)
+	if err != nil {
+		return harness.Usage{}, false
+	}
+
+	// Codex counts its cached reads inside the input figure rather than beside it, so the
+	// uncached remainder is what belongs in the column Claude calls input.
+	return harness.Usage{
+		Key:       fmt.Sprintf("%s#%d", record.Timestamp, info.Total.TotalTokens),
+		At:        at,
+		Input:     max(info.Last.InputTokens-info.Last.CachedInputTokens, 0),
+		CacheRead: info.Last.CachedInputTokens,
+		Output:    info.Last.OutputTokens,
+	}, true
 }
 
 func withoutBriefing(text string) string {

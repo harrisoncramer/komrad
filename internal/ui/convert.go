@@ -60,6 +60,7 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 			unviewed:     agent.GetUnviewed(),
 			failedRun:    agent.GetFailedRun(),
 			failedRunLog: agent.FailedRunLog,
+			recentTokens: tokenUsageFrom(agent.GetRecentTokens()),
 		}
 	})
 }
