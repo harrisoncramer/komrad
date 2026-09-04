@@ -124,6 +124,42 @@ func TestReconcileSinglePass(t *testing.T) {
 	}
 }
 
+// TestReconcileRecordsTheFrameItRead covers the recording, which exists so a reading nobody
+// was watching can still be argued about afterwards.
+func TestReconcileRecordsTheFrameItRead(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = busyFrame
+
+	recorder := &fakeFrameRecorder{}
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	require.NoError(t, rec.Reconcile(context.Background()))
+
+	require.Len(t, recorder.recorded, 1)
+	assert.Equal(t, busyFrame, recorder.recorded[0].Frame)
+	assert.Equal(t, "working", recorder.recorded[0].Activity)
+	assert.True(t, recorder.recorded[0].Disputes, "an idle agent whose pane is working is the reading a recording is turned on for")
+	assert.Equal(t, 1, recorder.forgotten)
+}
+
+// TestReconcileWithoutARecorderRecordsNothing covers the ordinary install, where no recording
+// has been asked for and the reconciler holds none.
+func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = busyFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+
+	assert.NoError(t, rec.Reconcile(context.Background()))
+}
+
 // TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id, which it
 // would otherwise be typed at through and could not be resumed from.
 func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
