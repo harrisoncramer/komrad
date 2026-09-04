@@ -656,13 +656,15 @@ func mailStamp(stamp string) string {
 	return dates.Friendly(parsed)
 }
 
+// mailClock is the stamp a row carries, which is the panel's own short label rather than a
+// clock of its own, so a row here and a record anywhere else read the same way.
 func mailClock(stamp string) string {
 	parsed, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {
 		return ""
 	}
 
-	return parsed.Local().Format("15:04")
+	return dates.Clock(parsed)
 }
 
 func (m *model) stageMail() {
@@ -784,7 +786,7 @@ func (m model) mailRowsView() []string {
 
 const (
 	mailNameWidth  = 12
-	mailClockWidth = 5
+	mailClockWidth = 7
 	mailMarkWidth  = 1
 	// mailRowIndent is the cursor, the arrow, and the single spaces between the clock, the rail,
 	// the arrow, the name and the mark, which is what the snippet does not get.
@@ -805,7 +807,8 @@ func (m model) mailRowView(r mailRow, hovered bool) string {
 	// take for characters.
 	pad := strings.Repeat(" ", max(mailNameWidth-lipgloss.Width(label), 0))
 
-	head := dimStyle.Render(mailClock(r.item.GetCreatedAt())) + " " +
+	clock := mailClock(r.item.GetCreatedAt())
+	head := dimStyle.Render(fmt.Sprintf("%*s", mailClockWidth, clock)) + " " +
 		dimStyle.Render(r.gutter) + " " +
 		dimStyle.Render(mailDirectionMark(r.sent)) + " " +
 		name + pad + " " + mailStateMark(r.item)

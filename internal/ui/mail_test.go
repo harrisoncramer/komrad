@@ -178,6 +178,29 @@ func TestMailThreadWord(t *testing.T) {
 	}
 }
 
+// TestMailRowClock covers the stamp on a row, which says the time for something that arrived
+// today and the day for anything older, since a bare clock on old mail reads as though it had
+// just come in.
+func TestMailRowClock(t *testing.T) {
+	old := time.Now().AddDate(0, 0, -3)
+
+	m := mailModel(config.DefaultKeybindings())
+	m.height, m.width = 40, 90
+	m.mail.inbox = []*agentv1.Mail{
+		received("m1", "neovim-fan", "vim wins"),
+		agedAt(received("m2", "emacs-fan", "org-mode wins"), old),
+	}
+
+	rows := m.mailRows()
+
+	today, err := time.Parse(time.RFC3339, rows[0].item.GetCreatedAt())
+	require.NoError(t, err)
+
+	assert.Equal(t, today.Local().Format("3:04pm"), mailClock(rows[0].item.GetCreatedAt()))
+	assert.Equal(t, old.Local().Format("Jan 2"), mailClock(rows[1].item.GetCreatedAt()))
+	assert.Contains(t, ansi.Strip(m.mailRowView(rows[1], false)), old.Local().Format("Jan 2"))
+}
+
 // TestMailKeys covers what each key does on the mailbox, since every one of them but back
 // moves the cursor rather than writing anything.
 func TestMailKeys(t *testing.T) {
@@ -527,6 +550,12 @@ func sent(id, body string) *agentv1.Mail {
 func replyTo(id, body, parent string) *agentv1.Mail {
 	item := sent(id, body)
 	item.ReplyTo = &parent
+
+	return item
+}
+
+func agedAt(item *agentv1.Mail, at time.Time) *agentv1.Mail {
+	item.CreatedAt = at.Format(time.RFC3339)
 
 	return item
 }

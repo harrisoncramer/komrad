@@ -104,3 +104,51 @@ func TestElapsed(t *testing.T) {
 		})
 	}
 }
+
+// TestClock pins the two shapes a row label takes, since the point of it is that today and
+// last week do not read the same.
+func TestClock(t *testing.T) {
+	now := time.Now().Local()
+
+	tests := []struct {
+		name string
+		in   time.Time
+		want string
+	}{
+		{
+			name: "a zero time renders empty",
+			in:   time.Time{},
+			want: "",
+		},
+		{
+			name: "something today is the time of day",
+			in:   time.Date(now.Year(), now.Month(), now.Day(), 14, 30, 0, 0, time.Local),
+			want: "2:30pm",
+		},
+		{
+			name: "something older is the day it happened",
+			in:   now.AddDate(0, 0, -8),
+			want: now.AddDate(0, 0, -8).Format("Jan 2"),
+		},
+		{
+			name: "a UTC instant is read in local time, not left in UTC",
+			in:   utcAfternoon,
+			want: dayOrClock(utcAfternoon.Local()),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, Clock(tt.in))
+		})
+	}
+}
+
+func dayOrClock(t time.Time) string {
+	now := time.Now().Local()
+	if t.YearDay() == now.YearDay() && t.Year() == now.Year() {
+		return t.Format("3:04pm")
+	}
+
+	return t.Format("Jan 2")
+}
