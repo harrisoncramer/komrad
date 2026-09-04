@@ -12,3 +12,8 @@
 [log]
 # Louder than the default, because the reason to open this instance is usually to watch it.
 level = "debug"
+
+[debug]
+# The throwaway instance is where a misread is chased down, and a pane redraws over the frame
+# it was misread from, so the recording is on here and off everywhere else.
+frames = true

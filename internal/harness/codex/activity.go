@@ -10,9 +10,9 @@ import (
 
 var workingLine = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*Working\s*\(\s*\d+`)
 
-// interruptTimer leaves the verb open for a release that renames it, but keeps the shape
-// of the live line, so prose quoting those words is not work.
-var interruptTimer = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*\p{L}+\s*\(\s*\d+[^)\n]*esc to interrupt`)
+// interruptTimer leaves open both the verb, for a release that renames it, and whatever a step
+// names between the verb and the timer, since a startup step names what it is starting.
+var interruptTimer = regexp.MustCompile(`^\s*[^\s\p{L}]?\s*\p{L}.*\(\s*\d+[^)\n]*esc to interrupt`)
 
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
 
@@ -22,7 +22,9 @@ const liveRegionLines = 30
 
 const waitingRegionLines = 8
 
-const idleRegionLines = 8
+// composerSearchLines is how far up the composer marker is looked for, which is past the menus
+// Codex draws under the composer rather than over it.
+const composerSearchLines = 30
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
@@ -64,7 +66,40 @@ func tailLines(frame string, count int) string {
 func doesFrameShowWork(frame string) bool {
 	region := tailLines(frame, liveRegionLines)
 
-	return workingLine.MatchString(region) || interruptTimer.MatchString(region)
+	return workingLine.MatchString(region) || doesFrameOfferInterrupt(frame)
+}
+
+// doesFrameOfferInterrupt reads the live line offering to interrupt the turn, whose timer has to
+// be in the line drawn and gone from the same line less the dim.
+func doesFrameOfferInterrupt(frame string) bool {
+	// Codex draws that timer dim and a message quoting the words does not, which is what carries
+	// the pattern being loose enough to take a label as well as a verb.
+	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
+	if len(drawn) > liveRegionLines {
+		drawn = drawn[len(drawn)-liveRegionLines:]
+	}
+
+	held := harness.StripDim(drawn)
+
+	for i, line := range drawn {
+		if !interruptTimer.MatchString(ansiSeq.ReplaceAllString(line, "")) {
+			continue
+		}
+
+		rest := ansiSeq.ReplaceAllString(held[i], "")
+
+		// Codex draws the label bright and only the timer dim, so a line that comes down to
+		// nothing was dim from end to end, which is how it draws tool output rather than status.
+		if strings.TrimSpace(rest) == "" {
+			continue
+		}
+
+		if !interruptTimer.MatchString(rest) {
+			return true
+		}
+	}
+
+	return false
 }
 
 func doesFrameShowWaiting(frame string) bool {
@@ -83,12 +118,12 @@ func doesComposerHoldText(frame string) bool {
 	return strings.TrimSpace(held) != ""
 }
 
-// composerText is what the composer holds, taken from the lowest marker in the region because
-// the transcript echoes a message somebody sent with the same glyph the composer wears.
+// composerText is what the composer holds, which is looked for at the bottom of the region
+// because the transcript echoes a message somebody sent with the same glyph the composer wears.
 func composerText(frame string) (string, bool) {
 	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	if len(drawn) > idleRegionLines {
-		drawn = drawn[len(drawn)-idleRegionLines:]
+	if len(drawn) > composerSearchLines {
+		drawn = drawn[len(drawn)-composerSearchLines:]
 	}
 
 	lines := harness.StripDim(drawn)
@@ -100,11 +135,23 @@ func composerText(frame string) (string, bool) {
 		drawn[i] = ansiSeq.ReplaceAllString(line, "")
 	}
 
+	// A dim-blanked marker is a composer holding nothing rather than no composer, so the marker
+	// is read from the frame and the text from the frame less the dim.
 	marker := -1
-	for i, line := range lines {
-		if composerMarker.MatchString(line) {
+
+	// The composer is the lowest line Codex draws at the first column, since what it draws under
+	// the composer is indented furniture and what stands at the first column above it belongs to
+	// the transcript.
+	for i := len(drawn) - 1; i >= 0; i-- {
+		if strings.TrimSpace(drawn[i]) == "" || strings.HasPrefix(drawn[i], " ") || strings.HasPrefix(drawn[i], "\t") {
+			continue
+		}
+
+		if composerMarker.MatchString(drawn[i]) {
 			marker = i
 		}
+
+		break
 	}
 
 	if marker < 0 {
@@ -120,7 +167,11 @@ func composerText(frame string) (string, bool) {
 		}
 	}
 
-	held := []string{composerMarker.FindStringSubmatch(lines[marker])[1]}
+	held := []string{""}
+	if typed := composerMarker.FindStringSubmatch(lines[marker]); typed != nil {
+		held[0] = typed[1]
+	}
+
 	if footer > marker {
 		held = append(held, lines[marker+1:footer]...)
 	}
