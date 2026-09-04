@@ -408,7 +408,7 @@ func TestListMailChecksTheAgentExists(t *testing.T) {
 		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	_, err := svc.ListMail(t.Context(), "ghost", false, 10, nil)
+	_, err := svc.ListMail(t.Context(), ListMailParams{AgentID: "ghost", Limit: 10})
 	require.ErrorIs(t, err, ErrAgentNotFound)
 }
 
@@ -432,7 +432,7 @@ func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
 		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	listed, err := svc.ListMail(t.Context(), "agent-a", false, 10, nil)
+	listed, err := svc.ListMail(t.Context(), ListMailParams{AgentID: "agent-a", Limit: 10})
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, "for alpha", listed[0].Body)

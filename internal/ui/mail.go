@@ -51,8 +51,9 @@ type mailRow struct {
 	sent  bool
 }
 
-// key is the row the cursor is put back on as the mailbox changes underneath it, which is empty
-// for a thread line, since the cursor never stands on one.
+// key is the row the cursor is put back on as the mailbox changes underneath it, empty for a
+// thread line, which holds no message and reads its id off a nil pointer that the generated
+// getter answers for.
 func (r mailRow) key() string {
 	return r.item.GetId()
 }

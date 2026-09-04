@@ -86,7 +86,7 @@ type transcriptReader interface {
 type mailer interface {
 	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
 	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
-	ListMail(ctx context.Context, agentID string, sent bool, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
+	ListMail(ctx context.Context, params agents.ListMailParams) ([]mailstore.Mail, error)
 	DeleteMail(ctx context.Context, ids []string) error
 	ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
@@ -459,9 +459,12 @@ func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.Lis
 		return nil, err
 	}
 
-	sent := req.Msg.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT
-
-	listed, err := s.mail.ListMail(ctx, id, sent, int32(paginator.Limit()), paginator.Cursor())
+	listed, err := s.mail.ListMail(ctx, agents.ListMailParams{
+		AgentID: id,
+		Sent:    req.Msg.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT,
+		Limit:   int32(paginator.Limit()),
+		Cursor:  paginator.Cursor(),
+	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the mail")
 	}

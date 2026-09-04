@@ -277,29 +277,31 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 	return claimed, nil
 }
 
+type ListMailParams struct {
+	AgentID string
+	// Sent reads the mail the agent wrote rather than the mail written to it.
+	Sent   bool
+	Limit  int32
+	Cursor *mailstore.Cursor
+}
+
 // ListMail returns one page of one half of an agent's correspondence, most recent first and
 // without claiming any of it: the mail addressed to it, or the mail it sent.
-func (s *MailService) ListMail(
-	ctx context.Context,
-	agentID string,
-	sent bool,
-	limit int32,
-	cursor *mailstore.Cursor,
-) ([]mailstore.Mail, error) {
-	agent, err := s.agentFinder.GetByID(ctx, agentID)
+func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]mailstore.Mail, error) {
+	agent, err := s.agentFinder.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, params.AgentID)
 	}
 	if err != nil {
 		return nil, err
 	}
 
 	read := s.mailReadWriter.ListPage
-	if sent {
+	if params.Sent {
 		read = s.mailReadWriter.ListSentPage
 	}
 
-	listed, err := read(ctx, agent.ID, limit, cursor)
+	listed, err := read(ctx, agent.ID, params.Limit, params.Cursor)
 	if err != nil {
 		return nil, err
 	}
