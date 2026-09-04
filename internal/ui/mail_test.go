@@ -212,8 +212,8 @@ func TestMailRowClock(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, today.Local().Format("3:04pm"), mailClock(rows[1].item.GetCreatedAt()))
-	assert.Equal(t, old.Local().Format("Jan 2"), mailClock(rows[3].item.GetCreatedAt()))
-	assert.Contains(t, ansi.Strip(m.mailRowView(rows[3], false)), old.Local().Format("Jan 2"))
+	assert.Equal(t, old.Local().Format("Jan 2 3:04pm"), mailClock(rows[3].item.GetCreatedAt()))
+	assert.Contains(t, ansi.Strip(m.mailRowView(rows[3], false)), old.Local().Format("Jan 2 3:04pm"))
 }
 
 // TestMailKeys covers what each key does on the mailbox, since every one of them but back

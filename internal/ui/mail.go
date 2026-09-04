@@ -750,7 +750,9 @@ func (m model) mailRowsView() []string {
 }
 
 const (
-	mailClockWidth = 7
+	// mailClockWidth fits the widest label dates.Clock draws, which is a day and a time such as
+	// "Sep 30 11:22pm", rather than the time alone.
+	mailClockWidth = 14
 	// mailCursorWidth is the cursor drawn before every row, which belongs to the list rather
 	// than to the row.
 	mailCursorWidth = 2
@@ -766,10 +768,19 @@ const (
 // became of it, then as much of the message as the sidebar has room for, since who it was with
 // is on the thread line above rather than repeated down the block.
 func (m model) mailRowView(r mailRow, hovered bool) string {
-	body := mailSnippet(r.item.GetBody())
-	head := " " + dimStyle.Render(fmt.Sprintf("%*s", mailClockWidth, mailClock(r.item.GetCreatedAt()))) + " " +
+	stamp := fmt.Sprintf("%*s", mailClockWidth, mailClock(r.item.GetCreatedAt()))
+	head := " " + dimStyle.Render(stamp) + " " +
 		dimStyle.Render(mailDirectionMark(r.sent)) + " " +
 		mailStateMark(r.item)
+
+	// A pane too narrow even for the stamp gets the stamp alone, clipped while it is still plain
+	// text: clipping the styled head would cut through an escape sequence, and a row wider than
+	// the pane wraps onto a line the list has not counted.
+	if room := m.width - mailCursorWidth; lipgloss.Width(head) > room {
+		return dimStyle.Render(clip(strings.TrimSpace(stamp), max(room, 1)))
+	}
+
+	body := mailSnippet(r.item.GetBody())
 
 	spare := m.width - mailRowIndent - mailClockWidth
 	if spare < mailLeastSnippet {

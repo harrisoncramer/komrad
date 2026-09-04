@@ -126,9 +126,9 @@ func TestClock(t *testing.T) {
 			want: "2:30pm",
 		},
 		{
-			name: "something older is the day it happened",
+			name: "something older is the day it happened and the time it happened at",
 			in:   now.AddDate(0, 0, -8),
-			want: now.AddDate(0, 0, -8).Format("Jan 2"),
+			want: now.AddDate(0, 0, -8).Format("Jan 2 3:04pm"),
 		},
 	}
 
@@ -150,5 +150,5 @@ func TestClockReadsAnInstantInLocalTime(t *testing.T) {
 	// case is asking.
 	time.Local = time.FixedZone("test/+12", 12*60*60)
 
-	assert.Equal(t, "Jul 3", Clock(time.Date(2024, time.July, 2, 23, 30, 0, 0, time.UTC)))
+	assert.Equal(t, "Jul 3 11:30am", Clock(time.Date(2024, time.July, 2, 23, 30, 0, 0, time.UTC)))
 }

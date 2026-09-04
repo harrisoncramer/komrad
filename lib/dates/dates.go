@@ -35,12 +35,12 @@ func Elapsed(d time.Duration) string {
 
 const (
 	clockLayout = "3:04pm"
-	dayLayout   = "Jan 2"
+	dayLayout   = "Jan 2 3:04pm"
 )
 
 // Clock is the short label a list row gets: the time of day for something that happened today,
-// and the day itself for anything older, since a bare clock on last week's row reads as though
-// it had just arrived.
+// and the day with the time for anything older, since a bare clock on last week's row reads as
+// though it had just arrived and a bare date says nothing about when.
 func Clock(t time.Time) string {
 	if t.IsZero() {
 		return ""
