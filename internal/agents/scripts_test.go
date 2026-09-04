@@ -124,7 +124,6 @@ func TestScriptPayload(t *testing.T) {
 	assert.Equal(t, firedScript, values["WEAVE_SCRIPT"], "its own name, for a script that wants to tag its own log lines")
 	assert.Equal(t, "%3", values["WEAVE_INFO_PANE"], "the pane the panel laid out for a script to fill")
 	assert.Equal(t, "/tmp/host-socket", values["WEAVE_HOST_TMUX_SOCKET"])
-	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
 	assert.Equal(t, "nvim", values["EDITOR"], "the configured editor, not whatever the service inherited")
 	assert.Equal(t, "/bin/zsh", values["WEAVE_SHELL"], "the shell tmux itself opens a pane with")
 	assert.True(t, strings.HasPrefix(values["PATH"], "/opt/weave/bin"+string(os.PathListSeparator)),
@@ -724,7 +723,6 @@ type realPaneRunner struct {
 func (realPaneRunner) GetPaneOwner(string) string { return "" }
 func (realPaneRunner) GetHostSocket() string      { return "" }
 func (realPaneRunner) GetInfoPane() string        { return "" }
-func (realPaneRunner) ShowGlobal(string) string   { return "" }
 func (realPaneRunner) DefaultShell() string       { return "" }
 
 // TestRunDeprovisionRefusesOneThatIsGone pins a renamed script being reported rather than
@@ -1763,9 +1761,6 @@ func scriptServiceWithLogsDir(t *testing.T, dir string, runner scriptRunner, log
 			hostSocket: "/tmp/host-socket",
 			shell:      "/bin/zsh",
 			infoPane:   "%3",
-			globals: map[string]string{
-				tmux.InvokingClientOption: "/dev/ttys004",
-			},
 		},
 		Runner: runner,
 		Load: func() (*config.Config, error) {
@@ -1818,7 +1813,6 @@ func (f fakeWorkflowReader) GetIncludingArchived(_ context.Context, id string) (
 
 type fakePaneOwner struct {
 	owner      string
-	globals    map[string]string
 	hostSocket string
 	shell      string
 	infoPane   string
@@ -1826,7 +1820,6 @@ type fakePaneOwner struct {
 
 func (f fakePaneOwner) GetPaneOwner(string) string            { return f.owner }
 func (f fakePaneOwner) GetHostSocket() string                 { return f.hostSocket }
-func (f fakePaneOwner) ShowGlobal(name string) string         { return f.globals[name] }
 func (f fakePaneOwner) GetInfoPane() string                   { return f.infoPane }
 func (f fakePaneOwner) DefaultShell() string                  { return f.shell }
 func (f fakePaneOwner) IsPaneAlive(string) bool               { return true }

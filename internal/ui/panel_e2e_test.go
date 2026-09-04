@@ -288,7 +288,7 @@ func newStagedPanel(t *testing.T) *stagedPanel {
 			schedules: instance.Schedules,
 			hooks:     instance.Hooks,
 		},
-		tmux:   instance.Tmux.Servers(),
+		tmux:   client,
 		frame:  frame,
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,

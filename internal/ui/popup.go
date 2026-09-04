@@ -24,8 +24,6 @@ func NewPopupWindow(tmux popupTmux, session string) *PopupWindow {
 	return &PopupWindow{tmux: tmux, session: session}
 }
 
-const managerClientFlag = "@weave_client"
-
 const managerKeyOption = "@weave_key"
 
 const defaultPanelKey = "g"
@@ -140,11 +138,6 @@ func panelCommand(params BindPanelKeyParams, subcommand string) string {
 // cannot see for itself: hiding detaches the client and leaves this program running.
 func (p *PopupWindow) IsShown() bool {
 	return p.tmux.GetSessionClient(p.session) != ""
-}
-
-// SetInvokingClient records the tmux client that opened the current popup.
-func (p *PopupWindow) SetInvokingClient(client string) {
-	p.tmux.SetGlobal(managerClientFlag, client)
 }
 
 // Hide closes the popup by detaching its client, leaving the session alive for the next open.

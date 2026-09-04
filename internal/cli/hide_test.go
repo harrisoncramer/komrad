@@ -33,7 +33,7 @@ func TestHideDetachesThePanelsClient(t *testing.T) {
 }
 
 func hideState(socket, tmuxEnv string) *app {
-	servers := tmux.NewServers(tmux.NewClient(socket))
+	servers := tmux.NewClient(socket)
 
 	return &app{
 		env:   &config.Environment{TmuxSocket: socket, Tmux: tmuxEnv},

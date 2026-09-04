@@ -154,7 +154,7 @@ func Start(t *testing.T, p Params) *Instance {
 		ConfigPaths:        []string{configPath},
 		Logger:             logger,
 		Addr:               addr,
-		Tmux:               tmux.NewServers(manager),
+		Tmux:               manager,
 		Harnesses:          harnesses,
 		DefaultHarness:     harnesstest.ID,
 		MaxAgents:          p.MaxAgents,

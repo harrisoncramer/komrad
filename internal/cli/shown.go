@@ -52,7 +52,7 @@ func isPanelShownHere(state *app) bool {
 
 	// This runs on the user's server on every press, which is the last moment before the panel
 	// is on screen, so it is where the directory a new agent inherits is freshest.
-	state.tmux.RecordHostPath(hostPath(socket, invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux))))
+	state.tmux.RecordHostPath(hostPath(socket))
 
 	return here
 }

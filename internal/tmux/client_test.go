@@ -13,33 +13,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestClientTarget pins the target flags a command carries, which is none until a client is
-// named.
-func TestClientTarget(t *testing.T) {
-	tests := []struct {
-		name   string
-		client string
-		want   []string
-	}{
-		{
-			name:   "an empty client yields no target flags",
-			client: "",
-			want:   nil,
-		},
-		{
-			name:   "a named client yields a -c target",
-			client: "/dev/ttys001",
-			want:   []string{"-c", "/dev/ttys001"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, clientTarget(tt.client))
-		})
-	}
-}
-
 // TestQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
 // complaint, since nobody is watching the loop these run on.
 func TestQueryCarriesStderr(t *testing.T) {
