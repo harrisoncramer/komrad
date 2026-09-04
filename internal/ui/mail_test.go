@@ -282,6 +282,43 @@ func TestMailLoadedKeepsTheCursorOnItsMail(t *testing.T) {
 	assert.Equal(t, "m1", held.item.GetId())
 }
 
+// TestMailLoadedAfterLeavingIsDropped covers a read still in flight when the reader pressed
+// back, which would otherwise paint a message over the agents list's own stage.
+func TestMailLoadedAfterLeavingIsDropped(t *testing.T) {
+	m := mailModel(config.DefaultKeybindings())
+	m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
+	m.mail.cursor = 1
+
+	left, _ := m.updateMail(keyMsg("esc"))
+	gone, ok := left.(model)
+	require.True(t, ok)
+	require.Equal(t, screenAgents, gone.screen)
+
+	updated, _, handled := gone.routeAsyncMessage(mailLoadedMsg{
+		agentID: "a1",
+		inbox:   []*agentv1.Mail{received("m2", "weave", "review waiting")},
+	})
+	require.True(t, handled)
+
+	after, ok := updated.(model)
+	require.True(t, ok)
+	assert.Equal(t, screenAgents, after.screen)
+	assert.Empty(t, after.mail.inbox, "the mailbox went with the screen")
+}
+
+// TestMailSectionStageCountsThePastFilter covers the summary while a pattern stands, where
+// counting the unread over the narrowed rows would say mail had been read that had not.
+func TestMailSectionStageCountsThePastFilter(t *testing.T) {
+	m := mailModel(config.DefaultKeybindings())
+	m.mail.inbox = []*agentv1.Mail{
+		received("m1", "neovim-fan", "vim wins"),
+		received("m2", "emacs-fan", "org-mode rules"),
+	}
+	m.filter.setQuery("wins")
+
+	assert.Contains(t, m.mailSectionMarkdown(m.mailRows()[0]), "2 held · 2 unread · 0 expired unread")
+}
+
 // TestMailLoadedIgnoresAnotherAgentsMailbox covers a read in flight when the reader left, which
 // would otherwise fill this mailbox with somebody else's mail.
 func TestMailLoadedIgnoresAnotherAgentsMailbox(t *testing.T) {

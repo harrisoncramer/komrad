@@ -2,8 +2,10 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	agentstore "weave/internal/store/agent"
@@ -85,13 +87,19 @@ func (m model) loadMailCmd(agentID string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), mailTimeout)
 		defer cancel()
 
-		inbox, err := listMail(ctx, agents, agentID, agentv1.MailDirection_MAIL_DIRECTION_RECEIVED)
-		if err != nil {
-			return mailLoadedMsg{agentID: agentID, err: err}
-		}
+		var inbox, outbox []*agentv1.Mail
+		var inboxErr, outboxErr error
 
-		outbox, err := listMail(ctx, agents, agentID, agentv1.MailDirection_MAIL_DIRECTION_SENT)
-		if err != nil {
+		var wg sync.WaitGroup
+		wg.Go(func() {
+			inbox, inboxErr = listMail(ctx, agents, agentID, agentv1.MailDirection_MAIL_DIRECTION_RECEIVED)
+		})
+		wg.Go(func() {
+			outbox, outboxErr = listMail(ctx, agents, agentID, agentv1.MailDirection_MAIL_DIRECTION_SENT)
+		})
+		wg.Wait()
+
+		if err := errors.Join(inboxErr, outboxErr); err != nil {
 			return mailLoadedMsg{agentID: agentID, err: err}
 		}
 
@@ -120,7 +128,7 @@ func listMail(
 }
 
 func (m *model) applyMailLoaded(msg mailLoadedMsg) {
-	if msg.agentID != m.mail.agentID {
+	if msg.agentID == "" || msg.agentID != m.mail.agentID {
 		return
 	}
 
@@ -191,7 +199,9 @@ func (m model) filteredMailRows(rows []mailRow) []mailRow {
 		}
 
 		kept = append(kept, r)
-		kept[head].count++
+		if head >= 0 {
+			kept[head].count++
+		}
 	}
 
 	return kept
@@ -288,7 +298,7 @@ func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case m.filter.isStanding() && isBound(k, m.keys.Mail.Back):
 		return m.openFilter()
 	case isBound(k, m.keys.Mail.Back):
-		return m.returnToAgents()
+		return m.leaveMail()
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveMailCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
@@ -298,6 +308,14 @@ func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, nil
+}
+
+// leaveMail drops the mailbox on the way out, since a read in flight would otherwise land on
+// the agents list and paint a message over its stage.
+func (m model) leaveMail() (tea.Model, tea.Cmd) {
+	m.mail = mailState{}
+
+	return m.returnToAgents()
 }
 
 func (m model) moveMailCursor(delta int) model {
@@ -487,7 +505,7 @@ func (m model) mailSectionMarkdown(r mailRow) string {
 	}
 
 	var unread, expired int
-	for _, held := range m.mailRows() {
+	for _, held := range m.allMailRows() {
 		if held.header || held.section != r.section || held.item.GetClaimedAt() != "" {
 			continue
 		}
