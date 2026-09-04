@@ -776,13 +776,9 @@ func (m model) mailRowView(r mailRow, hovered bool) string {
 		return head
 	}
 
-	return head + " " + m.filter.highlight(clip(body, spare), m.mailBodyStyle(hovered, r.sent))
-}
-
-// mailBodyStyle is how a message reads in the list, dim for one this agent sent, since the
-// thread line names the other agent and the arrow is easy to miss.
-func (m model) mailBodyStyle(hovered, sent bool) lipgloss.Style {
-	return m.nameStyle(hovered, false, sent)
+	// Drawn at full strength whichever way it went: dimming what this agent sent made half the
+	// conversation read as though it mattered less, and the arrow already says the direction.
+	return head + " " + m.filter.highlight(clip(body, spare), m.nameStyle(hovered, false, false))
 }
 
 // mailSnippet is the opening of a message on one line, which is what makes a row worth
