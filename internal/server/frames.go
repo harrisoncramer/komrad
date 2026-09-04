@@ -9,18 +9,16 @@ import (
 )
 
 // frameSettingsTTL is how long the recording settings are held before the config is read
-// again, since the reconcile pass asks for them once per agent and turning a recording on is
-// not something anybody needs to take effect the same second.
+// again.
 const frameSettingsTTL = 5 * time.Second
 
-// frameSettings reads whether frames are being recorded from the config on disk, so a
-// recording can be turned on and off under a service that is already running.
+// frameSettings reads the recording settings from the config on disk, fresh rather than at
+// startup, so a recording can be turned on under a running service.
 type frameSettings struct {
 	load func() (*config.Config, error)
 	now  func() time.Time
 
-	// mu guards the settings held between reads, which the reconcile pass reaches for every
-	// agent in turn.
+	// mu guards the settings held between reads.
 	mu   sync.Mutex
 	read time.Time
 	held frames.Settings
@@ -31,8 +29,7 @@ func newFrameSettings(load func() (*config.Config, error)) *frameSettings {
 }
 
 // get is the settings in force, re-read once the ones in hand are old enough, where a config
-// that will not load leaves whatever was last read standing until the next time it is due
-// rather than being retried once per agent per pass for as long as the typo is there.
+// that will not load leaves the last ones standing.
 func (f *frameSettings) get() frames.Settings {
 	f.mu.Lock()
 	defer f.mu.Unlock()

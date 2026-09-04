@@ -445,8 +445,7 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	return nil
 }
 
-// removeFrames drops the pane captures a recording kept for an agent once its row is gone,
-// which nothing else reclaims, since a recording is bounded per agent rather than overall.
+// removeFrames drops the pane captures a recording kept for an agent once its row is gone.
 func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
 	if s.framesDir == "" {
 		return

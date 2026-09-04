@@ -1,9 +1,10 @@
-// Package frames keeps the pane captures behind an agent's reconciled state, which is the
-// evidence a misread frame destroys when the pane redraws over it.
+// Package frames keeps the pane captures behind an agent's reconciled state.
 //
-// A recording is off unless the config turns it on, since a frame is a few kilobytes and every
-// agent is read every pass. What it writes is the capture exactly as the harness read it, so a
-// frame can be replayed through the classifier that misjudged it.
+// A pane redraws over the frame a wrong state was read from, so without a recording the only
+// account of a misread left is the code. A recording is off unless the config turns it on,
+// since a frame is a few kilobytes and every agent is read every pass, and what it writes is
+// the capture exactly as the harness read it, so a frame can be replayed through the
+// classifier that misjudged it.
 package frames
 
 import (
@@ -17,41 +18,35 @@ import (
 	"time"
 )
 
-// stampFormat orders the files in a directory the way the readings happened, since a listing
-// sorted by name is then sorted by time, and is stamped in UTC so that a clock going back over
-// a daylight saving change or an ntp correction cannot sort a new frame before an old one.
+// stampFormat names a frame so that sorting a listing by name sorts it by time, in UTC so a
+// clock going back cannot sort a new frame before an old one.
 const stampFormat = "20060102T150405.000"
 
-// Settings are the parts of the config a recording reads, taken fresh so turning one on
-// reaches a service already running.
+// Settings are the parts of the config a recording reads.
 type Settings struct {
 	On bool
 	// Keep is how many frames an agent holds before the oldest is dropped.
 	Keep int
 }
 
-// AgentDir is where one agent's frames are kept, which is also what has to be removed once
-// that agent is gone, since a recording is bounded per agent rather than overall.
+// AgentDir is where one agent's frames are kept, and what has to be removed once it is gone.
 func AgentDir(dir, agentID string) string {
 	return filepath.Join(dir, agentID)
 }
 
-// Recorder writes an agent's frames under a directory of its own, keeping the most recent and
-// dropping what falls past the limit.
+// Recorder writes an agent's frames under a directory of its own.
 type Recorder struct {
 	dir      string
 	settings func() Settings
 	now      func() time.Time
 
-	// mu guards the last frame seen for each agent and the count of what has been written,
-	// both of which the reconcile pass reaches for every agent in turn.
+	// mu guards the last frame seen for each agent and the count of what has been written.
 	mu      sync.Mutex
 	last    map[string]uint64
 	written int
 }
 
-// RecordParams is one reading of one agent: the frame it was taken from, what the harness made
-// of it, and whether that verdict is one the agent's stored state does not already carry.
+// RecordParams is one reading of one agent.
 type RecordParams struct {
 	AgentID  string
 	Frame    string
@@ -59,8 +54,7 @@ type RecordParams struct {
 	Disputes bool
 }
 
-// NewRecorder builds a recorder writing under dir, reading whether it is on and how much it
-// keeps from settings each time it is asked to record.
+// NewRecorder builds a recorder writing under dir, reading settings on every record.
 func NewRecorder(dir string, settings func() Settings) *Recorder {
 	return &Recorder{
 		dir:      dir,
@@ -70,8 +64,7 @@ func NewRecorder(dir string, settings func() Settings) *Recorder {
 	}
 }
 
-// Record writes the frame an agent was read from when that reading says something new, which
-// is a frame differing from the one before it or a verdict disputing the state on record.
+// Record writes the frame an agent was read from when that reading says something new.
 func (r *Recorder) Record(params RecordParams) error {
 	settings := r.settings()
 	if !settings.On || params.AgentID == "" || params.Frame == "" {
@@ -97,8 +90,8 @@ func (r *Recorder) Record(params RecordParams) error {
 	return prune(dir, settings.Keep)
 }
 
-// count numbers a frame within the millisecond it was written in, so two readings that land
-// together are both kept rather than one overwriting the other.
+// count numbers a frame within the millisecond it was written in, so that two readings landing
+// together do not take the same name.
 func (r *Recorder) count() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -108,8 +101,8 @@ func (r *Recorder) count() int {
 	return r.written
 }
 
-// isNews reports whether a reading is worth keeping, which is a frame differing from the last
-// one kept for that agent or a verdict disputing the state on record.
+// isNews reports whether a reading is worth keeping: a frame differing from the last one kept
+// for that agent, or a verdict disputing the state on record.
 func (r *Recorder) isNews(params RecordParams, hash uint64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -119,8 +112,8 @@ func (r *Recorder) isNews(params RecordParams, hash uint64) bool {
 	return !ok || hash != seen || params.Disputes
 }
 
-// remember notes the frame an agent was last kept from, once that frame is on disk, so that a
-// write which failed is taken again rather than skipped as one already held.
+// remember notes the frame an agent was last kept from, once it is on disk, so a write that
+// failed is taken again rather than skipped.
 func (r *Recorder) remember(agentID string, hash uint64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -128,7 +121,7 @@ func (r *Recorder) remember(agentID string, hash uint64) {
 	r.last[agentID] = hash
 }
 
-// hashFrame reduces a frame to what is worth holding for every agent between passes.
+// hashFrame reduces a frame to the one number held for it between passes.
 func hashFrame(frame string) uint64 {
 	hash := fnv.New64a()
 	_, _ = hash.Write([]byte(frame))
@@ -136,8 +129,7 @@ func hashFrame(frame string) uint64 {
 	return hash.Sum64()
 }
 
-// Forget drops what the recorder holds about the agents a listing no longer carries, so a
-// deleted agent leaves nothing behind to compare a later one against.
+// Forget drops what the recorder holds about the agents a listing no longer carries.
 func (r *Recorder) Forget(listed map[string]struct{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -149,8 +141,7 @@ func (r *Recorder) Forget(listed map[string]struct{}) {
 	}
 }
 
-// prune drops the oldest frames past the number an agent keeps, reading the order off the
-// names since they are stamped to sort that way.
+// prune drops the oldest frames past the number an agent keeps.
 func prune(dir string, keep int) error {
 	if keep <= 0 {
 		return nil

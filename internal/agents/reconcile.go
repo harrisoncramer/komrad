@@ -55,8 +55,7 @@ type paneObserver interface {
 	ClearPaneOwner(pane string) error
 }
 
-// frameRecorder keeps the pane capture behind a reading, which is nothing at all until a
-// recording is turned on.
+// frameRecorder keeps the pane capture behind a reading.
 type frameRecorder interface {
 	Record(params frames.RecordParams) error
 	Forget(listed map[string]struct{})
@@ -371,9 +370,8 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	}
 }
 
-// recordFrame keeps the capture a reading was taken from while a recording is on, marking the
-// ones the state on record does not agree with, which are the readings somebody turned it on
-// to find.
+// recordFrame keeps the capture a reading was taken from, marking the ones that dispute the
+// state on record.
 func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, frame string, activity harness.Activity) {
 	if r.frames == nil {
 		return
@@ -392,8 +390,7 @@ func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, fr
 }
 
 // doesReadingDispute reports whether a reading would leave an agent somewhere other than the
-// state on record, which is how a recording tells a frame worth keeping from one that only
-// says again what the panel already shows.
+// state on record.
 func doesReadingDispute(activity harness.Activity, state agentstore.State) bool {
 	switch activity {
 	case harness.ActivityWorking:
@@ -401,8 +398,7 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 	case harness.ActivityWaiting:
 		return state != agentstore.StateWaiting
 
-	// An unrecognised frame is not read as idle, but it settles there, so on an agent that is
-	// already idle it disputes nothing and the frame it repeats is the recording's to skip.
+	// An unrecognised frame is not read as idle, but it settles there.
 	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityUnrecognized:
 		return state != agentstore.StateIdle
 
