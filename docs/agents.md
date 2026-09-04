@@ -40,7 +40,7 @@ Press `C` on the hovered agent to attach one. The form asks for the prompt, a ti
 
 What a child cannot do is the point of it. It has no directory of its own, so it is a guest in the parent's checkout: it is told to read and run but not to commit, push, stash, or switch branches. It cannot have children of its own. And it can only reach its parent and that parent's other children by [mail](mail.md).
 
-Being told is not being stopped, so anything a child does write is in the parent's diff, where it is indistinguishable from the parent's own work. The review screen names the children in the checkout for that reason, above the diff, so a change nobody there recognises has somewhere to be traced to.
+Being told is not being stopped, so anything a child does write is in the parent's diff, where it is indistinguishable from the parent's own work. The review screen names the other agents in the checkout for that reason, above the diff, so a change nobody there recognises has somewhere to be traced to. It counts a child and equally an agent handed somebody else's directory with its provisioner off, since both are guests in a tree they own nothing in, and it says so of an archived one too, whose writes stay behind after its row has gone.
 
 Archiving or deleting the parent takes the children with it, and a child named on its own goes on its own, which is how you finish with a reviewer while the agent it was reading for keeps working. Restoring is the one direction that holds the family together: a child comes back only once its parent is live again, since there would otherwise be no row for it to be drawn under.
 

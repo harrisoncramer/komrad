@@ -141,10 +141,13 @@ func (s screen) spec() screenSpec {
 		}
 	case screenReview:
 		return screenSpec{
-			key:    model.updateReview,
-			view:   model.reviewView,
-			stage:  (*model).stageReview,
-			typing: func(m model) bool { return m.review.doesTakeEveryKey() },
+			key:   model.updateReview,
+			view:  model.reviewView,
+			stage: (*model).stageReview,
+			// The archived agents are listed for this screen because an agent that shared this
+			// checkout and has since been archived left its writes in the diff behind it.
+			needsArchive: true,
+			typing:       func(m model) bool { return m.review.doesTakeEveryKey() },
 			details: &detailsSpec{
 				hovered: model.reviewDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },

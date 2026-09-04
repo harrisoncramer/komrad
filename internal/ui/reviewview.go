@@ -161,21 +161,21 @@ func (m model) reviewDeadView() string {
 	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
 }
 
-// reviewGuestView names the children sitting in this checkout, since a child provisions nothing
-// and works in the tree the diff is read from, so a change on screen may be one of theirs while
-// the review is filed against the agent whose row it was opened from.
+// reviewGuestView names the other agents sitting in this checkout, since a guest provisions
+// nothing and works in the tree the diff is read from, so a change on screen may be one of
+// theirs while the review is filed against the agent whose row it was opened from.
 func (m model) reviewGuestView() string {
 	names := m.reviewGuests()
 	if len(names) == 0 {
 		return ""
 	}
 
-	word := "CHILD"
+	word := "AGENT"
 	if len(names) > 1 {
-		word = "CHILDREN"
+		word = "AGENTS"
 	}
 
-	out := reviewGuestStyle.Render(m.reviewFill(fmt.Sprintf(" %d %s IN THIS CHECKOUT ", len(names), word))) + "\n"
+	out := reviewGuestStyle.Render(m.reviewFill(fmt.Sprintf(" %d OTHER %s IN THIS CHECKOUT ", len(names), word))) + "\n"
 
 	// A name to a line rather than a joined list, since the sidebar is narrow enough to break one
 	// across two lines and a half-written name is no answer to whose change this is.
@@ -186,13 +186,22 @@ func (m model) reviewGuestView() string {
 	return out
 }
 
-// reviewGuests is the children of the agent whose diff is up, hidden ones included, since a row
-// nobody is shown is exactly the one a reader would not think to account for.
+// reviewGuests is every other agent whose directory is the one this diff was read from, which is
+// a child taking its parent's checkout and equally an agent told to keep the directory it was
+// given, counting the hidden ones because a row nobody is shown is exactly the one a reader would
+// not think to account for, and marking the archived ones because their writes stay in the tree
+// after the row has left it.
 func (m model) reviewGuests() []string {
 	var names []string
 	for _, item := range m.listing.agents {
-		if item.agent.ParentAgentID != nil && *item.agent.ParentAgentID == m.review.agentID {
+		if item.agent.Cwd == m.review.dir && item.agent.ID != m.review.agentID {
 			names = append(names, item.agent.Name)
+		}
+	}
+
+	for _, agent := range m.archive.agents {
+		if agent.Cwd == m.review.dir && agent.ID != m.review.agentID {
+			names = append(names, agent.Name+" (archived)")
 		}
 	}
 

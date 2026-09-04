@@ -277,8 +277,57 @@ func TestReviewNamesTheChildrenInTheCheckout(t *testing.T) {
 	require.Equal(t, 2, m.review.view.Stat().Files, "the child's untracked write is in the parent's diff")
 
 	view := ansi.Strip(m.reviewView())
-	assert.Contains(t, view, "1 CHILD IN THIS CHECKOUT")
+	assert.Contains(t, view, "1 OTHER AGENT IN THIS CHECKOUT")
 	assert.Contains(t, view, "auth-reviewer", "the bar names who is in there")
+}
+
+// TestReviewNamesALodgerWithNoParent covers the other guest the diff screen already knows about:
+// an agent told to keep the directory it was given rather than attached to whoever owns it, which
+// is the shape this repo spawns a reviewer in and so the commonest guest of the two.
+func TestReviewNamesALodgerWithNoParent(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.listing.agents = append(m.listing.agents, agentItem{
+		alive: true,
+		agent: agentstore.Agent{
+			ID:               "a2",
+			Name:             "iss-319-reviewer",
+			Cwd:              dir,
+			WorkflowID:       "w1",
+			ProvisionEnabled: xptr.Ptr(false),
+		},
+	})
+	m = openReview(t, m)
+
+	view := ansi.Strip(m.reviewView())
+	assert.Contains(t, view, "1 OTHER AGENT IN THIS CHECKOUT")
+	assert.Contains(t, view, "iss-319-reviewer")
+}
+
+// TestReviewNamesAnArchivedGuest covers a guest that has answered and been archived, since the
+// row leaves the panel while whatever it wrote stays in the tree, and a bar that went quiet would
+// read as nobody having been here.
+func TestReviewNamesAnArchivedGuest(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.archive.agents = []agentstore.Agent{{
+		ID:            "a2",
+		Name:          "old-reviewer",
+		Cwd:           dir,
+		WorkflowID:    "w1",
+		ParentAgentID: xptr.Ptr("a1"),
+	}}
+	m = openReview(t, m)
+
+	view := ansi.Strip(m.reviewView())
+	assert.Contains(t, view, "1 OTHER AGENT IN THIS CHECKOUT")
+	assert.Contains(t, view, "old-reviewer (archived)", "the name says the row is gone and the writes are not")
+}
+
+// TestReviewListsTheArchivedAgents covers the screen asking for them at all, since an archived
+// guest is only nameable if the refresh that feeds this screen fetched the archived rows.
+func TestReviewListsTheArchivedAgents(t *testing.T) {
+	assert.True(t, screenReview.spec().needsArchive)
 }
 
 // TestReviewSaysNothingWhenNobodyElseIsThere covers the bar staying off an agent working alone,
