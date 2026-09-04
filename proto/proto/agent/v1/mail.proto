@@ -59,7 +59,7 @@ message ReadMailResponse {
 message ListMailRequest {
   optional string id = 1 [(buf.validate.field).string.min_len = 1];
   optional pagination.v1.Pagination pagination = 2;
-  MailDirection direction = 3;
+  MailDirection direction = 3 [(buf.validate.field).enum.defined_only = true];
 }
 
 message ListMailResponse {
