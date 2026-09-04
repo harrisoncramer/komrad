@@ -40,10 +40,10 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 		return nil, err
 	}
 
-	options := []connect.HandlerOption{
+	options := append([]connect.HandlerOption{
 		connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation),
 		interceptors.NewRecovery(),
-	}
+	}, strictJSONCodecs()...)
 
 	mux := http.NewServeMux()
 	mux.Handle(HealthPath, newHealthHandler(p.Stores.pool.GetRawPool()))
