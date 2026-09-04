@@ -46,10 +46,6 @@ func (s *Server) Socket() string { return s.socket }
 // Client is a tmux client bound to this server.
 func (s *Server) Client() *tmux.Client { return tmux.NewClient(s.socket) }
 
-// Servers is that client as the panel is handed it, which adds what the open command wrote down
-// about the user's own server.
-func (s *Server) Servers() *tmux.Servers { return tmux.NewServers(s.Client()) }
-
 // Run runs a tmux command against this server and returns its output, failing the test
 // when tmux refuses.
 func (s *Server) Run(args ...string) string {

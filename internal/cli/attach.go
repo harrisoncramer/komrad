@@ -31,13 +31,8 @@ starting one is what the panel key is for.`,
 			}
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)
-			if socket != "" {
-				state.tmux.RecordHostSocket(socket)
-
-				client := invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux))
-				state.popup.SetInvokingClient(client)
-				state.tmux.RecordHostPath(hostPath(socket, client))
-			}
+			state.tmux.RecordHostSocket(socket)
+			state.tmux.RecordHostPath(hostPath(socket))
 
 			panelKey, paletteKey := userKeys(state, socket)
 

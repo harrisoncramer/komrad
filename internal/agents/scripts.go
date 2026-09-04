@@ -21,7 +21,6 @@ import (
 	"weave/internal/logging"
 	"weave/internal/scripts"
 	"weave/internal/store"
-	"weave/internal/tmux"
 
 	agentstore "weave/internal/store/agent"
 	runstore "weave/internal/store/run"
@@ -32,7 +31,6 @@ type tmuxReader interface {
 	GetPaneOwner(pane string) string
 	GetHostSocket() string
 	GetInfoPane() string
-	ShowGlobal(name string) string
 	DefaultShell() string
 	IsPaneAlive(pane string) bool
 	RespawnPane(pane, dir string, argv ...string)
@@ -1029,7 +1027,6 @@ func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, e
 		"WEAVE_SCRIPT=" + p.script,
 		"WEAVE_INFO_PANE=" + s.tmux.GetInfoPane(),
 		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
-		"WEAVE_HOST_CLIENT=" + s.tmux.ShowGlobal(tmux.InvokingClientOption),
 		"EDITOR=" + s.editor,
 		"WEAVE_SHELL=" + s.tmux.DefaultShell(),
 	}

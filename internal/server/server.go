@@ -32,7 +32,7 @@ type Params struct {
 	ConfigPaths        []string
 	Logger             *slog.Logger
 	Addr               string
-	Tmux               *tmux.Servers
+	Tmux               *tmux.Client
 	Harnesses          *harness.Registry
 	DefaultHarness     string
 	DefaultFlags       map[string]string

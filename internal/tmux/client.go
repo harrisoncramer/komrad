@@ -24,6 +24,12 @@ import (
 
 const paneOwnerOption = "@weave_agent_id"
 
+const hostSocketOption = "@weave_host_socket"
+
+const hostPathOption = "@weave_host_path"
+
+const InfoPaneOption = "@weave_info_pane"
+
 const queryTimeout = 5 * time.Second
 
 const killDelay = 100 * time.Millisecond
@@ -179,9 +185,10 @@ func (c *Client) GetPanes() (map[string]PaneStatus, error) {
 	return panes, nil
 }
 
-// GetClientPath returns a client's active pane working directory.
-func (c *Client) GetClientPath(client string) string {
-	return c.value(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{pane_current_path}")...)...)
+// GetClientPath returns the working directory of the active pane of whichever client this
+// server saw most recently, which only a command running on that server can ask.
+func (c *Client) GetClientPath() string {
+	return c.value("display-message", "-p", "#{pane_current_path}")
 }
 
 // GetSessionClient returns a client attached to the given session, empty when none is.
@@ -409,6 +416,34 @@ func (c *Client) GetInfoPane() string {
 	return c.ShowGlobal(InfoPaneOption)
 }
 
+// RecordHostSocket stores the socket path of the user's server, written by the commands that
+// run there, so the panel and everything reading it agree on one answer.
+func (c *Client) RecordHostSocket(path string) {
+	if path == "" {
+		return
+	}
+
+	c.SetGlobal(hostSocketOption, path)
+}
+
+// GetHostSocket is the socket path of the user's server as the last open recorded it.
+func (c *Client) GetHostSocket() string {
+	return c.ShowGlobal(hostSocketOption)
+}
+
+// RecordHostPath stores where the client that opened the panel was sitting, writing an empty
+// value just as deliberately, since a remembered directory the user has since left is a wrong
+// answer where forgetting one falls back to their home directory.
+func (c *Client) RecordHostPath(path string) {
+	c.SetGlobal(hostPathOption, path)
+}
+
+// HostPath is the working directory of the pane the panel was opened over, which is where an
+// agent given no directory of its own goes.
+func (c *Client) HostPath() string {
+	return c.ShowGlobal(hostPathOption)
+}
+
 // SetSessionOption sets a session-scoped tmux option.
 func (c *Client) SetSessionOption(target, name, value string) {
 	c.run("set-option", "-t", target, name, value)
@@ -483,14 +518,6 @@ func (c *Client) value(args ...string) string {
 	}
 
 	return out
-}
-
-func clientTarget(client string) []string {
-	if client == "" {
-		return nil
-	}
-
-	return []string{"-c", client}
 }
 
 func (c *Client) paneID(target string) (string, error) {

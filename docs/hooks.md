@@ -42,7 +42,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, or, for the scripts weave ships, `provision`, `resume`, or `deprovision`.
 - `WEAVE_SCRIPT`, its own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own scripts do.
-- `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
+- `WEAVE_HOST_TMUX_SOCKET`, your own tmux server, as the last open recorded it.
 - `EDITOR` and `WEAVE_SHELL`
 
 Every script also runs with `GIT_TERMINAL_PROMPT=0` and `GCM_INTERACTIVE=never`, and with `GIT_ASKPASS` and `SSH_ASKPASS` forced empty, so a git call against expired credentials fails rather than opening a prompt nothing answers. A non-interactive askpass you already configured is left as you set it.
