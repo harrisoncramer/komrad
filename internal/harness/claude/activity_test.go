@@ -202,6 +202,19 @@ func TestReadActivity(t *testing.T) {
 			want:  harness.ActivityWaiting,
 		},
 		{
+			name: "a bordered question under a status line the turn before it left on screen",
+			frame: "⏺ Bash(rm -rf build)\n  ⎿  running\n\n" +
+				"✻ Reticulating… (12s · ↓ 1.2k tokens)\n" +
+				"╭──────────────────────────╮\n" +
+				"│ Bash command             │\n" +
+				"│ Do you want to proceed?  │\n" +
+				"│ ❯ 1. Yes                 │\n" +
+				"│   2. No                  │\n" +
+				"╰──────────────────────────╯\n" +
+				"Enter to select · Esc to cancel",
+			want: harness.ActivityWaiting,
+		},
+		{
 			name:  "a dim run left open above the box does not lose the box",
 			frame: "\x1b[2mI opened a dim run and never closed it\n" + strings.Repeat("  more transcript\n", 9) + idleFrame,
 			want:  harness.ActivityIdle,

@@ -25,6 +25,11 @@ var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
 // answer, a person's own turn, or one of the notes Claude ends a turn with.
 var transcriptMarker = regexp.MustCompile(`^\s*[⏺❯※]`)
 
+// dialogBorder is the frame Claude draws a question inside, which ends the region a status line
+// can be found in for the same reason the conversation does: anything above a dialog was drawn
+// before it went up.
+var dialogBorder = regexp.MustCompile(`^[╭╮╰╯│]`)
+
 // hintLine is the note Claude draws under a status line, which sits between that line and the
 // box without ending the region a status can be found in.
 var hintLine = regexp.MustCompile(`^\s*⎿`)
@@ -146,7 +151,7 @@ func statusRegion(lines []string, box inputBox, boxed bool) []string {
 
 	for i := start; i >= 0; i-- {
 		switch {
-		case transcriptMarker.MatchString(lines[i]):
+		case transcriptMarker.MatchString(lines[i]), dialogBorder.MatchString(lines[i]):
 			return region
 		case boxRule.MatchString(lines[i]):
 			// A rule ends the region only under a box that was found, since with no box it is
