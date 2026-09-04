@@ -44,7 +44,6 @@ type uiTmux interface {
 	DefaultShell() string
 	SetInfoPane(pane string)
 	SelectPane(pane string)
-	OpenWindow(client, name, dir string, argv ...string) error
 	SendKeys(target string, keys ...string) error
 }
 

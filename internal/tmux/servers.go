@@ -1,7 +1,6 @@
 package tmux
 
 import (
-	"errors"
 	"strings"
 )
 
@@ -74,17 +73,6 @@ func (h *Host) GetClientPath(client string) string {
 	return host.GetClientPath(client)
 }
 
-// OpenWindow creates a window on the user's server for the client viewing the popup, the one
-// thing the panel puts on that server rather than reads off it.
-func (h *Host) OpenWindow(client, name, dir string, argv ...string) error {
-	host := h.client()
-	if host == nil {
-		return errors.New("no tmux server has opened the panel yet")
-	}
-
-	return host.OpenWindow(client, name, dir, argv...)
-}
-
 type Servers struct {
 	*Client
 	host *Host
@@ -104,10 +92,4 @@ func (s *Servers) GetClientPath(client string) string {
 // so the panel and everything reading it agree on one answer.
 func (s *Servers) GetHostSocket() string {
 	return s.ShowGlobal(hostSocketOption)
-}
-
-// OpenWindow goes to the user's server, unlike NewWindow beside it, since a window meant
-// for the user to sit in has to land in the session they are attached to.
-func (s *Servers) OpenWindow(client, name, dir string, argv ...string) error {
-	return s.host.OpenWindow(client, name, dir, argv...)
 }
