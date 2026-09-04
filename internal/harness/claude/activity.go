@@ -14,10 +14,10 @@ var (
 
 var waitingFooter = regexp.MustCompile(`(?i)esc to cancel|enter to select`)
 
-// optionCursor is the cursor Claude draws beside the chosen answer of a question, which is
-// the only sign of one left when a tall preview beside the options pushes the footer off the
-// bottom of the pane.
-var optionCursor = regexp.MustCompile(`^\s*❯\s+\d+\.\s`)
+// optionCursor is the cursor Claude draws beside the chosen answer of a question, which is the
+// only sign of one left when a tall preview beside the options pushes the footer off the
+// bottom of the pane, and which a bordered dialog draws inside its own frame.
+var optionCursor = regexp.MustCompile(`^\s*│?\s*❯\s+\d+\.\s`)
 
 var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
 
@@ -99,10 +99,14 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 			continue
 		}
 
-		rest, ok := strings.CutPrefix(held[i+1], promptMarker)
-		if !ok {
+		if !strings.HasPrefix(lines[i+1], promptMarker) {
 			continue
 		}
+
+		// The dim pass can blank the marker's own line, which is a box holding nothing rather
+		// than no box at all, so the marker is read from the frame and the text from the frame
+		// less what Claude drew dim.
+		rest, _ := strings.CutPrefix(held[i+1], promptMarker)
 
 		typed := []string{rest}
 		for j := i + 2; j < len(lines) && !boxRule.MatchString(lines[j]); j++ {
@@ -142,8 +146,16 @@ func statusRegion(lines []string, box inputBox, boxed bool) []string {
 
 	for i := start; i >= 0; i-- {
 		switch {
-		case transcriptMarker.MatchString(lines[i]), boxRule.MatchString(lines[i]):
+		case transcriptMarker.MatchString(lines[i]):
 			return region
+		case boxRule.MatchString(lines[i]):
+			// A rule ends the region only under a box that was found, since with no box it is
+			// furniture the status line sits over rather than the edge of anything.
+			if boxed {
+				return region
+			}
+
+			continue
 		case strings.TrimSpace(lines[i]) == "", hintLine.MatchString(lines[i]):
 			continue
 		case strings.HasPrefix(lines[i], " "), strings.HasPrefix(lines[i], "\t"):
@@ -173,8 +185,11 @@ func doesFrameShowWaiting(lines []string, boxed bool) bool {
 		return true
 	}
 
-	for i := len(lines) - 1; i >= 0 && i >= len(lines)-boxSearchLines; i-- {
-		if optionCursor.MatchString(lines[i]) {
+	// The whole frame, rather than a window off the bottom: what pushes the footer off the pane
+	// is a preview under the cursor, so a question tall enough to lose its footer is tall enough
+	// to have pushed the cursor out of any window worth naming.
+	for _, line := range lines {
+		if optionCursor.MatchString(line) {
 			return true
 		}
 	}

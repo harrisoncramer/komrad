@@ -1,0 +1,46 @@
+  marked, rather than one message alone — that is where threading actually becomes readable.
+
+  Worth saying what the shape should make obvious: a thread whose last message is outbound and
+  still unread is a stalled handoff. That is the bug you open this screen to find, and none of the
+  current rows say it.
+
+───────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☐ Thread shape  ☐ PR 314  ✔ Submit  →
+
+Which shape should the mailbox use to show threading?
+
+❯ 1. Chronological with thread    ┌──────────────────────────────────────────────────────┐
+    rails (Recommended)           │ Mail · reviewer                  9 · 2 waiting       │
+  2. Threads as rows,             │ /  (filter)                                          │
+    conversation on the stage     │                                                      │
+  3. Indent by reply depth        │   19:48  ┌  ← neovim-fan  ✓  modal editing is the…   │
+                                  │   19:49  ├  → neovim-fan  ✓  disagreed on one point… │
+                                  │   19:51  │     ← weave    ⓘ  review activity         │
+                                  │ › 19:52  └  ← neovim-fan  ✉  fair, but the mode err… │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:53        → emacs-fan ✉  clear to land          │
+                                  │   19:54        ← emacs-fan !  org-mode is an operat… │
+                                  │                                                      │
+                                  │ ─ Mail ───────────────────────────────────────       │
+                                  │  from   neovim-fan (0199…a41c)                       │
+                                  │  thread 3 messages · you replied last                │
+                                  └── Jump to bottom (click) ↓ ──────────────────────────┘

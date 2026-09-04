@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"strings"
 	"testing"
 
 	"weave/internal/harness"
@@ -190,6 +191,26 @@ func TestReadActivity(t *testing.T) {
 			frame: "Do you want to proceed?\n❯ 1. Yes\n  2. No\nEnter to select · Esc to cancel",
 			want:  harness.ActivityWaiting,
 		},
+		{
+			name:  "a question whose own preview has pushed its cursor far up the pane",
+			frame: "Which shape?\n\n❯ 1. Chronological\n  2. Threads as rows\n" + strings.Repeat("                    │ a preview row │\n", 35),
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "a bordered confirmation draws its cursor inside its own frame",
+			frame: "Do you want to proceed?\n│ ❯ 1. Yes\n│   2. No\n" + strings.Repeat("│ padding\n", 30),
+			want:  harness.ActivityWaiting,
+		},
+		{
+			name:  "a dim run left open above the box does not lose the box",
+			frame: "\x1b[2mI opened a dim run and never closed it\n" + strings.Repeat("  more transcript\n", 9) + idleFrame,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a status line above a rule, with no box drawn under it",
+			frame: "✻ Compacting conversation… (30s)\n───────────────\n  Ctrl+C to stop",
+			want:  harness.ActivityWorking,
+		},
 	}
 
 	for _, tt := range tests {
@@ -220,7 +241,7 @@ func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 			frame: "  Live spinner sits above the box and carries a timer (✶ Choreographing… (2m\n  41s · ↓ 8.8k tokens)).\n" + idleFrame,
 		},
 		{
-			name:  "waiting phrases a dozen lines up",
+			name:  "waiting phrases in prose rather than in a footer",
 			frame: `I split it so "esc to cancel" and "Enter to select" in a message do not read as a prompt.` + "\n\n\n\n\n\n\n\n\n\n───────\n❯ \n───────\n  -- INSERT --",
 		},
 	}

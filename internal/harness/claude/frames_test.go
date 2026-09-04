@@ -22,6 +22,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "answer_quoting_a_spinner.txt", want: harness.ActivityIdle},
 		{file: "question_with_its_footer.txt", want: harness.ActivityWaiting},
 		{file: "question_whose_footer_a_preview_pushed_off.txt", want: harness.ActivityWaiting},
+		{file: "question_whose_cursor_a_preview_pushed_off.txt", want: harness.ActivityWaiting},
 	}
 
 	for _, tt := range tests {
