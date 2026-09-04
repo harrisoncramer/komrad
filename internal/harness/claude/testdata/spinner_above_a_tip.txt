@@ -1,0 +1,20 @@
+  idle — "I cannot tell what this pane is doing" is a different fact from "this pane is done", and
+  collapsing them is what turned the second bug silent.
+
+  Recorder is still running.
+
+✻ Sautéed for 20s · done 10:40 PM · 1 monitor still running
+
+❯ i _think_ this makes sense? i'm intrigued by the debugging approach you're taking too, i want to
+  be able to turn it on in the future as well. but im game for you to try this refactor, and to
+  simulatenously add this tool. do oui tihnk the otol should just aputre tmux frames every x ms w/
+  a timestamp?
+
+✢ Reticulating…
+  ⎿  Tip: Double-tap esc to rewind the code and/or conversation to a previous point in time
+
+───────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+───────────────────────────────────────────────────────────────────────────────────────────────────
+
+  -- INSERT -- ⏵⏵ bypass permissions on · 1 monitor · ← 3 agents
