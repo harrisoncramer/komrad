@@ -926,3 +926,31 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "a lost pane is an interruption, not a turn end")
 }
+
+// TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain pins that the one positive report weave
+// has that a turn finished cannot be spent reaching the state that says weave does not know
+// whether it finished, so an unreadable frame still earns its misses.
+func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+	rec.RecordTurnBoundary(agent.ID)
+
+	require.NoError(t, rec.Reconcile(ctx))
+	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
+		"a reported turn end is no evidence for a frame weave could not read")
+
+	for range reconcileMisses - 1 {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"),
+		"the misses still take it there, they are only no longer skipped")
+}
