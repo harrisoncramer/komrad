@@ -15,22 +15,17 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// State is what an agent is doing, and the database holds the same seven values as an enum, so a
-// value that is not one of them fails the write rather than travelling as a row nothing matches.
+// State is what an agent is doing.
 type State string
 
 const (
-	StateThinking State = State(models.AgentStateThinking)
-	StateWaiting  State = State(models.AgentStateWaiting)
-	StateIdle     State = State(models.AgentStateIdle)
-
-	// StateUncertain is a pane weave captured and could not read, which is a claim about the
-	// screen rather than about the agent.
-	StateUncertain State = State(models.AgentStateUncertain)
-
+	StateThinking        State = State(models.AgentStateThinking)
+	StateWaiting         State = State(models.AgentStateWaiting)
+	StateIdle            State = State(models.AgentStateIdle)
 	StateSettingUp       State = State(models.AgentStateSettingUp)
 	StateFailedToCreate  State = State(models.AgentStateFailedToCreate)
 	StateFailedToCleanup State = State(models.AgentStateFailedToCleanup)
+	StateUncertain       State = State(models.AgentStateUncertain)
 )
 
 // DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight
