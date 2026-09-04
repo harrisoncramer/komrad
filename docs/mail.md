@@ -35,9 +35,9 @@ message first.
 ## The hop limit
 
 A reply carries a hop count, one higher than the deepest hop its thread has reached so far, and
-a send past the configured limit is refused. The thread is the one the sidebar draws: the count
-comes from all of it rather than from the message being answered, so answering something
-further back does not put the count where that message was.
+a send past the configured limit is refused. The count comes from the whole thread rather than
+from the message being answered, so answering something further back does not put the count
+where that message was. It is drawn on each message in the mail record.
 
 The limit bounds one thread rather than everything two agents ever say to each other. Mail sent
 with no reply opens a thread of its own and begins again at one, which is what keeps a pair that
