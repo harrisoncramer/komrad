@@ -10,24 +10,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestServersRouting drives two real tmux servers and checks each call lands on the one that
-// can answer it, which a fake could only assert against itself.
+// TestServersRouting drives two real tmux servers and checks everything the panel writes about
+// the user's server stays on its own, which a fake could only assert against itself.
 func TestServersRouting(t *testing.T) {
 	hostSocket := newTestServer(t, "host")
 	managerSocket := newTestServer(t, "manager")
 
-	manager := NewClient(managerSocket)
-	host := NewHost(manager)
-	servers := NewServers(manager, host)
+	servers := NewServers(NewClient(managerSocket))
 
-	assert.Empty(t, servers.GetClientPath(""), "with no host recorded there is no client to locate")
+	assert.Empty(t, servers.GetHostSocket(), "before an open there is no user server to name")
+	assert.Empty(t, servers.HostPath(), "and no directory a new agent could inherit")
 
 	servers.SetGlobal("@probe", "1")
 	assert.Equal(t, "1", tmuxRun(t, managerSocket, "show-option", "-gqv", "@probe"),
 		"what the panel writes down stays on its own server, out of reach of a second user server")
 	assert.Empty(t, tmuxRun(t, hostSocket, "show-option", "-gqv", "@probe"))
 
-	host.Record(socketPath(t, hostSocket))
+	servers.RecordHostSocket(socketPath(t, hostSocket))
 	assert.Equal(t, socketPath(t, hostSocket), servers.GetHostSocket(),
 		"the open command records the server it was pressed on for everything else to read")
 
@@ -37,7 +36,11 @@ func TestServersRouting(t *testing.T) {
 	assert.NotContains(t, tmuxRun(t, hostSocket, "list-keys", "-T", "prefix"), "weave",
 		"and not on the user's, whose binding opens the popup")
 
-	assert.NotEmpty(t, servers.GetClientPath(""), "the recorded host answers where its client sits")
+	servers.RecordHostPath("/tmp/where-the-user-was")
+	assert.Equal(t, "/tmp/where-the-user-was", servers.HostPath(),
+		"the panel reads the directory back rather than asking a server it does not run")
+	assert.Empty(t, tmuxRun(t, hostSocket, "show-option", "-gqv", hostPathOption),
+		"and that record lives on the panel's own server too")
 }
 
 // TestClientAtPath checks a client addressed by socket path reaches the same server as one

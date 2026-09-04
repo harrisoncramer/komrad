@@ -84,7 +84,7 @@ func (f *fakeTmux) CapturePane(pane string) string {
 	return f.captures[pane]
 }
 
-func (f *fakeTmux) GetClientPath(string) string {
+func (f *fakeTmux) HostPath() string {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 

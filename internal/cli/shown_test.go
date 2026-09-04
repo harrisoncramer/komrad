@@ -27,7 +27,7 @@ func TestShownAnswersFromWhatIsOnScreen(t *testing.T) {
 		"new-session", "-d", "-s", "userland").Run())
 
 	state := hideState(managerSocket, hostPaneEnv(t, hostSocket))
-	state.host.Record(hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}"))
+	state.tmux.RecordHostSocket(hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}"))
 	shown := shownCmd(state)
 
 	require.ErrorIs(t, shown.RunE(nil, nil), ErrPanelHidden,
@@ -36,7 +36,7 @@ func TestShownAnswersFromWhatIsOnScreen(t *testing.T) {
 	viewer := attachViewer(t, managerSocket)
 	require.NoError(t, shown.RunE(nil, nil), "a client is attached and this is the server that opened it")
 
-	state.host.Record("/tmp/some-other-tmux-server")
+	state.tmux.RecordHostSocket("/tmp/some-other-tmux-server")
 	require.ErrorIs(t, shown.RunE(nil, nil), ErrPanelHidden,
 		"the panel is on screen somewhere else, so the press opens it here rather than hiding it there")
 

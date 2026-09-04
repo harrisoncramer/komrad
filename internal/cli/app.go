@@ -26,5 +26,4 @@ type app struct {
 	configPaths    []string
 	configSources  map[string]config.Source
 	tmux           *tmux.Servers
-	host           *tmux.Host
 }

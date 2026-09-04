@@ -48,9 +48,11 @@ it needs somewhere for agents to be put back into.`,
 			}
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)
-			state.host.Record(socket)
+			state.tmux.RecordHostSocket(socket)
 
-			state.popup.SetInvokingClient(invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux)))
+			client := invokingClient(socket, tmux.SessionFromEnv(state.env.Tmux))
+			state.popup.SetInvokingClient(client)
+			state.tmux.RecordHostPath(hostPath(socket, client))
 
 			panelKey, paletteKey := userKeys(state, socket)
 
@@ -153,4 +155,14 @@ func invokingClient(socket, session string) string {
 	}
 
 	return tmux.NewClientAtPath(socket).GetSessionClient(session)
+}
+
+// hostPath asks the user's own server where its client is sitting, which only a command running
+// there can do, so the panel reads what these commands wrote down rather than asking for itself.
+func hostPath(socket, client string) string {
+	if socket == "" {
+		return ""
+	}
+
+	return tmux.NewClientAtPath(socket).GetClientPath(client)
 }

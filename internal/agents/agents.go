@@ -129,7 +129,7 @@ type paneController interface {
 	paneOwnerReader
 	NewWindow(session, name, dir string) (string, error)
 	SetPaneOwner(pane, agentID string) error
-	GetClientPath(client string) string
+	HostPath() string
 }
 
 type paneWriter interface {

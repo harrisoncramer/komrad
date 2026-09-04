@@ -79,7 +79,6 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 }
 
 type NewAgentParams struct {
-	Client           string
 	Title            string
 	Dir              string
 	Flags            string
@@ -255,7 +254,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		dir = config.ExpandHome(strings.TrimSpace(wf.Cwd))
 	}
 	if dir == "" {
-		dir = s.tmux.GetClientPath(p.Client)
+		dir = s.tmux.HostPath()
 	}
 	if dir == "" {
 		dir, _ = os.UserHomeDir()

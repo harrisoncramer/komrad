@@ -7,7 +7,6 @@ import (
 
 type popupTmux interface {
 	SetGlobal(name, value string)
-	ShowGlobal(name string) string
 	GetSessionClient(session string) string
 	SetSessionOption(target, name, value string)
 	BindKey(key string, command ...string)
@@ -156,6 +155,3 @@ func (p *PopupWindow) Hide() { p.tmux.DetachSession(p.session) }
 func (p *PopupWindow) SilenceStatus(session string) {
 	p.tmux.SetSessionOption(session, "status", "off")
 }
-
-// InvokingClient returns the tmux client that opened the current popup.
-func (p *PopupWindow) InvokingClient() string { return p.tmux.ShowGlobal(managerClientFlag) }

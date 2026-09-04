@@ -59,13 +59,10 @@ func TestAttachRefusesWithoutAPanel(t *testing.T) {
 }
 
 func attachState(socket string) *app {
-	manager := tmux.NewClient(socket)
-	host := tmux.NewHost(manager)
-	servers := tmux.NewServers(manager, host)
+	servers := tmux.NewServers(tmux.NewClient(socket))
 
 	return &app{
 		env:   &config.Environment{TmuxSocket: socket},
-		host:  host,
 		tmux:  servers,
 		popup: ui.NewPopupWindow(servers, agents.ManagerSession),
 	}
