@@ -92,10 +92,10 @@ func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 	}
 }
 
-// TestUserKeysReadsTheServerTheUserIsAt covers the keys the panel acts on coming off the user's
-// own server, since weave's own server sources their config too and would answer with a value
-// they never set at runtime.
-func TestUserKeysReadsTheServerTheUserIsAt(t *testing.T) {
+// TestUserPanelKeyReadsTheServerTheUserIsAt covers the key the panel acts on coming off the
+// user's own server, since weave's own server sources their config too and would answer with a
+// value they never set at runtime.
+func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)
 
@@ -103,24 +103,16 @@ func TestUserKeysReadsTheServerTheUserIsAt(t *testing.T) {
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "-f", "/dev/null",
 		"new-session", "-d", "-s", "userland").Run())
 	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_key", "w").Run())
-	require.NoError(t, exec.Command("tmux", "-L", hostSocket, "set-option", "-g", "@weave_palette_key", "x").Run())
 
 	hostPath := hostQuery(t, hostSocket, "display-message", "-p", "#{socket_path}")
 	state := hideState(managerSocket, "")
 
-	panel, palette := userKeys(state, "")
+	assert.Empty(t, userPanelKey(state, ""), "with no server to ask, the popup falls back to the built-in key")
 
-	assert.Empty(t, panel, "with no server to ask, the popup falls back to the built-in keys")
-	assert.Empty(t, palette)
-
-	panel, palette = userKeys(state, hostPath)
-
-	assert.Equal(t, "w", panel, "the popup reads the server it opened on")
-	assert.Equal(t, "x", palette)
+	assert.Equal(t, "w", userPanelKey(state, hostPath), "the popup reads the server it opened on")
 
 	state.tmux.RecordHostSocket(hostPath)
-	panel, palette = userKeys(state, "")
 
-	assert.Equal(t, "w", panel, "attaching from outside tmux still reads the server the panel was opened from")
-	assert.Equal(t, "x", palette)
+	assert.Equal(t, "w", userPanelKey(state, ""),
+		"attaching from outside tmux still reads the server the panel was opened from")
 }

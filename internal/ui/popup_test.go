@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -102,49 +101,6 @@ func TestBindPanelKeyReportsRefusal(t *testing.T) {
 	assert.Error(t, BindPanelKey(tmux, BindPanelKeyParams{Self: "/usr/local/bin/weave"}))
 }
 
-// TestBindPalette pins the command naming the running binary and the config this process
-// resolved, since the popup is a new process that would otherwise read the defaults.
-func TestBindPalette(t *testing.T) {
-	tests := []struct {
-		name    string
-		chosen  string
-		wantKey string
-	}{
-		{
-			name:    "no chosen key falls back to the default",
-			chosen:  "",
-			wantKey: defaultPaletteKey,
-		},
-		{
-			name:    "the user's own key wins",
-			chosen:  "x",
-			wantKey: "x",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			tmux := &bindingTmux{}
-
-			NewPopupWindow(tmux, "manager").BindPalette(BindPaletteParams{
-				Key:         tt.chosen,
-				Self:        "/usr/local/bin/weave",
-				ConfigPaths: []string{"/etc/weave.toml", "/home/dev/weave.toml"},
-			})
-
-			command, bound := tmux.bound[tt.wantKey]
-			require.True(t, bound, "the palette key is not bound")
-
-			line := strings.Join(command, " ")
-			assert.Contains(t, line, "display-popup")
-			assert.Contains(t, line, "-EE /usr/local/bin/weave palette",
-				"the popup stays up on a refusal, and runs this binary rather than one on the path")
-			assert.Contains(t, line, "--config /etc/weave.toml --config /home/dev/weave.toml",
-				"the palette reads the config layers the panel was started on")
-		})
-	}
-}
-
 // TestIsShown covers the panel asking whether anybody is looking at it, which is a client on
 // its own session rather than anything a popup wrote down as it opened.
 func TestIsShown(t *testing.T) {
@@ -201,14 +157,10 @@ func TestBindHide(t *testing.T) {
 	}
 }
 
-// TestUserKeys pins both keys being read off the one server the user can have set them on.
-func TestUserKeys(t *testing.T) {
+// TestUserPanelKey pins the key being read off the one server the user can have set it on.
+func TestUserPanelKey(t *testing.T) {
 	tmux := &bindingTmux{}
 	tmux.SetGlobal(managerKeyOption, "w")
-	tmux.SetGlobal(paletteKeyOption, "x")
 
-	panel, palette := UserKeys(tmux)
-
-	assert.Equal(t, "w", panel)
-	assert.Equal(t, "x", palette)
+	assert.Equal(t, "w", UserPanelKey(tmux))
 }
