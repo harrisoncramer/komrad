@@ -69,10 +69,10 @@ type Agent struct {
 	StateChangedAt   time.Time
 	StateSeenAt      time.Time
 	// ViewedAt is how much of an agent's conversation the person has read, measured against
-	// the last turn the agent reported ending rather than against the clock.
+	// the last turn weave watched end rather than against the clock.
 	ViewedAt *time.Time
-	// TurnEndedAt is when the agent's own CLI last reported a turn of its ending, which is
-	// the only thing that ever moves it.
+	// TurnEndedAt is when a turn of the agent's last ended, reported by its own CLI or, when
+	// nothing reported one, settled off the pane by the reconciler.
 	TurnEndedAt      *time.Time
 	Harness          string
 	SessionID        string

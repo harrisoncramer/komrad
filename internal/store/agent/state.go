@@ -57,9 +57,8 @@ func (s *Store) SetViewed(ctx context.Context, id string, viewed bool) error {
 	return nil
 }
 
-// SetTurnEnded records that an agent's own CLI reported a turn of its ending, and is written
-// only from that report rather than from a state read off a pane, since a stamp kept against
-// what somebody has read cannot come from a guess.
+// SetTurnEnded records that a turn of an agent's ended, written either from the agent's own CLI
+// reporting it or, when nothing did, from the reconciler watching the pane stop working.
 func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
