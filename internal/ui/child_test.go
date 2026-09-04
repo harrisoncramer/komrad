@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -328,6 +329,29 @@ func TestReviewNamesAnArchivedGuest(t *testing.T) {
 // guest is only nameable if the refresh that feeds this screen fetched the archived rows.
 func TestReviewListsTheArchivedAgents(t *testing.T) {
 	assert.True(t, screenReview.spec().needsArchive)
+}
+
+// TestReviewCountsTheGuestsPastTheNamedFew covers a checkout that churned guests, since an
+// archived row never leaves and the review head is pinned, so a name a line would push the record
+// and the conversation out of the sidebar.
+func TestReviewCountsTheGuestsPastTheNamedFew(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	for i := range reviewGuestNames + 2 {
+		m.archive.agents = append(m.archive.agents, agentstore.Agent{
+			ID:         fmt.Sprintf("old%d", i),
+			Name:       fmt.Sprintf("runner-%d", i),
+			Cwd:        dir,
+			WorkflowID: "w1",
+		})
+	}
+	m = openReview(t, m)
+
+	view := ansi.Strip(m.reviewView())
+	assert.Contains(t, view, fmt.Sprintf("%d OTHER AGENTS IN THIS CHECKOUT", reviewGuestNames+2),
+		"the bar counts them all")
+	assert.Contains(t, view, "+2 more")
+	assert.NotContains(t, view, "runner-4", "the ones past the named few are a count rather than a line")
 }
 
 // TestReviewSaysNothingWhenNobodyElseIsThere covers the bar staying off an agent working alone,

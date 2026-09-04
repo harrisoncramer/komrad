@@ -179,12 +179,22 @@ func (m model) reviewGuestView() string {
 
 	// A name to a line rather than a joined list, since the sidebar is narrow enough to break one
 	// across two lines and a half-written name is no answer to whose change this is.
-	for _, name := range names {
+	for _, name := range names[:min(len(names), reviewGuestNames)] {
 		out += dimStyle.Render("  "+clipName(name)) + "\n"
+	}
+
+	// The head is pinned and an archived row never leaves, so a checkout that churned guests
+	// would push the record and the conversation out of the sidebar a name at a time.
+	if over := len(names) - reviewGuestNames; over > 0 {
+		out += dimStyle.Render(fmt.Sprintf("  +%d more", over)) + "\n"
 	}
 
 	return out
 }
+
+// reviewGuestNames is how many are named before the rest become a count, since the bar is there
+// to say somebody else is in the tree and the whole roll call is not what buys that.
+const reviewGuestNames = 3
 
 // reviewGuests is every other agent whose directory is the one this diff was read from, which is
 // a child taking its parent's checkout and equally an agent told to keep the directory it was
