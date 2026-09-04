@@ -61,6 +61,10 @@ func TestListMailDirectionOverJSON(t *testing.T) {
 			request: `{"id":%q,"direction":"SENT"}`,
 		},
 		{
+			name:    "so is a number no direction is numbered",
+			request: `{"id":%q,"direction":99}`,
+		},
+		{
 			name:    "a field weave does not have is refused",
 			request: `{"id":%q,"directoin":"MAIL_DIRECTION_SENT"}`,
 		},
