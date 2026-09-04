@@ -164,7 +164,7 @@ func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 		it.Kill(agent.Name)
 	}
 
-	for range paneAbsenceLimit - 1 {
+	for range listingsBeforePaneGone - 1 {
 		if err := rec.Reconcile(ctx); err != nil {
 			t.Fatalf("reconcile: %v", err)
 		}
@@ -242,7 +242,7 @@ func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	gone := board[0]
 	it.Kill(gone.Name)
 
-	for range paneAbsenceLimit {
+	for range listingsBeforePaneGone {
 		if err := rec.Reconcile(ctx); err != nil {
 			t.Fatalf("reconcile: %v", err)
 		}
@@ -289,7 +289,7 @@ func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 		t.Fatalf("the quiet agent: want a pane that captures nothing, got %q", frame)
 	}
 
-	for range paneAbsenceLimit * 3 {
+	for range listingsBeforePaneGone * 3 {
 		dropping.drop = !dropping.drop
 		if err := rec.Reconcile(ctx); err != nil {
 			t.Fatalf("reconcile: %v", err)

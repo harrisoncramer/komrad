@@ -95,7 +95,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		service, h := newManagerWithHarness(tmux, st, "")
 
 		rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
-		for range paneAbsenceLimit {
+		for range listingsBeforePaneGone {
 			require.NoError(t, rec.Reconcile(t.Context()))
 		}
 
@@ -208,7 +208,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 
 		tmux := newFakeTmux()
 		rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
-		for range paneAbsenceLimit {
+		for range listingsBeforePaneGone {
 			require.NoError(t, rec.Reconcile(t.Context()))
 		}
 
