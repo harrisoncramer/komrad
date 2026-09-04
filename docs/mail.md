@@ -28,14 +28,21 @@ A prompt already holding text is left alone, because the newline that submits th
 
 ## Reading a mailbox
 
-Press `m` on an agent in the panel to read its mail. The sidebar draws two sections, the mail
-it was sent and the mail it sent, each newest first, and the message under the cursor is
-drawn in the stage. A glyph on each row says what became of it: taken, still waiting, or
-never read before its deadline ran out.
+Press `m` on an agent in the panel to read its mail. The sidebar draws the whole
+correspondence as one list in the order it happened, what came in and what went out together,
+because a conversation split into two lists by direction puts a reply in one of them and the
+message it answers in the other.
 
-`ctrl+t` moves the cursor into the record under the list, which is where the ids, the
-deadlines and the kind are, and `t` jumps between a reply and the message it answers, which
-is how a conversation reads in order across the two sections.
+An arrow on each row says which way it went and a glyph says what became of it: taken, still
+waiting, or never read before its deadline ran out. A rail down the left ties a reply to the
+message it answers, and runs past whatever landed in the middle of the thread, so a
+conversation is readable against the mail that arrived while it was running.
+
+The stage draws the whole thread the cursor is standing in, with that message marked, rather
+than the one message on its own. `t` and `T` step through the thread's own messages, over
+anything that landed between them. `ctrl+t` moves the cursor into the record under the list,
+which carries the ids, the deadlines, the kind, and what the thread is standing on: a last
+word that went out and was never taken is a stalled handoff.
 
 ## Children and their families
 

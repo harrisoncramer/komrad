@@ -333,7 +333,7 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
-		binding(m.keys.Agents.Child, "attach a child (parents only)"),
+		binding(m.keys.Agents.Child, "attach child"),
 		binding(m.keys.Agents.Rename, "rename"),
 		binding(m.keys.Agents.NextUnviewed, "next unviewed"),
 		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),
@@ -376,7 +376,7 @@ func (m model) mailHelp() keyMap {
 
 	rows := []key.Binding{binding(m.keys.Mail.Back, "back")}
 	if _, ok := m.hoveredMail(); ok {
-		rows = append(rows, binding(m.keys.Mail.Thread, "thread"))
+		rows = append(rows, pairBinding(m.keys.Mail.NextInThread, m.keys.Mail.PrevInThread, "in thread"))
 	}
 
 	return keyMap{

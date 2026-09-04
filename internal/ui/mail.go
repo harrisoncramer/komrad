@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -22,8 +23,8 @@ import (
 
 const mailTimeout = 10 * time.Second
 
-// mailPageSize is how far back either section reads, which is a screenful many times over
-// rather than the whole mailbox, since the screen is for reading what was said recently.
+// mailPageSize is how far back either half reads, which is a screenful many times over rather
+// than the whole mailbox, since the screen is for reading what was said recently.
 const mailPageSize = 200
 
 // mailState is the mailbox of one agent, while that screen is up.
@@ -35,29 +36,22 @@ type mailState struct {
 	cursor    int
 	loading   bool
 	polling   bool
-	err       error
+	// landed is whether a read has come back, which is what says the cursor has been put on the
+	// newest message already rather than still waiting to be.
+	landed bool
+	err    error
 }
 
-// mailRow is one line of the sidebar, either a section head or a piece of mail under it.
+// mailRow is one message in the mailbox, drawn in the order it was written with the rail that
+// ties it to the message it answers.
 type mailRow struct {
-	header  bool
-	section string
-	count   int
-	// total is how much the section holds before a filter narrowed it, drawn beside the count
-	// so a section emptied by a pattern still says what is behind it.
-	total int
-	item  *agentv1.Mail
-	sent  bool
+	item *agentv1.Mail
+	sent bool
+	// gutter is the rail drawn to the left of the row, blank where no thread runs through it.
+	gutter string
 }
 
-// key is what a cursor is put back on as the mailbox changes underneath it.
-func (r mailRow) key() string {
-	if r.header {
-		return "section:" + r.section
-	}
-
-	return r.item.GetId()
-}
+func (r mailRow) key() string { return r.item.GetId() }
 
 type mailLoadedMsg struct {
 	agentID string
@@ -66,8 +60,8 @@ type mailLoadedMsg struct {
 	err     error
 }
 
-// enterMail opens an agent's mailbox, with the two sections in the sidebar and the message
-// under the cursor in the stage.
+// enterMail opens an agent's mail, with the conversation in the sidebar and the thread the
+// cursor is standing in on the stage.
 func (m model) enterMail(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	m.enterScreen(screenMail)
 	m.mail = mailState{
@@ -141,6 +135,17 @@ func (m *model) applyMailLoaded(msg mailLoadedMsg) {
 	}
 
 	m.mail.inbox, m.mail.outbox = msg.inbox, msg.outbox
+
+	// The first read lands on the newest message and every read after it keeps whatever the
+	// reader is standing on, since a mailbox is read from the end the way a conversation is.
+	if !m.mail.landed {
+		m.mail.landed = true
+		m.mail.cursor = max(len(m.mailRows())-1, 0)
+		m.stageMail()
+
+		return
+	}
+
 	m.placeMailCursor(hovered)
 }
 
@@ -156,59 +161,204 @@ func (m *model) refreshMailCmd() tea.Cmd {
 	return m.loadMailCmd(m.mail.agentID)
 }
 
-func (m model) mailRows() []mailRow {
-	return m.filteredMailRows(m.allMailRows())
-}
-
-func (m model) allMailRows() []mailRow {
-	rows := make([]mailRow, 0, len(m.mail.inbox)+len(m.mail.outbox)+2)
-	rows = appendMailSection(rows, "Inbox", m.mail.inbox, false)
-
-	return appendMailSection(rows, "Outbox", m.mail.outbox, true)
-}
-
-func appendMailSection(rows []mailRow, section string, mail []*agentv1.Mail, sent bool) []mailRow {
-	rows = append(rows, mailRow{header: true, section: section, count: len(mail), total: len(mail), sent: sent})
-	for _, item := range mail {
-		rows = append(rows, mailRow{section: section, item: item, sent: sent})
+// mailItems is the whole correspondence in the order it happened, both halves merged, since a
+// conversation split by direction is the one thing a mailbox must not do.
+func (m model) mailItems() []mailRow {
+	rows := make([]mailRow, 0, len(m.mail.inbox)+len(m.mail.outbox))
+	for _, item := range m.mail.inbox {
+		rows = append(rows, mailRow{item: item})
 	}
+	for _, item := range m.mail.outbox {
+		rows = append(rows, mailRow{item: item, sent: true})
+	}
+
+	// Sorted by id rather than by the stamp, since the ids are uuidv7 and so already carry the
+	// order, and two messages written in the same second would otherwise swap under the reader.
+	slices.SortFunc(rows, func(a, b mailRow) int {
+		return strings.Compare(a.item.GetId(), b.item.GetId())
+	})
 
 	return rows
 }
 
-// filteredMailRows narrows the mail to what matches the pattern, keeping a section head
-// whether or not anything under it survived, since an emptied section is itself the answer.
+func (m model) mailRows() []mailRow {
+	return railedMailRows(m.filteredMailRows(m.mailItems()))
+}
+
+// filteredMailRows narrows the correspondence to what matches the pattern, over the
+// correspondent and the body both.
 func (m model) filteredMailRows(rows []mailRow) []mailRow {
 	if m.filter.pattern == nil {
 		return rows
 	}
 
 	kept := make([]mailRow, 0, len(rows))
-	head := -1
 	for _, r := range rows {
-		if r.header {
-			r.count = 0
-			head = len(kept)
+		if m.filter.doesMatch(m.mailCounterparty(r)) || m.filter.doesMatch(r.item.GetBody()) {
 			kept = append(kept, r)
-
-			continue
-		}
-
-		if !m.filter.doesMatch(m.mailCounterparty(r)) && !m.filter.doesMatch(r.item.GetBody()) {
-			continue
-		}
-
-		kept = append(kept, r)
-		if head >= 0 {
-			kept[head].count++
 		}
 	}
 
 	return kept
 }
 
-// mailCounterparty is the agent at the other end of a piece of mail: who wrote it in the
-// inbox, who it went to in the outbox.
+// mailThreadRoots resolves every message to the one that opened its thread, following reply_to
+// as far as the rows on screen reach, so a reply whose parent is off the page opens a thread of
+// its own rather than hanging off nothing.
+func mailThreadRoots(rows []mailRow) map[string]string {
+	parent := make(map[string]string, len(rows))
+	held := make(map[string]bool, len(rows))
+	for _, r := range rows {
+		held[r.item.GetId()] = true
+	}
+	for _, r := range rows {
+		if up := r.item.GetReplyTo(); up != "" && held[up] {
+			parent[r.item.GetId()] = up
+		}
+	}
+
+	roots := make(map[string]string, len(rows))
+	for _, r := range rows {
+		root := r.item.GetId()
+
+		// Walked with a guard rather than trusted, since a cycle here would hang the panel and
+		// the rows come off the wire.
+		seen := map[string]bool{root: true}
+		for {
+			up, ok := parent[root]
+			if !ok || seen[up] {
+				break
+			}
+
+			seen[up] = true
+			root = up
+		}
+
+		roots[r.item.GetId()] = root
+	}
+
+	return roots
+}
+
+// mailMaxLanes is how many threads can be drawn at once, past which a thread runs without a
+// rail rather than the gutter eating the sidebar.
+const mailMaxLanes = 3
+
+// railedMailRows draws the rail down the left of the rows: a thread takes a lane at its first
+// message and gives it back at its last, and every row in between carries the line whether or
+// not it belongs to that thread, which is what makes a reply readable against the messages
+// that landed while it was waiting.
+func railedMailRows(rows []mailRow) []mailRow {
+	roots := mailThreadRoots(rows)
+
+	first, last := make(map[string]int, len(rows)), make(map[string]int, len(rows))
+	for i, r := range rows {
+		root := roots[r.item.GetId()]
+		if _, seen := first[root]; !seen {
+			first[root] = i
+		}
+		last[root] = i
+	}
+
+	lanes := make([]string, 0, mailMaxLanes)
+	drawn := make([]string, len(rows))
+	width := 0
+
+	for i, r := range rows {
+		root := roots[r.item.GetId()]
+
+		// A thread of one is left off the rail: the line would say a conversation is running
+		// where a single message was sent and nothing came back.
+		threaded := last[root] > first[root]
+		if threaded && first[root] == i {
+			lanes = takeMailLane(lanes, root)
+		}
+
+		drawn[i] = railRow(lanes, root, i, first[root], last[root], threaded)
+		width = max(width, len(lanes))
+
+		if threaded && last[root] == i {
+			lanes = dropMailLane(lanes, root)
+		}
+	}
+
+	for i := range rows {
+		rows[i].gutter = fmt.Sprintf("%-*s", width, drawn[i])
+	}
+
+	return rows
+}
+
+func takeMailLane(lanes []string, root string) []string {
+	for i, held := range lanes {
+		if held == "" {
+			lanes[i] = root
+
+			return lanes
+		}
+	}
+
+	if len(lanes) >= mailMaxLanes {
+		return lanes
+	}
+
+	return append(lanes, root)
+}
+
+func dropMailLane(lanes []string, root string) []string {
+	for i, held := range lanes {
+		if held == root {
+			lanes[i] = ""
+		}
+	}
+
+	// Trailing lanes are given back rather than held, so a gutter does not stay as wide as the
+	// busiest moment of the mailbox for every row after it.
+	for len(lanes) > 0 && lanes[len(lanes)-1] == "" {
+		lanes = lanes[:len(lanes)-1]
+	}
+
+	return lanes
+}
+
+func railRow(lanes []string, root string, at, first, last int, threaded bool) string {
+	var b strings.Builder
+	for _, held := range lanes {
+		switch {
+		case held == "":
+			b.WriteString(" ")
+		case held != root || !threaded:
+			b.WriteString("│")
+		case at == first:
+			b.WriteString("┌")
+		case at == last:
+			b.WriteString("└")
+		default:
+			b.WriteString("├")
+		}
+	}
+
+	return b.String()
+}
+
+// mailThreadOf is every message in the thread the given one belongs to, in order, which is what
+// the stage draws and what the record counts.
+func (m model) mailThreadOf(id string) []mailRow {
+	rows := m.mailItems()
+	roots := mailThreadRoots(rows)
+
+	held := make([]mailRow, 0, len(rows))
+	for _, r := range rows {
+		if roots[r.item.GetId()] == roots[id] {
+			held = append(held, r)
+		}
+	}
+
+	return held
+}
+
+// mailCounterparty is the agent at the other end of a message: who wrote it when it came in,
+// who it went to when it went out.
 func (m model) mailCounterparty(r mailRow) string {
 	if !r.sent {
 		return orDash(r.item.GetFromName())
@@ -270,12 +420,7 @@ func (m *model) placeMailCursor(hovered string) {
 }
 
 func (m model) hoveredMail() (mailRow, bool) {
-	r, ok := rowAt(m.mailRows(), m.mail.cursor)
-	if !ok || r.header {
-		return mailRow{}, false
-	}
-
-	return r, true
+	return rowAt(m.mailRows(), m.mail.cursor)
 }
 
 func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -303,8 +448,10 @@ func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveMailCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
 		return m.moveMailCursor(1), nil
-	case isBound(k, m.keys.Mail.Thread):
-		return m.jumpMailThread(), nil
+	case isBound(k, m.keys.Mail.NextInThread):
+		return m.stepMailThread(1), nil
+	case isBound(k, m.keys.Mail.PrevInThread):
+		return m.stepMailThread(-1), nil
 	}
 
 	return m, nil
@@ -342,23 +489,20 @@ func (m model) jumpMailCursor(idx int) model {
 	return m
 }
 
-// jumpMailThread moves to the other end of a reply: the mail this one answers, or the first
-// answer to it, which is what turns two sections back into one conversation.
-func (m model) jumpMailThread() model {
+// stepMailThread moves to the next or previous message of the thread the cursor is in, stepping
+// over whatever landed in between, since a thread's own turns are what a reader is following.
+func (m model) stepMailThread(direction int) model {
 	held, ok := m.hoveredMail()
 	if !ok {
 		return m
 	}
 
 	rows := m.mailRows()
-	if parent := held.item.GetReplyTo(); parent != "" {
-		if idx := mailRowIndexOfKey(rows, parent); idx >= 0 {
-			return m.jumpMailCursor(idx)
-		}
-	}
+	roots := mailThreadRoots(rows)
+	root := roots[held.item.GetId()]
 
-	for i, r := range rows {
-		if !r.header && r.item.GetReplyTo() == held.item.GetId() {
+	for i := m.mail.cursor + direction; i >= 0 && i < len(rows); i += direction {
+		if roots[rows[i].item.GetId()] == root {
 			return m.jumpMailCursor(i)
 		}
 	}
@@ -386,6 +530,7 @@ func (m model) mailFields(r mailRow) []recordField {
 	fields := []recordField{
 		{"from", mailSender(item)},
 		{"to", m.agentName(item.GetToAgentId()) + " (" + item.GetToAgentId() + ")"},
+		{"thread", m.mailThreadWord(m.mailThreadOf(item.GetId()))},
 		{"kind", mailKindWord(item.GetKind())},
 		{"state", mailStateWord(item)},
 		{"sent", orDash(mailStamp(item.GetCreatedAt()))},
@@ -407,6 +552,36 @@ func (m model) mailFields(r mailRow) []recordField {
 	)
 }
 
+// mailThreadWord is how far a conversation has run and who it is standing on, which is the
+// answer a stalled handoff is looked for in: the last word went out and nobody has taken it.
+func (m model) mailThreadWord(thread []mailRow) string {
+	if len(thread) == 0 {
+		return "—"
+	}
+
+	last := thread[len(thread)-1]
+	count := fmt.Sprintf("%d %s", len(thread), plural(len(thread), "message"))
+
+	switch {
+	case !last.sent:
+		return count + " · they spoke last"
+	case last.item.GetClaimedAt() != "":
+		return count + " · read your last"
+	case mailIsExpired(last.item):
+		return count + " · your last expired unread"
+	}
+
+	return count + " · waiting on " + m.mailCounterparty(last)
+}
+
+func plural(count int, word string) string {
+	if count == 1 {
+		return word
+	}
+
+	return word + "s"
+}
+
 // mailSender is who wrote a piece of mail, which is a name with no id behind it when weave
 // raised it itself rather than an agent sending one.
 func mailSender(item *agentv1.Mail) string {
@@ -426,6 +601,16 @@ func mailDirectionWord(sent bool) string {
 	return "from"
 }
 
+// mailDirectionMark is the arrow a row opens with, which is what carries the direction now that
+// the list is one conversation rather than two halves.
+func mailDirectionMark(sent bool) string {
+	if sent {
+		return "→"
+	}
+
+	return "←"
+}
+
 func mailKindWord(kind agentv1.MailKind) string {
 	switch kind {
 	case agentv1.MailKind_MAIL_KIND_PLAIN:
@@ -442,24 +627,25 @@ func mailKindWord(kind agentv1.MailKind) string {
 // mailStateWord is what became of a piece of mail: read, still waiting, or never read and
 // past its deadline, which is the fact a mailbox is usually opened to settle.
 func mailStateWord(item *agentv1.Mail) string {
-	if item.GetClaimedAt() != "" {
+	switch {
+	case item.GetClaimedAt() != "":
 		return "read"
-	}
-
-	if expired, ok := isMailExpired(item); ok && expired {
+	case mailIsExpired(item):
 		return "expired unread"
 	}
 
 	return "unread"
 }
 
-func isMailExpired(item *agentv1.Mail) (bool, bool) {
+// mailIsExpired is whether a message ran out of time before anyone took it, reading a stamp it
+// cannot parse as time left rather than time gone.
+func mailIsExpired(item *agentv1.Mail) bool {
 	expires, err := time.Parse(time.RFC3339, item.GetExpiresAt())
 	if err != nil {
-		return false, false
+		return false
 	}
 
-	return time.Now().After(expires), true
+	return time.Now().After(expires)
 }
 
 // mailStamp reads a wire timestamp back as the panel's own friendly one, leaving anything it
@@ -483,65 +669,53 @@ func mailClock(stamp string) string {
 }
 
 func (m *model) stageMail() {
-	switch r, ok := rowAt(m.mailRows(), m.mail.cursor); {
-	case !ok:
+	r, ok := m.hoveredMail()
+	if !ok {
 		m.stageDocument(mailEmptyMarkdown)
-	case r.header:
-		m.stageDocument(m.mailSectionMarkdown(r))
-	default:
-		m.stageDocument(m.mailMarkdown(r))
+		m.stageInfo()
+
+		return
 	}
 
+	m.stageDocument(m.mailThreadMarkdown(r))
 	m.stageInfo()
 }
 
 const mailEmptyMarkdown = "# Mail\n\n_nothing here_\n"
 
-// mailSectionMarkdown is what the stage draws while the cursor is on a section head, which is
-// the shape of that half of the correspondence rather than any one message in it.
-func (m model) mailSectionMarkdown(r mailRow) string {
-	if r.total == 0 {
-		return renderDocument(r.section, "", mailSectionEmpty(r.sent), "")
-	}
-
-	var unread, expired int
-	for _, held := range m.allMailRows() {
-		if held.header || held.section != r.section || held.item.GetClaimedAt() != "" {
-			continue
-		}
-
-		unread++
-		if gone, ok := isMailExpired(held.item); ok && gone {
-			expired++
-		}
-	}
-
-	prose := fmt.Sprintf("%d held · %d unread · %d expired unread", r.total, unread, expired)
-
-	return renderDocument(r.section, "", prose, "")
-}
-
-func mailSectionEmpty(sent bool) string {
-	if sent {
-		return "_this agent has written to nobody_"
-	}
-
-	return "_nobody has written to this agent_"
-}
-
-func (m model) mailMarkdown(r mailRow) string {
-	item := r.item
+// mailThreadMarkdown is the whole conversation the hovered message belongs to, drawn in order
+// with that message marked, since a reply read on its own says half of what happened.
+func (m model) mailThreadMarkdown(hovered mailRow) string {
+	thread := m.mailThreadOf(hovered.item.GetId())
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s %s\n\n", mailDirectionWord(r.sent), m.mailCounterparty(r))
-	fmt.Fprintf(&b, "_%s · %s · %s_\n\n", mailStamp(item.GetCreatedAt()), mailStateWord(item), mailKindWord(item.GetKind()))
-	b.WriteString(item.GetBody() + "\n")
+	fmt.Fprintf(&b, "# %s\n\n", m.mailCounterparty(thread[0]))
+	fmt.Fprintf(&b, "_%s_\n\n", m.mailThreadWord(thread))
+
+	for _, r := range thread {
+		mark := "  "
+		if r.item.GetId() == hovered.item.GetId() {
+			mark = "› "
+		}
+
+		fmt.Fprintf(&b, "%s**%s %s** · %s · %s · %s\n\n",
+			mark,
+			mailDirectionMark(r.sent),
+			m.mailCounterparty(r),
+			mailStamp(r.item.GetCreatedAt()),
+			mailStateWord(r.item),
+			mailKindWord(r.item.GetKind()),
+		)
+		b.WriteString(r.item.GetBody() + "\n\n")
+	}
 
 	return b.String()
 }
 
 func (m model) mailView() string {
-	header := m.titleStyle().Render("Mail · "+m.mail.agentName) + "\n\n" + m.filterView()
+	header := m.titleStyle().Render("Mail · "+m.mail.agentName) + "\n" +
+		dimStyle.Render(m.mailCountView()) + "\n\n" +
+		m.filterView()
 	below := m.detailsView() + "\n" + m.renderHelp(m.mailHelp())
 
 	rows := m.mailRowsView()
@@ -550,6 +724,34 @@ func (m model) mailView() string {
 	}
 
 	return header + renderList(rows, m.mail.cursor, m.listLines(header, below)) + below
+}
+
+// mailCountView is what the mailbox holds and what of it is owed an answer, since a message
+// nobody has taken is the reason this screen is usually open.
+func (m model) mailCountView() string {
+	rows := m.mailItems()
+
+	var waiting, expired int
+	for _, r := range rows {
+		if r.item.GetClaimedAt() != "" {
+			continue
+		}
+
+		if mailIsExpired(r.item) {
+			expired++
+
+			continue
+		}
+
+		waiting++
+	}
+
+	count := fmt.Sprintf("%d %s · %d waiting", len(rows), plural(len(rows), "message"), waiting)
+	if expired > 0 {
+		count += fmt.Sprintf(" · %d expired", expired)
+	}
+
+	return count
 }
 
 func (m model) mailNotice() string {
@@ -564,44 +766,40 @@ func (m model) mailNotice() string {
 }
 
 func (m model) mailRowsView() []string {
-	all := m.mailRows()
 	if m.mail.loading || m.mail.err != nil {
 		return nil
 	}
 
+	all := m.mailRows()
+
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
-		hovered := i == m.mail.cursor
 		prefix := "  "
-		if hovered {
+		if i == m.mail.cursor {
 			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		if r.header {
-			rows = append(rows, prefix+blurredHeaderStyle.Render(r.section+" "+mailSectionCount(r, m.filter.isStanding())))
-
-			continue
-		}
-
-		rows = append(rows, prefix+"  "+m.mailRowView(r, hovered))
+		rows = append(rows, prefix+m.mailRowView(r, i == m.mail.cursor))
 	}
 
 	return rows
 }
 
-// mailSectionCount is what a section head says it holds, which is what a filter is narrowing
-// as well as what survived it while a pattern stands.
-func mailSectionCount(r mailRow, filtered bool) string {
-	if filtered {
-		return fmt.Sprintf("(%d/%d)", r.count, r.total)
-	}
+const (
+	mailNameWidth  = 12
+	mailClockWidth = 5
+	mailMarkWidth  = 1
+	// mailRowIndent is the cursor, the rail's own gap, and the single spaces between the fields
+	// of a row, which is what the snippet does not get.
+	mailRowIndent = 10
+	// mailLeastSnippet is the least of a message worth drawing, under which the row is who said
+	// it, when, and what became of it.
+	mailLeastSnippet = 8
+)
 
-	return fmt.Sprintf("(%d)", r.count)
-}
-
-// mailRowView draws one piece of mail on one line, giving the snippet what the sidebar has left
-// and dropping it in a pane too narrow to be worth a word or two of it, since a row that
-// wrapped would cost the list a line it has not counted.
+// mailRowView draws one message on one line: when it was written, the rail it hangs off, which
+// way it went, and who was at the other end, giving the snippet whatever the sidebar has left
+// and dropping it where a row would otherwise wrap onto a line the list has not counted.
 func (m model) mailRowView(r mailRow, hovered bool) string {
 	label := clip(m.mailCounterparty(r), mailNameWidth)
 	name := m.filter.highlight(label, m.nameStyle(hovered, false, r.sent))
@@ -609,9 +807,13 @@ func (m model) mailRowView(r mailRow, hovered bool) string {
 	// Padded off the unstyled label, since the styled one carries escapes a width count would
 	// take for characters.
 	pad := strings.Repeat(" ", max(mailNameWidth-lipgloss.Width(label), 0))
-	head := name + pad + " " + dimStyle.Render(mailClock(r.item.GetCreatedAt())) + " " + mailStateMark(r.item)
 
-	spare := m.width - mailRowIndent - mailNameWidth - mailClockWidth - mailMarkWidth
+	head := dimStyle.Render(mailClock(r.item.GetCreatedAt())) + " " +
+		dimStyle.Render(r.gutter) + " " +
+		dimStyle.Render(mailDirectionMark(r.sent)) + " " +
+		name + pad + " " + mailStateMark(r.item)
+
+	spare := m.width - mailRowIndent - mailNameWidth - mailClockWidth - mailMarkWidth - lipgloss.Width(r.gutter)
 	if spare < mailLeastSnippet {
 		return head
 	}
@@ -619,19 +821,8 @@ func (m model) mailRowView(r mailRow, hovered bool) string {
 	return head + " " + dimStyle.Render(clip(mailSnippet(r.item.GetBody()), spare))
 }
 
-const (
-	mailNameWidth  = 16
-	mailClockWidth = 6
-	mailMarkWidth  = 2
-	// mailRowIndent is the cursor and the nesting a row is drawn behind.
-	mailRowIndent = 5
-	// mailLeastSnippet is the least of a message worth drawing, under which the row is the
-	// correspondent and what became of the mail alone.
-	mailLeastSnippet = 8
-)
-
 // mailSnippet is the opening of a message on one line, which is what makes a row worth
-// reading before the stage has drawn the message itself.
+// reading before the stage has drawn the thread itself.
 func mailSnippet(body string) string {
 	return strings.Join(strings.Fields(body), " ")
 }
@@ -644,11 +835,10 @@ var (
 
 // mailStateMark is the glyph in the gutter of a row: waiting, never read, or taken.
 func mailStateMark(item *agentv1.Mail) string {
-	if item.GetClaimedAt() != "" {
+	switch {
+	case item.GetClaimedAt() != "":
 		return mailReadStyle.Render("✓")
-	}
-
-	if expired, ok := isMailExpired(item); ok && expired {
+	case mailIsExpired(item):
 		return mailExpiredStyle.Render("!")
 	}
 

@@ -301,13 +301,17 @@ type WorkflowsKeys struct {
 	Rename []string `mapstructure:"rename"`
 }
 
-// MailKeys are the bindings for the mailbox screen, which draws one agent's inbox and
-// outbox in the sidebar and the message under the cursor in the stage.
+// MailKeys are the bindings for the mailbox screen, which draws an agent's whole
+// correspondence in the sidebar in the order it happened, and the thread the cursor is
+// standing in on the stage.
 type MailKeys struct {
 	// Leave the mailbox for the agents list.
 	Back []string `mapstructure:"back"`
-	// Jump to the mail the one under the cursor is a reply to, or that replies to it.
-	Thread []string `mapstructure:"thread"`
+	// Jump to the next message of the thread the cursor is in, stepping over whatever
+	// landed in between.
+	NextInThread []string `mapstructure:"next_in_thread"`
+	// Jump to the previous message of that thread.
+	PrevInThread []string `mapstructure:"prev_in_thread"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
 }
@@ -765,9 +769,10 @@ func DefaultKeybindings() Keybindings {
 			Up:     []string{"k"},
 		},
 		Mail: MailKeys{
-			Back:   []string{"esc"},
-			Thread: []string{"t"},
-			Quit:   []string{"ctrl+c"},
+			Back:         []string{"esc"},
+			NextInThread: []string{"t"},
+			PrevInThread: []string{"T"},
+			Quit:         []string{"ctrl+c"},
 		},
 		Review: ReviewKeys{
 			Back:         []string{"esc"},
