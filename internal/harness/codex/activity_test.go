@@ -95,6 +95,11 @@ const questionsFrame = "  Question 1/3 (3 unanswered)\n" +
 	"\n" +
 	"  tab to add notes | enter to submit answer | ←/→ to navigate questions | esc to interrupt"
 
+// labelledStartupFrame is the line a startup step draws before the model is reached, where the
+// label holds words and parens of its own and the timer is drawn dim, as tmux captures it.
+const labelledStartupFrame = "\x1b[1m\x1b[38;2;128;128;128m•\x1b[0m \x1b[1m\x1b[38;2;128;128;128mStarting MCP servers (1/3): chariot, codex_apps\x1b[0m " +
+	dimOn + "(0s • esc to interrupt)" + dimOff + composerTail
+
 const quotedStatusFrame = "  \u2514 weave.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})\n" +
 	"\n" +
 	"\u2022 Yes. It is a separate bug that already exists on main.\n" +
@@ -208,13 +213,38 @@ func TestReadActivity(t *testing.T) {
 		},
 		{
 			name:  "the interrupt hint alone is work, for a release that renames the verb",
-			frame: "• Cogitating (2s • esc to interrupt)",
+			frame: "• Cogitating " + dimOn + "(2s • esc to interrupt)" + dimOff,
 			want:  harness.ActivityWorking,
 		},
 		{
 			name:  "the verb and timer alone are work, for a release that drops the hint",
 			frame: "• Working (12s)",
 			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "the interrupt hint drawn bright is a message quoting it rather than work",
+			frame: "• Cogitating (2s • esc to interrupt)" + composerTail,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a startup step naming what it is doing before the timer is work",
+			frame: labelledStartupFrame,
+			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "a sent message ending at a quoted timer is not work",
+			frame: "› explain (0s • esc to interrupt)\n\n• Sure." + composerTail,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "a draft ending at a quoted timer is not work",
+			frame: "• 40\n\n\x1b[1m›\x1b[0m explain (0s • esc to interrupt)\n\n  gpt-5.6-sol medium · /private/tmp",
+			want:  harness.ActivityComposing,
+		},
+		{
+			name:  "prose wrapping onto a quoted timer is not work",
+			frame: "• The status line said (0s • esc to interrupt)\n  and then stopped." + composerTail,
+			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "a finished turn that quoted the status line is not work",
@@ -319,6 +349,10 @@ func TestReadActivityWithoutComposer(t *testing.T) {
 		name  string
 		frame string
 	}{
+		{
+			name:  "a transcript of sent messages with no composer under it",
+			frame: "› tell me about tmux\n" + strings.Repeat("\n  a line of the answer", 20) + "\n\n• That is all.",
+		},
 		{
 			name:  "the shell's echo of the launch command",
 			frame: "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc",

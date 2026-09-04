@@ -23,7 +23,7 @@ var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
 // panelRule is the rule Claude draws across the top of a panel it opens over the whole pane,
 // which eats every key typed at the pane until somebody dismisses it and shows no footer of its
 // own once its content is longer than the pane is tall.
-var panelRule = regexp.MustCompile(`^\s*▔{3,}`)
+var panelRule = regexp.MustCompile(`^\s*▔{20,}`)
 
 // transcriptMarker opens a line of the conversation above the box.
 var transcriptMarker = regexp.MustCompile(`^\s*[⏺❯※]`)
@@ -139,8 +139,8 @@ func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
 		return false
 	}
 
-	// A box drawn in one colour throughout says nothing either way, so the marker has to carry
-	// the rule's own colour rather than merely some colour.
+	// A box with no colour on it at all says nothing either way, which is what a capture taken
+	// without the colours looks like, so the rule has to carry a colour for the marker to match.
 	rule := colours[box.Rule]
 
 	return rule != "" && rule == colours[box.Rule+1]
