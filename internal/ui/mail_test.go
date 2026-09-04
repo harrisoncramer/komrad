@@ -92,6 +92,20 @@ func TestMailRails(t *testing.T) {
 			wantGutters: []string{"┌", "├", "│", "└"},
 		},
 		{
+			name: "a thread opening after another closed takes the lane it gave back",
+			inbox: []*agentv1.Mail{
+				received("m1", "neovim-fan", "vim wins"),
+				received("m2", "emacs-fan", "org-mode wins"),
+				received("m4", "planner", "what is the plan"),
+			},
+			outbox: []*agentv1.Mail{
+				replyTo("m3", "answering the first", "m1"),
+				replyTo("m5", "answering the planner", "m4"),
+				replyTo("m6", "answering the second at last", "m2"),
+			},
+			wantGutters: []string{"┌ ", "│┌", "└│", "┌│", "└│", " └"},
+		},
+		{
 			name: "two threads running at once take a lane each",
 			inbox: []*agentv1.Mail{
 				received("m1", "neovim-fan", "vim wins"),
@@ -389,6 +403,36 @@ func TestMailLoadedKeepsTheCursorOnItsMail(t *testing.T) {
 	held, ok := m.hoveredMail()
 	require.True(t, ok)
 	assert.Equal(t, "m1", held.item.GetId())
+}
+
+// TestMailLandsOnTheNewestMessage covers where the cursor sits when a mailbox opens, including
+// one that was quiet at the time, which must not spend its landing on nothing and leave the
+// reader on the oldest arrival.
+func TestMailLandsOnTheNewestMessage(t *testing.T) {
+	arrivals := []*agentv1.Mail{
+		received("m1", "neovim-fan", "vim wins"),
+		received("m2", "emacs-fan", "org-mode wins"),
+		received("m3", "weave", "review waiting"),
+	}
+
+	t.Run("a first read lands on the newest", func(t *testing.T) {
+		m := mailModel(config.DefaultKeybindings())
+
+		m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: arrivals})
+
+		assert.Equal(t, 2, m.mail.cursor)
+	})
+
+	t.Run("an empty first read leaves the landing to the read that brings something back", func(t *testing.T) {
+		m := mailModel(config.DefaultKeybindings())
+
+		m.applyMailLoaded(mailLoadedMsg{agentID: "a1"})
+		require.False(t, m.mail.landed, "nothing came back, so nothing was landed on")
+
+		m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: arrivals})
+
+		assert.Equal(t, 2, m.mail.cursor)
+	})
 }
 
 // TestMailLoadedAfterLeavingIsDropped covers a read still in flight when the reader pressed

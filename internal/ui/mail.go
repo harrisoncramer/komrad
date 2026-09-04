@@ -136,11 +136,12 @@ func (m *model) applyMailLoaded(msg mailLoadedMsg) {
 
 	m.mail.inbox, m.mail.outbox = msg.inbox, msg.outbox
 
-	// The first read lands on the newest message and every read after it keeps whatever the
-	// reader is standing on, since a mailbox is read from the end the way a conversation is.
-	if !m.mail.landed {
+	// The first read to bring anything back lands on the newest message, since a mailbox is read
+	// from the end the way a conversation is, and an empty read does not spend that landing on a
+	// mailbox that was merely quiet when it was opened.
+	if rows := m.mailRows(); !m.mail.landed && len(rows) > 0 {
 		m.mail.landed = true
-		m.mail.cursor = max(len(m.mailRows())-1, 0)
+		m.mail.cursor = len(rows) - 1
 		m.stageMail()
 
 		return
@@ -261,6 +262,8 @@ func railedMailRows(rows []mailRow) []mailRow {
 	}
 
 	lanes := make([]string, 0, mailMaxLanes)
+	railed := make([]mailRow, len(rows))
+	copy(railed, rows)
 	drawn := make([]string, len(rows))
 	width := 0
 
@@ -278,15 +281,15 @@ func railedMailRows(rows []mailRow) []mailRow {
 		width = max(width, len(lanes))
 
 		if threaded && last[root] == i {
-			lanes = dropMailLane(lanes, root)
+			dropMailLane(lanes, root)
 		}
 	}
 
-	for i := range rows {
-		rows[i].gutter = fmt.Sprintf("%-*s", width, drawn[i])
+	for i := range railed {
+		railed[i].gutter = fmt.Sprintf("%-*s", width, drawn[i])
 	}
 
-	return rows
+	return railed
 }
 
 func takeMailLane(lanes []string, root string) []string {
@@ -305,20 +308,14 @@ func takeMailLane(lanes []string, root string) []string {
 	return append(lanes, root)
 }
 
-func dropMailLane(lanes []string, root string) []string {
+// dropMailLane gives a lane back for the next thread to take, blanking it rather than dropping
+// it, since the lanes to its left are still holding threads and would shift under them.
+func dropMailLane(lanes []string, root string) {
 	for i, held := range lanes {
 		if held == root {
 			lanes[i] = ""
 		}
 	}
-
-	// Trailing lanes are given back rather than held, so a gutter does not stay as wide as the
-	// busiest moment of the mailbox for every row after it.
-	for len(lanes) > 0 && lanes[len(lanes)-1] == "" {
-		lanes = lanes[:len(lanes)-1]
-	}
-
-	return lanes
 }
 
 func railRow(lanes []string, root string, at, first, last int, threaded bool) string {
@@ -789,9 +786,9 @@ const (
 	mailNameWidth  = 12
 	mailClockWidth = 5
 	mailMarkWidth  = 1
-	// mailRowIndent is the cursor, the rail's own gap, and the single spaces between the fields
-	// of a row, which is what the snippet does not get.
-	mailRowIndent = 10
+	// mailRowIndent is the cursor, the arrow, and the single spaces between the clock, the rail,
+	// the arrow, the name and the mark, which is what the snippet does not get.
+	mailRowIndent = 8
 	// mailLeastSnippet is the least of a message worth drawing, under which the row is who said
 	// it, when, and what became of it.
 	mailLeastSnippet = 8
