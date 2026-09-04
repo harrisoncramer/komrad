@@ -635,37 +635,24 @@ func (m *model) stageMail() {
 		return
 	}
 
-	m.stageDocument(m.mailThreadMarkdown(r))
+	m.stageDocument(m.mailMarkdown(r))
 	m.stageInfo()
 }
 
 const mailEmptyMarkdown = "# Mail\n\n_nothing here_\n"
 
-// mailThreadMarkdown is the whole conversation the hovered message belongs to, drawn in order
-// with that message marked, since a reply read on its own says half of what happened.
-func (m model) mailThreadMarkdown(hovered mailRow) string {
-	thread := m.mailThreadOf(hovered.item.GetId())
-
+// mailMarkdown is the one message the cursor is on, since the rows around it already carry the
+// rest of its thread and drawing the conversation again only asked the reader to find their
+// place in it twice.
+func (m model) mailMarkdown(r mailRow) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "# %s\n\n", m.mailCounterparty(thread[0]))
-	fmt.Fprintf(&b, "_%s_\n\n", m.mailThreadWord(thread))
-
-	for _, r := range thread {
-		mark := "  "
-		if r.item.GetId() == hovered.item.GetId() {
-			mark = "› "
-		}
-
-		fmt.Fprintf(&b, "%s**%s %s** · %s · %s · %s\n\n",
-			mark,
-			mailDirectionMark(r.sent),
-			m.mailCounterparty(r),
-			mailStamp(r.item.GetCreatedAt()),
-			mailStateWord(r.item),
-			mailKindWord(r.item.GetKind()),
-		)
-		b.WriteString(r.item.GetBody() + "\n\n")
-	}
+	fmt.Fprintf(&b, "# %s %s\n\n", mailDirectionWord(r.sent), m.mailCounterparty(r))
+	fmt.Fprintf(&b, "_%s · %s · %s_\n\n",
+		mailStamp(r.item.GetCreatedAt()),
+		mailStateWord(r.item),
+		mailKindWord(r.item.GetKind()),
+	)
+	b.WriteString(r.item.GetBody() + "\n")
 
 	return b.String()
 }

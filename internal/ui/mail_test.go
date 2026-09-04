@@ -401,23 +401,24 @@ func TestMailCountView(t *testing.T) {
 	assert.Equal(t, "3 messages · 1 waiting · 1 expired", m.mailCountView(), "a pattern narrows the rows, not the mailbox")
 }
 
-// TestMailThreadStage covers the stage, which draws the whole conversation rather than the one
-// message under the cursor, since a reply read alone says half of what happened.
-func TestMailThreadStage(t *testing.T) {
+// TestMailStage covers what the stage draws, which is the one message under the cursor: the
+// rows around it already carry the rest of its thread.
+func TestMailStage(t *testing.T) {
 	m := mailModel(config.DefaultKeybindings())
 	m.mail.inbox = []*agentv1.Mail{
 		received("m1", "neovim-fan", "vim wins"),
 		received("m3", "weave", "review waiting"),
 	}
 	m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
-	m.mail.cursor = 1
+	m.mail.cursor = 3
 
-	drawn := m.mailThreadMarkdown(m.mailRows()[3])
+	drawn := m.mailMarkdown(m.mailRows()[3])
 
-	assert.Contains(t, drawn, "vim wins", "the message the reply answers")
-	assert.Contains(t, drawn, "emacs wins", "the reply itself")
-	assert.NotContains(t, drawn, "review waiting", "a message of another thread stays out")
-	assert.Contains(t, drawn, "› **→ emacs-fan**", "the hovered message is marked")
+	assert.Contains(t, drawn, "# to emacs-fan")
+	assert.Contains(t, drawn, "emacs wins", "the message the cursor is on")
+	assert.NotContains(t, drawn, "vim wins", "the message it answers stays in the rows")
+	assert.NotContains(t, drawn, "review waiting")
+	assert.NotContains(t, drawn, "›", "nothing to mark, since there is only one message")
 }
 
 // TestMailLoadedKeepsTheCursorOnItsMail covers a poll landing under the reader, where mail
