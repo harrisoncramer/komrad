@@ -70,7 +70,7 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 	mux.Handle(configv1connect.NewConfigServiceHandler(
 		rpcconfig.NewService(p.Services.loadConfig), options...))
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		rpchook.NewService(p.Services.script), options...))
+		rpchook.NewService(p.Services.script, p.Services.pullRequests), options...))
 
 	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: p.ReadOnly, BaseURL: "http://" + p.Addr})
 	if err != nil {

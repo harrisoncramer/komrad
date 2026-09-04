@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"weave/internal/agents"
+	"weave/internal/browser"
 	"weave/internal/caller"
 	"weave/internal/scripts"
 	"weave/internal/store"
@@ -48,6 +49,7 @@ var table = []mapping{
 	{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
 	{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 	{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
+	{agents.ErrNoPullRequest, connect.CodeFailedPrecondition},
 
 	{agents.ErrBadCron, connect.CodeInvalidArgument},
 	{agents.ErrBadDirectory, connect.CodeInvalidArgument},
@@ -64,6 +66,7 @@ var table = []mapping{
 	{agents.ErrWorktreeNeedsCwd, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeCwdNotPrimaryCheckout, connect.CodeInvalidArgument},
 	{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
+	{browser.ErrNotAWebURL, connect.CodeInvalidArgument},
 
 	{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
 	{agents.ErrMailboxFull, connect.CodeResourceExhausted},

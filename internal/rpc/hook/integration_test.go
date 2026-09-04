@@ -8,7 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -34,17 +33,18 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	builtins := t.TempDir()
 
 	work := filepath.Join(t.TempDir(), "removed-worktree")
-	out := filepath.Join(builtins, "payload.json")
 
 	require.NoError(t, os.WriteFile(filepath.Join(hooks, "install-deps"), []byte("#!/bin/sh\n"), 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(hooks, "unrunnable"), []byte("#!/bin/sh\n"), 0o644))
 	require.NoError(t, os.WriteFile(filepath.Join(hooks, "compiled"), []byte{0x7f, 'E', 'L', 'F', 0x00}, 0o755))
 
-	require.NoError(t, os.WriteFile(filepath.Join(builtins, "_open_pr"), []byte(
-		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT\" > payload.json\n",
-	), 0o755))
-
-	client := hookClient(t, hooks, builtins, work)
+	opened := &recordingOpener{}
+	client := hookClient(t, hookClientParams{
+		hooks:    hooks,
+		builtins: builtins,
+		work:     work,
+		opener:   opened,
+	})
 
 	t.Run("a listing carries each hook and what it declares", func(t *testing.T) {
 		resp, err := client.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
@@ -75,26 +75,34 @@ func TestHookServiceOverHTTP(t *testing.T) {
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	})
 
-	t.Run("opening starts the built-in and hands it the agent", func(t *testing.T) {
+	t.Run("an agent with nothing recorded is refused", func(t *testing.T) {
+		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+			AgentId: "a2",
+		}))
+
+		require.Error(t, err)
+		assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+		assert.Empty(t, opened.targets, "nothing was handed to the opener")
+	})
+
+	t.Run("opening hands the recorded URL to the opener", func(t *testing.T) {
 		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "a1",
 		}))
 		require.NoError(t, err)
 
-		var written []byte
-		require.Eventually(t, func() bool {
-			read, err := os.ReadFile(out)
-			written = read
-
-			return err == nil && len(read) > 0
-		}, 5*time.Second, 10*time.Millisecond, "the built-in never wrote %s", out)
-
-		assert.Contains(t, string(written), `"name":"auth"`)
-		assert.Contains(t, string(written), `"workflow":"backend"`)
-		assert.Contains(t, string(written), `"pane":"%9"`)
-
-		assert.Contains(t, string(written), `"cwd":"`+work+`"`)
+		assert.Equal(t, []string{"https://github.com/weave/weave/pull/1"}, opened.targets)
 	})
+}
+
+type recordingOpener struct {
+	targets []string
+}
+
+func (o *recordingOpener) OpenURL(_ context.Context, target string) error {
+	o.targets = append(o.targets, target)
+
+	return nil
 }
 
 func names(listed []*hookv1.Hook) []string {
@@ -106,31 +114,43 @@ func names(listed []*hookv1.Hook) []string {
 	return found
 }
 
-func hookClient(t *testing.T, hooks, builtins, work string) hookv1connect.HookServiceClient {
+type hookClientParams struct {
+	hooks    string
+	builtins string
+	work     string
+	opener   *recordingOpener
+}
+
+func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClient {
 	t.Helper()
 
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
 	service := agents.NewScriptService(agents.ScriptParams{
-		Agents:    stubAgents{cwd: work},
+		Agents:    stubAgents{cwd: p.work},
 		Workflows: stubWorkflows{},
 		Tmux:      stubPanes{},
 		Runner:    scripts.NewRunner(),
 		Load: func() (*config.Config, error) {
 			cfg := config.Defaults()
-			cfg.Hooks.Dir = hooks
+			cfg.Hooks.Dir = p.hooks
 
 			return cfg, nil
 		},
-		BuiltinDir: builtins,
+		BuiltinDir: p.builtins,
 		Addr:       "127.0.0.1:8787",
 		Socket:     "weave",
 	})
 
+	pullRequests := agents.NewPullRequestOpener(agents.PullRequestOpenerParams{
+		Agents: stubAgents{cwd: p.work},
+		Opener: p.opener,
+	})
+
 	mux := http.NewServeMux()
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		NewService(service),
+		NewService(service, pullRequests),
 		connect.WithInterceptors(validation),
 	))
 
@@ -145,14 +165,21 @@ type stubAgents struct {
 }
 
 func (s stubAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
-	if id != "a1" {
+	if id != "a1" && id != "a2" {
 		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
 
-	return &agentstore.Agent{
-		ID: "a1", Name: "auth", State: agentstore.StateWaiting, Cwd: s.cwd,
+	agent := &agentstore.Agent{
+		ID: id, Name: "auth", State: agentstore.StateWaiting, Cwd: s.cwd,
 		Harness: "claude", Pane: "%9", WorkflowID: "w1",
-	}, nil
+	}
+	if id == "a1" {
+		agent.Metadata = []agentstore.Metadata{
+			{Key: "pr", Value: "https://github.com/weave/weave/pull/1"},
+		}
+	}
+
+	return agent, nil
 }
 
 type stubWorkflows struct{}

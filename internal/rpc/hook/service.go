@@ -1,5 +1,4 @@
-// Package hook serves the hooks a person has written, and the built-in script behind the
-// panel's open-pull-request key.
+// Package hook serves the hooks a person has written, and the panel's open-pull-request key.
 package hook
 
 import (
@@ -15,24 +14,31 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type hookRunner interface {
+type hookLister interface {
 	ListHooks() ([]agents.Script, error)
+}
+
+type pullRequestOpener interface {
 	OpenPullRequest(ctx context.Context, agentID string) error
 }
 
 type Service struct {
-	scripts hookRunner
+	hooks        hookLister
+	pullRequests pullRequestOpener
 }
 
-// NewService constructs the handler from the service that owns the rules.
-func NewService(manager hookRunner) *Service {
-	return &Service{scripts: manager}
+// NewService constructs the handler from the services that own the rules.
+func NewService(hooks hookLister, pullRequests pullRequestOpener) *Service {
+	return &Service{
+		hooks:        hooks,
+		pullRequests: pullRequests,
+	}
 }
 
 // ListHooks returns every file in the user's hooks directory, and a directory that is not
 // there is an empty listing rather than an error.
 func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[hookv1.ListHooksResponse], error) {
-	listed, err := s.scripts.ListHooks()
+	listed, err := s.hooks.ListHooks()
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list hooks")
 	}
@@ -51,10 +57,10 @@ func (s *Service) ListHooks(_ context.Context, _ *connect.Request[emptypb.Empty]
 	return connect.NewResponse(&hookv1.ListHooksResponse{Hooks: resources}), nil
 }
 
-// OpenPullRequest fires the built-in script behind the panel's own key, which is the one script
-// weave runs on demand rather than at a moment of its own choosing.
+// OpenPullRequest opens the pull request an agent recorded, which is the panel's own key and
+// the one thing weave does to an agent on demand rather than at a moment of its own choosing.
 func (s *Service) OpenPullRequest(ctx context.Context, req *connect.Request[hookv1.OpenPullRequestRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.scripts.OpenPullRequest(ctx, req.Msg.GetAgentId()); err != nil {
+	if err := s.pullRequests.OpenPullRequest(ctx, req.Msg.GetAgentId()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to open the pull request")
 	}
 

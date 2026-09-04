@@ -7,24 +7,26 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/browser"
 	"weave/internal/frames"
 	"weave/internal/scripts"
 )
 
 type services struct {
-	loadConfig func() (*config.Config, error)
-	script     *agents.ScriptService
-	mail       *agents.MailService
-	review     *agents.ReviewService
-	schedule   *agents.ScheduleService
-	liveness   *agents.PaneLiveness
-	launch     *agents.LaunchService
-	resume     *agents.ResumeService
-	adopt      *agents.AdoptService
-	lifecycle  *agents.LifecycleService
-	workflow   *agents.WorkflowService
-	delivery   *agents.DeliveryService
-	reconciler *agents.Reconciler
+	loadConfig   func() (*config.Config, error)
+	script       *agents.ScriptService
+	pullRequests *agents.PullRequestOpener
+	mail         *agents.MailService
+	review       *agents.ReviewService
+	schedule     *agents.ScheduleService
+	liveness     *agents.PaneLiveness
+	launch       *agents.LaunchService
+	resume       *agents.ResumeService
+	adopt        *agents.AdoptService
+	lifecycle    *agents.LifecycleService
+	workflow     *agents.WorkflowService
+	delivery     *agents.DeliveryService
+	reconciler   *agents.Reconciler
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -81,6 +83,16 @@ func buildServices(p Params, st *stores) (*services, error) {
 		LogsDir:    runLogsDir,
 		Editor:     p.Env.Editor,
 		BinPath:    p.HookCommand,
+	})
+
+	opener := p.Opener
+	if opener == nil {
+		opener = browser.NewDesktop()
+	}
+
+	pullRequestOpener := agents.NewPullRequestOpener(agents.PullRequestOpenerParams{
+		Agents: st.agents,
+		Opener: opener,
 	})
 	harnessLauncher := agents.NewLauncher(agents.LauncherParams{
 		Tmux:        p.Tmux,
@@ -152,17 +164,18 @@ func buildServices(p Params, st *stores) (*services, error) {
 	})
 
 	return &services{
-		loadConfig: loadConfig,
-		script:     scriptService,
-		mail:       mailService,
-		review:     reviewService,
-		schedule:   scheduleService,
-		liveness:   paneLiveness,
-		launch:     launchService,
-		resume:     resumeService,
-		adopt:      adoptService,
-		lifecycle:  lifecycleService,
-		workflow:   workflowService,
+		loadConfig:   loadConfig,
+		script:       scriptService,
+		pullRequests: pullRequestOpener,
+		mail:         mailService,
+		review:       reviewService,
+		schedule:     scheduleService,
+		liveness:     paneLiveness,
+		launch:       launchService,
+		resume:       resumeService,
+		adopt:        adoptService,
+		lifecycle:    lifecycleService,
+		workflow:     workflowService,
 		delivery: agents.NewDeliveryService(agents.NewDeliveryServiceParams{
 			MailboxReader: st.mail,
 			NudgeClaimer:  st.agents,
