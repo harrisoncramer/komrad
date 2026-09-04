@@ -10,8 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestReadActivityOnCapturedFrames runs the classifier over frames taken out of real panes,
-// since the shapes that fool it are the ones nobody thinks to write by hand.
+// TestReadActivityOnCapturedFrames runs the classifier over frames taken out of real panes.
 func TestReadActivityOnCapturedFrames(t *testing.T) {
 	tests := []struct {
 		file string

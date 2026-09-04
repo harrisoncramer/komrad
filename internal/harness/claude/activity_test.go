@@ -234,8 +234,7 @@ func TestReadActivity(t *testing.T) {
 }
 
 // TestReadActivityIgnoresTranscriptProse checks transcript text carrying a marker phrase is not
-// read as a live prompt, however close to the box it sits, since a finished turn ends with
-// the same glyphs and phrases a live one draws.
+// read as a live prompt, however close to the box it sits.
 func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string
