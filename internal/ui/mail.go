@@ -102,7 +102,11 @@ func (m model) loadMailCmd(agentID string) tea.Cmd {
 			return mailLoadedMsg{agentID: agentID, err: err}
 		}
 
-		return mailLoadedMsg{agentID: agentID, inbox: inbox, outbox: outbox}
+		return mailLoadedMsg{
+			agentID: agentID,
+			inbox:   inbox,
+			outbox:  outbox,
+		}
 	}
 }
 

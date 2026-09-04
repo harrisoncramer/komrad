@@ -318,7 +318,11 @@ func TestHeaderFoundByASearchSurvivesTheFold(t *testing.T) {
 // header with nothing under it, so there is no line for the place to fall back to.
 func TestHeaderOfAFileWithNoLinesIsHeld(t *testing.T) {
 	view := NewView(patchWith(
-		diff.File{OldPath: "old.go", NewPath: "new.go", Metadata: []string{"renamed"}},
+		diff.File{
+			OldPath:  "old.go",
+			NewPath:  "new.go",
+			Metadata: []string{"renamed"},
+		},
 		diff.File{
 			OldPath: "greet.go",
 			NewPath: "greet.go",

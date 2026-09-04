@@ -210,12 +210,40 @@ func TestRunPositionNamesWhichRunIsOnScreen(t *testing.T) {
 		back int
 		want string
 	}{
-		{name: "an agent that has run nothing", runs: 0, want: "older run"},
-		{name: "a single run is not worth counting", runs: 1, want: "older run"},
-		{name: "the newest of three", runs: 3, back: 0, want: "run 3/3"},
-		{name: "one step back", runs: 3, back: 1, want: "run 2/3"},
-		{name: "the oldest kept", runs: 3, back: 2, want: "run 1/3"},
-		{name: "a position past what is left falls to the newest", runs: 3, back: 9, want: "run 1/3"},
+		{
+			name: "an agent that has run nothing",
+			runs: 0,
+			want: "older run",
+		},
+		{
+			name: "a single run is not worth counting",
+			runs: 1,
+			want: "older run",
+		},
+		{
+			name: "the newest of three",
+			runs: 3,
+			back: 0,
+			want: "run 3/3",
+		},
+		{
+			name: "one step back",
+			runs: 3,
+			back: 1,
+			want: "run 2/3",
+		},
+		{
+			name: "the oldest kept",
+			runs: 3,
+			back: 2,
+			want: "run 1/3",
+		},
+		{
+			name: "a position past what is left falls to the newest",
+			runs: 3,
+			back: 9,
+			want: "run 1/3",
+		},
 	}
 
 	for _, tt := range tests {

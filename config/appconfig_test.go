@@ -434,10 +434,26 @@ func TestLoadFrameHistoryRefusesToBeUnbounded(t *testing.T) {
 		written string
 		want    int
 	}{
-		{name: "nothing written", written: "", want: DefaultFrameHistory},
-		{name: "zero", written: "[debug]\nframe_history = 0\n", want: DefaultFrameHistory},
-		{name: "negative", written: "[debug]\nframe_history = -1\n", want: DefaultFrameHistory},
-		{name: "a number somebody chose", written: "[debug]\nframe_history = 20\n", want: 20},
+		{
+			name:    "nothing written",
+			written: "",
+			want:    DefaultFrameHistory,
+		},
+		{
+			name:    "zero",
+			written: "[debug]\nframe_history = 0\n",
+			want:    DefaultFrameHistory,
+		},
+		{
+			name:    "negative",
+			written: "[debug]\nframe_history = -1\n",
+			want:    DefaultFrameHistory,
+		},
+		{
+			name:    "a number somebody chose",
+			written: "[debug]\nframe_history = 20\n",
+			want:    20,
+		},
 	}
 
 	for _, tt := range tests {

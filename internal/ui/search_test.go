@@ -1018,7 +1018,11 @@ func TestJumpDropsALatePreview(t *testing.T) {
 	landed, ok := updated.(model)
 	require.True(t, ok)
 
-	late := previewResult{agentID: "a2", query: "ledger", content: "one\ntwo\nthree\n"}
+	late := previewResult{
+		agentID: "a2",
+		query:   "ledger",
+		content: "one\ntwo\nthree\n",
+	}
 	landed.applyPreview(late)
 
 	staged := strings.Join(tmux.respawns, "\n")

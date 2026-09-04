@@ -69,7 +69,11 @@ func TestRecordSkipsAFrameItAlreadyHolds(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	for range 3 {
-		require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle"}))
+		require.NoError(t, recorder.Record(frames.RecordParams{
+			AgentID:  "a1",
+			Frame:    "same",
+			Activity: "idle",
+		}))
 	}
 
 	assert.Len(t, written(t, dir, "a1"), 1)
@@ -81,8 +85,17 @@ func TestRecordKeepsAFrameDisputingTheStateOnRecord(t *testing.T) {
 	dir := t.TempDir()
 	recorder := frames.NewRecorder(dir, on)
 
-	require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle"}))
-	require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle", Disputes: true}))
+	require.NoError(t, recorder.Record(frames.RecordParams{
+		AgentID:  "a1",
+		Frame:    "same",
+		Activity: "idle",
+	}))
+	require.NoError(t, recorder.Record(frames.RecordParams{
+		AgentID:  "a1",
+		Frame:    "same",
+		Activity: "idle",
+		Disputes: true,
+	}))
 
 	assert.Len(t, written(t, dir, "a1"), 2)
 }
@@ -94,7 +107,11 @@ func TestRecordSkipsAnUnrecognizedFrameItAlreadyHolds(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	for range 5 {
-		require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "unrecognized"}))
+		require.NoError(t, recorder.Record(frames.RecordParams{
+			AgentID:  "a1",
+			Frame:    "same",
+			Activity: "unrecognized",
+		}))
 	}
 
 	assert.Len(t, written(t, dir, "a1"), 1)
@@ -108,7 +125,11 @@ func TestRecordTakesAFrameAgainAfterAFailedWrite(t *testing.T) {
 	require.NoError(t, os.WriteFile(blocked, nil, 0o600))
 
 	recorder := frames.NewRecorder(blocked, on)
-	reading := frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle"}
+	reading := frames.RecordParams{
+		AgentID:  "a1",
+		Frame:    "same",
+		Activity: "idle",
+	}
 
 	require.Error(t, recorder.Record(reading), "a directory that cannot be made is an error")
 
@@ -124,7 +145,11 @@ func TestRecordDropsTheOldestPastTheLimit(t *testing.T) {
 	recorder := frames.NewRecorder(dir, on)
 
 	for _, frame := range []string{"one", "two", "three", "four", "five"} {
-		require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: frame, Activity: "idle"}))
+		require.NoError(t, recorder.Record(frames.RecordParams{
+			AgentID:  "a1",
+			Frame:    frame,
+			Activity: "idle",
+		}))
 	}
 
 	assert.Len(t, written(t, dir, "a1"), 3)
@@ -135,8 +160,16 @@ func TestRecordSeparatesAgents(t *testing.T) {
 	dir := t.TempDir()
 	recorder := frames.NewRecorder(dir, on)
 
-	require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "one", Activity: "idle"}))
-	require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a2", Frame: "two", Activity: "idle"}))
+	require.NoError(t, recorder.Record(frames.RecordParams{
+		AgentID:  "a1",
+		Frame:    "one",
+		Activity: "idle",
+	}))
+	require.NoError(t, recorder.Record(frames.RecordParams{
+		AgentID:  "a2",
+		Frame:    "two",
+		Activity: "idle",
+	}))
 
 	assert.Len(t, written(t, dir, "a1"), 1)
 	assert.Len(t, written(t, dir, "a2"), 1)
@@ -148,9 +181,17 @@ func TestForgetDropsWhatADeletedAgentLeft(t *testing.T) {
 	dir := t.TempDir()
 	recorder := frames.NewRecorder(dir, on)
 
-	require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle"}))
+	require.NoError(t, recorder.Record(frames.RecordParams{
+		AgentID:  "a1",
+		Frame:    "same",
+		Activity: "idle",
+	}))
 	recorder.Forget(map[string]struct{}{})
-	require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle"}))
+	require.NoError(t, recorder.Record(frames.RecordParams{
+		AgentID:  "a1",
+		Frame:    "same",
+		Activity: "idle",
+	}))
 
 	assert.Len(t, written(t, dir, "a1"), 2)
 }

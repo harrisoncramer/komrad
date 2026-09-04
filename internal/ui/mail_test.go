@@ -119,10 +119,30 @@ func TestMailCursorStepsOverThreadLines(t *testing.T) {
 		cursor     int
 		wantCursor int
 	}{
-		{name: "down out of a thread lands on the next thread's newest", key: "j", cursor: 1, wantCursor: 3},
-		{name: "up back into it lands on the thread above", key: "k", cursor: 3, wantCursor: 1},
-		{name: "bottom lands on the last message rather than a line", key: "G", cursor: 1, wantCursor: 4},
-		{name: "down at the last message stays put", key: "j", cursor: 4, wantCursor: 4},
+		{
+			name:       "down out of a thread lands on the next thread's newest",
+			key:        "j",
+			cursor:     1,
+			wantCursor: 3,
+		},
+		{
+			name:       "up back into it lands on the thread above",
+			key:        "k",
+			cursor:     3,
+			wantCursor: 1,
+		},
+		{
+			name:       "bottom lands on the last message rather than a line",
+			key:        "G",
+			cursor:     1,
+			wantCursor: 4,
+		},
+		{
+			name:       "down at the last message stays put",
+			key:        "j",
+			cursor:     4,
+			wantCursor: 4,
+		},
 	}
 
 	for _, tt := range tests {
@@ -350,8 +370,16 @@ func TestMailRowsFitTheSidebar(t *testing.T) {
 		width       int
 		wantSnippet bool
 	}{
-		{name: "a wide sidebar carries the opening of the message", width: 80, wantSnippet: true},
-		{name: "a narrow one drops it rather than wrapping", width: 20, wantSnippet: false},
+		{
+			name:        "a wide sidebar carries the opening of the message",
+			width:       80,
+			wantSnippet: true,
+		},
+		{
+			name:        "a narrow one drops it rather than wrapping",
+			width:       20,
+			wantSnippet: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -516,7 +544,11 @@ func mailModel(keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 
 	return model{
-		api:    api{agents: emptyLists{}, workflows: emptyLists{}, schedules: emptyLists{}},
+		api: api{
+			agents:    emptyLists{},
+			workflows: emptyLists{},
+			schedules: emptyLists{},
+		},
 		tmux:   tmux,
 		popup:  NewPopupWindow(tmux, "test-session"),
 		frame:  layout.New(tmux, config.DefaultLayout()),
@@ -524,8 +556,16 @@ func mailModel(keys config.Keybindings) model {
 		screen: screenMail,
 		listing: listing{
 			agents: []agentItem{
-				{agent: agentstore.Agent{ID: "a1", Name: "reviewer", WorkflowID: "w1"}},
-				{agent: agentstore.Agent{ID: "a2", Name: "emacs-fan", WorkflowID: "w1"}},
+				{agent: agentstore.Agent{
+					ID:         "a1",
+					Name:       "reviewer",
+					WorkflowID: "w1",
+				}},
+				{agent: agentstore.Agent{
+					ID:         "a2",
+					Name:       "emacs-fan",
+					WorkflowID: "w1",
+				}},
 			},
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}},
 		},
