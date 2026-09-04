@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -367,6 +368,23 @@ func TestMailRowsFitTheSidebar(t *testing.T) {
 
 			assert.Equal(t, tt.wantSnippet, strings.Contains(drawn, "vim wins"))
 			assert.LessOrEqual(t, lipgloss.Width(drawn)+2, tt.width, "the row and the cursor before it fit the pane")
+		})
+	}
+}
+
+// TestMailRowsFillTheSidebar covers a message long enough to run to the edge, which is what
+// holds the chrome count honest: a row that stops short is a column of snippet given away, and
+// nothing else in the suite would notice.
+func TestMailRowsFillTheSidebar(t *testing.T) {
+	for _, width := range []int{40, 60, 80} {
+		t.Run(fmt.Sprintf("a row fills a pane of %d", width), func(t *testing.T) {
+			m := mailModel(config.DefaultKeybindings())
+			m.height, m.width = 40, width
+			m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", strings.Repeat("wide ", 40))}
+
+			drawn := ansi.Strip(m.mailRowView(m.mailRows()[0], false))
+
+			assert.Equal(t, width-mailCursorWidth, lipgloss.Width(drawn), "the row and the cursor before it are the pane")
 		})
 	}
 }

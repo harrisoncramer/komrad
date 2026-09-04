@@ -788,9 +788,12 @@ const (
 	mailNameWidth  = 12
 	mailClockWidth = 7
 	mailMarkWidth  = 1
-	// mailRowIndent is the cursor, the arrow, and the single spaces between the clock, the rail,
-	// the arrow, the name and the mark, which is what the snippet does not get.
-	mailRowIndent = 8
+	// mailCursorWidth is the cursor drawn before every row, which belongs to the list rather
+	// than to the row.
+	mailCursorWidth = 2
+	// mailRowIndent is that cursor, the arrow, and the single spaces between the clock, the
+	// rail, the arrow, the name and the mark, which is what the snippet does not get.
+	mailRowIndent = mailCursorWidth + 6
 	// mailLeastSnippet is the least of a message worth drawing, under which the row is who said
 	// it, when, and what became of it.
 	mailLeastSnippet = 8
