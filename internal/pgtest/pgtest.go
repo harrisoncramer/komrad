@@ -19,13 +19,14 @@ import (
 const (
 	namePrefix = "weave_test_"
 
-	// nameTimeLayout is spelled out rather than left as a count of seconds so a name no
-	// build produces, such as one an older build left, cannot be mistaken for a time.
+	// nameTimeLayout is spelled out rather than left as a count of seconds so that a pid,
+	// which is what a worktree still on the old build is putting here, cannot be read as a
+	// time and swept out from under a run that is very much alive.
 	nameTimeLayout = "20060102t150405"
 
-	// maxAge is how long a test database may live before a sweep treats it as leaked, which
-	// Go's own ten minute test timeout puts far beyond the reach of a run that is still going.
-	maxAge = time.Hour
+	// maxAge is deliberately far longer than the ten minutes Go allows a test binary, since a
+	// sweep only saves disk and a run under a debugger or a raised timeout still wants its own.
+	maxAge = 24 * time.Hour
 )
 
 var sweepOnce sync.Once
@@ -53,7 +54,7 @@ func URL(t *testing.T) string {
 
 	name := fmt.Sprintf("%s%s_%016x", namePrefix, time.Now().UTC().Format(nameTimeLayout), rand.Uint64())
 
-	if _, err := admin.Exec(ctx, fmt.Sprintf("CREATE DATABASE %q", name)); err != nil {
+	if _, err := admin.Exec(ctx, "CREATE DATABASE "+pgx.Identifier{name}.Sanitize()); err != nil {
 		t.Fatalf("failed to create test database %q: %v", name, err)
 	}
 
@@ -80,7 +81,7 @@ func URL(t *testing.T) string {
 func sweep(ctx context.Context, t *testing.T, conn *pgx.Conn) {
 	t.Helper()
 
-	rows, err := conn.Query(ctx, "SELECT datname FROM pg_database WHERE datname LIKE $1", namePrefix+"%")
+	rows, err := conn.Query(ctx, "SELECT datname FROM pg_database WHERE starts_with(datname, $1)", namePrefix)
 	if err != nil {
 		t.Logf("failed to list test databases to sweep: %v", err)
 		return
@@ -145,7 +146,7 @@ func createdAt(name string) (time.Time, bool) {
 }
 
 func drop(ctx context.Context, conn *pgx.Conn, name string) error {
-	_, err := conn.Exec(ctx, fmt.Sprintf("DROP DATABASE IF EXISTS %q WITH (FORCE)", name))
+	_, err := conn.Exec(ctx, "DROP DATABASE IF EXISTS "+pgx.Identifier{name}.Sanitize()+" WITH (FORCE)")
 
 	return err
 }

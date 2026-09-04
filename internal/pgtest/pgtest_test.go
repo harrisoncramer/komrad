@@ -30,12 +30,12 @@ func TestLeaked(t *testing.T) {
 	}{
 		{
 			name:  "a database older than the age a run can reach",
-			names: []string{named(now.Add(-2 * time.Hour))},
-			want:  []string{named(now.Add(-2 * time.Hour))},
+			names: []string{named(now.Add(-maxAge - time.Minute))},
+			want:  []string{named(now.Add(-maxAge - time.Minute))},
 		},
 		{
 			name:  "a database a run could still be holding",
-			names: []string{named(now.Add(-time.Minute))},
+			names: []string{named(now.Add(-maxAge + time.Minute))},
 		},
 		{
 			name:  "a database created this instant",
@@ -59,8 +59,8 @@ func TestLeaked(t *testing.T) {
 		},
 		{
 			name:  "the leaked ones picked out of a mixed server",
-			names: []string{"weave", named(now), named(now.Add(-3 * time.Hour)), namePrefix + "48100_1"},
-			want:  []string{named(now.Add(-3 * time.Hour))},
+			names: []string{"weave", named(now), named(now.Add(-2 * maxAge)), namePrefix + "48100_1"},
+			want:  []string{named(now.Add(-2 * maxAge))},
 		},
 	}
 
