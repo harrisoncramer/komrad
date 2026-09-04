@@ -952,3 +952,62 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"),
 		"the misses still take it there, they are only no longer skipped")
 }
+
+// TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor pins that the passes an agent
+// accrues towards one destination cannot be spent reaching another, so the three readings a
+// change is debounced behind still have to agree with each other about what they saw.
+func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) {
+	tests := []struct {
+		name    string
+		earned  string
+		spentOn string
+		want    agentstore.State
+	}{
+		{
+			name:    "frames weave could not read do not pay for declaring the agent idle",
+			earned:  unrecognizedFrame,
+			spentOn: idleFrame,
+			want:    agentstore.StateIdle,
+		},
+		{
+			name:    "and clean idle readings do not pay for declaring it uncertain",
+			earned:  idleFrame,
+			spentOn: unrecognizedFrame,
+			want:    agentstore.StateUncertain,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := newStore(t)
+			ctx := context.Background()
+			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+			tmux := newFakeTmux()
+			tmux.owners["%1"] = agent.ID
+
+			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+
+			tmux.captures["%1"] = tt.earned
+			for range reconcileMisses - 1 {
+				require.NoError(t, rec.Reconcile(ctx))
+			}
+			require.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
+
+			tmux.captures["%1"] = tt.spentOn
+			require.NoError(t, rec.Reconcile(ctx))
+			assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
+				"one reading of its own is not the stretch a change is debounced behind")
+			assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt,
+				"and nothing has finished a turn on the strength of it either")
+			assert.Equal(t, 1, rec.missCount(agent.ID),
+				"the run restarts at one, since the reading counts towards its own destination")
+
+			for range reconcileMisses - 1 {
+				require.NoError(t, rec.Reconcile(ctx))
+			}
+			assert.Equal(t, tt.want, stateOf(t, st, "agent"),
+				"a stretch that does agree still settles it")
+		})
+	}
+}
