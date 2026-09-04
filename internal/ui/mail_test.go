@@ -1,7 +1,7 @@
 package ui
 
 import (
-	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -11,6 +11,7 @@ import (
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -41,13 +42,13 @@ func TestMailRows(t *testing.T) {
 			inbox:    []*agentv1.Mail{received("m1", "neovim-fan", "vim wins"), received("m3", "weave", "review waiting")},
 			outbox:   []*agentv1.Mail{sent("m2", "a2", "emacs wins")},
 			filter:   "wins",
-			wantRows: []string{"Inbox (2)", "neovim-fan", "Outbox (1)", "emacs-fan"},
+			wantRows: []string{"Inbox (1/2)", "neovim-fan", "Outbox (1/1)", "emacs-fan"},
 		},
 		{
 			name:     "a filter matching nothing leaves the headers standing",
 			inbox:    []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
 			filter:   "kakoune",
-			wantRows: []string{"Inbox (1)", "Outbox (0)"},
+			wantRows: []string{"Inbox (0/1)", "Outbox (0/0)"},
 		},
 	}
 
@@ -60,7 +61,7 @@ func TestMailRows(t *testing.T) {
 			got := make([]string, 0, len(m.mailRows()))
 			for _, r := range m.mailRows() {
 				if r.header {
-					got = append(got, r.section+" ("+strconv.Itoa(r.count)+")")
+					got = append(got, r.section+" "+mailSectionCount(r, m.filter.isStanding()))
 
 					continue
 				}
@@ -215,6 +216,49 @@ func TestMailViewDrawsBothSections(t *testing.T) {
 	assert.Contains(t, drawn, "neovim-fan")
 	assert.Contains(t, drawn, "emacs-fan")
 	assert.Contains(t, drawn, "vim wins")
+}
+
+// TestMailRowsFitTheSidebar covers a pane too narrow for a snippet, where a row that wrapped
+// would take a line the list has not counted and push the rest of the mailbox off the bottom.
+func TestMailRowsFitTheSidebar(t *testing.T) {
+	tests := []struct {
+		name        string
+		width       int
+		wantSnippet bool
+	}{
+		{name: "a wide sidebar carries the opening of the message", width: 80, wantSnippet: true},
+		{name: "a narrow one drops it rather than wrapping", width: 30, wantSnippet: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := mailModel(config.DefaultKeybindings())
+			m.height, m.width = 40, tt.width
+			m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
+
+			drawn := ansi.Strip(m.mailRowView(m.mailRows()[1], false))
+
+			assert.Equal(t, tt.wantSnippet, strings.Contains(drawn, "vim wins"))
+			assert.LessOrEqual(t, lipgloss.Width(drawn), tt.width-mailRowIndent)
+		})
+	}
+}
+
+// TestMailSectionStage covers what the stage draws while the cursor is on a section head,
+// since a head is a row like any other and leaving the stage blank there reads as a bug.
+func TestMailSectionStage(t *testing.T) {
+	m := mailModel(config.DefaultKeybindings())
+	m.mail.inbox = []*agentv1.Mail{
+		received("m1", "neovim-fan", "vim wins"),
+		stale(received("m2", "emacs-fan", "org-mode wins")),
+	}
+
+	rows := m.mailRows()
+	inbox := m.mailSectionMarkdown(rows[0])
+	outbox := m.mailSectionMarkdown(rows[3])
+
+	assert.Contains(t, inbox, "2 held · 2 unread · 1 expired unread")
+	assert.Contains(t, outbox, "written to nobody")
 }
 
 // TestMailLoadedKeepsTheCursorOnItsMail covers a poll landing under the reader, where mail

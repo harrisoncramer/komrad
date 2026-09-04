@@ -41,8 +41,11 @@ type mailRow struct {
 	header  bool
 	section string
 	count   int
-	item    *agentv1.Mail
-	sent    bool
+	// total is how much the section holds before a filter narrowed it, drawn beside the count
+	// so a section emptied by a pattern still says what is behind it.
+	total int
+	item  *agentv1.Mail
+	sent  bool
 }
 
 // key is what a cursor is put back on as the mailbox changes underneath it.
@@ -157,7 +160,7 @@ func (m model) allMailRows() []mailRow {
 }
 
 func appendMailSection(rows []mailRow, section string, mail []*agentv1.Mail, sent bool) []mailRow {
-	rows = append(rows, mailRow{header: true, section: section, count: len(mail)})
+	rows = append(rows, mailRow{header: true, section: section, count: len(mail), total: len(mail), sent: sent})
 	for _, item := range mail {
 		rows = append(rows, mailRow{section: section, item: item, sent: sent})
 	}
@@ -173,10 +176,22 @@ func (m model) filteredMailRows(rows []mailRow) []mailRow {
 	}
 
 	kept := make([]mailRow, 0, len(rows))
+	head := -1
 	for _, r := range rows {
-		if r.header || m.filter.doesMatch(m.mailCounterparty(r)) || m.filter.doesMatch(r.item.GetBody()) {
+		if r.header {
+			r.count = 0
+			head = len(kept)
 			kept = append(kept, r)
+
+			continue
 		}
+
+		if !m.filter.doesMatch(m.mailCounterparty(r)) && !m.filter.doesMatch(r.item.GetBody()) {
+			continue
+		}
+
+		kept = append(kept, r)
+		kept[head].count++
 	}
 
 	return kept
@@ -450,26 +465,58 @@ func mailClock(stamp string) string {
 }
 
 func (m *model) stageMail() {
-	r, ok := m.hoveredMail()
-	if !ok {
+	switch r, ok := rowAt(m.mailRows(), m.mail.cursor); {
+	case !ok:
 		m.stageDocument(mailEmptyMarkdown)
-
-		return
+	case r.header:
+		m.stageDocument(m.mailSectionMarkdown(r))
+	default:
+		m.stageDocument(m.mailMarkdown(r))
 	}
 
-	m.stageDocument(m.mailMarkdown(r))
 	m.stageInfo()
 }
 
 const mailEmptyMarkdown = "# Mail\n\n_nothing here_\n"
+
+// mailSectionMarkdown is what the stage draws while the cursor is on a section head, which is
+// the shape of that half of the correspondence rather than any one message in it.
+func (m model) mailSectionMarkdown(r mailRow) string {
+	if r.total == 0 {
+		return renderDocument(r.section, "", mailSectionEmpty(r.sent), "")
+	}
+
+	var unread, expired int
+	for _, held := range m.mailRows() {
+		if held.header || held.section != r.section || held.item.GetClaimedAt() != "" {
+			continue
+		}
+
+		unread++
+		if gone, ok := isMailExpired(held.item); ok && gone {
+			expired++
+		}
+	}
+
+	prose := fmt.Sprintf("%d held · %d unread · %d expired unread", r.total, unread, expired)
+
+	return renderDocument(r.section, "", prose, "")
+}
+
+func mailSectionEmpty(sent bool) string {
+	if sent {
+		return "_this agent has written to nobody_"
+	}
+
+	return "_nobody has written to this agent_"
+}
 
 func (m model) mailMarkdown(r mailRow) string {
 	item := r.item
 
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s %s\n\n", mailDirectionWord(r.sent), m.mailCounterparty(r))
-	fmt.Fprintf(&b, "%s · %s · %s\n\n", mailStamp(item.GetCreatedAt()), mailStateWord(item), mailKindWord(item.GetKind()))
-	b.WriteString("---\n\n")
+	fmt.Fprintf(&b, "_%s · %s · %s_\n\n", mailStamp(item.GetCreatedAt()), mailStateWord(item), mailKindWord(item.GetKind()))
 	b.WriteString(item.GetBody() + "\n")
 
 	return b.String()
@@ -513,7 +560,7 @@ func (m model) mailRowsView() []string {
 		}
 
 		if r.header {
-			rows = append(rows, prefix+blurredHeaderStyle.Render(fmt.Sprintf("%s (%d)", r.section, r.count)))
+			rows = append(rows, prefix+blurredHeaderStyle.Render(r.section+" "+mailSectionCount(r, m.filter.isStanding())))
 
 			continue
 		}
@@ -524,6 +571,19 @@ func (m model) mailRowsView() []string {
 	return rows
 }
 
+// mailSectionCount is what a section head says it holds, which is what a filter is narrowing
+// as well as what survived it while a pattern stands.
+func mailSectionCount(r mailRow, filtered bool) string {
+	if filtered {
+		return fmt.Sprintf("(%d/%d)", r.count, r.total)
+	}
+
+	return fmt.Sprintf("(%d)", r.count)
+}
+
+// mailRowView draws one piece of mail on one line, giving the snippet what the sidebar has left
+// and dropping it in a pane too narrow to be worth a word or two of it, since a row that
+// wrapped would cost the list a line it has not counted.
 func (m model) mailRowView(r mailRow, hovered bool) string {
 	label := clip(m.mailCounterparty(r), mailNameWidth)
 	name := m.filter.highlight(label, m.nameStyle(hovered, false, r.sent))
@@ -531,21 +591,31 @@ func (m model) mailRowView(r mailRow, hovered bool) string {
 	// Padded off the unstyled label, since the styled one carries escapes a width count would
 	// take for characters.
 	pad := strings.Repeat(" ", max(mailNameWidth-lipgloss.Width(label), 0))
+	head := name + pad + " " + dimStyle.Render(mailClock(r.item.GetCreatedAt())) + " " + mailStateMark(r.item)
 
-	return name + pad + " " +
-		dimStyle.Render(mailClock(r.item.GetCreatedAt())) + " " +
-		mailStateMark(r.item) + " " +
-		dimStyle.Render(mailSnippet(r.item.GetBody()))
+	spare := m.width - mailRowIndent - mailNameWidth - mailClockWidth - mailMarkWidth
+	if spare < mailLeastSnippet {
+		return head
+	}
+
+	return head + " " + dimStyle.Render(clip(mailSnippet(r.item.GetBody()), spare))
 }
 
-const mailNameWidth = 16
-
-const mailSnippetWidth = 32
+const (
+	mailNameWidth  = 16
+	mailClockWidth = 6
+	mailMarkWidth  = 2
+	// mailRowIndent is the cursor and the nesting a row is drawn behind.
+	mailRowIndent = 5
+	// mailLeastSnippet is the least of a message worth drawing, under which the row is the
+	// correspondent and what became of the mail alone.
+	mailLeastSnippet = 8
+)
 
 // mailSnippet is the opening of a message on one line, which is what makes a row worth
 // reading before the stage has drawn the message itself.
 func mailSnippet(body string) string {
-	return clip(strings.Join(strings.Fields(body), " "), mailSnippetWidth)
+	return strings.Join(strings.Fields(body), " ")
 }
 
 var (
