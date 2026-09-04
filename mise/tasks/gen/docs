@@ -26,4 +26,4 @@ done
 
 cd "$MISE_CONFIG_ROOT"
 
-go run ./cmd/gen-docs docs/reference
+go run ./cmd/gen-docs

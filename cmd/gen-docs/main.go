@@ -13,11 +13,7 @@ import (
 )
 
 func main() {
-	dir := "docs/reference"
-	if len(os.Args) > 1 {
-		dir = os.Args[1]
-	}
-	if err := run(dir); err != nil {
+	if err := run("docs/reference"); err != nil {
 		fmt.Fprintln(os.Stderr, "gen-docs:", err)
 		os.Exit(1)
 	}
@@ -27,8 +23,8 @@ func run(dir string) error {
 	root := cli.NewRootCommand()
 	prepare(root)
 
-	// Generating somewhere else first keeps a failure part way through from touching the
-	// committed reference, and names the current pages without restating cobra's traversal.
+	// Generating somewhere else first names the pages the command tree has without
+	// restating cobra's own traversal and filename rules.
 	staging, err := os.MkdirTemp("", "gen-docs")
 	if err != nil {
 		return fmt.Errorf("creating staging directory: %w", err)
