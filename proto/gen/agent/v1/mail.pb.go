@@ -30,6 +30,7 @@ const (
 	MailKind_MAIL_KIND_UNSPECIFIED     MailKind = 0
 	MailKind_MAIL_KIND_PLAIN           MailKind = 1
 	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
+	MailKind_MAIL_KIND_EXCHANGE_CAPPED MailKind = 3
 )
 
 // Enum value maps for MailKind.
@@ -38,11 +39,13 @@ var (
 		0: "MAIL_KIND_UNSPECIFIED",
 		1: "MAIL_KIND_PLAIN",
 		2: "MAIL_KIND_REVIEW_ACTIVITY",
+		3: "MAIL_KIND_EXCHANGE_CAPPED",
 	}
 	MailKind_value = map[string]int32{
 		"MAIL_KIND_UNSPECIFIED":     0,
 		"MAIL_KIND_PLAIN":           1,
 		"MAIL_KIND_REVIEW_ACTIVITY": 2,
+		"MAIL_KIND_EXCHANGE_CAPPED": 3,
 	}
 )
 
@@ -135,7 +138,6 @@ type Mail struct {
 	ClaimedAt     *string                `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
 	ExpiresAt     string                 `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
 	Kind          MailKind               `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
-	Hops          int32                  `protobuf:"varint,11,opt,name=hops,proto3" json:"hops,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -238,13 +240,6 @@ func (x *Mail) GetKind() MailKind {
 		return x.Kind
 	}
 	return MailKind_MAIL_KIND_UNSPECIFIED
-}
-
-func (x *Mail) GetHops() int32 {
-	if x != nil {
-		return x.Hops
-	}
-	return 0
 }
 
 type SendMailRequest struct {
@@ -599,7 +594,7 @@ var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
 const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xfc\x02\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xe8\x02\n" +
 	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
@@ -614,8 +609,7 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
 	"expires_at\x18\t \x01(\tR\texpiresAt\x12&\n" +
 	"\x04kind\x18\n" +
-	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kind\x12\x12\n" +
-	"\x04hops\x18\v \x01(\x05R\x04hopsB\x10\n" +
+	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kindB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
 	"\t_reply_toB\r\n" +
 	"\v_claimed_at\"\x90\x01\n" +
@@ -645,11 +639,12 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"/\n" +
 	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*Y\n" +
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*x\n" +
 	"\bMailKind\x12\x19\n" +
 	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
 	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
-	"\x19MAIL_KIND_REVIEW_ACTIVITY\x10\x02*e\n" +
+	"\x19MAIL_KIND_REVIEW_ACTIVITY\x10\x02\x12\x1d\n" +
+	"\x19MAIL_KIND_EXCHANGE_CAPPED\x10\x03*e\n" +
 	"\rMailDirection\x12\x1e\n" +
 	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
 	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +

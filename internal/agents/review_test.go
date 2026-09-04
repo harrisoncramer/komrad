@@ -898,8 +898,8 @@ func reviewServiceWithRealMail(t *testing.T, reviews *fakeReviewStore, mailbox *
 func mailService(mailbox *countingMailbox) *MailService {
 	return NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    fakeAgentReaderFunc(liveAgent),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         fakeAgentReaderFunc(liveAgent),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 }
 
@@ -918,8 +918,6 @@ func (f *countingMailbox) Send(_ context.Context, params mailstore.SendParams) (
 		Body:        params.Body,
 		Kind:        params.Kind,
 		ReplyTo:     params.ReplyTo,
-		ThreadRoot:  params.ThreadRoot,
-		Hops:        params.Hops,
 	}
 	f.held = append(f.held, sent)
 
@@ -947,18 +945,6 @@ func (f *countingMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail
 	return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
 }
 
-func (f *countingMailbox) DeepestHops(_ context.Context, threadRoot string) (int32, error) {
-	deepest := int32(0)
-	for _, held := range f.held {
-		inThread := held.ID == threadRoot || (held.ThreadRoot != nil && *held.ThreadRoot == threadRoot)
-		if inThread && held.Hops > deepest {
-			deepest = held.Hops
-		}
-	}
-
-	return deepest, nil
-}
-
 func (f *countingMailbox) Claim(_ context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error) {
 	var claimed []mailstore.Mail
 	for i := range f.held {
@@ -976,7 +962,7 @@ func (f *countingMailbox) Claim(_ context.Context, toAgentID string, limit int32
 	return claimed, nil
 }
 
-func (f *countingMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error) {
+func (f *countingMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, _ *string) (*mailstore.Mail, error) {
 	for i := range f.held {
 		if f.held[i].ToAgentID == toAgentID && f.held[i].Kind == kind && f.held[i].ClaimedAt == nil {
 			return &f.held[i], nil
@@ -1012,3 +998,19 @@ func (f *countingMailbox) ListByID(context.Context, []string) ([]mailstore.Mail,
 func (f *countingMailbox) Delete(context.Context, []string) error { return nil }
 
 func (f *countingMailbox) ListUnreadMailboxes(context.Context) ([]string, error) { return nil, nil }
+
+func (f *countingMailbox) CountExchanged(_ context.Context, one, other string) (int64, error) {
+	var exchanged int64
+	for _, mail := range f.held {
+		if mail.Kind != mailstore.KindPlain || mail.FromAgentID == nil {
+			continue
+		}
+
+		from, to := *mail.FromAgentID, mail.ToAgentID
+		if (from == one && to == other) || (from == other && to == one) {
+			exchanged++
+		}
+	}
+
+	return exchanged, nil
+}

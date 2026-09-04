@@ -50,9 +50,10 @@ const DefaultProcessViewer = `less -R -X "$WEAVE_LOG"`
 // enough that nothing chases a recipient nobody is coming back to.
 const DefaultDeliveryDeadline = "3h"
 
-// DefaultMaxHops is how many pieces of mail may pass through one thread when the config
-// names no limit, ten rounds each way between two agents.
-const DefaultMaxHops = 20
+// DefaultMaxExchange is how much mail two agents may write each other when the config names no
+// limit, set at more than twice the longest exchange the panel has recorded finishing, since a
+// cap set too high costs one long loop and a cap set too low severs a review as it concludes.
+const DefaultMaxExchange = 40
 
 // DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
 // no number. Since weave captures about one frame every two seconds, this equates roughly to 15 minutes
@@ -498,12 +499,12 @@ type Mail struct {
 	// it is neither delivered nor readable, and the row is kept as a record that it never
 	// arrived.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
-	// How many pieces of mail may pass through one thread before a send is refused. A
-	// reply counts from the deepest hop the thread has reached, so answering an earlier
-	// message does not put the count back where that message was. It caps one thread
-	// rather than the total mail between two agents, so mail sent with no reply_to opens
-	// a thread of its own and starts again at one.
-	MaxHops int `mapstructure:"max_hops"`
+	// How much mail two agents may write each other before a send between them is
+	// refused. It counts the pair in both directions over every thread, so opening a new
+	// subject is not a way around it. When a send is refused weave marks a row for
+	// attention and tells the recipient its mail was stopped, so an exchange that is cut
+	// off does not leave the other side waiting on a reply that will never arrive.
+	MaxExchange int `mapstructure:"max_exchange"`
 }
 
 // GetDeliveryDeadline is how long mail stays deliverable, parsed. A duration that will
@@ -525,19 +526,19 @@ func (m Mail) GetDeliveryDeadline() (time.Duration, error) {
 	return parsed, nil
 }
 
-// GetMaxHops is how many pieces of mail may pass through one thread. An unset limit
-// takes the default; a negative one is an error rather than the default, for the same
-// reason an unparseable deadline is: a config somebody wrote and weave quietly ignored is
-// worse than one it refuses.
-func (m Mail) GetMaxHops() (int, error) {
-	if m.MaxHops == 0 {
-		m.MaxHops = DefaultMaxHops
+// GetMaxExchange is how much mail two agents may write each other. An unset limit takes the
+// default; a negative one is an error rather than the default, for the same reason an
+// unparseable deadline is: a config somebody wrote and weave quietly ignored is worse than one
+// it refuses.
+func (m Mail) GetMaxExchange() (int, error) {
+	if m.MaxExchange == 0 {
+		m.MaxExchange = DefaultMaxExchange
 	}
-	if m.MaxHops < 0 {
-		return 0, fmt.Errorf("the mail hop limit must be positive, not %d", m.MaxHops)
+	if m.MaxExchange < 0 {
+		return 0, fmt.Errorf("the mail exchange limit must be positive, not %d", m.MaxExchange)
 	}
 
-	return m.MaxHops, nil
+	return m.MaxExchange, nil
 }
 
 // Debug is what weave records about its own reading of an agent.
@@ -641,7 +642,7 @@ func Defaults() *Config {
 		Layout:         DefaultLayout(),
 		Tags:           DefaultTags(),
 		Keybindings:    DefaultKeybindings(),
-		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxHops: DefaultMaxHops},
+		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log: Log{
 			Level:         DefaultLogLevel,
 			Viewer:        DefaultLogViewer,

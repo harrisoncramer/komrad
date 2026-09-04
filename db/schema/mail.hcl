@@ -1,6 +1,6 @@
 enum "mail_kind" {
   schema = schema.public
-  values = ["plain", "review_activity"]
+  values = ["plain", "review_activity", "exchange_capped"]
 }
 
 table "mail" {
@@ -38,15 +38,10 @@ table "mail" {
     null = true
     type = uuid
   }
-  column "thread_root" {
+  column "about_agent_id" {
     null    = true
     type    = uuid
-    comment = "The mail that opened the thread this belongs to, null on the opening mail itself. It carries no foreign key on purpose: deleting the mail a thread started from must not detach what followed it, since the hop count is read across the whole thread."
-  }
-  column "hops" {
-    null    = false
-    type    = int
-    default = 1
+    comment = "The other agent a notice weave raised is about, null on ordinary mail. It is what holds a recipient to one unread notice per subject rather than one per kind, so an agent capped with a second partner is told about that one too. It carries no foreign key, since the notice has to keep saying which exchange was cut off after the agent it names is gone."
   }
   column "claimed_at" {
     null = true
@@ -97,13 +92,10 @@ table "mail" {
     comment = "Reads what an agent is holding unread, which is both what a send is refused by the size of and where the doorbell a further release joins is found."
   }
   index "mail_from_agent_id" {
-    columns = [column.from_agent_id]
+    columns = [column.from_agent_id, column.to_agent_id]
+    comment = "Counts the mail one pair of agents has exchanged, which is what a send is refused by the size of."
   }
   index "mail_reply_to" {
     columns = [column.reply_to]
-  }
-  index "mail_thread_root" {
-    columns = [column.thread_root]
-    comment = "Reads the whole thread a reply belongs to, which is what the hop count is measured across."
   }
 }

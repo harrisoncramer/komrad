@@ -583,7 +583,6 @@ func received(id, from, body string) *agentv1.Mail {
 		ToAgentId:   "a1",
 		Body:        body,
 		Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
-		Hops:        1,
 		CreatedAt:   time.Now().Add(-time.Minute).Format(time.RFC3339),
 		ExpiresAt:   time.Now().Add(time.Hour).Format(time.RFC3339),
 	}
@@ -599,7 +598,6 @@ func sent(id, body string) *agentv1.Mail {
 		ToAgentId:   "a2",
 		Body:        body,
 		Kind:        agentv1.MailKind_MAIL_KIND_PLAIN,
-		Hops:        1,
 		CreatedAt:   time.Now().Add(-2 * time.Minute).Format(time.RFC3339),
 		ExpiresAt:   time.Now().Add(time.Hour).Format(time.RFC3339),
 	}

@@ -505,7 +505,6 @@ func (m model) mailFields(r mailRow) []recordField {
 	}
 
 	return append(fields,
-		recordField{"hops", fmt.Sprintf("%d", item.GetHops())},
 		recordField{"mail_id", item.GetId()},
 	)
 }
@@ -575,6 +574,8 @@ func mailKindWord(kind agentv1.MailKind) string {
 		return "plain"
 	case agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY:
 		return "review activity"
+	case agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED:
+		return "exchange capped"
 	case agentv1.MailKind_MAIL_KIND_UNSPECIFIED:
 		return "—"
 	}

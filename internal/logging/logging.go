@@ -41,6 +41,7 @@ const (
 	ScriptStderr           = "weave.script.stderr"
 	MailID                 = "weave.mail.id"
 	UnreadMail             = "weave.mail.unread"
+	ExchangedMail          = "weave.mail.exchanged"
 	WorkflowID             = "weave.workflow.id"
 	PullRequestURL         = "weave.pull_request.url"
 	ExitCode               = "process.exit.code"

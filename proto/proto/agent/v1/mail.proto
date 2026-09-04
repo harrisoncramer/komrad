@@ -12,6 +12,7 @@ enum MailKind {
   MAIL_KIND_UNSPECIFIED = 0;
   MAIL_KIND_PLAIN = 1;
   MAIL_KIND_REVIEW_ACTIVITY = 2;
+  MAIL_KIND_EXCHANGE_CAPPED = 3;
 }
 
 // MailDirection is which half of an agent's correspondence a listing asks for.
@@ -32,7 +33,6 @@ message Mail {
   optional string claimed_at = 8;
   string expires_at = 9;
   MailKind kind = 10;
-  int32 hops = 11;
 }
 
 message SendMailRequest {

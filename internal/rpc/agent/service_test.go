@@ -1031,13 +1031,13 @@ func TestSendMail(t *testing.T) {
 	}
 }
 
-// TestSendMailPastTheHopLimitIsResourceExhausted pins that a thread run past its configured
-// hop limit is refused rather than allowed to keep going.
-func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
+// TestSendMailPastTheExchangeLimitIsResourceExhausted pins that a pair that has written each
+// other as much as the configured limit allows is refused rather than allowed to keep going.
+func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	st := storetest.Open(t)
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
-		AgentFinder:    st.Agents,
+		Agents:         st.Agents,
 		Config:         stubMailConfig(1),
 	})
 	svc := NewService(NewServiceParams{
@@ -1074,7 +1074,7 @@ func TestSendMailPastTheHopLimitIsResourceExhausted(t *testing.T) {
 	}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
-	assert.ErrorIs(t, err, agents.ErrThreadCapped)
+	assert.ErrorIs(t, err, agents.ErrExchangeCapped)
 }
 
 // TestReadMail pins that an agent reading its own mailbox is handed what is waiting there.
@@ -1998,7 +1998,7 @@ type stubMailConfig int
 
 func (stubMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
 
-func (s stubMailConfig) GetMaxHops() (int, error) { return int(s), nil }
+func (s stubMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
@@ -2067,8 +2067,8 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
-		AgentFinder:    st.Agents,
-		Config:         stubMailConfig(config.DefaultMaxHops),
+		Agents:         st.Agents,
+		Config:         stubMailConfig(config.DefaultMaxExchange),
 	})
 
 	return NewService(NewServiceParams{

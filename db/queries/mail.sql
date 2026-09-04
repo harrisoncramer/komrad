@@ -6,8 +6,7 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
-    thread_root,
-    hops,
+    about_agent_id,
     expires_at)
 VALUES (
     sqlc.narg('from_agent_id'),
@@ -16,20 +15,10 @@ VALUES (
     @body,
     @kind,
     sqlc.narg('reply_to'),
-    sqlc.narg('thread_root'),
-    @hops,
+    sqlc.narg('about_agent_id'),
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 RETURNING
     *;
-
--- name: GetDeepestHopsInThread :one
-SELECT
-    COALESCE(MAX(m.hops), 0)::int AS deepest
-FROM
-    mail m
-WHERE
-    m.id = @thread_root
-    OR m.thread_root = @thread_root;
 
 -- name: GetPendingMailOfKind :one
 SELECT
@@ -39,6 +28,7 @@ FROM
 WHERE
     m.to_agent_id = @to_agent_id
     AND m.kind = @kind
+    AND m.about_agent_id IS NOT DISTINCT FROM sqlc.narg('about_agent_id')
     AND m.claimed_at IS NULL
     AND m.expires_at > NOW()
 ORDER BY
@@ -175,3 +165,15 @@ WHERE
 ORDER BY
     m.id DESC
 LIMIT @lim;
+
+-- name: CountMailExchangedBetweenAgents :one
+SELECT
+    COUNT(*)
+FROM
+    mail m
+WHERE
+    m.kind = 'plain'
+    AND ((m.from_agent_id = @one::uuid
+            AND m.to_agent_id = @other::uuid)
+        OR (m.from_agent_id = @other::uuid
+            AND m.to_agent_id = @one::uuid));
