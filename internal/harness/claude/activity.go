@@ -20,6 +20,11 @@ var optionCursor = regexp.MustCompile(`^\s*│?\s*❯\s+\d+\.\s`)
 
 var boxRule = regexp.MustCompile(`^─{3,}\s*$`)
 
+// panelRule is the rule Claude draws across the top of a panel it opens over the whole pane,
+// which eats every key typed at the pane until somebody dismisses it and shows no footer of its
+// own once its content is longer than the pane is tall.
+var panelRule = regexp.MustCompile(`^\s*▔{3,}`)
+
 // transcriptMarker opens a line of the conversation above the box.
 var transcriptMarker = regexp.MustCompile(`^\s*[⏺❯※]`)
 
@@ -53,11 +58,11 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 		return harness.ActivityUnknown
 	}
 
-	lines, held := frameLines(frame)
+	lines, held, colours := frameLines(frame)
 	box, boxed := findInputBox(lines, held)
 
 	switch {
-	case doesFrameShowWork(lines, box, boxed):
+	case doesFrameShowWork(lines, box, boxed), isPromptGreyed(colours, box, boxed):
 		return harness.ActivityWorking
 	case doesFrameShowWaiting(lines, boxed):
 		return harness.ActivityWaiting
@@ -72,19 +77,20 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-// frameLines splits a captured frame into the lines its structure is read from and the same
-// lines less the text Claude draws dim.
-func frameLines(frame string) ([]string, []string) {
+// frameLines splits a captured frame into the lines its structure is read from, the same lines
+// less the text Claude draws dim, and the colour each line's first character is drawn in.
+func frameLines(frame string) (lines, held, colours []string) {
 	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	held := harness.StripDim(drawn)
+	held = harness.StripDim(drawn)
+	colours = harness.Foregrounds(drawn)
 
-	lines := make([]string, len(drawn))
+	lines = make([]string, len(drawn))
 	for i, line := range drawn {
 		lines[i] = ansiSeq.ReplaceAllString(line, "")
 		held[i] = ansiSeq.ReplaceAllString(held[i], "")
 	}
 
-	return lines, held
+	return lines, held, colours
 }
 
 // findInputBox is the box nearest the bottom of the frame, which is the rule carrying the
@@ -123,6 +129,21 @@ func doesFrameShowWork(lines []string, box inputBox, boxed bool) bool {
 	}
 
 	return false
+}
+
+// isPromptGreyed reports whether the box draws its prompt marker in the colour of the rule above
+// it rather than in the terminal's own, which is Claude greying the box out for the length of a
+// turn.
+func isPromptGreyed(colours []string, box inputBox, boxed bool) bool {
+	if !boxed {
+		return false
+	}
+
+	// A box drawn in one colour throughout says nothing either way, so the marker has to carry
+	// the rule's own colour rather than merely some colour.
+	rule := colours[box.Rule]
+
+	return rule != "" && rule == colours[box.Rule+1]
 }
 
 // statusRegion is the lines between the box and the conversation above it, taking only the
@@ -172,6 +193,14 @@ func doesFrameShowWaiting(lines []string, boxed bool) bool {
 
 	if waitingFooter.MatchString(strings.Join(region, "\n")) {
 		return true
+	}
+
+	// A panel is read off its own rule rather than off a footer, since the footer naming the key
+	// that dismisses it is the first thing the pane cuts off.
+	for _, line := range lines {
+		if panelRule.MatchString(line) {
+			return true
+		}
 	}
 
 	// The whole frame rather than a window off the bottom, since the preview that pushes the

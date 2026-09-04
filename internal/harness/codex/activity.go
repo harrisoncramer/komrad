@@ -14,6 +14,11 @@ var workingLine = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*Working\s*\(\s*\d+`)
 // of the live line, so prose quoting those words is not work.
 var interruptTimer = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*\p{L}+\s*\(\s*\d+[^)\n]*esc to interrupt`)
 
+// interruptLabel is the same live line where a step names what it is doing before the timer, held
+// to the first column Codex draws its own status in and to the timer ending the line, since prose
+// quoting those words is indented and carries on past them.
+var interruptLabel = regexp.MustCompile(`(?m)^\S\s+\p{L}.*\(\s*\d+[^)\n]*esc to interrupt\)\s*$`)
+
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
 
 var composerMarker = regexp.MustCompile(`^\s*›(.*)$`)
@@ -22,7 +27,9 @@ const liveRegionLines = 30
 
 const waitingRegionLines = 8
 
-const idleRegionLines = 8
+// composerSearchLines is how far up the composer marker is looked for, which is past the menus
+// Codex draws under the composer rather than over it.
+const composerSearchLines = 30
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
@@ -64,7 +71,7 @@ func tailLines(frame string, count int) string {
 func doesFrameShowWork(frame string) bool {
 	region := tailLines(frame, liveRegionLines)
 
-	return workingLine.MatchString(region) || interruptTimer.MatchString(region)
+	return workingLine.MatchString(region) || interruptTimer.MatchString(region) || interruptLabel.MatchString(region)
 }
 
 func doesFrameShowWaiting(frame string) bool {
@@ -87,8 +94,8 @@ func doesComposerHoldText(frame string) bool {
 // the transcript echoes a message somebody sent with the same glyph the composer wears.
 func composerText(frame string) (string, bool) {
 	drawn := strings.Split(strings.TrimRight(frame, "\n"), "\n")
-	if len(drawn) > idleRegionLines {
-		drawn = drawn[len(drawn)-idleRegionLines:]
+	if len(drawn) > composerSearchLines {
+		drawn = drawn[len(drawn)-composerSearchLines:]
 	}
 
 	lines := harness.StripDim(drawn)
@@ -100,8 +107,11 @@ func composerText(frame string) (string, bool) {
 		drawn[i] = ansiSeq.ReplaceAllString(line, "")
 	}
 
+	// A dim-blanked marker is a composer holding nothing rather than no composer, so the marker
+	// is read from the frame and the text from the frame less the dim.
 	marker := -1
-	for i, line := range lines {
+
+	for i, line := range drawn {
 		if composerMarker.MatchString(line) {
 			marker = i
 		}
@@ -120,7 +130,11 @@ func composerText(frame string) (string, bool) {
 		}
 	}
 
-	held := []string{composerMarker.FindStringSubmatch(lines[marker])[1]}
+	held := []string{""}
+	if typed := composerMarker.FindStringSubmatch(lines[marker]); typed != nil {
+		held[0] = typed[1]
+	}
+
 	if footer > marker {
 		held = append(held, lines[marker+1:footer]...)
 	}
