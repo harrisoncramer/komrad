@@ -738,11 +738,11 @@ func TestExpiredNoticeIsReportableAgain(t *testing.T) {
 	}
 }
 
-// TestDeepestHopsSurvivesDeletingTheMailAThreadOpenedWith proves the reason thread_root
+// TestDeepestHopsOutlivesTheMailThatOpenedTheThread proves the reason thread_root
 // carries no foreign key: reply_to is set null when its target goes, so a thread counted
 // along the reply chain would restart from one the moment somebody deleted its first
 // message.
-func TestDeepestHopsSurvivesDeletingTheMailAThreadOpenedWith(t *testing.T) {
+func TestDeepestHopsOutlivesTheMailThatOpenedTheThread(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
@@ -765,9 +765,19 @@ func TestDeepestHopsSurvivesDeletingTheMailAThreadOpenedWith(t *testing.T) {
 	})
 	require.NoError(t, err)
 
+	_, err = st.Send(ctx, SendParams{
+		ToAgentID:  recipient,
+		Body:       "and the other one?",
+		ReplyTo:    &root.ID,
+		ThreadRoot: &root.ID,
+		Hops:       3,
+		Deadline:   time.Hour,
+	})
+	require.NoError(t, err)
+
 	deepest, err := st.DeepestHops(ctx, root.ID)
 	require.NoError(t, err)
-	assert.EqualValues(t, 2, deepest)
+	assert.EqualValues(t, 3, deepest)
 
 	require.NoError(t, st.Delete(ctx, []string{root.ID}))
 
@@ -778,7 +788,7 @@ func TestDeepestHopsSurvivesDeletingTheMailAThreadOpenedWith(t *testing.T) {
 
 	deepest, err = st.DeepestHops(ctx, root.ID)
 	require.NoError(t, err)
-	assert.EqualValues(t, 2, deepest)
+	assert.EqualValues(t, 3, deepest)
 }
 
 // TestDeepestHopsOfNothing pins that a thread nothing belongs to reads as zero rather than

@@ -194,6 +194,35 @@ func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
 	assert.Equal(t, int32(1), unrelated.Hops)
 }
 
+// TestSendMailCountsEveryHopInTheThread pins that the cap bounds the whole exchange rather
+// than one path down it: an agent that keeps answering the message that opened the thread
+// is on its third round, not its second, however it addressed the reply.
+func TestSendMailCountsEveryHopInTheThread(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: 2},
+	})
+
+	first, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-a", ToAgentID: "agent-b", Body: "which column?",
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, first.Hops)
+
+	second, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, second.Hops)
+
+	_, err = svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-a", ToAgentID: "agent-b", Body: "and the other one?", ReplyTo: &first.ID,
+	})
+	require.ErrorIs(t, err, ErrThreadCapped)
+}
+
 // TestSendMailSystemNoticeIsAlwaysAFreshThread proves, rather than assumes, that a
 // lifecycle notice cannot be refused by the hop cap: it carries no reply_to, so it always
 // takes hops 1, which clears even the tightest limit a panel could configure.
@@ -504,33 +533,4 @@ func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent
 	}
 
 	return &found, nil
-}
-
-// TestSendMailCountsEveryHopInTheThread pins that the cap bounds the whole exchange rather
-// than one path down it: an agent that keeps answering the message that opened the thread
-// is on its third round, not its second, however it addressed the reply.
-func TestSendMailCountsEveryHopInTheThread(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: 2},
-	})
-
-	first, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "which column?",
-	})
-	require.NoError(t, err)
-	assert.EqualValues(t, 1, first.Hops)
-
-	second, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
-	})
-	require.NoError(t, err)
-	assert.EqualValues(t, 2, second.Hops)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "and the other one?", ReplyTo: &first.ID,
-	})
-	require.ErrorIs(t, err, ErrThreadCapped)
 }
