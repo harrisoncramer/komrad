@@ -325,6 +325,15 @@ viewer         = "tail -n +1 -F \"$WEAVE_LOG\" | grep --line-buffered \"$WEAVE_A
 # structured log's JSON lines.
 process_viewer = "less -R -X \"$WEAVE_LOG\""
 
+# Puts weave into debug mode which records additional information used to help diagnose issues.
+[debug]
+# Whether the pane capture behind each reading of an agent is kept under the cache
+# directory.
+frames        = false
+# How many frames are kept for one agent before the oldest is dropped. A number at or
+# below zero takes the default.
+frame_history = 500
+
 # Which weave this is: the database, the address, the tmux socket, the cache.
 [connection]
 # The Postgres weave keeps every agent, workflow, schedule and transcript in.

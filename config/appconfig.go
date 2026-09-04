@@ -54,6 +54,12 @@ const DefaultDeliveryDeadline = "3h"
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
+// DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
+// no number. Since weave captures about one frame every two seconds, this equates roughly to 15 minutes
+// of frames captured, which should be more than enough to replicate most issues related to state transitions
+// or reading data off of an agent panel.
+const DefaultFrameHistory = 500
+
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
 const DefaultMaxAgents = 50
@@ -532,6 +538,16 @@ func (m Mail) GetMaxHops() (int, error) {
 	return m.MaxHops, nil
 }
 
+// Debug is what weave records about its own reading of an agent.
+type Debug struct {
+	// Whether the pane capture behind each reading of an agent is kept under the cache
+	// directory.
+	Frames bool `mapstructure:"frames"`
+	// How many frames are kept for one agent before the oldest is dropped. A number at or
+	// below zero takes the default.
+	FrameHistory int `mapstructure:"frame_history"`
+}
+
 // Log is how much the background service writes about itself. Where it writes is not
 // configurable. The process that spawns the service points its output at the log and the
 // panel's log key pages the same file, and a path the two could disagree about is a log
@@ -607,6 +623,8 @@ type Config struct {
 	Mail Mail `mapstructure:"mail"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
+	// Puts weave into debug mode which records additional information used to help diagnose issues.
+	Debug Debug `mapstructure:"debug"`
 	// Which weave this is: the database, the address, the tmux socket, the cache.
 	Connection Connection `mapstructure:"connection"`
 }
@@ -627,6 +645,7 @@ func Defaults() *Config {
 			Viewer:        DefaultLogViewer,
 			ProcessViewer: DefaultProcessViewer,
 		},
+		Debug:      Debug{FrameHistory: DefaultFrameHistory},
 		Connection: DefaultConnection(),
 	}
 }
@@ -1182,6 +1201,9 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if strings.TrimSpace(c.Log.ProcessViewer) == "" {
 		c.Log.ProcessViewer = DefaultProcessViewer
+	}
+	if c.Debug.FrameHistory <= 0 {
+		c.Debug.FrameHistory = DefaultFrameHistory
 	}
 }
 

@@ -427,6 +427,31 @@ func TestLoadAbsentFileDefaults(t *testing.T) {
 	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
 }
 
+// TestLoadFrameHistoryRefusesToBeUnbounded covers frame_history at or below zero taking the default.
+func TestLoadFrameHistoryRefusesToBeUnbounded(t *testing.T) {
+	tests := []struct {
+		name    string
+		written string
+		want    int
+	}{
+		{name: "nothing written", written: "", want: DefaultFrameHistory},
+		{name: "zero", written: "[debug]\nframe_history = 0\n", want: DefaultFrameHistory},
+		{name: "negative", written: "[debug]\nframe_history = -1\n", want: DefaultFrameHistory},
+		{name: "a number somebody chose", written: "[debug]\nframe_history = 20\n", want: 20},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			path := filepath.Join(t.TempDir(), "config.toml")
+			require.NoError(t, os.WriteFile(path, []byte(tt.written), 0o600))
+
+			cfg, err := Load([]string{path})
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, cfg.Debug.FrameHistory)
+		})
+	}
+}
+
 // TestLoadLogLevel covers the level the service logs at, since a word slog has no answer for
 // would decode as debug and turn the log all the way up.
 func TestLoadLogLevel(t *testing.T) {

@@ -70,6 +70,26 @@ const (
 	ActivityUnrecognized
 )
 
+// String names an activity for a log line or the name of a recorded frame.
+func (a Activity) String() string {
+	switch a {
+	case ActivityWorking:
+		return "working"
+	case ActivityWaiting:
+		return "waiting"
+	case ActivityIdle:
+		return "idle"
+	case ActivityComposing:
+		return "composing"
+	case ActivityUnrecognized:
+		return "unrecognized"
+	case ActivityUnknown:
+		return "unknown"
+	}
+
+	return "unknown"
+}
+
 type Turn struct {
 	Role    string
 	Content string

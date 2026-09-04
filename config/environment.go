@@ -76,6 +76,11 @@ func (e *Environment) RunLogsDir() string {
 	return filepath.Join(e.CacheDir, "weave-run-logs")
 }
 
+// FramesDir is where the pane captures are kept when debug mode is on, one directory per agent.
+func (e *Environment) FramesDir() string {
+	return filepath.Join(e.CacheDir, "weave-frames")
+}
+
 // The moments a script can run at, which are what a script reads out of WEAVE_TRIGGER and
 // what a run's log file is named after: the worktree provisioner's own three, the panel's
 // open-pull-request key, and the moments a workflow can hang a hook on.

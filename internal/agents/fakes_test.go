@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/frames"
 	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
@@ -216,6 +217,30 @@ const (
 
 const testHarnessID = "claude"
 
+// fakeFrameRecorder stands in for the recording, holding what a pass handed it rather than
+// writing anything.
+type fakeFrameRecorder struct {
+	mu        sync.Mutex
+	recorded  []frames.RecordParams
+	forgotten int
+}
+
+func (f *fakeFrameRecorder) Record(params frames.RecordParams) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.recorded = append(f.recorded, params)
+
+	return nil
+}
+
+func (f *fakeFrameRecorder) Forget(map[string]struct{}) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	f.forgotten++
+}
+
 type fakeHarness struct {
 	mu         sync.Mutex
 	launches   []harness.Launch
@@ -392,6 +417,7 @@ type agentServiceOptions struct {
 	maxChildren int
 	notifier    systemMailSender
 	logsDir     string
+	framesDir   string
 	agents      testAgentStore
 	tx          txRunner
 }
@@ -452,6 +478,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Scripts:        options.lifecycle,
 			Notifier:       options.notifier,
 			LogsDir:        options.logsDir,
+			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,
 			MaxChildren:    options.maxChildren,
 		}),

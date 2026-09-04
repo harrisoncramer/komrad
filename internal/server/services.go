@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/frames"
 	"weave/internal/scripts"
 )
 
@@ -132,6 +133,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Scripts:        scriptService,
 		Notifier:       mailService,
 		LogsDir:        runLogsDir,
+		FramesDir:      p.Env.FramesDir(),
 		MaxAgents:      p.MaxAgents,
 		MaxChildren:    p.MaxChildren,
 	})
@@ -168,6 +170,8 @@ func buildServices(p Params, st *stores) (*services, error) {
 			PaneTyper:     p.Tmux,
 			Harnesses:     p.Harnesses,
 		}),
-		reconciler: agents.NewReconciler(p.Tmux, p.Harnesses, st.agents).WithPRFinder(agents.NewGHPRFinder()),
+		reconciler: agents.NewReconciler(p.Tmux, p.Harnesses, st.agents).
+			WithPRFinder(agents.NewGHPRFinder()).
+			WithFrameRecorder(frames.NewRecorder(p.Env.FramesDir(), newFrameSettings(loadConfig).get)),
 	}, nil
 }
