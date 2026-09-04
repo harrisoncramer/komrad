@@ -305,6 +305,11 @@ SET
     ELSE
         state_changed_at
     END,
+    reported_reason = CASE WHEN state IS DISTINCT FROM @state THEN
+        ''
+    ELSE
+        reported_reason
+    END,
     state_seen_at = NOW()
 WHERE
     id = @id;
@@ -359,6 +364,7 @@ SET
     ELSE
         state_changed_at
     END,
+    reported_reason = '',
     state_seen_at = NOW()
 WHERE
     id = @id

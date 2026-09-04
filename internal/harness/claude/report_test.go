@@ -19,6 +19,7 @@ func TestReadReport(t *testing.T) {
 		event   string
 		payload string
 		want    harness.Report
+		wantErr bool
 	}{
 		{
 			name:    "a turn ending",
@@ -38,16 +39,23 @@ func TestReadReport(t *testing.T) {
 			want:  harness.Report{TurnEnded: true},
 		},
 		{
-			name:    "an event weave installs no hook for",
+			name:    "an event no reading is taken from",
 			event:   "PreToolUse",
 			payload: `{"tool_name":"Bash"}`,
-			want:    harness.Report{},
+			wantErr: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			report, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadReport(tt.event, []byte(tt.payload))
+			if tt.wantErr {
+				require.Error(t, err, "an event with no case here would otherwise clear the reason on the row")
+				assert.Equal(t, harness.Report{}, report)
+
+				return
+			}
+
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, report)
 		})
@@ -64,4 +72,16 @@ func TestReadReportOnACapturedPayload(t *testing.T) {
 	report, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadReport(EventStop, payload)
 	require.NoError(t, err)
 	assert.Equal(t, harness.Report{TurnEnded: true}, report)
+}
+
+// TestEveryInstalledHookIsRead pins the direction the subcommand test cannot cover: an event
+// weave installs and takes no reading from would fire on every occurrence and record nothing.
+func TestEveryInstalledHookIsRead(t *testing.T) {
+	hn := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()})
+
+	for event := range InstalledHooks {
+		report, err := hn.ReadReport(event, nil)
+		require.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
+		assert.NotEqual(t, harness.Report{}, report, "the %s hook reports something", event)
+	}
 }

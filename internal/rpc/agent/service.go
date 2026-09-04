@@ -399,18 +399,22 @@ func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the caller has no agent id of its own"))
 	}
 
+	// Both stamps are taken before either write, so a store that is down costs the marks it
+	// would have raised rather than also costing the reconciler its shortcut to idle.
 	reason := req.Msg.GetReason()
 	s.reconciler.RecordReportedReason(id, reason)
+	turnEnded := req.Msg.GetTurnEnded()
+	if turnEnded {
+		s.reconciler.RecordTurnBoundary(id)
+	}
 
 	if err := s.agents.SetReportedReason(ctx, id, reason); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to record what the agent reported it was doing")
 	}
 
-	if !req.Msg.GetTurnEnded() {
+	if !turnEnded {
 		return connect.NewResponse(&emptypb.Empty{}), nil
 	}
-
-	s.reconciler.RecordTurnBoundary(id)
 
 	if err := s.agents.SetTurnEnded(ctx, id); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to record the turn end")

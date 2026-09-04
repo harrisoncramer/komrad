@@ -27,8 +27,8 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 	return len(claimed) > 0, nil
 }
 
-// SetStateByID records the state a reconcile pass observed, stamping when it was seen
-// whether or not the value moved.
+// SetStateByID records the state a reconcile pass observed, stamping when it was seen whether or
+// not the value moved, and dropping what the agent's CLI reported it was doing when it did.
 func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)

@@ -404,6 +404,51 @@ func TestSetReportedReasonRoundTrips(t *testing.T) {
 	assert.Empty(t, cleared.ReportedReason)
 }
 
+// TestSetStateByIDClearsTheReportedReason pins that a reason lives exactly as long as the state
+// it annotates, which is what keeps a tool an agent never finished off the row of an agent that
+// has since stopped, and how a reason a restart lost the timestamp for still goes.
+func TestSetStateByIDClearsTheReportedReason(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateThinking))
+	held, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Equal(t, "Bash", held.ReportedReason, "the state it annotates has not moved")
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateIdle))
+	cleared, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Empty(t, cleared.ReportedReason)
+}
+
+// TestMarkSettingUpClearsTheReportedReason pins that a relaunch drops what the conversation
+// before it was doing, since the CLI that reported it is gone.
+func TestMarkSettingUpClearsTheReportedReason(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateThinking}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	require.NotNil(t, created)
+	require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
+
+	marked, err := st.MarkSettingUpIfLive(ctx, created.ID)
+	require.NoError(t, err)
+	require.True(t, marked)
+
+	resumed, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Empty(t, resumed.ReportedReason)
+}
+
 // TestSetTurnEndedRefusesAnIDThatIsNotOne pins that a malformed id is an error rather than a
 // write that silently reaches nothing.
 func TestSetTurnEndedRefusesAnIDThatIsNotOne(t *testing.T) {

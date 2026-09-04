@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"weave/config"
 	"weave/internal/caller"
@@ -166,6 +168,41 @@ func TestStopHookDeliversMail(t *testing.T) {
 	}
 }
 
+// TestClampReason covers what the hook does with a reason the endpoint would refuse, which it
+// takes off rather than lose the turn end travelling with it.
+func TestClampReason(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason string
+		want   string
+	}{
+		{name: "nothing to say"},
+		{
+			name:   "an ordinary tool name",
+			reason: "Bash",
+			want:   "Bash",
+		},
+		{
+			name:   "a reason carrying what the column cannot hold",
+			reason: "Bash\x00 -c\n'ls'",
+			want:   "Bash -c'ls'",
+		},
+		{
+			name:   "a reason longer than the field takes",
+			reason: strings.Repeat("é", reasonLimit+10),
+			want:   strings.Repeat("é", reasonLimit),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clamped := clampReason(tt.reason)
+			assert.Equal(t, tt.want, clamped)
+			assert.True(t, utf8.ValidString(clamped), "a cut that split a rune would be refused as well")
+		})
+	}
+}
+
 // TestEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
 // answered by a subcommand of weave hook, since an event installed without one runs a command
 // that does not exist, on every turn, into a stream nobody reads.
@@ -175,8 +212,8 @@ func TestEveryInstalledHookHasASubcommand(t *testing.T) {
 		names = append(names, cmd.Name())
 	}
 
-	for event, subcommand := range claude.InstalledHooks {
-		assert.Contains(t, names, subcommand, "the %s hook runs weave hook %s", event, subcommand)
+	for event, install := range claude.InstalledHooks {
+		assert.Contains(t, names, install.Subcommand, "the %s hook runs weave hook %s", event, install.Subcommand)
 	}
 }
 

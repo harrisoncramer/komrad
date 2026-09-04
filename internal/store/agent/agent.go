@@ -76,7 +76,7 @@ type Agent struct {
 	TurnEndedAt *time.Time
 
 	// ReportedReason is what the agent's own CLI last reported it was doing, which annotates
-	// the state the pane decided rather than deciding one of its own.
+	// the state the pane decided and is cleared with it when the pane reads a different one.
 	ReportedReason   string
 	Harness          string
 	SessionID        string

@@ -91,10 +91,15 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	return path, nil
 }
 
-// InstalledHooks is the events weave answers, each one named against the subcommand of weave's
-// own hook command that reads its payload.
-var InstalledHooks = map[string]string{
-	EventStop: "stop",
+// HookInstall is how weave answers one Claude event, kept a struct so that an event needing a
+// matcher of its own is a field here rather than a new shape for every event already installed.
+type HookInstall struct {
+	Subcommand string
+}
+
+// InstalledHooks is the events weave answers, keyed by the event Claude fires.
+var InstalledHooks = map[string]HookInstall{
+	EventStop: {Subcommand: "stop"},
 }
 
 // hookSettings is the hooks block Claude loads at session start, which is empty when weave has
@@ -105,9 +110,9 @@ func hookSettings(hookCommand string) map[string]any {
 	}
 
 	hooks := make(map[string]any, len(InstalledHooks))
-	for event, subcommand := range InstalledHooks {
+	for event, install := range InstalledHooks {
 		hooks[event] = []any{map[string]any{
-			"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook " + subcommand}},
+			"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook " + install.Subcommand}},
 		}}
 	}
 

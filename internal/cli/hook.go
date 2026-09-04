@@ -224,15 +224,38 @@ func recordReport(ctx context.Context, state *app, report harness.Report) {
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
-	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // its one caller has nothing to do with a failure here
+	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // no caller of this has anything to do with a failure here
 		Addr: state.env.Addr,
 		Path: agentv1connect.AgentServiceRecordReportProcedure,
 		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
 		Request: map[string]any{
-			"reason":    report.Reason,
+			"reason":    clampReason(report.Reason),
 			"turnEnded": report.TurnEnded,
 		},
 	})
+}
+
+// reasonLimit is the longest reason the reason field of RecordReportRequest takes, which the
+// hook clamps to rather than have a turn end refused over a label.
+const reasonLimit = 200
+
+// clampReason drops the control characters the endpoint refuses and cuts what is left to the
+// length it takes, on a rune boundary since half a rune is refused as well.
+func clampReason(reason string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+
+		return r
+	}, reason)
+
+	runes := []rune(cleaned)
+	if len(runes) <= reasonLimit {
+		return cleaned
+	}
+
+	return string(runes[:reasonLimit])
 }
 
 func readMail(ctx context.Context, state *app) (*deliveredMail, error) {
