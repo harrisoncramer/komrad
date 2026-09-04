@@ -51,15 +51,7 @@ it needs somewhere for agents to be put back into.`,
 			state.tmux.RecordHostSocket(socket)
 			state.tmux.RecordHostPath(hostPath(socket))
 
-			panelKey, paletteKey := userKeys(state, socket)
-
-			state.popup.BindHide(panelKey)
-
-			state.popup.BindPalette(ui.BindPaletteParams{
-				Key:         paletteKey,
-				Self:        getSelfPath(),
-				ConfigPaths: state.configPaths,
-			})
+			state.popup.BindHide(userPanelKey(state, socket))
 
 			return attachManagerSession(cmd.Context(), state)
 		},
@@ -132,18 +124,19 @@ func envWithoutTmux() []string {
 	return xslice.Filter(os.Environ(), func(entry string) bool { return !strings.HasPrefix(entry, "TMUX=") })
 }
 
-// userKeys asks whichever server the user is at, this process's own when it is running in tmux
-// and otherwise the one the last open recorded, since a key set at runtime lives there alone.
-func userKeys(state *app, socket string) (panel, palette string) {
+// userPanelKey asks whichever server the user is at, this process's own when it is running in
+// tmux and otherwise the one the last open recorded, since a key set at runtime lives there
+// alone.
+func userPanelKey(state *app, socket string) string {
 	if socket == "" {
 		socket = state.tmux.GetHostSocket()
 	}
 
 	if socket == "" {
-		return "", ""
+		return ""
 	}
 
-	return ui.UserKeys(tmux.NewClientAtPath(socket))
+	return ui.UserPanelKey(tmux.NewClientAtPath(socket))
 }
 
 // hostPath asks the user's own server where its client is sitting, which only a command running

@@ -28,15 +28,6 @@ const managerKeyOption = "@weave_key"
 
 const defaultPanelKey = "g"
 
-const paletteKeyOption = "@weave_palette_key"
-
-const defaultPaletteKey = "k"
-
-const (
-	palettePopupWidth  = "60"
-	palettePopupHeight = "60%"
-)
-
 // BindHide binds the panel key, handed in because only the user's own server names it, on the
 // manager's own tmux server, which sources the user's config too and would otherwise open a
 // popup inside the popup.
@@ -48,45 +39,14 @@ func (p *PopupWindow) BindHide(key string) {
 	p.tmux.BindKey(key, "detach-client", "-s", p.session)
 }
 
-type BindPaletteParams struct {
-	Key         string
-	Self        string
-	ConfigPaths []string
-}
-
-// BindPalette binds the palette key on the manager's own tmux server, since an agent's pane
-// belongs to that server and the palette acts on the pane the key was pressed in.
-func (p *PopupWindow) BindPalette(params BindPaletteParams) {
-	key := params.Key
-	if key == "" {
-		key = defaultPaletteKey
-	}
-
-	// tmux expands no format in a popup's command, so the palette reads the pane off the server
-	// rather than being handed it here.
-	command := []string{
-		"display-popup",
-		"-w", palettePopupWidth,
-		"-h", palettePopupHeight,
-		"-x", "C", "-y", "C",
-		"-T", " commands ",
-		"-EE", params.Self, "palette",
-	}
-	for _, path := range params.ConfigPaths {
-		command = append(command, "--config", path)
-	}
-
-	p.tmux.BindKey(key, command...)
-}
-
 type keyNamer interface {
 	ShowGlobal(name string) string
 }
 
-// UserKeys returns the panel and palette keys as the user's own tmux server names them, empty
-// where it names neither, since that server is the only place either can be set.
-func UserKeys(namer keyNamer) (panel, palette string) {
-	return namer.ShowGlobal(managerKeyOption), namer.ShowGlobal(paletteKeyOption)
+// UserPanelKey returns the panel key as the user's own tmux server names it, empty where it
+// names none, since that server is the only place it can be set.
+func UserPanelKey(namer keyNamer) string {
+	return namer.ShowGlobal(managerKeyOption)
 }
 
 type panelKeyTmux interface {

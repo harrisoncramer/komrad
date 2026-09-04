@@ -4,7 +4,6 @@ import (
 	"errors"
 
 	"weave/internal/tmux"
-	"weave/internal/ui"
 
 	"github.com/spf13/cobra"
 )
@@ -34,14 +33,7 @@ starting one is what the panel key is for.`,
 			state.tmux.RecordHostSocket(socket)
 			state.tmux.RecordHostPath(hostPath(socket))
 
-			panelKey, paletteKey := userKeys(state, socket)
-
-			state.popup.BindHide(panelKey)
-			state.popup.BindPalette(ui.BindPaletteParams{
-				Key:         paletteKey,
-				Self:        getSelfPath(),
-				ConfigPaths: state.configPaths,
-			})
+			state.popup.BindHide(userPanelKey(state, socket))
 
 			return attachManagerSession(cmd.Context(), state)
 		},
