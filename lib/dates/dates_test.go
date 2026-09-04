@@ -130,11 +130,6 @@ func TestClock(t *testing.T) {
 			in:   now.AddDate(0, 0, -8),
 			want: now.AddDate(0, 0, -8).Format("Jan 2"),
 		},
-		{
-			name: "a UTC instant is read in local time, not left in UTC",
-			in:   utcAfternoon,
-			want: dayOrClock(utcAfternoon.Local()),
-		},
 	}
 
 	for _, tt := range tests {
@@ -144,11 +139,16 @@ func TestClock(t *testing.T) {
 	}
 }
 
-func dayOrClock(t time.Time) string {
-	now := time.Now().Local()
-	if t.YearDay() == now.YearDay() && t.Year() == now.Year() {
-		return t.Format("3:04pm")
-	}
+// TestClockReadsAnInstantInLocalTime pins the conversion against a zone of its own rather than
+// the machine's, and on an instant late enough in the UTC day that the two zones disagree about
+// which day it is, since a label read straight out of UTC would otherwise pass here.
+func TestClockReadsAnInstantInLocalTime(t *testing.T) {
+	here := time.Local
+	t.Cleanup(func() { time.Local = here })
 
-	return t.Format("Jan 2")
+	// 23:30 UTC on the second is already the third in this zone, which is the whole of what the
+	// case is asking.
+	time.Local = time.FixedZone("test/+12", 12*60*60)
+
+	assert.Equal(t, "Jul 3", Clock(time.Date(2024, time.July, 2, 23, 30, 0, 0, time.UTC)))
 }
