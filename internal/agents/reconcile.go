@@ -178,6 +178,8 @@ func (r *Reconciler) hasPaneAbsenceSettled(agentID string, onServer bool) bool {
 
 	entry, ok := r.tracked[agentID]
 	if onServer {
+		// A listed pane that accrued nothing writes nothing, so an agent no frame has been
+		// read for stays out of tracked.
 		if ok && entry.paneAbsences > 0 {
 			entry.paneAbsences = 0
 			r.tracked[agentID] = entry
