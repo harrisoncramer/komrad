@@ -10,6 +10,8 @@ Your own id is in the WEAVE_AGENT_ID environment variable, and the id of this co
 
 As you work, record what a person would want to open later against your id with set_agent_metadata, under keys you choose: the ticket you are implementing, the pull request you opened, the branch you are on. Store full URLs. The panel shows them beside you. Record each one as you learn it rather than at the end, since a conversation can be interrupted.
 
+A file you write for a person to read is one of those. When you leave a markdown document behind, an investigation, a design note, a report, record its path under a key of its own as soon as it exists, since nobody will find it in your working directory otherwise.
+
 ## The panel's MCP server
 
 The panel serves itself over MCP as a server named "weave" at {{MCP_URL}}, and it has two halves.
