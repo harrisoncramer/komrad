@@ -5,6 +5,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -378,11 +379,23 @@ func TestSyncRecordsWhatTheLogReportedSpending(t *testing.T) {
 		Output:     826,
 	}}, totals, "three replies written a line per content block are counted three times, not seven")
 
-	// A second pass over the same bytes reads nothing, and a pass over a log rewritten shorter
-	// replays the exchanges under the keys they are already stored against.
 	require.NoError(t, syncer.Sync(ctx))
-	require.NoError(t, os.WriteFile(path, body, 0o644))
+
+	unmoved, err := st.Usage.SumSince(ctx, since)
+	require.NoError(t, err)
+	assert.Equal(t, totals, unmoved, "a log that has not moved adds nothing")
+
+	// Cutting the log below the offset it was read at is what a resume looks like, so the pass
+	// that follows re-reads exchanges that are already stored and has to settle rather than
+	// double them.
+	lines := strings.SplitAfter(string(body), "\n")
+	require.NoError(t, os.WriteFile(path, []byte(lines[0]), 0o644))
 	require.NoError(t, syncer.Sync(ctx))
+
+	restarted, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "I'll start by confirming the tree and recording metadata.", restarted.Content,
+		"the turns were dropped and reindexed, which is the pass the usage rows survive")
 
 	again, err := st.Usage.SumSince(ctx, since)
 	require.NoError(t, err)

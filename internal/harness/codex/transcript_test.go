@@ -95,44 +95,63 @@ func TestFlattenRollout(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			turns, _ := flattenRollout([]byte(tt.in))
+			turns, _ := flattenRollout("rollout.jsonl", []byte(tt.in))
 			assert.Equal(t, tt.want, turns)
 		})
 	}
 }
 
-// TestFlattenRolloutUsage runs the parse over real token_count events, where Codex counts its
-// cached reads inside the input figure rather than beside it as Claude does.
+// TestFlattenRolloutUsage runs the parse over real token_count events, one exchange of which
+// Codex reported twice under two timestamps, which is why the key holds neither.
 func TestFlattenRolloutUsage(t *testing.T) {
 	body, err := os.ReadFile(filepath.Join("testdata", "token_count_events.jsonl"))
 	require.NoError(t, err)
 
-	turns, usage := flattenRollout(body)
+	turns, usage := flattenRollout("rollout.jsonl", body)
 
 	assert.Empty(t, turns, "a token_count event says nothing that belongs in the transcript")
 	assert.Equal(t, []harness.Usage{
 		{
-			Key:       "2026-07-31T22:05:35.887Z#16741",
-			At:        time.Date(2026, 7, 31, 22, 5, 35, 887_000_000, time.UTC),
-			Input:     6720,
+			Key:       "rollout.jsonl#17413#17413",
+			At:        time.Date(2026, 8, 27, 13, 48, 59, 47_000_000, time.UTC),
+			Input:     7194,
 			CacheRead: 9984,
-			Output:    37,
+			Output:    235,
 		},
 		{
-			Key:       "2026-07-31T22:05:50.596Z#33605",
-			At:        time.Date(2026, 7, 31, 22, 5, 50, 596_000_000, time.UTC),
-			Input:     622,
+			Key:       "rollout.jsonl#42838#25425",
+			At:        time.Date(2026, 8, 27, 13, 49, 2, 996_000_000, time.UTC),
+			Input:     9166,
 			CacheRead: 16128,
-			Output:    114,
+			Output:    131,
 		},
 		{
-			Key:       "2026-07-31T22:05:51.913Z#56260",
-			At:        time.Date(2026, 7, 31, 22, 5, 51, 913_000_000, time.UTC),
-			Input:     12628,
-			CacheRead: 9984,
-			Output:    43,
+			Key:       "rollout.jsonl#42838#25425",
+			At:        time.Date(2026, 8, 27, 13, 49, 4, 662_000_000, time.UTC),
+			Input:     9166,
+			CacheRead: 16128,
+			Output:    131,
 		},
 	}, usage, "each event reports what that exchange added rather than the running total")
+
+	assert.Equal(t, usage[1].Key, usage[2].Key,
+		"the repeated report carries the key of the exchange it repeats, so the store settles it")
+}
+
+// TestFlattenRolloutUsageScopesTheKeyToTheRollout covers two conversations reporting the same
+// pair of figures, which happens across real rollouts and would otherwise drop an exchange.
+func TestFlattenRolloutUsageScopesTheKeyToTheRollout(t *testing.T) {
+	body, err := os.ReadFile(filepath.Join("testdata", "token_count_events.jsonl"))
+	require.NoError(t, err)
+
+	_, mine := flattenRollout("rollout-a.jsonl", body)
+	_, theirs := flattenRollout("rollout-b.jsonl", body)
+
+	require.NotEmpty(t, mine)
+	require.Len(t, theirs, len(mine))
+	for i := range mine {
+		assert.NotEqual(t, mine[i].Key, theirs[i].Key)
+	}
 }
 
 // TestReadLog covers what one pass over a rollout reports, which is what the syncer's

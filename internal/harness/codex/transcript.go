@@ -28,7 +28,11 @@ func (h *Harness) GetLogPath(sessionID string) string {
 // ReadLog reads whatever the rollout at path holds past offset and flattens it into turns,
 // where a file shorter than the stored offset is a different conversation under the same path.
 func (h *Harness) ReadLog(path string, offset int64) (harness.LogRead, error) {
-	return harness.ReadAppendOnlyLog(path, offset, flattenRollout)
+	rollout := filepath.Base(path)
+
+	return harness.ReadAppendOnlyLog(path, offset, func(data []byte) ([]harness.Turn, []harness.Usage) {
+		return flattenRollout(rollout, data)
+	})
 }
 
 type rolloutRecord struct {
@@ -64,7 +68,7 @@ const (
 	briefingClose = "</panel_briefing>"
 )
 
-func flattenRollout(data []byte) ([]harness.Turn, []harness.Usage) {
+func flattenRollout(rollout string, data []byte) ([]harness.Turn, []harness.Usage) {
 	var (
 		turns []harness.Turn
 		usage []harness.Usage
@@ -79,7 +83,7 @@ func flattenRollout(data []byte) ([]harness.Turn, []harness.Usage) {
 		if err := json.Unmarshal([]byte(raw), &record); err != nil {
 			continue
 		}
-		if reported, ok := recordUsage(record); ok {
+		if reported, ok := recordUsage(rollout, record); ok {
 			usage = append(usage, reported)
 
 			continue
@@ -105,9 +109,10 @@ func flattenRollout(data []byte) ([]harness.Turn, []harness.Usage) {
 	return turns, usage
 }
 
-// recordUsage reads one token_count event as what that exchange added, keyed by the running
-// total the same event carries, which rises with every exchange and so names it uniquely.
-func recordUsage(record rolloutRecord) (harness.Usage, bool) {
+// recordUsage reads one token_count event as what that exchange added, keyed by the pair of
+// figures the event carries rather than by its timestamp, since Codex reports one exchange
+// more than once and the timestamp is the only thing that differs between the reports.
+func recordUsage(rollout string, record rolloutRecord) (harness.Usage, bool) {
 	info := record.Payload.Info
 	if record.Type != "event_msg" || record.Payload.Type != "token_count" || info == nil {
 		return harness.Usage{}, false
@@ -118,10 +123,14 @@ func recordUsage(record rolloutRecord) (harness.Usage, bool) {
 		return harness.Usage{}, false
 	}
 
+	// The pair is unique only within one conversation, since the running total starts over in
+	// each rollout and two of them do collide, so the file it was read from scopes the key.
+	key := fmt.Sprintf("%s#%d#%d", rollout, info.Total.TotalTokens, info.Last.TotalTokens)
+
 	// Codex counts its cached reads inside the input figure rather than beside it, so the
 	// uncached remainder is what belongs in the column Claude calls input.
 	return harness.Usage{
-		Key:       fmt.Sprintf("%s#%d", record.Timestamp, info.Total.TotalTokens),
+		Key:       key,
 		At:        at,
 		Input:     max(info.Last.InputTokens-info.Last.CachedInputTokens, 0),
 		CacheRead: info.Last.CachedInputTokens,
