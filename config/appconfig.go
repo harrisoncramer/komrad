@@ -54,9 +54,10 @@ const DefaultDeliveryDeadline = "3h"
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
-// DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
-// no number, which at a few kilobytes each is a couple of megabytes an agent and, for a pane
-// whose timer moves every pass, something under half an hour of history.
+// Explainer: DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
+// no number. Since weave captures about one frame every two seconds, this equates roughly to 15 minutes
+// of frames captured, which should be more than enough to replicate most issues related to state transitions
+// or reading data off of an agent panel.
 const DefaultFrameHistory = 500
 
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
@@ -523,14 +524,13 @@ func (m Mail) GetMaxHops() (int, error) {
 	return m.MaxHops, nil
 }
 
-// Debug is what weave keeps about how it read an agent, which is off until somebody is
-// chasing a state the panel got wrong.
+// Debug is what weave records about its own reading of an agent.
 type Debug struct {
 	// Whether the pane capture behind each reading of an agent is kept under the cache
-	// directory, which is the evidence a redrawn pane otherwise destroys.
+	// directory.
 	Frames bool `mapstructure:"frames"`
-	// How many frames are kept for one agent before the oldest is dropped, which a number
-	// at or below zero takes the default for rather than keeping every frame.
+	// How many frames are kept for one agent before the oldest is dropped. A number at or
+	// below zero takes the default.
 	FrameHistory int `mapstructure:"frame_history"`
 }
 
