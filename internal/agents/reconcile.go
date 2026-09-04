@@ -421,7 +421,9 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 		return
 	}
 
-	if r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
+	// A reported turn end says the agent finished, so it may only hurry along idle, never the
+	// state that says weave could not tell either way.
+	if state == agentstore.StateIdle && r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
 		r.apply(ctx, agent, state)
 
 		return
