@@ -37,6 +37,7 @@ const WeaveSenderName = "weave"
 type mailReadWriter interface {
 	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
+	DeepestHops(ctx context.Context, threadRoot string) (int32, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
 	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error)
@@ -211,6 +212,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	hops := int32(1)
+	var threadRoot *string
 	if params.ReplyTo != nil {
 		parent, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo)
 		if errors.Is(err, store.ErrNotFound) {
@@ -219,7 +221,18 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		if err != nil {
 			return nil, err
 		}
-		hops = parent.Hops + 1
+
+		root := parent.ID
+		if parent.ThreadRoot != nil {
+			root = *parent.ThreadRoot
+		}
+		threadRoot = &root
+
+		deepest, err := s.mailReadWriter.DeepestHops(ctx, root)
+		if err != nil {
+			return nil, err
+		}
+		hops = deepest + 1
 	}
 
 	maxHops, err := s.config.GetMaxHops()
@@ -227,7 +240,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		return nil, err
 	}
 	if int(hops) > maxHops {
-		return nil, fmt.Errorf("%w: %d hops is the limit for this thread, say so and stop rather than replying again", ErrThreadCapped, maxHops)
+		return nil, fmt.Errorf("%w: this would be hop %d of %d, so say what you have concluded and stop rather than replying again", ErrThreadCapped, hops, maxHops)
 	}
 
 	deadline, err := s.config.GetDeliveryDeadline()
@@ -236,12 +249,13 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	send := mailstore.SendParams{
-		ToAgentID: recipient.ID,
-		Body:      params.Body,
-		Kind:      params.Kind,
-		ReplyTo:   params.ReplyTo,
-		Hops:      hops,
-		Deadline:  deadline,
+		ToAgentID:  recipient.ID,
+		Body:       params.Body,
+		Kind:       params.Kind,
+		ReplyTo:    params.ReplyTo,
+		ThreadRoot: threadRoot,
+		Hops:       hops,
+		Deadline:   deadline,
 	}
 	if sender != nil {
 		send.FromAgentID = &sender.ID

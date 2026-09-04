@@ -231,6 +231,8 @@ type Mail struct {
 	UpdatedAt   time.Time
 	// What the mail is, which is what lets the panel tell a doorbell weave raised itself from something an agent wrote. Ordinary mail is plain. It is also what a doorbell is counted by, since an agent needs only one unread doorbell of a kind however many comments are waiting behind it.
 	Kind MailKind
+	// The mail that opened the thread this belongs to, null on the opening mail itself. It carries no foreign key on purpose: deleting the mail a thread started from must not detach what followed it, since the hop count is read across the whole thread.
+	ThreadRoot *string
 }
 
 // One message in a review thread, written either by the person reviewing or by the agent replying.

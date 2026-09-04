@@ -6,6 +6,7 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
+    thread_root,
     hops,
     expires_at)
 VALUES (
@@ -15,10 +16,20 @@ VALUES (
     @body,
     @kind,
     sqlc.narg('reply_to'),
+    sqlc.narg('thread_root'),
     @hops,
     NOW() + interval '1 microsecond' * @deadline_micros::bigint)
 RETURNING
     *;
+
+-- name: GetDeepestHopsInThread :one
+SELECT
+    COALESCE(MAX(m.hops), 0)::int AS deepest
+FROM
+    mail m
+WHERE
+    m.id = @thread_root
+    OR m.thread_root = @thread_root;
 
 -- name: GetPendingMailOfKind :one
 SELECT

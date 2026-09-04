@@ -46,6 +46,7 @@ type Mail struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
+	ThreadRoot  *string
 	Hops        int32
 	ClaimedAt   *time.Time
 	ExpiresAt   time.Time
@@ -68,6 +69,7 @@ type SendParams struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
+	ThreadRoot  *string
 	Hops        int32
 	// How long the mail stays deliverable, counted from the database's clock rather than
 	// the caller's, since every read of expires_at compares it against NOW().
@@ -88,6 +90,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 		Body:           params.Body,
 		Kind:           models.MailKind(kind),
 		ReplyTo:        params.ReplyTo,
+		ThreadRoot:     params.ThreadRoot,
 		Hops:           params.Hops,
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
@@ -247,6 +250,21 @@ func (s *Store) Delete(ctx context.Context, ids []string) error {
 	return nil
 }
 
+// DeepestHops is the greatest hop count anywhere in the thread a piece of mail opened, zero
+// when nothing belongs to it, which is what a reply counts from rather than the mail it answers.
+func (s *Store) DeepestHops(ctx context.Context, threadRoot string) (int32, error) {
+	if !store.IsID(threadRoot) {
+		return 0, nil
+	}
+
+	deepest, err := s.queries.GetDeepestHopsInThread(ctx, threadRoot)
+	if err != nil {
+		return 0, fmt.Errorf("failed to read the hop count of the thread mail %q opened: %w", threadRoot, err)
+	}
+
+	return deepest, nil
+}
+
 // CountPending returns how much unclaimed mail is waiting for an agent.
 func (s *Store) CountPending(ctx context.Context, toAgentID string) (int64, error) {
 	if !store.IsID(toAgentID) {
@@ -314,6 +332,7 @@ func mailFromRow(row models.Mail) Mail {
 		Body:        row.Body,
 		Kind:        Kind(row.Kind),
 		ReplyTo:     row.ReplyTo,
+		ThreadRoot:  row.ThreadRoot,
 		Hops:        row.Hops,
 		ClaimedAt:   row.ClaimedAt,
 		ExpiresAt:   row.ExpiresAt,

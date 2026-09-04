@@ -50,7 +50,7 @@ const DefaultProcessViewer = `less -R -X "$WEAVE_LOG"`
 // enough that nothing chases a recipient nobody is coming back to.
 const DefaultDeliveryDeadline = "3h"
 
-// DefaultMaxHops is how many pieces of mail may pass along one reply thread when the config
+// DefaultMaxHops is how many pieces of mail may pass through one thread when the config
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
@@ -498,9 +498,11 @@ type Mail struct {
 	// it is neither delivered nor readable, and the row is kept as a record that it never
 	// arrived.
 	DeliveryDeadline string `mapstructure:"delivery_deadline"`
-	// How many pieces of mail may pass along one reply thread before a send is refused. A
-	// reply takes its parent's hop count plus one, so this caps a back-and-forth rather
-	// than the total mail between two agents.
+	// How many pieces of mail may pass through one thread before a send is refused. A
+	// reply counts from the deepest hop the thread has reached, so answering an earlier
+	// message does not put the count back where that message was. It caps one thread
+	// rather than the total mail between two agents, so mail sent with no reply_to opens
+	// a thread of its own and starts again at one.
 	MaxHops int `mapstructure:"max_hops"`
 }
 
@@ -523,7 +525,7 @@ func (m Mail) GetDeliveryDeadline() (time.Duration, error) {
 	return parsed, nil
 }
 
-// GetMaxHops is how many pieces of mail may pass along one reply thread. An unset limit
+// GetMaxHops is how many pieces of mail may pass through one thread. An unset limit
 // takes the default; a negative one is an error rather than the default, for the same
 // reason an unparseable deadline is: a config somebody wrote and weave quietly ignored is
 // worse than one it refuses.

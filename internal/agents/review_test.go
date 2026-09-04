@@ -918,6 +918,7 @@ func (f *countingMailbox) Send(_ context.Context, params mailstore.SendParams) (
 		Body:        params.Body,
 		Kind:        params.Kind,
 		ReplyTo:     params.ReplyTo,
+		ThreadRoot:  params.ThreadRoot,
 		Hops:        params.Hops,
 	}
 	f.held = append(f.held, sent)
@@ -944,6 +945,18 @@ func (f *countingMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail
 	}
 
 	return nil, fmt.Errorf("%w: mail %q", store.ErrNotFound, id)
+}
+
+func (f *countingMailbox) DeepestHops(_ context.Context, threadRoot string) (int32, error) {
+	deepest := int32(0)
+	for _, held := range f.held {
+		inThread := held.ID == threadRoot || (held.ThreadRoot != nil && *held.ThreadRoot == threadRoot)
+		if inThread && held.Hops > deepest {
+			deepest = held.Hops
+		}
+	}
+
+	return deepest, nil
 }
 
 func (f *countingMailbox) Claim(_ context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error) {
