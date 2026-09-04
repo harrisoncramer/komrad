@@ -213,7 +213,7 @@ func TestMailRowClock(t *testing.T) {
 
 	assert.Equal(t, today.Local().Format("3:04pm"), mailClock(rows[1].item.GetCreatedAt()))
 	assert.Equal(t, old.Local().Format("Jan 2 3:04pm"), mailClock(rows[3].item.GetCreatedAt()))
-	assert.Contains(t, ansi.Strip(m.mailRowView(rows[3], false)), old.Local().Format("Jan 2 3:04pm"))
+	assert.Contains(t, ansi.Strip(m.mailRowView(rows[3], mailStampWidth(rows), false)), old.Local().Format("Jan 2 3:04pm"))
 }
 
 // TestMailKeys covers what each key does on the mailbox, since every one of them but back
@@ -360,7 +360,8 @@ func TestMailRowsFitTheSidebar(t *testing.T) {
 			m.height, m.width = 40, tt.width
 			m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
 
-			drawn := ansi.Strip(m.mailRowView(m.mailRows()[1], false))
+			rows := m.mailRows()
+			drawn := ansi.Strip(m.mailRowView(rows[1], mailStampWidth(rows), false))
 
 			assert.Equal(t, tt.wantSnippet, strings.Contains(drawn, "vim wins"))
 			assert.LessOrEqual(t, lipgloss.Width(drawn)+2, tt.width, "the row and the cursor before it fit the pane")
@@ -378,7 +379,8 @@ func TestMailRowsFillTheSidebar(t *testing.T) {
 			m.height, m.width = 40, width
 			m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", strings.Repeat("wide ", 40))}
 
-			drawn := ansi.Strip(m.mailRowView(m.mailRows()[1], false))
+			rows := m.mailRows()
+			drawn := ansi.Strip(m.mailRowView(rows[1], mailStampWidth(rows), false))
 
 			assert.Equal(t, width-mailCursorWidth, lipgloss.Width(drawn), "the row and the cursor before it are the pane")
 		})

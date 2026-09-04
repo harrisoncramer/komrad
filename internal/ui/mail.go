@@ -711,6 +711,7 @@ func (m model) mailRowsView() []string {
 	}
 
 	all := m.mailRows()
+	stamps := mailStampWidth(all)
 
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
@@ -725,16 +726,29 @@ func (m model) mailRowsView() []string {
 			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		rows = append(rows, prefix+m.mailRowView(r, i == m.mail.cursor))
+		rows = append(rows, prefix+m.mailRowView(r, stamps, i == m.mail.cursor))
 	}
 
 	return rows
 }
 
+// mailStampWidth is the room the stamps need, measured over the mail on screen rather than over
+// the widest label dates.Clock could draw, so a mailbox that is all from today spends seven
+// columns on the time rather than fourteen on a date none of it carries.
+func mailStampWidth(rows []mailRow) int {
+	width := 0
+	for _, r := range rows {
+		if r.header {
+			continue
+		}
+
+		width = max(width, lipgloss.Width(mailClock(r.item.GetCreatedAt())))
+	}
+
+	return width
+}
+
 const (
-	// mailClockWidth fits the widest label dates.Clock draws, which is a day and a time such as
-	// "Sep 30 11:22pm", rather than the time alone.
-	mailClockWidth = 14
 	// mailCursorWidth is the cursor drawn before every row, which belongs to the list rather
 	// than to the row.
 	mailCursorWidth = 2
@@ -749,8 +763,11 @@ const (
 // mailRowView draws one message on one line: when it was written, which way it went and what
 // became of it, then as much of the message as the sidebar has room for, since who it was with
 // is on the thread line above rather than repeated down the block.
-func (m model) mailRowView(r mailRow, hovered bool) string {
-	stamp := fmt.Sprintf("%*s", mailClockWidth, mailClock(r.item.GetCreatedAt()))
+func (m model) mailRowView(r mailRow, stamps int, hovered bool) string {
+	// Padded on the right rather than the left, since right-aligning a stamp that is a time on
+	// one row and a day and a time on the next leads the short ones in by half the column, which
+	// reads as though those rows were nested under something.
+	stamp := fmt.Sprintf("%-*s", stamps, mailClock(r.item.GetCreatedAt()))
 	head := " " + dimStyle.Render(stamp) + " " +
 		dimStyle.Render(mailDirectionMark(r.sent)) + " " +
 		mailStateMark(r.item)
@@ -764,7 +781,7 @@ func (m model) mailRowView(r mailRow, hovered bool) string {
 
 	body := mailSnippet(r.item.GetBody())
 
-	spare := m.width - mailRowIndent - mailClockWidth
+	spare := m.width - mailRowIndent - stamps
 	if spare < mailLeastSnippet {
 		return head
 	}
