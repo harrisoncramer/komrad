@@ -12,6 +12,7 @@ import (
 	rpchook "weave/internal/rpc/hook"
 	rpcschedule "weave/internal/rpc/schedule"
 	rpcworkflow "weave/internal/rpc/workflow"
+	"weave/internal/rpccodec"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/config/v1/configv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -43,6 +44,7 @@ func newMux(p newMuxParams) (*http.ServeMux, error) {
 	options := []connect.HandlerOption{
 		connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation),
 		interceptors.NewRecovery(),
+		rpccodec.NewStrictJSON(),
 	}
 
 	mux := http.NewServeMux()
