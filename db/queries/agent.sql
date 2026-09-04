@@ -736,7 +736,7 @@ FROM
 WHERE
     schedule_id = @schedule_id
     AND archived_at IS NULL
-    AND state IN ('thinking', 'waiting');
+    AND state IN ('thinking', 'waiting', 'uncertain');
 
 -- name: ListScheduleAgentNamesOutsideWorkflow :many
 SELECT

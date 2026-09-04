@@ -25,9 +25,13 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	seedRunning(t, st, cli, "busy", busyPane, agentstore.StateIdle)
 	it.WaitForFrame(busyPane, "Cooking…")
 
-	idlePane := it.Spawn("idle", `sh -c 'printf "\033[H❯ \n-- INSERT --\n"; exec cat'`)
+	idlePane := it.Spawn("idle", `sh -c 'printf "\033[H───────\n❯ \n───────\n-- INSERT --\n"; exec cat'`)
 	seedRunning(t, st, cli, "idle", idlePane, agentstore.StateThinking)
 	it.WaitForFrame(idlePane, "INSERT")
+
+	unreadablePane := it.Spawn("unreadable", `sh -c 'printf "\033[Hsomething else has the screen\n"; exec cat'`)
+	seedRunning(t, st, cli, "unreadable", unreadablePane, agentstore.StateThinking)
+	it.WaitForFrame(unreadablePane, "something else")
 
 	waitPane := it.Spawn("wait", `sh -c 'printf "\033[HPick one\n❯ 1. A\n  2. B\nEnter to select · Esc to cancel\n"; exec cat'`)
 	seedRunning(t, st, cli, "wait", waitPane, agentstore.StateThinking)
@@ -64,6 +68,9 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	}
 	if got := stateOf(t, st, "wait"); got != agentstore.StateWaiting {
 		t.Fatalf("waiting agent: want waiting, got %q", got)
+	}
+	if got := stateOf(t, st, "unreadable"); got != agentstore.StateUncertain {
+		t.Fatalf("agent whose pane nothing recognises: want uncertain, got %q", got)
 	}
 	if got := stateOf(t, st, "dead"); got != agentstore.StateIdle {
 		t.Fatalf("dead agent: want idle, got %q", got)

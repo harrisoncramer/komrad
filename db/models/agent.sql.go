@@ -135,7 +135,7 @@ FROM
 WHERE
     schedule_id = $1
     AND archived_at IS NULL
-    AND state IN ('thinking', 'waiting')
+    AND state IN ('thinking', 'waiting', 'uncertain')
 `
 
 func (q *Queries) CountLiveScheduleAgents(ctx context.Context, scheduleID *string) (int64, error) {

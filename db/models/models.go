@@ -19,6 +19,7 @@ const (
 	AgentStateSettingUp       AgentState = "setting_up"
 	AgentStateFailedToCreate  AgentState = "failed_to_create"
 	AgentStateFailedToCleanup AgentState = "failed_to_cleanup"
+	AgentStateUncertain       AgentState = "uncertain"
 )
 
 func (e *AgentState) Scan(src interface{}) error {
@@ -148,7 +149,7 @@ type Agent struct {
 	Flags  string
 	Prompt string
 	PaneID string
-	// What the agent is doing, which the reconcile loop writes from what it read off the pane. The three failure and setup values are the ones no frame read ever decides.
+	// What the agent is doing, which the reconcile loop writes from what it read off the pane. Uncertain is a pane weave captured but could not read. The three failure and setup values are the ones no frame read ever decides.
 	State            AgentState
 	StateChangedAt   time.Time
 	Harness          string

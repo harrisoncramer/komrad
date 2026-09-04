@@ -3,7 +3,7 @@ schema "public" {
 
 enum "agent_state" {
   schema = schema.public
-  values = ["idle", "thinking", "waiting", "setting_up", "failed_to_create", "failed_to_cleanup"]
+  values = ["idle", "thinking", "waiting", "setting_up", "failed_to_create", "failed_to_cleanup", "uncertain"]
 }
 
 table "workflow_configs" {
@@ -439,7 +439,7 @@ table "agents" {
     null    = false
     type    = enum.agent_state
     default = "idle"
-    comment = "What the agent is doing, which the reconcile loop writes from what it read off the pane. The three failure and setup values are the ones no frame read ever decides."
+    comment = "What the agent is doing, which the reconcile loop writes from what it read off the pane. Uncertain is a pane weave captured but could not read. The three failure and setup values are the ones no frame read ever decides."
   }
   column "state_changed_at" {
     null    = false

@@ -45,6 +45,14 @@ func TestAgentsViewRowWidthIsStableRegardlessOfBranch(t *testing.T) {
 	assert.Len(t, rowWithoutBranch, len(rowWithBranch))
 }
 
+// TestUncertainStateMark covers the row weave draws for a pane it captured and could not read,
+// which is its own glyph rather than the idle dot it used to be collapsed into.
+func TestUncertainStateMark(t *testing.T) {
+	assert.Equal(t, "?", stateIcon(agentstore.StateUncertain))
+	assert.NotEqual(t, stateIcon(agentstore.StateIdle), stateIcon(agentstore.StateUncertain))
+	assert.Equal(t, colorMuted, stateColor(agentstore.StateUncertain), "an unreadable pane is quiet, not an alarm")
+}
+
 // TestWorktreeRemovedMark covers the glyph shown beside an agent's row when the worktree
 // syncer has found its cwd gone: nothing for one whose cwd is still there, and just the
 // icon for one it is not.
