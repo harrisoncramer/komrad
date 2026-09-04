@@ -364,6 +364,61 @@ func (q *Queries) ListMailPage(ctx context.Context, arg ListMailPageParams) ([]*
 	return items, nil
 }
 
+const listMailSentPage = `-- name: ListMailSentPage :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
+FROM
+    mail m
+WHERE
+    m.from_agent_id = $1
+    AND ($2::uuid IS NULL
+        OR m.id < $2)
+ORDER BY
+    m.id DESC
+LIMIT $3
+`
+
+type ListMailSentPageParams struct {
+	FromAgentID *string
+	CursorID    *string
+	Lim         int32
+}
+
+func (q *Queries) ListMailSentPage(ctx context.Context, arg ListMailSentPageParams) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, listMailSentPage, arg.FromAgentID, arg.CursorID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mail
+	for rows.Next() {
+		var i Mail
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromAgentID,
+			&i.FromName,
+			&i.ToAgentID,
+			&i.Body,
+			&i.ReplyTo,
+			&i.Hops,
+			&i.ClaimedAt,
+			&i.ReportedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.ThreadRoot,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listMailboxesWithPendingMail = `-- name: ListMailboxesWithPendingMail :many
 SELECT DISTINCT
     m.to_agent_id

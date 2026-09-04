@@ -87,6 +87,9 @@ toggle_viewed = ["u"]
 next_unviewed = ["n"]
 # Jump to the previous agent that has finished something you have not looked at.
 prev_unviewed = ["N"]
+# Read the mail the hovered agent has sent and been sent, with the mailbox in the
+# sidebar and the message under the cursor in the stage.
+mail          = ["m"]
 # Attach to the hovered agent.
 open          = ["enter"]
 # Open the pull request the hovered agent recorded, in your browser. The key does
@@ -156,6 +159,13 @@ toggle = ["?"]
 open  = ["l"]
 # Step back to the run before the one the info pane is showing.
 older = ["L"]
+
+# The mailbox of one agent, and the key that opens it from the agents list.
+[keybindings.mail]
+# Leave the mailbox for the agents list.
+back = ["esc"]
+# Quit the panel.
+quit = ["ctrl+c"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]
@@ -316,6 +326,15 @@ viewer         = "tail -n +1 -F \"$WEAVE_LOG\" | grep --line-buffered \"$WEAVE_A
 # The viewer for a provisioner's or deprovisioner's own output, plain text rather than the
 # structured log's JSON lines.
 process_viewer = "less -R -X \"$WEAVE_LOG\""
+
+# Puts weave into debug mode which records additional information used to help diagnose issues.
+[debug]
+# Whether the pane capture behind each reading of an agent is kept under the cache
+# directory.
+frames        = false
+# How many frames are kept for one agent before the oldest is dropped. A number at or
+# below zero takes the default.
+frame_history = 500
 
 # Which weave this is: the database, the address, the tmux socket, the cache.
 [connection]

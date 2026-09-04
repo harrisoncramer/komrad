@@ -54,6 +54,12 @@ const DefaultDeliveryDeadline = "3h"
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
+// DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
+// no number. Since weave captures about one frame every two seconds, this equates roughly to 15 minutes
+// of frames captured, which should be more than enough to replicate most issues related to state transitions
+// or reading data off of an agent panel.
+const DefaultFrameHistory = 500
+
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
 const DefaultMaxAgents = 50
@@ -133,6 +139,8 @@ type Keybindings struct {
 	// The key that pages the service's log, shared by every screen since the log is
 	// about the service rather than about anything a screen lists.
 	Logs LogsKeys `mapstructure:"logs"`
+	// The mailbox of one agent, and the key that opens it from the agents list.
+	Mail MailKeys `mapstructure:"mail"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
 	// The review screen, which draws an agent's diff in the stage and its review
@@ -265,6 +273,9 @@ type AgentsKeys struct {
 	NextUnviewed []string `mapstructure:"next_unviewed"`
 	// Jump to the previous agent that has finished something you have not looked at.
 	PrevUnviewed []string `mapstructure:"prev_unviewed"`
+	// Read the mail the hovered agent has sent and been sent, with the mailbox in the
+	// sidebar and the message under the cursor in the stage.
+	Mail []string `mapstructure:"mail"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
 	// Open the pull request the hovered agent recorded, in your browser. The key does
@@ -294,6 +305,15 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename"`
+}
+
+// MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped
+// into threads in the sidebar, and the message the cursor is standing on in the stage.
+type MailKeys struct {
+	// Leave the mailbox for the agents list.
+	Back []string `mapstructure:"back"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
 }
 
 // ReviewKeys are the bindings for the review screen, where the diff is in the stage and the
@@ -520,6 +540,16 @@ func (m Mail) GetMaxHops() (int, error) {
 	return m.MaxHops, nil
 }
 
+// Debug is what weave records about its own reading of an agent.
+type Debug struct {
+	// Whether the pane capture behind each reading of an agent is kept under the cache
+	// directory.
+	Frames bool `mapstructure:"frames"`
+	// How many frames are kept for one agent before the oldest is dropped. A number at or
+	// below zero takes the default.
+	FrameHistory int `mapstructure:"frame_history"`
+}
+
 // Log is how much the background service writes about itself. Where it writes is not
 // configurable. The process that spawns the service points its output at the log and the
 // panel's log key pages the same file, and a path the two could disagree about is a log
@@ -595,6 +625,8 @@ type Config struct {
 	Mail Mail `mapstructure:"mail"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
+	// Puts weave into debug mode which records additional information used to help diagnose issues.
+	Debug Debug `mapstructure:"debug"`
 	// Which weave this is: the database, the address, the tmux socket, the cache.
 	Connection Connection `mapstructure:"connection"`
 }
@@ -615,6 +647,7 @@ func Defaults() *Config {
 			Viewer:        DefaultLogViewer,
 			ProcessViewer: DefaultProcessViewer,
 		},
+		Debug:      Debug{FrameHistory: DefaultFrameHistory},
 		Connection: DefaultConnection(),
 	}
 }
@@ -709,6 +742,7 @@ func DefaultKeybindings() Keybindings {
 			ToggleViewed: []string{"u"},
 			NextUnviewed: []string{"n"},
 			PrevUnviewed: []string{"N"},
+			Mail:         []string{"m"},
 			Open:         []string{"enter"},
 			OpenPR:       []string{"o"},
 			Quit:         []string{"ctrl+c"},
@@ -748,6 +782,10 @@ func DefaultKeybindings() Keybindings {
 			Down:   []string{"j"},
 			Top:    []string{"g"},
 			Up:     []string{"k"},
+		},
+		Mail: MailKeys{
+			Back: []string{"esc"},
+			Quit: []string{"ctrl+c"},
 		},
 		Review: ReviewKeys{
 			Back:         []string{"esc"},
@@ -1165,6 +1203,9 @@ func (c *Config) normalizeZeroValues() {
 	}
 	if strings.TrimSpace(c.Log.ProcessViewer) == "" {
 		c.Log.ProcessViewer = DefaultProcessViewer
+	}
+	if c.Debug.FrameHistory <= 0 {
+		c.Debug.FrameHistory = DefaultFrameHistory
 	}
 }
 

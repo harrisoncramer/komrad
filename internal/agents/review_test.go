@@ -1001,6 +1001,10 @@ func (f *countingMailbox) ListPage(context.Context, string, int32, *mailstore.Cu
 	return f.held, nil
 }
 
+func (f *countingMailbox) ListSentPage(context.Context, string, int32, *mailstore.Cursor) ([]mailstore.Mail, error) {
+	return f.held, nil
+}
+
 func (f *countingMailbox) ListByID(context.Context, []string) ([]mailstore.Mail, error) {
 	return f.held, nil
 }

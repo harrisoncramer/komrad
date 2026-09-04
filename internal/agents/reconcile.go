@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"weave/internal/frames"
 	"weave/internal/harness"
 	"weave/internal/logging"
 	agentstore "weave/internal/store/agent"
@@ -54,6 +55,12 @@ type paneObserver interface {
 	ClearPaneOwner(pane string) error
 }
 
+// frameRecorder keeps the pane capture behind a reading.
+type frameRecorder interface {
+	Record(params frames.RecordParams) error
+	Forget(listed map[string]struct{})
+}
+
 type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id string, state agentstore.State) error
@@ -68,6 +75,7 @@ type Reconciler struct {
 	harnesses harnessGetter
 	store     agentStateWriter
 	prFinder  prFinder
+	frames    frameRecorder
 
 	// mu guards tracked and every field of the entries inside it, since an entry is
 	// reached by the reconcile pass, by the RPC handler recording a turn boundary, and by
@@ -245,6 +253,14 @@ func (r *Reconciler) holdUnrecognized(agentID string, hash uint64) bool {
 	return hold
 }
 
+// WithFrameRecorder attaches somewhere for the frame behind each reading to be kept, and
+// nothing is written while it is unset.
+func (r *Reconciler) WithFrameRecorder(recorder frameRecorder) *Reconciler {
+	r.frames = recorder
+
+	return r
+}
+
 // WithPRFinder attaches a way to check GitHub for a pull request an agent opened on its own,
 // and an agent going idle is never checked while it is unset.
 func (r *Reconciler) WithPRFinder(finder prFinder) *Reconciler {
@@ -274,6 +290,9 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 	}
 
 	r.prune(known)
+	if r.frames != nil {
+		r.frames.Forget(known)
+	}
 
 	return nil
 }
@@ -333,7 +352,10 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		return
 	}
 
-	switch hn.ReadActivity(frame) {
+	activity := hn.ReadActivity(frame)
+	r.recordFrame(ctx, agent, frame, activity)
+
+	switch activity {
 	case harness.ActivityWorking:
 		r.apply(ctx, agent, agentstore.StateThinking)
 	case harness.ActivityWaiting:
@@ -346,6 +368,46 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	case harness.ActivityUnrecognized:
 		r.observeUnrecognized(ctx, agent, frame)
 	}
+}
+
+// recordFrame keeps the capture a reading was taken from, marking the ones that dispute the
+// state on record.
+func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, frame string, activity harness.Activity) {
+	if r.frames == nil {
+		return
+	}
+
+	err := r.frames.Record(frames.RecordParams{
+		AgentID:  agent.ID,
+		Frame:    frame,
+		Activity: activity.String(),
+		Disputes: doesReadingDispute(activity, agent.State),
+	})
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record the frame an agent was read from",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+	}
+}
+
+// doesReadingDispute reports whether a reading would leave an agent somewhere other than the
+// state on record.
+func doesReadingDispute(activity harness.Activity, state agentstore.State) bool {
+	switch activity {
+	case harness.ActivityWorking:
+		return state != agentstore.StateThinking
+	case harness.ActivityWaiting:
+		return state != agentstore.StateWaiting
+
+	// An unrecognised frame is not read as idle, but it settles there.
+	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityUnrecognized:
+		return state != agentstore.StateIdle
+
+	// A frame nothing could be read from leaves the agent where it was.
+	case harness.ActivityUnknown:
+		return false
+	}
+
+	return false
 }
 
 // settleIdle is what any frame the harness treats as an ordinary finished state runs

@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/frames"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	transcriptstore "weave/internal/store/transcript"
@@ -280,6 +281,40 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestDeleteAgentRemovesItsRecordedFrames pins a delete reclaiming what a recording kept for
+// that agent, since a recording is bounded per agent and nothing else ever clears it.
+func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	framesDir := t.TempDir()
+	manager := st.agentService(agentServiceOptions{
+		tmux:      tmux,
+		harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		addr:      "127.0.0.1:9999",
+		lifecycle: &fakeLifecycle{},
+		framesDir: framesDir,
+	})
+
+	created, err := workflowsFor(st, tmux).NewWorkflow(t.Context(), workflowstore.Config{Name: "backend"})
+	require.NoError(t, err)
+
+	agent, err := manager.launch.NewAgent(t.Context(), NewAgentParams{
+		Title:      "agent",
+		Dir:        t.TempDir(),
+		WorkflowID: created.ID,
+	})
+	require.NoError(t, err)
+
+	agentFrames := frames.AgentDir(framesDir, agent.ID)
+	require.NoError(t, os.MkdirAll(agentFrames, 0o700))
+	require.NoError(t, os.WriteFile(filepath.Join(agentFrames, "20260904T120000.000-0001-idle.txt"), []byte("frame"), 0o600))
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{agent.ID}))
+
+	_, dirErr := os.Stat(agentFrames)
+	assert.True(t, os.IsNotExist(dirErr), "the frames go with a row that is really gone")
 }
 
 // TestArchiveAgent pins the agent being stopped while its record and transcript stay, so

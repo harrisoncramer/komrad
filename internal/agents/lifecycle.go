@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"weave/config"
+	"weave/internal/frames"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xslice"
@@ -43,6 +44,7 @@ type LifecycleService struct {
 	scripts        agentScriptRunner
 	notifier       systemMailSender
 	logsDir        string
+	framesDir      string
 	maxAgents      int
 	maxChildren    int
 }
@@ -56,6 +58,7 @@ type LifecycleServiceParams struct {
 	Scripts        agentScriptRunner
 	Notifier       systemMailSender
 	LogsDir        string
+	FramesDir      string
 	MaxAgents      int
 	MaxChildren    int
 }
@@ -71,6 +74,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 		scripts:        p.Scripts,
 		notifier:       p.Notifier,
 		logsDir:        p.LogsDir,
+		framesDir:      p.FramesDir,
 		maxAgents:      p.MaxAgents,
 		maxChildren:    p.MaxChildren,
 	}
@@ -436,8 +440,23 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 
 	killPanes(ctx, s.tmux, taken)
 	s.removeRunLogs(ctx, ids)
+	s.removeFrames(ctx, ids)
 
 	return nil
+}
+
+// removeFrames drops the pane captures a recording kept for an agent once its row is gone.
+func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
+	if s.framesDir == "" {
+		return
+	}
+
+	for _, id := range ids {
+		path := frames.AgentDir(s.framesDir, id)
+		if err := os.RemoveAll(path); err != nil {
+			logging.From(ctx).Warn("failed to remove an agent's recorded frames", "path", path, "agent_id", id, "error", err)
+		}
+	}
 }
 
 // removeRunLogs drops the runs an agent leaves on disk once its row is gone, logging a

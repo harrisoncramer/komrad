@@ -32,3 +32,24 @@ func Elapsed(d time.Duration) string {
 		return fmt.Sprintf("%dd", int(d.Hours())/24)
 	}
 }
+
+const (
+	clockLayout = "3:04pm"
+	dayLayout   = "Jan 2 3:04pm"
+)
+
+// Clock is the short label a list row gets: the time of day for something that happened today,
+// and the day with the time for anything older, since a bare clock on last week's row reads as
+// though it had just arrived and a bare date says nothing about when.
+func Clock(t time.Time) string {
+	if t.IsZero() {
+		return ""
+	}
+
+	local := t.Local()
+	if now := time.Now().Local(); local.YearDay() == now.YearDay() && local.Year() == now.Year() {
+		return local.Format(clockLayout)
+	}
+
+	return local.Format(dayLayout)
+}

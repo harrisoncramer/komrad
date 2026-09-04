@@ -529,6 +529,84 @@ func TestListPageIgnoresOtherMailboxes(t *testing.T) {
 	assert.Empty(t, page)
 }
 
+// TestListSentPage pins the other half of an agent's correspondence, which is read by sender
+// rather than by recipient and is what the panel draws a thread's outgoing side from.
+func TestListSentPage(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	sender := seedAgent(t, st, "sender")
+	recipient := seedAgent(t, st, "recipient")
+	other := seedAgent(t, st, "other")
+
+	_, err := st.Send(ctx, SendParams{
+		FromAgentID: &other,
+		FromName:    "other",
+		ToAgentID:   recipient,
+		Body:        "not from you",
+		Deadline:    time.Hour,
+	})
+	require.NoError(t, err)
+
+	_, err = st.Send(ctx, SendParams{
+		ToAgentID: sender,
+		Body:      "addressed to you rather than from you",
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+
+	var sent []*Mail
+	for _, body := range []string{"first", "second", "third"} {
+		mail, err := st.Send(ctx, SendParams{
+			FromAgentID: &sender,
+			FromName:    "sender",
+			ToAgentID:   recipient,
+			Body:        body,
+			Deadline:    time.Hour,
+		})
+		require.NoError(t, err)
+		sent = append(sent, mail)
+	}
+
+	page, err := st.ListSentPage(ctx, sender, 10, nil)
+	require.NoError(t, err)
+	require.Len(t, page, 3, "the mail this agent sent, and nothing addressed to it")
+	assert.Equal(t, sent[2].ID, page[0].ID, "newest first")
+	assert.Equal(t, sent[0].ID, page[2].ID)
+}
+
+// TestListSentPageCursorTakesTheNextPage pins that the sent listing pages the way the received
+// one does, since it carries a keyset cursor of its own.
+func TestListSentPageCursorTakesTheNextPage(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	sender := seedAgent(t, st, "sender")
+	recipient := seedAgent(t, st, "recipient")
+
+	var sent []*Mail
+	for _, body := range []string{"first", "second", "third"} {
+		mail, err := st.Send(ctx, SendParams{
+			FromAgentID: &sender,
+			FromName:    "sender",
+			ToAgentID:   recipient,
+			Body:        body,
+			Deadline:    time.Hour,
+		})
+		require.NoError(t, err)
+		sent = append(sent, mail)
+	}
+
+	firstPage, err := st.ListSentPage(ctx, sender, 2, nil)
+	require.NoError(t, err)
+	require.Len(t, firstPage, 2, "the limit is what it asked for")
+	assert.Equal(t, sent[2].ID, firstPage[0].ID)
+	assert.Equal(t, sent[1].ID, firstPage[1].ID)
+
+	secondPage, err := st.ListSentPage(ctx, sender, 2, &Cursor{ID: firstPage[1].ID})
+	require.NoError(t, err)
+	require.Len(t, secondPage, 1)
+	assert.Equal(t, sent[0].ID, secondPage[0].ID)
+}
+
 // TestListByID pins that only the ids actually holding mail come back, so an id that is
 // unknown or malformed is skipped rather than failing the call.
 func TestListByID(t *testing.T) {

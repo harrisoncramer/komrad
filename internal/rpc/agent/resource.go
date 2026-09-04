@@ -114,7 +114,20 @@ func renderMail(stored mailstore.Mail) *agentv1.Mail {
 		CreatedAt:   created,
 		ClaimedAt:   claimed,
 		ExpiresAt:   expires,
+		Kind:        renderMailKind(stored.Kind),
+		Hops:        stored.Hops,
 	}
+}
+
+func renderMailKind(kind mailstore.Kind) agentv1.MailKind {
+	switch kind {
+	case mailstore.KindPlain:
+		return agentv1.MailKind_MAIL_KIND_PLAIN
+	case mailstore.KindReviewActivity:
+		return agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY
+	}
+
+	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED
 }
 
 type mail struct {

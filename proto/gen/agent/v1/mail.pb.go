@@ -23,6 +23,106 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// MailKind tells an agent's own mail from a notice weave raised itself.
+type MailKind int32
+
+const (
+	MailKind_MAIL_KIND_UNSPECIFIED     MailKind = 0
+	MailKind_MAIL_KIND_PLAIN           MailKind = 1
+	MailKind_MAIL_KIND_REVIEW_ACTIVITY MailKind = 2
+)
+
+// Enum value maps for MailKind.
+var (
+	MailKind_name = map[int32]string{
+		0: "MAIL_KIND_UNSPECIFIED",
+		1: "MAIL_KIND_PLAIN",
+		2: "MAIL_KIND_REVIEW_ACTIVITY",
+	}
+	MailKind_value = map[string]int32{
+		"MAIL_KIND_UNSPECIFIED":     0,
+		"MAIL_KIND_PLAIN":           1,
+		"MAIL_KIND_REVIEW_ACTIVITY": 2,
+	}
+)
+
+func (x MailKind) Enum() *MailKind {
+	p := new(MailKind)
+	*p = x
+	return p
+}
+
+func (x MailKind) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MailKind) Descriptor() protoreflect.EnumDescriptor {
+	return file_agent_v1_mail_proto_enumTypes[0].Descriptor()
+}
+
+func (MailKind) Type() protoreflect.EnumType {
+	return &file_agent_v1_mail_proto_enumTypes[0]
+}
+
+func (x MailKind) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MailKind.Descriptor instead.
+func (MailKind) EnumDescriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{0}
+}
+
+// MailDirection is which half of an agent's correspondence a listing asks for.
+type MailDirection int32
+
+const (
+	MailDirection_MAIL_DIRECTION_UNSPECIFIED MailDirection = 0
+	MailDirection_MAIL_DIRECTION_RECEIVED    MailDirection = 1
+	MailDirection_MAIL_DIRECTION_SENT        MailDirection = 2
+)
+
+// Enum value maps for MailDirection.
+var (
+	MailDirection_name = map[int32]string{
+		0: "MAIL_DIRECTION_UNSPECIFIED",
+		1: "MAIL_DIRECTION_RECEIVED",
+		2: "MAIL_DIRECTION_SENT",
+	}
+	MailDirection_value = map[string]int32{
+		"MAIL_DIRECTION_UNSPECIFIED": 0,
+		"MAIL_DIRECTION_RECEIVED":    1,
+		"MAIL_DIRECTION_SENT":        2,
+	}
+)
+
+func (x MailDirection) Enum() *MailDirection {
+	p := new(MailDirection)
+	*p = x
+	return p
+}
+
+func (x MailDirection) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (MailDirection) Descriptor() protoreflect.EnumDescriptor {
+	return file_agent_v1_mail_proto_enumTypes[1].Descriptor()
+}
+
+func (MailDirection) Type() protoreflect.EnumType {
+	return &file_agent_v1_mail_proto_enumTypes[1]
+}
+
+func (x MailDirection) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use MailDirection.Descriptor instead.
+func (MailDirection) EnumDescriptor() ([]byte, []int) {
+	return file_agent_v1_mail_proto_rawDescGZIP(), []int{1}
+}
+
 type Mail struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
@@ -34,6 +134,8 @@ type Mail struct {
 	CreatedAt     string                 `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	ClaimedAt     *string                `protobuf:"bytes,8,opt,name=claimed_at,json=claimedAt,proto3,oneof" json:"claimed_at,omitempty"`
 	ExpiresAt     string                 `protobuf:"bytes,9,opt,name=expires_at,json=expiresAt,proto3" json:"expires_at,omitempty"`
+	Kind          MailKind               `protobuf:"varint,10,opt,name=kind,proto3,enum=agent.v1.MailKind" json:"kind,omitempty"`
+	Hops          int32                  `protobuf:"varint,11,opt,name=hops,proto3" json:"hops,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -129,6 +231,20 @@ func (x *Mail) GetExpiresAt() string {
 		return x.ExpiresAt
 	}
 	return ""
+}
+
+func (x *Mail) GetKind() MailKind {
+	if x != nil {
+		return x.Kind
+	}
+	return MailKind_MAIL_KIND_UNSPECIFIED
+}
+
+func (x *Mail) GetHops() int32 {
+	if x != nil {
+		return x.Hops
+	}
+	return 0
 }
 
 type SendMailRequest struct {
@@ -327,6 +443,7 @@ type ListMailRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            *string                `protobuf:"bytes,1,opt,name=id,proto3,oneof" json:"id,omitempty"`
 	Pagination    *v1.Pagination         `protobuf:"bytes,2,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
+	Direction     MailDirection          `protobuf:"varint,3,opt,name=direction,proto3,enum=agent.v1.MailDirection" json:"direction,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -373,6 +490,13 @@ func (x *ListMailRequest) GetPagination() *v1.Pagination {
 		return x.Pagination
 	}
 	return nil
+}
+
+func (x *ListMailRequest) GetDirection() MailDirection {
+	if x != nil {
+		return x.Direction
+	}
+	return MailDirection_MAIL_DIRECTION_UNSPECIFIED
 }
 
 type ListMailResponse struct {
@@ -475,7 +599,7 @@ var File_agent_v1_mail_proto protoreflect.FileDescriptor
 
 const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
-	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xc0\x02\n" +
+	"\x13agent/v1/mail.proto\x12\bagent.v1\x1a\x1bbuf/validate/validate.proto\x1a\x1epagination/v1/pagination.proto\"\xfc\x02\n" +
 	"\x04Mail\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12'\n" +
 	"\rfrom_agent_id\x18\x02 \x01(\tH\x00R\vfromAgentId\x88\x01\x01\x12\x1b\n" +
@@ -488,7 +612,10 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\n" +
 	"claimed_at\x18\b \x01(\tH\x02R\tclaimedAt\x88\x01\x01\x12\x1d\n" +
 	"\n" +
-	"expires_at\x18\t \x01(\tR\texpiresAtB\x10\n" +
+	"expires_at\x18\t \x01(\tR\texpiresAt\x12&\n" +
+	"\x04kind\x18\n" +
+	" \x01(\x0e2\x12.agent.v1.MailKindR\x04kind\x12\x12\n" +
+	"\x04hops\x18\v \x01(\x05R\x04hopsB\x10\n" +
 	"\x0e_from_agent_idB\v\n" +
 	"\t_reply_toB\r\n" +
 	"\v_claimed_at\"\x90\x01\n" +
@@ -504,12 +631,13 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"6\n" +
 	"\x10ReadMailResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\x85\x01\n" +
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\xbc\x01\n" +
 	"\x0fListMailRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12>\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x01R\n" +
-	"pagination\x88\x01\x01B\x05\n" +
+	"pagination\x88\x01\x01\x125\n" +
+	"\tdirection\x18\x03 \x01(\x0e2\x17.agent.v1.MailDirectionR\tdirectionB\x05\n" +
 	"\x03_idB\r\n" +
 	"\v_pagination\"w\n" +
 	"\x10ListMailResponse\x12\"\n" +
@@ -517,7 +645,15 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
 	"\x10_next_page_token\"/\n" +
 	"\x11DeleteMailRequest\x12\x1a\n" +
-	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03idsB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\x03ids\x18\x01 \x03(\tB\b\xbaH\x05\x92\x01\x02\b\x01R\x03ids*Y\n" +
+	"\bMailKind\x12\x19\n" +
+	"\x15MAIL_KIND_UNSPECIFIED\x10\x00\x12\x13\n" +
+	"\x0fMAIL_KIND_PLAIN\x10\x01\x12\x1d\n" +
+	"\x19MAIL_KIND_REVIEW_ACTIVITY\x10\x02*e\n" +
+	"\rMailDirection\x12\x1e\n" +
+	"\x1aMAIL_DIRECTION_UNSPECIFIED\x10\x00\x12\x1b\n" +
+	"\x17MAIL_DIRECTION_RECEIVED\x10\x01\x12\x17\n" +
+	"\x13MAIL_DIRECTION_SENT\x10\x02B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_mail_proto_rawDescOnce sync.Once
@@ -531,28 +667,33 @@ func file_agent_v1_mail_proto_rawDescGZIP() []byte {
 	return file_agent_v1_mail_proto_rawDescData
 }
 
+var file_agent_v1_mail_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
 var file_agent_v1_mail_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
 var file_agent_v1_mail_proto_goTypes = []any{
-	(*Mail)(nil),              // 0: agent.v1.Mail
-	(*SendMailRequest)(nil),   // 1: agent.v1.SendMailRequest
-	(*SendMailResponse)(nil),  // 2: agent.v1.SendMailResponse
-	(*ReadMailRequest)(nil),   // 3: agent.v1.ReadMailRequest
-	(*ReadMailResponse)(nil),  // 4: agent.v1.ReadMailResponse
-	(*ListMailRequest)(nil),   // 5: agent.v1.ListMailRequest
-	(*ListMailResponse)(nil),  // 6: agent.v1.ListMailResponse
-	(*DeleteMailRequest)(nil), // 7: agent.v1.DeleteMailRequest
-	(*v1.Pagination)(nil),     // 8: pagination.v1.Pagination
+	(MailKind)(0),             // 0: agent.v1.MailKind
+	(MailDirection)(0),        // 1: agent.v1.MailDirection
+	(*Mail)(nil),              // 2: agent.v1.Mail
+	(*SendMailRequest)(nil),   // 3: agent.v1.SendMailRequest
+	(*SendMailResponse)(nil),  // 4: agent.v1.SendMailResponse
+	(*ReadMailRequest)(nil),   // 5: agent.v1.ReadMailRequest
+	(*ReadMailResponse)(nil),  // 6: agent.v1.ReadMailResponse
+	(*ListMailRequest)(nil),   // 7: agent.v1.ListMailRequest
+	(*ListMailResponse)(nil),  // 8: agent.v1.ListMailResponse
+	(*DeleteMailRequest)(nil), // 9: agent.v1.DeleteMailRequest
+	(*v1.Pagination)(nil),     // 10: pagination.v1.Pagination
 }
 var file_agent_v1_mail_proto_depIdxs = []int32{
-	0, // 0: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
-	0, // 1: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
-	8, // 2: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
-	0, // 3: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	0,  // 0: agent.v1.Mail.kind:type_name -> agent.v1.MailKind
+	2,  // 1: agent.v1.SendMailResponse.mail:type_name -> agent.v1.Mail
+	2,  // 2: agent.v1.ReadMailResponse.mail:type_name -> agent.v1.Mail
+	10, // 3: agent.v1.ListMailRequest.pagination:type_name -> pagination.v1.Pagination
+	1,  // 4: agent.v1.ListMailRequest.direction:type_name -> agent.v1.MailDirection
+	2,  // 5: agent.v1.ListMailResponse.mail:type_name -> agent.v1.Mail
+	6,  // [6:6] is the sub-list for method output_type
+	6,  // [6:6] is the sub-list for method input_type
+	6,  // [6:6] is the sub-list for extension type_name
+	6,  // [6:6] is the sub-list for extension extendee
+	0,  // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_mail_proto_init() }
@@ -570,13 +711,14 @@ func file_agent_v1_mail_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_mail_proto_rawDesc), len(file_agent_v1_mail_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      2,
 			NumMessages:   8,
 			NumExtensions: 0,
 			NumServices:   0,
 		},
 		GoTypes:           file_agent_v1_mail_proto_goTypes,
 		DependencyIndexes: file_agent_v1_mail_proto_depIdxs,
+		EnumInfos:         file_agent_v1_mail_proto_enumTypes,
 		MessageInfos:      file_agent_v1_mail_proto_msgTypes,
 	}.Build()
 	File_agent_v1_mail_proto = out.File

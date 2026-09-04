@@ -162,3 +162,16 @@ WHERE
     m.claimed_at IS NULL
     AND (m.expires_at > NOW()
         OR m.reported_at IS NULL);
+
+-- name: ListMailSentPage :many
+SELECT
+    *
+FROM
+    mail m
+WHERE
+    m.from_agent_id = @from_agent_id
+    AND (sqlc.narg('cursor_id')::uuid IS NULL
+        OR m.id < sqlc.narg('cursor_id'))
+ORDER BY
+    m.id DESC
+LIMIT @lim;

@@ -333,7 +333,7 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
-		binding(m.keys.Agents.Child, "attach a child (parents only)"),
+		binding(m.keys.Agents.Child, "attach child"),
 		binding(m.keys.Agents.Rename, "rename"),
 		binding(m.keys.Agents.NextUnviewed, "next unviewed"),
 		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),
@@ -368,6 +368,22 @@ func (m model) scheduleHelp() keyMap {
 			m.filterBinding(),
 			m.moveBinding(),
 		}, editFilter, m.globalHelp()),
+	}
+}
+
+func (m model) mailHelp() keyMap {
+	editFilter := m.editFilterBinding(m.keys.Mail.Back)
+
+	back := binding(m.keys.Mail.Back, "back")
+
+	return keyMap{
+		short: slices.Concat([]key.Binding{back}, editFilter, []key.Binding{m.helpBinding()}),
+		full: slices.Concat(
+			[]key.Binding{back},
+			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+			editFilter,
+			m.globalHelp(),
+		),
 	}
 }
 
