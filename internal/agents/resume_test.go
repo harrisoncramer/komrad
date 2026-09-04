@@ -94,7 +94,10 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		}
 		service, h := newManagerWithHarness(tmux, st, "")
 
-		require.NoError(t, NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents).Reconcile(t.Context()))
+		rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
+		for range listingsBeforePaneGone {
+			require.NoError(t, rec.Reconcile(t.Context()))
+		}
 
 		return service, st, h, agent
 	}
@@ -204,7 +207,10 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateIdle))
 
 		tmux := newFakeTmux()
-		require.NoError(t, NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents).Reconcile(t.Context()))
+		rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
+		for range listingsBeforePaneGone {
+			require.NoError(t, rec.Reconcile(t.Context()))
+		}
 
 		_, err = service.resume.ResumeAgent(t.Context(), agent.ID)
 		require.NoError(t, err)

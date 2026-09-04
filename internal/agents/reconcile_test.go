@@ -110,6 +110,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			agent := seed(t, st, "agent", "%1", tt.fromState)
 
 			tmux := newFakeTmux()
+			tmux.owners["%1"] = ""
 			if tt.owned {
 				tmux.owners["%1"] = agent.ID
 			}

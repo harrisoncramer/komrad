@@ -22,6 +22,11 @@ const unrecognizedHoldLimit = 5
 
 const reconcileShellGrace = 10 * time.Second
 
+// listingsBeforePaneGone is how many pane listings in a row have to leave a pane out before it
+// is believed gone, since a listing that came back short reads exactly like one that came back
+// right and forgetting a live pane costs the agent a binding nothing restores.
+const listingsBeforePaneGone = 3
+
 const stateSeenCoalesce = 30 * time.Second
 
 const stateSeenBound = 2 * time.Minute
@@ -77,6 +82,7 @@ type Reconciler struct {
 // counters and timestamps the panes drove rather than anything the store holds.
 type trackedAgent struct {
 	misses            int
+	listingsMissing   int
 	shellSince        time.Time
 	turnBoundary      time.Time
 	rateLimitedUntil  time.Time
@@ -157,10 +163,35 @@ func (r *Reconciler) clearDebounce(agentID string) {
 	}
 
 	entry.misses = 0
+	entry.listingsMissing = 0
 	entry.shellSince = time.Time{}
 	entry.turnBoundary = time.Time{}
 	entry.unrecognizedHolds = 0
 	r.tracked[agentID] = entry
+}
+
+// holdMissingPane reports whether a pane the listing left out is to be waited on rather than
+// forgotten, which it is until enough listings in a row have agreed the pane is gone.
+func (r *Reconciler) holdMissingPane(agentID string, inListing bool) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entry, ok := r.tracked[agentID]
+	if inListing {
+		// A pane that was never missing has nothing to return, and writing anyway would put an
+		// agent no frame has been read for into tracked.
+		if ok && entry.listingsMissing > 0 {
+			entry.listingsMissing = 0
+			r.tracked[agentID] = entry
+		}
+
+		return false
+	}
+
+	entry.listingsMissing++
+	r.tracked[agentID] = entry
+
+	return entry.listingsMissing < listingsBeforePaneGone
 }
 
 // hasShellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
@@ -235,32 +266,38 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		return fmt.Errorf("failed to read panes for reconcile: %w", err)
 	}
 
-	listed := make(map[string]struct{}, len(agents))
+	known := make(map[string]struct{}, len(agents))
 	for _, agent := range agents {
-		listed[agent.ID] = struct{}{}
-		r.reconcileAgent(ctx, agent, panes[agent.Pane])
+		known[agent.ID] = struct{}{}
+		pane, inListing := panes[agent.Pane]
+		r.reconcileAgent(ctx, agent, pane, inListing)
 	}
 
-	r.prune(listed)
+	r.prune(known)
 
 	return nil
 }
 
-// prune forgets the agents the listing no longer holds, so an archived or deleted one leaves
+// prune forgets the agents the store no longer holds, so an archived or deleted one leaves
 // nothing behind to accrue against its id if it ever comes back.
-func (r *Reconciler) prune(listed map[string]struct{}) {
+func (r *Reconciler) prune(known map[string]struct{}) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	maps.DeleteFunc(r.tracked, func(id string, _ trackedAgent) bool {
-		_, stillListed := listed[id]
+		_, stillKnown := known[id]
 
-		return !stillListed
+		return !stillKnown
 	})
 }
 
-func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus) {
+func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {
 	if !agent.State.DoesPaneDecide() {
+		return
+	}
+
+	// An agent holding no pane is missing from every listing, so it has no absence to doubt.
+	if agent.Pane != "" && r.holdMissingPane(agent.ID, inListing) {
 		return
 	}
 
