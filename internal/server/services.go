@@ -7,6 +7,7 @@ import (
 
 	"weave/config"
 	"weave/internal/agents"
+	"weave/internal/frames"
 	"weave/internal/scripts"
 )
 
@@ -168,6 +169,8 @@ func buildServices(p Params, st *stores) (*services, error) {
 			PaneTyper:     p.Tmux,
 			Harnesses:     p.Harnesses,
 		}),
-		reconciler: agents.NewReconciler(p.Tmux, p.Harnesses, st.agents).WithPRFinder(agents.NewGHPRFinder()),
+		reconciler: agents.NewReconciler(p.Tmux, p.Harnesses, st.agents).
+			WithPRFinder(agents.NewGHPRFinder()).
+			WithFrameRecorder(frames.NewRecorder(p.Env.FramesDir(), newFrameSettings(loadConfig).get)),
 	}, nil
 }
