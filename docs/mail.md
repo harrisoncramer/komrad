@@ -30,18 +30,7 @@ A prompt already holding text is left alone, because the newline that submits th
 
 Press `m` on an agent in the panel to read its mail. The sidebar groups the messages into
 threads, the thread something last happened in at the top, and inside each thread the newest
-message first. A line names who the thread is with, so the messages under it carry the message
-rather than repeating the name.
-
-Each row says when it was written, an arrow saying which way it went, and a glyph saying what
-became of it: taken, still waiting, or never read before its deadline ran out. The direction is
-what those glyphs hang off, since mail this agent sent that nobody has taken is a stalled
-handoff, and mail it was sent that it has not taken is the agent being behind.
-
-The stage draws the whole thread the cursor is standing in, oldest first so a reply reads after
-what it answers, with the message under the cursor marked. `ctrl+t` moves the cursor into the
-record under the list, which carries the ids, the deadlines, the kind, and what the thread is
-standing on.
+message first.
 
 ## Children and their families
 
