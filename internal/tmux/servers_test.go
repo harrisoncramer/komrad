@@ -21,7 +21,6 @@ func TestServersRouting(t *testing.T) {
 	servers := NewServers(manager, host)
 
 	assert.Empty(t, servers.GetClientPath(""), "with no host recorded there is no client to locate")
-	require.Error(t, servers.OpenWindow("", "probe", ""), "nor anywhere to put a window")
 
 	servers.SetGlobal("@probe", "1")
 	assert.Equal(t, "1", tmuxRun(t, managerSocket, "show-option", "-gqv", "@probe"),

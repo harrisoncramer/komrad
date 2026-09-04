@@ -113,8 +113,6 @@ type recordingTmux struct {
 	width         int
 	height        int
 	sentKeys      []string
-	windows       []string
-	openWindowErr error
 	detaches      int
 	killed        []string
 	belowAnchors  []string
@@ -182,16 +180,6 @@ func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.k
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
-}
-
-func (t *recordingTmux) OpenWindow(_, _, dir string, argv ...string) error {
-	if t.openWindowErr != nil {
-		return t.openWindowErr
-	}
-
-	t.windows = append(t.windows, strings.Join(append([]string{dir}, argv...), " "))
-
-	return nil
 }
 
 func (t *recordingTmux) ResizePane(string, string) {}

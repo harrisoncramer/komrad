@@ -196,32 +196,6 @@ func (c *Client) GetSessionClient(session string) string {
 	return first
 }
 
-// GetClientSession returns the session a client is attached to, empty when tmux knows no such client.
-func (c *Client) GetClientSession(client string) string {
-	return c.value(append([]string{"display-message", "-p"}, append(clientTarget(client), "#{client_session}")...)...)
-}
-
-// OpenWindow creates a window in the session a client is attached to, attached rather than
-// detached like NewWindow, since that client is the only handle on a session on the user's
-// own server.
-func (c *Client) OpenWindow(client, name, dir string, argv ...string) error {
-	if client == "" {
-		return errors.New("refusing to open a window without a client to open it for")
-	}
-
-	session := c.GetClientSession(client)
-	if session == "" {
-		return fmt.Errorf("tmux knows no client %q", client)
-	}
-
-	args := append([]string{"new-window", "-t", session + ":", "-n", name, "-c", dir}, argv...)
-	if _, err := c.query(args...); err != nil {
-		return fmt.Errorf("failed to open window %q: %w", name, err)
-	}
-
-	return nil
-}
-
 // SendKeys sends literal keys to a target pane or session.
 func (c *Client) SendKeys(target string, keys ...string) error {
 	if target == "" {
