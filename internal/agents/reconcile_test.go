@@ -146,8 +146,7 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 }
 
 // TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle covers the frame a stuck pane
-// repeats: it is the evidence a recording exists for, so it must not be the thing that evicts
-// the run-up showing how the pane got there.
+// repeats, which must not be the thing that evicts the run-up showing how it got there.
 func TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)

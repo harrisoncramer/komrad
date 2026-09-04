@@ -427,9 +427,7 @@ func TestLoadAbsentFileDefaults(t *testing.T) {
 	assert.Equal(t, DefaultKeybindings().Nav.Up, cfg.Keybindings.Nav.Up)
 }
 
-// TestLoadFrameHistoryRefusesToBeUnbounded covers frame_history = -1, which reads to a person
-// as keeping everything and would otherwise be exactly that, with no ceiling on the disk a
-// recording can take.
+// TestLoadFrameHistoryRefusesToBeUnbounded covers frame_history at or below zero taking the default.
 func TestLoadFrameHistoryRefusesToBeUnbounded(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -315,7 +315,7 @@ viewer         = "tail -n +1 -F \"$WEAVE_LOG\" | grep --line-buffered \"$WEAVE_A
 # structured log's JSON lines.
 process_viewer = "less -R -X \"$WEAVE_LOG\""
 
-# What weave records about its own reading of an agent while something is being chased.
+# Puts weave into debug mode which records additional information used to help diagnose issues.
 [debug]
 # Whether the pane capture behind each reading of an agent is kept under the cache
 # directory.

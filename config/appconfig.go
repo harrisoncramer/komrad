@@ -54,7 +54,7 @@ const DefaultDeliveryDeadline = "3h"
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
-// Explainer: DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
+// DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
 // no number. Since weave captures about one frame every two seconds, this equates roughly to 15 minutes
 // of frames captured, which should be more than enough to replicate most issues related to state transitions
 // or reading data off of an agent panel.
@@ -609,7 +609,7 @@ type Config struct {
 	Mail Mail `mapstructure:"mail"`
 	// The log the background service writes, which the panel's log key pages.
 	Log Log `mapstructure:"log"`
-	// What weave records about its own reading of an agent while something is being chased.
+	// Puts weave into debug mode which records additional information used to help diagnose issues.
 	Debug Debug `mapstructure:"debug"`
 	// Which weave this is: the database, the address, the tmux socket, the cache.
 	Connection Connection `mapstructure:"connection"`
