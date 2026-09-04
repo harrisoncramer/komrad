@@ -631,13 +631,13 @@ const file_agent_v1_mail_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01B\x05\n" +
 	"\x03_id\"6\n" +
 	"\x10ReadMailResponse\x12\"\n" +
-	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\xbc\x01\n" +
+	"\x04mail\x18\x01 \x03(\v2\x0e.agent.v1.MailR\x04mail\"\xc6\x01\n" +
 	"\x0fListMailRequest\x12\x1c\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\x02id\x88\x01\x01\x12>\n" +
 	"\n" +
 	"pagination\x18\x02 \x01(\v2\x19.pagination.v1.PaginationH\x01R\n" +
-	"pagination\x88\x01\x01\x125\n" +
-	"\tdirection\x18\x03 \x01(\x0e2\x17.agent.v1.MailDirectionR\tdirectionB\x05\n" +
+	"pagination\x88\x01\x01\x12?\n" +
+	"\tdirection\x18\x03 \x01(\x0e2\x17.agent.v1.MailDirectionB\b\xbaH\x05\x82\x01\x02\x10\x01R\tdirectionB\x05\n" +
 	"\x03_idB\r\n" +
 	"\v_pagination\"w\n" +
 	"\x10ListMailResponse\x12\"\n" +

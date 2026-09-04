@@ -63,7 +63,7 @@ func (c strictJSON) Unmarshal(binary []byte, message any) error {
 	}
 
 	if err := (protojson.UnmarshalOptions{}).Unmarshal(binary, protoMessage); err != nil {
-		return fmt.Errorf("failed to read the request as %T: %w", message, err)
+		return fmt.Errorf("failed to read %T: %w", message, err)
 	}
 
 	return nil
