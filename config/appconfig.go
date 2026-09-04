@@ -302,7 +302,7 @@ type WorkflowsKeys struct {
 }
 
 // MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped
-// into threads in the sidebar, and the thread the cursor is standing in on the stage.
+// into threads in the sidebar, and the message the cursor is standing on in the stage.
 type MailKeys struct {
 	// Leave the mailbox for the agents list.
 	Back []string `mapstructure:"back"`

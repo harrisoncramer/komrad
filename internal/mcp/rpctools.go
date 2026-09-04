@@ -121,12 +121,7 @@ func fieldSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 // enumSchema describes an enum by the names its values are spelled with, since connect's JSON
 // codec takes the name rather than the number a model would have to look up.
 func enumSchema(values protoreflect.EnumDescriptor) map[string]any {
-	names := make([]string, 0, values.Values().Len())
-	for i := range values.Values().Len() {
-		names = append(names, string(values.Values().Get(i).Name()))
-	}
-
-	return map[string]any{"type": "string", "enum": names}
+	return map[string]any{"type": "string", "enum": rpcapi.EnumNames(values)}
 }
 
 func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.FullName]bool) (map[string]any, error) {

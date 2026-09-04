@@ -14,7 +14,7 @@ weave rpc list-mail [flags]
 
 ```
       --compact                    print the response on one line
-      --direction string           MAIL_DIRECTION_UNSPECIFIED|MAIL_DIRECTION_RECEIVED|MAIL_DIRECTION_SENT
+      --direction string           MAIL_DIRECTION_RECEIVED|MAIL_DIRECTION_SENT
   -h, --help                       help for list-mail
       --id string                  string
       --pagination.cursor string   string, at most 2048 characters

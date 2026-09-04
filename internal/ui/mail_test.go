@@ -35,7 +35,7 @@ func TestMailRows(t *testing.T) {
 		{
 			name:   "a thread holds its messages, newest first, under a line naming it",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{replyTo("m2")},
+			outbox: []*agentv1.Mail{replyToFirst("m2")},
 			wantRows: []string{
 				"# emacs-fan",
 				"→ emacs wins",
@@ -48,7 +48,7 @@ func TestMailRows(t *testing.T) {
 				received("m1", "neovim-fan", "vim wins"),
 				received("m3", "weave", "review waiting"),
 			},
-			outbox: []*agentv1.Mail{replyTo("m2")},
+			outbox: []*agentv1.Mail{replyToFirst("m2")},
 			wantRows: []string{
 				"# weave",
 				"← review waiting",
@@ -63,7 +63,7 @@ func TestMailRows(t *testing.T) {
 				received("m1", "neovim-fan", "vim wins"),
 				received("m2", "weave", "review waiting"),
 			},
-			outbox: []*agentv1.Mail{replyTo("m3")},
+			outbox: []*agentv1.Mail{replyToFirst("m3")},
 			wantRows: []string{
 				"# emacs-fan",
 				"→ emacs wins",
@@ -132,7 +132,7 @@ func TestMailCursorStepsOverThreadLines(t *testing.T) {
 				received("m1", "neovim-fan", "vim wins"),
 				received("m3", "weave", "review waiting"),
 			}
-			m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
+			m.mail.outbox = []*agentv1.Mail{replyToFirst("m2")}
 			m.mail.cursor = tt.cursor
 
 			updated, _ := m.updateMail(keyMsg(tt.key))
@@ -159,19 +159,19 @@ func TestMailThreadWord(t *testing.T) {
 		{
 			name:   "an unread reply of ours is waiting on the other agent",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{replyTo("m2")},
+			outbox: []*agentv1.Mail{replyToFirst("m2")},
 			want:   "2 messages · waiting on emacs-fan",
 		},
 		{
 			name:   "a reply they took reads as read",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{claimed(replyTo("m2"))},
+			outbox: []*agentv1.Mail{claimed(replyToFirst("m2"))},
 			want:   "2 messages · read your last",
 		},
 		{
 			name:   "a reply of ours nobody took in time says so",
 			inbox:  []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")},
-			outbox: []*agentv1.Mail{stale(replyTo("m2"))},
+			outbox: []*agentv1.Mail{stale(replyToFirst("m2"))},
 			want:   "2 messages · your last expired unread",
 		},
 		{
@@ -242,7 +242,7 @@ func TestMailKeys(t *testing.T) {
 			wantCursor: 2,
 		},
 		{
-			name:       "bottom jumps to the oldest message",
+			name:       "bottom jumps to the last row, which is the quietest thread",
 			key:        "G",
 			cursor:     1,
 			wantScreen: screenMail,
@@ -257,7 +257,7 @@ func TestMailKeys(t *testing.T) {
 				received("m1", "neovim-fan", "vim wins"),
 				received("m2", "weave", "review waiting"),
 			}
-			m.mail.outbox = []*agentv1.Mail{replyTo("m3")}
+			m.mail.outbox = []*agentv1.Mail{replyToFirst("m3")}
 			m.mail.cursor = tt.cursor
 
 			updated, _ := m.updateMail(keyMsg(tt.key))
@@ -326,7 +326,7 @@ func TestMailViewDrawsThreads(t *testing.T) {
 	m := mailModel(config.DefaultKeybindings())
 	m.height, m.width = 40, 70
 	m.mail.inbox = []*agentv1.Mail{received("m1", "neovim-fan", "vim wins")}
-	m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
+	m.mail.outbox = []*agentv1.Mail{replyToFirst("m2")}
 	m.mail.cursor = 1
 
 	drawn := ansi.Strip(m.mailView())
@@ -409,7 +409,7 @@ func TestMailStage(t *testing.T) {
 		received("m1", "neovim-fan", "vim wins"),
 		received("m3", "weave", "review waiting"),
 	}
-	m.mail.outbox = []*agentv1.Mail{replyTo("m2")}
+	m.mail.outbox = []*agentv1.Mail{replyToFirst("m2")}
 	m.mail.cursor = 3
 
 	drawn := m.mailMarkdown(m.mailRows()[3])
@@ -563,9 +563,9 @@ func sent(id, body string) *agentv1.Mail {
 	}
 }
 
-// replyTo is a message this agent sent in answer to m1, which is the fixture every thread in
-// this file is built out of.
-func replyTo(id string) *agentv1.Mail {
+// replyToFirst is a message of this agent's own, carrying the id it is given, sent in answer to
+// m1, which is what every thread fixture in this file is built out of.
+func replyToFirst(id string) *agentv1.Mail {
 	parent := "m1"
 
 	item := sent(id, "emacs wins")

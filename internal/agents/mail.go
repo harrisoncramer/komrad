@@ -277,9 +277,15 @@ func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstor
 	return claimed, nil
 }
 
-// ListMail returns one page of the mail addressed to an agent, most recent first,
-// without claiming any of it.
-func (s *MailService) ListMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error) {
+// ListMail returns one page of one half of an agent's correspondence, most recent first and
+// without claiming any of it: the mail addressed to it, or the mail it sent.
+func (s *MailService) ListMail(
+	ctx context.Context,
+	agentID string,
+	sent bool,
+	limit int32,
+	cursor *mailstore.Cursor,
+) ([]mailstore.Mail, error) {
 	agent, err := s.agentFinder.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
@@ -288,25 +294,12 @@ func (s *MailService) ListMail(ctx context.Context, agentID string, limit int32,
 		return nil, err
 	}
 
-	listed, err := s.mailReadWriter.ListPage(ctx, agent.ID, limit, cursor)
-	if err != nil {
-		return nil, err
+	read := s.mailReadWriter.ListPage
+	if sent {
+		read = s.mailReadWriter.ListSentPage
 	}
 
-	return listed, nil
-}
-
-// ListSentMail returns one page of the mail an agent sent, most recent first.
-func (s *MailService) ListSentMail(ctx context.Context, agentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error) {
-	agent, err := s.agentFinder.GetByID(ctx, agentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	listed, err := s.mailReadWriter.ListSentPage(ctx, agent.ID, limit, cursor)
+	listed, err := read(ctx, agent.ID, limit, cursor)
 	if err != nil {
 		return nil, err
 	}

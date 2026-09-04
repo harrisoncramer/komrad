@@ -51,11 +51,9 @@ type mailRow struct {
 	sent  bool
 }
 
+// key is the row the cursor is put back on as the mailbox changes underneath it, which is empty
+// for a thread line, since the cursor never stands on one.
 func (r mailRow) key() string {
-	if r.header {
-		return "thread:" + r.label
-	}
-
 	return r.item.GetId()
 }
 
@@ -66,8 +64,8 @@ type mailLoadedMsg struct {
 	err     error
 }
 
-// enterMail opens an agent's mail, with the conversation in the sidebar and the thread the
-// cursor is standing in on the stage.
+// enterMail opens an agent's mail, with the threads in the sidebar and the message the cursor
+// is standing on in the stage.
 func (m model) enterMail(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	m.enterScreen(screenMail)
 	m.mail = mailState{
@@ -219,11 +217,9 @@ func (m model) threadedMailRows(items []mailRow) []mailRow {
 	return rows
 }
 
+// newestMailID is the id a thread stands by, which is its last message, since a thread is only
+// ever built around one and the items came in ascending.
 func newestMailID(thread []mailRow) string {
-	if len(thread) == 0 {
-		return ""
-	}
-
 	return thread[len(thread)-1].item.GetId()
 }
 
@@ -369,8 +365,9 @@ func (m model) hoveredMail() (mailRow, bool) {
 	return r, true
 }
 
-// nextMailRow is the first message at or after the given row, which is what the cursor lands on
-// when a move or a listing would otherwise leave it standing on a thread line.
+// nextMailRow is the nearest message to the given row, looked for the way the cursor was
+// travelling and then back the other way, which is what it lands on when a move or a listing
+// would otherwise leave it standing on a thread line.
 func nextMailRow(rows []mailRow, from, direction int) int {
 	for i := from; i >= 0 && i < len(rows); i += direction {
 		if !rows[i].header {
@@ -378,14 +375,14 @@ func nextMailRow(rows []mailRow, from, direction int) int {
 		}
 	}
 
-	// Nothing that way, so the row it came from stands, since every list drawn here opens with a
-	// header and closes with a message.
-	for i := from - direction; i >= 0 && i < len(rows); i -= direction {
+	for i := from; i >= 0 && i < len(rows); i -= direction {
 		if !rows[i].header {
 			return i
 		}
 	}
 
+	// Only an empty list reaches here, since a list with any message in it has one either side
+	// of wherever the cursor was.
 	return 0
 }
 
@@ -627,15 +624,12 @@ func mailClock(stamp string) string {
 }
 
 func (m *model) stageMail() {
-	r, ok := m.hoveredMail()
-	if !ok {
+	if r, ok := m.hoveredMail(); ok {
+		m.stageDocument(m.mailMarkdown(r))
+	} else {
 		m.stageDocument(mailEmptyMarkdown)
-		m.stageInfo()
-
-		return
 	}
 
-	m.stageDocument(m.mailMarkdown(r))
 	m.stageInfo()
 }
 
@@ -743,8 +737,8 @@ const (
 	// mailCursorWidth is the cursor drawn before every row, which belongs to the list rather
 	// than to the row.
 	mailCursorWidth = 2
-	// mailRowIndent is that cursor, the nesting under a thread line, the arrow, the mark, and
-	// the single spaces between them, which is what the snippet does not get.
+	// mailRowIndent is that cursor, the arrow, the mark, and the four single spaces around them,
+	// which is what the snippet does not get.
 	mailRowIndent = mailCursorWidth + 6
 	// mailLeastSnippet is the least of a message worth drawing, under which the row is when it
 	// was written, which way it went, and what became of it.

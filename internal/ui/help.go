@@ -374,12 +374,12 @@ func (m model) scheduleHelp() keyMap {
 func (m model) mailHelp() keyMap {
 	editFilter := m.editFilterBinding(m.keys.Mail.Back)
 
-	rows := []key.Binding{binding(m.keys.Mail.Back, "back")}
+	back := binding(m.keys.Mail.Back, "back")
 
 	return keyMap{
-		short: slices.Concat(rows[:1], editFilter, []key.Binding{m.helpBinding()}),
+		short: slices.Concat([]key.Binding{back}, editFilter, []key.Binding{m.helpBinding()}),
 		full: slices.Concat(
-			rows,
+			[]key.Binding{back},
 			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
 			editFilter,
 			m.globalHelp(),

@@ -354,6 +354,8 @@ func (f *fakeMailbox) ListPage(_ context.Context, toAgentID string, _ int32, _ *
 	return page, nil
 }
 
+// ListSentPage answers by sender rather than recipient, which is all this fake owes: the paging
+// it ignores is pinned against a real database in internal/store/mail.
 func (f *fakeMailbox) ListSentPage(_ context.Context, fromAgentID string, _ int32, _ *mailstore.Cursor) ([]mailstore.Mail, error) {
 	var page []mailstore.Mail
 	for _, m := range f.byID {
@@ -406,7 +408,7 @@ func TestListMailChecksTheAgentExists(t *testing.T) {
 		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	_, err := svc.ListMail(t.Context(), "ghost", 10, nil)
+	_, err := svc.ListMail(t.Context(), "ghost", false, 10, nil)
 	require.ErrorIs(t, err, ErrAgentNotFound)
 }
 
@@ -430,7 +432,7 @@ func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
 		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
 	})
 
-	listed, err := svc.ListMail(t.Context(), "agent-a", 10, nil)
+	listed, err := svc.ListMail(t.Context(), "agent-a", false, 10, nil)
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, "for alpha", listed[0].Body)
