@@ -82,10 +82,9 @@ func (e *Environment) FramesDir() string {
 }
 
 // The moments a script can run at, which are what a script reads out of WEAVE_TRIGGER and
-// what a run's log file is named after: the worktree provisioner's own three, the panel's
-// open-pull-request key, and the moments a workflow can hang a hook on.
+// what a run's log file is named after: the worktree provisioner's own three, and the moments
+// a workflow can hang a hook on.
 const (
-	TriggerOpenPR      = "open-pr"
 	TriggerProvision   = "provision"
 	TriggerResume      = "resume"
 	TriggerDeprovision = "deprovision"
@@ -99,7 +98,6 @@ const (
 // since a moment's own name may hold a hyphen.
 func RunMoments() []string {
 	return []string{
-		TriggerOpenPR,
 		TriggerProvision,
 		TriggerResume,
 		TriggerDeprovision,

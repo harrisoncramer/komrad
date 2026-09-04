@@ -54,7 +54,6 @@ type runRecorder interface {
 type configLoader func() (*config.Config, error)
 
 const (
-	TriggerOpenPR      = config.TriggerOpenPR
 	TriggerProvision   = config.TriggerProvision
 	TriggerResume      = config.TriggerResume
 	TriggerDeprovision = config.TriggerDeprovision
@@ -113,39 +112,6 @@ func NewScriptService(p ScriptParams) *ScriptService {
 }
 
 const maxScriptPrompt = 16 * 1024
-
-// openPRScript is the built-in behind the panel's own key, and the one script weave runs
-// because a person asked rather than because a moment came round.
-const openPRScript = "_open_pr"
-
-// OpenPullRequest starts the built-in script that opens an agent's recorded pull request,
-// without waiting for the browser it asks.
-func (s *ScriptService) OpenPullRequest(ctx context.Context, agentID string) error {
-	agent, err := s.agents.GetByID(ctx, agentID)
-	if errors.Is(err, store.ErrNotFound) {
-		return ErrAgentNotFound
-	}
-	if err != nil {
-		return fmt.Errorf("failed to read agent %q: %w", agentID, err)
-	}
-
-	script, env, err := s.prepare(ctx, prepareParams{
-		agent:   *agent,
-		name:    openPRScript,
-		trigger: TriggerOpenPR,
-	})
-	if err != nil {
-		return err
-	}
-
-	return s.start(ctx, startParams{
-		script:  script,
-		env:     env,
-		agent:   *agent,
-		trigger: TriggerOpenPR,
-		run:     s.beginRun(ctx, agent.ID, TriggerOpenPR, openPRScript),
-	})
-}
 
 var ErrProvisionFailed = errors.New("the provisioner failed")
 

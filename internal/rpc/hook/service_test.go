@@ -18,7 +18,7 @@ import (
 // TestOpenPullRequest covers the handler translating and nothing more, the code each sentinel earns being rpcerr's own.
 func TestOpenPullRequest(t *testing.T) {
 	manager := &fakeHooks{}
-	service := NewService(manager)
+	service := NewService(manager, manager)
 
 	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a7",
@@ -27,7 +27,8 @@ func TestOpenPullRequest(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "a7", manager.agentID)
 
-	refused := NewService(&fakeHooks{err: agents.ErrScriptNotExecutable})
+	refusing := &fakeHooks{err: agents.ErrNoPullRequest}
+	refused := NewService(refusing, refusing)
 
 	_, err = refused.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a1",
@@ -56,7 +57,7 @@ func TestListHooks(t *testing.T) {
 		},
 	}}
 
-	resp, err := NewService(manager).ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := NewService(manager, manager).ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	listed := resp.Msg.GetHooks()
@@ -75,7 +76,8 @@ func TestListHooks(t *testing.T) {
 // TestListHooksFailure covers a directory that could not be read at all, which is the server's
 // problem rather than the caller's.
 func TestListHooksFailure(t *testing.T) {
-	service := NewService(&fakeHooks{listErr: errors.New("permission denied")})
+	failing := &fakeHooks{listErr: errors.New("permission denied")}
+	service := NewService(failing, failing)
 
 	_, err := service.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
 

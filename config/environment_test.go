@@ -59,7 +59,7 @@ func TestListRunLogs(t *testing.T) {
 
 	for _, name := range []string{
 		RunLogName(999, TriggerProvision, "make-worktree"),
-		RunLogName(1000, TriggerOpenPR, "_open_pr"),
+		RunLogName(1000, TriggerDeprovision, "_worktree_cleanup"),
 		RunLogName(1, TriggerProvision, "make-worktree"),
 		RunLogName(500, HookPreLaunch, "install-deps"),
 		"notes.txt",
@@ -72,13 +72,13 @@ func TestListRunLogs(t *testing.T) {
 
 	require.Len(t, runs, 4, "only the numbered logs are runs")
 	assert.Equal(t, 1000, runs[0].Number, "the newest run is first")
-	assert.Equal(t, TriggerOpenPR, runs[0].Trigger)
-	assert.Equal(t, "_open_pr", runs[0].Script)
+	assert.Equal(t, TriggerDeprovision, runs[0].Trigger)
+	assert.Equal(t, "_worktree_cleanup", runs[0].Script)
 	assert.Equal(t, 999, runs[1].Number)
 	assert.Equal(t, HookPreLaunch, runs[2].Trigger, "a moment whose own name holds a hyphen is read whole")
 	assert.Equal(t, "install-deps", runs[2].Script)
 	assert.Equal(t, 1, runs[3].Number)
-	assert.Equal(t, filepath.Join(logDir, RunLogName(1000, TriggerOpenPR, "_open_pr")), runs[0].Path)
+	assert.Equal(t, filepath.Join(logDir, RunLogName(1000, TriggerDeprovision, "_worktree_cleanup")), runs[0].Path)
 }
 
 // TestListRunLogsWithNothingToRead pins the empty answer, since an agent that has run

@@ -1,8 +1,6 @@
 package ui
 
 import (
-	"os"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -90,16 +88,11 @@ func TestPanelArchivesThroughTheService(t *testing.T) {
 		"and the row goes off the panel's own list, leaving the folder it was in")
 }
 
-// TestPanelOpensThePullRequestKey pins the pull request key by the script it starts on the
-// agent the cursor was on, since the script it names is not in the panel's own list.
+// TestPanelOpensThePullRequestKey pins the pull request key by the address it hands the
+// desktop for the agent the cursor was on.
 func TestPanelOpensThePullRequestKey(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
-
-	out := filepath.Join(t.TempDir(), "opened.txt")
-	require.NoError(t, os.WriteFile(filepath.Join(instance.BuiltinDir, "_open_pr"), []byte(
-		"#!/bin/sh\nprintf '%s' \"$WEAVE_AGENT_ID\" > "+out+"\n",
-	), 0o755))
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name: "backend",
@@ -145,28 +138,16 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 	require.True(t, ok)
 	settle(t, pressed, cmd)
 
-	var written []byte
-	require.Eventually(t, func() bool {
-		read, err := os.ReadFile(out)
-		written = read
-
-		return err == nil && len(read) > 0
-	}, 5*time.Second, 10*time.Millisecond, "the pull request key never reached a process")
-
-	assert.Equal(t, created.Msg.GetAgent().GetId(), string(written), "the agent the script reads the pull request back for")
+	assert.Equal(t, []string{"https://example.test/1"}, instance.Opened.Targets(),
+		"the address recorded on the agent the cursor was on")
 	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr (if recorded)", "the legend carries the key")
 }
 
 // TestPanelLeavesThePullRequestKeyAloneWithoutOne pins that an agent with no recorded pull
-// request starts no script, since the panel holds the metadata and answers this itself.
+// request asks for nothing, since the panel holds the metadata and answers this itself.
 func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
-
-	out := filepath.Join(t.TempDir(), "opened.txt")
-	require.NoError(t, os.WriteFile(filepath.Join(instance.BuiltinDir, "_open_pr"), []byte(
-		"#!/bin/sh\nprintf 'ran' > "+out+"\n",
-	), 0o755))
 
 	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
 		Name: "backend",
@@ -207,11 +188,7 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	require.True(t, ok)
 	settle(t, pressed, cmd)
 
-	require.Never(t, func() bool {
-		_, err := os.Stat(out)
-
-		return err == nil
-	}, time.Second, 10*time.Millisecond, "nothing is started for an agent with no pull request")
+	assert.Empty(t, instance.Opened.Targets(), "nothing is opened for an agent with no pull request")
 }
 
 // TestStagedAgentArchivedElsewhere covers somebody else ending a staged agent, whose pane

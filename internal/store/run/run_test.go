@@ -175,8 +175,8 @@ func TestAbandonDropsTheRow(t *testing.T) {
 
 	id, err := f.Begin(t.Context(), BeginParams{
 		AgentID: agentID,
-		Trigger: "open-pr",
-		Script:  "_open_pr",
+		Trigger: "deprovision",
+		Script:  "_worktree_cleanup",
 	})
 	require.NoError(t, err)
 	require.NoError(t, f.Finish(t.Context(), FinishParams{ID: id, Failure: "it would not start"}))

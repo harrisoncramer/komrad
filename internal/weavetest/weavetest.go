@@ -16,6 +16,8 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -59,9 +61,36 @@ type Instance struct {
 	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
 	// when it needs one of them to behave differently.
 	BuiltinDir string
-	URL        string
-	server     *server.Server
-	working    bool
+	// Opened holds what the instance was asked to open in a browser, since a test may not put
+	// windows in front of whoever is running it.
+	Opened  *OpenedURLs
+	URL     string
+	server  *server.Server
+	working bool
+}
+
+// OpenedURLs stands in for the desktop's opener, holding what it was asked to open.
+type OpenedURLs struct {
+	mu      sync.Mutex
+	targets []string
+}
+
+// OpenURL records the address instead of putting it in front of anybody.
+func (o *OpenedURLs) OpenURL(_ context.Context, target string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	o.targets = append(o.targets, target)
+
+	return nil
+}
+
+// Targets is what has been opened so far, oldest first.
+func (o *OpenedURLs) Targets() []string {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+
+	return slices.Clone(o.targets)
 }
 
 type Params struct {
@@ -112,6 +141,8 @@ func Start(t *testing.T, p Params) *Instance {
 
 	logger := logging.New(io.Discard, slog.LevelError)
 
+	opened := &OpenedURLs{}
+
 	built, err := server.New(t.Context(), server.Params{
 		Env: &config.Environment{
 			DatabaseURL:         stores.URL,
@@ -128,6 +159,7 @@ func Start(t *testing.T, p Params) *Instance {
 		DefaultHarness:     harnesstest.ID,
 		MaxAgents:          p.MaxAgents,
 		FallbackResumeRoot: filepath.Join(root, "restored"),
+		Opener:             opened,
 	})
 	require.NoError(t, err)
 	t.Cleanup(built.Close)
@@ -150,6 +182,7 @@ func Start(t *testing.T, p Params) *Instance {
 		Stores:     stores,
 		HooksDir:   hooksDir,
 		BuiltinDir: server.BuiltinScriptsDir(cacheDir),
+		Opened:     opened,
 		URL:        url,
 		server:     built,
 	}

@@ -4,7 +4,7 @@ Open the pull request an agent recorded for itself, in the browser of whoever is
 
 ### Synopsis
 
-Open the pull request an agent recorded for itself, in the browser of whoever is at the panel. It is the panel's own key spelled as a call, so it answers as soon as the browser has been asked and says nothing about what the browser did. An error means it never got that far: no such agent, or no pull request recorded on it.
+Open the pull request an agent recorded for itself, in the browser of whoever is at the panel. It is the panel's own key spelled as a call, and it waits for the opener rather than the browser, so it answers once the URL has been handed over and says nothing about what the browser did with it. An error means it never got that far: no such agent, no pull request recorded on it, or the opener itself failing.
 
 ```
 weave rpc open-pull-request [flags]

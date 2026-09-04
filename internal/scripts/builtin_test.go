@@ -18,7 +18,7 @@ func TestInstallBuiltins(t *testing.T) {
 
 	found, err := Discover(dir)
 	require.NoError(t, err)
-	require.NotEmpty(t, found, "this build ships at least the pull request opener")
+	require.NotEmpty(t, found, "this build ships at least the worktree provisioner")
 
 	names := make([]string, 0, len(found))
 	for _, script := range found {
@@ -26,7 +26,7 @@ func TestInstallBuiltins(t *testing.T) {
 		assert.True(t, script.Executable, "%s reached disk without the executable bit", script.Name)
 	}
 
-	assert.Contains(t, names, "_open_pr")
+	assert.Contains(t, names, "_worktree_setup")
 	assert.NotContains(t, names, markerName, "the file claiming the directory is not something to run")
 }
 

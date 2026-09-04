@@ -39,7 +39,7 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
 - `WEAVE_TMUX_SOCKET`, the tmux server every agent's pane lives on
 - `WEAVE_SCRIPT_DIR`, the directory the script came out of, which is how one that cds elsewhere finds its siblings again.
-- `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, or, for the scripts weave ships, `provision`, `resume`, `deprovision`, or `open-pr`.
+- `WEAVE_TRIGGER`, the moment that set it off. One of `pre-launch`, `post-launch`, `post-resume`, `post-restore`, or, for the scripts weave ships, `provision`, `resume`, or `deprovision`.
 - `WEAVE_SCRIPT`, its own name, for tagging its own log lines.
 - `WEAVE_INFO_PANE`, the panel's info pane, for a script that wants to draw something where the panel's own scripts do.
 - `WEAVE_HOST_TMUX_SOCKET` and `WEAVE_HOST_CLIENT`, your own tmux server and the client looking at the popup.
@@ -85,7 +85,7 @@ weave rpc log --message 'Some custom message'
 
 ## Example: reading one field back
 
-Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. Weave ships a script that opens it, `_open_pr`, bound to `o` in the agents list on the agents that have one recorded. It reads the value back through the API rather than out of the payload, which is what a hook of your own wanting one field should do too, since `weave` is on the PATH of every script weave runs:
+Agents can be instructed to record their own work as metadata via the MCP, such as the URL of a pull request. A hook that wants one such field should read it back through the API rather than out of the payload, since `weave` is on the PATH of every script weave runs:
 
 ```sh
 #!/bin/sh
@@ -99,7 +99,7 @@ exec open "$url"
 
 ## The scripts weave ships
 
-Weave ships three scripts of its own, in a directory of its own that nothing configures. They are weave's implementation rather than anything to name or replace, and they are shell today only because that is what they were written in.
+Weave ships two scripts of its own, in a directory of its own that nothing configures. They are weave's implementation rather than anything to name or replace, and they are shell today only because that is what they were written in.
 
 `_worktree_setup` and `_worktree_cleanup` are the provisioner behind a workflow's `worktree.enabled` toggle, and are reached only by turning it on. They make the worktree under the workflow's own `worktree.dir` when it names one, and under the configured worktrees directory otherwise. The setup half copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it. A branch the agent already has is checked out as it stands rather than reset onto the base, so a directory removed by hand and made again keeps whatever the agent had committed.
 

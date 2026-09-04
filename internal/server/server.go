@@ -16,6 +16,7 @@ import (
 	"weave/config"
 	"weave/db"
 	"weave/internal/agents"
+	"weave/internal/browser"
 	"weave/internal/harness"
 	"weave/internal/interceptors"
 	"weave/internal/jobs"
@@ -40,6 +41,9 @@ type Params struct {
 	ContextPath        string
 	HookCommand        string
 	FallbackResumeRoot string
+	// Opener is where a URL bound for the person at the panel goes, which a test supplies
+	// itself so a run does not open windows on whoever is watching.
+	Opener browser.Opener
 }
 
 // mailConfig reads the mail settings fresh on every send, and fails rather than falling back

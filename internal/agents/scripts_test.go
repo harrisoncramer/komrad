@@ -58,33 +58,24 @@ func TestListHooksWithNoDirectory(t *testing.T) {
 	assert.Empty(t, listed)
 }
 
-// TestOpenPullRequestRefusals covers everything that can go wrong before the process starts,
-// since nothing waits for the built-in once it is running.
-func TestOpenPullRequestRefusals(t *testing.T) {
+// TestFiredScriptRefusals covers everything that can go wrong before the process starts,
+// since nothing waits for a script started this way once it is running.
+func TestFiredScriptRefusals(t *testing.T) {
 	tests := []struct {
 		name        string
-		agentID     string
 		mode        os.FileMode
 		wantIs      error
 		leaveUnmade bool
 	}{
 		{
-			name:    "an agent that is not there",
-			agentID: "missing",
-			mode:    0o755,
-			wantIs:  ErrAgentNotFound,
-		},
-		{
 			name:        "a build shipping no such script",
-			agentID:     "a1",
 			leaveUnmade: true,
 			wantIs:      scripts.ErrScriptNotFound,
 		},
 		{
-			name:    "a script nobody made executable",
-			agentID: "a1",
-			mode:    0o644,
-			wantIs:  scripts.ErrNotExecutable,
+			name:   "a script nobody made executable",
+			mode:   0o644,
+			wantIs: scripts.ErrNotExecutable,
 		},
 	}
 
@@ -92,11 +83,11 @@ func TestOpenPullRequestRefusals(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			if !tt.leaveUnmade {
-				require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), tt.mode))
+				require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), tt.mode))
 			}
 
 			runner := &recordingRunner{}
-			err := scriptService(t, dir, runner).OpenPullRequest(context.Background(), tt.agentID)
+			err := fireScript(context.Background(), t, scriptService(t, dir, runner))
 
 			require.ErrorIs(t, err, tt.wantIs)
 			assert.Empty(t, runner.ran, "nothing started")
@@ -104,18 +95,18 @@ func TestOpenPullRequestRefusals(t *testing.T) {
 	}
 }
 
-// TestOpenPullRequestPayload covers what a script is handed, including the socket, without which keys
+// TestScriptPayload covers what a script is handed, including the socket, without which keys
 // sent to the pane would go to the user's own tmux server.
-func TestOpenPullRequestPayload(t *testing.T) {
+func TestScriptPayload(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, service))
 
-	require.Equal(t, []string{openPRScript}, runner.ran)
+	require.Equal(t, []string{firedScript}, runner.ran)
 	assert.Equal(t, dir, runner.dir, "a script starts among its own siblings, not in the agent")
 
 	values := map[string]string{}
@@ -130,7 +121,7 @@ func TestOpenPullRequestPayload(t *testing.T) {
 	assert.Equal(t, "127.0.0.1:8787", values["WEAVE_ADDR"])
 	assert.Equal(t, "weave", values["WEAVE_TMUX_SOCKET"])
 	assert.Equal(t, dir, values["WEAVE_SCRIPT_DIR"])
-	assert.Equal(t, openPRScript, values["WEAVE_SCRIPT"], "its own name, for a script that wants to tag its own log lines")
+	assert.Equal(t, firedScript, values["WEAVE_SCRIPT"], "its own name, for a script that wants to tag its own log lines")
 	assert.Equal(t, "%3", values["WEAVE_INFO_PANE"], "the pane the panel laid out for a script to fill")
 	assert.Equal(t, "/tmp/host-socket", values["WEAVE_HOST_TMUX_SOCKET"])
 	assert.Equal(t, "/dev/ttys004", values["WEAVE_HOST_CLIENT"])
@@ -198,7 +189,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builtinDir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 			worktreesDir := t.TempDir()
 
 			runner := &recordingRunner{}
@@ -223,7 +214,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				},
 			})
 
-			require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+			require.NoError(t, fireScript(context.Background(), t, service))
 
 			values := map[string]string{}
 			for _, entry := range runner.env {
@@ -259,7 +250,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 // script told nothing cannot tell that from a workflow with no name.
 func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
@@ -268,7 +259,7 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 		archived: true,
 	}
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, service))
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
@@ -284,7 +275,7 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 // handed shares a kernel limit that would fail the run instead.
 func TestRunScriptBoundsALongPrompt(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
@@ -295,7 +286,7 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 		Prompt: strings.Repeat("prompt ", maxScriptPrompt),
 	}}
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, service))
 
 	var encoded string
 	for _, entry := range runner.env {
@@ -372,13 +363,13 @@ func TestHead(t *testing.T) {
 // left to send keys into a pane somebody else has taken over.
 func TestRunScriptOnADormantAgent(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
 	service.tmux = fakePaneOwner{owner: "somebody-else"}
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, service))
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
@@ -390,11 +381,11 @@ func TestRunScriptOnADormantAgent(t *testing.T) {
 	assert.False(t, payload.Alive)
 }
 
-// TestOpenPullRequestWithTheAgentDirectoryGone pins the agent's directory being a string in the
+// TestFiredScriptWithTheAgentDirectoryGone pins the agent's directory being a string in the
 // payload, never somewhere the script has to be able to stand.
-func TestOpenPullRequestWithTheAgentDirectoryGone(t *testing.T) {
+func TestFiredScriptWithTheAgentDirectoryGone(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 	gone := filepath.Join(t.TempDir(), "removed-worktree")
 	runner := &recordingRunner{}
@@ -405,7 +396,7 @@ func TestOpenPullRequestWithTheAgentDirectoryGone(t *testing.T) {
 		Cwd:  gone,
 	}}
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, service))
 
 	assert.Equal(t, dir, runner.dir)
 
@@ -528,13 +519,6 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 		wantTrigger string
 	}{
 		{
-			name: "fired by hand",
-			fire: func(s *ScriptService, _ *recordingRunner) error {
-				return s.OpenPullRequest(t.Context(), "a1")
-			},
-			wantTrigger: TriggerOpenPR,
-		},
-		{
 			name: "fired as a workflow's setup",
 			fire: func(s *ScriptService, _ *recordingRunner) error {
 				_, err := s.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
@@ -563,7 +547,6 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
 
 			runner := &recordingRunner{}
 			require.NoError(t, tt.fire(scriptService(t, dir, runner), runner))
@@ -753,8 +736,8 @@ func TestRunDeprovisionRefusesOneThatIsGone(t *testing.T) {
 	require.ErrorIs(t, err, scripts.ErrScriptNotFound)
 }
 
-// TestOpenPullRequestLogsWhatItDid covers the only account there is of a script nothing waits on.
-func TestOpenPullRequestLogsWhatItDid(t *testing.T) {
+// TestFiredScriptLogsWhatItDid covers the only account there is of a script nothing waits on.
+func TestFiredScriptLogsWhatItDid(t *testing.T) {
 	tests := []struct {
 		name       string
 		result     runResult
@@ -769,8 +752,8 @@ func TestOpenPullRequestLogsWhatItDid(t *testing.T) {
 			wantFields: map[string]any{
 				"process.exit.code":     float64(0),
 				"weave.script.stderr":   nil,
-				"weave.script.name":     openPRScript,
-				"weave.run.trigger":     TriggerOpenPR,
+				"weave.script.name":     firedScript,
+				"weave.run.trigger":     TriggerDeprovision,
 				"weave.script.agent.id": "a1",
 			},
 		},
@@ -794,18 +777,18 @@ func TestOpenPullRequestLogsWhatItDid(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
-			runner := &recordingRunner{results: map[string]runResult{openPRScript: tt.result}}
+			runner := &recordingRunner{results: map[string]runResult{firedScript: tt.result}}
 			ctx, records := loggedContext(t)
 
-			require.NoError(t, scriptService(t, dir, runner).OpenPullRequest(ctx, "a1"))
+			require.NoError(t, fireScript(ctx, t, scriptService(t, dir, runner)))
 
 			written := records()
 
 			began := recordFor(t, written, "script started")
 			assert.Equal(t, "INFO", began["severity_text"])
-			assert.Equal(t, openPRScript, began["weave.script.name"])
+			assert.Equal(t, firedScript, began["weave.script.name"])
 
 			got := recordFor(t, written, tt.wantBody)
 			assert.Equal(t, tt.wantLevel, got["severity_text"])
@@ -1225,12 +1208,12 @@ func TestChmodMakesAHookRunnable(t *testing.T) {
 // file claimed by a run that never happened would push a real one out of the fifty kept.
 func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
 
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
-	err := svc.OpenPullRequest(t.Context(), "a1")
+	err := fireScript(t.Context(), t, svc)
 
 	require.Error(t, err, "a file nobody made executable is not startable")
 	assert.Empty(t, config.ListRunLogs(logsDir, "a1"), "and it leaves no run behind")
@@ -1394,11 +1377,11 @@ func TestAHookThatFailedSilentlySaysSoInItsLog(t *testing.T) {
 // a run and one recorded as such would spend a number and stand as a failure to be read.
 func TestARefusedRunDropsItsRow(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
 
 	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), t.TempDir())
 
-	require.Error(t, svc.OpenPullRequest(t.Context(), "a1"), "a file nobody made executable is not startable")
+	require.Error(t, fireScript(t.Context(), t, svc), "a file nobody made executable is not startable")
 
 	begun, finished := recorder.rows()
 	require.Len(t, begun, 1)
@@ -1469,11 +1452,11 @@ func TestClaimRunLogPrunesTheOldestRuns(t *testing.T) {
 	logDir := config.RunLogDir(logsDir, "a1")
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
 	for number := 1; number <= config.MaxRunLogs; number++ {
-		name := config.RunLogName(number, config.TriggerOpenPR, openPRScript)
+		name := config.RunLogName(number, config.TriggerDeprovision, firedScript)
 		require.NoError(t, os.WriteFile(filepath.Join(logDir, name), []byte("out\n"), 0o644))
 	}
 
-	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
+	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerDeprovision, firedScript)
 	require.NotEmpty(t, path)
 	assert.Equal(t, config.MaxRunLogs+1, number)
 
@@ -1492,10 +1475,10 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 
 	logDir := config.RunLogDir(logsDir, "a1")
 	require.NoError(t, os.MkdirAll(logDir, 0o755))
-	taken := filepath.Join(logDir, config.RunLogName(1, config.TriggerOpenPR, openPRScript))
+	taken := filepath.Join(logDir, config.RunLogName(1, config.TriggerDeprovision, firedScript))
 	require.NoError(t, os.WriteFile(taken, []byte("someone else\n"), 0o644))
 
-	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerOpenPR, openPRScript)
+	path, number := svc.claimRunLog(t.Context(), "a1", config.TriggerDeprovision, firedScript)
 
 	assert.NotEqual(t, taken, path, "the name already there is left as it stands")
 	assert.Equal(t, 2, number, "it steps past the number that was taken")
@@ -1506,6 +1489,27 @@ func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 
 // fixtureAgentID is the agent every script test in this file runs against.
 const fixtureAgentID = "a1"
+
+// firedScript is the built-in the tests use when they cover the machinery every script goes
+// through rather than anything the script itself does.
+const firedScript = "_worktree_cleanup"
+
+// fireScript starts a script the way weave starts one it will not wait for, which is the
+// deprovisioner, reading the agent back out of the service's own registry.
+func fireScript(ctx context.Context, t *testing.T, svc *ScriptService) error {
+	t.Helper()
+
+	return fireScriptFor(ctx, t, svc, fixtureAgentID)
+}
+
+func fireScriptFor(ctx context.Context, t *testing.T, svc *ScriptService, agentID string) error {
+	t.Helper()
+
+	agent, err := svc.agents.GetByID(ctx, agentID)
+	require.NoError(t, err)
+
+	return svc.RunDeprovision(ctx, *agent, firedScript, nil)
+}
 
 // onlyRunLog is the one run the fixture's agent has recorded, since a test that ran a single
 // script has no reason to know which number it was given.
@@ -1566,14 +1570,6 @@ func TestScriptTimeouts(t *testing.T) {
 		fire   func(*ScriptService, string) error
 		want   time.Duration
 	}{
-		{
-			name:   "the built-in behind the panel's own key is unbounded",
-			script: openPRScript,
-			fire: func(s *ScriptService, _ string) error {
-				return s.OpenPullRequest(context.Background(), "a1")
-			},
-			want: 0,
-		},
 		{
 			name:   "a cleanup that declares nothing gets the default ceiling",
 			script: "bare",
@@ -1640,7 +1636,7 @@ func TestScriptTimeouts(t *testing.T) {
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "unlimited"), []byte(
 				"#!/bin/sh\n#WEAVE timeout=\"none\"\n",
 			), 0o755))
-			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 
 			runner := &recordingRunner{}
 			require.NoError(t, tt.fire(scriptService(t, dir, runner), tt.script))
@@ -1651,38 +1647,38 @@ func TestScriptTimeouts(t *testing.T) {
 	}
 }
 
-// TestOpenPullRequestRefusesASecondConcurrentRun covers holding the panel's own key down, which is
-// the one way a person can ask for the same script on the same agent twice at once.
-func TestOpenPullRequestRefusesASecondConcurrentRun(t *testing.T) {
+// TestFiredScriptRefusesASecondConcurrentRun covers the same script being asked for twice on
+// one agent before the first run has finished.
+func TestFiredScriptRefusesASecondConcurrentRun(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
 	svc := scriptService(t, dir, scripts.NewRunner())
 
-	require.NoError(t, svc.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, svc))
 
-	err := svc.OpenPullRequest(context.Background(), "a1")
+	err := fireScript(context.Background(), t, svc)
 	require.ErrorIs(t, err, ErrScriptAlreadyRunning)
 
 	require.Eventually(t, func() bool {
-		return svc.OpenPullRequest(context.Background(), "a1") == nil
+		return fireScript(context.Background(), t, svc) == nil
 	}, 5*time.Second, 20*time.Millisecond, "the claim is released once the first run finishes")
 
 	time.Sleep(500 * time.Millisecond)
 }
 
-// TestOpenPullRequestReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
+// TestFiredScriptReleasesTheClaimWhenItNeverStarts covers the path where Run refuses
 // synchronously and its Done callback never fires at all, which is the one place a claim
 // could be stranded forever with nothing left to release it.
-func TestOpenPullRequestReleasesTheClaimWhenItNeverStarts(t *testing.T) {
+func TestFiredScriptReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 	dir := t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\n"), 0o644))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o644))
 
 	svc := scriptService(t, dir, scripts.NewRunner())
 
-	require.ErrorIs(t, svc.OpenPullRequest(context.Background(), "a1"), scripts.ErrNotExecutable)
+	require.ErrorIs(t, fireScript(context.Background(), t, svc), scripts.ErrNotExecutable)
 
-	err := svc.OpenPullRequest(context.Background(), "a1")
+	err := fireScript(context.Background(), t, svc)
 	require.ErrorIs(t, err, scripts.ErrNotExecutable)
 	assert.NotErrorIs(t, err, ErrScriptAlreadyRunning, "a refusal that never started must not strand the claim")
 }
@@ -1698,19 +1694,19 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		{
 			name: "the same script for a different agent runs alongside it",
 			fire: func(svc *ScriptService) error {
-				return svc.OpenPullRequest(context.Background(), "a2")
+				return fireScriptFor(context.Background(), t, svc, "a2")
 			},
 		},
 		{
 			name: "a hook is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				return svc.RunHook(context.Background(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, openPRScript, workflowstore.HookPreLaunch)
+				return svc.RunHook(context.Background(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, firedScript, workflowstore.HookPreLaunch)
 			},
 		},
 		{
 			name: "a provisioner is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				_, err := svc.RunProvision(context.Background(), agentstore.Agent{ID: "a1"}, openPRScript, "")
+				_, err := svc.RunProvision(context.Background(), agentstore.Agent{ID: "a1"}, firedScript, "")
 
 				return err
 			},
@@ -1720,14 +1716,14 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(dir, openPRScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nsleep 0.3\n"), 0o755))
 
 			svc := scriptService(t, dir, scripts.NewRunner())
 			svc.agents = fakeAgentReaderFunc(func(_ context.Context, id string) (*agentstore.Agent, error) {
 				return &agentstore.Agent{ID: id}, nil
 			})
 
-			require.NoError(t, svc.OpenPullRequest(context.Background(), "a1"))
+			require.NoError(t, fireScript(context.Background(), t, svc))
 
 			assert.NoError(t, tt.fire(svc))
 
@@ -1931,19 +1927,19 @@ func lookupEnv(env []string, key string) (string, bool) {
 	return "", false
 }
 
-// TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName pins where the scripts weave ships
+// TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName pins where the scripts weave ships
 // come from now that a person's own directory is only ever read for hooks: a file of theirs
-// called _open_pr is a hook they may hang on a moment, not a replacement for weave's own.
-func TestOpenPullRequestPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
+// called _worktree_cleanup is a hook they may hang on a moment, not a replacement for weave's own.
+func TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
 	hooksDir, builtinDir := t.TempDir(), t.TempDir()
-	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, openPRScript), []byte("#!/bin/sh\n# theirs\n"), 0o755))
-	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n# ours\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(hooksDir, firedScript), []byte("#!/bin/sh\n# theirs\n"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(builtinDir, firedScript), []byte("#!/bin/sh\n# ours\n"), 0o755))
 
 	runner := &recordingRunner{}
 	service := scriptService(t, hooksDir, runner)
 	service.builtinDir = builtinDir
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, fireScript(context.Background(), t, service))
 
 	assert.Equal(t, builtinDir, runner.dir, "the one weave ships is the one that ran")
 }
@@ -1979,7 +1975,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			builtinDir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, openPRScript), []byte("#!/bin/sh\n"), 0o755))
+			require.NoError(t, os.WriteFile(filepath.Join(builtinDir, firedScript), []byte("#!/bin/sh\n"), 0o755))
 			configured := t.TempDir()
 
 			runner := &recordingRunner{}
@@ -2002,7 +1998,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 				},
 			})
 
-			require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+			require.NoError(t, fireScript(context.Background(), t, service))
 
 			values := map[string]string{}
 			for _, entry := range runner.env {
@@ -2056,53 +2052,28 @@ func TestAHookThatCannotStartLeavesARunLogSayingWhy(t *testing.T) {
 	assert.Contains(t, string(logged), "install-deps")
 }
 
-// TestSilentAsyncFailureSaysWhyInItsLog covers the two triggers nothing waits on, where a
-// script that exits non-zero having printed nothing raises the flag on the agent's row and
-// the run that flag points at is the only place a person can read why.
+// TestSilentAsyncFailureSaysWhyInItsLog covers the trigger nothing waits on, where a script
+// that exits non-zero having printed nothing raises the flag on the agent's row and the run
+// that flag points at is the only place a person can read why.
 func TestSilentAsyncFailureSaysWhyInItsLog(t *testing.T) {
-	tests := []struct {
-		name   string
-		script string
-		fire   func(*ScriptService) error
-	}{
-		{
-			name:   "fired by hand",
-			script: openPRScript,
-			fire: func(s *ScriptService) error {
-				return s.OpenPullRequest(t.Context(), fixtureAgentID)
-			},
-		},
-		{
-			name:   "fired as a workflow's cleanup",
-			script: "teardown",
-			fire: func(s *ScriptService) error {
-				return s.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "teardown", nil)
-			},
-		},
-	}
+	dir := t.TempDir()
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte("#!/bin/sh\n"), 0o755))
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			require.NoError(t, os.WriteFile(filepath.Join(dir, tt.script), []byte("#!/bin/sh\n"), 0o755))
+	logsDir := t.TempDir()
+	runner := &recordingRunner{results: map[string]runResult{
+		"teardown": {exitCode: 7, err: scripts.ErrFailed},
+	}}
+	svc, recorder := scriptServiceRecording(t, dir, runner, logsDir)
 
-			logsDir := t.TempDir()
-			runner := &recordingRunner{results: map[string]runResult{
-				tt.script: {exitCode: 7, err: scripts.ErrFailed},
-			}}
-			svc, recorder := scriptServiceRecording(t, dir, runner, logsDir)
+	require.NoError(t, svc.RunDeprovision(t.Context(), agentstore.Agent{ID: fixtureAgentID}, "teardown", nil))
 
-			require.NoError(t, tt.fire(svc))
+	_, finished := recorder.rows()
+	require.Len(t, finished, 1)
+	require.NotEmpty(t, finished[0].Failure, "the row is a failure, so it wears the flag")
 
-			_, finished := recorder.rows()
-			require.Len(t, finished, 1)
-			require.NotEmpty(t, finished[0].Failure, "the row is a failure, so it wears the flag")
-
-			said, err := os.ReadFile(onlyRunLog(t, logsDir))
-			require.NoError(t, err)
-			require.NotEmpty(t, said, "the run the flag points at should say why rather than opening an empty pager")
-			assert.Contains(t, string(said), tt.script, "and it names the script that failed")
-			assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
-		})
-	}
+	said, err := os.ReadFile(onlyRunLog(t, logsDir))
+	require.NoError(t, err)
+	require.NotEmpty(t, said, "the run the flag points at should say why rather than opening an empty pager")
+	assert.Contains(t, string(said), "teardown", "and it names the script that failed")
+	assert.Contains(t, string(said), "exited non-zero", "and says what became of it")
 }
