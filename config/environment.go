@@ -76,8 +76,7 @@ func (e *Environment) RunLogsDir() string {
 	return filepath.Join(e.CacheDir, "weave-run-logs")
 }
 
-// FramesDir is where the pane captures behind an agent's readings are kept while a recording
-// is on, one directory per agent.
+// FramesDir is where the pane captures are kept when debug mode is on, one directory per agent.
 func (e *Environment) FramesDir() string {
 	return filepath.Join(e.CacheDir, "weave-frames")
 }
