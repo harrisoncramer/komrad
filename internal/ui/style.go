@@ -54,6 +54,8 @@ func stateIcon(state agentstore.State) string {
 		return "!"
 	case agentstore.StateThinking:
 		return "…"
+	case agentstore.StateUncertain:
+		return "?"
 	case agentstore.StateSettingUp:
 		return "○"
 	case agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
@@ -65,7 +67,7 @@ func stateIcon(state agentstore.State) string {
 
 func stateColor(state agentstore.State) lipgloss.Color {
 	switch state {
-	case agentstore.StateIdle, agentstore.StateSettingUp:
+	case agentstore.StateIdle, agentstore.StateSettingUp, agentstore.StateUncertain:
 		return colorMuted
 	case agentstore.StateWaiting, agentstore.StateFailedToCreate, agentstore.StateFailedToCleanup:
 		return colorDanger

@@ -364,7 +364,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	case harness.ActivityUnknown:
 
 	case harness.ActivityIdle, harness.ActivityComposing:
-		r.settleIdle(ctx, agent)
+		r.settle(ctx, agent, agentstore.StateIdle)
 
 	case harness.ActivityUnrecognized:
 		r.observeUnrecognized(ctx, agent, frame)
@@ -399,9 +399,10 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 	case harness.ActivityWaiting:
 		return state != agentstore.StateWaiting
 
-	// An unrecognised frame is not read as idle, but it settles there.
-	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityUnrecognized:
+	case harness.ActivityIdle, harness.ActivityComposing:
 		return state != agentstore.StateIdle
+	case harness.ActivityUnrecognized:
+		return state != agentstore.StateUncertain
 
 	// A frame nothing could be read from leaves the agent where it was.
 	case harness.ActivityUnknown:
@@ -411,22 +412,28 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 	return false
 }
 
-// settleIdle is what any frame the harness treats as an ordinary finished state runs
-// through, whether or not the harness positively recognised it.
-func (r *Reconciler) settleIdle(ctx context.Context, agent agentstore.Agent) {
-	if agent.State == agentstore.StateIdle {
+// settle moves an agent to where a frame that has stopped moving lands, taking either the agent's
+// own CLI reporting its turn ended or enough passes in a row reading the same thing.
+func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state agentstore.State) {
+	if agent.State == state {
 		r.clearMisses(agent.ID)
 
 		return
 	}
 
 	if r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
-		r.apply(ctx, agent, agentstore.StateIdle)
+		r.apply(ctx, agent, state)
 
 		return
 	}
 
-	if r.recordMiss(agent.ID) >= reconcileMisses && r.apply(ctx, agent, agentstore.StateIdle) {
+	if r.recordMiss(agent.ID) < reconcileMisses || !r.apply(ctx, agent, state) {
+		return
+	}
+
+	// The unread mark says an agent finished a turn, which a frame weave could not read is no
+	// evidence of.
+	if state == agentstore.StateIdle {
 		r.stampTurnEnd(ctx, agent)
 	}
 }
@@ -441,8 +448,8 @@ func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
 	}
 }
 
-// observeUnrecognized holds a frame that keeps changing instead of demoting it, and
-// falls through to settleIdle once the frame goes static or the hold is capped.
+// observeUnrecognized holds a frame that keeps changing instead of demoting it, and settles the
+// agent as uncertain once the frame goes static or the hold is capped.
 func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.Agent, frame string) {
 	r.unrecognizedTotal++
 	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "a captured frame matched no known activity pattern",
@@ -455,7 +462,7 @@ func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.A
 		return
 	}
 
-	r.settleIdle(ctx, agent)
+	r.settle(ctx, agent, agentstore.StateUncertain)
 }
 
 func hashFrame(frame string) uint64 {

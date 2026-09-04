@@ -28,6 +28,7 @@ func TestReadActivityOnCapturedFrames(t *testing.T) {
 		{file: "panel_whose_footer_the_pane_cut_off.txt", want: harness.ActivityWaiting},
 		{file: "api_retry_banner.txt", want: harness.ActivityWorking},
 		{file: "api_error_ended_the_turn.txt", want: harness.ActivityIdle},
+		{file: "a_pager_took_the_screen.txt", want: harness.ActivityUnrecognized},
 	}
 
 	for _, tt := range tests {

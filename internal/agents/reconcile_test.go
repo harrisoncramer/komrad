@@ -145,9 +145,9 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 	assert.Equal(t, 1, recorder.forgotten)
 }
 
-// TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle covers the frame a stuck pane
-// repeats, which must not be the thing that evicts the run-up showing how it got there.
-func TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle(t *testing.T) {
+// TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent covers a row the panel calls
+// finished whose pane weave cannot read, which is the reading the recording exists for.
+func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 	st := newStore(t)
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 
@@ -161,7 +161,25 @@ func TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle(t *testing.T) {
 
 	require.Len(t, recorder.recorded, 1)
 	assert.Equal(t, "unrecognized", recorder.recorded[0].Activity)
-	assert.False(t, recorder.recorded[0].Disputes, "an unrecognised frame settles idle, so on an idle agent it disputes nothing")
+	assert.True(t, recorder.recorded[0].Disputes, "an unrecognised frame settles uncertain, which is not where the row is")
+}
+
+// TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent is the same frame on a row
+// already drawn as uncertain, which nothing about the pane disputes.
+func TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "%1", agentstore.StateUncertain)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	recorder := &fakeFrameRecorder{}
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	require.NoError(t, rec.Reconcile(context.Background()))
+
+	require.Len(t, recorder.recorded, 1)
+	assert.False(t, recorder.recorded[0].Disputes)
 }
 
 // TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent is the same frame on an agent
@@ -495,9 +513,10 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 	assert.Equal(t, 1, rec.missCount(agent.ID), "the pass still counted as an ordinary miss")
 }
 
-// TestReconcileUnrecognizedFrameDemotesWhenStatic pins that a frame nothing recognizes moves
-// the agent off thinking once it has stopped changing for long enough.
-func TestReconcileUnrecognizedFrameDemotesWhenStatic(t *testing.T) {
+// TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic pins that a frame nothing recognizes
+// moves the agent off thinking once it has stopped changing, and lands on uncertain rather than
+// claiming the agent finished.
+func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
@@ -513,7 +532,7 @@ func TestReconcileUnrecognizedFrameDemotesWhenStatic(t *testing.T) {
 	}
 
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
 }
 
 // TestReconcileUnrecognizedFrameThatKeepsChangingHolds pins that a frame nothing recognizes
@@ -568,7 +587,7 @@ func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T)
 
 	tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, unrecognizedHoldLimit+reconcileMisses)
 	require.NoError(t, rec.Reconcile(ctx))
-	assert.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"),
+	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"),
 		"the accrued misses, not a restarted hold, are what finally demote it")
 }
 
@@ -830,6 +849,63 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the reconciler leaves this path to the hook")
+}
+
+// TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain pins the reading that used to be
+// silent: a row the panel calls finished whose pane weave can no longer read stops claiming the
+// agent is done.
+func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	for range reconcileMisses {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	assert.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
+}
+
+// TestReconcileStampsNoTurnForAFrameItCouldNotRead pins that settling uncertain raises no unread
+// mark, since a screen weave could not read is no evidence a turn ended.
+func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	for range reconcileMisses {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	require.Equal(t, agentstore.StateUncertain, stateOf(t, st, "agent"))
+	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt)
+}
+
+// TestReconcileLeavesUncertainOnceTheFrameReadsAgain pins that uncertain is a reading rather
+// than a trap, so a pane that comes back is read as whatever it now shows.
+func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateUncertain)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = busyFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	require.NoError(t, rec.Reconcile(ctx))
+
+	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
 }
 
 // TestReconcileStampsNoTurnForAPaneItForgot pins that an agent whose pane went away is not

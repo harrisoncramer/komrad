@@ -15,14 +15,19 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// State is what an agent is doing, and the database holds the same six values as an enum, so a
+// State is what an agent is doing, and the database holds the same seven values as an enum, so a
 // value that is not one of them fails the write rather than travelling as a row nothing matches.
 type State string
 
 const (
-	StateThinking        State = State(models.AgentStateThinking)
-	StateWaiting         State = State(models.AgentStateWaiting)
-	StateIdle            State = State(models.AgentStateIdle)
+	StateThinking State = State(models.AgentStateThinking)
+	StateWaiting  State = State(models.AgentStateWaiting)
+	StateIdle     State = State(models.AgentStateIdle)
+
+	// StateUncertain is a pane weave captured and could not read, which is a claim about the
+	// screen rather than about the agent.
+	StateUncertain State = State(models.AgentStateUncertain)
+
 	StateSettingUp       State = State(models.AgentStateSettingUp)
 	StateFailedToCreate  State = State(models.AgentStateFailedToCreate)
 	StateFailedToCleanup State = State(models.AgentStateFailedToCleanup)
@@ -31,11 +36,11 @@ const (
 // DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight
 // and an agent that failed both refuse, since neither is a pane the reconciler may judge.
 func (s State) DoesPaneDecide() bool {
-	// Written without a default so that a seventh state fails the exhaustive check here, which
+	// Written without a default so that an eighth state fails the exhaustive check here, which
 	// forces it to be answered for but not to be given the same answer as the reconciler, the
 	// archive sweep, the resume and the row's own icon happen to share today.
 	switch s {
-	case StateIdle, StateThinking, StateWaiting:
+	case StateIdle, StateThinking, StateWaiting, StateUncertain:
 		return true
 	case StateSettingUp, StateFailedToCreate, StateFailedToCleanup:
 		return false

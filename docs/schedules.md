@@ -12,7 +12,7 @@ There are a few important things to consider with weave's schedules:
 
 - There are no backfills. If the service is down across a firing, that occurrence is skipped and the next one runs normally. This is intentional.
 - A late firing still counts, up to an hour past due, and runs once under the right name. Past an hour it is given up on.
-- One run at a time. If the last agent is still thinking or waiting when the next tick comes, the tick is skipped. An idle agent does not hold the schedule back.
+- One run at a time. If the last agent is still thinking, waiting, or sitting on a pane weave could not read when the next tick comes, the tick is skipped. An idle agent does not hold the schedule back.
 - Launches are serialized, since each one opens a tmux window and types into it. Transient failures retry up to five times.
 - A firing that hits `max_agents` is cancelled rather than retried. Keep an armed schedule and never archive its runs and it will eventually fill your ceiling and stop launching. Its last result on the schedules screen is where you would see that, rather than a next-run time that keeps advancing regardless.
 

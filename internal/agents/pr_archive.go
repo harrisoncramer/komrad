@@ -302,6 +302,10 @@ func isReadyToArchive(agent agentstore.Agent) bool {
 	if agent.ParentAgentID != nil {
 		return false
 	}
+	// A pane weave could not read may be holding a question nobody has answered.
+	if agent.State == agentstore.StateUncertain {
+		return false
+	}
 
 	return agent.State == agentstore.StateIdle || agent.Pane == ""
 }
