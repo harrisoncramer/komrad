@@ -57,6 +57,7 @@ type paneObserver interface {
 type agentStateWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id string, state agentstore.State) error
+	SetTurnEnded(ctx context.Context, id string) error
 	ForgetPane(ctx context.Context, params agentstore.ForgetPaneParams) (bool, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
@@ -363,8 +364,18 @@ func (r *Reconciler) settleIdle(ctx context.Context, agent agentstore.Agent) {
 		return
 	}
 
-	if r.recordMiss(agent.ID) >= reconcileMisses {
-		r.apply(ctx, agent, agentstore.StateIdle)
+	if r.recordMiss(agent.ID) >= reconcileMisses && r.apply(ctx, agent, agentstore.StateIdle) {
+		r.stampTurnEnd(ctx, agent)
+	}
+}
+
+// stampTurnEnd raises the unread mark for a turn the pane watched stop while nothing reported
+// it, giving the mark the floor the state column already has, since a harness that drops its
+// end-of-turn hook otherwise leaves a finished agent looking like one nobody has worked.
+func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
+	if err := r.store.SetTurnEnded(ctx, agent.ID); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to stamp a turn the pane settled",
+			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
 }
 
@@ -431,11 +442,13 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	return forgotten
 }
 
-func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) {
+// apply writes the state a pass settled on and reports whether the store took it, which the
+// caller needs before it hangs anything else off the transition.
+func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) bool {
 	r.clearDebounce(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
 	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
-		return
+		return false
 	}
 
 	if err := r.store.SetStateByID(ctx, agent.ID, state); err != nil {
@@ -445,12 +458,14 @@ func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state ag
 				slog.String(logging.AgentState, string(state)),
 			}, logging.Err(err)...)...)
 
-		return
+		return false
 	}
 
 	if justWentIdle {
 		r.checkPR(ctx, agent)
 	}
+
+	return true
 }
 
 // checkPR looks for a pull request an agent opened, once as the agent goes idle, and records

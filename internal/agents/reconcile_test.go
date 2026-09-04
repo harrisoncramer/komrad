@@ -714,3 +714,65 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 		})
 	}
 }
+
+// TestReconcileStampsTheTurnItSettled pins that the pane raises the unread mark when no hook
+// reported the boundary, since a harness that drops its stop event otherwise leaves an agent
+// that finished indistinguishable from one nobody has worked.
+func TestReconcileStampsTheTurnItSettled(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = idleFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+
+	for range reconcileMisses {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.NotNil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the settled turn is what the mark is measured against")
+}
+
+// TestReconcileLeavesTheStampToTheHookWhenItReported pins that a boundary the CLI reported is
+// left as the hook wrote it, so the pane stays the floor rather than the writer.
+func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = idleFrame
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+	rec.RecordTurnBoundary(agent.ID)
+
+	require.NoError(t, rec.Reconcile(ctx))
+
+	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "the hook's own write is the stamp on this path")
+}
+
+// TestReconcileStampsNoTurnForAPaneItForgot pins that an agent whose pane went away is not
+// marked, since a turn that lost its pane was interrupted rather than finished.
+func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+
+	for range listingsBeforePaneGone {
+		require.NoError(t, rec.Reconcile(ctx))
+	}
+
+	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
+	assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt, "a lost pane is an interruption, not a turn end")
+}

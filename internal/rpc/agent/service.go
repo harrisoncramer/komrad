@@ -387,7 +387,7 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 
 // RecordTurnBoundary notes that the calling agent's own CLI reported its turn ending, which
 // lets the reconciler reach an idle verdict sooner and stamps the row the unread mark is
-// measured against, making this the only path that writes one.
+// measured against, ahead of the reconciler doing the same off the pane.
 func (s *Service) RecordTurnBoundary(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	id := caller.From(ctx).AgentID
 	if id == "" {
