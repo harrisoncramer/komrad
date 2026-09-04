@@ -75,6 +75,26 @@ func TestFrameSettingsReReadOnceTheyAreOld(t *testing.T) {
 	assert.Equal(t, 2, loads)
 }
 
+// TestFrameSettingsBackOffAfterAFailedLoad covers a typo sitting in config.toml, which is
+// otherwise re-parsed once per agent on every reconcile pass for as long as it is there.
+func TestFrameSettingsBackOffAfterAFailedLoad(t *testing.T) {
+	var loads int
+	settings := newFrameSettings(func() (*config.Config, error) {
+		loads++
+
+		return nil, errors.New("no config here")
+	})
+
+	now := time.Now()
+	settings.now = func() time.Time { return now }
+
+	settings.get()
+	settings.get()
+	settings.get()
+
+	assert.Equal(t, 1, loads)
+}
+
 // TestFrameSettingsKeepWhatTheyHadWhenTheConfigBreaks stops a typo appearing in config.toml
 // from turning a recording somebody is relying on off mid-chase.
 func TestFrameSettingsKeepWhatTheyHadWhenTheConfigBreaks(t *testing.T) {

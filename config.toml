@@ -320,8 +320,9 @@ process_viewer = "less -R -X \"$WEAVE_LOG\""
 # Whether the pane capture behind each reading of an agent is kept under the cache
 # directory, which is the evidence a redrawn pane otherwise destroys.
 frames        = false
-# How many frames are kept for one agent before the oldest is dropped.
-frame_history = 200
+# How many frames are kept for one agent before the oldest is dropped, which a number
+# at or below zero takes the default for rather than keeping every frame.
+frame_history = 500
 
 # Which weave this is: the database, the address, the tmux socket, the cache.
 [connection]

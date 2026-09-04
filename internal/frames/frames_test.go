@@ -87,6 +87,37 @@ func TestRecordKeepsAFrameDisputingTheStateOnRecord(t *testing.T) {
 	assert.Len(t, written(t, dir, "a1"), 2)
 }
 
+// TestRecordSkipsAnUnrecognizedFrameItAlreadyHolds covers the frames a stuck pane repeats,
+// which are the ones a recording is turned on to find and so must not be the ones it evicts.
+func TestRecordSkipsAnUnrecognizedFrameItAlreadyHolds(t *testing.T) {
+	dir := t.TempDir()
+	recorder := frames.NewRecorder(dir, on)
+
+	for range 5 {
+		require.NoError(t, recorder.Record(frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "unrecognized"}))
+	}
+
+	assert.Len(t, written(t, dir, "a1"), 1)
+}
+
+// TestRecordTakesAFrameAgainAfterAFailedWrite covers a full disk, where the frame the write
+// lost must not then be skipped as one the recorder already holds.
+func TestRecordTakesAFrameAgainAfterAFailedWrite(t *testing.T) {
+	root := t.TempDir()
+	blocked := filepath.Join(root, "blocked")
+	require.NoError(t, os.WriteFile(blocked, nil, 0o600))
+
+	recorder := frames.NewRecorder(blocked, on)
+	reading := frames.RecordParams{AgentID: "a1", Frame: "same", Activity: "idle"}
+
+	require.Error(t, recorder.Record(reading), "a directory that cannot be made is an error")
+
+	require.NoError(t, os.Remove(blocked))
+	require.NoError(t, recorder.Record(reading))
+
+	assert.Len(t, written(t, blocked, "a1"), 1, "the same recorder has to take the frame it failed to write")
+}
+
 // TestRecordDropsTheOldestPastTheLimit bounds what a busy agent can leave on disk.
 func TestRecordDropsTheOldestPastTheLimit(t *testing.T) {
 	dir := t.TempDir()

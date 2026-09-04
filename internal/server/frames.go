@@ -30,8 +30,9 @@ func newFrameSettings(load func() (*config.Config, error)) *frameSettings {
 	return &frameSettings{load: load, now: time.Now}
 }
 
-// get is the settings in force, re-read once the ones in hand are old enough, and a config
-// that will not load leaves whatever was last read standing.
+// get is the settings in force, re-read once the ones in hand are old enough, where a config
+// that will not load leaves whatever was last read standing until the next time it is due
+// rather than being retried once per agent per pass for as long as the typo is there.
 func (f *frameSettings) get() frames.Settings {
 	f.mu.Lock()
 	defer f.mu.Unlock()
@@ -40,12 +41,13 @@ func (f *frameSettings) get() frames.Settings {
 		return f.held
 	}
 
+	f.read = f.now()
+
 	cfg, err := f.load()
 	if err != nil {
 		return f.held
 	}
 
-	f.read = f.now()
 	f.held = frames.Settings{On: cfg.Debug.Frames, Keep: cfg.Debug.FrameHistory}
 
 	return f.held

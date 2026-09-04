@@ -145,6 +145,44 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 	assert.Equal(t, 1, recorder.forgotten)
 }
 
+// TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle covers the frame a stuck pane
+// repeats: it is the evidence a recording exists for, so it must not be the thing that evicts
+// the run-up showing how the pane got there.
+func TestReconcileRecordsAnUnrecognizedFrameAsAgreeingWithIdle(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	recorder := &fakeFrameRecorder{}
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	require.NoError(t, rec.Reconcile(context.Background()))
+
+	require.Len(t, recorder.recorded, 1)
+	assert.Equal(t, "unrecognized", recorder.recorded[0].Activity)
+	assert.False(t, recorder.recorded[0].Disputes, "an unrecognised frame settles idle, so on an idle agent it disputes nothing")
+}
+
+// TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent is the same frame on an agent
+// the panel still shows as working, which is a reading worth keeping every time.
+func TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent(t *testing.T) {
+	st := newStore(t)
+	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
+
+	tmux := newFakeTmux()
+	tmux.owners["%1"] = agent.ID
+	tmux.captures["%1"] = unrecognizedFrame
+
+	recorder := &fakeFrameRecorder{}
+	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	require.NoError(t, rec.Reconcile(context.Background()))
+
+	require.Len(t, recorder.recorded, 1)
+	assert.True(t, recorder.recorded[0].Disputes)
+}
+
 // TestReconcileWithoutARecorderRecordsNothing covers the ordinary install, where no recording
 // has been asked for and the reconciler holds none.
 func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {

@@ -383,7 +383,7 @@ func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, fr
 		AgentID:  agent.ID,
 		Frame:    frame,
 		Activity: activity.String(),
-		Disputes: stateFor(activity) != agent.State,
+		Disputes: doesReadingDispute(activity, agent.State),
 	})
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record the frame an agent was read from",
@@ -391,21 +391,27 @@ func (r *Reconciler) recordFrame(ctx context.Context, agent agentstore.Agent, fr
 	}
 }
 
-// stateFor is the state a reading would leave an agent in, which is what a recording compares
-// against the state on record to tell a reading worth keeping from one that changes nothing.
-func stateFor(activity harness.Activity) agentstore.State {
+// doesReadingDispute reports whether a reading would leave an agent somewhere other than the
+// state on record, which is how a recording tells a frame worth keeping from one that only
+// says again what the panel already shows.
+func doesReadingDispute(activity harness.Activity, state agentstore.State) bool {
 	switch activity {
 	case harness.ActivityWorking:
-		return agentstore.StateThinking
+		return state != agentstore.StateThinking
 	case harness.ActivityWaiting:
-		return agentstore.StateWaiting
-	case harness.ActivityIdle, harness.ActivityComposing:
-		return agentstore.StateIdle
-	case harness.ActivityUnknown, harness.ActivityUnrecognized:
-		return ""
+		return state != agentstore.StateWaiting
+
+	// An unrecognised frame is not read as idle, but it settles there, so on an agent that is
+	// already idle it disputes nothing and the frame it repeats is the recording's to skip.
+	case harness.ActivityIdle, harness.ActivityComposing, harness.ActivityUnrecognized:
+		return state != agentstore.StateIdle
+
+	// A frame nothing could be read from leaves the agent where it was.
+	case harness.ActivityUnknown:
+		return false
 	}
 
-	return ""
+	return false
 }
 
 // settleIdle is what any frame the harness treats as an ordinary finished state runs

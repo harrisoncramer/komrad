@@ -54,9 +54,10 @@ const DefaultDeliveryDeadline = "3h"
 // names no limit, ten rounds each way between two agents.
 const DefaultMaxHops = 20
 
-// DefaultFrameHistory is how many frames a recording keeps for one agent when the config
-// names no number, a few minutes of a busy pane and a few kilobytes each.
-const DefaultFrameHistory = 200
+// DefaultFrameHistory is how many frames a recording keeps for one agent when the config names
+// no number, which at a few kilobytes each is a couple of megabytes an agent and, for a pane
+// whose timer moves every pass, something under half an hour of history.
+const DefaultFrameHistory = 500
 
 // DefaultMaxAgents is how many agents may exist at once when the config names no number,
 // well above what anyone opens by hand and low enough to catch a caller in a loop.
@@ -528,7 +529,8 @@ type Debug struct {
 	// Whether the pane capture behind each reading of an agent is kept under the cache
 	// directory, which is the evidence a redrawn pane otherwise destroys.
 	Frames bool `mapstructure:"frames"`
-	// How many frames are kept for one agent before the oldest is dropped.
+	// How many frames are kept for one agent before the oldest is dropped, which a number
+	// at or below zero takes the default for rather than keeping every frame.
 	FrameHistory int `mapstructure:"frame_history"`
 }
 
@@ -1181,7 +1183,7 @@ func (c *Config) normalizeZeroValues() {
 	if strings.TrimSpace(c.Log.ProcessViewer) == "" {
 		c.Log.ProcessViewer = DefaultProcessViewer
 	}
-	if c.Debug.FrameHistory == 0 {
+	if c.Debug.FrameHistory <= 0 {
 		c.Debug.FrameHistory = DefaultFrameHistory
 	}
 }

@@ -133,6 +133,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Scripts:        scriptService,
 		Notifier:       mailService,
 		LogsDir:        runLogsDir,
+		FramesDir:      p.Env.FramesDir(),
 		MaxAgents:      p.MaxAgents,
 		MaxChildren:    p.MaxChildren,
 	})

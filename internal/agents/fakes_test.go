@@ -417,6 +417,7 @@ type agentServiceOptions struct {
 	maxChildren int
 	notifier    systemMailSender
 	logsDir     string
+	framesDir   string
 	agents      testAgentStore
 	tx          txRunner
 }
@@ -477,6 +478,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Scripts:        options.lifecycle,
 			Notifier:       options.notifier,
 			LogsDir:        options.logsDir,
+			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,
 			MaxChildren:    options.maxChildren,
 		}),

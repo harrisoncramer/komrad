@@ -18,7 +18,8 @@ import (
 )
 
 // stampFormat orders the files in a directory the way the readings happened, since a listing
-// sorted by name is then sorted by time.
+// sorted by name is then sorted by time, and is stamped in UTC so that a clock going back over
+// a daylight saving change or an ntp correction cannot sort a new frame before an old one.
 const stampFormat = "20060102T150405.000"
 
 // Settings are the parts of the config a recording reads, taken fresh so turning one on
@@ -27,6 +28,12 @@ type Settings struct {
 	On bool
 	// Keep is how many frames an agent holds before the oldest is dropped.
 	Keep int
+}
+
+// AgentDir is where one agent's frames are kept, which is also what has to be removed once
+// that agent is gone, since a recording is bounded per agent rather than overall.
+func AgentDir(dir, agentID string) string {
+	return filepath.Join(dir, agentID)
 }
 
 // Recorder writes an agent's frames under a directory of its own, keeping the most recent and
@@ -71,19 +78,21 @@ func (r *Recorder) Record(params RecordParams) error {
 		return nil
 	}
 
-	if !r.isNews(params) {
+	hash := hashFrame(params.Frame)
+	if !r.isNews(params, hash) {
 		return nil
 	}
 
-	dir := filepath.Join(r.dir, params.AgentID)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := AgentDir(r.dir, params.AgentID)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 
-	name := fmt.Sprintf("%s-%04d-%s.txt", r.now().Format(stampFormat), r.count(), params.Activity)
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(params.Frame), 0o644); err != nil {
+	name := fmt.Sprintf("%s-%04d-%s.txt", r.now().UTC().Format(stampFormat), r.count(), params.Activity)
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(params.Frame), 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", name, err)
 	}
+	r.remember(params.AgentID, hash)
 
 	return prune(dir, settings.Keep)
 }
@@ -99,20 +108,32 @@ func (r *Recorder) count() int {
 	return r.written
 }
 
-// isNews reports whether a reading is worth keeping, and notes the frame it was taken from so
-// the next reading has something to differ from.
-func (r *Recorder) isNews(params RecordParams) bool {
-	hash := fnv.New64a()
-	_, _ = hash.Write([]byte(params.Frame))
-	sum := hash.Sum64()
-
+// isNews reports whether a reading is worth keeping, which is a frame differing from the last
+// one kept for that agent or a verdict disputing the state on record.
+func (r *Recorder) isNews(params RecordParams, hash uint64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	seen, ok := r.last[params.AgentID]
-	r.last[params.AgentID] = sum
 
-	return !ok || sum != seen || params.Disputes
+	return !ok || hash != seen || params.Disputes
+}
+
+// remember notes the frame an agent was last kept from, once that frame is on disk, so that a
+// write which failed is taken again rather than skipped as one already held.
+func (r *Recorder) remember(agentID string, hash uint64) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	r.last[agentID] = hash
+}
+
+// hashFrame reduces a frame to what is worth holding for every agent between passes.
+func hashFrame(frame string) uint64 {
+	hash := fnv.New64a()
+	_, _ = hash.Write([]byte(frame))
+
+	return hash.Sum64()
 }
 
 // Forget drops what the recorder holds about the agents a listing no longer carries, so a
