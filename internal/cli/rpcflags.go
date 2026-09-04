@@ -164,6 +164,9 @@ func declareListFlag(cmd *cobra.Command, field protoreflect.FieldDescriptor, fla
 
 func describeField(field protoreflect.FieldDescriptor) string {
 	parts := []string{field.Kind().String()}
+	if field.Kind() == protoreflect.EnumKind {
+		parts = []string{strings.Join(rpcapi.EnumNames(field.Enum()), "|")}
+	}
 	if rpcapi.IsRequired(field) {
 		parts = append(parts, "required")
 	}

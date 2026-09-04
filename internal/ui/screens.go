@@ -14,6 +14,7 @@ const (
 	screenArchive
 	screenSearch
 	screenReview
+	screenMail
 )
 
 // screenSpec is everything the panel asks of whichever screen is up, resolved from the screen
@@ -138,6 +139,21 @@ func (s screen) spec() screenSpec {
 			view:         model.searchView,
 			needsArchive: true,
 			typing:       func(m model) bool { return m.search.typing },
+		}
+	case screenMail:
+		return screenSpec{
+			key:          model.updateMail,
+			view:         model.mailView,
+			stage:        (*model).stageMail,
+			needsArchive: true,
+			details: &detailsSpec{
+				hovered: model.mailDetails,
+				quit:    func(keys config.Keybindings) []string { return keys.Mail.Quit },
+			},
+			filter: &filterSpec{
+				hovered: model.hoveredMailKey,
+				place:   (*model).placeMailCursor,
+			},
 		}
 	case screenReview:
 		return screenSpec{

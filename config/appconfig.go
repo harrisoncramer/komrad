@@ -133,6 +133,8 @@ type Keybindings struct {
 	// The key that pages the service's log, shared by every screen since the log is
 	// about the service rather than about anything a screen lists.
 	Logs LogsKeys `mapstructure:"logs"`
+	// The mailbox of one agent, and the key that opens it from the agents list.
+	Mail MailKeys `mapstructure:"mail"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
 	// The review screen, which draws an agent's diff in the stage and its review
@@ -265,6 +267,9 @@ type AgentsKeys struct {
 	NextUnviewed []string `mapstructure:"next_unviewed"`
 	// Jump to the previous agent that has finished something you have not looked at.
 	PrevUnviewed []string `mapstructure:"prev_unviewed"`
+	// Read the mail the hovered agent has sent and been sent, with the mailbox in the
+	// sidebar and the message under the cursor in the stage.
+	Mail []string `mapstructure:"mail"`
 	// Attach to the hovered agent.
 	Open []string `mapstructure:"open"`
 	// Open the pull request the hovered agent recorded, in your browser. The key does
@@ -294,6 +299,15 @@ type WorkflowsKeys struct {
 	New []string `mapstructure:"new"`
 	// Rename the workflow under the cursor.
 	Rename []string `mapstructure:"rename"`
+}
+
+// MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped
+// into threads in the sidebar, and the message the cursor is standing on in the stage.
+type MailKeys struct {
+	// Leave the mailbox for the agents list.
+	Back []string `mapstructure:"back"`
+	// Quit the panel.
+	Quit []string `mapstructure:"quit"`
 }
 
 // ReviewKeys are the bindings for the review screen, where the diff is in the stage and the
@@ -707,6 +721,7 @@ func DefaultKeybindings() Keybindings {
 			ToggleViewed: []string{"u"},
 			NextUnviewed: []string{"n"},
 			PrevUnviewed: []string{"N"},
+			Mail:         []string{"m"},
 			Open:         []string{"enter"},
 			OpenPR:       []string{"o"},
 			Quit:         []string{"ctrl+c"},
@@ -746,6 +761,10 @@ func DefaultKeybindings() Keybindings {
 			Down:   []string{"j"},
 			Top:    []string{"g"},
 			Up:     []string{"k"},
+		},
+		Mail: MailKeys{
+			Back: []string{"esc"},
+			Quit: []string{"ctrl+c"},
 		},
 		Review: ReviewKeys{
 			Back:         []string{"esc"},

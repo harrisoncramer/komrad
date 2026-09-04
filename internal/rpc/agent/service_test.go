@@ -1227,6 +1227,68 @@ func TestListMail(t *testing.T) {
 	require.Len(t, again.Msg.GetMail(), 1, "listing twice still finds the mail, unlike reading")
 }
 
+// TestListMailDirection pins which half of an agent's correspondence a listing reaches, since
+// the default reads its mailbox and only an explicit direction reads what it sent.
+func TestListMailDirection(t *testing.T) {
+	svc, st := service(t)
+	alpha := st.SeedAgent(t, agentstore.Agent{
+		Name:  "alpha",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+	beta := st.SeedAgent(t, agentstore.Agent{
+		Name:  "beta",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
+
+	asAlpha := caller.With(t.Context(), caller.Caller{AgentID: alpha.ID})
+	_, err := svc.SendMail(asAlpha, connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: beta.ID,
+		Body:      "what alpha said",
+	}))
+	require.NoError(t, err)
+
+	asBeta := caller.With(t.Context(), caller.Caller{AgentID: beta.ID})
+	_, err = svc.SendMail(asBeta, connect.NewRequest(&agentv1.SendMailRequest{
+		ToAgentId: alpha.ID,
+		Body:      "what beta said",
+	}))
+	require.NoError(t, err)
+
+	tests := []struct {
+		name      string
+		direction agentv1.MailDirection
+		want      string
+	}{
+		{
+			name: "an unset direction reads the mailbox",
+			want: "what beta said",
+		},
+		{
+			name:      "received reads the mailbox too",
+			direction: agentv1.MailDirection_MAIL_DIRECTION_RECEIVED,
+			want:      "what beta said",
+		},
+		{
+			name:      "sent reads what the agent wrote",
+			direction: agentv1.MailDirection_MAIL_DIRECTION_SENT,
+			want:      "what alpha said",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			listed, err := svc.ListMail(asAlpha, connect.NewRequest(&agentv1.ListMailRequest{
+				Direction: tt.direction,
+			}))
+			require.NoError(t, err)
+			require.Len(t, listed.Msg.GetMail(), 1)
+			assert.Equal(t, tt.want, listed.Msg.GetMail()[0].GetBody())
+		})
+	}
+}
+
 // TestListMailScope pins which mailbox a listing lands on, and that neither a missing id nor
 // an id nobody holds passes quietly.
 func TestListMailScope(t *testing.T) {

@@ -4,7 +4,7 @@ List the mail addressed to an agent, most recent first, without claiming any of 
 
 ### Synopsis
 
-List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox. claimedAt is unset while a piece is still waiting, and set once the recipient has taken it. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to look at its mailbox instead, which is a deliberate read of somebody else's mail and is recorded as one. Returns one page, pass the response's nextPageToken back as pagination.cursor for the next one. Returns not_found if no agent has that id.
+List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox. claimedAt is unset while a piece is still waiting, and set once the recipient has taken it. id defaults to your own, which is in the WEAVE_AGENT_ID environment variable; give another agent's id to look at its mailbox instead, which is a deliberate read of somebody else's mail and is recorded as one. Returns one page, pass the response's nextPageToken back as pagination.cursor for the next one. direction says which half of the correspondence to list, the mail addressed to the agent by default, or MAIL_DIRECTION_SENT for the mail it sent. Returns not_found if no agent has that id.
 
 ```
 weave rpc list-mail [flags]
@@ -14,6 +14,7 @@ weave rpc list-mail [flags]
 
 ```
       --compact                    print the response on one line
+      --direction string           MAIL_DIRECTION_RECEIVED|MAIL_DIRECTION_SENT
   -h, --help                       help for list-mail
       --id string                  string
       --pagination.cursor string   string, at most 2048 characters

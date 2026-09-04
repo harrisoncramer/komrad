@@ -193,6 +193,27 @@ func (s *Store) ListPage(ctx context.Context, toAgentID string, limit int32, cur
 	}), nil
 }
 
+// ListSentPage returns one page of the mail an agent sent, newest first.
+func (s *Store) ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *Cursor) ([]Mail, error) {
+	if !store.IsID(fromAgentID) {
+		return nil, nil
+	}
+
+	params := models.ListMailSentPageParams{FromAgentID: &fromAgentID, Lim: limit}
+	if cursor != nil {
+		params.CursorID = &cursor.ID
+	}
+
+	rows, err := s.queries.ListMailSentPage(ctx, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list a page of the mail agent %q sent: %w", fromAgentID, err)
+	}
+
+	return xslice.Map(rows, func(row *models.Mail) Mail {
+		return mailFromRow(*row)
+	}), nil
+}
+
 // ListByID returns whichever of the given ids hold mail, so a caller checking a batch for
 // completeness compares the length against what it asked for.
 func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {

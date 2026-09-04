@@ -26,6 +26,12 @@ An idle agent ends no turn, so the nudge is the only way mail reaches one. Keys 
 
 A prompt already holding text is left alone, because the newline that submits the nudge would send whatever somebody was halfway through typing along with it. Such an agent is nudged once the prompt is empty again, and its mail expires unread if that never happens.
 
+## Reading a mailbox
+
+Press `m` on an agent in the panel to read its mail. The sidebar groups the messages into
+threads, the thread something last happened in at the top, and inside each thread the newest
+message first.
+
 ## Children and their families
 
 A [child agent](agents.md) may only mail inside its own family, which is its parent and that parent's other children. Anything else is refused, and the refusal says to reply to the parent instead.
