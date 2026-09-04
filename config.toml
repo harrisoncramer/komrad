@@ -300,9 +300,11 @@ file = ""
 # it is neither delivered nor readable, and the row is kept as a record that it never
 # arrived.
 delivery_deadline = "3h"
-# How many pieces of mail may pass along one reply thread before a send is refused. A
-# reply takes its parent's hop count plus one, so this caps a back-and-forth rather
-# than the total mail between two agents.
+# How many pieces of mail may pass through one thread before a send is refused. A
+# reply counts from the deepest hop the thread has reached, so answering an earlier
+# message does not put the count back where that message was. It caps one thread
+# rather than the total mail between two agents, so mail sent with no reply_to opens
+# a thread of its own and starts again at one.
 max_hops          = 20
 
 # The log the background service writes, which the panel's log key pages.

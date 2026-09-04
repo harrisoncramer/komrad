@@ -38,6 +38,11 @@ table "mail" {
     null = true
     type = uuid
   }
+  column "thread_root" {
+    null    = true
+    type    = uuid
+    comment = "The mail that opened the thread this belongs to, null on the opening mail itself. It carries no foreign key on purpose: deleting the mail a thread started from must not detach what followed it, since the hop count is read across the whole thread."
+  }
   column "hops" {
     null    = false
     type    = int
@@ -96,5 +101,9 @@ table "mail" {
   }
   index "mail_reply_to" {
     columns = [column.reply_to]
+  }
+  index "mail_thread_root" {
+    columns = [column.thread_root]
+    comment = "Reads the whole thread a reply belongs to, which is what the hop count is measured across."
   }
 }

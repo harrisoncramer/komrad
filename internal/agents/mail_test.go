@@ -155,8 +155,9 @@ func TestSendMailFromNobody(t *testing.T) {
 	assert.Empty(t, mailbox.sent[0].FromName)
 }
 
-// TestSendMailRefusesPastTheHopLimit pins that hops are counted along a reply chain and the
-// send past the limit is the one refused.
+// TestSendMailRefusesPastTheHopLimit pins that hops are counted within a thread and the
+// send past the limit is the one refused, and that mail carrying no reply_to opens a thread
+// of its own rather than continuing one.
 func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -303,6 +304,7 @@ func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mai
 		Body:        params.Body,
 		Kind:        params.Kind,
 		ReplyTo:     params.ReplyTo,
+		ThreadRoot:  params.ThreadRoot,
 		Hops:        params.Hops,
 	}
 
@@ -321,6 +323,18 @@ func (f *fakeMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail, er
 	}
 
 	return &found, nil
+}
+
+func (f *fakeMailbox) DeepestHops(_ context.Context, threadRoot string) (int32, error) {
+	deepest := int32(0)
+	for _, held := range f.byID {
+		inThread := held.ID == threadRoot || (held.ThreadRoot != nil && *held.ThreadRoot == threadRoot)
+		if inThread && held.Hops > deepest {
+			deepest = held.Hops
+		}
+	}
+
+	return deepest, nil
 }
 
 func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailstore.Mail, error) {
@@ -490,4 +504,33 @@ func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent
 	}
 
 	return &found, nil
+}
+
+// TestSendMailCountsEveryHopInTheThread pins that the cap bounds the whole exchange rather
+// than one path down it: an agent that keeps answering the message that opened the thread
+// is on its third round, not its second, however it addressed the reply.
+func TestSendMailCountsEveryHopInTheThread(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		AgentFinder:    newFakeDirectory(),
+		Config:         fakeMailConfig{maxHops: 2},
+	})
+
+	first, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-a", ToAgentID: "agent-b", Body: "which column?",
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 1, first.Hops)
+
+	second, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
+	})
+	require.NoError(t, err)
+	assert.EqualValues(t, 2, second.Hops)
+
+	_, err = svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-a", ToAgentID: "agent-b", Body: "and the other one?", ReplyTo: &first.ID,
+	})
+	require.ErrorIs(t, err, ErrThreadCapped)
 }

@@ -35,7 +35,7 @@ WHERE
         FROM
             pending)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 `
 
 type ClaimMailParams struct {
@@ -66,6 +66,7 @@ func (q *Queries) ClaimMail(ctx context.Context, arg ClaimMailParams) ([]*Mail, 
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
+			&i.ThreadRoot,
 		); err != nil {
 			return nil, err
 		}
@@ -105,9 +106,26 @@ func (q *Queries) DeleteMailByID(ctx context.Context, ids []string) error {
 	return err
 }
 
+const getDeepestHopsInThread = `-- name: GetDeepestHopsInThread :one
+SELECT
+    COALESCE(MAX(m.hops), 0)::int AS deepest
+FROM
+    mail m
+WHERE
+    m.id = $1
+    OR m.thread_root = $1
+`
+
+func (q *Queries) GetDeepestHopsInThread(ctx context.Context, threadRoot string) (int32, error) {
+	row := q.db.QueryRow(ctx, getDeepestHopsInThread, threadRoot)
+	var deepest int32
+	err := row.Scan(&deepest)
+	return deepest, err
+}
+
 const getMail = `-- name: GetMail :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 FROM
     mail m
 WHERE
@@ -131,13 +149,14 @@ func (q *Queries) GetMail(ctx context.Context, id string) (*Mail, error) {
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Kind,
+		&i.ThreadRoot,
 	)
 	return &i, err
 }
 
 const getMailByID = `-- name: GetMailByID :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 FROM
     mail m
 WHERE
@@ -167,6 +186,7 @@ func (q *Queries) GetMailByID(ctx context.Context, ids []string) ([]*Mail, error
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
+			&i.ThreadRoot,
 		); err != nil {
 			return nil, err
 		}
@@ -180,7 +200,7 @@ func (q *Queries) GetMailByID(ctx context.Context, ids []string) ([]*Mail, error
 
 const getPendingMailOfKind = `-- name: GetPendingMailOfKind :one
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 FROM
     mail m
 WHERE
@@ -215,6 +235,7 @@ func (q *Queries) GetPendingMailOfKind(ctx context.Context, arg GetPendingMailOf
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Kind,
+		&i.ThreadRoot,
 	)
 	return &i, err
 }
@@ -227,6 +248,7 @@ INSERT INTO mail(
     body,
     kind,
     reply_to,
+    thread_root,
     hops,
     expires_at)
 VALUES (
@@ -237,9 +259,10 @@ VALUES (
     $5,
     $6,
     $7,
-    NOW() + interval '1 microsecond' * $8::bigint)
+    $8,
+    NOW() + interval '1 microsecond' * $9::bigint)
 RETURNING
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 `
 
 type InsertMailParams struct {
@@ -249,6 +272,7 @@ type InsertMailParams struct {
 	Body           string
 	Kind           MailKind
 	ReplyTo        *string
+	ThreadRoot     *string
 	Hops           int32
 	DeadlineMicros int64
 }
@@ -261,6 +285,7 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		arg.Body,
 		arg.Kind,
 		arg.ReplyTo,
+		arg.ThreadRoot,
 		arg.Hops,
 		arg.DeadlineMicros,
 	)
@@ -279,13 +304,14 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.Kind,
+		&i.ThreadRoot,
 	)
 	return &i, err
 }
 
 const listMailPage = `-- name: ListMailPage :many
 SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 FROM
     mail m
 WHERE
@@ -326,6 +352,7 @@ func (q *Queries) ListMailPage(ctx context.Context, arg ListMailPageParams) ([]*
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
+			&i.ThreadRoot,
 		); err != nil {
 			return nil, err
 		}
@@ -424,7 +451,7 @@ WHERE
         FROM
             unreported)
     RETURNING
-        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind
+        id, from_agent_id, from_name, to_agent_id, body, reply_to, hops, claimed_at, reported_at, expires_at, created_at, updated_at, kind, thread_root
 `
 
 func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*Mail, error) {
@@ -450,6 +477,7 @@ func (q *Queries) ReportExpiredMail(ctx context.Context, toAgentID string) ([]*M
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.Kind,
+			&i.ThreadRoot,
 		); err != nil {
 			return nil, err
 		}
