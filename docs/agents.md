@@ -40,6 +40,8 @@ Press `C` on the hovered agent to attach one. The form asks for the prompt, a ti
 
 What a child cannot do is the point of it. It has no directory of its own, so it is a guest in the parent's checkout: it is told to read and run but not to commit, push, stash, or switch branches. It cannot have children of its own. And it can only reach its parent and that parent's other children by [mail](mail.md).
 
+Being told is not being stopped, so anything a child does write is in the parent's diff, where it is indistinguishable from the parent's own work. The review screen names the children in the checkout for that reason, above the diff, so a change nobody there recognises has somewhere to be traced to.
+
 Archiving or deleting the parent takes the children with it, and a child named on its own goes on its own, which is how you finish with a reviewer while the agent it was reading for keeps working. Restoring is the one direction that holds the family together: a child comes back only once its parent is live again, since there would otherwise be no row for it to be drawn under.
 
 Because they all edit the one checkout, one agent may hold only a few children at once. `max_children` in your configuration is that ceiling, and a call past it is refused rather than queued.

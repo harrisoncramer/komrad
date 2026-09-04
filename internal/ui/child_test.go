@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -250,4 +252,41 @@ func TestChildKeyOnAChildIsRefused(t *testing.T) {
 
 	require.NotNil(t, refused.banner)
 	assert.Contains(t, refused.banner.Detail, "may not have children")
+}
+
+// TestReviewNamesTheChildrenInTheCheckout covers a child's writes standing in the diff the panel
+// draws for its parent, since a child provisions nothing and works in the tree that diff is read
+// from, and a reader who is not told so takes every change on screen as the parent's own.
+func TestReviewNamesTheChildrenInTheCheckout(t *testing.T) {
+	dir := reviewRepo(t)
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "guest.go"), []byte("package greet\n"), 0o644))
+
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.listing.agents = append(m.listing.agents, agentItem{
+		alive: true,
+		agent: agentstore.Agent{
+			ID:            "a2",
+			Name:          "auth-reviewer",
+			Cwd:           dir,
+			WorkflowID:    "w1",
+			ParentAgentID: xptr.Ptr("a1"),
+		},
+	})
+	m = openReview(t, m)
+
+	require.Equal(t, 2, m.review.view.Stat().Files, "the child's untracked write is in the parent's diff")
+
+	view := ansi.Strip(m.reviewView())
+	assert.Contains(t, view, "1 CHILD IN THIS CHECKOUT")
+	assert.Contains(t, view, "auth-reviewer", "the bar names who is in there")
+}
+
+// TestReviewSaysNothingWhenNobodyElseIsThere covers the bar staying off an agent working alone,
+// since it is only worth a bar across the sidebar while the diff may hold somebody else's work.
+func TestReviewSaysNothingWhenNobodyElseIsThere(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "IN THIS CHECKOUT")
 }

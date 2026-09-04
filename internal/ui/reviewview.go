@@ -24,7 +24,11 @@ var (
 	// Reversed rather than merely coloured: a reader who keeps writing against a patch that has
 	// already moved has those comments pinned as ghosted or adrift when they finally reload, so
 	// this is worth a bar across the sidebar rather than a dim line they read past.
-	reviewStaleStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorWarning).Bold(true)
+	reviewStaleStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorWarning).Bold(true)
+
+	// A guest's writes are indistinguishable from the agent's own once they are in the patch, so
+	// this gets a bar for the same reason: a reader would read past a dim line and keep going.
+	reviewGuestStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorAccent).Bold(true)
 	reviewDeadStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorMuted).Bold(true)
 	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(colorAccent)
 	reviewSentStyle      = lipgloss.NewStyle().Foreground(colorWarning)
@@ -143,7 +147,7 @@ func (m model) reviewHeadView() string {
 		return dimStyle.Render("nothing changed in this worktree") + "\n"
 	}
 
-	return m.reviewDeadView() + m.reviewStaleView() + m.reviewAnchorView()
+	return m.reviewDeadView() + m.reviewGuestView() + m.reviewStaleView() + m.reviewAnchorView()
 }
 
 // reviewDeadView says there is nobody on the other end, since the diff opens for an agent that
@@ -155,6 +159,44 @@ func (m model) reviewDeadView() string {
 	}
 
 	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
+}
+
+// reviewGuestView names the children sitting in this checkout, since a child provisions nothing
+// and works in the tree the diff is read from, so a change on screen may be one of theirs while
+// the review is filed against the agent whose row it was opened from.
+func (m model) reviewGuestView() string {
+	names := m.reviewGuests()
+	if len(names) == 0 {
+		return ""
+	}
+
+	word := "CHILD"
+	if len(names) > 1 {
+		word = "CHILDREN"
+	}
+
+	out := reviewGuestStyle.Render(m.reviewFill(fmt.Sprintf(" %d %s IN THIS CHECKOUT ", len(names), word))) + "\n"
+
+	// A name to a line rather than a joined list, since the sidebar is narrow enough to break one
+	// across two lines and a half-written name is no answer to whose change this is.
+	for _, name := range names {
+		out += dimStyle.Render("  "+clipName(name)) + "\n"
+	}
+
+	return out
+}
+
+// reviewGuests is the children of the agent whose diff is up, hidden ones included, since a row
+// nobody is shown is exactly the one a reader would not think to account for.
+func (m model) reviewGuests() []string {
+	var names []string
+	for _, item := range m.listing.agents {
+		if item.agent.ParentAgentID != nil && *item.agent.ParentAgentID == m.review.agentID {
+			names = append(names, item.agent.Name)
+		}
+	}
+
+	return names
 }
 
 // reviewStaleView is the bar saying the worktree no longer looks like the diff on screen, drawn
