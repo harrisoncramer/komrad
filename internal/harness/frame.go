@@ -157,8 +157,8 @@ func StripDim(lines []string) []string {
 	return stripped
 }
 
-// Foregrounds is the colour the first character drawn on each line of a region carries, empty
-// where that character is drawn in the terminal's own.
+// Foregrounds is the colour each line of a region draws its first run that is not blank in, empty
+// where that run carries the terminal's own.
 func Foregrounds(lines []string) []string {
 	colours := make([]string, len(lines))
 

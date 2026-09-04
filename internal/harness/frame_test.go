@@ -111,7 +111,7 @@ func TestForegrounds(t *testing.T) {
 			want:  []string{"90", "90"},
 		},
 		{
-			name:  "leading spaces are drawn in the colour the line's first character carries",
+			name:  "the colour is taken from the first run that is not blank",
 			lines: []string{"  \x1b[38;5;102m-- INSERT --\x1b[39m"},
 			want:  []string{"38;5;102"},
 		},

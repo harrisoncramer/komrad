@@ -100,7 +100,7 @@ const questionsFrame = "  Question 1/3 (3 unanswered)\n" +
 const labelledStartupFrame = "\x1b[1m\x1b[38;2;128;128;128m•\x1b[0m \x1b[1m\x1b[38;2;128;128;128mStarting MCP servers (1/3): chariot, codex_apps\x1b[0m " +
 	dimOn + "(0s • esc to interrupt)" + dimOff + composerTail
 
-const quotedStatusFrame = "  \u2514 weave.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})\n" +
+const quotedStatusFrame = dimOn + "  \u2514 weave.send_mail({\"body\":\"the pane still said Working (4s \u2022 esc to interrupt) afterwards\"})" + dimOff + "\n" +
 	"\n" +
 	"\u2022 Yes. It is a separate bug that already exists on main.\n" +
 	"\n" +
@@ -220,6 +220,16 @@ func TestReadActivity(t *testing.T) {
 			name:  "the verb and timer alone are work, for a release that drops the hint",
 			frame: "• Working (12s)",
 			want:  harness.ActivityWorking,
+		},
+		{
+			name:  "tool output drawn dim from end to end is not work, however it reads",
+			frame: dimOn + "  └ testdata/starting.txt: • Starting MCP servers (1/3): chariot (0s • esc to interrupt)" + dimOff + composerTail,
+			want:  harness.ActivityIdle,
+		},
+		{
+			name:  "an indent drawn bright above dim tool output is not work either",
+			frame: "    " + dimOn + "• Cogitating (2s • esc to interrupt)" + dimOff + composerTail,
+			want:  harness.ActivityIdle,
 		},
 		{
 			name:  "the interrupt hint drawn bright is a message quoting it rather than work",

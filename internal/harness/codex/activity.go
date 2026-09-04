@@ -86,7 +86,15 @@ func doesFrameOfferInterrupt(frame string) bool {
 			continue
 		}
 
-		if !interruptTimer.MatchString(ansiSeq.ReplaceAllString(held[i], "")) {
+		rest := ansiSeq.ReplaceAllString(held[i], "")
+
+		// Codex draws the label bright and only the timer dim, so a line that comes down to
+		// nothing was dim from end to end, which is how it draws tool output rather than status.
+		if strings.TrimSpace(rest) == "" {
+			continue
+		}
+
+		if !interruptTimer.MatchString(rest) {
 			return true
 		}
 	}
