@@ -10,6 +10,9 @@ usage() {
 	echo "per command. The commands are the source of truth; the pages are output, so"
 	echo "a thin help text is fixed by editing the command's Short and Long in"
 	echo "internal/cli and running this rather than by editing the page."
+	echo
+	echo "The directory holds generated pages and nothing else, so a page whose command"
+	echo "has been removed or renamed is deleted rather than left behind."
 }
 
 for arg in "$@"; do
