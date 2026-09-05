@@ -534,7 +534,7 @@ func (m model) agentsView() string {
 		item := r.item
 		selected := m.tree.selected.has(item.agent.ID)
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
-		row := prefix + "  " + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden)
+		row := prefix + "  " + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}
 

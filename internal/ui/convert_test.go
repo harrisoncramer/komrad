@@ -129,3 +129,67 @@ func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 		},
 	}, got[0])
 }
+
+// TestAgentRowSaysWhatTheAgentIsDoing covers the row drawing what an agent's own CLI reported,
+// which is the whole point of reporting it, and staying a column of names when nothing has.
+func TestAgentRowSaysWhatTheAgentIsDoing(t *testing.T) {
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		width: 200,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}},
+			agents: agentItemsFrom([]*agentv1.Agent{
+				{
+					Id:             "a1",
+					Name:           "worker",
+					WorkflowId:     "w1",
+					State:          "thinking",
+					ReportedReason: "Bash",
+				},
+				{
+					Id:         "a2",
+					Name:       "reviewer",
+					WorkflowId: "w1",
+					State:      "idle",
+				},
+			}),
+		},
+	}
+
+	rows := strings.Split(m.agentsView(), "\n")
+
+	worker, ok := rowNamed(rows, "worker")
+	require.True(t, ok)
+	assert.Contains(t, worker, "Bash")
+
+	reviewer, ok := rowNamed(rows, "reviewer")
+	require.True(t, ok)
+	assert.NotContains(t, reviewer, "Bash")
+}
+
+// TestAgentRowClipsALongReason covers a reason too long for the room a row has, since nothing
+// downstream clips a row and one that overruns wraps onto the row below it.
+func TestAgentRowClipsALongReason(t *testing.T) {
+	reason := strings.Repeat("x", reasonWidth+20)
+	m := model{
+		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
+		keys:  config.DefaultKeybindings(),
+		width: 200,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}},
+			agents: agentItemsFrom([]*agentv1.Agent{{
+				Id:             "a1",
+				Name:           "worker",
+				WorkflowId:     "w1",
+				State:          "thinking",
+				ReportedReason: reason,
+			}}),
+		},
+	}
+
+	worker, ok := rowNamed(strings.Split(m.agentsView(), "\n"), "worker")
+	require.True(t, ok)
+	assert.NotContains(t, worker, reason)
+	assert.Contains(t, worker, "…")
+}
