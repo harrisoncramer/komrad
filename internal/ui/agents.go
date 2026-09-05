@@ -480,17 +480,11 @@ func agentPrefill(workflow workflowstore.Workflow) agentFormValues {
 }
 
 func (m model) openAgentForm(workflow workflowstore.Workflow, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m, m.openForm(formState{
-		kind:   formAgent,
-		form:   newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled),
-		update: model.updateForm,
-		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled)
-
-			return rebuilt, rebuilt.Init()
-		},
-	})
+	return m.openRedrawnForm(
+		formAgent,
+		func(m model) *huh.Form { return newAgentForm(m.keys.Form, values, workflow.Worktree.Enabled) },
+		func(m model) (tea.Model, tea.Cmd) { return m.submitAgent(workflow, *values) },
+	)
 }
 
 // openNewChild attaches a child to the hovered agent, saying why on a child rather than opening
@@ -508,17 +502,11 @@ func (m model) openNewChild(parent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (tea.Model, tea.Cmd) {
-	return m, m.openForm(formState{
-		kind:   formChild,
-		form:   childAgentForm(m.keys.Form, values, parent),
-		update: model.updateForm,
-		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := childAgentForm(m.keys.Form, values, parent)
-
-			return rebuilt, rebuilt.Init()
-		},
-	})
+	return m.openRedrawnForm(
+		formChild,
+		func(m model) *huh.Form { return childAgentForm(m.keys.Form, values, parent) },
+		func(m model) (tea.Model, tea.Cmd) { return m.submitChild(parent, *values) },
+	)
 }
 
 // submitChild launches the child without sending anything about where it runs, since the
@@ -542,17 +530,11 @@ func (m model) openRename(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 func (m model) openRenameForm(agent agentstore.Agent, name *string) (tea.Model, tea.Cmd) {
-	return m, m.openForm(formState{
-		kind:   formRename,
-		form:   renameForm(agent.Name, name, m.keys.Form),
-		update: model.updateForm,
-		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := renameForm(agent.Name, name, m.keys.Form)
-
-			return rebuilt, rebuilt.Init()
-		},
-	})
+	return m.openRedrawnForm(
+		formRename,
+		func(m model) *huh.Form { return renameForm(agent.Name, name, m.keys.Form) },
+		func(m model) (tea.Model, tea.Cmd) { return m.submitRename(agent, *name) },
+	)
 }
 
 func (m model) openAdopt(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -573,17 +555,11 @@ func adoptPrefill(workflow workflowstore.Workflow) adoptFormValues {
 }
 
 func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormValues) (tea.Model, tea.Cmd) {
-	return m, m.openForm(formState{
-		kind:   formAdopt,
-		form:   adoptAgentForm(m.keys.Form, values),
-		update: model.updateForm,
-		submit: func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := adoptAgentForm(m.keys.Form, values)
-
-			return rebuilt, rebuilt.Init()
-		},
-	})
+	return m.openRedrawnForm(
+		formAdopt,
+		func(m model) *huh.Form { return adoptAgentForm(m.keys.Form, values) },
+		func(m model) (tea.Model, tea.Cmd) { return m.submitAdopt(workflow, *values) },
+	)
 }
 
 func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {

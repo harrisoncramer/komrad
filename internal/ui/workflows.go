@@ -68,11 +68,10 @@ func (m model) renameWorkflowForm(workflow workflowstore.Workflow) (tea.Model, t
 func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workflowFormValues) (tea.Model, tea.Cmd) {
 	title := fmt.Sprintf("Rename %q to", workflow.Name)
 
-	return m, m.openForm(formState{
-		kind:   formWorkflow,
-		form:   workflowForm(title, values, m.keys.Form),
-		update: model.updateForm,
-		submit: func(m model) (tea.Model, tea.Cmd) {
+	return m.openRedrawnForm(
+		formWorkflow,
+		func(m model) *huh.Form { return workflowForm(title, values, m.keys.Form) },
+		func(m model) (tea.Model, tea.Cmd) {
 			renamed := workflow
 
 			trimmed := strings.TrimSpace(values.Name)
@@ -88,12 +87,7 @@ func (m model) openWorkflowRename(workflow workflowstore.Workflow, values *workf
 
 			return m, tea.Batch(cmd, m.holdForm())
 		},
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt := workflowForm(title, values, m.keys.Form)
-
-			return rebuilt, rebuilt.Init()
-		},
-	})
+	)
 }
 
 func (m model) editWorkflowForm(workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
@@ -147,10 +141,10 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 
 			return m, tea.Batch(cmd, m.holdForm())
 		},
-		rebuild: func(m model) (*huh.Form, tea.Cmd) {
-			rebuilt, _ := build(m)
+		rebuild: func(m model) *huh.Form {
+			form, _ := build(m)
 
-			return rebuilt, rebuilt.Init()
+			return form
 		},
 	})
 }
