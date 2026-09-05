@@ -91,14 +91,23 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 		fields = append(fields, recordField{"attached to", orDash(parent)})
 	}
 
-	fields = append(fields, []recordField{
-		{"agent", orDash(agent.Harness)},
-		{"directory", orDash(agent.Cwd)},
-		{"flags", orDash(agent.Flags)},
+	fields = append(fields,
+		recordField{"agent", orDash(agent.Harness)},
+		recordField{"directory", orDash(agent.Cwd)},
+	)
 
-		{"agent_id", orDash(agent.ID)},
-		{"session_id", orDash(agent.SessionID)},
-	}...)
+	var branch string
+	if agent.Branch != nil {
+		branch = *agent.Branch
+		fields = append(fields, recordField{branchFieldKey, branch})
+	}
+
+	fields = append(fields,
+		recordField{"flags", orDash(agent.Flags)},
+
+		recordField{"agent_id", orDash(agent.ID)},
+		recordField{"session_id", orDash(agent.SessionID)},
+	)
 	if schedule != "" {
 		fields = append(fields, recordField{"launched by", schedule})
 	}
@@ -109,12 +118,19 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 		if entry.Key == failureReasonKey {
 			continue
 		}
+		if entry.Key == branchFieldKey && branch != "" {
+			continue
+		}
 
 		fields = append(fields, recordField{entry.Key, entry.Value})
 	}
 
 	return fields
 }
+
+// branchFieldKey labels the branch an agent's checkout is on, and is the key an agent that
+// recorded its own branch used.
+const branchFieldKey = "branch"
 
 const noSchedulesMarkdown = `# Schedules
 
