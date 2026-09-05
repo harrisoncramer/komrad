@@ -11,18 +11,11 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/dates"
 	"weave/lib/xslice"
 )
 
 func protoToAgent(s *agentv1.Agent) agentstore.Agent {
-	created, _ := time.Parse(time.RFC3339, s.GetCreatedAt())           //nolint:errcheck // a timestamp that will not parse renders as the zero time
-	stateChanged, _ := time.Parse(time.RFC3339, s.GetStateChangedAt()) //nolint:errcheck // a timestamp that will not parse renders as the zero time
-
-	var archived *time.Time
-	if parsed, err := time.Parse(time.RFC3339, s.GetArchivedAt()); err == nil {
-		archived = &parsed
-	}
-
 	metadata := xslice.Map(s.GetMetadata(), func(entry *agentv1.AgentMetadata) agentstore.Metadata {
 		return agentstore.Metadata{Key: entry.GetKey(), Value: entry.GetValue()}
 	})
@@ -40,9 +33,9 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		SessionID:       s.GetSessionId(),
 		WorkflowID:      s.GetWorkflowId(),
 		ScheduleID:      s.ScheduleId,
-		CreatedAt:       created,
-		StateChangedAt:  stateChanged,
-		ArchivedAt:      archived,
+		CreatedAt:       dates.Parse(s.GetCreatedAt()),
+		StateChangedAt:  dates.Parse(s.GetStateChangedAt()),
+		ArchivedAt:      dates.ParsePtr(s.GetArchivedAt()),
 		Hidden:          s.GetHidden(),
 		Metadata:        metadata,
 		Branch:          s.Branch,
@@ -69,11 +62,6 @@ func workflowsFrom(listed []*workflowv1.Workflow) []workflowstore.Workflow {
 }
 
 func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
-	var archived *time.Time
-	if parsed, err := time.Parse(time.RFC3339, w.GetArchivedAt()); err == nil {
-		archived = &parsed
-	}
-
 	return workflowstore.Workflow{
 		ID:       w.GetId(),
 		Name:     w.GetName(),
@@ -86,7 +74,7 @@ func workflowFrom(w *workflowv1.Workflow) workflowstore.Workflow {
 			return workflowstore.Hook{Event: hook.GetEvent(), Script: hook.GetScript()}
 		}),
 		ArchiveOnPRClosed: w.GetArchiveOnPrClosed(),
-		ArchivedAt:        archived,
+		ArchivedAt:        dates.ParsePtr(w.GetArchivedAt()),
 	}
 }
 

@@ -1,9 +1,8 @@
 package workflow
 
 import (
-	"time"
-
 	workflowstore "weave/internal/store/workflow"
+	"weave/lib/dates"
 	"weave/lib/xslice"
 	workflowv1 "weave/proto/gen/workflow/v1"
 )
@@ -19,12 +18,6 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 }
 
 func renderWorkflow(w workflowstore.Workflow, mark *string) workflow {
-	var archived *string
-	if w.ArchivedAt != nil {
-		formatted := w.ArchivedAt.Format(time.RFC3339)
-		archived = &formatted
-	}
-
 	return workflow{
 		Workflow: &workflowv1.Workflow{
 			Id:         w.ID,
@@ -34,7 +27,7 @@ func renderWorkflow(w workflowstore.Workflow, mark *string) workflow {
 			Cwd:        w.Cwd,
 			Flags:      w.Flags,
 			Mark:       mark,
-			ArchivedAt: archived,
+			ArchivedAt: dates.StampPtr(w.ArchivedAt),
 			Worktree: &workflowv1.WorktreeConfig{
 				Enabled:      w.Worktree.Enabled,
 				BaseBranch:   w.Worktree.BaseBranch,

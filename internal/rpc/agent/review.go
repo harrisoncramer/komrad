@@ -3,12 +3,12 @@ package agent
 import (
 	"context"
 	"errors"
-	"time"
 
 	"weave/internal/agents"
 	"weave/internal/caller"
 	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
+	"weave/lib/dates"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
@@ -282,12 +282,12 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 		NewEnd:        thread.Thread.NewEnd,
 		QuotedLines:   thread.Thread.QuotedLines,
 		UnreadByHuman: thread.Thread.UnreadByHuman,
-		CreatedAt:     thread.Thread.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     thread.Thread.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:     dates.Stamp(thread.Thread.CreatedAt),
+		UpdatedAt:     dates.Stamp(thread.Thread.UpdatedAt),
 	}
 
 	if at := thread.Thread.ResolvedAt; at != nil {
-		answered.ResolvedAt = at.Format(time.RFC3339)
+		answered.ResolvedAt = dates.Stamp(*at)
 	}
 
 	for _, message := range thread.Messages {
@@ -310,15 +310,15 @@ func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		AuthorAgentId: message.AuthorAgentID,
 		Body:          message.Body,
 		Delivery:      toReviewDeliveryState(message.Delivery),
-		CreatedAt:     message.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:     message.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:     dates.Stamp(message.CreatedAt),
+		UpdatedAt:     dates.Stamp(message.UpdatedAt),
 	}
 
 	if at := message.SentAt; at != nil {
-		answered.SentAt = at.Format(time.RFC3339)
+		answered.SentAt = dates.Stamp(*at)
 	}
 	if at := message.DeliveredAt; at != nil {
-		answered.DeliveredAt = at.Format(time.RFC3339)
+		answered.DeliveredAt = dates.Stamp(*at)
 	}
 
 	return answered
@@ -346,6 +346,6 @@ func toReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile
 		AgentId:     viewed.AgentID,
 		FilePath:    viewed.FilePath,
 		Fingerprint: viewed.Fingerprint,
-		ViewedAt:    viewed.ViewedAt.Format(time.RFC3339),
+		ViewedAt:    dates.Stamp(viewed.ViewedAt),
 	}
 }

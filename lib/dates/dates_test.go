@@ -152,3 +152,42 @@ func TestClockReadsAnInstantInLocalTime(t *testing.T) {
 
 	assert.Equal(t, "Jul 3 11:30am", Clock(time.Date(2024, time.July, 2, 23, 30, 0, 0, time.UTC)))
 }
+
+// TestStamp pins what the wire carries, since a zero time has to read as no timestamp rather
+// than as the year one.
+func TestStamp(t *testing.T) {
+	assert.Empty(t, Stamp(time.Time{}))
+	assert.Equal(t, "2026-09-05T14:30:00Z", Stamp(time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)))
+}
+
+// TestStampPtr pins that an absent time stays absent, which is what a field the caller may
+// leave unset needs.
+func TestStampPtr(t *testing.T) {
+	assert.Nil(t, StampPtr(nil))
+
+	at := time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)
+	stamped := StampPtr(&at)
+	if assert.NotNil(t, stamped) {
+		assert.Equal(t, "2026-09-05T14:30:00Z", *stamped)
+	}
+}
+
+// TestParse pins that a stamp weave cannot read comes back as the zero time rather than as an
+// error the caller would have nothing to do with.
+func TestParse(t *testing.T) {
+	assert.True(t, Parse("").IsZero())
+	assert.True(t, Parse("not a time").IsZero())
+	assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC), Parse("2026-09-05T14:30:00Z").UTC())
+}
+
+// TestParsePtr pins that an absent or unreadable stamp comes back as nothing, which is how an
+// optional timestamp stays optional across the wire.
+func TestParsePtr(t *testing.T) {
+	assert.Nil(t, ParsePtr(""))
+	assert.Nil(t, ParsePtr("not a time"))
+
+	parsed := ParsePtr("2026-09-05T14:30:00Z")
+	if assert.NotNil(t, parsed) {
+		assert.Equal(t, time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC), parsed.UTC())
+	}
+}
