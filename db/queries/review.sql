@@ -1,5 +1,9 @@
 -- name: InsertReviewRound :one
-INSERT INTO review_rounds(agent_id, ordinal, base_sha, snapshot_sha)
+INSERT INTO review_rounds(
+    agent_id,
+    ordinal,
+    base_sha,
+    snapshot_sha)
 SELECT
     @agent_id,
     COALESCE(MAX(r.ordinal), 0) + 1,
@@ -46,8 +50,16 @@ DELETE FROM review_rounds
 WHERE id = @id;
 
 -- name: InsertReview :one
-INSERT INTO reviews(agent_id, round_id, author_kind, author_agent_id)
-VALUES (@agent_id, @round_id, @author_kind, sqlc.narg('author_agent_id'))
+INSERT INTO reviews(
+    agent_id,
+    round_id,
+    author_kind,
+    author_agent_id)
+VALUES (
+    @agent_id,
+    @round_id,
+    @author_kind,
+    sqlc.narg('author_agent_id'))
 RETURNING
     *;
 
@@ -352,9 +364,15 @@ DELETE FROM review_messages
 WHERE id = @id;
 
 -- name: MarkReviewFileViewed :one
-INSERT INTO review_viewed_files(round_id, file_path)
-    VALUES (@round_id, @file_path)
-ON CONFLICT (round_id, file_path)
+INSERT INTO review_viewed_files(
+    round_id,
+    file_path)
+VALUES (
+    @round_id,
+    @file_path)
+ON CONFLICT (
+    round_id,
+    file_path)
     DO UPDATE SET
         viewed_at = NOW()
     RETURNING

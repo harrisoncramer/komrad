@@ -308,8 +308,16 @@ func (q *Queries) GetReviewThread(ctx context.Context, id string) (*GetReviewThr
 }
 
 const insertReview = `-- name: InsertReview :one
-INSERT INTO reviews(agent_id, round_id, author_kind, author_agent_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO reviews(
+    agent_id,
+    round_id,
+    author_kind,
+    author_agent_id)
+VALUES (
+    $1,
+    $2,
+    $3,
+    $4)
 RETURNING
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
 `
@@ -433,7 +441,11 @@ func (q *Queries) InsertReviewMessage(ctx context.Context, arg InsertReviewMessa
 }
 
 const insertReviewRound = `-- name: InsertReviewRound :one
-INSERT INTO review_rounds(agent_id, ordinal, base_sha, snapshot_sha)
+INSERT INTO review_rounds(
+    agent_id,
+    ordinal,
+    base_sha,
+    snapshot_sha)
 SELECT
     $1,
     COALESCE(MAX(r.ordinal), 0) + 1,
@@ -868,9 +880,15 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 }
 
 const markReviewFileViewed = `-- name: MarkReviewFileViewed :one
-INSERT INTO review_viewed_files(round_id, file_path)
-    VALUES ($1, $2)
-ON CONFLICT (round_id, file_path)
+INSERT INTO review_viewed_files(
+    round_id,
+    file_path)
+VALUES (
+    $1,
+    $2)
+ON CONFLICT (
+    round_id,
+    file_path)
     DO UPDATE SET
         viewed_at = NOW()
     RETURNING
