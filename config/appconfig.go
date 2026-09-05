@@ -135,7 +135,7 @@ type Keybindings struct {
 	Logs LogsKeys `mapstructure:"logs"`
 	// The mailbox of one agent, and the key that opens it from the agents list.
 	Mail MailKeys `mapstructure:"mail"`
-	// The marks a person puts on agents to jump between them, as vim's own marks work.
+	// The marks a person puts on rows to jump between them, as vim's own marks work.
 	Marks MarksKeys `mapstructure:"marks"`
 	// Navigation, shared by every menu so movement is the same everywhere.
 	Nav NavKeys `mapstructure:"nav"`
@@ -283,15 +283,15 @@ type AgentsKeys struct {
 	ShowHidden []string `mapstructure:"show_hidden"`
 }
 
-// MarksKeys are the bindings for the marks a person puts on agents, which work the way vim's
-// own do: one lowercase letter, held by at most one agent, set by the key and then the letter,
-// and lost when the agent is archived.
+// MarksKeys are the bindings for the marks a person puts on rows, which work the way vim's own
+// do: one lowercase letter, held by at most one row whether that is an agent or a workflow, set
+// by the key and then the letter, and lost when the row is archived.
 type MarksKeys struct {
-	// Set a mark on the hovered agent, then the letter to set, or the letter it already
-	// holds to take the mark off it.
+	// Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
+	// the letter it already holds to take the mark off it.
 	Set []string `mapstructure:"set"`
-	// Jump the cursor to a marked agent, then the letter to jump to, or the jump key again
-	// to go back to where the last jump left from.
+	// Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
+	// go back to where the last jump left from.
 	Jump []string `mapstructure:"jump"`
 }
 

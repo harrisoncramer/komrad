@@ -154,13 +154,13 @@ back = ["esc"]
 # Quit the panel.
 quit = ["ctrl+c"]
 
-# The marks a person puts on agents to jump between them, as vim's own marks work.
+# The marks a person puts on rows to jump between them, as vim's own marks work.
 [keybindings.marks]
-# Set a mark on the hovered agent, then the letter to set, or the letter it already
-# holds to take the mark off it.
+# Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
+# the letter it already holds to take the mark off it.
 set  = ["t"]
-# Jump the cursor to a marked agent, then the letter to jump to, or the jump key again
-# to go back to where the last jump left from.
+# Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
+# go back to where the last jump left from.
 jump = ["'"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
