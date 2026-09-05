@@ -45,10 +45,6 @@ WHERE
 ORDER BY
     r.ordinal;
 
--- name: DeleteReviewRound :exec
-DELETE FROM review_rounds
-WHERE id = @id;
-
 -- name: InsertReview :one
 INSERT INTO reviews(
     agent_id,

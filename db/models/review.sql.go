@@ -46,16 +46,6 @@ func (q *Queries) DeleteReviewMessage(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteReviewRound = `-- name: DeleteReviewRound :exec
-DELETE FROM review_rounds
-WHERE id = $1
-`
-
-func (q *Queries) DeleteReviewRound(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteReviewRound, id)
-	return err
-}
-
 const deleteReviewThread = `-- name: DeleteReviewThread :exec
 DELETE FROM review_threads
 WHERE id = $1
