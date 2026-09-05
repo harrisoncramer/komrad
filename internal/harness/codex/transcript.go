@@ -8,9 +8,9 @@ import (
 	"weave/internal/harness"
 )
 
-// GetLogPath finds the rollout for a session id by globbing the id, which avoids reproducing
+// LogPath finds the rollout for a session id by globbing the id, which avoids reproducing
 // Codex's year, month, and day layout or consulting the SQLite index beside it.
-func (h *Harness) GetLogPath(sessionID string) string {
+func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
 	}

@@ -248,8 +248,8 @@ type fakeHarness struct {
 	found      string
 }
 
-func (f *fakeHarness) GetID() string     { return testHarnessID }
-func (f *fakeHarness) GetBinary() string { return testHarnessID }
+func (f *fakeHarness) ID() string     { return testHarnessID }
+func (f *fakeHarness) Binary() string { return testHarnessID }
 
 func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 	f.mu.Lock()
@@ -265,7 +265,7 @@ func (f *fakeHarness) BuildCommand(launch harness.Launch) (string, error) {
 
 func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
 
-func (f *fakeHarness) GetInterruptKeys() []string { return []string{"Escape"} }
+func (f *fakeHarness) InterruptKeys() []string { return []string{"Escape"} }
 
 func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) {
 	return harness.Report{}, nil
@@ -288,7 +288,7 @@ func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 	}
 }
 
-func (f *fakeHarness) GetLogPath(string) string { return "" }
+func (f *fakeHarness) LogPath(string) string { return "" }
 
 func (f *fakeHarness) FindSession(string) (string, error) {
 	return f.found, nil

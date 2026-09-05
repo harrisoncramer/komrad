@@ -116,7 +116,7 @@ func (a *app) buildDoctorSettings() (doctor.Settings, error) {
 			return doctor.Settings{}, err
 		}
 
-		harnesses = append(harnesses, doctor.HarnessInfo{ID: found.GetID(), Binary: found.GetBinary()})
+		harnesses = append(harnesses, doctor.HarnessInfo{ID: found.ID(), Binary: found.Binary()})
 	}
 
 	return doctor.Settings{

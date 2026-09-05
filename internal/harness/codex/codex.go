@@ -60,15 +60,15 @@ func NewHarness(opts NewHarnessParams) *Harness {
 
 var _ harness.Harness = (*Harness)(nil)
 
-// GetID is the name an agent running Codex is recorded under.
-func (h *Harness) GetID() string { return binary }
+// ID is the name an agent running Codex is recorded under.
+func (h *Harness) ID() string { return binary }
 
-// GetBinary is the CLI a pane's shell has to resolve to start an agent.
-func (h *Harness) GetBinary() string { return binary }
+// Binary is the CLI a pane's shell has to resolve to start an agent.
+func (h *Harness) Binary() string { return binary }
 
-// GetInterruptKeys stops Codex where it stands, which is one Escape since it has no second
+// InterruptKeys stops Codex where it stands, which is one Escape since it has no second
 // prompt to dismiss the way Claude does.
-func (h *Harness) GetInterruptKeys() []string { return []string{"Escape"} }
+func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 
 // MintSessionID returns empty, since Codex takes no session id on the command line and
 // names the conversation itself, which the panel adopts afterwards through FindSession.

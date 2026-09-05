@@ -168,18 +168,18 @@ func TestReadLog(t *testing.T) {
 	}
 }
 
-// TestGetLogPath covers finding a conversation by globbing the id inside the filename, so
+// TestLogPath covers finding a conversation by globbing the id inside the filename, so
 // nothing here depends on the SQLite index schema.
-func TestGetLogPath(t *testing.T) {
+func TestLogPath(t *testing.T) {
 	sessions := t.TempDir()
 	const id = "019fb3e7-2cb6-7ab3-86a0-51a670a33140"
 
 	path := writeRollout(t, sessions, "2026-07-30T12-41-39", id, metaRecord+"\n")
 
 	harnessUnderTest := NewHarness(NewHarnessParams{SessionsDir: sessions})
-	assert.Equal(t, path, harnessUnderTest.GetLogPath(id))
-	assert.Empty(t, harnessUnderTest.GetLogPath("019fb3e7-0000-0000-0000-000000000000"), "an id with no rollout has no path")
-	assert.Empty(t, harnessUnderTest.GetLogPath(""), "and neither does an agent with no session")
+	assert.Equal(t, path, harnessUnderTest.LogPath(id))
+	assert.Empty(t, harnessUnderTest.LogPath("019fb3e7-0000-0000-0000-000000000000"), "an id with no rollout has no path")
+	assert.Empty(t, harnessUnderTest.LogPath(""), "and neither does an agent with no session")
 }
 
 func writeRollout(t *testing.T, sessionsDir, stamp, sessionID, body string) string {
