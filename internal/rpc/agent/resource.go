@@ -1,7 +1,7 @@
 package agent
 
 import (
-	"time"
+	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -36,22 +36,6 @@ type agentFlags struct {
 }
 
 func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
-	created := ""
-	if !stored.CreatedAt.IsZero() {
-		created = stored.CreatedAt.Format(time.RFC3339)
-	}
-
-	stateChanged := ""
-	if !stored.StateChangedAt.IsZero() {
-		stateChanged = stored.StateChangedAt.Format(time.RFC3339)
-	}
-
-	var archived *string
-	if stored.ArchivedAt != nil {
-		formatted := stored.ArchivedAt.Format(time.RFC3339)
-		archived = &formatted
-	}
-
 	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
 		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
 	})
@@ -69,10 +53,10 @@ func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 			Harness:          stored.Harness,
 			WorkflowId:       stored.WorkflowID,
 			ScheduleId:       stored.ScheduleID,
-			CreatedAt:        created,
-			StateChangedAt:   stateChanged,
+			CreatedAt:        dates.Stamp(stored.CreatedAt),
+			StateChangedAt:   dates.Stamp(stored.StateChangedAt),
 			ReportedReason:   stored.ReportedReason,
-			ArchivedAt:       archived,
+			ArchivedAt:       dates.StampPtr(stored.ArchivedAt),
 			Alive:            flags.alive,
 			UnreadMail:       flags.unreadMail,
 			Mark:             flags.mark,
@@ -92,22 +76,6 @@ func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 }
 
 func renderMail(stored mailstore.Mail) *agentv1.Mail {
-	created := ""
-	if !stored.CreatedAt.IsZero() {
-		created = stored.CreatedAt.Format(time.RFC3339)
-	}
-
-	var claimed *string
-	if stored.ClaimedAt != nil {
-		formatted := stored.ClaimedAt.Format(time.RFC3339)
-		claimed = &formatted
-	}
-
-	expires := ""
-	if !stored.ExpiresAt.IsZero() {
-		expires = stored.ExpiresAt.Format(time.RFC3339)
-	}
-
 	return &agentv1.Mail{
 		Id:          stored.ID,
 		FromAgentId: stored.FromAgentID,
@@ -115,9 +83,9 @@ func renderMail(stored mailstore.Mail) *agentv1.Mail {
 		ToAgentId:   stored.ToAgentID,
 		Body:        stored.Body,
 		ReplyTo:     stored.ReplyTo,
-		CreatedAt:   created,
-		ClaimedAt:   claimed,
-		ExpiresAt:   expires,
+		CreatedAt:   dates.Stamp(stored.CreatedAt),
+		ClaimedAt:   dates.StampPtr(stored.ClaimedAt),
+		ExpiresAt:   dates.Stamp(stored.ExpiresAt),
 		Kind:        renderMailKind(stored.Kind),
 	}
 }

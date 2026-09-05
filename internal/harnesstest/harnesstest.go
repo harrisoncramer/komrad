@@ -102,12 +102,12 @@ func New(root string) (*Harness, error) {
 	}, nil
 }
 
-// GetID is the name an agent running this harness is recorded under.
-func (h *Harness) GetID() string { return ID }
+// ID is the name an agent running this harness is recorded under.
+func (h *Harness) ID() string { return ID }
 
-// GetBinary is the script this harness runs, which is a path rather than a name on PATH
+// Binary is the script this harness runs, which is a path rather than a name on PATH
 // since the whole point of the fake is that it is written into a test's own directory.
-func (h *Harness) GetBinary() string { return h.script }
+func (h *Harness) Binary() string { return h.script }
 
 // MintSessionID names the conversation before it exists, the way a CLI that takes an id on
 // its command line lets the panel do.
@@ -142,8 +142,8 @@ func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
 	return command + " " + harness.QuoteArg(h.binary) + " " + agentArg + " " + harness.QuoteArg(h.script), nil
 }
 
-// GetInterruptKeys is what the panel would send to stop this harness where it stands.
-func (h *Harness) GetInterruptKeys() []string { return []string{"Escape"} }
+// InterruptKeys is what the panel would send to stop this harness where it stands.
+func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 
 // ReadActivity reads the bottom of a captured frame, where only the last line the agent
 // printed is its current state.
@@ -167,9 +167,9 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 	return harness.ActivityUnknown
 }
 
-// GetLogPath is where the conversation for a session id is written, empty until the agent
+// LogPath is where the conversation for a session id is written, empty until the agent
 // has written one.
-func (h *Harness) GetLogPath(sessionID string) string {
+func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
 	}
@@ -232,21 +232,6 @@ func (h *Harness) Typed(agentID string) ([]string, error) {
 	}
 
 	return typed, nil
-}
-
-// Frame is the pane line an agent shows in the given activity, so a test can wait for the
-// state it just asked for rather than sleeping.
-func Frame(activity harness.Activity) string {
-	switch activity {
-	case harness.ActivityWorking:
-		return workingLine
-	case harness.ActivityWaiting:
-		return waitingLine
-	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityComposing, harness.ActivityUnrecognized:
-		return idleLine
-	}
-
-	return idleLine
 }
 
 // Say appends a turn to a conversation, which is how a test gives the syncer text to index

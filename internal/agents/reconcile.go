@@ -78,13 +78,16 @@ type Reconciler struct {
 	prFinder  prFinder
 	frames    frameRecorder
 
+	// unrecognizedTotal is only ever touched by the reconcile pass, so it sits outside what
+	// the mutex below guards.
+	unrecognizedTotal int
+
 	// mu guards tracked and every field of the entries inside it, since an entry is
 	// reached by the reconcile pass, by the RPC handler recording a turn boundary, and by
 	// the goroutine a pull request check runs on.
-	mu                sync.Mutex
-	tracked           map[string]trackedAgent
-	unrecognizedTotal int
-	now               func() time.Time
+	mu      sync.Mutex
+	tracked map[string]trackedAgent
+	now     func() time.Time
 }
 
 // trackedAgent is what one pass leaves the next to work from about a single agent, all of it
@@ -99,7 +102,6 @@ type trackedAgent struct {
 	frameHashSeen     bool
 	unrecognizedHolds int
 	reportedReason    string
-	reportedReasonAt  time.Time
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
@@ -114,163 +116,144 @@ func NewReconciler(panes paneObserver, harnesses harnessGetter, states agentStat
 	}
 }
 
-// RecordTurnBoundary notes that agentID's own CLI reported its turn ending.
-func (r *Reconciler) RecordTurnBoundary(agentID string) {
+// entry is what earlier passes have accrued about an agent, the zero value standing for an
+// agent nothing has been recorded about yet.
+func (r *Reconciler) entry(agentID string) trackedAgent {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	return r.tracked[agentID]
+}
+
+// withEntry hands fn what has been accrued about an agent and keeps whatever it leaves,
+// starting an entry when there is none.
+func (r *Reconciler) withEntry(agentID string, fn func(*trackedAgent)) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	entry := r.tracked[agentID]
-	entry.turnBoundary = r.now()
+	fn(&entry)
 	r.tracked[agentID] = entry
+}
+
+// withExistingEntry is withEntry for the clears, which have nothing to drop for an agent no
+// pass has recorded anything about and must not put one in the map by writing.
+func (r *Reconciler) withExistingEntry(agentID string, fn func(*trackedAgent)) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	entry, ok := r.tracked[agentID]
+	if !ok {
+		return
+	}
+
+	fn(&entry)
+	r.tracked[agentID] = entry
+}
+
+// RecordTurnBoundary notes that agentID's own CLI reported its turn ending.
+func (r *Reconciler) RecordTurnBoundary(agentID string) {
+	r.withEntry(agentID, func(entry *trackedAgent) { entry.turnBoundary = r.now() })
 }
 
 // RecordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
 // state the pane decided and never moves it.
 func (r *Reconciler) RecordReportedReason(agentID, reason string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry := r.tracked[agentID]
-	entry.reportedReason = reason
-	entry.reportedReasonAt = r.now()
-	r.tracked[agentID] = entry
+	r.withEntry(agentID, func(entry *trackedAgent) { entry.reportedReason = reason })
 }
 
 func (r *Reconciler) reportedReason(agentID string) string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.tracked[agentID].reportedReason
+	return r.entry(agentID).reportedReason
 }
 
 func (r *Reconciler) hasFreshTurnBoundary(agentID string, since time.Time) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.tracked[agentID].turnBoundary.After(since)
+	return r.entry(agentID).turnBoundary.After(since)
 }
 
 func (r *Reconciler) recordMiss(agentID string) int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	misses := 0
+	r.withEntry(agentID, func(entry *trackedAgent) {
+		entry.misses++
+		misses = entry.misses
+	})
 
-	entry := r.tracked[agentID]
-	entry.misses++
-	r.tracked[agentID] = entry
-
-	return entry.misses
+	return misses
 }
 
 func (r *Reconciler) missCount(agentID string) int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.tracked[agentID].misses
+	return r.entry(agentID).misses
 }
 
 func (r *Reconciler) clearMisses(agentID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry, ok := r.tracked[agentID]
-	if !ok {
-		return
-	}
-
-	entry.misses = 0
-	r.tracked[agentID] = entry
+	r.withExistingEntry(agentID, func(entry *trackedAgent) { entry.misses = 0 })
 }
 
 // clearDebounce drops what an agent had accrued towards a transition once one has been
 // decided, leaving the frame hash and any rate limit, which both outlive a change of state.
 func (r *Reconciler) clearDebounce(agentID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry, ok := r.tracked[agentID]
-	if !ok {
-		return
-	}
-
-	entry.misses = 0
-	entry.listingsMissing = 0
-	entry.shellSince = time.Time{}
-	entry.turnBoundary = time.Time{}
-	entry.unrecognizedHolds = 0
-	r.tracked[agentID] = entry
+	r.withExistingEntry(agentID, func(entry *trackedAgent) {
+		entry.misses = 0
+		entry.listingsMissing = 0
+		entry.shellSince = time.Time{}
+		entry.turnBoundary = time.Time{}
+		entry.unrecognizedHolds = 0
+	})
 }
 
 // holdMissingPane reports whether a pane the listing left out is to be waited on rather than
 // forgotten, which it is until enough listings in a row have agreed the pane is gone.
 func (r *Reconciler) holdMissingPane(agentID string, inListing bool) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry, ok := r.tracked[agentID]
 	if inListing {
-		// A pane that was never missing has nothing to return, and writing anyway would put an
-		// agent no frame has been read for into tracked.
-		if ok && entry.listingsMissing > 0 {
-			entry.listingsMissing = 0
-			r.tracked[agentID] = entry
-		}
+		r.withExistingEntry(agentID, func(entry *trackedAgent) { entry.listingsMissing = 0 })
 
 		return false
 	}
 
-	entry.listingsMissing++
-	r.tracked[agentID] = entry
+	hold := false
+	r.withEntry(agentID, func(entry *trackedAgent) {
+		entry.listingsMissing++
+		hold = entry.listingsMissing < listingsBeforePaneGone
+	})
 
-	return entry.listingsMissing < listingsBeforePaneGone
+	return hold
 }
 
 // hasShellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
 // than the grace a CLI gets to start, noting the first sighting when this is one.
 func (r *Reconciler) hasShellGraceElapsed(agentID string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	elapsed := false
+	r.withEntry(agentID, func(entry *trackedAgent) {
+		if entry.shellSince.IsZero() {
+			entry.shellSince = r.now()
 
-	entry := r.tracked[agentID]
-	if entry.shellSince.IsZero() {
-		entry.shellSince = r.now()
-		r.tracked[agentID] = entry
+			return
+		}
 
-		return false
-	}
+		elapsed = r.now().Sub(entry.shellSince) >= reconcileShellGrace
+	})
 
-	return r.now().Sub(entry.shellSince) >= reconcileShellGrace
+	return elapsed
 }
 
 func (r *Reconciler) clearShell(agentID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry, ok := r.tracked[agentID]
-	if !ok {
-		return
-	}
-
-	entry.shellSince = time.Time{}
-	r.tracked[agentID] = entry
+	r.withExistingEntry(agentID, func(entry *trackedAgent) { entry.shellSince = time.Time{} })
 }
 
 // holdUnrecognized records the frame an agent is sitting on and reports whether it differs
 // from the one before it, which is the reason to wait rather than demote, up to the limit on
 // how long a frame that never settles may hold.
 func (r *Reconciler) holdUnrecognized(agentID string, hash uint64) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
+	hold := false
+	r.withEntry(agentID, func(entry *trackedAgent) {
+		changed := entry.frameHashSeen && hash != entry.frameHash
+		entry.frameHash = hash
+		entry.frameHashSeen = true
 
-	entry := r.tracked[agentID]
-	changed := entry.frameHashSeen && hash != entry.frameHash
-	entry.frameHash = hash
-	entry.frameHashSeen = true
-
-	hold := changed && entry.unrecognizedHolds < unrecognizedHoldLimit
-	if hold {
-		entry.unrecognizedHolds++
-	}
-	r.tracked[agentID] = entry
+		hold = changed && entry.unrecognizedHolds < unrecognizedHoldLimit
+		if hold {
+			entry.unrecognizedHolds++
+		}
+	})
 
 	return hold
 }
@@ -462,8 +445,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 }
 
 // stampTurnEnd raises the unread mark for a turn the pane watched stop while nothing reported
-// it, giving the mark the floor the state column already has, since a harness that drops its
-// end-of-turn hook otherwise leaves a finished agent looking like one nobody has worked.
+// it, so a harness with no end-of-turn hook still marks its agents unread.
 func (r *Reconciler) stampTurnEnd(ctx context.Context, agent agentstore.Agent) {
 	if err := r.store.SetTurnEnded(ctx, agent.ID); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to stamp a turn the pane settled",
@@ -607,19 +589,13 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 }
 
 func (r *Reconciler) isRateLimited(agentID string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.now().Before(r.tracked[agentID].rateLimitedUntil)
+	return r.now().Before(r.entry(agentID).rateLimitedUntil)
 }
 
 func (r *Reconciler) backOff(agentID string) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry := r.tracked[agentID]
-	entry.rateLimitedUntil = r.now().Add(prRateLimitBackoff)
-	r.tracked[agentID] = entry
+	r.withEntry(agentID, func(entry *trackedAgent) {
+		entry.rateLimitedUntil = r.now().Add(prRateLimitBackoff)
+	})
 }
 
 func isStateUnconfirmed(agent agentstore.Agent) bool {

@@ -83,9 +83,8 @@ func stateMark(state agentstore.State) string {
 
 const unviewedIcon = "●"
 
-// unviewedMark is its own glyph rather than a colour on the state icon, since what an agent is
-// doing and whether it has said something nobody has read are two facts either of which can be
-// true alone.
+// unviewedMark is its own glyph rather than a colour on the state icon, since either fact can
+// be true without the other.
 func unviewedMark(unviewed bool) string {
 	if !unviewed {
 		return ""
@@ -94,8 +93,8 @@ func unviewedMark(unviewed bool) string {
 	return " " + lipgloss.NewStyle().Foreground(colorSuccess).Render(unviewedIcon)
 }
 
-// noStateIcon fills the column the state icon would take for an agent that has no live state to
-// report, since a header that leaves it empty sits at the indent its own snippets do.
+// noStateIcon fills the column the state icon would take for a row with no live state to
+// report, so that row keeps the indent every other row has.
 const noStateIcon = "▫"
 
 func noStateMark() string {
@@ -128,8 +127,8 @@ func reasonMark(agent agentstore.Agent) string {
 
 const childIcon = "└"
 
-// childMark opens the column a child's state mark is pushed right by, drawn where its parent's
-// own mark sits so that every parent stays aligned with every other one.
+// childMark draws in the column its parent's own state mark sits in, pushing the rest of the
+// child's row across so every parent stays aligned with every other one.
 func childMark(child bool) string {
 	if !child {
 		return ""

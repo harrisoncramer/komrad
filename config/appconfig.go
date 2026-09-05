@@ -670,37 +670,6 @@ func DefaultLayout() Layout {
 	}
 }
 
-// ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
-// names one by and valued by the index lipgloss draws it as.
-var ansiColors = map[string]string{
-	"black":         "0",
-	"red":           "1",
-	"green":         "2",
-	"yellow":        "3",
-	"blue":          "4",
-	"magenta":       "5",
-	"cyan":          "6",
-	"white":         "7",
-	"brightblack":   "8",
-	"brightred":     "9",
-	"brightgreen":   "10",
-	"brightyellow":  "11",
-	"brightblue":    "12",
-	"brightmagenta": "13",
-	"brightcyan":    "14",
-	"brightwhite":   "15",
-}
-
-// GetColor is a configured colour in the form lipgloss reads it: a name becomes the
-// index lipgloss maps onto the terminal's scheme, and a hex value passes through.
-func GetColor(color string) string {
-	if index, ok := ansiColors[color]; ok {
-		return index
-	}
-
-	return color
-}
-
 // DefaultKeybindings are the bindings used when the config omits them.
 func DefaultKeybindings() Keybindings {
 	return Keybindings{

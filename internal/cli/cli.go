@@ -114,8 +114,8 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 
 			app.contextPath = contextPath
 			app.defaultFlags = map[string]string{
-				claudeHarness.GetID(): cfg.Harness.Claude.Flags,
-				codexHarness.GetID():  cfg.Harness.Codex.Flags,
+				claudeHarness.ID(): cfg.Harness.Claude.Flags,
+				codexHarness.ID():  cfg.Harness.Codex.Flags,
 			}
 
 			return nil

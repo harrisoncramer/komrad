@@ -8,9 +8,9 @@ import (
 	"weave/internal/harness"
 )
 
-// GetLogPath finds the JSONL log for a session id by globbing the id, which avoids reproducing
+// LogPath finds the JSONL log for a session id by globbing the id, which avoids reproducing
 // Claude's version-specific directory-name encoding.
-func (h *Harness) GetLogPath(sessionID string) string {
+func (h *Harness) LogPath(sessionID string) string {
 	if sessionID == "" {
 		return ""
 	}

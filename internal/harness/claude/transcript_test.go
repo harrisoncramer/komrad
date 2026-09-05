@@ -153,16 +153,16 @@ func TestReadLog(t *testing.T) {
 	}
 }
 
-// TestGetLogPath covers finding a conversation by globbing its session id, so a log lands
+// TestLogPath covers finding a conversation by globbing its session id, so a log lands
 // whichever folder it was written in.
-func TestGetLogPath(t *testing.T) {
+func TestLogPath(t *testing.T) {
 	projects := t.TempDir()
 	dir := filepath.Join(projects, "-some-project")
 	require.NoError(t, os.MkdirAll(dir, 0o755))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "sess-1.jsonl"), []byte("{}\n"), 0o600))
 
 	h := NewHarness(NewHarnessParams{ProjectsDir: projects})
-	assert.Equal(t, filepath.Join(dir, "sess-1.jsonl"), h.GetLogPath("sess-1"))
-	assert.Empty(t, h.GetLogPath("sess-2"), "a session with no log on disk has no path")
-	assert.Empty(t, h.GetLogPath(""), "and neither does an agent with no session")
+	assert.Equal(t, filepath.Join(dir, "sess-1.jsonl"), h.LogPath("sess-1"))
+	assert.Empty(t, h.LogPath("sess-2"), "a session with no log on disk has no path")
+	assert.Empty(t, h.LogPath(""), "and neither does an agent with no session")
 }

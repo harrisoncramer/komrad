@@ -34,15 +34,15 @@ func NewHarness(params NewHarnessParams) *Harness {
 	}
 }
 
-// GetID is the name an agent running Claude Code is recorded under.
-func (h *Harness) GetID() string { return HarnessID }
+// ID is the name an agent running Claude Code is recorded under.
+func (h *Harness) ID() string { return HarnessID }
 
-// GetBinary is the CLI a pane's shell has to resolve to start an agent.
-func (h *Harness) GetBinary() string { return HarnessID }
+// Binary is the CLI a pane's shell has to resolve to start an agent.
+func (h *Harness) Binary() string { return HarnessID }
 
-// GetInterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the
+// InterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the
 // first can leave behind so a later message lands in the composer.
-func (h *Harness) GetInterruptKeys() []string { return []string{"Escape", "Escape"} }
+func (h *Harness) InterruptKeys() []string { return []string{"Escape", "Escape"} }
 
 // MintSessionID names the conversation a fresh launch will hold, since Claude takes one on the
 // command line and every later resume keys on it.

@@ -33,7 +33,7 @@ type formState struct {
 
 	// rebuild draws the form again around those same values, since huh will not take another
 	// key into a form it has already completed.
-	rebuild func(model) (*huh.Form, tea.Cmd)
+	rebuild func(model) *huh.Form
 }
 
 // formKind names the form on screen, for the legend and for what closing it means.
@@ -65,6 +65,18 @@ func (m *model) openForm(f formState) tea.Cmd {
 	m.form = f
 
 	return f.form.Init()
+}
+
+// openRedrawnForm puts up a form the panel can draw again from one builder, which is every form
+// whose values outlive the form itself.
+func (m model) openRedrawnForm(kind formKind, build func(model) *huh.Form, submit func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
+	return m, m.openForm(formState{
+		kind:    kind,
+		form:    build(m),
+		update:  model.updateForm,
+		submit:  submit,
+		rebuild: build,
+	})
 }
 
 // confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,
@@ -339,10 +351,10 @@ func (m *model) rebuildForm() tea.Cmd {
 		return nil
 	}
 
-	form, cmd := m.form.rebuild(*m)
+	form := m.form.rebuild(*m)
 	m.form.form = form
 
-	return cmd
+	return form.Init()
 }
 
 // answerForm runs what the form on screen was filled in to do.

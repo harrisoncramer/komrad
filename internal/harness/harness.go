@@ -45,8 +45,8 @@ type Launch struct {
 	CacheDir    string
 	Dir         string
 	// HookCommand is the weave binary a harness points its own hooks at, and a harness that
-	// wires none, or whose CLI cannot report a turn of its ending, carries no unread mark at
-	// all, since that mark is only ever stamped from such a report.
+	// wires none, or whose CLI cannot report the end of a turn, leaves the unread mark to the
+	// reconciler to raise later off a pane that has stopped moving.
 	HookCommand string
 	Resume      bool
 }
@@ -118,9 +118,9 @@ type LogRead struct {
 }
 
 type Harness interface {
-	GetID() string
+	ID() string
 
-	GetBinary() string
+	Binary() string
 
 	BuildCommand(launch Launch) (string, error)
 
@@ -132,9 +132,9 @@ type Harness interface {
 
 	ReadReport(event Event, payload []byte) (Report, error)
 
-	GetInterruptKeys() []string
+	InterruptKeys() []string
 
-	GetLogPath(sessionID string) string
+	LogPath(sessionID string) string
 
 	ReadLog(path string, offset int64) (LogRead, error)
 }

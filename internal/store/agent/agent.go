@@ -31,9 +31,8 @@ const (
 // DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight
 // and an agent that failed both refuse, since neither is a pane the reconciler may judge.
 func (s State) DoesPaneDecide() bool {
-	// Written without a default so that an eighth state fails the exhaustive check here, which
-	// forces it to be answered for but not to be given the same answer as the reconciler, the
-	// archive sweep, the resume and the row's own icon happen to share today.
+	// Written without a default so an eighth state has to be answered for here rather than
+	// falling in with whichever answer the existing seven happen to share.
 	switch s {
 	case StateIdle, StateThinking, StateWaiting, StateUncertain:
 		return true
@@ -130,8 +129,8 @@ type txBeginner interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 }
 
-// AgentPane names a pane and the agent whose it is, which is all that killing one takes: the
-// owner has to be checked first, so a pane is never carried around without it.
+// AgentPane names a pane and the agent whose it is, kept together so a pane is never killed
+// without its owner having been checked first.
 type AgentPane struct {
 	AgentID string
 	Pane    string

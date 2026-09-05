@@ -99,7 +99,7 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	path := hn.GetLogPath(agent.SessionID)
+	path := hn.LogPath(agent.SessionID)
 	if path == "" {
 		return nil
 	}

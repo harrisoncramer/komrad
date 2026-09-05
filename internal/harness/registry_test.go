@@ -11,8 +11,8 @@ type stub struct {
 	id string
 }
 
-func (s stub) GetID() string                       { return s.id }
-func (s stub) GetBinary() string                   { return s.id }
+func (s stub) ID() string                          { return s.id }
+func (s stub) Binary() string                      { return s.id }
 func (s stub) BuildCommand(Launch) (string, error) { return "", nil }
 func (s stub) MintSessionID() string               { return "" }
 
@@ -21,8 +21,8 @@ func (s stub) ReadActivity(string) Activity       { return ActivityUnknown }
 func (s stub) ReadReport(Event, []byte) (Report, error) {
 	return Report{}, nil
 }
-func (s stub) GetInterruptKeys() []string             { return nil }
-func (s stub) GetLogPath(string) string               { return "" }
+func (s stub) InterruptKeys() []string                { return nil }
+func (s stub) LogPath(string) string                  { return "" }
 func (s stub) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }
 
 // TestNewRegistry covers what a registry refuses to be built from, both cases being ones that
@@ -78,7 +78,7 @@ func TestRegistryGetByID(t *testing.T) {
 
 	found, err := registry.GetByID("codex")
 	require.NoError(t, err)
-	assert.Equal(t, "codex", found.GetID())
+	assert.Equal(t, "codex", found.ID())
 
 	_, err = registry.GetByID("gemini")
 	require.ErrorIs(t, err, ErrNotRegistered)

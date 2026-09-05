@@ -18,7 +18,7 @@ type Registry struct {
 func NewRegistry(harnesses ...Harness) (*Registry, error) {
 	indexed := make(map[string]Harness, len(harnesses))
 	for _, candidate := range harnesses {
-		id := candidate.GetID()
+		id := candidate.ID()
 		if id == "" {
 			return nil, errors.New("a harness answers to no id")
 		}

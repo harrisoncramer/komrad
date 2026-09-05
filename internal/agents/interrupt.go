@@ -49,7 +49,7 @@ func (i *PaneInterrupter) Interrupt(ctx context.Context, agentID string) error {
 		return fmt.Errorf("failed to find the harness of agent %q: %w", agentID, err)
 	}
 
-	keys := running.GetInterruptKeys()
+	keys := running.InterruptKeys()
 	if len(keys) == 0 {
 		return fmt.Errorf("the %q harness has no keys that interrupt it", agent.Harness)
 	}

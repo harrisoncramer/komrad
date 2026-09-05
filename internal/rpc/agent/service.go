@@ -404,9 +404,9 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 // Log writes one line to weave's log for an agent, which is how a running script says what
 // it did, since a script's own stdout goes nowhere.
 func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
-	id := callerScope(ctx, req.Msg.GetId())
-	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	id, err := scopedAgentID(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
 	}
 
 	agent, err := s.agents.GetByID(ctx, id)
@@ -462,12 +462,20 @@ func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-func callerScope(ctx context.Context, requested string) string {
+// scopedAgentID is the agent a request is about: the one it names, or the calling agent when it
+// names none, since an agent asking about itself has no id of its own to type.
+func scopedAgentID(ctx context.Context, requested string) (string, error) {
 	if requested != "" {
-		return requested
+		return requested, nil
 	}
 
-	return caller.From(ctx).AgentID
+	from := caller.From(ctx).AgentID
+	if from == "" {
+		return "", connect.NewError(connect.CodeInvalidArgument,
+			errors.New("no id given, and the caller has none of its own to fall back to"))
+	}
+
+	return from, nil
 }
 
 // SendMail records mail from the calling agent to the recipient the request names.
@@ -487,9 +495,9 @@ func (s *Service) SendMail(ctx context.Context, req *connect.Request[agentv1.Sen
 
 // ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.
 func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.ReadMailRequest]) (*connect.Response[agentv1.ReadMailResponse], error) {
-	id := callerScope(ctx, req.Msg.GetId())
-	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	id, err := scopedAgentID(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
 	}
 
 	logCrossAgentRead(ctx, id, "agent read another agent's mail")
@@ -506,9 +514,9 @@ func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.Rea
 
 // ListMail returns a page of an agent's mail without claiming any of it.
 func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.ListMailRequest]) (*connect.Response[agentv1.ListMailResponse], error) {
-	id := callerScope(ctx, req.Msg.GetId())
-	if id == "" {
-		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("no id given, and the caller has none of its own to fall back to"))
+	id, err := scopedAgentID(ctx, req.Msg.GetId())
+	if err != nil {
+		return nil, err
 	}
 
 	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
