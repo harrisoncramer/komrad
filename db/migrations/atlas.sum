@@ -1,4 +1,4 @@
-h1:o9nXjRRulupmcLe56rcrR4yaQLWWBc3P+8udHDlPaYA=
+h1:zcBjmCa5TWNxC7C9i86K7eqIpSLzhy5+3KeLzW0mgwE=
 20260727000000_initial.sql h1:ubkXyswrZOM0CuuAD9GtwEBRjcnCAl3KY6uamudWwuY=
 20260824163026_state_seen_at.sql h1:wPnZ5xyxQrLBegwX9PP0U6LRh91JcItKfcJz1cQKUU8=
 20260825032556_add_schedule_last_result.sql h1:CpH3A88qiOKXKKb1zefqQlqI/O8DxxNpZjrsQJZ8g5Q=
@@ -32,4 +32,5 @@ h1:o9nXjRRulupmcLe56rcrR4yaQLWWBc3P+8udHDlPaYA=
 20260904165633_agent_state_uncertain.sql h1:RnxXuX+LWVn+pGsBkDdQQYmRJxqEYJbUR+HZ0po8liI=
 20260904211005_reported_reason.sql h1:LI7zEZttoh5uKl/z9GjttiWbKXUjDl/x8ABHPta4sTE=
 20260904211820_mail_exchange_cap.sql h1:NWpkm+Pmr5RGJOhcCy1I9Q6QnLweU0yr3NX6s4uGUUQ=
-20260905022151_agent_marks.sql h1:Z56+rweooCuBYOfjuDd1QX7YMHNIbzn6BmejpfzOLJ4=
+20260905013945_agent_marks.sql h1:c9tyk4GccphHcTHZ8cCP5IlUWbM0GUcwL2cKNEr+Tno=
+20260905025204_agent_mark_index.sql h1:6Wae2l1MG/DyrmOREpvGvXssRnbRqZ9g2xNdjLNqO7Y=
