@@ -206,10 +206,10 @@ func worktreeRemovedMark(agent agentstore.Agent) string {
 	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
 }
 
-// markGutter is the column a mark is drawn in, left of every row, so the letters a person
-// addresses rows by read down one edge rather than being hunted for along a row.
 const workflowIcon = "⧉"
 
+// markGutter is the column a mark is drawn in, left of every row, so the letters a person
+// addresses rows by read down one edge rather than being hunted for along a row.
 func markGutter(mark string) string {
 	if mark == "" {
 		return "  "
