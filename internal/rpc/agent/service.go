@@ -61,7 +61,6 @@ type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetTags(ctx context.Context, ids []string, tag *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetViewed(ctx context.Context, id string, viewed bool) error
 	SetTurnEnded(ctx context.Context, id string) error
@@ -291,21 +290,6 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	}
 
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, marks(*agent)).Agent}), nil
-}
-
-// SetTags tags every agent named, and an unset tag clears the ones they carry.
-func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
-	tagged, err := s.agents.SetTags(ctx, req.Msg.GetIds(), req.Msg.Tag)
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to set the tag")
-	}
-	// Reaching only some of the ids is fine, since an agent archived in the meantime has no
-	// row left to draw a tag on.
-	if tagged == 0 {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // SetHidden hides an agent from the panel's sidebar or brings it back.

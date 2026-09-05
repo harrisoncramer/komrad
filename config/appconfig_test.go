@@ -82,90 +82,6 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestLoadTags covers the tags list, where a glyph must carry nothing a terminal would read
-// as an instruction and a colour must be one lipgloss knows.
-func TestLoadTags(t *testing.T) {
-	tests := []struct {
-		name    string
-		file    string
-		want    []Tag
-		wantErr bool
-	}{
-		{
-			name:    "a glyph carrying a tab, which would break the row it is drawn on",
-			file:    "tags = [{ glyph = \"a\\tb\" }]\n",
-			wantErr: true,
-		},
-		{
-			name:    "an empty glyph, which would draw as nothing at all",
-			file:    "tags = [{ glyph = \"\" }]\n",
-			wantErr: true,
-		},
-		{
-			name:    "the same glyph twice, which would sit twice in the cycle",
-			file:    "tags = [{ glyph = \"●\" }, { glyph = \"●\" }]\n",
-			wantErr: true,
-		},
-		{
-			name:    "a colour that is neither a name nor hex",
-			file:    "tags = [{ glyph = \"●\", color = \"hot pink\" }]\n",
-			wantErr: true,
-		},
-		{
-			name:    "a colour missing its hash",
-			file:    "tags = [{ glyph = \"●\", color = \"F932A1\" }]\n",
-			wantErr: true,
-		},
-		{
-			name:    "a colour named as an index rather than by name, which is the panel's own spelling and not a config's",
-			file:    "tags = [{ glyph = \"●\", color = \"4\" }]\n",
-			wantErr: true,
-		},
-		{
-			name: "a file that names none falls back to the defaults",
-			file: "default_harness = \"claude\"\n",
-			want: DefaultTags(),
-		},
-		{
-			name: "the glyphs the user chose, in their order, with their colours",
-			file: "tags = [{ glyph = \"◐\", color = \"#F932A1\" }, { glyph = \"✓\", color = \"#0f0\" }]\n",
-			want: []Tag{
-				{Glyph: "◐", Color: "#F932A1"},
-				{Glyph: "✓", Color: "#0f0"},
-			},
-		},
-		{
-			name: "colours named from the sixteen, which follow the terminal's own scheme",
-			file: "tags = [{ glyph = \"◐\", color = \"blue\" }, { glyph = \"✓\", color = \"brightmagenta\" }]\n",
-			want: []Tag{
-				{Glyph: "◐", Color: "blue"},
-				{Glyph: "✓", Color: "brightmagenta"},
-			},
-		},
-		{
-			name: "a glyph with no colour of its own, which the panel draws in the default",
-			file: "[[tags]]\nglyph = \"⚑\"\n",
-			want: []Tag{{Glyph: "⚑"}},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			path := filepath.Join(t.TempDir(), "config.toml")
-			require.NoError(t, os.WriteFile(path, []byte(tt.file), 0o644))
-
-			cfg, err := Load([]string{path})
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-
-			require.NoError(t, err)
-			assert.Equal(t, tt.want, cfg.Tags)
-		})
-	}
-}
-
 // TestLoadLayout covers the sizes and sides the panel lays its panes out at, since tmux is
 // given either a share of what it divides or a whole number of cells.
 func TestLoadLayout(t *testing.T) {
@@ -664,21 +580,19 @@ func TestLoadMergesLayers(t *testing.T) {
 		},
 		{
 			name:  "a list is replaced whole rather than appended to",
-			files: []string{"tags = [{ glyph = \"a\" }, { glyph = \"b\" }]\n", "tags = [{ glyph = \"c\" }]\n"},
+			files: []string{"[keybindings.nav]\nup = [\"a\", \"b\"]\n", "[keybindings.nav]\nup = [\"c\"]\n"},
 			check: func(t *testing.T, cfg *Config) {
-				require.Len(t, cfg.Tags, 1, "appending would leave no way to drop a tag a base file set")
-				assert.Equal(t, "c", cfg.Tags[0].Glyph)
+				assert.Equal(t, []string{"c"}, cfg.Keybindings.Nav.Up, "appending would leave no way to drop a key a base file set")
 			},
 		},
 		{
 			name: "a list the later layer does not mention is not reset",
 			files: []string{
-				"tags = [{ glyph = \"a\" }]\n",
+				"[keybindings.nav]\nup = [\"a\"]\n",
 				"max_agents = 5\n",
 			},
 			check: func(t *testing.T, cfg *Config) {
-				require.Len(t, cfg.Tags, 1)
-				assert.Equal(t, "a", cfg.Tags[0].Glyph)
+				assert.Equal(t, []string{"a"}, cfg.Keybindings.Nav.Up)
 			},
 		},
 		{
@@ -776,12 +690,11 @@ func TestLoadDerivesConnectionValuesAfterPrecedence(t *testing.T) {
 // default rather than leaving it in place.
 func TestLoadExplicitEmptyCollectionReplacesDefault(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("tags = []\n[keybindings.nav]\nup = []\n"), 0o644))
+	require.NoError(t, os.WriteFile(path, []byte("[keybindings.nav]\nup = []\n"), 0o644))
 
 	cfg, err := Load([]string{path})
 	require.NoError(t, err)
 
-	assert.Empty(t, cfg.Tags)
 	assert.Empty(t, cfg.Keybindings.Nav.Up)
 	assert.Equal(t, DefaultKeybindings().Nav.Down, cfg.Keybindings.Nav.Down)
 }

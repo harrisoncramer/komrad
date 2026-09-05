@@ -813,8 +813,6 @@ func TestSearchGroupsByAgent(t *testing.T) {
 // TestSearchHeaderCarriesTheAgent covers a header wearing what the agent's own row wears, since
 // the hit itself says nothing about the state the agent it came from is in.
 func TestSearchHeaderCarriesTheAgent(t *testing.T) {
-	tagged := "\u2713"
-
 	m := filterModel()
 	m.screen = screenSearch
 	m.width = 80
@@ -826,7 +824,6 @@ func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 				Name:       "billing",
 				WorkflowID: "w1",
 				State:      agentstore.StateThinking,
-				Tag:        &tagged,
 			},
 			alive:      true,
 			unreadMail: true,
@@ -862,7 +859,6 @@ func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 
 	live := headerLine(t, view, "billing")
 	assert.Contains(t, live, stateIcon(agentstore.StateThinking), "the live header wears the state it is in")
-	assert.Contains(t, live, tagged, "the live header wears its tag")
 	assert.Contains(t, live, unreadMailIcon, "the live header says mail is waiting")
 
 	archived := headerLine(t, view, "payouts")

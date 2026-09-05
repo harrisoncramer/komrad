@@ -107,12 +107,6 @@ func TestToolHints(t *testing.T) {
 			wantDestructive: xptr.Ptr(false),
 		},
 		{
-			method:          "SetTags",
-			readOnly:        false,
-			idempotent:      true,
-			wantDestructive: xptr.Ptr(false),
-		},
-		{
 			method:          "UpdateAgent",
 			readOnly:        false,
 			idempotent:      true,

@@ -18,15 +18,6 @@ max_agents      = 50
 # Children share their parent's checkout, so this is deliberately a much lower ceiling
 # than max_agents.
 max_children    = 3
-# The tags the tag key cycles through, in order.
-# A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
-# or a hex value such as "#DCA561". The panel draws itself from the sixteen,
-# so a name is what keeps a tag in the same scheme as everything around it.
-tags = [
-  { glyph = "●", color = "yellow" },
-  { glyph = "◐", color = "yellow" },
-  { glyph = "✓", color = "yellow" },
-]
 
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
@@ -70,9 +61,6 @@ back          = ["esc"]
 review        = ["d"]
 # Hide the hovered agent from this list.
 hide          = ["h"]
-# Move the hovered agent to the next tag in the tags list, and past the last
-# one back to untagged. Nothing but you ever sets a tag.
-tag           = ["t"]
 # Start a new agent.
 new           = ["c"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout

@@ -1,7 +1,6 @@
 // Package config loads the user's customization from one or more TOML files via viper,
 // merged in order so a later file wins. It covers which CLI agents run and the flags it
-// takes, the tags an agent can be given, the panel keybindings, and which database, address
-// and tmux server this weave is.
+// takes, the panel keybindings, and which database, address and tmux server this weave is.
 package config
 
 import (
@@ -11,11 +10,9 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strings"
 	"time"
-	"unicode"
 
 	"weave/lib/xslice"
 
@@ -111,11 +108,6 @@ const (
 	InfoSideBelow    = "below"
 	InfoSideAbove    = "above"
 )
-
-// DefaultTagColor is the yellow a tag takes when its own colour is unset. It is the
-// plain yellow rather than the bright one the panel draws a thinking agent in, so a tag
-// left on the default cannot be read as a lifecycle state.
-const DefaultTagColor = "yellow"
 
 // Keybindings scopes bindings to the screen they act in. Each binding is a list of
 // bubbletea key strings such as "enter", "ctrl+d", or "esc". Every default is a
@@ -257,9 +249,6 @@ type AgentsKeys struct {
 	Review []string `mapstructure:"review"`
 	// Hide the hovered agent from this list.
 	Hide []string `mapstructure:"hide"`
-	// Move the hovered agent to the next tag in the tags list, and past the last
-	// one back to untagged. Nothing but you ever sets a tag.
-	Tag []string `mapstructure:"tag"`
 	// Start a new agent.
 	New []string `mapstructure:"new"`
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
@@ -609,11 +598,6 @@ type Config struct {
 	Harness     Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
-	// The tags the tag key cycles through, in order.
-	// A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
-	// or a hex value such as "#DCA561". The panel draws itself from the sixteen,
-	// so a name is what keeps a tag in the same scheme as everything around it.
-	Tags []Tag `mapstructure:"tags"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -640,7 +624,6 @@ func Defaults() *Config {
 		MaxAgents:      DefaultMaxAgents,
 		MaxChildren:    DefaultMaxChildren,
 		Layout:         DefaultLayout(),
-		Tags:           DefaultTags(),
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log: Log{
@@ -673,62 +656,6 @@ func DefaultLayout() Layout {
 	}
 }
 
-// Tag is one of the tags the tag key steps through. The glyph is what a row draws
-// and what the store keeps, so it is the tag's identity, while the colour is the
-// panel's alone and is never stored.
-//
-// The json tags are the names get_config reports a tag under, spelled out because
-// the encoder behind it follows the mapstructure tags as far as the slice and no
-// further.
-type Tag struct {
-	Glyph string `mapstructure:"glyph" json:"glyph"`
-	// The colour the glyph is drawn in, either one of the sixteen a terminal's own
-	// scheme maps, named as "red" or "brightred", or a hex value such as "#DCA561"
-	Color string `mapstructure:"color" json:"color"`
-}
-
-// ansiColors are the sixteen colours a terminal's scheme maps, keyed by the name a config
-// names one by and valued by the index lipgloss draws it as. The panel is drawn from the
-// same palette, so a tag named this way sits in the scheme around it.
-var ansiColors = map[string]string{
-	"black":         "0",
-	"red":           "1",
-	"green":         "2",
-	"yellow":        "3",
-	"blue":          "4",
-	"magenta":       "5",
-	"cyan":          "6",
-	"white":         "7",
-	"brightblack":   "8",
-	"brightred":     "9",
-	"brightgreen":   "10",
-	"brightyellow":  "11",
-	"brightblue":    "12",
-	"brightmagenta": "13",
-	"brightcyan":    "14",
-	"brightwhite":   "15",
-}
-
-// GetColor is a configured colour in the form lipgloss reads it: a name becomes the
-// index lipgloss maps onto the terminal's scheme, and a hex value passes through.
-func GetColor(color string) string {
-	if index, ok := ansiColors[color]; ok {
-		return index
-	}
-
-	return color
-}
-
-// DefaultTags are the tags stepped through when the config names none. They share one
-// colour, leaving the glyph to carry the meaning until someone colours them apart.
-func DefaultTags() []Tag {
-	return []Tag{
-		{Glyph: "●", Color: DefaultTagColor},
-		{Glyph: "◐", Color: DefaultTagColor},
-		{Glyph: "✓", Color: DefaultTagColor},
-	}
-}
-
 // DefaultKeybindings are the bindings used when the config omits them.
 func DefaultKeybindings() Keybindings {
 	return Keybindings{
@@ -737,7 +664,6 @@ func DefaultKeybindings() Keybindings {
 			Back:         []string{"esc"},
 			Review:       []string{"d"},
 			Hide:         []string{"h"},
-			Tag:          []string{"t"},
 			New:          []string{"c"},
 			Child:        []string{"C"},
 			ToggleViewed: []string{"u"},
@@ -841,51 +767,6 @@ func DefaultKeybindings() Keybindings {
 	}
 }
 
-// maxTagLen bounds a tag in bytes. A glyph runs to a handful even with modifiers on it,
-// so anything longer is not the one character the panel can draw.
-const maxTagLen = 16
-
-// hexColor matches the colours lipgloss reads, three or six digits behind a hash. Anything
-// else renders as no colour at all, so a typo would silently lose the tag's colour.
-var hexColor = regexp.MustCompile(`^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
-
-// isValidColor reports whether the panel could draw a colour. The names are a closed set, so
-// a colour spelled wrongly is refused here rather than drawn as no colour.
-func isValidColor(color string) bool {
-	if _, ok := ansiColors[color]; ok {
-		return true
-	}
-
-	return hexColor.MatchString(color)
-}
-
-// validateTags rejects tags the panel could not draw. A glyph goes straight into a
-// rendered frame, so whitespace or a control character would break its row, and a glyph
-// listed twice could never be stepped past.
-func validateTags(tags []Tag) error {
-	unprintable := func(r rune) bool { return unicode.IsSpace(r) || unicode.IsControl(r) }
-	seen := make(map[string]bool, len(tags))
-
-	for _, tag := range tags {
-		switch {
-		case tag.Glyph == "":
-			return errors.New("a tag cannot be empty")
-		case len(tag.Glyph) > maxTagLen:
-			return fmt.Errorf("tag %q is longer than %d bytes, so it is not one glyph", tag.Glyph, maxTagLen)
-		case strings.ContainsFunc(tag.Glyph, unprintable):
-			return fmt.Errorf("tag %q carries whitespace or control characters", tag.Glyph)
-		case seen[tag.Glyph]:
-			return fmt.Errorf("tag %q is listed twice", tag.Glyph)
-		case tag.Color != "" && !isValidColor(tag.Color):
-			return fmt.Errorf("tag %q has colour %q, which is neither one of the sixteen such as \"yellow\" nor a hex colour such as \"#DCA561\"", tag.Glyph, tag.Color)
-		}
-
-		seen[tag.Glyph] = true
-	}
-
-	return nil
-}
-
 // validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted
 // size reads, so it falls back to the default rather than being called a mistake.
 func validateLayout(layout Layout) error {
@@ -931,9 +812,6 @@ func validateSide(key, side string, allowed ...string) error {
 // validate rejects the settings the panel could not run on, so a config that cannot work
 // says so when it is read rather than when something tries to draw with it.
 func (c Config) validate() error {
-	if err := validateTags(c.Tags); err != nil {
-		return err
-	}
 	if err := validateLog(c.Log); err != nil {
 		return err
 	}

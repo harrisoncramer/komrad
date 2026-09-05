@@ -43,7 +43,6 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 		CreatedAt:       created,
 		StateChangedAt:  stateChanged,
 		ArchivedAt:      archived,
-		Tag:             s.Tag,
 		Hidden:          s.GetHidden(),
 		Metadata:        metadata,
 		Branch:          s.Branch,

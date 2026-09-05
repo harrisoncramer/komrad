@@ -419,17 +419,6 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentTags :many
-UPDATE
-    agents
-SET
-    tag = sqlc.narg(tag)
-WHERE
-    id = ANY (@ids::uuid[])
-    AND archived_at IS NULL
-RETURNING
-    id;
-
 -- name: SetAgentHidden :many
 UPDATE
     agents

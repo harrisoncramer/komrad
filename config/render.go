@@ -128,17 +128,6 @@ func renderValue(value any) (string, error) {
 		}
 
 		return "[" + strings.Join(quoted, ", ") + "]", nil
-	case []Tag:
-		// One inline table per line rather than a [[tags]] block each, so the tags stay one
-		// value in a file whose every other value is one line.
-		var buf strings.Builder
-		buf.WriteString("[\n")
-		for _, tag := range typed {
-			fmt.Fprintf(&buf, "  { glyph = %s, color = %s },\n", strconv.Quote(tag.Glyph), strconv.Quote(tag.Color))
-		}
-		buf.WriteString("]")
-
-		return buf.String(), nil
 	default:
 		return "", fmt.Errorf("unsupported default type %T", value)
 	}

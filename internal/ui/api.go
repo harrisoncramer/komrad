@@ -165,15 +165,6 @@ func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	return err
 }
 
-func (a api) setTags(ids []string, tag *string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.SetTags(ctx, connect.NewRequest(&agentv1.SetTagsRequest{Ids: ids, Tag: tag}))
-
-	return err
-}
-
 func (a api) restoreAgents(ids []string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()

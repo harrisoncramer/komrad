@@ -24,7 +24,6 @@ func ghostTree(width int) model {
 	return model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
-		tags:   tags,
 		width:  width,
 		height: 40,
 		listing: listing{
@@ -47,7 +46,6 @@ func ghostTree(width int) model {
 						WorkflowID:      "w1",
 						State:           agentstore.StateIdle,
 						StateChangedAt:  now.Add(-27 * time.Minute),
-						Tag:             xptr.Ptr("✓"),
 						ScheduleID:      xptr.Ptr("s1"),
 						WorktreeRemoved: true,
 					},
@@ -85,7 +83,6 @@ func TestGhostSlotKeepsTheWidestRow(t *testing.T) {
 			WorkflowID:      "w1",
 			State:           agentstore.StateIdle,
 			StateChangedAt:  time.Now().Add(-27 * time.Minute),
-			Tag:             xptr.Ptr("✓"),
 			ScheduleID:      xptr.Ptr("s1"),
 			Hidden:          true,
 			WorktreeRemoved: true,

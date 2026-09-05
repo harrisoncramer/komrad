@@ -29,7 +29,7 @@ func TestGetConfig(t *testing.T) {
 			file: `bogus = true`,
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
 				assert.Contains(t, resp.GetConfigError(), "failed to parse config")
-				assert.Equal(t, []any{"t"}, binding(t, resp, "agents", "tag"))
+				assert.Equal(t, []any{"z"}, binding(t, resp, "agents", "archive"))
 			},
 		},
 		{
@@ -50,9 +50,9 @@ func TestGetConfig(t *testing.T) {
 		},
 		{
 			name: "one rebound key, which leaves every other binding on its default",
-			file: "[keybindings.agents]\ntag = [\"T\"]\n",
+			file: "[keybindings.agents]\nhide = [\"H\"]\n",
 			check: func(t *testing.T, resp *configv1.GetConfigResponse) {
-				assert.Equal(t, []any{"T"}, binding(t, resp, "agents", "tag"))
+				assert.Equal(t, []any{"H"}, binding(t, resp, "agents", "hide"))
 				assert.Equal(t, []any{"z"}, binding(t, resp, "agents", "archive"))
 			},
 		},

@@ -29,7 +29,6 @@ message Agent {
   optional string schedule_id = 12;
   bool alive = 11;
   bool unread_mail = 21;
-  optional string tag = 14;
   bool hidden = 15;
   repeated AgentMetadata metadata = 16;
   optional string idempotency_key = 17;
@@ -146,22 +145,6 @@ message GetAgentRequest {
 
 message GetAgentResponse {
   Agent agent = 1;
-}
-
-message SetTagsRequest {
-  repeated string ids = 1 [(buf.validate.field).repeated = {
-    min_items: 1
-    max_items: 100
-    unique: true
-    items: {
-      string: {min_len: 1}
-    }
-  }];
-  optional string tag = 2 [(buf.validate.field).cel = {
-    id: "tag.glyph"
-    message: "a tag must be a short glyph carrying no whitespace or control characters"
-    expression: "this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')"
-  }];
 }
 
 message SetHiddenRequest {
@@ -314,14 +297,6 @@ service AgentService {
     option (annotation.v1.tool) = {
       tool_name: "adopt"
       description: "Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded."
-      destructive: false
-    };
-  }
-  rpc SetTags(SetTagsRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "set_agent_tags"
-      description: "Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag. Every id given takes the same glyph, so tagging agents differently is a call each. A tag is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under tags, since the panel's tag key cycles through those and can only clear anything else. Archived agents have no row to draw a tag on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not tag that."
       destructive: false
     };
   }

@@ -193,7 +193,6 @@ func (m model) agentHelp() keyMap {
 		return m.selectionHelp(
 			m.tree.selected,
 			hovered,
-			binding(m.keys.Agents.Tag, "cycle tag"),
 			binding(m.keys.Agents.Archive, "archive all"),
 			m.showHiddenBinding(),
 		)
@@ -330,7 +329,6 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Agents.OpenPR, "open pr (if recorded)"),
 		binding(m.keys.Agents.Review, "review diff (worktree only)"),
-		binding(m.keys.Agents.Tag, "cycle tag"),
 		m.hideBinding(),
 		m.newBinding(),
 		binding(m.keys.Agents.Child, "attach child"),

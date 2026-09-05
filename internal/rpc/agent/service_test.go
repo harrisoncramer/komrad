@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -627,90 +626,6 @@ func TestSetAgentViewed(t *testing.T) {
 	back, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
 	assert.True(t, back.Msg.GetAgent().GetUnviewed(), "and the person can put the mark back")
-}
-
-// TestSetTags covers the tag over the wire, where a call that reached nothing is refused and
-// one that reached only some of its ids is not.
-func TestSetTags(t *testing.T) {
-	tests := []struct {
-		name     string
-		seed     int
-		strays   int
-		tagFirst *string
-		tag      *string
-		wantCode connect.Code
-	}{
-		{
-			name:     "an id nobody holds is not a quiet success",
-			strays:   1,
-			tag:      xptr.Ptr("●"),
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "an agent is tagged",
-			seed: 1,
-			tag:  xptr.Ptr("●"),
-		},
-		{
-			name: "several agents take one tag together",
-			seed: 3,
-			tag:  xptr.Ptr("●"),
-		},
-		{
-			name:   "an id nobody holds does not refuse the agents beside it",
-			seed:   2,
-			strays: 1,
-			tag:    xptr.Ptr("●"),
-		},
-		{
-			name:     "several agents move from one tag to another",
-			seed:     2,
-			tagFirst: xptr.Ptr("●"),
-			tag:      xptr.Ptr("✓"),
-		},
-		{
-			name:     "and the tags are cleared again",
-			seed:     2,
-			tagFirst: xptr.Ptr("●"),
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
-
-			seeded := make([]string, 0, tt.seed)
-			for i := range tt.seed {
-				name := fmt.Sprintf("alpha-%d", i)
-				seeded = append(seeded, st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking}).ID)
-			}
-			if tt.tagFirst != nil {
-				tagged, err := st.Agents.SetTags(ctx, seeded, tt.tagFirst)
-				require.NoError(t, err)
-				require.Equal(t, len(seeded), tagged)
-			}
-
-			ids := slices.Clone(seeded)
-			for range tt.strays {
-				ids = append(ids, uuid.NewString())
-			}
-
-			_, err := svc.SetTags(ctx, connect.NewRequest(&agentv1.SetTagsRequest{Ids: ids, Tag: tt.tag}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
-
-			require.NoError(t, err)
-
-			for _, id := range seeded {
-				got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-				require.NoError(t, err)
-				assert.Equal(t, tt.tag, got.Msg.GetAgent().Tag)
-			}
-		})
-	}
 }
 
 // TestSetMetadata covers an agent recording facts about its own work and reading

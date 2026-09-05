@@ -43,8 +43,6 @@ const (
 	AgentServiceCreateAgentProcedure = "/agent.v1.AgentService/CreateAgent"
 	// AgentServiceAdoptProcedure is the fully-qualified name of the AgentService's Adopt RPC.
 	AgentServiceAdoptProcedure = "/agent.v1.AgentService/Adopt"
-	// AgentServiceSetTagsProcedure is the fully-qualified name of the AgentService's SetTags RPC.
-	AgentServiceSetTagsProcedure = "/agent.v1.AgentService/SetTags"
 	// AgentServiceSetHiddenProcedure is the fully-qualified name of the AgentService's SetHidden RPC.
 	AgentServiceSetHiddenProcedure = "/agent.v1.AgentService/SetHidden"
 	// AgentServiceSetMetadataProcedure is the fully-qualified name of the AgentService's SetMetadata
@@ -137,7 +135,6 @@ type AgentServiceClient interface {
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
@@ -205,13 +202,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+AgentServiceAdoptProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("Adopt")),
-			connect.WithClientOptions(opts...),
-		),
-		setTags: connect.NewClient[v1.SetTagsRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceSetTagsProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("SetTags")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
 		setHidden: connect.NewClient[v1.SetHiddenRequest, emptypb.Empty](
@@ -423,7 +413,6 @@ type agentServiceClient struct {
 	getAgent                *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
 	createAgent             *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
 	adopt                   *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
-	setTags                 *connect.Client[v1.SetTagsRequest, emptypb.Empty]
 	setHidden               *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata             *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log                     *connect.Client[v1.LogRequest, emptypb.Empty]
@@ -474,11 +463,6 @@ func (c *agentServiceClient) CreateAgent(ctx context.Context, req *connect.Reque
 // Adopt calls agent.v1.AgentService.Adopt.
 func (c *agentServiceClient) Adopt(ctx context.Context, req *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return c.adopt.CallUnary(ctx, req)
-}
-
-// SetTags calls agent.v1.AgentService.SetTags.
-func (c *agentServiceClient) SetTags(ctx context.Context, req *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.setTags.CallUnary(ctx, req)
 }
 
 // SetHidden calls agent.v1.AgentService.SetHidden.
@@ -637,7 +621,6 @@ type AgentServiceHandler interface {
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
@@ -701,13 +684,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		AgentServiceAdoptProcedure,
 		svc.Adopt,
 		connect.WithSchema(agentServiceMethods.ByName("Adopt")),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceSetTagsHandler := connect.NewUnaryHandler(
-		AgentServiceSetTagsProcedure,
-		svc.SetTags,
-		connect.WithSchema(agentServiceMethods.ByName("SetTags")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
 	agentServiceSetHiddenHandler := connect.NewUnaryHandler(
@@ -920,8 +896,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceCreateAgentHandler.ServeHTTP(w, r)
 		case AgentServiceAdoptProcedure:
 			agentServiceAdoptHandler.ServeHTTP(w, r)
-		case AgentServiceSetTagsProcedure:
-			agentServiceSetTagsHandler.ServeHTTP(w, r)
 		case AgentServiceSetHiddenProcedure:
 			agentServiceSetHiddenHandler.ServeHTTP(w, r)
 		case AgentServiceSetMetadataProcedure:
@@ -1005,10 +979,6 @@ func (UnimplementedAgentServiceHandler) CreateAgent(context.Context, *connect.Re
 
 func (UnimplementedAgentServiceHandler) Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Adopt is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) SetTags(context.Context, *connect.Request[v1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetTags is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error) {

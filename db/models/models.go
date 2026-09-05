@@ -164,7 +164,6 @@ type Agent struct {
 	NudgedAt         *time.Time
 	Branch           *string
 	WorktreeRemoved  bool
-	Tag              *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	StateSeenAt      time.Time

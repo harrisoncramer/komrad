@@ -16,7 +16,6 @@ type app struct {
 	defaultFlags   map[string]string
 	maxAgents      int
 	maxChildren    int
-	tags           []config.Tag
 	logViewer      string
 	processViewer  string
 	logLevel       string

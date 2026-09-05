@@ -12,7 +12,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
-	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -103,8 +102,6 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
 		switch {
-		case isBound(k, m.keys.Agents.Tag):
-			return m.tagAgent(item.agent)
 		case isBound(k, m.keys.Agents.ToggleViewed):
 			return m.toggleAgentViewed(item)
 		case isBound(k, m.keys.Agents.Hide):
@@ -142,8 +139,6 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case isBound(k, m.keys.Agents.Tag):
-		return m.tagSelection()
 	case isBound(k, m.keys.Agents.Archive):
 		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.allAgentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
@@ -328,25 +323,6 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m model) tagAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	next := nextTag(agent.Tag, m.tags)
-
-	return m, m.writeCmd(
-		fmt.Sprintf("Could not tag agent %q", agent.Name),
-		func(a api) error { return a.setTags([]string{agent.ID}, next) },
-	)
-}
-
-func (m model) tagSelection() (tea.Model, tea.Cmd) {
-	ids := m.tree.selected.ids
-	next := nextSelectionTag(selectionTags(m.tree.selected, m.allAgentRows()), m.tags)
-
-	return m, m.writeCmd(
-		fmt.Sprintf("Could not tag %d agents", len(ids)),
-		func(a api) error { return a.setTags(ids, next) },
-	)
-}
-
 func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	failure := fmt.Sprintf("Could not hide agent %q", agent.Name)
 	if agent.Hidden {
@@ -402,52 +378,6 @@ func (m *model) stageSelection() {
 	}
 
 	m.stageInfo()
-}
-
-func nextTag(current *string, tags []config.Tag) *string {
-	if len(tags) == 0 {
-		return nil
-	}
-
-	if current == nil {
-		return &tags[0].Glyph
-	}
-
-	for i, tag := range tags {
-		if tag.Glyph == *current && i+1 < len(tags) {
-			return &tags[i+1].Glyph
-		}
-	}
-
-	return nil
-}
-
-func nextSelectionTag(current []*string, tags []config.Tag) *string {
-	if len(tags) == 0 || len(current) == 0 {
-		return nil
-	}
-
-	for _, tag := range current[1:] {
-		if !isSameTag(current[0], tag) {
-			return &tags[0].Glyph
-		}
-	}
-
-	return nextTag(current[0], tags)
-}
-
-func selectionTags(sel selection, rows []agentRow) []*string {
-	agents := chosenAgents(sel, rows)
-
-	return xslice.Map(agents, func(agent agentstore.Agent) *string { return agent.Tag })
-}
-
-func isSameTag(a, b *string) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-
-	return *a == *b
 }
 
 // parentName is what the agent a child is attached to is called, which is what the details show
@@ -534,7 +464,7 @@ func (m model) agentsView() string {
 		item := r.item
 		selected := m.tree.selected.has(item.agent.ID)
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
-		row := prefix + "  " + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + "  " + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}
 

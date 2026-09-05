@@ -526,10 +526,6 @@ table "agents" {
     null = true
     type = timestamptz
   }
-  column "tag" {
-    null = true
-    type = text
-  }
   column "created_at" {
     null    = false
     type    = timestamptz

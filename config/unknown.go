@@ -58,10 +58,6 @@ func describeTable(table string) string {
 		return "the top level"
 	}
 
-	if open := strings.LastIndexByte(table, '['); open > 0 && strings.HasSuffix(table, "]") {
-		return "an entry in " + table[:open]
-	}
-
 	return "[" + table + "]"
 }
 
@@ -95,27 +91,16 @@ func listKnownKeys(table string) []string {
 	return keys
 }
 
-// findFieldType is the type of the field a segment keys, following a slice to what it holds
-// so a key inside one of the tags resolves to the tag rather than to the list.
+// findFieldType is the type of the field a segment keys.
 func findFieldType(structType reflect.Type, segment string) (reflect.Type, bool) {
 	if structType.Kind() != reflect.Struct {
 		return nil, false
-	}
-
-	// A key inside a list is reported with its position, which names the same type every
-	// other entry has.
-	if open := strings.IndexByte(segment, '['); open > 0 {
-		segment = segment[:open]
 	}
 
 	for i := range structType.NumField() {
 		field := structType.Field(i)
 		if field.Tag.Get("mapstructure") != segment {
 			continue
-		}
-
-		if field.Type.Kind() == reflect.Slice {
-			return field.Type.Elem(), true
 		}
 
 		return field.Type, true

@@ -72,7 +72,6 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			ArchivedAt:       archived,
 			Alive:            marks.alive,
 			UnreadMail:       marks.unreadMail,
-			Tag:              stored.Tag,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
 			IdempotencyKey:   stored.IdempotencyKey,

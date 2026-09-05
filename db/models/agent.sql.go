@@ -289,7 +289,7 @@ func (q *Queries) ForgetAgentPane(ctx context.Context, arg ForgetAgentPaneParams
 
 const getAgentByID = `-- name: GetAgentByID :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 WHERE
@@ -320,7 +320,6 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 		&i.NudgedAt,
 		&i.Branch,
 		&i.WorktreeRemoved,
-		&i.Tag,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateSeenAt,
@@ -337,7 +336,7 @@ func (q *Queries) GetAgentByID(ctx context.Context, id string) (*Agent, error) {
 
 const getAgentByIdempotencyKey = `-- name: GetAgentByIdempotencyKey :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 WHERE
@@ -368,7 +367,6 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 		&i.NudgedAt,
 		&i.Branch,
 		&i.WorktreeRemoved,
-		&i.Tag,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateSeenAt,
@@ -385,7 +383,7 @@ func (q *Queries) GetAgentByIdempotencyKey(ctx context.Context, idempotencyKey *
 
 const getAgentInWorkflow = `-- name: GetAgentInWorkflow :one
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 WHERE
@@ -423,7 +421,6 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 		&i.NudgedAt,
 		&i.Branch,
 		&i.WorktreeRemoved,
-		&i.Tag,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.StateSeenAt,
@@ -440,7 +437,7 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 
 const getAgentsByID = `-- name: GetAgentsByID :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 WHERE
@@ -478,7 +475,6 @@ func (q *Queries) GetAgentsByID(ctx context.Context, ids []string) ([]*Agent, er
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -693,7 +689,7 @@ func (q *Queries) ListAgentMetadata(ctx context.Context, agentIds []string) ([]*
 
 const listAgents = `-- name: ListAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 WHERE
@@ -731,7 +727,6 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -755,7 +750,7 @@ func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 
 const listAgentsPage = `-- name: ListAgentsPage :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 WHERE ($1::boolean) =(s.archived_at IS NOT NULL)
@@ -801,7 +796,6 @@ func (q *Queries) ListAgentsPage(ctx context.Context, arg ListAgentsPageParams) 
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -858,7 +852,7 @@ func (q *Queries) ListAgentsWithUnseenTurns(ctx context.Context) ([]string, erro
 
 const listAllAgents = `-- name: ListAllAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents s
 ORDER BY
@@ -894,7 +888,6 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -918,7 +911,7 @@ func (q *Queries) ListAllAgents(ctx context.Context) ([]*Agent, error) {
 
 const listArchivedWorkflowAgents = `-- name: ListArchivedWorkflowAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents
 WHERE
@@ -957,7 +950,6 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -981,7 +973,7 @@ func (q *Queries) ListArchivedWorkflowAgents(ctx context.Context, workflowID str
 
 const listChildAgents = `-- name: ListChildAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents
 WHERE
@@ -1019,7 +1011,6 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -1043,7 +1034,7 @@ func (q *Queries) ListChildAgents(ctx context.Context, parentIds []string) ([]*A
 
 const listLiveWorkflowAgents = `-- name: ListLiveWorkflowAgents :many
 SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, tag, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason
 FROM
     agents
 WHERE
@@ -1082,7 +1073,6 @@ func (q *Queries) ListLiveWorkflowAgents(ctx context.Context, workflowID string)
 			&i.NudgedAt,
 			&i.Branch,
 			&i.WorktreeRemoved,
-			&i.Tag,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.StateSeenAt,
@@ -1911,43 +1901,6 @@ type SetAgentStateByIDParams struct {
 func (q *Queries) SetAgentStateByID(ctx context.Context, arg SetAgentStateByIDParams) error {
 	_, err := q.db.Exec(ctx, setAgentStateByID, arg.State, arg.ID)
 	return err
-}
-
-const setAgentTags = `-- name: SetAgentTags :many
-UPDATE
-    agents
-SET
-    tag = $1
-WHERE
-    id = ANY ($2::uuid[])
-    AND archived_at IS NULL
-RETURNING
-    id
-`
-
-type SetAgentTagsParams struct {
-	Tag *string
-	Ids []string
-}
-
-func (q *Queries) SetAgentTags(ctx context.Context, arg SetAgentTagsParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, setAgentTags, arg.Tag, arg.Ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const setAgentTurnEndedByID = `-- name: SetAgentTurnEndedByID :exec

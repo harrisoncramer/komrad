@@ -238,58 +238,6 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a tag carrying whitespace is refused, since it is drawn into a row",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: []string{uuid.NewString()},
-					Tag: xptr.Ptr("two glyphs"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a tag with no agent to put it on is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: nil,
-					Tag: xptr.Ptr("◐"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "the same agent named twice is refused",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				id := uuid.NewString()
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: []string{id, id},
-					Tag: xptr.Ptr("◐"),
-				}))
-
-				return err
-			},
-			wantErr: true,
-		},
-		{
-			name: "a glyph is not what the constraint stops",
-			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: []string{uuid.NewString()},
-					Tag: xptr.Ptr("◐"),
-				}))
-
-				if connect.CodeOf(err) == connect.CodeNotFound {
-					return nil
-				}
-
-				return err
-			},
-		},
-		{
 			name: "a log script carrying a control character is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				script := "run\x1b[31mred"

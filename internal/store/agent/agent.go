@@ -1,6 +1,6 @@
 // Package agent stores the agents themselves: the row for each one, the state the reconciler
-// keeps up to date, the metadata an agent records about its own work, the tags a person puts on
-// a row, and whether it is archived or still on screen.
+// keeps up to date, the metadata an agent records about its own work, and whether it is archived
+// or still on screen.
 package agent
 
 import (
@@ -86,7 +86,6 @@ type Agent struct {
 	ArchivedAt       *time.Time
 	NudgedAt         *time.Time
 	Hidden           bool
-	Tag              *string
 	Metadata         []Metadata
 	SpawnedByAgentID *string
 
@@ -165,7 +164,6 @@ func agentFromRow(agent models.Agent) Agent {
 		ArchivedAt:       agent.ArchivedAt,
 		NudgedAt:         agent.NudgedAt,
 		Hidden:           agent.IsHidden,
-		Tag:              agent.Tag,
 		SpawnedByAgentID: agent.SpawnedByAgentID,
 		ParentAgentID:    agent.ParentAgentID,
 		CreatedAt:        agent.CreatedAt,
