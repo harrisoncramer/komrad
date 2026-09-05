@@ -17,7 +17,7 @@ func testServer(t *testing.T, name string) *Client {
 	}
 
 	socket := "weave-test-" + strings.ReplaceAll(t.Name(), "/", "-")
-	client := &Client{server: []string{"-L", socket}}
+	client := &Client{server: []string{"-L", socket, "-f", "/dev/null"}}
 
 	t.Cleanup(func() {
 		_, _ = client.query("kill-server")
@@ -25,6 +25,13 @@ func testServer(t *testing.T, name string) *Client {
 
 	_, err := client.query("new-session", "-d", "-s", name, "-n", name, "--", "sh")
 	require.NoError(t, err, "could not start a tmux server to test against")
+
+	// A pane reports whichever process holds its terminal, so a login shell reading the
+	// developer's startup files reports those children rather than itself.
+	_, err = client.query("set-option", "-g", "default-shell", "/bin/sh")
+	require.NoError(t, err, "could not pin the test server's shell")
+	_, err = client.query("set-option", "-g", "default-command", "sh")
+	require.NoError(t, err, "could not pin the test server's shell")
 
 	return client
 }
