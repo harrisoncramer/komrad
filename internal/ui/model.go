@@ -31,7 +31,7 @@ func Run(deps Deps) error {
 	isDark := lipgloss.HasDarkBackground()
 	lipgloss.SetHasDarkBackground(isDark)
 
-	if _, err := tea.NewProgram(newModel(deps, isDark), tea.WithAltScreen()).Run(); err != nil {
+	if _, err := tea.NewProgram(newModel(deps, isDark), tea.WithAltScreen(), tea.WithReportFocus()).Run(); err != nil {
 		return fmt.Errorf("failed to run panel: %w", err)
 	}
 

@@ -159,14 +159,12 @@ func (m model) refreshCmd() tea.Cmd {
 	}
 }
 
-func (m *model) applyRefresh(result refreshResult) bool {
+func (m *model) applyRefresh(result refreshResult) {
 	if result.epoch < m.epoch {
-		return false
+		return
 	}
 
 	m.unreachable = result.err()
-
-	editorClosed := m.reconcileInfo()
 
 	treeRow := rowKeyAt(m.agentRows(), m.tree.cursor)
 	archiveRow := rowKeyAt(m.archiveRows(), m.archive.cursor)
@@ -196,8 +194,6 @@ func (m *model) applyRefresh(result refreshResult) bool {
 	if spec := m.screen.spec(); spec.fromListing && !m.form.isActive() {
 		spec.stage(m)
 	}
-
-	return editorClosed && m.screen == screenReview
 }
 
 func (r refreshResult) err() error {

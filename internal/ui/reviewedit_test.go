@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"weave/internal/review"
 	"weave/internal/ui/layout"
@@ -115,14 +116,20 @@ func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 			close: func(m model) (tea.Model, tea.Cmd) { return m.closeReviewEdit() },
 		},
 		{
-			name: "the editor quits and takes its pane with it",
+			name: "the editor quits and the keys come back to the panel",
 			close: func(m model) (tea.Model, tea.Cmd) {
 				m.frame.Close(layout.RegionInfo)
-				if !m.applyRefresh(refreshResult{}) {
-					return m, nil
-				}
 
-				return m.reloadReview()
+				return m.route(tea.FocusMsg{})
+			},
+		},
+		{
+			name: "the editor quits while the panel is looking elsewhere",
+			close: func(m model) (tea.Model, tea.Cmd) {
+				m.frame.Close(layout.RegionInfo)
+				next, cmd := m.reconcileEditor()
+
+				return next, cmd
 			},
 		},
 	}
@@ -157,6 +164,24 @@ func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 			assert.Contains(t, drawn.String(), "edited in the editor", "the reloaded diff shows what the editor wrote")
 		})
 	}
+}
+
+// TestReviewEditCloseCaughtByTheTick pins the tick catching the editor gone as well, since a
+// tmux that reports no focus event would otherwise leave the diff behind it stale.
+func TestReviewEditCloseCaughtByTheTick(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.editReviewFile()
+	m = next.(model)
+	require.Equal(t, infoEditFile, m.info.kind, "the editor is up")
+
+	m.frame.Close(layout.RegionInfo)
+	ticked, cmd := m.route(refreshTickMsg{at: time.Now()})
+	require.NotNil(t, cmd)
+
+	assert.Equal(t, infoNothing, ticked.(model).info.kind, "the tick noticed the editor gone")
 }
 
 // TestReviewKeepsDrawingAfterAReload pins the diff repainting after a reload, since a reload

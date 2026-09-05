@@ -131,14 +131,15 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, readRuns := next.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
 		mailing := next.refreshMailCmd()
+		next, edited := next.reconcileEditor()
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing), true
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing, edited), true
+	case tea.FocusMsg:
+		next, cmd := m.reconcileEditor()
+
+		return next, cmd, true
 	case refreshResult:
-		if m.applyRefresh(msg) {
-			next, cmd := m.reloadReview()
-
-			return next, cmd, true
-		}
+		m.applyRefresh(msg)
 
 		return m, nil, true
 	case writeResult:
