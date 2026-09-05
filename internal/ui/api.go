@@ -165,13 +165,16 @@ func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	return err
 }
 
-func (a api) setTags(ids []string, tag *string) error {
+func (a api) setMark(id string, mark *string) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	_, err := a.agents.SetTags(ctx, connect.NewRequest(&agentv1.SetTagsRequest{Ids: ids, Tag: tag}))
+	res, err := a.agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: mark}))
+	if err != nil {
+		return nil, err
+	}
 
-	return err
+	return res.Msg.GetClearedFrom(), nil
 }
 
 func (a api) restoreAgents(ids []string) error {

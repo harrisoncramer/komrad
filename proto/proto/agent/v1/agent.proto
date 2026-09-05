@@ -29,7 +29,7 @@ message Agent {
   optional string schedule_id = 12;
   bool alive = 11;
   bool unread_mail = 21;
-  optional string tag = 14;
+  optional string mark = 14;
   bool hidden = 15;
   repeated AgentMetadata metadata = 16;
   optional string idempotency_key = 17;
@@ -148,20 +148,17 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
-message SetTagsRequest {
-  repeated string ids = 1 [(buf.validate.field).repeated = {
-    min_items: 1
-    max_items: 100
-    unique: true
-    items: {
-      string: {min_len: 1}
-    }
+message SetMarkRequest {
+  string id = 1 [(buf.validate.field).string.min_len = 1];
+  optional string mark = 2 [(buf.validate.field).cel = {
+    id: "mark.letter"
+    message: "a mark is one lowercase letter"
+    expression: "this.matches('^[a-z]$')"
   }];
-  optional string tag = 2 [(buf.validate.field).cel = {
-    id: "tag.glyph"
-    message: "a tag must be a short glyph carrying no whitespace or control characters"
-    expression: "this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')"
-  }];
+}
+
+message SetMarkResponse {
+  repeated string cleared_from = 1;
 }
 
 message SetHiddenRequest {
@@ -317,13 +314,8 @@ service AgentService {
       destructive: false
     };
   }
-  rpc SetTags(SetTagsRequest) returns (google.protobuf.Empty) {
+  rpc SetMark(SetMarkRequest) returns (SetMarkResponse) {
     option idempotency_level = IDEMPOTENT;
-    option (annotation.v1.tool) = {
-      tool_name: "set_agent_tags"
-      description: "Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag. Every id given takes the same glyph, so tagging agents differently is a call each. A tag is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under tags, since the panel's tag key cycles through those and can only clear anything else. Archived agents have no row to draw a tag on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not tag that."
-      destructive: false
-    };
   }
   rpc SetHidden(SetHiddenRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;

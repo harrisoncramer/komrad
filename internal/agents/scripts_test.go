@@ -137,7 +137,7 @@ func TestScriptPayload(t *testing.T) {
 	assert.True(t, payload.Alive, "the pane still belongs to this agent")
 	assert.Equal(t, "%9", payload.Pane)
 	assert.Equal(t, "backend", payload.Workflow, "the workflow reads as its name, not the id a script cannot use")
-	assert.Equal(t, "✓", payload.Tag)
+	assert.Equal(t, "a", payload.Mark)
 	assert.Equal(t, "2026-07-30T09:00:00Z", payload.CreatedAt)
 	assert.Equal(t, map[string]string{"pr": "https://example.test/1"}, payload.Metadata)
 	assert.Equal(t, "fix auth", payload.Prompt)
@@ -1747,13 +1747,13 @@ func scriptService(t *testing.T, dir string, runner scriptRunner) *ScriptService
 func scriptServiceWithLogsDir(t *testing.T, dir string, runner scriptRunner, logsDir string) *ScriptService {
 	t.Helper()
 
-	tag := "✓"
+	mark := "a"
 
 	return NewScriptService(ScriptParams{
 		Agents: fakeAgentReader{agent: &agentstore.Agent{
 			ID: "a1", Name: "auth", State: agentstore.StateWaiting, Cwd: "/repo",
 			Harness: "claude", SessionID: "sess-1", Flags: "--model opus", Prompt: "fix auth",
-			Pane: "%9", WorkflowID: "w1", Tag: &tag,
+			Pane: "%9", WorkflowID: "w1", Mark: &mark,
 			CreatedAt: time.Date(2026, time.July, 30, 9, 0, 0, 0, time.UTC),
 			Metadata:  []agentstore.Metadata{{Key: "pr", Value: "https://example.test/1"}},
 		}},

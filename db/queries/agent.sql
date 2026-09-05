@@ -221,6 +221,7 @@ UPDATE
     agents a
 SET
     archived_at = NOW(),
+    mark = NULL,
     pane_id = ''
 FROM
     prior
@@ -419,13 +420,26 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentTags :many
+-- name: ClearAgentMark :many
 UPDATE
     agents
 SET
-    tag = sqlc.narg(tag)
+    mark = NULL
 WHERE
-    id = ANY (@ids::uuid[])
+    mark = @mark
+    AND id <> @keep_id
+    AND archived_at IS NULL
+RETURNING
+    id,
+    name;
+
+-- name: SetAgentMark :many
+UPDATE
+    agents
+SET
+    mark = sqlc.narg(mark)
+WHERE
+    id = @id
     AND archived_at IS NULL
 RETURNING
     id;
@@ -521,6 +535,7 @@ UPDATE
     agents a
 SET
     archived_at = NOW(),
+    mark = NULL,
     pane_id = ''
 FROM
     prior
@@ -535,6 +550,7 @@ UPDATE
     agents
 SET
     archived_at = NOW(),
+    mark = NULL,
     pane_id = ''
 WHERE
     id = @id

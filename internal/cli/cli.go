@@ -90,7 +90,6 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 			}
 			app.harnesses = harnessRegistry
 
-			app.tags = cfg.Tags
 			app.layout = cfg.Layout
 			app.logLevel = cfg.Log.Level
 			app.logViewer = cfg.Log.Viewer

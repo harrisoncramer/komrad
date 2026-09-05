@@ -193,7 +193,6 @@ func (m model) agentHelp() keyMap {
 		return m.selectionHelp(
 			m.tree.selected,
 			hovered,
-			binding(m.keys.Agents.Tag, "cycle tag"),
 			binding(m.keys.Agents.Archive, "archive all"),
 			m.showHiddenBinding(),
 		)
@@ -318,7 +317,6 @@ func (m model) rowHelp() []key.Binding {
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
 			m.archiveBinding(m.keys.Workflows.Archive),
-			binding(m.keys.Agents.NextUnviewed, "next unviewed"),
 			m.showHiddenBinding(),
 		}
 	}
@@ -330,12 +328,12 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Agents.OpenPR, "open pr (if recorded)"),
 		binding(m.keys.Agents.Review, "review diff (worktree only)"),
-		binding(m.keys.Agents.Tag, "cycle tag"),
+		binding(m.keys.Marks.Set, "set mark"),
+		binding(m.keys.Marks.Jump, "jump to mark"),
 		m.hideBinding(),
 		m.newBinding(),
 		binding(m.keys.Agents.Child, "attach child"),
 		binding(m.keys.Agents.Rename, "rename"),
-		binding(m.keys.Agents.NextUnviewed, "next unviewed"),
 		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),
 		m.archiveBinding(m.keys.Agents.Archive),
 	}

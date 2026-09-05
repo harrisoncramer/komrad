@@ -20,9 +20,9 @@ func (s agent) Cursor() (agentstore.Cursor, error) {
 	return s.cursor, nil
 }
 
-// agentMarks are the facts about an agent that are not on its own row: whether it is running,
+// agentFlags are the facts about an agent that are not on its own row: whether it is running,
 // whether it has mail it has not read, and whether it has said anything the person has not.
-type agentMarks struct {
+type agentFlags struct {
 	alive      bool
 	unreadMail bool
 	unviewed   bool
@@ -32,7 +32,7 @@ type agentMarks struct {
 	failedRunLog *int32
 }
 
-func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
+func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 	created := ""
 	if !stored.CreatedAt.IsZero() {
 		created = stored.CreatedAt.Format(time.RFC3339)
@@ -70,9 +70,9 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			StateChangedAt:   stateChanged,
 			ReportedReason:   stored.ReportedReason,
 			ArchivedAt:       archived,
-			Alive:            marks.alive,
-			UnreadMail:       marks.unreadMail,
-			Tag:              stored.Tag,
+			Alive:            flags.alive,
+			UnreadMail:       flags.unreadMail,
+			Mark:             stored.Mark,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
 			IdempotencyKey:   stored.IdempotencyKey,
@@ -80,9 +80,9 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			ParentAgentId:    stored.ParentAgentID,
 			Branch:           stored.Branch,
 			WorktreeRemoved:  stored.WorktreeRemoved,
-			Unviewed:         marks.unviewed,
-			FailedRun:        marks.failedRun,
-			FailedRunLog:     marks.failedRunLog,
+			Unviewed:         flags.unviewed,
+			FailedRun:        flags.failedRun,
+			FailedRunLog:     flags.failedRunLog,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

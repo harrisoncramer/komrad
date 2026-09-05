@@ -105,8 +105,8 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{"created", created})
 	}
-	if agent.Tag != nil {
-		fields = append(fields, recordField{"tag", *agent.Tag})
+	if agent.Mark != nil {
+		fields = append(fields, recordField{"mark", *agent.Mark})
 	}
 	for _, entry := range agent.Metadata {
 		if entry.Key == failureReasonKey {

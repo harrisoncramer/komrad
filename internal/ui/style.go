@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 
-	"weave/config"
 	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
@@ -209,24 +208,14 @@ func worktreeRemovedMark(agent agentstore.Agent) string {
 	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
 }
 
-func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {
-	if agent.Tag == nil {
-		return ""
+// markGutter is the column a mark is drawn in, left of every agent row, so the letters a
+// person addresses agents by read down one edge rather than being hunted for along a row.
+func markGutter(agent agentstore.Agent) string {
+	if agent.Mark == nil {
+		return "  "
 	}
 
-	return " " + lipgloss.NewStyle().Foreground(tagColor(*agent.Tag, tags)).Render(*agent.Tag)
-}
-
-var taggedColor = lipgloss.Color(config.GetColor(config.DefaultTagColor))
-
-func tagColor(glyph string, tags []config.Tag) lipgloss.Color {
-	for _, tag := range tags {
-		if tag.Glyph == glyph && tag.Color != "" {
-			return lipgloss.Color(config.GetColor(tag.Color))
-		}
-	}
-
-	return taggedColor
+	return lipgloss.NewStyle().Foreground(colorMark).Render(*agent.Mark) + " "
 }
 
 func scheduleIcon(enabled bool) string {

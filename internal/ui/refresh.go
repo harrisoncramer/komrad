@@ -209,7 +209,10 @@ func (r refreshResult) err() error {
 }
 
 type writeResult struct {
-	summary   string
+	summary string
+	// notice is what to say about a write that went through, for the writes whose effect is
+	// somewhere other than the row the cursor is on.
+	notice    string
 	err       error
 	written   *written
 	setupPane bool
@@ -321,6 +324,19 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	}
 }
 
+// noticeCmd is writeCmd for a write that has something to say when it goes through, which the
+// write returns rather than the caller guessing at before it runs.
+func (m *model) noticeCmd(summary string, write func(api) (string, error)) tea.Cmd {
+	clients := m.api
+	m.beginWrite()
+
+	return func() tea.Msg {
+		notice, err := write(clients)
+
+		return writeResult{summary: summary, notice: notice, err: err}
+	}
+}
+
 type resumeParams struct {
 	summary string
 	id      string
@@ -423,6 +439,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.reportBrief(result.summary, "the setup failed, and its output is in the pane it ran in", result.err)
 	} else {
 		m.report(result.summary, result.err)
+	}
+
+	if result.err == nil && result.notice != "" {
+		m.notify(result.notice)
 	}
 
 	if result.written != nil {

@@ -185,68 +185,6 @@ func TestToggleViewedLetsGoWhenTheCursorMoves(t *testing.T) {
 	assert.NotNil(t, cmd)
 }
 
-// TestJumpUnviewed covers the half of this that makes the dwell safe: reaching an agent without
-// travelling over the rows in between.
-func TestJumpUnviewed(t *testing.T) {
-	tests := []struct {
-		name   string
-		cursor int
-		key    string
-		want   int
-	}{
-		{
-			name: "from the header to the first unread",
-			key:  "n",
-			want: 1,
-		},
-		{
-			name:   "past the read row to the next unread",
-			cursor: 1,
-			key:    "n",
-			want:   3,
-		},
-		{
-			name:   "wrapping back to the first",
-			cursor: 3,
-			key:    "n",
-			want:   1,
-		},
-		{
-			name:   "backwards to the previous unread",
-			cursor: 3,
-			key:    "N",
-			want:   1,
-		},
-		{
-			name:   "backwards wrapping to the last",
-			cursor: 1,
-			key:    "N",
-			want:   3,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := unviewedTree()
-			m.tree.cursor = tt.cursor
-
-			assert.Equal(t, tt.want, press(t, m, keyMsg(tt.key)).tree.cursor)
-		})
-	}
-}
-
-// TestJumpUnviewedStaysPutWithNothingToReach pins that the key does nothing rather than moving
-// the cursor somewhere arbitrary when every agent has been read.
-func TestJumpUnviewedStaysPutWithNothingToReach(t *testing.T) {
-	m := unviewedTree()
-	for i := range m.listing.agents {
-		m.listing.agents[i].unviewed = false
-	}
-	m.tree.cursor = 2
-
-	assert.Equal(t, 2, press(t, m, keyMsg("n")).tree.cursor)
-}
-
 // TestUnviewedMarkIsItsOwnColumn pins the separation the whole design rests on: the state icon
 // says only what the agent is doing, the mark beside it says only whether there is something to
 // read, and either is true without the other.

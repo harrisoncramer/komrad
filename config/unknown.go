@@ -96,7 +96,7 @@ func listKnownKeys(table string) []string {
 }
 
 // findFieldType is the type of the field a segment keys, following a slice to what it holds
-// so a key inside one of the tags resolves to the tag rather than to the list.
+// so a key inside a list resolves to the entry rather than to the list.
 func findFieldType(structType reflect.Type, segment string) (reflect.Type, bool) {
 	if structType.Kind() != reflect.Struct {
 		return nil, false

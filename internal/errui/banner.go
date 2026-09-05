@@ -15,6 +15,9 @@ type Banner struct {
 	Detail  string
 	Hint    string
 	Trace   string
+	// Notice says the banner reports something that went right, which is drawn in green and
+	// carries no reason, since there is no failure to explain.
+	Notice bool
 }
 
 const bannerIndent = "  "
@@ -26,14 +29,20 @@ func (b Banner) Render(width int) string {
 
 	var out strings.Builder
 
-	out.WriteString(styled(Red, fold("✗ "+b.Summary, folded, bannerIndent)) + "\n")
-
-	detail := b.Detail
-	if detail == "" {
-		detail = "no reason given"
+	glyph, style := "✗ ", Red
+	if b.Notice {
+		glyph, style = "✓ ", Green
 	}
 
-	out.WriteString(bannerIndent + fold(detail, folded, bannerIndent) + "\n")
+	out.WriteString(styled(style, fold(glyph+b.Summary, folded, bannerIndent)) + "\n")
+
+	detail := b.Detail
+	if detail == "" && !b.Notice {
+		detail = "no reason given"
+	}
+	if detail != "" {
+		out.WriteString(bannerIndent + fold(detail, folded, bannerIndent) + "\n")
+	}
 	hint := cmp.Or(b.Hint, "esc to dismiss")
 	if b.Trace != "" {
 		hint += "  ·  weave trace " + b.Trace

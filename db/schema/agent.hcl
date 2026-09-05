@@ -526,7 +526,7 @@ table "agents" {
     null = true
     type = timestamptz
   }
-  column "tag" {
+  column "mark" {
     null = true
     type = text
   }
@@ -585,5 +585,10 @@ table "agents" {
     unique  = true
     columns = [column.idempotency_key]
     where   = "idempotency_key IS NOT NULL"
+  }
+  index "agents_mark_active" {
+    unique  = true
+    columns = [column.mark]
+    where   = "mark IS NOT NULL"
   }
 }

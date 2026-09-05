@@ -18,15 +18,6 @@ max_agents      = 50
 # Children share their parent's checkout, so this is deliberately a much lower ceiling
 # than max_agents.
 max_children    = 3
-# The tags the tag key cycles through, in order.
-# A colour is either one of the sixteen your terminal's own scheme maps, named as "red" or "brightred",
-# or a hex value such as "#DCA561". The panel draws itself from the sixteen,
-# so a name is what keeps a tag in the same scheme as everything around it.
-tags = [
-  { glyph = "●", color = "yellow" },
-  { glyph = "◐", color = "yellow" },
-  { glyph = "✓", color = "yellow" },
-]
 
 [harness.claude]
 # Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
@@ -70,9 +61,6 @@ back          = ["esc"]
 review        = ["d"]
 # Hide the hovered agent from this list.
 hide          = ["h"]
-# Move the hovered agent to the next tag in the tags list, and past the last
-# one back to untagged. Nothing but you ever sets a tag.
-tag           = ["t"]
 # Start a new agent.
 new           = ["c"]
 # Attach a child agent to the hovered agent, which runs in that agent's own checkout
@@ -82,11 +70,6 @@ child         = ["C"]
 # guess about what you have read is wrong. The mark you set by hand stands until you
 # move the cursor off the row.
 toggle_viewed = ["u"]
-# Jump to the next agent that has finished something you have not looked at, wrapping at
-# the end of the list.
-next_unviewed = ["n"]
-# Jump to the previous agent that has finished something you have not looked at.
-prev_unviewed = ["N"]
 # Read the mail the hovered agent has sent and been sent, with the mailbox in the
 # sidebar and the message under the cursor in the stage.
 mail          = ["m"]
@@ -166,6 +149,15 @@ older = ["L"]
 back = ["esc"]
 # Quit the panel.
 quit = ["ctrl+c"]
+
+# The marks a person puts on agents to jump between them, as vim's own marks work.
+[keybindings.marks]
+# Set a mark on the hovered agent, then the letter to set, or the letter it already
+# holds to take the mark off it.
+set  = ["t"]
+# Jump the cursor to a marked agent, then the letter to jump to, or the jump key again
+# to go back to where the last jump left from.
+jump = ["'"]
 
 # Navigation, shared by every menu so movement is the same everywhere.
 [keybindings.nav]

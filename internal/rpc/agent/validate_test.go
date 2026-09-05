@@ -238,11 +238,11 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a tag carrying whitespace is refused, since it is drawn into a row",
+			name: "a mark of more than one letter is refused, since it is drawn into one cell",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: []string{uuid.NewString()},
-					Tag: xptr.Ptr("two glyphs"),
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("ab"),
 				}))
 
 				return err
@@ -250,11 +250,11 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a tag with no agent to put it on is refused",
+			name: "an empty mark is refused, since clearing a mark is leaving it out",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: nil,
-					Tag: xptr.Ptr("◐"),
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr(""),
 				}))
 
 				return err
@@ -262,12 +262,11 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "the same agent named twice is refused",
+			name: "an uppercase mark is refused, since a mark is one lowercase letter",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				id := uuid.NewString()
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: []string{id, id},
-					Tag: xptr.Ptr("◐"),
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("A"),
 				}))
 
 				return err
@@ -275,11 +274,34 @@ func TestRequestValidation(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "a glyph is not what the constraint stops",
+			name: "a mark that is not a letter at all is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
-				_, err := c.SetTags(t.Context(), connect.NewRequest(&agentv1.SetTagsRequest{
-					Ids: []string{uuid.NewString()},
-					Tag: xptr.Ptr("◐"),
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("◐"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a mark with no agent to put it on is refused",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Mark: xptr.Ptr("a"),
+				}))
+
+				return err
+			},
+			wantErr: true,
+		},
+		{
+			name: "a letter is not what the constraint stops",
+			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
+				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+					Id:   uuid.NewString(),
+					Mark: xptr.Ptr("a"),
 				}))
 
 				if connect.CodeOf(err) == connect.CodeNotFound {

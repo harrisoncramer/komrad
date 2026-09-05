@@ -66,9 +66,9 @@ func TestSetStateByID(t *testing.T) {
 	}
 }
 
-// TestSetStateByIDKeepsTheTag pins that a state write leaves the tag alone, since the tag
+// TestSetStateByIDKeepsTheMark pins that a state write leaves the mark alone, since the mark
 // belongs to the user and the reconciler writes state constantly.
-func TestSetStateByIDKeepsTheTag(t *testing.T) {
+func TestSetStateByIDKeepsTheMark(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 
@@ -77,9 +77,9 @@ func TestSetStateByIDKeepsTheTag(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, created)
 
-	tagged, err := st.SetTags(ctx, []string{created.ID}, xptr.Ptr("●"))
+	result, err := st.SetMark(ctx, created.ID, xptr.Ptr("a"))
 	require.NoError(t, err)
-	require.Equal(t, 1, tagged)
+	require.True(t, result.Marked)
 
 	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
 
@@ -87,7 +87,7 @@ func TestSetStateByIDKeepsTheTag(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Equal(t, StateWaiting, after.State)
-	assert.Equal(t, "●", *after.Tag, "a state write leaves the user's tag standing")
+	assert.Equal(t, "a", *after.Mark, "a state write leaves the user's mark standing")
 }
 
 // TestSetStateByIDStampsOnlyOnAChange pins that state_changed_at says when the agent

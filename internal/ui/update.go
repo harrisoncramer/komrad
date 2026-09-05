@@ -77,6 +77,12 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateFilterInput(key)
 	}
 
+	// A mark binding owns the key after it, whatever that key is otherwise bound to, since the
+	// letter is what names the mark rather than a key the screen acts on.
+	if m.marks.pending != markPendingNone {
+		return m.readMark(key)
+	}
+
 	// Something being typed into owns the keyboard, since every global key is also a character
 	// somebody means to type.
 	if m.isTyping() {

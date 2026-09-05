@@ -25,3 +25,9 @@ func (m *model) report(summary string, err error) {
 		Trace:   errui.GetTrace(err),
 	}
 }
+
+// notify says something went through, which the banner draws as a notice rather than as the
+// failure it otherwise reports.
+func (m *model) notify(summary string) {
+	m.banner = &errui.Banner{Summary: summary, Notice: true}
+}
