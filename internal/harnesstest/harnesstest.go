@@ -234,21 +234,6 @@ func (h *Harness) Typed(agentID string) ([]string, error) {
 	return typed, nil
 }
 
-// Frame is the pane line an agent shows in the given activity, so a test can wait for the
-// state it just asked for rather than sleeping.
-func Frame(activity harness.Activity) string {
-	switch activity {
-	case harness.ActivityWorking:
-		return workingLine
-	case harness.ActivityWaiting:
-		return waitingLine
-	case harness.ActivityIdle, harness.ActivityUnknown, harness.ActivityComposing, harness.ActivityUnrecognized:
-		return idleLine
-	}
-
-	return idleLine
-}
-
 // Say appends a turn to a conversation, which is how a test gives the syncer text to index
 // without waiting on an agent.
 func (h *Harness) Say(sessionID, role, content string) error {
