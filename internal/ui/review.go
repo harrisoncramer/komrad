@@ -37,10 +37,12 @@ type reviewState struct {
 	agentName string
 	dir       string
 	root      string
-	base      string
 	exclude   []string
-	view      *review.View
-	threads   []*agentv1.ReviewThread
+	// round is the snapshot being reviewed, which is frozen: nothing the cursor stands on can
+	// move until a new round is opened.
+	round   *agentv1.ReviewRound
+	view    *review.View
+	threads []*agentv1.ReviewThread
 
 	// cursor lives here rather than in the stage, since the sidebar draws the thread it stands on.
 	cursor int
@@ -87,25 +89,15 @@ type reviewState struct {
 	// again by every tick that passes underneath it.
 	polling bool
 
-	// fingerprint is the patch on screen, which is what a background read is measured against.
-	fingerprint string
+	// moved is set once the agent has written something since the round on screen was taken, which
+	// is a prompt to open the next one rather than anything the panel does on its own.
+	moved bool
 
-	// held is a patch read in the background that no longer matches the one on screen, kept
-	// here rather than swapped in, since moving the diff under the reader is what the reload
-	// key exists to avoid.
-	held *heldPatch
-
-	// diffPolling is set while a background patch read is in flight, and diffPolled is when the
-	// last one started, since the worktree is read every few seconds rather than every tick.
+	// diffPolling is set while a background probe of the worktree is in flight, and diffPolled
+	// is when the last one started, since the worktree is asked every few seconds rather than
+	// every tick.
 	diffPolling bool
 	diffPolled  time.Time
-}
-
-// heldPatch is a patch the background poll found and the marks that came with it, parsed and
-// waiting, so the reload key costs nothing but the redraw.
-type heldPatch struct {
-	patch  *diff.Patch
-	viewed []*agentv1.ReviewViewedFile
 }
 
 // reviewActivity is the cheap probe a conversation refresh is decided on, since repinning walks
@@ -194,10 +186,14 @@ func (f *reviewFrames) window(view *review.View, top, cursor, pan int, focused b
 
 type reviewLoadedMsg struct {
 	agentID string
+	round   *agentv1.ReviewRound
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
 	viewed  []*agentv1.ReviewViewedFile
-	err     error
+	// since says how much of this round is new to the reader, which is a courtesy rather than
+	// something the screen depends on.
+	since string
+	err   error
 }
 
 // reviewWroteMsg is one write and the review as it stands after it, since the panel keeps no
@@ -228,7 +224,6 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		agentID:   agent.ID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
-		base:      worktree.BaseBranch,
 		exclude:   worktree.DiffExclude,
 		frames:    &reviewFrames{},
 		editor:    editor,
@@ -236,56 +231,143 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	}
 	m.frame.Show(layout.RegionStage, newTextContent("_loading the diff…_"))
 
-	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
+	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
 
-func (m model) loadReviewCmd(agentID, dir, base string, exclude []string) tea.Cmd {
+// loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
+// that has not moved gives back the round already taken of it, so reopening the diff does not
+// walk the ordinal on.
+func (m model) loadReviewCmd(agentID, dir string, exclude []string) tea.Cmd {
 	agents := m.api.agents
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		patch, err := diff.Load(ctx, diff.LoadParams{
-			Dir:     dir,
-			Base:    base,
-			Exclude: exclude,
-		})
+		opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+			AgentId: agentID,
+		}))
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
+		}
+
+		round := opened.Msg.GetRound()
+
+		patch, err := diff.Load(ctx, diff.LoadParams{
+			Dir:         dir,
+			BaseSHA:     round.GetBaseSha(),
+			SnapshotSHA: round.GetSnapshotSha(),
+			Exclude:     exclude,
+		})
+		if err != nil {
+			return reviewLoadedMsg{agentID: agentID, round: round, err: err}
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
 		if err != nil {
 			return reviewLoadedMsg{
 				agentID: agentID,
+				round:   round,
 				patch:   patch,
 				err:     err,
 			}
 		}
 
-		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
+		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
 
 		return reviewLoadedMsg{
 			agentID: agentID,
+			round:   round,
 			patch:   patch,
 			threads: threads,
 			viewed:  viewed,
+			since:   changedSinceLastReview(ctx, agents, dir, exclude, round),
 			err:     err,
 		}
 	}
 }
 
+// changedSinceLastReview says how much of this round is new since the person last let a review go,
+// which is a courtesy rather than a fact the screen depends on, so anything that fails to answer
+// says nothing.
+func changedSinceLastReview(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	dir string,
+	exclude []string,
+	round *agentv1.ReviewRound,
+) string {
+	resp, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return ""
+	}
+
+	last := lastHumanReview(resp.Msg.GetReviews(), round.GetOrdinal())
+	if last == nil {
+		return ""
+	}
+
+	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return ""
+	}
+
+	from := ""
+	for _, earlier := range rounds.Msg.GetRounds() {
+		if earlier.GetId() == last.GetRoundId() {
+			from = earlier.GetSnapshotSha()
+		}
+	}
+
+	changed, err := diff.ChangedSince(ctx, dir, from, round.GetSnapshotSha(), exclude)
+	if err != nil || changed == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s changed since your review of round %d",
+		files(changed), last.GetRoundOrdinal())
+}
+
+// lastHumanReview is the newest review the person let go of against a round earlier than this
+// one, which is where they last looked.
+func lastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Review {
+	var last *agentv1.Review
+	for _, review := range reviews {
+		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+			continue
+		}
+		if review.GetReleasedAt() == "" || review.GetRoundOrdinal() >= ordinal {
+			continue
+		}
+
+		last = review
+	}
+
+	return last
+}
+
+func files(count int) string {
+	if count == 1 {
+		return "1 file"
+	}
+
+	return fmt.Sprintf("%d files", count)
+}
+
 func listReviewViewedFiles(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,
-	agentID string,
+	roundID string,
 ) ([]*agentv1.ReviewViewedFile, error) {
 	resp, err := agents.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{
-		AgentId: agentID,
+		RoundId: roundID,
 	}))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read which files of %q have been viewed: %w", agentID, err)
+		return nil, fmt.Errorf("failed to read which files of round %q have been viewed: %w", roundID, err)
 	}
 
 	return resp.Msg.GetViewed(), nil
@@ -328,9 +410,9 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 	m.review.threads = msg.threads
 	m.review.activity = reviewActivityOf(msg.threads)
-	m.review.fingerprint = msg.patch.Fingerprint()
-	m.review.held = nil
-	m.review.notice = reopenedNotice(msg.patch, msg.viewed)
+	m.review.round = msg.round
+	m.review.moved = false
+	m.review.notice = msg.since
 	m.review.cursor = m.review.view.GetFirstRow()
 	if place := m.review.restore; place != nil {
 		if found, ok := m.review.view.Locate(*place); ok {
@@ -343,56 +425,15 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	m.stageReview()
 }
 
-// stillViewed is which files marked read still look the way they did when they were read, which
-// is the only sense in which the mark holds.
-func stillViewed(patch *diff.Patch, viewed []*agentv1.ReviewViewedFile) map[string]bool {
-	// A mark the file has outgrown is left in the store rather than swept, to be overwritten by
-	// the next read or to hold again should the file end up reading exactly as it did.
-	marks := map[string]string{}
-	for _, mark := range viewed {
-		marks[mark.GetFilePath()] = mark.GetFingerprint()
-	}
-
+// stillViewed is which files of the round have been read, and a mark belongs to one round, so a
+// later round starts with none of them and nothing has to be compared to know that.
+func stillViewed(_ *diff.Patch, viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
-	for _, file := range patch.Files {
-		if fingerprint, ok := marks[file.Path()]; ok && fingerprint == file.Fingerprint() {
-			held[file.Path()] = true
-		}
+	for _, mark := range viewed {
+		held[mark.GetFilePath()] = true
 	}
 
 	return held
-}
-
-// reopenedNotice says how many files came back because something changed in them, since a file
-// unfolding under the reader with nothing said about it reads as the panel losing their place.
-func reopenedNotice(patch *diff.Patch, viewed []*agentv1.ReviewViewedFile) string {
-	held := stillViewed(patch, viewed)
-
-	changed := 0
-	for _, file := range patch.Files {
-		if !held[file.Path()] && wasViewed(viewed, file.Path()) {
-			changed++
-		}
-	}
-
-	switch changed {
-	case 0:
-		return ""
-	case 1:
-		return "1 file changed since you viewed it"
-	}
-
-	return fmt.Sprintf("%d files changed since you viewed them", changed)
-}
-
-func wasViewed(viewed []*agentv1.ReviewViewedFile, path string) bool {
-	for _, mark := range viewed {
-		if mark.GetFilePath() == path {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (m *model) applyReviewWrote(msg reviewWroteMsg) {
@@ -610,8 +651,8 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.editReviewFile()
 	case isBound(k, keys.Compose):
 		return m.composeReview()
-	case isBound(k, keys.Resend):
-		return m.resendReview()
+	case isBound(k, keys.Approve):
+		return m.approveReview()
 	case isBound(k, keys.Resolve):
 		return m.resolveReviewThread()
 	case isBound(k, keys.ToggleViewed):
@@ -639,7 +680,7 @@ func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 // and marking a file read, since those are the person's own records and send nothing.
 func isReviewWrite(k string, keys config.Keybindings) bool {
 	return isBound(k, keys.Review.Compose) ||
-		isBound(k, keys.Review.Resend) ||
+		isBound(k, keys.Review.Approve) ||
 		isBound(k, keys.Form.Submit)
 }
 
@@ -737,26 +778,10 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	return m.review.view.GetThreadAt(m.review.cursor)
 }
 
-// reloadReviewDiff puts the patch the background poll is holding on screen, and reads the
-// worktree again when it is holding none, so the key means reload either way.
+// reloadReviewDiff opens the next round, which is the only way what is on screen changes, since
+// the round the reader is standing in never moves under a comment being written.
 func (m model) reloadReviewDiff() (tea.Model, tea.Cmd) {
-	held := m.review.held
-	if held == nil {
-		return m.reloadReview()
-	}
-
-	if place, ok := m.review.view.GetPlace(m.review.cursor); ok {
-		m.review.restore = &place
-	}
-
-	m.applyReviewLoaded(reviewLoadedMsg{
-		agentID: m.review.agentID,
-		patch:   held.patch,
-		threads: m.review.threads,
-		viewed:  held.viewed,
-	})
-
-	return m, nil
+	return m.reloadReview()
 }
 
 // reloadReview reads the worktree again, holding the place the cursor is standing so the diff
@@ -770,7 +795,7 @@ func (m model) reloadReview() (model, tea.Cmd) {
 		m.review.restore = &place
 	}
 
-	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
+	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
 
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
@@ -1032,7 +1057,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	path, fingerprint := file.Path(), file.Fingerprint()
+	path := file.Path()
 	viewed := !m.review.view.IsViewed(path)
 
 	// Where the cursor is standing is taken before the rows are built again, since folding the
@@ -1050,14 +1075,13 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 
 	m.stageReview()
 
-	agents, agentID := m.api.agents, m.review.agentID
+	agents, roundID := m.api.agents, m.review.round.GetId()
 
 	return m, m.reviewWriteCmd(notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-			AgentId:     agentID,
-			FilePath:    path,
-			Viewed:      viewed,
-			Fingerprint: fingerprint,
+			RoundId:  roundID,
+			FilePath: path,
+			Viewed:   viewed,
 		}))
 
 		return err
@@ -1079,48 +1103,42 @@ func (m model) deleteReviewThread() (tea.Model, tea.Cmd) {
 	})
 }
 
-// releaseReview lets go of every comment written and not yet sent, without delivering any of
-// them, since the agent reads the threads itself.
+// releaseReview lets go of the comments written and not yet sent, asking the agent for changes,
+// which reaches it as one file and one piece of mail rather than a comment at a time.
 func (m model) releaseReview() (tea.Model, tea.Cmd) {
-	agents, agentID := m.api.agents, m.review.agentID
-
-	// Nothing is said back: the doorbell landing in the agent's mailbox is what the conversation
-	// state at the top of the sidebar reads, and it says so until the agent picks it up.
-	return m, m.reviewWriteCmd("", func(ctx context.Context) error {
-		_, err := agents.ReleaseReviewMessages(ctx, connect.NewRequest(&agentv1.ReleaseReviewMessagesRequest{
-			AgentId: agentID,
-		}))
-
-		return err
-	})
+	return m.releaseReviewWith(agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
 }
 
-// resendReview raises a doorbell again for every released comment whose own ran out of time
-// unclaimed, which is the only thing that reaches an agent that was not listening when the
-// review was let go of.
-func (m model) resendReview() (tea.Model, tea.Cmd) {
+// approveReview lets the batch go saying the round is good as it stands, which is what tells
+// the agent it is done and what gates opening a pull request.
+func (m model) approveReview() (tea.Model, tea.Cmd) {
+	return m.releaseReviewWith(agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)
+}
+
+func (m model) releaseReviewWith(verdict agentv1.ReviewVerdict) (tea.Model, tea.Cmd) {
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
-		resp, err := agents.RingReviewMessagesAgain(ctx, connect.NewRequest(&agentv1.RingReviewMessagesAgainRequest{
+		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId: agentID,
+			Verdict: verdict,
 		}))
 		if err != nil {
 			return "", err
 		}
 
-		return rangAgainNotice(resp.Msg.GetRung()), nil
+		return releasedNotice(verdict, resp.Msg.GetComments()), nil
 	})
 }
 
-// rangAgainNotice says what ringing again did, since finding nothing to ring is a quiet
-// success the reader would otherwise read as the key not working.
-func rangAgainNotice(rung int32) string {
-	if rung == 0 {
-		return "nothing has run out of time"
+// releasedNotice says what went, since a review leaving with nothing said about it reads as the
+// key not working.
+func releasedNotice(verdict agentv1.ReviewVerdict, count int32) string {
+	if verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED {
+		return "approved, " + comments(count) + " sent"
 	}
 
-	return "rang " + comments(rung) + " again"
+	return "changes requested, " + comments(count) + " sent"
 }
 
 func comments(count int32) string {
@@ -1190,9 +1208,9 @@ type reviewRefreshedMsg struct {
 // what is on screen rather than drawn over it.
 type reviewDiffPolledMsg struct {
 	agentID string
-	patch   *diff.Patch
-	viewed  []*agentv1.ReviewViewedFile
-	err     error
+	// moved says the agent has written since the round on screen was taken.
+	moved bool
+	err   error
 }
 
 // refreshReviewCmd is what the panel's own tick asks for while the review is up: the
@@ -1241,31 +1259,28 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 	}
 }
 
+// pollReviewDiffCmd asks whether the agent has written anything since the round on screen was
+// taken, hashing the worktree rather than reading a second patch and leaving the round alone
+// either way, since the point of a round is that it does not move under the reader.
 func (m model) pollReviewDiffCmd() tea.Cmd {
-	agents, agentID := m.api.agents, m.review.agentID
-	dir, base, exclude := m.review.dir, m.review.base, m.review.exclude
+	agentID, dir := m.review.agentID, m.review.dir
+	snapshot := m.review.round.GetSnapshotSha()
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		patch, err := diff.Load(ctx, diff.LoadParams{
-			Dir:     dir,
-			Base:    base,
-			Exclude: exclude,
-		})
+		probe, err := diff.ProbeTree(ctx, dir)
 		if err != nil {
 			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
 
-		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
-
-		return reviewDiffPolledMsg{
-			agentID: agentID,
-			patch:   patch,
-			viewed:  viewed,
-			err:     err,
+		held, err := diff.TreeOf(ctx, dir, snapshot)
+		if err != nil {
+			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
+
+		return reviewDiffPolledMsg{agentID: agentID, moved: probe != held}
 	}
 }
 
@@ -1302,17 +1317,11 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 
 	m.review.diffPolling = false
 
-	if msg.err != nil || msg.patch == nil {
+	if msg.err != nil {
 		return
 	}
 
-	// A worktree edited back to what the screen is already showing is not a move, so the notice
-	// goes away rather than standing until the reader reloads for nothing.
-	if msg.patch.Fingerprint() == m.review.fingerprint {
-		m.review.held = nil
-
-		return
-	}
-
-	m.review.held = &heldPatch{patch: msg.patch, viewed: msg.viewed}
+	// A worktree edited back to the round it was cut from is not a move, so the notice goes
+	// away rather than standing until the reader opens a round for nothing.
+	m.review.moved = msg.moved
 }

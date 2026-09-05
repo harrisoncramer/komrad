@@ -22,22 +22,22 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 
 	assert.Contains(t, view, "Agent: auth")
 	assert.Contains(t, view, "agent_id")
-	assert.Contains(t, view, "base branch")
-	assert.Contains(t, view, "main", "the branch the diff was measured against")
+	assert.Contains(t, view, "round")
+	assert.Contains(t, view, "snapshot", "the commit the diff on screen was frozen as")
 }
 
-// TestReviewRecordNamesTheResolvedBase covers a workflow that names no base branch, since the
-// loader asks the repository for one and that is what the diff on screen was measured against.
-func TestReviewRecordNamesTheResolvedBase(t *testing.T) {
+// TestReviewRecordNamesTheRound covers the record naming the snapshot the diff was frozen as,
+// since that is what a comment is anchored to and what the agent can diff for itself.
+func TestReviewRecordNamesTheRound(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m.listing.workflows[0].Worktree.BaseBranch = ""
 	m = openReview(t, m)
 
 	require.NotNil(t, m.review.view)
-	require.Empty(t, m.review.base, "the workflow named none, for this to prove anything")
+	require.NotNil(t, m.review.round)
 
-	assert.Contains(t, fieldValue(t, m.reviewDetails(), "base branch"), m.review.view.Base())
+	assert.Equal(t, "1", fieldValue(t, m.reviewDetails(), "round"))
+	assert.Equal(t, shortSHA(m.review.round.GetSnapshotSha()), fieldValue(t, m.reviewDetails(), "snapshot"))
 }
 
 // TestReviewRecordTakesTheKeys covers the whole path a keypress takes, since the record only

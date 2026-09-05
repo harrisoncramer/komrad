@@ -84,12 +84,12 @@ func (f File) Path() string {
 	return f.OldPath
 }
 
-// Patch is everything an agent has changed, measured against one base commit.
+// Patch is everything one round holds, measured against the base the round was taken against.
 type Patch struct {
-	Root   string
-	Base   string
-	Commit string
-	Files  []File
+	Root        string
+	BaseSHA     string
+	SnapshotSHA string
+	Files       []File
 }
 
 // IsEmpty reports whether the patch has nothing to show.

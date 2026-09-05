@@ -38,10 +38,6 @@ const (
 	// settledMark is a thread the person reviewing has finished with, which is the only thing
 	// that quiets one down.
 	settledMark = "✓"
-	// expiredMark is a thread holding a comment that was released and ran out of time before the
-	// agent read it, shouted rather than drawn as a shape because ringing it again is the only
-	// thing that reaches the agent now.
-	expiredMark = "!"
 	// unsentMark is a thread holding a comment still only written down, hollow against the filled
 	// mark of a reply waiting to be read, since neither has reached the person it is for.
 	unsentMark = "◇"
@@ -62,7 +58,6 @@ var (
 	hunkStyle           = lipgloss.NewStyle().Foreground(lipgloss.Color("5"))
 	threadMarkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("11"))
 	settledMarkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
-	expiredMarkStyle    = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	unsentMarkStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("4"))
 )
 
@@ -169,17 +164,14 @@ func (v *View) renderGutter(y int, line diff.Line, background lipgloss.TerminalC
 }
 
 // markFor is the glyph a thread gets in the gutter, ranking an unread reply first, then whether
-// the thread is settled, then the two ways a comment can have failed to reach the agent, which
-// are ranked apart from each other because the reader fixes an unsent comment with the submit
-// key and an expired one by ringing it again, and last whether the line under it has changed.
+// the thread is settled, then a comment still waiting to be released, and last whether the line
+// under it has changed.
 func (v *View) markFor(thread *agentv1.ReviewThread) (string, lipgloss.Style) {
 	switch {
 	case thread.GetUnreadByHuman():
 		return unreadMark, threadMarkStyle
 	case thread.GetResolvedAt() != "":
 		return settledMark, settledMarkStyle
-	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED):
-		return expiredMark, expiredMarkStyle
 	case doesHoldDelivery(thread, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT):
 		return unsentMark, unsentMarkStyle
 	case v.IsGhosted(thread):

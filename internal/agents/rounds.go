@@ -1,0 +1,368 @@
+package agents
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"weave/internal/diff"
+	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
+	mailstore "weave/internal/store/mail"
+	reviewstore "weave/internal/store/review"
+)
+
+// reviewDirName is where released reviews are kept under weave's own state directory, rather than
+// beside the agent's work, since a linked worktree's own info/exclude is not read by git and a
+// file put in the worktree would show up in the diff being reviewed.
+const reviewDirName = "reviews"
+
+// ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken
+// of, which is what happens before the diff has been opened once.
+var ErrReviewNoRound = errors.New("no round has been taken of that agent yet")
+
+// ErrReviewNotEntitled is answered when an agent asks to review one it is not attached to.
+var ErrReviewNotEntitled = errors.New("an agent may only review the agent it is a child of")
+
+// ErrReviewEmpty is answered when a review is released with nothing written in it.
+var ErrReviewEmpty = errors.New("that review has nothing in it")
+
+type reviewRoundReadWriter interface {
+	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
+	GetRound(ctx context.Context, id string) (*reviewstore.Round, error)
+	LatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error)
+	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
+}
+
+type reviewBatchReadWriter interface {
+	OpenReview(ctx context.Context, params reviewstore.OpenReviewParams) (*reviewstore.Review, error)
+	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
+	OpenReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	LastReleasedReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
+	CountOpenComments(ctx context.Context, reviewID string) (int, error)
+	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
+	DeleteReview(ctx context.Context, id string) error
+}
+
+type reviewSnapshotter interface {
+	Take(ctx context.Context, params diff.SnapshotParams) (*diff.Snapshot, error)
+	Hold(ctx context.Context, dir, ref, sha string) error
+}
+
+// GitSnapshotter takes a round's snapshot with git, which is the only implementation outside
+// the tests.
+type GitSnapshotter struct{}
+
+// Take freezes the worktree as a commit nothing else can reach.
+func (GitSnapshotter) Take(ctx context.Context, params diff.SnapshotParams) (*diff.Snapshot, error) {
+	return diff.Take(ctx, params)
+}
+
+// Hold points a ref at a snapshot so nothing collects it.
+func (GitSnapshotter) Hold(ctx context.Context, dir, ref, sha string) error {
+	return diff.Hold(ctx, dir, ref, sha)
+}
+
+// RoundRef is the ref a snapshot is held by so nothing collects it, named after the commit rather
+// than the round so that taking it is idempotent and needs no row to exist first.
+func RoundRef(snapshotSHA string) string { return "refs/weave/rounds/" + snapshotSHA }
+
+// OpenRound freezes what an agent has written now and records it as its next round, which is what
+// every review is given against, so that nothing a comment is pinned to can move underneath the
+// person reading it.
+func (s *ReviewService) OpenRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
+	agent, err := s.liveAgent(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	if agent.Cwd == "" {
+		return nil, fmt.Errorf("%w: %q has no directory to take a round of", ErrReviewNoRound, agent.Name)
+	}
+
+	base := ""
+	if flow, err := s.workflows.Get(ctx, agent.WorkflowID); err == nil {
+		base = flow.Worktree.BaseBranch
+	}
+
+	snapshot, err := s.snapshots.Take(ctx, diff.SnapshotParams{Dir: agent.Cwd, Base: base})
+	if err != nil {
+		return nil, err
+	}
+
+	// A tree that has not moved is the round that was already taken of it, so opening the diff
+	// twice without the agent writing anything does not walk the ordinal on.
+	latest, err := s.rounds.LatestRound(ctx, agentID)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+	if latest != nil && latest.SnapshotSHA == snapshot.SHA && latest.BaseSHA == snapshot.BaseSHA {
+		return latest, nil
+	}
+
+	if err := s.snapshots.Hold(ctx, agent.Cwd, RoundRef(snapshot.SHA), snapshot.SHA); err != nil {
+		return nil, err
+	}
+
+	return s.rounds.CreateRound(ctx, reviewstore.CreateRoundParams{
+		AgentID:     agentID,
+		BaseSHA:     snapshot.BaseSHA,
+		SnapshotSHA: snapshot.SHA,
+	})
+}
+
+// LatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
+func (s *ReviewService) LatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
+	round, err := s.rounds.LatestRound(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrReviewNoRound, agentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	return round, nil
+}
+
+// ListRounds is every round taken of an agent, oldest first.
+func (s *ReviewService) ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error) {
+	return s.rounds.ListRounds(ctx, agentID)
+}
+
+// ListReviews is every review given on an agent, in the order their rounds were taken.
+func (s *ReviewService) ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error) {
+	return s.reviews.ListReviews(ctx, agentID)
+}
+
+// openReviewFor is the batch an author is writing against an agent, opened against the newest
+// round when they have none open, which is what makes writing a comment start a review rather
+// than a gesture of its own.
+func (s *ReviewService) openReviewFor(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) (*reviewstore.Review, error) {
+	if err := s.entitled(ctx, agentID, author); err != nil {
+		return nil, err
+	}
+
+	params := reviewstore.AuthorParams{
+		AgentID:       agentID,
+		AuthorKind:    author.Kind,
+		AuthorAgentID: author.AgentID,
+	}
+
+	open, err := s.reviews.OpenReviewOf(ctx, params)
+	if err == nil {
+		return open, nil
+	}
+	if !errors.Is(err, store.ErrNotFound) {
+		return nil, err
+	}
+
+	round, err := s.LatestRound(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
+		AgentID:       agentID,
+		RoundID:       round.ID,
+		AuthorKind:    author.Kind,
+		AuthorAgentID: author.AgentID,
+	})
+}
+
+// entitled says whether an author may give a review on an agent at all, which the person always
+// may and an agent may only of the agent it is a child of, its own work included, since answering
+// a review it was given is a different call.
+func (s *ReviewService) entitled(ctx context.Context, agentID string, author ReviewAuthor) error {
+	if author.IsHuman() {
+		return nil
+	}
+	if author.AgentID == nil {
+		return fmt.Errorf("%w: %q", ErrReviewNotEntitled, agentID)
+	}
+	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return fmt.Errorf("%w: %q", ErrAgentNotFound, *author.AgentID)
+	}
+	if err != nil {
+		return err
+	}
+	if reviewer.ParentAgentID == nil || *reviewer.ParentAgentID != agentID {
+		return fmt.Errorf("%w: %q", ErrReviewNotEntitled, agentID)
+	}
+
+	return nil
+}
+
+// ReleaseReviewParams says whose review to let go of and what it concluded.
+type ReleaseReviewParams struct {
+	AgentID string
+	Verdict reviewstore.Verdict
+	// Interrupt stops the agent where it stands before the mail is sent, so it reads the review
+	// now rather than at the end of whatever it is doing.
+	Interrupt bool
+	Author    ReviewAuthor
+}
+
+// ReleaseReviewResult reports what letting go of a review did.
+type ReleaseReviewResult struct {
+	Review reviewstore.Review
+	// Comments is how many the released batch carried.
+	Comments int
+	// Path is where the review was written for the agent to read.
+	Path string
+}
+
+// ReleaseReview lets go of the author's open batch by writing the whole review out as one file and
+// sending one piece of ordinary mail saying where it is, leaving when the agent is interrupted or
+// typed at to mail, whose affair that is.
+func (s *ReviewService) ReleaseReview(
+	ctx context.Context,
+	params ReleaseReviewParams,
+) (*ReleaseReviewResult, error) {
+	if err := s.entitled(ctx, params.AgentID, params.Author); err != nil {
+		return nil, err
+	}
+
+	agent, err := s.liveAgent(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.AuthorParams{
+		AgentID:       params.AgentID,
+		AuthorKind:    params.Author.Kind,
+		AuthorAgentID: params.Author.AgentID,
+	})
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+
+	comments, err := s.reviews.CountOpenComments(ctx, open.ID)
+	if err != nil {
+		return nil, err
+	}
+	if comments == 0 && params.Verdict == reviewstore.VerdictCommented {
+		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+	}
+
+	round, err := s.rounds.GetRound(ctx, open.RoundID)
+	if err != nil {
+		return nil, err
+	}
+
+	threads, err := s.reviewThreads(ctx, open.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	path, err := s.writeReview(*agent, *round, *open, params.Verdict, threads)
+	if err != nil {
+		return nil, err
+	}
+
+	if params.Interrupt {
+		s.interrupt(ctx, params.AgentID)
+	}
+
+	doorbell, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+		ToAgentID: params.AgentID,
+		Body:      reviewNotice(round.Ordinal, params.Verdict, comments, path),
+		Kind:      mailstore.KindReviewActivity,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	released, err := s.reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+		ID:             open.ID,
+		Verdict:        params.Verdict,
+		Path:           path,
+		DoorbellMailID: &doorbell.ID,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &ReleaseReviewResult{Review: *released, Comments: comments, Path: path}, nil
+}
+
+// reviewNotice is the whole of what mail carries, which is the round, the verdict, how much there
+// is and where to read it, since the review itself is in the file.
+func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path string) string {
+	return fmt.Sprintf("weave: review of round %d, %s, %d comment(s), read %s",
+		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
+}
+
+// reviewThreads is every conversation opened as part of one batch, with what was said in each.
+func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
+	review, err := s.reviews.GetReview(ctx, reviewID)
+	if err != nil {
+		return nil, err
+	}
+
+	all, err := s.ListReviewThreads(ctx, ListReviewThreadsParams{
+		AgentID: review.AgentID,
+		Author:  ReviewAuthor{Kind: reviewstore.AuthorHuman},
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	mine := make([]ReviewThreadWithMessages, 0, len(all))
+	for _, thread := range all {
+		if thread.Thread.ReviewID == reviewID {
+			mine = append(mine, thread)
+		}
+	}
+
+	return mine, nil
+}
+
+// writeReview puts the whole review where the agent can read it, under weave's own state directory
+// so that nothing weave writes can end up in the agent's diff or in a commit.
+func (s *ReviewService) writeReview(
+	agent agentstore.Agent,
+	round reviewstore.Round,
+	review reviewstore.Review,
+	verdict reviewstore.Verdict,
+	threads []ReviewThreadWithMessages,
+) (string, error) {
+	dir := filepath.Join(s.stateDir, reviewDirName, agent.ID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return "", fmt.Errorf("failed to make room for the review of %q: %w", agent.Name, err)
+	}
+
+	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", round.Ordinal, review.ID))
+	if err := os.WriteFile(full, []byte(RenderReview(round, verdict, threads)), 0o644); err != nil {
+		return "", fmt.Errorf("failed to write the review of %q: %w", agent.Name, err)
+	}
+
+	return full, nil
+}
+
+// liveAgent refuses an agent that has been archived, since there is nobody there to hand a review
+// to and releasing one would say it had been told.
+func (s *ReviewService) liveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+	agent, err := s.agents.GetByID(ctx, agentID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
+	}
+	if err != nil {
+		return nil, err
+	}
+	if agent.ArchivedAt != nil {
+		return nil, fmt.Errorf("%w: %q is archived, so there is nobody to hand a review to; restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	return agent, nil
+}

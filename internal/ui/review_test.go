@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"strconv"
+	"weave/internal/diff"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -31,17 +33,25 @@ type fakeReviewAgents struct {
 	settled  *agentv1.SetReviewThreadResolvedRequest
 	created  *agentv1.CreateReviewThreadRequest
 	replied  *agentv1.AddReviewMessageRequest
-	released *agentv1.ReleaseReviewMessagesRequest
-	rang     *agentv1.RingReviewMessagesAgainRequest
-	rung     int32
+	released *agentv1.ReleaseReviewRequest
+	dir      string
+	rounds   []*agentv1.ReviewRound
+	reviews  []*agentv1.Review
 	marked   *agentv1.SetReviewFileViewedRequest
 }
 
 func (f *fakeReviewAgents) ListReviewViewedFiles(
-	context.Context,
-	*connect.Request[agentv1.ListReviewViewedFilesRequest],
+	_ context.Context,
+	req *connect.Request[agentv1.ListReviewViewedFilesRequest],
 ) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
-	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: f.viewed}), nil
+	held := make([]*agentv1.ReviewViewedFile, 0, len(f.viewed))
+	for _, mark := range f.viewed {
+		if mark.GetRoundId() == req.Msg.GetRoundId() {
+			held = append(held, mark)
+		}
+	}
+
+	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: held}), nil
 }
 
 func (f *fakeReviewAgents) SetReviewFileViewed(
@@ -59,9 +69,8 @@ func (f *fakeReviewAgents) SetReviewFileViewed(
 
 	if req.Msg.GetViewed() {
 		kept = append(kept, &agentv1.ReviewViewedFile{
-			AgentId:     req.Msg.GetAgentId(),
-			FilePath:    req.Msg.GetFilePath(),
-			Fingerprint: req.Msg.GetFingerprint(),
+			RoundId:  req.Msg.GetRoundId(),
+			FilePath: req.Msg.GetFilePath(),
 		})
 	}
 
@@ -70,22 +79,55 @@ func (f *fakeReviewAgents) SetReviewFileViewed(
 	return connect.NewResponse(&agentv1.SetReviewFileViewedResponse{}), nil
 }
 
-func (f *fakeReviewAgents) ReleaseReviewMessages(
+func (f *fakeReviewAgents) ReleaseReview(
 	_ context.Context,
-	req *connect.Request[agentv1.ReleaseReviewMessagesRequest],
-) (*connect.Response[agentv1.ReleaseReviewMessagesResponse], error) {
+	req *connect.Request[agentv1.ReleaseReviewRequest],
+) (*connect.Response[agentv1.ReleaseReviewResponse], error) {
 	f.released = req.Msg
 
-	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{Released: 1}), nil
+	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: 1}), nil
 }
 
-func (f *fakeReviewAgents) RingReviewMessagesAgain(
-	_ context.Context,
-	req *connect.Request[agentv1.RingReviewMessagesAgainRequest],
-) (*connect.Response[agentv1.RingReviewMessagesAgainResponse], error) {
-	f.rang = req.Msg
+// OpenReviewRound takes a real snapshot of the repository under test, since the panel diffs the
+// shas it is handed and a made-up one would name no commit git could read.
+func (f *fakeReviewAgents) OpenReviewRound(
+	ctx context.Context,
+	req *connect.Request[agentv1.OpenReviewRoundRequest],
+) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
+	snapshot, err := diff.Take(ctx, diff.SnapshotParams{Dir: f.dir, Base: "main"})
+	if err != nil {
+		return nil, err
+	}
 
-	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{Rung: f.rung}), nil
+	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != snapshot.SHA {
+		if err := diff.Hold(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
+			return nil, err
+		}
+
+		f.rounds = append(f.rounds, &agentv1.ReviewRound{
+			Id:          fmt.Sprintf("round-%d", len(f.rounds)+1),
+			AgentId:     req.Msg.GetAgentId(),
+			Ordinal:     int32(len(f.rounds) + 1),
+			BaseSha:     snapshot.BaseSHA,
+			SnapshotSha: snapshot.SHA,
+		})
+	}
+
+	return connect.NewResponse(&agentv1.OpenReviewRoundResponse{Round: f.rounds[len(f.rounds)-1]}), nil
+}
+
+func (f *fakeReviewAgents) ListReviewRounds(
+	context.Context,
+	*connect.Request[agentv1.ListReviewRoundsRequest],
+) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
+	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: f.rounds}), nil
+}
+
+func (f *fakeReviewAgents) ListReviews(
+	context.Context,
+	*connect.Request[agentv1.ListReviewsRequest],
+) (*connect.Response[agentv1.ListReviewsResponse], error) {
+	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: f.reviews}), nil
 }
 
 func (f *fakeReviewAgents) AddReviewMessage(
@@ -174,6 +216,10 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	// The stage's own geometry, which is what the diff is drawn against and what the panel writes
 	// a screenful of.
 	tmux := &recordingTmux{width: 120, height: 24}
+	if fake, ok := agents.(*fakeReviewAgents); ok {
+		fake.dir = dir
+	}
+
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.width, m.height = 40, 30
@@ -797,17 +843,16 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 			absent: "delivered",
 		},
 		{
-			name: "some sent and one still waiting to be written off",
+			name: "some sent and one still to go",
 			threads: []*agentv1.ReviewThread{{
 				Id: "t1",
 				Messages: []*agentv1.ReviewMessage{
 					unsentComment(),
 					sentComment(),
 					deliveredComment(),
-					expiredComment(),
 				},
 			}},
-			want:   "1 unsent · 1 expired · 1 waiting · 1 delivered",
+			want:   "1 unsent · 1 waiting · 1 delivered",
 			absent: "nothing written yet",
 		},
 		{
@@ -843,15 +888,6 @@ func deliveredComment() *agentv1.ReviewMessage {
 		Delivery:    agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
 		SentAt:      "2026-09-02T10:00:00Z",
 		DeliveredAt: "2026-09-02T10:01:00Z",
-	}
-}
-
-func expiredComment() *agentv1.ReviewMessage {
-	return &agentv1.ReviewMessage{
-		Id:         "m3",
-		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED,
-		SentAt:     "2026-09-02T10:00:00Z",
 	}
 }
 
@@ -1298,7 +1334,7 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 	require.NotNil(t, agents.marked)
 	assert.Equal(t, "greet.go", agents.marked.GetFilePath())
 	assert.True(t, agents.marked.GetViewed())
-	assert.NotEmpty(t, agents.marked.GetFingerprint())
+	assert.NotEmpty(t, agents.marked.GetRoundId(), "the mark is held against the round it was made in")
 
 	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
 	m = next.(model)
@@ -1310,9 +1346,10 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 	assert.False(t, agents.marked.GetViewed(), "the mark is dropped rather than rewritten")
 }
 
-// TestAViewedFileComesBackWhenItChanges covers the mark being held against the shape the file
-// had: reading it again finds it folded, and writing to it opens it and says so.
-func TestAViewedFileComesBackWhenItChanges(t *testing.T) {
+// TestAViewedFileComesBackInTheNextRound covers the mark belonging to the round it was made in:
+// reopening an unmoved tree finds the file still folded, and a round the agent has written into
+// starts with nothing read.
+func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
@@ -1331,6 +1368,6 @@ func TestAViewedFileComesBackWhenItChanges(t *testing.T) {
 
 	m = openReview(t, m)
 
-	assert.False(t, m.review.view.IsViewed("greet.go"), "the agent wrote under the mark")
-	assert.Equal(t, "1 file changed since you viewed it", m.review.notice)
+	assert.Greater(t, m.review.round.GetOrdinal(), int32(1), "the agent writing opened a round")
+	assert.False(t, m.review.view.IsViewed("greet.go"), "a new round has read nothing yet")
 }

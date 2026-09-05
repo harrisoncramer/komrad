@@ -131,8 +131,10 @@ type reviewConversation interface {
 	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
 	DeleteReviewThread(ctx context.Context, params agents.DeleteReviewThreadParams) error
 	DeleteReviewMessage(ctx context.Context, params agents.DeleteReviewMessageParams) error
-	ReleaseReviewMessages(ctx context.Context, params agents.ReleaseReviewMessagesParams) (*agents.ReleaseReviewMessagesResult, error)
-	RingReviewMessagesAgain(ctx context.Context, params agents.RingReviewMessagesAgainParams) (*agents.RingReviewMessagesAgainResult, error)
+	OpenRound(ctx context.Context, agentID string) (*reviewstore.Round, error)
+	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
+	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
+	ReleaseReview(ctx context.Context, params agents.ReleaseReviewParams) (*agents.ReleaseReviewResult, error)
 	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
 	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }

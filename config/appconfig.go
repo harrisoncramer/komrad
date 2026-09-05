@@ -367,15 +367,13 @@ type ReviewKeys struct {
 	PrevThread []string `mapstructure:"prev_thread"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Put the diff the panel is holding on screen, once the sidebar says the worktree has
-	// moved under you. The diff is never swapped in on its own, since that would move the
-	// code out from under a comment being written. With nothing held, this reads the
-	// worktree again.
+	// Open the next round, once the sidebar says the agent has written since this one was
+	// taken. A round never moves on its own, since that would take the code out from under
+	// a comment being written, so stepping forward is always yours to ask for.
 	Reload []string `mapstructure:"reload"`
-	// Raise a doorbell again for every comment you released whose own ran out of time
-	// before the agent read it, which is the only thing that reaches an agent that was
-	// not listening when you let the review go.
-	Resend []string `mapstructure:"resend"`
+	// Let the review go saying this round is good as it stands, which is what tells the
+	// agent it is done. The submit key sends the same batch asking for changes instead.
+	Approve []string `mapstructure:"approve"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
@@ -754,7 +752,7 @@ func DefaultKeybindings() Keybindings {
 			PrevThread:   []string{"T"},
 			Quit:         []string{"ctrl+c"},
 			Reload:       []string{"R"},
-			Resend:       []string{"a"},
+			Approve:      []string{"a"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
 		},
@@ -920,6 +918,19 @@ func (c Config) GetWorktreesDir() (string, error) {
 	}
 
 	return filepath.Join(home, ".local", "state", "weave", "worktrees"), nil
+}
+
+// GetReviewsDir is where weave writes a released review for the agent to read. It is under
+// weave's own state directory rather than beside the agent's work, since a linked worktree's
+// own info/exclude is not read by git and a file put in the worktree would show up in the
+// diff being reviewed.
+func GetReviewsDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".local", "state", "weave"), nil
 }
 
 // GetContextFile is the standing text every agent is started with: the configured file, or

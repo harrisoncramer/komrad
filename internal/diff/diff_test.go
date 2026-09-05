@@ -137,18 +137,18 @@ func TestPatchFingerprintFollowsWhatTheDiffDraws(t *testing.T) {
 	}
 
 	patch := Patch{
-		Root:   "/tmp/one",
-		Base:   "main",
-		Commit: "abc",
-		Files:  []File{greet("// greet")},
+		Root:        "/tmp/one",
+		BaseSHA:     "abc",
+		SnapshotSHA: "def",
+		Files:       []File{greet("// greet")},
 	}
 	original := patch.Fingerprint()
 
 	elsewhere := Patch{
-		Root:   "/tmp/two",
-		Base:   "main",
-		Commit: "def",
-		Files:  []File{greet("// greet")},
+		Root:        "/tmp/two",
+		BaseSHA:     "ghi",
+		SnapshotSHA: "jkl",
+		Files:       []File{greet("// greet")},
 	}
 	assert.Equal(t, original, elsewhere.Fingerprint(), "the same change read from somewhere else is the same diff")
 

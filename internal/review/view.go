@@ -213,7 +213,7 @@ func (v *View) Len() int { return len(v.rows) }
 func (v *View) Stat() diff.Stat { return v.patch.Stat() }
 
 // Base is what the diff was measured against.
-func (v *View) Base() string { return v.patch.Base }
+func (v *View) Base() string { return v.patch.BaseSHA }
 
 // PinThreads works out where each thread is drawn now that the agent has been editing under
 // it, and never drops one for having moved.

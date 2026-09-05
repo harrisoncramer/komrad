@@ -44,12 +44,22 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Agents:         st.agents,
 		Config:         mailConfig(loadConfig),
 	})
+	reviewsDir, err := config.GetReviewsDir()
+	if err != nil {
+		return nil, err
+	}
+
 	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
-		Threads:  st.review,
-		Messages: st.review,
-		Viewed:   st.review,
-		Agents:   st.agents,
-		Mailer:   mailService,
+		Threads:   st.review,
+		Messages:  st.review,
+		Viewed:    st.review,
+		Rounds:    st.review,
+		Reviews:   st.review,
+		Snapshots: agents.GitSnapshotter{},
+		Workflows: st.workflows,
+		Agents:    st.agents,
+		Mailer:    mailService,
+		StateDir:  reviewsDir,
 		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
 			Agents:    st.agents,
 			Harnesses: p.Harnesses,

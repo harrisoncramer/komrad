@@ -1,7 +1,6 @@
 package diff
 
 import (
-	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -44,6 +43,25 @@ func repo(t *testing.T) string {
 	run(t, root, "commit", "-m", "init")
 
 	return root
+}
+
+// loadRound freezes the worktree the way a round does and reads the patch back out of it, which
+// is the only way the loader is ever called.
+func loadRound(t *testing.T, root string, exclude ...string) *Patch {
+	t.Helper()
+
+	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	patch, err := Load(t.Context(), LoadParams{
+		Dir:         root,
+		BaseSHA:     snapshot.BaseSHA,
+		SnapshotSHA: snapshot.SHA,
+		Exclude:     exclude,
+	})
+	require.NoError(t, err)
+
+	return patch
 }
 
 func paths(patch *Patch) []string {
@@ -100,14 +118,7 @@ func TestLoadHonoursExcludes(t *testing.T) {
 			write(t, root, "proto/gen/new.pb.go", "package gen\n")
 			write(t, root, "untracked.go", "package main\n")
 
-			patch, err := Load(context.Background(), LoadParams{
-				Dir:     root,
-				Base:    "main",
-				Exclude: tt.exclude,
-			})
-			require.NoError(t, err)
-
-			assert.Equal(t, tt.want, paths(patch))
+			assert.Equal(t, tt.want, paths(loadRound(t, root, tt.exclude...)))
 		})
 	}
 }
@@ -115,8 +126,7 @@ func TestLoadHonoursExcludes(t *testing.T) {
 func fileIn(t *testing.T, root, path string) File {
 	t.Helper()
 
-	patch, err := Load(context.Background(), LoadParams{Dir: root, Base: "main"})
-	require.NoError(t, err)
+	patch := loadRound(t, root)
 
 	for _, file := range patch.Files {
 		if file.Path() == path {
@@ -264,8 +274,7 @@ func TestATopLevelADirectoryKeepsItsSegment(t *testing.T) {
 	write(t, root, "a/logo.png", "\x89PNG\r\n\x1a\n\x00ZZZZZZZZ")
 	write(t, root, "b/untracked.go", "package b\n")
 
-	patch, err := Load(context.Background(), LoadParams{Dir: root, Base: "main"})
-	require.NoError(t, err)
+	patch := loadRound(t, root)
 
 	assert.Equal(t, []string{
 		"a/brand.go", "a/logo.png", "a/mod.go", "a/modeonly.go", "a/new.go",
@@ -301,9 +310,7 @@ func TestAPathSurvivesTheUserSDiffPrefixConfig(t *testing.T) {
 
 			write(t, root, "proto/gen/api.pb.go", "package gen\n\nvar Generated = true\n")
 
-			patch, err := Load(context.Background(), LoadParams{Dir: root, Base: "main"})
-			require.NoError(t, err)
-			assert.Equal(t, []string{"proto/gen/api.pb.go"}, paths(patch))
+			assert.Equal(t, []string{"proto/gen/api.pb.go"}, paths(loadRound(t, root)))
 		})
 	}
 }

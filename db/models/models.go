@@ -142,6 +142,49 @@ func (ns NullReviewAuthorKind) Value() (driver.Value, error) {
 	return string(ns.ReviewAuthorKind), nil
 }
 
+type ReviewVerdict string
+
+const (
+	ReviewVerdictApproved         ReviewVerdict = "approved"
+	ReviewVerdictChangesRequested ReviewVerdict = "changes_requested"
+	ReviewVerdictCommented        ReviewVerdict = "commented"
+)
+
+func (e *ReviewVerdict) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = ReviewVerdict(s)
+	case string:
+		*e = ReviewVerdict(s)
+	default:
+		return fmt.Errorf("unsupported scan type for ReviewVerdict: %T", src)
+	}
+	return nil
+}
+
+type NullReviewVerdict struct {
+	ReviewVerdict ReviewVerdict
+	Valid         bool // Valid is true if ReviewVerdict is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullReviewVerdict) Scan(value interface{}) error {
+	if value == nil {
+		ns.ReviewVerdict, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.ReviewVerdict.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullReviewVerdict) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.ReviewVerdict), nil
+}
+
 // One background Claude agent, everything needed to restore it.
 type Agent struct {
 	ID     string
@@ -245,7 +288,29 @@ type Mark struct {
 	CreatedAt  time.Time
 }
 
-// One message in a review thread, written either by the person reviewing or by the agent replying.
+// One author's batch of comments against one round, private while it is being written and released as a whole.
+type Review struct {
+	ID string
+	// The agent being reviewed, carried here as well as on the round so that one open review per author can be enforced without a join.
+	AgentID string
+	RoundID string
+	// The type of the author giving the review.
+	AuthorKind ReviewAuthorKind
+	// The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that.
+	AuthorAgentID *string
+	// What the author concluded, null while the review is still open. It is what tells the agent whether it is done, and what gates opening a pull request.
+	Verdict NullReviewVerdict
+	// When the review was let go of, null while it is still being written. Nothing in it reaches the agent before this is stamped.
+	ReleasedAt *time.Time
+	// Where the released review was written for the agent to read, relative to its worktree, empty while the review is still open.
+	Path string
+	// The mail that told the agent the review was waiting. It is set null rather than cascaded when that mail is deleted, which is what makes a review the agent threw the notice away for read as undelivered.
+	DoorbellMailID *string
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
+}
+
+// One message in a review thread, written either by the author giving the review or by the agent answering it.
 type ReviewMessage struct {
 	ID       string
 	ThreadID string
@@ -257,15 +322,29 @@ type ReviewMessage struct {
 	Body      string
 	CreatedAt time.Time
 	UpdatedAt time.Time
-	// When this message was released to the agent, null while it is still only written down. It is the durable record that a comment was let go of, kept here rather than read off the mail raised for it, since an agent may delete that mail and mail expires.
-	SentAt *time.Time
-	// The mail that told the agent this comment was waiting, null while the comment is unsent. One doorbell covers every comment released under it, since they all say the same thing, and the delivery state the panel draws for a comment is read off whichever doorbell it points at. It is set null rather than cascaded when that mail is deleted, which is what makes a comment whose doorbell the agent threw away read as needing another.
-	DoorbellMailID *string
+	// The review this message went out with, null for an answer, which belongs to no batch and reaches the reviewer as soon as it is written.
+	ReviewID *string
+	// Replacement lines the author is proposing for the range the thread is pinned to, empty for an ordinary comment. The agent applies them rather than reasoning about them.
+	Suggestion []string
 }
 
-// One conversation pinned to a place in an agent's diff.
-type ReviewThread struct {
+// One immutable snapshot of what an agent has written, which is what a review is given against.
+type ReviewRound struct {
 	ID      string
+	AgentID string
+	// Which round this is for its agent, counting from one, which is what the panel names it by.
+	Ordinal int32
+	// The commit the agent's branch left its base at, resolved when the round was taken so that a base moving afterwards cannot change what this round says.
+	BaseSha string
+	// A commit written out of band over the agent's whole worktree, tracked and untracked alike, held by a ref under refs/weave/rounds so it survives collection. The agent's own index, worktree and branch are untouched by it.
+	SnapshotSha string
+	CreatedAt   time.Time
+}
+
+// One conversation pinned to a place in the round its review was given against.
+type ReviewThread struct {
+	ID string
+	// The agent being reviewed, carried here as well as on the review since neither ever moves and almost every read is by agent.
 	AgentID string
 	// The file the thread is pinned to, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
 	FilePath string
@@ -277,26 +356,25 @@ type ReviewThread struct {
 	NewStart int32
 	// Last line of the range on the new side, equal to new_start for a thread on a single line.
 	NewEnd int32
-	// The diff lines the thread was written against. They say what the thread was about once the agent has rewritten that code, and are what the viewer compares the file against to decide whether the anchor still holds.
+	// The diff lines the thread was written against. They say what the thread was about once the agent has rewritten that code, and are what a later round is searched for to decide whether the thread has gone outdated.
 	QuotedLines []string
-	// When the person reviewing last read this thread, stamped from last_agent_activity_at rather than from the clock, so a reply written mid-read is not marked read without being shown. It is what says whether the agent has replied since they looked.
+	// When the person reviewing last read this thread, stamped from last_agent_activity_at rather than from the clock, so a reply written mid-read is not marked read without being shown.
 	HumanReadAt *time.Time
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
-	// When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see. There is no mirror of it for the person's side, since what the agent has been told is recorded per message by review_messages.sent_at and the doorbell it points at.
+	// When the agent last wrote or rewrote a message here, null until it has written one. Kept as a column rather than read off the messages, so that an agent rewriting its own reply is activity the person reviewing has not seen, which a comparison against created_at cannot see.
 	LastAgentActivityAt *time.Time
-	// When the person reviewing settled this thread, null while it is still owed an answer. It is what decides whether a thread is still asking for something, which is a different question from whether the code it was written against has moved since.
+	// When the person reviewing settled this thread, null while it is still owed an answer. Settling stays theirs even for a thread an agent opened, since deciding the work is done is not the reviewer's call.
 	ResolvedAt *time.Time
+	ReviewID   string
 }
 
-// One file of an agent's diff the person reviewing has read, and the shape that file had when they read it.
+// One file of a round the person reviewing has read. A later round is a different row, which is what makes an agent rewriting the file undo the mark.
 type ReviewViewedFile struct {
-	AgentID string
 	// The file that was read, named the way the diff names it: relative to the repository root, where the change left it if it moved it.
 	FilePath string
-	// A hash of the file's own slice of the patch as it stood when it was read. The panel hashes the file again on every load and shows it as unread once the two disagree, which is what makes an agent writing to the file undo the mark. It is the diff that is hashed rather than the file, since the hunks change when the base moves under a file nothing has touched.
-	Fingerprint string
-	ViewedAt    time.Time
+	ViewedAt time.Time
+	RoundID  string
 }
 
 // A cron-driven agent launch: when to fire and what to ask for.

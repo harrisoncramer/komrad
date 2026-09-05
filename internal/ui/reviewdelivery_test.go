@@ -46,22 +46,16 @@ func TestReviewDrawsDeliveryUnderEachComment(t *testing.T) {
 			absent:  "delivered",
 		},
 		{
-			name:    "released with the doorbell still waiting",
+			name:    "released with the notice still waiting",
 			message: sentComment(),
 			want:    "→ waiting",
 			absent:  "unsent",
 		},
 		{
-			name:    "the agent picked the doorbell up",
+			name:    "the agent picked the notice up",
 			message: deliveredComment(),
 			want:    "✓ delivered",
 			absent:  "waiting",
-		},
-		{
-			name:    "the doorbell ran out of time",
-			message: expiredComment(),
-			want:    "! expired",
-			absent:  "delivered",
 		},
 		{
 			name: "nothing is said of what the agent wrote",
@@ -113,35 +107,20 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 		comment string
 	}{
 		{
-			name:    "a comment that ran out of time is shouted",
-			thread:  &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{expiredComment()}},
-			want:    "!",
-			comment: "ringing again is the only thing that reaches the agent now",
-		},
-		{
 			name:    "a comment still only written down is marked hollow",
 			thread:  &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{unsentComment()}},
 			want:    "◇",
-			unwant:  "!",
+			unwant:  "●",
 			comment: "the submit key is what fixes this one",
-		},
-		{
-			name: "expired outranks unsent, since the two are fixed by different keys",
-			thread: &agentv1.ReviewThread{Messages: []*agentv1.ReviewMessage{
-				unsentComment(),
-				expiredComment(),
-			}},
-			want:   "!",
-			unwant: "◇",
 		},
 		{
 			name: "an answer waiting to be read still comes first",
 			thread: &agentv1.ReviewThread{
 				UnreadByHuman: true,
-				Messages:      []*agentv1.ReviewMessage{expiredComment()},
+				Messages:      []*agentv1.ReviewMessage{unsentComment()},
 			},
 			want:   "◆",
-			unwant: "!",
+			unwant: "◇",
 		},
 		{
 			name: "and a thread finished with says so",
@@ -180,38 +159,37 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 	}
 }
 
-// TestReviewResendRingsTheExpiredCommentsAgain covers the key that reaches an agent which was
-// not listening when the review was let go of, and what it says it did.
-func TestReviewResendRingsTheExpiredCommentsAgain(t *testing.T) {
+// TestReviewApproveIsItsOwnKey covers the verdict being a deliberate choice: the submit key
+// asks for changes and the approve key says the round is good, and each says which it sent.
+func TestReviewApproveIsItsOwnKey(t *testing.T) {
 	tests := []struct {
 		name string
-		rung int32
-		want string
+		key  tea.KeyMsg
+		want agentv1.ReviewVerdict
+		says string
 	}{
 		{
-			name: "nothing has run out of time",
-			want: "nothing has run out of time",
+			name: "submit asks for changes",
+			key:  tea.KeyMsg{Type: tea.KeyCtrlS},
+			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			says: "changes requested",
 		},
 		{
-			name: "one comment rung again",
-			rung: 1,
-			want: "rang 1 comment again",
-		},
-		{
-			name: "several",
-			rung: 3,
-			want: "rang 3 comments again",
+			name: "the approve key says the round is good",
+			key:  tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")},
+			want: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+			says: "approved",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := reviewRepo(t)
-			agents := &fakeReviewAgents{rung: tt.rung}
+			agents := &fakeReviewAgents{}
 			m, _ := reviewModel(t, agents, dir)
 			m = openReview(t, m)
 
-			next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")})
+			next, cmd := m.updateReview(tt.key)
 			m = next.(model)
 			require.NotNil(t, cmd)
 
@@ -219,12 +197,13 @@ func TestReviewResendRingsTheExpiredCommentsAgain(t *testing.T) {
 			require.True(t, ok)
 			require.NoError(t, wrote.err)
 
-			require.NotNil(t, agents.rang)
-			assert.Equal(t, "a1", agents.rang.GetAgentId())
-			assert.Equal(t, tt.want, wrote.notice)
+			require.NotNil(t, agents.released)
+			assert.Equal(t, "a1", agents.released.GetAgentId())
+			assert.Equal(t, tt.want, agents.released.GetVerdict())
+			assert.Contains(t, wrote.notice, tt.says)
 
 			m.applyReviewWrote(wrote)
-			assert.Contains(t, ansi.Strip(m.reviewView()), tt.want)
+			assert.Contains(t, ansi.Strip(m.reviewView()), tt.says)
 		})
 	}
 }
@@ -265,8 +244,8 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 
 			m.helpExpanded, m.height = true, 40
 			expanded := ansi.Strip(m.reviewView())
-			assert.NotContains(t, expanded, "ring expired again")
-			assert.NotContains(t, expanded, "send what you wrote")
+			assert.NotContains(t, expanded, "approve the round")
+			assert.NotContains(t, expanded, "request changes")
 			assert.Contains(t, expanded, "settle the thread", "what is the person's own record stays")
 
 			m.helpExpanded = false
@@ -284,7 +263,6 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 				assert.Contains(t, refused.review.notice, tt.want, "%v says why", key)
 			}
 
-			assert.Nil(t, agents.rang)
 			assert.Nil(t, agents.released)
 			assert.Nil(t, agents.created)
 		})

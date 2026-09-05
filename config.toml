@@ -218,15 +218,13 @@ prev_match     = ["N"]
 prev_thread    = ["T"]
 # Quit the panel.
 quit           = ["ctrl+c"]
-# Put the diff the panel is holding on screen, once the sidebar says the worktree has
-# moved under you. The diff is never swapped in on its own, since that would move the
-# code out from under a comment being written. With nothing held, this reads the
-# worktree again.
+# Open the next round, once the sidebar says the agent has written since this one was
+# taken. A round never moves on its own, since that would take the code out from under
+# a comment being written, so stepping forward is always yours to ask for.
 reload         = ["R"]
-# Raise a doorbell again for every comment you released whose own ran out of time
-# before the agent read it, which is the only thing that reaches an agent that was
-# not listening when you let the review go.
-resend         = ["a"]
+# Let the review go saying this round is good as it stands, which is what tells the
+# agent it is done. The submit key sends the same batch asking for changes instead.
+approve        = ["a"]
 # Settle the thread under the cursor, which marks it resolved without deleting it.
 resolve        = ["r"]
 # Fold away the file the cursor is in once you have read it, or open it again. A file
