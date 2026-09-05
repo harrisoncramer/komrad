@@ -70,7 +70,7 @@ var table = []mapping{
 
 	{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
 	{agents.ErrMailboxFull, connect.CodeResourceExhausted},
-	{agents.ErrThreadCapped, connect.CodeResourceExhausted},
+	{agents.ErrExchangeCapped, connect.CodeResourceExhausted},
 	{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
 	{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
 

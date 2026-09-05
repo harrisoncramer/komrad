@@ -17,7 +17,7 @@ import (
 // satisfied by a wrapper that refuses everything.
 func TestMailConfigReadsWhatTheFileSays(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
-	require.NoError(t, os.WriteFile(path, []byte("[mail]\ndelivery_deadline = \"45m\"\nmax_hops = 7\n"), 0o600))
+	require.NoError(t, os.WriteFile(path, []byte("[mail]\ndelivery_deadline = \"45m\"\nmax_exchange = 7\n"), 0o600))
 
 	load := mailConfig(func() (*config.Config, error) { return config.Load([]string{path}) })
 
@@ -25,9 +25,9 @@ func TestMailConfigReadsWhatTheFileSays(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 45*time.Minute, deadline)
 
-	hops, err := load.GetMaxHops()
+	exchange, err := load.GetMaxExchange()
 	require.NoError(t, err)
-	assert.Equal(t, 7, hops)
+	assert.Equal(t, 7, exchange)
 }
 
 // TestMailConfigRefusesAConfigItCannotRead covers a typo appearing in config.toml under a
@@ -42,8 +42,8 @@ func TestMailConfigRefusesAConfigItCannotRead(t *testing.T) {
 	require.Error(t, err, "an unreadable config is an error rather than the built-in deadline")
 	assert.Contains(t, err.Error(), "delivery_dedline")
 
-	_, err = load.GetMaxHops()
-	require.Error(t, err, "an unreadable config is an error rather than the built-in hop limit")
+	_, err = load.GetMaxExchange()
+	require.Error(t, err, "an unreadable config is an error rather than the built-in exchange limit")
 	assert.Contains(t, err.Error(), "delivery_dedline")
 }
 
@@ -56,6 +56,6 @@ func TestMailConfigPropagatesTheLoadError(t *testing.T) {
 	_, err := load.GetDeliveryDeadline()
 	require.ErrorIs(t, err, sentinel)
 
-	_, err = load.GetMaxHops()
+	_, err = load.GetMaxExchange()
 	assert.ErrorIs(t, err, sentinel)
 }

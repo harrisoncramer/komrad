@@ -40,7 +40,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 
 	mailService := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.mail,
-		AgentFinder:    st.agents,
+		Agents:         st.agents,
 		Config:         mailConfig(loadConfig),
 	})
 	reviewService := agents.NewReviewService(agents.ReviewServiceParams{

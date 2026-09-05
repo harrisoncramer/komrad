@@ -116,7 +116,6 @@ func renderMail(stored mailstore.Mail) *agentv1.Mail {
 		ClaimedAt:   claimed,
 		ExpiresAt:   expires,
 		Kind:        renderMailKind(stored.Kind),
-		Hops:        stored.Hops,
 	}
 }
 
@@ -126,6 +125,8 @@ func renderMailKind(kind mailstore.Kind) agentv1.MailKind {
 		return agentv1.MailKind_MAIL_KIND_PLAIN
 	case mailstore.KindReviewActivity:
 		return agentv1.MailKind_MAIL_KIND_REVIEW_ACTIVITY
+	case mailstore.KindExchangeCapped:
+		return agentv1.MailKind_MAIL_KIND_EXCHANGE_CAPPED
 	}
 
 	return agentv1.MailKind_MAIL_KIND_UNSPECIFIED

@@ -83,8 +83,8 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 	reviews := reviewstore.New(st.Pool.GetDB())
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
-		AgentFinder:    st.Agents,
-		Config:         stubMailConfig(config.DefaultMaxHops),
+		Agents:         st.Agents,
+		Config:         stubMailConfig(config.DefaultMaxExchange),
 	})
 	review := agents.NewReviewService(agents.ReviewServiceParams{
 		Threads:  reviews,

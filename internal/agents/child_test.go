@@ -556,8 +556,8 @@ func TestChildMailStaysInTheFamily(t *testing.T) {
 			mailbox := &fakeMailbox{}
 			svc := NewMailService(NewMailServiceParams{
 				MailReadWriter: mailbox,
-				AgentFinder:    newFakeFamily(),
-				Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+				Agents:         newFakeFamily(),
+				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 			})
 
 			sent, err := svc.SendMail(t.Context(), SendMailParams{
@@ -586,8 +586,8 @@ func TestSystemMailReachesAChild(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeFamily(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeFamily(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	_, err := svc.SendSystemMail(t.Context(), "child-one", "your parent was archived")

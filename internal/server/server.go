@@ -59,13 +59,13 @@ func (load mailConfig) GetDeliveryDeadline() (time.Duration, error) {
 	return cfg.Mail.GetDeliveryDeadline()
 }
 
-func (load mailConfig) GetMaxHops() (int, error) {
+func (load mailConfig) GetMaxExchange() (int, error) {
 	cfg, err := load()
 	if err != nil {
 		return 0, fmt.Errorf("failed to read the config: %w", err)
 	}
 
-	return cfg.Mail.GetMaxHops()
+	return cfg.Mail.GetMaxExchange()
 }
 
 type Server struct {

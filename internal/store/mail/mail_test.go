@@ -202,7 +202,6 @@ func TestGetByID(t *testing.T) {
 			sent, err := st.Send(ctx, SendParams{
 				ToAgentID: recipient,
 				Body:      "which column?",
-				Hops:      3,
 				Deadline:  time.Hour,
 			})
 			require.NoError(t, err)
@@ -217,7 +216,6 @@ func TestGetByID(t *testing.T) {
 			require.NoError(t, err)
 			require.NotNil(t, got)
 			assert.Equal(t, sent.ID, got.ID)
-			assert.Equal(t, int32(3), got.Hops)
 		})
 	}
 }
@@ -686,6 +684,51 @@ func seedAgent(t *testing.T, st *fixture, name string) string {
 	return got.ID
 }
 
+// TestPendingNoticeOfKindIsToldApartByWhatItIsAbout pins the discrimination the exchange cap
+// rests on: a notice already waiting about one agent must not stand in for a notice about a
+// different one, or a second severed exchange is never reported and the agent waiting on it is
+// never told.
+func TestPendingNoticeOfKindIsToldApartByWhatItIsAbout(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	recipient := seedAgent(t, st, "recipient")
+	one := seedAgent(t, st, "partner-one")
+	other := seedAgent(t, st, "partner-other")
+
+	sent, err := st.Send(ctx, SendParams{
+		ToAgentID:    recipient,
+		Body:         "your exchange with partner-one was cut off",
+		Kind:         KindExchangeCapped,
+		AboutAgentID: &one,
+		Deadline:     time.Hour,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, sent.AboutAgentID)
+	assert.Equal(t, one, *sent.AboutAgentID, "the subject round-trips")
+
+	found, err := st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, &one)
+	require.NoError(t, err)
+	assert.Equal(t, sent.ID, found.ID, "a lookup naming that partner finds it")
+
+	_, err = st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, &other)
+	require.ErrorIs(t, err, store.ErrNotFound, "a notice about one partner does not stand in for another")
+
+	_, err = st.GetPendingOfKind(ctx, recipient, KindExchangeCapped, nil)
+	require.ErrorIs(t, err, store.ErrNotFound, "nor does it answer a lookup for a notice about nobody")
+
+	doorbell, err := st.Send(ctx, SendParams{
+		ToAgentID: recipient,
+		Body:      "review activity",
+		Kind:      KindReviewActivity,
+		Deadline:  time.Hour,
+	})
+	require.NoError(t, err)
+
+	reused, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
+	require.NoError(t, err)
+	assert.Equal(t, doorbell.ID, reused.ID, "a notice about nobody is still found by a lookup for one")
+}
+
 // TestPendingNoticeOfKindIsTheOneWaiting pins the lookup a caller reuses a doorbell through,
 // which finds only a notice of that kind the agent can still read, so a claimed or expired one
 // does not stand in for a doorbell that needs raising.
@@ -694,7 +737,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	ctx := t.Context()
 	recipient := seedAgent(t, st, "recipient")
 
-	_, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	_, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
 	require.ErrorIs(t, err, store.ErrNotFound, "an agent holding nothing has no doorbell to reuse")
 
 	_, err = st.Send(ctx, SendParams{
@@ -712,7 +755,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
 	require.ErrorIs(t, err, store.ErrNotFound, "a doorbell nobody claimed in time is not one the agent can still read")
 
 	live, err := st.Send(ctx, SendParams{
@@ -723,7 +766,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	waiting, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	waiting, err := st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
 	require.NoError(t, err)
 	require.NotNil(t, waiting)
 	assert.Equal(t, live.ID, waiting.ID, "the doorbell to reuse is the deliverable one")
@@ -732,7 +775,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	_, err = st.Claim(ctx, recipient, 10)
 	require.NoError(t, err)
 
-	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity)
+	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
 	assert.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, the next release raises its own")
 }
 
@@ -816,70 +859,55 @@ func TestExpiredNoticeIsReportableAgain(t *testing.T) {
 	}
 }
 
-// TestDeepestHopsOutlivesTheMailThatOpenedTheThread proves the reason thread_root
-// carries no foreign key: reply_to is set null when its target goes, so a thread counted
-// along the reply chain would restart from one the moment somebody deleted its first
-// message.
-func TestDeepestHopsOutlivesTheMailThatOpenedTheThread(t *testing.T) {
+// TestCountExchangedSpansThreadsAndDirections pins what a send is refused by the size of: every
+// plain message either agent wrote the other however it was addressed, leaving out weave's own
+// notices and anything belonging to another pair.
+func TestCountExchangedSpansThreadsAndDirections(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
-	recipient := seedAgent(t, st, "recipient")
+	author := seedAgent(t, st, "author")
+	reviewer := seedAgent(t, st, "reviewer")
+	stranger := seedAgent(t, st, "stranger")
 
-	root, err := st.Send(ctx, SendParams{
-		ToAgentID: recipient,
-		Body:      "which column?",
-		Hops:      1,
-		Deadline:  time.Hour,
-	})
-	require.NoError(t, err)
+	send := func(from *string, to string, kind Kind) *Mail {
+		t.Helper()
+		sent, err := st.Send(ctx, SendParams{
+			FromAgentID: from,
+			ToAgentID:   to,
+			Body:        "hello",
+			Kind:        kind,
+			Deadline:    time.Hour,
+		})
+		require.NoError(t, err)
 
+		return sent
+	}
+
+	opening := send(&reviewer, author, KindPlain)
 	reply, err := st.Send(ctx, SendParams{
-		ToAgentID:  recipient,
-		Body:       "refunded_cents",
-		ReplyTo:    &root.ID,
-		ThreadRoot: &root.ID,
-		Hops:       2,
-		Deadline:   time.Hour,
+		FromAgentID: &author,
+		ToAgentID:   reviewer,
+		Body:        "fixed",
+		Kind:        KindPlain,
+		ReplyTo:     &opening.ID,
+		Deadline:    time.Hour,
 	})
 	require.NoError(t, err)
+	require.NotNil(t, reply)
 
-	_, err = st.Send(ctx, SendParams{
-		ToAgentID:  recipient,
-		Body:       "and the other one?",
-		ReplyTo:    &root.ID,
-		ThreadRoot: &root.ID,
-		Hops:       3,
-		Deadline:   time.Hour,
-	})
+	send(&reviewer, author, KindPlain)
+	send(nil, author, KindExchangeCapped)
+	send(&stranger, author, KindPlain)
+
+	exchanged, err := st.CountExchanged(ctx, author, reviewer)
 	require.NoError(t, err)
+	assert.EqualValues(t, 3, exchanged, "both directions, replies included, without the notice or the stranger")
 
-	deepest, err := st.DeepestHops(ctx, root.ID)
+	reversed, err := st.CountExchanged(ctx, reviewer, author)
 	require.NoError(t, err)
-	assert.EqualValues(t, 3, deepest)
+	assert.EqualValues(t, 3, reversed, "the pair is unordered")
 
-	require.NoError(t, st.Delete(ctx, []string{root.ID}))
-
-	orphaned, err := st.GetByID(ctx, reply.ID)
+	quiet, err := st.CountExchanged(ctx, author, "not-an-id")
 	require.NoError(t, err)
-	assert.Nil(t, orphaned.ReplyTo)
-	require.NotNil(t, orphaned.ThreadRoot)
-
-	deepest, err = st.DeepestHops(ctx, root.ID)
-	require.NoError(t, err)
-	assert.EqualValues(t, 3, deepest)
-}
-
-// TestDeepestHopsOfNothing pins that a thread nothing belongs to reads as zero rather than
-// as an error, so the first mail of a thread counts from it.
-func TestDeepestHopsOfNothing(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	deepest, err := st.DeepestHops(t.Context(), uuid.NewString())
-	require.NoError(t, err)
-	assert.Zero(t, deepest)
-
-	deepest, err = st.DeepestHops(ctx, "not-an-id")
-	require.NoError(t, err)
-	assert.Zero(t, deepest)
+	assert.Zero(t, quiet, "an id nothing holds counts nothing rather than failing")
 }

@@ -32,16 +32,44 @@ Press `m` on an agent in the panel to read its mail. The sidebar groups the mess
 threads, the thread something last happened in at the top, and inside each thread the newest
 message first.
 
-## The hop limit
+## The exchange limit
 
-A reply carries a hop count, one higher than the deepest hop its thread has reached so far, and
-a send past the configured limit is refused. The count comes from the whole thread rather than
-from the message being answered, so answering something further back does not put the count
-where that message was. It is drawn on each message in the mail record.
+There is a limit on how much mail two agents may write each other. It counts the pair in both
+directions and over every thread, so a send with no reply_to is refused exactly like a reply, and
+opening a new subject is not a way around it. Forty is the default, which is twenty rounds each
+way.
 
-The limit bounds one thread rather than everything two agents ever say to each other. Mail sent
-with no reply opens a thread of its own and begins again at one, which is what keeps a pair that
-has genuinely moved on to a new subject from being locked out by an exchange that is over.
+That number is chosen for the cost of being wrong in each direction rather than for tidiness. The
+longest exchange the panel has recorded is fifteen messages, and it was a review that finished, so
+a limit of twenty would sever a review one round longer than the worst real one at the moment it
+was trying to conclude, and the verdict is the thing that would be lost. A limit set too high
+costs one long loop that somebody notices anyway. A limit set too low costs a conclusion.
+
+It counts the pair rather than a thread on purpose. Weave used to cap the hops down a reply
+chain, and that never bounded anything, because a send without a reply_to opens a fresh thread
+and the count started again at one. None of the ways that happens is misbehaviour: an agent that
+forgets to set reply_to, a person re-prompting one side mid-cycle, a reviewer opening a new
+subject after a rebase. Most mail carries no reply_to at all, so the thread cap was counting a
+structure that most mail does not have, and in the panel's whole history it never once refused
+anything.
+
+A refusal is told rather than silent, which is what keeps it from stranding the work. The sender
+learns from the error it gets back. The agent that was written to is sent a notice saying mail
+meant for it was stopped, so it is not left waiting on a reply that a limit has quietly
+prevented. And one row is marked for attention so the person hears about it: the
+[family](agents.md)'s parent where there is one, since that is the row a person is looking at and
+the agent able to break a loop between two of its children, and the sender itself where there is
+not.
+
+Weave's own mail is never refused. A lifecycle notice carries no sending agent, so it is not one
+half of a pair and does not spend the allowance either.
+
+Deleting mail lowers the count, since the count is read off the rows that still exist. That is an
+escape hatch rather than an oversight, and it is how a pair that genuinely needs to keep talking
+is given room. It is worth being plain that the agents themselves can use it: `delete_mail` is
+not scoped to the caller's own mailbox, so a capped pair that means to carry on is able to. The
+limit therefore bounds an exchange that runs away by accident, which is the way exchanges
+actually run away, rather than one determined to get past it.
 
 ## Children and their families
 
@@ -51,7 +79,7 @@ The unit is the family rather than the pair, so two children of one parent can t
 
 The rule bounds what a child may do rather than what may be done to it. Weave's own lifecycle mail reaches any child, and so does mail you send yourself, since neither carries a sending agent.
 
-A thread between two children is counted against the same hop limit as any other, so a pair cannot loop indefinitely without their parent.
+Two children of one parent are held to the same exchange limit as any other pair, and when it refuses a send between them their parent is the row marked for attention, so they cannot loop indefinitely without the parent hearing about it.
 
 Because delivery happens as a turn ends, an agent cannot wait for mail inside a turn. Sitting in a sleep or a loop waiting for a reply is the one thing that stops the reply arriving. Agents are told to finish their turn instead.
 
