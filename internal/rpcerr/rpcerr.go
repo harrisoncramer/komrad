@@ -50,6 +50,9 @@ var table = []mapping{
 	{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 	{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 	{agents.ErrNoPullRequest, connect.CodeFailedPrecondition},
+	{agents.ErrReviewNoRound, connect.CodeFailedPrecondition},
+	{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
+	{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 
 	{agents.ErrBadCron, connect.CodeInvalidArgument},
 	{agents.ErrBadDirectory, connect.CodeInvalidArgument},
@@ -76,6 +79,8 @@ var table = []mapping{
 
 	{agents.ErrReviewNotYours, connect.CodePermissionDenied},
 	{agents.ErrReviewHumanOnly, connect.CodePermissionDenied},
+	{agents.ErrReviewNotEntitled, connect.CodePermissionDenied},
+	{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
 	{agents.ErrOutsideFamily, connect.CodePermissionDenied},
 }
 
