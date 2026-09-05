@@ -274,6 +274,7 @@ func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 
 	after := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
 	require.NotNil(t, after.banner)
+	assert.Equal(t, "Could not jump back", after.banner.Summary, "the key says what it failed at")
 	assert.Empty(t, after.marks.origin, "the row that has gone is forgotten")
 	assert.Equal(t, at, rowKeyAt(after.agentRows(), after.tree.cursor), "and the cursor stays where it was")
 }

@@ -190,6 +190,48 @@ func TestSetMark(t *testing.T) {
 		assert.Equal(t, xptr.Ptr("a"), markOf(t, st, other.ID))
 	})
 
+	t.Run("an archived row that kept its letter burns nothing", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		stuck := createMarkAgent(t, st, "alpha")
+		other := createMarkAgent(t, st, "beta")
+
+		_, err := st.SetMark(ctx, stuck.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+
+		// Archiving clears the mark, so the state a missed archive path would leave has to be
+		// written by hand to be tested at all.
+		_, err = st.db.Exec(ctx, `UPDATE agents SET archived_at = NOW() WHERE id = $1`, stuck.ID)
+		require.NoError(t, err)
+
+		result, err := st.SetMark(ctx, other.ID, xptr.Ptr("a"))
+		require.NoError(t, err, "the letter is still free to hand out")
+		assert.True(t, result.Marked)
+
+		require.NoError(t, st.Restore(ctx, []string{stuck.ID}), "and the row can still come back")
+		assert.Nil(t, markOf(t, st, stuck.ID))
+		assert.Equal(t, xptr.Ptr("a"), markOf(t, st, other.ID))
+	})
+
+	t.Run("an archived row of a workflow that kept its letter can come back too", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		stuck := createMarkAgent(t, st, "alpha")
+
+		_, err := st.SetMark(ctx, stuck.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+
+		_, err = st.db.Exec(ctx, `UPDATE agents SET archived_at = NOW() WHERE id = $1`, stuck.ID)
+		require.NoError(t, err)
+
+		other := createMarkAgent(t, st, "beta")
+		_, err = st.SetMark(ctx, other.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+
+		require.NoError(t, st.RestoreWorkflowAgents(ctx, stuck.WorkflowID))
+		assert.Nil(t, markOf(t, st, stuck.ID))
+	})
+
 	t.Run("a workflow restored whole comes back unmarked too", func(t *testing.T) {
 		st := open(t)
 		ctx := t.Context()
