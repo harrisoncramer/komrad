@@ -8,6 +8,7 @@ import (
 	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
+	"weave/lib/xslice"
 )
 
 // Verdict is what an author concluded about a round.
@@ -317,6 +318,22 @@ func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (
 	review := reviewFromRow(*row)
 
 	return &review, nil
+}
+
+// DeleteOpenReviewsBy removes the batches these authors were still writing, which is what an
+// agent being deleted leaves behind: a draft nobody has ever seen, with no history in it, whose
+// author is about to stop existing.
+func (s *Store) DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error {
+	storable := xslice.Filter(authorAgentIDs, store.IsID)
+	if len(storable) == 0 {
+		return nil
+	}
+
+	if err := s.queries.DeleteOpenReviewsByAuthor(ctx, storable); err != nil {
+		return fmt.Errorf("failed to delete the open reviews of %d agent(s): %w", len(storable), err)
+	}
+
+	return nil
 }
 
 // DeleteReview removes a batch and everything pinned under it, which is what abandoning an open

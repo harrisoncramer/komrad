@@ -128,6 +128,11 @@ WHERE
 RETURNING
     *;
 
+-- name: DeleteOpenReviewsByAuthor :exec
+DELETE FROM reviews
+WHERE author_agent_id = ANY (@author_agent_ids::uuid[])
+    AND released_at IS NULL;
+
 -- name: DeleteReview :exec
 DELETE FROM reviews
 WHERE id = @id;

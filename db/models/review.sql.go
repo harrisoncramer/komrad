@@ -26,6 +26,17 @@ func (q *Queries) CountOpenReviewComments(ctx context.Context, reviewID *string)
 	return count, err
 }
 
+const deleteOpenReviewsByAuthor = `-- name: DeleteOpenReviewsByAuthor :exec
+DELETE FROM reviews
+WHERE author_agent_id = ANY ($1::uuid[])
+    AND released_at IS NULL
+`
+
+func (q *Queries) DeleteOpenReviewsByAuthor(ctx context.Context, authorAgentIds []string) error {
+	_, err := q.db.Exec(ctx, deleteOpenReviewsByAuthor, authorAgentIds)
+	return err
+}
+
 const deleteReview = `-- name: DeleteReview :exec
 DELETE FROM reviews
 WHERE id = $1

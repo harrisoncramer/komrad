@@ -155,7 +155,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Tx:             st.pool,
 		Scripts:        scriptService,
 		Notifier:       mailService,
-		Rounds:         st.review,
+		Reviews:        st.review,
 		LogsDir:        runLogsDir,
 		FramesDir:      p.Env.FramesDir(),
 		MaxAgents:      p.MaxAgents,

@@ -147,11 +147,10 @@ table "reviews" {
     comment = "One open review at a time for the person, the way a forge holds one pending review per reviewer."
   }
   index "reviews_open_agent" {
-    columns        = [column.agent_id, column.author_agent_id]
-    unique         = true
-    nulls_distinct = false
-    where          = "released_at IS NULL AND author_kind = 'agent'"
-    comment        = "One open review at a time for each agent reviewing, so a reviewer cannot draft two at once. Nulls count as equal here so that a batch left open by a deleted reviewer stays inside the index rather than falling outside every constraint."
+    columns = [column.agent_id, column.author_agent_id]
+    unique  = true
+    where   = "released_at IS NULL AND author_kind = 'agent'"
+    comment = "One open review at a time for each agent reviewing, so a reviewer cannot draft two at once. Nulls stay distinct here deliberately: counting them equal would make the second reviewer child deleted on one agent fail its own delete, since the foreign key nulls this column and would collide with the first null."
   }
   index "reviews_round_id" {
     columns = [column.round_id, column.id]

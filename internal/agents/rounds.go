@@ -38,10 +38,11 @@ var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wa
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = errors.New("that review has nothing in it")
 
-// reviewRoundReaper is the half of the round store the lifecycle needs, which is only enough to
-// find the refs an agent's snapshots are held by before its rows go.
-type reviewRoundReaper interface {
+// reviewReaper is the half of the review store the lifecycle needs, which is enough to find the
+// refs an agent's snapshots are held by and to drop the drafts it was writing about others.
+type reviewReaper interface {
 	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
+	DeleteOpenReviewsBy(ctx context.Context, authorAgentIDs []string) error
 }
 
 type reviewRoundReadWriter interface {
