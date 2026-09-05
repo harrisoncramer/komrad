@@ -8,6 +8,7 @@ import (
 
 	"weave/config"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
 
@@ -395,10 +396,11 @@ func TestAgentFields(t *testing.T) {
 			wantValues: []string{"harry/rate-limits"},
 		},
 		{
-			name:       "a branch the agent recorded itself is not repeated beside the one read from the checkout",
+			name:       "the branch read from the checkout wins over one the agent recorded itself",
 			branch:     xptr.Ptr("harry/rate-limits"),
-			metadata:   []agentstore.Metadata{{Key: "branch", Value: "harry/rate-limits"}},
+			metadata:   []agentstore.Metadata{{Key: "branch", Value: "harry/stale"}},
 			wantValues: []string{"harry/rate-limits"},
+			wantAbsent: []string{"harry/stale"},
 			wantOnce:   []string{"branch"},
 		},
 		{
@@ -431,9 +433,10 @@ func TestAgentFields(t *testing.T) {
 			assert.Subset(t, values, tt.wantValues)
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, labels, absent)
+				assert.NotContains(t, values, absent)
 			}
 			for _, once := range tt.wantOnce {
-				assert.Equal(t, 1, countOf(labels, once))
+				assert.Equal(t, 1, xslice.Count(labels, func(label string) bool { return label == once }))
 			}
 		})
 	}
@@ -520,15 +523,4 @@ func resize(m model, width, height int) tea.Model {
 	next, _ := m.Update(tea.WindowSizeMsg{Width: width, Height: height})
 
 	return next
-}
-
-func countOf(labels []string, want string) int {
-	n := 0
-	for _, label := range labels {
-		if label == want {
-			n++
-		}
-	}
-
-	return n
 }
