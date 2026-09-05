@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -119,6 +120,30 @@ func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.NotContains(t, changed(patch), ".weave/reviews/round-1.md")
+}
+
+// TestTakingTheSameTreeTwiceIsTheSameRound is why the commit's dates are pinned: a snapshot that
+// carried the clock would hash differently every time, so reopening a diff a second later would
+// read as a new round and lose every mark made against the first.
+func TestTakingTheSameTreeTwiceIsTheSameRound(t *testing.T) {
+	root := repo(t)
+	write(t, root, "kept.go", "package main\n\nfunc A() {}\n")
+
+	first, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	time.Sleep(1100 * time.Millisecond)
+
+	second, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	assert.Equal(t, first.SHA, second.SHA, "the same worktree is the same round however long later")
+
+	write(t, root, "kept.go", "package main\n\nfunc B() {}\n")
+
+	moved, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+	assert.NotEqual(t, first.SHA, moved.SHA, "and a worktree that moved is a new one")
 }
 
 // TestReleaseDropsTheRef covers letting a round go, which leaves its commit to be collected.

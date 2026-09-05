@@ -11,14 +11,17 @@ import (
 // snapshotMessage is what the round's commit says, which nobody reads but git insists on.
 const snapshotMessage = "weave review round"
 
-// snapshotIdentity is who the round's commit is by, set here because the commit is weave's own
-// bookkeeping rather than the agent's work, and because a repository with no user configured
-// would refuse to write it at all.
+// snapshotIdentity is who the round's commit is by and when, the identity pinned because a
+// repository with no user configured would refuse to write the commit at all, and the dates
+// pinned because a commit carrying the clock would hash differently every time, so the same
+// worktree taken twice would read as two rounds and lose every mark made against the first.
 var snapshotIdentity = []string{
 	"GIT_AUTHOR_NAME=weave",
 	"GIT_AUTHOR_EMAIL=weave@localhost",
+	"GIT_AUTHOR_DATE=@0 +0000",
 	"GIT_COMMITTER_NAME=weave",
 	"GIT_COMMITTER_EMAIL=weave@localhost",
+	"GIT_COMMITTER_DATE=@0 +0000",
 }
 
 // SnapshotParams says which worktree to freeze, what to measure it against, and where to hold
