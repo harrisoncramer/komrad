@@ -16,6 +16,9 @@ const (
 	colorWarning = lipgloss.Color("11")
 	colorDanger  = lipgloss.Color("9")
 	colorMuted   = lipgloss.Color("8")
+	// colorMark is the plain yellow rather than the bright one a thinking agent is drawn in, so
+	// a mark in the gutter cannot be read as a lifecycle state.
+	colorMark = lipgloss.Color("3")
 )
 
 func formTheme() *huh.Theme {

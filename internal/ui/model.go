@@ -55,7 +55,6 @@ type Deps struct {
 	Schedules       schedulev1connect.ScheduleServiceClient
 	Hooks           hookv1connect.HookServiceClient
 	Keys            config.Keybindings
-	Tags            []config.Tag
 	Layout          config.Layout
 	Addr            string
 	LogViewer       string
@@ -101,13 +100,13 @@ type model struct {
 	review          reviewState
 	mail            mailState
 	filter          filterState
+	marks           markState
 	form            formState
 	pendingForm     bool
 	setupPending    bool
 	helpExpanded    bool
 	topHeld         bool
 	keys            config.Keybindings
-	tags            []config.Tag
 	logPath         string
 	logViewer       string
 	processViewer   string
@@ -149,7 +148,6 @@ func newModel(deps Deps, isDark bool) model {
 		pane:            deps.Pane,
 		self:            deps.Self,
 		keys:            deps.Keys,
-		tags:            deps.Tags,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,

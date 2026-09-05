@@ -43,7 +43,7 @@ type Agent struct {
 	ScheduleId       *string                `protobuf:"bytes,12,opt,name=schedule_id,json=scheduleId,proto3,oneof" json:"schedule_id,omitempty"`
 	Alive            bool                   `protobuf:"varint,11,opt,name=alive,proto3" json:"alive,omitempty"`
 	UnreadMail       bool                   `protobuf:"varint,21,opt,name=unread_mail,json=unreadMail,proto3" json:"unread_mail,omitempty"`
-	Tag              *string                `protobuf:"bytes,14,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
+	Mark             *string                `protobuf:"bytes,14,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	Hidden           bool                   `protobuf:"varint,15,opt,name=hidden,proto3" json:"hidden,omitempty"`
 	Metadata         []*AgentMetadata       `protobuf:"bytes,16,rep,name=metadata,proto3" json:"metadata,omitempty"`
 	IdempotencyKey   *string                `protobuf:"bytes,17,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
@@ -201,9 +201,9 @@ func (x *Agent) GetUnreadMail() bool {
 	return false
 }
 
-func (x *Agent) GetTag() string {
-	if x != nil && x.Tag != nil {
-		return *x.Tag
+func (x *Agent) GetMark() string {
+	if x != nil && x.Mark != nil {
+		return *x.Mark
 	}
 	return ""
 }
@@ -840,28 +840,35 @@ func (x *GetAgentResponse) GetAgent() *Agent {
 	return nil
 }
 
-type SetTagsRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	Ids           []string               `protobuf:"bytes,1,rep,name=ids,proto3" json:"ids,omitempty"`
-	Tag           *string                `protobuf:"bytes,2,opt,name=tag,proto3,oneof" json:"tag,omitempty"`
+type SetMarkRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// The row the letter goes on, which is an agent or a workflow and never both.
+	//
+	// Types that are valid to be assigned to Target:
+	//
+	//	*SetMarkRequest_AgentId
+	//	*SetMarkRequest_WorkflowId
+	Target isSetMarkRequest_Target `protobuf_oneof:"target"`
+	// The letter to put on it, left out to take off whichever letter the row answers to.
+	Mark          *string `protobuf:"bytes,3,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *SetTagsRequest) Reset() {
-	*x = SetTagsRequest{}
+func (x *SetMarkRequest) Reset() {
+	*x = SetMarkRequest{}
 	mi := &file_agent_v1_agent_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *SetTagsRequest) String() string {
+func (x *SetMarkRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*SetTagsRequest) ProtoMessage() {}
+func (*SetMarkRequest) ProtoMessage() {}
 
-func (x *SetTagsRequest) ProtoReflect() protoreflect.Message {
+func (x *SetMarkRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_agent_v1_agent_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -873,24 +880,58 @@ func (x *SetTagsRequest) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use SetTagsRequest.ProtoReflect.Descriptor instead.
-func (*SetTagsRequest) Descriptor() ([]byte, []int) {
+// Deprecated: Use SetMarkRequest.ProtoReflect.Descriptor instead.
+func (*SetMarkRequest) Descriptor() ([]byte, []int) {
 	return file_agent_v1_agent_proto_rawDescGZIP(), []int{10}
 }
 
-func (x *SetTagsRequest) GetIds() []string {
+func (x *SetMarkRequest) GetTarget() isSetMarkRequest_Target {
 	if x != nil {
-		return x.Ids
+		return x.Target
 	}
 	return nil
 }
 
-func (x *SetTagsRequest) GetTag() string {
-	if x != nil && x.Tag != nil {
-		return *x.Tag
+func (x *SetMarkRequest) GetAgentId() string {
+	if x != nil {
+		if x, ok := x.Target.(*SetMarkRequest_AgentId); ok {
+			return x.AgentId
+		}
 	}
 	return ""
 }
+
+func (x *SetMarkRequest) GetWorkflowId() string {
+	if x != nil {
+		if x, ok := x.Target.(*SetMarkRequest_WorkflowId); ok {
+			return x.WorkflowId
+		}
+	}
+	return ""
+}
+
+func (x *SetMarkRequest) GetMark() string {
+	if x != nil && x.Mark != nil {
+		return *x.Mark
+	}
+	return ""
+}
+
+type isSetMarkRequest_Target interface {
+	isSetMarkRequest_Target()
+}
+
+type SetMarkRequest_AgentId struct {
+	AgentId string `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3,oneof"`
+}
+
+type SetMarkRequest_WorkflowId struct {
+	WorkflowId string `protobuf:"bytes,2,opt,name=workflow_id,json=workflowId,proto3,oneof"`
+}
+
+func (*SetMarkRequest_AgentId) isSetMarkRequest_Target() {}
+
+func (*SetMarkRequest_WorkflowId) isSetMarkRequest_Target() {}
 
 type SetHiddenRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -1534,7 +1575,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x90\b\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x93\b\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1557,8 +1598,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"scheduleId\x88\x01\x01\x12\x14\n" +
 	"\x05alive\x18\v \x01(\bR\x05alive\x12\x1f\n" +
 	"\vunread_mail\x18\x15 \x01(\bR\n" +
-	"unreadMail\x12\x15\n" +
-	"\x03tag\x18\x0e \x01(\tH\x02R\x03tag\x88\x01\x01\x12\x16\n" +
+	"unreadMail\x12\x17\n" +
+	"\x04mark\x18\x0e \x01(\tH\x02R\x04mark\x88\x01\x01\x12\x16\n" +
 	"\x06hidden\x18\x0f \x01(\bR\x06hidden\x123\n" +
 	"\bmetadata\x18\x10 \x03(\v2\x17.agent.v1.AgentMetadataR\bmetadata\x12,\n" +
 	"\x0fidempotency_key\x18\x11 \x01(\tH\x03R\x0eidempotencyKey\x88\x01\x01\x122\n" +
@@ -1573,8 +1614,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReasonB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
-	"\f_schedule_idB\x06\n" +
-	"\x04_tagB\x12\n" +
+	"\f_schedule_idB\a\n" +
+	"\x05_markB\x12\n" +
 	"\x10_idempotency_keyB\x16\n" +
 	"\x14_spawned_by_agent_idB\x12\n" +
 	"\x10_parent_agent_idB\t\n" +
@@ -1634,12 +1675,15 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
 	"\x10GetAgentResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xf5\x01\n" +
-	"\x0eSetTagsRequest\x12$\n" +
-	"\x03ids\x18\x01 \x03(\tB\x12\xbaH\x0f\x92\x01\f\b\x01\x10d\x18\x01\"\x04r\x02\x10\x01R\x03ids\x12\xb4\x01\n" +
-	"\x03tag\x18\x02 \x01(\tB\x9c\x01\xbaH\x98\x01\xba\x01\x94\x01\n" +
-	"\ttag.glyph\x12Ha tag must be a short glyph carrying no whitespace or control characters\x1a=this.size() <= 16 && !this.matches('[[:space:]]|[[:cntrl:]]')H\x00R\x03tag\x88\x01\x01B\x06\n" +
-	"\x04_tag\"C\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"\xe3\x01\n" +
+	"\x0eSetMarkRequest\x12$\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x12*\n" +
+	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\n" +
+	"workflowId\x12e\n" +
+	"\x04mark\x18\x03 \x01(\tBL\xbaHI\xba\x01F\n" +
+	"\vmark.letter\x12\x1ea mark is one lowercase letter\x1a\x17this.matches('^[a-z]$')H\x01R\x04mark\x88\x01\x01B\x0f\n" +
+	"\x06target\x12\x05\xbaH\x02\b\x01B\a\n" +
+	"\x05_mark\"C\n" +
 	"\x10SetHiddenRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x16\n" +
 	"\x06hidden\x18\x02 \x01(\bR\x06hidden\"\xc1\x01\n" +
@@ -1683,7 +1727,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x9a\x8a\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xfa\x84\x01\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1693,9 +1737,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\vCreateAgent\x12\x1c.agent.v1.CreateAgentRequest\x1a\x1d.agent.v1.CreateAgentResponse\"\xc9\f\x9a\xb5\x18\xc4\f\n" +
 	"\fcreate_agent\x12\xb1\fLaunch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, passing your own id from WEAVE_AGENT_ID, which is the default shape for an agent another agent spawns: reach for a child whenever the new agent reads the tree you are in, and leave it off when the new agent writes work of its own and so needs a checkout of its own, or when the person asking said they wanted an agent standing on its own. Set provisionEnabled to false to keep the directory you named rather than be given one: that is how an agent reads a checkout somebody else already has open, and it is what the reviewer case wants. Leave it unset to do whatever the workflow does. A child runs in its parent's directory and provisions nothing of its own, so dir and provisionEnabled are both refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own. \x00\x12\xc6\x06\n" +
 	"\x05Adopt\x12\x16.agent.v1.AdoptRequest\x1a\x17.agent.v1.AdoptResponse\"\x8b\x06\x9a\xb5\x18\x86\x06\n" +
-	"\x05adopt\x12\xfa\x05Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded. \x00\x12\xdf\x05\n" +
-	"\aSetTags\x12\x18.agent.v1.SetTagsRequest\x1a\x16.google.protobuf.Empty\"\xa1\x05\x9a\xb5\x18\x99\x05\n" +
-	"\x0eset_agent_tags\x12\x84\x05Put one tag on a list of agents, keyed by their ids, or clear the ones they carry by omitting the tag. Every id given takes the same glyph, so tagging agents differently is a call each. A tag is a glyph the user reads off the row, meaning whatever they decided it means, such as needs review or dealt with. Use only the glyphs get_config returns under tags, since the panel's tag key cycles through those and can only clear anything else. Archived agents have no row to draw a tag on and are skipped, and returns not_found only when no id given reached a live agent. What an agent is currently doing is already in its state, so do not tag that. \x00\x90\x02\x02\x12\xd3\x03\n" +
+	"\x05adopt\x12\xfa\x05Put an agent on work that already exists, naming a pull request by URL or number or naming a branch. The workflow decides the repository, so the pull request has to belong to the repository its cwd points at, and the workflow has to be one whose agents get a worktree of their own. Weave works out where the agent runs: a worktree on that branch when nothing holds it, or the checkout already holding it when a human made one by hand. The branch is the human's, so nothing here creates it, resets it, or deletes it afterwards. The pull request is recorded on the agent as it starts, and adopting the same one twice returns the agent already on it rather than a second one. Each call otherwise spawns another agent, so do not retry a call that may have succeeded. \x00\x12@\n" +
+	"\aSetMark\x12\x18.agent.v1.SetMarkRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12\xd3\x03\n" +
 	"\tSetHidden\x12\x1a.agent.v1.SetHiddenRequest\x1a\x16.google.protobuf.Empty\"\x91\x03\x9a\xb5\x18\x89\x03\n" +
 	"\x10set_agent_hidden\x12\xf2\x02Hide an agent from the panel's sidebar, keyed by its id, or unhide it by passing hidden false. This changes nothing about the agent: it keeps running, the reconciler keeps moving its state, and every tool still returns it. It only decides whether the person watching the panel sees a row for it, which is theirs to decide, so do not hide work you were not asked to hide. \x00\x90\x02\x02\x12\xd2\x06\n" +
 	"\vSetMetadata\x12\x1c.agent.v1.SetMetadataRequest\x1a\x16.google.protobuf.Empty\"\x8c\x06\x9a\xb5\x18\x84\x06\n" +
@@ -1768,7 +1811,7 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*AdoptResponse)(nil),                   // 7: agent.v1.AdoptResponse
 	(*GetAgentRequest)(nil),                 // 8: agent.v1.GetAgentRequest
 	(*GetAgentResponse)(nil),                // 9: agent.v1.GetAgentResponse
-	(*SetTagsRequest)(nil),                  // 10: agent.v1.SetTagsRequest
+	(*SetMarkRequest)(nil),                  // 10: agent.v1.SetMarkRequest
 	(*SetHiddenRequest)(nil),                // 11: agent.v1.SetHiddenRequest
 	(*RecordReportRequest)(nil),             // 12: agent.v1.RecordReportRequest
 	(*SetAgentViewedRequest)(nil),           // 13: agent.v1.SetAgentViewedRequest
@@ -1831,7 +1874,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	8,  // 9: agent.v1.AgentService.GetAgent:input_type -> agent.v1.GetAgentRequest
 	4,  // 10: agent.v1.AgentService.CreateAgent:input_type -> agent.v1.CreateAgentRequest
 	6,  // 11: agent.v1.AgentService.Adopt:input_type -> agent.v1.AdoptRequest
-	10, // 12: agent.v1.AgentService.SetTags:input_type -> agent.v1.SetTagsRequest
+	10, // 12: agent.v1.AgentService.SetMark:input_type -> agent.v1.SetMarkRequest
 	11, // 13: agent.v1.AgentService.SetHidden:input_type -> agent.v1.SetHiddenRequest
 	15, // 14: agent.v1.AgentService.SetMetadata:input_type -> agent.v1.SetMetadataRequest
 	16, // 15: agent.v1.AgentService.Log:input_type -> agent.v1.LogRequest
@@ -1866,7 +1909,7 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	9,  // 44: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
 	5,  // 45: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
 	7,  // 46: agent.v1.AgentService.Adopt:output_type -> agent.v1.AdoptResponse
-	31, // 47: agent.v1.AgentService.SetTags:output_type -> google.protobuf.Empty
+	31, // 47: agent.v1.AgentService.SetMark:output_type -> google.protobuf.Empty
 	31, // 48: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
 	31, // 49: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty
 	31, // 50: agent.v1.AgentService.Log:output_type -> google.protobuf.Empty
@@ -1917,7 +1960,10 @@ func file_agent_v1_agent_proto_init() {
 	file_agent_v1_agent_proto_msgTypes[3].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[4].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[6].OneofWrappers = []any{}
-	file_agent_v1_agent_proto_msgTypes[10].OneofWrappers = []any{}
+	file_agent_v1_agent_proto_msgTypes[10].OneofWrappers = []any{
+		(*SetMarkRequest_AgentId)(nil),
+		(*SetMarkRequest_WorkflowId)(nil),
+	}
 	file_agent_v1_agent_proto_msgTypes[15].OneofWrappers = []any{}
 	file_agent_v1_agent_proto_msgTypes[16].OneofWrappers = []any{}
 	type x struct{}

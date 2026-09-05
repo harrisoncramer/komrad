@@ -24,6 +24,7 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
 	"RecordReport":            true,
 	"SetAgentViewed":          true,
+	"SetMark":                 true,
 	"MarkRunsRead":            true,
 	"CreateReviewThread":      true,
 	"EditReviewMessage":       true,
@@ -104,12 +105,6 @@ func TestToolHints(t *testing.T) {
 			method:          "CreateAgent",
 			readOnly:        false,
 			idempotent:      false,
-			wantDestructive: xptr.Ptr(false),
-		},
-		{
-			method:          "SetTags",
-			readOnly:        false,
-			idempotent:      true,
 			wantDestructive: xptr.Ptr(false),
 		},
 		{

@@ -39,11 +39,6 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 			want: []string{"harness.gemini is not a setting; [harness] takes claude, codex"},
 		},
 		{
-			name: "a misspelled key inside one of the tags",
-			file: "tags = [{ glyph = \"x\", colour = \"red\" }]\n",
-			want: []string{"tags[0].colour is not a setting; an entry in tags takes glyph, color"},
-		},
-		{
 			name: "several keys at once",
 			file: "default_harnes = \"codex\"\n[layout]\nsplitt = 0.3\n",
 			want: []string{
@@ -128,11 +123,6 @@ func TestListKnownKeys(t *testing.T) {
 			name:  "a table two levels down",
 			table: "keybindings.nav",
 			want:  []string{"bottom", "down", "top", "up"},
-		},
-		{
-			name:  "an entry in a list",
-			table: "tags[0]",
-			want:  []string{"glyph", "color"},
 		},
 	}
 

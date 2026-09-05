@@ -1,134 +1,13 @@
 package agent
 
 import (
-	"fmt"
 	"testing"
-
-	"weave/lib/xptr"
 
 	"github.com/google/uuid"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
-
-// TestSetTags pins that a tag write reports what it landed on, so a caller is never left
-// believing they tagged agents that show no tag.
-func TestSetTags(t *testing.T) {
-	tests := []struct {
-		name       string
-		create     int
-		archive    bool
-		ids        func(created []Agent) []string
-		before     *string
-		tag        *string
-		wantTagged int
-	}{
-		{
-			name: "an id no agent holds",
-			ids:  func([]Agent) []string { return []string{uuid.NewString()} },
-			tag:  xptr.Ptr("●"),
-		},
-		{
-			name: "a value that is not an id at all",
-			ids:  func([]Agent) []string { return []string{"not-an-id"} },
-			tag:  xptr.Ptr("●"),
-		},
-		{
-			name:    "an archived agent, which has no listing to be tagged in",
-			create:  1,
-			archive: true,
-			ids:     func(created []Agent) []string { return []string{created[0].ID} },
-			tag:     xptr.Ptr("●"),
-		},
-		{
-			name:       "a value that is not an id, which must not take the agent beside it down",
-			create:     1,
-			ids:        func(created []Agent) []string { return []string{"not-an-id", created[0].ID} },
-			tag:        xptr.Ptr("●"),
-			wantTagged: 1,
-		},
-		{
-			name:       "an id nobody holds beside one somebody does",
-			create:     1,
-			ids:        func(created []Agent) []string { return []string{created[0].ID, uuid.NewString()} },
-			tag:        xptr.Ptr("●"),
-			wantTagged: 1,
-		},
-		{
-			name:       "tagging a live agent",
-			create:     1,
-			ids:        agentIDs,
-			tag:        xptr.Ptr("●"),
-			wantTagged: 1,
-		},
-		{
-			name:       "tagging several at once",
-			create:     3,
-			ids:        agentIDs,
-			tag:        xptr.Ptr("●"),
-			wantTagged: 3,
-		},
-		{
-			name:       "moving several agents from one tag to another",
-			create:     2,
-			ids:        agentIDs,
-			before:     xptr.Ptr("●"),
-			tag:        xptr.Ptr("✓"),
-			wantTagged: 2,
-		},
-		{
-			name:       "clearing the tags several agents carry",
-			create:     2,
-			ids:        agentIDs,
-			before:     xptr.Ptr("●"),
-			wantTagged: 2,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			st := open(t)
-			ctx := t.Context()
-
-			created := make([]Agent, 0, tt.create)
-			for i := range tt.create {
-				name := fmt.Sprintf("agent-%d", i)
-				require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
-
-				got, err := st.Get(ctx, name)
-				require.NoError(t, err)
-				require.NotNil(t, got)
-				created = append(created, *got)
-			}
-			if tt.before != nil {
-				tagged, err := st.SetTags(ctx, agentIDs(created), tt.before)
-				require.NoError(t, err)
-				require.Equal(t, len(created), tagged)
-			}
-			if tt.archive {
-				require.NoError(t, st.archiveByName(ctx, created[0].Name))
-			}
-
-			tagged, err := st.SetTags(ctx, tt.ids(created), tt.tag)
-			require.NoError(t, err)
-			assert.Equal(t, tt.wantTagged, tagged)
-
-			carrying := 0
-			for _, agent := range created {
-				after, err := st.GetByID(ctx, agent.ID)
-				require.NoError(t, err)
-				require.NotNil(t, after)
-
-				if assert.ObjectsAreEqual(tt.tag, after.Tag) {
-					carrying++
-				}
-			}
-
-			assert.Equal(t, tt.wantTagged, carrying)
-		})
-	}
-}
 
 // TestSetHidden pins that a hide write reports what it landed on, so the panel never draws
 // a row the caller believes it took away.

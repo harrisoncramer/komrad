@@ -13,6 +13,9 @@ type filterState struct {
 	query   string
 	pattern *regexp.Regexp
 	broken  bool
+	// origin is the row the cursor sat on when the search opened, which abandoning it returns
+	// to, since a search you gave up on should leave you where you were looking.
+	origin string
 }
 
 func (f filterState) isStanding() bool {
@@ -50,37 +53,6 @@ func (f filterState) doesMatch(name string) bool {
 	return f.pattern.MatchString(name)
 }
 
-func (f filterState) filterAgentRows(rows []agentRow) []agentRow {
-	if f.pattern == nil {
-		return rows
-	}
-
-	named := make(map[string]bool, len(rows))
-	holding := make(map[string]bool, len(rows))
-	for _, r := range rows {
-		switch {
-		case r.header && f.doesMatch(r.workflow.Name):
-			named[r.workflow.ID] = true
-		case !r.header && f.doesMatch(r.item.agent.Name):
-			holding[r.workflow.ID] = true
-		}
-	}
-
-	kept := make([]agentRow, 0, len(rows))
-	for _, r := range rows {
-		switch {
-		case r.header:
-			if named[r.workflow.ID] || holding[r.workflow.ID] {
-				kept = append(kept, r)
-			}
-		case named[r.workflow.ID] || f.doesMatch(r.item.agent.Name):
-			kept = append(kept, r)
-		}
-	}
-
-	return kept
-}
-
 func (f filterState) highlight(name string, base lipgloss.Style) string {
 	if f.pattern == nil {
 		return base.Render(name)
@@ -113,6 +85,7 @@ func writeStyled(b *strings.Builder, style lipgloss.Style, segment string) {
 
 func (m model) openFilter() (tea.Model, tea.Cmd) {
 	m.filter.typing = true
+	m.filter.origin = m.hoveredFilterKey()
 
 	return m, nil
 }
@@ -125,13 +98,12 @@ func (m *model) enterScreen(next screen) {
 	m.screen = next
 }
 
-// takeKey applies one keypress to a filter being typed at, and reports whether the keypress was
-// one of the filter's.
+// takeKey applies one keypress to a search being typed at, and reports whether the keypress was
+// one of the search's.
 func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	switch k := key.String(); {
 	case k == "esc":
-		f.typing = false
-		f.setQuery("")
+		f.abandon()
 	case k == "enter":
 		f.typing = false
 	case k == "backspace":
@@ -147,13 +119,48 @@ func (f *filterState) takeKey(key tea.KeyMsg) bool {
 	return true
 }
 
+// abandon drops the search and the row it was going to leave you on, which is what makes escape
+// the way back out rather than a way of keeping what you typed.
+func (f *filterState) abandon() {
+	f.typing = false
+	f.setQuery("")
+}
+
+// clearSearch drops a search that is standing and puts the cursor back where it opened, which is
+// the way out of one you are done with.
+func (m model) clearSearch() (tea.Model, tea.Cmd) {
+	origin := m.filter.origin
+	m.filter.abandon()
+	m.placeFilteredCursor(origin)
+	m.filter.origin = ""
+
+	return m, nil
+}
+
 func (m model) updateFilterInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.String() == "ctrl+c" {
 		return m, m.hide()
 	}
 
+	abandoning := key.String() == "esc"
+
 	hovered := m.hoveredFilterKey()
 	if !m.filter.takeKey(key) {
+		return m, nil
+	}
+
+	if abandoning {
+		m.placeFilteredCursor(m.filter.origin)
+		m.filter.origin = ""
+
+		return m, nil
+	}
+
+	// Typing walks the cursor onto what it has found so far, so the search says where it is
+	// rather than only which rows it likes.
+	if next, ok := m.matchAt(m.filter.origin, 0); ok {
+		m.placeFilteredCursor(next)
+
 		return m, nil
 	}
 
@@ -205,4 +212,58 @@ func (f filterState) view() string {
 	}
 
 	return line + "\n\n"
+}
+
+// matchAt is the row a search lands on, counted from the row given: zero is the first match at
+// or after it, and a step walks the matches from there, wrapping at either end.
+func (m model) matchAt(from string, delta int) (string, bool) {
+	spec := m.screen.spec().filter
+	if spec == nil || spec.rows == nil || m.filter.pattern == nil {
+		return "", false
+	}
+
+	rows := spec.rows(m)
+	if len(rows) == 0 {
+		return "", false
+	}
+
+	start := 0
+	for i, row := range rows {
+		if row.key == from {
+			start = i
+
+			break
+		}
+	}
+
+	// A step of nothing means the row the cursor is already on counts, which is what makes
+	// typing land on the nearest match rather than skipping past it.
+	step, walk := 0, delta
+	if delta == 0 {
+		walk = 1
+	} else {
+		step = 1
+	}
+
+	for ; step <= len(rows); step++ {
+		at := ((start+walk*step)%len(rows) + len(rows)) % len(rows)
+		if m.filter.doesMatch(rows[at].name) {
+			return rows[at].key, true
+		}
+	}
+
+	return "", false
+}
+
+// jumpMatch walks the cursor to the next row the search matches, which answers only while a
+// search stands, since the keys it is on are letters at every other time.
+func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
+	next, ok := m.matchAt(m.hoveredFilterKey(), delta)
+	if !ok {
+		return m, nil
+	}
+
+	m.placeFilteredCursor(next)
+
+	return m, nil
 }

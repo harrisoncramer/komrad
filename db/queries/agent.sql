@@ -216,7 +216,15 @@ WITH prior AS (
     WHERE
         agents.workflow_id = @workflow_id
         AND agents.archived_at IS NULL
-    FOR UPDATE)
+    FOR UPDATE
+),
+freed AS (
+    DELETE FROM marks
+    WHERE marks.agent_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
     agents a
 SET
@@ -419,17 +427,6 @@ WHERE
 RETURNING
     id;
 
--- name: SetAgentTags :many
-UPDATE
-    agents
-SET
-    tag = sqlc.narg(tag)
-WHERE
-    id = ANY (@ids::uuid[])
-    AND archived_at IS NULL
-RETURNING
-    id;
-
 -- name: SetAgentHidden :many
 UPDATE
     agents
@@ -516,7 +513,15 @@ WITH prior AS (
     WHERE
         id = ANY (@ids::uuid[])
         AND archived_at IS NULL
-    FOR UPDATE)
+    FOR UPDATE
+),
+freed AS (
+    DELETE FROM marks
+    WHERE marks.agent_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
     agents a
 SET
@@ -531,17 +536,35 @@ RETURNING
     prior.pane_id;
 
 -- name: MarkAgentArchivedIfUnchanged :many
+WITH prior AS (
+    SELECT
+        agents.id
+    FROM
+        agents
+    WHERE
+        agents.id = @id
+        AND agents.archived_at IS NULL
+        AND agents.updated_at = @updated_at
+    FOR UPDATE
+),
+freed AS (
+    DELETE FROM marks
+    WHERE marks.agent_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
-    agents
+    agents a
 SET
     archived_at = NOW(),
     pane_id = ''
+FROM
+    prior
 WHERE
-    id = @id
-    AND archived_at IS NULL
-    AND updated_at = @updated_at
+    a.id = prior.id
 RETURNING
-    id;
+    a.id;
 
 -- name: RestoreAgents :exec
 UPDATE

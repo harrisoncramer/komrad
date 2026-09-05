@@ -22,15 +22,6 @@ type fixture struct {
 	defaultWorkflow string
 }
 
-func agentIDs(agents []Agent) []string {
-	ids := make([]string, 0, len(agents))
-	for _, agent := range agents {
-		ids = append(ids, agent.ID)
-	}
-
-	return ids
-}
-
 // Get reads an agent back by name out of the default workflow, which is the scope a
 // name is unique in.
 func (f *fixture) Get(ctx context.Context, name string) (*Agent, error) {

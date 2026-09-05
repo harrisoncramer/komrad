@@ -111,6 +111,8 @@ type refreshResult struct {
 	archivedWorkflows    []workflowstore.Workflow
 	archivedWorkflowsErr error
 	archivedListed       bool
+	agentMarks           map[string]string
+	workflowMarks        map[string]string
 }
 
 func (m model) refreshCmd() tea.Cmd {
@@ -130,10 +132,12 @@ func (m model) refreshCmd() tea.Cmd {
 		wg.Go(func() {
 			listed, err := client.ListAllAgents(ctx, clients.agents)
 			result.agents, result.agentsErr = agentItemsFrom(listed), err
+			result.agentMarks = marksFromAgents(listed)
 		})
 		wg.Go(func() {
 			listed, err := client.ListAllWorkflows(ctx, clients.workflows)
 			result.workflows, result.workflowsErr = workflowsFrom(listed), err
+			result.workflowMarks = marksFromWorkflows(listed)
 		})
 		wg.Go(func() {
 			listed, err := client.ListAllSchedules(ctx, clients.schedules)
@@ -172,6 +176,9 @@ func (m *model) applyRefresh(result refreshResult) bool {
 	}
 	if result.agentsErr == nil {
 		m.applyAgents(result.agents)
+	}
+	if result.workflowsErr == nil && result.agentsErr == nil {
+		m.applyMarks(result.agentMarks, result.workflowMarks)
 	}
 	if result.workflowsErr == nil || result.agentsErr == nil {
 		m.placeTreeCursor(treeRow)

@@ -173,13 +173,31 @@ WHERE
             workflows.id = @workflow_id);
 
 -- name: MarkWorkflowArchived :exec
+WITH prior AS (
+    SELECT
+        workflows.id
+    FROM
+        workflows
+    WHERE
+        workflows.id = @id
+        AND workflows.archived_at IS NULL
+    FOR UPDATE
+),
+freed AS (
+    DELETE FROM marks
+    WHERE marks.workflow_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
-    workflows
+    workflows w
 SET
     archived_at = NOW()
+FROM
+    prior
 WHERE
-    id = @id
-    AND archived_at IS NULL;
+    w.id = prior.id;
 
 -- name: MarkWorkflowRestored :exec
 UPDATE

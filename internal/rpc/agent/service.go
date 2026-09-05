@@ -19,6 +19,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	markstore "weave/internal/store/mark"
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
@@ -61,7 +62,6 @@ type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetTags(ctx context.Context, ids []string, tag *string) (int, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetViewed(ctx context.Context, id string, viewed bool) error
 	SetTurnEnded(ctx context.Context, id string) error
@@ -69,6 +69,14 @@ type agentReadWriter interface {
 	ListUnseenTurns(ctx context.Context) ([]string, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
+}
+
+// markWriter owns the letters a person addresses rows by, which span agents and workflows and
+// so are written through a transaction rather than through one store.
+type markWriter interface {
+	ListMarks(ctx context.Context) ([]markstore.Mark, error)
+	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
+	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
 
 // runReader is the record of the scripts weave fired, which the listing reads to say whether
@@ -108,6 +116,7 @@ type Service struct {
 	archive     archiveEmptier
 	review      reviewConversation
 	runs        runReader
+	marks       markWriter
 }
 
 type reviewConversation interface {
@@ -141,6 +150,7 @@ type NewServiceParams struct {
 	Archive     archiveEmptier
 	Review      reviewConversation
 	Runs        runReader
+	Marks       markWriter
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
@@ -159,6 +169,7 @@ func NewService(p NewServiceParams) *Service {
 		archive:     p.Archive,
 		review:      p.Review,
 		runs:        p.Runs,
+		marks:       p.Marks,
 	}
 }
 
@@ -182,7 +193,7 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 		return nil, rpcerr.Wrap(err, "failed to create agent")
 	}
 
-	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, agentMarks{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
+	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
 }
 
 // Adopt puts an agent on a branch or pull request that already exists.
@@ -206,12 +217,12 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 		return nil, rpcerr.Wrap(err, "failed to adopt agent")
 	}
 
-	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, agentMarks{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
 }
 
-// markAgents gathers the facts about a set of agents that are not on their own rows, so a
+// agentFlagsFor gathers the facts about a set of agents that are not on their own rows, so a
 // listing asks for each of them once rather than once per agent.
-func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentMarks, error) {
+func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) (func(agentstore.Agent) agentFlags, error) {
 	running := s.liveness.GetRunningAgents(ctx, listed)
 
 	mailboxes, err := s.mail.ListUnreadMailboxes(ctx)
@@ -232,12 +243,24 @@ func (s *Service) markAgents(ctx context.Context, listed []agentstore.Agent) (fu
 	}
 	failed := xslice.KeyBy(failures, func(failure runstore.Failure) string { return failure.AgentID })
 
-	return func(a agentstore.Agent) agentMarks {
+	listedMarks, err := s.marks.ListMarks(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the marks")
+	}
+	marks := make(map[string]*string, len(listedMarks))
+	for _, mark := range listedMarks {
+		if mark.AgentID != nil {
+			marks[*mark.AgentID] = &mark.Mark
+		}
+	}
+
+	return func(a agentstore.Agent) agentFlags {
 		_, hasMail := waiting[a.ID]
 		_, hasOutput := unviewed[a.ID]
 		failure, hasFailure := failed[a.ID]
 
-		return agentMarks{
+		return agentFlags{
+			mark:         marks[a.ID],
 			alive:        running[a.ID],
 			unreadMail:   hasMail,
 			unviewed:     hasOutput,
@@ -259,12 +282,12 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, rpcerr.Wrap(err, "failed to list agents")
 	}
 
-	marks, err := s.markAgents(ctx, agents)
+	flags, err := s.agentFlagsFor(ctx, agents)
 	if err != nil {
 		return nil, err
 	}
 
-	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, marks(a)) })
+	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, flags(a)) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -285,24 +308,40 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
-	marks, err := s.markAgents(ctx, []agentstore.Agent{*agent})
+	flags, err := s.agentFlagsFor(ctx, []agentstore.Agent{*agent})
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, marks(*agent)).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, flags(*agent)).Agent}), nil
 }
 
-// SetTags tags every agent named, and an unset tag clears the ones they carry.
-func (s *Service) SetTags(ctx context.Context, req *connect.Request[agentv1.SetTagsRequest]) (*connect.Response[emptypb.Empty], error) {
-	tagged, err := s.agents.SetTags(ctx, req.Msg.GetIds(), req.Msg.Tag)
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to set the tag")
+// SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
+// carries no tool annotation because a mark is the person's own address for a row rather than
+// anything an agent should move.
+func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
+	target := markstore.Target{}
+	switch {
+	case req.Msg.GetAgentId() != "":
+		target = markstore.OnAgent(req.Msg.GetAgentId())
+	case req.Msg.GetWorkflowId() != "":
+		target = markstore.OnWorkflow(req.Msg.GetWorkflowId())
 	}
-	// Reaching only some of the ids is fine, since an agent archived in the meantime has no
-	// row left to draw a tag on.
-	if tagged == 0 {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("none of the %d ids given is a live agent", len(req.Msg.GetIds())))
+
+	if req.Msg.Mark == nil {
+		if _, err := s.marks.ClearMark(ctx, target); err != nil {
+			return nil, rpcerr.Wrap(err, "failed to clear the mark")
+		}
+
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	marked, err := s.marks.SetMark(ctx, req.Msg.GetMark(), target)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to set the mark")
+	}
+	if !marked {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s is not a live row to mark", target))
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -399,7 +438,7 @@ func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("the caller has no agent id of its own"))
 	}
 
-	// Both stamps are taken before either write, so a store that is down costs the marks it
+	// Both stamps are taken before either write, so a store that is down costs the flags it
 	// would have raised rather than also costing the reconciler its shortcut to idle.
 	reason := req.Msg.GetReason()
 	s.reconciler.RecordReportedReason(id, reason)
@@ -547,14 +586,14 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 		return nil, rpcerr.Wrap(err, "failed to restore agents")
 	}
 
-	marks, err := s.markAgents(ctx, restored)
+	flags, err := s.agentFlagsFor(ctx, restored)
 	if err != nil {
 		return nil, err
 	}
 
 	response := &agentv1.RestoreAgentsResponse{
 		Agents: xslice.Map(restored, func(a agentstore.Agent) *agentv1.Agent {
-			return renderAgent(a, marks(a)).Agent
+			return renderAgent(a, flags(a)).Agent
 		}),
 	}
 
@@ -569,12 +608,12 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
-	marks, err := s.markAgents(ctx, []agentstore.Agent{*resumed})
+	flags, err := s.agentFlagsFor(ctx, []agentstore.Agent{*resumed})
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, marks(*resumed)).Agent}), nil
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, flags(*resumed)).Agent}), nil
 }
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as

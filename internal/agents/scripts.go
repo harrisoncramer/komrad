@@ -965,7 +965,6 @@ type scriptPayload struct {
 	PromptTruncated bool              `json:"prompt_truncated"`
 	Pane            string            `json:"pane"`
 	Workflow        string            `json:"workflow"`
-	Tag             string            `json:"tag"`
 	Hidden          bool              `json:"hidden"`
 	CreatedAt       string            `json:"created_at"`
 	Metadata        map[string]string `json:"metadata"`
@@ -1001,9 +1000,6 @@ func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, e
 		Metadata:  make(map[string]string, len(agent.Metadata)),
 	}
 	payload.Prompt, payload.PromptTruncated = head(agent.Prompt, maxScriptPrompt)
-	if agent.Tag != nil {
-		payload.Tag = *agent.Tag
-	}
 	if !agent.CreatedAt.IsZero() {
 		payload.CreatedAt = agent.CreatedAt.Format(time.RFC3339)
 	}

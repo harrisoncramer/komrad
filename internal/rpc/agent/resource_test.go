@@ -18,7 +18,7 @@ func TestRenderAgentCarriesWhatTheSyncersWrite(t *testing.T) {
 		Name:            "worker",
 		Branch:          xptr.Ptr("fix/thing"),
 		WorktreeRemoved: true,
-	}, agentMarks{})
+	}, agentFlags{})
 
 	assert.Equal(t, "fix/thing", rendered.GetBranch())
 	assert.True(t, rendered.GetWorktreeRemoved())
@@ -27,7 +27,7 @@ func TestRenderAgentCarriesWhatTheSyncersWrite(t *testing.T) {
 // TestRenderAgentLeavesAPresentWorktreeAlone covers the other side of the flag: an agent
 // whose cwd the syncer still finds is rendered without it.
 func TestRenderAgentLeavesAPresentWorktreeAlone(t *testing.T) {
-	rendered := renderAgent(agentstore.Agent{ID: "a2", Name: "reviewer"}, agentMarks{})
+	rendered := renderAgent(agentstore.Agent{ID: "a2", Name: "reviewer"}, agentFlags{})
 
 	assert.False(t, rendered.GetWorktreeRemoved())
 }
@@ -36,7 +36,7 @@ func TestRenderAgentLeavesAPresentWorktreeAlone(t *testing.T) {
 // is written nowhere but this response.
 func TestRenderAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
-	rendered := renderAgent(agentstore.Agent{ID: "a1", StateChangedAt: changed}, agentMarks{})
+	rendered := renderAgent(agentstore.Agent{ID: "a1", StateChangedAt: changed}, agentFlags{})
 
 	assert.Equal(t, changed.Format(time.RFC3339), rendered.GetStateChangedAt())
 }
@@ -44,5 +44,5 @@ func TestRenderAgentCarriesTheStateChange(t *testing.T) {
 // TestRenderAgentWithoutAStateChange covers an agent that has never been given one, which
 // sends nothing rather than a formatted zero time.
 func TestRenderAgentWithoutAStateChange(t *testing.T) {
-	assert.Empty(t, renderAgent(agentstore.Agent{ID: "a2"}, agentMarks{}).GetStateChangedAt())
+	assert.Empty(t, renderAgent(agentstore.Agent{ID: "a2"}, agentFlags{}).GetStateChangedAt())
 }

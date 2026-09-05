@@ -589,7 +589,9 @@ func service(t *testing.T) (*Service, *storetest.Stores) {
 		Tx:           st.Pool,
 	})
 
-	return NewService(st.Workflows, manager), st
+	marks := agents.NewMarkService(agents.MarkServiceParams{Marks: st.Marks, Tx: st.Pool})
+
+	return NewService(st.Workflows, manager, marks), st
 }
 
 func createWorkflow(t *testing.T, svc *Service, name string) string {

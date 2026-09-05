@@ -12,7 +12,6 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xptr"
-	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
@@ -54,8 +53,14 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
 	}
+	if m.filter.isStanding() && isBound(k, m.keys.Filter.NextMatch) {
+		return m.jumpMatch(1)
+	}
+	if m.filter.isStanding() && isBound(k, m.keys.Filter.PrevMatch) {
+		return m.jumpMatch(-1)
+	}
 	if m.filter.isStanding() && isBound(k, m.keys.Agents.Back) {
-		return m.openFilter()
+		return m.clearSearch()
 	}
 	if isBound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
@@ -72,11 +77,11 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Agents.ShowHidden) {
 		return m.toggleHiddenAgents()
 	}
-	if isBound(k, m.keys.Agents.NextUnviewed) {
-		return m.jumpUnviewed(1)
+	if isBound(k, m.keys.Marks.Jump) {
+		return m.beginMark(markPendingJump)
 	}
-	if isBound(k, m.keys.Agents.PrevUnviewed) {
-		return m.jumpUnviewed(-1)
+	if isBound(k, m.keys.Marks.Set) {
+		return m.beginMark(markPendingSet)
 	}
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)
@@ -103,8 +108,6 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
 		switch {
-		case isBound(k, m.keys.Agents.Tag):
-			return m.tagAgent(item.agent)
 		case isBound(k, m.keys.Agents.ToggleViewed):
 			return m.toggleAgentViewed(item)
 		case isBound(k, m.keys.Agents.Hide):
@@ -142,8 +145,6 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch {
 	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
-	case isBound(k, m.keys.Agents.Tag):
-		return m.tagSelection()
 	case isBound(k, m.keys.Agents.Archive):
 		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.allAgentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
@@ -278,26 +279,6 @@ func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
 	return m, m.writeCmd(summary, func(a api) error { return a.setViewed(item.agent.ID, viewed) })
 }
 
-// jumpUnviewed travels to the next agent carrying something nobody has read, wrapping past the
-// end of the list, so the rows in between are never counted as read on the way.
-func (m model) jumpUnviewed(delta int) (tea.Model, tea.Cmd) {
-	rows := m.agentRows()
-	if len(rows) == 0 {
-		return m, nil
-	}
-
-	for step := 1; step <= len(rows); step++ {
-		at := ((m.tree.cursor+delta*step)%len(rows) + len(rows)) % len(rows)
-		if rows[at].header || !rows[at].item.unviewed {
-			continue
-		}
-
-		return m.jumpCursor(at), nil
-	}
-
-	return m, nil
-}
-
 func (m model) openAgent() (tea.Model, tea.Cmd) {
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
 		if item.alive || !item.agent.State.DoesPaneDecide() {
@@ -326,25 +307,6 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	m.stageSelection()
 
 	return m, nil
-}
-
-func (m model) tagAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
-	next := nextTag(agent.Tag, m.tags)
-
-	return m, m.writeCmd(
-		fmt.Sprintf("Could not tag agent %q", agent.Name),
-		func(a api) error { return a.setTags([]string{agent.ID}, next) },
-	)
-}
-
-func (m model) tagSelection() (tea.Model, tea.Cmd) {
-	ids := m.tree.selected.ids
-	next := nextSelectionTag(selectionTags(m.tree.selected, m.allAgentRows()), m.tags)
-
-	return m, m.writeCmd(
-		fmt.Sprintf("Could not tag %d agents", len(ids)),
-		func(a api) error { return a.setTags(ids, next) },
-	)
 }
 
 func (m model) hideAgent(agent agentstore.Agent) (tea.Model, tea.Cmd) {
@@ -402,52 +364,6 @@ func (m *model) stageSelection() {
 	}
 
 	m.stageInfo()
-}
-
-func nextTag(current *string, tags []config.Tag) *string {
-	if len(tags) == 0 {
-		return nil
-	}
-
-	if current == nil {
-		return &tags[0].Glyph
-	}
-
-	for i, tag := range tags {
-		if tag.Glyph == *current && i+1 < len(tags) {
-			return &tags[i+1].Glyph
-		}
-	}
-
-	return nil
-}
-
-func nextSelectionTag(current []*string, tags []config.Tag) *string {
-	if len(tags) == 0 || len(current) == 0 {
-		return nil
-	}
-
-	for _, tag := range current[1:] {
-		if !isSameTag(current[0], tag) {
-			return &tags[0].Glyph
-		}
-	}
-
-	return nextTag(current[0], tags)
-}
-
-func selectionTags(sel selection, rows []agentRow) []*string {
-	agents := chosenAgents(sel, rows)
-
-	return xslice.Map(agents, func(agent agentstore.Agent) *string { return agent.Tag })
-}
-
-func isSameTag(a, b *string) bool {
-	if a == nil || b == nil {
-		return a == nil && b == nil
-	}
-
-	return *a == *b
 }
 
 // parentName is what the agent a child is attached to is called, which is what the details show
@@ -525,7 +441,7 @@ func (m model) agentsView() string {
 
 		if r.header {
 			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
-			header := prefix + dimStyle.Render(workflowIcon) + " " + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			header := prefix + markGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, ghostSlot(header, "", m.width))
 
 			continue
@@ -534,7 +450,7 @@ func (m model) agentsView() string {
 		item := r.item
 		selected := m.tree.selected.has(item.agent.ID)
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
-		row := prefix + "  " + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + tagGlyph(item.agent, m.tags) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}
 

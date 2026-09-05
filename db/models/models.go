@@ -164,7 +164,6 @@ type Agent struct {
 	NudgedAt         *time.Time
 	Branch           *string
 	WorktreeRemoved  bool
-	Tag              *string
 	CreatedAt        time.Time
 	UpdatedAt        time.Time
 	StateSeenAt      time.Time
@@ -236,6 +235,14 @@ type Mail struct {
 	Kind MailKind
 	// The other agent a notice weave raised is about, null on ordinary mail. It is what holds a recipient to one unread notice per subject rather than one per kind, so an agent capped with a second partner is told about that one too. It carries no foreign key, since the notice has to keep saying which exchange was cut off after the agent it names is gone.
 	AboutAgentID *string
+}
+
+// A letter a person addresses one row by. Held by an agent or a workflow and by nothing else, so a letter names one place.
+type Mark struct {
+	Mark       string
+	AgentID    *string
+	WorkflowID *string
+	CreatedAt  time.Time
 }
 
 // One message in a review thread, written either by the person reviewing or by the agent replying.

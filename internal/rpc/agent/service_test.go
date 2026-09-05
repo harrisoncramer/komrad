@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -319,7 +318,7 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, st.Runs.Finish(t.Context(), runstore.FinishParams{ID: fine, ExitCode: xptr.Ptr(int32(0))}))
 
-	marks := func() map[string]bool {
+	flags := func() map[string]bool {
 		listed, listErr := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
 		require.NoError(t, listErr)
 		require.Len(t, listed.Msg.GetAgents(), 2)
@@ -332,7 +331,7 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 		return held
 	}
 
-	held := marks()
+	held := flags()
 	assert.False(t, held[alpha.ID], "a run that succeeded is nothing to read")
 	assert.True(t, held[beta.ID])
 
@@ -344,7 +343,7 @@ func TestListAgentsReportsAFailedRun(t *testing.T) {
 	_, err = svc.MarkRunsRead(t.Context(), connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: beta.ID}))
 	require.NoError(t, err)
 
-	assert.False(t, marks()[beta.ID], "looking at the run log clears the mark")
+	assert.False(t, flags()[beta.ID], "looking at the run log clears the mark")
 }
 
 // TestGetAgentReportsUnreadMail covers the single-agent lookup reading the mailbox the same
@@ -629,88 +628,77 @@ func TestSetAgentViewed(t *testing.T) {
 	assert.True(t, back.Msg.GetAgent().GetUnviewed(), "and the person can put the mark back")
 }
 
-// TestSetTags covers the tag over the wire, where a call that reached nothing is refused and
-// one that reached only some of its ids is not.
-func TestSetTags(t *testing.T) {
-	tests := []struct {
-		name     string
-		seed     int
-		strays   int
-		tagFirst *string
-		tag      *string
-		wantCode connect.Code
-	}{
-		{
-			name:     "an id nobody holds is not a quiet success",
-			strays:   1,
-			tag:      xptr.Ptr("●"),
-			wantCode: connect.CodeNotFound,
-		},
-		{
-			name: "an agent is tagged",
-			seed: 1,
-			tag:  xptr.Ptr("●"),
-		},
-		{
-			name: "several agents take one tag together",
-			seed: 3,
-			tag:  xptr.Ptr("●"),
-		},
-		{
-			name:   "an id nobody holds does not refuse the agents beside it",
-			seed:   2,
-			strays: 1,
-			tag:    xptr.Ptr("●"),
-		},
-		{
-			name:     "several agents move from one tag to another",
-			seed:     2,
-			tagFirst: xptr.Ptr("●"),
-			tag:      xptr.Ptr("✓"),
-		},
-		{
-			name:     "and the tags are cleared again",
-			seed:     2,
-			tagFirst: xptr.Ptr("●"),
-		},
-	}
+// TestSetMark covers the mark over the wire, across both kinds of row, where a call that
+// reached nothing live is refused and one that took the letter off another row is not.
+func TestSetMark(t *testing.T) {
+	t.Run("an id nobody holds is not a quiet success", func(t *testing.T) {
+		svc, _ := service(t)
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc, st := service(t)
-			ctx := t.Context()
+		_, err := svc.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+			Mark:   xptr.Ptr("a"),
+		}))
+		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
+	})
 
-			seeded := make([]string, 0, tt.seed)
-			for i := range tt.seed {
-				name := fmt.Sprintf("alpha-%d", i)
-				seeded = append(seeded, st.SeedAgent(t, agentstore.Agent{Name: name, State: agentstore.StateThinking}).ID)
-			}
-			if tt.tagFirst != nil {
-				tagged, err := st.Agents.SetTags(ctx, seeded, tt.tagFirst)
-				require.NoError(t, err)
-				require.Equal(t, len(seeded), tagged)
-			}
+	t.Run("an agent takes a letter and reads it back off its row", func(t *testing.T) {
+		svc, st := service(t)
+		ctx := t.Context()
+		id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 
-			ids := slices.Clone(seeded)
-			for range tt.strays {
-				ids = append(ids, uuid.NewString())
-			}
+		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+			Mark:   xptr.Ptr("a"),
+		}))
+		require.NoError(t, err)
 
-			_, err := svc.SetTags(ctx, connect.NewRequest(&agentv1.SetTagsRequest{Ids: ids, Tag: tt.tag}))
-			if tt.wantCode != 0 {
-				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
-				return
-			}
+		got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+		require.NoError(t, err)
+		assert.Equal(t, xptr.Ptr("a"), got.Msg.GetAgent().Mark)
+	})
 
-			require.NoError(t, err)
+	t.Run("a letter an agent holds moves to the workflow named", func(t *testing.T) {
+		svc, st := service(t)
+		ctx := t.Context()
+		held := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
 
-			for _, id := range seeded {
-				got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
-				require.NoError(t, err)
-				assert.Equal(t, tt.tag, got.Msg.GetAgent().Tag)
-			}
-		})
-	}
+		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: held.ID},
+			Mark:   xptr.Ptr("a"),
+		}))
+		require.NoError(t, err)
+
+		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: held.WorkflowID},
+			Mark:   xptr.Ptr("a"),
+		}))
+		require.NoError(t, err)
+
+		gone, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: held.ID}))
+		require.NoError(t, err)
+		assert.Nil(t, gone.Msg.GetAgent().Mark, "the agent that held it is left with nothing")
+	})
+
+	t.Run("an unset mark clears the one the row carries", func(t *testing.T) {
+		svc, st := service(t)
+		ctx := t.Context()
+		id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+
+		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+			Mark:   xptr.Ptr("a"),
+		}))
+		require.NoError(t, err)
+
+		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+		}))
+		require.NoError(t, err)
+
+		got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+		require.NoError(t, err)
+		assert.Nil(t, got.Msg.GetAgent().Mark)
+	})
 }
 
 // TestSetMetadata covers an agent recording facts about its own work and reading
@@ -1080,6 +1068,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
+		Marks:       markService(st),
 	})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2035,6 +2024,12 @@ func (stubMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time
 
 func (s stubMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 
+// markService is the real thing over the test stores, since a mark spans two tables and a fake
+// would be agreeing with itself about the rules that matter.
+func markService(st *storetest.Stores) *agents.MarkService {
+	return agents.NewMarkService(agents.MarkServiceParams{Marks: st.Marks, Tx: st.Pool})
+}
+
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
@@ -2111,6 +2106,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
+		Marks:       markService(st),
 		Creator:     launcher,
 		Adopter:     launcher,
 		Liveness:    launcher,

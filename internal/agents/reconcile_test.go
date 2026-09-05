@@ -298,31 +298,6 @@ func TestReconcileWaitsOutALaunch(t *testing.T) {
 	assert.Equal(t, agent.ID, tmux.owners["%1"], "the stamp is left where the launcher put it")
 }
 
-// TestReconcileLeavesTheTag pins that a pass moving an agent's state leaves its tag standing,
-// since only the user sets or clears one.
-func TestReconcileLeavesTheTag(t *testing.T) {
-	st := newStore(t)
-	ctx := context.Background()
-	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
-
-	tagged, err := st.Agents.SetTags(ctx, []string{agent.ID}, xptr.Ptr("●"))
-	require.NoError(t, err)
-	require.Equal(t, 1, tagged)
-
-	tmux := newFakeTmux()
-	tmux.owners["%1"] = agent.ID
-	tmux.captures["%1"] = busyFrame
-
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-	require.NoError(t, rec.Reconcile(ctx))
-
-	after, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	require.NotNil(t, after)
-	assert.Equal(t, agentstore.StateThinking, after.State, "the pass wrote a state")
-	assert.Equal(t, "●", *after.Tag, "the user's tag survives a state write")
-}
-
 // TestReconcileOverPasses covers what only shows up across several passes, the
 // idle debounce that keeps a lull between tool calls from demoting live work,
 // and the miss count that debounce is built on.

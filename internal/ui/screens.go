@@ -78,6 +78,16 @@ type filterSpec struct {
 	// place puts the cursor back on that row, or as near to where it was as the narrowed list
 	// allows.
 	place func(*model, string)
+
+	// rows is every row on screen with the text a search reads, in the order they are drawn, and
+	// is left unset by a screen whose search narrows instead, where there is nothing to walk.
+	rows func(model) []filterRow
+}
+
+// filterRow is one row a search can land on: the key that names it and the text it matches by.
+type filterRow struct {
+	key  string
+	name string
 }
 
 // spec carries no default arm, so the exhaustive check fails the build on a screen added
@@ -98,6 +108,7 @@ func (s screen) spec() screenSpec {
 			filter: &filterSpec{
 				hovered: model.hoveredAgentKey,
 				place:   (*model).placeAgentCursor,
+				rows:    model.agentFilterRows,
 			},
 		}
 	case screenSchedules:
@@ -131,6 +142,7 @@ func (s screen) spec() screenSpec {
 			filter: &filterSpec{
 				hovered: model.hoveredArchiveKey,
 				place:   (*model).placeArchiveCursor,
+				rows:    model.archiveFilterRows,
 			},
 		}
 	case screenSearch:

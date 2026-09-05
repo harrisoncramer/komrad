@@ -12,7 +12,7 @@ Press `c` in the sidebar. If you don't specify the agent, weave will use the def
 
 Agents can be thinking (generating or running a tool); waiting (blocked on a human confirmation or other interactive prompt); idle (sitting with nothing to do); or uncertain, drawn as a grey `?`, which is a pane weave captured but could not read. An uncertain agent is not a finished one: weave leaves it out of the auto-archive sweep and holds a schedule back for it, because the screen it could not read may be a question waiting on you. Its mail waits as well, since weave only types at a pane it recognises, and goes as soon as the pane reads again.
 
-An agent that finishes a turn while you are looking somewhere else carries a `●` at the end of its row until you have looked at it. The turn end comes from the agent's own CLI saying so, through the hook weave installs, and from weave watching the pane settle, so a CLI that drops its end-of-turn event cannot swallow the mark. An agent that is still working carries nothing either way. An agent that goes again after finishing, because mail woke it or somebody typed at it, drops the mark for as long as it works and takes a new one when that turn ends. Hovering a running agent puts its own pane in the stage, so hovering is how one is read, and the mark clears once the cursor has been sitting on it for a second rather than the moment it arrives. Press `n` to jump to the next agent carrying something unread and `N` to go back, and `u` to put a mark back, or take one off, by hand. A working agent has no mark to move, so `u` on one does nothing until its turn ends.
+An agent that finishes a turn while you are looking somewhere else carries a `●` at the end of its row until you have looked at it. The turn end comes from the agent's own CLI saying so, through the hook weave installs, and from weave watching the pane settle, so a CLI that drops its end-of-turn event cannot swallow the mark. An agent that is still working carries nothing either way. An agent that goes again after finishing, because mail woke it or somebody typed at it, drops the mark for as long as it works and takes a new one when that turn ends. Hovering a running agent puts its own pane in the stage, so hovering is how one is read, and the mark clears once the cursor has been sitting on it for a second rather than the moment it arrives. Press `u` to put that mark back, or take it off, by hand. A working agent has no mark to move, so `u` on one does nothing until its turn ends.
 
 Separately from state, an agent is either running or dormant. Dormant agents' panes are closed because the CLI has exited, but can be restored, by resuming the session.
 
@@ -49,6 +49,26 @@ Because they all edit the one checkout, one agent may hold only a few children a
 Metadata is how an agent records what a person would want to open later. It is a set of key/value rows on the agent, written by the agent.
 
 The panel shows those in the details under the list, after what the agent was launched with, and agents write them with `set_agent_metadata`, keyed on their own id from `WEAVE_AGENT_ID` environment variable.
+
+## Marks
+
+A mark is a letter you put on a row so you can jump straight back to it, the way marks work in vim. Press `t` and then a letter to mark whatever the cursor is on, and press `'` and then that letter from anywhere in the list to put the cursor back on it. The letter is drawn in the gutter down the left of the list, so the rows you have named read as a column rather than something to hunt for along a row.
+
+Agents and workflows are marked the same way and share the same letters, since a letter names one place. `'a` is one row, never a choice between two.
+
+A letter is held by one row at a time. Marking a row with a letter another row already holds moves the mark rather than refusing it. Pressing `t` and then the letter a row already holds takes the mark off it, which is how a mark is cleared.
+
+`'` pressed twice goes back to wherever the cursor was before the last jump, so looking at a marked row and getting back to what you were reading are the same gesture. A jump always lands: if the marked row is hidden, the jump reveals it rather than doing nothing.
+
+Marks are yours. Nothing an agent can call sets one, and a row loses its mark when it is archived, since the letter is an address for a row on the screen rather than anything about the work.
+
+## Searching the list
+
+Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up, so you keep the shape of the tree while you look. The cursor walks onto the nearest match as you type.
+
+`n` and `N` step forward and back through the matches, wrapping at either end. They only answer while a search is up, since they are ordinary letters the rest of the time.
+
+Enter puts the input away and leaves you on the row you found, with the search still lit so `n` keeps working. Escape gives up: the search goes and the cursor returns to the row you were on when you pressed `/`.
 
 ## Archiving, restoring, deleting
 

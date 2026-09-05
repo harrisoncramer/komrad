@@ -3,7 +3,6 @@ package ui
 import (
 	"fmt"
 
-	"weave/config"
 	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
@@ -127,8 +126,6 @@ func reasonMark(agent agentstore.Agent) string {
 	return " " + dimStyle.Render(clip(agent.ReportedReason, reasonWidth))
 }
 
-const workflowIcon = "⧉"
-
 const childIcon = "└"
 
 // childMark opens the column a child's state mark is pushed right by, drawn where its parent's
@@ -209,24 +206,16 @@ func worktreeRemovedMark(agent agentstore.Agent) string {
 	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
 }
 
-func tagGlyph(agent agentstore.Agent, tags []config.Tag) string {
-	if agent.Tag == nil {
-		return ""
+const workflowIcon = "⧉"
+
+// markGutter is the column a mark is drawn in, left of every row, so the letters a person
+// addresses rows by read down one edge rather than being hunted for along a row.
+func markGutter(mark string) string {
+	if mark == "" {
+		return "  "
 	}
 
-	return " " + lipgloss.NewStyle().Foreground(tagColor(*agent.Tag, tags)).Render(*agent.Tag)
-}
-
-var taggedColor = lipgloss.Color(config.GetColor(config.DefaultTagColor))
-
-func tagColor(glyph string, tags []config.Tag) lipgloss.Color {
-	for _, tag := range tags {
-		if tag.Glyph == glyph && tag.Color != "" {
-			return lipgloss.Color(config.GetColor(tag.Color))
-		}
-	}
-
-	return taggedColor
+	return lipgloss.NewStyle().Foreground(colorMark).Render(mark) + " "
 }
 
 func scheduleIcon(enabled bool) string {
