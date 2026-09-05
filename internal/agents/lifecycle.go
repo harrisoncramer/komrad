@@ -427,10 +427,10 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
-	// The refs holding these agents' snapshots go before the rows naming them do, since the rows
-	// are the only record of which refs they were, and the drafts they were writing about other
-	// agents go with them, since a review nobody has seen has nothing in it worth keeping and
-	// nulling its author would collide with the next one deleted.
+	// The refs holding these agents' snapshots and the drafts they were writing about other
+	// agents both go before the rows naming them do, and both outside the delete's own
+	// transaction, so a delete that fails after them leaks a ref and loses a draft nobody has
+	// read, which is the cheapest thing on this branch to lose.
 	s.releaseRounds(ctx, ids)
 	s.dropOpenReviews(ctx, ids)
 
@@ -486,7 +486,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 		}
 
 		for _, round := range rounds {
-			if err := diff.Release(ctx, agent.Cwd, RoundRef(round.SnapshotSHA)); err != nil {
+			if err := diff.Release(ctx, agent.Cwd, RoundRef(agent.ID, round.SnapshotSHA)); err != nil {
 				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
 					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 			}

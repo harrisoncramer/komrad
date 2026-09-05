@@ -14,6 +14,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
@@ -481,6 +482,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Tx:             tx,
 			Scripts:        options.lifecycle,
 			Notifier:       options.notifier,
+			Reviews:        reviewstore.New(s.Pool.GetDB()),
 			LogsDir:        options.logsDir,
 			FramesDir:      options.framesDir,
 			MaxAgents:      options.maxAgents,

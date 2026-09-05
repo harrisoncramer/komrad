@@ -3,13 +3,17 @@ package agents
 import (
 	"errors"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"weave/config"
+	"weave/internal/diff"
 	"weave/internal/frames"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
 
@@ -639,4 +643,140 @@ func TestRestoreCeiling(t *testing.T) {
 	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{liveTwo.ID}))
 	_, err = manager.lifecycle.RestoreAgents(ctx, []string{archived.ID})
 	require.NoError(t, err, "archiving one makes room again")
+}
+
+// TestDeletingAnAgentLeavesAnotherAgentsRoundHeld is what the pinned snapshot dates cost: two
+// agents on one base whose worktrees hash the same produce the same commit, so the ref holding a
+// round has to be named per agent or either of them deleting pulls the other's out from under it.
+func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	reviews := reviewstore.New(st.Pool.GetDB())
+
+	root := sharedRepo(t)
+	going := seedRoundedAgent(t, st, reviews, "going", root, "same-sha")
+	staying := seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
+
+	held := RoundRef(staying, "same-sha")
+	require.NoError(t, diff.Hold(t.Context(), root, RoundRef(going, "same-sha"), headOf(t, root)))
+	require.NoError(t, diff.Hold(t.Context(), root, held, headOf(t, root)))
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going}))
+
+	assert.Equal(t, headOf(t, root), revParse(t, root, held),
+		"the other agent's round is still held by a ref of its own")
+}
+
+// TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews pins the two halves apart: a batch nobody
+// has released has nothing in it worth keeping, and a released one is what the agent it was given
+// to is working from.
+func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	reviews := reviewstore.New(st.Pool.GetDB())
+
+	root := sharedRepo(t)
+	worker := seedRoundedAgent(t, st, reviews, "worker", root, "worker-sha")
+	first := seedRoundedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
+	second := seedRoundedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
+
+	round, err := reviews.LatestRound(t.Context(), worker)
+	require.NoError(t, err)
+
+	// The first reviewer has had its say and started another; the second is still writing its
+	// first, which is the pair that used to make the second delete fail.
+	released := openBatch(t, reviews, worker, round.ID, first)
+	_, err = reviews.ReleaseReview(t.Context(), reviewstore.ReleaseReviewParams{
+		ID: released.ID, Verdict: reviewstore.VerdictChangesRequested, Path: "/tmp/round-1.md",
+	})
+	require.NoError(t, err)
+
+	openBatch(t, reviews, worker, round.ID, first)
+	openBatch(t, reviews, worker, round.ID, second)
+
+	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{first, second}),
+		"two reviewers holding open batches on one agent both delete")
+
+	left, err := reviews.ListReviews(t.Context(), worker)
+	require.NoError(t, err)
+	require.Len(t, left, 1, "the drafts went and the released review stayed")
+	assert.Nil(t, left[0].AuthorAgentID, "with its author nulled rather than the row taken")
+	assert.NotNil(t, left[0].ReleasedAt)
+}
+
+// openBatch starts a review by one agent on another, which is the row a delete has to decide
+// about.
+func openBatch(t *testing.T, reviews *reviewstore.Store, agentID, roundID, author string) *reviewstore.Review {
+	t.Helper()
+
+	review, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID:       agentID,
+		RoundID:       roundID,
+		AuthorKind:    reviewstore.AuthorAgent,
+		AuthorAgentID: &author,
+	})
+	require.NoError(t, err)
+
+	return review
+}
+
+// seedRoundedAgent records an agent in a shared checkout with one round taken of it.
+func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.Store, name, root, sha string) string {
+	t.Helper()
+
+	require.NoError(t, st.Create(t.Context(), agentstore.Agent{Name: name, Cwd: root, State: agentstore.StateIdle}))
+	agent, err := st.Get(t.Context(), name)
+	require.NoError(t, err)
+
+	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID: agent.ID, BaseSHA: "base", SnapshotSHA: sha,
+	})
+	require.NoError(t, err)
+
+	return agent.ID
+}
+
+func sharedRepo(t *testing.T) string {
+	t.Helper()
+
+	root := t.TempDir()
+	for _, args := range [][]string{
+		{"init", "--initial-branch=main"},
+		{"config", "user.email", "weave@example.com"},
+		{"config", "user.name", "weave"},
+	} {
+		gitIn(t, root, args...)
+	}
+
+	require.NoError(t, os.WriteFile(filepath.Join(root, "kept.go"), []byte("package main\n"), 0o644))
+	gitIn(t, root, "add", "-A")
+	gitIn(t, root, "commit", "-m", "init")
+
+	return root
+}
+
+func headOf(t *testing.T, root string) string {
+	t.Helper()
+
+	return revParse(t, root, "HEAD")
+}
+
+func revParse(t *testing.T, root, ref string) string {
+	t.Helper()
+
+	cmd := exec.Command("git", "-C", root, "rev-parse", ref)
+	out, err := cmd.Output()
+	require.NoError(t, err, ref)
+
+	return strings.TrimSpace(string(out))
+}
+
+func gitIn(t *testing.T, root string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", append([]string{"-C", root}, args...)...)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, string(out))
 }

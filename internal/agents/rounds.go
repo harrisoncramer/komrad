@@ -82,9 +82,13 @@ func (GitSnapshotter) Hold(ctx context.Context, dir, ref, sha string) error {
 	return diff.Hold(ctx, dir, ref, sha)
 }
 
-// RoundRef is the ref a snapshot is held by so nothing collects it, named after the commit rather
-// than the round so that taking it is idempotent and needs no row to exist first.
-func RoundRef(snapshotSHA string) string { return "refs/weave/rounds/" + snapshotSHA }
+// RoundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
+// commit so that taking it is idempotent and needs no row to exist first, and so that two agents
+// whose worktrees hash the same hold their rounds separately rather than sharing one ref that
+// either of them deleting would pull out from under the other.
+func RoundRef(agentID, snapshotSHA string) string {
+	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
+}
 
 // OpenRound freezes what an agent has written now and records it as its next round, which is what
 // every review is given against, so that nothing a comment is pinned to can move underneath the
@@ -122,7 +126,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	if err := s.snapshots.Hold(ctx, agent.Cwd, RoundRef(snapshot.SHA), snapshot.SHA); err != nil {
+	if err := s.snapshots.Hold(ctx, agent.Cwd, RoundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
 		return nil, err
 	}
 
