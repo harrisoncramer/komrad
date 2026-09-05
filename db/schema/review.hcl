@@ -80,7 +80,7 @@ table "reviews" {
   column "author_agent_id" {
     null    = true
     type    = uuid
-    comment = "The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that."
+    comment = "The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent takes its reviews with it rather than nulling this, since a null here would put an open batch outside the index that holds an author to one at a time and beyond any call that could find it again."
   }
   column "verdict" {
     null    = true
@@ -96,7 +96,7 @@ table "reviews" {
     null    = false
     type    = text
     default = ""
-    comment = "Where the released review was written for the agent to read, relative to its worktree, empty while the review is still open."
+    comment = "The absolute path the released review was written to, under weave's own state directory rather than in the agent's worktree, empty while the review is still open."
   }
   column "doorbell_mail_id" {
     null    = true
@@ -131,7 +131,7 @@ table "reviews" {
   foreign_key "reviews_author_agent_id_fkey" {
     columns     = [column.author_agent_id]
     ref_columns = [table.agents.column.id]
-    on_delete   = SET_NULL
+    on_delete   = CASCADE
     on_update   = NO_ACTION
   }
   foreign_key "reviews_doorbell_mail_id_fkey" {

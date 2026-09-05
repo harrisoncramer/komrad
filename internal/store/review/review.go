@@ -184,6 +184,7 @@ func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, erro
 			RoundID:             row.RoundID,
 			RoundOrdinal:        row.RoundOrdinal,
 			ReviewReleasedAt:    row.ReviewReleasedAt,
+			ReviewAuthorAgentID: row.ReviewAuthorAgentID,
 			FilePath:            row.FilePath,
 			OldStart:            row.OldStart,
 			OldEnd:              row.OldEnd,

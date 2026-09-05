@@ -50,10 +50,6 @@ func writeThread(out *strings.Builder, thread ReviewThreadWithMessages) {
 	}
 
 	for _, message := range thread.Messages {
-		if message.AuthorKind == reviewstore.AuthorAgent {
-			continue
-		}
-
 		out.WriteString(strings.TrimSpace(message.Body))
 		out.WriteString("\n\n")
 

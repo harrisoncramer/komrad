@@ -203,6 +203,7 @@ SELECT
     t.*,
     v.round_id,
     v.released_at AS review_released_at,
+    v.author_agent_id AS review_author_agent_id,
     r.ordinal AS round_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL

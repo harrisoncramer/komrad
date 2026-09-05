@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"weave/internal/diff"
 
 	"weave/config"
 	"weave/internal/frames"
@@ -43,6 +44,7 @@ type LifecycleService struct {
 	tx             txRunner
 	scripts        agentScriptRunner
 	notifier       systemMailSender
+	rounds         reviewRoundReaper
 	logsDir        string
 	framesDir      string
 	maxAgents      int
@@ -57,6 +59,7 @@ type LifecycleServiceParams struct {
 	Tx             txRunner
 	Scripts        agentScriptRunner
 	Notifier       systemMailSender
+	Rounds         reviewRoundReaper
 	LogsDir        string
 	FramesDir      string
 	MaxAgents      int
@@ -73,6 +76,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 		tx:             p.Tx,
 		scripts:        p.Scripts,
 		notifier:       p.Notifier,
+		rounds:         p.Rounds,
 		logsDir:        p.LogsDir,
 		framesDir:      p.FramesDir,
 		maxAgents:      p.MaxAgents,
@@ -423,6 +427,10 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
+	// The refs holding this agent's snapshots go before the rows naming them do, since the rows
+	// are the only record of which refs they were.
+	s.releaseRounds(ctx, ids)
+
 	// The delete is what says which pane each row really held, so a pane written after the
 	// caller read the rows is reached here and nowhere else.
 	var taken []agentstore.AgentPane
@@ -443,6 +451,44 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	s.removeFrames(ctx, ids)
 
 	return nil
+}
+
+// releaseRounds drops the refs holding an agent's snapshots, which would otherwise pin a commit
+// covering its whole worktree in the person's own repository long after the agent is gone, and a
+// failure here leaks a ref rather than losing anything.
+func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
+	if s.rounds == nil {
+		return
+	}
+
+	going, err := s.agents.ListByID(ctx, ids)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the agents being deleted to release their rounds",
+			logging.Err(err)...)
+
+		return
+	}
+
+	for _, agent := range going {
+		if agent.Cwd == "" || agent.WorktreeRemoved {
+			continue
+		}
+
+		rounds, err := s.rounds.ListRounds(ctx, agent.ID)
+		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of an agent being deleted",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+			continue
+		}
+
+		for _, round := range rounds {
+			if err := diff.Release(ctx, agent.Cwd, RoundRef(round.SnapshotSHA)); err != nil {
+				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			}
+		}
+	}
 }
 
 // removeFrames drops the pane captures a recording kept for an agent once its row is gone.

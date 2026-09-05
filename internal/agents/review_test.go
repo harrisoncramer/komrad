@@ -31,7 +31,10 @@ const (
 	reviewRoundID   = "77777777-7777-7777-7777-777777777777"
 	reviewBatchID   = "88888888-8888-8888-8888-888888888888"
 	reviewerAgentID = "99999999-9999-9999-9999-999999999999"
+	openBatchID     = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
 )
+
+func ptr(s string) *string { return &s }
 
 var settledAt = time.Date(2026, time.August, 27, 12, 0, 0, 0, time.UTC)
 
@@ -108,7 +111,7 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 	}{
 		{
 			name: "an agent cannot open a thread on its own work",
-			want: ErrReviewNotEntitled,
+			want: ErrReviewOwnWork,
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.CreateReviewThread(ctx, CreateReviewThreadParams{
 					AgentID: reviewedAgentID, FilePath: "a.go", Body: "looks fine to me", Author: author,
@@ -135,7 +138,7 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 		},
 		{
 			name: "an agent cannot release a review to itself",
-			want: ErrReviewNotEntitled,
+			want: ErrReviewOwnWork,
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.ReleaseReview(ctx, ReleaseReviewParams{
 					AgentID: reviewedAgentID, Verdict: reviewstore.VerdictApproved, Author: author,
@@ -476,16 +479,200 @@ func TestOpeningARoundTwiceOverAnUnmovedTreeIsTheSameRound(t *testing.T) {
 	reviews := newFakeReviewStore()
 	service := reviewService(t, reviews, &fakeNoticeSender{})
 
-	first, err := service.OpenRound(t.Context(), reviewedAgentID)
+	first, err := service.OpenRound(t.Context(), reviewedAgentID, humanAuthor())
 	require.NoError(t, err)
 	require.NotNil(t, first)
 
-	second, err := service.OpenRound(t.Context(), reviewedAgentID)
+	second, err := service.OpenRound(t.Context(), reviewedAgentID, humanAuthor())
 	require.NoError(t, err)
 	require.NotNil(t, second)
 
 	assert.Equal(t, first.ID, second.ID)
 	assert.Equal(t, first.Ordinal, second.Ordinal)
+}
+
+// TestAReleasedReviewCarriesWhatTheReviewerWrote is the headline case, and it broke once: the
+// file weave writes is the whole of what the agent is given, so a comment written by a reviewing
+// agent has to appear in it exactly as the person's would.
+func TestAReleasedReviewCarriesWhatTheReviewerWrote(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+
+	opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:     reviewedAgentID,
+		FilePath:    "greet.go",
+		NewStart:    41,
+		NewEnd:      41,
+		QuotedLines: []string{"+\tgreet(nil)"},
+		Body:        "this needs a nil check",
+		Author:      reviewer,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, opened)
+
+	result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  reviewer,
+	})
+	require.NoError(t, err)
+
+	written, err := os.ReadFile(result.Path)
+	require.NoError(t, err)
+	assert.Contains(t, string(written), "this needs a nil check",
+		"a reviewing agent's own words have to reach the agent it reviewed")
+	assert.Contains(t, string(written), "greet.go:41")
+}
+
+// TestAnUnreleasedCommentIsHiddenFromTheAgentWhoeverWroteIt pins that a review is read once it is
+// a review: a batch still being written is the author's alone, whether the person or another
+// agent is writing it.
+func TestAnUnreleasedCommentIsHiddenFromTheAgentWhoeverWroteIt(t *testing.T) {
+	tests := []struct {
+		name   string
+		author ReviewAuthor
+	}{
+		{name: "written by the person", author: humanAuthor()},
+		{name: "written by a reviewing agent", author: agentAuthor(reviewerAgentID)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviews := newFakeReviewStore()
+			reviews.thread = reviewstore.Thread{}
+			reviews.messages = map[string]reviewstore.Message{}
+			service := reviewService(t, reviews, &fakeNoticeSender{})
+
+			_, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+				AgentID:  reviewedAgentID,
+				FilePath: "greet.go",
+				Body:     "I have not decided about this yet",
+				Author:   tt.author,
+			})
+			require.NoError(t, err)
+
+			forAgent, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
+				AgentID: reviewedAgentID,
+				Author:  agentAuthor(reviewedAgentID),
+			})
+			require.NoError(t, err)
+			assert.Empty(t, forAgent, "an unreleased batch is nobody's but its author's")
+
+			forAuthor, err := service.ListReviewThreads(t.Context(), ListReviewThreadsParams{
+				AgentID: reviewedAgentID,
+				Author:  tt.author,
+			})
+			require.NoError(t, err)
+			assert.Len(t, forAuthor, 1, "the author reads its own draft back")
+		})
+	}
+}
+
+// TestApprovingARoundNobodyCommentedOnGoes is the clean approval, which is the case the verdict
+// matters most for since it is what gates opening a pull request, and it needs no batch to have
+// been started first.
+func TestApprovingARoundNobodyCommentedOnGoes(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictApproved,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+	require.Len(t, notices.sent, 1)
+
+	written, err := os.ReadFile(result.Path)
+	require.NoError(t, err)
+	assert.Contains(t, string(written), "Approved")
+}
+
+// TestAReviewerGetsOneReviewPerRound is the bound on a reviewer child and its parent answering
+// each other forever: a new round appears only when the parent writes something, so the loop is
+// limited by real progress rather than by a count somebody has to tune.
+func TestAReviewerGetsOneReviewPerRound(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+
+	_, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and another thing", Author: reviewer,
+	})
+	require.ErrorIs(t, err, ErrReviewAlreadyGiven, "the reviewer has had its say on this round")
+
+	// The parent writing something is what opens the next round, and the reviewer may review that.
+	_, err = reviews.CreateRound(t.Context(), reviewstore.CreateRoundParams{
+		AgentID: reviewedAgentID, BaseSHA: "base-sha", SnapshotSHA: "moved-on",
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and another thing", Author: reviewer,
+	})
+	require.NoError(t, err)
+}
+
+// TestOnlyTheReviewedAgentAndItsReviewerReachARound pins that taking a snapshot of somebody's
+// worktree and reading the reviews of it are entitled the same way giving one is.
+func TestOnlyTheReviewedAgentAndItsReviewerReachARound(t *testing.T) {
+	reviews := newFakeReviewStore()
+	service := reviewService(t, reviews, &fakeNoticeSender{})
+
+	_, err := service.OpenRound(t.Context(), reviewedAgentID, agentAuthor(otherAgentID))
+	require.ErrorIs(t, err, ErrReviewNotEntitled)
+
+	_, err = service.ListReviews(t.Context(), reviewedAgentID, agentAuthor(otherAgentID))
+	require.ErrorIs(t, err, ErrReviewNotEntitled)
+
+	_, err = service.ListRounds(t.Context(), reviewedAgentID, agentAuthor(reviewerAgentID))
+	require.NoError(t, err, "the reviewer may read the rounds it is reviewing")
+}
+
+// TestAnAgentIsNotToldWhereAnotherReviewWasWritten pins that the path on a review names a file on
+// disk holding somebody else's words, so it is the person's own and nobody else's.
+func TestAnAgentIsNotToldWhereAnotherReviewWasWritten(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	forReviewer, err := service.ListReviews(t.Context(), reviewedAgentID, agentAuthor(reviewerAgentID))
+	require.NoError(t, err)
+	require.Len(t, forReviewer, 1)
+	assert.Empty(t, forReviewer[0].Path)
+
+	forHuman, err := service.ListReviews(t.Context(), reviewedAgentID, humanAuthor())
+	require.NoError(t, err)
+	require.Len(t, forHuman, 1)
+	assert.NotEmpty(t, forHuman[0].Path)
 }
 
 // TestReleasingToAnArchivedAgentIsRefused pins that a review is not stamped as sent to an agent
@@ -618,6 +805,7 @@ func TestViewedFilesAreTheReviewersOwn(t *testing.T) {
 
 type fakeReviewStore struct {
 	thread   reviewstore.Thread
+	threads  []reviewstore.Thread
 	messages map[string]reviewstore.Message
 	viewed   map[string]bool
 	rounds   []reviewstore.Round
@@ -657,6 +845,7 @@ func newFakeReviewStore() *fakeReviewStore {
 			humanMessageID: {
 				ID:         humanMessageID,
 				ThreadID:   reviewThreadID,
+				ReviewID:   ptr(reviewBatchID),
 				AuthorKind: reviewstore.AuthorHuman,
 				Body:       "this needs a nil check",
 				SentAt:     &settledAt,
@@ -681,6 +870,7 @@ func draftMessage() reviewstore.Message {
 	return reviewstore.Message{
 		ID:         draftMessageID,
 		ThreadID:   reviewThreadID,
+		ReviewID:   ptr(openBatchID),
 		AuthorKind: reviewstore.AuthorHuman,
 		Body:       "and I have not decided about this one",
 		Delivery:   reviewstore.DeliveryUnsent,
@@ -688,17 +878,66 @@ func draftMessage() reviewstore.Message {
 	}
 }
 
+// CreateThread records what it was asked for rather than answering with the canned thread, since
+// which batch a thread belongs to is the whole of what several of these tests are about.
 func (f *fakeReviewStore) CreateThread(
-	context.Context,
-	reviewstore.CreateThreadParams,
+	_ context.Context,
+	params reviewstore.CreateThreadParams,
 ) (*reviewstore.Thread, error) {
-	thread := f.thread
+	thread := reviewstore.Thread{
+		ID:          fmt.Sprintf("thread-%d", len(f.threads)+1),
+		AgentID:     params.AgentID,
+		ReviewID:    params.ReviewID,
+		RoundID:     reviewRoundID,
+		FilePath:    params.FilePath,
+		OldStart:    params.OldStart,
+		OldEnd:      params.OldEnd,
+		NewStart:    params.NewStart,
+		NewEnd:      params.NewEnd,
+		QuotedLines: params.QuotedLines,
+	}
+
+	if review, ok := f.reviews[params.ReviewID]; ok {
+		thread.ReviewAuthorAgentID = review.AuthorAgentID
+		thread.ReviewReleasedAt = review.ReleasedAt
+	}
+
+	f.threads = append(f.threads, thread)
+	f.record(reviewstore.Message{
+		ID:            fmt.Sprintf("message-%d", len(f.messages)+1),
+		ThreadID:      thread.ID,
+		ReviewID:      &params.ReviewID,
+		AuthorKind:    params.AuthorKind,
+		AuthorAgentID: params.AuthorAgentID,
+		Body:          params.Body,
+		Suggestion:    params.Suggestion,
+	})
+	f.comments++
 
 	return &thread, nil
 }
 
+// record files a message and stamps it with the state of the batch it belongs to, which is what
+// the store does with a join and the fake has to do by hand.
+func (f *fakeReviewStore) record(message reviewstore.Message) {
+	if message.ReviewID != nil {
+		if review, ok := f.reviews[*message.ReviewID]; ok {
+			message.SentAt = review.ReleasedAt
+		}
+	}
+
+	if f.messages == nil {
+		f.messages = map[string]reviewstore.Message{}
+	}
+	f.messages[message.ID] = message
+}
+
 func (f *fakeReviewStore) ListThreads(context.Context, string) ([]reviewstore.Thread, error) {
-	return []reviewstore.Thread{f.thread}, nil
+	if f.thread.ID == "" {
+		return f.threads, nil
+	}
+
+	return append([]reviewstore.Thread{f.thread}, f.threads...), nil
 }
 
 func (f *fakeReviewStore) GetThread(_ context.Context, id string) (*reviewstore.Thread, error) {
@@ -916,12 +1155,18 @@ func (f *fakeReviewStore) AddMessage(
 	_ context.Context,
 	params reviewstore.AddMessageParams,
 ) (*reviewstore.Message, error) {
-	return &reviewstore.Message{
+	message := reviewstore.Message{
+		ID:            fmt.Sprintf("message-%d", len(f.messages)+1),
 		ThreadID:      params.ThreadID,
+		ReviewID:      params.ReviewID,
 		AuthorKind:    params.AuthorKind,
 		AuthorAgentID: params.AuthorAgentID,
 		Body:          params.Body,
-	}, nil
+		Suggestion:    params.Suggestion,
+	}
+	f.record(message)
+
+	return &message, nil
 }
 
 func (f *fakeReviewStore) EditMessage(_ context.Context, id, body string, _ []string) (*reviewstore.Message, error) {
@@ -952,9 +1197,17 @@ func (f *fakeReviewStore) ListMessages(_ context.Context, threadIDs []string) ([
 
 	messages := make([]reviewstore.Message, 0, len(f.messages))
 	for _, message := range f.messages {
-		if wanted[message.ThreadID] {
-			messages = append(messages, message)
+		if !wanted[message.ThreadID] {
+			continue
 		}
+
+		if message.ReviewID != nil {
+			if review, ok := f.reviews[*message.ReviewID]; ok {
+				message.SentAt = review.ReleasedAt
+			}
+		}
+
+		messages = append(messages, message)
 	}
 	slices.SortFunc(messages, func(a, b reviewstore.Message) int {
 		return a.CreatedAt.Compare(b.CreatedAt)

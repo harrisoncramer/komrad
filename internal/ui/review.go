@@ -401,7 +401,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
-	m.review.view.SetViewed(stillViewed(msg.patch, msg.viewed))
+	m.review.view.SetViewed(stillViewed(msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 
 	// The pattern lives on the ui model rather than the view, so a view built from nothing has
@@ -427,7 +427,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 // stillViewed is which files of the round have been read, and a mark belongs to one round, so a
 // later round starts with none of them and nothing has to be compared to know that.
-func stillViewed(_ *diff.Patch, viewed []*agentv1.ReviewViewedFile) map[string]bool {
+func stillViewed(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
 	for _, mark := range viewed {
 		held[mark.GetFilePath()] = true

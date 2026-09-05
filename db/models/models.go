@@ -296,7 +296,7 @@ type Review struct {
 	RoundID string
 	// The type of the author giving the review.
 	AuthorKind ReviewAuthorKind
-	// The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that.
+	// The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent takes its reviews with it rather than nulling this, since a null here would put an open batch outside the index that holds an author to one at a time and beyond any call that could find it again.
 	AuthorAgentID *string
 	// What the author concluded, null while the review is still open. It is what tells the agent whether it is done, and what gates opening a pull request.
 	Verdict NullReviewVerdict

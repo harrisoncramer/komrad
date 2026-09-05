@@ -3,13 +3,6 @@
 // place in a file.
 package diff
 
-import (
-	"crypto/sha256"
-	"encoding/hex"
-	"fmt"
-	"strings"
-)
-
 // LineKind is what one line of a hunk does.
 type LineKind uint8
 
@@ -45,34 +38,9 @@ type File struct {
 	OldSource string
 	NewSource string
 	Hunks     []Hunk
-	// Content identifies what a file holds when the patch draws none of it, as for a binary,
-	// and is empty for a file whose hunks carry its change, since hashing source the reader was
-	// never shown would drop a mark over a change they could not have missed.
+	// Content identifies what a file holds when the patch draws none of it, as for a binary, and
+	// is empty for a file whose hunks carry its change.
 	Content string
-}
-
-// Fingerprint is a hash of what the diff draws for one file, which is what a mark of having
-// read that file is held against: the change made to it, the headers its hunks fall under, and
-// every line of them, and the content of a file it draws nothing of, but not the source outside
-// the hunks of one it does, since a change no hunk shows is a change the reader was never shown.
-func (f File) Fingerprint() string {
-	var drawn strings.Builder
-
-	fmt.Fprintf(&drawn, "%s\x00%s\x00%s\x00", f.OldPath, f.NewPath, f.Content)
-	for _, metadata := range f.Metadata {
-		fmt.Fprintf(&drawn, "%s\x00", metadata)
-	}
-
-	for _, hunk := range f.Hunks {
-		fmt.Fprintf(&drawn, "%s\x00", hunk.Header)
-		for _, line := range hunk.Lines {
-			fmt.Fprintf(&drawn, "%d%s\x00", line.Kind, line.Text)
-		}
-	}
-
-	sum := sha256.Sum256([]byte(drawn.String()))
-
-	return hex.EncodeToString(sum[:])
 }
 
 // Path is the name to show the file under, which is where it ended up unless it was deleted.
@@ -94,21 +62,6 @@ type Patch struct {
 
 // IsEmpty reports whether the patch has nothing to show.
 func (p Patch) IsEmpty() bool { return len(p.Files) == 0 }
-
-// Fingerprint is what says a patch read again in the background differs from the one on screen,
-// built out of the per-file hashes so it holds to the same rule they do: a change the reader was
-// never shown is not one the patch has moved for.
-func (p Patch) Fingerprint() string {
-	var drawn strings.Builder
-
-	for _, file := range p.Files {
-		fmt.Fprintf(&drawn, "%s\x00", file.Fingerprint())
-	}
-
-	sum := sha256.Sum256([]byte(drawn.String()))
-
-	return hex.EncodeToString(sum[:])
-}
 
 // Stat is the size of a patch in the terms a reviewer reads first: how many files it touches,
 // and how many lines it puts in and takes out.

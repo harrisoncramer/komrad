@@ -84,6 +84,11 @@ COMMENT ON COLUMN "review_messages"."suggestion" IS 'Replacement lines the autho
 -- go rather than being carried forward.
 DELETE FROM "review_threads";
 DELETE FROM "review_viewed_files";
+-- The notices raised for those threads would send an agent to look up a review that is no longer
+-- there, so they go with the threads they were about.
+DELETE FROM "mail"
+WHERE "kind" = 'review_activity'
+    AND "claimed_at" IS NULL;
 -- Modify "review_threads" table
 ALTER TABLE "review_threads" ADD COLUMN "review_id" uuid NOT NULL, ADD CONSTRAINT "review_threads_review_id_fkey" FOREIGN KEY ("review_id") REFERENCES "reviews" ("id") ON UPDATE NO ACTION ON DELETE CASCADE;
 -- Create index "review_threads_review_id" to table: "review_threads"

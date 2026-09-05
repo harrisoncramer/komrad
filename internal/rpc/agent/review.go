@@ -181,7 +181,7 @@ func (s *Service) OpenReviewRound(
 	ctx context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	round, err := s.review.OpenRound(ctx, req.Msg.GetAgentId())
+	round, err := s.review.OpenRound(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to open a review round")
 	}
@@ -194,7 +194,7 @@ func (s *Service) ListReviewRounds(
 	ctx context.Context,
 	req *connect.Request[agentv1.ListReviewRoundsRequest],
 ) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
-	rounds, err := s.review.ListRounds(ctx, req.Msg.GetAgentId())
+	rounds, err := s.review.ListRounds(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the review rounds")
 	}
@@ -212,7 +212,7 @@ func (s *Service) ListReviews(
 	ctx context.Context,
 	req *connect.Request[agentv1.ListReviewsRequest],
 ) (*connect.Response[agentv1.ListReviewsResponse], error) {
-	reviews, err := s.review.ListReviews(ctx, req.Msg.GetAgentId())
+	reviews, err := s.review.ListReviews(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the reviews")
 	}

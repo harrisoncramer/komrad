@@ -295,7 +295,7 @@ type Review struct {
 	Verdict ReviewVerdict `protobuf:"varint,7,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// When the review was let go of, empty while nothing in it has reached the agent.
 	ReleasedAt string `protobuf:"bytes,8,opt,name=released_at,json=releasedAt,proto3" json:"released_at,omitempty"`
-	// Where the released review was written for the agent to read, relative to its worktree.
+	// The absolute path the released review was written to.
 	Path string `protobuf:"bytes,9,opt,name=path,proto3" json:"path,omitempty"`
 	// When the agent claimed the mail that told it the review was waiting.
 	DeliveredAt   string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
@@ -1795,7 +1795,7 @@ type ReleaseReviewResponse struct {
 	Review *Review                `protobuf:"bytes,1,opt,name=review,proto3" json:"review,omitempty"`
 	// How many comments the released batch carried.
 	Comments int32 `protobuf:"varint,2,opt,name=comments,proto3" json:"comments,omitempty"`
-	// Where the review was written for the agent to read.
+	// The absolute path the review was written to.
 	Path          string `protobuf:"bytes,3,opt,name=path,proto3" json:"path,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache

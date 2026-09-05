@@ -44,7 +44,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Agents:         st.agents,
 		Config:         mailConfig(loadConfig),
 	})
-	reviewsDir, err := config.GetReviewsDir()
+	stateDir, err := config.GetStateDir()
 	if err != nil {
 		return nil, err
 	}
@@ -59,7 +59,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Mailer:    mailService,
-		StateDir:  reviewsDir,
+		StateDir:  stateDir,
 		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
 			Agents:    st.agents,
 			Harnesses: p.Harnesses,
@@ -155,6 +155,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Tx:             st.pool,
 		Scripts:        scriptService,
 		Notifier:       mailService,
+		Rounds:         st.review,
 		LogsDir:        runLogsDir,
 		FramesDir:      p.Env.FramesDir(),
 		MaxAgents:      p.MaxAgents,

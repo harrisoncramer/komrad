@@ -704,6 +704,7 @@ SELECT
     t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id,
     v.round_id,
     v.released_at AS review_released_at,
+    v.author_agent_id AS review_author_agent_id,
     r.ordinal AS round_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
@@ -739,6 +740,7 @@ type ListReviewThreadsRow struct {
 	ReviewID            string
 	RoundID             string
 	ReviewReleasedAt    *time.Time
+	ReviewAuthorAgentID *string
 	RoundOrdinal        int32
 	UnreadByHuman       *bool
 }
@@ -769,6 +771,7 @@ func (q *Queries) ListReviewThreads(ctx context.Context, agentID string) ([]*Lis
 			&i.ReviewID,
 			&i.RoundID,
 			&i.ReviewReleasedAt,
+			&i.ReviewAuthorAgentID,
 			&i.RoundOrdinal,
 			&i.UnreadByHuman,
 		); err != nil {

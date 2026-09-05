@@ -27,8 +27,22 @@ var ErrReviewNoRound = errors.New("no round has been taken of that agent yet")
 // ErrReviewNotEntitled is answered when an agent asks to review one it is not attached to.
 var ErrReviewNotEntitled = errors.New("an agent may only review the agent it is a child of")
 
+// ErrReviewOwnWork is answered when an agent asks to review its own work, which is not what
+// answering the review it was given is.
+var ErrReviewOwnWork = errors.New("an agent cannot review its own work")
+
+// ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once,
+// which is what keeps a reviewer and the agent it reviews from answering each other forever.
+var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wait for the agent to write something")
+
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = errors.New("that review has nothing in it")
+
+// reviewRoundReaper is the half of the round store the lifecycle needs, which is only enough to
+// find the refs an agent's snapshots are held by before its rows go.
+type reviewRoundReaper interface {
+	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
+}
 
 type reviewRoundReadWriter interface {
 	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
@@ -74,7 +88,11 @@ func RoundRef(snapshotSHA string) string { return "refs/weave/rounds/" + snapsho
 // OpenRound freezes what an agent has written now and records it as its next round, which is what
 // every review is given against, so that nothing a comment is pinned to can move underneath the
 // person reading it.
-func (s *ReviewService) OpenRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
+func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
+	if err := s.entitled(ctx, agentID, author); err != nil {
+		return nil, err
+	}
+
 	agent, err := s.liveAgent(ctx, agentID)
 	if err != nil {
 		return nil, err
@@ -128,13 +146,45 @@ func (s *ReviewService) LatestRound(ctx context.Context, agentID string) (*revie
 }
 
 // ListRounds is every round taken of an agent, oldest first.
-func (s *ReviewService) ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error) {
+func (s *ReviewService) ListRounds(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) ([]reviewstore.Round, error) {
+	if err := s.entitled(ctx, agentID, author); err != nil {
+		return nil, err
+	}
+
 	return s.rounds.ListRounds(ctx, agentID)
 }
 
-// ListReviews is every review given on an agent, in the order their rounds were taken.
-func (s *ReviewService) ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error) {
-	return s.reviews.ListReviews(ctx, agentID)
+// ListReviews is every review given on an agent, in the order their rounds were taken, with the
+// path of each dropped for anyone but the person reviewing, since it names a file on disk holding
+// somebody else's words.
+func (s *ReviewService) ListReviews(
+	ctx context.Context,
+	agentID string,
+	author ReviewAuthor,
+) ([]reviewstore.Review, error) {
+	if err := s.entitled(ctx, agentID, author); err != nil {
+		return nil, err
+	}
+
+	reviews, err := s.reviews.ListReviews(ctx, agentID)
+	if err != nil {
+		return nil, err
+	}
+	if author.IsHuman() {
+		return reviews, nil
+	}
+
+	for i := range reviews {
+		if reviews[i].AuthorAgentID == nil || *reviews[i].AuthorAgentID != *author.AgentID {
+			reviews[i].Path = ""
+		}
+	}
+
+	return reviews, nil
 }
 
 // openReviewFor is the batch an author is writing against an agent, opened against the newest
@@ -168,6 +218,10 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
+	if err := s.notReviewedAlready(ctx, params, *round); err != nil {
+		return nil, err
+	}
+
 	return s.reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
 		AgentID:       agentID,
 		RoundID:       round.ID,
@@ -176,8 +230,34 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
+// notReviewedAlready holds a reviewing agent to one review per round, which is what bounds a
+// reviewer and its parent ping-ponging: a new round appears only when the parent does work, so
+// the loop is limited by real progress rather than by a number somebody has to tune.
+func (s *ReviewService) notReviewedAlready(
+	ctx context.Context,
+	params reviewstore.AuthorParams,
+	round reviewstore.Round,
+) error {
+	if params.AuthorKind != reviewstore.AuthorAgent {
+		return nil
+	}
+
+	last, err := s.reviews.LastReleasedReviewOf(ctx, params)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if last.RoundID == round.ID {
+		return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
+	}
+
+	return nil
+}
+
 // entitled says whether an author may give a review on an agent at all, which the person always
-// may and an agent may only of the agent it is a child of, its own work included, since answering
+// may and an agent may only of the agent it is a child of, its own work excluded, since answering
 // a review it was given is a different call.
 func (s *ReviewService) entitled(ctx context.Context, agentID string, author ReviewAuthor) error {
 	if author.IsHuman() {
@@ -186,6 +266,10 @@ func (s *ReviewService) entitled(ctx context.Context, agentID string, author Rev
 	if author.AgentID == nil {
 		return fmt.Errorf("%w: %q", ErrReviewNotEntitled, agentID)
 	}
+	if *author.AgentID == agentID {
+		return ErrReviewOwnWork
+	}
+
 	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return fmt.Errorf("%w: %q", ErrAgentNotFound, *author.AgentID)
@@ -235,13 +319,20 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
+	// A verdict is worth sending on its own, so approving a round nobody wrote a word about opens
+	// the batch it goes out under rather than refusing, which leaves notes with no conclusion as
+	// the one case where an empty review says nothing at all.
 	open, err := s.reviews.OpenReviewOf(ctx, reviewstore.AuthorParams{
 		AgentID:       params.AgentID,
 		AuthorKind:    params.Author.Kind,
 		AuthorAgentID: params.Author.AgentID,
 	})
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+		if params.Verdict == reviewstore.VerdictCommented {
+			return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
+		}
+
+		open, err = s.openReviewFor(ctx, params.AgentID, params.Author)
 	}
 	if err != nil {
 		return nil, err
@@ -290,7 +381,8 @@ func (s *ReviewService) ReleaseReview(
 		DoorbellMailID: &doorbell.ID,
 	})
 	if err != nil {
-		return nil, err
+		// The mail has gone, so the agent has the review whatever the panel goes on to draw.
+		return nil, fmt.Errorf("the review reached %q but weave could not record that it had: %w", agent.Name, err)
 	}
 
 	return &ReleaseReviewResult{Review: *released, Comments: comments, Path: path}, nil
@@ -303,7 +395,9 @@ func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path
 		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
 }
 
-// reviewThreads is every conversation opened as part of one batch, with what was said in each.
+// reviewThreads is what one batch actually says, gathered by the messages written under it
+// rather than by the threads opened under it, since a further comment on a thread from an
+// earlier round belongs to this batch while the thread it sits in does not.
 func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if err != nil {
@@ -320,9 +414,18 @@ func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]R
 
 	mine := make([]ReviewThreadWithMessages, 0, len(all))
 	for _, thread := range all {
-		if thread.Thread.ReviewID == reviewID {
-			mine = append(mine, thread)
+		said := make([]reviewstore.Message, 0, len(thread.Messages))
+		for _, message := range thread.Messages {
+			if message.ReviewID != nil && *message.ReviewID == reviewID {
+				said = append(said, message)
+			}
 		}
+
+		if len(said) == 0 {
+			continue
+		}
+
+		mine = append(mine, ReviewThreadWithMessages{Thread: thread.Thread, Messages: said})
 	}
 
 	return mine, nil

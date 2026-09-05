@@ -47,8 +47,7 @@ type Review struct {
 	Verdict *Verdict
 	// ReleasedAt is when the review was let go of, nil while nothing in it has reached the agent.
 	ReleasedAt *time.Time
-	// Path is where the released review was written for the agent to read, relative to its
-	// worktree, empty while the review is still open.
+	// Path is the absolute path the released review was written to, empty while it is still open.
 	Path           string
 	DoorbellMailID *string
 	// DeliveredAt is when the agent claimed the mail that told it the review was waiting.
@@ -313,29 +312,6 @@ func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (
 	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to release the review %q: %w", params.ID, err)
-	}
-
-	review := reviewFromRow(*row)
-
-	return &review, nil
-}
-
-// PointReviewAtDoorbell moves a released review onto a freshly raised piece of mail, which is what
-// telling the agent again does once the first one is gone.
-func (s *Store) PointReviewAtDoorbell(ctx context.Context, id, doorbellMailID string) (*Review, error) {
-	if !store.IsID(id) {
-		return nil, reviewNotFound(id)
-	}
-
-	row, err := s.queries.PointReviewAtDoorbell(ctx, models.PointReviewAtDoorbellParams{
-		ID:             id,
-		DoorbellMailID: &doorbellMailID,
-	})
-	if db.IsNoRows(err) {
-		return nil, reviewNotFound(id)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to point the review %q at the doorbell %q: %w", id, doorbellMailID, err)
 	}
 
 	review := reviewFromRow(*row)

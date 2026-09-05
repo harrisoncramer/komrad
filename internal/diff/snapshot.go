@@ -64,7 +64,9 @@ func writeTree(ctx context.Context, root string) (string, error) {
 
 	env := append(append(os.Environ(), snapshotIdentity...), "GIT_INDEX_FILE="+index)
 
-	seedIndex(ctx, root, env)
+	if err := seedIndex(ctx, root, env); err != nil {
+		return "", err
+	}
 
 	if _, err := runGitEnv(ctx, root, env, "add", "-A"); err != nil {
 		return "", fmt.Errorf("failed to stage %q into a snapshot: %w", root, err)
@@ -164,18 +166,28 @@ func tempIndexPath() (string, error) {
 }
 
 // seedIndex fills the temporary index from HEAD so only what the agent has touched has to be
-// hashed, and does nothing in a repository that has no HEAD to seed from.
-func seedIndex(ctx context.Context, root string, env []string) {
-	if _, err := runGitEnv(ctx, root, env, "read-tree", "HEAD"); err != nil {
-		return
+// hashed, and is skipped in a repository with no HEAD to seed from, which is asked about rather
+// than inferred from the failure, since a read-tree that fails for any other reason would leave
+// every file HEAD holds staged as a deletion.
+func seedIndex(ctx context.Context, root string, env []string) error {
+	if _, err := runGitEnv(ctx, root, env, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
+		return nil
 	}
+
+	if _, err := runGitEnv(ctx, root, env, "read-tree", "HEAD"); err != nil {
+		return fmt.Errorf("failed to seed a snapshot index from HEAD in %q: %w", root, err)
+	}
+
+	return nil
 }
 
-// removeIndex drops the temporary index, and a failure here is nothing the caller can act on
-// since the snapshot it was built for has already been written.
+// removeIndex drops the temporary index and the lock git leaves beside it when a write is cut
+// short, neither of which the caller can act on a failure to remove.
 func removeIndex(path string) {
-	if err := os.Remove(path); err != nil {
-		return
+	for _, leftover := range []string{path, path + ".lock"} {
+		if err := os.Remove(leftover); err != nil {
+			continue
+		}
 	}
 }
 

@@ -920,11 +920,11 @@ func (c Config) GetWorktreesDir() (string, error) {
 	return filepath.Join(home, ".local", "state", "weave", "worktrees"), nil
 }
 
-// GetReviewsDir is where weave writes a released review for the agent to read. It is under
+// GetStateDir is where weave keeps its own per-agent files, such as a released review for the agent to read. It is under
 // weave's own state directory rather than beside the agent's work, since a linked worktree's
 // own info/exclude is not read by git and a file put in the worktree would show up in the
 // diff being reviewed.
-func GetReviewsDir() (string, error) {
+func GetStateDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("failed to get home directory: %w", err)

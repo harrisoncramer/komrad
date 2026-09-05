@@ -70,7 +70,7 @@ message Review {
   ReviewVerdict verdict = 7;
   // When the review was let go of, empty while nothing in it has reached the agent.
   string released_at = 8;
-  // Where the released review was written for the agent to read, relative to its worktree.
+  // The absolute path the released review was written to.
   string path = 9;
   // When the agent claimed the mail that told it the review was waiting.
   string delivered_at = 10;
@@ -265,7 +265,7 @@ message ReleaseReviewResponse {
   Review review = 1;
   // How many comments the released batch carried.
   int32 comments = 2;
-  // Where the review was written for the agent to read.
+  // The absolute path the review was written to.
   string path = 3;
 }
 

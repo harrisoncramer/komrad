@@ -171,8 +171,8 @@ func (s *ReviewService) ListReviewThreads(
 	answered := make([]ReviewThreadWithMessages, 0, len(threads))
 	for _, thread := range threads {
 		messages := byThread[thread.ID]
-		if !params.Author.IsHuman() && !ownsReview(params.Author, thread) {
-			messages = releasedMessages(messages)
+		if !params.Author.IsHuman() {
+			messages = releasedMessages(messages, params.Author)
 			if len(messages) == 0 {
 				continue
 			}
@@ -193,13 +193,14 @@ func ownsReview(author ReviewAuthor, thread reviewstore.Thread) bool {
 		*thread.ReviewAuthorAgentID == *author.AgentID
 }
 
-// releasedMessages is what an agent may be shown of a conversation: the comments let go of and
-// its own replies, stripped of when each was released and how far it travelled, which is the
-// reviewer's own record of what the agent has been told.
-func releasedMessages(messages []reviewstore.Message) []reviewstore.Message {
+// releasedMessages is what an agent may be shown of a conversation, which is decided by the batch
+// a message belongs to rather than by who wrote it: an answer belongs to none and is always
+// shown, a comment in a released batch is shown, and one still being written is shown only to
+// the author writing it.
+func releasedMessages(messages []reviewstore.Message, author ReviewAuthor) []reviewstore.Message {
 	released := make([]reviewstore.Message, 0, len(messages))
 	for _, message := range messages {
-		if message.AuthorKind == reviewstore.AuthorHuman && message.SentAt == nil {
+		if !isReadableBy(message, author) {
 			continue
 		}
 
@@ -211,6 +212,21 @@ func releasedMessages(messages []reviewstore.Message) []reviewstore.Message {
 	}
 
 	return released
+}
+
+// isReadableBy reports whether one message has been let go of, or is the reader's own, which is
+// the whole of what decides that a review is read once it is a review.
+func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
+	switch {
+	case message.ReviewID == nil:
+		return true
+	case message.SentAt != nil:
+		return true
+	default:
+		return message.AuthorAgentID != nil &&
+			author.AgentID != nil &&
+			*message.AuthorAgentID == *author.AgentID
+	}
 }
 
 type CreateReviewThreadParams struct {
