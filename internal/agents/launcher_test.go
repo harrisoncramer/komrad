@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestLaunchTypesTheHarnessCommand covers the launcher's whole job, which is typing the
-// command the harness built into the agent's pane and running it.
+// TestLaunchTypesTheHarnessCommand covers the launcher's whole job, which is putting the
+// command the harness built in a file and sourcing that file in the agent's pane.
 func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -37,10 +37,11 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			cache := t.TempDir()
 			tmux := newFakeTmux()
 			tmux.sendKeysErr = tt.sendKeysErr
 			h := &fakeHarness{commandErr: tt.commandErr}
-			launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
+			launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999", CacheDir: cache})
 
 			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
 
@@ -55,7 +56,19 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 
 			require.NoError(t, err)
 			require.Len(t, h.launches, 1)
-			assert.Equal(t, []string{"agent-cli --session sess", "Enter"}, tmux.lastKeys("pane"))
+
+			keys := tmux.lastKeys("pane")
+			require.Len(t, keys, 2)
+			assert.Equal(t, "Enter", keys[1])
+
+			path, ok := strings.CutPrefix(keys[0], ". ")
+			require.True(t, ok, "the pane is told to source a file, not typed the command")
+			path = strings.Trim(path, "'")
+			assert.Equal(t, cache, filepath.Dir(path), "the script sits in the cache dir")
+
+			body, err := os.ReadFile(path)
+			require.NoError(t, err)
+			assert.Equal(t, "agent-cli --session sess\n", string(body))
 		})
 	}
 }

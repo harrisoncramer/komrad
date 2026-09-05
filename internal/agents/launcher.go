@@ -141,7 +141,12 @@ func (l *Launcher) launch(h harness.Harness, params launchParams) error {
 		return fmt.Errorf("failed to build the launch command: %w", err)
 	}
 
-	if err := l.tmux.SendKeys(params.Pane, command, "Enter"); err != nil {
+	path, err := harness.WriteTempText(l.cacheDir, "launch-*.sh", command+"\n")
+	if err != nil {
+		return fmt.Errorf("failed to write the launch script: %w", err)
+	}
+
+	if err := l.tmux.SendKeys(params.Pane, ". "+harness.QuoteArg(path), "Enter"); err != nil {
 		return fmt.Errorf("failed to type the launch command: %w", err)
 	}
 
