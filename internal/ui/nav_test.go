@@ -112,9 +112,7 @@ func TestEnterFocusesTheStagedAgent(t *testing.T) {
 	m := infoModel(tmux)
 	m.stageSelection()
 
-	updated, _ := m.route(keyMsg("enter"))
-	_, ok := updated.(model)
-	assert.True(t, ok)
+	press(t, m, keyMsg("enter"))
 
 	assert.Equal(t, []string{"%9"}, tmux.selected)
 }
@@ -125,9 +123,7 @@ func TestEnterLeavesAnUnstagedAgentAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := infoModel(tmux)
 
-	updated, _ := m.route(keyMsg("enter"))
-	_, ok := updated.(model)
-	assert.True(t, ok)
+	press(t, m, keyMsg("enter"))
 
 	assert.Empty(t, tmux.selected)
 }
