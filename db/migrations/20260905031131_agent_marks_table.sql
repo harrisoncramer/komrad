@@ -1,5 +1,3 @@
--- Modify "agents" table
-ALTER TABLE "agents" DROP COLUMN "mark";
 -- Create "marks" table
 CREATE TABLE "marks" (
   "mark" text NOT NULL,
@@ -17,3 +15,8 @@ CREATE UNIQUE INDEX "marks_agent_id" ON "marks" ("agent_id");
 CREATE UNIQUE INDEX "marks_workflow_id" ON "marks" ("workflow_id");
 -- Set comment to table: "marks"
 COMMENT ON TABLE "marks" IS 'A letter a person addresses one row by. Held by an agent or a workflow and by nothing else, so a letter names one place.';
+-- Carry the letters already set across, before the column holding them goes.
+INSERT INTO "marks" ("mark", "agent_id")
+SELECT "mark", "id" FROM "agents" WHERE "mark" IS NOT NULL AND "archived_at" IS NULL;
+-- Modify "agents" table
+ALTER TABLE "agents" DROP COLUMN "mark";

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"weave/db"
 	"weave/internal/store"
 	markstore "weave/internal/store/mark"
 )
@@ -37,11 +38,24 @@ func (s *MarkService) SetMark(ctx context.Context, mark string, target markstore
 		return false, nil
 	}
 
+	// Two callers claiming a letter nobody holds each find nothing to free and so neither blocks
+	// the other, which is why the loser meets the primary key and retries, its clear now seeing
+	// the winner's row.
+	marked, err := s.setMarkOnce(ctx, mark, target)
+	if db.IsUniqueViolation(err) {
+		return s.setMarkOnce(ctx, mark, target)
+	}
+
+	return marked, err
+}
+
+func (s *MarkService) setMarkOnce(ctx context.Context, mark string, target markstore.Target) (bool, error) {
 	var marked bool
-	err := s.tx.InTx(ctx, func(db store.DBTX) error {
-		marks := markstore.New(db)
+	err := s.tx.InTx(ctx, func(tx store.DBTX) error {
+		marks := markstore.New(tx)
 		// Freeing both before claiming is what keeps one letter on one row and one row on one
-		// letter, and the transaction is what stops a second caller landing between the two.
+		// letter, with the transaction keeping a half-done pair off the screen rather than
+		// keeping a second caller out, which the retry above is for.
 		if err := marks.ClearConflicts(ctx, mark, target); err != nil {
 			return err
 		}

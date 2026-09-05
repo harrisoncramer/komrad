@@ -652,16 +652,31 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 }
 
 const markWorkflowArchived = `-- name: MarkWorkflowArchived :exec
-WITH freed AS (
+WITH prior AS (
+    SELECT
+        workflows.id
+    FROM
+        workflows
+    WHERE
+        workflows.id = $1
+        AND workflows.archived_at IS NULL
+    FOR UPDATE
+),
+freed AS (
     DELETE FROM marks
-    WHERE marks.workflow_id = $1)
+    WHERE marks.workflow_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
-    workflows
+    workflows w
 SET
     archived_at = NOW()
+FROM
+    prior
 WHERE
-    id = $1
-    AND archived_at IS NULL
+    w.id = prior.id
 `
 
 func (q *Queries) MarkWorkflowArchived(ctx context.Context, id string) error {

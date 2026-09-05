@@ -2,6 +2,7 @@ package mark
 
 import (
 	"testing"
+	"time"
 
 	"weave/internal/pgtest"
 	"weave/internal/store"
@@ -267,6 +268,24 @@ func TestArchivingFreesTheLetter(t *testing.T) {
 		_, err := st.agents.ArchiveWorkflowAgents(t.Context(), st.workflow)
 		require.NoError(t, err)
 		assert.Empty(t, st.marks(t))
+	})
+
+	t.Run("an archive the row moved under keeps the letter, since the row keeps running", func(t *testing.T) {
+		st := open(t)
+		alpha := st.seedAgent(t, "alpha")
+		require.True(t, st.set(t, "a", OnAgent(alpha)))
+
+		current, err := st.agents.GetByID(t.Context(), alpha)
+		require.NoError(t, err)
+		require.NotNil(t, current)
+
+		archived, err := st.agents.ArchiveIfUnchanged(t.Context(), agentstore.ArchiveIfUnchangedParams{
+			ID:        current.ID,
+			UpdatedAt: current.UpdatedAt.Add(-time.Second),
+		})
+		require.NoError(t, err)
+		require.False(t, archived, "the row moved, so the archive is refused")
+		assert.Equal(t, map[string]string{alpha: "a"}, st.marks(t))
 	})
 
 	t.Run("archiving the workflow itself", func(t *testing.T) {

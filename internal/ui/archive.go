@@ -400,7 +400,7 @@ func (m model) archiveView() string {
 
 		if r.header {
 			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
-			rows = append(rows, prefix+"  "+label+archivedTag(r.workflow))
+			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
 
 			continue
 		}

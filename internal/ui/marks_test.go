@@ -327,6 +327,21 @@ func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 	assert.Equal(t, at, rowKeyAt(after.agentRows(), after.tree.cursor), "and the cursor stays where it was")
 }
 
+// TestJumpMarkKeepsAStandingSearch pins a jump that reveals a hidden row leaving the search
+// alone, since nothing a search does hides a row and dropping it loses what you were reading.
+func TestJumpMarkKeepsAStandingSearch(t *testing.T) {
+	m := markTree()
+	markRow(&m, agentRowKey("a5"))
+	m.filter.setQuery("auth")
+
+	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
+
+	assert.True(t, jumped.filter.isStanding(), "the search survives the jump")
+	assert.Equal(t, "auth", jumped.filter.query)
+	assert.True(t, jumped.tree.showHidden, "and the hidden row it landed on is revealed")
+	assert.Equal(t, agentRowKey("a5"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+}
+
 // TestJumpMarkUnknownLetter pins a letter nobody holds leaving the cursor where it was and
 // saying so, rather than moving somewhere arbitrary.
 func TestJumpMarkUnknownLetter(t *testing.T) {

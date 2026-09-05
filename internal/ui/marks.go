@@ -141,9 +141,18 @@ func (m model) jumpMarkBack() (tea.Model, tea.Cmd) {
 	return next, nil
 }
 
+// markedRow is the row a letter names, read down the listing rather than out of the map, so a
+// letter briefly on two rows between passes picks the same one every time, and so a row the tree
+// is not drawing is still somewhere a jump can reach.
 func (m model) markedRow(letter string) (string, bool) {
-	for key, mark := range m.listing.marks {
-		if mark == letter {
+	for _, item := range m.listing.agents {
+		if key := agentRowKey(item.agent.ID); m.listing.marks[key] == letter {
+			return key, true
+		}
+	}
+
+	for _, workflow := range m.listing.workflows {
+		if key := workflowRowKey(workflow.ID); m.listing.marks[key] == letter {
 			return key, true
 		}
 	}
@@ -157,11 +166,10 @@ func (m model) jumpToRow(key string) (model, bool) {
 	origin := rowKeyAt(m.agentRows(), m.tree.cursor)
 
 	revealed := m
-	// A filter or a hidden row would make the jump quietly do nothing, so what stands between the
-	// cursor and the row is cleared on a copy the caller drops when the row is out of reach for
-	// some other reason, rather than losing the screen on the way to nowhere.
+	// A hidden row would make the jump quietly do nothing, so it is revealed on a copy the caller
+	// drops when the row is out of reach for some other reason, and a search is left alone
+	// throughout since a search never took a row off the screen to begin with.
 	if rowIndexOfKey(revealed.agentRows(), key) < 0 {
-		revealed.filter = filterState{}
 		revealed.tree.showHidden = true
 	}
 

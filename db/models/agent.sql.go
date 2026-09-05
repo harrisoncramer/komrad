@@ -1152,20 +1152,35 @@ func (q *Queries) LockAgentSlots(ctx context.Context, key int64) error {
 }
 
 const markAgentArchivedIfUnchanged = `-- name: MarkAgentArchivedIfUnchanged :many
-WITH freed AS (
+WITH prior AS (
+    SELECT
+        agents.id
+    FROM
+        agents
+    WHERE
+        agents.id = $1
+        AND agents.archived_at IS NULL
+        AND agents.updated_at = $2
+    FOR UPDATE
+),
+freed AS (
     DELETE FROM marks
-    WHERE marks.agent_id = $1)
+    WHERE marks.agent_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
-    agents
+    agents a
 SET
     archived_at = NOW(),
     pane_id = ''
+FROM
+    prior
 WHERE
-    id = $1
-    AND archived_at IS NULL
-    AND updated_at = $2
+    a.id = prior.id
 RETURNING
-    id
+    a.id
 `
 
 type MarkAgentArchivedIfUnchangedParams struct {
@@ -1242,7 +1257,8 @@ WITH prior AS (
     WHERE
         id = ANY ($1::uuid[])
         AND archived_at IS NULL
-    FOR UPDATE),
+    FOR UPDATE
+),
 freed AS (
     DELETE FROM marks
     WHERE marks.agent_id IN (
@@ -1299,7 +1315,8 @@ WITH prior AS (
     WHERE
         agents.workflow_id = $1
         AND agents.archived_at IS NULL
-    FOR UPDATE),
+    FOR UPDATE
+),
 freed AS (
     DELETE FROM marks
     WHERE marks.agent_id IN (

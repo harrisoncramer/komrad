@@ -29,24 +29,22 @@ live AS (
             WHERE
                 agents.id = target.agent_id
                 AND agents.archived_at IS NULL)
-        OR EXISTS (
-            SELECT
-                1
-            FROM
-                workflows
-            WHERE
-                workflows.id = target.workflow_id
-                AND workflows.archived_at IS NULL))
-DELETE FROM marks
-USING target
+            OR EXISTS (
+                SELECT
+                    1
+                FROM
+                    workflows
+                WHERE
+                    workflows.id = target.workflow_id
+                    AND workflows.archived_at IS NULL))
+    DELETE FROM marks USING target
 WHERE EXISTS (
         SELECT
             1
-        FROM
-            live)
-    AND (marks.mark = $1
-        OR marks.agent_id = target.agent_id
-        OR marks.workflow_id = target.workflow_id)
+        FROM live)
+AND (marks.mark = $1
+    OR marks.agent_id = target.agent_id
+    OR marks.workflow_id = target.workflow_id)
 `
 
 type ClearMarkConflictsParams struct {
@@ -80,7 +78,9 @@ func (q *Queries) DeleteMarkForTarget(ctx context.Context, arg DeleteMarkForTarg
 }
 
 const insertAgentMark = `-- name: InsertAgentMark :execrows
-INSERT INTO marks(mark, agent_id)
+INSERT INTO marks(
+    mark,
+    agent_id)
 SELECT
     $1,
     agents.id
@@ -105,7 +105,9 @@ func (q *Queries) InsertAgentMark(ctx context.Context, arg InsertAgentMarkParams
 }
 
 const insertWorkflowMark = `-- name: InsertWorkflowMark :execrows
-INSERT INTO marks(mark, workflow_id)
+INSERT INTO marks(
+    mark,
+    workflow_id)
 SELECT
     $1,
     workflows.id

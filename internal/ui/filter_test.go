@@ -140,6 +140,17 @@ func TestMatchAt(t *testing.T) {
 	}
 }
 
+// TestMatchAtWrapsBackwardsPastTheTop pins a step back from the first row reaching the last
+// match rather than running off the front of the list.
+func TestMatchAtWrapsBackwardsPastTheTop(t *testing.T) {
+	m := selectionTree()
+	m.filter.setQuery("^(backend|ui)$")
+
+	got, ok := m.matchAt(workflowRowKey("w1"), -1)
+	require.True(t, ok)
+	assert.Equal(t, agentRowKey("a4"), got, "the walk back from the first row lands on the last match")
+}
+
 // TestMatchAtFindsNothing pins a pattern nothing matches leaving the cursor alone rather than
 // moving it somewhere arbitrary.
 func TestMatchAtFindsNothing(t *testing.T) {
@@ -190,6 +201,50 @@ func TestSearchEscapeGoesBack(t *testing.T) {
 	back := pressMark(t, typed, "esc")
 	assert.False(t, back.filter.isStanding(), "the search is gone")
 	assert.Equal(t, start, back.tree.cursor, "and the cursor is back where it started")
+}
+
+// TestSearchEscapeGoesBackFromAStandingSearch pins the escape that clears a search which is no
+// longer being typed at, which is a different path from the one that abandons the input.
+func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
+	m := selectionTree()
+	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	m.tree.cursor = start
+
+	opened, _ := m.updateAgents(keyMsg("/"))
+	standing := pressMark(t, opened.(model), "d", "b", "enter")
+	require.False(t, standing.filter.typing)
+	require.Equal(t, agentRowKey("a3"), rowKeyAt(standing.agentRows(), standing.tree.cursor))
+
+	back := pressMark(t, standing, "esc")
+	assert.False(t, back.filter.isStanding(), "the search is gone")
+	assert.Equal(t, start, back.tree.cursor, "and the cursor is back where it started")
+}
+
+// TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list,
+// since it is the other screen that draws agents in a tree.
+func TestArchiveSearchWalksAndClears(t *testing.T) {
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.archive.agents = []agentstore.Agent{
+		{ID: "a1", Name: "api-refactor", WorkflowID: "w1"},
+		{ID: "a2", Name: "auth-fix", WorkflowID: "w1"},
+	}
+	m.archive.cursor = 0
+	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archiveRows(), m.archive.cursor))
+
+	opened, _ := m.updateArchive(keyMsg("/"))
+	standing := pressMark(t, opened.(model), "^", "a", "enter")
+	require.True(t, standing.filter.isStanding())
+	require.Equal(t, agentRowKey("a1"), rowKeyAt(standing.archiveRows(), standing.archive.cursor))
+
+	walked := pressMark(t, standing, "n")
+	assert.Equal(t, agentRowKey("a2"), rowKeyAt(walked.archiveRows(), walked.archive.cursor), "n walks to the next match")
+
+	back := pressMark(t, walked, "N")
+	assert.Equal(t, agentRowKey("a1"), rowKeyAt(back.archiveRows(), back.archive.cursor), "and N walks back")
+
+	cleared := pressMark(t, back, "esc")
+	assert.False(t, cleared.filter.isStanding(), "escape clears the search")
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(cleared.archiveRows(), cleared.archive.cursor), "and puts the cursor back where it opened")
 }
 
 // TestSearchWalksMatchesOnlyWhileOneStands pins n and N moving between matches once a search
