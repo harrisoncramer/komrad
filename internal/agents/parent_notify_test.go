@@ -17,8 +17,8 @@ import (
 func newNotifier(st *testStore) *MailService {
 	return NewMailService(NewMailServiceParams{
 		MailReadWriter: st.Mail,
-		AgentFinder:    st.Agents,
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         st.Agents,
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 }
 

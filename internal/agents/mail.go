@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"weave/internal/logging"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -16,6 +18,8 @@ const maxPendingMail = 100
 
 const maxClaimedMail = 20
 
+const exchangeCappedBody = "weave: %s (%s) wrote to you and the send was refused, because the two of you have now exchanged %d pieces of mail, which is the limit. Nothing further will get through between you, in either direction. Whatever you were waiting on from them is not coming, so do not keep waiting: say where you got to, and tell the person what is unfinished. A row has been marked for attention in the panel so the person knows to look."
+
 var ErrRecipientNotFound = errors.New("no agent holds that id")
 
 var ErrSenderUnknown = errors.New("the sender is not an agent this panel knows")
@@ -24,7 +28,7 @@ var ErrSelfAddressed = errors.New("an agent cannot send itself mail")
 
 var ErrMailboxFull = errors.New("the recipient's mailbox is full")
 
-var ErrThreadCapped = errors.New("this thread has reached its hop limit")
+var ErrExchangeCapped = errors.New("this pair of agents has reached its mail limit")
 
 var ErrReplyToNotFound = errors.New("no mail holds that id")
 
@@ -37,31 +41,36 @@ const WeaveSenderName = "weave"
 type mailReadWriter interface {
 	Send(ctx context.Context, params mailstore.SendParams) (*mailstore.Mail, error)
 	GetByID(ctx context.Context, id string) (*mailstore.Mail, error)
-	DeepestHops(ctx context.Context, threadRoot string) (int32, error)
 	Claim(ctx context.Context, toAgentID string, limit int32) ([]mailstore.Mail, error)
 	CountPending(ctx context.Context, toAgentID string) (int64, error)
-	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error)
+	GetPendingOfKind(ctx context.Context, toAgentID string, kind mailstore.Kind, about *string) (*mailstore.Mail, error)
 	ListPage(ctx context.Context, toAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListSentPage(ctx context.Context, fromAgentID string, limit int32, cursor *mailstore.Cursor) ([]mailstore.Mail, error)
 	ListByID(ctx context.Context, ids []string) ([]mailstore.Mail, error)
 	Delete(ctx context.Context, ids []string) error
 	ListUnreadMailboxes(ctx context.Context) ([]string, error)
+	CountExchanged(ctx context.Context, one, other string) (int64, error)
+}
+
+type mailAgentStore interface {
+	agentGetter
+	SetViewed(ctx context.Context, id string, viewed bool) error
 }
 
 type mailConfigReader interface {
 	GetDeliveryDeadline() (time.Duration, error)
-	GetMaxHops() (int, error)
+	GetMaxExchange() (int, error)
 }
 
 type MailService struct {
 	mailReadWriter mailReadWriter
-	agentFinder    agentGetter
+	agents         mailAgentStore
 	config         mailConfigReader
 }
 
 type NewMailServiceParams struct {
 	MailReadWriter mailReadWriter
-	AgentFinder    agentGetter
+	Agents         mailAgentStore
 	Config         mailConfigReader
 }
 
@@ -70,7 +79,7 @@ type NewMailServiceParams struct {
 func NewMailService(p NewMailServiceParams) *MailService {
 	return &MailService{
 		mailReadWriter: p.MailReadWriter,
-		agentFinder:    p.AgentFinder,
+		agents:         p.Agents,
 		config:         p.Config,
 	}
 }
@@ -108,8 +117,11 @@ type SendNoticeParams struct {
 	ToAgentID string
 	Body      string
 	// Kind is what the notice is about, which is how the panel tells it from mail an agent
-	// wrote and what holds an agent to one unread copy of it.
+	// wrote and half of what holds an agent to one unread copy of it.
 	Kind mailstore.Kind
+	// About is the other agent the notice concerns, which is the other half: a notice about
+	// one exchange must not stand in for a notice about a different one.
+	About *string
 }
 
 // SendNotice hands back the notice of that kind the agent is already holding unread and sends
@@ -121,7 +133,7 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
 	}
 
-	waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind)
+	waiting, err := s.mailReadWriter.GetPendingOfKind(ctx, params.ToAgentID, params.Kind, params.About)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
@@ -133,6 +145,7 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 		ToAgentID: params.ToAgentID,
 		Body:      params.Body,
 		Kind:      params.Kind,
+		About:     params.About,
 		System:    true,
 	})
 }
@@ -171,13 +184,14 @@ type sendParams struct {
 	Body      string
 	ReplyTo   *string
 	Kind      mailstore.Kind
+	About     *string
 	// System marks mail weave raises itself rather than on a caller's behalf, which is what
 	// puts weave's own name on it instead of a sender's.
 	System bool
 }
 
 func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.Mail, error) {
-	recipient, err := s.agentFinder.GetByID(ctx, params.ToAgentID)
+	recipient, err := s.agents.GetByID(ctx, params.ToAgentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrRecipientNotFound, params.ToAgentID)
 	}
@@ -203,6 +217,14 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		return nil, err
 	}
 
+	// The cap decides before the mailbox does, since a full mailbox is a wait and the cap is
+	// permanent, and a permanent refusal reported as a transient one is retried forever.
+	if sender != nil && params.Kind == mailstore.KindPlain {
+		if err := s.holdToTheExchangeCap(ctx, *sender, *recipient); err != nil {
+			return nil, err
+		}
+	}
+
 	pending, err := s.mailReadWriter.CountPending(ctx, recipient.ID)
 	if err != nil {
 		return nil, err
@@ -211,36 +233,12 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		return nil, fmt.Errorf("%w: %q is holding %d unread", ErrMailboxFull, recipient.Name, pending)
 	}
 
-	hops := int32(1)
-	var threadRoot *string
 	if params.ReplyTo != nil {
-		parent, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo)
-		if errors.Is(err, store.ErrNotFound) {
+		if _, err := s.mailReadWriter.GetByID(ctx, *params.ReplyTo); errors.Is(err, store.ErrNotFound) {
 			return nil, fmt.Errorf("%w: %q", ErrReplyToNotFound, *params.ReplyTo)
-		}
-		if err != nil {
+		} else if err != nil {
 			return nil, err
 		}
-
-		root := parent.ID
-		if parent.ThreadRoot != nil {
-			root = *parent.ThreadRoot
-		}
-		threadRoot = &root
-
-		deepest, err := s.mailReadWriter.DeepestHops(ctx, root)
-		if err != nil {
-			return nil, err
-		}
-		hops = deepest + 1
-	}
-
-	maxHops, err := s.config.GetMaxHops()
-	if err != nil {
-		return nil, err
-	}
-	if int(hops) > maxHops {
-		return nil, fmt.Errorf("%w: this would be hop %d of %d, so say what you have concluded and stop rather than replying again", ErrThreadCapped, hops, maxHops)
 	}
 
 	deadline, err := s.config.GetDeliveryDeadline()
@@ -249,13 +247,12 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	}
 
 	send := mailstore.SendParams{
-		ToAgentID:  recipient.ID,
-		Body:       params.Body,
-		Kind:       params.Kind,
-		ReplyTo:    params.ReplyTo,
-		ThreadRoot: threadRoot,
-		Hops:       hops,
-		Deadline:   deadline,
+		ToAgentID:    recipient.ID,
+		Body:         params.Body,
+		Kind:         params.Kind,
+		ReplyTo:      params.ReplyTo,
+		AboutAgentID: params.About,
+		Deadline:     deadline,
 	}
 	if sender != nil {
 		send.FromAgentID = &sender.ID
@@ -272,10 +269,65 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 	return sent, nil
 }
 
+// holdToTheExchangeCap refuses a send once two agents have written each other as much mail as
+// the limit allows, counting the pair rather than a thread of it because a send with no reply_to
+// opens a thread and would start any thread-scoped count again, which a rebase, a re-prompt and
+// a new subject all do by accident.
+func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipient agentstore.Agent) error {
+	maxExchange, err := s.config.GetMaxExchange()
+	if err != nil {
+		return err
+	}
+
+	exchanged, err := s.mailReadWriter.CountExchanged(ctx, sender.ID, recipient.ID)
+	if err != nil {
+		return err
+	}
+	if int(exchanged) < maxExchange {
+		return nil
+	}
+
+	s.tellTheCapWasReached(ctx, sender, recipient, exchanged)
+
+	return fmt.Errorf("%w: you and %q have exchanged %d pieces of mail, which is the limit, so nothing further will get through between you; say where you got to and tell the person what is unfinished", ErrExchangeCapped, recipient.Name, exchanged)
+}
+
+// tellTheCapWasReached is what keeps a refusal from stranding the work: the sender is told by
+// the error it gets back, so this marks a row for the person to look at and tells the recipient
+// that mail meant for it was refused, rather than leaving it waiting for a reply that a cap has
+// quietly stopped.
+func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipient agentstore.Agent, exchanged int64) {
+	// The mark goes on the family's parent, which for an agent that is nobody's child is
+	// itself, since a parent is the row a person is looking at and the agent able to break a
+	// loop between two of its children.
+	marked := familyID(sender)
+	attrs := []slog.Attr{
+		slog.String(logging.AgentID, marked),
+		slog.String(logging.TargetAgentID, recipient.ID),
+		slog.Int64(logging.ExchangedMail, exchanged),
+	}
+
+	if err := s.agents.SetViewed(ctx, marked, false); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to mark an agent for attention over a capped exchange",
+			append(attrs, logging.Err(err)...)...)
+	}
+
+	body := fmt.Sprintf(exchangeCappedBody, sender.Name, sender.ID, exchanged)
+	if _, err := s.SendNotice(ctx, SendNoticeParams{
+		ToAgentID: recipient.ID,
+		Body:      body,
+		Kind:      mailstore.KindExchangeCapped,
+		About:     &sender.ID,
+	}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell an agent its mail was refused by the cap",
+			append(attrs, logging.Err(err)...)...)
+	}
+}
+
 // ClaimMail takes the mail waiting for an agent, which empties its mailbox rather than
 // showing it.
 func (s *MailService) ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error) {
-	agent, err := s.agentFinder.GetByID(ctx, agentID)
+	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)
 	}
@@ -302,7 +354,7 @@ type ListMailParams struct {
 // ListMail returns one page of one half of an agent's correspondence, most recent first and
 // without claiming any of it: the mail addressed to it, or the mail it sent.
 func (s *MailService) ListMail(ctx context.Context, params ListMailParams) ([]mailstore.Mail, error) {
-	agent, err := s.agentFinder.GetByID(ctx, params.AgentID)
+	agent, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, params.AgentID)
 	}
@@ -360,7 +412,7 @@ func (s *MailService) ListUnreadMailboxes(ctx context.Context) ([]string, error)
 }
 
 func (s *MailService) findSender(ctx context.Context, from string) (*agentstore.Agent, error) {
-	sender, err := s.agentFinder.GetByID(ctx, from)
+	sender, err := s.agents.GetByID(ctx, from)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrSenderUnknown, from)
 	}

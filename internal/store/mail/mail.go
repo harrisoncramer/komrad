@@ -36,6 +36,9 @@ const (
 	KindPlain Kind = Kind(models.MailKindPlain)
 	// KindReviewActivity is a doorbell for review waiting on the agent's diff.
 	KindReviewActivity Kind = Kind(models.MailKindReviewActivity)
+	// KindExchangeCapped tells an agent that mail written to it was refused because the pair
+	// had reached the cap on how much they may exchange.
+	KindExchangeCapped Kind = Kind(models.MailKindExchangeCapped)
 )
 
 type Mail struct {
@@ -46,11 +49,11 @@ type Mail struct {
 	Body        string
 	Kind        Kind
 	ReplyTo     *string
-	ThreadRoot  *string
-	Hops        int32
-	ClaimedAt   *time.Time
-	ExpiresAt   time.Time
-	CreatedAt   time.Time
+	// AboutAgentID is the other agent a notice weave raised is about, unset on ordinary mail.
+	AboutAgentID *string
+	ClaimedAt    *time.Time
+	ExpiresAt    time.Time
+	CreatedAt    time.Time
 }
 
 type Store struct {
@@ -63,14 +66,13 @@ func New(db store.DBTX) *Store {
 }
 
 type SendParams struct {
-	FromAgentID *string
-	FromName    string
-	ToAgentID   string
-	Body        string
-	Kind        Kind
-	ReplyTo     *string
-	ThreadRoot  *string
-	Hops        int32
+	FromAgentID  *string
+	FromName     string
+	ToAgentID    string
+	Body         string
+	Kind         Kind
+	ReplyTo      *string
+	AboutAgentID *string
 	// How long the mail stays deliverable, counted from the database's clock rather than
 	// the caller's, since every read of expires_at compares it against NOW().
 	Deadline time.Duration
@@ -90,8 +92,7 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 		Body:           params.Body,
 		Kind:           models.MailKind(kind),
 		ReplyTo:        params.ReplyTo,
-		ThreadRoot:     params.ThreadRoot,
-		Hops:           params.Hops,
+		AboutAgentID:   params.AboutAgentID,
 		DeadlineMicros: params.Deadline.Microseconds(),
 	})
 	if err != nil {
@@ -103,16 +104,18 @@ func (s *Store) Send(ctx context.Context, params SendParams) (*Mail, error) {
 	return &sent, nil
 }
 
-// GetPendingOfKind is the notice of a kind an agent is already holding unread, ErrNotFound when
-// it holds none, which is what a caller joins rather than queueing an identical one behind it.
-func (s *Store) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind) (*Mail, error) {
+// GetPendingOfKind is the notice of a kind, about the same agent, that its recipient is already
+// holding unread, ErrNotFound when it holds none, which is what a caller joins rather than
+// queueing an identical one behind it.
+func (s *Store) GetPendingOfKind(ctx context.Context, toAgentID string, kind Kind, about *string) (*Mail, error) {
 	if !store.IsID(toAgentID) {
 		return nil, noPendingOfKind(toAgentID, kind)
 	}
 
 	row, err := s.queries.GetPendingMailOfKind(ctx, models.GetPendingMailOfKindParams{
-		ToAgentID: toAgentID,
-		Kind:      models.MailKind(kind),
+		ToAgentID:    toAgentID,
+		Kind:         models.MailKind(kind),
+		AboutAgentID: about,
 	})
 	if db.IsNoRows(err) {
 		return nil, noPendingOfKind(toAgentID, kind)
@@ -250,19 +253,23 @@ func (s *Store) Delete(ctx context.Context, ids []string) error {
 	return nil
 }
 
-// DeepestHops is the greatest hop count anywhere in the thread a piece of mail opened, zero
-// when nothing belongs to it, which is what a reply counts from rather than the mail it answers.
-func (s *Store) DeepestHops(ctx context.Context, threadRoot string) (int32, error) {
-	if !store.IsID(threadRoot) {
+// CountExchanged is how much plain mail two agents have written to each other, in either
+// direction and however many threads it was spread over, leaving out the notices weave raised
+// itself since neither agent sent those.
+func (s *Store) CountExchanged(ctx context.Context, one, other string) (int64, error) {
+	if !store.IsID(one) || !store.IsID(other) {
 		return 0, nil
 	}
 
-	deepest, err := s.queries.GetDeepestHopsInThread(ctx, threadRoot)
+	count, err := s.queries.CountMailExchangedBetweenAgents(ctx, models.CountMailExchangedBetweenAgentsParams{
+		One:   one,
+		Other: other,
+	})
 	if err != nil {
-		return 0, fmt.Errorf("failed to read the hop count of the thread mail %q opened: %w", threadRoot, err)
+		return 0, fmt.Errorf("failed to count the mail agents %q and %q have exchanged: %w", one, other, err)
 	}
 
-	return deepest, nil
+	return count, nil
 }
 
 // CountPending returns how much unclaimed mail is waiting for an agent.
@@ -325,17 +332,16 @@ func keepStorableIDs(ids []string) []string {
 
 func mailFromRow(row models.Mail) Mail {
 	return Mail{
-		ID:          row.ID,
-		FromAgentID: row.FromAgentID,
-		FromName:    row.FromName,
-		ToAgentID:   row.ToAgentID,
-		Body:        row.Body,
-		Kind:        Kind(row.Kind),
-		ReplyTo:     row.ReplyTo,
-		ThreadRoot:  row.ThreadRoot,
-		Hops:        row.Hops,
-		ClaimedAt:   row.ClaimedAt,
-		ExpiresAt:   row.ExpiresAt,
-		CreatedAt:   row.CreatedAt,
+		ID:           row.ID,
+		FromAgentID:  row.FromAgentID,
+		FromName:     row.FromName,
+		ToAgentID:    row.ToAgentID,
+		Body:         row.Body,
+		Kind:         Kind(row.Kind),
+		ReplyTo:      row.ReplyTo,
+		AboutAgentID: row.AboutAgentID,
+		ClaimedAt:    row.ClaimedAt,
+		ExpiresAt:    row.ExpiresAt,
+		CreatedAt:    row.CreatedAt,
 	}
 }

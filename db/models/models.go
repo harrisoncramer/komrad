@@ -62,6 +62,7 @@ type MailKind string
 const (
 	MailKindPlain          MailKind = "plain"
 	MailKindReviewActivity MailKind = "review_activity"
+	MailKindExchangeCapped MailKind = "exchange_capped"
 )
 
 func (e *MailKind) Scan(src interface{}) error {
@@ -224,7 +225,6 @@ type Mail struct {
 	ToAgentID   string
 	Body        string
 	ReplyTo     *string
-	Hops        int32
 	ClaimedAt   *time.Time
 	ReportedAt  *time.Time
 	ExpiresAt   time.Time
@@ -232,8 +232,8 @@ type Mail struct {
 	UpdatedAt   time.Time
 	// What the mail is, which is what lets the panel tell a doorbell weave raised itself from something an agent wrote. Ordinary mail is plain. It is also what a doorbell is counted by, since an agent needs only one unread doorbell of a kind however many comments are waiting behind it.
 	Kind MailKind
-	// The mail that opened the thread this belongs to, null on the opening mail itself. It carries no foreign key on purpose: deleting the mail a thread started from must not detach what followed it, since the hop count is read across the whole thread.
-	ThreadRoot *string
+	// The other agent a notice weave raised is about, null on ordinary mail. It is what holds a recipient to one unread notice per subject rather than one per kind, so an agent capped with a second partner is told about that one too. It carries no foreign key, since the notice has to keep saying which exchange was cut off after the agent it names is gone.
+	AboutAgentID *string
 }
 
 // One message in a review thread, written either by the person reviewing or by the agent replying.

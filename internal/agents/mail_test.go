@@ -11,6 +11,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
@@ -99,8 +100,8 @@ func TestSendMailRefusals(t *testing.T) {
 			mailbox := &fakeMailbox{pending: tt.pending}
 			svc := NewMailService(NewMailServiceParams{
 				MailReadWriter: mailbox,
-				AgentFinder:    newFakeDirectory(),
-				Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+				Agents:         newFakeDirectory(),
+				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 			})
 
 			sent, err := svc.SendMail(t.Context(), tt.params)
@@ -117,8 +118,8 @@ func TestSendMailStampsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	sent, err := svc.SendMail(t.Context(), SendMailParams{
@@ -144,8 +145,8 @@ func TestSendMailFromNobody(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	_, err := svc.SendMail(t.Context(), SendMailParams{ToAgentID: "agent-b", Body: "hello"})
@@ -155,88 +156,282 @@ func TestSendMailFromNobody(t *testing.T) {
 	assert.Empty(t, mailbox.sent[0].FromName)
 }
 
-// TestSendMailRefusesPastTheHopLimit pins that hops are counted within a thread and the
-// send past the limit is the one refused, and that mail carrying no reply_to opens a thread
-// of its own rather than continuing one.
-func TestSendMailRefusesPastTheHopLimit(t *testing.T) {
+// TestSendMailRefusesPastTheExchangeCap pins that the cap counts the pair rather than a thread
+// of it, so a send with no reply_to is refused exactly like a reply once the two agents have
+// written each other as much as the limit allows.
+func TestSendMailRefusesPastTheExchangeCap(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: 2},
-	})
-
-	first, err := svc.SendMail(t.Context(), SendMailParams{
-		From:      "agent-a",
-		ToAgentID: "agent-b",
-		Body:      "which column?",
-	})
-	require.NoError(t, err)
-	assert.Equal(t, int32(1), first.Hops)
-
-	second, err := svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
-	})
-	require.NoError(t, err)
-	assert.Equal(t, int32(2), second.Hops)
-
-	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "one more thing", ReplyTo: &second.ID,
-	})
-	require.ErrorIs(t, err, ErrThreadCapped)
-
-	unrelated, err := svc.SendMail(t.Context(), SendMailParams{
-		From:      "agent-a",
-		ToAgentID: "agent-b",
-		Body:      "unrelated ping",
-	})
-	require.NoError(t, err)
-	assert.Equal(t, int32(1), unrelated.Hops)
-}
-
-// TestSendMailCountsEveryHopInTheThread pins that the cap bounds the whole exchange rather
-// than one path down it: an agent that keeps answering the message that opened the thread
-// is on its third round, not its second, however it addressed the reply.
-func TestSendMailCountsEveryHopInTheThread(t *testing.T) {
-	mailbox := &fakeMailbox{}
-	svc := NewMailService(NewMailServiceParams{
-		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: 2},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: 2},
 	})
 
 	first, err := svc.SendMail(t.Context(), SendMailParams{
 		From: "agent-a", ToAgentID: "agent-b", Body: "which column?",
 	})
 	require.NoError(t, err)
-	assert.EqualValues(t, 1, first.Hops)
 
-	second, err := svc.SendMail(t.Context(), SendMailParams{
+	_, err = svc.SendMail(t.Context(), SendMailParams{
 		From: "agent-b", ToAgentID: "agent-a", Body: "refunded_cents", ReplyTo: &first.ID,
 	})
 	require.NoError(t, err)
-	assert.EqualValues(t, 2, second.Hops)
 
 	_, err = svc.SendMail(t.Context(), SendMailParams{
-		From: "agent-a", ToAgentID: "agent-b", Body: "and the other one?", ReplyTo: &first.ID,
+		From: "agent-a", ToAgentID: "agent-b", Body: "one more thing", ReplyTo: &first.ID,
 	})
-	require.ErrorIs(t, err, ErrThreadCapped)
+	require.ErrorIs(t, err, ErrExchangeCapped)
+
+	_, err = svc.SendMail(t.Context(), SendMailParams{
+		From: "agent-a", ToAgentID: "agent-b", Body: "a fresh subject",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped, "opening a new thread is not a way around the cap")
 }
 
-// TestSendMailSystemNoticeIsAlwaysAFreshThread proves, rather than assumes, that a
-// lifecycle notice cannot be refused by the hop cap: it carries no reply_to, so it always
-// takes hops 1, which clears even the tightest limit a panel could configure.
-func TestSendMailSystemNoticeIsAlwaysAFreshThread(t *testing.T) {
+// exchange sends mail back and forth between two agents, every message opening a thread of its
+// own the way a send with no reply_to does.
+func exchange(t *testing.T, svc *MailService, one, other string, messages int) {
+	t.Helper()
+
+	for at := range messages {
+		from, to := one, other
+		if at%2 == 1 {
+			from, to = other, one
+		}
+
+		_, err := svc.SendMail(t.Context(), SendMailParams{From: from, ToAgentID: to, Body: "round"})
+		require.NoError(t, err)
+	}
+}
+
+// cappedNotices is what a mailbox holds of the kind weave raises when it refuses a send, which
+// is how a test tells one notice standing for every refusal after it from a pile of them.
+func cappedNotices(mailbox *fakeMailbox) []mailstore.Mail {
+	var held []mailstore.Mail
+	for _, mail := range mailbox.byID {
+		if mail.Kind == mailstore.KindExchangeCapped {
+			held = append(held, mail)
+		}
+	}
+
+	return held
+}
+
+// TestSendMailTellsBothSidesWhenTheCapRefusesASend covers what keeps a refusal from stranding
+// the work: the sender gets the error, the recipient is told mail meant for it was stopped so it
+// is not left waiting on a reply, and a row is marked so the person hears about it.
+func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 4},
+	})
+
+	exchange(t, svc, "child-one", "parent", 3)
+	assert.Empty(t, family.unviewed, "a pair inside the cap is nobody's business")
+	assert.Empty(t, cappedNotices(mailbox))
+
+	exchange(t, svc, "child-one", "parent", 1)
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "child-one", ToAgentID: "parent", Body: "one more",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+	assert.Equal(t, 1, family.unviewed["parent"], "the parent's row is the one marked")
+
+	told := cappedNotices(mailbox)
+	require.Len(t, told, 1)
+	assert.Equal(t, "parent", told[0].ToAgentID, "the side that would otherwise wait forever")
+	assert.Contains(t, told[0].Body, "reviewer")
+	assert.Contains(t, told[0].Body, "child-one", "the id, since two workflows may hold one name")
+}
+
+// TestSendMailKeepsOneNoticePerUnreadRefusal pins what a retry past the cap costs: the mark goes
+// back up, since a row cleared by a look has to say the exchange is still being refused, while a
+// notice the recipient has not read stands in for the refusals behind it and one it has read is
+// replaced so the next refusal is told too.
+func TestSendMailKeepsOneNoticePerUnreadRefusal(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 2},
+	})
+
+	exchange(t, svc, "child-one", "parent", 2)
+
+	for range 3 {
+		_, err := svc.SendMail(t.Context(), SendMailParams{
+			From: "child-one", ToAgentID: "parent", Body: "one more",
+		})
+		require.ErrorIs(t, err, ErrExchangeCapped)
+	}
+
+	assert.Equal(t, 3, family.unviewed["parent"], "every refusal puts the mark back")
+	assert.Len(t, cappedNotices(mailbox), 1, "the unread notice stands for the refusals behind it")
+
+	mailbox.claimHeld()
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "child-one", ToAgentID: "parent", Body: "one more",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+	assert.Len(t, cappedNotices(mailbox), 2, "a recipient that has read the notice is told again")
+}
+
+// TestSendMailTellsAnAgentAboutEverySeveredPair covers the hole a per-kind notice leaves: an
+// agent already holding an unread notice about one partner has to be told about a second one too,
+// or the exchange it is still waiting on is severed without it ever hearing so.
+func TestSendMailTellsAnAgentAboutEverySeveredPair(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 2},
+	})
+
+	exchange(t, svc, "child-one", "parent", 2)
+	exchange(t, svc, "child-two", "parent", 2)
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "child-one", ToAgentID: "parent", Body: "spent",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+
+	_, err = svc.SendMail(t.Context(), SendMailParams{
+		From: "child-two", ToAgentID: "parent", Body: "spent too",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+
+	told := cappedNotices(mailbox)
+	require.Len(t, told, 2, "one notice per severed pair, not one per kind")
+
+	about := xslice.Map(told, func(notice mailstore.Mail) string {
+		require.NotNil(t, notice.AboutAgentID)
+
+		return *notice.AboutAgentID
+	})
+	assert.ElementsMatch(t, []string{"child-one", "child-two"}, about)
+}
+
+// TestSendMailCapsEachPairSeparately pins that the cap is spent per pair, so a reviewer that is
+// replaced starts with the whole allowance and two children of one parent do not spend each
+// other's.
+func TestSendMailCapsEachPairSeparately(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 4},
+	})
+
+	exchange(t, svc, "child-one", "parent", 4)
+	exchange(t, svc, "child-two", "parent", 3)
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "child-one", ToAgentID: "parent", Body: "spent",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+
+	_, err = svc.SendMail(t.Context(), SendMailParams{
+		From: "child-two", ToAgentID: "parent", Body: "still has room",
+	})
+	require.NoError(t, err)
+}
+
+// TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap pins that the mark reaches the parent of
+// a pair it is not itself half of, since two children going round is the case the parent is there
+// to break and its row is the one a person is looking at.
+func TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 2},
+	})
+
+	exchange(t, svc, "child-one", "child-two", 2)
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "child-one", ToAgentID: "child-two", Body: "one more",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+
+	assert.Equal(t, 1, family.unviewed["parent"])
+
+	told := cappedNotices(mailbox)
+	require.Len(t, told, 1)
+	assert.Equal(t, "child-two", told[0].ToAgentID, "the notice still goes to the side that was written to")
+}
+
+// TestSendMailCapsAPairThatIsNobodysChildren pins that a pair with no parent over it is capped
+// too, marking whichever of the two sent, since that is the row a person looks at.
+func TestSendMailCapsAPairThatIsNobodysChildren(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 2},
+	})
+
+	exchange(t, svc, "parent", "other-parent", 2)
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "parent", ToAgentID: "other-parent", Body: "one more",
+	})
+	require.ErrorIs(t, err, ErrExchangeCapped)
+
+	assert.Equal(t, 1, family.unviewed["parent"], "the sender, since there is no parent over it")
+}
+
+// TestSendMailLeavesWeavesOwnMailOutOfTheCount pins that a lifecycle notice does not spend the
+// pair's allowance, since neither agent wrote it and an agent weave talks to often would
+// otherwise be cut off from its own family.
+func TestSendMailLeavesWeavesOwnMailOutOfTheCount(t *testing.T) {
+	mailbox := &fakeMailbox{}
+	family := newFakeFamily()
+	svc := NewMailService(NewMailServiceParams{
+		MailReadWriter: mailbox,
+		Agents:         family,
+		Config:         fakeMailConfig{maxExchange: 4},
+	})
+
+	for range 4 {
+		_, err := svc.SendSystemMail(t.Context(), "parent", "your delegate was archived")
+		require.NoError(t, err)
+	}
+	exchange(t, svc, "child-one", "parent", 3)
+
+	_, err := svc.SendMail(t.Context(), SendMailParams{
+		From: "child-one", ToAgentID: "parent", Body: "still inside the cap",
+	})
+	require.NoError(t, err)
+	assert.Empty(t, family.unviewed)
+}
+
+// TestSendMailSystemNoticeIsNeverRefusedByTheCap proves, rather than assumes, that weave can
+// always reach an agent: a lifecycle notice carries no sending agent, so it is not one half of a
+// pair and clears even the tightest limit a panel could configure.
+func TestSendMailSystemNoticeIsNeverRefusedByTheCap(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: 1},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: 1},
 	})
 
-	sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
-	require.NoError(t, err)
-	assert.EqualValues(t, 1, sent.Hops)
+	for range 3 {
+		sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
+		require.NoError(t, err)
+		require.NotNil(t, sent)
+	}
 }
 
 // TestSendSystemMailStampsWeaveAsTheSender proves the join the framing in hook.go relies
@@ -246,8 +441,8 @@ func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	sent, err := svc.SendSystemMail(t.Context(), "agent-a", "your delegate was archived")
@@ -282,8 +477,8 @@ func TestClaimMail(t *testing.T) {
 			mailbox := &fakeMailbox{claimed: []mailstore.Mail{{ID: "mail-1", Body: "hello"}}}
 			svc := NewMailService(NewMailServiceParams{
 				MailReadWriter: mailbox,
-				AgentFinder:    newFakeDirectory(),
-				Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+				Agents:         newFakeDirectory(),
+				Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 			})
 
 			claimed, err := svc.ClaimMail(t.Context(), tt.agentID)
@@ -302,15 +497,15 @@ func TestClaimMail(t *testing.T) {
 }
 
 type fakeMailConfig struct {
-	maxHops int
+	maxExchange int
 }
 
 func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) {
 	return time.Hour, nil
 }
 
-func (f fakeMailConfig) GetMaxHops() (int, error) {
-	return f.maxHops, nil
+func (f fakeMailConfig) GetMaxExchange() (int, error) {
+	return f.maxExchange, nil
 }
 
 type fakeMailbox struct {
@@ -326,15 +521,14 @@ func (f *fakeMailbox) Send(_ context.Context, params mailstore.SendParams) (*mai
 	f.sent = append(f.sent, params)
 
 	sent := mailstore.Mail{
-		ID:          fmt.Sprintf("mail-%d", len(f.sent)),
-		FromAgentID: params.FromAgentID,
-		FromName:    params.FromName,
-		ToAgentID:   params.ToAgentID,
-		Body:        params.Body,
-		Kind:        params.Kind,
-		ReplyTo:     params.ReplyTo,
-		ThreadRoot:  params.ThreadRoot,
-		Hops:        params.Hops,
+		ID:           fmt.Sprintf("mail-%d", len(f.sent)),
+		FromAgentID:  params.FromAgentID,
+		FromName:     params.FromName,
+		ToAgentID:    params.ToAgentID,
+		Body:         params.Body,
+		Kind:         params.Kind,
+		ReplyTo:      params.ReplyTo,
+		AboutAgentID: params.AboutAgentID,
 	}
 
 	if f.byID == nil {
@@ -354,31 +548,31 @@ func (f *fakeMailbox) GetByID(_ context.Context, id string) (*mailstore.Mail, er
 	return &found, nil
 }
 
-func (f *fakeMailbox) DeepestHops(_ context.Context, threadRoot string) (int32, error) {
-	deepest := int32(0)
-	for _, held := range f.byID {
-		inThread := held.ID == threadRoot || (held.ThreadRoot != nil && *held.ThreadRoot == threadRoot)
-		if inThread && held.Hops > deepest {
-			deepest = held.Hops
-		}
-	}
-
-	return deepest, nil
-}
-
 func (f *fakeMailbox) Claim(_ context.Context, _ string, limit int32) ([]mailstore.Mail, error) {
 	f.claimLimit = limit
 
 	return f.claimed, nil
 }
 
+// claimHeld stamps everything the fake holds as read, which is what an agent reading its mailbox
+// does to a notice and what stops that notice standing in for the next one.
+func (f *fakeMailbox) claimHeld() {
+	claimedAt := time.Now()
+	for id, held := range f.byID {
+		held.ClaimedAt = &claimedAt
+		f.byID[id] = held
+	}
+}
+
 func (f *fakeMailbox) CountPending(context.Context, string) (int64, error) {
 	return f.pending, nil
 }
 
-func (f *fakeMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind) (*mailstore.Mail, error) {
+func (f *fakeMailbox) GetPendingOfKind(_ context.Context, toAgentID string, kind mailstore.Kind, about *string) (*mailstore.Mail, error) {
 	for _, held := range f.byID {
-		if held.ToAgentID == toAgentID && held.Kind == kind && held.ClaimedAt == nil {
+		sameSubject := held.AboutAgentID == nil && about == nil ||
+			held.AboutAgentID != nil && about != nil && *held.AboutAgentID == *about
+		if held.ToAgentID == toAgentID && held.Kind == kind && sameSubject && held.ClaimedAt == nil {
 			return &held, nil
 		}
 	}
@@ -441,14 +635,32 @@ func (f *fakeMailbox) ListUnreadMailboxes(context.Context) ([]string, error) {
 	return unread, nil
 }
 
+// CountExchanged counts off the mail the fake holds, in both directions and ignoring notices,
+// the way the real store's query does.
+func (f *fakeMailbox) CountExchanged(_ context.Context, one, other string) (int64, error) {
+	var exchanged int64
+	for _, mail := range f.byID {
+		if mail.Kind != mailstore.KindPlain || mail.FromAgentID == nil {
+			continue
+		}
+
+		from, to := *mail.FromAgentID, mail.ToAgentID
+		if (from == one && to == other) || (from == other && to == one) {
+			exchanged++
+		}
+	}
+
+	return exchanged, nil
+}
+
 // TestListMailChecksTheAgentExists pins that listing an unknown mailbox is refused rather
 // than answered with nothing.
 func TestListMailChecksTheAgentExists(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	_, err := svc.ListMail(t.Context(), ListMailParams{AgentID: "ghost", Limit: 10})
@@ -471,8 +683,8 @@ func TestListMailReturnsWhatIsAddressedToTheAgent(t *testing.T) {
 	}}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	listed, err := svc.ListMail(t.Context(), ListMailParams{AgentID: "agent-a", Limit: 10})
@@ -489,8 +701,8 @@ func TestDeleteMailGoesWholeOrNotAtAll(t *testing.T) {
 	}}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	err := svc.DeleteMail(t.Context(), []string{"mail-1", "ghost"})
@@ -507,8 +719,8 @@ func TestDeleteMailDeletesEveryIDGiven(t *testing.T) {
 	}}
 	svc := NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		AgentFinder:    newFakeDirectory(),
-		Config:         fakeMailConfig{maxHops: config.DefaultMaxHops},
+		Agents:         newFakeDirectory(),
+		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 
 	err := svc.DeleteMail(t.Context(), []string{"mail-1", "mail-2"})
@@ -518,6 +730,9 @@ func TestDeleteMailDeletesEveryIDGiven(t *testing.T) {
 
 type fakeDirectory struct {
 	byID map[string]agentstore.Agent
+	// unviewed is the agents whose attention mark has been raised, counted rather than set so
+	// a test can tell one raise from several.
+	unviewed map[string]int
 }
 
 func newFakeDirectory() *fakeDirectory {
@@ -546,4 +761,17 @@ func (f *fakeDirectory) GetByID(_ context.Context, id string) (*agentstore.Agent
 	}
 
 	return &found, nil
+}
+
+func (f *fakeDirectory) SetViewed(_ context.Context, id string, viewed bool) error {
+	if viewed {
+		return nil
+	}
+
+	if f.unviewed == nil {
+		f.unviewed = map[string]int{}
+	}
+	f.unviewed[id]++
+
+	return nil
 }

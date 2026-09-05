@@ -310,12 +310,12 @@ file = ""
 # it is neither delivered nor readable, and the row is kept as a record that it never
 # arrived.
 delivery_deadline = "3h"
-# How many pieces of mail may pass through one thread before a send is refused. A
-# reply counts from the deepest hop the thread has reached, so answering an earlier
-# message does not put the count back where that message was. It caps one thread
-# rather than the total mail between two agents, so mail sent with no reply_to opens
-# a thread of its own and starts again at one.
-max_hops          = 20
+# How much mail two agents may write each other before a send between them is
+# refused. It counts the pair in both directions over every thread, so opening a new
+# subject is not a way around it. When a send is refused weave marks a row for
+# attention and tells the recipient its mail was stopped, so an exchange that is cut
+# off does not leave the other side waiting on a reply that will never arrive.
+max_exchange      = 40
 
 # The log the background service writes, which the panel's log key pages.
 [log]

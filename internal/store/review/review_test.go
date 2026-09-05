@@ -355,7 +355,6 @@ func ring(t *testing.T, st *fixture, agentID string, deadline time.Duration, mes
 		ToAgentID: agentID,
 		Body:      "weave: there is review on your diff you have not read",
 		Kind:      mailstore.KindReviewActivity,
-		Hops:      1,
 		Deadline:  deadline,
 	})
 	require.NoError(t, err)
@@ -376,7 +375,6 @@ func release(t *testing.T, st *fixture, agentID string) []Message {
 		ToAgentID: agentID,
 		Body:      "weave: there is review on your diff you have not read",
 		Kind:      mailstore.KindReviewActivity,
-		Hops:      1,
 		Deadline:  time.Hour,
 	})
 	require.NoError(t, err)

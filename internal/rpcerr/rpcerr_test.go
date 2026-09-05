@@ -65,7 +65,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrWorktreeUnsafePath, connect.CodeInvalidArgument},
 		{agents.ErrTooManyAgents, connect.CodeResourceExhausted},
 		{agents.ErrMailboxFull, connect.CodeResourceExhausted},
-		{agents.ErrThreadCapped, connect.CodeResourceExhausted},
+		{agents.ErrExchangeCapped, connect.CodeResourceExhausted},
 		{agents.ErrTooManyChildren, connect.CodeResourceExhausted},
 		{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
 		{agents.ErrReviewNotYours, connect.CodePermissionDenied},
