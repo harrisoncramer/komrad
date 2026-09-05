@@ -93,7 +93,10 @@ type Reconciler struct {
 // trackedAgent is what one pass leaves the next to work from about a single agent, all of it
 // counters and timestamps the panes drove rather than anything the store holds.
 type trackedAgent struct {
-	misses            int
+	misses int
+	// missesToward is the state the current run of misses is evidence for, since three passes
+	// only settle a change when all three agreed on where the agent was going.
+	missesToward      agentstore.State
 	listingsMissing   int
 	shellSince        time.Time
 	turnBoundary      time.Time
@@ -170,9 +173,13 @@ func (r *Reconciler) hasFreshTurnBoundary(agentID string, since time.Time) bool 
 	return r.entry(agentID).turnBoundary.After(since)
 }
 
-func (r *Reconciler) recordMiss(agentID string) int {
+func (r *Reconciler) recordMiss(agentID string, state agentstore.State) int {
 	misses := 0
 	r.withEntry(agentID, func(entry *trackedAgent) {
+		if entry.missesToward != state {
+			entry.missesToward = state
+			entry.misses = 0
+		}
 		entry.misses++
 		misses = entry.misses
 	})
@@ -185,7 +192,10 @@ func (r *Reconciler) missCount(agentID string) int {
 }
 
 func (r *Reconciler) clearMisses(agentID string) {
-	r.withExistingEntry(agentID, func(entry *trackedAgent) { entry.misses = 0 })
+	r.withExistingEntry(agentID, func(entry *trackedAgent) {
+		entry.misses = 0
+		entry.missesToward = ""
+	})
 }
 
 // clearDebounce drops what an agent had accrued towards a transition once one has been
@@ -193,6 +203,7 @@ func (r *Reconciler) clearMisses(agentID string) {
 func (r *Reconciler) clearDebounce(agentID string) {
 	r.withExistingEntry(agentID, func(entry *trackedAgent) {
 		entry.misses = 0
+		entry.missesToward = ""
 		entry.listingsMissing = 0
 		entry.shellSince = time.Time{}
 		entry.turnBoundary = time.Time{}
@@ -433,7 +444,7 @@ func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state a
 		return
 	}
 
-	if r.recordMiss(agent.ID) < reconcileMisses || !r.apply(ctx, agent, state) {
+	if r.recordMiss(agent.ID, state) < reconcileMisses || !r.apply(ctx, agent, state) {
 		return
 	}
 
