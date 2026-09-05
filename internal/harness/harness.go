@@ -3,9 +3,9 @@
 //
 // A harness knows what weave cannot know generically: the command line that starts a
 // conversation, the keys that interrupt one, where the CLI writes its conversation log and how
-// to flatten that log into turns, and how to read a captured frame for whether the agent is
-// working or waiting. The registry holds the harnesses this build was compiled with and hands
-// one back by the id an agent or workflow named.
+// to flatten that log into turns, how to read a captured frame for whether the agent is working
+// or waiting, and how to read one of its own hook payloads. The registry holds the harnesses
+// this build was compiled with and hands one back by the id an agent or workflow named.
 package harness
 
 import (
@@ -90,6 +90,22 @@ func (a Activity) String() string {
 	return "unknown"
 }
 
+// Event is one hook event a harness answers, spelled the way the CLI firing it spells the event,
+// since that name is what weave writes into the settings it hands that CLI.
+type Event string
+
+// Report is what a harness read out of one of its own hook payloads, which annotates the state
+// the pane decided rather than deciding one of its own.
+type Report struct {
+	// Reason is what to say the agent is doing, an empty one meaning there is nothing to say
+	// and clearing whatever was reported before it.
+	Reason string
+
+	// TurnEnded says the payload reported a turn of the agent's ending, which is the one thing
+	// weave acts on rather than only draws.
+	TurnEnded bool
+}
+
 type Turn struct {
 	Role    string
 	Content string
@@ -113,6 +129,8 @@ type Harness interface {
 	FindSession(agentID string) (string, error)
 
 	ReadActivity(frame string) Activity
+
+	ReadReport(event Event, payload []byte) (Report, error)
 
 	GetInterruptKeys() []string
 

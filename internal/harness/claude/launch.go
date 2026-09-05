@@ -19,7 +19,7 @@ var deniedAgents = []string{"Agent(general-purpose)", "Agent(claude)"}
 // BuildCommand renders the command line that puts Claude up, quoting everything interpolated
 // since it is typed into a pane and parsed by the shell running there.
 func (h *Harness) BuildCommand(launch harness.Launch) (string, error) {
-	command := harness.EnvPrefix(launch) + binary
+	command := harness.EnvPrefix(launch) + h.GetBinary()
 
 	if quoted := harness.QuoteFlags(launch.Flags); quoted != "" {
 		command += " " + quoted
@@ -74,12 +74,8 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	settings := map[string]any{
 		"permissions": map[string]any{"deny": deniedAgents},
 	}
-	if hookCommand != "" {
-		settings["hooks"] = map[string]any{
-			"Stop": []any{map[string]any{
-				"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook stop"}},
-			}},
-		}
+	if hooks := hookSettings(hookCommand); len(hooks) > 0 {
+		settings["hooks"] = hooks
 	}
 
 	body, err := json.Marshal(settings)
@@ -93,6 +89,37 @@ func (h *Harness) writeSettings(hookCommand string) (string, error) {
 	}
 
 	return path, nil
+}
+
+// HookInstall is how weave answers one Claude event, kept a struct so that an event needing a
+// matcher of its own is a field here rather than a new shape for every event already installed.
+type HookInstall struct {
+	Subcommand string
+}
+
+// InstalledHooks is the events weave answers, keyed by the event Claude fires.
+var InstalledHooks = map[harness.Event]HookInstall{
+	EventStop:              {Subcommand: "stop"},
+	EventPreToolUse:        {Subcommand: "pre-tool-use"},
+	EventPostToolUse:       {Subcommand: "post-tool-use"},
+	EventPermissionRequest: {Subcommand: "permission-request"},
+}
+
+// hookSettings is the hooks block Claude loads at session start, which is empty when weave has
+// no binary to point the events at.
+func hookSettings(hookCommand string) map[string]any {
+	if hookCommand == "" {
+		return nil
+	}
+
+	hooks := make(map[string]any, len(InstalledHooks))
+	for event, install := range InstalledHooks {
+		hooks[string(event)] = []any{map[string]any{
+			"hooks": []any{map[string]any{"type": "command", "command": hookCommand + " hook " + install.Subcommand}},
+		}}
+	}
+
+	return hooks
 }
 
 func (h *Harness) writeMCPConfig(endpoint string) (string, error) {

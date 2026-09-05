@@ -68,6 +68,7 @@ func renderAgent(stored agentstore.Agent, marks agentMarks) agent {
 			ScheduleId:       stored.ScheduleID,
 			CreatedAt:        created,
 			StateChangedAt:   stateChanged,
+			ReportedReason:   stored.ReportedReason,
 			ArchivedAt:       archived,
 			Alive:            marks.alive,
 			UnreadMail:       marks.unreadMail,

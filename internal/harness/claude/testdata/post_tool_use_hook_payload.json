@@ -1,0 +1,22 @@
+{
+  "session_id": "06de431c-b056-4a0e-b6c6-23a5ad8f47af",
+  "transcript_path": "/Users/harrisoncramer/.claude/projects/-private-tmp/06de431c-b056-4a0e-b6c6-23a5ad8f47af.jsonl",
+  "cwd": "/private/tmp",
+  "prompt_id": "b007a1f2-d5a5-4465-884e-f08d1f9f1018",
+  "permission_mode": "default",
+  "hook_event_name": "PostToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo hi",
+    "description": "Echo hi"
+  },
+  "tool_response": {
+    "stdout": "hi",
+    "stderr": "",
+    "interrupted": false,
+    "isImage": false,
+    "noOutputExpected": false
+  },
+  "tool_use_id": "toolu_015YkiwViMskrbxh8dTM7qRR",
+  "duration_ms": 671
+}

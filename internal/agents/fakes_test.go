@@ -267,6 +267,10 @@ func (f *fakeHarness) MintSessionID() string { return uuid.NewString() }
 
 func (f *fakeHarness) GetInterruptKeys() []string { return []string{"Escape"} }
 
+func (f *fakeHarness) ReadReport(harness.Event, []byte) (harness.Report, error) {
+	return harness.Report{}, nil
+}
+
 func (f *fakeHarness) ReadActivity(frame string) harness.Activity {
 	switch {
 	case frame == busyFrame:

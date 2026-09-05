@@ -10,6 +10,8 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
 	"weave/internal/rpcapi"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -17,8 +19,6 @@ import (
 )
 
 const hookTimeout = 5 * time.Second
-
-const stopHookEvent = "Stop"
 
 const readMailTool = "read_mail"
 
@@ -65,6 +65,75 @@ meant to be run by hand.`,
 
 	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "pre-tool-use",
+		short: "Record the tool an agent is about to run",
+		long: `Record the tool an agent is about to run.
+
+Claude runs this before every tool call, handing it the call on stdin. Weave
+keeps the name of the tool against the agent so the panel can say what it is
+doing, and reads nothing else: a tool's input can carry a secret.`,
+		event: claude.EventPreToolUse,
+	}))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "post-tool-use",
+		short: "Record that an agent's tool call returned",
+		long: `Record that an agent's tool call returned.
+
+Claude runs this once a tool call has finished, which takes the tool back off
+the agent's row. A call that fails runs nothing, so the row is left to the state
+it is drawn beside rather than to this.`,
+		event: claude.EventPostToolUse,
+	}))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "permission-request",
+		short: "Record the tool an agent is waiting to be allowed to run",
+		long: `Record the tool an agent is waiting to be allowed to run.
+
+Claude runs this when a tool call puts a dialog up for a person to answer.
+Weave keeps the name of the tool against the agent, which is what tells a row
+blocked on an approval from one blocked on a question, and reads nothing else:
+a tool's input can carry a secret.`,
+		event: claude.EventPermissionRequest,
+	}))
+
+	return cmd
+}
+
+// payloadHook is one event whose whole answer is what the harness reads out of its payload,
+// which is every event but the Stop weave writes mail back through.
+type payloadHook struct {
+	use   string
+	short string
+	long  string
+	event harness.Event
+}
+
+func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           hook.use,
+		Short:         hook.short,
+		Long:          hook.long,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			reportHookProblem(cmd, "weave read no hook payload, so nothing was recorded", err)
+
+			return nil
+		}
+		if state.env.AgentID == "" {
+			return nil
+		}
+
+		reportHookEvent(cmd, state, claude.HarnessID, hook.event, body)
+
+		return nil
+	}
 
 	return cmd
 }
@@ -109,7 +178,7 @@ nobody has read. Anything but a completed turn is ignored.`,
 			}
 		}
 
-		recordTurnBoundary(cmd.Context(), state)
+		recordReport(cmd.Context(), state, harness.Report{TurnEnded: true})
 
 		return nil
 	}
@@ -133,7 +202,14 @@ turn end.`,
 	}
 
 	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
-		payload, err := readStopHookPayload(cmd.InOrStdin())
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
+
+			return nil
+		}
+
+		payload, err := readStopHookPayload(body)
 		if err != nil {
 			reportHookProblem(cmd, "weave read no hook payload, so no mail was delivered", err)
 
@@ -145,7 +221,7 @@ turn end.`,
 
 		// Recorded before the re-entry check, since a turn the last delivery caused is still a
 		// turn ending, and it is the turn in which the agent answered its mail.
-		recordTurnBoundary(cmd.Context(), state)
+		reportHookEvent(cmd, state, claude.HarnessID, claude.EventStop, body)
 
 		if payload.StopHookActive {
 			return nil
@@ -167,7 +243,7 @@ turn end.`,
 
 		return json.NewEncoder(cmd.OutOrStdout()).Encode(stopHookOutput{
 			HookSpecificOutput: stopHookContext{
-				HookEventName:     stopHookEvent,
+				HookEventName:     string(claude.EventStop),
 				AdditionalContext: renderMail(mail.Mail),
 			},
 		})
@@ -180,11 +256,7 @@ func reportHookProblem(cmd *cobra.Command, what string, err error) {
 	cmd.PrintErrf("%s: %v\n", what, err)
 }
 
-func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
-	body, err := io.ReadAll(stdin)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the hook payload: %w", err)
-	}
+func readStopHookPayload(body []byte) (*stopHookPayload, error) {
 	if len(body) == 0 {
 		return &stopHookPayload{}, nil
 	}
@@ -197,16 +269,62 @@ func readStopHookPayload(stdin io.Reader) (*stopHookPayload, error) {
 	return &payload, nil
 }
 
-func recordTurnBoundary(ctx context.Context, state *app) {
+// reportHookEvent hands one hook payload to the harness that fired it and records what it read,
+// which is the path every event weave installs takes.
+func reportHookEvent(cmd *cobra.Command, state *app, harnessID string, event harness.Event, payload []byte) {
+	hn, err := state.harnesses.GetByID(harnessID)
+	if err != nil {
+		reportHookProblem(cmd, "weave has no harness to read the hook payload with, so nothing was recorded", err)
+
+		return
+	}
+
+	report, err := hn.ReadReport(event, payload)
+	if err != nil {
+		reportHookProblem(cmd, "weave could not read the hook payload, so nothing was recorded", err)
+
+		return
+	}
+
+	recordReport(cmd.Context(), state, report)
+}
+
+func recordReport(ctx context.Context, state *app, report harness.Report) {
 	ctx, cancel := context.WithTimeout(ctx, hookTimeout)
 	defer cancel()
 
-	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // its one caller has nothing to do with a failure here
-		Addr:    state.env.Addr,
-		Path:    agentv1connect.AgentServiceRecordTurnBoundaryProcedure,
-		From:    caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
-		Request: map[string]any{},
+	_, _ = callRPC(ctx, callRPCParams{ //nolint:errcheck // no caller of this has anything to do with a failure here
+		Addr: state.env.Addr,
+		Path: agentv1connect.AgentServiceRecordReportProcedure,
+		From: caller.Caller{AgentID: state.env.AgentID, SessionID: state.env.SessionID},
+		Request: map[string]any{
+			"reason":    clampReason(report.Reason),
+			"turnEnded": report.TurnEnded,
+		},
 	})
+}
+
+// reasonLimit is the longest reason the reason field of RecordReportRequest takes, which the
+// hook clamps to rather than have a turn end refused over a label.
+const reasonLimit = 200
+
+// clampReason drops the control characters the endpoint refuses and cuts what is left to the
+// length it takes, on a rune boundary since half a rune is refused as well.
+func clampReason(reason string) string {
+	cleaned := strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+
+		return r
+	}, reason)
+
+	runes := []rune(cleaned)
+	if len(runes) <= reasonLimit {
+		return cleaned
+	}
+
+	return string(runes[:reasonLimit])
 }
 
 func readMail(ctx context.Context, state *app) (*deliveredMail, error) {

@@ -305,6 +305,12 @@ SET
     ELSE
         state_changed_at
     END,
+    reported_reason = CASE WHEN state IS DISTINCT FROM @state
+        AND @state IN ('idle', 'uncertain') THEN
+        ''
+    ELSE
+        reported_reason
+    END,
     state_seen_at = NOW()
 WHERE
     id = @id;
@@ -326,6 +332,14 @@ UPDATE
     agents
 SET
     turn_ended_at = NOW()
+WHERE
+    id = @id;
+
+-- name: SetAgentReportedReasonByID :exec
+UPDATE
+    agents
+SET
+    reported_reason = @reported_reason
 WHERE
     id = @id;
 
@@ -351,6 +365,7 @@ SET
     ELSE
         state_changed_at
     END,
+    reported_reason = '',
     state_seen_at = NOW()
 WHERE
     id = @id

@@ -25,6 +25,9 @@ meant to be run by hand.
 ### SEE ALSO
 
 * [weave](weave.md)	 - tmux panel and CLI for background coding agents
+* [weave hook permission-request](weave_hook_permission-request.md)	 - Record the tool an agent is waiting to be allowed to run
+* [weave hook post-tool-use](weave_hook_post-tool-use.md)	 - Record that an agent's tool call returned
+* [weave hook pre-tool-use](weave_hook_pre-tool-use.md)	 - Record the tool an agent is about to run
 * [weave hook stop](weave_hook_stop.md)	 - Deliver an agent's unread mail as its turn ends
 * [weave hook turn-end](weave_hook_turn-end.md)	 - Record that an agent's turn ended
 

@@ -12,7 +12,9 @@ import (
 	"github.com/google/uuid"
 )
 
-const binary = "claude"
+// HarnessID is the id an agent running Claude Code is recorded under, which is also the CLI a
+// pane has to resolve and what names the harness a hook subcommand reads its payload with.
+const HarnessID = "claude"
 
 type Harness struct {
 	projectsDir string
@@ -33,10 +35,10 @@ func NewHarness(params NewHarnessParams) *Harness {
 }
 
 // GetID is the name an agent running Claude Code is recorded under.
-func (h *Harness) GetID() string { return binary }
+func (h *Harness) GetID() string { return HarnessID }
 
 // GetBinary is the CLI a pane's shell has to resolve to start an agent.
-func (h *Harness) GetBinary() string { return binary }
+func (h *Harness) GetBinary() string { return HarnessID }
 
 // GetInterruptKeys stops Claude where it stands, the second Escape dismissing the prompt the
 // first can leave behind so a later message lands in the composer.

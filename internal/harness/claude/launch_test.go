@@ -378,18 +378,21 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 			settings := readSettings(t, command)
 			assert.Equal(t, filepath.Join(home, ".claude", "weave-settings.json"), settingsPath(t, command))
 
-			stop, ok := settings.Hooks["Stop"]
 			if !tt.wantHook {
-				assert.False(t, ok, "no hook is registered")
+				assert.Empty(t, settings.Hooks, "no hook is registered")
 
 				return
 			}
 
-			require.True(t, ok, "the Stop event is hooked")
-			require.Len(t, stop, 1)
-			require.Len(t, stop[0].Hooks, 1)
-			assert.Equal(t, "command", stop[0].Hooks[0].Type)
-			assert.Equal(t, tt.hookCommand+" hook stop", stop[0].Hooks[0].Command)
+			require.Len(t, settings.Hooks, len(InstalledHooks), "every event weave answers is written")
+			for event, install := range InstalledHooks {
+				group, ok := settings.Hooks[string(event)]
+				require.True(t, ok, "the %s event is hooked", event)
+				require.Len(t, group, 1)
+				require.Len(t, group[0].Hooks, 1)
+				assert.Equal(t, "command", group[0].Hooks[0].Type)
+				assert.Equal(t, tt.hookCommand+" hook "+install.Subcommand, group[0].Hooks[0].Command)
+			}
 		})
 	}
 }

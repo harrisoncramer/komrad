@@ -6,10 +6,15 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"weave/config"
 	"weave/internal/caller"
+	"weave/internal/harness"
+	"weave/internal/harness/claude"
+	"weave/internal/harness/codex"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
 	"github.com/stretchr/testify/assert"
@@ -112,15 +117,18 @@ func TestStopHookDeliversMail(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var asked caller.Caller
 			var logged []string
-			var boundaries []string
+			var reports []recordedReport
 			addr := fakeMailServer(t, fakeMailParams{
-				mail:       tt.mail,
-				asked:      &asked,
-				logged:     &logged,
-				boundaries: &boundaries,
+				mail:    tt.mail,
+				asked:   &asked,
+				logged:  &logged,
+				reports: &reports,
 			})
 
-			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
+			state := &app{
+				env:       &config.Environment{Addr: addr, AgentID: tt.agentID},
+				harnesses: hookHarnesses(t),
+			}
 
 			var out bytes.Buffer
 			cmd := stopHookCmd(state)
@@ -130,9 +138,10 @@ func TestStopHookDeliversMail(t *testing.T) {
 
 			require.NoError(t, cmd.Execute())
 			assert.Equal(t, tt.wantSent, asked.AgentID != "", "the mailbox is only read when there is one to read")
-			assert.Equal(t, tt.wantBoundary, len(boundaries) == 1, "a turn boundary is recorded whenever the turn actually ends")
+			assert.Equal(t, tt.wantBoundary, len(reports) == 1, "a turn boundary is recorded whenever the turn actually ends")
 			if tt.wantBoundary {
-				assert.Equal(t, tt.agentID, boundaries[0])
+				assert.Equal(t, recordedReport{agentID: tt.agentID, turnEnded: true}, reports[0],
+					"a turn ending is all Stop reports, and it names nothing the agent is doing")
 			}
 
 			if len(tt.wantText) == 0 {
@@ -150,12 +159,61 @@ func TestStopHookDeliversMail(t *testing.T) {
 
 			var printed stopHookOutput
 			require.NoError(t, json.Unmarshal(out.Bytes(), &printed))
-			assert.Equal(t, stopHookEvent, printed.HookSpecificOutput.HookEventName)
+			assert.Equal(t, string(claude.EventStop), printed.HookSpecificOutput.HookEventName)
 
 			for _, want := range tt.wantText {
 				assert.Contains(t, printed.HookSpecificOutput.AdditionalContext, want)
 			}
 		})
+	}
+}
+
+// TestClampReason covers what the hook does with a reason the endpoint would refuse, which it
+// takes off rather than lose the turn end travelling with it.
+func TestClampReason(t *testing.T) {
+	tests := []struct {
+		name   string
+		reason string
+		want   string
+	}{
+		{name: "nothing to say"},
+		{
+			name:   "an ordinary tool name",
+			reason: "Bash",
+			want:   "Bash",
+		},
+		{
+			name:   "a reason carrying what the column cannot hold",
+			reason: "Bash\x00 -c\n'ls'",
+			want:   "Bash -c'ls'",
+		},
+		{
+			name:   "a reason longer than the field takes",
+			reason: strings.Repeat("é", reasonLimit+10),
+			want:   strings.Repeat("é", reasonLimit),
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			clamped := clampReason(tt.reason)
+			assert.Equal(t, tt.want, clamped)
+			assert.True(t, utf8.ValidString(clamped), "a cut that split a rune would be refused as well")
+		})
+	}
+}
+
+// TestEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
+// answered by a subcommand of weave hook, since an event installed without one runs a command
+// that does not exist, on every turn, into a stream nobody reads.
+func TestEveryInstalledHookHasASubcommand(t *testing.T) {
+	var names []string
+	for _, cmd := range hookCmd(&app{}).Commands() {
+		names = append(names, cmd.Name())
+	}
+
+	for event, install := range claude.InstalledHooks {
+		assert.Contains(t, names, install.Subcommand, "the %s hook runs weave hook %s", event, install.Subcommand)
 	}
 }
 
@@ -219,7 +277,10 @@ func TestMailPostamble(t *testing.T) {
 // TestStopHookSurvivesAServerThatIsNotThere pins that the hook exits cleanly when nothing is
 // serving, since it runs on every turn and must never block one.
 func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
-	state := &app{env: &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"}}
+	state := &app{
+		env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"},
+		harnesses: hookHarnesses(t),
+	}
 
 	var out bytes.Buffer
 	cmd := stopHookCmd(state)
@@ -235,11 +296,32 @@ func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	assert.Contains(t, errOut.String(), "weave could not be reached")
 }
 
+// recordedReport is one call of the endpoint every hook event reports through, which is what a
+// test asserts on rather than the payload the hook was handed.
+type recordedReport struct {
+	agentID   string
+	reason    string
+	turnEnded bool
+}
+
 type fakeMailParams struct {
-	mail       []mailItem
-	asked      *caller.Caller
-	logged     *[]string
-	boundaries *[]string
+	mail    []mailItem
+	asked   *caller.Caller
+	logged  *[]string
+	reports *[]recordedReport
+}
+
+// hookHarnesses is the registry a hook subcommand reads its own payload through.
+func hookHarnesses(t *testing.T) *harness.Registry {
+	t.Helper()
+
+	registry, err := harness.NewRegistry(
+		claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}),
+		codex.NewHarness(codex.NewHarnessParams{SessionsDir: t.TempDir()}),
+	)
+	require.NoError(t, err)
+
+	return registry
 }
 
 func fakeMailServer(t *testing.T, params fakeMailParams) string {
@@ -259,8 +341,17 @@ func fakeMailServer(t *testing.T, params fakeMailParams) string {
 		assert.NoError(t, json.NewEncoder(w).Encode(deliveredMail{Mail: params.mail}))
 	})
 
-	mux.HandleFunc(agentv1connect.AgentServiceRecordTurnBoundaryProcedure, func(w http.ResponseWriter, r *http.Request) {
-		*params.boundaries = append(*params.boundaries, caller.FromHeader(r.Header).AgentID)
+	mux.HandleFunc(agentv1connect.AgentServiceRecordReportProcedure, func(w http.ResponseWriter, r *http.Request) {
+		var report struct {
+			Reason    string `json:"reason"`
+			TurnEnded bool   `json:"turnEnded"`
+		}
+		assert.NoError(t, json.NewDecoder(r.Body).Decode(&report))
+		*params.reports = append(*params.reports, recordedReport{
+			agentID:   caller.FromHeader(r.Header).AgentID,
+			reason:    report.Reason,
+			turnEnded: report.TurnEnded,
+		})
 
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{}`))
@@ -323,14 +414,17 @@ func TestTurnEndHookRecordsTheBoundary(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var asked caller.Caller
 			var logged []string
-			var boundaries []string
+			var reports []recordedReport
 			addr := fakeMailServer(t, fakeMailParams{
-				asked:      &asked,
-				logged:     &logged,
-				boundaries: &boundaries,
+				asked:   &asked,
+				logged:  &logged,
+				reports: &reports,
 			})
 
-			state := &app{env: &config.Environment{Addr: addr, AgentID: tt.agentID}}
+			state := &app{
+				env:       &config.Environment{Addr: addr, AgentID: tt.agentID},
+				harnesses: hookHarnesses(t),
+			}
 
 			var out, errs bytes.Buffer
 			cmd := turnEndHookCmd(state)
@@ -339,9 +433,9 @@ func TestTurnEndHookRecordsTheBoundary(t *testing.T) {
 			cmd.SetArgs(tt.args)
 
 			require.NoError(t, cmd.Execute())
-			assert.Equal(t, tt.wantBoundary, len(boundaries) == 1)
+			assert.Equal(t, tt.wantBoundary, len(reports) == 1)
 			if tt.wantBoundary {
-				assert.Equal(t, tt.agentID, boundaries[0])
+				assert.Equal(t, recordedReport{agentID: tt.agentID, turnEnded: true}, reports[0])
 			}
 			assert.Empty(t, out.String(), "notify reads nothing back, so nothing is printed")
 		})

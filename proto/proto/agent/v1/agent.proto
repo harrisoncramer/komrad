@@ -45,6 +45,9 @@ message Agent {
   // The run log that failure was written to, which is the run the panel opens on.
   optional int32 failed_run_log = 28;
   string state_changed_at = 25;
+  // What the agent's own CLI last reported it was doing, which annotates the state the pane
+  // decided rather than replacing it.
+  string reported_reason = 29;
 }
 
 message AgentMetadata {
@@ -164,6 +167,18 @@ message SetTagsRequest {
 message SetHiddenRequest {
   string id = 1 [(buf.validate.field).string.min_len = 1];
   bool hidden = 2;
+}
+
+message RecordReportRequest {
+  string reason = 1 [
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "report.reason.printable"
+      message: "reason must not contain control characters"
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
+  bool turn_ended = 2;
 }
 
 message SetAgentViewedRequest {
@@ -422,7 +437,7 @@ service AgentService {
   rpc EmptyArchive(google.protobuf.Empty) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc RecordTurnBoundary(google.protobuf.Empty) returns (google.protobuf.Empty) {
+  rpc RecordReport(RecordReportRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
   rpc SetAgentViewed(SetAgentViewedRequest) returns (google.protobuf.Empty) {

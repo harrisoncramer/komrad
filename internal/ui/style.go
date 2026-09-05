@@ -113,6 +113,20 @@ func failedMark(agent agentstore.Agent) string {
 	return " " + stateMark(agent.State)
 }
 
+// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
+// not so much that a row stops being a column of names.
+const reasonWidth = 24
+
+// reasonMark is what the agent's own CLI last reported it was doing, drawn last on the row since
+// it is the only part of one that is prose rather than a glyph.
+func reasonMark(agent agentstore.Agent) string {
+	if agent.ReportedReason == "" {
+		return ""
+	}
+
+	return " " + dimStyle.Render(clip(agent.ReportedReason, reasonWidth))
+}
+
 const workflowIcon = "⧉"
 
 const childIcon = "└"

@@ -27,8 +27,8 @@ func (s *Store) ClaimNudge(ctx context.Context, id string, retryAfter time.Durat
 	return len(claimed) > 0, nil
 }
 
-// SetStateByID records the state a reconcile pass observed, stamping when it was seen
-// whether or not the value moved.
+// SetStateByID records the state a reconcile pass observed, stamping when it was seen whether or
+// not the value moved, and dropping what the agent's CLI reported it was doing when it did.
 func (s *Store) SetStateByID(ctx context.Context, id string, state State) error {
 	if !store.IsID(id) {
 		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
@@ -66,6 +66,21 @@ func (s *Store) SetTurnEnded(ctx context.Context, id string) error {
 
 	if err := s.queries.SetAgentTurnEndedByID(ctx, id); err != nil {
 		return fmt.Errorf("failed to set the turn end for id %q: %w", id, err)
+	}
+
+	return nil
+}
+
+// SetReportedReason records what an agent's own CLI last reported it was doing, an empty reason
+// clearing whatever was reported before it.
+func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error {
+	if !store.IsID(id) {
+		return fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
+	}
+
+	params := models.SetAgentReportedReasonByIDParams{ID: id, ReportedReason: reason}
+	if err := s.queries.SetAgentReportedReasonByID(ctx, params); err != nil {
+		return fmt.Errorf("failed to set the reported reason for id %q: %w", id, err)
 	}
 
 	return nil

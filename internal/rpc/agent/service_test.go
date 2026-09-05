@@ -888,27 +888,33 @@ func TestLog(t *testing.T) {
 
 type fakeReconciler struct {
 	recorded []string
+	reasons  []string
 }
 
 func (f *fakeReconciler) RecordTurnBoundary(agentID string) {
 	f.recorded = append(f.recorded, agentID)
 }
 
-// TestRecordTurnBoundaryRefusesACallerWithNoIdentity pins that a hook that cannot say which
-// agent it speaks for is turned away rather than stamping somebody.
-func TestRecordTurnBoundaryRefusesACallerWithNoIdentity(t *testing.T) {
+func (f *fakeReconciler) RecordReportedReason(_, reason string) {
+	f.reasons = append(f.reasons, reason)
+}
+
+// TestRecordReportRefusesACallerWithNoIdentity pins that a hook that cannot say which agent it
+// speaks for is turned away rather than stamping somebody.
+func TestRecordReportRefusesACallerWithNoIdentity(t *testing.T) {
 	reconciler := &fakeReconciler{}
 	svc := NewService(NewServiceParams{Reconciler: reconciler})
 
-	_, err := svc.RecordTurnBoundary(t.Context(), connect.NewRequest(&emptypb.Empty{}))
+	_, err := svc.RecordReport(t.Context(), connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 	assert.Empty(t, reconciler.recorded)
+	assert.Empty(t, reconciler.reasons)
 }
 
-// TestRecordTurnBoundaryMarksTheAgentUnviewed pins the two things one report does: the
-// reconciler hears about the boundary, and the row is stamped so the panel says the agent has
-// finished something nobody has read.
-func TestRecordTurnBoundaryMarksTheAgentUnviewed(t *testing.T) {
+// TestRecordReportMarksTheAgentUnviewed pins the three things one reported turn end does: the
+// reconciler hears about the boundary, the reason lands on the row, and the row is stamped so
+// the panel says the agent has finished something nobody has read.
+func TestRecordReportMarksTheAgentUnviewed(t *testing.T) {
 	svc, st := service(t)
 	reconciler := &fakeReconciler{}
 	svc.reconciler = reconciler
@@ -920,14 +926,43 @@ func TestRecordTurnBoundaryMarksTheAgentUnviewed(t *testing.T) {
 	require.False(t, before.Msg.GetAgent().GetUnviewed(), "an agent that has ended no turn is not unread")
 
 	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
-	_, err = svc.RecordTurnBoundary(ctx, connect.NewRequest(&emptypb.Empty{}))
+	_, err = svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{id}, reconciler.recorded)
+	assert.Equal(t, []string{""}, reconciler.reasons)
 
 	after, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 	require.NoError(t, err)
 	assert.True(t, after.Msg.GetAgent().GetUnviewed())
+}
+
+// TestRecordReportKeepsTheReasonWithoutEndingTheTurn covers the tier every event but a turn end
+// lands in, where the reason goes on the row and nothing about the turn is claimed.
+func TestRecordReportKeepsTheReasonWithoutEndingTheTurn(t *testing.T) {
+	svc, st := service(t)
+	reconciler := &fakeReconciler{}
+	svc.reconciler = reconciler
+
+	id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
+	ctx := caller.With(t.Context(), caller.Caller{AgentID: id})
+
+	_, err := svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{Reason: "Bash"}))
+	require.NoError(t, err)
+
+	reported, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	assert.Equal(t, "Bash", reported.Msg.GetAgent().GetReportedReason())
+	assert.False(t, reported.Msg.GetAgent().GetUnviewed(), "nothing reported a turn ending")
+	assert.Empty(t, reconciler.recorded)
+	assert.Equal(t, []string{"Bash"}, reconciler.reasons)
+
+	_, err = svc.RecordReport(ctx, connect.NewRequest(&agentv1.RecordReportRequest{TurnEnded: true}))
+	require.NoError(t, err)
+
+	cleared, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
+	require.NoError(t, err)
+	assert.Empty(t, cleared.Msg.GetAgent().GetReportedReason(), "a turn ending leaves nothing to say the agent is doing")
 }
 
 // TestSendMail pins the code each way of addressing mail wrongly is answered with, a name in
