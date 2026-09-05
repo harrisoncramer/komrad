@@ -85,6 +85,17 @@ the agent's row. A call that fails runs nothing, so the row is left to the state
 it is drawn beside rather than to this.`,
 		event: claude.EventPostToolUse,
 	}))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "permission-request",
+		short: "Record the tool an agent is waiting to be allowed to run",
+		long: `Record the tool an agent is waiting to be allowed to run.
+
+Claude runs this when a tool call puts a dialog up for a person to answer.
+Weave keeps the name of the tool against the agent, which is what tells a row
+blocked on an approval from one blocked on a question, and reads nothing else:
+a tool's input can carry a secret.`,
+		event: claude.EventPermissionRequest,
+	}))
 
 	return cmd
 }

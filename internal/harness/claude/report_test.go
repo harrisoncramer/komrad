@@ -51,6 +51,12 @@ func TestReadReport(t *testing.T) {
 			want:    harness.Report{},
 		},
 		{
+			name:    "a tool call waiting on a person to allow it",
+			event:   EventPermissionRequest,
+			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
+			want:    harness.Report{Reason: "Bash"},
+		},
+		{
 			name:    "a tool call weave could not read",
 			event:   EventPreToolUse,
 			payload: `{`,
@@ -97,6 +103,11 @@ func TestReadReportOnCapturedPayloads(t *testing.T) {
 		{
 			file:  "pre_tool_use_hook_payload.json",
 			event: EventPreToolUse,
+			want:  harness.Report{Reason: "Bash"},
+		},
+		{
+			file:  "permission_request_hook_payload.json",
+			event: EventPermissionRequest,
 			want:  harness.Report{Reason: "Bash"},
 		},
 		{

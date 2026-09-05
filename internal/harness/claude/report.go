@@ -17,6 +17,9 @@ const (
 
 	// EventPostToolUse is fired once a tool call has returned.
 	EventPostToolUse harness.Event = "PostToolUse"
+
+	// EventPermissionRequest is fired when a tool call puts a dialog up for a person to answer.
+	EventPermissionRequest harness.Event = "PermissionRequest"
 )
 
 // toolPayload is a tool event, of which only the name of the tool is read: an input can carry a
@@ -37,10 +40,9 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 	case EventStop:
 		return harness.Report{TurnEnded: true}, nil
 
-	// The tool is what the agent is doing until it stops doing it, so the pair reads as one
-	// reason arriving and then going, and a call that fails fires no PostToolUse at all, which
-	// is why nothing here is what clears a reason for good.
-	case EventPreToolUse:
+	// A tool call and the dialog it may put up are both the same answer, the name of the tool,
+	// which is what tells a row blocked on an approval from one blocked on a question.
+	case EventPreToolUse, EventPermissionRequest:
 		var parsed toolPayload
 		if err := json.Unmarshal(payload, &parsed); err != nil {
 			return harness.Report{}, fmt.Errorf("failed to parse the %s payload: %w", event, err)

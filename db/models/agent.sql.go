@@ -1892,7 +1892,8 @@ SET
     ELSE
         state_changed_at
     END,
-    reported_reason = CASE WHEN state IS DISTINCT FROM $1 THEN
+    reported_reason = CASE WHEN state IS DISTINCT FROM $1
+        AND $1 IN ('idle', 'uncertain') THEN
         ''
     ELSE
         reported_reason

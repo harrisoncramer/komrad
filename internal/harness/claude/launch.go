@@ -99,9 +99,10 @@ type HookInstall struct {
 
 // InstalledHooks is the events weave answers, keyed by the event Claude fires.
 var InstalledHooks = map[harness.Event]HookInstall{
-	EventStop:        {Subcommand: "stop"},
-	EventPreToolUse:  {Subcommand: "pre-tool-use"},
-	EventPostToolUse: {Subcommand: "post-tool-use"},
+	EventStop:              {Subcommand: "stop"},
+	EventPreToolUse:        {Subcommand: "pre-tool-use"},
+	EventPostToolUse:       {Subcommand: "post-tool-use"},
+	EventPermissionRequest: {Subcommand: "permission-request"},
 }
 
 // hookSettings is the hooks block Claude loads at session start, which is empty when weave has

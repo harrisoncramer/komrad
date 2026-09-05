@@ -404,9 +404,9 @@ func TestSetReportedReasonRoundTrips(t *testing.T) {
 	assert.Empty(t, cleared.ReportedReason)
 }
 
-// TestSetStateByIDClearsTheReportedReason pins that a reason lives exactly as long as the state
-// it annotates, which is what keeps a tool an agent never finished off the row of an agent that
-// has since stopped, and how a reason a restart lost the timestamp for still goes.
+// TestSetStateByIDClearsTheReportedReason pins that a reason lives as long as the turn rather
+// than the state, since a tool blocking on a dialog moves the state without ending anything,
+// and that landing idle takes it off the row of an agent that has since stopped.
 func TestSetStateByIDClearsTheReportedReason(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -421,6 +421,12 @@ func TestSetStateByIDClearsTheReportedReason(t *testing.T) {
 	held, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Equal(t, "Bash", held.ReportedReason, "the state it annotates has not moved")
+
+	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
+	blocked, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+	assert.Equal(t, "Bash", blocked.ReportedReason,
+		"a tool putting a dialog up is the same turn, and the dialog is what the reason names")
 
 	require.NoError(t, st.SetStateByID(ctx, created.ID, StateIdle))
 	cleared, err := st.Get(ctx, "agent")

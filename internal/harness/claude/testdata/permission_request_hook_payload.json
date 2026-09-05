@@ -1,0 +1,14 @@
+{
+  "session_id": "9de96661-24b0-4501-8471-1323902724f6",
+  "transcript_path": "/Users/harrisoncramer/.claude/projects/-private-tmp/9de96661-24b0-4501-8471-1323902724f6.jsonl",
+  "cwd": "/private/tmp",
+  "scratchpad_dir": "/private/tmp/claude-501/-private-tmp/9de96661-24b0-4501-8471-1323902724f6/scratchpad",
+  "prompt_id": "50420e87-287c-480a-bbe3-e025820c2e9e",
+  "permission_mode": "default",
+  "hook_event_name": "PermissionRequest",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "echo hello",
+    "description": "Run echo hello"
+  }
+}

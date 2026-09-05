@@ -305,7 +305,8 @@ SET
     ELSE
         state_changed_at
     END,
-    reported_reason = CASE WHEN state IS DISTINCT FROM @state THEN
+    reported_reason = CASE WHEN state IS DISTINCT FROM @state
+        AND @state IN ('idle', 'uncertain') THEN
         ''
     ELSE
         reported_reason
