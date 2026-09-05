@@ -589,6 +589,6 @@ table "agents" {
   index "agents_mark_active" {
     unique  = true
     columns = [column.mark]
-    where   = "mark IS NOT NULL"
+    where   = "mark IS NOT NULL AND archived_at IS NULL"
   }
 }

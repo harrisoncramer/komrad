@@ -107,6 +107,23 @@ func TestSetMark(t *testing.T) {
 		assert.Equal(t, xptr.Ptr("b"), markOf(t, st, other.ID))
 	})
 
+	t.Run("an agent archived since the row was drawn takes the letter off nobody", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		holder := createMarkAgent(t, st, "alpha")
+		gone := createMarkAgent(t, st, "beta")
+
+		_, err := st.SetMark(ctx, holder.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+		require.NoError(t, st.archiveByName(ctx, gone.Name))
+
+		result, err := st.SetMark(ctx, gone.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+		assert.False(t, result.Marked)
+		assert.Empty(t, result.ClearedFrom)
+		assert.Equal(t, xptr.Ptr("a"), markOf(t, st, holder.ID), "the agent that holds the letter keeps it")
+	})
+
 	t.Run("archiving a marked agent frees the letter", func(t *testing.T) {
 		st := open(t)
 		ctx := t.Context()
@@ -122,6 +139,68 @@ func TestSetMark(t *testing.T) {
 		require.NoError(t, err)
 		assert.True(t, result.Marked)
 		assert.Empty(t, result.ClearedFrom, "an archived agent is not one the letter was taken off")
+	})
+
+	t.Run("archiving one agent of a workflow frees its letter", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		archiving := createMarkAgent(t, st, "alpha")
+
+		_, err := st.SetMark(ctx, archiving.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+
+		_, err = st.ArchiveWorkflowAgents(ctx, archiving.WorkflowID)
+		require.NoError(t, err)
+		assert.Nil(t, markOf(t, st, archiving.ID))
+	})
+
+	t.Run("archiving an unchanged agent frees its letter", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		archiving := createMarkAgent(t, st, "alpha")
+
+		_, err := st.SetMark(ctx, archiving.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+
+		current, err := st.GetByID(ctx, archiving.ID)
+		require.NoError(t, err)
+		require.NotNil(t, current)
+
+		archived, err := st.ArchiveIfUnchanged(ctx, ArchiveIfUnchangedParams{ID: current.ID, UpdatedAt: current.UpdatedAt})
+		require.NoError(t, err)
+		require.True(t, archived)
+		assert.Nil(t, markOf(t, st, archiving.ID))
+	})
+
+	t.Run("a restored agent comes back unmarked, so its letter cannot be held twice", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		restoring := createMarkAgent(t, st, "alpha")
+		other := createMarkAgent(t, st, "beta")
+
+		_, err := st.SetMark(ctx, restoring.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+		require.NoError(t, st.archiveByName(ctx, restoring.Name))
+
+		_, err = st.SetMark(ctx, other.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+
+		require.NoError(t, st.Restore(ctx, []string{restoring.ID}))
+		assert.Nil(t, markOf(t, st, restoring.ID))
+		assert.Equal(t, xptr.Ptr("a"), markOf(t, st, other.ID))
+	})
+
+	t.Run("a workflow restored whole comes back unmarked too", func(t *testing.T) {
+		st := open(t)
+		ctx := t.Context()
+		restoring := createMarkAgent(t, st, "alpha")
+
+		_, err := st.SetMark(ctx, restoring.ID, xptr.Ptr("a"))
+		require.NoError(t, err)
+		require.NoError(t, st.archiveByName(ctx, restoring.Name))
+
+		require.NoError(t, st.RestoreWorkflowAgents(ctx, restoring.WorkflowID))
+		assert.Nil(t, markOf(t, st, restoring.ID))
 	})
 }
 

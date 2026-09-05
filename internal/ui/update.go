@@ -48,6 +48,13 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// A mark binding owns the key after it, whatever that key is otherwise bound to, and takes it
+	// ahead of the banner's own escape, which would otherwise eat the press that backs out of a
+	// mark and leave the panel waiting for a letter with nothing on screen saying so.
+	if key, ok := msg.(tea.KeyMsg); ok && m.marks.pending != markPendingNone {
+		return m.readMark(key)
+	}
+
 	if m.banner != nil && !m.form.isActive() {
 		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
 			m.banner = nil
@@ -75,12 +82,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	if m.filter.typing {
 		return m.updateFilterInput(key)
-	}
-
-	// A mark binding owns the key after it, whatever that key is otherwise bound to, since the
-	// letter is what names the mark rather than a key the screen acts on.
-	if m.marks.pending != markPendingNone {
-		return m.readMark(key)
 	}
 
 	// Something being typed into owns the keyboard, since every global key is also a character

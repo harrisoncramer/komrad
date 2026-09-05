@@ -266,6 +266,7 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
+    mark = NULL,
     archived_at = NULL
 WHERE
     workflow_id = @workflow_id
@@ -422,16 +423,24 @@ RETURNING
 
 -- name: ClearAgentMark :many
 UPDATE
-    agents
+    agents AS holder
 SET
     mark = NULL
 WHERE
-    mark = @mark
-    AND id <> @keep_id
-    AND archived_at IS NULL
+    holder.mark = @mark
+    AND holder.id <> @keep_id
+    AND holder.archived_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents AS target
+        WHERE
+            target.id = @keep_id
+            AND target.archived_at IS NULL)
 RETURNING
-    id,
-    name;
+    holder.id,
+    holder.name;
 
 -- name: SetAgentMark :many
 UPDATE
@@ -564,6 +573,7 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
+    mark = NULL,
     archived_at = NULL
 WHERE
     id = ANY (@ids::uuid[]);

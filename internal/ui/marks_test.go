@@ -152,6 +152,31 @@ func TestSetMarkOwnsTheKeyAfterIt(t *testing.T) {
 	assert.Equal(t, xptr.Ptr(m.keys.Agents.Hide[0]), agents.mark, "the hide key is read as the letter it is")
 }
 
+// TestSetMarkEscapesPastABanner pins escape backing out of a mark even while a banner is up,
+// since the banner's own escape would otherwise leave the panel waiting for a letter and take
+// the next key pressed as one.
+func TestSetMarkEscapesPastABanner(t *testing.T) {
+	agents := &fakeMarkAgents{}
+	m := markTree()
+	m.api = api{agents: agents}
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+	m.report("something went wrong earlier", errMarkLetter)
+
+	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
+	next, _ := pending.(model).Update(keyMsg("esc"))
+
+	after, ok := next.(model)
+	require.True(t, ok)
+	require.Equal(t, markPendingNone, after.marks.pending, "the mark is what escape backed out of")
+
+	moved, cmd := after.Update(keyMsg(after.keys.Nav.Down[0]))
+	assert.Nil(t, cmd)
+	assert.Empty(t, agents.id, "the next key is not read as a letter")
+
+	_, ok = moved.(model)
+	require.True(t, ok)
+}
+
 // TestJumpMark covers the cursor landing on a marked agent from wherever it was, including the
 // rows a filter or a hidden flag would otherwise keep it off.
 func TestJumpMark(t *testing.T) {
@@ -182,7 +207,7 @@ func TestJumpMark(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := markTree()
-			markAgent(&m, tt.marked, "c")
+			markAgent(&m, tt.marked)
 			if tt.setup != nil {
 				tt.setup(&m)
 			}
@@ -197,6 +222,60 @@ func TestJumpMark(t *testing.T) {
 			assert.Equal(t, agentRowKey(tt.marked), rowKeyAt(after.agentRows(), after.tree.cursor))
 		})
 	}
+}
+
+// TestJumpMarkThatCannotLandKeepsTheScreen pins a jump that fails leaving the filter and the
+// hidden rows as they were, since revealing on the way to nowhere loses what you were looking at.
+func TestJumpMarkThatCannotLandKeepsTheScreen(t *testing.T) {
+	m := markTree()
+	markAgent(&m, "a3")
+	// A row whose workflow is not in the listing is drawn under no header, which neither
+	// clearing the filter nor showing hidden rows can reach.
+	m.listing.workflows = nil
+	m.filter.setQuery("auth")
+
+	pending, _ := m.Update(keyMsg(m.keys.Marks.Jump[0]))
+	next, _ := pending.(model).Update(keyMsg("c"))
+
+	after, ok := next.(model)
+	require.True(t, ok)
+	require.NotNil(t, after.banner)
+	assert.Equal(t, "auth", after.filter.query, "the filter stands")
+	assert.False(t, after.tree.showHidden, "and the hidden rows stay hidden")
+}
+
+// TestJumpMarkFromAHeaderComesBack pins the row jumped from being remembered even when it is a
+// workflow header, which holds no agent to name it by.
+func TestJumpMarkFromAHeaderComesBack(t *testing.T) {
+	m := markTree()
+	markAgent(&m, "a3")
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	require.GreaterOrEqual(t, m.tree.cursor, 0)
+
+	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
+	require.Equal(t, agentRowKey("a3"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
+
+	back := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
+	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(back.agentRows(), back.tree.cursor))
+}
+
+// TestJumpMarkBackToARowThatHasGone pins the key saying so and forgetting the row, rather than
+// failing the same way for the rest of the session.
+func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
+	m := markTree()
+	markAgent(&m, "a3")
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+
+	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
+	require.Equal(t, agentRowKey("a1"), jumped.marks.origin)
+
+	jumped.listing.agents = jumped.listing.agents[1:]
+	at := rowKeyAt(jumped.agentRows(), jumped.tree.cursor)
+
+	after := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
+	require.NotNil(t, after.banner)
+	assert.Empty(t, after.marks.origin, "the row that has gone is forgotten")
+	assert.Equal(t, at, rowKeyAt(after.agentRows(), after.tree.cursor), "and the cursor stays where it was")
 }
 
 // TestJumpMarkUnknownLetter pins a letter nobody holds leaving the cursor where it was and
@@ -218,7 +297,7 @@ func TestJumpMarkUnknownLetter(t *testing.T) {
 // looking at a marked agent and coming back are one gesture.
 func TestJumpMarkBack(t *testing.T) {
 	m := markTree()
-	markAgent(&m, "a3", "c")
+	markAgent(&m, "a3")
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
@@ -249,10 +328,10 @@ func markTree() model {
 	return m
 }
 
-func markAgent(m *model, id, letter string) {
+func markAgent(m *model, id string) {
 	for i, item := range m.listing.agents {
 		if item.agent.ID == id {
-			m.listing.agents[i].agent.Mark = xptr.Ptr(letter)
+			m.listing.agents[i].agent.Mark = xptr.Ptr("c")
 
 			return
 		}

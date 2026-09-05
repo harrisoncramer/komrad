@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"weave/db"
 	"weave/db/models"
 	"weave/internal/store"
 )
@@ -22,8 +23,20 @@ func (s *Store) SetMark(ctx context.Context, id string, mark *string) (SetMarkRe
 		return SetMarkResult{}, nil
 	}
 
-	// Freeing the letter first is what keeps the unique index satisfied, and it means a
-	// caller outside a transaction that fails half way leaves it unheld rather than twice held.
+	// Two callers claiming one letter can each free it before either claims it, which loses the
+	// second on the unique index and is why it retries, its clear now seeing the winner's row.
+	result, err := s.setMarkOnce(ctx, id, mark)
+	if db.IsUniqueViolation(err) {
+		return s.setMarkOnce(ctx, id, mark)
+	}
+
+	return result, err
+}
+
+func (s *Store) setMarkOnce(ctx context.Context, id string, mark *string) (SetMarkResult, error) {
+	// Freeing the letter before claiming it keeps the index satisfied within one call and leaves
+	// it unheld rather than twice held on a half failure, and the clear only lands when the
+	// agent named is live, so a mark aimed at an archived row takes the letter off nobody.
 	var cleared []string
 	if mark != nil {
 		rows, err := s.queries.ClearAgentMark(ctx, models.ClearAgentMarkParams{Mark: mark, KeepID: id})

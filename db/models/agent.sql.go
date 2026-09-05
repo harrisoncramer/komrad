@@ -95,16 +95,24 @@ func (q *Queries) ClaimAgentNudge(ctx context.Context, arg ClaimAgentNudgeParams
 
 const clearAgentMark = `-- name: ClearAgentMark :many
 UPDATE
-    agents
+    agents AS holder
 SET
     mark = NULL
 WHERE
-    mark = $1
-    AND id <> $2
-    AND archived_at IS NULL
+    holder.mark = $1
+    AND holder.id <> $2
+    AND holder.archived_at IS NULL
+    AND EXISTS (
+        SELECT
+            1
+        FROM
+            agents AS target
+        WHERE
+            target.id = $2
+            AND target.archived_at IS NULL)
 RETURNING
-    id,
-    name
+    holder.id,
+    holder.name
 `
 
 type ClearAgentMarkParams struct {
@@ -1391,6 +1399,7 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
+    mark = NULL,
     archived_at = NULL
 WHERE
     workflow_id = $1
@@ -1491,6 +1500,7 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
+    mark = NULL,
     archived_at = NULL
 WHERE
     id = ANY ($1::uuid[])
