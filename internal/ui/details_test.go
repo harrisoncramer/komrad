@@ -338,15 +338,6 @@ func TestDetailsOnTheOtherLists(t *testing.T) {
 	})
 }
 
-// TestAgentFieldsLeadWithWhatTheAgentReported pins that the one line saying what the agent is
-// doing now comes ahead of the configuration it was launched with, which does not change.
-func TestAgentFieldsLeadWithWhatTheAgentReported(t *testing.T) {
-	fields := agentFields(agentstore.Agent{ID: "a1", ReportedReason: "Bash"}, "", "")
-
-	require.NotEmpty(t, fields)
-	assert.Equal(t, recordField{"doing", "Bash"}, fields[0])
-}
-
 // TestAgentFields covers what an agent shows in the section: what it was launched with,
 // the schedule that started it when one did, and whatever it has recorded about its own work.
 func TestAgentFields(t *testing.T) {
@@ -361,22 +352,11 @@ func TestAgentFields(t *testing.T) {
 	tests := []struct {
 		name       string
 		schedule   string
-		reason     string
 		metadata   []agentstore.Metadata
 		wantLabels []string
 		wantValues []string
 		wantAbsent []string
 	}{
-		{
-			name:       "what the agent's own CLI reported it is doing",
-			reason:     "Bash",
-			wantLabels: []string{"doing"},
-			wantValues: []string{"Bash"},
-		},
-		{
-			name:       "an agent whose CLI has reported nothing draws no line for it",
-			wantAbsent: []string{"doing"},
-		},
 		{
 			name:       "what it was launched with, in the order it was launched with",
 			wantLabels: []string{"agent", "directory", "flags", "agent_id", "session_id"},
@@ -420,7 +400,6 @@ func TestAgentFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := agent
 			agent.Metadata = tt.metadata
-			agent.ReportedReason = tt.reason
 
 			fields := agentFields(agent, tt.schedule, "")
 
