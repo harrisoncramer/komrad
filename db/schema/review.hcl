@@ -80,7 +80,7 @@ table "reviews" {
   column "author_agent_id" {
     null    = true
     type    = uuid
-    comment = "The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent takes its reviews with it rather than nulling this, since a null here would put an open batch outside the index that holds an author to one at a time and beyond any call that could find it again."
+    comment = "The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent nulls this rather than taking the review with it, since a reviewer child is deleted as a matter of course and the review it gave is what the agent it reviewed was working from."
   }
   column "verdict" {
     null    = true
@@ -131,7 +131,7 @@ table "reviews" {
   foreign_key "reviews_author_agent_id_fkey" {
     columns     = [column.author_agent_id]
     ref_columns = [table.agents.column.id]
-    on_delete   = CASCADE
+    on_delete   = SET_NULL
     on_update   = NO_ACTION
   }
   foreign_key "reviews_doorbell_mail_id_fkey" {
@@ -147,10 +147,11 @@ table "reviews" {
     comment = "One open review at a time for the person, the way a forge holds one pending review per reviewer."
   }
   index "reviews_open_agent" {
-    columns = [column.agent_id, column.author_agent_id]
-    unique  = true
-    where   = "released_at IS NULL AND author_kind = 'agent'"
-    comment = "One open review at a time for each agent reviewing, so a reviewer cannot draft two at once."
+    columns        = [column.agent_id, column.author_agent_id]
+    unique         = true
+    nulls_distinct = false
+    where          = "released_at IS NULL AND author_kind = 'agent'"
+    comment        = "One open review at a time for each agent reviewing, so a reviewer cannot draft two at once. Nulls count as equal here so that a batch left open by a deleted reviewer stays inside the index rather than falling outside every constraint."
   }
   index "reviews_round_id" {
     columns = [column.round_id, column.id]

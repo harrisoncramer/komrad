@@ -628,8 +628,9 @@ func TestAReviewerGetsOneReviewPerRound(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestOnlyTheReviewedAgentAndItsReviewerReachARound pins that taking a snapshot of somebody's
-// worktree and reading the reviews of it are entitled the same way giving one is.
+// TestOnlyTheReviewedAgentAndItsReviewerReachARound pins who may look at a round at all, which is
+// the agent whose work it is and the agent reviewing that work, and pins that being allowed to
+// look is not the same as being allowed to review.
 func TestOnlyTheReviewedAgentAndItsReviewerReachARound(t *testing.T) {
 	reviews := newFakeReviewStore()
 	service := reviewService(t, reviews, &fakeNoticeSender{})
@@ -642,6 +643,17 @@ func TestOnlyTheReviewedAgentAndItsReviewerReachARound(t *testing.T) {
 
 	_, err = service.ListRounds(t.Context(), reviewedAgentID, agentAuthor(reviewerAgentID))
 	require.NoError(t, err, "the reviewer may read the rounds it is reviewing")
+
+	_, err = service.ListRounds(t.Context(), reviewedAgentID, agentAuthor(reviewedAgentID))
+	require.NoError(t, err, "and the agent may read the rounds its own threads are anchored to")
+
+	_, err = service.OpenRound(t.Context(), reviewedAgentID, agentAuthor(reviewedAgentID))
+	require.NoError(t, err, "including taking one of its own work to diff")
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "looks fine to me", Author: agentAuthor(reviewedAgentID),
+	})
+	require.ErrorIs(t, err, ErrReviewOwnWork, "but reading its own work is not reviewing it")
 }
 
 // TestAnAgentIsNotToldWhereAnotherReviewWasWritten pins that the path on a review names a file on

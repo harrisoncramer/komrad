@@ -487,7 +487,7 @@ service AgentService {
   rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {
     option (annotation.v1.tool) = {
       tool_name: "list_review_rounds"
-      description: "Read the rounds taken of an agent, oldest first. A round is a frozen snapshot of everything it had written at that moment, so this is how you find what a review was given against, and how you see what changed between two of them: git diff one round's snapshotSha against the next. Use open_review_round to take one of the work as it stands now."
+      description: "Read the rounds taken of an agent, oldest first. A round is a frozen snapshot of everything it had written at that moment, so this is how you find what a review was given against, and how you see what changed between two of them: git diff one round's snapshotSha against the next. Your own rounds are yours to read, which is how you see the code a comment on your work was written about even after you have edited it. Use open_review_round to take one of the work as it stands now."
       read_only: true
     };
   }

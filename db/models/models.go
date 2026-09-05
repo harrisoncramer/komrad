@@ -296,13 +296,13 @@ type Review struct {
 	RoundID string
 	// The type of the author giving the review.
 	AuthorKind ReviewAuthorKind
-	// The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent takes its reviews with it rather than nulling this, since a null here would put an open batch outside the index that holds an author to one at a time and beyond any call that could find it again.
+	// The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent nulls this rather than taking the review with it, since a reviewer child is deleted as a matter of course and the review it gave is what the agent it reviewed was working from.
 	AuthorAgentID *string
 	// What the author concluded, null while the review is still open. It is what tells the agent whether it is done, and what gates opening a pull request.
 	Verdict NullReviewVerdict
 	// When the review was let go of, null while it is still being written. Nothing in it reaches the agent before this is stamped.
 	ReleasedAt *time.Time
-	// Where the released review was written for the agent to read, relative to its worktree, empty while the review is still open.
+	// The absolute path the released review was written to, under weave's own state directory rather than in the agent's worktree, empty while the review is still open.
 	Path string
 	// The mail that told the agent the review was waiting. It is set null rather than cascaded when that mail is deleted, which is what makes a review the agent threw the notice away for read as undelivered.
 	DoorbellMailID *string

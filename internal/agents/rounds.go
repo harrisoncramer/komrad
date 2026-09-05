@@ -89,7 +89,7 @@ func RoundRef(snapshotSHA string) string { return "refs/weave/rounds/" + snapsho
 // every review is given against, so that nothing a comment is pinned to can move underneath the
 // person reading it.
 func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
-	if err := s.entitled(ctx, agentID, author); err != nil {
+	if err := s.mayRead(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -151,7 +151,7 @@ func (s *ReviewService) ListRounds(
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Round, error) {
-	if err := s.entitled(ctx, agentID, author); err != nil {
+	if err := s.mayRead(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -166,7 +166,7 @@ func (s *ReviewService) ListReviews(
 	agentID string,
 	author ReviewAuthor,
 ) ([]reviewstore.Review, error) {
-	if err := s.entitled(ctx, agentID, author); err != nil {
+	if err := s.mayRead(ctx, agentID, author); err != nil {
 		return nil, err
 	}
 
@@ -256,10 +256,21 @@ func (s *ReviewService) notReviewedAlready(
 	return nil
 }
 
-// entitled says whether an author may give a review on an agent at all, which the person always
-// may and an agent may only of the agent it is a child of, its own work excluded, since answering
-// a review it was given is a different call.
+// entitled says whether an author may give a review on an agent, which the person always may and
+// an agent may only of the agent it is a child of, its own work excluded, since answering a
+// review it was given is a different call.
 func (s *ReviewService) entitled(ctx context.Context, agentID string, author ReviewAuthor) error {
+	if !author.IsHuman() && author.AgentID != nil && *author.AgentID == agentID {
+		return ErrReviewOwnWork
+	}
+
+	return s.mayRead(ctx, agentID, author)
+}
+
+// mayRead says whether an author may look at an agent's rounds and reviews at all, which the
+// agent under review may do of its own work, since the threads it is answering are anchored to
+// those rounds and it is told to diff them.
+func (s *ReviewService) mayRead(ctx context.Context, agentID string, author ReviewAuthor) error {
 	if author.IsHuman() {
 		return nil
 	}
@@ -267,7 +278,7 @@ func (s *ReviewService) entitled(ctx context.Context, agentID string, author Rev
 		return fmt.Errorf("%w: %q", ErrReviewNotEntitled, agentID)
 	}
 	if *author.AgentID == agentID {
-		return ErrReviewOwnWork
+		return nil
 	}
 
 	reviewer, err := s.agents.GetByID(ctx, *author.AgentID)

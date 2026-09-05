@@ -933,41 +933,6 @@ func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewT
 	return &i, err
 }
 
-const pointReviewAtDoorbell = `-- name: PointReviewAtDoorbell :one
-UPDATE
-    reviews v
-SET
-    doorbell_mail_id = $1
-WHERE
-    v.id = $2
-RETURNING
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
-`
-
-type PointReviewAtDoorbellParams struct {
-	DoorbellMailID *string
-	ID             string
-}
-
-func (q *Queries) PointReviewAtDoorbell(ctx context.Context, arg PointReviewAtDoorbellParams) (*Review, error) {
-	row := q.db.QueryRow(ctx, pointReviewAtDoorbell, arg.DoorbellMailID, arg.ID)
-	var i Review
-	err := row.Scan(
-		&i.ID,
-		&i.AgentID,
-		&i.RoundID,
-		&i.AuthorKind,
-		&i.AuthorAgentID,
-		&i.Verdict,
-		&i.ReleasedAt,
-		&i.Path,
-		&i.DoorbellMailID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-	)
-	return &i, err
-}
-
 const releaseReview = `-- name: ReleaseReview :one
 UPDATE
     reviews v

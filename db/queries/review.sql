@@ -128,16 +128,6 @@ WHERE
 RETURNING
     *;
 
--- name: PointReviewAtDoorbell :one
-UPDATE
-    reviews v
-SET
-    doorbell_mail_id = @doorbell_mail_id
-WHERE
-    v.id = @id
-RETURNING
-    *;
-
 -- name: DeleteReview :exec
 DELETE FROM reviews
 WHERE id = @id;
