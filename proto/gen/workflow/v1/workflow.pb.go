@@ -38,8 +38,10 @@ type Workflow struct {
 	Worktree          *WorktreeConfig        `protobuf:"bytes,10,opt,name=worktree,proto3" json:"worktree,omitempty"`
 	ArchiveOnPrClosed bool                   `protobuf:"varint,11,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	Hooks             []*WorkflowHook        `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// The letter a person addresses this workflow by in the panel, if it holds one.
+	Mark          *string `protobuf:"bytes,13,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Workflow) Reset() {
@@ -140,6 +142,13 @@ func (x *Workflow) GetHooks() []*WorkflowHook {
 		return x.Hooks
 	}
 	return nil
+}
+
+func (x *Workflow) GetMark() string {
+	if x != nil && x.Mark != nil {
+		return *x.Mark
+	}
+	return ""
 }
 
 type WorkflowHook struct {
@@ -902,7 +911,7 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xe7\x02\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x89\x03\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -915,8 +924,10 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\bworktree\x18\n" +
 	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x14archive_on_pr_closed\x18\v \x01(\bR\x11archiveOnPrClosed\x12/\n" +
-	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooksB\x0e\n" +
-	"\f_archived_atJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"W\n" +
+	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12\x17\n" +
+	"\x04mark\x18\r \x01(\tH\x01R\x04mark\x88\x01\x01B\x0e\n" +
+	"\f_archived_atB\a\n" +
+	"\x05_markJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +
 	"\x05event\x18\x01 \x01(\tB\t\xbaH\x06r\x04\x10\x01\x18(R\x05event\x12&\n" +
 	"\x06script\x18\x02 \x01(\tB\x0e\xbaH\vr\tȻ\x18\x01\x10\x01\x18\xff\x01R\x06script\"\xa1\x02\n" +

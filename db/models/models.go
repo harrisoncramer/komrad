@@ -175,7 +175,6 @@ type Agent struct {
 	ProvisionEnabled *bool
 	// What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than deciding one of its own. Cleared with the state it annotates whenever that changes, and by a turn ending, so empty means there is nothing to say.
 	ReportedReason string
-	Mark           *string
 }
 
 // Key/value facts an agent recorded about its own work.
@@ -236,6 +235,14 @@ type Mail struct {
 	Kind MailKind
 	// The other agent a notice weave raised is about, null on ordinary mail. It is what holds a recipient to one unread notice per subject rather than one per kind, so an agent capped with a second partner is told about that one too. It carries no foreign key, since the notice has to keep saying which exchange was cut off after the agent it names is gone.
 	AboutAgentID *string
+}
+
+// A letter a person addresses one row by. Held by an agent or a workflow and by nothing else, so a letter names one place.
+type Mark struct {
+	Mark       string
+	AgentID    *string
+	WorkflowID *string
+	CreatedAt  time.Time
 }
 
 // One message in a review thread, written either by the person reviewing or by the agent replying.

@@ -216,12 +216,18 @@ WITH prior AS (
     WHERE
         agents.workflow_id = @workflow_id
         AND agents.archived_at IS NULL
-    FOR UPDATE)
+    FOR UPDATE),
+freed AS (
+    DELETE FROM marks
+    WHERE marks.agent_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
     agents a
 SET
     archived_at = NOW(),
-    mark = NULL,
     pane_id = ''
 FROM
     prior
@@ -266,7 +272,6 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
-    mark = NULL,
     archived_at = NULL
 WHERE
     workflow_id = @workflow_id
@@ -421,38 +426,6 @@ WHERE
 RETURNING
     id;
 
--- name: ClearAgentMark :many
-UPDATE
-    agents AS holder
-SET
-    mark = NULL
-WHERE
-    holder.mark = @mark
-    AND holder.id <> @keep_id
-    AND holder.archived_at IS NULL
-    AND EXISTS (
-        SELECT
-            1
-        FROM
-            agents AS target
-        WHERE
-            target.id = @keep_id
-            AND target.archived_at IS NULL)
-RETURNING
-    holder.id,
-    holder.name;
-
--- name: SetAgentMark :many
-UPDATE
-    agents
-SET
-    mark = sqlc.narg(mark)
-WHERE
-    id = @id
-    AND archived_at IS NULL
-RETURNING
-    id;
-
 -- name: SetAgentHidden :many
 UPDATE
     agents
@@ -539,12 +512,18 @@ WITH prior AS (
     WHERE
         id = ANY (@ids::uuid[])
         AND archived_at IS NULL
-    FOR UPDATE)
+    FOR UPDATE),
+freed AS (
+    DELETE FROM marks
+    WHERE marks.agent_id IN (
+            SELECT
+                prior.id
+            FROM
+                prior))
 UPDATE
     agents a
 SET
     archived_at = NOW(),
-    mark = NULL,
     pane_id = ''
 FROM
     prior
@@ -555,11 +534,13 @@ RETURNING
     prior.pane_id;
 
 -- name: MarkAgentArchivedIfUnchanged :many
+WITH freed AS (
+    DELETE FROM marks
+    WHERE marks.agent_id = @id)
 UPDATE
     agents
 SET
     archived_at = NOW(),
-    mark = NULL,
     pane_id = ''
 WHERE
     id = @id
@@ -573,7 +554,6 @@ UPDATE
     agents
 SET
     is_hidden = FALSE,
-    mark = NULL,
     archived_at = NULL
 WHERE
     id = ANY (@ids::uuid[]);

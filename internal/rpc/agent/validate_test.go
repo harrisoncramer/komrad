@@ -241,8 +241,8 @@ func TestRequestValidation(t *testing.T) {
 			name: "a mark of more than one letter is refused, since it is drawn into one cell",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
-					Mark: xptr.Ptr("ab"),
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("ab"),
 				}))
 
 				return err
@@ -253,8 +253,8 @@ func TestRequestValidation(t *testing.T) {
 			name: "an empty mark is refused, since clearing a mark is leaving it out",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
-					Mark: xptr.Ptr(""),
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr(""),
 				}))
 
 				return err
@@ -265,8 +265,8 @@ func TestRequestValidation(t *testing.T) {
 			name: "an uppercase mark is refused, since a mark is one lowercase letter",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
-					Mark: xptr.Ptr("A"),
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("A"),
 				}))
 
 				return err
@@ -277,8 +277,8 @@ func TestRequestValidation(t *testing.T) {
 			name: "a mark that is not a letter at all is refused",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
-					Mark: xptr.Ptr("◐"),
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("◐"),
 				}))
 
 				return err
@@ -300,8 +300,8 @@ func TestRequestValidation(t *testing.T) {
 			name: "a letter is not what the constraint stops",
 			call: func(t *testing.T, c agentv1connect.AgentServiceClient) error {
 				_, err := c.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
-					Id:   uuid.NewString(),
-					Mark: xptr.Ptr("a"),
+					Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+					Mark:   xptr.Ptr("a"),
 				}))
 
 				if connect.CodeOf(err) == connect.CodeNotFound {

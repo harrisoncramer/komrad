@@ -149,16 +149,19 @@ message GetAgentResponse {
 }
 
 message SetMarkRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-  optional string mark = 2 [(buf.validate.field).cel = {
+  // The row the letter goes on, which is an agent or a workflow and never both.
+  oneof target {
+    option (buf.validate.oneof).required = true;
+
+    string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+    string workflow_id = 2 [(buf.validate.field).string.min_len = 1];
+  }
+  // The letter to put on it, left out to take off whichever letter the row answers to.
+  optional string mark = 3 [(buf.validate.field).cel = {
     id: "mark.letter"
     message: "a mark is one lowercase letter"
     expression: "this.matches('^[a-z]$')"
   }];
-}
-
-message SetMarkResponse {
-  repeated string cleared_from = 1;
 }
 
 message SetHiddenRequest {
@@ -314,7 +317,7 @@ service AgentService {
       destructive: false
     };
   }
-  rpc SetMark(SetMarkRequest) returns (SetMarkResponse) {
+  rpc SetMark(SetMarkRequest) returns (google.protobuf.Empty) {
     option idempotency_level = IDEMPOTENT;
   }
   rpc SetHidden(SetHiddenRequest) returns (google.protobuf.Empty) {

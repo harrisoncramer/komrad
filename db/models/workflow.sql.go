@@ -652,6 +652,9 @@ func (q *Queries) ListWorkflowsPage(ctx context.Context, arg ListWorkflowsPagePa
 }
 
 const markWorkflowArchived = `-- name: MarkWorkflowArchived :exec
+WITH freed AS (
+    DELETE FROM marks
+    WHERE marks.workflow_id = $1)
 UPDATE
     workflows
 SET

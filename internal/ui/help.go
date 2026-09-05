@@ -317,6 +317,8 @@ func (m model) rowHelp() []key.Binding {
 			binding(m.keys.Workflows.Rename, "rename"),
 			binding(m.keys.Workflows.Edit, "edit"),
 			m.archiveBinding(m.keys.Workflows.Archive),
+			binding(m.keys.Marks.Set, "set mark"),
+			binding(m.keys.Marks.Jump, "jump to mark"),
 			m.showHiddenBinding(),
 		}
 	}

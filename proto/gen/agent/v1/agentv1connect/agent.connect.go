@@ -137,7 +137,7 @@ type AgentServiceClient interface {
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[v1.SetMarkResponse], error)
+	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
@@ -207,7 +207,7 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("Adopt")),
 			connect.WithClientOptions(opts...),
 		),
-		setMark: connect.NewClient[v1.SetMarkRequest, v1.SetMarkResponse](
+		setMark: connect.NewClient[v1.SetMarkRequest, emptypb.Empty](
 			httpClient,
 			baseURL+AgentServiceSetMarkProcedure,
 			connect.WithSchema(agentServiceMethods.ByName("SetMark")),
@@ -423,7 +423,7 @@ type agentServiceClient struct {
 	getAgent                *connect.Client[v1.GetAgentRequest, v1.GetAgentResponse]
 	createAgent             *connect.Client[v1.CreateAgentRequest, v1.CreateAgentResponse]
 	adopt                   *connect.Client[v1.AdoptRequest, v1.AdoptResponse]
-	setMark                 *connect.Client[v1.SetMarkRequest, v1.SetMarkResponse]
+	setMark                 *connect.Client[v1.SetMarkRequest, emptypb.Empty]
 	setHidden               *connect.Client[v1.SetHiddenRequest, emptypb.Empty]
 	setMetadata             *connect.Client[v1.SetMetadataRequest, emptypb.Empty]
 	log                     *connect.Client[v1.LogRequest, emptypb.Empty]
@@ -477,7 +477,7 @@ func (c *agentServiceClient) Adopt(ctx context.Context, req *connect.Request[v1.
 }
 
 // SetMark calls agent.v1.AgentService.SetMark.
-func (c *agentServiceClient) SetMark(ctx context.Context, req *connect.Request[v1.SetMarkRequest]) (*connect.Response[v1.SetMarkResponse], error) {
+func (c *agentServiceClient) SetMark(ctx context.Context, req *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
 	return c.setMark.CallUnary(ctx, req)
 }
 
@@ -637,7 +637,7 @@ type AgentServiceHandler interface {
 	GetAgent(context.Context, *connect.Request[v1.GetAgentRequest]) (*connect.Response[v1.GetAgentResponse], error)
 	CreateAgent(context.Context, *connect.Request[v1.CreateAgentRequest]) (*connect.Response[v1.CreateAgentResponse], error)
 	Adopt(context.Context, *connect.Request[v1.AdoptRequest]) (*connect.Response[v1.AdoptResponse], error)
-	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[v1.SetMarkResponse], error)
+	SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error)
 	SetHidden(context.Context, *connect.Request[v1.SetHiddenRequest]) (*connect.Response[emptypb.Empty], error)
 	SetMetadata(context.Context, *connect.Request[v1.SetMetadataRequest]) (*connect.Response[emptypb.Empty], error)
 	Log(context.Context, *connect.Request[v1.LogRequest]) (*connect.Response[emptypb.Empty], error)
@@ -1007,7 +1007,7 @@ func (UnimplementedAgentServiceHandler) Adopt(context.Context, *connect.Request[
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.Adopt is not implemented"))
 }
 
-func (UnimplementedAgentServiceHandler) SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[v1.SetMarkResponse], error) {
+func (UnimplementedAgentServiceHandler) SetMark(context.Context, *connect.Request[v1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetMark is not implemented"))
 }
 

@@ -22,6 +22,8 @@ message Workflow {
   reserved 7, 8;
   bool archive_on_pr_closed = 11;
   repeated WorkflowHook hooks = 12;
+  // The letter a person addresses this workflow by in the panel, if it holds one.
+  optional string mark = 13;
 }
 
 message WorkflowHook {

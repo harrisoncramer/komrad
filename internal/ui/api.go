@@ -165,16 +165,34 @@ func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
 	return err
 }
 
-func (a api) setMark(id string, mark *string) ([]string, error) {
+func (a api) setMark(target markTargetRef, mark string) error {
+	return a.writeMark(markRequest(target, &mark))
+}
+
+func (a api) clearMark(target markTargetRef) error {
+	return a.writeMark(markRequest(target, nil))
+}
+
+func (a api) writeMark(req *agentv1.SetMarkRequest) error {
 	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
 	defer cancel()
 
-	res, err := a.agents.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: mark}))
-	if err != nil {
-		return nil, err
+	_, err := a.agents.SetMark(ctx, connect.NewRequest(req))
+
+	return err
+}
+
+func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
+	req := &agentv1.SetMarkRequest{Mark: mark}
+	if target.workflowID != "" {
+		req.Target = &agentv1.SetMarkRequest_WorkflowId{WorkflowId: target.workflowID}
+
+		return req
 	}
 
-	return res.Msg.GetClearedFrom(), nil
+	req.Target = &agentv1.SetMarkRequest_AgentId{AgentId: target.agentID}
+
+	return req
 }
 
 func (a api) restoreAgents(ids []string) error {

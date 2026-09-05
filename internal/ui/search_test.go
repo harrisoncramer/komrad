@@ -819,6 +819,7 @@ func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 	m.screen = screenSearch
 	m.width = 80
 	m.search = searchState{query: "ledger"}
+	m.listing.marks = map[string]string{agentRowKey("a1"): marked}
 	m.listing.agents = []agentItem{
 		{
 			agent: agentstore.Agent{
@@ -826,7 +827,6 @@ func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 				Name:       "billing",
 				WorkflowID: "w1",
 				State:      agentstore.StateThinking,
-				Mark:       &marked,
 			},
 			alive:      true,
 			unreadMail: true,

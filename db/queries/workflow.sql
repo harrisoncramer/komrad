@@ -173,6 +173,9 @@ WHERE
             workflows.id = @workflow_id);
 
 -- name: MarkWorkflowArchived :exec
+WITH freed AS (
+    DELETE FROM marks
+    WHERE marks.workflow_id = @id)
 UPDATE
     workflows
 SET

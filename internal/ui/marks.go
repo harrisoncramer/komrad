@@ -3,7 +3,6 @@ package ui
 import (
 	"errors"
 	"fmt"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -27,7 +26,7 @@ type markState struct {
 
 var (
 	errMarkLetter  = errors.New("a mark is one letter, a to z")
-	errNoMarkedRow = errors.New("the marked agent has no row on this screen")
+	errNoMarkedRow = errors.New("the marked row is not on this screen")
 	errOriginGone  = errors.New("the row you jumped from is no longer on this screen")
 )
 
@@ -62,38 +61,57 @@ func isMarkLetter(key string) bool {
 	return len(key) == 1 && key[0] >= 'a' && key[0] <= 'z'
 }
 
-// setMark puts a letter on the hovered agent, or takes it off when the agent already answers
-// to that letter, which is the way a mark is cleared without a key of its own.
+// setMark puts a letter on the row under the cursor, or takes it off when that row already
+// answers to the letter, which is the way a mark is cleared without a key of its own.
 func (m model) setMark(letter string) (tea.Model, tea.Cmd) {
-	item, ok := m.selectedAgent()
+	row, ok := m.hoveredRow()
 	if !ok {
 		return m, nil
 	}
 
-	mark := &letter
-	if item.agent.Mark != nil && *item.agent.Mark == letter {
-		mark = nil
+	key := rowKey(row)
+	target := markTarget(row)
+	failure := fmt.Sprintf("Could not mark %s", describeRow(row))
+
+	if m.listing.marks[key] == letter {
+		return m, m.writeCmd(failure, func(a api) error { return a.clearMark(target) })
 	}
 
-	return m, m.noticeCmd(fmt.Sprintf("Could not mark agent %q", item.agent.Name), func(a api) (string, error) {
-		cleared, err := a.setMark(item.agent.ID, mark)
-		if err != nil || len(cleared) == 0 {
-			return "", err
-		}
+	return m, m.writeCmd(failure, func(a api) error { return a.setMark(target, letter) })
+}
 
-		return fmt.Sprintf("Mark %s moved off %s", letter, strings.Join(cleared, ", ")), nil
-	})
+// markTarget is the row a mark would go on, which the panel names by kind since a letter sits
+// on an agent or on a workflow.
+func markTarget(row agentRow) markTargetRef {
+	if row.header {
+		return markTargetRef{workflowID: row.workflow.ID}
+	}
+
+	return markTargetRef{agentID: row.item.agent.ID}
+}
+
+type markTargetRef struct {
+	agentID    string
+	workflowID string
+}
+
+func describeRow(row agentRow) string {
+	if row.header {
+		return fmt.Sprintf("workflow %q", row.workflow.Name)
+	}
+
+	return fmt.Sprintf("agent %q", row.item.agent.Name)
 }
 
 func (m model) jumpMark(letter string) (tea.Model, tea.Cmd) {
-	target, ok := m.markedAgent(letter)
+	target, ok := m.markedRow(letter)
 	if !ok {
-		m.report("Could not jump to the mark", fmt.Errorf("no agent is marked %s", letter))
+		m.report("Could not jump to the mark", fmt.Errorf("nothing is marked %s", letter))
 
 		return m, nil
 	}
 
-	next, ok := m.jumpToRow(agentRowKey(target))
+	next, ok := m.jumpToRow(target)
 	if !ok {
 		m.report("Could not jump to the mark", errNoMarkedRow)
 
@@ -123,10 +141,10 @@ func (m model) jumpMarkBack() (tea.Model, tea.Cmd) {
 	return next, nil
 }
 
-func (m model) markedAgent(letter string) (string, bool) {
-	for _, item := range m.listing.agents {
-		if item.agent.Mark != nil && *item.agent.Mark == letter {
-			return item.agent.ID, true
+func (m model) markedRow(letter string) (string, bool) {
+	for key, mark := range m.listing.marks {
+		if mark == letter {
+			return key, true
 		}
 	}
 

@@ -126,8 +126,6 @@ func reasonMark(agent agentstore.Agent) string {
 	return " " + dimStyle.Render(clip(agent.ReportedReason, reasonWidth))
 }
 
-const workflowIcon = "⧉"
-
 const childIcon = "└"
 
 // childMark opens the column a child's state mark is pushed right by, drawn where its parent's
@@ -208,14 +206,14 @@ func worktreeRemovedMark(agent agentstore.Agent) string {
 	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
 }
 
-// markGutter is the column a mark is drawn in, left of every agent row, so the letters a
-// person addresses agents by read down one edge rather than being hunted for along a row.
-func markGutter(agent agentstore.Agent) string {
-	if agent.Mark == nil {
+// markGutter is the column a mark is drawn in, left of every row, so the letters a person
+// addresses rows by read down one edge rather than being hunted for along a row.
+func markGutter(mark string) string {
+	if mark == "" {
 		return "  "
 	}
 
-	return lipgloss.NewStyle().Foreground(colorMark).Render(*agent.Mark) + " "
+	return lipgloss.NewStyle().Foreground(colorMark).Render(mark) + " "
 }
 
 func scheduleIcon(enabled bool) string {

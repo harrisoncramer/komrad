@@ -17,8 +17,6 @@ import (
 var (
 	Red = lipgloss.NewStyle().Foreground(lipgloss.Color("9")).Bold(true)
 	Dim = lipgloss.NewStyle().Foreground(lipgloss.Color("8"))
-	// Green is what a banner reporting something that went right is drawn in.
-	Green = lipgloss.NewStyle().Foreground(lipgloss.Color("10")).Bold(true)
 )
 
 type Screen struct {

@@ -74,6 +74,9 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Marks.Jump) {
 		return m.beginMark(markPendingJump)
 	}
+	if isBound(k, m.keys.Marks.Set) {
+		return m.beginMark(markPendingSet)
+	}
 	if workflow, ok := m.hoveredWorkflow(); ok {
 		return m.updateHoveredWorkflow(key, workflow)
 	}
@@ -99,8 +102,6 @@ func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
 		switch {
-		case isBound(k, m.keys.Marks.Set):
-			return m.beginMark(markPendingSet)
 		case isBound(k, m.keys.Agents.ToggleViewed):
 			return m.toggleAgentViewed(item)
 		case isBound(k, m.keys.Agents.Hide):
@@ -434,7 +435,7 @@ func (m model) agentsView() string {
 
 		if r.header {
 			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
-			header := prefix + dimStyle.Render(workflowIcon) + " " + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
+			header := prefix + markGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, ghostSlot(header, "", m.width))
 
 			continue
@@ -443,7 +444,7 @@ func (m model) agentsView() string {
 		item := r.item
 		selected := m.tree.selected.has(item.agent.ID)
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
-		row := prefix + markGutter(item.agent) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
 	}
 

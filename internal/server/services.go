@@ -27,6 +27,7 @@ type services struct {
 	workflow     *agents.WorkflowService
 	delivery     *agents.DeliveryService
 	reconciler   *agents.Reconciler
+	marks        *agents.MarkService
 }
 
 // BuiltinScriptsDir is where the scripts weave ships are installed under a cache directory,
@@ -163,8 +164,11 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Notifier:     mailService,
 	})
 
+	markService := agents.NewMarkService(agents.MarkServiceParams{Marks: st.marks, Tx: st.pool})
+
 	return &services{
 		loadConfig:   loadConfig,
+		marks:        markService,
 		script:       scriptService,
 		pullRequests: pullRequestOpener,
 		mail:         mailService,

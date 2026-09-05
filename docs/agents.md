@@ -52,13 +52,15 @@ The panel shows those in the details under the list, after what the agent was la
 
 ## Marks
 
-A mark is a letter you put on an agent so you can jump straight back to it, the way marks work in vim. Press `t` and then a letter to mark the hovered agent, and press `'` and then that letter from anywhere in the list to put the cursor back on it. The letter is drawn in the gutter down the left of the list, so the agents you have named read as a column rather than something to hunt for along a row.
+A mark is a letter you put on a row so you can jump straight back to it, the way marks work in vim. Press `t` and then a letter to mark whatever the cursor is on, and press `'` and then that letter from anywhere in the list to put the cursor back on it. The letter is drawn in the gutter down the left of the list, so the rows you have named read as a column rather than something to hunt for along a row.
 
-A letter is held by one agent at a time. Marking an agent with a letter another agent already holds moves the mark rather than refusing it, and the panel says which agent lost it. Pressing `t` and then the letter an agent already holds takes the mark off it, which is how a mark is cleared.
+Agents and workflows are marked the same way and share the same letters, since a letter names one place. `'a` is one row, never a choice between two.
 
-`'` pressed twice goes back to wherever the cursor was before the last jump, so looking at a marked agent and getting back to what you were reading are the same gesture. A jump always lands: if the marked agent is filtered out or hidden, the jump clears what is in the way rather than doing nothing.
+A letter is held by one row at a time. Marking a row with a letter another row already holds moves the mark rather than refusing it. Pressing `t` and then the letter a row already holds takes the mark off it, which is how a mark is cleared.
 
-Marks are yours. Nothing an agent can call sets one, and an agent loses its mark when it is archived, since the letter is an address for a row on the screen rather than anything about the work.
+`'` pressed twice goes back to wherever the cursor was before the last jump, so looking at a marked row and getting back to what you were reading are the same gesture. A jump always lands: if the marked row is filtered out or hidden, the jump clears what is in the way rather than doing nothing.
+
+Marks are yours. Nothing an agent can call sets one, and a row loses its mark when it is archived, since the letter is an address for a row on the screen rather than anything about the work.
 
 ## Archiving, restoring, deleting
 

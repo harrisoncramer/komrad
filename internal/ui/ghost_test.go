@@ -27,6 +27,7 @@ func ghostTree(width int) model {
 		width:  width,
 		height: 40,
 		listing: listing{
+			marks:     map[string]string{agentRowKey("a2"): "a"},
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
 			agents: []agentItem{
 				{
@@ -46,7 +47,6 @@ func ghostTree(width int) model {
 						WorkflowID:      "w1",
 						State:           agentstore.StateIdle,
 						StateChangedAt:  now.Add(-27 * time.Minute),
-						Mark:            xptr.Ptr("a"),
 						ScheduleID:      xptr.Ptr("s1"),
 						WorktreeRemoved: true,
 					},
@@ -84,7 +84,6 @@ func TestGhostSlotKeepsTheWidestRow(t *testing.T) {
 			WorkflowID:      "w1",
 			State:           agentstore.StateIdle,
 			StateChangedAt:  time.Now().Add(-27 * time.Minute),
-			Mark:            xptr.Ptr("a"),
 			ScheduleID:      xptr.Ptr("s1"),
 			Hidden:          true,
 			WorktreeRemoved: true,

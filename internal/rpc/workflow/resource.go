@@ -18,7 +18,7 @@ func (w workflow) Cursor() (workflowstore.Cursor, error) {
 	return w.cursor, nil
 }
 
-func renderWorkflow(w workflowstore.Workflow) workflow {
+func renderWorkflow(w workflowstore.Workflow, mark *string) workflow {
 	var archived *string
 	if w.ArchivedAt != nil {
 		formatted := w.ArchivedAt.Format(time.RFC3339)
@@ -33,6 +33,7 @@ func renderWorkflow(w workflowstore.Workflow) workflow {
 			Harness:    w.Harness,
 			Cwd:        w.Cwd,
 			Flags:      w.Flags,
+			Mark:       mark,
 			ArchivedAt: archived,
 			Worktree: &workflowv1.WorktreeConfig{
 				Enabled:      w.Worktree.Enabled,

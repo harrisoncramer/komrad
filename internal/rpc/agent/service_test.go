@@ -628,57 +628,71 @@ func TestSetAgentViewed(t *testing.T) {
 	assert.True(t, back.Msg.GetAgent().GetUnviewed(), "and the person can put the mark back")
 }
 
-// TestSetMark covers the mark over the wire, where a call that reached no live agent is
-// refused and one that took the letter off another agent says whose it was.
+// TestSetMark covers the mark over the wire, across both kinds of row, where a call that
+// reached nothing live is refused and one that took the letter off another row is not.
 func TestSetMark(t *testing.T) {
 	t.Run("an id nobody holds is not a quiet success", func(t *testing.T) {
 		svc, _ := service(t)
 
-		_, err := svc.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{Id: uuid.NewString(), Mark: xptr.Ptr("a")}))
+		_, err := svc.SetMark(t.Context(), connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: uuid.NewString()},
+			Mark:   xptr.Ptr("a"),
+		}))
 		assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 	})
 
-	t.Run("an agent is marked", func(t *testing.T) {
+	t.Run("an agent takes a letter and reads it back off its row", func(t *testing.T) {
 		svc, st := service(t)
 		ctx := t.Context()
 		id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 
-		res, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: xptr.Ptr("a")}))
+		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+			Mark:   xptr.Ptr("a"),
+		}))
 		require.NoError(t, err)
-		assert.Empty(t, res.Msg.GetClearedFrom())
 
 		got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
 		require.NoError(t, err)
 		assert.Equal(t, xptr.Ptr("a"), got.Msg.GetAgent().Mark)
 	})
 
-	t.Run("a letter another agent holds moves, and the call says whose it was", func(t *testing.T) {
+	t.Run("a letter an agent holds moves to the workflow named", func(t *testing.T) {
 		svc, st := service(t)
 		ctx := t.Context()
 		held := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})
-		taking := st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateThinking})
 
-		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: held.ID, Mark: xptr.Ptr("a")}))
+		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: held.ID},
+			Mark:   xptr.Ptr("a"),
+		}))
 		require.NoError(t, err)
 
-		res, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: taking.ID, Mark: xptr.Ptr("a")}))
+		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_WorkflowId{WorkflowId: held.WorkflowID},
+			Mark:   xptr.Ptr("a"),
+		}))
 		require.NoError(t, err)
-		assert.Equal(t, []string{held.Name}, res.Msg.GetClearedFrom())
 
 		gone, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: held.ID}))
 		require.NoError(t, err)
-		assert.Nil(t, gone.Msg.GetAgent().Mark)
+		assert.Nil(t, gone.Msg.GetAgent().Mark, "the agent that held it is left with nothing")
 	})
 
-	t.Run("an unset mark clears the one the agent carries", func(t *testing.T) {
+	t.Run("an unset mark clears the one the row carries", func(t *testing.T) {
 		svc, st := service(t)
 		ctx := t.Context()
 		id := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking}).ID
 
-		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id, Mark: xptr.Ptr("a")}))
+		_, err := svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+			Mark:   xptr.Ptr("a"),
+		}))
 		require.NoError(t, err)
 
-		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{Id: id}))
+		_, err = svc.SetMark(ctx, connect.NewRequest(&agentv1.SetMarkRequest{
+			Target: &agentv1.SetMarkRequest_AgentId{AgentId: id},
+		}))
 		require.NoError(t, err)
 
 		got, err := svc.GetAgent(ctx, connect.NewRequest(&agentv1.GetAgentRequest{Id: id}))
@@ -1054,6 +1068,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
+		Marks:       markService(st),
 	})
 
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -2009,6 +2024,12 @@ func (stubMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time
 
 func (s stubMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 
+// markService is the real thing over the test stores, since a mark spans two tables and a fake
+// would be agreeing with itself about the rules that matter.
+func markService(st *storetest.Stores) *agents.MarkService {
+	return agents.NewMarkService(agents.MarkServiceParams{Marks: st.Marks, Tx: st.Pool})
+}
+
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()
 	svc, st, _ := serviceWithLauncher(t)
@@ -2085,6 +2106,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Transcripts: st.Transcripts,
 		Mail:        mail,
 		Runs:        st.Runs,
+		Marks:       markService(st),
 		Creator:     launcher,
 		Adopter:     launcher,
 		Liveness:    launcher,

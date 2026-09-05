@@ -8,13 +8,12 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
-	agentstore "weave/internal/store/agent"
-
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // TestIsMarkLetter pins what may be a mark, since the key after the binding is whatever the
@@ -34,10 +33,10 @@ func TestIsMarkLetter(t *testing.T) {
 func TestMarkGutter(t *testing.T) {
 	withColor(t)
 
-	bare := markGutter(agentstore.Agent{})
+	bare := markGutter("")
 	assert.Equal(t, "  ", bare)
 
-	marked := markGutter(agentstore.Agent{Mark: xptr.Ptr("a")})
+	marked := markGutter("a")
 	assert.Contains(t, marked, "a")
 	assert.Equal(t, lipgloss.Width(bare), lipgloss.Width(marked), "a marked row is drawn no wider than an unmarked one")
 }
@@ -79,7 +78,9 @@ func TestSetMark(t *testing.T) {
 			agents := &fakeMarkAgents{}
 			m := markTree()
 			m.api = api{agents: agents}
-			m.listing.agents[0].agent.Mark = tt.holding
+			if tt.holding != nil {
+				m.listing.marks = map[string]string{agentRowKey("a1"): *tt.holding}
+			}
 			m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 			next, cmd := m.Update(keyMsg(m.keys.Marks.Set[0]))
@@ -96,6 +97,53 @@ func TestSetMark(t *testing.T) {
 			assert.Equal(t, tt.want, agents.mark)
 		})
 	}
+}
+
+// TestSetMarkOnAWorkflow pins a header taking a letter through the same two keys, since the
+// letters name rows rather than agents.
+func TestSetMarkOnAWorkflow(t *testing.T) {
+	agents := &fakeMarkAgents{}
+	m := markTree()
+	m.api = api{agents: agents}
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+	require.GreaterOrEqual(t, m.tree.cursor, 0)
+
+	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
+	_, cmd := pending.(model).Update(keyMsg("a"))
+	require.NotNil(t, cmd)
+	cmd()
+
+	assert.Equal(t, "w1", agents.workflowID)
+	assert.Empty(t, agents.id, "a header is not marked as though it were an agent")
+	assert.Equal(t, xptr.Ptr("a"), agents.mark)
+}
+
+// TestSetMarkClearsAWorkflowsOwnLetter pins the second press taking it off a header too.
+func TestSetMarkClearsAWorkflowsOwnLetter(t *testing.T) {
+	agents := &fakeMarkAgents{}
+	m := markTree()
+	m.api = api{agents: agents}
+	m.listing.marks = map[string]string{workflowRowKey("w1"): "a"}
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
+
+	pending, _ := m.Update(keyMsg(m.keys.Marks.Set[0]))
+	_, cmd := pending.(model).Update(keyMsg("a"))
+	require.NotNil(t, cmd)
+	cmd()
+
+	assert.Equal(t, "w1", agents.workflowID)
+	assert.Nil(t, agents.mark, "the letter it already answers to takes the mark off")
+}
+
+// TestJumpMarkReachesAWorkflow pins a header being somewhere a jump lands.
+func TestJumpMarkReachesAWorkflow(t *testing.T) {
+	m := markTree()
+	markRow(&m, workflowRowKey("w2"))
+	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
+
+	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
+	assert.Nil(t, jumped.banner)
+	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
 }
 
 // TestSetMarkRefusesWhatIsNotALetter pins a stray key aborting the mark rather than being
@@ -330,13 +378,14 @@ func markTree() model {
 }
 
 func markAgent(m *model, id string) {
-	for i, item := range m.listing.agents {
-		if item.agent.ID == id {
-			m.listing.agents[i].agent.Mark = xptr.Ptr("c")
+	markRow(m, agentRowKey(id))
+}
 
-			return
-		}
+func markRow(m *model, key string) {
+	if m.listing.marks == nil {
+		m.listing.marks = map[string]string{}
 	}
+	m.listing.marks[key] = "c"
 }
 
 func pressMark(t *testing.T, m model, keys ...string) model {
@@ -356,13 +405,15 @@ func pressMark(t *testing.T, m model, keys ...string) model {
 
 type fakeMarkAgents struct {
 	agentv1connect.AgentServiceClient
-	id   string
-	mark *string
+	id         string
+	workflowID string
+	mark       *string
 }
 
-func (f *fakeMarkAgents) SetMark(_ context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[agentv1.SetMarkResponse], error) {
-	f.id = req.Msg.GetId()
+func (f *fakeMarkAgents) SetMark(_ context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
+	f.id = req.Msg.GetAgentId()
+	f.workflowID = req.Msg.GetWorkflowId()
 	f.mark = req.Msg.Mark
 
-	return connect.NewResponse(&agentv1.SetMarkResponse{}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }

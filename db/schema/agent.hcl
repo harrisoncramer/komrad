@@ -526,10 +526,6 @@ table "agents" {
     null = true
     type = timestamptz
   }
-  column "mark" {
-    null = true
-    type = text
-  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -586,9 +582,52 @@ table "agents" {
     columns = [column.idempotency_key]
     where   = "idempotency_key IS NOT NULL"
   }
-  index "agents_mark_active" {
-    unique  = true
+}
+
+table "marks" {
+  schema  = schema.public
+  comment = "A letter a person addresses one row by. Held by an agent or a workflow and by nothing else, so a letter names one place."
+  column "mark" {
+    null = false
+    type = text
+  }
+  column "agent_id" {
+    null = true
+    type = uuid
+  }
+  column "workflow_id" {
+    null = true
+    type = uuid
+  }
+  column "created_at" {
+    null    = false
+    type    = timestamptz
+    default = sql("now()")
+  }
+  primary_key {
     columns = [column.mark]
-    where   = "mark IS NOT NULL AND archived_at IS NULL"
+  }
+  foreign_key "marks_agent_id_fkey" {
+    columns     = [column.agent_id]
+    ref_columns = [table.agents.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "marks_workflow_id_fkey" {
+    columns     = [column.workflow_id]
+    ref_columns = [table.workflows.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  index "marks_agent_id" {
+    unique  = true
+    columns = [column.agent_id]
+  }
+  index "marks_workflow_id" {
+    unique  = true
+    columns = [column.workflow_id]
+  }
+  check "marks_one_target" {
+    expr = "(agent_id IS NOT NULL) <> (workflow_id IS NOT NULL)"
   }
 }

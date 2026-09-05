@@ -19,6 +19,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
+	markstore "weave/internal/store/mark"
 	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
@@ -61,7 +62,6 @@ type agentReadWriter interface {
 	ListPage(ctx context.Context, limit int64, cursor *agentstore.Cursor, archived bool) ([]agentstore.Agent, error)
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
 	Exists(ctx context.Context, id string) (bool, error)
-	SetMark(ctx context.Context, id string, mark *string) (agentstore.SetMarkResult, error)
 	SetHidden(ctx context.Context, id string, hidden bool) (bool, error)
 	SetViewed(ctx context.Context, id string, viewed bool) error
 	SetTurnEnded(ctx context.Context, id string) error
@@ -69,6 +69,14 @@ type agentReadWriter interface {
 	ListUnseenTurns(ctx context.Context) ([]string, error)
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 	Rename(ctx context.Context, id, name string) (bool, error)
+}
+
+// markWriter owns the letters a person addresses rows by, which span agents and workflows and
+// so are written through a transaction rather than through one store.
+type markWriter interface {
+	ListMarks(ctx context.Context) ([]markstore.Mark, error)
+	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
+	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
 
 // runReader is the record of the scripts weave fired, which the listing reads to say whether
@@ -108,6 +116,7 @@ type Service struct {
 	archive     archiveEmptier
 	review      reviewConversation
 	runs        runReader
+	marks       markWriter
 }
 
 type reviewConversation interface {
@@ -141,6 +150,7 @@ type NewServiceParams struct {
 	Archive     archiveEmptier
 	Review      reviewConversation
 	Runs        runReader
+	Marks       markWriter
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
@@ -159,6 +169,7 @@ func NewService(p NewServiceParams) *Service {
 		archive:     p.Archive,
 		review:      p.Review,
 		runs:        p.Runs,
+		marks:       p.Marks,
 	}
 }
 
@@ -232,12 +243,24 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 	}
 	failed := xslice.KeyBy(failures, func(failure runstore.Failure) string { return failure.AgentID })
 
+	listedMarks, err := s.marks.ListMarks(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the marks")
+	}
+	marks := make(map[string]*string, len(listedMarks))
+	for _, mark := range listedMarks {
+		if mark.AgentID != nil {
+			marks[*mark.AgentID] = &mark.Mark
+		}
+	}
+
 	return func(a agentstore.Agent) agentFlags {
 		_, hasMail := waiting[a.ID]
 		_, hasOutput := unviewed[a.ID]
 		failure, hasFailure := failed[a.ID]
 
 		return agentFlags{
+			mark:         marks[a.ID],
 			alive:        running[a.ID],
 			unreadMail:   hasMail,
 			unviewed:     hasOutput,
@@ -293,19 +316,35 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, flags(*agent)).Agent}), nil
 }
 
-// SetMark puts a letter on an agent, taking it off whichever agent held it, and carries no tool
-// annotation because a mark is the person's own address for a row rather than anything an agent
-// should move.
-func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[agentv1.SetMarkResponse], error) {
-	result, err := s.agents.SetMark(ctx, req.Msg.GetId(), req.Msg.Mark)
+// SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
+// carries no tool annotation because a mark is the person's own address for a row rather than
+// anything an agent should move.
+func (s *Service) SetMark(ctx context.Context, req *connect.Request[agentv1.SetMarkRequest]) (*connect.Response[emptypb.Empty], error) {
+	target := markstore.Target{}
+	switch {
+	case req.Msg.GetAgentId() != "":
+		target = markstore.OnAgent(req.Msg.GetAgentId())
+	case req.Msg.GetWorkflowId() != "":
+		target = markstore.OnWorkflow(req.Msg.GetWorkflowId())
+	}
+
+	if req.Msg.Mark == nil {
+		if _, err := s.marks.ClearMark(ctx, target); err != nil {
+			return nil, rpcerr.Wrap(err, "failed to clear the mark")
+		}
+
+		return connect.NewResponse(&emptypb.Empty{}), nil
+	}
+
+	marked, err := s.marks.SetMark(ctx, req.Msg.GetMark(), target)
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to set the mark")
 	}
-	if !result.Marked {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no live agent with id %q", req.Msg.GetId()))
+	if !marked {
+		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("%s is not a live row to mark", target))
 	}
 
-	return connect.NewResponse(&agentv1.SetMarkResponse{ClearedFrom: result.ClearedFrom}), nil
+	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // SetHidden hides an agent from the panel's sidebar or brings it back.

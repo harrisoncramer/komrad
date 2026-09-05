@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"maps"
 	"strings"
 
 	agentstore "weave/internal/store/agent"
@@ -281,6 +282,15 @@ func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
 }
 
+// applyMarks takes the letters off both listings at once, since one letter names one row across
+// the two and a half-applied pass would draw the same letter twice.
+func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
+	marks := make(map[string]string, len(onAgents)+len(onWorkflows))
+	maps.Copy(marks, onAgents)
+	maps.Copy(marks, onWorkflows)
+	m.listing.marks = marks
+}
+
 // hoveredAgentKey is the row the cursor is on, read before a filter narrows the list under it.
 func (m model) hoveredAgentKey() string {
 	return rowKeyAt(m.agentRows(), m.tree.cursor)
@@ -329,6 +339,9 @@ func (m *model) placeTreeCursor(selected string) {
 type listing struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
+	// marks are the letters a person addresses rows by, keyed by the row key each names, since
+	// a mark sits on an agent or on a workflow and the rows are drawn from one tree.
+	marks map[string]string
 }
 
 func (m *model) revealAgent(id string) {

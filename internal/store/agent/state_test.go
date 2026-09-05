@@ -66,30 +66,6 @@ func TestSetStateByID(t *testing.T) {
 	}
 }
 
-// TestSetStateByIDKeepsTheMark pins that a state write leaves the mark alone, since the mark
-// belongs to the user and the reconciler writes state constantly.
-func TestSetStateByIDKeepsTheMark(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
-	created, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	require.NotNil(t, created)
-
-	result, err := st.SetMark(ctx, created.ID, xptr.Ptr("a"))
-	require.NoError(t, err)
-	require.True(t, result.Marked)
-
-	require.NoError(t, st.SetStateByID(ctx, created.ID, StateWaiting))
-
-	after, err := st.Get(ctx, "agent")
-	require.NoError(t, err)
-	require.NotNil(t, after)
-	assert.Equal(t, StateWaiting, after.State)
-	assert.Equal(t, "a", *after.Mark, "a state write leaves the user's mark standing")
-}
-
 // TestSetStateByIDStampsOnlyOnAChange pins that state_changed_at says when the agent
 // entered its state rather than when it was last looked at.
 func TestSetStateByIDStampsOnlyOnAChange(t *testing.T) {

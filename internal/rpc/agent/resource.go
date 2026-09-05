@@ -27,6 +27,9 @@ type agentFlags struct {
 	unreadMail bool
 	unviewed   bool
 	failedRun  bool
+	// mark is the letter a person addresses this row by, which lives beside the agent rather
+	// than on it, since a letter names an agent or a workflow.
+	mark *string
 	// failedRunLog is the log the failure went to, which is what opens the pane on the run
 	// that failed rather than on whatever ran last.
 	failedRunLog *int32
@@ -72,7 +75,7 @@ func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 			ArchivedAt:       archived,
 			Alive:            flags.alive,
 			UnreadMail:       flags.unreadMail,
-			Mark:             stored.Mark,
+			Mark:             flags.mark,
 			Hidden:           stored.Hidden,
 			Metadata:         metadata,
 			IdempotencyKey:   stored.IdempotencyKey,

@@ -12,6 +12,7 @@ import (
 	"weave/lib/xslice"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
+	markstore "weave/internal/store/mark"
 	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
@@ -27,6 +28,12 @@ type workflowWriter interface {
 	DeleteWorkflow(ctx context.Context, id string) error
 }
 
+// markReader is the letters a person addresses rows by, which a workflow carries so the panel
+// can draw one on its header.
+type markReader interface {
+	ListMarks(ctx context.Context) ([]markstore.Mark, error)
+}
+
 type workflowLister interface {
 	ListPage(ctx context.Context, limit int64, cursor *workflowstore.Cursor, archived bool) ([]workflowstore.Workflow, error)
 }
@@ -34,12 +41,13 @@ type workflowLister interface {
 type Service struct {
 	lister    workflowLister
 	workflows workflowWriter
+	marks     markReader
 }
 
-// NewService constructs the handler from the store it lists through and the
-// service that owns the rules.
-func NewService(lister workflowLister, workflows workflowWriter) *Service {
-	return &Service{lister: lister, workflows: workflows}
+// NewService constructs the handler from the store it lists through, the service that owns the
+// rules, and the marks a workflow header draws.
+func NewService(lister workflowLister, workflows workflowWriter, marks markReader) *Service {
+	return &Service{lister: lister, workflows: workflows, marks: marks}
 }
 
 // ListWorkflows returns one page of workflows, by name.
@@ -54,7 +62,12 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 		return nil, rpcerr.Wrap(err, "failed to list workflows")
 	}
 
-	resources := xslice.Map(stored, renderWorkflow)
+	marks, err := s.marksByWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, marks[w.ID]) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {
@@ -75,7 +88,12 @@ func (s *Service) GetWorkflow(ctx context.Context, req *connect.Request[workflow
 			rpcerr.Saying(store.ErrNotFound, "no workflow with id %q", req.Msg.GetId()))
 	}
 
-	return connect.NewResponse(&workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found).Workflow}), nil
+	mark, err := s.markOf(ctx, found.ID)
+	if err != nil {
+		return nil, err
+	}
+
+	return connect.NewResponse(&workflowv1.GetWorkflowResponse{Workflow: renderWorkflow(*found, mark).Workflow}), nil
 }
 
 // CreateWorkflow adds a workflow and returns it as stored.
@@ -94,7 +112,7 @@ func (s *Service) CreateWorkflow(ctx context.Context, req *connect.Request[workf
 		return nil, rpcerr.Wrap(err, "failed to create workflow")
 	}
 
-	return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: renderWorkflow(*created).Workflow}), nil
+	return connect.NewResponse(&workflowv1.CreateWorkflowResponse{Workflow: renderWorkflow(*created, nil).Workflow}), nil
 }
 
 // UpdateWorkflow replaces a workflow's editable fields.
@@ -152,7 +170,7 @@ func (s *Service) RestoreWorkflow(ctx context.Context, req *connect.Request[work
 			rpcerr.Saying(agents.ErrWorkflowNotFound, "no archived workflow with id %q", req.Msg.GetId()))
 	}
 
-	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored).Workflow}), nil
+	return connect.NewResponse(&workflowv1.RestoreWorkflowResponse{Workflow: renderWorkflow(*restored, nil).Workflow}), nil
 }
 
 // DeleteWorkflow permanently removes an archived workflow, the archived agents still inside
@@ -164,4 +182,31 @@ func (s *Service) DeleteWorkflow(ctx context.Context, req *connect.Request[workf
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// marksByWorkflow is the letter each workflow answers to, keyed by its id.
+func (s *Service) marksByWorkflow(ctx context.Context) (map[string]*string, error) {
+	listed, err := s.marks.ListMarks(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the marks")
+	}
+
+	by := make(map[string]*string, len(listed))
+	for _, mark := range listed {
+		if mark.WorkflowID != nil {
+			by[*mark.WorkflowID] = &mark.Mark
+		}
+	}
+
+	return by, nil
+}
+
+// markOf is the letter one workflow answers to, or nothing when it holds none.
+func (s *Service) markOf(ctx context.Context, id string) (*string, error) {
+	by, err := s.marksByWorkflow(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return by[id], nil
 }
