@@ -1,6 +1,7 @@
 package claude
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"weave/internal/harness"
@@ -10,7 +11,19 @@ import (
 const (
 	// EventStop is fired as a turn of Claude's own ends.
 	EventStop harness.Event = "Stop"
+
+	// EventPreToolUse is fired before a tool call runs, and not again if the call fails.
+	EventPreToolUse harness.Event = "PreToolUse"
+
+	// EventPostToolUse is fired once a tool call has returned.
+	EventPostToolUse harness.Event = "PostToolUse"
 )
+
+// toolPayload is a tool event, of which only the name of the tool is read: an input can carry a
+// secret, such as a token on a Bash command line, and whether weave may keep one is undecided.
+type toolPayload struct {
+	ToolName string `json:"tool_name"`
+}
 
 // ReadReport reads out of one of Claude's hook payloads only what weave records about the agent,
 // leaving what the hook has to answer Claude with, such as the Stop event's re-entry flag, to the
@@ -23,6 +36,19 @@ func (h *Harness) ReadReport(event harness.Event, payload []byte) (harness.Repor
 	// turn weave's own last answer caused is still a turn ending.
 	case EventStop:
 		return harness.Report{TurnEnded: true}, nil
+
+	// The tool is what the agent is doing until it stops doing it, so the pair reads as one
+	// reason arriving and then going, and a call that fails fires no PostToolUse at all, which
+	// is why nothing here is what clears a reason for good.
+	case EventPreToolUse:
+		var parsed toolPayload
+		if err := json.Unmarshal(payload, &parsed); err != nil {
+			return harness.Report{}, fmt.Errorf("failed to parse the %s payload: %w", event, err)
+		}
+
+		return harness.Report{Reason: parsed.ToolName}, nil
+	case EventPostToolUse:
+		return harness.Report{}, nil
 	default:
 		// Refused rather than read as a report of nothing, since an empty report clears the
 		// reason on the row and an event installed without a case here is the mistake that

@@ -65,6 +65,64 @@ meant to be run by hand.`,
 
 	cmd.AddCommand(stopHookCmd(state))
 	cmd.AddCommand(turnEndHookCmd(state))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "pre-tool-use",
+		short: "Record the tool an agent is about to run",
+		long: `Record the tool an agent is about to run.
+
+Claude runs this before every tool call, handing it the call on stdin. Weave
+keeps the name of the tool against the agent so the panel can say what it is
+doing, and reads nothing else: a tool's input can carry a secret.`,
+		event: claude.EventPreToolUse,
+	}))
+	cmd.AddCommand(payloadHookCmd(state, payloadHook{
+		use:   "post-tool-use",
+		short: "Record that an agent's tool call returned",
+		long: `Record that an agent's tool call returned.
+
+Claude runs this once a tool call has finished, which takes the tool back off
+the agent's row. A call that fails runs nothing, so the row is left to the state
+it is drawn beside rather than to this.`,
+		event: claude.EventPostToolUse,
+	}))
+
+	return cmd
+}
+
+// payloadHook is one event whose whole answer is what the harness reads out of its payload,
+// which is every event but the Stop weave writes mail back through.
+type payloadHook struct {
+	use   string
+	short string
+	long  string
+	event harness.Event
+}
+
+func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:           hook.use,
+		Short:         hook.short,
+		Long:          hook.long,
+		Args:          cobra.NoArgs,
+		SilenceUsage:  true,
+		SilenceErrors: true,
+	}
+
+	cmd.RunE = func(cmd *cobra.Command, _ []string) error {
+		body, err := io.ReadAll(cmd.InOrStdin())
+		if err != nil {
+			reportHookProblem(cmd, "weave read no hook payload, so nothing was recorded", err)
+
+			return nil
+		}
+		if state.env.AgentID == "" {
+			return nil
+		}
+
+		reportHookEvent(cmd, state, claude.HarnessID, hook.event, body)
+
+		return nil
+	}
 
 	return cmd
 }

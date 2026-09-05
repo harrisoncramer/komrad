@@ -39,9 +39,27 @@ func TestReadReport(t *testing.T) {
 			want:  harness.Report{TurnEnded: true},
 		},
 		{
+			name:    "a tool call starting",
+			event:   EventPreToolUse,
+			payload: `{"tool_name":"Bash","tool_input":{"command":"echo hi"}}`,
+			want:    harness.Report{Reason: "Bash"},
+		},
+		{
+			name:    "a tool call returning",
+			event:   EventPostToolUse,
+			payload: `{"tool_name":"Bash","tool_response":{"stdout":"hi"}}`,
+			want:    harness.Report{},
+		},
+		{
+			name:    "a tool call weave could not read",
+			event:   EventPreToolUse,
+			payload: `{`,
+			wantErr: true,
+		},
+		{
 			name:    "an event no reading is taken from",
-			event:   "PreToolUse",
-			payload: `{"tool_name":"Bash"}`,
+			event:   "SessionEnd",
+			payload: `{"reason":"clear"}`,
 			wantErr: true,
 		},
 	}
@@ -62,26 +80,51 @@ func TestReadReport(t *testing.T) {
 	}
 }
 
-// TestReadReportOnACapturedPayload runs the derive over a Stop payload taken off a real headless
-// run, which is what pins the reading against the shape Claude actually sends rather than the
-// one its documentation describes.
-func TestReadReportOnACapturedPayload(t *testing.T) {
-	payload, err := os.ReadFile(filepath.Join("testdata", "stop_hook_payload.json"))
-	require.NoError(t, err)
+// TestReadReportOnCapturedPayloads runs the derive over payloads taken off a real headless run,
+// which is what pins each reading against the shape Claude actually sends rather than the one its
+// documentation describes.
+func TestReadReportOnCapturedPayloads(t *testing.T) {
+	tests := []struct {
+		file  string
+		event harness.Event
+		want  harness.Report
+	}{
+		{
+			file:  "stop_hook_payload.json",
+			event: EventStop,
+			want:  harness.Report{TurnEnded: true},
+		},
+		{
+			file:  "pre_tool_use_hook_payload.json",
+			event: EventPreToolUse,
+			want:  harness.Report{Reason: "Bash"},
+		},
+		{
+			file:  "post_tool_use_hook_payload.json",
+			event: EventPostToolUse,
+			want:  harness.Report{},
+		},
+	}
 
-	report, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadReport(EventStop, payload)
-	require.NoError(t, err)
-	assert.Equal(t, harness.Report{TurnEnded: true}, report)
+	for _, tt := range tests {
+		t.Run(tt.file, func(t *testing.T) {
+			payload, err := os.ReadFile(filepath.Join("testdata", tt.file))
+			require.NoError(t, err)
+
+			report, err := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()}).ReadReport(tt.event, payload)
+			require.NoError(t, err)
+			assert.Equal(t, tt.want, report)
+		})
+	}
 }
 
 // TestEveryInstalledHookIsRead pins the direction the subcommand test cannot cover: an event
-// weave installs and takes no reading from would fire on every occurrence and record nothing.
+// weave installs but takes no reading from would fire on every occurrence and be refused.
 func TestEveryInstalledHookIsRead(t *testing.T) {
 	hn := NewHarness(NewHarnessParams{ProjectsDir: t.TempDir()})
 
 	for event := range InstalledHooks {
-		report, err := hn.ReadReport(event, nil)
-		require.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
-		assert.NotEqual(t, harness.Report{}, report, "the %s hook reports something", event)
+		_, err := hn.ReadReport(event, []byte(`{}`))
+		assert.NoError(t, err, "the %s hook is installed, so a reading is taken from it", event)
 	}
 }
