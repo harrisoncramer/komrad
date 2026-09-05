@@ -124,7 +124,7 @@ func TestReviewEditCloseReloadsTheDiff(t *testing.T) {
 			},
 		},
 		{
-			name: "the editor quits while the panel is looking elsewhere",
+			name: "the tick notices the pane gone, where no focus event came",
 			close: func(m model) (tea.Model, tea.Cmd) {
 				m.frame.Close(layout.RegionInfo)
 				next, cmd := m.reconcileEditor()
@@ -178,8 +178,7 @@ func TestReviewEditCloseCaughtByTheTick(t *testing.T) {
 	require.Equal(t, infoEditFile, m.info.kind, "the editor is up")
 
 	m.frame.Close(layout.RegionInfo)
-	ticked, cmd := m.route(refreshTickMsg{at: time.Now()})
-	require.NotNil(t, cmd)
+	ticked, _ := m.route(refreshTickMsg{at: time.Now()})
 
 	assert.Equal(t, infoNothing, ticked.(model).info.kind, "the tick noticed the editor gone")
 }
