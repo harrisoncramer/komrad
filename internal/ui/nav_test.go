@@ -104,3 +104,30 @@ func TestArchiveJumpKeys(t *testing.T) {
 		assert.Equal(t, 0, after.tree.cursor)
 	})
 }
+
+// TestEnterFocusesTheStagedAgent covers the open key over a live agent, whose own pane is
+// already swapped into the stage, so the keyboard is what is left to hand over.
+func TestEnterFocusesTheStagedAgent(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := infoModel(tmux)
+	m.stageSelection()
+
+	updated, _ := m.route(keyMsg("enter"))
+	_, ok := updated.(model)
+	assert.True(t, ok)
+
+	assert.Equal(t, []string{"%9"}, tmux.selected)
+}
+
+// TestEnterLeavesAnUnstagedAgentAlone covers a live agent the stage is not showing, where
+// selecting its pane would move focus somewhere the panel is not.
+func TestEnterLeavesAnUnstagedAgentAlone(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := infoModel(tmux)
+
+	updated, _ := m.route(keyMsg("enter"))
+	_, ok := updated.(model)
+	assert.True(t, ok)
+
+	assert.Empty(t, tmux.selected)
+}
