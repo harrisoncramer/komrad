@@ -96,7 +96,7 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 }
 
 func (m model) agentRows() []agentRow {
-	return m.filter.filterAgentRows(m.allAgentRows())
+	return m.allAgentRows()
 }
 
 func (m model) allAgentRows() []agentRow {
@@ -289,6 +289,23 @@ func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
 	maps.Copy(marks, onAgents)
 	maps.Copy(marks, onWorkflows)
 	m.listing.marks = marks
+}
+
+// agentFilterRows is every row of the tree with the name a search reads it by, which is the
+// workflow's own name on a header and the agent's on a row.
+func (m model) agentFilterRows() []filterRow {
+	rows := m.agentRows()
+	found := make([]filterRow, 0, len(rows))
+	for _, r := range rows {
+		name := r.item.agent.Name
+		if r.header {
+			name = r.workflow.Name
+		}
+
+		found = append(found, filterRow{key: rowKey(r), name: name})
+	}
+
+	return found
 }
 
 // hoveredAgentKey is the row the cursor is on, read before a filter narrows the list under it.

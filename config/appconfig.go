@@ -195,13 +195,17 @@ type LogsKeys struct {
 	Older []string `mapstructure:"older"`
 }
 
-// FilterKeys is the binding that narrows the list on screen. It is its own group rather than
-// one of a screen's, since it acts the same on all of them. While the input is open every
-// other key types into the pattern, so the keys that close it are fixed rather than
-// configured.
+// FilterKeys are the bindings for the search over the list on screen. It is its own group rather
+// than one of a screen's, since it acts the same on all of them. While the input is open every
+// other key types into the pattern, so the keys that close it are fixed rather than configured,
+// and the keys that walk the matches answer only once the search stands.
 type FilterKeys struct {
-	// Narrow the list on screen to the rows matching what you type, as a regular expression.
+	// Search the list on screen for what you type, as a regular expression.
 	Open []string `mapstructure:"open"`
+	// Move the cursor to the next row matching the search, wrapping at the end of the list.
+	NextMatch []string `mapstructure:"next_match"`
+	// Move the cursor to the previous row matching the search.
+	PrevMatch []string `mapstructure:"prev_match"`
 }
 
 // SelectionKeys are the bindings for choosing several agents at once. They are shared by
@@ -729,7 +733,9 @@ func DefaultKeybindings() Keybindings {
 			Focus: []string{"ctrl+t"},
 		},
 		Filter: FilterKeys{
-			Open: []string{"/"},
+			Open:      []string{"/"},
+			NextMatch: []string{"n"},
+			PrevMatch: []string{"N"},
 		},
 		Form: FormKeys{
 			Back:   []string{"esc"},

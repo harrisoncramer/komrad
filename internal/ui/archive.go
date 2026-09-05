@@ -24,8 +24,24 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
+// archiveFilterRows is the archive's own rows with the name a search reads each by.
+func (m model) archiveFilterRows() []filterRow {
+	rows := m.archiveRows()
+	found := make([]filterRow, 0, len(rows))
+	for _, r := range rows {
+		name := r.item.agent.Name
+		if r.header {
+			name = r.workflow.Name
+		}
+
+		found = append(found, filterRow{key: rowKey(r), name: name})
+	}
+
+	return found
+}
+
 func (m model) archiveRows() []agentRow {
-	return m.filter.filterAgentRows(m.allArchiveRows())
+	return m.allArchiveRows()
 }
 
 func (m model) allArchiveRows() []agentRow {
@@ -127,8 +143,12 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.openFilter()
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
+	case m.filter.isStanding() && isBound(k, m.keys.Filter.NextMatch):
+		return m.jumpMatch(1)
+	case m.filter.isStanding() && isBound(k, m.keys.Filter.PrevMatch):
+		return m.jumpMatch(-1)
 	case m.filter.isStanding() && isBound(k, m.keys.Archive.Back):
-		return m.openFilter()
+		return m.clearSearch()
 	case isBound(k, m.keys.Archive.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):

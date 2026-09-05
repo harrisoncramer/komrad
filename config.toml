@@ -116,8 +116,12 @@ focus = ["ctrl+t"]
 # The filter over whichever list is on screen, shared by every screen that
 # draws one.
 [keybindings.filter]
-# Narrow the list on screen to the rows matching what you type, as a regular expression.
-open = ["/"]
+# Search the list on screen for what you type, as a regular expression.
+open       = ["/"]
+# Move the cursor to the next row matching the search, wrapping at the end of the list.
+next_match = ["n"]
+# Move the cursor to the previous row matching the search.
+prev_match = ["N"]
 
 # The new-agent, rename, and workflow forms.
 [keybindings.form]

@@ -58,9 +58,17 @@ Agents and workflows are marked the same way and share the same letters, since a
 
 A letter is held by one row at a time. Marking a row with a letter another row already holds moves the mark rather than refusing it. Pressing `t` and then the letter a row already holds takes the mark off it, which is how a mark is cleared.
 
-`'` pressed twice goes back to wherever the cursor was before the last jump, so looking at a marked row and getting back to what you were reading are the same gesture. A jump always lands: if the marked row is filtered out or hidden, the jump clears what is in the way rather than doing nothing.
+`'` pressed twice goes back to wherever the cursor was before the last jump, so looking at a marked row and getting back to what you were reading are the same gesture. A jump always lands: if the marked row is hidden, the jump reveals it rather than doing nothing.
 
 Marks are yours. Nothing an agent can call sets one, and a row loses its mark when it is archived, since the letter is an address for a row on the screen rather than anything about the work.
+
+## Searching the list
+
+Press `/` and type to search the list. It highlights rather than narrows: every row stays where it was, and the matched text is drawn lit up, so you keep the shape of the tree while you look. The cursor walks onto the nearest match as you type.
+
+`n` and `N` step forward and back through the matches, wrapping at either end. They only answer while a search is up, since they are ordinary letters the rest of the time.
+
+Enter puts the input away and leaves you on the row you found, with the search still lit so `n` keeps working. Escape gives up: the search goes and the cursor returns to the row you were on when you pressed `/`.
 
 ## Archiving, restoring, deleting
 

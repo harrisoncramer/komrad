@@ -149,10 +149,10 @@ func filterHelp() keyMap {
 
 func (m model) filterBinding() key.Binding {
 	if m.filter.isStanding() {
-		return binding(m.keys.Filter.Open, "filter: "+m.filter.query)
+		return binding(m.keys.Filter.Open, "search: "+m.filter.query)
 	}
 
-	return binding(m.keys.Filter.Open, "filter")
+	return binding(m.keys.Filter.Open, "search")
 }
 
 func (m model) editFilterBinding(keys []string) []key.Binding {
@@ -160,7 +160,17 @@ func (m model) editFilterBinding(keys []string) []key.Binding {
 		return nil
 	}
 
-	return []key.Binding{binding(keys, "edit filter")}
+	return []key.Binding{binding(keys, "clear search")}
+}
+
+// matchBindings walk the rows a standing search found, and are drawn only while one stands since
+// the keys they sit on are letters at every other time.
+func (m model) matchBindings() []key.Binding {
+	if !m.filter.isStanding() || m.screen.spec().filter == nil || m.screen.spec().filter.rows == nil {
+		return nil
+	}
+
+	return []key.Binding{pairBinding(m.keys.Filter.NextMatch, m.keys.Filter.PrevMatch, "next/prev match")}
 }
 
 // olderLogBindings appear only while the info pane is showing a run, naming which of an agent's
@@ -214,6 +224,7 @@ func (m model) agentHelp() keyMap {
 			binding(m.keys.Terminal.Open, m.terminalDesc()),
 		},
 		m.editFilterBinding(m.keys.Agents.Back),
+		m.matchBindings(),
 		m.globalHelp(),
 	)
 
@@ -399,7 +410,7 @@ func (m model) archiveHelp() keyMap {
 		)
 	}
 
-	editFilter := m.editFilterBinding(m.keys.Archive.Back)
+	editFilter := slices.Concat(m.editFilterBinding(m.keys.Archive.Back), m.matchBindings())
 	rows := m.archiveRowHelp()
 
 	short := slices.Concat(editFilter, []key.Binding{m.helpBinding()})

@@ -53,8 +53,14 @@ func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if isBound(k, m.keys.Filter.Open) {
 		return m.openFilter()
 	}
+	if m.filter.isStanding() && isBound(k, m.keys.Filter.NextMatch) {
+		return m.jumpMatch(1)
+	}
+	if m.filter.isStanding() && isBound(k, m.keys.Filter.PrevMatch) {
+		return m.jumpMatch(-1)
+	}
 	if m.filter.isStanding() && isBound(k, m.keys.Agents.Back) {
-		return m.openFilter()
+		return m.clearSearch()
 	}
 	if isBound(k, m.keys.Workflows.New) {
 		return m.newWorkflowForm()
