@@ -27,12 +27,11 @@ func testServer(t *testing.T, name string) *Client {
 	require.NoError(t, err, "could not start a tmux server to test against")
 
 	// A pane reports whichever process holds its terminal, so a login shell reading the
-	// developer's startup files reports those children rather than itself for the first
-	// tenth of a second.
+	// developer's startup files reports those children rather than itself.
 	_, err = client.query("set-option", "-g", "default-shell", "/bin/sh")
-	require.NoError(t, err)
+	require.NoError(t, err, "could not pin the test server's shell")
 	_, err = client.query("set-option", "-g", "default-command", "sh")
-	require.NoError(t, err)
+	require.NoError(t, err, "could not pin the test server's shell")
 
 	return client
 }
