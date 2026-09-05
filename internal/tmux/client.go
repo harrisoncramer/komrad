@@ -444,6 +444,12 @@ func (c *Client) HostPath() string {
 	return c.ShowGlobal(hostPathOption)
 }
 
+// EnableFocusEvents has tmux tell a pane when it gains or loses the keys, which is how the panel
+// hears an editor pane quitting rather than waiting to notice the pane gone.
+func (c *Client) EnableFocusEvents() {
+	c.run("set-option", "-s", "focus-events", "on")
+}
+
 // SetSessionOption sets a session-scoped tmux option.
 func (c *Client) SetSessionOption(target, name, value string) {
 	c.run("set-option", "-t", target, name, value)

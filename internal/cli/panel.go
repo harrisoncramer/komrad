@@ -55,6 +55,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			hookClient := hookv1connect.NewHookServiceClient(http.DefaultClient, base)
 
 			state.popup.SilenceStatus(agents.ManagerSession)
+			state.tmux.EnableFocusEvents()
 
 			return ui.Run(ui.Deps{
 				PopupWindow:     state.popup,

@@ -56,6 +56,18 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// reconcileEditor catches the editor pane going away on its own and puts the diff behind it back
+// on screen at the size the stage is left with, since the file may have changed while it was up.
+func (m model) reconcileEditor() (model, tea.Cmd) {
+	if !m.reconcileInfo() || m.screen != screenReview {
+		return m, nil
+	}
+
+	m.remeasureReview()
+
+	return m.reloadReview()
+}
+
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m = m.closeInfo()
 	m.remeasureReview()
