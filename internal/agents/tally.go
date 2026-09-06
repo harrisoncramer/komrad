@@ -17,6 +17,11 @@ const reconcileShellGrace = 10 * time.Second
 // right and forgetting a live pane costs the agent a binding nothing restores.
 const listingsBeforePaneGone = 3
 
+// prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
+// checked again, kept long because this is one infrequent check per agent rather than a poll
+// loop.
+const prRateLimitBackoff = 15 * time.Minute
+
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
 // timestamps the panes drove rather than anything the store holds.
 type tally struct {
@@ -180,23 +185,23 @@ func (t *tally) clearShell(agentID string) {
 	t.updateExisting(agentID, func(entry *trackedAgent) { entry.shellSince = time.Time{} })
 }
 
-// isFrameStillMoving records the frame an agent is sitting on and reports whether it differs
-// from the one before it, which is the reason to wait rather than demote, up to the limit on
-// how long a frame that never settles may hold.
-func (t *tally) isFrameStillMoving(agentID string, hash uint64) bool {
-	moving := false
+// isUnrecognizedHeld records the frame an agent is sitting on and reports whether its differing
+// from the one before it is still reason to wait rather than demote, up to the limit on how long
+// a frame that never settles may hold.
+func (t *tally) isUnrecognizedHeld(agentID string, hash uint64) bool {
+	held := false
 	t.update(agentID, func(entry *trackedAgent) {
 		changed := entry.frameHashSeen && hash != entry.frameHash
 		entry.frameHash = hash
 		entry.frameHashSeen = true
 
-		moving = changed && entry.unrecognizedHolds < unrecognizedHoldLimit
-		if moving {
+		held = changed && entry.unrecognizedHolds < unrecognizedHoldLimit
+		if held {
 			entry.unrecognizedHolds++
 		}
 	})
 
-	return moving
+	return held
 }
 
 func (t *tally) isRateLimited(agentID string) bool {

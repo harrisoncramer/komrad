@@ -23,11 +23,6 @@ const stateSeenBound = 2 * time.Minute
 
 const prLookupTimeout = 15 * time.Second
 
-// prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
-// checked again, kept long because this is one infrequent check per agent rather than a poll
-// loop.
-const prRateLimitBackoff = 15 * time.Minute
-
 // prMetadataKey is the metadata key a found pull request is recorded under, the same key
 // weave's own agents have been asked to record it under by hand.
 const prMetadataKey = "pr"
@@ -286,7 +281,7 @@ func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.A
 		slog.String(logging.AgentID, agent.ID),
 		slog.Int(logging.UnrecognizedFrameCount, r.unrecognizedTotal))
 
-	if r.tally.isFrameStillMoving(agent.ID, hashFrame(frame)) {
+	if r.tally.isUnrecognizedHeld(agent.ID, hashFrame(frame)) {
 		r.tally.clearMisses(agent.ID)
 
 		return
