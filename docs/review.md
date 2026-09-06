@@ -8,7 +8,7 @@ This guide walks the whole loop with pictures of what you see at each step.
 
 Almost every confusion with this screen comes from mixing up three things that look like one thing.
 
-The round is a frozen photograph of the agent's worktree. Weave takes it the moment you open the diff: everything in that directory, committed or not, tracked or not, written as one commit nothing else points at. It builds that commit in an index of its own, so the agent's own index, worktree and branch are left exactly as they were and nothing lands on the branch it is working on. The agent goes on typing; the round does not move. Every comment is pinned to a line of the round, not to a line of the file on disk.
+The round is a frozen photograph of the agent's worktree. Weave takes it the moment you open the diff: everything in that directory, committed or not, ignored files aside, written as one commit nothing else points at. It builds that commit in an index of its own, so the agent's own index, worktree and branch are left exactly as they were and nothing lands on the branch it is working on. The agent goes on typing; the round does not move. Every comment is pinned to a line of the round, not to a line of the file on disk.
 
 Your draft is the comments you have written but not sent. They are yours alone. The agent cannot see them, cannot be told they exist, and will never read them until you release them. They sit in the panel marked unsent.
 
@@ -49,6 +49,8 @@ Here is the screen you land on. The sidebar on the left is the conversation. The
 
 Top left is the agent whose work this is. Under it, how big the change is. Under that, how your comments stand, which says nothing written yet until you write one.
 
+The line about files changed since you last reviewed only shows once you have actually released a review on an earlier round of this agent, so a first look does not have it.
+
 The line `internal/store/user.go:17` is the place the cursor is standing. That is where a comment would be pinned if you wrote one right now. It is the single most useful line on the screen: if it says nothing, a comment cannot be started there.
 
 Base and snapshot in the record at the bottom are the two commits the diff is between. Base is where the agent's branch left the branch it was cut from. Snapshot is the frozen photograph. `git diff <base> <snapshot>` in the agent's directory shows you exactly what the screen is showing.
@@ -75,13 +77,14 @@ The two numbers are the line's place in the old file and in the new one. A delet
 ```
   ●  a thread, open, nothing owed to you
   ◇  a thread holding a comment that has not been sent yet
-  →  sent, waiting for the agent to pick its mail up
   ✓  a thread you have settled
   ◆  the agent has said something you have not read
   ○  the code under this thread has changed since it was written
 ```
 
 The marks are ranked, so a thread shows the one that matters most. An unread reply beats everything else.
+
+There is no mark for a comment you have sent and the agent has not picked up yet. It goes back to `●`, and how far a comment has got is answered in the sidebar rather than in the gutter. Watch out for `✓`, which appears in both places meaning different things: in the gutter it means you settled the thread, in the sidebar badge it means the agent picked the mail up.
 
 ## Moving around
 
@@ -197,7 +200,7 @@ The mail is one line:
 
 ```
 weave: review of round 2, changes requested, 3 comment(s), read
-/Users/you/.local/state/weave/reviews/01a0…/round-2-9f3c…md
+/Users/you/.local/state/weave/reviews/01a0…/round-2-9f3c….md
 ```
 
 The file it points at carries the whole review, with the code around each comment as the round froze it:
@@ -410,6 +413,8 @@ The round does not move, on purpose: code cannot shift under a comment you are h
 
 Press `R` to take a new round and read the new diff. Your cursor comes back where it was. The bar is a reversed block rather than a dim line because writing comments against a diff that has already moved is how you end up with a handful of threads pinned to code that is gone.
 
+Catching up costs you one thing. Comments and threads survive it, drafts included, and get re-placed against the new diff. An edit you are still holding does not: the lines it named belong to a snapshot that is no longer on screen, so the proposal is dropped and weave says so. The text is still in the scratch checkout, but you will not be offered it again for this round. If you have quit the editor and not yet written the comment to carry the edit, write it before pressing `R`.
+
 If the agent edits the worktree back to exactly what the round holds, the bar goes away on its own.
 
 ## Threads whose code moved
@@ -478,4 +483,4 @@ Neither is written inside the agent's worktree, which would put weave's own file
   ?           the full list, with what each key would do right now
 ```
 
-In the composer and the send panel every other key is a character you are typing, so `ctrl+s` and `esc` are fixed there and cannot be rebound.
+In the composer and the send panel every other key is a character you are typing, so `esc` and `ctrl+c` are fixed there. The save and send key is not a review key at all: it is `keys.form.submit`, shared with every form in the panel, and rebinding it moves it here too.
