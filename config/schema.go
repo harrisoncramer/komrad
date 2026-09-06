@@ -13,9 +13,9 @@ import (
 // comment map against.
 const pkgPath = "weave/config"
 
-// Schema reflects Config into a JSON schema, taking each field's description from its Go doc
+// reflectSchema reflects Config into a JSON schema, taking each field's description from its Go doc
 // comment in dir and each leaf's default from DefaultKeybindings.
-func Schema(dir string) (*jsonschema.Schema, error) {
+func reflectSchema(dir string) (*jsonschema.Schema, error) {
 	reflector := &jsonschema.Reflector{
 		FieldNameTag: "mapstructure",
 		// The schema is walked, not published, so inline every definition rather

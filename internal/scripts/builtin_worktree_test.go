@@ -1231,7 +1231,7 @@ func runBuiltin(t *testing.T, name string, env worktreeEnv) (Result, error) {
 }
 
 func findBuiltin(dir, name string) (*Script, error) {
-	discovered, err := Discover(dir)
+	discovered, err := discover(dir)
 	if err != nil {
 		return nil, err
 	}

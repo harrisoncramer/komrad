@@ -98,7 +98,7 @@ func TestDatabaseCheckTellsTheFailuresApart(t *testing.T) {
 			result := newDatabaseCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			if tt.wantFix != "" {
 				assert.Equal(t, tt.wantFix, result.Fix)
 			}
@@ -179,7 +179,7 @@ func TestSchemaCheck(t *testing.T) {
 		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
 		assert.Equal(t, StatusWarn, result.Status, "the service applies these itself on the way up")
-		assert.Equal(t, "schema_behind", CodeOf(result.Err))
+		assert.Equal(t, "schema_behind", codeOf(result.Err))
 		assert.Contains(t, result.Err.Error(), "2 migrations")
 	})
 
@@ -195,7 +195,7 @@ func TestSchemaCheck(t *testing.T) {
 		result := newSchemaCheck().Run(t.Context(), dbEnv(schema, nil, nil))
 
 		assert.Equal(t, StatusFail, result.Status)
-		assert.Equal(t, "schema_unreadable", CodeOf(result.Err))
+		assert.Equal(t, "schema_unreadable", codeOf(result.Err))
 	})
 }
 
@@ -214,7 +214,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 		result := newReadOnlyLoginCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, refusal))
 
 		assert.Equal(t, StatusFail, result.Status)
-		assert.Equal(t, "readonly_login_unusable", CodeOf(result.Err))
+		assert.Equal(t, "readonly_login_unusable", codeOf(result.Err))
 		assert.Equal(t, "weave readonly-role", result.Fix)
 		assert.Contains(t, result.Err.Error(), "weave_readonly",
 			"the reason names the login, since that is what has to be created")
@@ -228,7 +228,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 
 		require.Equal(t, StatusWarn, result.Status,
 			"both logins connect, so nothing else in the report says the MCP tools are reading somewhere else")
-		assert.Equal(t, "readonly_login_elsewhere", CodeOf(result.Err))
+		assert.Equal(t, "readonly_login_elsewhere", codeOf(result.Err))
 		assert.Contains(t, result.Err.Error(), "localhost:5460",
 			"the reason names the address the panel writes to, since that is the one the pair should agree on")
 	})
@@ -241,7 +241,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 
 		require.Equal(t, StatusFail, result.Status,
 			"an empty url connects as whoever is running weave, so it cannot be handed to the pool")
-		assert.Equal(t, "readonly_login_unset", CodeOf(result.Err))
+		assert.Equal(t, "readonly_login_unset", codeOf(result.Err))
 	})
 
 	t.Run("one login doing both jobs", func(t *testing.T) {
@@ -252,7 +252,7 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 
 		require.Equal(t, StatusFail, result.Status,
 			"this connects cleanly and hands the MCP endpoint the writable role, so it has to be caught by name")
-		assert.Equal(t, "readonly_login_shared", CodeOf(result.Err))
+		assert.Equal(t, "readonly_login_shared", codeOf(result.Err))
 	})
 }
 

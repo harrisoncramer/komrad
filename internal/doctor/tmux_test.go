@@ -168,7 +168,7 @@ func TestTmuxBinaryCheck(t *testing.T) {
 		result := newTmuxBinaryCheck().Run(t.Context(), tmuxOnPath("", exec.ErrNotFound))
 
 		assert.Equal(t, StatusFail, result.Status)
-		assert.Equal(t, "tmux_missing", CodeOf(result.Err))
+		assert.Equal(t, "tmux_missing", codeOf(result.Err))
 		assert.NotEmpty(t, result.Fix, "a failure a person can act on carries the command that acts on it")
 	})
 }
@@ -224,7 +224,7 @@ func TestTmuxVersionCheck(t *testing.T) {
 			result := newTmuxVersionCheck().Run(t.Context(), tmuxReporting(tt.reported, tt.outErr))
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 		})
 	}
 }
@@ -309,7 +309,7 @@ func TestTmuxShellCheck(t *testing.T) {
 			result := newTmuxShellCheck().Run(t.Context(), tmuxServers(tt.answers))
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			if tt.wantDetail != "" {
 				assert.Equal(t, tt.wantDetail, result.Detail)
 			}

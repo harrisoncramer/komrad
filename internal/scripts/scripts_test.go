@@ -25,7 +25,7 @@ func TestDiscover(t *testing.T) {
 	require.NoError(t, os.Symlink(filepath.Join(dir, "open-pr"), filepath.Join(dir, "linked")))
 	require.NoError(t, syscall.Mkfifo(filepath.Join(dir, "fifo"), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 
 	listed := map[string]Script{}
@@ -106,7 +106,7 @@ func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 	), 0o755))
 	write(t, filepath.Join(dir, "silent"), 0o755)
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 2)
 
@@ -117,7 +117,7 @@ func TestDiscoverReadsWhatAFileDeclares(t *testing.T) {
 // TestDiscoverMissingDirectory covers never having written one, where nothing is wrong so
 // nothing is reported.
 func TestDiscoverMissingDirectory(t *testing.T) {
-	found, err := Discover(filepath.Join(t.TempDir(), "never-created"))
+	found, err := discover(filepath.Join(t.TempDir(), "never-created"))
 
 	require.NoError(t, err)
 	assert.Empty(t, found)
@@ -137,7 +137,7 @@ func TestRunPassesTheEnvironmentAndDirectory(t *testing.T) {
 	t.Setenv("WEAVE_TEST_INHERITED", "from the panel")
 
 	work := t.TempDir()
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -183,7 +183,7 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, tt.file), []byte(tt.contents), tt.mode))
 
-			found, err := Discover(dir)
+			found, err := discover(dir)
 			require.NoError(t, err)
 			require.Len(t, found, 1)
 
@@ -203,7 +203,7 @@ func TestRunRefusesAMissingDirectory(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -221,7 +221,7 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -264,7 +264,7 @@ func TestRunReportsTheOutcome(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte(tt.contents), 0o755))
 
-			found, err := Discover(dir)
+			found, err := discover(dir)
 			require.NoError(t, err)
 			require.Len(t, found, 1)
 
@@ -301,7 +301,7 @@ func TestRunCapturesStdoutToo(t *testing.T) {
 		"#!/bin/sh\necho an answer nobody asked for\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -345,7 +345,7 @@ func TestRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 		"#!/bin/sh\necho progress >&2\nprintf '%s\\n' \"$WEAVE_TEST_ANSWER\"\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -367,7 +367,7 @@ func TestRunAndWaitRefusesANonZeroExit(t *testing.T) {
 		"#!/bin/sh\necho 'no lockfile' >&2\nexit 3\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -386,7 +386,7 @@ func TestRunAndWaitStopsAtTheDeadline(t *testing.T) {
 		"#!/bin/sh\nsleep 60\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -408,7 +408,7 @@ func TestRunStopsAtItsOwnDeadline(t *testing.T) {
 		"#!/bin/sh\nsleep 60\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -439,7 +439,7 @@ func TestRunAndWaitStopsAtItsOwnDeadline(t *testing.T) {
 		"#!/bin/sh\nsleep 60\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -463,7 +463,7 @@ func TestRunAndWaitKeepsTheTailOfALoudScript(t *testing.T) {
 		"#!/bin/sh\nawk 'BEGIN { for (i = 0; i < 20000; i++) print \"filler line\" }'\necho the-last-thing\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -482,7 +482,7 @@ func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 		"#!/bin/sh\nsleep 60 &\necho ready >&2\nexit 0\n",
 	), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -503,7 +503,7 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "bad-shebang"), []byte("#!/nope/sh\n"), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
@@ -543,7 +543,7 @@ func TestRunAndWaitRefusesBeforeItStarts(t *testing.T) {
 			dir := t.TempDir()
 			require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), tt.mode))
 
-			found, err := Discover(dir)
+			found, err := discover(dir)
 			require.NoError(t, err)
 			require.Len(t, found, 1)
 
@@ -561,7 +561,7 @@ func TestRunAndWaitRefusesAContextAlreadyDone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.Len(t, found, 1)
 
