@@ -93,6 +93,9 @@ type reviewState struct {
 	// materialising is set while that checkout is being made, so a second press does not start a
 	// second one against the same directory.
 	materialising bool
+	// replacing is the checkout of an earlier round weave has already said it would take, so the
+	// press after that warning goes through rather than being asked about again.
+	replacing string
 	// suggestions are the runs the reviewer wrote into the checkout, each waiting for a comment
 	// of its own to carry it to the agent.
 	suggestions []pendingSuggestion
@@ -465,22 +468,22 @@ func listReviewThreads(
 	return resp.Msg.GetThreads(), nil
 }
 
-func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
+func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID {
-		return
+		return nil
 	}
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) {
 		m.refuseReview(msg.err)
 
-		return
+		return nil
 	}
 
 	m.review.loading = false
 	m.review.err = msg.err
 	if msg.patch == nil {
-		return
+		return nil
 	}
 
 	m.review.root = msg.patch.Root
@@ -524,6 +527,14 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	}
 
 	m.stageReview()
+
+	// A checkout weave already owns is the one on screen, so only a screen opening on an agent it
+	// holds nothing for has an earlier sitting's work to look for.
+	if m.review.roundDir != "" {
+		return nil
+	}
+
+	return m.findRoundLeftoverCmd()
 }
 
 // stillViewed is which files of the round have been read, and a mark belongs to one round, so a
@@ -1104,6 +1115,8 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, 
 		notice = "thread opened with your edit as a suggestion"
 	}
 
+	carried := m.carriedEditDrop(anchor, suggestion)
+
 	return m.reviewWriteCmd(notice, func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
@@ -1116,8 +1129,13 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, 
 			Suggestion:  suggestion,
 			Body:        body,
 		}))
+		if err != nil {
+			return err
+		}
 
-		return err
+		carried(ctx)
+
+		return nil
 	})
 }
 
