@@ -387,7 +387,11 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 // review halves were cut out of it, since an agent a person reviews from the panel was never
 // told it would be and still has to know how to answer.
 func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
-	launcher := NewLauncher(LauncherParams{Tmux: newFakeTmux(), Addr: "127.0.0.1:9999", LogPath: briefedLogPath})
+	launcher := NewLauncher(LauncherParams{
+		Tmux:    newFakeTmux(),
+		Addr:    "127.0.0.1:9999",
+		LogPath: briefedLogPath,
+	})
 
 	prompt := launcher.appendedSystemPrompt(launchParams{})
 

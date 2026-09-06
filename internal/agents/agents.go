@@ -48,8 +48,7 @@ var (
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
 	// is returned alongside that agent rather than instead of it, so that a caller which has to
 	// know whether this call did the launching can tell.
-	ErrAlreadyLaunched = errors.New("this idempotency key already launched an agent")
-
+	ErrAlreadyLaunched     = errors.New("this idempotency key already launched an agent")
 	ErrHarnessUnknown      = harness.ErrNotRegistered
 	ErrScriptNotFound      = scripts.ErrScriptNotFound
 	ErrScriptNotExecutable = scripts.ErrNotExecutable

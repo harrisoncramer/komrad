@@ -29,10 +29,8 @@ const (
 	// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
 	// not so much that a row stops being a column of names.
 	reasonWidth = 24
-
-	nameWidth = 30
-
-	ansiReset = "\x1b[0m"
+	nameWidth   = 30
+	ansiReset   = "\x1b[0m"
 )
 
 var (
