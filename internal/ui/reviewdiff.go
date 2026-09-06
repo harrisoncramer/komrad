@@ -4,6 +4,9 @@ import (
 	"strings"
 
 	"weave/internal/review"
+
+	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 // reviewDiffFloor is the narrowest the diff is worth drawing at, which is the gutter and enough
@@ -82,4 +85,19 @@ func (m model) paneWidth() int {
 	}
 
 	return m.width
+}
+
+// fitColumn squares a block off at a width, since the halves of the window are joined side by
+// side and a block whose longest line falls short of its share moves the other one under it.
+func fitColumn(block string, width int) string {
+	rows := strings.Split(block, "\n")
+	for i, row := range rows {
+		if lipgloss.Width(row) > width {
+			row = ansi.Truncate(row, width, "")
+		}
+
+		rows[i] = row + strings.Repeat(" ", max(width-lipgloss.Width(row), 0))
+	}
+
+	return strings.Join(rows, "\n")
 }

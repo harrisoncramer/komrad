@@ -157,6 +157,10 @@ func (f *Frame) IsSolo() bool { return f.solo }
 // given width, which is what a screen splitting the window itself lays itself out against.
 func (f *Frame) SidebarWidth(total int) int { return f.spec.SidebarWidth(total) }
 
+// IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
+// puts it where the panes it took the window from would have.
+func (f *Frame) IsSidebarOnRight() bool { return f.spec.sidebarOnRight }
+
 // ShowGuest swaps a pane somebody else owns into the stage.
 func (f *Frame) ShowGuest(pane string) {
 	f.claimStage()

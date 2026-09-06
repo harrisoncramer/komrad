@@ -389,6 +389,12 @@ func reviewFrameText(t *testing.T, m model) string {
 	return ansi.Strip(reviewFrameRaw(t, m))
 }
 
+// reviewProse is what the sidebar alone says with its wrapping taken back out, the diff beside
+// it left out because the two are joined row by row and collapsing the frame interleaves them.
+func reviewProse(m model) string {
+	return strings.Join(strings.Fields(ansi.Strip(m.reviewSidebarView())), " ")
+}
+
 func reviewFrameRaw(t *testing.T, m model) string {
 	t.Helper()
 

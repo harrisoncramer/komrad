@@ -397,7 +397,7 @@ func TestReviewTwoEditsInOneFileAreTwoSuggestions(t *testing.T) {
 	assert.Equal(t, 35, m.review.suggestions[1].anchor.NewStart)
 	assert.Equal(t, []string{"line 35 the reviewer's way"}, m.review.suggestions[1].lines)
 
-	shown := ansi.Strip(m.reviewView())
+	shown := reviewProse(m)
 	assert.Contains(t, shown, "edit held for wide.txt:3")
 	assert.Contains(t, shown, "1 more behind it")
 
@@ -437,7 +437,7 @@ func TestReviewEditOutsideTheDiffIsNamedAndKept(t *testing.T) {
 	require.Len(t, m.review.adrift, 1)
 	assert.Equal(t, 20, m.review.adrift[0].NewStart)
 
-	shown := ansi.Strip(m.reviewView())
+	shown := reviewProse(m)
 	assert.Contains(t, shown, "wide.txt:20 is not in the diff")
 	assert.Contains(t, shown, "stays in the round's checkout")
 

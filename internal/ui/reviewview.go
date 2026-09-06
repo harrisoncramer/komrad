@@ -10,6 +10,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 var (
@@ -87,7 +88,14 @@ func (m model) reviewView() string {
 		return sidebar
 	}
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, m.reviewDiffView(split), sidebar)
+	sidebar = fitColumn(sidebar, split.sidebar)
+
+	diff := m.reviewDiffView(split)
+	if m.frame.IsSidebarOnRight() {
+		return lipgloss.JoinHorizontal(lipgloss.Top, diff, sidebar)
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, diff)
 }
 
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
@@ -175,6 +183,19 @@ func (m model) reviewFill(line string) string {
 	return line
 }
 
+// reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column,
+// since the diff is drawn alongside and a sentence longer than the column would be cut in half.
+func (m model) reviewNote(style lipgloss.Style, text string) string {
+	width := max(20, m.paneWidth()-2)
+
+	var out strings.Builder
+	for _, row := range strings.Split(ansi.Wordwrap(text, width, ""), "\n") {
+		out.WriteString(style.Render("  "+row) + "\n")
+	}
+
+	return out.String()
+}
+
 func (m model) reviewRestView() string {
 	if m.review.err != nil || m.review.loading || m.review.view == nil || m.review.view.Len() == 0 {
 		return ""
@@ -183,7 +204,7 @@ func (m model) reviewRestView() string {
 	if m.review.composing {
 		out, leaving := "\n", "esc cancel"
 		if held, ok := m.heldSuggestion(); ok {
-			out += reviewNoticeStyle.Render("  "+m.describeSuggestion(held)) + "\n"
+			out += m.reviewNote(reviewNoticeStyle, m.describeSuggestion(held))
 			leaving = "esc turn it down"
 		}
 
@@ -198,20 +219,20 @@ func (m model) reviewRestView() string {
 	out := "\n" + m.reviewThreadView()
 
 	if held, ok := m.heldSuggestion(); ok {
-		out += "\n" + reviewNoticeStyle.Render("  "+m.describeSuggestion(held)) + "\n" +
-			dimStyle.Render("  "+keyLabel(m.keys.Review.Compose)+" to comment with it") + "\n"
+		out += "\n" + m.reviewNote(reviewNoticeStyle, m.describeSuggestion(held)) +
+			m.reviewNote(dimStyle, keyLabel(m.keys.Review.Compose)+" to comment with it")
 	}
 
 	if adrift := m.review.adrift; len(adrift) > 0 {
-		out += "\n" + dimStyle.Render("  "+describeAdriftEdits(adrift)) + "\n"
+		out += "\n" + m.reviewNote(dimStyle, describeAdriftEdits(adrift))
 	}
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
-		out += "\n" + reviewNoticeStyle.Render("  "+notice) + "\n"
+		out += "\n" + m.reviewNote(reviewNoticeStyle, notice)
 	} else if since := m.review.since; since != "" {
-		out += "\n" + dimStyle.Render("  "+since) + "\n"
+		out += "\n" + m.reviewNote(dimStyle, since)
 	}
 
 	return out

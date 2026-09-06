@@ -4,6 +4,9 @@ import (
 	"strings"
 	"testing"
 
+	"weave/config"
+	"weave/internal/ui/layout"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
@@ -268,4 +271,30 @@ func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
 	assert.False(t, ok, "there is no room for a conversation and a gutter both")
 	assert.Equal(t, 45, m.paneWidth(), "so the sidebar takes the window")
 	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "and the diff waits")
+}
+
+// TestReviewPutsTheSidebarOnItsConfiguredSide covers the split following the layout: the diff
+// stands where the panes the window was taken from would have.
+func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
+	tests := []struct {
+		name string
+		side string
+		want string
+	}{
+		{name: "the default puts the panel on the left", side: config.SidebarSideLeft, want: "Review · auth"},
+		{name: "and the diff takes that side when it is asked to", side: config.SidebarSideRight, want: "greet.go"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			dir := reviewRepo(t)
+			m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
+			m.frame = layout.New(tmux, config.Layout{SidebarSide: tt.side, SidebarWidth: 0.2})
+			m.frame.Attach("%0")
+			m = openReview(t, m)
+
+			first, _, _ := strings.Cut(reviewFrameText(t, m), "\n")
+			assert.True(t, strings.HasPrefix(first, tt.want), "the top row opens with %q: %q", tt.want, first)
+		})
+	}
 }

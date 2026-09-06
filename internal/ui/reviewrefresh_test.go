@@ -508,14 +508,14 @@ func TestWhatChangedSinceYourLastReviewSurvivesAKeypress(t *testing.T) {
 	m = openReview(t, m)
 
 	m.review.since = "4 files changed since you last reviewed"
-	require.Contains(t, ansi.Strip(m.reviewView()), "4 files changed since you last reviewed")
+	require.Contains(t, reviewProse(m), "4 files changed since you last reviewed")
 
 	next, _ := m.Update(keyMsg("j"))
 	scrolled := next.(model)
 
 	assert.Equal(t, "4 files changed since you last reviewed", scrolled.review.since,
 		"scrolling is not an answer to it")
-	assert.Contains(t, ansi.Strip(scrolled.reviewView()), "4 files changed since you last reviewed",
+	assert.Contains(t, reviewProse(scrolled), "4 files changed since you last reviewed",
 		"and it is still on screen")
 }
 
@@ -534,7 +534,7 @@ func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
 	assert.NotContains(t, shown, "4 files changed", "the answer to the last key wins the row")
 
 	next, _ := m.Update(keyMsg("j"))
-	assert.Contains(t, ansi.Strip(next.(model).reviewView()), "4 files changed since you last reviewed")
+	assert.Contains(t, reviewProse(next.(model)), "4 files changed since you last reviewed")
 }
 
 // TestReviewSaysWhenEverythingIsExcluded covers the difference the reader has to be told about:
