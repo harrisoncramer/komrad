@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -445,8 +446,8 @@ func TestFilterHighlight(t *testing.T) {
 	}
 }
 
-// TestFilterViewLine covers the input drawn over the list, which stays up after the input
-// closes so a narrowed list never looks like a list that lost rows.
+// TestFilterViewLine covers the input drawn over the list, which stands whether or not a search
+// does, so that opening one never moves the rows under it.
 func TestFilterViewLine(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -455,8 +456,8 @@ func TestFilterViewLine(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "a screen with no filter draws no input",
-			want: "",
+			name: "a screen with no filter still draws the line",
+			want: "/",
 		},
 		{
 			name:   "an open input draws what has been typed",
@@ -480,6 +481,29 @@ func TestFilterViewLine(t *testing.T) {
 			assert.Equal(t, tt.want, strings.TrimSpace(ansi.Strip(m.filterView())))
 		})
 	}
+}
+
+// TestFilterSlashMarksAStandingSearch covers the colour of the slash, which is all a line that is
+// always drawn has to say whether anything is being searched for.
+func TestFilterSlashMarksAStandingSearch(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+
+	m := filterModel()
+
+	assert.Contains(t, m.filterView(), dimStyle.Render("/"), "an idle line is dim")
+	assert.NotContains(t, m.filterView(), cursorStyle.Render("/"))
+
+	typing := m
+	typing.filter.typing = true
+
+	assert.Contains(t, typing.filterView(), cursorStyle.Render("/"), "an open input takes the accent")
+
+	standing := m
+	standing.filter.setQuery("pay")
+
+	assert.Contains(t, standing.filterView(), cursorStyle.Render("/"), "and so does a pattern left standing")
 }
 
 // typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.

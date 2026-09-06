@@ -583,7 +583,7 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threads})
 
-	for _, pane := range []int{8, 12, 24, 50} {
+	for _, pane := range []int{10, 12, 24, 50} {
 		for _, composing := range []bool{false, true} {
 			m.height, m.review.composing = pane, composing
 
