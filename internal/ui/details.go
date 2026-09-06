@@ -15,10 +15,11 @@ type detailsState struct {
 }
 
 type details struct {
-	id     string
-	kind   string
-	title  string
-	fields []recordField
+	id      string
+	kind    string
+	title   string
+	notices []notice
+	fields  []recordField
 }
 
 func (m model) hoveredDetails() details {
@@ -168,12 +169,14 @@ func (m model) detailsView() string {
 		return ""
 	}
 
-	lines := m.detailsLines()
+	notices := m.detailsNotices(held, m.detailsLines()-2)
+	lines := max(m.detailsLines()-strings.Count(notices, "\n"), 1)
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(held.fields, cursor)
 
 	return m.detailsRule() +
 		m.detailsTitle(held) +
+		notices +
 		padRows(renderList(rows, cursor, lines), lines) +
 		m.detailsRule()
 }
@@ -194,6 +197,45 @@ func (m model) detailsTitle(held details) string {
 	}
 
 	return titleStyleFor(m.details.focused).Render(clip(title, m.lineWidth())) + "\n\n"
+}
+
+// detailsNotices draws the marks the row is carrying above its fields, wrapped rather than
+// clipped and giving up a notice past the budget rather than the fields under it, since a mark
+// is only worth spelling out if the whole sentence arrives and the row keeps its glyph anyway.
+func (m model) detailsNotices(held details, budget int) string {
+	if budget <= 0 {
+		return ""
+	}
+
+	drawn := []string{}
+	for _, n := range held.notices {
+		lines := m.noticeLines(n)
+		if len(drawn) > 0 && len(drawn)+len(lines) > budget {
+			break
+		}
+
+		drawn = append(drawn, lines...)
+	}
+
+	if len(drawn) == 0 {
+		return ""
+	}
+
+	return strings.Join(drawn[:min(len(drawn), budget)], "\n") + "\n\n"
+}
+
+// noticeLines is one notice as it is drawn: the glyph the row carries, then the sentence wrapped
+// under it in the column the glyph left.
+func (m model) noticeLines(n notice) []string {
+	const indent = "    "
+
+	wrapped := wrapText(n.text, max(m.lineWidth()-len(indent), 1))
+	lines := []string{"  " + lipgloss.NewStyle().Foreground(n.color).Render(n.icon) + " " + dimStyle.Render(wrapped[0])}
+	for _, line := range wrapped[1:] {
+		lines = append(lines, indent+dimStyle.Render(line))
+	}
+
+	return lines
 }
 
 func (m model) detailFieldRows(fields []recordField, cursor int) []string {
