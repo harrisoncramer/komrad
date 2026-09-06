@@ -88,6 +88,7 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 	fields := []recordField{{"name", orDash(agent.Name)}}
 	// What a child is attached to comes early, since it is the fact that explains its directory,
 	// and for a reviewer that same row is whose work it is reading.
+	reviewingDrawn := agent.ParentAgentID != nil && agent.Role == agentstore.RoleReviewer
 	if agent.ParentAgentID != nil {
 		fields = append(fields, recordField{attachmentFieldKey(agent.Role), orDash(parent)})
 	}
@@ -121,6 +122,9 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 		if entry.Key == branchFieldKey && readBranch {
 			continue
 		}
+		if entry.Key == reviewingFieldKey && reviewingDrawn {
+			continue
+		}
 
 		fields = append(fields, recordField{entry.Key, entry.Value})
 	}
@@ -132,11 +136,15 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 // was launched to read rather than only where it happens to be running.
 func attachmentFieldKey(role agentstore.Role) string {
 	if role == agentstore.RoleReviewer {
-		return "reviewing"
+		return reviewingFieldKey
 	}
 
 	return "attached to"
 }
+
+// reviewingFieldKey labels whose work a reviewer is reading, and is the key the agents briefed
+// before the role existed recorded that under for themselves.
+const reviewingFieldKey = "reviewing"
 
 // branchFieldKey labels the branch an agent's checkout is on, and is the key an agent that
 // recorded its own branch used.

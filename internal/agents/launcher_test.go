@@ -339,14 +339,14 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 			name:         "an agent with a checkout of its own is told to get its work read",
 			role:         agentstore.RoleImplementer,
 			ownsCheckout: true,
-			wantContain:  []string{asking, answering, "request_review"},
+			wantContain:  []string{asking, answering, "Commit on your branch and stop there"},
 			wantAbsent:   []string{giving, "open_review_round"},
 		},
 		{
 			name:        "a reviewer is told how to give one and never to ask for one",
 			role:        agentstore.RoleReviewer,
 			wantContain: []string{giving, answering, "open_review_round", "You do not fix what you find"},
-			wantAbsent:  []string{asking, "request_review"},
+			wantAbsent:  []string{asking},
 		},
 		{
 			name:         "a reviewer is not told to get its own work read even in its own checkout",
@@ -392,6 +392,8 @@ func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	prompt := launcher.appendedSystemPrompt(launchParams{})
 
 	assert.Contains(t, prompt, "add_review_message", "answering a review reaches every agent")
+	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
+		"since create_agent cannot mark a reviewer, and an unmarked child is told none of this")
 	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
 	for _, key := range []string{"`pr`", "`branch`", "`summary`"} {
 		assert.Contains(t, prompt, key, "the metadata keys are named rather than left to invention")

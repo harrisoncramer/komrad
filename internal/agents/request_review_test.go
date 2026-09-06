@@ -200,6 +200,6 @@ func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	require.Len(t, h.launches, 1)
 	briefing := h.launches[0].Context
 	assert.Contains(t, briefing, "### Getting your own work read")
-	assert.Contains(t, briefing, "request_review")
+	assert.Contains(t, briefing, "Commit on your branch and stop there")
 	assert.NotContains(t, briefing, "### When you are the one reviewing")
 }
