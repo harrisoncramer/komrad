@@ -240,25 +240,13 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 		return nil
 	}
 
-	agents, agentID, id := m.api.agents, m.review.agentID, thread.GetId()
+	agents, id := m.api.agents, thread.GetId()
 
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
+	return m.reviewWriteCmd("", func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
-		if err != nil {
-			return reviewWroteMsg{agentID: agentID, err: err}
-		}
 
-		threads, err := listReviewThreads(ctx, agents, agentID)
-
-		return reviewWroteMsg{
-			agentID: agentID,
-			threads: threads,
-			err:     err,
-		}
-	}
+		return err
+	})
 }
 
 // openReviewRelease asks what to send rather than sending, since a verdict is a decision worth
