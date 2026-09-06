@@ -913,7 +913,11 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := model{review: reviewState{agentID: "a1", threads: tt.threads}}
+			m := model{review: reviewState{
+				agentID:  "a1",
+				threads:  tt.threads,
+				activity: reviewActivityOf(tt.threads),
+			}}
 
 			shown := ansi.Strip(m.reviewDeliveryView())
 			assert.Equal(t, tt.want, shown)

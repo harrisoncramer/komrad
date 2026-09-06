@@ -409,7 +409,7 @@ func changedSinceLastReview(
 		return ""
 	}
 
-	return fmt.Sprintf("%s changed since you last reviewed", files(changed))
+	return counted(changed, "file") + " changed since you last reviewed"
 }
 
 // lastHumanReview is the newest review the person let go of against a round earlier than this
@@ -428,14 +428,6 @@ func lastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Review {
 	}
 
 	return last
-}
-
-func files(count int) string {
-	if count == 1 {
-		return "1 file"
-	}
-
-	return fmt.Sprintf("%d files", count)
 }
 
 func listReviewViewedFiles(
@@ -616,17 +608,22 @@ func (m *model) repaintReviewFocus() {
 	}
 }
 
+// writeReviewStage puts the screenful the pane is showing where the drawer reads it.
+func (m model) writeReviewStage() bool {
+	return writeStageFile(reviewStagePath, m.review.frames.window(
+		m.review.view, m.review.top, m.review.cursor, m.review.pan, !m.isDetailsFocused()))
+}
+
 // repaintReview rewrites the screenful the stage is showing and tells the pager to re-read it.
 func (m model) repaintReview() error {
 	pane := m.frame.Pane(layout.RegionStage)
-	frames := m.review.frames
 
 	// Nothing to draw against until the frame has started the drawer and reported its pane size.
-	if pane == "" || m.review.view == nil || frames.width == 0 {
+	if pane == "" || m.review.view == nil || m.review.frames.width == 0 {
 		return nil
 	}
 
-	if !writeStageFile(reviewStagePath, frames.window(m.review.view, m.review.top, m.review.cursor, m.review.pan, !m.isDetailsFocused())) {
+	if !m.writeReviewStage() {
 		return fmt.Errorf("failed to write the diff to %s", reviewStagePath)
 	}
 
@@ -638,17 +635,17 @@ func (m model) repaintReview() error {
 // reviewContent starts the pager on the diff, keyed by the agent alone so that moving the
 // cursor repaints rather than respawning the pane.
 func (m model) reviewContent() layout.Content {
-	state := m.review
+	frames := m.review.frames
 
 	return layout.Content{
-		Key:   "review:" + state.agentID,
+		Key:   "review:" + m.review.agentID,
 		Dir:   homeDir(),
 		Wraps: true,
 		Render: func(target layout.Target) ([]string, bool) {
-			state.frames.width = max(target.Width, review.GutterWidth+20)
-			state.frames.height = max(target.Height, 1)
+			frames.width = max(target.Width, review.GutterWidth+20)
+			frames.height = max(target.Height, 1)
 
-			if !writeStageFile(reviewStagePath, state.frames.window(state.view, state.top, state.cursor, state.pan, !m.isDetailsFocused())) {
+			if !m.writeReviewStage() {
 				return nil, false
 			}
 
@@ -748,7 +745,7 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, keys.PanReset):
 		return m.panReview(-m.review.pan)
 	case isBound(k, keys.Reload):
-		return m.reloadReviewDiff()
+		return m.reloadReview()
 	case isBound(k, keys.EditFile):
 		return m.editReviewFile()
 	case isBound(k, keys.Compose):
@@ -838,12 +835,6 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	}
 
 	return m.review.view.GetThreadAt(m.review.cursor)
-}
-
-// reloadReviewDiff opens the next round, which is the only way what is on screen changes, since
-// the round the reader is standing in never moves under a comment being written.
-func (m model) reloadReviewDiff() (tea.Model, tea.Cmd) {
-	return m.reloadReview()
 }
 
 // reloadReview reads the worktree again, holding the place the cursor is standing so the diff
@@ -1287,18 +1278,10 @@ func (m model) sendReview() (tea.Model, tea.Cmd) {
 // key not working.
 func releasedNotice(verdict agentv1.ReviewVerdict, count int32) string {
 	if verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED {
-		return "approved, " + comments(count) + " sent"
+		return "approved, " + counted(int(count), "comment") + " sent"
 	}
 
-	return "changes requested, " + comments(count) + " sent"
-}
-
-func comments(count int32) string {
-	if count == 1 {
-		return "1 comment"
-	}
-
-	return fmt.Sprintf("%d comments", count)
+	return "changes requested, " + counted(int(count), "comment") + " sent"
 }
 
 // reviewWriteCmd runs one write and reads the review back in the same breath.

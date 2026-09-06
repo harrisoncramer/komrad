@@ -539,6 +539,11 @@ func plural(count int, word string) string {
 	return word + "s"
 }
 
+// counted is how many of something there are, spelled the way a sentence wants it.
+func counted(count int, word string) string {
+	return fmt.Sprintf("%d %s", count, plural(count, word))
+}
+
 // mailSender is who wrote a piece of mail, which is a name with no id behind it when weave
 // raised it itself rather than an agent sending one.
 func mailSender(item *agentv1.Mail) string {

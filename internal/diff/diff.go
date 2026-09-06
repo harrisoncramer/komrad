@@ -60,9 +60,6 @@ type Patch struct {
 	Files       []File
 }
 
-// IsEmpty reports whether the patch has nothing to show.
-func (p Patch) IsEmpty() bool { return len(p.Files) == 0 }
-
 // Stat is the size of a patch in the terms a reviewer reads first: how many files it touches,
 // and how many lines it puts in and takes out.
 type Stat struct {
