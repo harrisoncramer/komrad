@@ -142,6 +142,9 @@ type Keybindings struct {
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
+	// The search screen, where the transcript of the hit under the cursor is drawn
+	// beside the hits themselves.
+	Search SearchKeys `mapstructure:"search"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
@@ -370,6 +373,17 @@ type ReviewKeys struct {
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.
 	ToggleViewed []string `mapstructure:"toggle_viewed"`
+}
+
+// SearchKeys are the bindings for the search screen, where the transcript of the hit
+// under the cursor is drawn beside the hits. The keys that move between the hits are the
+// shared navigation ones, so these are only what moves the transcript itself, and while
+// the query is being typed every key is a character.
+type SearchKeys struct {
+	// Scroll the transcript down a few lines.
+	ScrollDown []string `mapstructure:"scroll_down"`
+	// Scroll the transcript up a few lines.
+	ScrollUp []string `mapstructure:"scroll_up"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
@@ -740,6 +754,10 @@ func DefaultKeybindings() Keybindings {
 			Reload:       []string{"R"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
+		},
+		Search: SearchKeys{
+			ScrollDown: []string{"ctrl+n"},
+			ScrollUp:   []string{"ctrl+p"},
 		},
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},

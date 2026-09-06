@@ -222,6 +222,14 @@ resolve       = ["r"]
 # the agent writes to afterwards comes back on its own.
 toggle_viewed = ["v"]
 
+# The search screen, where the transcript of the hit under the cursor is drawn
+# beside the hits themselves.
+[keybindings.search]
+# Scroll the transcript down a few lines.
+scroll_down = ["ctrl+n"]
+# Scroll the transcript up a few lines.
+scroll_up   = ["ctrl+p"]
+
 # The schedules screen, and the key that opens it from the agents list.
 [keybindings.schedules]
 # Archive the schedule under the cursor, which stops it firing. The agents it

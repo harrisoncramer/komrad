@@ -5,13 +5,13 @@ import (
 	"strings"
 	"time"
 
-	"weave/internal/ui/layout"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -20,6 +20,8 @@ type searchState struct {
 	query  string
 	hits   []searchHit
 	cursor int
+	// preview is the transcript of the hit the cursor is standing on, drawn beside the list.
+	preview searchPreview
 }
 
 const searchLimit = 10
@@ -54,11 +56,20 @@ type previewResult struct {
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
 	m.search = searchState{typing: true}
-	m.frame.Show(layout.RegionStage, newBlankContent())
+	// The search draws the transcript and the hits itself, so it takes the window off the panes
+	// it would otherwise be sharing with.
+	m.frame.Solo(true)
 
 	// The archived agents a hit can name are only listed while this screen is up, so the first
 	// pass is asked for here rather than waited on.
 	return m, m.refreshCmd()
+}
+
+// leaveSearch lets go of the search and hands the window back, since the screen it steps to
+// draws in a pane of the frame's rather than in a column of its own.
+func (m *model) leaveSearch() {
+	m.search = searchState{}
+	m.frame.Solo(false)
 }
 
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
@@ -143,7 +154,8 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 	m.search.hits = groupSections(result.hits)
 	m.search.cursor = clampCursor(m.search.cursor, len(m.search.hits))
 	if len(m.search.hits) == 0 {
-		m.frame.Show(layout.RegionStage, newBlankContent())
+		m.search.preview = searchPreview{}
+
 		return nil
 	}
 
@@ -187,7 +199,7 @@ func (m *model) applyPreview(result previewResult) {
 		return
 	}
 
-	m.stageTranscript(result.content, hit.spans(result.content))
+	m.holdPreview(result.content, hit.spans(result.content))
 }
 
 // groupSections gathers each agent's hits within its own section, since an agent with a word
@@ -230,16 +242,6 @@ func groupByAgent(hits []searchHit) []searchHit {
 
 const noTranscriptMarkdown = "_no transcript yet_"
 
-func (m *model) stageTranscript(conversation string, spans []span) {
-	if strings.TrimSpace(conversation) == "" {
-		m.frame.Show(layout.RegionStage, newTextContent(noTranscriptMarkdown))
-
-		return
-	}
-
-	m.frame.Show(layout.RegionStage, newTranscriptContent(conversation, spans))
-}
-
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.search.typing {
 		return m.updateSearchInput(key)
@@ -251,7 +253,7 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k := key.String(); {
 	case k == "esc":
-		m.search = searchState{}
+		m.leaveSearch()
 
 		return m.returnToAgents()
 	case k == "enter":
@@ -300,6 +302,10 @@ func (m model) updateSearchHits(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveSearchCursor(1)
 	case isBound(k, m.keys.Nav.Bottom):
 		return m.placeSearchCursor(len(m.search.hits) - 1)
+	case isBound(k, m.keys.Search.ScrollDown):
+		return m.scrollPreview(searchScrollStep)
+	case isBound(k, m.keys.Search.ScrollUp):
+		return m.scrollPreview(-searchScrollStep)
 	case k == "enter":
 		return m.jumpToSearchHit()
 	}
@@ -338,7 +344,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.search = searchState{}
+	m.leaveSearch()
 
 	if hit.archived {
 		m.archive.focus = hit.agentID
@@ -415,13 +421,34 @@ func (m model) searchRows() ([]string, int) {
 			cursor = len(rows)
 		}
 
-		rows = append(rows, prefix+dimStyle.Render(renderSnippet(hit.snippet, m.width-snippetIndent)))
+		rows = append(rows, prefix+dimStyle.Render(renderSnippet(hit.snippet, m.paneWidth()-snippetIndent)))
 	}
 
 	return rows, cursor
 }
 
+// searchView draws the hits and, beside them, the transcript of the one the cursor is standing
+// on, as one frame rather than pushing a screenful of it into a pane of its own.
 func (m model) searchView() string {
+	sidebar := m.searchSidebarView()
+
+	split, ok := m.searchColumns()
+	if !ok {
+		return sidebar
+	}
+
+	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
+	preview := m.searchPreviewView(split)
+
+	if m.frame.IsSidebarOnRight() {
+		return lipgloss.JoinHorizontal(lipgloss.Top, preview, sidebar)
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, preview)
+}
+
+// searchSidebarView is the panel's own column: the query and the hits it found.
+func (m model) searchSidebarView() string {
 	query := cursorStyle.Render("/") + " " + m.search.query
 	if m.search.typing {
 		query += cursorStyle.Render("▏")
