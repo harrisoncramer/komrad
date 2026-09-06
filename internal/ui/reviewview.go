@@ -268,7 +268,7 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 		return "approve"
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return "request changes"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 		return "comment only"
 	default:
 		return "comment only"
@@ -283,6 +283,8 @@ func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
 		return reviewDeliveredStyle
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return reviewSentStyle
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return reviewUnsentStyle
 	default:
 		return reviewUnsentStyle
 	}
