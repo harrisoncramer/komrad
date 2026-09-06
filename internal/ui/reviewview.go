@@ -268,10 +268,12 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 		return "approve"
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return "request changes"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
 		return "comment only"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return "no verdict"
 	default:
-		return "comment only"
+		return "no verdict"
 	}
 }
 

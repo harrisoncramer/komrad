@@ -181,6 +181,12 @@ func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 			says: "approved",
 		},
 		{
+			name: "two tabs comment without asking for anything",
+			tabs: 2,
+			want: agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
+			says: "comments only",
+		},
+		{
 			name: "and it wraps back around",
 			tabs: 3,
 			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
