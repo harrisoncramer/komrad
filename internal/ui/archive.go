@@ -19,16 +19,20 @@ type archiveState struct {
 	// top is how far the document beside the list has been scrolled, held here rather than
 	// worked out from the cursor because the reader moves it themselves.
 	top int
+	// topKey is the row that offset was scrolled on, kept because the cursor's own index slides
+	// under a reader who has not moved whenever a row above them is archived or filtered away.
+	topKey string
 	rowCursor
 }
 
-// place moves the cursor and takes the document beside the list back to its top, since the
-// offset was scrolled on the row the cursor is leaving.
-func (a *archiveState) place(idx int) {
-	if a.cursor != idx {
+// place moves the cursor and takes the document beside the list back to its top, since the offset
+// was scrolled on the row the cursor is leaving.
+func (a *archiveState) place(idx int, key string) {
+	if key != a.topKey {
 		a.top = 0
 	}
 
+	a.topKey = key
 	a.cursor = idx
 }
 
@@ -39,17 +43,16 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
-// soloArchive takes the window for the archive's own split, or hands it back on the way to any
-// other screen and while the info pane is up, since a sidebar holding the whole window covers the
-// pane the logs are drawn in.
+// soloArchive takes the window for the archive's own split, or hands it back while the info pane
+// is up, since a sidebar holding the whole window covers the pane the logs are drawn in.
 func (m *model) soloArchive() {
-	// The review draws its own two columns the same way and answers for its own zoom, so the one
-	// screen this must not speak for is that one.
-	if m.screen == screenReview {
+	// Every other screen answers for its own zoom, the review already and the search shortly, so
+	// this says nothing at all about a window it is not the archive holding.
+	if m.screen != screenArchive {
 		return
 	}
 
-	m.frame.Solo(m.screen == screenArchive && m.info.kind == infoNothing)
+	m.frame.Solo(m.info.kind == infoNothing)
 }
 
 // archiveFilterRows is the archive's own rows with the name a search reads each by.
@@ -100,8 +103,14 @@ func (m model) hoveredArchiveKey() string {
 
 func (m *model) placeArchiveCursor(hovered string) {
 	rows := m.archiveRows()
-	m.archive.place(placeCursor(rowIndexOfKey(rows, hovered), m.archive.cursor, len(rows)))
+	m.landArchiveCursor(rows, placeCursor(rowIndexOfKey(rows, hovered), m.archive.cursor, len(rows)))
 	m.stageArchive()
+}
+
+// landArchiveCursor puts the cursor on a row, naming the row rather than only its place in the
+// list so the document's own offset is kept for as long as the reader is still on it.
+func (m *model) landArchiveCursor(rows []agentRow, idx int) {
+	m.archive.place(idx, rowKeyAt(rows, idx))
 }
 
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
@@ -114,18 +123,18 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 
 	rows := m.archiveRows()
 	if idx := rowIndexOfAgentID(rows, focus); focus != "" && idx >= 0 {
-		m.archive.place(idx)
+		m.landArchiveCursor(rows, idx)
 
 		return
 	}
 
 	if idx := rowIndexOfKey(rows, selected); idx >= 0 {
-		m.archive.place(idx)
+		m.landArchiveCursor(rows, idx)
 
 		return
 	}
 
-	m.archive.place(clampCursor(m.archive.cursor, len(rows)))
+	m.landArchiveCursor(rows, clampCursor(m.archive.cursor, len(rows)))
 }
 
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -212,24 +221,28 @@ func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m model) moveArchiveCursor(delta int) model {
-	next, ok := m.archive.move(delta, len(m.archiveRows()))
+	rows := m.archiveRows()
+
+	next, ok := m.archive.move(delta, len(rows))
 	if !ok {
 		return m
 	}
 
-	m.archive.place(next.cursor)
+	m.landArchiveCursor(rows, next.cursor)
 	m.stageArchive()
 
 	return m
 }
 
 func (m model) jumpArchiveCursor(idx int) model {
-	next, ok := m.archive.jump(idx, len(m.archiveRows()))
+	rows := m.archiveRows()
+
+	next, ok := m.archive.jump(idx, len(rows))
 	if !ok {
 		return m
 	}
 
-	m.archive.place(next.cursor)
+	m.landArchiveCursor(rows, next.cursor)
 	m.stageArchive()
 
 	return m
@@ -422,17 +435,32 @@ func (m model) archivedCount(workflowID string) int {
 // reader keeps a few lines of what they were already on.
 const archiveScrollStep = 10
 
-// archiveSplit is how the window is divided while the archive holds it, which is the list on the
-// panel's own side and the document beside it, and false while the screen is not up or the frame
-// is sharing the window with a pane of somebody else's.
-func (m model) archiveSplit() (reviewSplit, bool) {
-	// Nothing drawn in the document's own column reaches paneWidth, so unlike the review this
-	// answers for the rows as well as the columns without asking itself the question.
+// archiveColumns is how the window would be divided while the archive holds it, which is the list
+// on the panel's own side and the document beside it, and false while the screen is not up or the
+// frame is sharing the window with a pane of somebody else's.
+func (m model) archiveColumns() (reviewSplit, bool) {
 	if m.screen != screenArchive || !m.frame.IsSolo() {
 		return reviewSplit{}, false
 	}
 
 	return reviewSplitOf(m.width, m.height-m.bannerLines(), m.frame.SidebarWidth(m.width))
+}
+
+// archiveSplit is the window the archive is actually drawn across, which is archiveColumns
+// refused again when the list would not fit the pane in the narrower column it leaves.
+func (m model) archiveSplit() (reviewSplit, bool) {
+	split, ok := m.archiveColumns()
+	if !ok {
+		return split, false
+	}
+
+	// The legend gives up its columns as the sidebar narrows and stands taller for it, so a window
+	// the list fitted whole may not hold it once the document has taken half, and the list is
+	// worth more whole at the full width than halved and running off the bottom.
+	held := m
+	held.paneMeasure = split.sidebar
+
+	return split, countLines(held.archiveListView()) <= split.rows
 }
 
 // archiveDocRows is the document rendered into its own column, a row at a time.

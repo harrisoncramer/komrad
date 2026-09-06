@@ -902,7 +902,7 @@ func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 		assert.LessOrEqual(t, ansi.StringWidth(row), m.width, "neither column runs past the window")
 	}
 
-	m.archive.place(0)
+	m.landArchiveCursor(m.archiveRows(), 0)
 	assert.Contains(t, ansi.Strip(m.View()), "the shared notes", "the document follows the cursor onto the folder")
 }
 
@@ -923,7 +923,7 @@ func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
 // in the panel's own frame: it moves, it says what is past each end, and it stops at both.
 func TestArchiveScrollsTheDocument(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.archive.place(0)
+	m.landArchiveCursor(m.archiveRows(), 0)
 	m.listing.workflows = []workflowstore.Workflow{{
 		ID:      "w1",
 		Name:    "backend",
@@ -1016,4 +1016,48 @@ func TestArchiveHandsTheWindowBackWhenAWriteLands(t *testing.T) {
 
 	assert.Equal(t, screenAgents, got.screen, "the write puts the reader on the row it wrote")
 	assert.False(t, got.frame.IsSolo(), "and that screen does not draw its own split")
+}
+
+// TestArchiveKeepsTheOffsetWhenARowSlides covers a refresh landing while the reader is scrolled
+// down a document: an agent archived above the one they are on moves its index without moving
+// them, and the offset belongs to the row rather than to the place it sits in the list.
+func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
+	m := splitArchiveModel(t)
+	held := []agentstore.Agent{{ID: "a2", Name: "middle", WorkflowID: "w1"}}
+	m.applyArchive(held, nil, "")
+
+	rows := m.archiveRows()
+	m.landArchiveCursor(rows, rowIndexOfKey(rows, agentRowKey("a2")))
+	m.archive.top = 20
+
+	was := m.archive.cursor
+	grown := append([]agentstore.Agent{{ID: "a0", Name: "alpha", WorkflowID: "w1"}}, held...)
+	m.applyArchive(grown, nil, agentRowKey("a2"))
+
+	assert.Greater(t, m.archive.cursor, was, "the row the reader is on has slid down the list")
+	assert.Equal(t, 20, m.archive.top, "but the reader has not moved, so neither has the document")
+
+	m.applyArchive(grown, nil, agentRowKey("a0"))
+	assert.Zero(t, m.archive.top, "landing on another row does start that one at its top")
+}
+
+// TestArchiveGivesUpTheSplitWhenTheListWillNotFit covers the legend, which gives up its columns as
+// the sidebar narrows and stands taller for it: a short window that held the list whole cannot
+// hold it once the document has taken half, so the document waits rather than the list running off
+// the bottom of the pane.
+func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
+	m := splitArchiveModel(t)
+	m.width, m.height = 120, 10
+	m.helpExpanded = true
+
+	_, ok := m.archiveSplit()
+	assert.False(t, ok, "ten rows cannot hold the list beside the document")
+	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the whole of the pane")
+	assert.LessOrEqual(t, countLines(m.View()), m.height, "and stays inside it")
+
+	m.height = 24
+	split, ok := m.archiveSplit()
+	require.True(t, ok, "a taller window holds both halves")
+	assert.Equal(t, split.sidebar, m.paneWidth(), "and the list is laid out against its own column")
+	assert.LessOrEqual(t, countLines(m.View()), m.height)
 }

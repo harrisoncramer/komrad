@@ -93,6 +93,16 @@ func drawWindow(rows []string, start, visible int) string {
 	return b.String()
 }
 
+// countLines is how many rows a rendered block takes, not counting the newline it ends with,
+// which closes the last row rather than opening another.
+func countLines(block string) int {
+	if block == "" {
+		return 0
+	}
+
+	return strings.Count(strings.TrimRight(block, "\n"), "\n") + 1
+}
+
 func padRows(rendered string, lines int) string {
 	got := strings.Count(rendered, "\n")
 	if got >= lines {

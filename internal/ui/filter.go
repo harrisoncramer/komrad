@@ -103,6 +103,13 @@ func (m *model) enterScreen(next screen) {
 		m.filter = filterState{}
 	}
 
+	// The archive holds the whole window while it is up and has to give it back on the way out,
+	// which this is the only place that sees, since a write landing from another screen moves the
+	// reader off it as readily as the back key does.
+	if m.screen == screenArchive && next != screenArchive {
+		m.frame.Solo(false)
+	}
+
 	m.screen = next
 	m.soloArchive()
 }

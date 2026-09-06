@@ -112,6 +112,9 @@ type model struct {
 	runLogsDir      string
 	roundsDir       string
 	pane            string
+	// paneMeasure is the column a screen is measuring its own chrome in while it works out
+	// whether its split leaves room for it, since paneWidth is the answer that measurement feeds.
+	paneMeasure int
 	// shell is what tmux starts a pane's process with, read once since the terminal has to name
 	// it rather than leave the pane to rerun whatever was in it last.
 	shell string
