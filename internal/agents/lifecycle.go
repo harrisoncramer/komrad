@@ -19,6 +19,12 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
+// childLister reads the agents attached to a set of parents, which is what an archive, a
+// delete, or a restore has to add to the ids it was given.
+type childLister interface {
+	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
+}
+
 // lifecycleAgentReadWriter is the slice of the agent store archiving, restoring and deleting write
 // to outside a transaction; the writes that have to be atomic go through the tx-scoped store.
 type lifecycleAgentReadWriter interface {
