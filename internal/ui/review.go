@@ -71,12 +71,23 @@ type reviewState struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
+
 	loading bool
 	notice  string
 	// since says how much of the diff is new to the reader, which is a standing fact about what
 	// is on screen rather than an answer to a keypress, so it outlives the notice slot.
 	since string
 	err   error
+
+	// roundDir is where the round has been checked out for the editor to read, empty until the
+	// first edit asks for one, and taken away again when the screen closes.
+	roundDir string
+	// editingFile is the round's copy the editor was last opened on, which is compared against
+	// the round when it closes.
+	editingFile string
+	// suggestion is what the reviewer changed in the round's copy, held until a comment carries
+	// it to the agent.
+	suggestion *pendingSuggestion
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
 	// the reader back where they left rather than at the top of the diff.
@@ -99,6 +110,14 @@ type reviewState struct {
 	// every tick.
 	diffPolling bool
 	diffPolled  time.Time
+}
+
+// pendingSuggestion is an edit of the round waiting for a comment to carry it, holding the place
+// it is pinned to as well as the lines, since an edit is anchored where it was made rather than
+// where the cursor has since got to.
+type pendingSuggestion struct {
+	anchor review.Anchor
+	lines  []string
 }
 
 // reviewActivity is the cheap probe a conversation refresh is decided on, since repinning walks
@@ -446,6 +465,13 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	// The pattern lives on the ui model rather than the view, so a view built from nothing has
 	// to be given it back, once the marks and the threads have settled the rows it walks.
 	m.review.view.SetPattern(m.review.filter.pattern)
+
+	// A new round is a different snapshot, so the checkout cut for the last one is stale and the
+	// edit held against it no longer names lines of what is on screen.
+	if m.review.round.GetSnapshotSha() != msg.round.GetSnapshotSha() {
+		m.review.roundDir = ""
+		m.review.suggestion = nil
+	}
 
 	m.review.threads = msg.threads
 	m.review.activity = reviewActivityOf(msg.threads)
@@ -796,9 +822,12 @@ func (m model) reloadReview() (model, tea.Cmd) {
 }
 
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
+	reap := m.reapRoundCmd(m.review.root, m.review.roundDir)
 	m.review = reviewState{}
 
-	return m.returnToAgents()
+	next, cmd := m.returnToAgents()
+
+	return next, tea.Batch(cmd, reap)
 }
 
 // jumpReviewFile moves to the next or previous file and puts that file's header at the top of the
@@ -930,13 +959,16 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 }
 
 // composeReview opens the editor on the line under the cursor, replying in the thread already
-// there or opening a new one.
+// there, opening a new one, or carrying an edit of the round that is waiting to be sent, which
+// takes precedence over both since it is pinned where it was made rather than under the cursor.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
+	held := m.review.suggestion != nil
 	thread, replying := m.reviewThreadAtCursor()
+	replying = replying && !held
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
+	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying && !held {
 		return m, nil
 	}
 
@@ -959,10 +991,7 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// editor away are fixed rather than configured.
 	switch {
 	case k == "esc":
-		m.review.editor.Blur()
-		m.review.composing = false
-
-		return m, nil
+		return m.cancelReviewMessage(), nil
 	case k == "ctrl+c":
 		return m, m.hide()
 	case isBound(k, m.keys.Form.Submit):
@@ -975,17 +1004,36 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
-	body := strings.TrimSpace(m.review.editor.Value())
-
+// cancelReviewMessage puts the composer away, dropping an edit of the round with it, since the
+// composer is where weave asks whether to send one and leaving it is the answer.
+func (m model) cancelReviewMessage() model {
 	m.review.editor.Blur()
 	m.review.composing = false
 
-	if body == "" {
-		return m, nil
+	if m.review.suggestion != nil {
+		m.review.suggestion = nil
+		m.review.notice = "your edit of the round was dropped"
 	}
 
-	agents, agentID, threadID := m.api.agents, m.review.agentID, m.review.editing
+	return m
+}
+
+func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
+	body := strings.TrimSpace(m.review.editor.Value())
+	if body == "" {
+		return m.cancelReviewMessage(), nil
+	}
+
+	suggestion := m.review.suggestion
+	m.review.suggestion = nil
+	m.review.editor.Blur()
+	m.review.composing = false
+
+	if suggestion != nil {
+		return m, m.createReviewThreadCmd(suggestion.anchor, suggestion.lines, body)
+	}
+
+	agents, threadID := m.api.agents, m.review.editing
 	if threadID != "" {
 		// Nothing is said back: the reply is drawn in the thread it went into, which is already on
 		// the screen the moment it lands.
@@ -1004,7 +1052,18 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.reviewWriteCmd("thread opened", func(ctx context.Context) error {
+	return m, m.createReviewThreadCmd(*anchor, nil, body)
+}
+
+func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, body string) tea.Cmd {
+	agents, agentID := m.api.agents, m.review.agentID
+
+	notice := "thread opened"
+	if len(suggestion) > 0 {
+		notice = "thread opened with your edit as a suggestion"
+	}
+
+	return m.reviewWriteCmd(notice, func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
 			FilePath:    anchor.FilePath,
@@ -1013,6 +1072,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 			NewStart:    int32(anchor.NewStart),
 			NewEnd:      int32(anchor.NewEnd),
 			QuotedLines: anchor.QuotedLines,
+			Suggestion:  suggestion,
 			Body:        body,
 		}))
 

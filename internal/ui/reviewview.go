@@ -149,14 +149,15 @@ func (m model) reviewDeadView() string {
 	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
 }
 
-// reviewStaleView is the bar saying the agent has written since this round was taken, drawn above
-// the place the cursor is standing, since catching up is always the reader's to ask for.
+// reviewStaleView is the bar saying the worktree has been written to since this round was taken,
+// naming the worktree rather than the agent because a snapshot records what a tree holds and never
+// who put it there.
 func (m model) reviewStaleView() string {
 	if !m.review.moved {
 		return ""
 	}
 
-	line := " THE AGENT HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
+	line := " THE WORKTREE HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
 
 	return reviewStaleStyle.Render(m.reviewFill(line)) + "\n"
 }
@@ -178,8 +179,14 @@ func (m model) reviewRestView() string {
 	}
 
 	if m.review.composing {
-		return "\n" + m.review.editor.View() + "\n" +
-			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · esc cancel") + "\n"
+		out, leaving := "\n", "esc cancel"
+		if held := m.review.suggestion; held != nil {
+			out += reviewNoticeStyle.Render("  "+describeSuggestion(*held)) + "\n"
+			leaving = "esc drop it"
+		}
+
+		return out + m.review.editor.View() + "\n" +
+			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · "+leaving) + "\n"
 	}
 
 	if m.review.releasing {
@@ -187,6 +194,11 @@ func (m model) reviewRestView() string {
 	}
 
 	out := "\n" + m.reviewThreadView()
+
+	if held := m.review.suggestion; held != nil {
+		out += "\n" + reviewNoticeStyle.Render("  "+describeSuggestion(*held)) + "\n" +
+			dimStyle.Render("  "+keyLabel(m.keys.Review.Compose)+" to comment with it") + "\n"
+	}
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
@@ -212,6 +224,23 @@ func (m model) reviewAnchorView() string {
 	}
 
 	return m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
+}
+
+// countedLines is how many lines a suggestion puts in place of the range it covers.
+func countedLines(count int) string {
+	if count == 1 {
+		return "1 line"
+	}
+
+	return fmt.Sprintf("%d lines", count)
+}
+
+// describeSuggestion names the edit of the round waiting to be sent, since it is pinned where it
+// was made rather than under the cursor and the reader would otherwise have to guess where.
+func describeSuggestion(held pendingSuggestion) string {
+	return fmt.Sprintf("edit held for %s (%s)",
+		review.FormatLocation(held.anchor.FilePath, held.anchor.OldStart, held.anchor.NewStart),
+		countedLines(len(held.lines)))
 }
 
 // reviewReleaseView asks what to send: a word about the work as a whole, which is optional, and

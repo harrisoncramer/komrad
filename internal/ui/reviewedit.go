@@ -1,9 +1,14 @@
 package ui
 
 import (
+	"context"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
+	"weave/internal/git"
+	"weave/internal/review"
 	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -12,6 +17,13 @@ import (
 // defaultEditor is what the file is opened in when nothing said otherwise, which is what the
 // environment falls back to as well.
 const defaultEditor = "vi"
+
+// roundReadyMsg says the round has been checked out somewhere the editor can open it.
+type roundReadyMsg struct {
+	agentID string
+	dir     string
+	err     error
+}
 
 // editorContent opens a file in the user's editor, on one line of it.
 func editorContent(editor, dir, path string, line int) layout.Content {
@@ -30,8 +42,9 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 	}
 }
 
-// editReviewFile opens the file under the cursor in a split under the diff, on the line the
-// cursor is standing on, and takes that split away again when it is already open there.
+// editReviewFile opens the round's own copy of the file under the cursor in a split under the
+// diff, so that what the reviewer types is invisible to the agent still writing to the worktree,
+// and the line the cursor is standing on is a line of the file being opened.
 func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
 	if !ok {
@@ -45,34 +58,139 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
+	if m.review.roundDir == "" {
+		return m, m.materialiseRoundCmd()
+	}
+
 	if !m.claimInfo(infoEditFile, target) {
 		return m, nil
 	}
 
-	m.frame.Show(layout.RegionInfo, editorContent(m.editor, m.review.root, path, line))
+	m.review.editingFile = path
+	m.frame.Show(layout.RegionInfo, editorContent(m.editor, m.review.roundDir, path, line))
 	m.remeasureReview()
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
 	return m, nil
 }
 
-// reconcileEditor catches the editor pane going away on its own and puts the diff behind it back
-// on screen at the size the stage is left with, since the file may have changed while it was up.
-func (m model) reconcileEditor() (model, tea.Cmd) {
-	if !m.reconcileInfo() || m.screen != screenReview {
+// materialiseRoundCmd checks the round out beside the agent's worktree rather than in it, one
+// directory per agent, since a reader opens many files of one round and rarely two rounds at once.
+func (m model) materialiseRoundCmd() tea.Cmd {
+	agentID, root, sha := m.review.agentID, m.review.root, m.review.round.GetSnapshotSha()
+	at := filepath.Join(m.roundsDir, agentID)
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		if err := git.Materialise(ctx, root, sha, at); err != nil {
+			return roundReadyMsg{agentID: agentID, err: err}
+		}
+
+		return roundReadyMsg{agentID: agentID, dir: at}
+	}
+}
+
+// applyRoundReady opens the editor the checkout was asked for, on wherever the cursor has got to
+// while it was being made.
+func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
+	if msg.agentID != m.review.agentID || m.review.view == nil {
 		return m, nil
 	}
 
+	if msg.err != nil {
+		m.review.notice = "that round could not be checked out to edit"
+
+		return m, nil
+	}
+
+	m.review.roundDir = msg.dir
+
+	return m.editReviewFile()
+}
+
+// reapRoundCmd takes the checkout away when the screen it was cut for closes, which is the only
+// moment weave knows nobody is reading it.
+func (m model) reapRoundCmd(root, at string) tea.Cmd {
+	if at == "" {
+		return nil
+	}
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		// A checkout that will not go is left where it is: the screen reading it has already
+		// closed, and the next round to be edited replaces it rather than finding it.
+		if err := git.Reap(ctx, root, at); err != nil {
+			return nil
+		}
+
+		return nil
+	}
+}
+
+// reconcileEditor catches the editor pane going away on its own and puts the diff behind it back
+// on screen at the size the stage is left with.
+func (m model) reconcileEditor() model {
+	if !m.reconcileInfo() || m.screen != screenReview {
+		return m
+	}
+
+	m.readReviewEdit()
 	m.remeasureReview()
 
-	return m.reloadReview()
+	return m
 }
 
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m = m.closeInfo()
+	m.readReviewEdit()
 	m.remeasureReview()
 
-	return m.reloadReview()
+	return m, nil
+}
+
+// readReviewEdit turns whatever the reviewer changed in the round's copy into a suggestion waiting
+// for a comment to carry it, and clears the one already held when they put the file back.
+func (m *model) readReviewEdit() {
+	path := m.review.editingFile
+	m.review.editingFile = ""
+
+	if path == "" || m.review.roundDir == "" || m.review.view == nil {
+		return
+	}
+
+	source, ok := m.review.view.GetSource(path)
+	if !ok {
+		return
+	}
+
+	edited, err := os.ReadFile(filepath.Join(m.review.roundDir, path))
+	if err != nil {
+		m.review.notice = "the round's copy of that file could not be read back"
+
+		return
+	}
+
+	suggestion, changed := review.Suggest(path, review.SplitSource(source), review.SplitSource(string(edited)))
+	if !changed {
+		if m.review.suggestion != nil && m.review.suggestion.anchor.FilePath == path {
+			m.review.suggestion = nil
+		}
+
+		return
+	}
+
+	anchor, ok := m.review.view.GetRangeAnchor(path, suggestion.NewStart, suggestion.NewEnd)
+	if !ok {
+		m.review.notice = "that edit is outside the diff, so there is nowhere to pin it"
+
+		return
+	}
+
+	m.review.suggestion = &pendingSuggestion{anchor: *anchor, lines: suggestion.Lines}
 }
 
 // remeasureReview draws the diff again at the size the stage is left with, since the drawer is
