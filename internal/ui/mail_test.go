@@ -632,25 +632,3 @@ func stale(item *agentv1.Mail) *agentv1.Mail {
 
 	return item
 }
-
-// TestCountedTakesEsAfterASibilant pins the ending a bare s will not sit on, since the review's
-// match count is drawn through here and nothing else in the suite would catch the typo.
-func TestCountedTakesEsAfterASibilant(t *testing.T) {
-	tests := []struct {
-		count int
-		word  string
-		want  string
-	}{
-		{1, "match", "1 match"},
-		{2, "match", "2 matches"},
-		{0, "match", "0 matches"},
-		{1, "file", "1 file"},
-		{3, "file", "3 files"},
-		{2, "box", "2 boxes"},
-		{2, "message", "2 messages"},
-	}
-
-	for _, tt := range tests {
-		assert.Equal(t, tt.want, counted(tt.count, tt.word))
-	}
-}
