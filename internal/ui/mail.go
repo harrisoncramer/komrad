@@ -793,7 +793,7 @@ func (m model) mailRowView(r mailRow, stamps int, hovered bool) string {
 
 	// Drawn at full strength whichever way it went: dimming what this agent sent made half the
 	// conversation read as though it mattered less, and the arrow already says the direction.
-	return head + " " + m.filter.highlight(clip(body, spare), m.nameStyle(hovered, false, false))
+	return head + " " + m.filter.highlight(clip(body, spare), m.nameStyle(hovered, false))
 }
 
 // mailSnippet is the opening of a message on one line, which is what makes a row worth

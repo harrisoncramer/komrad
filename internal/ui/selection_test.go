@@ -61,8 +61,8 @@ func selectionTree() model {
 	}
 }
 
-// withColor forces a profile that writes escapes, since a selection now shows in the colour of
-// the name and nothing renders one under the bare profile a test binary reports.
+// withColor forces a profile that writes escapes, since a selection shows as a background and
+// nothing renders one under the bare profile a test binary reports.
 func withColor(t *testing.T) {
 	t.Helper()
 
@@ -399,47 +399,55 @@ func TestArchiveSelection(t *testing.T) {
 		assert.Equal(t, []string{"a3"}, m.archive.selected.ids)
 	})
 
-	t.Run("a chosen row turns without shifting the rows", func(t *testing.T) {
+	t.Run("a chosen row takes the bar", func(t *testing.T) {
 		withColor(t)
 
 		m := archiveSelectionTree()
+		m.width = rowPaneWidth
 
 		rest := m.archiveView()
-		assert.NotContains(t, rest, selectionStyle.Render("api"))
+		assert.NotContains(t, line(t, rest, "api"), backgroundSequence(selectionBackground))
 
 		m.archive.selected = selection{ids: []string{"a2"}}
 		view := m.archiveView()
-		assert.Contains(t, view, selectionStyle.Render("api"))
-		assert.NotContains(t, view, selectionStyle.Render("db"), "and only that row")
-		assert.Equal(t, lineWidth(t, rest, "api"), lineWidth(t, view, "api"), "the chosen row keeps its width")
-		assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
+		assert.Contains(t, line(t, view, "api"), backgroundSequence(selectionBackground))
+		assert.NotContains(t, line(t, view, "db"), backgroundSequence(selectionBackground), "and only that row")
+		assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
+		assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
 	})
 }
 
-// TestAgentsViewSelectionColour covers how a row taken into a selection is drawn, which is its
-// own name in the selection colour, so that taking a row in shifts nothing around it.
+// rowPaneWidth is a pane wide enough that a painted row is padded out rather than already
+// filling the width it is drawn at.
+const rowPaneWidth = 60
+
+// TestAgentsViewSelectionColour covers how a row taken into a selection is drawn, which is a bar
+// across the whole row rather than a colour on its name, so nothing the row says is spent on
+// saying that it is in.
 func TestAgentsViewSelectionColour(t *testing.T) {
 	withColor(t)
 
 	m := selectionTree()
+	m.width = rowPaneWidth
 
 	rest := m.agentsView()
-	assert.NotContains(t, rest, selectionStyle.Render("api"))
+	assert.NotContains(t, line(t, rest, "api"), backgroundSequence(selectionBackground))
 
 	m.tree.selected = selection{ids: []string{"a2"}}
 	view := m.agentsView()
-	assert.Contains(t, view, selectionStyle.Render("api"), "the selected row turns")
-	assert.NotContains(t, view, selectionStyle.Render("db"), "and only that row")
-	assert.Equal(t, lineWidth(t, rest, "api"), lineWidth(t, view, "api"), "the chosen row keeps its width")
-	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and so does the one below it")
+	assert.Contains(t, line(t, view, "api"), backgroundSequence(selectionBackground), "the selected row takes the bar")
+	assert.NotContains(t, line(t, view, "db"), backgroundSequence(selectionBackground), "and only that row")
+	assert.Equal(t, rowPaneWidth, lineWidth(t, view, "api"), "the bar spans the pane")
+	assert.Equal(t, lineWidth(t, rest, "db"), lineWidth(t, view, "db"), "and the row below it is left as it was")
 }
 
-// TestSelectionBeatsTheCursor pins that the row under the cursor still shows whether it is in,
-// since the cursor colour would otherwise hide the one row a person is toggling.
-func TestSelectionBeatsTheCursor(t *testing.T) {
+// TestSelectionKeepsTheCursor pins that a row in the selection under the cursor is drawn as
+// both, which is what the bar buys: the name is still the cursor's to colour.
+func TestSelectionKeepsTheCursor(t *testing.T) {
 	withColor(t)
 
 	m := selectionTree()
+	m.width = rowPaneWidth
 	m.tree.selected = selection{ids: []string{"a2"}}
 
 	for i, r := range m.agentRows() {
@@ -448,23 +456,29 @@ func TestSelectionBeatsTheCursor(t *testing.T) {
 		}
 	}
 
-	view := m.agentsView()
-	assert.Contains(t, view, selectionStyle.Render("api"))
-	assert.NotContains(t, view, m.rowCursorStyle().Render("api"), "the cursor does not take the name back")
+	row := line(t, m.agentsView(), "api")
+	assert.Contains(t, row, backgroundSequence(selectionBackground))
+	assert.Contains(t, row, m.rowCursorStyle().Render("api"), "and the cursor still has the name")
 }
 
 func lineWidth(t *testing.T, view, text string) int {
 	t.Helper()
 
-	for _, line := range strings.Split(view, "\n") {
-		if strings.Contains(line, text) {
-			return lipgloss.Width(line)
+	return lipgloss.Width(line(t, view, text))
+}
+
+func line(t *testing.T, view, text string) string {
+	t.Helper()
+
+	for _, row := range strings.Split(view, "\n") {
+		if strings.Contains(row, text) {
+			return row
 		}
 	}
 
 	t.Fatalf("no rendered row carries %q", text)
 
-	return 0
+	return ""
 }
 
 // TestArchiveSelectionFromTheTree covers the archive key over a selection, which only opens
