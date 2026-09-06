@@ -240,3 +240,71 @@ func sliceOrNil(lines []string) []string {
 
 	return lines
 }
+
+// TestWithoutSuggestionPutsOneRunBack covers the file a comment leaves behind: the run it carried
+// is the round's own again, every other run the reviewer wrote is untouched, and an insertion is
+// matched by what it proposes rather than by the range git reports it on.
+func TestWithoutSuggestionPutsOneRunBack(t *testing.T) {
+	round := []string{"one", "two", "three", "four"}
+
+	rewrite := git.Edit{Path: "greet.go", Start: 2, End: 2, Lines: []string{"TWO"}}
+	later := git.Edit{Path: "greet.go", Start: 4, End: 4, Lines: []string{"FOUR"}}
+	insert := git.Edit{Path: "greet.go", Start: 3, End: 2, Lines: []string{"two and a half"}}
+	elsewhere := git.Edit{Path: "other.go", Start: 1, End: 1, Lines: []string{"not this file"}}
+
+	sent, ok := Suggest(rewrite, round)
+	require.True(t, ok)
+
+	tests := []struct {
+		name  string
+		edits []git.Edit
+		sent  Suggestion
+		want  []string
+	}{
+		{
+			name:  "the only run goes back",
+			edits: []git.Edit{rewrite},
+			sent:  sent,
+			want:  round,
+		},
+		{
+			name:  "a later run keeps the numbering it was measured in",
+			edits: []git.Edit{rewrite, later},
+			sent:  sent,
+			want:  []string{"one", "two", "three", "FOUR"},
+		},
+		{
+			name:  "an insertion beside it stands, widened onto the line before",
+			edits: []git.Edit{rewrite, insert},
+			sent:  sent,
+			want:  []string{"one", "two", "two and a half", "three", "four"},
+		},
+		{
+			name:  "another file is left alone",
+			edits: []git.Edit{rewrite, elsewhere},
+			sent:  sent,
+			want:  round,
+		},
+		{
+			name:  "an insertion is the run that goes back when it is the one that was carried",
+			edits: []git.Edit{rewrite, insert},
+			sent:  suggestionOf(t, insert, round),
+			want:  []string{"one", "TWO", "three", "four"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, WithoutSuggestion(round, tt.edits, tt.sent))
+		})
+	}
+}
+
+func suggestionOf(t *testing.T, edit git.Edit, round []string) Suggestion {
+	t.Helper()
+
+	suggestion, ok := Suggest(edit, round)
+	require.True(t, ok)
+
+	return suggestion
+}

@@ -93,6 +93,10 @@ type reviewState struct {
 	// materialising is set while that checkout is being made, so a second press does not start a
 	// second one against the same directory.
 	materialising bool
+	// leftover is a checkout of an earlier round found holding work no comment carried, which the
+	// next edit of the round on screen checks out over the top of, so the press that takes it
+	// away is the one that says so.
+	leftover string
 	// suggestions are the runs the reviewer wrote into the checkout, each waiting for a comment
 	// of its own to carry it to the agent.
 	suggestions []pendingSuggestion
@@ -1112,6 +1116,8 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, 
 		notice = "thread opened with your edit as a suggestion"
 	}
 
+	carried := m.carriedEditDrop(anchor, suggestion)
+
 	return m.reviewWriteCmd(notice, func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
@@ -1124,8 +1130,13 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, 
 			Suggestion:  suggestion,
 			Body:        body,
 		}))
+		if err != nil {
+			return err
+		}
 
-		return err
+		carried(ctx)
+
+		return nil
 	})
 }
 

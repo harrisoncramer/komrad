@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -88,6 +89,16 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// The notice from screen-open is gone by now, cleared by the first keypress after it, and
+		// this is the press that takes the earlier round's edit away, so it says so itself.
+		if at := m.review.leftover; at != "" {
+			m.review.leftover = ""
+			m.review.notice = "editing this round replaces the edit of an earlier one in " +
+				at + ", so press again to go on"
+
+			return m, nil
+		}
+
 		m.review.materialising = true
 
 		return m, m.materialiseRoundCmd()
@@ -155,9 +166,11 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		// A checkout weave cannot read is kept as well, since the answer it could not get is
-		// whether there was anything in it worth keeping.
-		if edits, err := git.Edits(ctx, at); err != nil || len(edits) > 0 {
+		// Explainer: The whole tree is asked rather than the diff, since a file the reviewer wrote
+		// from nothing is theirs too and no diff of the commit reports it. A checkout weave cannot
+		// read is kept as well, since the answer it could not get is whether there was anything in
+		// it worth keeping.
+		if dirty, err := git.IsDirty(ctx, at); err != nil || dirty {
 			return nil
 		}
 
@@ -207,8 +220,11 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 		return
 	}
 
+	// Nothing takes this away on its own: it is unreadable against the round on screen and the
+	// only thing that ever clears it is the press that checks this round out over the top of it.
 	if msg.sha != m.review.round.GetSnapshotSha() {
-		m.review.notice = "an edit of an earlier round is still in its checkout, and editing this one replaces it"
+		m.review.leftover = msg.dir
+		m.review.notice = "an edit of an earlier round is still in its checkout"
 
 		return
 	}
@@ -216,6 +232,51 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 	m.review.roundDir = msg.dir
 	m.review.roundSha = msg.sha
 	m.review.suggestions, m.review.adrift = m.holdSuggestions(msg.edits)
+}
+
+// carriedEditDrop is the work of putting one run back the way the round holds it, prepared while
+// the view is still to hand and run once the comment carrying it has actually been written, so
+// that the checkout goes on holding only what nobody has taken anywhere.
+func (m model) carriedEditDrop(anchor review.Anchor, lines []string) func(context.Context) {
+	nothing := func(context.Context) {}
+
+	at := m.review.roundDir
+	if at == "" || len(lines) == 0 {
+		return nothing
+	}
+
+	source, ok := m.review.view.GetSource(anchor.FilePath)
+	if !ok {
+		return nothing
+	}
+
+	sent := review.Suggestion{
+		FilePath: anchor.FilePath,
+		NewStart: anchor.NewStart,
+		NewEnd:   anchor.NewEnd,
+		Lines:    lines,
+	}
+
+	return func(ctx context.Context) {
+		edits, err := git.Edits(ctx, at)
+		if err != nil {
+			return
+		}
+
+		round := review.SplitSource(source)
+		rebuilt := strings.Join(review.WithoutSuggestion(round, edits, sent), "\n")
+		if strings.HasSuffix(source, "\n") {
+			rebuilt += "\n"
+		}
+
+		// Nothing is said when this fails: the comment carrying the edit has already been written,
+		// so what it costs is the proposal being offered again rather than anything of the
+		// reviewer's going missing.
+		if err := os.WriteFile(filepath.Join(at, filepath.FromSlash(anchor.FilePath)),
+			[]byte(rebuilt), 0o644); err != nil {
+			return
+		}
+	}
 }
 
 // readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather than

@@ -801,14 +801,138 @@ func TestReviewLeavingReapsACarriedEdit(t *testing.T) {
 	cmd()
 
 	require.NotNil(t, agents.created, "the comment carried it to the agent")
+	require.Empty(t, m.review.suggestions, "and the panel is not still holding it")
 
-	// The reviewer's text is still saved in the checkout, so the file is put back the way the
-	// round holds it, which is what the editor would have done had they undone the change.
-	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n")
+	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "goodbye", "the run went back the way the round holds it")
+	assert.NotContains(t, string(held), "farewell", "so the checkout is not still claiming it")
 
-	_, cmd = m.leaveReview()
+	left, cmd := m.leaveReview()
 	require.NotNil(t, cmd)
 	drainCmd(cmd)
 
 	assert.NoDirExists(t, at, "a checkout holding nothing goes with the screen")
+
+	// Which is the whole point: coming back must not offer a proposal that is already on a thread,
+	// since the composer prefers a held edit over the thread under the cursor and would send it
+	// a second time.
+	m = openReview(t, left.(model))
+	assert.Empty(t, m.review.suggestions, "a proposal already carried is not offered again")
+}
+
+// TestReviewCarriedEditLeavesTheOtherRunsStanding covers two edits in one file with only one of
+// them sent: the run that went back is the one the comment took, and the other is still there to
+// be carried by a comment of its own.
+func TestReviewCarriedEditLeavesTheOtherRunsStanding(t *testing.T) {
+	dir := wideRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeWide(t, m, map[int]string{3: "line 3 the reviewer's way", 35: "line 35 the reviewer's way"})
+	m = closeEditKey(t, m)
+	require.Len(t, m.review.suggestions, 2)
+
+	next, _ := m.updateReview(composeKey())
+	m = next.(model)
+	m.review.editor.SetValue("the first one")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.NotNil(t, cmd)
+	cmd()
+
+	require.NotNil(t, agents.created)
+	require.Equal(t, int32(3), agents.created.GetNewStart(), "the first run went")
+
+	held, err := os.ReadFile(filepath.Join(at, "wide.txt"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "line 3 as the agent wrote it",
+		"the carried run is back the way the round holds it")
+	assert.NotContains(t, string(held), "line 3 the reviewer's way")
+	assert.Contains(t, string(held), "line 35 the reviewer's way", "and the one nobody carried stands")
+
+	left, cmd := m.leaveReview()
+	drainCmd(cmd)
+	require.DirExists(t, at, "so the checkout is kept for it")
+
+	m = openReview(t, left.(model))
+	require.Len(t, m.review.suggestions, 1, "and only the uncarried run is offered again")
+	assert.Equal(t, 35, m.review.suggestions[0].anchor.NewStart)
+}
+
+// TestReviewLeavingKeepsAFileWrittenFromNothing covers a file the reviewer created in the checkout,
+// which no diff of the round reports and which a force removal deletes with everything else.
+func TestReviewLeavingKeepsAFileWrittenFromNothing(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	require.NoError(t, os.WriteFile(filepath.Join(at, "reviewer-scratch.txt"), []byte("what I want instead\n"), 0o644))
+	m = closeEditKey(t, m)
+	require.Empty(t, m.review.suggestions, "a file from nothing proposes nothing")
+
+	_, cmd := m.leaveReview()
+	require.NotNil(t, cmd)
+	drainCmd(cmd)
+
+	require.DirExists(t, at, "but it is still the reviewer's writing")
+
+	written, err := os.ReadFile(filepath.Join(at, "reviewer-scratch.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "what I want instead\n", string(written))
+}
+
+// TestReviewLeftoverIsNamedAtThePressThatTakesIt covers the warning landing where the destruction
+// is: the notice from screen-open is cleared by the first keypress, and the press that checks the
+// round out over the leftover used to be silent.
+func TestReviewLeftoverIsNamedAtThePressThatTakesIt(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"the reviewer's idea\"\n}\n")
+	m = closeEditKey(t, m)
+
+	left, cmd := m.leaveReview()
+	drainCmd(cmd)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
+
+	m = openReview(t, left.(model))
+	require.Equal(t, at, m.review.leftover, "the leftover is known from the moment the screen opens")
+
+	// A keypress that reaches the diff clears the notice, which is why the press itself has to say
+	// what it is about to take.
+	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
+	m = moved.(model)
+	require.Empty(t, m.review.notice)
+
+	next, cmd := m.updateReview(editorKey())
+	m = next.(model)
+
+	assert.Nil(t, cmd, "the first press does not check anything out")
+	assert.Contains(t, m.review.notice, at, "it names what would go")
+	assert.Contains(t, m.review.notice, "press again")
+	assert.Equal(t, infoNothing, m.info.kind, "and no editor opened")
+
+	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "the reviewer's idea", "the text is still there to be salvaged")
+
+	// The second press is the answer, and it is what replaces the checkout.
+	m = pressEdit(t, m)
+	require.Equal(t, m.review.round.GetSnapshotSha(), m.review.roundSha)
+
+	held, err = os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "the agent moved on", "which is the round the diff is drawing")
 }

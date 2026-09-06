@@ -53,6 +53,17 @@ func WorktreeHead(ctx context.Context, at string) (string, bool) {
 	return head, true
 }
 
+// IsDirty reports whether a checkout holds anything the commit it stands on does not, untracked
+// files included, which is what says there is work in it somebody would miss.
+func IsDirty(ctx context.Context, at string) (bool, error) {
+	out, err := Run(ctx, at, "status", "--porcelain", "--untracked-files=all")
+	if err != nil {
+		return false, fmt.Errorf("failed to read what is in the checkout at %q: %w", at, err)
+	}
+
+	return out != "", nil
+}
+
 // isWorktreeAt reports whether a path is the top of a checkout rather than somewhere inside one,
 // since git answers about the repository it finds walking up and a force checkout of the enclosing
 // repository would throw away whatever that tree held.
