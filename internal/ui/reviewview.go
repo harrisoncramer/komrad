@@ -281,8 +281,10 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 		return "request changes"
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
 		return "comment only"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return "no verdict"
 	default:
-		return "comment only"
+		return "no verdict"
 	}
 }
 
@@ -294,6 +296,8 @@ func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
 		return reviewDeliveredStyle
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return reviewSentStyle
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return reviewUnsentStyle
 	default:
 		return reviewUnsentStyle
 	}

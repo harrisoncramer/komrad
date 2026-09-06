@@ -379,6 +379,8 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.answerForm()
 	case huh.StateAborted:
 		return m.closeForm()
+	case huh.StateNormal:
+		return m, cmd
 	default:
 		return m, cmd
 	}

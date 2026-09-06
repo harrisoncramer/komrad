@@ -138,9 +138,13 @@ func valueSchema(field protoreflect.FieldDescriptor, enclosing map[protoreflect.
 		return map[string]any{"type": "number"}, nil
 	case protoreflect.EnumKind:
 		return enumSchema(field.Enum()), nil
-	default:
-		return nil, fmt.Errorf("field %q has kind %s, which the tool schema does not describe yet", field.Name(), field.Kind())
+	case protoreflect.Sint32Kind, protoreflect.Sint64Kind,
+		protoreflect.Sfixed32Kind, protoreflect.Fixed32Kind,
+		protoreflect.Sfixed64Kind, protoreflect.Fixed64Kind,
+		protoreflect.BytesKind, protoreflect.GroupKind:
 	}
+
+	return nil, fmt.Errorf("field %q has kind %s, which the tool schema does not describe yet", field.Name(), field.Kind())
 }
 
 func (r *rpcTools) handler(service, method string) func(context.Context, *mcpsdk.CallToolRequest, map[string]any) (*mcpsdk.CallToolResult, any, error) {

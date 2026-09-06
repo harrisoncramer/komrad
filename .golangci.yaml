@@ -137,7 +137,7 @@ linters:
     exhaustive:
       check:
         - switch
-      default-signifies-exhaustive: true
+      default-signifies-exhaustive: false
     custom:
       fussy:
         type: module
