@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strings"
 
 	"weave/internal/errui"
 
@@ -241,10 +242,8 @@ var stageMatchStyle = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Backgr
 
 var brokenStyle = lipgloss.NewStyle().Foreground(colorDanger)
 
-func (m model) nameStyle(hovered, selected, inactive bool) lipgloss.Style {
+func (m model) nameStyle(hovered, inactive bool) lipgloss.Style {
 	switch {
-	case selected:
-		return selectionStyle
 	case hovered:
 		return m.rowCursorStyle()
 	case inactive:
@@ -269,7 +268,44 @@ func clip(text string, width int) string {
 	return string(runes[:width-1]) + "…"
 }
 
-// selectionStyle is how a row taken into a selection is drawn, which is the name itself rather
-// than a mark beside it, and beats the cursor so that the row under the cursor still shows
-// whether it is in.
-var selectionStyle = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+// selectionBackground is the bar a row taken into a selection is drawn under, dark enough that
+// the colours the row is already carrying still read through it, so a selected row keeps its
+// state icon and its cursor rather than trading them for the fact that it is in.
+var selectionBackground = lipgloss.AdaptiveColor{Light: "#cdf0d6", Dark: "#20452c"}
+
+const ansiReset = "\x1b[0m"
+
+// paintRow lays a background under a row that has already been coloured, setting it again after
+// every reset the row carries, since the first of those would otherwise drop it for the rest of
+// the line, and filling the row out to the pane so that it reads as a bar rather than a block
+// behind the text.
+func paintRow(row string, background lipgloss.AdaptiveColor, width int) string {
+	set := backgroundSequence(background)
+	if set == "" {
+		return row
+	}
+
+	painted := set + strings.ReplaceAll(row, ansiReset, ansiReset+set)
+	if padding := width - lipgloss.Width(row); padding > 0 {
+		painted += strings.Repeat(" ", padding)
+	}
+
+	return painted + ansiReset
+}
+
+// backgroundSequence is the escape that sets a background and nothing else, which lipgloss will
+// only write around text of its own, and is empty under a profile carrying no colour so that
+// paintRow leaves such a row alone rather than padding it out to a bar nobody can see.
+func backgroundSequence(background lipgloss.AdaptiveColor) string {
+	hex := background.Light
+	if lipgloss.HasDarkBackground() {
+		hex = background.Dark
+	}
+
+	sequence := lipgloss.ColorProfile().Color(hex).Sequence(true)
+	if sequence == "" {
+		return ""
+	}
+
+	return "\x1b[" + sequence + "m"
+}

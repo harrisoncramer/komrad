@@ -399,15 +399,20 @@ func (m model) archiveView() string {
 		}
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
 			rows = append(rows, prefix+dimStyle.Render(workflowIcon)+" "+label+archivedTag(r.workflow))
 
 			continue
 		}
 
 		agent := r.item.agent
-		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, m.archive.selected.has(agent.ID), true))
-		rows = append(rows, prefix+"  "+childMark(r.child)+name+failedMark(agent)+scheduledMark(agent))
+		name := m.filter.highlight(clipName(agent.Name), m.nameStyle(hovered, true))
+		row := prefix + "  " + childMark(r.child) + name + failedMark(agent) + scheduledMark(agent)
+		if m.archive.selected.has(agent.ID) {
+			row = paintRow(row, selectionBackground, m.width)
+		}
+
+		rows = append(rows, row)
 	}
 
 	return m.listView("Archive", rows, m.archive.cursor, below)

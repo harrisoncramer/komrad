@@ -10,6 +10,8 @@ import (
 	"weave/internal/ui/layout"
 	"weave/lib/xptr"
 
+	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -191,4 +193,32 @@ func TestFocusKeepsTheMarkers(t *testing.T) {
 	m.details.focused = true
 
 	assert.Contains(t, m.agentsView(), "›", "and the row cursor while the details have them")
+}
+
+// TestPaintRow covers laying a background under a row that is already coloured, which is the
+// one thing wrapping the row in a style cannot do, since the reset closing each fragment would
+// drop the background for everything after it.
+func TestPaintRow(t *testing.T) {
+	withColor(t)
+
+	set := backgroundSequence(selectionBackground)
+	row := "  " + lipgloss.NewStyle().Foreground(colorAccent).Render("api") + " " + dimStyle.Render("1m")
+
+	painted := paintRow(row, selectionBackground, 20)
+
+	assert.True(t, strings.HasPrefix(painted, set), "the row opens under the background")
+	assert.Equal(t, strings.Count(row, ansiReset), strings.Count(painted, ansiReset+set),
+		"and every reset inside it sets the background again")
+	assert.Equal(t, 20, lipgloss.Width(painted), "the bar is filled out to the pane")
+	assert.True(t, strings.HasSuffix(painted, ansiReset), "and closes")
+}
+
+// TestPaintRowWithoutColour covers a terminal that writes no escapes, where a bar nobody can
+// see would only pad the row out and make it look wider than the rows around it.
+func TestPaintRowWithoutColour(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+	lipgloss.SetColorProfile(termenv.Ascii)
+
+	assert.Equal(t, "  api", paintRow("  api", selectionBackground, 20))
 }

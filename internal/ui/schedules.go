@@ -264,7 +264,7 @@ func (m model) schedulesView() string {
 			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		name := m.filter.highlight(item.schedule.Name, m.nameStyle(selected, false, !item.schedule.Enabled))
+		name := m.filter.highlight(item.schedule.Name, m.nameStyle(selected, !item.schedule.Enabled))
 		icon := lipgloss.NewStyle().Foreground(scheduleColor(item.schedule.Enabled)).Render(scheduleIcon(item.schedule.Enabled))
 		rows = append(rows, prefix+"  "+icon+" "+name+"  "+dimStyle.Render(item.schedule.Cron))
 	}

@@ -448,7 +448,7 @@ func (m model) agentsView() string {
 		}
 
 		if r.header {
-			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false, false))
+			label := m.filter.highlight(r.workflow.Name, m.nameStyle(hovered, false))
 			header := prefix + markGutter(m.listing.marks[rowKey(r)]) + label + hiddenTally(r.hiddenCount, m.tree.showHidden)
 			rows = append(rows, ghostSlot(header, "", m.width))
 
@@ -456,10 +456,14 @@ func (m model) agentsView() string {
 		}
 
 		item := r.item
-		selected := m.tree.selected.has(item.agent.ID)
-		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, selected, !item.alive))
+		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
 		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
-		rows = append(rows, ghostSlot(row, ghostText(item), m.width))
+		row = ghostSlot(row, ghostText(item), m.width)
+		if m.tree.selected.has(item.agent.ID) {
+			row = paintRow(row, selectionBackground, m.width)
+		}
+
+		rows = append(rows, row)
 	}
 
 	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
