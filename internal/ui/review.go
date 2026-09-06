@@ -623,6 +623,8 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, -1))
 	case isBound(k, m.keys.Filter.Open):
 		m.review.filter.typing = true
+		m.review.filter.setQuery("")
+		m.searchReview()
 
 		return m, nil
 	case isBound(k, keys.NextMatch):
