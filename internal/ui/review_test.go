@@ -215,8 +215,6 @@ func gitIn(t *testing.T, dir string, args ...string) {
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
 	t.Helper()
 
-	// The stage's own geometry, which is what the diff is drawn against and what the panel writes
-	// a screenful of.
 	tmux := &recordingTmux{width: 120, height: 24}
 	if fake, ok := agents.(*fakeReviewAgents); ok {
 		fake.dir = dir
@@ -225,7 +223,9 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.roundsDir = t.TempDir()
-	m.width, m.height = 40, 30
+	// The review holds the whole window, so the default fifth of this is the forty columns the
+	// rest of the panel's screens are measured at.
+	m.width, m.height = 200, 30
 	m.listing = listing{
 		workflows: []workflowstore.Workflow{
 			{
@@ -330,12 +330,12 @@ func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
 	m = openReview(t, m)
 
 	assert.Equal(t, screenReview, m.screen)
-	assert.Contains(t, reviewStageText(t), "new.go")
+	assert.Contains(t, reviewFrameText(t, m), "new.go")
 }
 
-// TestEnterReviewStagesTheDiff pins that opening a review moves to the review screen and
-// draws the diff through the stage pane.
-func TestEnterReviewStagesTheDiff(t *testing.T) {
+// TestEnterReviewDrawsTheDiffBesideTheSidebar pins that opening a review moves to the review
+// screen and draws the patch itself, in the panel's own frame rather than in a pane of its own.
+func TestEnterReviewDrawsTheDiffBesideTheSidebar(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 
@@ -344,70 +344,63 @@ func TestEnterReviewStagesTheDiff(t *testing.T) {
 	require.Equal(t, screenReview, m.screen)
 	require.NotNil(t, m.review.view)
 
-	last := tmux.respawns[len(tmux.respawns)-1]
-	assert.Equal(t, "weave stage "+reviewStagePath, last,
-		"the stage draws the written screen, with nothing to position")
+	assert.True(t, tmux.zoomed, "the review takes the window off the panes it was sharing with")
+	assert.Empty(t, tmux.respawns, "and starts no drawer of its own")
 
-	// The panel writes exactly the screenful the pane can hold, cursor already placed, so the
-	// pager has no scrolling of its own to do.
-	assert.Equal(t, tmux.height, reviewStageRows(t))
-	assert.Contains(t, reviewStageText(t), "greet.go")
+	frame := reviewFrameText(t, m)
+	assert.Contains(t, frame, "greet.go", "the diff is drawn")
+	assert.Contains(t, frame, "Review · auth", "and the sidebar beside it")
+	assert.Equal(t, m.height, reviewFrameRows(t, m))
 }
 
-// TestReviewCursorRepaintsWithoutRestartingThePager covers a cursor move rewriting the screen
-// and reloading it, since restarting the pager reached the client as a flicker.
-func TestReviewCursorRepaintsWithoutRestartingThePager(t *testing.T) {
+// TestReviewCursorRedrawsInPlace covers a cursor move changing the frame without anything being
+// respawned or told to re-read, since the diff is drawn by the panel that holds the cursor.
+func TestReviewCursorRedrawsInPlace(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	// Without a colour profile the cursor row paints as bare text and moving it would change
-	// nothing in the file.
+	// nothing in the frame.
 	restore := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
-	m.stageReview()
-
 	before, respawns := m.review.cursor, len(tmux.respawns)
-	was := reviewStageRaw(t)
+	was := reviewFrameRaw(t, m)
 	tmux.sentKeys = nil
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	m = next.(model)
 
 	require.Greater(t, m.review.cursor, before)
-	assert.Len(t, tmux.respawns, respawns, "the pager is left running")
-	assert.Equal(t, []string{"%1 R"}, tmux.sentKeys, "and told to re-read the screen")
+	assert.Len(t, tmux.respawns, respawns, "nothing is respawned")
+	assert.Empty(t, tmux.sentKeys, "and nothing is tapped to re-read a file")
 
 	// Compared raw: a diff that fits the pane does not scroll, so the only thing a move changes is
 	// which row is painted as the cursor.
-	assert.NotEqual(t, was, reviewStageRaw(t), "the cursor moved, so the screen changed")
-	assert.Equal(t, tmux.height, reviewStageRows(t))
+	assert.NotEqual(t, was, reviewFrameRaw(t, m), "the cursor moved, so the frame changed")
+	assert.Equal(t, m.height, reviewFrameRows(t, m))
 }
 
-func reviewStageText(t *testing.T) string {
+func reviewFrameText(t *testing.T, m model) string {
 	t.Helper()
 
-	return ansi.Strip(reviewStageRaw(t))
+	return ansi.Strip(reviewFrameRaw(t, m))
 }
 
-func reviewStageRaw(t *testing.T) string {
+func reviewFrameRaw(t *testing.T, m model) string {
 	t.Helper()
 
-	body, err := os.ReadFile(reviewStagePath)
-	require.NoError(t, err)
+	require.Equal(t, screenReview, m.screen)
 
-	return string(body)
+	return m.View()
 }
 
-func reviewStageRows(t *testing.T) int {
+func reviewFrameRows(t *testing.T, m model) int {
 	t.Helper()
 
-	body, err := os.ReadFile(reviewStagePath)
-	require.NoError(t, err)
-
-	return strings.Count(string(body), "\n")
+	return strings.Count(reviewFrameRaw(t, m), "\n") + 1
 }
 
 // TestReviewKeysFollowTheKeymap covers the review screen reading its keys from the config like
@@ -752,10 +745,10 @@ func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	m = next.(model)
 
-	assert.Len(t, tmux.respawns, respawns, "the drawer is still the one that was started")
-	assert.Equal(t, []string{"%1 R"}, tmux.sentKeys, "and it is still being told to redraw")
-	assert.Contains(t, reviewStageText(t), "greet.go", "and the screen is drawn again")
-	assert.Equal(t, tmux.height, reviewStageRows(t))
+	assert.Len(t, tmux.respawns, respawns, "nothing is respawned")
+	assert.Empty(t, tmux.sentKeys, "and nothing is tapped to re-read a file")
+	assert.Contains(t, reviewFrameText(t, m), "greet.go", "and the frame is drawn again")
+	assert.Equal(t, m.height, reviewFrameRows(t, m))
 }
 
 // TestReviewPanRedrawsTheRows covers the same seam sideways: panning changes what every row
@@ -765,13 +758,13 @@ func TestReviewPanRedrawsTheRows(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	was := reviewStageText(t)
+	was := reviewFrameText(t, m)
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	m = next.(model)
 
 	require.Positive(t, m.review.pan)
-	assert.NotEqual(t, was, reviewStageText(t), "panning moves the text under the gutter")
+	assert.NotEqual(t, was, reviewFrameText(t, m), "panning moves the text under the gutter")
 }
 
 // TestReviewRepliesInAThread covers the compose key on a line that already carries a thread,
@@ -831,14 +824,14 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	assert.Equal(t, 40, m.reviewPanStep(), "a third of the 120 column pane")
+	assert.Equal(t, 53, m.reviewPanStep(), "a third of the 160 columns the diff is drawn in")
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	m = next.(model)
-	assert.Equal(t, 40, m.review.pan)
+	assert.Equal(t, 53, m.review.pan)
 
 	// Until the pane has been measured there is nothing to take a third of.
-	m.review.frames = &reviewFrames{}
+	m.width = 0
 	assert.Equal(t, reviewPanStep, m.reviewPanStep())
 }
 
@@ -1087,7 +1080,7 @@ func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
 
 	assert.LessOrEqual(t, m.review.cursor, m.review.view.GetLastRow(), "the cursor stays on a row that exists")
-	assert.NotPanics(t, func() { m.stageReview() })
+	assert.NotPanics(t, func() { m.scrollReviewToCursor() })
 }
 
 // typeReview presses one key after another, through the panel's own routing, since the diff's
@@ -1193,14 +1186,13 @@ func TestReviewSearchPaintsWhatItFound(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
-	m.stageReview()
-	was := reviewStageRaw(t)
+	was := reviewFrameRaw(t, m)
 
 	m = typeReview(t, m, "/")
 	m = typeReview(t, m, "package")
 
-	assert.NotEqual(t, was, reviewStageRaw(t), "the match is painted")
-	assert.Contains(t, reviewStageText(t), "package greet", "and the line still reads the same")
+	assert.NotEqual(t, was, reviewFrameRaw(t, m), "the match is painted")
+	assert.Contains(t, reviewFrameText(t, m), "package greet", "and the line still reads the same")
 }
 
 // TestReviewComposerOwnsTheKeyboard covers typing a message: while the editor is up nothing

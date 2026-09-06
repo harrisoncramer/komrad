@@ -415,11 +415,17 @@ type recordingTmux struct {
 	broken       []string
 	killed       []string
 	deadPanes    map[string]bool
+	zoomed       bool
+	zooms        []bool
 }
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int      { return t.width }
-func (t *recordingTmux) GetPaneHeight(string) int     { return t.height }
+func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
+	t.zoomed = on
+	t.zooms = append(t.zooms, on)
+}
+func (t *recordingTmux) GetPaneHeight(string) int { return t.height }
 
 func (t *recordingTmux) SplitRight(anchor, _, size string) string {
 	return t.recordSplit("right", anchor, size)
@@ -467,3 +473,57 @@ func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
 func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
 func (t *recordingTmux) BreakPane(pane string)           { t.broken = append(t.broken, pane) }
 func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.killed, pane) }
+
+// TestFrameSoloTakesTheWholeWindow covers a screen that draws its own split: the panes it was
+// sharing with are covered rather than closed, and giving the window back uncovers them.
+func TestFrameSoloTakesTheWholeWindow(t *testing.T) {
+	tmux := &recordingTmux{}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+
+	stage := frame.Pane(RegionStage)
+	tmux.zooms = nil
+
+	frame.Solo(true)
+	assert.True(t, frame.IsSolo())
+	assert.True(t, tmux.zoomed)
+	assert.Equal(t, stage, frame.Pane(RegionStage), "the pane underneath is still the frame's")
+
+	frame.Solo(false)
+	assert.False(t, frame.IsSolo())
+	assert.Equal(t, []bool{true, false}, tmux.zooms)
+}
+
+// TestFrameAttachGivesTheWindowBack covers a panel that died holding the window, since the next
+// one starts on a screen that never asked for it.
+func TestFrameAttachGivesTheWindowBack(t *testing.T) {
+	tmux := &recordingTmux{zoomed: true}
+
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
+
+	assert.False(t, tmux.zoomed)
+}
+
+// TestFrameSidebarWidthResolvesTheConfiguredShare covers the columns a screen holding the window
+// lays its own split out against, which the spec knows only as a share until there is a window.
+func TestFrameSidebarWidthResolvesTheConfiguredShare(t *testing.T) {
+	tests := []struct {
+		name  string
+		width float64
+		total int
+		want  int
+	}{
+		{name: "a share of the window", width: 0.25, total: 200, want: 50},
+		{name: "a count of columns is taken as it is", width: 40, total: 200, want: 40},
+		{name: "and never more than the window holds", width: 400, total: 200, want: 200},
+		{name: "an unmeasured window has no columns to divide", width: 0.25, total: 0, want: 0},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			frame := New(&recordingTmux{}, config.Layout{SidebarWidth: tt.width})
+
+			assert.Equal(t, tt.want, frame.SidebarWidth(tt.total))
+		})
+	}
+}

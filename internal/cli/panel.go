@@ -77,7 +77,6 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				StartupErr:      startupErr,
 				StartupFindings: startupFindings,
 				Pane:            state.env.TmuxPane,
-				Self:            getSelfPath(),
 			})
 		},
 	}

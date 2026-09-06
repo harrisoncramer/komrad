@@ -179,11 +179,12 @@ func (m model) detailsView() string {
 }
 
 func (m model) detailsRule() string {
-	if m.width <= 0 {
+	width := m.paneWidth()
+	if width <= 0 {
 		return "\n"
 	}
 
-	return dimStyle.Render(strings.Repeat("─", m.width)) + "\n"
+	return dimStyle.Render(strings.Repeat("─", width)) + "\n"
 }
 
 func (m model) detailsTitle(held details) string {
@@ -220,11 +221,11 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 }
 
 func (m model) lineWidth() int {
-	if m.width <= 0 {
+	if m.paneWidth() <= 0 {
 		return nameWidth
 	}
 
-	return m.width
+	return m.paneWidth()
 }
 
 func labelColumn(fields []recordField) int {

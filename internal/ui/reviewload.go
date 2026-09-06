@@ -10,7 +10,6 @@ import (
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
-	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 
@@ -62,11 +61,12 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		agentName: agent.Name,
 		dir:       agent.Cwd,
 		exclude:   worktree.DiffExclude,
-		frames:    &reviewFrames{},
 		editor:    editor,
 		loading:   true,
 	}
-	m.frame.Show(layout.RegionStage, newTextContent("_loading the diff…_"))
+	// The review draws the diff and the sidebar itself, so it takes the window off the panes it
+	// would otherwise be sharing with.
+	m.frame.Solo(true)
 
 	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
@@ -77,6 +77,7 @@ func (m *model) refuseReview(err error) {
 	name := m.review.agentName
 	m.review = reviewState{}
 
+	m.frame.Solo(false)
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
@@ -305,7 +306,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		m.review.restore = nil
 	}
 
-	m.stageReview()
+	m.scrollReviewToCursor()
 
 	// A checkout weave already owns is the one on screen, so only a screen opening on an agent it
 	// holds nothing for has an earlier sitting's work to look for.
@@ -352,7 +353,7 @@ func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 	m.review.view.PinThreads(threads)
 	m.keepReviewCursor(place, ok)
 
-	m.stageReview()
+	m.scrollReviewToCursor()
 }
 
 // keepReviewCursor puts the cursor back on what it was standing on, and failing that, back
@@ -389,6 +390,8 @@ func (m model) reloadReview() (model, tea.Cmd) {
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
 	reap := m.reapRoundCmd(m.review.root, m.review.roundDir)
 	m.review = reviewState{}
+
+	m.frame.Solo(false)
 
 	next, cmd := m.returnToAgents()
 

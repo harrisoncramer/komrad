@@ -104,8 +104,8 @@ func TestReviewEditorOpensTheRoundsCopy(t *testing.T) {
 	assert.Contains(t, opened, "vi +1 'greet.go'")
 	assert.Equal(t, []string{"%2"}, tmux.selected, "the editor is what the user types into")
 
-	// The stage gave rows up to the split, so the diff is drawn again at what it is left with.
-	assert.Equal(t, "weave stage "+reviewStagePath, tmux.respawns[len(tmux.respawns)-1])
+	// The editor is a pane of its own, so the window goes back to being shared while it is up.
+	assert.False(t, tmux.zoomed)
 }
 
 // TestReviewEditorChecksTheRoundOut pins what the editor is opened on: a detached checkout of the
@@ -668,11 +668,11 @@ func drainCmd(cmd tea.Cmd) {
 	}
 }
 
-// TestReviewKeepsDrawingAfterAReload pins the diff repainting after a reload, since a reload
-// that drops the pane measurement leaves it frozen while the sidebar keeps moving.
+// TestReviewKeepsDrawingAfterAReload pins the diff still being drawn after a reload, since a
+// reload that lost the patch would leave the sidebar moving over an empty half.
 func TestReviewKeepsDrawingAfterAReload(t *testing.T) {
 	dir := reviewRepo(t)
-	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	reloaded, cmd := m.reloadReview()
@@ -685,13 +685,13 @@ func TestReviewKeepsDrawingAfterAReload(t *testing.T) {
 	m = reloaded
 	m.applyReviewLoaded(loaded)
 
-	require.NotZero(t, m.review.frames.width, "the stage is still measured")
+	_, ok = m.reviewSplit()
+	require.True(t, ok, "the window is still divided between the diff and the sidebar")
 
-	before := len(tmux.sentKeys)
 	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 
-	assert.Greater(t, len(tmux.sentKeys), before, "the move tells the drawer to read the new screenful")
 	assert.NotEqual(t, m.review.cursor, moved.(model).review.cursor, "and the cursor actually moved")
+	assert.Contains(t, reviewFrameText(t, moved.(model)), "greet.go", "and the diff is still drawn")
 }
 
 // TestReviewEditReadsUnchangedFileQuietly covers closing the editor without having saved

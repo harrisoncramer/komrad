@@ -86,9 +86,8 @@ func TestReviewRecordCopiesAField(t *testing.T) {
 	assert.NotZero(t, copied.(model).details.flashed)
 }
 
-// TestReviewDimsTheCursorWhileTheRecordHasTheKeys covers the one thing this screen has to do for
-// itself: the diff is a pane of its own, so a cursor left painted as it was reads as though the
-// keys were still on it.
+// TestReviewDimsTheCursorWhileTheRecordHasTheKeys covers the cursor row saying where the keys
+// are, since a cursor left painted as it was reads as though they were still on the diff.
 func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -98,8 +97,7 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	lipgloss.SetColorProfile(termenv.TrueColor)
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
 
-	m.stageReview()
-	live := reviewStageRaw(t)
+	live := reviewFrameRaw(t, m)
 
 	respawns := len(tmux.respawns)
 	tmux.sentKeys = nil
@@ -108,16 +106,17 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	focused := next.(model)
 	require.True(t, focused.isDetailsFocused())
 
-	dim := reviewStageRaw(t)
+	dim := reviewFrameRaw(t, focused)
 	assert.NotEqual(t, live, dim, "the cursor row is painted differently while the keys are away")
-	assert.Len(t, tmux.respawns, respawns, "the pager is left running")
-	assert.Equal(t, []string{"%1 R"}, tmux.sentKeys, "and told to re-read the screen")
-	assert.Equal(t, tmux.height, reviewStageRows(t))
+	assert.Len(t, tmux.respawns, respawns, "nothing is respawned")
+	assert.Empty(t, tmux.sentKeys, "and nothing is tapped to re-read a file")
+	assert.Equal(t, m.height, reviewFrameRows(t, focused))
 
 	next, _ = focused.Update(keyMsg("ctrl+t"))
-	require.False(t, next.(model).isDetailsFocused())
+	back := next.(model)
+	require.False(t, back.isDetailsFocused())
 
-	assert.Equal(t, live, reviewStageRaw(t), "and painted back when the keys come back")
+	assert.Equal(t, live, reviewFrameRaw(t, back), "and painted back when the keys come back")
 }
 
 // TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped, since
@@ -238,4 +237,35 @@ func fieldValue(t *testing.T, held details, label string) string {
 	t.Fatalf("the record carries no %q field", label)
 
 	return ""
+}
+
+// TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff covers the narrow window: the
+// sidebar is what the screen is for, so the diff gives way rather than both halves being
+// squeezed into something neither can be read in.
+func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	split, ok := m.reviewSplit()
+	require.True(t, ok)
+	assert.Equal(t, 40, split.sidebar, "a fifth of the window")
+	assert.Equal(t, 160, split.diff)
+	assert.Equal(t, 40, m.paneWidth(), "which is the column the sidebar is laid out in")
+
+	// A fifth of this window is a column of single words, so the sidebar takes what it needs and
+	// the diff keeps the rest.
+	m.width = 120
+
+	split, ok = m.reviewSplit()
+	require.True(t, ok)
+	assert.Equal(t, nameWidth, split.sidebar)
+	assert.Equal(t, 90, split.diff)
+
+	m.width = 45
+
+	_, ok = m.reviewSplit()
+	assert.False(t, ok, "there is no room for a conversation and a gutter both")
+	assert.Equal(t, 45, m.paneWidth(), "so the sidebar takes the window")
+	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "and the diff waits")
 }

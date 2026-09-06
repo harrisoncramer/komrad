@@ -13,6 +13,7 @@ type Frame struct {
 	stage   string
 	info    string
 	guest   string
+	solo    bool
 	shown   map[Region]shown
 }
 
@@ -37,6 +38,10 @@ func (f *Frame) Attach(sidebar string) {
 	f.sidebar = sidebar
 	f.reclaim()
 	f.claimStage()
+
+	// A panel that died holding the window leaves the zoom behind it, and the next one starts on
+	// a screen that never asked for it.
+	f.Solo(false)
 }
 
 // Pane is the pane the frame holds for a region, which for the stage is its own pane even while
@@ -133,6 +138,24 @@ func (f *Frame) Show(region Region, content Content) {
 		height: target.Height,
 	}
 }
+
+// Solo gives the sidebar the whole window, or hands the other panes their share back, covering
+// the panes it takes it from rather than closing them.
+func (f *Frame) Solo(on bool) {
+	if f.sidebar == "" {
+		return
+	}
+
+	f.solo = on
+	f.tmux.SetPaneZoomed(f.sidebar, on)
+}
+
+// IsSolo reports whether the sidebar is holding the whole window.
+func (f *Frame) IsSolo() bool { return f.solo }
+
+// SidebarWidth is how many columns the sidebar draws in when it is holding a window of the
+// given width, which is what a screen splitting the window itself lays itself out against.
+func (f *Frame) SidebarWidth(total int) int { return f.spec.SidebarWidth(total) }
 
 // ShowGuest swaps a pane somebody else owns into the stage.
 func (f *Frame) ShowGuest(pane string) {

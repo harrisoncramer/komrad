@@ -271,6 +271,30 @@ func (c *Client) ResizePane(pane, width string) {
 	c.run("resize-pane", "-t", pane, "-x", width)
 }
 
+// SetPaneZoomed gives a pane the whole window or hands the others their share back, which is
+// how the panel takes the window over for a screen that draws its own split.
+func (c *Client) SetPaneZoomed(pane string, zoomed bool) {
+	if pane == "" || c.IsPaneZoomed(pane) == zoomed {
+		return
+	}
+
+	c.run("resize-pane", "-Z", "-t", pane)
+}
+
+// IsPaneZoomed reports whether a pane is the one currently filling its window.
+func (c *Client) IsPaneZoomed(pane string) bool {
+	if pane == "" {
+		return false
+	}
+
+	out, err := c.query("display-message", "-p", "-t", pane, "#{&&:#{window_zoomed_flag},#{pane_active}}")
+	if err != nil {
+		return false
+	}
+
+	return out == "1"
+}
+
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
 // returns its pane id.
 func (c *Client) NewWindow(session, name, dir string) (string, error) {

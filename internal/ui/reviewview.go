@@ -75,9 +75,24 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	return reviewDelivery{style: dimStyle}
 }
 
-// reviewView draws the sidebar while the review is up, which is the thread the cursor is
-// standing on and the line it hangs off, since the diff itself is in the stage.
+// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame
+// so that the cursor and the conversation under it can never disagree about the line being read.
 func (m model) reviewView() string {
+	// Trimmed so the two halves are the same height, since a trailing newline is a row the
+	// sidebar block would have and the diff beside it would not.
+	sidebar := strings.TrimRight(m.reviewSidebarView(), "\n")
+
+	split, ok := m.reviewSplit()
+	if !ok {
+		return sidebar
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, m.reviewDiffView(split), sidebar)
+}
+
+// reviewSidebarView is the panel's own column: where the cursor is standing and the thread
+// hanging off it.
+func (m model) reviewSidebarView() string {
 	header := m.reviewHeader()
 	help := m.renderHelp(m.reviewHelp())
 
@@ -152,7 +167,7 @@ func (m model) reviewStaleView() string {
 // reviewFill pads a line out to the sidebar's width, so a background colour reads as a bar
 // rather than as a highlighted phrase.
 func (m model) reviewFill(line string) string {
-	width := max(20, m.width-2)
+	width := max(20, m.paneWidth()-2)
 	if run := lipgloss.Width(line); run < width {
 		line += strings.Repeat(" ", width-run)
 	}
@@ -490,7 +505,7 @@ func (m model) reviewFields() []recordField {
 }
 
 func (m model) reviewWrap(body string) string {
-	return lipgloss.NewStyle().Width(max(20, m.width-2)).Render(body)
+	return lipgloss.NewStyle().Width(max(20, m.paneWidth()-2)).Render(body)
 }
 
 func reviewTimeOf(stamp string) string {

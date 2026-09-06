@@ -67,9 +67,6 @@ type Deps struct {
 	StartupErr      error
 	StartupFindings []errui.Finding
 	Pane            string
-
-	// Self is the weave binary, which the panel runs in the stage pane to draw into it.
-	Self string
 }
 
 type model struct {
@@ -115,8 +112,6 @@ type model struct {
 	runLogsDir      string
 	roundsDir       string
 	pane            string
-	// self is the weave binary, which the panel runs in the stage pane to draw into it.
-	self string
 	// shell is what tmux starts a pane's process with, read once since the terminal has to name
 	// it rather than leave the pane to rerun whatever was in it last.
 	shell string
@@ -149,7 +144,6 @@ func newModel(deps Deps, isDark bool) model {
 		runLogsDir:      deps.RunLogsDir,
 		roundsDir:       deps.RoundsDir,
 		pane:            deps.Pane,
-		self:            deps.Self,
 		keys:            deps.Keys,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,

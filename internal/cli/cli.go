@@ -141,7 +141,6 @@ the machine, start or stop the service, or call an endpoint from a script.`,
 		rpcCmd(app),
 		hookCmd(app),
 		traceCmd(app),
-		stageCmd(app),
 	)
 
 	return root

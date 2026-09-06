@@ -59,23 +59,25 @@ func TestReviewRefreshDrawsAnAnswer(t *testing.T) {
 }
 
 // TestReviewRefreshDoesNothingWhenNothingWasSaid pins the cheap probe: repinning walks every row
-// of the patch, so a tick that finds the conversation where it left it must not redraw.
+// of the patch, so a tick that finds the conversation where it left it must not do it again.
 func TestReviewRefreshDoesNothingWhenNothingWasSaid(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
-	m, tmux := reviewModel(t, agents, dir)
+	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	agents.threads = reviewReply(t, m)
-	m.applyReviewThreads(agents.threads)
+	held := reviewReply(t, m)
+	m.applyReviewThreads(held)
 
-	tmux.sentKeys = nil
+	// The tick answers with an equal conversation built fresh, so what the model is holding
+	// afterwards says whether the probe let it through.
+	agents.threads = reviewReply(t, m)
 
 	refreshed, ok := m.refreshReviewThreadsCmd()().(reviewRefreshedMsg)
 	require.True(t, ok)
 	m.applyReviewRefreshed(refreshed)
 
-	assert.Empty(t, tmux.sentKeys, "the same conversation is not drawn again")
+	assert.Same(t, held[0], m.review.threads[0], "the same conversation is not pinned again")
 }
 
 // TestReviewRefreshSeesDeliveryMoveWithoutAStamp is the probe's hard case: the agent claiming
@@ -93,7 +95,7 @@ func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := reviewRepo(t)
 			agents := &fakeReviewAgents{}
-			m, tmux := reviewModel(t, agents, dir)
+			m, _ := reviewModel(t, agents, dir)
 			m = openReview(t, m)
 
 			sent := reviewComment(t, m, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT)
@@ -103,10 +105,9 @@ func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 			require.Equal(t, sent[0].GetUpdatedAt(), moved[0].GetUpdatedAt(), "no row was written")
 			require.Len(t, moved[0].GetMessages(), len(sent[0].GetMessages()), "and none was added")
 
-			tmux.sentKeys = nil
 			m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: moved})
 
-			assert.NotEmpty(t, tmux.sentKeys, "the screen is drawn again")
+			assert.Same(t, moved[0], m.review.threads[0], "the move is taken")
 			assert.Contains(t, ansi.Strip(m.reviewView()), reviewDeliveryOf(tt.then).word)
 		})
 	}

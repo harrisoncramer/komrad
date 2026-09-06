@@ -28,7 +28,6 @@ type reviewState struct {
 	// top is the first row the pane is showing, held rather than derived from the cursor, since
 	// deriving it centres the cursor and repaints every row on every move.
 	top       int
-	frames    *reviewFrames
 	composing bool
 	// releasing is set while the panel is asking what to send, which is one editor for a word
 	// about the work as a whole and one choice of verdict.
