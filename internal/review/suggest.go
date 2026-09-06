@@ -1,6 +1,12 @@
 package review
 
-import "strings"
+import (
+	"slices"
+	"strconv"
+	"strings"
+
+	"weave/internal/git"
+)
 
 // Suggestion is the replacement a reviewer proposes for a run of lines, held in the round's own
 // line numbers since that is what the comment carrying it is pinned to.
@@ -11,43 +17,47 @@ type Suggestion struct {
 	Lines    []string
 }
 
+// Key identifies one proposal, so that a suggestion already sent or already turned down is not
+// offered again while the reviewer's text is still sitting in the checkout.
+func (s Suggestion) Key() string {
+	return strings.Join(append([]string{
+		s.FilePath,
+		strconv.Itoa(s.NewStart),
+		strconv.Itoa(s.NewEnd),
+	}, s.Lines...), "\x00")
+}
+
 // SplitSource cuts a file into the lines a suggestion is measured in, dropping the newline the
-// last line ends on so that both sides of the comparison are cut the same way.
+// last line ends on, which is deliberate: an editor that adds a final newline the round did not
+// have has not proposed anything and must not read as though it had.
 func SplitSource(source string) []string {
 	return strings.Split(strings.TrimSuffix(source, "\n"), "\n")
 }
 
-// Suggest is the one replacement covering everything between the first and last line the reviewer
-// changed, which is a range a comment can be pinned to however many separate edits they made.
-func Suggest(filePath string, round, edited []string) (Suggestion, bool) {
-	if len(round) == 0 {
+// Suggest is what one run of edited lines proposes, widened onto the neighbouring line when the
+// run puts lines in without replacing any, and refused when it proposes what the round already has.
+func Suggest(edit git.Edit, round []string) (Suggestion, bool) {
+	if len(round) == 0 || edit.Start < 1 && edit.End < 1 {
 		return Suggestion{}, false
-	}
-
-	prefix := 0
-	for prefix < len(round) && prefix < len(edited) && round[prefix] == edited[prefix] {
-		prefix++
-	}
-
-	if prefix == len(round) && prefix == len(edited) {
-		return Suggestion{}, false
-	}
-
-	suffix := 0
-	for suffix < len(round)-prefix && suffix < len(edited)-prefix &&
-		round[len(round)-1-suffix] == edited[len(edited)-1-suffix] {
-		suffix++
 	}
 
 	suggestion := Suggestion{
-		FilePath: filePath,
-		NewStart: prefix + 1,
-		NewEnd:   len(round) - suffix,
-		Lines:    edited[prefix : len(edited)-suffix],
+		FilePath: edit.Path,
+		NewStart: edit.Start,
+		NewEnd:   edit.End,
+		Lines:    edit.Lines,
 	}
 
 	if suggestion.NewEnd < suggestion.NewStart {
-		return widen(suggestion, round), true
+		suggestion = widen(suggestion, round)
+	}
+
+	if suggestion.NewStart < 1 || suggestion.NewEnd > len(round) {
+		return Suggestion{}, false
+	}
+
+	if slices.Equal(suggestion.Lines, round[suggestion.NewStart-1:suggestion.NewEnd]) {
+		return Suggestion{}, false
 	}
 
 	return suggestion, true
@@ -65,7 +75,7 @@ func widen(suggestion Suggestion, round []string) Suggestion {
 	}
 
 	suggestion.NewStart, suggestion.NewEnd = 1, 1
-	suggestion.Lines = append(append([]string{}, suggestion.Lines...), round[0])
+	suggestion.Lines = append(slices.Clone(suggestion.Lines), round[0])
 
 	return suggestion
 }

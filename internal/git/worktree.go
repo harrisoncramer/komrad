@@ -12,8 +12,8 @@ import (
 func Materialise(ctx context.Context, dir, sha, at string) error {
 	// A checkout already on the commit is left exactly as it is, since what the reviewer has
 	// typed into it is the suggestion they are still writing.
-	if head, err := Run(ctx, at, "rev-parse", "HEAD"); err == nil {
-		if head == sha {
+	if isWorktreeAt(ctx, at) {
+		if head, err := Run(ctx, at, "rev-parse", "HEAD"); err == nil && head == sha {
 			return nil
 		}
 
@@ -35,6 +35,23 @@ func Materialise(ctx context.Context, dir, sha, at string) error {
 	}
 
 	return nil
+}
+
+// isWorktreeAt reports whether a path is the top of a checkout rather than somewhere inside one,
+// since git answers about the repository it finds walking up and a force checkout of the enclosing
+// repository would throw away whatever that tree held.
+func isWorktreeAt(ctx context.Context, at string) bool {
+	top, err := Run(ctx, at, "rev-parse", "--show-toplevel")
+	if err != nil {
+		return false
+	}
+
+	here, err := filepath.EvalSymlinks(at)
+	if err != nil {
+		return false
+	}
+
+	return top == here
 }
 
 // Reap takes a materialised worktree away along with the record git keeps of it, and says nothing

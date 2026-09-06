@@ -85,6 +85,32 @@ func TestMaterialiseKeepsWhatTheReviewerWrote(t *testing.T) {
 	assert.Contains(t, string(held), "TheReviewersIdea")
 }
 
+// TestMaterialiseWillNotCheckOutAnEnclosingRepository covers the path being somewhere inside a
+// repository of its own: git answers about whatever it finds walking up, so a force checkout there
+// would detach that tree onto the round and throw away everything uncommitted in it.
+func TestMaterialiseWillNotCheckOutAnEnclosingRepository(t *testing.T) {
+	root := repo(t)
+	write(t, root, "kept.go", "package main\n\nfunc Frozen() {}\n")
+
+	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	// The agent keeps working, so the tree now holds something no commit does.
+	write(t, root, "kept.go", "package main\n\nfunc MovedOn() {}\n")
+	write(t, root, "rounds/a1/leftover.txt", "not ours\n")
+
+	at := filepath.Join(root, "rounds", "a1")
+	require.NoError(t, Materialise(t.Context(), root, snapshot.SHA, at))
+
+	held, err := os.ReadFile(filepath.Join(at, "kept.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "Frozen", "the round is what got checked out")
+
+	outside, err := os.ReadFile(filepath.Join(root, "kept.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(outside), "MovedOn", "and the agent's own work survived it")
+}
+
 // TestReapTakesTheRecordWithTheDirectory covers what makes the next checkout possible: git's own
 // record of the worktree goes with the files, and a directory that was never there is no error.
 func TestReapTakesTheRecordWithTheDirectory(t *testing.T) {

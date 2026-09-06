@@ -79,15 +79,23 @@ type reviewState struct {
 	since string
 	err   error
 
-	// roundDir is where the round has been checked out for the editor to read, empty until the
-	// first edit asks for one, and taken away again when the screen closes.
+	// roundDir is where the round has been checked out for the editor to read, named after the
+	// agent rather than the round so that it outlives a reload and is still there to be taken
+	// away when the screen closes.
 	roundDir string
-	// editingFile is the round's copy the editor was last opened on, which is compared against
-	// the round when it closes.
-	editingFile string
-	// suggestion is what the reviewer changed in the round's copy, held until a comment carries
-	// it to the agent.
-	suggestion *pendingSuggestion
+	// materialising is set while that checkout is being made, so a second press does not start a
+	// second one against the same directory.
+	materialising bool
+	// suggestions are the runs the reviewer wrote into the checkout, each waiting for a comment
+	// of its own to carry it to the agent.
+	suggestions []pendingSuggestion
+	// settled is every proposal already sent or turned down, so that reading the checkout again
+	// does not offer back what the reviewer has already answered for.
+	settled map[string]bool
+	// adrift is what the reviewer wrote on lines the diff does not draw, which stands on screen
+	// rather than answering a keypress, since the text is still in the checkout and saying so
+	// once would scroll away before they could act on it.
+	adrift []review.Suggestion
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
 	// the reader back where they left rather than at the top of the diff.
@@ -118,6 +126,17 @@ type reviewState struct {
 type pendingSuggestion struct {
 	anchor review.Anchor
 	lines  []string
+}
+
+// key is what settles this proposal, matching the suggestion it was built from so that reading the
+// checkout again does not offer it back.
+func (p pendingSuggestion) key() review.Suggestion {
+	return review.Suggestion{
+		FilePath: p.anchor.FilePath,
+		NewStart: p.anchor.NewStart,
+		NewEnd:   p.anchor.NewEnd,
+		Lines:    p.lines,
+	}
 }
 
 // reviewActivity is the cheap probe a conversation refresh is decided on, since repinning walks
@@ -466,11 +485,17 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	// to be given it back, once the marks and the threads have settled the rows it walks.
 	m.review.view.SetPattern(m.review.filter.pattern)
 
-	// A new round is a different snapshot, so the checkout cut for the last one is stale and the
-	// edit held against it no longer names lines of what is on screen.
+	// Explainer: A new round is a different snapshot, so an edit held against the last one no
+	// longer names lines of what is on screen. The checkout itself is kept, since it is named
+	// after the agent and is moved onto the new snapshot the next time the editor asks for it.
 	if m.review.round.GetSnapshotSha() != msg.round.GetSnapshotSha() {
-		m.review.roundDir = ""
-		m.review.suggestion = nil
+		if len(m.review.suggestions) > 0 {
+			m.review.notice = "the round moved on, so your edits of the last one were dropped"
+		}
+
+		m.review.suggestions = nil
+		m.review.settled = nil
+		m.review.adrift = nil
 	}
 
 	m.review.threads = msg.threads
@@ -962,7 +987,7 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 // there, opening a new one, or carrying an edit of the round that is waiting to be sent, which
 // takes precedence over both since it is pinned where it was made rather than under the cursor.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
-	held := m.review.suggestion != nil
+	held := len(m.review.suggestions) > 0
 	thread, replying := m.reviewThreadAtCursor()
 	replying = replying && !held
 
@@ -1004,18 +1029,38 @@ func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// cancelReviewMessage puts the composer away, dropping an edit of the round with it, since the
+// cancelReviewMessage puts the composer away, turning down the edit it was asking about, since the
 // composer is where weave asks whether to send one and leaving it is the answer.
 func (m model) cancelReviewMessage() model {
 	m.review.editor.Blur()
 	m.review.composing = false
 
-	if m.review.suggestion != nil {
-		m.review.suggestion = nil
-		m.review.notice = "your edit of the round was dropped"
+	if held, ok := m.takeSuggestion(); ok {
+		m.review.notice = "your edit of " +
+			review.FormatLocation(held.anchor.FilePath, held.anchor.OldStart, held.anchor.NewStart) +
+			" was turned down"
 	}
 
 	return m
+}
+
+// takeSuggestion lifts the edit the composer is asking about off the front of the queue and
+// records that it has been answered for, so reading the checkout again does not offer it back.
+func (m *model) takeSuggestion() (pendingSuggestion, bool) {
+	if len(m.review.suggestions) == 0 {
+		return pendingSuggestion{}, false
+	}
+
+	held := m.review.suggestions[0]
+	m.review.suggestions = m.review.suggestions[1:]
+
+	if m.review.settled == nil {
+		m.review.settled = map[string]bool{}
+	}
+
+	m.review.settled[held.key().Key()] = true
+
+	return held, true
 }
 
 func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
@@ -1024,13 +1069,12 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		return m.cancelReviewMessage(), nil
 	}
 
-	suggestion := m.review.suggestion
-	m.review.suggestion = nil
+	held, sending := m.takeSuggestion()
 	m.review.editor.Blur()
 	m.review.composing = false
 
-	if suggestion != nil {
-		return m, m.createReviewThreadCmd(suggestion.anchor, suggestion.lines, body)
+	if sending {
+		return m, m.createReviewThreadCmd(held.anchor, held.lines, body)
 	}
 
 	agents, threadID := m.api.agents, m.review.editing

@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,6 +21,14 @@ const defaultEditor = "vi"
 type roundReadyMsg struct {
 	agentID string
 	dir     string
+	err     error
+}
+
+// roundEditedMsg is what the reviewer has written into the checkout, read back once the editor
+// that was writing it has gone.
+type roundEditedMsg struct {
+	agentID string
+	edits   []git.Edit
 	err     error
 }
 
@@ -59,6 +66,14 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	}
 
 	if m.review.roundDir == "" {
+		// A second press while the first checkout is still being made would run two of them at
+		// the same path, where one reaps the directory the other is writing into.
+		if m.review.materialising {
+			return m, nil
+		}
+
+		m.review.materialising = true
+
 		return m, m.materialiseRoundCmd()
 	}
 
@@ -66,7 +81,6 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.review.editingFile = path
 	m.frame.Show(layout.RegionInfo, editorContent(m.editor, m.review.roundDir, path, line))
 	m.remeasureReview()
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
@@ -98,6 +112,8 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	if msg.agentID != m.review.agentID || m.review.view == nil {
 		return m, nil
 	}
+
+	m.review.materialising = false
 
 	if msg.err != nil {
 		m.review.notice = "that round could not be checked out to edit"
@@ -131,66 +147,84 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 	}
 }
 
-// reconcileEditor catches the editor pane going away on its own and puts the diff behind it back
-// on screen at the size the stage is left with.
-func (m model) reconcileEditor() model {
-	if !m.reconcileInfo() || m.screen != screenReview {
-		return m
+// readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather than
+// the file the editor was opened on, since an editor is free to visit another file.
+func (m model) readRoundEditsCmd() tea.Cmd {
+	agentID, at := m.review.agentID, m.review.roundDir
+	if at == "" {
+		return nil
 	}
 
-	m.readReviewEdit()
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		edits, err := git.Edits(ctx, at)
+
+		return roundEditedMsg{agentID: agentID, edits: edits, err: err}
+	}
+}
+
+// reconcileEditor catches the editor pane going away on its own and puts the diff behind it back
+// on screen at the size the stage is left with.
+func (m model) reconcileEditor() (model, tea.Cmd) {
+	if !m.reconcileInfo() || m.screen != screenReview {
+		return m, nil
+	}
+
 	m.remeasureReview()
 
-	return m
+	return m, m.readRoundEditsCmd()
 }
 
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m = m.closeInfo()
-	m.readReviewEdit()
 	m.remeasureReview()
 
-	return m, nil
+	return m, m.readRoundEditsCmd()
 }
 
-// readReviewEdit turns whatever the reviewer changed in the round's copy into a suggestion waiting
-// for a comment to carry it, and clears the one already held when they put the file back.
-func (m *model) readReviewEdit() {
-	path := m.review.editingFile
-	m.review.editingFile = ""
-
-	if path == "" || m.review.roundDir == "" || m.review.view == nil {
+// applyRoundEdited holds every run the reviewer wrote as a suggestion of its own, so that two
+// changes to one file are two proposals rather than one span swallowing the code between them.
+func (m *model) applyRoundEdited(msg roundEditedMsg) {
+	if msg.agentID != m.review.agentID || m.review.view == nil {
 		return
 	}
 
-	source, ok := m.review.view.GetSource(path)
-	if !ok {
-		return
-	}
-
-	edited, err := os.ReadFile(filepath.Join(m.review.roundDir, path))
-	if err != nil {
-		m.review.notice = "the round's copy of that file could not be read back"
+	if msg.err != nil {
+		m.review.notice = "what you wrote in the round could not be read back"
 
 		return
 	}
 
-	suggestion, changed := review.Suggest(path, review.SplitSource(source), review.SplitSource(string(edited)))
-	if !changed {
-		if m.review.suggestion != nil && m.review.suggestion.anchor.FilePath == path {
-			m.review.suggestion = nil
+	m.review.suggestions, m.review.adrift = m.holdSuggestions(msg.edits)
+}
+
+// holdSuggestions turns the runs into proposals, dropping the ones already sent or turned down and
+// answering separately with the ones the diff has no line for.
+func (m model) holdSuggestions(edits []git.Edit) (held []pendingSuggestion, adrift []review.Suggestion) {
+	for _, edit := range edits {
+		source, ok := m.review.view.GetSource(edit.Path)
+		if !ok {
+			continue
 		}
 
-		return
+		suggestion, ok := review.Suggest(edit, review.SplitSource(source))
+		if !ok || m.review.settled[suggestion.Key()] {
+			continue
+		}
+
+		anchor, ok := m.review.view.GetRangeAnchor(edit.Path, suggestion.NewStart, suggestion.NewEnd)
+		if !ok {
+			adrift = append(adrift, suggestion)
+
+			continue
+		}
+
+		held = append(held, pendingSuggestion{anchor: *anchor, lines: suggestion.Lines})
 	}
 
-	anchor, ok := m.review.view.GetRangeAnchor(path, suggestion.NewStart, suggestion.NewEnd)
-	if !ok {
-		m.review.notice = "that edit is outside the diff, so there is nowhere to pin it"
-
-		return
-	}
-
-	m.review.suggestion = &pendingSuggestion{anchor: *anchor, lines: suggestion.Lines}
+	return held, adrift
 }
 
 // remeasureReview draws the diff again at the size the stage is left with, since the drawer is

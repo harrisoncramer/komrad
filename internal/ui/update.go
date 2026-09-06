@@ -131,11 +131,13 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, readRuns := next.dwellRunsRead(msg.at)
 		reviewing := next.refreshReviewCmd(msg.at)
 		mailing := next.refreshMailCmd()
-		next = next.reconcileEditor()
+		next, edited := next.reconcileEditor()
 
-		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing), true
+		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing, edited), true
 	case tea.FocusMsg:
-		return m.reconcileEditor(), nil, true
+		next, cmd := m.reconcileEditor()
+
+		return next, cmd, true
 	case refreshResult:
 		m.applyRefresh(msg)
 
@@ -164,6 +166,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, cmd := m.applyRoundReady(msg)
 
 		return next, cmd, true
+	case roundEditedMsg:
+		m.applyRoundEdited(msg)
+
+		return m, nil, true
 	case reviewDiffPolledMsg:
 		m.applyReviewDiffPolled(msg)
 

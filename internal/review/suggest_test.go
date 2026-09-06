@@ -4,52 +4,53 @@ import (
 	"testing"
 
 	"weave/internal/diff"
+	"weave/internal/git"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// TestSuggestIsTheSpanBetweenTheFirstAndLastChange covers what a reviewer's edit of the round
-// comes to, including the two edges a range holding nothing has to be widened onto.
-func TestSuggestIsTheSpanBetweenTheFirstAndLastChange(t *testing.T) {
+// TestSuggestIsOneRunOfChangedLines covers what a run the reviewer wrote comes to, including the
+// two edges where a run replaces nothing and has to be widened onto a line beside it.
+func TestSuggestIsOneRunOfChangedLines(t *testing.T) {
 	round := []string{"one", "two", "three", "four"}
 
 	tests := []struct {
-		name   string
-		edited []string
-		want   Suggestion
+		name string
+		edit git.Edit
+		want Suggestion
 	}{
 		{
-			name:   "one line rewritten",
-			edited: []string{"one", "TWO", "three", "four"},
-			want:   Suggestion{NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}},
+			name: "one line rewritten",
+			edit: git.Edit{Path: "greet.go", Start: 2, End: 2, Lines: []string{"TWO"}},
+			want: Suggestion{NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}},
 		},
 		{
-			name:   "two edits are one span, carrying what is between them",
-			edited: []string{"ONE", "two", "three", "FOUR"},
-			want:   Suggestion{NewStart: 1, NewEnd: 4, Lines: []string{"ONE", "two", "three", "FOUR"}},
+			name: "a run of lines rewritten",
+			edit: git.Edit{Path: "greet.go", Start: 2, End: 3, Lines: []string{"TWO", "THREE"}},
+			want: Suggestion{NewStart: 2, NewEnd: 3, Lines: []string{"TWO", "THREE"}},
 		},
 		{
-			name:   "a line taken out",
-			edited: []string{"one", "three", "four"},
-			want:   Suggestion{NewStart: 2, NewEnd: 2, Lines: nil},
+			name: "a line taken out",
+			edit: git.Edit{Path: "greet.go", Start: 2, End: 2},
+			want: Suggestion{NewStart: 2, NewEnd: 2, Lines: nil},
 		},
 		{
-			name:   "a line put in replaces the one above it",
-			edited: []string{"one", "two", "extra", "three", "four"},
-			want:   Suggestion{NewStart: 2, NewEnd: 2, Lines: []string{"two", "extra"}},
+			name: "a line put in replaces the one above it",
+			edit: git.Edit{Path: "greet.go", Start: 3, End: 2, Lines: []string{"extra"}},
+			want: Suggestion{NewStart: 2, NewEnd: 2, Lines: []string{"two", "extra"}},
 		},
 		{
-			name:   "a line put in at the top replaces the one below it",
-			edited: []string{"extra", "one", "two", "three", "four"},
-			want:   Suggestion{NewStart: 1, NewEnd: 1, Lines: []string{"extra", "one"}},
+			name: "a line put in at the top replaces the one below it",
+			edit: git.Edit{Path: "greet.go", Start: 1, End: 0, Lines: []string{"extra"}},
+			want: Suggestion{NewStart: 1, NewEnd: 1, Lines: []string{"extra", "one"}},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, changed := Suggest("greet.go", round, tt.edited)
-			require.True(t, changed)
+			got, ok := Suggest(tt.edit, round)
+			require.True(t, ok)
 
 			assert.Equal(t, "greet.go", got.FilePath)
 			assert.Equal(t, tt.want.NewStart, got.NewStart)
@@ -59,14 +60,37 @@ func TestSuggestIsTheSpanBetweenTheFirstAndLastChange(t *testing.T) {
 	}
 }
 
-// TestSuggestSaysNothingAboutAnUntouchedFile covers the editor closing on a file nobody saved,
-// which proposes nothing rather than an empty replacement.
-func TestSuggestSaysNothingAboutAnUntouchedFile(t *testing.T) {
+// TestSuggestRefusesWhatTheRoundAlreadyHolds covers a run that proposes the lines already there,
+// which is what an editor adding a final newline the round did not have writes.
+func TestSuggestRefusesWhatTheRoundAlreadyHolds(t *testing.T) {
 	round := []string{"one", "two"}
 
-	_, changed := Suggest("greet.go", round, []string{"one", "two"})
+	_, ok := Suggest(git.Edit{Path: "greet.go", Start: 2, End: 2, Lines: []string{"two"}}, round)
 
-	assert.False(t, changed)
+	assert.False(t, ok)
+}
+
+// TestSuggestRefusesARunPastTheEndOfTheRound covers a range the round has no lines for, which
+// would otherwise be read off the end of the file it is measured against.
+func TestSuggestRefusesARunPastTheEndOfTheRound(t *testing.T) {
+	round := []string{"one", "two"}
+
+	_, ok := Suggest(git.Edit{Path: "greet.go", Start: 2, End: 9, Lines: []string{"x"}}, round)
+
+	assert.False(t, ok)
+}
+
+// TestSuggestionKeySeparatesOneProposalFromAnother covers what settles a proposal, since the same
+// range proposing different lines is a different thing to answer for.
+func TestSuggestionKeySeparatesOneProposalFromAnother(t *testing.T) {
+	first := Suggestion{FilePath: "greet.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}}
+	same := Suggestion{FilePath: "greet.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}}
+	rewritten := Suggestion{FilePath: "greet.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO AGAIN"}}
+	elsewhere := Suggestion{FilePath: "other.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}}
+
+	assert.Equal(t, first.Key(), same.Key())
+	assert.NotEqual(t, first.Key(), rewritten.Key())
+	assert.NotEqual(t, first.Key(), elsewhere.Key())
 }
 
 // TestGetRangeAnchorRefusesWhatTheDiffDoesNotDraw covers a suggestion made over lines the patch

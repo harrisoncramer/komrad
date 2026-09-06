@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -59,6 +60,31 @@ func pressEdit(t *testing.T, m model) model {
 	return opened.(model)
 }
 
+// closeEdit shuts the editor and walks the read of the checkout that follows it, which is what
+// turns whatever was saved into the suggestions the panel holds.
+func closeEdit(t *testing.T, m model, shut func(model) (tea.Model, tea.Cmd)) model {
+	t.Helper()
+
+	next, cmd := shut(m)
+	m = next.(model)
+	require.NotNil(t, cmd, "closing the editor reads the checkout back")
+
+	edited, ok := cmd().(roundEditedMsg)
+	require.True(t, ok)
+	require.NoError(t, edited.err)
+
+	m.applyRoundEdited(edited)
+
+	return m
+}
+
+// closeEditKey is the ordinary close, by the key that opened it.
+func closeEditKey(t *testing.T, m model) model {
+	t.Helper()
+
+	return closeEdit(t, m, func(m model) (tea.Model, tea.Cmd) { return m.closeReviewEdit() })
+}
+
 // TestReviewEditorOpensTheRoundsCopy covers the editor key: a split under the diff, the round's
 // own copy of the file the cursor is in opened on that line, and the keyboard handed to it.
 func TestReviewEditorOpensTheRoundsCopy(t *testing.T) {
@@ -111,14 +137,13 @@ func TestReviewEditorLeavesTheWorktreeAlone(t *testing.T) {
 	m = pressEdit(t, m)
 	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"the reviewer's idea\"\n}\n")
 
-	next, _ := m.closeReviewEdit()
-	m = next.(model)
+	m = closeEditKey(t, m)
 
 	worktree, err := os.ReadFile(filepath.Join(dir, "greet.go"))
 	require.NoError(t, err)
 
 	assert.NotContains(t, string(worktree), "the reviewer's idea", "the agent's file is untouched")
-	require.NotNil(t, m.review.suggestion, "and the edit is held as a suggestion instead")
+	require.Len(t, m.review.suggestions, 1, "and the edit is held as a suggestion instead")
 }
 
 // TestReviewEditorRunsTheConfiguredEditor covers an EDITOR of several words, which reaches the
@@ -191,7 +216,7 @@ func TestReviewEditCloseHoldsTheEdit(t *testing.T) {
 			close: func(m model) (tea.Model, tea.Cmd) {
 				m.frame.Close(layout.RegionInfo)
 
-				return m.reconcileEditor(), nil
+				return m.reconcileEditor()
 			},
 		},
 	}
@@ -207,11 +232,10 @@ func TestReviewEditCloseHoldsTheEdit(t *testing.T) {
 
 			writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"edited in the editor\"\n}\n")
 
-			closed, _ := tt.close(m)
-			m = closed.(model)
+			m = closeEdit(t, m, tt.close)
 
-			held := m.review.suggestion
-			require.NotNil(t, held, "the edit is held as a suggestion")
+			require.Len(t, m.review.suggestions, 1, "the edit is held as a suggestion")
+			held := m.review.suggestions[0]
 			assert.Equal(t, "greet.go", held.anchor.FilePath)
 			assert.Equal(t, 4, held.anchor.NewStart)
 			assert.Equal(t, 4, held.anchor.NewEnd)
@@ -220,9 +244,9 @@ func TestReviewEditCloseHoldsTheEdit(t *testing.T) {
 	}
 }
 
-// TestReviewEditRevertedDropsTheSuggestion covers the reviewer changing their mind in the editor:
+// TestReviewEditRevertedTakesTheSuggestionBack covers the reviewer changing their mind in the editor:
 // a file put back the way the round holds it proposes nothing.
-func TestReviewEditRevertedDropsTheSuggestion(t *testing.T) {
+func TestReviewEditRevertedTakesTheSuggestionBack(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
@@ -230,16 +254,15 @@ func TestReviewEditRevertedDropsTheSuggestion(t *testing.T) {
 	m = pressEdit(t, m)
 	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"an idea\"\n}\n")
 
-	next, _ := m.closeReviewEdit()
-	m = next.(model)
-	require.NotNil(t, m.review.suggestion)
+	m = closeEditKey(t, m)
+	require.Len(t, m.review.suggestions, 1)
 
 	m = pressEdit(t, m)
 	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n")
 
-	next, _ = m.closeReviewEdit()
+	m = closeEditKey(t, m)
 
-	assert.Nil(t, next.(model).review.suggestion, "putting the file back takes the suggestion with it")
+	assert.Empty(t, m.review.suggestions, "putting the file back takes the suggestion with it")
 }
 
 // TestReviewSuggestionGoesWithTheComment covers the whole point of holding an edit: the comment
@@ -253,13 +276,12 @@ func TestReviewSuggestionGoesWithTheComment(t *testing.T) {
 	m = pressEdit(t, m)
 	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"farewell\"\n}\n")
 
-	next, _ := m.closeReviewEdit()
-	m = next.(model)
+	m = closeEditKey(t, m)
 
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "edit held for greet.go:4", "the sidebar says where it will land")
 
-	next, _ = m.updateReview(composeKey())
+	next, _ := m.updateReview(composeKey())
 	m = next.(model)
 	require.True(t, m.review.composing)
 
@@ -275,12 +297,18 @@ func TestReviewSuggestionGoesWithTheComment(t *testing.T) {
 	assert.Equal(t, int32(4), agents.created.GetNewStart())
 	assert.Equal(t, []string{"\treturn \"farewell\""}, agents.created.GetSuggestion())
 	assert.Equal(t, "say farewell instead", agents.created.GetBody())
-	assert.Nil(t, m.review.suggestion, "and the panel is not still holding it")
+	assert.Empty(t, m.review.suggestions, "and the panel is not still holding it")
+
+	// The reviewer's text is still in the checkout, so reading it again must not offer back what
+	// they have already answered for.
+	m = pressEdit(t, m)
+	m = closeEditKey(t, m)
+	assert.Empty(t, m.review.suggestions, "a proposal already sent is not offered again")
 }
 
-// TestReviewSuggestionDroppedOnCancel covers the composer being the place weave asks whether to
+// TestReviewSuggestionTurnedDownOnCancel covers the composer being the place weave asks whether to
 // send an edit, so leaving it without writing anything is the answer.
-func TestReviewSuggestionDroppedOnCancel(t *testing.T) {
+func TestReviewSuggestionTurnedDownOnCancel(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
@@ -289,14 +317,196 @@ func TestReviewSuggestionDroppedOnCancel(t *testing.T) {
 	m = pressEdit(t, m)
 	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"farewell\"\n}\n")
 
-	next, _ := m.closeReviewEdit()
-	next, _ = next.(model).updateReview(composeKey())
+	m = closeEditKey(t, m)
+
+	next, _ := m.updateReview(composeKey())
 	next, _ = next.(model).updateReview(tea.KeyMsg{Type: tea.KeyEsc})
 	m = next.(model)
 
-	assert.Nil(t, m.review.suggestion)
+	assert.Empty(t, m.review.suggestions)
 	assert.Nil(t, agents.created, "nothing was sent")
-	assert.Contains(t, m.review.notice, "dropped")
+	assert.Contains(t, m.review.notice, "turned down")
+
+	m = pressEdit(t, m)
+	m = closeEditKey(t, m)
+	assert.Empty(t, m.review.suggestions, "a proposal turned down is not offered again")
+}
+
+// wideRepo is a file long enough that its diff draws two hunks with undrawn lines between them,
+// which is where an edit in one hunk, an edit in the other, and an edit in the gap all differ.
+func wideRepo(t *testing.T) string {
+	t.Helper()
+
+	dir := t.TempDir()
+
+	lines := make([]string, 40)
+	for i := range lines {
+		lines[i] = fmt.Sprintf("line %d", i+1)
+	}
+
+	gitIn(t, dir, "init", "-b", "main")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "wide.txt"),
+		[]byte(strings.Join(lines, "\n")+"\n"), 0o644))
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "first")
+
+	lines[2] = "line 3 as the agent wrote it"
+	lines[34] = "line 35 as the agent wrote it"
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "wide.txt"),
+		[]byte(strings.Join(lines, "\n")+"\n"), 0o644))
+
+	return dir
+}
+
+// writeWide saves the round's copy of the long file with the named lines replaced, which is the
+// reviewer typing in two places at once.
+func writeWide(t *testing.T, m model, changes map[int]string) {
+	t.Helper()
+
+	require.NotEmpty(t, m.review.roundDir)
+
+	held, err := os.ReadFile(filepath.Join(m.review.roundDir, "wide.txt"))
+	require.NoError(t, err)
+
+	lines := strings.Split(strings.TrimSuffix(string(held), "\n"), "\n")
+	for at, text := range changes {
+		lines[at-1] = text
+	}
+
+	require.NoError(t, os.WriteFile(filepath.Join(m.review.roundDir, "wide.txt"),
+		[]byte(strings.Join(lines, "\n")+"\n"), 0o644))
+}
+
+// TestReviewTwoEditsInOneFileAreTwoSuggestions is the case coalescing used to lose: two changes in
+// one file, far enough apart that the lines between them are not drawn, so one span over both
+// could be pinned nowhere.
+func TestReviewTwoEditsInOneFileAreTwoSuggestions(t *testing.T) {
+	dir := wideRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	writeWide(t, m, map[int]string{3: "line 3 the reviewer's way", 35: "line 35 the reviewer's way"})
+	m = closeEditKey(t, m)
+
+	require.Len(t, m.review.suggestions, 2, "each run is proposed on its own")
+	assert.Equal(t, 3, m.review.suggestions[0].anchor.NewStart)
+	assert.Equal(t, []string{"line 3 the reviewer's way"}, m.review.suggestions[0].lines)
+	assert.Equal(t, 35, m.review.suggestions[1].anchor.NewStart)
+	assert.Equal(t, []string{"line 35 the reviewer's way"}, m.review.suggestions[1].lines)
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "edit held for wide.txt:3")
+	assert.Contains(t, shown, "1 more behind it")
+
+	// The first comment carries the first, and the second is still standing behind it.
+	next, _ := m.updateReview(composeKey())
+	m = next.(model)
+	m.review.editor.SetValue("first")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.NotNil(t, cmd)
+	cmd()
+
+	require.NotNil(t, agents.created)
+	assert.Equal(t, int32(3), agents.created.GetNewStart())
+	assert.Equal(t, []string{"line 3 the reviewer's way"}, agents.created.GetSuggestion())
+
+	require.Len(t, m.review.suggestions, 1)
+	assert.Equal(t, 35, m.review.suggestions[0].anchor.NewStart)
+}
+
+// TestReviewEditOutsideTheDiffIsNamedAndKept covers the reviewer scrolling out of the hunk in the
+// editor: the diff has no line to pin that edit to, so it is named rather than silently lost, and
+// the edits that can be pinned are unaffected.
+func TestReviewEditOutsideTheDiffIsNamedAndKept(t *testing.T) {
+	dir := wideRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	writeWide(t, m, map[int]string{3: "line 3 the reviewer's way", 20: "line 20 the reviewer's way"})
+	m = closeEditKey(t, m)
+
+	require.Len(t, m.review.suggestions, 1, "the edit inside a hunk still stands")
+	assert.Equal(t, 3, m.review.suggestions[0].anchor.NewStart)
+
+	require.Len(t, m.review.adrift, 1)
+	assert.Equal(t, 20, m.review.adrift[0].NewStart)
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "wide.txt:20 is not in the diff")
+	assert.Contains(t, shown, "stays in the round's checkout")
+
+	held, err := os.ReadFile(filepath.Join(m.review.roundDir, "wide.txt"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "line 20 the reviewer's way", "and the text really is still there")
+}
+
+// TestReviewReloadKeepsTheCheckoutToReap covers the stale bar being answered: a new round drops the
+// edits held against the last one, and says so, but the checkout is still there to be taken away.
+func TestReviewReloadKeepsTheCheckoutToReap(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"an idea\"\n}\n")
+	m = closeEditKey(t, m)
+	require.Len(t, m.review.suggestions, 1)
+
+	// The agent writes, so reloading opens a round the held edit no longer names lines of.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
+
+	reloaded, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+
+	m = reloaded
+	m.applyReviewLoaded(loaded)
+
+	assert.Empty(t, m.review.suggestions, "the edits went with the round they were made against")
+	assert.Contains(t, m.review.notice, "the round moved on")
+	require.Equal(t, at, m.review.roundDir, "and the checkout is still ours to reap")
+
+	_, cmd = m.leaveReview()
+	require.NotNil(t, cmd)
+	drainCmd(cmd)
+
+	assert.NoDirExists(t, at)
+}
+
+// TestReviewEditRefusesASecondCheckout covers the key being pressed twice before the first
+// checkout lands, which used to start a second one against the same directory.
+func TestReviewEditRefusesASecondCheckout(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, first := m.updateReview(editorKey())
+	m = next.(model)
+	require.NotNil(t, first)
+
+	next, second := m.updateReview(editorKey())
+	m = next.(model)
+	assert.Nil(t, second, "the second press waits for the first checkout")
+
+	ready, ok := first().(roundReadyMsg)
+	require.True(t, ok)
+	require.NoError(t, ready.err)
+
+	opened, _ := m.applyRoundReady(ready)
+	m = opened.(model)
+
+	require.Equal(t, infoEditFile, m.info.kind)
+	assert.False(t, m.review.materialising, "and the next press is free to go")
 }
 
 // TestReviewEditReapsTheCheckout covers leaving the screen: the checkout was cut for one reader
@@ -390,10 +600,8 @@ func TestReviewEditReadsUnchangedFileQuietly(t *testing.T) {
 	m = openReview(t, m)
 
 	m = pressEdit(t, m)
+	m = closeEditKey(t, m)
 
-	next, _ := m.closeReviewEdit()
-	m = next.(model)
-
-	assert.Nil(t, m.review.suggestion)
+	assert.Empty(t, m.review.suggestions)
 	assert.Empty(t, strings.TrimSpace(m.review.notice))
 }
