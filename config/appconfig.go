@@ -331,7 +331,11 @@ type ReviewKeys struct {
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose"`
-	// Open the file under the cursor in your editor, on the line the cursor is on.
+	// Open the round's own copy of the file under the cursor in your editor, on the line
+	// the cursor is on. The round is a frozen snapshot, so nothing you type there reaches
+	// the agent's worktree and neither of you can write over the other. What you change
+	// becomes a suggestion, which your next comment carries to the agent for it to apply
+	// in its own turn.
 	EditFile []string `mapstructure:"edit_file"`
 	// Scroll down half a screen.
 	HalfPageDown []string `mapstructure:"half_page_down"`

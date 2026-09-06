@@ -47,7 +47,11 @@ type Service struct {
 // NewService constructs the handler from the store it lists through, the service that owns the
 // rules, and the marks a workflow header draws.
 func NewService(lister workflowLister, workflows workflowWriter, marks markReader) *Service {
-	return &Service{lister: lister, workflows: workflows, marks: marks}
+	return &Service{
+		lister:    lister,
+		workflows: workflows,
+		marks:     marks,
+	}
 }
 
 // ListWorkflows returns one page of workflows, by name.

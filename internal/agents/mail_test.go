@@ -199,7 +199,11 @@ func exchange(t *testing.T, svc *MailService, one, other string, messages int) {
 			from, to = other, one
 		}
 
-		_, err := svc.SendMail(t.Context(), SendMailParams{From: from, ToAgentID: to, Body: "round"})
+		_, err := svc.SendMail(t.Context(), SendMailParams{
+			From:      from,
+			ToAgentID: to,
+			Body:      "round",
+		})
 		require.NoError(t, err)
 	}
 }

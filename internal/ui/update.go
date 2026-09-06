@@ -162,6 +162,14 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		m.applyReviewRefreshed(msg)
 
 		return m, nil, true
+	case roundReadyMsg:
+		next, cmd := m.applyRoundReady(msg)
+
+		return next, cmd, true
+	case roundEditedMsg:
+		m.applyRoundEdited(msg)
+
+		return m, nil, true
 	case reviewDiffPolledMsg:
 		m.applyReviewDiffPolled(msg)
 

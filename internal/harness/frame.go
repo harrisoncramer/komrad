@@ -108,7 +108,12 @@ func (p *pen) segments(line string) []segment {
 				p.apply(params[1])
 			}
 
-			run = append(run, segment{Text: seq, Escape: true, Before: before, After: *p})
+			run = append(run, segment{
+				Text:   seq,
+				Escape: true,
+				Before: before,
+				After:  *p,
+			})
 			line = line[len(seq):]
 
 			continue
@@ -119,7 +124,11 @@ func (p *pen) segments(line string) []segment {
 			cut = len(line)
 		}
 
-		run = append(run, segment{Text: line[:cut], Before: *p, After: *p})
+		run = append(run, segment{
+			Text:   line[:cut],
+			Before: *p,
+			After:  *p,
+		})
 		line = line[cut:]
 	}
 

@@ -224,6 +224,7 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
+	m.roundsDir = t.TempDir()
 	m.width, m.height = 40, 30
 	m.listing = listing{
 		workflows: []workflowstore.Workflow{
