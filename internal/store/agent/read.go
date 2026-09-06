@@ -20,18 +20,8 @@ func (s *Store) List(ctx context.Context) ([]Agent, error) {
 	return s.hydrateMetadataForAgents(ctx, rows)
 }
 
-type Cursor struct {
-	ID string `json:"i"`
-}
-
-// Validate checks that the cursor contains an agent ID.
-func (c Cursor) Validate() error {
-	if !store.IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
-	}
-
-	return nil
-}
+// Cursor pages this listing, which resumes from one row's id.
+type Cursor = store.IDCursor
 
 // AgentDir is the directory one agent holds, which is all a check on the worktrees weave
 // made needs to know about it.

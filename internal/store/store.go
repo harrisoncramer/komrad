@@ -34,6 +34,21 @@ type Pool struct {
 	pool *pgxpool.Pool
 }
 
+// IDCursor pages a listing that resumes from one row's id, which is every listing ordered by
+// id alone.
+type IDCursor struct {
+	ID string `json:"i"`
+}
+
+// Validate refuses a cursor holding anything but an id, which is what the listing pages by.
+func (c IDCursor) Validate() error {
+	if !IsID(c.ID) {
+		return fmt.Errorf("cursor id %q is not an id", c.ID)
+	}
+
+	return nil
+}
+
 // Open connects to the Postgres at url and brings its schema up to date.
 func Open(ctx context.Context, url string) (*Pool, error) {
 	cfg, err := parseConfig(url)
