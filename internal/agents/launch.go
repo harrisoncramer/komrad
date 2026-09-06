@@ -92,6 +92,7 @@ type NewAgentParams struct {
 	SetupPane        string
 	AdoptedBranch    string
 	ParentAgentID    string
+	Role             agentstore.Role
 }
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
@@ -322,6 +323,7 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 		ParentAgentID:    nullable(params.ParentAgentID),
 		Hidden:           params.Hidden,
 		AdoptedBranch:    params.AdoptedBranch,
+		Role:             params.Role,
 	}
 }
 
@@ -416,6 +418,8 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		WorkflowContext: plan.workflowContext,
 		SessionID:       sessionID,
 		AgentID:         id,
+		Role:            created.Role,
+		OwnsCheckout:    plan.provisioner != "",
 	}
 	if spawner != nil {
 		params.SpawnedByAgentID = spawner.ID

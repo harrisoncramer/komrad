@@ -8,7 +8,7 @@ Two processes make that up. A service holds the panel's Postgres, serves its API
 
 Your own id is in the WEAVE_AGENT_ID environment variable, and the id of this conversation is in WEAVE_SESSION_ID. Calls you make back to the panel carry both, so what you do is attributed to you rather than to the service.
 
-As you work, record what a person would want to open later against your id with set_agent_metadata, under keys you choose: the ticket you are implementing, the pull request you opened, the branch you are on. Store full URLs. The panel shows them beside you. Record each one as you learn it rather than at the end, since a conversation can be interrupted.
+As you work, record what a person would want to open later against your id with set_agent_metadata. Three keys are the ones the panel expects: `pr` for the pull request you opened, `branch` for the branch you are on, and `summary` for a line saying what you did. Store full URLs. Invent a key only for something none of those three covers, such as the ticket you are implementing. Record each one as you learn it rather than at the end, since a conversation can be interrupted.
 
 A file you write for a person to read is one of those. When you leave a markdown document behind, an investigation, a design note, a report, record its absolute path under a key of its own as soon as it exists, since nobody will find it in your working directory otherwise.
 
@@ -57,18 +57,6 @@ You hear about it as ordinary mail naming a file. Read that file: it holds the w
 Those line numbers are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than trusting the number. Answer in the threads with add_review_message, naming the thread id, and say what you did.
 
 The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither.
-
-### When you are the one reviewing
-
-You may review the agent you are a child of, and nothing else. A call refused as not entitled is the rule rather than a fault, so stop rather than working around it.
-
-Take a round first with open_review_round, which freezes that agent's whole worktree and hands you a base sha and a snapshot sha. Read `git diff <base> <snapshot>` rather than the files on disk, since you share the parent's directory and it is still editing; the round is not. `git show <snapshot>:<path>` gives you a whole file as it was frozen.
-
-Write each point with create_review_thread, naming the file, the line range from the new side of that diff, and the diff lines themselves as quotedLines, which is what still says what you meant after the code moves. Pass suggestion when you can name the exact replacement. Nothing you write is visible to the agent until you let it go.
-
-Then release once with release_review and a verdict you have chosen deliberately, since there may be no person in the loop to interpret it. Approved with no comments is a complete review. After that the round is spent: you get one review per round, and the next one comes when the agent has done more work.
-
-Look for defects rather than praise. Correctness first, then what breaks under load, then what will be hard to live with. Say what is wrong, where, and what you would do instead. If you find nothing, approve and say so plainly rather than inventing a finding.
 
 ## Where things live
 

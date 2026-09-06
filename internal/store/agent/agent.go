@@ -54,6 +54,24 @@ func (s State) IsTurnUnfinished() bool {
 	return s == StateThinking || s == StateWaiting
 }
 
+// Role is what an agent was launched to do.
+type Role string
+
+const (
+	RoleImplementer Role = Role(models.AgentRoleImplementer)
+	RoleReviewer    Role = Role(models.AgentRoleReviewer)
+)
+
+// orDefault answers the role an agent that names none is given, since writing work of its own is
+// what an agent does unless it was launched to read somebody else's.
+func (r Role) orDefault() Role {
+	if r == "" {
+		return RoleImplementer
+	}
+
+	return r
+}
+
 type Agent struct {
 	ID    string
 	Name  string
@@ -64,9 +82,13 @@ type Agent struct {
 	// inherits it, and false means this agent keeps the directory it was given.
 	ProvisionEnabled *bool
 	Prompt           string
-	State            State
-	StateChangedAt   time.Time
-	StateSeenAt      time.Time
+
+	// Role is what the agent was launched to do, which decides the half of the review
+	// briefing it is sent.
+	Role           Role
+	State          State
+	StateChangedAt time.Time
+	StateSeenAt    time.Time
 	// ViewedAt is how much of an agent's conversation the person has read, measured against
 	// the last turn weave watched end rather than against the clock.
 	ViewedAt *time.Time
@@ -149,6 +171,7 @@ func agentFromRow(agent models.Agent) Agent {
 		Flags:            agent.Flags,
 		ProvisionEnabled: agent.ProvisionEnabled,
 		Prompt:           agent.Prompt,
+		Role:             Role(agent.Role),
 		State:            State(agent.State),
 		StateChangedAt:   agent.StateChangedAt,
 		StateSeenAt:      agent.StateSeenAt,

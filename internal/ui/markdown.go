@@ -86,9 +86,10 @@ func workflowProse(w workflowstore.Workflow) string {
 
 func agentFields(agent agentstore.Agent, schedule, parent string) []recordField {
 	fields := []recordField{{"name", orDash(agent.Name)}}
-	// What a child is attached to comes early, since it is the fact that explains its directory.
+	// What a child is attached to comes early, since it is the fact that explains its directory,
+	// and for a reviewer that same row is whose work it is reading.
 	if agent.ParentAgentID != nil {
-		fields = append(fields, recordField{"attached to", orDash(parent)})
+		fields = append(fields, recordField{attachmentFieldKey(agent.Role), orDash(parent)})
 	}
 
 	fields = append(fields,
@@ -125,6 +126,16 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 	}
 
 	return fields
+}
+
+// attachmentFieldKey labels the agent a child hangs off, which for a reviewer is the work it
+// was launched to read rather than only where it happens to be running.
+func attachmentFieldKey(role agentstore.Role) string {
+	if role == agentstore.RoleReviewer {
+		return "reviewing"
+	}
+
+	return "attached to"
 }
 
 // branchFieldKey labels the branch an agent's checkout is on, and is the key an agent that

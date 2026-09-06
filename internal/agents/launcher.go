@@ -7,11 +7,18 @@ import (
 	"strings"
 
 	"weave/internal/harness"
+	agentstore "weave/internal/store/agent"
 	"weave/lib/xslice"
 )
 
 //go:embed briefing.md
 var briefingDoc string
+
+//go:embed briefing_implementer.md
+var implementerDoc string
+
+//go:embed briefing_reviewer.md
+var reviewerDoc string
 
 const mcpURLPlaceholder = "{{MCP_URL}}"
 
@@ -58,12 +65,27 @@ func (l *Launcher) buildBriefing() string {
 }
 
 func (l *Launcher) appendedSystemPrompt(params launchParams) string {
-	parts := []string{l.buildBriefing(), relationBriefing(params), l.globalContext(), params.WorkflowContext}
+	parts := []string{l.buildBriefing(), reviewBriefing(params), relationBriefing(params), l.globalContext(), params.WorkflowContext}
 
 	trimmed := xslice.Map(parts, strings.TrimSpace)
 	kept := xslice.Filter(trimmed, func(s string) bool { return s != "" })
 
 	return strings.Join(kept, "\n\n")
+}
+
+// reviewBriefing is the half of the review loop this agent needs, since an agent that will never
+// give a review has no use for how to give one and the obligation to get read belongs to the
+// agents weave cut a checkout for, which are the ones with a change of their own to be read.
+func reviewBriefing(params launchParams) string {
+	if params.Role == agentstore.RoleReviewer {
+		return reviewerDoc
+	}
+
+	if params.OwnsCheckout {
+		return implementerDoc
+	}
+
+	return ""
 }
 
 // relationBriefing is what an agent is told about whoever it answers to, which for a child is
@@ -121,7 +143,12 @@ type launchParams struct {
 	SpawnedByName    string
 	ParentAgentID    string
 	ParentName       string
-	Resume           bool
+	Role             agentstore.Role
+
+	// OwnsCheckout is whether weave provisioned this agent a tree of its own, which is what
+	// separates an agent writing a change from one reading somebody else's.
+	OwnsCheckout bool
+	Resume       bool
 }
 
 func (l *Launcher) launch(h harness.Harness, params launchParams) error {

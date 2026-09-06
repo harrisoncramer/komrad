@@ -115,7 +115,8 @@ INSERT INTO agents(
     provision_enabled,
     spawned_by_agent_id,
     parent_agent_id,
-    adopted_branch)
+    adopted_branch,
+    role)
 VALUES (
     @id,
     @name,
@@ -133,7 +134,8 @@ VALUES (
     sqlc.narg('provision_enabled'),
     sqlc.narg('spawned_by_agent_id'),
     sqlc.narg('parent_agent_id'),
-    @adopted_branch)
+    @adopted_branch,
+    @role)
 RETURNING
     id;
 
