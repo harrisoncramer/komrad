@@ -263,6 +263,39 @@ func TestSearchStandsDownTheStageKeys(t *testing.T) {
 	assert.Len(t, tmux.respawns, respawns, "nothing is drawn into a pane nobody can see")
 }
 
+// TestSearchPreviewKeepsItsPlaceOnAHeightChange covers a window that grew or shrank without
+// changing width, which rewraps nothing and so has no reason to take the reader back to the match.
+func TestSearchPreviewKeepsItsPlaceOnAHeightChange(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+
+	m = pressSearch(t, m, "ctrl+n")
+	m = pressSearch(t, m, "ctrl+n")
+	scrolled := m.search.preview.top
+	require.NotEqual(t, 0, scrolled)
+
+	next, _ := m.route(tea.WindowSizeMsg{Width: m.width, Height: 44})
+	taller, ok := next.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, scrolled, taller.search.preview.top, "the reader keeps their place")
+}
+
+// TestSearchPreviewDrawsOnceThereIsRoom covers a window that had no rows to give the preview and
+// then grew, which changes no width and would otherwise leave the column empty until the cursor moved.
+func TestSearchPreviewDrawsOnceThereIsRoom(t *testing.T) {
+	m, _ := searchPreviewModel(t)
+
+	m.height = 0
+	m.drawPreview()
+	require.Empty(t, m.search.preview.rows, "an unmeasured window has no rows to draw into")
+
+	next, _ := m.route(tea.WindowSizeMsg{Width: m.width, Height: 30})
+	grown, ok := next.(model)
+	require.True(t, ok)
+
+	assert.NotEmpty(t, grown.search.preview.rows, "the rows it was owed are drawn")
+}
+
 // TestSearchHandsTheWindowBackToALandingWrite covers a create that comes back while the search
 // is up: the write puts the new agent's own pane on screen, which is the one thing a zoom the
 // search never let go of would cover.

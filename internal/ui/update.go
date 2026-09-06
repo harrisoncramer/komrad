@@ -36,12 +36,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		// The transcript is wrapped into the column it is read in rather than into a pane that
+		// would fold it, so only a window that changed width has to wrap it again, and a preview
+		// that has never drawn is one the rows are still owed to.
+		rewrap := size.Width != m.width || len(m.search.preview.rows) == 0
+
 		m.height = size.Height
 		m.width = size.Width
 
-		// The transcript is wrapped into the column it is read in rather than into a pane that
-		// would fold it, so a window that changed width has to wrap it again.
-		m.drawPreview()
+		if rewrap {
+			m.drawPreview()
+		}
 	}
 
 	if m.fatal() != nil {
