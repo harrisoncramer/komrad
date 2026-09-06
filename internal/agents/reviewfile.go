@@ -13,10 +13,10 @@ import (
 // enough to see what the comment is about without opening the file.
 const contextLines = 6
 
-// RenderReviewParams is everything one review file has to say for itself, since a released review
+// renderReviewParams is everything one review file has to say for itself, since a released review
 // outlives the rows naming it and has to carry who it was about and who wrote it rather than
 // leaning on the database still holding either.
-type RenderReviewParams struct {
+type renderReviewParams struct {
 	// Agent is the agent whose work was reviewed.
 	Agent agentstore.Agent
 	Round reviewstore.Round
@@ -35,7 +35,7 @@ type RenderReviewParams struct {
 // renderReview writes a whole review out as the markdown the agent reads, carrying everything it
 // needs since the mail says only where this is, and drawing the code around each comment out of
 // the round's own source.
-func renderReview(params RenderReviewParams) string {
+func renderReview(params renderReviewParams) string {
 	round, verdict, threads, source := params.Round, params.Verdict, params.Threads, params.Source
 
 	var out strings.Builder

@@ -479,7 +479,7 @@ func (s *ReviewService) writeReview(
 		return "", fmt.Errorf("failed to make room for the review of %q: %w", agent.Name, err)
 	}
 
-	body := renderReview(RenderReviewParams{
+	body := renderReview(renderReviewParams{
 		Agent:   agent,
 		Round:   round,
 		Author:  s.authorName(ctx, review),

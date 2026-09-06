@@ -8,7 +8,7 @@ import (
 
 type Frame struct {
 	tmux    Tmux
-	spec    Spec
+	spec    spec
 	sidebar string
 	stage   string
 	info    string
