@@ -468,6 +468,47 @@ func (m model) searchHelp() keyMap {
 	}
 }
 
+func (m model) reviewHelp() keyMap {
+	keys := m.keys.Review
+
+	move := m.moveBinding()
+
+	// An agent nobody can write to keeps every key that reads and loses every key that sends, so
+	// the ones that would be refused cannot be pressed by accident.
+	var writing, composing []key.Binding
+	if _, dead := m.reviewIsReadOnly(); !dead {
+		composing = []key.Binding{binding(keys.Compose, m.reviewComposeDesc())}
+		writing = slices.Concat(composing, []key.Binding{
+			binding(m.keys.Form.Submit, "send the review"),
+		})
+	}
+
+	// Only the things the screen is for are on the strip, since reviewing is reading and the
+	// rest of the keys are behind the help key.
+	return keyMap{
+		short: slices.Concat([]key.Binding{move}, composing, []key.Binding{m.helpBinding()}),
+		full: slices.Concat(
+			[]key.Binding{
+				move,
+				pairBinding(keys.ScrollDown, keys.ScrollUp, "scroll"),
+				pairBinding(keys.NextFile, keys.PrevFile, "next/previous file"),
+				pairBinding(keys.NextThread, keys.PrevThread, "next/previous thread"),
+				binding(m.keys.Filter.Open, "search"),
+				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),
+				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
+				binding(keys.EditFile, m.reviewEditorDesc()),
+				binding(keys.Reload, m.reviewReloadDesc()),
+				binding(keys.Resolve, m.reviewResolveDesc()),
+				binding(keys.ToggleViewed, m.reviewViewedDesc()),
+				m.detailsBinding(),
+			},
+			writing,
+			[]key.Binding{binding(keys.Back, "back to the agents")},
+			m.globalHelp(),
+		),
+	}
+}
+
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {
