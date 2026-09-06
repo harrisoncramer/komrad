@@ -35,6 +35,16 @@ type roundEditedMsg struct {
 	err     error
 }
 
+// roundLeftoverMsg is a checkout found already standing beside the agent's worktree, holding work
+// an earlier sitting wrote and nobody carried, named by the snapshot it stands on since that is
+// what says whether it belongs to the round on screen.
+type roundLeftoverMsg struct {
+	agentID string
+	dir     string
+	sha     string
+	edits   []git.Edit
+}
+
 // editorContent opens a file in the user's editor, on one line of it.
 func editorContent(editor, dir, path string, line int) layout.Content {
 	command := strings.TrimSpace(editor)
@@ -133,8 +143,9 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	return m.editReviewFile()
 }
 
-// reapRoundCmd takes the checkout away when the screen it was cut for closes, which is the only
-// moment weave knows nobody is reading it.
+// reapRoundCmd takes the checkout away when the screen it was cut for closes, unless the reviewer
+// wrote something into it that no comment has carried yet, since leaving a screen is not an answer
+// to what they typed and the checkout is the only place that text lives.
 func (m model) reapRoundCmd(root, at string) tea.Cmd {
 	if at == "" {
 		return nil
@@ -144,6 +155,12 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
+		// A checkout weave cannot read is kept as well, since the answer it could not get is
+		// whether there was anything in it worth keeping.
+		if edits, err := git.Edits(ctx, at); err != nil || len(edits) > 0 {
+			return nil
+		}
+
 		// A checkout that will not go is left where it is: the screen reading it has already
 		// closed, and the next round to be edited replaces it rather than finding it.
 		if err := git.Reap(ctx, root, at); err != nil {
@@ -152,6 +169,53 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 
 		return nil
 	}
+}
+
+// findRoundLeftoverCmd looks for the checkout an earlier sitting left behind, since the edits in it
+// were never carried anywhere else and the reader would otherwise never be offered them again.
+func (m model) findRoundLeftoverCmd() tea.Cmd {
+	agentID := m.review.agentID
+	at := filepath.Join(m.roundsDir, agentID)
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		sha, ok := git.WorktreeHead(ctx, at)
+		if !ok {
+			return nil
+		}
+
+		edits, err := git.Edits(ctx, at)
+		if err != nil || len(edits) == 0 {
+			return nil
+		}
+
+		return roundLeftoverMsg{agentID: agentID, dir: at, sha: sha, edits: edits}
+	}
+}
+
+// applyRoundLeftover picks the checkout back up when it is standing on the round being read, and
+// otherwise says it is there, since the next edit checks this round out over the top of it.
+func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
+	if msg.agentID != m.review.agentID || m.review.view == nil {
+		return
+	}
+
+	// Anything the reader has done since the screen opened is theirs rather than the leftover's.
+	if m.review.roundDir != "" || len(m.review.suggestions) > 0 {
+		return
+	}
+
+	if msg.sha != m.review.round.GetSnapshotSha() {
+		m.review.notice = "an edit of an earlier round is still in its checkout, and editing this one replaces it"
+
+		return
+	}
+
+	m.review.roundDir = msg.dir
+	m.review.roundSha = msg.sha
+	m.review.suggestions, m.review.adrift = m.holdSuggestions(msg.edits)
 }
 
 // readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather than

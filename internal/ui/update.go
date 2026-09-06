@@ -151,9 +151,7 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return m, nil, true
 	case reviewLoadedMsg:
-		m.applyReviewLoaded(msg)
-
-		return m, nil, true
+		return m, m.applyReviewLoaded(msg), true
 	case reviewWroteMsg:
 		m.applyReviewWrote(msg)
 
@@ -168,6 +166,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		return next, cmd, true
 	case roundEditedMsg:
 		m.applyRoundEdited(msg)
+
+		return m, nil, true
+	case roundLeftoverMsg:
+		m.applyRoundLeftover(msg)
 
 		return m, nil, true
 	case reviewDiffPolledMsg:

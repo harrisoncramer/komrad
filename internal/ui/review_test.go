@@ -273,7 +273,13 @@ func enterReview(t *testing.T, m model) model {
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
 
-	m.applyReviewLoaded(loaded)
+	// The load answers with the look for a checkout an earlier sitting left behind, which is part
+	// of opening the screen rather than of anything the reader does on it.
+	if found := m.applyReviewLoaded(loaded); found != nil {
+		if left, ok := found().(roundLeftoverMsg); ok {
+			m.applyRoundLeftover(left)
+		}
+	}
 
 	return m
 }

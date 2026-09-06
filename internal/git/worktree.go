@@ -12,8 +12,8 @@ import (
 func Materialise(ctx context.Context, dir, sha, at string) error {
 	// A checkout already on the commit is left exactly as it is, since what the reviewer has
 	// typed into it is the suggestion they are still writing.
-	if isWorktreeAt(ctx, at) {
-		if head, err := Run(ctx, at, "rev-parse", "HEAD"); err == nil && head == sha {
+	if head, ok := WorktreeHead(ctx, at); ok {
+		if head == sha {
 			return nil
 		}
 
@@ -35,6 +35,22 @@ func Materialise(ctx context.Context, dir, sha, at string) error {
 	}
 
 	return nil
+}
+
+// WorktreeHead is the commit a materialised checkout stands on, and false for anything that is not
+// the top of one, which is what says whether a directory left behind is a copy of the round being
+// read or the remains of an earlier one.
+func WorktreeHead(ctx context.Context, at string) (string, bool) {
+	if !isWorktreeAt(ctx, at) {
+		return "", false
+	}
+
+	head, err := Run(ctx, at, "rev-parse", "HEAD")
+	if err != nil {
+		return "", false
+	}
+
+	return head, true
 }
 
 // isWorktreeAt reports whether a path is the top of a checkout rather than somewhere inside one,

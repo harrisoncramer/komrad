@@ -465,22 +465,22 @@ func listReviewThreads(
 	return resp.Msg.GetThreads(), nil
 }
 
-func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
+func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID {
-		return
+		return nil
 	}
 
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
 	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) {
 		m.refuseReview(msg.err)
 
-		return
+		return nil
 	}
 
 	m.review.loading = false
 	m.review.err = msg.err
 	if msg.patch == nil {
-		return
+		return nil
 	}
 
 	m.review.root = msg.patch.Root
@@ -524,6 +524,14 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	}
 
 	m.stageReview()
+
+	// A checkout weave already owns is the one on screen, so only a screen opening on an agent it
+	// holds nothing for has an earlier sitting's work to look for.
+	if m.review.roundDir != "" {
+		return nil
+	}
+
+	return m.findRoundLeftoverCmd()
 }
 
 // stillViewed is which files of the round have been read, and a mark belongs to one round, so a

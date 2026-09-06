@@ -701,3 +701,114 @@ func TestReviewEditReadsUnchangedFileQuietly(t *testing.T) {
 	assert.Empty(t, m.review.suggestions)
 	assert.Empty(t, strings.TrimSpace(m.review.notice))
 }
+
+// TestReviewLeavingKeepsAnUncarriedEdit is the bug this file was opened for: leaving the screen
+// force-removed the checkout, so an edit no comment had carried yet went with it in silence.
+func TestReviewLeavingKeepsAnUncarriedEdit(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"the reviewer's idea\"\n}\n")
+	m = closeEditKey(t, m)
+	require.Len(t, m.review.suggestions, 1, "the edit is held, waiting for a comment")
+
+	_, cmd := m.leaveReview()
+	require.NotNil(t, cmd)
+	drainCmd(cmd)
+
+	require.DirExists(t, at, "the checkout is kept, since it is the only place that text lives")
+
+	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "the reviewer's idea")
+}
+
+// TestReviewPicksAnUncarriedEditBackUp covers the other half: the screen opening again on the same
+// round finds what was left in the checkout and offers it, without the editor being opened first.
+func TestReviewPicksAnUncarriedEditBackUp(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"the reviewer's idea\"\n}\n")
+	m = closeEditKey(t, m)
+
+	left, cmd := m.leaveReview()
+	drainCmd(cmd)
+
+	m = openReview(t, left.(model))
+
+	require.Len(t, m.review.suggestions, 1, "the edit is offered again")
+	assert.Equal(t, "greet.go", m.review.suggestions[0].anchor.FilePath)
+	assert.Equal(t, 4, m.review.suggestions[0].anchor.NewStart)
+	assert.Equal(t, []string{"\treturn \"the reviewer's idea\""}, m.review.suggestions[0].lines)
+	assert.Equal(t, at, m.review.roundDir, "and the checkout is ours again")
+	assert.Equal(t, m.review.round.GetSnapshotSha(), m.review.roundSha)
+
+	assert.Contains(t, ansi.Strip(m.reviewView()), "edit held for greet.go:4")
+}
+
+// TestReviewLeftoverOfAnEarlierRoundIsNamed covers coming back to an agent that has written since:
+// the leftover names lines of a round nobody is looking at, so it cannot be offered, and the next
+// edit checks the round on screen out over the top of it.
+func TestReviewLeftoverOfAnEarlierRoundIsNamed(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"the reviewer's idea\"\n}\n")
+	m = closeEditKey(t, m)
+
+	left, cmd := m.leaveReview()
+	drainCmd(cmd)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
+
+	m = openReview(t, left.(model))
+
+	assert.Empty(t, m.review.suggestions, "nothing is pinned against a round nobody is reading")
+	assert.Empty(t, m.review.roundDir, "and the checkout is not adopted as this round's")
+	assert.Contains(t, m.review.notice, "an edit of an earlier round is still in its checkout")
+}
+
+// TestReviewLeavingReapsACarriedEdit covers the checkout still going when there is nothing in it to
+// keep, since a comment that carried the edit put it somewhere durable.
+func TestReviewLeavingReapsACarriedEdit(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"farewell\"\n}\n")
+	m = closeEditKey(t, m)
+
+	next, _ := m.updateReview(composeKey())
+	m = next.(model)
+	m.review.editor.SetValue("say farewell instead")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.NotNil(t, cmd)
+	cmd()
+
+	require.NotNil(t, agents.created, "the comment carried it to the agent")
+
+	// The reviewer's text is still saved in the checkout, so the file is put back the way the
+	// round holds it, which is what the editor would have done had they undone the change.
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n")
+
+	_, cmd = m.leaveReview()
+	require.NotNil(t, cmd)
+	drainCmd(cmd)
+
+	assert.NoDirExists(t, at, "a checkout holding nothing goes with the screen")
+}
