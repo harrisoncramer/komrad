@@ -125,3 +125,7 @@ func (stubSnapshotter) Take(context.Context, diff.SnapshotParams) (*diff.Snapsho
 }
 
 func (stubSnapshotter) Hold(context.Context, string, string, string) error { return nil }
+
+func (stubSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
+	return nil, nil
+}

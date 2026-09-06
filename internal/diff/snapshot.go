@@ -209,6 +209,21 @@ func runGitEnv(ctx context.Context, dir string, env []string, args ...string) (s
 	return strings.TrimSpace(string(out)), nil
 }
 
+// FileAt is one file as a commit holds it, split into lines, which is what a released review
+// quotes around each comment so the agent can see where it sits without opening anything, and
+// which races nothing the agent is doing since the commit it reads never moves.
+func FileAt(ctx context.Context, dir, sha, path string) ([]string, error) {
+	out, err := runGitBytes(ctx, dir, "show", sha+":"+path)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read %q at %q: %w", path, sha, err)
+	}
+	if len(out) > maxFileBytes {
+		return nil, nil
+	}
+
+	return strings.Split(strings.TrimSuffix(string(out), "\n"), "\n"), nil
+}
+
 // TreeOf is the tree one snapshot commit holds, which a probe of the worktree is compared against
 // to say whether the agent has written anything since.
 func TreeOf(ctx context.Context, dir, sha string) (string, error) {

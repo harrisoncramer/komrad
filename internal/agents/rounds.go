@@ -66,6 +66,7 @@ type reviewBatchReadWriter interface {
 type reviewSnapshotter interface {
 	Take(ctx context.Context, params diff.SnapshotParams) (*diff.Snapshot, error)
 	Hold(ctx context.Context, dir, ref, sha string) error
+	FileAt(ctx context.Context, dir, sha, path string) ([]string, error)
 }
 
 // GitSnapshotter takes a round's snapshot with git, which is the only implementation outside
@@ -80,6 +81,11 @@ func (GitSnapshotter) Take(ctx context.Context, params diff.SnapshotParams) (*di
 // Hold points a ref at a snapshot so nothing collects it.
 func (GitSnapshotter) Hold(ctx context.Context, dir, ref, sha string) error {
 	return diff.Hold(ctx, dir, ref, sha)
+}
+
+// FileAt reads one file as the round froze it.
+func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]string, error) {
+	return diff.FileAt(ctx, dir, sha, path)
 }
 
 // RoundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
@@ -372,7 +378,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	path, err := s.writeReview(*agent, *round, *open, params.Verdict, threads)
+	path, err := s.writeReview(ctx, *agent, *round, *open, params.Verdict, threads)
 	if err != nil {
 		return nil, err
 	}
@@ -450,6 +456,7 @@ func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]R
 // writeReview puts the whole review where the agent can read it, under weave's own state directory
 // so that nothing weave writes can end up in the agent's diff or in a commit.
 func (s *ReviewService) writeReview(
+	ctx context.Context,
 	agent agentstore.Agent,
 	round reviewstore.Round,
 	review reviewstore.Review,
@@ -461,12 +468,48 @@ func (s *ReviewService) writeReview(
 		return "", fmt.Errorf("failed to make room for the review of %q: %w", agent.Name, err)
 	}
 
+	body := RenderReview(round, verdict, threads, s.snapshotLines(ctx, agent.Cwd, round, threads))
+
 	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", round.Ordinal, review.ID))
-	if err := os.WriteFile(full, []byte(RenderReview(round, verdict, threads)), 0o644); err != nil {
+	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
 		return "", fmt.Errorf("failed to write the review of %q: %w", agent.Name, err)
 	}
 
 	return full, nil
+}
+
+// snapshotLines reads every file a review touches as the round froze it so each comment can carry
+// the code around it, leaving out a file that cannot be read rather than failing the release,
+// since a comment is still worth sending without the lines around it.
+func (s *ReviewService) snapshotLines(
+	ctx context.Context,
+	dir string,
+	round reviewstore.Round,
+	threads []ReviewThreadWithMessages,
+) map[string][]string {
+	if dir == "" {
+		return nil
+	}
+
+	held := make(map[string][]string, len(threads))
+	for _, thread := range threads {
+		path := thread.Thread.FilePath
+		if path == "" {
+			continue
+		}
+		if _, done := held[path]; done {
+			continue
+		}
+
+		lines, err := s.snapshots.FileAt(ctx, dir, round.SnapshotSHA, path)
+		if err != nil {
+			lines = nil
+		}
+
+		held[path] = lines
+	}
+
+	return held
 }
 
 // liveAgent refuses an agent that has been archived, since there is nobody there to hand a review

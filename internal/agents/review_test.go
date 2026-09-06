@@ -527,6 +527,75 @@ func TestAReleasedReviewCarriesWhatTheReviewerWrote(t *testing.T) {
 	assert.Contains(t, string(written), "greet.go:41")
 }
 
+// TestAReleasedReviewCarriesTheCodeAroundEachComment pins what saves the agent hunting: the file
+// as the round froze it, either side of the lines the comment was written about, so acting on a
+// review is one read rather than a search through a file that has moved since.
+func TestAReleasedReviewCarriesTheCodeAroundEachComment(t *testing.T) {
+	source := make([]string, 0, 20)
+	for line := 1; line <= 20; line++ {
+		source = append(source, fmt.Sprintf("line %d of greet.go", line))
+	}
+
+	reviews := newFakeReviewStore()
+	reviews.thread.FilePath = "greet.go"
+	reviews.thread.NewStart, reviews.thread.NewEnd = 12, 13
+	reviews.comments = 1
+
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewServiceHolding(t, reviews, notices, map[string][]string{"greet.go": source})
+
+	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	written, err := os.ReadFile(result.Path)
+	require.NoError(t, err)
+	body := string(written)
+
+	assert.Contains(t, body, ">> 12  line 12 of greet.go", "the commented lines are marked")
+	assert.Contains(t, body, ">> 13  line 13 of greet.go")
+	assert.Contains(t, body, "    6  line 6 of greet.go", "six lines of context above")
+	assert.Contains(t, body, "   19  line 19 of greet.go", "and six below")
+	assert.NotContains(t, body, "line 5 of greet.go", "and no more than that")
+	assert.NotContains(t, body, "line 20 of greet.go")
+}
+
+// TestAReviewWithNoSourceFallsBackToTheQuotedLines pins that a comment on a file the round cannot
+// hand back is still sent, since a comment is worth more than the code around it.
+func TestAReviewWithNoSourceFallsBackToTheQuotedLines(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.thread.FilePath = "gone.go"
+	reviews.comments = 1
+
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewServiceHolding(t, reviews, notices, nil)
+
+	_, err := reviews.OpenReview(t.Context(), reviewstore.OpenReviewParams{
+		AgentID: reviewedAgentID, RoundID: reviewRoundID, AuthorKind: reviewstore.AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	written, err := os.ReadFile(result.Path)
+	require.NoError(t, err)
+	assert.Contains(t, string(written), "+\tgreet(nil)", "the lines it was written against still go")
+	assert.Contains(t, string(written), "this needs a nil check")
+}
+
 // TestAnUnreleasedCommentIsHiddenFromTheAgentWhoeverWroteIt pins that a review is read once it is
 // a review: a batch still being written is the author's alone, whether the person or another
 // agent is writing it.
@@ -721,6 +790,30 @@ func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSe
 	t.Helper()
 
 	return reviewServiceForAgent(t, reviews, notices, liveAgent)
+}
+
+// reviewServiceHolding is a service whose round holds the given files, which is what lets a
+// released review quote the code around each comment.
+func reviewServiceHolding(
+	t *testing.T,
+	reviews *fakeReviewStore,
+	notices *fakeNoticeSender,
+	files map[string][]string,
+) *ReviewService {
+	t.Helper()
+
+	return NewReviewService(ReviewServiceParams{
+		Threads:   reviews,
+		Messages:  reviews,
+		Viewed:    reviews,
+		Rounds:    reviews,
+		Reviews:   reviews,
+		Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha", files: files},
+		Workflows: fakeWorkflowGetter{},
+		Agents:    fakeAgentReaderFunc(liveAgent),
+		Mailer:    notices,
+		StateDir:  t.TempDir(),
+	})
 }
 
 func reviewServiceForAgent(
@@ -1113,6 +1206,8 @@ type fakeSnapshotter struct {
 	sha  string
 	base string
 	held []string
+	// files is each path as the round holds it, which is what a review quotes around a comment.
+	files map[string][]string
 }
 
 func (f *fakeSnapshotter) Take(context.Context, diff.SnapshotParams) (*diff.Snapshot, error) {
@@ -1123,6 +1218,15 @@ func (f *fakeSnapshotter) Hold(_ context.Context, _, ref, _ string) error {
 	f.held = append(f.held, ref)
 
 	return nil
+}
+
+func (f *fakeSnapshotter) FileAt(_ context.Context, _, _, path string) ([]string, error) {
+	lines, ok := f.files[path]
+	if !ok {
+		return nil, fmt.Errorf("no such path %q", path)
+	}
+
+	return lines, nil
 }
 
 type fakeWorkflowGetter struct{}

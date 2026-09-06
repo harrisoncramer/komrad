@@ -2,17 +2,25 @@ package agents
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	reviewstore "weave/internal/store/review"
 )
 
-// RenderReview writes a whole review out as the markdown the agent reads, which has to carry
-// everything the agent needs, since the mail weave sends says only where this is.
+// contextLines is how much of the file either side of a comment goes into the review, which is
+// enough to see what the comment is about without opening the file.
+const contextLines = 6
+
+// RenderReview writes a whole review out as the markdown the agent reads, carrying everything it
+// needs since the mail says only where this is, and drawing the code around each comment out of
+// source, which holds each file as the round froze it and falls back to the quoted lines for a
+// path it has nothing for.
 func RenderReview(
 	round reviewstore.Round,
 	verdict reviewstore.Verdict,
 	threads []ReviewThreadWithMessages,
+	source map[string][]string,
 ) string {
 	var out strings.Builder
 
@@ -28,7 +36,7 @@ func RenderReview(
 
 	out.WriteString("\n")
 	for _, thread := range threads {
-		writeThread(&out, thread)
+		writeThread(&out, thread, source[thread.Thread.FilePath])
 	}
 
 	out.WriteString("Answer by writing in each thread, naming its id.\n")
@@ -36,11 +44,11 @@ func RenderReview(
 	return out.String()
 }
 
-func writeThread(out *strings.Builder, thread ReviewThreadWithMessages) {
+func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []string) {
 	fmt.Fprintf(out, "## %s\n\n", anchorOf(thread.Thread))
 	fmt.Fprintf(out, "Thread `%s`\n\n", thread.Thread.ID)
 
-	if len(thread.Thread.QuotedLines) > 0 {
+	if !writeContext(out, thread.Thread, lines) && len(thread.Thread.QuotedLines) > 0 {
 		out.WriteString("```diff\n")
 		for _, line := range thread.Thread.QuotedLines {
 			out.WriteString(line)
@@ -62,6 +70,35 @@ func writeThread(out *strings.Builder, thread ReviewThreadWithMessages) {
 			out.WriteString("```\n\n")
 		}
 	}
+}
+
+// writeContext draws the file around the lines a comment was written about as the round froze
+// them, marking those lines, and reports whether it drew anything at all, since a file the round
+// does not hold falls back to the lines the comment was quoted against.
+func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []string) bool {
+	start, end := int(thread.NewStart), int(thread.NewEnd)
+	if start <= 0 || start > len(lines) {
+		return false
+	}
+	if end < start {
+		end = start
+	}
+
+	from, to := max(start-contextLines, 1), min(end+contextLines, len(lines))
+	width := len(strconv.Itoa(to))
+
+	out.WriteString("```\n")
+	for number := from; number <= to; number++ {
+		mark := "  "
+		if number >= start && number <= end {
+			mark = ">>"
+		}
+
+		fmt.Fprintf(out, "%s %*d  %s\n", mark, width, number, lines[number-1])
+	}
+	out.WriteString("```\n\n")
+
+	return true
 }
 
 // anchorOf names where a thread is pinned in the terms the diff uses, preferring the new side
