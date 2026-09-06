@@ -243,13 +243,13 @@ func (m *model) refuseReview(err error) {
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
-	m.reportBrief(refusedReviewSummary(name, err), err.Error(), nil)
+	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
 }
 
-// refusedReviewSummary says which of the two empty diffs this is, since an agent that has written
+// describeRefusedReview says which of the two empty diffs this is, since an agent that has written
 // nothing and an agent whose every line is in an excluded path want opposite things said about
 // them: one has not worked yet, the other has and you asked not to be shown it.
-func refusedReviewSummary(name string, err error) string {
+func describeRefusedReview(name string, err error) string {
 	if errors.Is(err, diff.ErrAllExcluded) {
 		return "Everything " + name + " changed is excluded from the diff"
 	}
@@ -283,7 +283,11 @@ func (m model) loadReviewCmd(agentID, dir string, exclude []string) tea.Cmd {
 			Exclude:     exclude,
 		})
 		if err != nil {
-			return reviewLoadedMsg{agentID: agentID, round: round, err: err}
+			return reviewLoadedMsg{
+				agentID: agentID,
+				round:   round,
+				err:     err,
+			}
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)

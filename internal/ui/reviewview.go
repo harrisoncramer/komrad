@@ -223,19 +223,19 @@ func (m model) reviewReleaseView() string {
 	for i, verdict := range reviewVerdicts {
 		mark, style := "  ", dimStyle
 		if i == m.review.verdict {
-			mark, style = "▸ ", reviewVerdictStyle(verdict)
+			mark, style = "▸ ", pickVerdictStyle(verdict)
 		}
 
-		out += style.Render("  "+mark+reviewVerdictWord(verdict)) + "\n"
+		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
 	}
 
 	return out + "\n" + dimStyle.Render("  tab to change · "+
 		keyLabel(m.keys.Form.Submit)+" send · esc cancel") + "\n"
 }
 
-// reviewVerdictWord is how a verdict reads in the panel, spelled the way a person would say it
+// describeVerdict is how a verdict reads in the panel, spelled the way a person would say it
 // rather than the way the wire does.
-func reviewVerdictWord(verdict agentv1.ReviewVerdict) string {
+func describeVerdict(verdict agentv1.ReviewVerdict) string {
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
 		return "approve"
@@ -250,9 +250,9 @@ func reviewVerdictWord(verdict agentv1.ReviewVerdict) string {
 	}
 }
 
-// reviewVerdictStyle colours the chosen verdict by what it means, since approving and asking for
+// pickVerdictStyle colours the chosen verdict by what it means, since approving and asking for
 // more work are the two outcomes worth telling apart at a glance.
-func reviewVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
+func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
 		return reviewDeliveredStyle

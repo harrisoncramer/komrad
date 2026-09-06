@@ -35,7 +35,11 @@ func TestTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	write(t, root, "kept.go", "package main\n\nfunc B() {}\n")
 	write(t, root, "untracked.go", "package main\n")
 
-	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/one"})
+	snapshot, err := Take(t.Context(), SnapshotParams{
+		Dir:  root,
+		Base: "main",
+		Ref:  "refs/weave/rounds/one",
+	})
 	require.NoError(t, err)
 
 	patch, err := Load(t.Context(), LoadParams{
@@ -70,7 +74,11 @@ func TestTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	before := capture(t, root, "status", "--porcelain")
 	head := capture(t, root, "rev-parse", "HEAD")
 
-	_, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/two"})
+	_, err := Take(t.Context(), SnapshotParams{
+		Dir:  root,
+		Base: "main",
+		Ref:  "refs/weave/rounds/two",
+	})
 	require.NoError(t, err)
 
 	assert.Equal(t, before, capture(t, root, "status", "--porcelain"))
@@ -83,7 +91,11 @@ func TestTakeIsHeldByItsRefAndReadableAfterTheWorktreeMovesOn(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc First() {}\n")
 
-	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/three"})
+	snapshot, err := Take(t.Context(), SnapshotParams{
+		Dir:  root,
+		Base: "main",
+		Ref:  "refs/weave/rounds/three",
+	})
 	require.NoError(t, err)
 
 	write(t, root, "kept.go", "package main\n\nfunc Second() {}\n")
@@ -109,7 +121,11 @@ func TestTakeIgnoresWhatGitIgnores(t *testing.T) {
 	write(t, root, ".gitignore", ".weave/\n")
 	write(t, root, ".weave/reviews/round-1.md", "a review\n")
 
-	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/four"})
+	snapshot, err := Take(t.Context(), SnapshotParams{
+		Dir:  root,
+		Base: "main",
+		Ref:  "refs/weave/rounds/four",
+	})
 	require.NoError(t, err)
 
 	patch, err := Load(t.Context(), LoadParams{
@@ -151,7 +167,11 @@ func TestReleaseDropsTheRef(t *testing.T) {
 	root := repo(t)
 	write(t, root, "kept.go", "package main\n\nfunc C() {}\n")
 
-	_, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/five"})
+	_, err := Take(t.Context(), SnapshotParams{
+		Dir:  root,
+		Base: "main",
+		Ref:  "refs/weave/rounds/five",
+	})
 	require.NoError(t, err)
 
 	require.NoError(t, Release(t.Context(), root, "refs/weave/rounds/five"))
@@ -166,7 +186,11 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	root := repo(t)
 	write(t, root, "proto/gen/api.pb.go", "package gen\n\nfunc Gen() {}\n")
 
-	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/six"})
+	snapshot, err := Take(t.Context(), SnapshotParams{
+		Dir:  root,
+		Base: "main",
+		Ref:  "refs/weave/rounds/six",
+	})
 	require.NoError(t, err)
 
 	// The round holds the excluded file whole, which is what makes an exclude a view of a

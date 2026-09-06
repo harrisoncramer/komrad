@@ -726,7 +726,11 @@ func openBatch(t *testing.T, reviews *reviewstore.Store, agentID, roundID, autho
 func seedRoundedAgent(t *testing.T, st *testStore, reviews *reviewstore.Store, name, root, sha string) string {
 	t.Helper()
 
-	require.NoError(t, st.Create(t.Context(), agentstore.Agent{Name: name, Cwd: root, State: agentstore.StateIdle}))
+	require.NoError(t, st.Create(t.Context(), agentstore.Agent{
+		Name:  name,
+		Cwd:   root,
+		State: agentstore.StateIdle,
+	}))
 	agent, err := st.Get(t.Context(), name)
 	require.NoError(t, err)
 

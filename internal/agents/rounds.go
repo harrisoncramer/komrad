@@ -104,7 +104,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return nil, err
 	}
 
-	agent, err := s.liveAgent(ctx, agentID)
+	agent, err := s.getLiveAgent(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -339,7 +339,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	agent, err := s.liveAgent(ctx, params.AgentID)
+	agent, err := s.getLiveAgent(ctx, params.AgentID)
 	if err != nil {
 		return nil, err
 	}
@@ -413,7 +413,11 @@ func (s *ReviewService) ReleaseReview(
 		return nil, fmt.Errorf("the review reached %q but weave could not record that it had: %w", agent.Name, err)
 	}
 
-	return &ReleaseReviewResult{Review: *released, Comments: comments, Path: path}, nil
+	return &ReleaseReviewResult{
+		Review:   *released,
+		Comments: comments,
+		Path:     path,
+	}, nil
 }
 
 // reviewNotice is the whole of what mail carries, which is the round, the verdict, how much there
@@ -482,7 +486,11 @@ func (s *ReviewService) writeReview(
 		Verdict: params.Verdict,
 		Said:    params.Body,
 		Threads: threads,
-		Source:  s.snapshotLines(ctx, agent.Cwd, round, threads),
+		Source: s.getSnapshotLines(ctx, getSnapshotLinesParams{
+			Dir:     agent.Cwd,
+			Round:   round,
+			Threads: threads,
+		}),
 	})
 
 	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", round.Ordinal, review.ID))
@@ -509,21 +517,25 @@ func (s *ReviewService) authorName(ctx context.Context, review reviewstore.Revie
 	return author.Name
 }
 
-// snapshotLines reads every file a review touches as the round froze it so each comment can carry
-// the code around it, leaving out a file that cannot be read rather than failing the release,
-// since a comment is still worth sending without the lines around it.
-func (s *ReviewService) snapshotLines(
-	ctx context.Context,
-	dir string,
-	round reviewstore.Round,
-	threads []ReviewThreadWithMessages,
-) map[string][]string {
-	if dir == "" {
+// getSnapshotLinesParams says which round to read the files out of and which of them are wanted.
+type getSnapshotLinesParams struct {
+	// Dir is anywhere inside the reviewed agent's worktree.
+	Dir   string
+	Round reviewstore.Round
+	// Threads names the files, since a review quotes only what it has a comment on.
+	Threads []ReviewThreadWithMessages
+}
+
+// getSnapshotLines reads every file a review touches as the round froze it so each comment can
+// carry the code around it, leaving out a file that cannot be read rather than failing the
+// release, since a comment is still worth sending without the lines around it.
+func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshotLinesParams) map[string][]string {
+	if params.Dir == "" {
 		return nil
 	}
 
-	held := make(map[string][]string, len(threads))
-	for _, thread := range threads {
+	held := make(map[string][]string, len(params.Threads))
+	for _, thread := range params.Threads {
 		path := thread.Thread.FilePath
 		if path == "" {
 			continue
@@ -532,7 +544,7 @@ func (s *ReviewService) snapshotLines(
 			continue
 		}
 
-		lines, err := s.snapshots.FileAt(ctx, dir, round.SnapshotSHA, path)
+		lines, err := s.snapshots.FileAt(ctx, params.Dir, params.Round.SnapshotSHA, path)
 		if err != nil {
 			lines = nil
 		}
@@ -543,9 +555,9 @@ func (s *ReviewService) snapshotLines(
 	return held
 }
 
-// liveAgent refuses an agent that has been archived, since there is nobody there to hand a review
+// getLiveAgent refuses an agent that has been archived, since there is nobody there to hand a review
 // to and releasing one would say it had been told.
-func (s *ReviewService) liveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
+func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrAgentNotFound, agentID)

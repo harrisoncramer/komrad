@@ -55,7 +55,12 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.BaseSHA, params.SnapshotSHA, err)
 	}
 
-	files, err := parseFiles(ctx, root, params.BaseSHA, params.SnapshotSHA, raw)
+	files, err := parseFiles(ctx, parseFilesParams{
+		Root:        root,
+		BaseSHA:     params.BaseSHA,
+		SnapshotSHA: params.SnapshotSHA,
+		Raw:         raw,
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -63,7 +68,7 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	// Untracked files are already in the snapshot, so the parsed list is the whole of what the
 	// reader would see and an empty one is nothing to show them.
 	if len(files) == 0 {
-		return nil, emptyReason(ctx, root, params)
+		return nil, explainEmptyDiff(ctx, root, params)
 	}
 
 	return &Patch{
@@ -74,9 +79,9 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	}, nil
 }
 
-// emptyReason says why a round drew nothing, since a worktree that never moved and one whose every
+// explainEmptyDiff says why a round drew nothing, since a worktree that never moved and one whose every
 // change is hidden from the diff both draw nothing while meaning opposite things about the agent.
-func emptyReason(ctx context.Context, root string, params LoadParams) error {
+func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error {
 	if len(params.Exclude) == 0 {
 		return ErrNoChanges
 	}
@@ -143,10 +148,22 @@ func resolveBase(ctx context.Context, root, base string) string {
 	return base
 }
 
-func parseFiles(ctx context.Context, root, baseSHA, snapshotSHA string, raw []byte) ([]File, error) {
-	parsed, _, err := gitdiff.Parse(bytes.NewReader(raw))
+// parseFilesParams says which patch to read and which two commits to read each side of it out of.
+type parseFilesParams struct {
+	// Root is the repository the two commits live in.
+	Root string
+	// BaseSHA is the commit the round was measured against, holding the old side of every file.
+	BaseSHA string
+	// SnapshotSHA is the commit the round froze, holding the new side.
+	SnapshotSHA string
+	// Raw is the patch git wrote between the two.
+	Raw []byte
+}
+
+func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
+	parsed, _, err := gitdiff.Parse(bytes.NewReader(params.Raw))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the diff of %q: %w", root, err)
+		return nil, fmt.Errorf("failed to parse the diff of %q: %w", params.Root, err)
 	}
 
 	files := make([]File, 0, len(parsed))
@@ -173,12 +190,12 @@ func parseFiles(ctx context.Context, root, baseSHA, snapshotSHA string, raw []by
 			// The patch draws no hunks for a binary, so the blob hashes git names on its index
 			// line are what the fingerprint has to hold the mark against.
 			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
-		case drawnBytes(current.TextFragments) > maxFileBytes:
+		case countDrawnBytes(current.TextFragments) > maxFileBytes:
 			file.Metadata = append(file.Metadata, "content omitted: over 2 MiB")
 			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
 		default:
-			file.OldSource = readRevision(ctx, root, baseSHA, file.OldPath)
-			file.NewSource = readRevision(ctx, root, snapshotSHA, file.NewPath)
+			file.OldSource = readRevision(ctx, params.Root, params.BaseSHA, file.OldPath)
+			file.NewSource = readRevision(ctx, params.Root, params.SnapshotSHA, file.NewPath)
 			file.Hunks = buildHunks(current.TextFragments)
 		}
 
@@ -188,9 +205,9 @@ func parseFiles(ctx context.Context, root, baseSHA, snapshotSHA string, raw []by
 	return files, nil
 }
 
-// drawnBytes is how much text a file's hunks would put on screen, which is what decides whether it
+// countDrawnBytes is how much text a file's hunks would put on screen, which is what decides whether it
 // is drawn at all, since a snapshot stages a huge file the same as any other.
-func drawnBytes(fragments []*gitdiff.TextFragment) int {
+func countDrawnBytes(fragments []*gitdiff.TextFragment) int {
 	total := 0
 	for _, fragment := range fragments {
 		for _, line := range fragment.Lines {

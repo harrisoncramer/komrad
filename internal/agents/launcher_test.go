@@ -41,7 +41,11 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.sendKeysErr = tt.sendKeysErr
 			h := &fakeHarness{commandErr: tt.commandErr}
-			launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999", CacheDir: cache})
+			launcher := NewLauncher(LauncherParams{
+				Tmux:     tmux,
+				Addr:     "127.0.0.1:9999",
+				CacheDir: cache,
+			})
 
 			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
 

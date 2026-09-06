@@ -832,7 +832,7 @@ func agentAuthor(id string) ReviewAuthor {
 func reviewService(t *testing.T, reviews *fakeReviewStore, notices *fakeNoticeSender) *ReviewService {
 	t.Helper()
 
-	return reviewServiceForAgent(t, reviews, notices, liveAgent)
+	return reviewServiceForAgent(t, reviews, notices, findLiveAgent)
 }
 
 // reviewServiceHolding is a service whose round holds the given files, which is what lets a
@@ -846,14 +846,18 @@ func reviewServiceHolding(
 	t.Helper()
 
 	return NewReviewService(ReviewServiceParams{
-		Threads:   reviews,
-		Messages:  reviews,
-		Viewed:    reviews,
-		Rounds:    reviews,
-		Reviews:   reviews,
-		Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha", files: files},
+		Threads:  reviews,
+		Messages: reviews,
+		Viewed:   reviews,
+		Rounds:   reviews,
+		Reviews:  reviews,
+		Snapshots: &fakeSnapshotter{
+			sha:   "snapshot-sha",
+			base:  "base-sha",
+			files: files,
+		},
 		Workflows: fakeWorkflowGetter{},
-		Agents:    fakeAgentReaderFunc(liveAgent),
+		Agents:    fakeAgentReaderFunc(findLiveAgent),
 		Mailer:    notices,
 		StateDir:  t.TempDir(),
 	})
@@ -881,14 +885,23 @@ func reviewServiceForAgent(
 	})
 }
 
-func liveAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+func findLiveAgent(_ context.Context, id string) (*agentstore.Agent, error) {
 	if id == reviewerAgentID {
 		parent := reviewedAgentID
 
-		return &agentstore.Agent{ID: id, Name: "reviewer", Cwd: "/tmp/tree", ParentAgentID: &parent}, nil
+		return &agentstore.Agent{
+			ID:            id,
+			Name:          "reviewer",
+			Cwd:           "/tmp/tree",
+			ParentAgentID: &parent,
+		}, nil
 	}
 
-	return &agentstore.Agent{ID: id, Name: "worker", Cwd: "/tmp/tree"}, nil
+	return &agentstore.Agent{
+		ID:   id,
+		Name: "worker",
+		Cwd:  "/tmp/tree",
+	}, nil
 }
 
 func archivedAgent(_ context.Context, id string) (*agentstore.Agent, error) {
@@ -1484,7 +1497,7 @@ func reviewServiceWithRealMail(t *testing.T, reviews *fakeReviewStore, mailbox *
 		Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
 		Workflows: fakeWorkflowGetter{},
 		StateDir:  t.TempDir(),
-		Agents:    fakeAgentReaderFunc(liveAgent),
+		Agents:    fakeAgentReaderFunc(findLiveAgent),
 		Mailer:    mailService(mailbox),
 	})
 }
@@ -1492,7 +1505,7 @@ func reviewServiceWithRealMail(t *testing.T, reviews *fakeReviewStore, mailbox *
 func mailService(mailbox *countingMailbox) *MailService {
 	return NewMailService(NewMailServiceParams{
 		MailReadWriter: mailbox,
-		Agents:         fakeAgentReaderFunc(liveAgent),
+		Agents:         fakeAgentReaderFunc(findLiveAgent),
 		Config:         fakeMailConfig{maxExchange: config.DefaultMaxExchange},
 	})
 }

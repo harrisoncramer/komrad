@@ -117,7 +117,12 @@ func Take(ctx context.Context, params SnapshotParams) (*Snapshot, error) {
 		}
 	}
 
-	return &Snapshot{Root: root, Base: base, BaseSHA: baseSHA, SHA: sha}, nil
+	return &Snapshot{
+		Root:    root,
+		Base:    base,
+		BaseSHA: baseSHA,
+		SHA:     sha,
+	}, nil
 }
 
 // Hold points a ref at a snapshot already written, which is how a caller naming the ref after the
