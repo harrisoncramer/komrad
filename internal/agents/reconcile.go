@@ -45,7 +45,7 @@ type frameRecorder interface {
 	Forget(listed map[string]struct{})
 }
 
-type agentStateWriter interface {
+type agentStateReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	SetStateByID(ctx context.Context, id string, state agentstore.State) error
 	SetTurnEnded(ctx context.Context, id string) error
@@ -58,7 +58,7 @@ type agentStateWriter interface {
 type Reconciler struct {
 	tmux      paneObserver
 	harnesses harnessGetter
-	store     agentStateWriter
+	store     agentStateReadWriter
 	prFinder  prFinder
 	frames    frameRecorder
 
@@ -70,7 +70,7 @@ type Reconciler struct {
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
 // captures, and the state store.
-func NewReconciler(panes paneObserver, harnesses harnessGetter, states agentStateWriter) *Reconciler {
+func NewReconciler(panes paneObserver, harnesses harnessGetter, states agentStateReadWriter) *Reconciler {
 	return &Reconciler{
 		tmux:      panes,
 		harnesses: harnesses,

@@ -52,7 +52,7 @@ type mailReadWriter interface {
 	CountExchanged(ctx context.Context, one, other string) (int64, error)
 }
 
-type mailAgentStore interface {
+type mailAgentReadWriter interface {
 	agentGetter
 	SetViewed(ctx context.Context, id string, viewed bool) error
 }
@@ -64,13 +64,13 @@ type mailConfigReader interface {
 
 type MailService struct {
 	mailReadWriter mailReadWriter
-	agents         mailAgentStore
+	agents         mailAgentReadWriter
 	config         mailConfigReader
 }
 
 type NewMailServiceParams struct {
 	MailReadWriter mailReadWriter
-	Agents         mailAgentStore
+	Agents         mailAgentReadWriter
 	Config         mailConfigReader
 }
 

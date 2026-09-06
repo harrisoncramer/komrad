@@ -13,7 +13,7 @@ const (
 	TriggerDeprovision = config.TriggerDeprovision
 )
 
-type tmuxReader interface {
+type tmuxReadWriter interface {
 	GetPaneOwner(pane string) string
 	GetHostSocket() string
 	GetInfoPane() string
@@ -26,7 +26,7 @@ type tmuxReader interface {
 type ScriptService struct {
 	agents     agentGetter
 	workflows  workflowReader
-	tmux       tmuxReader
+	tmux       tmuxReadWriter
 	runner     scriptRunner
 	runs       runRecorder
 	load       configLoader
@@ -44,7 +44,7 @@ type ScriptService struct {
 type ScriptParams struct {
 	Agents     agentGetter
 	Workflows  workflowReader
-	Tmux       tmuxReader
+	Tmux       tmuxReadWriter
 	Runner     scriptRunner
 	Runs       runRecorder
 	Load       configLoader

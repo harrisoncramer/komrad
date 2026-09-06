@@ -33,7 +33,7 @@ type paneReader interface {
 	IsAgentRunning(agent agentstore.Agent) bool
 }
 
-type paneTyper interface {
+type paneReadWriter interface {
 	IsPaneInMode(pane string) bool
 	CapturePane(pane string) string
 	SendText(target, text string) error
@@ -52,29 +52,29 @@ type mailboxReader interface {
 }
 
 type DeliveryService struct {
-	mailboxReader mailboxReader
-	nudgeClaimer  nudgeClaimer
-	paneReader    paneReader
-	paneTyper     paneTyper
-	harnesses     harnessGetter
+	mailboxReader  mailboxReader
+	nudgeClaimer   nudgeClaimer
+	paneReader     paneReader
+	paneReadWriter paneReadWriter
+	harnesses      harnessGetter
 }
 
 type NewDeliveryServiceParams struct {
 	MailboxReader mailboxReader
 	NudgeClaimer  nudgeClaimer
 	PaneReader    paneReader
-	PaneTyper     paneTyper
+	PaneTyper     paneReadWriter
 	Harnesses     harnessGetter
 }
 
 // NewDeliveryService builds the service from its dependencies.
 func NewDeliveryService(p NewDeliveryServiceParams) *DeliveryService {
 	return &DeliveryService{
-		mailboxReader: p.MailboxReader,
-		nudgeClaimer:  p.NudgeClaimer,
-		paneReader:    p.PaneReader,
-		paneTyper:     p.PaneTyper,
-		harnesses:     p.Harnesses,
+		mailboxReader:  p.MailboxReader,
+		nudgeClaimer:   p.NudgeClaimer,
+		paneReader:     p.PaneReader,
+		paneReadWriter: p.PaneTyper,
+		harnesses:      p.Harnesses,
 	}
 }
 
@@ -126,7 +126,7 @@ func (s *DeliveryService) Deliver(ctx context.Context, agentID string) (Delivery
 		return DeliveryLater, nil
 	case !s.paneReader.IsAgentRunning(*agent):
 		return DeliveryLater, nil
-	case s.paneTyper.IsPaneInMode(agent.Pane):
+	case s.paneReadWriter.IsPaneInMode(agent.Pane):
 
 		return DeliveryLater, nil
 	case !s.canPaneTakeKeys(*agent):
@@ -161,19 +161,19 @@ func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
 	// A CLI still starting up takes the line into the terminal buffer and loses the newline, so
 	// the nudge is never submitted, and a prompt already holding typed text is not idle either,
 	// since the newline would send whatever somebody was halfway through writing along with it.
-	return hn.ReadActivity(s.paneTyper.CapturePane(agent.Pane)) == harness.ActivityIdle
+	return hn.ReadActivity(s.paneReadWriter.CapturePane(agent.Pane)) == harness.ActivityIdle
 }
 
 func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pending int64) error {
 	line := fmt.Sprintf("weave: %d piece(s) of unread mail, call read_mail", pending)
 
-	if err := s.paneTyper.SendText(agent.Pane, line); err != nil {
+	if err := s.paneReadWriter.SendText(agent.Pane, line); err != nil {
 		return fmt.Errorf("failed to type at agent %q: %w", agent.ID, err)
 	}
 
 	time.Sleep(nudgeEnterDelay)
 
-	if err := s.paneTyper.SendKeys(agent.Pane, "Enter"); err != nil {
+	if err := s.paneReadWriter.SendKeys(agent.Pane, "Enter"); err != nil {
 		return fmt.Errorf("failed to submit the nudge to agent %q: %w", agent.ID, err)
 	}
 
