@@ -20,10 +20,6 @@ func (s selection) has(id string) bool {
 	return slices.Contains(s.ids, id)
 }
 
-func (s selection) count() int {
-	return len(s.ids)
-}
-
 func (s selection) toggle(rows []agentRow, cursor int) selection {
 	row, ok := rowAt(rows, cursor)
 	if !ok {

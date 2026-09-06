@@ -259,7 +259,7 @@ func (m model) dwellRunsRead(now time.Time) (model, tea.Cmd) {
 		}
 	}
 
-	if !m.failedRunShowing(agent.ID) {
+	if !m.isFailedRunShowing(agent.ID) {
 		m.runHover.since = now
 
 		return m, nil
@@ -290,9 +290,9 @@ func (m model) runLogTarget() (agentstore.Agent, bool) {
 	return m.logTarget()
 }
 
-// failedRunShowing reports whether the agent the run-log pane is on is still carrying a mark,
+// isFailedRunShowing reports whether the agent the run-log pane is on is still carrying a mark,
 // so a settled panel makes no calls at all.
-func (m model) failedRunShowing(agentID string) bool {
+func (m model) isFailedRunShowing(agentID string) bool {
 	for _, item := range m.listing.agents {
 		if item.agent.ID == agentID {
 			return item.failedRun

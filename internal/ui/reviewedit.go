@@ -121,7 +121,7 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 		// The disk is asked here rather than on the keypress, since this is the moment the force
 		// checkout below would take an earlier round's edit, and a lookup made when the screen
 		// opened is one a quick reader can beat.
-		if !force && holdsLeftover(ctx, at, sha) {
+		if !force && doesHoldLeftover(ctx, at, sha) {
 			return roundReadyMsg{agentID: agentID, leftover: at}
 		}
 
@@ -137,9 +137,9 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 	}
 }
 
-// holdsLeftover reports whether the checkout is an earlier round's with work still in it, which is
+// doesHoldLeftover reports whether the checkout is an earlier round's with work still in it, which is
 // the one thing checking this round out over the top of it destroys.
-func holdsLeftover(ctx context.Context, at, sha string) bool {
+func doesHoldLeftover(ctx context.Context, at, sha string) bool {
 	head, ok := git.WorktreeHead(ctx, at)
 	if !ok || head == sha {
 		return false

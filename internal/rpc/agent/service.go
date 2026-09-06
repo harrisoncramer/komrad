@@ -69,17 +69,17 @@ type agentReadWriter interface {
 	Rename(ctx context.Context, id, name string) (bool, error)
 }
 
-// markWriter owns the letters a person addresses rows by, which span agents and workflows and
+// markReadWriter owns the letters a person addresses rows by, which span agents and workflows and
 // so are written through a transaction rather than through one store.
-type markWriter interface {
+type markReadWriter interface {
 	ListMarks(ctx context.Context) ([]markstore.Mark, error)
 	SetMark(ctx context.Context, mark string, target markstore.Target) (bool, error)
 	ClearMark(ctx context.Context, target markstore.Target) (bool, error)
 }
 
-// runReader is the record of the scripts weave fired, which the listing reads to say whether
+// runReadWriter is the record of the scripts weave fired, which the listing reads to say whether
 // an agent is holding a failure nobody has looked at.
-type runReader interface {
+type runReadWriter interface {
 	ListUnreadFailures(ctx context.Context) ([]runstore.Failure, error)
 	MarkRead(ctx context.Context, agentID string) error
 }
@@ -100,8 +100,8 @@ type Service struct {
 	reconciler  reportRecorder
 	archive     archiveEmptier
 	review      reviewConversation
-	runs        runReader
-	marks       markWriter
+	runs        runReadWriter
+	marks       markReadWriter
 }
 
 type NewServiceParams struct {
@@ -116,8 +116,8 @@ type NewServiceParams struct {
 	Reconciler  reportRecorder
 	Archive     archiveEmptier
 	Review      reviewConversation
-	Runs        runReader
-	Marks       markWriter
+	Runs        runReadWriter
+	Marks       markReadWriter
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents

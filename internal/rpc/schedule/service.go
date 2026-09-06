@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type scheduleWriter interface {
+type scheduleReadWriter interface {
 	GetSchedule(ctx context.Context, id string) (*schedulestore.Schedule, error)
 	NewSchedule(ctx context.Context, cfg schedulestore.Config) (*schedulestore.Schedule, error)
 	UpdateSchedule(ctx context.Context, id string, cfg schedulestore.Config) error
@@ -33,12 +33,12 @@ type scheduleLister interface {
 
 type Service struct {
 	lister    scheduleLister
-	schedules scheduleWriter
+	schedules scheduleReadWriter
 }
 
 // NewService constructs the handler from the store it lists through and the
 // service that owns the rules.
-func NewService(lister scheduleLister, schedules scheduleWriter) *Service {
+func NewService(lister scheduleLister, schedules scheduleReadWriter) *Service {
 	return &Service{lister: lister, schedules: schedules}
 }
 

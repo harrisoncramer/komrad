@@ -4,6 +4,8 @@ import (
 	"regexp"
 	"strings"
 
+	"weave/lib/xslice"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -188,6 +190,17 @@ func (m *model) placeFilteredCursor(hovered string) {
 	if spec := m.screen.spec().filter; spec != nil {
 		spec.place(m, hovered)
 	}
+}
+
+func filterRows(rows []agentRow) []filterRow {
+	return xslice.Map(rows, func(row agentRow) filterRow {
+		name := row.item.agent.Name
+		if row.header {
+			name = row.workflow.Name
+		}
+
+		return filterRow{key: rowKey(row), name: name}
+	})
 }
 
 func placeCursor(found, cursor, length int) int {

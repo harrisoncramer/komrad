@@ -347,7 +347,7 @@ func TestFilterInput(t *testing.T) {
 	}
 }
 
-// TestFilterCursor covers where the cursor lands as the tree narrows, since the row under it
+// TestFilterCursor covers where the cursor lands as the search changes, since the row under it
 // is what the next key acts on.
 func TestFilterCursor(t *testing.T) {
 	tests := []struct {
@@ -357,13 +357,13 @@ func TestFilterCursor(t *testing.T) {
 		want  string
 	}{
 		{
-			name:  "a cursor whose row is held back falls into the narrowed list",
+			name:  "a cursor whose row does not match moves to the first match",
 			start: 1,
 			query: "payouts",
 			want:  "payouts",
 		},
 		{
-			name:  "a cursor follows the row it was on",
+			name:  "a cursor stays on its row when it matches",
 			start: 2,
 			query: "pa",
 			want:  "payouts",
@@ -394,7 +394,7 @@ func TestFilterKeepsSelection(t *testing.T) {
 	got := typeIntoFilter(m, "payouts")
 
 	assert.Equal(t, whole, rowNames(got.agentRows()), "the tree is left whole")
-	assert.Len(t, chosenAgents(got.tree.selected, got.allAgentRows()), 2, "both chosen agents are still acted on")
+	assert.Equal(t, []string{"a1", "a2"}, agentIDs(chosenAgents(got.tree.selected, got.agentRows())), "both chosen agents are still acted on")
 }
 
 // TestFilterDroppedLeavingScreen covers a pattern following the user off the list it was typed

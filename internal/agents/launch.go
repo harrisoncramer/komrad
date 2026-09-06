@@ -280,7 +280,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		dir = config.ExpandHome(strings.TrimSpace(wf.Cwd))
 	}
 	if dir == "" {
-		dir = s.tmux.HostPath()
+		dir = s.tmux.GetHostPath()
 	}
 	if dir == "" {
 		dir, _ = os.UserHomeDir()
@@ -701,7 +701,7 @@ func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID, title, 
 }
 
 func (s *LaunchService) isNameTaken(ctx context.Context, workflowID, name string) bool {
-	taken, err := s.agents.ActiveNameExists(ctx, workflowID, name)
+	taken, err := s.agents.DoesActiveNameExist(ctx, workflowID, name)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",
 			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)

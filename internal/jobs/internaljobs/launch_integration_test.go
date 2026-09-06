@@ -150,6 +150,6 @@ func (s *stubTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
 	return map[string]tmux.PaneStatus{}, nil
 }
 
-func (s *stubTmux) HostPath() string { return "" }
+func (s *stubTmux) GetHostPath() string { return "" }
 
 func (s *stubTmux) SendKeys(string, ...string) error { return nil }

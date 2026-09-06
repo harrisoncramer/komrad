@@ -18,19 +18,19 @@ type transcriptReadWriter interface {
 	DeleteTurns(ctx context.Context, agentID string) error
 }
 
-type agentSessionLister interface {
+type agentSessionReadWriter interface {
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
 	SetSessionID(ctx context.Context, id, sessionID string) error
 }
 
 type TranscriptSyncer struct {
-	agents    agentSessionLister
+	agents    agentSessionReadWriter
 	store     transcriptReadWriter
 	harnesses harnessGetter
 }
 
 type TranscriptSyncerParams struct {
-	Agents      agentSessionLister
+	Agents      agentSessionReadWriter
 	Transcripts transcriptReadWriter
 	Harnesses   harnessGetter
 }

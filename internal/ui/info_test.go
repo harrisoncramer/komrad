@@ -130,8 +130,8 @@ func (t *recordingTmux) GetSessionClient(string) string          { return t.sess
 func (t *recordingTmux) SetSessionOption(string, string, string) {}
 func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
 func (t *recordingTmux) BindKey(string, ...string)               {}
-func (t *recordingTmux) HostPath() string                        { return t.path }
-func (t *recordingTmux) DefaultShell() string                    { return "/bin/zsh" }
+func (t *recordingTmux) GetHostPath() string                     { return t.path }
+func (t *recordingTmux) GetDefaultShell() string                 { return "/bin/zsh" }
 func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 	t.sentKeys = append(t.sentKeys, strings.Join(append([]string{target}, keys...), " "))
 
@@ -197,7 +197,7 @@ func infoModel(tmux *recordingTmux) model {
 	return model{
 		tmux:          tmux,
 		frame:         frame,
-		shell:         tmux.DefaultShell(),
+		shell:         tmux.GetDefaultShell(),
 		keys:          config.DefaultKeybindings(),
 		screen:        screenAgents,
 		detailsHeight: config.DefaultDetailsHeight,

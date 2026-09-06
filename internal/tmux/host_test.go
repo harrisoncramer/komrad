@@ -19,7 +19,7 @@ func TestHostRecord(t *testing.T) {
 	manager := NewClient(managerSocket)
 
 	assert.Empty(t, manager.GetHostSocket(), "before an open there is no user server to name")
-	assert.Empty(t, manager.HostPath(), "and no directory a new agent could inherit")
+	assert.Empty(t, manager.GetHostPath(), "and no directory a new agent could inherit")
 
 	manager.RecordHostSocket(socketPath(t, hostSocket))
 	assert.Equal(t, socketPath(t, hostSocket), manager.GetHostSocket(),
@@ -28,11 +28,11 @@ func TestHostRecord(t *testing.T) {
 		"and records it on its own server, out of reach of a second user server")
 
 	manager.RecordHostPath("/tmp/where-the-user-was")
-	assert.Equal(t, "/tmp/where-the-user-was", manager.HostPath(),
+	assert.Equal(t, "/tmp/where-the-user-was", manager.GetHostPath(),
 		"the panel reads the directory back rather than asking a server it does not run")
 
 	manager.RecordHostPath("")
-	assert.Empty(t, manager.HostPath(),
+	assert.Empty(t, manager.GetHostPath(),
 		"and an open with nowhere to read forgets the last answer rather than repeating it")
 }
 

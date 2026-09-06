@@ -146,7 +146,7 @@ func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Agents.Quit):
 		return m, m.hide()
 	case isBound(k, m.keys.Agents.Archive):
-		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.allAgentRows()))
+		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.agentRows()))
 	case isBound(k, m.keys.Agents.ShowHidden):
 		return m.toggleHiddenAgents()
 	case isBound(k, m.keys.Nav.Up):
@@ -311,7 +311,7 @@ func (m model) toggleHiddenAgents() (tea.Model, tea.Cmd) {
 	} else {
 		m.tree.cursor = clampCursor(m.tree.cursor, len(rows))
 	}
-	m.tree.selected = m.tree.selected.pruned(m.allAgentRows())
+	m.tree.selected = m.tree.selected.pruned(m.agentRows())
 	m.stageSelection()
 
 	return m, nil

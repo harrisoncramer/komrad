@@ -66,7 +66,7 @@ type agentGetter interface {
 }
 
 type nameChecker interface {
-	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
+	DoesActiveNameExist(ctx context.Context, workflowID, name string) (bool, error)
 }
 
 // agentFailWriter records that an agent's create or cleanup gave up, which is a write to the
@@ -97,7 +97,7 @@ type paneController interface {
 	paneOwnerReader
 	NewWindow(session, name, dir string) (string, error)
 	SetPaneOwner(pane, agentID string) error
-	HostPath() string
+	GetHostPath() string
 }
 
 type paneWriter interface {

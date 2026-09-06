@@ -19,7 +19,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-type workflowWriter interface {
+type workflowReadWriter interface {
 	NewWorkflow(ctx context.Context, cfg workflowstore.Config) (*workflowstore.Workflow, error)
 	GetWorkflow(ctx context.Context, id string) (*workflowstore.Workflow, error)
 	UpdateWorkflow(ctx context.Context, id string, cfg workflowstore.Config) error
@@ -40,13 +40,13 @@ type workflowLister interface {
 
 type Service struct {
 	lister    workflowLister
-	workflows workflowWriter
+	workflows workflowReadWriter
 	marks     markReader
 }
 
 // NewService constructs the handler from the store it lists through, the service that owns the
 // rules, and the marks a workflow header draws.
-func NewService(lister workflowLister, workflows workflowWriter, marks markReader) *Service {
+func NewService(lister workflowLister, workflows workflowReadWriter, marks markReader) *Service {
 	return &Service{
 		lister:    lister,
 		workflows: workflows,

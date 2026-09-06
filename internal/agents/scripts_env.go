@@ -139,7 +139,7 @@ func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, e
 		"WEAVE_INFO_PANE=" + s.tmux.GetInfoPane(),
 		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
 		"EDITOR=" + s.editor,
-		"WEAVE_SHELL=" + s.tmux.DefaultShell(),
+		"WEAVE_SHELL=" + s.tmux.GetDefaultShell(),
 	}
 
 	if s.binPath != "" {

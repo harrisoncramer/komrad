@@ -130,8 +130,8 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	return exists, nil
 }
 
-// ActiveNameExists reports whether a live agent holds the name in a workflow.
-func (s *Store) ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error) {
+// DoesActiveNameExist reports whether a live agent holds the name in a workflow.
+func (s *Store) DoesActiveNameExist(ctx context.Context, workflowID, name string) (bool, error) {
 	exists, err := s.queries.ActiveNameExists(ctx, models.ActiveNameExistsParams{
 		WorkflowID: workflowID,
 		Name:       name,

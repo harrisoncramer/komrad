@@ -34,7 +34,7 @@ by hand after changing @weave_key to bind the new one without restarting tmux.`,
 				return err
 			}
 
-			if _, err := server.SocketPath(); err != nil {
+			if _, err := server.GetSocketPath(); err != nil {
 				return fmt.Errorf("no tmux server is running to bind the panel key on, so start tmux and "+
 					"run this again, or let tmux bind it on startup with `run-shell 'weave tmux'` in your "+
 					"tmux config: %w", err)
@@ -50,7 +50,7 @@ by hand after changing @weave_key to bind the new one without restarting tmux.`,
 
 func panelKeyServer(state *app) (*tmux.Client, error) {
 	socket, err := panelKeySocket(state.env.Tmux, func() string {
-		path, err := state.tmux.SocketPath()
+		path, err := state.tmux.GetSocketPath()
 		if err != nil {
 			return ""
 		}

@@ -70,7 +70,7 @@ func TestActiveNameExists(t *testing.T) {
 				require.NoError(t, archiveErr)
 			}
 
-			exists, err := st.ActiveNameExists(ctx, st.defaultWorkflow, "agent")
+			exists, err := st.DoesActiveNameExist(ctx, st.defaultWorkflow, "agent")
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, exists)
 		})
