@@ -260,7 +260,7 @@ func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Bindi
 	}
 
 	toggle := binding(m.keys.Selection.Toggle, toggleDesc)
-	clear := binding(m.keys.Selection.Clear, fmt.Sprintf("clear %d selected", sel.count()))
+	clear := binding(m.keys.Selection.Clear, fmt.Sprintf("clear %d selected", len(sel.ids)))
 
 	full := slices.Concat(
 		[]key.Binding{toggle, binding(m.keys.Selection.Range, "select to nearest"), clear},
