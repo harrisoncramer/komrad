@@ -51,9 +51,11 @@ func (m model) logsDesc() string {
 		return "agent log"
 	case infoAgentLog:
 		return "hide logs"
-	default:
+	case infoNothing, infoSetup, infoTerminal, infoEditFile:
 		return "run log"
 	}
+
+	return ""
 }
 
 // logTarget is the agent the log keys read, which follows the archive's own cursor while that

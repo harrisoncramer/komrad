@@ -418,7 +418,7 @@ func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
 		return reviewstore.VerdictCommented
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 		return reviewstore.VerdictCommented
-	default:
-		return reviewstore.VerdictCommented
 	}
+
+	return ""
 }

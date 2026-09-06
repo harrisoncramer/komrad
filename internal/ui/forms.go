@@ -379,9 +379,10 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.answerForm()
 	case huh.StateAborted:
 		return m.closeForm()
-	default:
-		return m, cmd
+	case huh.StateNormal:
 	}
+
+	return m, cmd
 }
 
 // closeForm drops the form and comes back to the screen it was drawn over.

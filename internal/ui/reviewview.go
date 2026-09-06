@@ -268,11 +268,11 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 		return "approve"
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return "request changes"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
-		return "comment only"
-	default:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 		return "comment only"
 	}
+
+	return ""
 }
 
 // pickVerdictStyle colours the chosen verdict by what it means, since approving and asking for
@@ -283,9 +283,11 @@ func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
 		return reviewDeliveredStyle
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
 		return reviewSentStyle
-	default:
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 		return reviewUnsentStyle
 	}
+
+	return lipgloss.Style{}
 }
 
 // reviewStatView is how big the change is, with the counts coloured the way the lines
