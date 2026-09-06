@@ -48,6 +48,9 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
 		{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
 		{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
+		{agents.ErrReviewNoRound, connect.CodeFailedPrecondition},
+		{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
+		{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 		{agents.ErrBadCron, connect.CodeInvalidArgument},
 		{agents.ErrBadDirectory, connect.CodeInvalidArgument},
 		{agents.ErrHarnessUnknown, connect.CodeInvalidArgument},
@@ -70,6 +73,8 @@ func TestWrapCodes(t *testing.T) {
 		{agentstore.ErrTooManyMetadataKeys, connect.CodeResourceExhausted},
 		{agents.ErrReviewNotYours, connect.CodePermissionDenied},
 		{agents.ErrReviewHumanOnly, connect.CodePermissionDenied},
+		{agents.ErrReviewNotEntitled, connect.CodePermissionDenied},
+		{agents.ErrReviewOwnWork, connect.CodePermissionDenied},
 		{agents.ErrOutsideFamily, connect.CodePermissionDenied},
 	}
 

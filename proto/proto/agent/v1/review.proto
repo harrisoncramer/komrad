@@ -27,15 +27,70 @@ enum ReviewDeliveryState {
   REVIEW_DELIVERY_STATE_SENT = 2;
   // Released, and the agent has claimed the doorbell.
   REVIEW_DELIVERY_STATE_DELIVERED = 3;
-  // Released, and the doorbell ran out of time unclaimed or is gone, so ringing again is what
-  // reaches the agent.
-  REVIEW_DELIVERY_STATE_EXPIRED = 4;
 }
 
-// ReviewThread is one conversation pinned to a place in an agent's diff.
+// ReviewVerdict is what an author concluded about a round, which is what tells the agent
+// whether it is done rather than leaving it to read that out of the prose.
+enum ReviewVerdict {
+  REVIEW_VERDICT_UNSPECIFIED = 0;
+  // This round is good as it stands.
+  REVIEW_VERDICT_APPROVED = 1;
+  // The agent should keep working.
+  REVIEW_VERDICT_CHANGES_REQUESTED = 2;
+  // Notes without a conclusion either way.
+  REVIEW_VERDICT_COMMENTED = 3;
+}
+
+// ReviewRound is one immutable snapshot of what an agent has written, which is what a review is
+// given against. Nothing a comment is pinned to can move underneath the person reading it,
+// because the snapshot is a commit rather than the worktree.
+message ReviewRound {
+  string id = 1;
+  string agent_id = 2;
+  // Which round this is for its agent, counting from one.
+  int32 ordinal = 3;
+  // The commit the agent's branch left its base at when the round was taken.
+  string base_sha = 4;
+  // The commit the whole worktree was written out as, tracked and untracked alike.
+  string snapshot_sha = 5;
+  string created_at = 6;
+}
+
+// Review is one author's batch of comments against one round, private while it is written and
+// released as a whole, the way a pending review on a forge is.
+message Review {
+  string id = 1;
+  string agent_id = 2;
+  string round_id = 3;
+  int32 round_ordinal = 4;
+  ReviewAuthorKind author_kind = 5;
+  // The agent giving the review, absent when the person reviewing is.
+  optional string author_agent_id = 6;
+  // What the author concluded, unspecified while the review is still open.
+  ReviewVerdict verdict = 7;
+  // When the review was let go of, empty while nothing in it has reached the agent.
+  string released_at = 8;
+  // The absolute path the released review was written to.
+  string path = 9;
+  // When the agent claimed the mail that told it the review was waiting.
+  string delivered_at = 10;
+  string created_at = 11;
+  string updated_at = 12;
+  // What the author said about the work as a whole rather than about any one line, empty when
+  // they said nothing.
+  string body = 13;
+}
+
+// ReviewThread is one conversation pinned to a place in a round of an agent's diff.
 message ReviewThread {
   string id = 1;
   string agent_id = 2;
+  // The batch this thread was opened as part of.
+  string review_id = 15;
+  // The round the thread is anchored to, which never moves.
+  string round_id = 16;
+  // Which round that is, counting from one.
+  int32 round_ordinal = 17;
   string file_path = 3;
   int32 old_start = 4;
   int32 old_end = 5;
@@ -63,6 +118,9 @@ message ReviewMessage {
   // deleted. author_kind, not this, is what says who wrote it.
   optional string author_agent_id = 4;
   string body = 5;
+  // Replacement lines the author proposes for the thread's range, empty for an ordinary
+  // comment. An agent applies these rather than reasoning about them.
+  repeated string suggestion = 11;
   string created_at = 6;
   string updated_at = 7;
   // How far this comment has got towards the agent reading it.
@@ -99,6 +157,8 @@ message CreateReviewThreadRequest {
     min_len: 1
     max_len: 10000
   }];
+  // Replacement lines proposed for the range, empty for an ordinary comment.
+  repeated string suggestion = 9;
 }
 
 message CreateReviewThreadResponse {
@@ -111,6 +171,8 @@ message AddReviewMessageRequest {
     min_len: 1
     max_len: 10000
   }];
+  // Replacement lines proposed for the thread's range, empty for an ordinary message.
+  repeated string suggestion = 3;
 }
 
 message AddReviewMessageResponse {
@@ -123,6 +185,8 @@ message EditReviewMessageRequest {
     min_len: 1
     max_len: 10000
   }];
+  // Replacement lines proposed for the thread's range, empty for an ordinary message.
+  repeated string suggestion = 3;
 }
 
 message EditReviewMessageResponse {
@@ -148,65 +212,76 @@ message SetReviewThreadResolvedResponse {
   ReviewThread thread = 1;
 }
 
-message DeleteReviewThreadRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-message DeleteReviewMessageRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-// ReleaseReviewMessagesRequest lets go of every comment on an agent's review the person has
-// written and not sent, and raises one doorbell they are all heard through. The comments
-// themselves are not sent: the agent is told there is review waiting and looks the
-// conversations up for itself, so a comment rewritten afterwards is simply read as it now
-// stands.
-message ReleaseReviewMessagesRequest {
+// OpenReviewRoundRequest freezes what an agent has written now and records it as its next
+// round. A tree that has not moved since the last round is that round again rather than a new
+// one, so opening the diff twice does not walk the ordinal on.
+message OpenReviewRoundRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message OpenReviewRoundResponse {
+  ReviewRound round = 1;
+}
+
+message ListReviewRoundsRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListReviewRoundsResponse {
+  // Every round taken of that agent, oldest first.
+  repeated ReviewRound rounds = 1;
+}
+
+message ListReviewsRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ListReviewsResponse {
+  // Every review given on that agent, in the order their rounds were taken.
+  repeated Review reviews = 1;
+}
+
+// ReleaseReviewRequest lets go of the author's open batch. Weave writes the whole review out as
+// one file beside the agent's work and sends one piece of ordinary mail saying where it is, so
+// nothing here decides when the agent is interrupted or typed at: that is mail's own affair.
+message ReleaseReviewRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  // What the review concludes, which is what tells the agent whether it is done.
+  ReviewVerdict verdict = 2 [(buf.validate.field).enum = {
+    defined_only: true
+    not_in: [0]
+  }];
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.
-  bool interrupt = 2;
+  bool interrupt = 3;
+  // What to say about the work as a whole rather than about any one line, which goes at the
+  // head of the file the agent reads. Optional: a review of pinned comments alone is complete.
+  string body = 4 [(buf.validate.field).string.max_len = 10000];
 }
 
-message ReleaseReviewMessagesResponse {
-  // How many comments were released, which is zero when there was nothing left to let go of.
-  int32 released = 1;
+message ReleaseReviewResponse {
+  Review review = 1;
+  // How many comments the released batch carried.
+  int32 comments = 2;
+  // The absolute path the review was written to.
+  string path = 3;
 }
 
-// RingReviewMessagesAgainRequest raises a fresh doorbell for every released comment left with
-// none the agent can still read, which is the only thing that reaches an agent that was not
-// listening when the review was let go of.
-message RingReviewMessagesAgainRequest {
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
-  // Stop the agent where it stands before telling it.
-  bool interrupt = 2;
-}
-
-message RingReviewMessagesAgainResponse {
-  // How many released comments the fresh doorbell was raised for, which is zero when there was
-  // nothing the agent could no longer hear.
-  int32 rung = 1;
-}
-
-// ReviewViewedFile is one file of an agent's diff the person reviewing has marked as read.
+// ReviewViewedFile is one file of a round the person reviewing has marked as read. A later
+// round is a mark of its own, which is how an agent rewriting the file undoes this one without
+// anything having to be compared.
 message ReviewViewedFile {
-  string agent_id = 1;
+  string round_id = 1;
   string file_path = 2;
-  // The shape the file's slice of the patch had when it was read. The panel hashes the file
-  // again on its next pass and shows it unread once the two disagree, which is how an agent
-  // writing to the file undoes the mark.
-  string fingerprint = 3;
-  string viewed_at = 4;
+  string viewed_at = 3;
 }
 
 message SetReviewFileViewedRequest {
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string round_id = 1 [(buf.validate.field).string.min_len = 1];
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
   // Whether the file has been read. Unsetting it drops the mark, which is what the toggle does
   // on its way back.
   bool viewed = 3;
-  // The shape the file had when it was read, ignored when viewed is unset.
-  string fingerprint = 4;
 }
 
 message SetReviewFileViewedResponse {
@@ -215,7 +290,7 @@ message SetReviewFileViewedResponse {
 }
 
 message ListReviewViewedFilesRequest {
-  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+  string round_id = 1 [(buf.validate.field).string.min_len = 1];
 }
 
 message ListReviewViewedFilesResponse {

@@ -78,16 +78,15 @@ func TestReviewRefreshDoesNothingWhenNothingWasSaid(t *testing.T) {
 	assert.Empty(t, tmux.sentKeys, "the same conversation is not drawn again")
 }
 
-// TestReviewRefreshSeesDeliveryMoveWithoutAStamp is the probe's hard case: claiming a doorbell
-// writes to the mail table alone and a doorbell running out of time writes nowhere at all, so
-// two of the four delivery states change with every stamp and count standing exactly still.
+// TestReviewRefreshSeesDeliveryMoveWithoutAStamp is the probe's hard case: the agent claiming
+// the mail a review was sent under writes to the mail table alone, so delivery moves with every
+// stamp and count on the review standing exactly still.
 func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 	tests := []struct {
 		name string
 		then agentv1.ReviewDeliveryState
 	}{
-		{name: "the agent claims the doorbell", then: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED},
-		{name: "the doorbell runs out of time", then: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED},
+		{name: "the agent claims the notice", then: agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED},
 	}
 
 	for _, tt := range tests {
@@ -164,10 +163,6 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 			name:  "a search pattern is being typed",
 			start: func(m *model) { m.review.filter.typing = true },
 		},
-		{
-			name:  "a recentring chord is half pressed",
-			start: func(m *model) { m.review.pending = recentrePrefix },
-		},
 	}
 
 	for _, tt := range tests {
@@ -232,7 +227,7 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 	next, _ := m.panReview(12)
 	m = next.(model)
 
-	moved, _ := m.putReviewWindow(1)
+	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = moved.(model)
 
 	cursor, top, pan := m.review.cursor, m.review.top, m.review.pan
@@ -325,8 +320,8 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	assert.True(t, jumped, "the search still has rows to step through")
 }
 
-// TestReviewReloadDiffKeepsTheSearch covers the other way the reload key redraws the diff, which
-// swaps in the patch the background poll is already holding rather than reading the worktree.
+// TestReviewReloadDiffKeepsTheSearch covers the reload key stepping to the next round without
+// losing the search the reader had running.
 func TestReviewReloadDiffKeepsTheSearch(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -337,18 +332,16 @@ func TestReviewReloadDiffKeepsTheSearch(t *testing.T) {
 	matches := m.review.view.MatchCount()
 	require.Positive(t, matches)
 
-	_, cmd := m.reloadReview()
+	stepped, cmd := m.reloadReviewDiff()
+	m = stepped.(model)
 	require.NotNil(t, cmd)
+
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	m.review.held = &heldPatch{patch: loaded.patch, viewed: loaded.viewed}
+	m.applyReviewLoaded(loaded)
 
-	swapped, _ := m.reloadReviewDiff()
-	next, ok := swapped.(model)
-	require.True(t, ok)
-
-	assert.Equal(t, matches, next.review.view.MatchCount())
-	assert.Contains(t, ansi.Strip(next.reviewMatchCount()), fmt.Sprintf("1 of %d", matches))
+	assert.Equal(t, matches, m.review.view.MatchCount())
+	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), fmt.Sprintf("1 of %d", matches))
 }
 
 // TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed, since the
@@ -364,9 +357,10 @@ func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 	assert.False(t, m.review.polling)
 }
 
-// TestReviewDiffPollHoldsTheMovedPatch covers the diff never moving on its own: the worktree is
-// read in the background, and what comes back is held with the sidebar saying so.
-func TestReviewDiffPollHoldsTheMovedPatch(t *testing.T) {
+// TestReviewDiffPollSaysTheAgentHasMovedOn covers the round never moving on its own: the
+// worktree is hashed in the background, and finding it has moved says so without touching what
+// the reader is standing in.
+func TestReviewDiffPollSaysTheAgentHasMovedOn(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
@@ -382,17 +376,17 @@ func TestReviewDiffPollHoldsTheMovedPatch(t *testing.T) {
 	tmux.sentKeys = nil
 	m.applyReviewDiffPolled(polled)
 
-	require.NotNil(t, m.review.held)
+	require.True(t, m.review.moved)
 	assert.Empty(t, tmux.sentKeys, "the diff on screen is left where the reader had it")
 
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "THE DIFF HAS MOVED")
+	assert.Contains(t, shown, "THE AGENT HAS MOVED ON")
 	assert.NotContains(t, shown, "written by the agent")
 }
 
-// TestReviewDiffPollIgnoresAPatchThatHasNotMoved pins the fingerprint doing its job, since a
-// notice standing over an unchanged worktree is a reload for nothing.
-func TestReviewDiffPollIgnoresAPatchThatHasNotMoved(t *testing.T) {
+// TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved pins the probe doing its job, since a notice
+// standing over an unchanged worktree asks for a round nobody needs.
+func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
@@ -403,35 +397,41 @@ func TestReviewDiffPollIgnoresAPatchThatHasNotMoved(t *testing.T) {
 
 	m.applyReviewDiffPolled(polled)
 
-	assert.Nil(t, m.review.held)
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "THE DIFF HAS MOVED")
+	assert.False(t, m.review.moved)
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "THE AGENT HAS MOVED ON")
 }
 
-// TestReviewDiffPollSaysAWorktreeWasEmptied covers the agent that throws its work away while the
-// review is open, which holds no patch to swap in and so has to be said in words.
-func TestReviewDiffPollSaysAWorktreeWasEmptied(t *testing.T) {
+// TestReviewBacksOutWhenTheWorktreeWasEmptied covers the agent that throws its work away while
+// the review is open: catching up finds nothing to show, so the reader is put back on the listing
+// rather than left in a diff viewer with no diff in it.
+func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
 	gitIn(t, dir, "checkout", "--", ".")
 
-	polled, ok := m.pollReviewDiffCmd()().(reviewDiffPolledMsg)
+	next, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	require.ErrorIs(t, polled.err, diff.ErrNoChanges)
+	require.ErrorIs(t, loaded.err, diff.ErrNoChanges, "the round of an unmoved tree holds nothing")
 
-	m.applyReviewDiffPolled(polled)
+	next.applyReviewLoaded(loaded)
 
-	assert.Nil(t, m.review.held, "there is no patch to hold")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "no change")
+	assert.Equal(t, screenAgents, next.screen, "the reader is put back on the listing")
+	assert.Nil(t, next.review.view, "and the review is let go of")
 }
 
-// TestReviewReloadKeySwapsTheHeldPatchIn pins the opt-in: the held patch goes on screen when the
-// key is pressed, and the reader lands back where they were standing.
-func TestReviewReloadKeySwapsTheHeldPatchIn(t *testing.T) {
+// TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
+// lands back where they were standing in the new one.
+func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
+
+	first := m.review.round.GetOrdinal()
 
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
 		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"written by the agent\"\n}\n"), 0o644))
@@ -439,7 +439,7 @@ func TestReviewReloadKeySwapsTheHeldPatchIn(t *testing.T) {
 	polled, ok := m.pollReviewDiffCmd()().(reviewDiffPolledMsg)
 	require.True(t, ok)
 	m.applyReviewDiffPolled(polled)
-	require.NotNil(t, m.review.held)
+	require.True(t, m.review.moved)
 
 	m.review.cursor = m.review.view.JumpHunk(m.review.cursor, 1)
 	place, located := m.review.view.GetPlace(m.review.cursor)
@@ -447,10 +447,15 @@ func TestReviewReloadKeySwapsTheHeldPatchIn(t *testing.T) {
 
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	m = next.(model)
-	assert.Nil(t, cmd, "the patch was already parsed, so nothing is read again")
+	require.NotNil(t, cmd, "the next round has to be taken")
 
-	assert.Nil(t, m.review.held, "the notice goes away with the patch it was about")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "greet.go")
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+	m.applyReviewLoaded(loaded)
+
+	assert.Greater(t, m.review.round.GetOrdinal(), first, "the round moved on")
+	assert.False(t, m.review.moved, "the notice goes with the round it was about")
 
 	found, ok := m.review.view.Locate(place)
 	require.True(t, ok)
@@ -463,14 +468,15 @@ func TestReviewReloadKeySwapsTheHeldPatchIn(t *testing.T) {
 	assert.Contains(t, drawn, "written by the agent")
 }
 
-// TestReviewReloadKeyReadsAgainWithNothingHeld pins the key still meaning reload when the
-// background poll has found nothing, since a reader who presses it wants the worktree.
-func TestReviewReloadKeyReadsAgainWithNothingHeld(t *testing.T) {
+// TestReviewReloadKeyReadsAgainWithNothingMoved pins the key still meaning reload when the
+// background probe has found nothing, since an unmoved tree gives back the round already on
+// screen rather than a new one.
+func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	require.Nil(t, m.review.held)
+	require.False(t, m.review.moved)
 
 	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("R")})
 	require.NotNil(t, cmd)
@@ -514,4 +520,68 @@ func TestReviewRefreshIsOnlyForTheScreenThatIsUp(t *testing.T) {
 	m = left.(model)
 
 	assert.Nil(t, m.refreshReviewCmd(time.Now()))
+}
+
+// TestWhatChangedSinceYourLastReviewSurvivesAKeypress covers a standing fact about the diff being
+// kept out of the notice slot, since every key in the review clears a notice and the reader would
+// otherwise lose the line the moment they scrolled.
+func TestWhatChangedSinceYourLastReviewSurvivesAKeypress(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.since = "4 files changed since you last reviewed"
+	require.Contains(t, ansi.Strip(m.reviewView()), "4 files changed since you last reviewed")
+
+	next, _ := m.Update(keyMsg("j"))
+	scrolled := next.(model)
+
+	assert.Equal(t, "4 files changed since you last reviewed", scrolled.review.since,
+		"scrolling is not an answer to it")
+	assert.Contains(t, ansi.Strip(scrolled.reviewView()), "4 files changed since you last reviewed",
+		"and it is still on screen")
+}
+
+// TestANoticeCoversWhatChangedAndGivesItBack covers the two lines sharing one row: an answer to a
+// keypress wins while it stands, and the standing line returns once the next key clears it.
+func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.since = "4 files changed since you last reviewed"
+	m.review.notice = "no matches"
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "no matches")
+	assert.NotContains(t, shown, "4 files changed", "the answer to the last key wins the row")
+
+	next, _ := m.Update(keyMsg("j"))
+	assert.Contains(t, ansi.Strip(next.(model).reviewView()), "4 files changed since you last reviewed")
+}
+
+// TestReviewSaysWhenEverythingIsExcluded covers the difference the reader has to be told about:
+// an agent that has written nothing and one whose every line is in a path the workflow hides both
+// leave the screen empty, and only one of them means the agent has not worked.
+func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
+	dir := reviewRepo(t)
+	gitIn(t, dir, "checkout", "--", ".")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "proto", "gen"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "proto", "gen", "api.pb.go"),
+		[]byte("package gen\n"), 0o644))
+
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	loaded, ok := m.loadReviewCmd(m.review.agentID, dir, []string{"proto/gen"})().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.ErrorIs(t, loaded.err, diff.ErrAllExcluded, "the agent wrote a file, it is only hidden")
+
+	m.applyReviewLoaded(loaded)
+
+	assert.Equal(t, screenAgents, m.screen, "there is still nothing to draw, so it backs out")
+	require.NotNil(t, m.banner)
+	assert.Contains(t, m.banner.Summary, "excluded from the diff",
+		"and says which of the two empty screens this is")
+	assert.NotContains(t, m.banner.Summary, "Nothing to review")
 }

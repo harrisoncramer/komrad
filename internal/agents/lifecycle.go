@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"weave/internal/git"
 
 	"weave/config"
 	"weave/internal/frames"
@@ -43,6 +44,7 @@ type LifecycleService struct {
 	tx             txRunner
 	scripts        agentScriptRunner
 	notifier       systemMailSender
+	reviews        reviewReaper
 	logsDir        string
 	framesDir      string
 	maxAgents      int
@@ -57,6 +59,7 @@ type LifecycleServiceParams struct {
 	Tx             txRunner
 	Scripts        agentScriptRunner
 	Notifier       systemMailSender
+	Reviews        reviewReaper
 	LogsDir        string
 	FramesDir      string
 	MaxAgents      int
@@ -73,6 +76,7 @@ func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
 		tx:             p.Tx,
 		scripts:        p.Scripts,
 		notifier:       p.Notifier,
+		reviews:        p.Reviews,
 		logsDir:        p.LogsDir,
 		framesDir:      p.FramesDir,
 		maxAgents:      p.MaxAgents,
@@ -423,6 +427,13 @@ func (s *LifecycleService) requireEveryAgent(ctx context.Context, ids []string) 
 }
 
 func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error {
+	// The refs holding these agents' snapshots and the drafts they were writing about other
+	// agents both go before the rows naming them do, and both outside the delete's own
+	// transaction, so a delete that fails after them leaks a ref and loses a draft nobody has
+	// read, which is the cheapest thing on this branch to lose.
+	s.releaseRounds(ctx, ids)
+	s.dropOpenReviews(ctx, ids)
+
 	// The delete is what says which pane each row really held, so a pane written after the
 	// caller read the rows is reached here and nowhere else.
 	var taken []agentstore.AgentPane
@@ -443,6 +454,58 @@ func (s *LifecycleService) removeAgents(ctx context.Context, ids []string) error
 	s.removeFrames(ctx, ids)
 
 	return nil
+}
+
+// releaseRounds drops the refs holding an agent's snapshots, which would otherwise pin a commit
+// covering its whole worktree in the person's own repository long after the agent is gone, and a
+// failure here leaks a ref rather than losing anything.
+func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
+	if s.reviews == nil {
+		return
+	}
+
+	going, err := s.agents.ListByID(ctx, ids)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the agents being deleted to release their rounds",
+			logging.Err(err)...)
+
+		return
+	}
+
+	for _, agent := range going {
+		if agent.Cwd == "" || agent.WorktreeRemoved {
+			continue
+		}
+
+		rounds, err := s.reviews.ListRounds(ctx, agent.ID)
+		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to read the rounds of an agent being deleted",
+				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+
+			continue
+		}
+
+		for _, round := range rounds {
+			if err := git.ReleaseRef(ctx, agent.Cwd, RoundRef(agent.ID, round.SnapshotSHA)); err != nil {
+				logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to release the snapshot of a round",
+					append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+			}
+		}
+	}
+}
+
+// dropOpenReviews removes the batches these agents were still writing on other agents' work,
+// which is everything of theirs worth removing, since a released review is what the agent it was
+// given to is working from and stays with its author nulled.
+func (s *LifecycleService) dropOpenReviews(ctx context.Context, ids []string) {
+	if s.reviews == nil {
+		return
+	}
+
+	if err := s.reviews.DeleteOpenReviewsBy(ctx, ids); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to drop the open reviews of agents being deleted",
+			logging.Err(err)...)
+	}
 }
 
 // removeFrames drops the pane captures a recording kept for an agent once its row is gone.

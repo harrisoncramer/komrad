@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"weave/config"
+	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	"weave/lib/xptr"
@@ -271,9 +271,9 @@ func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) 
 	listCtx, cancel := context.WithTimeout(ctx, worktreeListTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(listCtx, "git", "-C", repo, "worktree", "list", "--porcelain").Output()
+	out, err := git.RunBytes(listCtx, repo, "worktree", "list", "--porcelain")
 	if err != nil {
-		return worktrees{}, fmt.Errorf("git -C %s worktree list: %w", repo, err)
+		return worktrees{}, err
 	}
 
 	want := "branch refs/heads/" + branch

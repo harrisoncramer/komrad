@@ -41,7 +41,11 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.sendKeysErr = tt.sendKeysErr
 			h := &fakeHarness{commandErr: tt.commandErr}
-			launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999", CacheDir: cache})
+			launcher := NewLauncher(LauncherParams{
+				Tmux:     tmux,
+				Addr:     "127.0.0.1:9999",
+				CacheDir: cache,
+			})
 
 			err := launcher.launch(h, launchParams{Pane: "pane", SessionID: "sess"})
 
@@ -285,4 +289,28 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	prompt := launcher.appendedSystemPrompt(launchParams{})
 	assert.Contains(t, prompt, "after-the-edit")
 	assert.NotContains(t, prompt, "before-the-edit")
+}
+
+// TestBriefingCarriesTheReviewRules pins the review surface being part of what weave ships rather
+// than something a person configures, since an agent that reaches for gh or mails its findings has
+// given a review nobody can settle and the panel cannot show.
+func TestBriefingCarriesTheReviewRules(t *testing.T) {
+	launcher := NewLauncher(LauncherParams{Addr: "127.0.0.1:8787"})
+
+	// No context file and no workflow, which is the least an install can give an agent.
+	prompt := launcher.appendedSystemPrompt(launchParams{})
+
+	for _, want := range []string{
+		"open_review_round",
+		"create_review_thread",
+		"release_review",
+		"add_review_message",
+		"quotedLines",
+	} {
+		assert.Contains(t, prompt, want, "an agent is told the call by name")
+	}
+
+	assert.Contains(t, prompt, "`gh`", "and told plainly not to reach for the forge")
+	assert.Contains(t, prompt, "the agent you are a child of",
+		"and who it may review, since the rule is refused at the server either way")
 }

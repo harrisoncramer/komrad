@@ -1,7 +1,148 @@
+-- name: InsertReviewRound :one
+INSERT INTO review_rounds(
+    agent_id,
+    ordinal,
+    base_sha,
+    snapshot_sha)
+SELECT
+    @agent_id,
+    COALESCE(MAX(r.ordinal), 0) + 1,
+    @base_sha,
+    @snapshot_sha
+FROM
+    review_rounds r
+WHERE
+    r.agent_id = @agent_id
+RETURNING
+    *;
+
+-- name: GetReviewRound :one
+SELECT
+    *
+FROM
+    review_rounds r
+WHERE
+    r.id = @id;
+
+-- name: GetLatestReviewRound :one
+SELECT
+    *
+FROM
+    review_rounds r
+WHERE
+    r.agent_id = @agent_id
+ORDER BY
+    r.ordinal DESC
+LIMIT 1;
+
+-- name: ListReviewRounds :many
+SELECT
+    *
+FROM
+    review_rounds r
+WHERE
+    r.agent_id = @agent_id
+ORDER BY
+    r.ordinal;
+
+-- name: InsertReview :one
+INSERT INTO reviews(
+    agent_id,
+    round_id,
+    author_kind,
+    author_agent_id)
+VALUES (
+    @agent_id,
+    @round_id,
+    @author_kind,
+    sqlc.narg('author_agent_id'))
+RETURNING
+    *;
+
+-- name: GetReview :one
+SELECT
+    *
+FROM
+    reviews v
+WHERE
+    v.id = @id;
+
+-- name: GetOpenReview :one
+SELECT
+    *
+FROM
+    reviews v
+WHERE
+    v.agent_id = @agent_id
+    AND v.author_kind = @author_kind
+    AND v.author_agent_id IS NOT DISTINCT FROM sqlc.narg('author_agent_id')
+    AND v.released_at IS NULL;
+
+-- name: GetLastReleasedReview :one
+SELECT
+    *
+FROM
+    reviews v
+WHERE
+    v.agent_id = @agent_id
+    AND v.author_kind = @author_kind
+    AND v.author_agent_id IS NOT DISTINCT FROM sqlc.narg('author_agent_id')
+    AND v.released_at IS NOT NULL
+ORDER BY
+    v.released_at DESC
+LIMIT 1;
+
+-- name: ListReviews :many
+SELECT
+    v.*,
+    r.ordinal AS round_ordinal,
+    d.claimed_at AS delivered_at
+FROM
+    reviews v
+    JOIN review_rounds r ON r.id = v.round_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
+WHERE
+    v.agent_id = @agent_id
+ORDER BY
+    r.ordinal,
+    v.id;
+
+-- name: CountOpenReviewComments :one
+SELECT
+    COUNT(*)
+FROM
+    review_messages m
+WHERE
+    m.review_id = @review_id;
+
+-- name: ReleaseReview :one
+UPDATE
+    reviews v
+SET
+    released_at = NOW(),
+    verdict = @verdict,
+    body = @body,
+    path = @path,
+    doorbell_mail_id = sqlc.narg('doorbell_mail_id')
+WHERE
+    v.id = @id
+RETURNING
+    *;
+
+-- name: DeleteOpenReviewsByAuthor :exec
+DELETE FROM reviews
+WHERE author_agent_id = ANY (@author_agent_ids::uuid[])
+    AND released_at IS NULL;
+
+-- name: DeleteReview :exec
+DELETE FROM reviews
+WHERE id = @id;
+
 -- name: InsertReviewThreadWithMessage :one
 WITH opened AS (
     INSERT INTO review_threads(
         agent_id,
+        review_id,
         file_path,
         old_start,
         old_end,
@@ -11,6 +152,7 @@ WITH opened AS (
         last_agent_activity_at)
     VALUES (
         @agent_id,
+        @review_id,
         @file_path,
         @old_start,
         @old_end,
@@ -26,14 +168,18 @@ RETURNING
 said AS (
     INSERT INTO review_messages(
         thread_id,
+        review_id,
         author_kind,
         author_agent_id,
-        body)
+        body,
+        suggestion)
     SELECT
         o.id,
+        @review_id,
         @author_kind::review_author_kind,
         sqlc.narg('author_agent_id'),
-        @body
+        @body,
+        @suggestion
     FROM
         opened o
     RETURNING
@@ -47,14 +193,21 @@ FROM
 -- name: ListReviewThreads :many
 SELECT
     t.*,
+    v.round_id,
+    v.released_at AS review_released_at,
+    v.author_agent_id AS review_author_agent_id,
+    r.ordinal AS round_ordinal,
 (t.last_agent_activity_at IS NOT NULL
         AND (t.human_read_at IS NULL
             OR t.last_agent_activity_at > t.human_read_at)) AS unread_by_human
 FROM
     review_threads t
+    JOIN reviews v ON v.id = t.review_id
+    JOIN review_rounds r ON r.id = v.round_id
 WHERE
     t.agent_id = @agent_id
 ORDER BY
+    r.ordinal,
     t.file_path,
     t.new_start,
     t.old_start,
@@ -62,9 +215,14 @@ ORDER BY
 
 -- name: GetReviewThread :one
 SELECT
-    *
+    t.*,
+    v.round_id,
+    v.released_at AS review_released_at,
+    v.author_kind AS review_author_kind,
+    v.author_agent_id AS review_author_agent_id
 FROM
     review_threads t
+    JOIN reviews v ON v.id = t.review_id
 WHERE
     t.id = @id;
 
@@ -92,22 +250,22 @@ WHERE
 RETURNING
     *;
 
--- name: DeleteReviewThread :exec
-DELETE FROM review_threads
-WHERE id = @id;
-
 -- name: InsertReviewMessage :one
 WITH written AS (
     INSERT INTO review_messages(
         thread_id,
+        review_id,
         author_kind,
         author_agent_id,
-        body)
+        body,
+        suggestion)
     VALUES (
         @thread_id,
+        sqlc.narg('review_id'),
         @author_kind,
         sqlc.narg('author_agent_id'),
-        @body)
+        @body,
+        @suggestion)
 RETURNING
     *
 ),
@@ -138,7 +296,8 @@ WITH written AS (
     UPDATE
         review_messages m
     SET
-        body = @body
+        body = @body,
+        suggestion = @suggestion
     WHERE
         m.id = @id
     RETURNING
@@ -177,107 +336,36 @@ WHERE
 -- name: ListReviewMessagesByThreads :many
 SELECT
     m.*,
-    d.claimed_at AS delivered_at,
-(d.id IS NULL
-        OR (d.claimed_at IS NULL
-            AND d.expires_at <= NOW())) AS doorbell_expired
+    v.released_at AS review_released_at,
+    d.claimed_at AS delivered_at
 FROM
     review_messages m
-    LEFT JOIN mail d ON d.id = m.doorbell_mail_id
+    LEFT JOIN reviews v ON v.id = m.review_id
+    LEFT JOIN mail d ON d.id = v.doorbell_mail_id
 WHERE
     m.thread_id = ANY (@thread_ids::uuid[])
 ORDER BY
     m.thread_id,
     m.id;
 
--- name: CountUnsentReviewMessages :one
-SELECT
-    COUNT(*)
-FROM
-    review_messages m
-    JOIN review_threads t ON t.id = m.thread_id
-WHERE
-    t.agent_id = @agent_id
-    AND m.author_kind = 'human'
-    AND m.sent_at IS NULL;
-
--- name: ReleaseUnsentReviewMessages :many
-WITH unsent AS (
-    SELECT
-        m.id
-    FROM
-        review_messages m
-        JOIN review_threads t ON t.id = m.thread_id
-    WHERE
-        t.agent_id = @agent_id
-        AND m.author_kind = 'human'
-        AND m.sent_at IS NULL)
-UPDATE
-    review_messages m
-SET
-    sent_at = NOW(),
-    doorbell_mail_id = @doorbell_mail_id
-WHERE
-    m.id IN (
-        SELECT
-            unsent.id
-        FROM
-            unsent)
-RETURNING
-    *;
-
--- name: PointReviewMessagesAtDoorbell :many
-UPDATE
-    review_messages m
-SET
-    doorbell_mail_id = @doorbell_mail_id
-WHERE
-    m.id = ANY (@ids::uuid[])
-RETURNING
-    *;
-
--- name: ListExpiredReviewMessages :many
-SELECT
-    m.*
-FROM
-    review_messages m
-    JOIN review_threads t ON t.id = m.thread_id
-    LEFT JOIN mail d ON d.id = m.doorbell_mail_id
-WHERE
-    t.agent_id = @agent_id
-    AND m.author_kind = 'human'
-    AND m.sent_at IS NOT NULL
-    AND (d.id IS NULL
-        OR (d.claimed_at IS NULL
-            AND d.expires_at <= NOW()))
-ORDER BY
-    m.id;
-
--- name: DeleteReviewMessage :exec
-DELETE FROM review_messages
-WHERE id = @id;
-
 -- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(
-    agent_id,
-    file_path,
-    fingerprint)
+    round_id,
+    file_path)
 VALUES (
-    @agent_id,
-    @file_path,
-    @fingerprint)
+    @round_id,
+    @file_path)
 ON CONFLICT (
-    agent_id,
+    round_id,
     file_path)
     DO UPDATE SET
-        fingerprint = EXCLUDED.fingerprint,
         viewed_at = NOW()
     RETURNING
         *;
 
 -- name: UnmarkReviewFileViewed :exec
 DELETE FROM review_viewed_files
-WHERE agent_id = @agent_id
+WHERE round_id = @round_id
     AND file_path = @file_path;
 
 -- name: ListReviewViewedFiles :many
@@ -286,6 +374,6 @@ SELECT
 FROM
     review_viewed_files v
 WHERE
-    v.agent_id = @agent_id
+    v.round_id = @round_id
 ORDER BY
     v.file_path;

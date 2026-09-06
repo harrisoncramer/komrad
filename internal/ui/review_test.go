@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -9,6 +10,7 @@ import (
 	"testing"
 
 	"strconv"
+	"weave/internal/git"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -31,17 +33,25 @@ type fakeReviewAgents struct {
 	settled  *agentv1.SetReviewThreadResolvedRequest
 	created  *agentv1.CreateReviewThreadRequest
 	replied  *agentv1.AddReviewMessageRequest
-	released *agentv1.ReleaseReviewMessagesRequest
-	rang     *agentv1.RingReviewMessagesAgainRequest
-	rung     int32
+	released *agentv1.ReleaseReviewRequest
+	dir      string
+	rounds   []*agentv1.ReviewRound
+	reviews  []*agentv1.Review
 	marked   *agentv1.SetReviewFileViewedRequest
 }
 
 func (f *fakeReviewAgents) ListReviewViewedFiles(
-	context.Context,
-	*connect.Request[agentv1.ListReviewViewedFilesRequest],
+	_ context.Context,
+	req *connect.Request[agentv1.ListReviewViewedFilesRequest],
 ) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
-	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: f.viewed}), nil
+	held := make([]*agentv1.ReviewViewedFile, 0, len(f.viewed))
+	for _, mark := range f.viewed {
+		if mark.GetRoundId() == req.Msg.GetRoundId() {
+			held = append(held, mark)
+		}
+	}
+
+	return connect.NewResponse(&agentv1.ListReviewViewedFilesResponse{Viewed: held}), nil
 }
 
 func (f *fakeReviewAgents) SetReviewFileViewed(
@@ -59,9 +69,8 @@ func (f *fakeReviewAgents) SetReviewFileViewed(
 
 	if req.Msg.GetViewed() {
 		kept = append(kept, &agentv1.ReviewViewedFile{
-			AgentId:     req.Msg.GetAgentId(),
-			FilePath:    req.Msg.GetFilePath(),
-			Fingerprint: req.Msg.GetFingerprint(),
+			RoundId:  req.Msg.GetRoundId(),
+			FilePath: req.Msg.GetFilePath(),
 		})
 	}
 
@@ -70,22 +79,55 @@ func (f *fakeReviewAgents) SetReviewFileViewed(
 	return connect.NewResponse(&agentv1.SetReviewFileViewedResponse{}), nil
 }
 
-func (f *fakeReviewAgents) ReleaseReviewMessages(
+func (f *fakeReviewAgents) ReleaseReview(
 	_ context.Context,
-	req *connect.Request[agentv1.ReleaseReviewMessagesRequest],
-) (*connect.Response[agentv1.ReleaseReviewMessagesResponse], error) {
+	req *connect.Request[agentv1.ReleaseReviewRequest],
+) (*connect.Response[agentv1.ReleaseReviewResponse], error) {
 	f.released = req.Msg
 
-	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{Released: 1}), nil
+	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: 1}), nil
 }
 
-func (f *fakeReviewAgents) RingReviewMessagesAgain(
-	_ context.Context,
-	req *connect.Request[agentv1.RingReviewMessagesAgainRequest],
-) (*connect.Response[agentv1.RingReviewMessagesAgainResponse], error) {
-	f.rang = req.Msg
+// OpenReviewRound takes a real snapshot of the repository under test, since the panel diffs the
+// shas it is handed and a made-up one would name no commit git could read.
+func (f *fakeReviewAgents) OpenReviewRound(
+	ctx context.Context,
+	req *connect.Request[agentv1.OpenReviewRoundRequest],
+) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
+	snapshot, err := git.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
+	if err != nil {
+		return nil, err
+	}
 
-	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{Rung: f.rung}), nil
+	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != snapshot.SHA {
+		if err := git.HoldRef(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
+			return nil, err
+		}
+
+		f.rounds = append(f.rounds, &agentv1.ReviewRound{
+			Id:          fmt.Sprintf("round-%d", len(f.rounds)+1),
+			AgentId:     req.Msg.GetAgentId(),
+			Ordinal:     int32(len(f.rounds) + 1),
+			BaseSha:     snapshot.BaseSHA,
+			SnapshotSha: snapshot.SHA,
+		})
+	}
+
+	return connect.NewResponse(&agentv1.OpenReviewRoundResponse{Round: f.rounds[len(f.rounds)-1]}), nil
+}
+
+func (f *fakeReviewAgents) ListReviewRounds(
+	context.Context,
+	*connect.Request[agentv1.ListReviewRoundsRequest],
+) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
+	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: f.rounds}), nil
+}
+
+func (f *fakeReviewAgents) ListReviews(
+	context.Context,
+	*connect.Request[agentv1.ListReviewsRequest],
+) (*connect.Response[agentv1.ListReviewsResponse], error) {
+	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: f.reviews}), nil
 }
 
 func (f *fakeReviewAgents) AddReviewMessage(
@@ -176,6 +218,10 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	// The stage's own geometry, which is what the diff is drawn against and what the panel writes
 	// a screenful of.
 	tmux := &recordingTmux{width: 120, height: 24}
+	if fake, ok := agents.(*fakeReviewAgents); ok {
+		fake.dir = dir
+	}
+
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.width, m.height = 40, 30
@@ -835,17 +881,16 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 			absent: "delivered",
 		},
 		{
-			name: "some sent and one still waiting to be written off",
+			name: "some sent and one still to go",
 			threads: []*agentv1.ReviewThread{{
 				Id: "t1",
 				Messages: []*agentv1.ReviewMessage{
 					unsentComment(),
 					sentComment(),
 					deliveredComment(),
-					expiredComment(),
 				},
 			}},
-			want:   "1 unsent · 1 expired · 1 waiting · 1 delivered",
+			want:   "1 unsent · 1 waiting · 1 delivered",
 			absent: "nothing written yet",
 		},
 		{
@@ -884,27 +929,23 @@ func deliveredComment() *agentv1.ReviewMessage {
 	}
 }
 
-func expiredComment() *agentv1.ReviewMessage {
-	return &agentv1.ReviewMessage{
-		Id:         "m3",
-		AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
-		Delivery:   agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED,
-		SentAt:     "2026-09-02T10:00:00Z",
-	}
-}
-
-// TestReviewReleaseIsTheSubmitKey covers telling the agent its review is waiting on the same key
-// that submits everywhere else.
+// TestReviewReleaseIsTheSubmitKey covers there being one way to send a review, on the same key
+// that submits everywhere else, which asks what to send rather than deciding for the reader.
 func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.True(t, m.review.releasing, "the key opens the panel")
+	require.False(t, m.review.composing, "and not the line composer")
+	require.Nil(t, agents.released, "and sends nothing on its own")
+
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.NotNil(t, cmd, "the key tells the agent")
-	require.False(t, m.review.composing, "and does not open the editor on the way")
+	require.NotNil(t, cmd, "the same key sends from inside it")
 
 	wrote, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)
@@ -1155,31 +1196,6 @@ func TestReviewSearchPaintsWhatItFound(t *testing.T) {
 	assert.Contains(t, reviewStageText(t), "package greet", "and the line still reads the same")
 }
 
-// TestReviewRecentringHoldsTheWindow covers zt overriding the scroll margin, which otherwise
-// drags the window back to keep the cursor clear of the edge.
-func TestReviewRecentringHoldsTheWindow(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	require.Positive(t, m.review.frames.height)
-
-	for range 3 {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-		m = next.(model)
-	}
-
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("z")})
-	m = next.(model)
-	require.Equal(t, "z", m.review.pending, "z waits for the key that says where")
-
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
-	m = next.(model)
-
-	assert.Empty(t, m.review.pending)
-	assert.Equal(t, m.review.cursor, m.review.top, "zt puts the cursor's row at the top")
-}
-
 // TestReviewComposerOwnsTheKeyboard covers typing a message: while the editor is up nothing
 // global is bound, so a key that means something on the screen behind it is just a character.
 func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
@@ -1244,36 +1260,36 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 	assert.Equal(t, "no matches", m.review.notice)
 }
 
-// TestReviewRecentringSurvivesARepaint covers a recentred window holding, since the scroll
-// margin runs on every repaint rather than only on a move.
-func TestReviewRecentringSurvivesARepaint(t *testing.T) {
+// TestReviewFileJumpSurvivesARepaint covers a window pinned by a file jump holding, since the
+// scroll margin runs on every repaint rather than only on a move and would otherwise drag the
+// file's first row back off the top.
+func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	dir := reviewRepo(t)
+
+	// A jump needs somewhere to land, and the repository the other tests share holds one file.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "second.go"),
+		[]byte("package greet\n\nfunc Second() string {\n\treturn \"second\"\n}\n"), 0o644))
+
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	for range 6 {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-		m = next.(model)
-	}
-
-	for _, key := range []string{"z", "t"} {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
-		m = next.(model)
-	}
-
-	require.Equal(t, m.review.cursor, m.review.top)
-
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = next.(model)
-	assert.Equal(t, m.review.cursor, m.review.top, "panning redraws the same rows and must not move them")
+
+	pinned := m.review.top
+	require.True(t, m.review.pinTop, "a file jump says where the window goes")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	m = next.(model)
+	assert.Equal(t, pinned, m.review.top, "panning redraws the same rows and must not move them")
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
-	assert.Equal(t, m.review.cursor, m.review.top, "and neither does a write landing")
+	assert.Equal(t, pinned, m.review.top, "and neither does a write landing")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	m = next.(model)
-	assert.Less(t, m.review.top, m.review.cursor, "moving the cursor hands the window back to the margin")
+	assert.False(t, m.review.pinTop, "moving the cursor hands the window back to the margin")
 }
 
 // TestReviewSearchLeavesTheAgentsListAlone covers the review keeping its own filter, since the
@@ -1336,7 +1352,7 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 	require.NotNil(t, agents.marked)
 	assert.Equal(t, "greet.go", agents.marked.GetFilePath())
 	assert.True(t, agents.marked.GetViewed())
-	assert.NotEmpty(t, agents.marked.GetFingerprint())
+	assert.NotEmpty(t, agents.marked.GetRoundId(), "the mark is held against the round it was made in")
 
 	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("v")})
 	m = next.(model)
@@ -1348,9 +1364,10 @@ func TestMarkingAFileViewedFoldsItAway(t *testing.T) {
 	assert.False(t, agents.marked.GetViewed(), "the mark is dropped rather than rewritten")
 }
 
-// TestAViewedFileComesBackWhenItChanges covers the mark being held against the shape the file
-// had: reading it again finds it folded, and writing to it opens it and says so.
-func TestAViewedFileComesBackWhenItChanges(t *testing.T) {
+// TestAViewedFileComesBackInTheNextRound covers the mark belonging to the round it was made in:
+// reopening an unmoved tree finds the file still folded, and a round the agent has written into
+// starts with nothing read.
+func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
@@ -1369,6 +1386,6 @@ func TestAViewedFileComesBackWhenItChanges(t *testing.T) {
 
 	m = openReview(t, m)
 
-	assert.False(t, m.review.view.IsViewed("greet.go"), "the agent wrote under the mark")
-	assert.Equal(t, "1 file changed since you viewed it", m.review.notice)
+	assert.Greater(t, m.review.round.GetOrdinal(), int32(1), "the agent writing opened a round")
+	assert.False(t, m.review.view.IsViewed("greet.go"), "a new round has read nothing yet")
 }

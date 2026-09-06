@@ -5,86 +5,97 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
-	"time"
+
+	"weave/internal/git"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
-
-const gitTimeout = 30 * time.Second
 
 // ErrNoChanges is a worktree that has not moved off its base, which is refused rather than
 // answered with an empty patch, since a diff with no files in it is nothing to show anybody.
 var ErrNoChanges = errors.New("the worktree holds no change against the base branch")
 
+// ErrAllExcluded is a worktree that has moved, every part of it inside a path the workflow keeps
+// out of the diff, which draws nothing for the same reason but is not the same thing and must not
+// be reported as one.
+var ErrAllExcluded = errors.New("every change in the worktree is in a path this workflow excludes from the diff")
+
 // maxFileBytes is the point past which a file's source is not read, giving up the syntax
 // colouring while the patch still shows its hunks.
 const maxFileBytes = 2 << 20
 
-// LoadParams says which worktree to read and what to measure it against.
+// LoadParams says which snapshot to read and what to measure it against.
 type LoadParams struct {
 	// Dir is anywhere inside the agent's worktree.
 	Dir string
-	// Base is the branch the worktree was cut from, or empty to ask the repository for its
-	// default branch.
-	Base string
+	// BaseSHA is the commit the round was measured against.
+	BaseSHA string
+	// SnapshotSHA is the commit the round froze the worktree as.
+	SnapshotSHA string
 	// Exclude is the paths and globs to leave out, relative to the repository root.
 	Exclude []string
 }
 
-// Load reads everything an agent has changed in its worktree, committed and uncommitted
-// alike, measured against the point its branch left the base.
+// Load reads everything one round holds, measured against the point its branch left the base,
+// with both sides coming out of commits so the patch is the same bytes however long afterwards it
+// is read.
 func Load(ctx context.Context, params LoadParams) (*Patch, error) {
-	root, err := runGit(ctx, params.Dir, "rev-parse", "--show-toplevel")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find the repository at %q: %w", params.Dir, err)
-	}
-
-	base := resolveBase(ctx, root, params.Base)
-
-	commit, err := runGit(ctx, root, "merge-base", base, "HEAD")
-	if err != nil {
-		return nil, fmt.Errorf("failed to find where %q left %q: %w", root, base, err)
-	}
-
-	exclude := excludePathspecs(params.Exclude)
-
-	raw, err := runGitBytes(ctx, root, diffArgs(commit, exclude)...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to diff %q against %s: %w", root, commit, err)
-	}
-
-	files, err := parseFiles(ctx, root, commit, raw)
+	root, err := git.GetRoot(ctx, params.Dir)
 	if err != nil {
 		return nil, err
 	}
 
-	// Untracked files are added on top, since they are in no diff git will produce.
-	untracked, err := loadUntracked(ctx, root, exclude)
+	exclude := git.ExcludePathspecs(params.Exclude)
+
+	raw, err := git.RunBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, exclude)...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.BaseSHA, params.SnapshotSHA, err)
+	}
+
+	files, err := parseFiles(ctx, parseFilesParams{
+		Root:        root,
+		BaseSHA:     params.BaseSHA,
+		SnapshotSHA: params.SnapshotSHA,
+		Raw:         raw,
+	})
 	if err != nil {
 		return nil, err
 	}
 
-	files = append(files, untracked...)
+	// Untracked files are already in the snapshot, so the parsed list is the whole of what the
+	// reader would see and an empty one is nothing to show them.
 	if len(files) == 0 {
-		return nil, ErrNoChanges
+		return nil, explainEmptyDiff(ctx, root, params)
 	}
 
 	return &Patch{
-		Root:   root,
-		Base:   base,
-		Commit: commit,
-		Files:  files,
+		Root:        root,
+		BaseSHA:     params.BaseSHA,
+		SnapshotSHA: params.SnapshotSHA,
+		Files:       files,
 	}, nil
+}
+
+// explainEmptyDiff says why a round drew nothing, since a worktree that never moved and one whose every
+// change is hidden from the diff both draw nothing while meaning opposite things about the agent.
+func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error {
+	if len(params.Exclude) == 0 {
+		return ErrNoChanges
+	}
+
+	raw, err := git.RunBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, nil)...)
+	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
+		return ErrNoChanges
+	}
+
+	return ErrAllExcluded
 }
 
 // diffArgs pins the prefix git writes on the header line, since the parser drops the first
 // segment of that name whatever it is, so a user whose own config asks for no prefix or a
 // different one would have a real directory eaten off every path in the patch.
-func diffArgs(commit string, exclude []string) []string {
+func diffArgs(baseSHA, snapshotSHA string, exclude []string) []string {
 	args := []string{
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",
@@ -94,51 +105,28 @@ func diffArgs(commit string, exclude []string) []string {
 		"-c", "diff.dstPrefix=b/",
 		"--no-pager", "diff",
 		"--no-ext-diff", "--no-color", "--find-renames", "--unified=3", "--full-index",
-		commit, "--", ".",
+		baseSHA, snapshotSHA, "--", ".",
 	}
 
 	return append(args, exclude...)
 }
 
-// excludePathspecs turns the workflow's paths into pathspecs git will subtract, adding the
-// exclusion magic so the user writes only a path or a glob such as proto/gen.
-func excludePathspecs(paths []string) []string {
-	specs := make([]string, 0, len(paths))
-	for _, path := range paths {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
-		}
-
-		specs = append(specs, ":(exclude)"+path)
-	}
-
-	return specs
+// parseFilesParams says which patch to read and which two commits to read each side of it out of.
+type parseFilesParams struct {
+	// Root is the repository the two commits live in.
+	Root string
+	// BaseSHA is the commit the round was measured against, holding the old side of every file.
+	BaseSHA string
+	// SnapshotSHA is the commit the round froze, holding the new side.
+	SnapshotSHA string
+	// Raw is the patch git wrote between the two.
+	Raw []byte
 }
 
-// resolveBase turns a configured base branch into something git can name, preferring a
-// remote-tracking ref since the worktree was cut from one.
-func resolveBase(ctx context.Context, root, base string) string {
-	base = strings.TrimSpace(base)
-	if base == "" {
-		if head, err := runGit(ctx, root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); err == nil {
-			return head
-		}
-
-		return "HEAD"
-	}
-
-	if _, err := runGit(ctx, root, "rev-parse", "--verify", "--quiet", "origin/"+base); err == nil {
-		return "origin/" + base
-	}
-
-	return base
-}
-
-func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, error) {
-	parsed, _, err := gitdiff.Parse(bytes.NewReader(raw))
+func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
+	parsed, _, err := gitdiff.Parse(bytes.NewReader(params.Raw))
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse the diff of %q: %w", root, err)
+		return nil, fmt.Errorf("failed to parse the diff of %q: %w", params.Root, err)
 	}
 
 	files := make([]File, 0, len(parsed))
@@ -160,13 +148,17 @@ func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, e
 			file.Metadata = append(file.Metadata, mode)
 		}
 
-		if current.IsBinary {
+		switch {
+		case current.IsBinary:
 			// The patch draws no hunks for a binary, so the blob hashes git names on its index
 			// line are what the fingerprint has to hold the mark against.
 			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
-		} else {
-			file.OldSource = readRevision(ctx, root, commit, file.OldPath)
-			file.NewSource = readWorkingTree(root, file.NewPath)
+		case countDrawnBytes(current.TextFragments) > maxFileBytes:
+			file.Metadata = append(file.Metadata, "content omitted: over 2 MiB")
+			file.Content = current.OldOIDPrefix + ".." + current.NewOIDPrefix
+		default:
+			file.OldSource = readRevision(ctx, params.Root, params.BaseSHA, file.OldPath)
+			file.NewSource = readRevision(ctx, params.Root, params.SnapshotSHA, file.NewPath)
 			file.Hunks = buildHunks(current.TextFragments)
 		}
 
@@ -174,6 +166,19 @@ func parseFiles(ctx context.Context, root, commit string, raw []byte) ([]File, e
 	}
 
 	return files, nil
+}
+
+// countDrawnBytes is how much text a file's hunks would put on screen, which is what decides whether it
+// is drawn at all, since a snapshot stages a huge file the same as any other.
+func countDrawnBytes(fragments []*gitdiff.TextFragment) int {
+	total := 0
+	for _, fragment := range fragments {
+		for _, line := range fragment.Lines {
+			total += len(line.Line)
+		}
+	}
+
+	return total
 }
 
 // modeChange is the line to show for a file whose permissions moved, which git puts in the patch
@@ -239,106 +244,17 @@ func buildHunks(fragments []*gitdiff.TextFragment) []Hunk {
 	return hunks
 }
 
-// loadUntracked builds an add-only file for everything git is not tracking yet, since an
-// agent that has written a new file and not staged it has done work no diff will show.
-func loadUntracked(ctx context.Context, root string, exclude []string) ([]File, error) {
-	args := append([]string{"ls-files", "--others", "--exclude-standard", "-z", "--", "."}, exclude...)
-
-	out, err := runGitBytes(ctx, root, args...)
-	if err != nil {
-		return nil, fmt.Errorf("failed to list untracked files in %q: %w", root, err)
-	}
-
-	var files []File
-	for _, raw := range bytes.Split(out, []byte{0}) {
-		if len(raw) == 0 {
-			continue
-		}
-
-		path := string(raw)
-		file := File{NewPath: path, Metadata: []string{"untracked file"}}
-
-		info, err := os.Lstat(filepath.Join(root, filepath.FromSlash(path)))
-		if err != nil || !info.Mode().IsRegular() {
-			continue
-		}
-
-		if info.Size() > maxFileBytes {
-			file.Metadata = append(file.Metadata, "content omitted: over 2 MiB")
-			file.Content = hashObject(ctx, root, path)
-			files = append(files, file)
-
-			continue
-		}
-
-		content := readWorkingTree(root, path)
-		if strings.IndexByte(content, 0) >= 0 {
-			file.Metadata = []string{"untracked binary file"}
-			file.Content = hashObject(ctx, root, path)
-			files = append(files, file)
-
-			continue
-		}
-
-		file.NewSource = content
-		file.Hunks = []Hunk{addedHunk(content)}
-		files = append(files, file)
-	}
-
-	return files, nil
-}
-
-func addedHunk(content string) Hunk {
-	sources := strings.Split(strings.TrimSuffix(content, "\n"), "\n")
-
-	lines := make([]Line, 0, len(sources))
-	for index, text := range sources {
-		lines = append(lines, Line{
-			Kind:      Addition,
-			Text:      text,
-			NewNumber: index + 1,
-		})
-	}
-
-	return Hunk{Header: fmt.Sprintf("@@ -0,0 +1,%d @@", len(lines)), Lines: lines}
-}
-
-// hashObject is what git would call the file on disk, which is how an untracked file the patch
-// draws nothing of still has something that moves when the agent rewrites it, and it reads the
-// file rather than the index, so it serves one no revision holds and one too big to load alike.
-func hashObject(ctx context.Context, root, path string) string {
-	oid, err := runGit(ctx, root, "hash-object", "--", path)
-	if err != nil {
-		return ""
-	}
-
-	return oid
-}
-
 func readRevision(ctx context.Context, root, revision, path string) string {
 	if path == "" {
 		return ""
 	}
 
-	out, err := runGitBytes(ctx, root, "show", revision+":"+path)
+	out, err := git.ReadFile(ctx, root, revision, path)
 	if err != nil || len(out) > maxFileBytes {
 		return ""
 	}
 
 	return string(out)
-}
-
-func readWorkingTree(root, path string) string {
-	if path == "" {
-		return ""
-	}
-
-	content, err := os.ReadFile(filepath.Join(root, filepath.FromSlash(path)))
-	if err != nil || len(content) > maxFileBytes {
-		return ""
-	}
-
-	return string(content)
 }
 
 // filePath reads /dev/null as no file at all, which is the whole of it, since the name arrives
@@ -349,24 +265,4 @@ func filePath(path string) string {
 	}
 
 	return path
-}
-
-func runGit(ctx context.Context, dir string, args ...string) (string, error) {
-	out, err := runGitBytes(ctx, dir, args...)
-
-	return strings.TrimSpace(string(out)), err
-}
-
-func runGitBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, gitTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
-	}
-
-	return out, nil
 }

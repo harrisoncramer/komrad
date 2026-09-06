@@ -35,7 +35,9 @@ type prArchiveAgentReadWriter interface {
 	SetMetadata(ctx context.Context, params agentstore.SetMetadataParams) (bool, error)
 }
 
-type prArchiveWorkflowGetter interface {
+// workflowGetter reads the workflow an agent belongs to, which is where its base branch and its
+// diff excludes live.
+type workflowGetter interface {
 	Get(ctx context.Context, id string) (*workflowstore.Workflow, error)
 }
 
@@ -45,7 +47,7 @@ type prArchiveAgentArchiver interface {
 
 type PRArchiverParams struct {
 	Agents       prArchiveAgentReadWriter
-	Workflows    prArchiveWorkflowGetter
+	Workflows    workflowGetter
 	Archiver     prArchiveAgentArchiver
 	PullRequests pullRequestResolver
 }
@@ -54,7 +56,7 @@ type PRArchiverParams struct {
 // the workflows that asked for it.
 type PRArchiver struct {
 	agents       prArchiveAgentReadWriter
-	workflows    prArchiveWorkflowGetter
+	workflows    workflowGetter
 	archiver     prArchiveAgentArchiver
 	pullRequests pullRequestResolver
 

@@ -12,7 +12,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ListReviewThreads reads the review pinned to an agent's diff.
@@ -61,6 +60,7 @@ func (s *Service) CreateReviewThread(
 		NewEnd:      req.Msg.GetNewEnd(),
 		QuotedLines: req.Msg.GetQuotedLines(),
 		Body:        req.Msg.GetBody(),
+		Suggestion:  req.Msg.GetSuggestion(),
 		Author:      reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -76,9 +76,10 @@ func (s *Service) AddReviewMessage(
 	req *connect.Request[agentv1.AddReviewMessageRequest],
 ) (*connect.Response[agentv1.AddReviewMessageResponse], error) {
 	message, err := s.review.AddReviewMessage(ctx, agents.AddReviewMessageParams{
-		ThreadID: req.Msg.GetThreadId(),
-		Body:     req.Msg.GetBody(),
-		Author:   reviewAuthorFrom(ctx),
+		ThreadID:   req.Msg.GetThreadId(),
+		Body:       req.Msg.GetBody(),
+		Suggestion: req.Msg.GetSuggestion(),
+		Author:     reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to add the review message")
@@ -93,9 +94,10 @@ func (s *Service) EditReviewMessage(
 	req *connect.Request[agentv1.EditReviewMessageRequest],
 ) (*connect.Response[agentv1.EditReviewMessageResponse], error) {
 	message, err := s.review.EditReviewMessage(ctx, agents.EditReviewMessageParams{
-		ID:     req.Msg.GetId(),
-		Body:   req.Msg.GetBody(),
-		Author: reviewAuthorFrom(ctx),
+		ID:         req.Msg.GetId(),
+		Body:       req.Msg.GetBody(),
+		Suggestion: req.Msg.GetSuggestion(),
+		Author:     reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to edit the review message")
@@ -141,46 +143,64 @@ func (s *Service) SetReviewThreadResolved(
 	}), nil
 }
 
-// DeleteReviewThread removes a thread and everything said in it.
-func (s *Service) DeleteReviewThread(
+// OpenReviewRound freezes what an agent has written and records it as its next round.
+func (s *Service) OpenReviewRound(
 	ctx context.Context,
-	req *connect.Request[agentv1.DeleteReviewThreadRequest],
-) (*connect.Response[emptypb.Empty], error) {
-	err := s.review.DeleteReviewThread(ctx, agents.DeleteReviewThreadParams{
-		ID:     req.Msg.GetId(),
-		Author: reviewAuthorFrom(ctx),
-	})
+	req *connect.Request[agentv1.OpenReviewRoundRequest],
+) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
+	round, err := s.review.OpenRound(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to delete the review thread")
+		return nil, rpcerr.Wrap(err, "failed to open a review round")
 	}
 
-	return connect.NewResponse(&emptypb.Empty{}), nil
+	return connect.NewResponse(&agentv1.OpenReviewRoundResponse{Round: toReviewRound(*round)}), nil
 }
 
-// DeleteReviewMessage removes one message, leaving the thread it was in.
-func (s *Service) DeleteReviewMessage(
+// ListReviewRounds reads every round taken of an agent.
+func (s *Service) ListReviewRounds(
 	ctx context.Context,
-	req *connect.Request[agentv1.DeleteReviewMessageRequest],
-) (*connect.Response[emptypb.Empty], error) {
-	err := s.review.DeleteReviewMessage(ctx, agents.DeleteReviewMessageParams{
-		ID:     req.Msg.GetId(),
-		Author: reviewAuthorFrom(ctx),
-	})
+	req *connect.Request[agentv1.ListReviewRoundsRequest],
+) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
+	rounds, err := s.review.ListRounds(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to delete the review message")
+		return nil, rpcerr.Wrap(err, "failed to list the review rounds")
 	}
 
-	return connect.NewResponse(&emptypb.Empty{}), nil
+	answered := make([]*agentv1.ReviewRound, 0, len(rounds))
+	for _, round := range rounds {
+		answered = append(answered, toReviewRound(round))
+	}
+
+	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: answered}), nil
 }
 
-// ReleaseReviewMessages lets go of the comments the person has written and not sent, raising a
-// doorbell for each.
-func (s *Service) ReleaseReviewMessages(
+// ListReviews reads every review given on an agent.
+func (s *Service) ListReviews(
 	ctx context.Context,
-	req *connect.Request[agentv1.ReleaseReviewMessagesRequest],
-) (*connect.Response[agentv1.ReleaseReviewMessagesResponse], error) {
-	result, err := s.review.ReleaseReviewMessages(ctx, agents.ReleaseReviewMessagesParams{
+	req *connect.Request[agentv1.ListReviewsRequest],
+) (*connect.Response[agentv1.ListReviewsResponse], error) {
+	reviews, err := s.review.ListReviews(ctx, req.Msg.GetAgentId(), reviewAuthorFrom(ctx))
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the reviews")
+	}
+
+	answered := make([]*agentv1.Review, 0, len(reviews))
+	for _, review := range reviews {
+		answered = append(answered, toReview(review))
+	}
+
+	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: answered}), nil
+}
+
+// ReleaseReview lets go of the caller's open batch, writing it out and mailing the path.
+func (s *Service) ReleaseReview(
+	ctx context.Context,
+	req *connect.Request[agentv1.ReleaseReviewRequest],
+) (*connect.Response[agentv1.ReleaseReviewResponse], error) {
+	result, err := s.review.ReleaseReview(ctx, agents.ReleaseReviewParams{
 		AgentID:   req.Msg.GetAgentId(),
+		Verdict:   fromReviewVerdict(req.Msg.GetVerdict()),
+		Body:      req.Msg.GetBody(),
 		Interrupt: req.Msg.GetInterrupt(),
 		Author:    reviewAuthorFrom(ctx),
 	})
@@ -188,28 +208,10 @@ func (s *Service) ReleaseReviewMessages(
 		return nil, rpcerr.Wrap(err, "failed to release the review")
 	}
 
-	return connect.NewResponse(&agentv1.ReleaseReviewMessagesResponse{
-		Released: int32(result.Released),
-	}), nil
-}
-
-// RingReviewMessagesAgain raises a doorbell again for the released comments whose own expired
-// unclaimed.
-func (s *Service) RingReviewMessagesAgain(
-	ctx context.Context,
-	req *connect.Request[agentv1.RingReviewMessagesAgainRequest],
-) (*connect.Response[agentv1.RingReviewMessagesAgainResponse], error) {
-	result, err := s.review.RingReviewMessagesAgain(ctx, agents.RingReviewMessagesAgainParams{
-		AgentID:   req.Msg.GetAgentId(),
-		Interrupt: req.Msg.GetInterrupt(),
-		Author:    reviewAuthorFrom(ctx),
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to ring the review again")
-	}
-
-	return connect.NewResponse(&agentv1.RingReviewMessagesAgainResponse{
-		Rung: int32(result.Rung),
+	return connect.NewResponse(&agentv1.ReleaseReviewResponse{
+		Review:   toReview(result.Review),
+		Comments: int32(result.Comments),
+		Path:     result.Path,
 	}), nil
 }
 
@@ -219,11 +221,10 @@ func (s *Service) SetReviewFileViewed(
 	req *connect.Request[agentv1.SetReviewFileViewedRequest],
 ) (*connect.Response[agentv1.SetReviewFileViewedResponse], error) {
 	viewed, err := s.review.SetReviewFileViewed(ctx, agents.SetReviewFileViewedParams{
-		AgentID:     req.Msg.GetAgentId(),
-		FilePath:    req.Msg.GetFilePath(),
-		Fingerprint: req.Msg.GetFingerprint(),
-		Viewed:      req.Msg.GetViewed(),
-		Author:      reviewAuthorFrom(ctx),
+		RoundID:  req.Msg.GetRoundId(),
+		FilePath: req.Msg.GetFilePath(),
+		Viewed:   req.Msg.GetViewed(),
+		Author:   reviewAuthorFrom(ctx),
 	})
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to set the file viewed")
@@ -243,7 +244,7 @@ func (s *Service) ListReviewViewedFiles(
 	req *connect.Request[agentv1.ListReviewViewedFilesRequest],
 ) (*connect.Response[agentv1.ListReviewViewedFilesResponse], error) {
 	files, err := s.review.ListReviewViewedFiles(ctx, agents.ListReviewViewedFilesParams{
-		AgentID: req.Msg.GetAgentId(),
+		RoundID: req.Msg.GetRoundId(),
 		Author:  reviewAuthorFrom(ctx),
 	})
 	if err != nil {
@@ -275,6 +276,9 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 	answered := &agentv1.ReviewThread{
 		Id:            thread.Thread.ID,
 		AgentId:       thread.Thread.AgentID,
+		ReviewId:      thread.Thread.ReviewID,
+		RoundId:       thread.Thread.RoundID,
+		RoundOrdinal:  thread.Thread.RoundOrdinal,
 		FilePath:      thread.Thread.FilePath,
 		OldStart:      thread.Thread.OldStart,
 		OldEnd:        thread.Thread.OldEnd,
@@ -309,6 +313,7 @@ func toReviewMessage(message reviewstore.Message) *agentv1.ReviewMessage {
 		AuthorKind:    kind,
 		AuthorAgentId: message.AuthorAgentID,
 		Body:          message.Body,
+		Suggestion:    message.Suggestion,
 		Delivery:      toReviewDeliveryState(message.Delivery),
 		CreatedAt:     dates.Stamp(message.CreatedAt),
 		UpdatedAt:     dates.Stamp(message.UpdatedAt),
@@ -332,8 +337,6 @@ func toReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDelive
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT
 	case reviewstore.DeliveryDelivered:
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED
-	case reviewstore.DeliveryExpired:
-		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED
 	case reviewstore.DeliveryNone:
 		return agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED
 	default:
@@ -343,9 +346,79 @@ func toReviewDeliveryState(state reviewstore.DeliveryState) agentv1.ReviewDelive
 
 func toReviewViewedFile(viewed reviewstore.ViewedFile) *agentv1.ReviewViewedFile {
 	return &agentv1.ReviewViewedFile{
-		AgentId:     viewed.AgentID,
-		FilePath:    viewed.FilePath,
-		Fingerprint: viewed.Fingerprint,
-		ViewedAt:    dates.Stamp(viewed.ViewedAt),
+		RoundId:  viewed.RoundID,
+		FilePath: viewed.FilePath,
+		ViewedAt: dates.Stamp(viewed.ViewedAt),
+	}
+}
+
+func toReviewRound(round reviewstore.Round) *agentv1.ReviewRound {
+	return &agentv1.ReviewRound{
+		Id:          round.ID,
+		AgentId:     round.AgentID,
+		Ordinal:     round.Ordinal,
+		BaseSha:     round.BaseSHA,
+		SnapshotSha: round.SnapshotSHA,
+		CreatedAt:   dates.Stamp(round.CreatedAt),
+	}
+}
+
+func toReview(review reviewstore.Review) *agentv1.Review {
+	kind := agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN
+	if review.AuthorKind == reviewstore.AuthorAgent {
+		kind = agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT
+	}
+
+	answered := &agentv1.Review{
+		Id:            review.ID,
+		AgentId:       review.AgentID,
+		RoundId:       review.RoundID,
+		RoundOrdinal:  review.RoundOrdinal,
+		AuthorKind:    kind,
+		AuthorAgentId: review.AuthorAgentID,
+		Body:          review.Body,
+		Path:          review.Path,
+		CreatedAt:     dates.Stamp(review.CreatedAt),
+		UpdatedAt:     dates.Stamp(review.UpdatedAt),
+	}
+
+	if review.Verdict != nil {
+		answered.Verdict = toReviewVerdict(*review.Verdict)
+	}
+	if at := review.ReleasedAt; at != nil {
+		answered.ReleasedAt = dates.Stamp(*at)
+	}
+	if at := review.DeliveredAt; at != nil {
+		answered.DeliveredAt = dates.Stamp(*at)
+	}
+
+	return answered
+}
+
+func toReviewVerdict(verdict reviewstore.Verdict) agentv1.ReviewVerdict {
+	switch verdict {
+	case reviewstore.VerdictApproved:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED
+	case reviewstore.VerdictChangesRequested:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED
+	case reviewstore.VerdictCommented:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED
+	default:
+		return agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED
+	}
+}
+
+func fromReviewVerdict(verdict agentv1.ReviewVerdict) reviewstore.Verdict {
+	switch verdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
+		return reviewstore.VerdictApproved
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
+		return reviewstore.VerdictChangesRequested
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+		return reviewstore.VerdictCommented
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return reviewstore.VerdictCommented
+	default:
+		return reviewstore.VerdictCommented
 	}
 }

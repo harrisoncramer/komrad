@@ -444,14 +444,21 @@ service AgentService {
   rpc ListReviewThreads(ListReviewThreadsRequest) returns (ListReviewThreadsResponse) {
     option (annotation.v1.tool) = {
       tool_name: "list_review_threads"
-      description: "Read the review conversations pinned to the lines of your own diff. Each thread names a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. This is where a person's feedback on your work actually lives: mail only tells you there is activity, it does not carry it. The line numbers are where the comment was written rather than where that code is now, since your own edits since then have moved it. quotedLines is the text it was written against, so when the file no longer matches the line you are given, search the file for that text and answer the comment where it now sits rather than treating it as stale. Reply with add_review_message once you have made the change, saying what you did. You are shown only the comments the person has let go of, so a note they are still writing is not here yet and a fresh doorbell means there is more of the review to read. agentId defaults to your own agent; give another agent's id to read the review of its work instead."
+      description: "Read the review conversations pinned to the lines of a diff. Each thread names a round, a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. The review you were sent is already in the file the mail named, so read that first; this is for looking a thread up again, and for answering one. Every thread belongs to a round, which is a frozen snapshot, so its line numbers are true of that round even after you have edited the file: run git diff against the round's shas to see what was reviewed, or search the file for quotedLines to find where that code sits now. Answer with add_review_message, saying what you did. You are shown only reviews that have been released, so a comment somebody is still writing is not here yet. agentId defaults to your own agent; give another agent's id to read the review of its work instead."
     };
   }
-  rpc CreateReviewThread(CreateReviewThreadRequest) returns (CreateReviewThreadResponse) {}
+  rpc CreateReviewThread(CreateReviewThreadRequest) returns (CreateReviewThreadResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "create_review_thread"
+      description: "Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose. You may only review the agent you are a child of. The comment is filed under a batch of your own that nobody sees until you release it with release_review, so write every comment you have and then release once. Anchor it with the file and the line range from the round you are reviewing, and pass the diff lines you are writing about as quotedLines so the anchor still says something after the code moves. Pass suggestion to propose exact replacement lines the agent should apply. Each call opens another thread, so do not retry a call that may have succeeded."
+      destructive: false
+      idempotent: false
+    };
+  }
   rpc AddReviewMessage(AddReviewMessageRequest) returns (AddReviewMessageResponse) {
     option (annotation.v1.tool) = {
       tool_name: "add_review_message"
-      description: "Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. The message is attributed to you rather than to the person reviewing. Each call adds another message, so do not retry a call that may have succeeded."
+      description: "Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. Your answer belongs to no batch and reaches the reviewer as soon as it is written, unlike a review, which is released whole. The message is attributed to you rather than to the person reviewing. Each call adds another message, so do not retry a call that may have succeeded."
       destructive: false
       idempotent: false
     };
@@ -463,14 +470,30 @@ service AgentService {
   rpc SetReviewThreadResolved(SetReviewThreadResolvedRequest) returns (SetReviewThreadResolvedResponse) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc DeleteReviewThread(DeleteReviewThreadRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
+  rpc OpenReviewRound(OpenReviewRoundRequest) returns (OpenReviewRoundResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "open_review_round"
+      description: "Freeze what an agent has written right now and get back the round to review against, which is a snapshot commit covering its whole worktree, committed and uncommitted alike. Call this before reading its diff, and diff the round's baseSha against its snapshotSha to see exactly what you are reviewing. A tree that has not moved since the last round gives that round back rather than a new one, so calling it twice is safe."
+      destructive: false
+      idempotent: true
+    };
   }
-  rpc DeleteReviewMessage(DeleteReviewMessageRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
+  rpc ListReviewRounds(ListReviewRoundsRequest) returns (ListReviewRoundsResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "list_review_rounds"
+      description: "Read the rounds taken of an agent, oldest first. A round is a frozen snapshot of everything it had written at that moment, so this is how you find what a review was given against, and how you see what changed between two of them: git diff one round's snapshotSha against the next. Your own rounds are yours to read, which is how you see the code a comment on your work was written about even after you have edited it. Use open_review_round to take one of the work as it stands now."
+      read_only: true
+    };
   }
-  rpc ReleaseReviewMessages(ReleaseReviewMessagesRequest) returns (ReleaseReviewMessagesResponse) {}
-  rpc RingReviewMessagesAgain(RingReviewMessagesAgainRequest) returns (RingReviewMessagesAgainResponse) {}
+  rpc ListReviews(ListReviewsRequest) returns (ListReviewsResponse) {}
+  rpc ReleaseReview(ReleaseReviewRequest) returns (ReleaseReviewResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "release_review"
+      description: "Let go of the review you have been writing on another agent's diff, which is what sends it. Weave writes every comment out as one file and mails that agent the path, so the whole review arrives as one thing rather than a comment at a time. Give a verdict: approved if the round is good as it stands, changes requested if the agent should keep working, commented for notes without a conclusion. The verdict is what tells that agent whether it is done, so choose it deliberately. Interrupt stops it where it stands rather than waiting for the turn to end. Each call sends another review, so do not retry a call that may have succeeded."
+      destructive: false
+      idempotent: false
+    };
+  }
   rpc SetReviewFileViewed(SetReviewFileViewedRequest) returns (SetReviewFileViewedResponse) {
     option idempotency_level = IDEMPOTENT;
   }

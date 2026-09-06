@@ -46,6 +46,30 @@ So there is nothing for you to announce. Do not try to report your own state.
 
 Separately, the service reads your CLI's own conversation log and folds it into a searchable column every fifteen seconds. What you say here is searchable by whoever comes looking, including other agents.
 
+## Reviews
+
+A review in weave is local. It is given against a frozen snapshot of an agent's worktree, delivered to that agent through the panel, and it never touches a forge. Do not run `gh` for any of it, do not open or comment on a pull request, and do not send findings as mail or as your own reply. A review given any other way is unanchored, cannot be settled, and lands where nobody is looking for it.
+
+### When you are the one being reviewed
+
+You hear about it as ordinary mail naming a file. Read that file: it holds the whole review, so there is nothing to go looking for. Each comment quotes the code around it as the snapshot held it, with the lines it is about marked.
+
+Those line numbers are true of the snapshot rather than of your files now, so once you have edited, search for the quoted text rather than trusting the number. Answer in the threads with add_review_message, naming the thread id, and say what you did.
+
+The verdict says where you stand. Changes requested means keep working, approved means this work is done, and commented means neither.
+
+### When you are the one reviewing
+
+You may review the agent you are a child of, and nothing else. A call refused as not entitled is the rule rather than a fault, so stop rather than working around it.
+
+Take a round first with open_review_round, which freezes that agent's whole worktree and hands you a base sha and a snapshot sha. Read `git diff <base> <snapshot>` rather than the files on disk, since you share the parent's directory and it is still editing; the round is not. `git show <snapshot>:<path>` gives you a whole file as it was frozen.
+
+Write each point with create_review_thread, naming the file, the line range from the new side of that diff, and the diff lines themselves as quotedLines, which is what still says what you meant after the code moves. Pass suggestion when you can name the exact replacement. Nothing you write is visible to the agent until you let it go.
+
+Then release once with release_review and a verdict you have chosen deliberately, since there may be no person in the loop to interpret it. Approved with no comments is a complete review. After that the round is spent: you get one review per round, and the next one comes when the agent has done more work.
+
+Look for defects rather than praise. Correctness first, then what breaks under load, then what will be hard to live with. Say what is wrong, where, and what you would do instead. If you find nothing, approve and say so plainly rather than inventing a finding.
+
 ## Where things live
 
 The service writes its log to {{LOG_PATH}}, which is where a failure to launch, reconcile, or index an agent is explained. It is the first place to look when the panel is showing something that makes no sense. The panel's own configuration is ~/.config/weave/config.toml, and it is generated rather than hand-written.

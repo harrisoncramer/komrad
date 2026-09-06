@@ -9,6 +9,7 @@ import (
 
 	"weave/config"
 	"weave/internal/diff"
+	"weave/internal/git"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -36,8 +37,8 @@ type reviewState struct {
 	agentName string
 	dir       string
 	root      string
-	base      string
 	exclude   []string
+	round     *agentv1.ReviewRound
 	view      *review.View
 	threads   []*agentv1.ReviewThread
 
@@ -49,18 +50,18 @@ type reviewState struct {
 	top       int
 	frames    *reviewFrames
 	composing bool
+	// releasing is set while the panel is asking what to send, which is one editor for a word
+	// about the work as a whole and one choice of verdict.
+	releasing bool
+	verdict   int
 	editor    textarea.Model
 
 	// filter is the pattern being searched for in the diff, kept apart from the agents list's own
 	// filter so a pattern meant for code does not empty that list.
 	filter filterState
 
-	// pending is the recentring prefix waiting on the key that completes it, which is the one
-	// gesture in the panel a rebinding cannot reach, since a binding is one key and this is two.
-	pending string
-
-	// pinTop holds the window where zt or zb put it until the cursor moves, since the next repaint
-	// would otherwise drag it back to keep the cursor clear of the edge.
+	// pinTop holds the window where a file jump put it until the cursor moves, since the next
+	// repaint would otherwise drag it back to keep the cursor clear of the edge.
 	pinTop bool
 
 	// pinFloor is the row a file jump put at the top of the pane, which the window stays at or
@@ -72,7 +73,10 @@ type reviewState struct {
 	editing string
 	loading bool
 	notice  string
-	err     error
+	// since says how much of the diff is new to the reader, which is a standing fact about what
+	// is on screen rather than an answer to a keypress, so it outlives the notice slot.
+	since string
+	err   error
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
 	// the reader back where they left rather than at the top of the diff.
@@ -86,25 +90,15 @@ type reviewState struct {
 	// again by every tick that passes underneath it.
 	polling bool
 
-	// fingerprint is the patch on screen, which is what a background read is measured against.
-	fingerprint string
+	// moved is set once the agent has written something since the round on screen was taken, which
+	// is a prompt to open the next one rather than anything the panel does on its own.
+	moved bool
 
-	// held is a patch read in the background that no longer matches the one on screen, kept
-	// here rather than swapped in, since moving the diff under the reader is what the reload
-	// key exists to avoid.
-	held *heldPatch
-
-	// diffPolling is set while a background patch read is in flight, and diffPolled is when the
-	// last one started, since the worktree is read every few seconds rather than every tick.
+	// diffPolling is set while a background probe of the worktree is in flight, and diffPolled
+	// is when the last one started, since the worktree is asked every few seconds rather than
+	// every tick.
 	diffPolling bool
 	diffPolled  time.Time
-}
-
-// heldPatch is a patch the background poll found and the marks that came with it, parsed and
-// waiting, so the reload key costs nothing but the redraw.
-type heldPatch struct {
-	patch  *diff.Patch
-	viewed []*agentv1.ReviewViewedFile
 }
 
 // reviewActivity is the cheap probe a conversation refresh is decided on, since repinning walks
@@ -193,10 +187,14 @@ func (f *reviewFrames) window(view *review.View, top, cursor, pan int, focused b
 
 type reviewLoadedMsg struct {
 	agentID string
+	round   *agentv1.ReviewRound
 	patch   *diff.Patch
 	threads []*agentv1.ReviewThread
 	viewed  []*agentv1.ReviewViewedFile
-	err     error
+	// since says how much of this round is new to the reader, which is a courtesy rather than
+	// something the screen depends on.
+	since string
+	err   error
 }
 
 // reviewWroteMsg is one write and the review as it stands after it, since the panel keeps no
@@ -227,7 +225,6 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		agentID:   agent.ID,
 		agentName: agent.Name,
 		dir:       agent.Cwd,
-		base:      worktree.BaseBranch,
 		exclude:   worktree.DiffExclude,
 		frames:    &reviewFrames{},
 		editor:    editor,
@@ -235,7 +232,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	}
 	m.frame.Show(layout.RegionStage, newTextContent("_loading the diff…_"))
 
-	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
+	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
@@ -247,56 +244,162 @@ func (m *model) refuseReview(err error) {
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
-	m.reportBrief("Nothing to review in "+name, err.Error(), nil)
+	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
 }
 
-func (m model) loadReviewCmd(agentID, dir, base string, exclude []string) tea.Cmd {
+// describeRefusedReview says which of the two empty diffs this is, since an agent that has written
+// nothing and an agent whose every line is in an excluded path want opposite things said about
+// them: one has not worked yet, the other has and you asked not to be shown it.
+func describeRefusedReview(name string, err error) string {
+	if errors.Is(err, diff.ErrAllExcluded) {
+		return "Everything " + name + " changed is excluded from the diff"
+	}
+
+	return "Nothing to review in " + name
+}
+
+// loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
+// that has not moved gives back the round already taken of it, so reopening the diff does not
+// walk the ordinal on.
+func (m model) loadReviewCmd(agentID, dir string, exclude []string) tea.Cmd {
 	agents := m.api.agents
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		patch, err := diff.Load(ctx, diff.LoadParams{
-			Dir:     dir,
-			Base:    base,
-			Exclude: exclude,
-		})
+		opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+			AgentId: agentID,
+		}))
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
+		}
+
+		round := opened.Msg.GetRound()
+
+		patch, err := diff.Load(ctx, diff.LoadParams{
+			Dir:         dir,
+			BaseSHA:     round.GetBaseSha(),
+			SnapshotSHA: round.GetSnapshotSha(),
+			Exclude:     exclude,
+		})
+		if err != nil {
+			return reviewLoadedMsg{
+				agentID: agentID,
+				round:   round,
+				err:     err,
+			}
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
 		if err != nil {
 			return reviewLoadedMsg{
 				agentID: agentID,
+				round:   round,
 				patch:   patch,
 				err:     err,
 			}
 		}
 
-		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
+		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
 
 		return reviewLoadedMsg{
 			agentID: agentID,
+			round:   round,
 			patch:   patch,
 			threads: threads,
 			viewed:  viewed,
+			since:   changedSinceLastReview(ctx, agents, dir, exclude, round),
 			err:     err,
 		}
 	}
 }
 
+// changedSinceLastReview says how much of this round is new since the person last let a review go,
+// which is a courtesy rather than a fact the screen depends on, so anything that fails to answer
+// says nothing.
+func changedSinceLastReview(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	dir string,
+	exclude []string,
+	round *agentv1.ReviewRound,
+) string {
+	resp, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return ""
+	}
+
+	last := lastHumanReview(resp.Msg.GetReviews(), round.GetOrdinal())
+	if last == nil {
+		return ""
+	}
+
+	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return ""
+	}
+
+	from := ""
+	for _, earlier := range rounds.Msg.GetRounds() {
+		if earlier.GetId() == last.GetRoundId() {
+			from = earlier.GetSnapshotSha()
+		}
+	}
+
+	changed, err := git.CountChangedFiles(ctx, git.CountChangedFilesParams{
+		Dir:     dir,
+		FromSHA: from,
+		ToSHA:   round.GetSnapshotSha(),
+		Exclude: exclude,
+	})
+	if err != nil || changed == 0 {
+		return ""
+	}
+
+	return fmt.Sprintf("%s changed since you last reviewed", files(changed))
+}
+
+// lastHumanReview is the newest review the person let go of against a round earlier than this
+// one, which is where they last looked.
+func lastHumanReview(reviews []*agentv1.Review, ordinal int32) *agentv1.Review {
+	var last *agentv1.Review
+	for _, review := range reviews {
+		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+			continue
+		}
+		if review.GetReleasedAt() == "" || review.GetRoundOrdinal() >= ordinal {
+			continue
+		}
+
+		last = review
+	}
+
+	return last
+}
+
+func files(count int) string {
+	if count == 1 {
+		return "1 file"
+	}
+
+	return fmt.Sprintf("%d files", count)
+}
+
 func listReviewViewedFiles(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,
-	agentID string,
+	roundID string,
 ) ([]*agentv1.ReviewViewedFile, error) {
 	resp, err := agents.ListReviewViewedFiles(ctx, connect.NewRequest(&agentv1.ListReviewViewedFilesRequest{
-		AgentId: agentID,
+		RoundId: roundID,
 	}))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read which files of %q have been viewed: %w", agentID, err)
+		return nil, fmt.Errorf("failed to read which files you have already read: %w", err)
 	}
 
 	return resp.Msg.GetViewed(), nil
@@ -322,7 +425,8 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 		return
 	}
 
-	if errors.Is(msg.err, diff.ErrNoChanges) {
+	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
+	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) {
 		m.refuseReview(msg.err)
 
 		return
@@ -336,7 +440,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
-	m.review.view.SetViewed(stillViewed(msg.patch, msg.viewed))
+	m.review.view.SetViewed(stillViewed(msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 
 	// The pattern lives on the ui model rather than the view, so a view built from nothing has
@@ -345,9 +449,9 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 
 	m.review.threads = msg.threads
 	m.review.activity = reviewActivityOf(msg.threads)
-	m.review.fingerprint = msg.patch.Fingerprint()
-	m.review.held = nil
-	m.review.notice = reopenedNotice(msg.patch, msg.viewed)
+	m.review.round = msg.round
+	m.review.moved = false
+	m.review.since = msg.since
 	m.review.cursor = m.review.view.GetFirstRow()
 	if place := m.review.restore; place != nil {
 		if found, ok := m.review.view.Locate(*place); ok {
@@ -360,56 +464,15 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	m.stageReview()
 }
 
-// stillViewed is which files marked read still look the way they did when they were read, which
-// is the only sense in which the mark holds.
-func stillViewed(patch *diff.Patch, viewed []*agentv1.ReviewViewedFile) map[string]bool {
-	// A mark the file has outgrown is left in the store rather than swept, to be overwritten by
-	// the next read or to hold again should the file end up reading exactly as it did.
-	marks := map[string]string{}
-	for _, mark := range viewed {
-		marks[mark.GetFilePath()] = mark.GetFingerprint()
-	}
-
+// stillViewed is which files of the round have been read, and a mark belongs to one round, so a
+// later round starts with none of them and nothing has to be compared to know that.
+func stillViewed(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
-	for _, file := range patch.Files {
-		if fingerprint, ok := marks[file.Path()]; ok && fingerprint == file.Fingerprint() {
-			held[file.Path()] = true
-		}
+	for _, mark := range viewed {
+		held[mark.GetFilePath()] = true
 	}
 
 	return held
-}
-
-// reopenedNotice says how many files came back because something changed in them, since a file
-// unfolding under the reader with nothing said about it reads as the panel losing their place.
-func reopenedNotice(patch *diff.Patch, viewed []*agentv1.ReviewViewedFile) string {
-	held := stillViewed(patch, viewed)
-
-	changed := 0
-	for _, file := range patch.Files {
-		if !held[file.Path()] && wasViewed(viewed, file.Path()) {
-			changed++
-		}
-	}
-
-	switch changed {
-	case 0:
-		return ""
-	case 1:
-		return "1 file changed since you viewed it"
-	}
-
-	return fmt.Sprintf("%d files changed since you viewed them", changed)
-}
-
-func wasViewed(viewed []*agentv1.ReviewViewedFile, path string) bool {
-	for _, mark := range viewed {
-		if mark.GetFilePath() == path {
-			return true
-		}
-	}
-
-	return false
 }
 
 func (m *model) applyReviewWrote(msg reviewWroteMsg) {
@@ -535,7 +598,7 @@ func (m model) reviewStageArgv(path string) []string {
 // doesTakeEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
 // the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {
-	return r.composing || r.filter.typing || r.pending != ""
+	return r.composing || r.releasing || r.filter.typing
 }
 
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -543,15 +606,15 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.updateReviewComposer(key)
 	}
 
+	if m.review.releasing {
+		return m.updateReviewRelease(key)
+	}
+
 	if m.review.filter.typing {
 		return m.updateReviewFilter(key)
 	}
 
 	k := key.String()
-
-	if m.review.pending != "" {
-		return m.updateReviewPending(k)
-	}
 	keys := m.keys.Review
 
 	if m.review.view == nil {
@@ -613,10 +676,6 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.jumpReviewMatch(1)
 	case isBound(k, keys.PrevMatch):
 		return m.jumpReviewMatch(-1)
-	case k == recentrePrefix:
-		m.review.pending = recentrePrefix
-
-		return m, nil
 	case isBound(k, keys.PanRight):
 		return m.panReview(m.reviewPanStep())
 	case isBound(k, keys.PanLeft):
@@ -629,16 +688,12 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.editReviewFile()
 	case isBound(k, keys.Compose):
 		return m.composeReview()
-	case isBound(k, keys.Resend):
-		return m.resendReview()
 	case isBound(k, keys.Resolve):
 		return m.resolveReviewThread()
 	case isBound(k, keys.ToggleViewed):
 		return m.toggleReviewViewed()
-	case isBound(k, keys.DeleteThread):
-		return m.deleteReviewThread()
 	case isBound(k, m.keys.Form.Submit):
-		return m.releaseReview()
+		return m.openReviewRelease()
 	}
 
 	return m, nil
@@ -658,43 +713,7 @@ func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 // and marking a file read, since those are the person's own records and send nothing.
 func isReviewWrite(k string, keys config.Keybindings) bool {
 	return isBound(k, keys.Review.Compose) ||
-		isBound(k, keys.Review.Resend) ||
 		isBound(k, keys.Form.Submit)
-}
-
-// recentrePrefix opens the vim recentring chord, zz, zt and zb, which is left as vim spells it.
-const recentrePrefix = "z"
-
-// updateReviewPending answers the key after the recentring prefix, which decides where in the
-// pane the cursor's own row is put.
-func (m model) updateReviewPending(k string) (tea.Model, tea.Cmd) {
-	m.review.pending = ""
-
-	height := m.review.frames.height
-	if height <= 0 {
-		return m, nil
-	}
-
-	switch k {
-	case "z":
-		return m.putReviewWindow(m.review.cursor - height/2)
-	case "t":
-		return m.putReviewWindow(m.review.cursor)
-	case "b":
-		return m.putReviewWindow(m.review.cursor - height + 1)
-	}
-
-	return m, nil
-}
-
-// putReviewWindow scrolls the diff so the cursor's row lands where a recentring key asked for,
-// without moving the cursor itself.
-func (m model) putReviewWindow(top int) (tea.Model, tea.Cmd) {
-	m.review.top = max(min(top, m.review.view.Len()-1), 0)
-	m.review.pinTop = true
-	m.stageReview()
-
-	return m, nil
 }
 
 // updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn
@@ -756,26 +775,10 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	return m.review.view.GetThreadAt(m.review.cursor)
 }
 
-// reloadReviewDiff puts the patch the background poll is holding on screen, and reads the
-// worktree again when it is holding none, so the key means reload either way.
+// reloadReviewDiff opens the next round, which is the only way what is on screen changes, since
+// the round the reader is standing in never moves under a comment being written.
 func (m model) reloadReviewDiff() (tea.Model, tea.Cmd) {
-	held := m.review.held
-	if held == nil {
-		return m.reloadReview()
-	}
-
-	if place, ok := m.review.view.GetPlace(m.review.cursor); ok {
-		m.review.restore = &place
-	}
-
-	m.applyReviewLoaded(reviewLoadedMsg{
-		agentID: m.review.agentID,
-		patch:   held.patch,
-		threads: m.review.threads,
-		viewed:  held.viewed,
-	})
-
-	return m, nil
+	return m.reloadReview()
 }
 
 // reloadReview reads the worktree again, holding the place the cursor is standing so the diff
@@ -789,7 +792,7 @@ func (m model) reloadReview() (model, tea.Cmd) {
 		m.review.restore = &place
 	}
 
-	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
+	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
 
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
@@ -840,7 +843,7 @@ func (m *model) scrollReviewToCursor() {
 		return
 	}
 
-	// A recentring key has already said where the window goes, and the margin below would drag it
+	// A file jump has already said where the window goes, and the margin below would drag it
 	// straight back off what it was asked to show.
 	if m.review.pinTop {
 		return
@@ -1051,7 +1054,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	path, fingerprint := file.Path(), file.Fingerprint()
+	path := file.Path()
 	viewed := !m.review.view.IsViewed(path)
 
 	// Where the cursor is standing is taken before the rows are built again, since folding the
@@ -1069,77 +1072,106 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 
 	m.stageReview()
 
-	agents, agentID := m.api.agents, m.review.agentID
+	agents, roundID := m.api.agents, m.review.round.GetId()
 
 	return m, m.reviewWriteCmd(notice, func(ctx context.Context) error {
 		_, err := agents.SetReviewFileViewed(ctx, connect.NewRequest(&agentv1.SetReviewFileViewedRequest{
-			AgentId:     agentID,
-			FilePath:    path,
-			Viewed:      viewed,
-			Fingerprint: fingerprint,
+			RoundId:  roundID,
+			FilePath: path,
+			Viewed:   viewed,
 		}))
 
 		return err
 	})
 }
 
-func (m model) deleteReviewThread() (tea.Model, tea.Cmd) {
-	thread, ok := m.reviewThreadAtCursor()
-	if !ok {
+// reviewVerdicts is what the release panel offers, in the order a reader most often wants them,
+// so the first is the one the submit key used to send on its own.
+var reviewVerdicts = []agentv1.ReviewVerdict{
+	agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+	agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+	agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
+}
+
+// openReviewRelease asks what to send rather than sending, since a verdict is a decision worth
+// making deliberately and a word about the work as a whole belongs with it.
+func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
+	m.review.releasing = true
+	m.review.verdict = 0
+	m.review.notice = ""
+	m.review.editor.SetValue("")
+	m.review.editor.SetWidth(max(20, m.width-4))
+
+	return m, m.review.editor.Focus()
+}
+
+// updateReviewRelease takes every key while the panel is up: tab walks the verdict, the submit
+// key sends, escape abandons, and everything else is a word being typed about the work.
+func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	switch {
+	case k == "esc":
+		return m.closeReviewRelease(), nil
+	case k == "ctrl+c":
+		return m, m.hide()
+	case k == "tab":
+		m.review.verdict = (m.review.verdict + 1) % len(reviewVerdicts)
+
 		return m, nil
+	case k == "shift+tab":
+		m.review.verdict = (m.review.verdict + len(reviewVerdicts) - 1) % len(reviewVerdicts)
+
+		return m, nil
+	case isBound(k, m.keys.Form.Submit):
+		return m.sendReview()
 	}
 
-	agents, id := m.api.agents, thread.GetId()
+	editor, cmd := m.review.editor.Update(key)
+	m.review.editor = editor
 
-	return m, m.reviewWriteCmd("thread deleted", func(ctx context.Context) error {
-		_, err := agents.DeleteReviewThread(ctx, connect.NewRequest(&agentv1.DeleteReviewThreadRequest{Id: id}))
-
-		return err
-	})
+	return m, cmd
 }
 
-// releaseReview lets go of every comment written and not yet sent, without delivering any of
-// them, since the agent reads the threads itself.
-func (m model) releaseReview() (tea.Model, tea.Cmd) {
-	agents, agentID := m.api.agents, m.review.agentID
+func (m model) closeReviewRelease() model {
+	m.review.editor.Blur()
+	m.review.releasing = false
 
-	// Nothing is said back: the doorbell landing in the agent's mailbox is what the conversation
-	// state at the top of the sidebar reads, and it says so until the agent picks it up.
-	return m, m.reviewWriteCmd("", func(ctx context.Context) error {
-		_, err := agents.ReleaseReviewMessages(ctx, connect.NewRequest(&agentv1.ReleaseReviewMessagesRequest{
-			AgentId: agentID,
-		}))
-
-		return err
-	})
+	return m
 }
 
-// resendReview raises a doorbell again for every released comment whose own ran out of time
-// unclaimed, which is the only thing that reaches an agent that was not listening when the
-// review was let go of.
-func (m model) resendReview() (tea.Model, tea.Cmd) {
+// sendReview lets the batch go with the verdict chosen and whatever was written about the work as
+// a whole, which reaches the agent as one file and one piece of mail.
+func (m model) sendReview() (tea.Model, tea.Cmd) {
+	verdict := reviewVerdicts[m.review.verdict]
+	body := strings.TrimSpace(m.review.editor.Value())
+
+	m = m.closeReviewRelease()
+
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
-		resp, err := agents.RingReviewMessagesAgain(ctx, connect.NewRequest(&agentv1.RingReviewMessagesAgainRequest{
+		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId: agentID,
+			Verdict: verdict,
+			Body:    body,
 		}))
 		if err != nil {
 			return "", err
 		}
 
-		return rangAgainNotice(resp.Msg.GetRung()), nil
+		return releasedNotice(verdict, resp.Msg.GetComments()), nil
 	})
 }
 
-// rangAgainNotice says what ringing again did, since finding nothing to ring is a quiet
-// success the reader would otherwise read as the key not working.
-func rangAgainNotice(rung int32) string {
-	if rung == 0 {
-		return "nothing has run out of time"
+// releasedNotice says what went, since a review leaving with nothing said about it reads as the
+// key not working.
+func releasedNotice(verdict agentv1.ReviewVerdict, count int32) string {
+	if verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED {
+		return "approved, " + comments(count) + " sent"
 	}
 
-	return "rang " + comments(rung) + " again"
+	return "changes requested, " + comments(count) + " sent"
 }
 
 func comments(count int32) string {
@@ -1209,9 +1241,9 @@ type reviewRefreshedMsg struct {
 // what is on screen rather than drawn over it.
 type reviewDiffPolledMsg struct {
 	agentID string
-	patch   *diff.Patch
-	viewed  []*agentv1.ReviewViewedFile
-	err     error
+	// moved says the agent has written since the round on screen was taken.
+	moved bool
+	err   error
 }
 
 // refreshReviewCmd is what the panel's own tick asks for while the review is up: the
@@ -1260,31 +1292,28 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 	}
 }
 
+// pollReviewDiffCmd asks whether the agent has written anything since the round on screen was
+// taken, hashing the worktree rather than reading a second patch and leaving the round alone
+// either way, since the point of a round is that it does not move under the reader.
 func (m model) pollReviewDiffCmd() tea.Cmd {
-	agents, agentID := m.api.agents, m.review.agentID
-	dir, base, exclude := m.review.dir, m.review.base, m.review.exclude
+	agentID, dir := m.review.agentID, m.review.dir
+	snapshot := m.review.round.GetSnapshotSha()
 
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		patch, err := diff.Load(ctx, diff.LoadParams{
-			Dir:     dir,
-			Base:    base,
-			Exclude: exclude,
-		})
+		probe, err := git.ProbeTree(ctx, dir)
 		if err != nil {
 			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
 
-		viewed, err := listReviewViewedFiles(ctx, agents, agentID)
-
-		return reviewDiffPolledMsg{
-			agentID: agentID,
-			patch:   patch,
-			viewed:  viewed,
-			err:     err,
+		held, err := git.GetTree(ctx, dir, snapshot)
+		if err != nil {
+			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
+
+		return reviewDiffPolledMsg{agentID: agentID, moved: probe != held}
 	}
 }
 
@@ -1321,26 +1350,13 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 
 	m.review.diffPolling = false
 
-	// A worktree emptied under an open review has no patch to hold, so it is said in the notice
-	// instead, since the diff on screen is of work that is no longer there.
-	if errors.Is(msg.err, diff.ErrNoChanges) {
-		m.review.held = nil
-		m.review.notice = msg.err.Error()
-
+	// A worktree emptied under an open review is a move like any other, so the bar offers to catch
+	// up and the reload is what finds nothing to show and backs out to the listing.
+	if msg.err != nil {
 		return
 	}
 
-	if msg.err != nil || msg.patch == nil {
-		return
-	}
-
-	// A worktree edited back to what the screen is already showing is not a move, so the notice
-	// goes away rather than standing until the reader reloads for nothing.
-	if msg.patch.Fingerprint() == m.review.fingerprint {
-		m.review.held = nil
-
-		return
-	}
-
-	m.review.held = &heldPatch{patch: msg.patch, viewed: msg.viewed}
+	// A worktree edited back to the round it was cut from is not a move, so the notice goes
+	// away rather than standing until the reader opens a round for nothing.
+	m.review.moved = msg.moved
 }

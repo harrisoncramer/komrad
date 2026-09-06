@@ -324,15 +324,13 @@ type MailKeys struct {
 // threads are in the sidebar. Paging and panning are the screen's own, since the shared
 // navigation keys move the cursor a row at a time. While a message is being composed or a
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
-// than configured, as is the vim recentring chord zz, zt, zb.
+// than configured.
 type ReviewKeys struct {
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back"`
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose"`
-	// Delete the thread under the cursor, with every message in it.
-	DeleteThread []string `mapstructure:"delete_thread"`
 	// Open the file under the cursor in your editor, on the line the cursor is on.
 	EditFile []string `mapstructure:"edit_file"`
 	// Scroll down half a screen.
@@ -367,15 +365,10 @@ type ReviewKeys struct {
 	PrevThread []string `mapstructure:"prev_thread"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Put the diff the panel is holding on screen, once the sidebar says the worktree has
-	// moved under you. The diff is never swapped in on its own, since that would move the
-	// code out from under a comment being written. With nothing held, this reads the
-	// worktree again.
+	// Catch up with the agent, once the sidebar says it has written since you opened the
+	// diff. What you are reading never moves on its own, since that would take the code out
+	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload"`
-	// Raise a doorbell again for every comment you released whose own ran out of time
-	// before the agent read it, which is the only thing that reaches an agent that was
-	// not listening when you let the review go.
-	Resend []string `mapstructure:"resend"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
@@ -735,7 +728,6 @@ func DefaultKeybindings() Keybindings {
 		Review: ReviewKeys{
 			Back:         []string{"esc"},
 			Compose:      []string{"c"},
-			DeleteThread: []string{"D"},
 			EditFile:     []string{"e"},
 			HalfPageDown: []string{"ctrl+d"},
 			HalfPageUp:   []string{"ctrl+u"},
@@ -754,7 +746,6 @@ func DefaultKeybindings() Keybindings {
 			PrevThread:   []string{"T"},
 			Quit:         []string{"ctrl+c"},
 			Reload:       []string{"R"},
-			Resend:       []string{"a"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
 		},
@@ -920,6 +911,19 @@ func (c Config) GetWorktreesDir() (string, error) {
 	}
 
 	return filepath.Join(home, ".local", "state", "weave", "worktrees"), nil
+}
+
+// GetStateDir is where weave keeps its own per-agent files, such as a released review for the agent to read. It is under
+// weave's own state directory rather than beside the agent's work, since a linked worktree's
+// own info/exclude is not read by git and a file put in the worktree would show up in the
+// diff being reviewed.
+func GetStateDir() (string, error) {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get home directory: %w", err)
+	}
+
+	return filepath.Join(home, ".local", "state", "weave"), nil
 }
 
 // GetContextFile is the standing text every agent is started with: the configured file, or

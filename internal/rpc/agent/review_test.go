@@ -1,7 +1,10 @@
 package agent
 
 import (
+	"context"
 	"testing"
+
+	"weave/internal/git"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -28,6 +31,11 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	})
 
 	asHuman := caller.With(t.Context(), caller.Caller{})
+	_, err := svc.OpenReviewRound(asHuman, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+		AgentId: worker.ID,
+	}))
+	require.NoError(t, err)
+
 	released, err := svc.CreateReviewThread(asHuman, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 		AgentId:     worker.ID,
 		FilePath:    "greet.go",
@@ -38,8 +46,9 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	_, err = svc.ReleaseReviewMessages(asHuman, connect.NewRequest(&agentv1.ReleaseReviewMessagesRequest{
+	_, err = svc.ReleaseReview(asHuman, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 		AgentId: worker.ID,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 	}))
 	require.NoError(t, err)
 
@@ -87,11 +96,16 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 		Config:         stubMailConfig(config.DefaultMaxExchange),
 	})
 	review := agents.NewReviewService(agents.ReviewServiceParams{
-		Threads:  reviews,
-		Messages: reviews,
-		Viewed:   reviews,
-		Agents:   st.Agents,
-		Mailer:   mail,
+		Threads:   reviews,
+		Messages:  reviews,
+		Viewed:    reviews,
+		Rounds:    reviews,
+		Reviews:   reviews,
+		Snapshots: stubSnapshotter{},
+		Workflows: st.Workflows,
+		StateDir:  t.TempDir(),
+		Agents:    st.Agents,
+		Mailer:    mail,
 	})
 
 	return NewService(NewServiceParams{
@@ -100,4 +114,18 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 		Review: review,
 		Runs:   st.Runs,
 	}), st
+}
+
+// stubSnapshotter stands in for git, since these tests are about who the handler thinks is
+// calling rather than about what a worktree holds.
+type stubSnapshotter struct{}
+
+func (stubSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+	return &git.Snapshot{BaseSHA: "base-sha", SHA: "snapshot-sha"}, nil
+}
+
+func (stubSnapshotter) Hold(context.Context, string, string, string) error { return nil }
+
+func (stubSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
+	return nil, nil
 }

@@ -22,22 +22,27 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 
 	assert.Contains(t, view, "Agent: auth")
 	assert.Contains(t, view, "agent_id")
-	assert.Contains(t, view, "base branch")
-	assert.Contains(t, view, "main", "the branch the diff was measured against")
+	assert.Contains(t, view, "base", "the commit the diff was taken from")
+	assert.Contains(t, view, "snapshot", "the commit the diff on screen was frozen as")
 }
 
-// TestReviewRecordNamesTheResolvedBase covers a workflow that names no base branch, since the
-// loader asks the repository for one and that is what the diff on screen was measured against.
-func TestReviewRecordNamesTheResolvedBase(t *testing.T) {
+// TestReviewRecordNamesWhatTheDiffIsAgainst covers the record naming the two commits the diff
+// was taken between, which is what the agent can run for itself and all the reader needs, since
+// weave's own numbering for them is not something anyone should have to hold.
+func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m.listing.workflows[0].Worktree.BaseBranch = ""
 	m = openReview(t, m)
 
 	require.NotNil(t, m.review.view)
-	require.Empty(t, m.review.base, "the workflow named none, for this to prove anything")
+	require.NotNil(t, m.review.round)
 
-	assert.Contains(t, fieldValue(t, m.reviewDetails(), "base branch"), m.review.view.Base())
+	assert.Equal(t, shortSHA(m.review.round.GetBaseSha()), fieldValue(t, m.reviewDetails(), "base"))
+	assert.Equal(t, shortSHA(m.review.round.GetSnapshotSha()), fieldValue(t, m.reviewDetails(), "snapshot"))
+
+	for _, field := range m.reviewDetails().fields {
+		assert.NotEqual(t, "round", field.label, "the reader is never shown weave's numbering")
+	}
 }
 
 // TestReviewRecordTakesTheKeys covers the whole path a keypress takes, since the record only

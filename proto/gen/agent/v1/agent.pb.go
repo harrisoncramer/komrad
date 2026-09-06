@@ -1727,7 +1727,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xfa\x84\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2ؖ\x01\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1771,19 +1771,23 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\fEmptyArchive\x12\x16.google.protobuf.Empty\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12J\n" +
 	"\fRecordReport\x12\x1d.agent.v1.RecordReportRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12N\n" +
 	"\x0eSetAgentViewed\x12\x1f.agent.v1.SetAgentViewedRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12J\n" +
-	"\fMarkRunsRead\x12\x1d.agent.v1.MarkRunsReadRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12\x87\t\n" +
-	"\x11ListReviewThreads\x12\".agent.v1.ListReviewThreadsRequest\x1a#.agent.v1.ListReviewThreadsResponse\"\xa8\b\x9a\xb5\x18\xa3\b\n" +
-	"\x13list_review_threads\x12\x8b\bRead the review conversations pinned to the lines of your own diff. Each thread names a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. This is where a person's feedback on your work actually lives: mail only tells you there is activity, it does not carry it. The line numbers are where the comment was written rather than where that code is now, since your own edits since then have moved it. quotedLines is the text it was written against, so when the file no longer matches the line you are given, search the file for that text and answer the comment where it now sits rather than treating it as stale. Reply with add_review_message once you have made the change, saying what you did. You are shown only the comments the person has let go of, so a note they are still writing is not here yet and a fresh doorbell means there is more of the review to read. agentId defaults to your own agent; give another agent's id to read the review of its work instead.\x12a\n" +
-	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\x00\x12\xd7\x03\n" +
-	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xfb\x02\x9a\xb5\x18\xf6\x02\n" +
-	"\x12add_review_message\x12\xdb\x02Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. The message is attributed to you rather than to the person reviewing. Each call adds another message, so do not retry a call that may have succeeded. \x00(\x00\x12^\n" +
+	"\fMarkRunsRead\x12\x1d.agent.v1.MarkRunsReadRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12\xfb\a\n" +
+	"\x11ListReviewThreads\x12\".agent.v1.ListReviewThreadsRequest\x1a#.agent.v1.ListReviewThreadsResponse\"\x9c\a\x9a\xb5\x18\x97\a\n" +
+	"\x13list_review_threads\x12\xff\x06Read the review conversations pinned to the lines of a diff. Each thread names a round, a file and a line range, quotes the diff lines it was written against, and holds the messages said in it so far, oldest first. The review you were sent is already in the file the mail named, so read that first; this is for looking a thread up again, and for answering one. Every thread belongs to a round, which is a frozen snapshot, so its line numbers are true of that round even after you have edited the file: run git diff against the round's shas to see what was reviewed, or search the file for quotedLines to find where that code sits now. Answer with add_review_message, saying what you did. You are shown only reviews that have been released, so a comment somebody is still writing is not here yet. agentId defaults to your own agent; give another agent's id to read the review of its work instead.\x12\xa6\x06\n" +
+	"\x12CreateReviewThread\x12#.agent.v1.CreateReviewThreadRequest\x1a$.agent.v1.CreateReviewThreadResponse\"\xc4\x05\x9a\xb5\x18\xbf\x05\n" +
+	"\x14create_review_thread\x12\xa2\x05Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose. You may only review the agent you are a child of. The comment is filed under a batch of your own that nobody sees until you release it with release_review, so write every comment you have and then release once. Anchor it with the file and the line range from the round you are reviewing, and pass the diff lines you are writing about as quotedLines so the anchor still says something after the code moves. Pass suggestion to propose exact replacement lines the agent should apply. Each call opens another thread, so do not retry a call that may have succeeded. \x00(\x00\x12\xd4\x04\n" +
+	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xf8\x03\x9a\xb5\x18\xf3\x03\n" +
+	"\x12add_review_message\x12\xd8\x03Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. Your answer belongs to no batch and reaches the reviewer as soon as it is written, unlike a review, which is released whole. The message is attributed to you rather than to the person reviewing. Each call adds another message, so do not retry a call that may have succeeded. \x00(\x00\x12^\n" +
 	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\x00\x12j\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"\x03\x90\x02\x02\x12s\n" +
-	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x03\x90\x02\x02\x12V\n" +
-	"\x12DeleteReviewThread\x12#.agent.v1.DeleteReviewThreadRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12X\n" +
-	"\x13DeleteReviewMessage\x12$.agent.v1.DeleteReviewMessageRequest\x1a\x16.google.protobuf.Empty\"\x03\x90\x02\x02\x12j\n" +
-	"\x15ReleaseReviewMessages\x12&.agent.v1.ReleaseReviewMessagesRequest\x1a'.agent.v1.ReleaseReviewMessagesResponse\"\x00\x12p\n" +
-	"\x17RingReviewMessagesAgain\x12(.agent.v1.RingReviewMessagesAgainRequest\x1a).agent.v1.RingReviewMessagesAgainResponse\"\x00\x12g\n" +
+	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x03\x90\x02\x02\x12\x9d\x04\n" +
+	"\x0fOpenReviewRound\x12 .agent.v1.OpenReviewRoundRequest\x1a!.agent.v1.OpenReviewRoundResponse\"\xc4\x03\x9a\xb5\x18\xbf\x03\n" +
+	"\x11open_review_round\x12\xa5\x03Freeze what an agent has written right now and get back the round to review against, which is a snapshot commit covering its whole worktree, committed and uncommitted alike. Call this before reading its diff, and diff the round's baseSha against its snapshotSha to see exactly what you are reviewing. A tree that has not moved since the last round gives that round back rather than a new one, so calling it twice is safe. \x00(\x01\x12\xdb\x04\n" +
+	"\x10ListReviewRounds\x12!.agent.v1.ListReviewRoundsRequest\x1a\".agent.v1.ListReviewRoundsResponse\"\xff\x03\x9a\xb5\x18\xfa\x03\n" +
+	"\x12list_review_rounds\x12\xe1\x03Read the rounds taken of an agent, oldest first. A round is a frozen snapshot of everything it had written at that moment, so this is how you find what a review was given against, and how you see what changed between two of them: git diff one round's snapshotSha against the next. Your own rounds are yours to read, which is how you see the code a comment on your work was written about even after you have edited it. Use open_review_round to take one of the work as it stands now.\x18\x01\x12L\n" +
+	"\vListReviews\x12\x1c.agent.v1.ListReviewsRequest\x1a\x1d.agent.v1.ListReviewsResponse\"\x00\x12\xe8\x05\n" +
+	"\rReleaseReview\x12\x1e.agent.v1.ReleaseReviewRequest\x1a\x1f.agent.v1.ReleaseReviewResponse\"\x95\x05\x9a\xb5\x18\x90\x05\n" +
+	"\x0erelease_review\x12\xf9\x04Let go of the review you have been writing on another agent's diff, which is what sends it. Weave writes every comment out as one file and mails that agent the path, so the whole review arrives as one thing rather than a comment at a time. Give a verdict: approved if the round is good as it stands, changes requested if the agent should keep working, commented for notes without a conclusion. The verdict is what tells that agent whether it is done, so choose it deliberately. Interrupt stops it where it stands rather than waiting for the turn to end. Each call sends another review, so do not retry a call that may have succeeded. \x00(\x00\x12g\n" +
 	"\x13SetReviewFileViewed\x12$.agent.v1.SetReviewFileViewedRequest\x1a%.agent.v1.SetReviewFileViewedResponse\"\x03\x90\x02\x02\x12j\n" +
 	"\x15ListReviewViewedFiles\x12&.agent.v1.ListReviewViewedFilesRequest\x1a'.agent.v1.ListReviewViewedFilesResponse\"\x00B\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
@@ -1839,10 +1843,10 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*EditReviewMessageRequest)(nil),        // 35: agent.v1.EditReviewMessageRequest
 	(*MarkReviewThreadReadRequest)(nil),     // 36: agent.v1.MarkReviewThreadReadRequest
 	(*SetReviewThreadResolvedRequest)(nil),  // 37: agent.v1.SetReviewThreadResolvedRequest
-	(*DeleteReviewThreadRequest)(nil),       // 38: agent.v1.DeleteReviewThreadRequest
-	(*DeleteReviewMessageRequest)(nil),      // 39: agent.v1.DeleteReviewMessageRequest
-	(*ReleaseReviewMessagesRequest)(nil),    // 40: agent.v1.ReleaseReviewMessagesRequest
-	(*RingReviewMessagesAgainRequest)(nil),  // 41: agent.v1.RingReviewMessagesAgainRequest
+	(*OpenReviewRoundRequest)(nil),          // 38: agent.v1.OpenReviewRoundRequest
+	(*ListReviewRoundsRequest)(nil),         // 39: agent.v1.ListReviewRoundsRequest
+	(*ListReviewsRequest)(nil),              // 40: agent.v1.ListReviewsRequest
+	(*ReleaseReviewRequest)(nil),            // 41: agent.v1.ReleaseReviewRequest
 	(*SetReviewFileViewedRequest)(nil),      // 42: agent.v1.SetReviewFileViewedRequest
 	(*ListReviewViewedFilesRequest)(nil),    // 43: agent.v1.ListReviewViewedFilesRequest
 	(*SendMailResponse)(nil),                // 44: agent.v1.SendMailResponse
@@ -1856,10 +1860,12 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*EditReviewMessageResponse)(nil),       // 52: agent.v1.EditReviewMessageResponse
 	(*MarkReviewThreadReadResponse)(nil),    // 53: agent.v1.MarkReviewThreadReadResponse
 	(*SetReviewThreadResolvedResponse)(nil), // 54: agent.v1.SetReviewThreadResolvedResponse
-	(*ReleaseReviewMessagesResponse)(nil),   // 55: agent.v1.ReleaseReviewMessagesResponse
-	(*RingReviewMessagesAgainResponse)(nil), // 56: agent.v1.RingReviewMessagesAgainResponse
-	(*SetReviewFileViewedResponse)(nil),     // 57: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesResponse)(nil),   // 58: agent.v1.ListReviewViewedFilesResponse
+	(*OpenReviewRoundResponse)(nil),         // 55: agent.v1.OpenReviewRoundResponse
+	(*ListReviewRoundsResponse)(nil),        // 56: agent.v1.ListReviewRoundsResponse
+	(*ListReviewsResponse)(nil),             // 57: agent.v1.ListReviewsResponse
+	(*ReleaseReviewResponse)(nil),           // 58: agent.v1.ReleaseReviewResponse
+	(*SetReviewFileViewedResponse)(nil),     // 59: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesResponse)(nil),   // 60: agent.v1.ListReviewViewedFilesResponse
 }
 var file_agent_v1_agent_proto_depIdxs = []int32{
 	1,  // 0: agent.v1.Agent.metadata:type_name -> agent.v1.AgentMetadata
@@ -1899,10 +1905,10 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	35, // 34: agent.v1.AgentService.EditReviewMessage:input_type -> agent.v1.EditReviewMessageRequest
 	36, // 35: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
 	37, // 36: agent.v1.AgentService.SetReviewThreadResolved:input_type -> agent.v1.SetReviewThreadResolvedRequest
-	38, // 37: agent.v1.AgentService.DeleteReviewThread:input_type -> agent.v1.DeleteReviewThreadRequest
-	39, // 38: agent.v1.AgentService.DeleteReviewMessage:input_type -> agent.v1.DeleteReviewMessageRequest
-	40, // 39: agent.v1.AgentService.ReleaseReviewMessages:input_type -> agent.v1.ReleaseReviewMessagesRequest
-	41, // 40: agent.v1.AgentService.RingReviewMessagesAgain:input_type -> agent.v1.RingReviewMessagesAgainRequest
+	38, // 37: agent.v1.AgentService.OpenReviewRound:input_type -> agent.v1.OpenReviewRoundRequest
+	39, // 38: agent.v1.AgentService.ListReviewRounds:input_type -> agent.v1.ListReviewRoundsRequest
+	40, // 39: agent.v1.AgentService.ListReviews:input_type -> agent.v1.ListReviewsRequest
+	41, // 40: agent.v1.AgentService.ReleaseReview:input_type -> agent.v1.ReleaseReviewRequest
 	42, // 41: agent.v1.AgentService.SetReviewFileViewed:input_type -> agent.v1.SetReviewFileViewedRequest
 	43, // 42: agent.v1.AgentService.ListReviewViewedFiles:input_type -> agent.v1.ListReviewViewedFilesRequest
 	3,  // 43: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
@@ -1934,12 +1940,12 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	52, // 69: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
 	53, // 70: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse
 	54, // 71: agent.v1.AgentService.SetReviewThreadResolved:output_type -> agent.v1.SetReviewThreadResolvedResponse
-	31, // 72: agent.v1.AgentService.DeleteReviewThread:output_type -> google.protobuf.Empty
-	31, // 73: agent.v1.AgentService.DeleteReviewMessage:output_type -> google.protobuf.Empty
-	55, // 74: agent.v1.AgentService.ReleaseReviewMessages:output_type -> agent.v1.ReleaseReviewMessagesResponse
-	56, // 75: agent.v1.AgentService.RingReviewMessagesAgain:output_type -> agent.v1.RingReviewMessagesAgainResponse
-	57, // 76: agent.v1.AgentService.SetReviewFileViewed:output_type -> agent.v1.SetReviewFileViewedResponse
-	58, // 77: agent.v1.AgentService.ListReviewViewedFiles:output_type -> agent.v1.ListReviewViewedFilesResponse
+	55, // 72: agent.v1.AgentService.OpenReviewRound:output_type -> agent.v1.OpenReviewRoundResponse
+	56, // 73: agent.v1.AgentService.ListReviewRounds:output_type -> agent.v1.ListReviewRoundsResponse
+	57, // 74: agent.v1.AgentService.ListReviews:output_type -> agent.v1.ListReviewsResponse
+	58, // 75: agent.v1.AgentService.ReleaseReview:output_type -> agent.v1.ReleaseReviewResponse
+	59, // 76: agent.v1.AgentService.SetReviewFileViewed:output_type -> agent.v1.SetReviewFileViewedResponse
+	60, // 77: agent.v1.AgentService.ListReviewViewedFiles:output_type -> agent.v1.ListReviewViewedFilesResponse
 	43, // [43:78] is the sub-list for method output_type
 	8,  // [8:43] is the sub-list for method input_type
 	8,  // [8:8] is the sub-list for extension type_name

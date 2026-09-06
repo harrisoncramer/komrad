@@ -31,6 +31,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc archive-schedule](weave_rpc_archive-schedule.md)	 - Hide a schedule from the panel so it stops firing, keeping its record.
 * [weave rpc archive-workflow](weave_rpc_archive-workflow.md)	 - Hide a workflow from the panel, archiving the agents inside it.
 * [weave rpc create-agent](weave_rpc_create-agent.md)	 - Launch a background agent with an opening prompt.
+* [weave rpc create-review-thread](weave_rpc_create-review-thread.md)	 - Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose.
 * [weave rpc create-schedule](weave_rpc_create-schedule.md)	 - Create a recurring agent launch inside a workflow.
 * [weave rpc create-workflow](weave_rpc_create-workflow.md)	 - Create a workflow to group agents under.
 * [weave rpc delete-agents](weave_rpc_delete-agents.md)	 - Permanently remove a list of agents, keyed by id.
@@ -44,12 +45,15 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
 * [weave rpc list-hooks](weave_rpc_list-hooks.md)	 - List the hooks the user has written, which are executable files in their hooks directory.
 * [weave rpc list-mail](weave_rpc_list-mail.md)	 - List the mail addressed to an agent, most recent first, without claiming any of it: unlike read_mail this never empties the mailbox.
-* [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of your own diff.
+* [weave rpc list-review-rounds](weave_rpc_list-review-rounds.md)	 - Read the rounds taken of an agent, oldest first.
+* [weave rpc list-review-threads](weave_rpc_list-review-threads.md)	 - Read the review conversations pinned to the lines of a diff.
 * [weave rpc list-schedules](weave_rpc_list-schedules.md)	 - List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing.
 * [weave rpc list-workflows](weave_rpc_list-workflows.md)	 - List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives.
 * [weave rpc log](weave_rpc_log.md)	 - Write one line to weave's log, tagged to an agent.
 * [weave rpc open-pull-request](weave_rpc_open-pull-request.md)	 - Open the pull request an agent recorded for itself, in the browser of whoever is at the panel.
+* [weave rpc open-review-round](weave_rpc_open-review-round.md)	 - Freeze what an agent has written right now and get back the round to review against, which is a snapshot commit covering its whole worktree, committed and uncommitted alike.
 * [weave rpc read-mail](weave_rpc_read-mail.md)	 - Take the unread mail other agents have sent you, oldest first.
+* [weave rpc release-review](weave_rpc_release-review.md)	 - Let go of the review you have been writing on another agent's diff, which is what sends it.
 * [weave rpc rename-agent](weave_rpc_rename-agent.md)	 - Rename an agent, keyed by its id rather than its current name.
 * [weave rpc restore-agents](weave_rpc_restore-agents.md)	 - Take a list of agents out of the archive, keyed by id, along with the workflows they belong to.
 * [weave rpc restore-workflow](weave_rpc_restore-workflow.md)	 - Take a workflow out of the archive, keyed by id, along with every agent archived inside it.

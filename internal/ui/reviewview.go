@@ -29,14 +29,12 @@ var (
 	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(colorAccent)
 	reviewSentStyle      = lipgloss.NewStyle().Foreground(colorWarning)
 	reviewDeliveredStyle = lipgloss.NewStyle().Foreground(colorSuccess)
-	reviewExpiredStyle   = lipgloss.NewStyle().Foreground(colorDanger).Bold(true)
 )
 
-// reviewDeliveryOrder is the four states a comment of the person's own can stand in, ordered by
-// how much they are owed: what never went, what went and was lost, what is waiting, what landed.
+// reviewDeliveryOrder is the three states a comment can stand in, ordered by how much they are
+// owed: what never went, what is waiting, what landed.
 var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT,
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED,
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT,
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
 }
@@ -47,8 +45,6 @@ func reviewDeliveryWord(state agentv1.ReviewDeliveryState) string {
 	switch state {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return "unsent"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED:
-		return "expired"
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
 		return "waiting"
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
@@ -64,8 +60,6 @@ func reviewDeliveryStyle(state agentv1.ReviewDeliveryState) lipgloss.Style {
 	switch state {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return reviewUnsentStyle
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED:
-		return reviewExpiredStyle
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
 		return reviewSentStyle
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
@@ -83,8 +77,6 @@ func reviewDeliveryMark(state agentv1.ReviewDeliveryState) string {
 	switch state {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
 		return "◇"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_EXPIRED:
-		return "!"
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
 		return "→"
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
@@ -157,15 +149,14 @@ func (m model) reviewDeadView() string {
 	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
 }
 
-// reviewStaleView is the bar saying the worktree no longer looks like the diff on screen, drawn
-// above the place the cursor is standing since everything under it is being read against a patch
-// that has moved.
+// reviewStaleView is the bar saying the agent has written since this round was taken, drawn above
+// the place the cursor is standing, since catching up is always the reader's to ask for.
 func (m model) reviewStaleView() string {
-	if m.review.held == nil {
+	if !m.review.moved {
 		return ""
 	}
 
-	line := " THE DIFF HAS MOVED · " + keyLabel(m.keys.Review.Reload) + " to reload "
+	line := " THE AGENT HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
 
 	return reviewStaleStyle.Render(m.reviewFill(line)) + "\n"
 }
@@ -191,16 +182,25 @@ func (m model) reviewRestView() string {
 			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · esc cancel") + "\n"
 	}
 
+	if m.review.releasing {
+		return m.reviewReleaseView()
+	}
+
 	out := "\n" + m.reviewThreadView()
+
+	// A notice answers the last keypress and a keypress clears it, so what the reader is told
+	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
 		out += "\n" + reviewNoticeStyle.Render("  "+notice) + "\n"
+	} else if since := m.review.since; since != "" {
+		out += "\n" + dimStyle.Render("  "+since) + "\n"
 	}
 
 	return out
 }
 
-// reviewAnchorView is the place the cursor is standing, and the line it is standing on, so the
-// sidebar says what a new thread would be pinned to.
+// reviewAnchorView names the place the cursor is standing, so the sidebar says what a new thread
+// would be pinned to without repeating the line the diff is already drawing beside it.
 func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
@@ -211,12 +211,56 @@ func (m model) reviewAnchorView() string {
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	out := m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
-	for _, quoted := range anchor.QuotedLines {
-		out += reviewQuoteStyle.Render(m.reviewWrap(quoted)) + "\n"
+	return m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
+}
+
+// reviewReleaseView asks what to send: a word about the work as a whole, which is optional, and
+// the verdict, which is the part worth choosing deliberately since it is what the agent acts on.
+func (m model) reviewReleaseView() string {
+	out := "\n" + dimStyle.Render("  anything to say about the work as a whole? (optional)") + "\n"
+	out += m.review.editor.View() + "\n\n"
+
+	for i, verdict := range reviewVerdicts {
+		mark, style := "  ", dimStyle
+		if i == m.review.verdict {
+			mark, style = "▸ ", pickVerdictStyle(verdict)
+		}
+
+		out += style.Render("  "+mark+describeVerdict(verdict)) + "\n"
 	}
 
-	return out
+	return out + "\n" + dimStyle.Render("  tab to change · "+
+		keyLabel(m.keys.Form.Submit)+" send · esc cancel") + "\n"
+}
+
+// describeVerdict is how a verdict reads in the panel, spelled the way a person would say it
+// rather than the way the wire does.
+func describeVerdict(verdict agentv1.ReviewVerdict) string {
+	switch verdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
+		return "approve"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
+		return "request changes"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+		return "comment only"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return "comment only"
+	default:
+		return "comment only"
+	}
+}
+
+// pickVerdictStyle colours the chosen verdict by what it means, since approving and asking for
+// more work are the two outcomes worth telling apart at a glance.
+func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
+	switch verdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
+		return reviewDeliveredStyle
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
+		return reviewSentStyle
+	default:
+		return reviewUnsentStyle
+	}
 }
 
 // reviewStatView is how big the change is, with the counts coloured the way the lines
@@ -297,7 +341,7 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	out := dimStyle.Render("  written against "+clipName(review.FormatThreadLocation(thread))) + "\n"
+	out := dimStyle.Render("  written against") + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += reviewQuoteStyle.Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
@@ -425,12 +469,10 @@ func (m model) reviewDetails() details {
 // reviewFields are the facts the diff itself carries, which the agent's own record does not
 // hold: what it was measured against and what was kept out of it.
 func (m model) reviewFields() []recordField {
-	base := m.review.base
-	if m.review.view != nil {
-		base = m.review.view.Base()
+	fields := []recordField{
+		{"base", orDash(shortSHA(m.review.round.GetBaseSha()))},
+		{"snapshot", orDash(shortSHA(m.review.round.GetSnapshotSha()))},
 	}
-
-	fields := []recordField{{"base branch", orDash(base)}}
 	if len(m.review.exclude) > 0 {
 		fields = append(fields, recordField{"excludes", strings.Join(m.review.exclude, ", ")})
 	}
@@ -461,14 +503,24 @@ func (m model) reviewComposeDesc() string {
 	return "start a thread here"
 }
 
-// reviewReloadDesc says what the reload key would do, since a diff the panel is already
-// holding costs nothing to swap in and a worktree with nothing new has to be read again.
+// reviewReloadDesc says what the reload key would do, since stepping to a round that does not
+// exist yet and rereading the one already on screen are different things.
 func (m model) reviewReloadDesc() string {
-	if m.review.held != nil {
-		return "reload the moved diff"
+	if m.review.moved {
+		return "catch up"
 	}
 
 	return "read the diff again"
+}
+
+// shortSHA is how a commit is named in the record, where the whole of it would take the column
+// and say no more than its first few characters do.
+func shortSHA(sha string) string {
+	if len(sha) <= 12 {
+		return sha
+	}
+
+	return sha[:12]
 }
 
 // reviewResolveDesc says which way the settle key would go where the cursor is standing.
@@ -504,8 +556,7 @@ func (m model) reviewHelp() keyMap {
 	if _, dead := m.reviewIsReadOnly(); !dead {
 		composing = []key.Binding{binding(keys.Compose, m.reviewComposeDesc())}
 		writing = slices.Concat(composing, []key.Binding{
-			binding(keys.Resend, "ring expired again"),
-			binding(m.keys.Form.Submit, "send what you wrote"),
+			binding(m.keys.Form.Submit, "send the review"),
 		})
 	}
 
@@ -523,13 +574,11 @@ func (m model) reviewHelp() keyMap {
 				pairBinding(keys.NextThread, keys.PrevThread, "next/previous thread"),
 				binding(m.keys.Filter.Open, "search"),
 				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),
-				binding([]string{recentrePrefix + "z", recentrePrefix + "t", recentrePrefix + "b"}, "recentre the view"),
 				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
 				binding(keys.EditFile, m.reviewEditorDesc()),
 				binding(keys.Reload, m.reviewReloadDesc()),
 				binding(keys.Resolve, m.reviewResolveDesc()),
 				binding(keys.ToggleViewed, m.reviewViewedDesc()),
-				binding(keys.DeleteThread, "delete the thread"),
 				m.detailsBinding(),
 			},
 			writing,
