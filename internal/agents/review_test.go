@@ -596,6 +596,55 @@ func TestAReviewWithNoSourceFallsBackToTheQuotedLines(t *testing.T) {
 	assert.Contains(t, string(written), "this needs a nil check")
 }
 
+// TestAReleasedReviewNamesWhatItWasAbout is what keeping every review forever asks of the file:
+// the rows naming it go when its agent does, so a reader coming to it long afterwards has only
+// what is written in it to say whose work it was and who reviewed that work.
+func TestAReleasedReviewNamesWhatItWasAbout(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.comments = 1
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+
+	_, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictChangesRequested,
+		Author:  reviewer,
+	})
+	require.NoError(t, err)
+
+	written, err := os.ReadFile(result.Path)
+	require.NoError(t, err)
+
+	assert.Contains(t, string(written), "worker", "whose work it was")
+	assert.Contains(t, string(written), reviewedAgentID, "and which agent that was")
+	assert.Contains(t, string(written), "reviewer", "and who reviewed it")
+}
+
+// TestAReviewGivenByThePersonSaysSo keeps the person distinguishable from an agent in a file read
+// after every row about it has gone.
+func TestAReviewGivenByThePersonSaysSo(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+
+	result, err := service.ReleaseReview(t.Context(), ReleaseReviewParams{
+		AgentID: reviewedAgentID,
+		Verdict: reviewstore.VerdictApproved,
+		Author:  humanAuthor(),
+	})
+	require.NoError(t, err)
+
+	written, err := os.ReadFile(result.Path)
+	require.NoError(t, err)
+	assert.Contains(t, string(written), "the person running weave")
+}
+
 // TestAnUnreleasedCommentIsHiddenFromTheAgentWhoeverWroteIt pins that a review is read once it is
 // a review: a batch still being written is the author's alone, whether the person or another
 // agent is writing it.

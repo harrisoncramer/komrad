@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"strings"
 
+	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
 )
 
@@ -12,20 +13,34 @@ import (
 // enough to see what the comment is about without opening the file.
 const contextLines = 6
 
+// RenderReviewParams is everything one review file has to say for itself, since a released review
+// outlives the rows naming it and has to carry who it was about and who wrote it rather than
+// leaning on the database still holding either.
+type RenderReviewParams struct {
+	// Agent is the agent whose work was reviewed.
+	Agent agentstore.Agent
+	Round reviewstore.Round
+	// Author names who gave the review, which is a person when it is empty.
+	Author  string
+	Verdict reviewstore.Verdict
+	Threads []ReviewThreadWithMessages
+	// Source holds each file as the round froze it, and a path it has nothing for falls back to
+	// the lines the comment quoted.
+	Source map[string][]string
+}
+
 // RenderReview writes a whole review out as the markdown the agent reads, carrying everything it
 // needs since the mail says only where this is, and drawing the code around each comment out of
-// source, which holds each file as the round froze it and falls back to the quoted lines for a
-// path it has nothing for.
-func RenderReview(
-	round reviewstore.Round,
-	verdict reviewstore.Verdict,
-	threads []ReviewThreadWithMessages,
-	source map[string][]string,
-) string {
+// the round's own source.
+func RenderReview(params RenderReviewParams) string {
+	round, verdict, threads, source := params.Round, params.Verdict, params.Threads, params.Source
+
 	var out strings.Builder
 
 	fmt.Fprintf(&out, "# Review of round %d\n\n", round.Ordinal)
 	fmt.Fprintf(&out, "%s\n\n", verdictSentence(verdict))
+	fmt.Fprintf(&out, "On the work of **%s** (`%s`), reviewed by %s.\n\n",
+		params.Agent.Name, params.Agent.ID, reviewerName(params.Author))
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
 		"To see exactly what was reviewed, run `git diff %s %s`.\n",
 		short(round.SnapshotSHA), short(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
@@ -114,6 +129,16 @@ func anchorOf(thread reviewstore.Thread) string {
 	}
 
 	return fmt.Sprintf("%s:%d", thread.FilePath, start)
+}
+
+// reviewerName is who gave the review, spelled for somebody reading the file long afterwards,
+// where an empty author is the person running weave rather than an agent.
+func reviewerName(author string) string {
+	if author == "" {
+		return "the person running weave"
+	}
+
+	return "the agent " + author
 }
 
 func verdictSentence(verdict reviewstore.Verdict) string {

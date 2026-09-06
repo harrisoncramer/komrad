@@ -453,8 +453,9 @@ func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]R
 	return mine, nil
 }
 
-// writeReview puts the whole review where the agent can read it, under weave's own state directory
-// so that nothing weave writes can end up in the agent's diff or in a commit.
+// writeReview puts the whole review under weave's own state directory rather than in the agent's
+// worktree, where it would show up in the diff being reviewed, and leaves it there for good, since
+// the moment worth reading an old review is the moment its agent is gone.
 func (s *ReviewService) writeReview(
 	ctx context.Context,
 	agent agentstore.Agent,
@@ -468,7 +469,14 @@ func (s *ReviewService) writeReview(
 		return "", fmt.Errorf("failed to make room for the review of %q: %w", agent.Name, err)
 	}
 
-	body := RenderReview(round, verdict, threads, s.snapshotLines(ctx, agent.Cwd, round, threads))
+	body := RenderReview(RenderReviewParams{
+		Agent:   agent,
+		Round:   round,
+		Author:  s.authorName(ctx, review),
+		Verdict: verdict,
+		Threads: threads,
+		Source:  s.snapshotLines(ctx, agent.Cwd, round, threads),
+	})
 
 	full := filepath.Join(dir, fmt.Sprintf("round-%d-%s.md", round.Ordinal, review.ID))
 	if err := os.WriteFile(full, []byte(body), 0o644); err != nil {
@@ -476,6 +484,22 @@ func (s *ReviewService) writeReview(
 	}
 
 	return full, nil
+}
+
+// authorName is what to call whoever gave a review in the file it is written to, which is empty
+// for the person and the agent's name for an agent, falling back to its id when that agent has
+// since been deleted.
+func (s *ReviewService) authorName(ctx context.Context, review reviewstore.Review) string {
+	if review.AuthorAgentID == nil {
+		return ""
+	}
+
+	author, err := s.agents.GetByID(ctx, *review.AuthorAgentID)
+	if err != nil {
+		return *review.AuthorAgentID
+	}
+
+	return author.Name
 }
 
 // snapshotLines reads every file a review touches as the round froze it so each comment can carry
