@@ -1061,3 +1061,28 @@ func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
 	assert.Equal(t, split.sidebar, m.paneWidth(), "and the list is laid out against its own column")
 	assert.LessOrEqual(t, countLines(m.View()), m.height)
 }
+
+// TestArchiveDocViewFillsItsColumn covers the document's own column at the row counts the join is
+// least forgiving of: the block stands exactly as tall as its half of the window at every offset,
+// since a block that falls short lets the list beside it slide underneath.
+func TestArchiveDocViewFillsItsColumn(t *testing.T) {
+	m := splitArchiveModel(t)
+	m.landArchiveCursor(m.archiveRows(), 0)
+	m.listing.workflows = []workflowstore.Workflow{{
+		ID:      "w1",
+		Name:    "backend",
+		Context: strings.Repeat("a line of the document. ", 30),
+	}}
+
+	total := len(m.archiveDocRows(60))
+	require.Greater(t, total, 5, "the document runs past every window this walks")
+
+	for rows := 1; rows <= 5; rows++ {
+		for _, top := range []int{0, 1, 2, total - 1, total, total + 5} {
+			m.archive.top = top
+			drawn := m.archiveDocView(reviewSplit{diff: 60, sidebar: 30, rows: rows})
+
+			assert.Equal(t, rows, countLines(drawn), "rows=%d top=%d", rows, top)
+		}
+	}
+}

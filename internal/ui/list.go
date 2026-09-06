@@ -100,7 +100,9 @@ func countLines(block string) int {
 		return 0
 	}
 
-	return strings.Count(strings.TrimRight(block, "\n"), "\n") + 1
+	// Only the one newline that closes the last row comes off: a block padded out with empty rows
+	// ends in several, and those are rows the pane draws.
+	return strings.Count(strings.TrimSuffix(block, "\n"), "\n") + 1
 }
 
 func padRows(rendered string, lines int) string {

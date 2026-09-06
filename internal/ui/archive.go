@@ -509,7 +509,7 @@ func (m model) archiveDocView(split reviewSplit) string {
 		rows = append(rows, "")
 	}
 
-	return strings.Join(rows[:min(len(rows), split.rows)], "\n")
+	return strings.Join(rows, "\n")
 }
 
 func (m model) archiveView() string {
