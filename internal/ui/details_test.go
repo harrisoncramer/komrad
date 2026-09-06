@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"weave/config"
+	"weave/lib/xptr"
+	"weave/lib/xslice"
 
 	agentstore "weave/internal/store/agent"
 
@@ -352,10 +354,12 @@ func TestAgentFields(t *testing.T) {
 	tests := []struct {
 		name       string
 		schedule   string
+		branch     *string
 		metadata   []agentstore.Metadata
 		wantLabels []string
 		wantValues []string
 		wantAbsent []string
+		wantOnce   []string
 	}{
 		{
 			name:       "what it was launched with, in the order it was launched with",
@@ -386,6 +390,20 @@ func TestAgentFields(t *testing.T) {
 			wantValues: []string{"harry/rate-limits", "https://github.com/o/r/pull/312"},
 		},
 		{
+			name:       "the branch the checkout is on shows without the agent recording it",
+			branch:     xptr.Ptr("harry/rate-limits"),
+			wantLabels: []string{"branch"},
+			wantValues: []string{"harry/rate-limits"},
+		},
+		{
+			name:       "the branch read from the checkout wins over one the agent recorded itself",
+			branch:     xptr.Ptr("harry/rate-limits"),
+			metadata:   []agentstore.Metadata{{Key: "branch", Value: "harry/stale"}},
+			wantValues: []string{"harry/rate-limits"},
+			wantAbsent: []string{"harry/stale"},
+			wantOnce:   []string{"branch"},
+		},
+		{
 			name: "why a create or cleanup failed is left to the failed placeholder, not repeated here",
 			metadata: []agentstore.Metadata{
 				{Key: "error", Value: "the provisioner failed: exited 1"},
@@ -400,6 +418,7 @@ func TestAgentFields(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			agent := agent
 			agent.Metadata = tt.metadata
+			agent.Branch = tt.branch
 
 			fields := agentFields(agent, tt.schedule, "")
 
@@ -414,6 +433,10 @@ func TestAgentFields(t *testing.T) {
 			assert.Subset(t, values, tt.wantValues)
 			for _, absent := range tt.wantAbsent {
 				assert.NotContains(t, labels, absent)
+				assert.NotContains(t, values, absent)
+			}
+			for _, once := range tt.wantOnce {
+				assert.Equal(t, 1, xslice.Count(labels, func(label string) bool { return label == once }))
 			}
 		})
 	}
