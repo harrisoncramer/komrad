@@ -7,7 +7,7 @@ linters:
     - bodyclose
     - unparam
     - exhaustive
-    - agentslinter
+    - fussy
     - depguard
     - importas
     - copyloopvar
@@ -139,7 +139,7 @@ linters:
         - switch
       default-signifies-exhaustive: true
     custom:
-      agentslinter:
+      fussy:
         type: module
         description: Checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.
         settings:
@@ -174,13 +174,13 @@ linters:
       # the thing forbidgetenv exists to funnel through it. It cannot follow its own advice.
       - path: ^config/
         linters:
-          - agentslinter
+          - fussy
         text: forbidgetenv
       # A nil next-page token is the absence the proto field itself carries, and it is handed
       # straight to the response rather than acted on, so there is nothing for a sentinel to say.
       - path: ^lib/pagination/
         linters:
-          - agentslinter
+          - fussy
         text: forbidnilnil
       # A test asserts on the assertion it just made, so an unchecked assertion fails the
       # test on the spot rather than travelling as a wrong value the way it would in the server.
