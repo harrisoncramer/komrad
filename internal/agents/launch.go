@@ -20,6 +20,31 @@ import (
 	"weave/lib/xstr"
 )
 
+type agentCounter interface {
+	CountLive(ctx context.Context) (int64, error)
+}
+
+type childCounter interface {
+	CountLiveChildren(ctx context.Context, parentID string) (int, error)
+}
+
+type childSlotLocker interface {
+	childCounter
+	LockSlots(ctx context.Context) error
+}
+
+// restoredChildSlotLocker is what a restore holds a parent to its ceiling with: the count it already
+// runs, plus the rows its children's parent ids stand for, so a refusal can name the parent.
+type restoredChildSlotLocker interface {
+	childSlotLocker
+	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
+}
+
+type agentSlotLocker interface {
+	agentCounter
+	LockSlots(ctx context.Context) error
+}
+
 // launchAgentReadWriter is the slice of the agent store a launch writes to, from the key it spends
 // through to the row it reads back.
 type launchAgentReadWriter interface {

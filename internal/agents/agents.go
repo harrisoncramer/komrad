@@ -21,35 +21,35 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-var ErrAgentNotFound = errors.New("agent not found")
-var ErrWorkflowNotFound = errors.New("workflow not found")
-var ErrBadDirectory = errors.New("unusable working directory")
-var ErrTooManyAgents = errors.New("too many agents")
-var ErrAgentArchived = errors.New("agent is archived")
-var ErrSpawnerUnknown = errors.New("the spawning agent is not one this panel knows")
-var ErrParentNotFound = errors.New("parent agent not found")
-var ErrParentIsChild = errors.New("a child agent may not have children of its own")
-var ErrChildOwnsLaunch = errors.New("a child agent takes its launch from its parent")
-var ErrTooManyChildren = errors.New("too many children")
-
-// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
-// recorded, which is the one thing a child cannot be given a substitute for.
-var ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
-
-// ErrParentStillArchived says a restore named a child whose parent stays archived, leaving the
-// child a row with nothing to be drawn under.
-var ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
-
-// ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
-// parent and that parent's other children.
-var ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")
-
-// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
-// is returned alongside that agent rather than instead of it, so that a caller which has to
-// know whether this call did the launching can tell.
-var ErrAlreadyLaunched = errors.New("this idempotency key already launched an agent")
-
 var (
+	ErrAgentNotFound    = errors.New("agent not found")
+	ErrWorkflowNotFound = errors.New("workflow not found")
+	ErrBadDirectory     = errors.New("unusable working directory")
+	ErrTooManyAgents    = errors.New("too many agents")
+	ErrAgentArchived    = errors.New("agent is archived")
+	ErrSpawnerUnknown   = errors.New("the spawning agent is not one this panel knows")
+	ErrParentNotFound   = errors.New("parent agent not found")
+	ErrParentIsChild    = errors.New("a child agent may not have children of its own")
+	ErrChildOwnsLaunch  = errors.New("a child agent takes its launch from its parent")
+	ErrTooManyChildren  = errors.New("too many children")
+
+	// ErrChildNeedsParentDirectory says the agent a child was to be attached to has no directory
+	// recorded, which is the one thing a child cannot be given a substitute for.
+	ErrChildNeedsParentDirectory = errors.New("a child agent needs its parent's directory to run in")
+
+	// ErrParentStillArchived says a restore named a child whose parent stays archived, leaving the
+	// child a row with nothing to be drawn under.
+	ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
+
+	// ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
+	// parent and that parent's other children.
+	ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")
+
+	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
+	// is returned alongside that agent rather than instead of it, so that a caller which has to
+	// know whether this call did the launching can tell.
+	ErrAlreadyLaunched = errors.New("this idempotency key already launched an agent")
+
 	ErrHarnessUnknown      = harness.ErrNotRegistered
 	ErrScriptNotFound      = scripts.ErrScriptNotFound
 	ErrScriptNotExecutable = scripts.ErrNotExecutable
@@ -64,37 +64,6 @@ type (
 
 type agentGetter interface {
 	GetByID(ctx context.Context, id string) (*agentstore.Agent, error)
-}
-
-type agentCounter interface {
-	CountLive(ctx context.Context) (int64, error)
-}
-
-type childCounter interface {
-	CountLiveChildren(ctx context.Context, parentID string) (int, error)
-}
-
-type childSlotLocker interface {
-	childCounter
-	LockSlots(ctx context.Context) error
-}
-
-// restoredChildSlotLocker is what a restore holds a parent to its ceiling with: the count it already
-// runs, plus the rows its children's parent ids stand for, so a refusal can name the parent.
-type restoredChildSlotLocker interface {
-	childSlotLocker
-	ListByID(ctx context.Context, ids []string) ([]agentstore.Agent, error)
-}
-
-// childLister reads the agents attached to a set of parents, which is what an archive, a
-// delete, or a restore has to add to the ids it was given.
-type childLister interface {
-	ListChildren(ctx context.Context, parentIDs []string) ([]agentstore.Agent, error)
-}
-
-type agentSlotLocker interface {
-	agentCounter
-	LockSlots(ctx context.Context) error
 }
 
 type nameChecker interface {
