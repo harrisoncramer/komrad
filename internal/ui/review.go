@@ -497,7 +497,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 		// it, so this is said whenever there is work against the old round to lose.
 		stale := m.review.roundDir != "" && m.review.roundSha != msg.round.GetSnapshotSha()
 		if stale || len(m.review.suggestions) > 0 {
-			m.review.notice = "the round moved on, so your edits of the last one go with it"
+			m.review.notice = "the round moved on, so anything you had against the last one goes with it"
 		}
 
 		m.review.suggestions = nil
