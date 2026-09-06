@@ -26,25 +26,10 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 
 // archiveFilterRows is the archive's own rows with the name a search reads each by.
 func (m model) archiveFilterRows() []filterRow {
-	rows := m.archiveRows()
-	found := make([]filterRow, 0, len(rows))
-	for _, r := range rows {
-		name := r.item.agent.Name
-		if r.header {
-			name = r.workflow.Name
-		}
-
-		found = append(found, filterRow{key: rowKey(r), name: name})
-	}
-
-	return found
+	return filterRows(m.archiveRows())
 }
 
 func (m model) archiveRows() []agentRow {
-	return m.allArchiveRows()
-}
-
-func (m model) allArchiveRows() []agentRow {
 	items := xslice.Map(m.archive.agents, func(agent agentstore.Agent) agentItem { return agentItem{agent: agent} })
 
 	return treeRows(m.archiveHeaders(), items, true)
@@ -80,7 +65,7 @@ func (m model) archivedAgent(id string) (agentstore.Agent, bool) {
 	return agentstore.Agent{}, false
 }
 
-// hoveredArchiveKey is the row the cursor is on, read before a filter narrows the list under it.
+// hoveredArchiveKey is the row the cursor is on, read before a search moves it to a match.
 func (m model) hoveredArchiveKey() string {
 	return rowKeyAt(m.archiveRows(), m.archive.cursor)
 }
@@ -94,7 +79,7 @@ func (m *model) placeArchiveCursor(hovered string) {
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
 	m.archive.agents, m.archive.workflows = agents, workflows
 
-	m.archive.selected = m.archive.selected.pruned(m.allArchiveRows())
+	m.archive.selected = m.archive.selected.pruned(m.archiveRows())
 
 	focus := m.archive.focus
 	m.archive.focus = ""
@@ -182,9 +167,9 @@ func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Archive.Quit):
 		return m, m.hide()
 	case isBound(k, m.keys.Archive.Restore):
-		return m.restoreAgents(chosenAgents(m.archive.selected, m.allArchiveRows()))
+		return m.restoreAgents(chosenAgents(m.archive.selected, m.archiveRows()))
 	case isBound(k, m.keys.Archive.Delete):
-		return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.allArchiveRows()))
+		return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.archiveRows()))
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveArchiveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):

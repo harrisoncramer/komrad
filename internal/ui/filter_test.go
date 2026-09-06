@@ -394,7 +394,7 @@ func TestFilterKeepsSelection(t *testing.T) {
 	got := typeIntoFilter(m, "payouts")
 
 	assert.Equal(t, whole, rowNames(got.agentRows()), "the tree is left whole")
-	assert.Len(t, chosenAgents(got.tree.selected, got.allAgentRows()), 2, "both chosen agents are still acted on")
+	assert.Len(t, chosenAgents(got.tree.selected, got.agentRows()), 2, "both chosen agents are still acted on")
 }
 
 // TestFilterDroppedLeavingScreen covers a pattern following the user off the list it was typed
