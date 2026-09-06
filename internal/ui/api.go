@@ -35,42 +35,50 @@ type api struct {
 	hooks     hookv1connect.HookServiceClient
 }
 
+// call runs one request against the panel under its own deadline, since the UI has no context to
+// hand down.
+func call[T any](timeout time.Duration, fn func(context.Context) (T, error)) (T, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+
+	return fn(ctx)
+}
+
+// mutate is call for a request whose response the panel has no use for, under the ordinary
+// request timeout.
+func mutate(fn func(context.Context) (any, error)) error {
+	_, err := call(requestTimeout, fn)
+
+	return err
+}
+
 func (a api) renameAgent(agent agentstore.Agent, name string) error {
 	name = strings.TrimSpace(name)
 	if name == "" || name == agent.Name {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
-		Id:   agent.ID,
-		Name: name,
-	}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.UpdateAgent(ctx, connect.NewRequest(&agentv1.UpdateAgentRequest{
+			Id:   agent.ID,
+			Name: name,
+		}))
+	})
 }
 
 // setViewed claims whatever the agent has finished up to now, or puts the mark back.
 func (a api) setViewed(id string, viewed bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id, Viewed: viewed}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.SetAgentViewed(ctx, connect.NewRequest(&agentv1.SetAgentViewedRequest{Id: id, Viewed: viewed}))
+	})
 }
 
 // markRunsRead claims the failed runs an agent is holding, which is what opening its run log
 // counts as.
 func (a api) markRunsRead(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: id}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.MarkRunsRead(ctx, connect.NewRequest(&agentv1.MarkRunsReadRequest{Id: id}))
+	})
 }
 
 type createAgentParams struct {
@@ -96,25 +104,24 @@ func nilIfBlank(value string) *string {
 }
 
 func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), createAgentTimeout)
-	defer cancel()
+	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+		resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+			Prompt:           params.Prompt,
+			Title:            params.Title,
+			Harness:          params.Harness,
+			Dir:              params.Dir,
+			Flags:            params.Flags,
+			ProvisionEnabled: params.ProvisionEnabled,
+			WorkflowId:       params.WorkflowID,
+			SetupPane:        params.SetupPane,
+			ParentAgentId:    nilIfBlank(params.ParentAgentID),
+		}))
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := a.agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
-		Prompt:           params.Prompt,
-		Title:            params.Title,
-		Harness:          params.Harness,
-		Dir:              params.Dir,
-		Flags:            params.Flags,
-		ProvisionEnabled: params.ProvisionEnabled,
-		WorkflowId:       params.WorkflowID,
-		SetupPane:        params.SetupPane,
-		ParentAgentId:    nilIfBlank(params.ParentAgentID),
-	}))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Msg.GetAgent(), nil
+		return resp.Msg.GetAgent(), nil
+	})
 }
 
 type adoptParams struct {
@@ -128,41 +135,34 @@ type adoptParams struct {
 }
 
 func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), createAgentTimeout)
-	defer cancel()
+	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+		resp, err := a.agents.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
+			Ref:        params.Ref,
+			Prompt:     params.Prompt,
+			Title:      params.Title,
+			Harness:    params.Harness,
+			Flags:      params.Flags,
+			WorkflowId: params.WorkflowID,
+			SetupPane:  params.SetupPane,
+		}))
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := a.agents.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
-		Ref:        params.Ref,
-		Prompt:     params.Prompt,
-		Title:      params.Title,
-		Harness:    params.Harness,
-		Flags:      params.Flags,
-		WorkflowId: params.WorkflowID,
-		SetupPane:  params.SetupPane,
-	}))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Msg.GetAgent(), nil
+		return resp.Msg.GetAgent(), nil
+	})
 }
 
 func (a api) archiveAgents(ids []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.ArchiveAgents(ctx, connect.NewRequest(&agentv1.ArchiveAgentsRequest{Ids: ids}))
+	})
 }
 
 func (a api) setHidden(agent agentstore.Agent, hidden bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.SetHidden(ctx, connect.NewRequest(&agentv1.SetHiddenRequest{Id: agent.ID, Hidden: hidden}))
+	})
 }
 
 func (a api) setMark(target markTargetRef, mark string) error {
@@ -174,12 +174,9 @@ func (a api) clearMark(target markTargetRef) error {
 }
 
 func (a api) writeMark(req *agentv1.SetMarkRequest) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.SetMark(ctx, connect.NewRequest(req))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.SetMark(ctx, connect.NewRequest(req))
+	})
 }
 
 func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
@@ -196,128 +193,107 @@ func markRequest(target markTargetRef, mark *string) *agentv1.SetMarkRequest {
 }
 
 func (a api) restoreAgents(ids []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
+	return mutate(func(ctx context.Context) (any, error) {
+		resp, err := a.agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to restore %d agents: %w", len(ids), err)
+		}
 
-	if _, err := a.agents.RestoreAgents(ctx, connect.NewRequest(&agentv1.RestoreAgentsRequest{Ids: ids})); err != nil {
-		return fmt.Errorf("failed to restore %d agents: %w", len(ids), err)
-	}
-
-	return nil
+		return resp, nil
+	})
 }
 
 func (a api) resumeAgent(id string) (*agentv1.Agent, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
+	return call(requestTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+		resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to resume agent %q: %w", id, err)
+		}
 
-	resp, err := a.agents.ResumeAgent(ctx, connect.NewRequest(&agentv1.ResumeAgentRequest{Id: id}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to resume agent %q: %w", id, err)
-	}
-
-	return resp.Msg.GetAgent(), nil
+		return resp.Msg.GetAgent(), nil
+	})
 }
 
 func (a api) deleteAgents(ids []string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.DeleteAgents(ctx, connect.NewRequest(&agentv1.DeleteAgentsRequest{Ids: ids}))
+	})
 }
 
 func (a api) emptyArchive() error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.agents.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.agents.EmptyArchive(ctx, connect.NewRequest(&emptypb.Empty{}))
+	})
 }
 
 func (a api) getSchedule(id string) (*schedulestore.Schedule, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-	defer cancel()
+	return call(agentsTimeout, func(ctx context.Context) (*schedulestore.Schedule, error) {
+		resp, err := a.schedules.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
+		}
 
-	resp, err := a.schedules.GetSchedule(ctx, connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get schedule %q: %w", id, err)
-	}
+		stored := scheduleFromProto(resp.Msg.GetSchedule())
 
-	stored := scheduleFromProto(resp.Msg.GetSchedule())
-
-	return &stored, nil
+		return &stored, nil
+	})
 }
 
 func (a api) createSchedule(cfg schedulestore.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
-		Name:       strings.TrimSpace(cfg.Name),
-		Cron:       cfg.Cron,
-		Timezone:   cfg.Timezone,
-		Enabled:    cfg.Enabled,
-		HideAgents: cfg.HideAgents,
-		Prompt:     cfg.Prompt,
-		WorkflowId: cfg.WorkflowID,
-	}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.schedules.CreateSchedule(ctx, connect.NewRequest(&schedulev1.CreateScheduleRequest{
+			Name:       strings.TrimSpace(cfg.Name),
+			Cron:       cfg.Cron,
+			Timezone:   cfg.Timezone,
+			Enabled:    cfg.Enabled,
+			HideAgents: cfg.HideAgents,
+			Prompt:     cfg.Prompt,
+			WorkflowId: cfg.WorkflowID,
+		}))
+	})
 }
 
 func (a api) updateSchedule(id string, cfg schedulestore.Config) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
-		Id:         id,
-		Name:       strings.TrimSpace(cfg.Name),
-		Cron:       cfg.Cron,
-		Timezone:   cfg.Timezone,
-		Enabled:    cfg.Enabled,
-		HideAgents: cfg.HideAgents,
-		Prompt:     cfg.Prompt,
-		WorkflowId: cfg.WorkflowID,
-	}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.schedules.UpdateSchedule(ctx, connect.NewRequest(&schedulev1.UpdateScheduleRequest{
+			Id:         id,
+			Name:       strings.TrimSpace(cfg.Name),
+			Cron:       cfg.Cron,
+			Timezone:   cfg.Timezone,
+			Enabled:    cfg.Enabled,
+			HideAgents: cfg.HideAgents,
+			Prompt:     cfg.Prompt,
+			WorkflowId: cfg.WorkflowID,
+		}))
+	})
 }
 
 func (a api) setScheduleEnabled(id string, enabled bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.schedules.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
-		Id:      id,
-		Enabled: enabled,
-	}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.schedules.SetScheduleEnabled(ctx, connect.NewRequest(&schedulev1.SetScheduleEnabledRequest{
+			Id:      id,
+			Enabled: enabled,
+		}))
+	})
 }
 
 func (a api) archiveSchedule(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.schedules.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: id}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.schedules.ArchiveSchedule(ctx, connect.NewRequest(&schedulev1.ArchiveScheduleRequest{Id: id}))
+	})
 }
 
 func (a api) getWorkflow(id string) (*workflowstore.Workflow, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-	defer cancel()
+	return call(agentsTimeout, func(ctx context.Context) (*workflowstore.Workflow, error) {
+		resp, err := a.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
+		}
 
-	resp, err := a.workflows.GetWorkflow(ctx, connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: id}))
-	if err != nil {
-		return nil, fmt.Errorf("failed to get workflow %q: %w", id, err)
-	}
+		workflow := workflowFrom(resp.Msg.GetWorkflow())
 
-	workflow := workflowFrom(resp.Msg.GetWorkflow())
-
-	return &workflow, nil
+		return &workflow, nil
+	})
 }
 
 func worktreeConfigFromProto(w *workflowv1.WorktreeConfig) workflowstore.WorktreeConfig {
@@ -354,24 +330,23 @@ func (a api) createWorkflow(cfg workflowstore.Config) (*workflowv1.Workflow, err
 		name = "workflow"
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
+	return call(requestTimeout, func(ctx context.Context) (*workflowv1.Workflow, error) {
+		resp, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+			Name:              name,
+			Context:           cfg.Context,
+			Harness:           cfg.Harness,
+			Cwd:               cfg.Cwd,
+			Flags:             cfg.Flags,
+			Worktree:          worktreeConfigToProto(cfg.Worktree),
+			Hooks:             hooksToProto(cfg.Hooks),
+			ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
+		}))
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := a.workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
-		Name:              name,
-		Context:           cfg.Context,
-		Harness:           cfg.Harness,
-		Cwd:               cfg.Cwd,
-		Flags:             cfg.Flags,
-		Worktree:          worktreeConfigToProto(cfg.Worktree),
-		Hooks:             hooksToProto(cfg.Hooks),
-		ArchiveOnPrClosed: cfg.ArchiveOnPRClosed,
-	}))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Msg.GetWorkflow(), nil
+		return resp.Msg.GetWorkflow(), nil
+	})
 }
 
 func (a api) updateWorkflow(w workflowstore.Workflow) error {
@@ -380,72 +355,59 @@ func (a api) updateWorkflow(w workflowstore.Workflow) error {
 		return nil
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
-		Id:                w.ID,
-		Name:              name,
-		Context:           w.Context,
-		Harness:           w.Harness,
-		Cwd:               w.Cwd,
-		Flags:             w.Flags,
-		Worktree:          worktreeConfigToProto(w.Worktree),
-		Hooks:             hooksToProto(w.Hooks),
-		ArchiveOnPrClosed: w.ArchiveOnPRClosed,
-	}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.workflows.UpdateWorkflow(ctx, connect.NewRequest(&workflowv1.UpdateWorkflowRequest{
+			Id:                w.ID,
+			Name:              name,
+			Context:           w.Context,
+			Harness:           w.Harness,
+			Cwd:               w.Cwd,
+			Flags:             w.Flags,
+			Worktree:          worktreeConfigToProto(w.Worktree),
+			Hooks:             hooksToProto(w.Hooks),
+			ArchiveOnPrClosed: w.ArchiveOnPRClosed,
+		}))
+	})
 }
 
 func (a api) archiveWorkflow(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.workflows.ArchiveWorkflow(ctx, connect.NewRequest(&workflowv1.ArchiveWorkflowRequest{Id: id}))
+	})
 }
 
 func (a api) restoreWorkflow(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
+	return mutate(func(ctx context.Context) (any, error) {
+		resp, err := a.workflows.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: id}))
+		if err != nil {
+			return nil, fmt.Errorf("failed to restore workflow %q: %w", id, err)
+		}
 
-	if _, err := a.workflows.RestoreWorkflow(ctx, connect.NewRequest(&workflowv1.RestoreWorkflowRequest{Id: id})); err != nil {
-		return fmt.Errorf("failed to restore workflow %q: %w", id, err)
-	}
-
-	return nil
+		return resp, nil
+	})
 }
 
 func (a api) deleteWorkflow(id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.workflows.DeleteWorkflow(ctx, connect.NewRequest(&workflowv1.DeleteWorkflowRequest{Id: id}))
+	})
 }
 
 func (a api) listHooks() ([]*hookv1.Hook, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
+	return call(requestTimeout, func(ctx context.Context) ([]*hookv1.Hook, error) {
+		resp, err := a.hooks.ListHooks(ctx, connect.NewRequest(&emptypb.Empty{}))
+		if err != nil {
+			return nil, err
+		}
 
-	resp, err := a.hooks.ListHooks(ctx, connect.NewRequest(&emptypb.Empty{}))
-	if err != nil {
-		return nil, err
-	}
-
-	return resp.Msg.GetHooks(), nil
+		return resp.Msg.GetHooks(), nil
+	})
 }
 
 func (a api) openPullRequest(agentID string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), requestTimeout)
-	defer cancel()
-
-	_, err := a.hooks.OpenPullRequest(ctx, connect.NewRequest(&hookv1.OpenPullRequestRequest{
-		AgentId: agentID,
-	}))
-
-	return err
+	return mutate(func(ctx context.Context) (any, error) {
+		return a.hooks.OpenPullRequest(ctx, connect.NewRequest(&hookv1.OpenPullRequestRequest{
+			AgentId: agentID,
+		}))
+	})
 }
