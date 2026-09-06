@@ -37,8 +37,8 @@ type frameMsg struct {
 
 func (m model) Init() tea.Cmd { return m.read() }
 
-// read takes the frame off disk, where a partial file is only ever a frame late rather than
-// torn, since the panel writes the whole screen at once.
+// read takes the frame off disk, where a half-written file is never seen because the panel
+// renames each frame into place rather than writing over the one being read.
 func (m model) read() tea.Cmd {
 	path := m.path
 

@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"hash/maphash"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"weave/internal/ui/layout"
@@ -12,9 +11,9 @@ import (
 
 var transcriptSeed = maphash.MakeSeed()
 
-var stageTextPath = filepath.Join(os.TempDir(), "weave-stage.ansi")
+var stageTextPath = stageFilePath("text")
 
-var stageTranscriptPath = filepath.Join(os.TempDir(), "weave-transcript.ansi")
+var stageTranscriptPath = stageFilePath("transcript")
 
 const transcriptPreviewBefore = 12
 
