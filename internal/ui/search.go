@@ -93,26 +93,30 @@ func (m model) searchCmd(query string) tea.Cmd {
 			return searchResult{query: query}
 		}
 
-		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-		defer cancel()
+		hits, err := call(agentsTimeout, func(ctx context.Context) ([]searchHit, error) {
+			resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
+				Query:      query,
+				Pagination: &paginationv1.Pagination{Limit: proto.Int32(searchLimit)},
+			}))
+			if err != nil {
+				return nil, err
+			}
 
-		resp, err := client.SearchTranscripts(ctx, connect.NewRequest(&agentv1.SearchTranscriptsRequest{
-			Query:      query,
-			Pagination: &paginationv1.Pagination{Limit: proto.Int32(searchLimit)},
-		}))
+			found := resp.Msg.GetMatches()
+			near := resp.Msg.GetNear()
+
+			hits := make([]searchHit, 0, len(found)+len(near))
+			for _, h := range found {
+				hits = append(hits, renderHit(h, false))
+			}
+			for _, h := range near {
+				hits = append(hits, renderHit(h, true))
+			}
+
+			return hits, nil
+		})
 		if err != nil {
 			return searchResult{query: query}
-		}
-
-		found := resp.Msg.GetMatches()
-		near := resp.Msg.GetNear()
-
-		hits := make([]searchHit, 0, len(found)+len(near))
-		for _, h := range found {
-			hits = append(hits, renderHit(h, false))
-		}
-		for _, h := range near {
-			hits = append(hits, renderHit(h, true))
 		}
 
 		return searchResult{query: query, hits: hits}
@@ -151,12 +155,16 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 	query := m.search.query
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), agentsTimeout)
-		defer cancel()
+		content, err := call(agentsTimeout, func(ctx context.Context) (string, error) {
+			resp, err := client.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
+				AgentId: hit.agentID,
+			}))
+			if err != nil {
+				return "", err
+			}
 
-		resp, err := client.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
-			AgentId: hit.agentID,
-		}))
+			return scrubMarks(resp.Msg.GetContent()), nil
+		})
 		if err != nil {
 			return previewResult{agentID: hit.agentID, query: query}
 		}
@@ -164,7 +172,7 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 		return previewResult{
 			agentID: hit.agentID,
 			query:   query,
-			content: scrubMarks(resp.Msg.GetContent()),
+			content: content,
 		}
 	}
 }

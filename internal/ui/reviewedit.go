@@ -310,10 +310,9 @@ func (m model) readRoundEditsCmd() tea.Cmd {
 	}
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
-		edits, err := git.Edits(ctx, at)
+		edits, err := call(reviewTimeout, func(ctx context.Context) ([]git.Edit, error) {
+			return git.Edits(ctx, at)
+		})
 
 		return roundEditedMsg{
 			agentID: agentID,

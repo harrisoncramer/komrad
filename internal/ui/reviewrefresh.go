@@ -84,10 +84,9 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
-		threads, err := listReviewThreads(ctx, agents, agentID)
+		threads, err := call(reviewTimeout, func(ctx context.Context) ([]*agentv1.ReviewThread, error) {
+			return listReviewThreads(ctx, agents, agentID)
+		})
 
 		return reviewRefreshedMsg{
 			agentID: agentID,
@@ -105,20 +104,24 @@ func (m model) pollReviewDiffCmd() tea.Cmd {
 	snapshot := m.review.round.GetSnapshotSha()
 
 	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
+		moved, err := call(reviewTimeout, func(ctx context.Context) (bool, error) {
+			probe, err := git.ProbeTree(ctx, dir)
+			if err != nil {
+				return false, err
+			}
 
-		probe, err := git.ProbeTree(ctx, dir)
+			held, err := git.GetTree(ctx, dir, snapshot)
+			if err != nil {
+				return false, err
+			}
+
+			return probe != held, nil
+		})
 		if err != nil {
 			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
 
-		held, err := git.GetTree(ctx, dir, snapshot)
-		if err != nil {
-			return reviewDiffPolledMsg{agentID: agentID, err: err}
-		}
-
-		return reviewDiffPolledMsg{agentID: agentID, moved: probe != held}
+		return reviewDiffPolledMsg{agentID: agentID, moved: moved}
 	}
 }
 
