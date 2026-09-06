@@ -50,7 +50,7 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Schedules.Quit):
 		return m, m.hide()
 	case m.filter.isStanding() && isBound(k, m.keys.Schedules.Back):
-		return m.openFilter()
+		return m.clearSearch()
 	case isBound(k, m.keys.Schedules.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
