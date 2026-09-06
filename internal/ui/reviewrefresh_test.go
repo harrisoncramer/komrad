@@ -441,7 +441,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 	m.applyReviewDiffPolled(polled)
 	require.True(t, m.review.moved)
 
-	m.review.cursor = m.review.view.JumpHunk(m.review.cursor, 1)
+	m.review.cursor = m.review.view.Move(m.review.cursor, 1)
 	place, located := m.review.view.GetPlace(m.review.cursor)
 	require.True(t, located)
 

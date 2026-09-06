@@ -46,7 +46,7 @@ func TestScheduleKeys(t *testing.T) {
 		},
 		{
 			name:       "new opens the form",
-			key:        "n",
+			key:        "c",
 			wantScreen: screenSchedules,
 			wantForm:   formSchedule,
 		},
@@ -89,7 +89,7 @@ func TestScheduleKeys(t *testing.T) {
 		{
 			name:         "new with no workflows reports rather than opening the form",
 			noWorkflows:  true,
-			key:          "n",
+			key:          "c",
 			wantScreen:   screenSchedules,
 			wantReported: true,
 		},

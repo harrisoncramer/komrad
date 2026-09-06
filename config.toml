@@ -178,57 +178,49 @@ up     = ["k"]
 # threads in the sidebar.
 [keybindings.review]
 # Leave the review for the agents list.
-back           = ["esc"]
+back          = ["esc"]
 # Write a message on the line under the cursor, replying in the thread already there
 # or opening a new one.
-compose        = ["c"]
+compose       = ["c"]
 # Open the round's own copy of the file under the cursor in your editor, on the line
 # the cursor is on. The round is a frozen snapshot, so nothing you type there reaches
 # the agent's worktree and neither of you can write over the other. What you change
 # becomes a suggestion, which your next comment carries to the agent for it to apply
 # in its own turn.
-edit_file      = ["e"]
-# Scroll down half a screen.
-half_page_down = ["ctrl+d"]
-# Scroll up half a screen.
-half_page_up   = ["ctrl+u"]
+edit_file     = ["e"]
 # Jump to the next file in the diff.
-next_file      = ["]"]
-# Jump to the next hunk.
-next_hunk      = ["}"]
+next_file     = ["]"]
 # Jump to the next line matching the pattern the filter key searched for.
-next_match     = ["n"]
+next_match    = ["n"]
 # Jump to the next line carrying a review thread.
-next_thread    = ["t"]
-# Scroll down a screen.
-page_down      = ["pgdown", "ctrl+n", "ctrl+f", " "]
-# Scroll up a screen.
-page_up        = ["pgup", "ctrl+p", "ctrl+b"]
+next_thread   = ["t"]
 # Pan the diff left, for a line wider than the pane.
-pan_left       = ["h", "left"]
+pan_left      = ["h", "left"]
 # Pan back to the start of the line.
-pan_reset      = ["0"]
+pan_reset     = ["0"]
 # Pan the diff right.
-pan_right      = ["l", "right"]
+pan_right     = ["l", "right"]
 # Jump to the previous file in the diff.
-prev_file      = ["["]
-# Jump to the previous hunk.
-prev_hunk      = ["{"]
+prev_file     = ["["]
 # Jump to the previous line matching the pattern.
-prev_match     = ["N"]
+prev_match    = ["N"]
 # Jump to the previous line carrying a review thread.
-prev_thread    = ["T"]
+prev_thread   = ["T"]
+# Scroll down a few lines.
+scroll_down   = ["ctrl+n"]
+# Scroll up a few lines.
+scroll_up     = ["ctrl+p"]
 # Quit the panel.
-quit           = ["ctrl+c"]
+quit          = ["ctrl+c"]
 # Catch up with the agent, once the sidebar says it has written since you opened the
 # diff. What you are reading never moves on its own, since that would take the code out
 # from under a comment being written, so catching up is always yours to ask for.
-reload         = ["R"]
+reload        = ["R"]
 # Settle the thread under the cursor, which marks it resolved without deleting it.
-resolve        = ["r"]
+resolve       = ["r"]
 # Fold away the file the cursor is in once you have read it, or open it again. A file
 # the agent writes to afterwards comes back on its own.
-toggle_viewed  = ["v"]
+toggle_viewed = ["v"]
 
 # The schedules screen, and the key that opens it from the agents list.
 [keybindings.schedules]

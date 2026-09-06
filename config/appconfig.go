@@ -337,22 +337,12 @@ type ReviewKeys struct {
 	// becomes a suggestion, which your next comment carries to the agent for it to apply
 	// in its own turn.
 	EditFile []string `mapstructure:"edit_file"`
-	// Scroll down half a screen.
-	HalfPageDown []string `mapstructure:"half_page_down"`
-	// Scroll up half a screen.
-	HalfPageUp []string `mapstructure:"half_page_up"`
 	// Jump to the next file in the diff.
 	NextFile []string `mapstructure:"next_file"`
-	// Jump to the next hunk.
-	NextHunk []string `mapstructure:"next_hunk"`
 	// Jump to the next line matching the pattern the filter key searched for.
 	NextMatch []string `mapstructure:"next_match"`
 	// Jump to the next line carrying a review thread.
 	NextThread []string `mapstructure:"next_thread"`
-	// Scroll down a screen.
-	PageDown []string `mapstructure:"page_down"`
-	// Scroll up a screen.
-	PageUp []string `mapstructure:"page_up"`
 	// Pan the diff left, for a line wider than the pane.
 	PanLeft []string `mapstructure:"pan_left"`
 	// Pan back to the start of the line.
@@ -361,12 +351,14 @@ type ReviewKeys struct {
 	PanRight []string `mapstructure:"pan_right"`
 	// Jump to the previous file in the diff.
 	PrevFile []string `mapstructure:"prev_file"`
-	// Jump to the previous hunk.
-	PrevHunk []string `mapstructure:"prev_hunk"`
 	// Jump to the previous line matching the pattern.
 	PrevMatch []string `mapstructure:"prev_match"`
 	// Jump to the previous line carrying a review thread.
 	PrevThread []string `mapstructure:"prev_thread"`
+	// Scroll down a few lines.
+	ScrollDown []string `mapstructure:"scroll_down"`
+	// Scroll up a few lines.
+	ScrollUp []string `mapstructure:"scroll_up"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
 	// Catch up with the agent, once the sidebar says it has written since you opened the
@@ -733,21 +725,17 @@ func DefaultKeybindings() Keybindings {
 			Back:         []string{"esc"},
 			Compose:      []string{"c"},
 			EditFile:     []string{"e"},
-			HalfPageDown: []string{"ctrl+d"},
-			HalfPageUp:   []string{"ctrl+u"},
 			NextFile:     []string{"]"},
-			NextHunk:     []string{"}"},
 			NextMatch:    []string{"n"},
 			NextThread:   []string{"t"},
-			PageDown:     []string{"pgdown", "ctrl+n", "ctrl+f", " "},
-			PageUp:       []string{"pgup", "ctrl+p", "ctrl+b"},
 			PanLeft:      []string{"h", "left"},
 			PanReset:     []string{"0"},
 			PanRight:     []string{"l", "right"},
 			PrevFile:     []string{"["},
-			PrevHunk:     []string{"{"},
 			PrevMatch:    []string{"N"},
 			PrevThread:   []string{"T"},
+			ScrollDown:   []string{"ctrl+n"},
+			ScrollUp:     []string{"ctrl+p"},
 			Quit:         []string{"ctrl+c"},
 			Reload:       []string{"R"},
 			Resolve:      []string{"r"},
