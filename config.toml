@@ -54,10 +54,10 @@ details_height = 0.33
 archive       = ["z"]
 # Step out of a workflow scope, or quit at the root.
 back          = ["esc"]
-# Review what the hovered agent has changed in its worktree, with the diff in the stage and
-# the review threads in the sidebar. The key does nothing for an agent whose workflow does
-# not make worktrees, since there is no base branch to measure one against, and the legend
-# leaves it off there.
+# Review what the hovered agent has changed in its worktree, with the diff and the review
+# threads drawn beside each other across the window. The key does nothing for an agent whose
+# workflow does not make worktrees, since there is no base branch to measure one against, and
+# the legend leaves it off there.
 review        = ["d"]
 # Hide the hovered agent from this list.
 hide          = ["h"]

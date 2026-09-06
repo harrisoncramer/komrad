@@ -976,3 +976,20 @@ func TestReviewLeftoverIsCaughtByAPressThatBeatsTheLookup(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, string(held), "the reviewer's idea", "so the text is still there")
 }
+
+// TestReviewDrawsTheSidebarAloneWhileTheEditorIsUp covers the frame giving the window back: the
+// panel is a column again, so squeezing the diff into it would leave neither half readable.
+func TestReviewDrawsTheSidebarAloneWhileTheEditorIsUp(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	require.Contains(t, reviewFrameText(t, m), "package greet")
+
+	m = pressEdit(t, m)
+
+	_, ok := m.reviewSplit()
+	assert.False(t, ok, "the window is shared with the editor")
+	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "so the diff waits")
+	assert.Contains(t, ansi.Strip(m.View()), "Review · auth", "and the sidebar keeps the column")
+}

@@ -32,9 +32,10 @@ func reviewSplitOf(width, rows, sidebar int) (reviewSplit, bool) {
 }
 
 // reviewSplit is the window the review is drawn across, false while the screen is not up, the
-// patch has not arrived, or the pane is too narrow to carry both halves.
+// patch has not arrived, the frame is sharing the window with a pane of somebody else's, or what
+// it holds is too narrow to carry both halves.
 func (m model) reviewSplit() (reviewSplit, bool) {
-	if m.screen != screenReview || m.review.view == nil {
+	if m.screen != screenReview || m.review.view == nil || !m.frame.IsSolo() {
 		return reviewSplit{}, false
 	}
 
