@@ -494,6 +494,41 @@ func TestReviewReloadKeepsTheCheckoutToReap(t *testing.T) {
 	assert.NoDirExists(t, at)
 }
 
+// TestReviewReloadWarnsWithTheEditorStillUp covers catching up without closing the editor: nothing
+// has been read back, so the queue is empty, but the checkout still holds whatever was saved into
+// it and the next edit checks the new round out over the top of it.
+func TestReviewReloadWarnsWithTheEditorStillUp(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"an idea\"\n}\n")
+	require.Equal(t, infoEditFile, m.info.kind, "the editor is still up")
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
+
+	reloaded, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+
+	m = reloaded
+	m.applyReviewLoaded(loaded)
+
+	require.Empty(t, m.review.suggestions, "nothing was ever read back")
+	assert.Contains(t, m.review.notice, "the round moved on",
+		"and the reader is told before the text goes")
+
+	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "an idea", "which is while it is still there to rescue")
+}
+
 // TestReviewEditsAgainstAStaleRoundAreRefused covers the round moving while the editor is up: the
 // runs are numbered against the checkout's snapshot, so holding them against a diff drawn from a
 // different one would pin the reviewer's words to lines they never looked at.

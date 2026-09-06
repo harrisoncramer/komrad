@@ -492,8 +492,12 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	// longer names lines of what is on screen. The checkout itself is kept, since it is named
 	// after the agent and is moved onto the new snapshot the next time the editor asks for it.
 	if m.review.round.GetSnapshotSha() != msg.round.GetSnapshotSha() {
-		if len(m.review.suggestions) > 0 {
-			m.review.notice = "the round moved on, so your edits of the last one were dropped"
+		// A checkout still standing on the round being left holds whatever was saved into it, read
+		// back as a suggestion or not, and the next edit checks the new round out over the top of
+		// it, so this is said whenever there is work against the old round to lose.
+		stale := m.review.roundDir != "" && m.review.roundSha != msg.round.GetSnapshotSha()
+		if stale || len(m.review.suggestions) > 0 {
+			m.review.notice = "the round moved on, so your edits of the last one go with it"
 		}
 
 		m.review.suggestions = nil
