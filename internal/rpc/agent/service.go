@@ -18,11 +18,8 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	agentstore "weave/internal/store/agent"
-	mailstore "weave/internal/store/mail"
 	markstore "weave/internal/store/mark"
-	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
-	transcriptstore "weave/internal/store/transcript"
 
 	"connectrpc.com/connect"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -91,19 +88,6 @@ type archiveEmptier interface {
 	EmptyArchive(ctx context.Context) error
 }
 
-type transcriptReader interface {
-	Get(ctx context.Context, agentID string) (transcriptstore.Transcript, error)
-	Search(ctx context.Context, params transcriptstore.SearchParams) (transcriptstore.Results, error)
-}
-
-type mailer interface {
-	SendMail(ctx context.Context, params agents.SendMailParams) (*mailstore.Mail, error)
-	ClaimMail(ctx context.Context, agentID string) ([]mailstore.Mail, error)
-	ListMail(ctx context.Context, params agents.ListMailParams) ([]mailstore.Mail, error)
-	DeleteMail(ctx context.Context, ids []string) error
-	ListUnreadMailboxes(ctx context.Context) ([]string, error)
-}
-
 type Service struct {
 	agents      agentReadWriter
 	transcripts transcriptReader
@@ -118,24 +102,6 @@ type Service struct {
 	review      reviewConversation
 	runs        runReader
 	marks       markWriter
-}
-
-type reviewConversation interface {
-	ListReviewThreads(
-		ctx context.Context,
-		params agents.ListReviewThreadsParams,
-	) ([]agents.ReviewThreadWithMessages, error)
-	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
-	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
-	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
-	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
-	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
-	OpenRound(ctx context.Context, agentID string, author agents.ReviewAuthor) (*reviewstore.Round, error)
-	ListRounds(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Round, error)
-	ListReviews(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Review, error)
-	ReleaseReview(ctx context.Context, params agents.ReleaseReviewParams) (*agents.ReleaseReviewResult, error)
-	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
-	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
 }
 
 type NewServiceParams struct {
@@ -504,101 +470,20 @@ func scopedAgentID(ctx context.Context, requested string) (string, error) {
 	return from, nil
 }
 
-// SendMail records mail from the calling agent to the recipient the request names.
-func (s *Service) SendMail(ctx context.Context, req *connect.Request[agentv1.SendMailRequest]) (*connect.Response[agentv1.SendMailResponse], error) {
-	sent, err := s.mail.SendMail(ctx, agents.SendMailParams{
-		From:      caller.From(ctx).AgentID,
-		ToAgentID: req.Msg.GetToAgentId(),
-		Body:      req.Msg.GetBody(),
-		ReplyTo:   req.Msg.ReplyTo,
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to send the mail")
+func logCrossAgentRead(ctx context.Context, target, message string) {
+	from := caller.From(ctx)
+	if from.AgentID == "" || from.AgentID == target {
+		return
 	}
 
-	return connect.NewResponse(&agentv1.SendMailResponse{Mail: renderMail(*sent)}), nil
-}
-
-// ReadMail claims an agent's waiting mail, defaulting to the caller's own mailbox.
-func (s *Service) ReadMail(ctx context.Context, req *connect.Request[agentv1.ReadMailRequest]) (*connect.Response[agentv1.ReadMailResponse], error) {
-	id, err := scopedAgentID(ctx, req.Msg.GetId())
-	if err != nil {
-		return nil, err
-	}
-
-	logCrossAgentRead(ctx, id, "agent read another agent's mail")
-
-	claimed, err := s.mail.ClaimMail(ctx, id)
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to read the mail")
-	}
-
-	return connect.NewResponse(&agentv1.ReadMailResponse{
-		Mail: xslice.Map(claimed, renderMail),
-	}), nil
-}
-
-// ListMail returns a page of an agent's mail without claiming any of it.
-func (s *Service) ListMail(ctx context.Context, req *connect.Request[agentv1.ListMailRequest]) (*connect.Response[agentv1.ListMailResponse], error) {
-	id, err := scopedAgentID(ctx, req.Msg.GetId())
-	if err != nil {
-		return nil, err
-	}
-
-	logCrossAgentRead(ctx, id, "agent listed another agent's mail")
-
-	paginator, err := pagination.New[mailstore.Cursor, mail](req.Msg.GetPagination())
-	if err != nil {
-		return nil, err
-	}
-
-	listed, err := s.mail.ListMail(ctx, agents.ListMailParams{
-		AgentID: id,
-		Sent:    req.Msg.GetDirection() == agentv1.MailDirection_MAIL_DIRECTION_SENT,
-		Limit:   int32(paginator.Limit()),
-		Cursor:  paginator.Cursor(),
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to list the mail")
-	}
-
-	resources := xslice.Map(listed, renderMailPage)
-
-	next, err := paginator.NextToken(resources)
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to build the next page token")
-	}
-
-	response := &agentv1.ListMailResponse{NextPageToken: next}
-	response.Mail = xslice.Map(resources, func(resource mail) *agentv1.Mail { return resource.Mail })
-
-	return connect.NewResponse(response), nil
-}
-
-// DeleteMail permanently removes mail by id, so the recipient never sees it rather than
-// having it marked as read.
-func (s *Service) DeleteMail(ctx context.Context, req *connect.Request[agentv1.DeleteMailRequest]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.mail.DeleteMail(ctx, req.Msg.GetIds()); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to delete mail")
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
+	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, message,
+		slog.String(logging.TargetAgentID, target))
 }
 
 // DeleteAgents stops agents and removes them with their configs and transcripts.
 func (s *Service) DeleteAgents(ctx context.Context, req *connect.Request[agentv1.DeleteAgentsRequest]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.lifecycle.DeleteAgents(ctx, req.Msg.GetIds()); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to delete agents")
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// EmptyArchive queues the sweep that deletes the whole archive as a background job, since
-// every agent in it runs its own deprovisioner and the request would be held open too long.
-func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
-	if err := s.archive.EmptyArchive(ctx); err != nil {
-		return nil, rpcerr.Wrap(err, "failed to empty the archive")
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -634,6 +519,16 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 	return connect.NewResponse(response), nil
 }
 
+// EmptyArchive queues the sweep that deletes the whole archive as a background job, since
+// every agent in it runs its own deprovisioner and the request would be held open too long.
+func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
+	if err := s.archive.EmptyArchive(ctx); err != nil {
+		return nil, rpcerr.Wrap(err, "failed to empty the archive")
+	}
+
+	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
 // ResumeAgent relaunches an agent's CLI on its conversation and returns it as stored.
 func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.ResumeAgentRequest]) (*connect.Response[agentv1.ResumeAgentResponse], error) {
 	resumed, err := s.resumer.ResumeAgent(ctx, req.Msg.GetId())
@@ -663,89 +558,4 @@ func (s *Service) UpdateAgent(ctx context.Context, req *connect.Request[agentv1.
 	}
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// SearchTranscripts runs a search over stored transcripts and returns one page of the turns
-// that say the words, and one of the turns that only carry the letters.
-func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[agentv1.SearchTranscriptsRequest]) (*connect.Response[agentv1.SearchTranscriptsResponse], error) {
-	paginator, err := pagination.New[transcriptstore.Cursor, searchPage](req.Msg.GetPagination())
-	if err != nil {
-		return nil, err
-	}
-
-	// Scope is worked out per page rather than carried in the token, so a replayed cursor
-	// cannot widen a search.
-	scope := searchScope(ctx, req.Msg.GetAgentId())
-	if scope != nil {
-		logCrossAgentRead(ctx, *scope, "agent read another agent's transcript")
-	}
-
-	results, err := s.transcripts.Search(ctx, transcriptstore.SearchParams{
-		Query:   req.Msg.GetQuery(),
-		Limit:   paginator.Limit(),
-		Cursor:  paginator.Cursor(),
-		AgentID: scope,
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to search transcripts")
-	}
-
-	var next *string
-	if results.Next != nil {
-		if next, err = pagination.Token(*results.Next); err != nil {
-			return nil, rpcerr.Wrap(err, "failed to build the next page token")
-		}
-	}
-
-	return connect.NewResponse(&agentv1.SearchTranscriptsResponse{
-		Matches:       xslice.Map(results.Matches, renderSearchHit),
-		Near:          xslice.Map(results.Near, renderSearchHit),
-		NextPageToken: next,
-	}), nil
-}
-
-// GetTranscript returns an agent's full stored transcript by id, so the search preview can
-// show a match in its surrounding conversation.
-func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv1.GetTranscriptRequest]) (*connect.Response[agentv1.GetTranscriptResponse], error) {
-	logCrossAgentRead(ctx, req.Msg.GetAgentId(), "agent read another agent's transcript")
-
-	// Empty content would read as an agent with nothing stored yet, so a missing one is
-	// not_found instead.
-	exists, err := s.agents.Exists(ctx, req.Msg.GetAgentId())
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to look up agent")
-	}
-	if !exists {
-		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetAgentId()))
-	}
-
-	tr, err := s.transcripts.Get(ctx, req.Msg.GetAgentId())
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to get transcript")
-	}
-
-	return connect.NewResponse(&agentv1.GetTranscriptResponse{Content: tr.Content}), nil
-}
-
-func searchScope(ctx context.Context, requested string) *string {
-	if requested != "" {
-		return &requested
-	}
-
-	from := caller.From(ctx)
-	if from.AgentID == "" {
-		return nil
-	}
-
-	return &from.AgentID
-}
-
-func logCrossAgentRead(ctx context.Context, target, message string) {
-	from := caller.From(ctx)
-	if from.AgentID == "" || from.AgentID == target {
-		return
-	}
-
-	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, message,
-		slog.String(logging.TargetAgentID, target))
 }

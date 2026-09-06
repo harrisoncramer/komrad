@@ -14,6 +14,24 @@ import (
 	"connectrpc.com/connect"
 )
 
+type reviewConversation interface {
+	ListReviewThreads(
+		ctx context.Context,
+		params agents.ListReviewThreadsParams,
+	) ([]agents.ReviewThreadWithMessages, error)
+	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
+	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
+	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
+	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
+	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
+	OpenRound(ctx context.Context, agentID string, author agents.ReviewAuthor) (*reviewstore.Round, error)
+	ListRounds(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Round, error)
+	ListReviews(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Review, error)
+	ReleaseReview(ctx context.Context, params agents.ReleaseReviewParams) (*agents.ReleaseReviewResult, error)
+	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
+	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)
+}
+
 // ListReviewThreads reads the review pinned to an agent's diff.
 func (s *Service) ListReviewThreads(
 	ctx context.Context,

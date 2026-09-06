@@ -83,18 +83,8 @@ func (s *Store) List(ctx context.Context) ([]Schedule, error) {
 	return schedules, nil
 }
 
-type Cursor struct {
-	ID string `json:"i"`
-}
-
-// Validate refuses a cursor holding anything but an id, which is what the listing pages by.
-func (c Cursor) Validate() error {
-	if !store.IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
-	}
-
-	return nil
-}
+// Cursor pages this listing, which resumes from one row's id.
+type Cursor = store.IDCursor
 
 // ListPage returns one page of live schedules, newest first, resuming after
 // cursor when one is given.

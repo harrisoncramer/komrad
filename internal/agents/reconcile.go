@@ -5,9 +5,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"log/slog"
-	"maps"
 	"slices"
-	"sync"
 	"time"
 
 	"weave/internal/frames"
@@ -19,25 +17,11 @@ import (
 
 const reconcileMisses = 3
 
-const unrecognizedHoldLimit = 5
-
-const reconcileShellGrace = 10 * time.Second
-
-// listingsBeforePaneGone is how many pane listings in a row have to leave a pane out before it
-// is believed gone, since a listing that came back short reads exactly like one that came back
-// right and forgetting a live pane costs the agent a binding nothing restores.
-const listingsBeforePaneGone = 3
-
 const stateSeenCoalesce = 30 * time.Second
 
 const stateSeenBound = 2 * time.Minute
 
 const prLookupTimeout = 15 * time.Second
-
-// prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
-// checked again, kept long because this is one infrequent check per agent rather than a poll
-// loop.
-const prRateLimitBackoff = 15 * time.Minute
 
 // prMetadataKey is the metadata key a found pull request is recorded under, the same key
 // weave's own agents have been asked to record it under by hand.
@@ -78,33 +62,11 @@ type Reconciler struct {
 	prFinder  prFinder
 	frames    frameRecorder
 
-	// unrecognizedTotal is only ever touched by the reconcile pass, so it sits outside what
-	// the mutex below guards.
+	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
+	// locking the tally below does.
 	unrecognizedTotal int
 
-	// mu guards tracked and every field of the entries inside it, since an entry is
-	// reached by the reconcile pass, by the RPC handler recording a turn boundary, and by
-	// the goroutine a pull request check runs on.
-	mu      sync.Mutex
-	tracked map[string]trackedAgent
-	now     func() time.Time
-}
-
-// trackedAgent is what one pass leaves the next to work from about a single agent, all of it
-// counters and timestamps the panes drove rather than anything the store holds.
-type trackedAgent struct {
-	misses int
-	// missesToward is the state the current run of misses is evidence for, since three passes
-	// only settle a change when all three agreed on where the agent was going.
-	missesToward      agentstore.State
-	listingsMissing   int
-	shellSince        time.Time
-	turnBoundary      time.Time
-	rateLimitedUntil  time.Time
-	frameHash         uint64
-	frameHashSeen     bool
-	unrecognizedHolds int
-	reportedReason    string
+	tally *tally
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
@@ -114,159 +76,19 @@ func NewReconciler(panes paneObserver, harnesses harnessGetter, states agentStat
 		tmux:      panes,
 		harnesses: harnesses,
 		store:     states,
-		tracked:   map[string]trackedAgent{},
-		now:       time.Now,
+		tally:     newTally(),
 	}
-}
-
-// entry is what earlier passes have accrued about an agent, the zero value standing for an
-// agent nothing has been recorded about yet.
-func (r *Reconciler) entry(agentID string) trackedAgent {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	return r.tracked[agentID]
-}
-
-// withEntry hands fn what has been accrued about an agent and keeps whatever it leaves,
-// starting an entry when there is none.
-func (r *Reconciler) withEntry(agentID string, fn func(*trackedAgent)) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry := r.tracked[agentID]
-	fn(&entry)
-	r.tracked[agentID] = entry
-}
-
-// withExistingEntry is withEntry for the clears, which have nothing to drop for an agent no
-// pass has recorded anything about and must not put one in the map by writing.
-func (r *Reconciler) withExistingEntry(agentID string, fn func(*trackedAgent)) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	entry, ok := r.tracked[agentID]
-	if !ok {
-		return
-	}
-
-	fn(&entry)
-	r.tracked[agentID] = entry
 }
 
 // RecordTurnBoundary notes that agentID's own CLI reported its turn ending.
 func (r *Reconciler) RecordTurnBoundary(agentID string) {
-	r.withEntry(agentID, func(entry *trackedAgent) { entry.turnBoundary = r.now() })
+	r.tally.recordTurnBoundary(agentID)
 }
 
 // RecordReportedReason notes what agentID's own CLI reported it was doing, which annotates the
 // state the pane decided and never moves it.
 func (r *Reconciler) RecordReportedReason(agentID, reason string) {
-	r.withEntry(agentID, func(entry *trackedAgent) { entry.reportedReason = reason })
-}
-
-func (r *Reconciler) reportedReason(agentID string) string {
-	return r.entry(agentID).reportedReason
-}
-
-func (r *Reconciler) hasFreshTurnBoundary(agentID string, since time.Time) bool {
-	return r.entry(agentID).turnBoundary.After(since)
-}
-
-func (r *Reconciler) recordMiss(agentID string, state agentstore.State) int {
-	misses := 0
-	r.withEntry(agentID, func(entry *trackedAgent) {
-		if entry.missesToward != state {
-			entry.missesToward = state
-			entry.misses = 0
-		}
-		entry.misses++
-		misses = entry.misses
-	})
-
-	return misses
-}
-
-func (r *Reconciler) missCount(agentID string) int {
-	return r.entry(agentID).misses
-}
-
-func (r *Reconciler) clearMisses(agentID string) {
-	r.withExistingEntry(agentID, func(entry *trackedAgent) {
-		entry.misses = 0
-		entry.missesToward = ""
-	})
-}
-
-// clearDebounce drops what an agent had accrued towards a transition once one has been
-// decided, leaving the frame hash and any rate limit, which both outlive a change of state.
-func (r *Reconciler) clearDebounce(agentID string) {
-	r.withExistingEntry(agentID, func(entry *trackedAgent) {
-		entry.misses = 0
-		entry.missesToward = ""
-		entry.listingsMissing = 0
-		entry.shellSince = time.Time{}
-		entry.turnBoundary = time.Time{}
-		entry.unrecognizedHolds = 0
-	})
-}
-
-// holdMissingPane reports whether a pane the listing left out is to be waited on rather than
-// forgotten, which it is until enough listings in a row have agreed the pane is gone.
-func (r *Reconciler) holdMissingPane(agentID string, inListing bool) bool {
-	if inListing {
-		r.withExistingEntry(agentID, func(entry *trackedAgent) { entry.listingsMissing = 0 })
-
-		return false
-	}
-
-	hold := false
-	r.withEntry(agentID, func(entry *trackedAgent) {
-		entry.listingsMissing++
-		hold = entry.listingsMissing < listingsBeforePaneGone
-	})
-
-	return hold
-}
-
-// hasShellGraceElapsed reports whether an agent's pane has been showing a bare shell for longer
-// than the grace a CLI gets to start, noting the first sighting when this is one.
-func (r *Reconciler) hasShellGraceElapsed(agentID string) bool {
-	elapsed := false
-	r.withEntry(agentID, func(entry *trackedAgent) {
-		if entry.shellSince.IsZero() {
-			entry.shellSince = r.now()
-
-			return
-		}
-
-		elapsed = r.now().Sub(entry.shellSince) >= reconcileShellGrace
-	})
-
-	return elapsed
-}
-
-func (r *Reconciler) clearShell(agentID string) {
-	r.withExistingEntry(agentID, func(entry *trackedAgent) { entry.shellSince = time.Time{} })
-}
-
-// holdUnrecognized records the frame an agent is sitting on and reports whether it differs
-// from the one before it, which is the reason to wait rather than demote, up to the limit on
-// how long a frame that never settles may hold.
-func (r *Reconciler) holdUnrecognized(agentID string, hash uint64) bool {
-	hold := false
-	r.withEntry(agentID, func(entry *trackedAgent) {
-		changed := entry.frameHashSeen && hash != entry.frameHash
-		entry.frameHash = hash
-		entry.frameHashSeen = true
-
-		hold = changed && entry.unrecognizedHolds < unrecognizedHoldLimit
-		if hold {
-			entry.unrecognizedHolds++
-		}
-	})
-
-	return hold
+	r.tally.recordReportedReason(agentID, reason)
 }
 
 // WithFrameRecorder attaches somewhere for the frame behind each reading to be kept, and
@@ -305,25 +127,12 @@ func (r *Reconciler) Reconcile(ctx context.Context) error {
 		r.reconcileAgent(ctx, agent, pane, inListing)
 	}
 
-	r.prune(known)
+	r.tally.prune(known)
 	if r.frames != nil {
 		r.frames.Forget(known)
 	}
 
 	return nil
-}
-
-// prune forgets the agents the store no longer holds, so an archived or deleted one leaves
-// nothing behind to accrue against its id if it ever comes back.
-func (r *Reconciler) prune(known map[string]struct{}) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	maps.DeleteFunc(r.tracked, func(id string, _ trackedAgent) bool {
-		_, stillKnown := known[id]
-
-		return !stillKnown
-	})
 }
 
 func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent, pane tmux.PaneStatus, inListing bool) {
@@ -332,7 +141,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	}
 
 	// An agent holding no pane is missing from every listing, so it has no absence to doubt.
-	if agent.Pane != "" && r.holdMissingPane(agent.ID, inListing) {
+	if agent.Pane != "" && r.tally.isAbsenceDoubted(agent.ID, inListing) {
 		return
 	}
 
@@ -345,7 +154,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 	}
 
 	if pane.IsRunningShell() {
-		if !r.hasShellGraceElapsed(agent.ID) {
+		if !r.tally.hasShellGraceElapsed(agent.ID) {
 			return
 		}
 
@@ -355,7 +164,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 
 		return
 	}
-	r.clearShell(agent.ID)
+	r.tally.clearShell(agent.ID)
 
 	frame := r.tmux.CapturePane(agent.Pane)
 
@@ -431,20 +240,20 @@ func doesReadingDispute(activity harness.Activity, state agentstore.State) bool 
 // own CLI reporting its turn ended or enough passes in a row reading the same thing.
 func (r *Reconciler) settle(ctx context.Context, agent agentstore.Agent, state agentstore.State) {
 	if agent.State == state {
-		r.clearMisses(agent.ID)
+		r.tally.clearMisses(agent.ID)
 
 		return
 	}
 
 	// A reported turn end says the agent finished, so it may only hurry along idle, never the
 	// state that says weave could not tell either way.
-	if state == agentstore.StateIdle && r.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
+	if state == agentstore.StateIdle && r.tally.hasFreshTurnBoundary(agent.ID, agent.StateSeenAt) {
 		r.apply(ctx, agent, state)
 
 		return
 	}
 
-	if r.recordMiss(agent.ID, state) < reconcileMisses || !r.apply(ctx, agent, state) {
+	if r.tally.recordMiss(agent.ID, state) < reconcileMisses || !r.apply(ctx, agent, state) {
 		return
 	}
 
@@ -472,8 +281,8 @@ func (r *Reconciler) observeUnrecognized(ctx context.Context, agent agentstore.A
 		slog.String(logging.AgentID, agent.ID),
 		slog.Int(logging.UnrecognizedFrameCount, r.unrecognizedTotal))
 
-	if r.holdUnrecognized(agent.ID, hashFrame(frame)) {
-		r.clearMisses(agent.ID)
+	if r.tally.isUnrecognizedHeld(agent.ID, hashFrame(frame)) {
+		r.tally.clearMisses(agent.ID)
 
 		return
 	}
@@ -507,7 +316,7 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 	// back, so the resume has to be told to ask for it again.
 	var interrupted *time.Time
 	if agent.State.IsTurnUnfinished() {
-		at := r.now()
+		at := r.tally.now()
 		interrupted = &at
 	}
 
@@ -530,9 +339,9 @@ func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bo
 // apply writes the state a pass settled on and reports whether the store took it, which the
 // caller needs before it hangs anything else off the transition.
 func (r *Reconciler) apply(ctx context.Context, agent agentstore.Agent, state agentstore.State) bool {
-	r.clearDebounce(agent.ID)
+	r.tally.clearDebounce(agent.ID)
 	justWentIdle := state == agentstore.StateIdle && agent.State != agentstore.StateIdle
-	if agent.State == state && r.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
+	if agent.State == state && r.tally.now().Sub(agent.StateSeenAt) < stateSeenCoalesce {
 		return false
 	}
 
@@ -562,7 +371,7 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 	if slices.ContainsFunc(agent.Metadata, func(m agentstore.Metadata) bool { return m.Key == prMetadataKey }) {
 		return
 	}
-	if r.isRateLimited(agent.ID) {
+	if r.tally.isRateLimited(agent.ID) {
 		return
 	}
 
@@ -576,7 +385,7 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 		url, err := r.prFinder.FindPR(lookupCtx, agent.Cwd, branch)
 		if err != nil {
 			if isGHRateLimitError(err) {
-				r.backOff(agent.ID)
+				r.tally.backOff(agent.ID)
 			}
 
 			logging.From(bg).LogAttrs(bg, slog.LevelDebug, "failed to check for a pull request",
@@ -597,16 +406,6 @@ func (r *Reconciler) checkPR(ctx context.Context, agent agentstore.Agent) {
 				append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 		}
 	}()
-}
-
-func (r *Reconciler) isRateLimited(agentID string) bool {
-	return r.now().Before(r.entry(agentID).rateLimitedUntil)
-}
-
-func (r *Reconciler) backOff(agentID string) {
-	r.withEntry(agentID, func(entry *trackedAgent) {
-		entry.rateLimitedUntil = r.now().Add(prRateLimitBackoff)
-	})
 }
 
 func isStateUnconfirmed(agent agentstore.Agent) bool {

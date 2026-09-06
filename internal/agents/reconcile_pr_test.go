@@ -187,7 +187,7 @@ func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
 	at := time.Now()
-	rec.now = func() time.Time { return at }
+	rec.tally.now = func() time.Time { return at }
 
 	require.NoError(t, rec.Reconcile(context.Background()))
 	require.Eventually(t, func() bool { return finder.calls.Load() == 1 }, time.Second, 5*time.Millisecond)
