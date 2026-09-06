@@ -531,25 +531,23 @@ func (m model) mailThreadWord(thread []mailRow) string {
 	return count + " · waiting on " + m.mailCounterparty(last)
 }
 
-// plural is a word said of a count, taking -es after an ending a bare s would not sit on, since
-// a match is one of those and will not be the last.
-func plural(count int, word string) string {
+// counted is how many of something there are, taking -es after an ending a bare s will not sit
+// on, since a match is one of those and will not be the last.
+func counted(count int, word string) string {
 	if count == 1 {
-		return word
+		return "1 " + word
 	}
 
+	suffix := "s"
 	for _, ending := range []string{"ch", "sh", "s", "x", "z"} {
 		if strings.HasSuffix(word, ending) {
-			return word + "es"
+			suffix = "es"
+
+			break
 		}
 	}
 
-	return word + "s"
-}
-
-// counted is how many of something there are, spelled the way a sentence wants it.
-func counted(count int, word string) string {
-	return fmt.Sprintf("%d %s", count, plural(count, word))
+	return fmt.Sprintf("%d %s%s", count, word, suffix)
 }
 
 // mailSender is who wrote a piece of mail, which is a name with no id behind it when weave
