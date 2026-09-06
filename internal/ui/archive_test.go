@@ -1002,3 +1002,18 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	require.True(t, ok)
 	assert.False(t, m.frame.IsSolo(), "leaving the archive gives the other panes their share back")
 }
+
+// TestArchiveHandsTheWindowBackWhenAWriteLands covers the agent create started on the list that
+// only lands once the reader has opened the archive, which moves the screen out from under a zoom
+// nothing else would have taken back.
+func TestArchiveHandsTheWindowBackWhenAWriteLands(t *testing.T) {
+	m := splitArchiveModel(t)
+	require.True(t, m.frame.IsSolo(), "the archive holds the window to begin with")
+
+	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a1")}})
+	got, ok := landed.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, screenAgents, got.screen, "the write puts the reader on the row it wrote")
+	assert.False(t, got.frame.IsSolo(), "and that screen does not draw its own split")
+}

@@ -34,14 +34,14 @@ func (a *archiveState) place(idx int) {
 
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenArchive)
-	m.soloArchive()
 	m.stageArchive()
 
 	return m, m.refreshCmd()
 }
 
-// soloArchive takes the window for the archive's own split, or hands it back while the info pane
-// is up, since a sidebar holding the whole window covers the pane the logs are drawn in.
+// soloArchive takes the window for the archive's own split, or hands it back on the way to any
+// other screen and while the info pane is up, since a sidebar holding the whole window covers the
+// pane the logs are drawn in.
 func (m *model) soloArchive() {
 	// The review draws its own two columns the same way and answers for its own zoom, so the one
 	// screen this must not speak for is that one.
@@ -163,8 +163,6 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case m.filter.isStanding() && isBound(k, m.keys.Archive.Back):
 		return m.clearSearch()
 	case isBound(k, m.keys.Archive.Back):
-		m.frame.Solo(false)
-
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
 		return m.moveArchiveCursor(-1), nil

@@ -104,6 +104,7 @@ func (m *model) enterScreen(next screen) {
 	}
 
 	m.screen = next
+	m.soloArchive()
 }
 
 // takeKey applies one keypress to a search being typed at, and reports whether the keypress was
