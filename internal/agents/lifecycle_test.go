@@ -9,8 +9,8 @@ import (
 	"testing"
 
 	"weave/config"
-	"weave/internal/diff"
 	"weave/internal/frames"
+	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
@@ -659,8 +659,8 @@ func TestDeletingAnAgentLeavesAnotherAgentsRoundHeld(t *testing.T) {
 	staying := seedRoundedAgent(t, st, reviews, "staying", root, "same-sha")
 
 	held := RoundRef(staying, "same-sha")
-	require.NoError(t, diff.Hold(t.Context(), root, RoundRef(going, "same-sha"), headOf(t, root)))
-	require.NoError(t, diff.Hold(t.Context(), root, held, headOf(t, root)))
+	require.NoError(t, git.HoldRef(t.Context(), root, RoundRef(going, "same-sha"), headOf(t, root)))
+	require.NoError(t, git.HoldRef(t.Context(), root, held, headOf(t, root)))
 
 	require.NoError(t, manager.lifecycle.DeleteAgents(t.Context(), []string{going}))
 

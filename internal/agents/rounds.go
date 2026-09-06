@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"weave/internal/diff"
+	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -64,7 +64,7 @@ type reviewBatchReadWriter interface {
 }
 
 type reviewSnapshotter interface {
-	Take(ctx context.Context, params diff.SnapshotParams) (*diff.Snapshot, error)
+	Take(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error)
 	Hold(ctx context.Context, dir, ref, sha string) error
 	FileAt(ctx context.Context, dir, sha, path string) ([]string, error)
 }
@@ -74,18 +74,18 @@ type reviewSnapshotter interface {
 type GitSnapshotter struct{}
 
 // Take freezes the worktree as a commit nothing else can reach.
-func (GitSnapshotter) Take(ctx context.Context, params diff.SnapshotParams) (*diff.Snapshot, error) {
-	return diff.Take(ctx, params)
+func (GitSnapshotter) Take(ctx context.Context, params git.TakeSnapshotParams) (*git.Snapshot, error) {
+	return git.TakeSnapshot(ctx, params)
 }
 
 // Hold points a ref at a snapshot so nothing collects it.
 func (GitSnapshotter) Hold(ctx context.Context, dir, ref, sha string) error {
-	return diff.Hold(ctx, dir, ref, sha)
+	return git.HoldRef(ctx, dir, ref, sha)
 }
 
 // FileAt reads one file as the round froze it.
 func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]string, error) {
-	return diff.FileAt(ctx, dir, sha, path)
+	return git.ReadFileLines(ctx, dir, sha, path)
 }
 
 // RoundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
@@ -117,7 +117,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		base = flow.Worktree.BaseBranch
 	}
 
-	snapshot, err := s.snapshots.Take(ctx, diff.SnapshotParams{Dir: agent.Cwd, Base: base})
+	snapshot, err := s.snapshots.Take(ctx, git.TakeSnapshotParams{Dir: agent.Cwd, Base: base})
 	if err != nil {
 		return nil, err
 	}

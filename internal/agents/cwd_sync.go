@@ -5,10 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
-	"strings"
 	"time"
 
+	"weave/internal/git"
 	agentstore "weave/internal/store/agent"
 )
 
@@ -100,17 +99,7 @@ func readBranch(ctx context.Context, dir string) *string {
 	ctx, cancel := context.WithTimeout(ctx, cwdLookTimeout)
 	defer cancel()
 
-	out, err := exec.CommandContext(ctx, "git", "-C", dir, "rev-parse", "--abbrev-ref", "HEAD").Output()
-	if err != nil {
-		return nil
-	}
-
-	branch := strings.TrimSpace(string(out))
-	if branch == "" || branch == "HEAD" {
-		return nil
-	}
-
-	return &branch
+	return git.GetCurrentBranch(ctx, dir)
 }
 
 func isSameBranch(a, b *string) bool {

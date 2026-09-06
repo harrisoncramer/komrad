@@ -4,7 +4,7 @@ import (
 	"context"
 	"testing"
 
-	"weave/internal/diff"
+	"weave/internal/git"
 
 	"weave/config"
 	"weave/internal/agents"
@@ -120,8 +120,8 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 // calling rather than about what a worktree holds.
 type stubSnapshotter struct{}
 
-func (stubSnapshotter) Take(context.Context, diff.SnapshotParams) (*diff.Snapshot, error) {
-	return &diff.Snapshot{BaseSHA: "base-sha", SHA: "snapshot-sha"}, nil
+func (stubSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+	return &git.Snapshot{BaseSHA: "base-sha", SHA: "snapshot-sha"}, nil
 }
 
 func (stubSnapshotter) Hold(context.Context, string, string, string) error { return nil }

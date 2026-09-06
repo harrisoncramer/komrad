@@ -5,14 +5,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"os/exec"
 	"strings"
-	"time"
+
+	"weave/internal/git"
 
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
-
-const gitTimeout = 30 * time.Second
 
 // ErrNoChanges is a worktree that has not moved off its base, which is refused rather than
 // answered with an empty patch, since a diff with no files in it is nothing to show anybody.
@@ -43,14 +41,14 @@ type LoadParams struct {
 // with both sides coming out of commits so the patch is the same bytes however long afterwards it
 // is read.
 func Load(ctx context.Context, params LoadParams) (*Patch, error) {
-	root, err := runGit(ctx, params.Dir, "rev-parse", "--show-toplevel")
+	root, err := git.GetRoot(ctx, params.Dir)
 	if err != nil {
-		return nil, fmt.Errorf("failed to find the repository at %q: %w", params.Dir, err)
+		return nil, err
 	}
 
-	exclude := excludePathspecs(params.Exclude)
+	exclude := git.ExcludePathspecs(params.Exclude)
 
-	raw, err := runGitBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, exclude)...)
+	raw, err := git.RunBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, exclude)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.BaseSHA, params.SnapshotSHA, err)
 	}
@@ -86,7 +84,7 @@ func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error
 		return ErrNoChanges
 	}
 
-	raw, err := runGitBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, nil)...)
+	raw, err := git.RunBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, nil)...)
 	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
 		return ErrNoChanges
 	}
@@ -111,41 +109,6 @@ func diffArgs(baseSHA, snapshotSHA string, exclude []string) []string {
 	}
 
 	return append(args, exclude...)
-}
-
-// excludePathspecs turns the workflow's paths into pathspecs git will subtract, adding the
-// exclusion magic so the user writes only a path or a glob such as proto/gen.
-func excludePathspecs(paths []string) []string {
-	specs := make([]string, 0, len(paths))
-	for _, path := range paths {
-		path = strings.TrimSpace(path)
-		if path == "" {
-			continue
-		}
-
-		specs = append(specs, ":(exclude)"+path)
-	}
-
-	return specs
-}
-
-// resolveBase turns a configured base branch into something git can name, preferring a
-// remote-tracking ref since the worktree was cut from one.
-func resolveBase(ctx context.Context, root, base string) string {
-	base = strings.TrimSpace(base)
-	if base == "" {
-		if head, err := runGit(ctx, root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); err == nil {
-			return head
-		}
-
-		return "HEAD"
-	}
-
-	if _, err := runGit(ctx, root, "rev-parse", "--verify", "--quiet", "origin/"+base); err == nil {
-		return "origin/" + base
-	}
-
-	return base
 }
 
 // parseFilesParams says which patch to read and which two commits to read each side of it out of.
@@ -286,7 +249,7 @@ func readRevision(ctx context.Context, root, revision, path string) string {
 		return ""
 	}
 
-	out, err := runGitBytes(ctx, root, "show", revision+":"+path)
+	out, err := git.ReadFile(ctx, root, revision, path)
 	if err != nil || len(out) > maxFileBytes {
 		return ""
 	}
@@ -302,24 +265,4 @@ func filePath(path string) string {
 	}
 
 	return path
-}
-
-func runGit(ctx context.Context, dir string, args ...string) (string, error) {
-	out, err := runGitBytes(ctx, dir, args...)
-
-	return strings.TrimSpace(string(out)), err
-}
-
-func runGitBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, gitTimeout)
-	defer cancel()
-
-	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
-
-	out, err := cmd.Output()
-	if err != nil {
-		return nil, fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
-	}
-
-	return out, nil
 }

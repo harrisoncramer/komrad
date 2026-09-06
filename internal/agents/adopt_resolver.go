@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
+	"weave/internal/git"
 )
 
 // PullRequest is what weave needs to know about a pull request somebody else opened.
@@ -71,12 +73,12 @@ func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullReques
 // Repository reports the owner and name of the repository dir's origin points at, in the
 // owner/name form a pull request URL carries.
 func (GHPullRequests) Repository(ctx context.Context, dir string) (string, error) {
-	out, err := exec.CommandContext(ctx, "git", "-C", dir, "remote", "get-url", "origin").Output()
+	url, err := git.GetOriginURL(ctx, dir)
 	if err != nil {
-		return "", fmt.Errorf("git -C %s remote get-url origin: %w", dir, err)
+		return "", err
 	}
 
-	return repositoryFromRemote(strings.TrimSpace(string(out))), nil
+	return repositoryFromRemote(url), nil
 }
 
 // isPullRequestRef reports whether a reference names a pull request rather than a branch,

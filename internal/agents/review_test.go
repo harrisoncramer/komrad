@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"weave/config"
-	"weave/internal/diff"
+	"weave/internal/git"
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
@@ -1264,8 +1264,8 @@ type fakeSnapshotter struct {
 	files map[string][]string
 }
 
-func (f *fakeSnapshotter) Take(context.Context, diff.SnapshotParams) (*diff.Snapshot, error) {
-	return &diff.Snapshot{BaseSHA: f.base, SHA: f.sha}, nil
+func (f *fakeSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+	return &git.Snapshot{BaseSHA: f.base, SHA: f.sha}, nil
 }
 
 func (f *fakeSnapshotter) Hold(_ context.Context, _, ref, _ string) error {

@@ -10,7 +10,7 @@ import (
 	"testing"
 
 	"strconv"
-	"weave/internal/diff"
+	"weave/internal/git"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -94,13 +94,13 @@ func (f *fakeReviewAgents) OpenReviewRound(
 	ctx context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
-	snapshot, err := diff.Take(ctx, diff.SnapshotParams{Dir: f.dir, Base: "main"})
+	snapshot, err := git.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
 	if err != nil {
 		return nil, err
 	}
 
 	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != snapshot.SHA {
-		if err := diff.Hold(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
+		if err := git.HoldRef(ctx, f.dir, "refs/weave/rounds/"+snapshot.SHA, snapshot.SHA); err != nil {
 			return nil, err
 		}
 

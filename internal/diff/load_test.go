@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 
+	"weave/internal/git"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -49,7 +51,7 @@ func repo(t *testing.T) string {
 func loadRound(t *testing.T, root string, exclude ...string) *Patch {
 	t.Helper()
 
-	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
+	snapshot, err := git.TakeSnapshot(t.Context(), git.TakeSnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
 	patch, err := Load(t.Context(), LoadParams{

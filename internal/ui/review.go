@@ -9,6 +9,7 @@ import (
 
 	"weave/config"
 	"weave/internal/diff"
+	"weave/internal/git"
 	"weave/internal/review"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -350,7 +351,12 @@ func changedSinceLastReview(
 		}
 	}
 
-	changed, err := diff.ChangedSince(ctx, dir, from, round.GetSnapshotSha(), exclude)
+	changed, err := git.CountChangedFiles(ctx, git.CountChangedFilesParams{
+		Dir:     dir,
+		FromSHA: from,
+		ToSHA:   round.GetSnapshotSha(),
+		Exclude: exclude,
+	})
 	if err != nil || changed == 0 {
 		return ""
 	}
@@ -1297,12 +1303,12 @@ func (m model) pollReviewDiffCmd() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		probe, err := diff.ProbeTree(ctx, dir)
+		probe, err := git.ProbeTree(ctx, dir)
 		if err != nil {
 			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
 
-		held, err := diff.TreeOf(ctx, dir, snapshot)
+		held, err := git.GetTree(ctx, dir, snapshot)
 		if err != nil {
 			return reviewDiffPolledMsg{agentID: agentID, err: err}
 		}
