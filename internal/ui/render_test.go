@@ -1,6 +1,9 @@
 package ui
 
 import (
+	"os"
+	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -162,4 +165,60 @@ func TestScrubMarks(t *testing.T) {
 
 	assert.Equal(t, "a  stray  marker in the log", scrubbed)
 	assert.Len(t, scrubbed, len(content), "the offsets the search reports still point where they did")
+}
+
+// TestStageFilePathIsThisPanelsOwn covers the name a screenful is written under, which carries
+// the pid because a second panel or a test run shares the same temporary directory.
+func TestStageFilePathIsThisPanelsOwn(t *testing.T) {
+	path := stageFilePath("review")
+
+	assert.Contains(t, filepath.Base(path), strconv.Itoa(os.Getpid()), "the panel that wrote it")
+	assert.Equal(t, filepath.Join(os.TempDir(), filepath.Base(path)), path)
+	assert.NotEqual(t, path, stageFilePath("transcript"), "two regions never share a file")
+}
+
+// TestWriteStageFileIsNeverTornInHalf covers the handover to the drawer, which reads the file
+// whenever the panel taps a key and so can read one frame while the next is being written.
+func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
+	const frames = 200
+
+	path := filepath.Join(t.TempDir(), "stage.ansi")
+	tall := strings.Repeat("a tall frame\n", 400)
+	short := "one row\n"
+
+	require.True(t, writeStageFile(path, tall))
+
+	written := 0
+	done := make(chan struct{})
+
+	go func() {
+		defer close(done)
+
+		for i := range frames {
+			frame := tall
+			if i%2 == 0 {
+				frame = short
+			}
+
+			if !writeStageFile(path, frame) {
+				return
+			}
+
+			written++
+		}
+	}()
+
+	for reading := true; reading; {
+		select {
+		case <-done:
+			reading = false
+		default:
+		}
+
+		body, err := os.ReadFile(path)
+		require.NoError(t, err)
+		assert.Contains(t, []string{tall, short}, string(body), "a frame was read half written")
+	}
+
+	assert.Equal(t, frames, written, "every frame was written")
 }
