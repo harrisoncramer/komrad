@@ -159,23 +159,6 @@ func TestEditTargetStopsAtTheFileItIsIn(t *testing.T) {
 	assert.Equal(t, 1, line, "an emptied file opens at its top rather than at another file's line")
 }
 
-// TestJumpHunkWalksTheHunkBeforeLeavingIt covers backwards from inside a hunk going to the top
-// of that hunk first and only past it once the cursor is already there.
-func TestJumpHunkWalksTheHunkBeforeLeavingIt(t *testing.T) {
-	view := twoHunkView()
-
-	first := view.GetFirstRow()
-
-	second := view.JumpHunk(first, 1)
-	require.Greater(t, second, first, "forwards is the next hunk")
-
-	inside := view.Move(second, 1)
-	require.Greater(t, inside, second)
-
-	assert.Equal(t, second, view.JumpHunk(inside, -1), "backwards is the top of this hunk")
-	assert.Equal(t, first, view.JumpHunk(second, -1), "and then the hunk before it")
-}
-
 // twoFilePatch is two files with one changed line apiece, which is the smallest patch that can
 // show a file folded away while the diff around it stays whole.
 func twoFilePatch() *diff.Patch {

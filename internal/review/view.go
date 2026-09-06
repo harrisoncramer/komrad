@@ -476,29 +476,6 @@ func (v *View) Move(y, direction int) int {
 	return y
 }
 
-// Page jumps by a number of drawn rows and settles on the nearest row the cursor can rest on,
-// looking forward first so a file or hunk header never eats the keypress.
-func (v *View) Page(y, delta int) int {
-	target := min(max(y+delta, 0), max(len(v.rows)-1, 0))
-	if v.isPinnable(target) {
-		return target
-	}
-
-	forward, backward := 1, -1
-	if delta < 0 {
-		forward, backward = -1, 1
-	}
-
-	if next := v.scan(target, forward); next >= 0 {
-		return next
-	}
-	if next := v.scan(target, backward); next >= 0 {
-		return next
-	}
-
-	return y
-}
-
 func (v *View) scan(from, direction int) int {
 	for y := from + direction; y >= 0 && y < len(v.rows); y += direction {
 		if v.isPinnable(y) {
@@ -547,60 +524,6 @@ func (v *View) GetFileTopRow(y int) int {
 	}
 
 	return y
-}
-
-// JumpHunk moves to the first line of the next hunk, or backwards to the top of the hunk the
-// cursor is inside and only then to the one before it, the way vim's `{` walks a paragraph.
-func (v *View) JumpHunk(y, direction int) int {
-	current, ok := v.getRow(y)
-	if !ok {
-		return y
-	}
-
-	if direction < 0 {
-		top := v.hunkTop(y, current)
-		if top >= 0 && top < y {
-			return top
-		}
-
-		// Standing on the top line already, so the walk starts above this hunk's own header
-		// rather than finding it again and going nowhere.
-		if top >= 0 {
-			y = top - 1
-		}
-	}
-
-	// A hunk header is not a row the cursor can rest on, so the walk looks for the header and
-	// then carries on to the first line under it.
-	for next := y + direction; next >= 0 && next < len(v.rows); next += direction {
-		if v.rows[next].kind != hunkRow {
-			continue
-		}
-
-		if landed := v.scan(next, 1); landed >= 0 {
-			return landed
-		}
-	}
-
-	return y
-}
-
-// hunkTop is the first line of the hunk a row is inside, or -1 for a row in no hunk at all.
-func (v *View) hunkTop(y int, current row) int {
-	if current.kind != lineRow {
-		return -1
-	}
-
-	top := y
-	for above := y - 1; above >= 0; above-- {
-		if v.rows[above].kind != lineRow || v.rows[above].hunk != current.hunk || v.rows[above].file != current.file {
-			break
-		}
-
-		top = above
-	}
-
-	return top
 }
 
 // JumpThread moves to the next or previous line carrying a thread.

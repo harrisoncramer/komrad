@@ -493,34 +493,9 @@ func TestReviewIsRefusedWithoutAWorktree(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
-// TestReviewPagingSettlesOnALine covers paging past the headers: a page lands on a row the
-// cursor is allowed to hold rather than on a file or hunk header, so the keypress is never
-// swallowed.
-func TestReviewPagingSettlesOnALine(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	first := m.review.cursor
-
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyPgDown})
-	m = next.(model)
-
-	assert.Greater(t, m.review.cursor, first)
-	_, ok := m.review.view.GetAnchor(m.review.cursor)
-	assert.True(t, ok)
-
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyPgUp})
-	m = next.(model)
-
-	assert.Equal(t, first, m.review.cursor)
-	_, ok = m.review.view.GetAnchor(m.review.cursor)
-	assert.True(t, ok)
-}
-
-// TestReviewPagesOnCtrlNAndCtrlP covers the readline pair, which pages the diff the same way the
-// page keys do.
-func TestReviewPagesOnCtrlNAndCtrlP(t *testing.T) {
+// TestReviewScrollsOnCtrlNAndCtrlP covers the readline pair, which moves a few lines at a time
+// and settles on a row the cursor is allowed to hold rather than on a file or hunk header.
+func TestReviewScrollsOnCtrlNAndCtrlP(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
@@ -531,11 +506,15 @@ func TestReviewPagesOnCtrlNAndCtrlP(t *testing.T) {
 	m = next.(model)
 
 	assert.Greater(t, m.review.cursor, first)
+	_, ok := m.review.view.GetAnchor(m.review.cursor)
+	assert.True(t, ok)
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlP})
 	m = next.(model)
 
 	assert.Equal(t, first, m.review.cursor)
+	_, ok = m.review.view.GetAnchor(m.review.cursor)
+	assert.True(t, ok)
 }
 
 // TestReviewJumpsToASingleThread covers what happens with one thread in the diff: n has to

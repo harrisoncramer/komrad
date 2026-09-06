@@ -627,10 +627,8 @@ func (m model) reviewHelp() keyMap {
 		full: slices.Concat(
 			[]key.Binding{
 				move,
-				pairBinding(keys.PageDown, keys.PageUp, "page"),
-				pairBinding(keys.HalfPageDown, keys.HalfPageUp, "half a page"),
+				pairBinding(keys.ScrollDown, keys.ScrollUp, "scroll"),
 				pairBinding(keys.NextFile, keys.PrevFile, "next/previous file"),
-				pairBinding(keys.NextHunk, keys.PrevHunk, "next/previous hunk"),
 				pairBinding(keys.NextThread, keys.PrevThread, "next/previous thread"),
 				binding(m.keys.Filter.Open, "search"),
 				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),

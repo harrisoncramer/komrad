@@ -29,6 +29,10 @@ const reviewTimeout = 30 * time.Second
 // reviewPanStep is the smallest sideways jump, used until the pane has been measured.
 const reviewPanStep = 8
 
+// reviewScrollStep is how far a scroll key moves, kept small so the code under the cursor stays
+// in view rather than a whole screen going by at once.
+const reviewScrollStep = 15
+
 const reviewEditorHeight = 4
 
 // reviewState is the review of one agent's diff, while that screen is up.
@@ -704,22 +708,14 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveReviewCursor(m.review.view.GetFirstRow())
 	case isBound(k, m.keys.Nav.Bottom):
 		return m.moveReviewCursor(m.review.view.GetLastRow())
-	case isBound(k, keys.PageDown):
-		return m.pageReview(m.reviewPage())
-	case isBound(k, keys.PageUp):
-		return m.pageReview(-m.reviewPage())
-	case isBound(k, keys.HalfPageDown):
-		return m.pageReview(max(1, m.reviewPage()/2))
-	case isBound(k, keys.HalfPageUp):
-		return m.pageReview(-max(1, m.reviewPage()/2))
+	case isBound(k, keys.ScrollDown):
+		return m.scrollReview(1)
+	case isBound(k, keys.ScrollUp):
+		return m.scrollReview(-1)
 	case isBound(k, keys.NextFile):
 		return m.jumpReviewFile(1)
 	case isBound(k, keys.PrevFile):
 		return m.jumpReviewFile(-1)
-	case isBound(k, keys.NextHunk):
-		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, 1))
-	case isBound(k, keys.PrevHunk):
-		return m.moveReviewCursor(m.review.view.JumpHunk(m.review.cursor, -1))
 	case isBound(k, keys.NextThread):
 		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, 1))
 	case isBound(k, keys.PrevThread):
@@ -963,19 +959,13 @@ func (m model) reviewPanStep() int {
 	return max(m.review.frames.width/3, reviewPanStep)
 }
 
-func (m model) pageReview(delta int) (tea.Model, tea.Cmd) {
-	return m.moveReviewCursor(m.review.view.Page(m.review.cursor, delta))
-}
-
-// reviewPage is how many rows a page is, which is the pane the diff is drawn into once that has
-// been measured, and the panel's own height until then, since the stage is its sibling in the
-// same split and as tall as it.
-func (m model) reviewPage() int {
-	if height := m.review.frames.height; height > 0 {
-		return height
+func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
+	cursor := m.review.cursor
+	for range reviewScrollStep {
+		cursor = m.review.view.Move(cursor, direction)
 	}
 
-	return max(1, m.height-1)
+	return m.moveReviewCursor(cursor)
 }
 
 func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
