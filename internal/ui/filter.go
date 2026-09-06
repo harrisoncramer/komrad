@@ -202,17 +202,20 @@ func (m model) filterView() string {
 	return m.filter.view()
 }
 
+// view draws the search line whether or not there is a search, since a line that comes and goes
+// moves every row under it the moment you start typing.
 func (f filterState) view() string {
-	if !f.typing && !f.isStanding() {
-		return ""
-	}
-
 	query := f.query
 	if f.broken {
 		query = brokenStyle.Render(query)
 	}
 
-	line := cursorStyle.Render("/") + " " + query
+	slash := cursorStyle
+	if !f.typing && !f.isStanding() {
+		slash = dimStyle
+	}
+
+	line := slash.Render("/") + " " + query
 	if f.typing {
 		line += cursorStyle.Render("▏")
 	}

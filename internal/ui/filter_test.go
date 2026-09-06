@@ -445,8 +445,8 @@ func TestFilterHighlight(t *testing.T) {
 	}
 }
 
-// TestFilterViewLine covers the input drawn over the list, which stays up after the input
-// closes so a narrowed list never looks like a list that lost rows.
+// TestFilterViewLine covers the input drawn over the list, which stands whether or not a search
+// does, so that opening one never moves the rows under it.
 func TestFilterViewLine(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -455,8 +455,8 @@ func TestFilterViewLine(t *testing.T) {
 		want   string
 	}{
 		{
-			name: "a screen with no filter draws no input",
-			want: "",
+			name: "a screen with no filter still draws the line",
+			want: "/",
 		},
 		{
 			name:   "an open input draws what has been typed",
