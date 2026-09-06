@@ -22,28 +22,72 @@ func TestSuggestIsOneRunOfChangedLines(t *testing.T) {
 	}{
 		{
 			name: "one line rewritten",
-			edit: git.Edit{Path: "greet.go", Start: 2, End: 2, Lines: []string{"TWO"}},
-			want: Suggestion{NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}},
+			edit: git.Edit{
+				Path:  "greet.go",
+				Start: 2,
+				End:   2,
+				Lines: []string{"TWO"},
+			},
+			want: Suggestion{
+				NewStart: 2,
+				NewEnd:   2,
+				Lines:    []string{"TWO"},
+			},
 		},
 		{
 			name: "a run of lines rewritten",
-			edit: git.Edit{Path: "greet.go", Start: 2, End: 3, Lines: []string{"TWO", "THREE"}},
-			want: Suggestion{NewStart: 2, NewEnd: 3, Lines: []string{"TWO", "THREE"}},
+			edit: git.Edit{
+				Path:  "greet.go",
+				Start: 2,
+				End:   3,
+				Lines: []string{"TWO", "THREE"},
+			},
+			want: Suggestion{
+				NewStart: 2,
+				NewEnd:   3,
+				Lines:    []string{"TWO", "THREE"},
+			},
 		},
 		{
 			name: "a line taken out",
-			edit: git.Edit{Path: "greet.go", Start: 2, End: 2},
-			want: Suggestion{NewStart: 2, NewEnd: 2, Lines: nil},
+			edit: git.Edit{
+				Path:  "greet.go",
+				Start: 2,
+				End:   2,
+			},
+			want: Suggestion{
+				NewStart: 2,
+				NewEnd:   2,
+				Lines:    nil,
+			},
 		},
 		{
 			name: "a line put in replaces the one above it",
-			edit: git.Edit{Path: "greet.go", Start: 3, End: 2, Lines: []string{"extra"}},
-			want: Suggestion{NewStart: 2, NewEnd: 2, Lines: []string{"two", "extra"}},
+			edit: git.Edit{
+				Path:  "greet.go",
+				Start: 3,
+				End:   2,
+				Lines: []string{"extra"},
+			},
+			want: Suggestion{
+				NewStart: 2,
+				NewEnd:   2,
+				Lines:    []string{"two", "extra"},
+			},
 		},
 		{
 			name: "a line put in at the top replaces the one below it",
-			edit: git.Edit{Path: "greet.go", Start: 1, End: 0, Lines: []string{"extra"}},
-			want: Suggestion{NewStart: 1, NewEnd: 1, Lines: []string{"extra", "one"}},
+			edit: git.Edit{
+				Path:  "greet.go",
+				Start: 1,
+				End:   0,
+				Lines: []string{"extra"},
+			},
+			want: Suggestion{
+				NewStart: 1,
+				NewEnd:   1,
+				Lines:    []string{"extra", "one"},
+			},
 		},
 	}
 
@@ -65,7 +109,12 @@ func TestSuggestIsOneRunOfChangedLines(t *testing.T) {
 func TestSuggestRefusesWhatTheRoundAlreadyHolds(t *testing.T) {
 	round := []string{"one", "two"}
 
-	_, ok := Suggest(git.Edit{Path: "greet.go", Start: 2, End: 2, Lines: []string{"two"}}, round)
+	_, ok := Suggest(git.Edit{
+		Path:  "greet.go",
+		Start: 2,
+		End:   2,
+		Lines: []string{"two"},
+	}, round)
 
 	assert.False(t, ok)
 }
@@ -75,7 +124,12 @@ func TestSuggestRefusesWhatTheRoundAlreadyHolds(t *testing.T) {
 func TestSuggestRefusesARunPastTheEndOfTheRound(t *testing.T) {
 	round := []string{"one", "two"}
 
-	_, ok := Suggest(git.Edit{Path: "greet.go", Start: 2, End: 9, Lines: []string{"x"}}, round)
+	_, ok := Suggest(git.Edit{
+		Path:  "greet.go",
+		Start: 2,
+		End:   9,
+		Lines: []string{"x"},
+	}, round)
 
 	assert.False(t, ok)
 }
@@ -83,10 +137,30 @@ func TestSuggestRefusesARunPastTheEndOfTheRound(t *testing.T) {
 // TestSuggestionKeySeparatesOneProposalFromAnother covers what settles a proposal, since the same
 // range proposing different lines is a different thing to answer for.
 func TestSuggestionKeySeparatesOneProposalFromAnother(t *testing.T) {
-	first := Suggestion{FilePath: "greet.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}}
-	same := Suggestion{FilePath: "greet.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}}
-	rewritten := Suggestion{FilePath: "greet.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO AGAIN"}}
-	elsewhere := Suggestion{FilePath: "other.go", NewStart: 2, NewEnd: 2, Lines: []string{"TWO"}}
+	first := Suggestion{
+		FilePath: "greet.go",
+		NewStart: 2,
+		NewEnd:   2,
+		Lines:    []string{"TWO"},
+	}
+	same := Suggestion{
+		FilePath: "greet.go",
+		NewStart: 2,
+		NewEnd:   2,
+		Lines:    []string{"TWO"},
+	}
+	rewritten := Suggestion{
+		FilePath: "greet.go",
+		NewStart: 2,
+		NewEnd:   2,
+		Lines:    []string{"TWO AGAIN"},
+	}
+	elsewhere := Suggestion{
+		FilePath: "other.go",
+		NewStart: 2,
+		NewEnd:   2,
+		Lines:    []string{"TWO"},
+	}
 
 	assert.Equal(t, first.Key(), same.Key())
 	assert.NotEqual(t, first.Key(), rewritten.Key())
@@ -100,8 +174,17 @@ func TestGetRangeAnchorRefusesWhatTheDiffDoesNotDraw(t *testing.T) {
 		OldPath: "greet.go",
 		NewPath: "greet.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
-			diff.Line{Kind: diff.Addition, Text: "added", NewNumber: 2},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "added",
+				NewNumber: 2,
+			},
 		)},
 	}), false)
 
@@ -128,9 +211,18 @@ func TestGetSourceRefusesAFileWithNoTextDrawn(t *testing.T) {
 			OldPath:   "greet.go",
 			NewPath:   "greet.go",
 			NewSource: "package greet\n",
-			Hunks:     []diff.Hunk{hunkOf(diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1})},
+			Hunks: []diff.Hunk{hunkOf(diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			})},
 		},
-		diff.File{OldPath: "logo.png", NewPath: "logo.png", Content: "aaa..bbb"},
+		diff.File{
+			OldPath: "logo.png",
+			NewPath: "logo.png",
+			Content: "aaa..bbb",
+		},
 	), false)
 
 	source, ok := view.GetSource("greet.go")

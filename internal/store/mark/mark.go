@@ -35,7 +35,11 @@ func (s *Store) List(ctx context.Context) ([]Mark, error) {
 
 	marks := make([]Mark, 0, len(rows))
 	for _, row := range rows {
-		marks = append(marks, Mark{Mark: row.Mark, AgentID: row.AgentID, WorkflowID: row.WorkflowID})
+		marks = append(marks, Mark{
+			Mark:       row.Mark,
+			AgentID:    row.AgentID,
+			WorkflowID: row.WorkflowID,
+		})
 	}
 
 	return marks, nil

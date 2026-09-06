@@ -71,7 +71,6 @@ type reviewState struct {
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
 	editing string
-
 	loading bool
 	notice  string
 	// since says how much of the diff is new to the reader, which is a standing fact about what

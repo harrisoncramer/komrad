@@ -21,8 +21,18 @@ func TestEditsAreOneRunApiece(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, edits, 2)
 
-	assert.Equal(t, Edit{Path: "wide.txt", Start: 1, End: 1, Lines: []string{"ONE"}}, edits[0])
-	assert.Equal(t, Edit{Path: "wide.txt", Start: 6, End: 6, Lines: []string{"SIX"}}, edits[1])
+	assert.Equal(t, Edit{
+		Path:  "wide.txt",
+		Start: 1,
+		End:   1,
+		Lines: []string{"ONE"},
+	}, edits[0])
+	assert.Equal(t, Edit{
+		Path:  "wide.txt",
+		Start: 6,
+		End:   6,
+		Lines: []string{"SIX"},
+	}, edits[1])
 }
 
 // TestEditsSpellAnInsertionAsAnEmptyRange covers lines put in without any taken out, which name the
@@ -39,7 +49,12 @@ func TestEditsSpellAnInsertionAsAnEmptyRange(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, edits, 1)
 
-	assert.Equal(t, Edit{Path: "wide.txt", Start: 2, End: 1, Lines: []string{"extra"}}, edits[0])
+	assert.Equal(t, Edit{
+		Path:  "wide.txt",
+		Start: 2,
+		End:   1,
+		Lines: []string{"extra"},
+	}, edits[0])
 }
 
 // TestEditsSpellAnInsertionAtTheTop covers the other edge, where there is no line above the run for
@@ -56,7 +71,12 @@ func TestEditsSpellAnInsertionAtTheTop(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, edits, 1)
 
-	assert.Equal(t, Edit{Path: "wide.txt", Start: 1, End: 0, Lines: []string{"zero"}}, edits[0])
+	assert.Equal(t, Edit{
+		Path:  "wide.txt",
+		Start: 1,
+		End:   0,
+		Lines: []string{"zero"},
+	}, edits[0])
 }
 
 // TestEditsSaysNothingAboutATreeNobodyTouched covers the editor closing on a file nobody saved.

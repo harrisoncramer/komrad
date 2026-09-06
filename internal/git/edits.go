@@ -61,7 +61,12 @@ func editOf(path string, fragment *gitdiff.TextFragment) Edit {
 		}
 	}
 
-	return Edit{Path: path, Start: start + 1, End: start, Lines: addedLines(fragment)}
+	return Edit{
+		Path:  path,
+		Start: start + 1,
+		End:   start,
+		Lines: addedLines(fragment),
+	}
 }
 
 func addedLines(fragment *gitdiff.TextFragment) []string {

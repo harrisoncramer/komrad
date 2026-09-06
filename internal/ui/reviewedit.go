@@ -161,7 +161,11 @@ func (m model) readRoundEditsCmd() tea.Cmd {
 
 		edits, err := git.Edits(ctx, at)
 
-		return roundEditedMsg{agentID: agentID, edits: edits, err: err}
+		return roundEditedMsg{
+			agentID: agentID,
+			edits:   edits,
+			err:     err,
+		}
 	}
 }
 
