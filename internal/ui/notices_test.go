@@ -8,6 +8,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -141,6 +142,21 @@ func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	assert.Contains(t, view, "…")
 	assert.Contains(t, view, "run failed")
 	assert.NotContains(t, view, "opened the log it went to")
+}
+
+// TestNoticesStayInsideTheColumn covers the cut line, which is the one place the record draws
+// prose it does not clip: the ellipsis has to sit inside the column rather than a cell past it.
+func TestNoticesStayInsideTheColumn(t *testing.T) {
+	for width := 16; width <= 120; width++ {
+		m := detailsModel(&recordingTmux{})
+		m.height, m.width = 16, width
+		m.listing.agents[0].failedRun = true
+		m.listing.agents[0].unreadMail = true
+
+		for _, line := range strings.Split(m.detailsView(), "\n") {
+			assert.LessOrEqual(t, lipgloss.Width(line), width, "a notice ran past the column at width %d", width)
+		}
+	}
 }
 
 // TestNoticesLeaveRoomToCountTheFields covers what the record keeps back for the fields: enough

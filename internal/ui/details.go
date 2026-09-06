@@ -238,8 +238,15 @@ func (m model) detailsNotices(held details, budget int) []string {
 func (m model) noticeLines(n notice, most int) []string {
 	const indent = "    "
 
-	wrapped := ansi.Wordwrap(n.text, max(m.lineWidth()-len(indent), 1), "")
-	text := strings.Split(wrapped, "\n")
+	// A notice that is going to be cut keeps a cell back for the ellipsis, since these are the
+	// only lines the record does not clip and one cell past the column is a row the review
+	// screen truncates back, taking the ellipsis with it.
+	width := max(m.lineWidth()-len(indent), 1)
+	if most > 0 {
+		width = max(width-1, 1)
+	}
+
+	text := strings.Split(ansi.Wordwrap(n.text, width, ""), "\n")
 	if most > 0 && len(text) > most {
 		text = text[:most]
 		text[most-1] += "…"
