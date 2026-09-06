@@ -1,5 +1,5 @@
 version: v2.7.0
 destination: local
 plugins:
-  - module: 'agentslinter'
-    path: ./tools/agentslinter
+  - module: 'github.com/harrisoncramer/fussy'
+    version: v0.2.0

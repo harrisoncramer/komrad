@@ -75,7 +75,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: local/custom-gcl
-          key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml', 'tools/agentslinter/**') }}
+          key: custom-gcl-${{ runner.os }}-${{ hashFiles('.custom-gcl.yml') }}
 
       - name: Check
         run: mise run check
