@@ -15,18 +15,8 @@ import (
 	"weave/lib/xslice"
 )
 
-type Cursor struct {
-	ID string `json:"i"`
-}
-
-// Validate checks that the cursor contains a mail ID.
-func (c Cursor) Validate() error {
-	if !store.IsID(c.ID) {
-		return fmt.Errorf("cursor id %q is not an id", c.ID)
-	}
-
-	return nil
-}
+// Cursor pages this listing, which resumes from one row's id.
+type Cursor = store.IDCursor
 
 // Kind tells an agent's own mail, always KindPlain, from a notice weave raises itself.
 type Kind string
