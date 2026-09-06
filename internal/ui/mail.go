@@ -517,7 +517,7 @@ func (m model) mailThreadWord(thread []mailRow) string {
 	}
 
 	last := thread[len(thread)-1]
-	count := fmt.Sprintf("%d %s", len(thread), plural(len(thread), "message"))
+	count := counted(len(thread), "message")
 
 	switch {
 	case !last.sent:
@@ -531,9 +531,17 @@ func (m model) mailThreadWord(thread []mailRow) string {
 	return count + " · waiting on " + m.mailCounterparty(last)
 }
 
+// plural is a word said of a count, taking -es after an ending a bare s would not sit on, since
+// a match is one of those and will not be the last.
 func plural(count int, word string) string {
 	if count == 1 {
 		return word
+	}
+
+	for _, ending := range []string{"ch", "sh", "s", "x", "z"} {
+		if strings.HasSuffix(word, ending) {
+			return word + "es"
+		}
 	}
 
 	return word + "s"
@@ -696,7 +704,7 @@ func (m model) mailCountView() string {
 		waiting++
 	}
 
-	count := fmt.Sprintf("%d %s · %d waiting", len(rows), plural(len(rows), "message"), waiting)
+	count := fmt.Sprintf("%s · %d waiting", counted(len(rows), "message"), waiting)
 	if expired > 0 {
 		count += fmt.Sprintf(" · %d expired", expired)
 	}

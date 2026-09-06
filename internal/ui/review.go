@@ -178,6 +178,14 @@ func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	return int(state)
 }
 
+// setReviewThreads holds the conversation and the probe a refresh compares it against together,
+// since the sidebar counts delivery off the probe and would otherwise draw an empty line against
+// a full list.
+func (m *model) setReviewThreads(threads []*agentv1.ReviewThread) {
+	m.review.threads = threads
+	m.review.activity = reviewActivityOf(threads)
+}
+
 func reviewActivityOf(threads []*agentv1.ReviewThread) reviewActivity {
 	activity := reviewActivity{threads: len(threads)}
 	for _, thread := range threads {
@@ -504,8 +512,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		m.review.adrift = nil
 	}
 
-	m.review.threads = msg.threads
-	m.review.activity = reviewActivityOf(msg.threads)
+	m.setReviewThreads(msg.threads)
 	m.review.round = msg.round
 	m.review.moved = false
 	m.review.since = msg.since
@@ -556,8 +563,7 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 
 // applyReviewThreads draws the review as it now stands, keeping the reader where they were.
 func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
-	m.review.threads = threads
-	m.review.activity = reviewActivityOf(threads)
+	m.setReviewThreads(threads)
 
 	// Where the cursor is standing is taken before the threads are pinned again, since pinning
 	// rebuilds the rows the threads with nowhere to stand are drawn on, and a thread settled or

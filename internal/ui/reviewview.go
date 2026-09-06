@@ -47,26 +47,18 @@ type reviewDelivery struct {
 	style lipgloss.Style
 }
 
-// reviewDeliveries names each state wherever it is drawn, so the count at the top of the sidebar
-// and the badge under a comment read as the same thing, and the mark is the gutter's own where
-// the gutter has one.
-var reviewDeliveries = map[agentv1.ReviewDeliveryState]reviewDelivery{
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT: {
-		word: "unsent", mark: "◇", style: reviewUnsentStyle,
-	},
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT: {
-		word: "waiting", mark: "→", style: reviewSentStyle,
-	},
-	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED: {
-		word: "delivered", mark: "✓", style: reviewDeliveredStyle,
-	},
-}
-
-// reviewDeliveryOf is how a state is drawn, wordless for one this build has nothing to say about,
-// since an enum comes off the wire as whatever number was sent.
+// reviewDeliveryOf is how a state is drawn wherever it appears, so the count at the top of the
+// sidebar, the badge under a comment and the gutter's own mark read as one thing.
 func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
-	if drawn, ok := reviewDeliveries[state]; ok {
-		return drawn
+	switch state {
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
+		return reviewDelivery{word: "unsent", mark: "◇", style: reviewUnsentStyle}
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
+		return reviewDelivery{word: "waiting", mark: "→", style: reviewSentStyle}
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
+		return reviewDelivery{word: "delivered", mark: "✓", style: reviewDeliveredStyle}
+	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
+		return reviewDelivery{style: dimStyle}
 	}
 
 	return reviewDelivery{style: dimStyle}
@@ -308,12 +300,7 @@ func (m model) reviewStatView() string {
 		return ""
 	}
 
-	files := fmt.Sprintf("%d file", stat.Files)
-	if stat.Files != 1 {
-		files += "s"
-	}
-
-	out := dimStyle.Render(files+" changed") + "  " +
+	out := dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 

@@ -1396,3 +1396,31 @@ func TestAViewedFileComesBackInTheNextRound(t *testing.T) {
 	assert.Greater(t, m.review.round.GetOrdinal(), int32(1), "the agent writing opened a round")
 	assert.False(t, m.review.view.IsViewed("greet.go"), "a new round has read nothing yet")
 }
+
+// TestReviewMatchCountSpellsMatchesOffAMatch covers the branch the count falls back to when the
+// cursor is not standing on a hit, which is the only place it says the word rather than a number.
+func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = typeReview(t, m, "/")
+	m = typeReview(t, m, "return")
+
+	next, _ := m.route(tea.KeyMsg{Type: tea.KeyEnter})
+	m = next.(model)
+	require.Equal(t, 2, m.review.view.MatchCount())
+
+	for y := range m.review.view.Len() {
+		if _, on := m.review.view.MatchNumber(y); !on {
+			m.review.cursor = y
+
+			break
+		}
+	}
+
+	_, on := m.review.view.MatchNumber(m.review.cursor)
+	require.False(t, on, "the cursor is standing off every match")
+
+	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), "2 matches")
+}
