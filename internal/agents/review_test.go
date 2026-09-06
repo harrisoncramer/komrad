@@ -121,12 +121,6 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			},
 		},
 		{
-			name: "an agent cannot delete the feedback on its own work",
-			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
-				return service.DeleteReviewThread(ctx, DeleteReviewThreadParams{ID: reviewThreadID, Author: author})
-			},
-		},
-		{
 			name: "an agent cannot settle the feedback on its own work",
 			call: func(ctx context.Context, service *ReviewService, author ReviewAuthor) error {
 				_, err := service.SetReviewThreadResolved(ctx, SetReviewThreadResolvedParams{
@@ -1125,8 +1119,6 @@ func (f *fakeReviewStore) SetThreadResolved(
 	return &thread, nil
 }
 
-func (f *fakeReviewStore) DeleteThread(context.Context, string) error { return nil }
-
 func (f *fakeReviewStore) CreateRound(
 	_ context.Context,
 	params reviewstore.CreateRoundParams,
@@ -1381,8 +1373,6 @@ func (f *fakeReviewStore) ListMessages(_ context.Context, threadIDs []string) ([
 	return messages, nil
 }
 
-func (f *fakeReviewStore) DeleteMessage(context.Context, string) error { return nil }
-
 type fakeNoticeSender struct {
 	sent   []SendNoticeParams
 	answer *mailstore.Mail
@@ -1410,7 +1400,7 @@ func TestReviewThreadMustExist(t *testing.T) {
 	})
 	require.ErrorIs(t, err, ErrReviewThreadNotFound)
 
-	err = service.DeleteReviewThread(t.Context(), DeleteReviewThreadParams{ID: otherAgentID, Author: human})
+	_, err = service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{ID: otherAgentID, Author: human})
 	assert.ErrorIs(t, err, ErrReviewThreadNotFound)
 }
 

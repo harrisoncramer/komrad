@@ -528,7 +528,6 @@ func (m model) reviewHelp() keyMap {
 				binding(keys.Reload, m.reviewReloadDesc()),
 				binding(keys.Resolve, m.reviewResolveDesc()),
 				binding(keys.ToggleViewed, m.reviewViewedDesc()),
-				binding(keys.DeleteThread, "delete the thread"),
 				m.detailsBinding(),
 			},
 			writing,

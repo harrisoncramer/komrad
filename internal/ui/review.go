@@ -659,8 +659,6 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.resolveReviewThread()
 	case isBound(k, keys.ToggleViewed):
 		return m.toggleReviewViewed()
-	case isBound(k, keys.DeleteThread):
-		return m.deleteReviewThread()
 	case isBound(k, m.keys.Form.Submit):
 		return m.releaseReview()
 	}
@@ -1085,21 +1083,6 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 			FilePath: path,
 			Viewed:   viewed,
 		}))
-
-		return err
-	})
-}
-
-func (m model) deleteReviewThread() (tea.Model, tea.Cmd) {
-	thread, ok := m.reviewThreadAtCursor()
-	if !ok {
-		return m, nil
-	}
-
-	agents, id := m.api.agents, thread.GetId()
-
-	return m, m.reviewWriteCmd("thread deleted", func(ctx context.Context) error {
-		_, err := agents.DeleteReviewThread(ctx, connect.NewRequest(&agentv1.DeleteReviewThreadRequest{Id: id}))
 
 		return err
 	})

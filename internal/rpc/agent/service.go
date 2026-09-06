@@ -129,8 +129,6 @@ type reviewConversation interface {
 	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
 	SetReviewThreadResolved(ctx context.Context, params agents.SetReviewThreadResolvedParams) (*reviewstore.Thread, error)
-	DeleteReviewThread(ctx context.Context, params agents.DeleteReviewThreadParams) error
-	DeleteReviewMessage(ctx context.Context, params agents.DeleteReviewMessageParams) error
 	OpenRound(ctx context.Context, agentID string, author agents.ReviewAuthor) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Round, error)
 	ListReviews(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Review, error)

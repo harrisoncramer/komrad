@@ -331,8 +331,6 @@ type ReviewKeys struct {
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose"`
-	// Delete the thread under the cursor, with every message in it.
-	DeleteThread []string `mapstructure:"delete_thread"`
 	// Open the file under the cursor in your editor, on the line the cursor is on.
 	EditFile []string `mapstructure:"edit_file"`
 	// Scroll down half a screen.
@@ -733,7 +731,6 @@ func DefaultKeybindings() Keybindings {
 		Review: ReviewKeys{
 			Back:         []string{"esc"},
 			Compose:      []string{"c"},
-			DeleteThread: []string{"D"},
 			EditFile:     []string{"e"},
 			HalfPageDown: []string{"ctrl+d"},
 			HalfPageUp:   []string{"ctrl+u"},

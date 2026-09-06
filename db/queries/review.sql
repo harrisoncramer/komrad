@@ -249,10 +249,6 @@ WHERE
 RETURNING
     *;
 
--- name: DeleteReviewThread :exec
-DELETE FROM review_threads
-WHERE id = @id;
-
 -- name: InsertReviewMessage :one
 WITH written AS (
     INSERT INTO review_messages(
@@ -350,10 +346,6 @@ WHERE
 ORDER BY
     m.thread_id,
     m.id;
-
--- name: DeleteReviewMessage :exec
-DELETE FROM review_messages
-WHERE id = @id;
 
 -- name: MarkReviewFileViewed :one
 INSERT INTO review_viewed_files(

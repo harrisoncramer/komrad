@@ -47,26 +47,6 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteReviewMessage = `-- name: DeleteReviewMessage :exec
-DELETE FROM review_messages
-WHERE id = $1
-`
-
-func (q *Queries) DeleteReviewMessage(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteReviewMessage, id)
-	return err
-}
-
-const deleteReviewThread = `-- name: DeleteReviewThread :exec
-DELETE FROM review_threads
-WHERE id = $1
-`
-
-func (q *Queries) DeleteReviewThread(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteReviewThread, id)
-	return err
-}
-
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one
 SELECT
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at

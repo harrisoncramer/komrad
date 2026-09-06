@@ -470,12 +470,6 @@ service AgentService {
   rpc SetReviewThreadResolved(SetReviewThreadResolvedRequest) returns (SetReviewThreadResolvedResponse) {
     option idempotency_level = IDEMPOTENT;
   }
-  rpc DeleteReviewThread(DeleteReviewThreadRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-  }
-  rpc DeleteReviewMessage(DeleteReviewMessageRequest) returns (google.protobuf.Empty) {
-    option idempotency_level = IDEMPOTENT;
-  }
   rpc OpenReviewRound(OpenReviewRoundRequest) returns (OpenReviewRoundResponse) {
     option (annotation.v1.tool) = {
       tool_name: "open_review_round"

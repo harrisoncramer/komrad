@@ -38,7 +38,6 @@ type reviewThreadReadWriter interface {
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
 	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
 	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
-	DeleteThread(ctx context.Context, id string) error
 }
 
 // reviewMessageReadWriter is the other half: what was said in those conversations, and how far
@@ -48,7 +47,6 @@ type reviewMessageReadWriter interface {
 	EditMessage(ctx context.Context, id, body string, suggestion []string) (*reviewstore.Message, error)
 	GetMessage(ctx context.Context, id string) (*reviewstore.Message, error)
 	ListMessages(ctx context.Context, threadIDs []string) ([]reviewstore.Message, error)
-	DeleteMessage(ctx context.Context, id string) error
 }
 
 // reviewViewedFileReadWriter is the record of which files the person reviewing has read, kept
@@ -429,40 +427,6 @@ func (s *ReviewService) ListReviewViewedFiles(
 	}
 
 	return s.viewed.ListViewedFiles(ctx, params.RoundID)
-}
-
-type DeleteReviewThreadParams struct {
-	ID     string
-	Author ReviewAuthor
-}
-
-// DeleteReviewThread removes a thread and everything said in it, which only the person reviewing
-// may do.
-func (s *ReviewService) DeleteReviewThread(ctx context.Context, params DeleteReviewThreadParams) error {
-	if !params.Author.IsHuman() {
-		return fmt.Errorf("%w: deleting a review thread", ErrReviewHumanOnly)
-	}
-
-	if err := s.requireOwnThread(ctx, params.ID, params.Author); err != nil {
-		return err
-	}
-
-	return s.threads.DeleteThread(ctx, params.ID)
-}
-
-type DeleteReviewMessageParams struct {
-	ID     string
-	Author ReviewAuthor
-}
-
-// DeleteReviewMessage removes one message, leaving the thread it was in, which only its author
-// may do.
-func (s *ReviewService) DeleteReviewMessage(ctx context.Context, params DeleteReviewMessageParams) error {
-	if err := s.requireOwnMessage(ctx, params.ID, params.Author); err != nil {
-		return err
-	}
-
-	return s.messages.DeleteMessage(ctx, params.ID)
 }
 
 // interrupt stops the agent where it stands, and failing to is no reason to withhold the

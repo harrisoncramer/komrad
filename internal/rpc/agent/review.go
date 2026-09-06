@@ -12,7 +12,6 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"connectrpc.com/connect"
-	"google.golang.org/protobuf/types/known/emptypb"
 )
 
 // ListReviewThreads reads the review pinned to an agent's diff.
@@ -142,38 +141,6 @@ func (s *Service) SetReviewThreadResolved(
 	return connect.NewResponse(&agentv1.SetReviewThreadResolvedResponse{
 		Thread: toReviewThread(agents.ReviewThreadWithMessages{Thread: *thread}),
 	}), nil
-}
-
-// DeleteReviewThread removes a thread and everything said in it.
-func (s *Service) DeleteReviewThread(
-	ctx context.Context,
-	req *connect.Request[agentv1.DeleteReviewThreadRequest],
-) (*connect.Response[emptypb.Empty], error) {
-	err := s.review.DeleteReviewThread(ctx, agents.DeleteReviewThreadParams{
-		ID:     req.Msg.GetId(),
-		Author: reviewAuthorFrom(ctx),
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to delete the review thread")
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
-}
-
-// DeleteReviewMessage removes one message, leaving the thread it was in.
-func (s *Service) DeleteReviewMessage(
-	ctx context.Context,
-	req *connect.Request[agentv1.DeleteReviewMessageRequest],
-) (*connect.Response[emptypb.Empty], error) {
-	err := s.review.DeleteReviewMessage(ctx, agents.DeleteReviewMessageParams{
-		ID:     req.Msg.GetId(),
-		Author: reviewAuthorFrom(ctx),
-	})
-	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to delete the review message")
-	}
-
-	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
 // OpenReviewRound freezes what an agent has written and records it as its next round.

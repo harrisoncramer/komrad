@@ -27,8 +27,6 @@ var noToolSurface = map[protoreflect.Name]bool{
 	"SetMark":                 true,
 	"MarkRunsRead":            true,
 	"EditReviewMessage":       true,
-	"DeleteReviewThread":      true,
-	"DeleteReviewMessage":     true,
 	"MarkReviewThreadRead":    true,
 	"SetReviewThreadResolved": true,
 	"ListReviews":             true,

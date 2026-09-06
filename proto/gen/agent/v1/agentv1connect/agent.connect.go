@@ -111,12 +111,6 @@ const (
 	// AgentServiceSetReviewThreadResolvedProcedure is the fully-qualified name of the AgentService's
 	// SetReviewThreadResolved RPC.
 	AgentServiceSetReviewThreadResolvedProcedure = "/agent.v1.AgentService/SetReviewThreadResolved"
-	// AgentServiceDeleteReviewThreadProcedure is the fully-qualified name of the AgentService's
-	// DeleteReviewThread RPC.
-	AgentServiceDeleteReviewThreadProcedure = "/agent.v1.AgentService/DeleteReviewThread"
-	// AgentServiceDeleteReviewMessageProcedure is the fully-qualified name of the AgentService's
-	// DeleteReviewMessage RPC.
-	AgentServiceDeleteReviewMessageProcedure = "/agent.v1.AgentService/DeleteReviewMessage"
 	// AgentServiceOpenReviewRoundProcedure is the fully-qualified name of the AgentService's
 	// OpenReviewRound RPC.
 	AgentServiceOpenReviewRoundProcedure = "/agent.v1.AgentService/OpenReviewRound"
@@ -168,8 +162,6 @@ type AgentServiceClient interface {
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
-	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
-	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
 	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
@@ -383,20 +375,6 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyIdempotent),
 			connect.WithClientOptions(opts...),
 		),
-		deleteReviewThread: connect.NewClient[v1.DeleteReviewThreadRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceDeleteReviewThreadProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("DeleteReviewThread")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
-			connect.WithClientOptions(opts...),
-		),
-		deleteReviewMessage: connect.NewClient[v1.DeleteReviewMessageRequest, emptypb.Empty](
-			httpClient,
-			baseURL+AgentServiceDeleteReviewMessageProcedure,
-			connect.WithSchema(agentServiceMethods.ByName("DeleteReviewMessage")),
-			connect.WithIdempotency(connect.IdempotencyIdempotent),
-			connect.WithClientOptions(opts...),
-		),
 		openReviewRound: connect.NewClient[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse](
 			httpClient,
 			baseURL+AgentServiceOpenReviewRoundProcedure,
@@ -468,8 +446,6 @@ type agentServiceClient struct {
 	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
 	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
 	setReviewThreadResolved *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
-	deleteReviewThread      *connect.Client[v1.DeleteReviewThreadRequest, emptypb.Empty]
-	deleteReviewMessage     *connect.Client[v1.DeleteReviewMessageRequest, emptypb.Empty]
 	openReviewRound         *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
 	listReviewRounds        *connect.Client[v1.ListReviewRoundsRequest, v1.ListReviewRoundsResponse]
 	listReviews             *connect.Client[v1.ListReviewsRequest, v1.ListReviewsResponse]
@@ -623,16 +599,6 @@ func (c *agentServiceClient) SetReviewThreadResolved(ctx context.Context, req *c
 	return c.setReviewThreadResolved.CallUnary(ctx, req)
 }
 
-// DeleteReviewThread calls agent.v1.AgentService.DeleteReviewThread.
-func (c *agentServiceClient) DeleteReviewThread(ctx context.Context, req *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.deleteReviewThread.CallUnary(ctx, req)
-}
-
-// DeleteReviewMessage calls agent.v1.AgentService.DeleteReviewMessage.
-func (c *agentServiceClient) DeleteReviewMessage(ctx context.Context, req *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error) {
-	return c.deleteReviewMessage.CallUnary(ctx, req)
-}
-
 // OpenReviewRound calls agent.v1.AgentService.OpenReviewRound.
 func (c *agentServiceClient) OpenReviewRound(ctx context.Context, req *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error) {
 	return c.openReviewRound.CallUnary(ctx, req)
@@ -694,8 +660,6 @@ type AgentServiceHandler interface {
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
-	DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error)
-	DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
 	ListReviewRounds(context.Context, *connect.Request[v1.ListReviewRoundsRequest]) (*connect.Response[v1.ListReviewRoundsResponse], error)
 	ListReviews(context.Context, *connect.Request[v1.ListReviewsRequest]) (*connect.Response[v1.ListReviewsResponse], error)
@@ -905,20 +869,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyIdempotent),
 		connect.WithHandlerOptions(opts...),
 	)
-	agentServiceDeleteReviewThreadHandler := connect.NewUnaryHandler(
-		AgentServiceDeleteReviewThreadProcedure,
-		svc.DeleteReviewThread,
-		connect.WithSchema(agentServiceMethods.ByName("DeleteReviewThread")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
-		connect.WithHandlerOptions(opts...),
-	)
-	agentServiceDeleteReviewMessageHandler := connect.NewUnaryHandler(
-		AgentServiceDeleteReviewMessageProcedure,
-		svc.DeleteReviewMessage,
-		connect.WithSchema(agentServiceMethods.ByName("DeleteReviewMessage")),
-		connect.WithIdempotency(connect.IdempotencyIdempotent),
-		connect.WithHandlerOptions(opts...),
-	)
 	agentServiceOpenReviewRoundHandler := connect.NewUnaryHandler(
 		AgentServiceOpenReviewRoundProcedure,
 		svc.OpenReviewRound,
@@ -1016,10 +966,6 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceMarkReviewThreadReadHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewThreadResolvedProcedure:
 			agentServiceSetReviewThreadResolvedHandler.ServeHTTP(w, r)
-		case AgentServiceDeleteReviewThreadProcedure:
-			agentServiceDeleteReviewThreadHandler.ServeHTTP(w, r)
-		case AgentServiceDeleteReviewMessageProcedure:
-			agentServiceDeleteReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceOpenReviewRoundProcedure:
 			agentServiceOpenReviewRoundHandler.ServeHTTP(w, r)
 		case AgentServiceListReviewRoundsProcedure:
@@ -1155,14 +1101,6 @@ func (UnimplementedAgentServiceHandler) MarkReviewThreadRead(context.Context, *c
 
 func (UnimplementedAgentServiceHandler) SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.SetReviewThreadResolved is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) DeleteReviewThread(context.Context, *connect.Request[v1.DeleteReviewThreadRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteReviewThread is not implemented"))
-}
-
-func (UnimplementedAgentServiceHandler) DeleteReviewMessage(context.Context, *connect.Request[v1.DeleteReviewMessageRequest]) (*connect.Response[emptypb.Empty], error) {
-	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.DeleteReviewMessage is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error) {

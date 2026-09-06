@@ -287,19 +287,6 @@ func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool)
 	return &thread, nil
 }
 
-// DeleteThread removes a thread and every message in it.
-func (s *Store) DeleteThread(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
-	if err := s.queries.DeleteReviewThread(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete the review thread %q: %w", id, err)
-	}
-
-	return nil
-}
-
 type AddMessageParams struct {
 	ThreadID string
 	// ReviewID is the batch the message goes out with, nil for an answer.
@@ -430,19 +417,6 @@ func (s *Store) ListMessages(ctx context.Context, threadIDs []string) ([]Message
 	}
 
 	return messages, nil
-}
-
-// DeleteMessage removes one message, leaving the thread it was in.
-func (s *Store) DeleteMessage(ctx context.Context, id string) error {
-	if !store.IsID(id) {
-		return nil
-	}
-
-	if err := s.queries.DeleteReviewMessage(ctx, id); err != nil {
-		return fmt.Errorf("failed to delete the review message %q: %w", id, err)
-	}
-
-	return nil
 }
 
 // ViewedFile is one file of a round the person reviewing has read, and a later round is a row of

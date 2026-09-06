@@ -209,14 +209,6 @@ message SetReviewThreadResolvedResponse {
   ReviewThread thread = 1;
 }
 
-message DeleteReviewThreadRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
-message DeleteReviewMessageRequest {
-  string id = 1 [(buf.validate.field).string.min_len = 1];
-}
-
 // OpenReviewRoundRequest freezes what an agent has written now and records it as its next
 // round. A tree that has not moved since the last round is that round again rather than a new
 // one, so opening the diff twice does not walk the ordinal on.
