@@ -34,15 +34,30 @@ func reviewSplitOf(width, rows, sidebar int) (reviewSplit, bool) {
 	return reviewSplit{diff: width - sidebar, sidebar: sidebar, rows: rows}, true
 }
 
-// reviewSplit is the window the review is drawn across, false while the screen is not up, the
-// patch has not arrived, the frame is sharing the window with a pane of somebody else's, or what
-// it holds is too narrow to carry both halves.
-func (m model) reviewSplit() (reviewSplit, bool) {
+// reviewColumns is how wide each half of the window is, and carries no row count because the
+// band above the diff is drawn from the panel's own width and would ask this its own question.
+func (m model) reviewColumns() (reviewSplit, bool) {
 	if m.screen != screenReview || m.review.view == nil || !m.frame.IsSolo() {
 		return reviewSplit{}, false
 	}
 
 	return reviewSplitOf(m.width, m.height-m.bannerLines(), m.frame.SidebarWidth(m.width))
+}
+
+// reviewSplit is the window the review is drawn across, false while the screen is not up, the
+// patch has not arrived, the frame is sharing the window with a pane of somebody else's, or what
+// it holds is too narrow to carry both halves.
+func (m model) reviewSplit() (reviewSplit, bool) {
+	split, ok := m.reviewColumns()
+	if !ok {
+		return split, false
+	}
+
+	// The band stands on the diff's own rows rather than the window's, so what is left is what
+	// the patch is drawn in and what the cursor is scrolled against.
+	split.rows = max(split.rows-strings.Count(m.reviewBandView(split.diff), "\n"), 1)
+
+	return split, true
 }
 
 // reviewDiffView is the screenful of the patch beside the sidebar, starting at top, with the
@@ -80,7 +95,7 @@ func (m model) reviewDiffView(split reviewSplit) string {
 // paneWidth is the column the panel draws its own list, record and help in, which is the whole
 // pane except while the review is holding the window and drawing the diff beside itself.
 func (m model) paneWidth() int {
-	if split, ok := m.reviewSplit(); ok {
+	if split, ok := m.reviewColumns(); ok {
 		return split.sidebar
 	}
 

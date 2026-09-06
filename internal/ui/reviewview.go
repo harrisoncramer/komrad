@@ -85,12 +85,15 @@ func (m model) reviewView() string {
 
 	split, ok := m.reviewSplit()
 	if !ok {
-		return sidebar
+		return m.reviewBandView(m.paneWidth()) + sidebar
 	}
 
 	sidebar = fitColumn(sidebar, split.sidebar)
 
-	diff := m.reviewDiffView(split)
+	// The band stands over the diff rather than over the whole window, since what it carries acts
+	// on the patch: a pattern typed above the sidebar reads as though it searched the conversation.
+	diff := m.reviewBandView(split.diff) + m.reviewDiffView(split)
+
 	if m.frame.IsSidebarOnRight() {
 		return lipgloss.JoinHorizontal(lipgloss.Top, diff, sidebar)
 	}
@@ -98,26 +101,33 @@ func (m model) reviewView() string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, diff)
 }
 
+// reviewBandView is what stands over the diff: what is being read, how big it is, what the reader
+// has sent, and the pattern they are searching it for.
+func (m model) reviewBandView(width int) string {
+	out := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
+		m.reviewStatView() +
+		m.reviewDeliveryView() + "\n\n" +
+		m.review.filter.view() + m.reviewMatchCount()
+
+	if m.review.view != nil && m.review.view.Len() > 0 {
+		out += m.reviewDeadView(width) + m.reviewStaleView(width)
+	}
+
+	return out
+}
+
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
 // hanging off it.
 func (m model) reviewSidebarView() string {
-	header := m.reviewHeader()
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	rest := tailRows(m.reviewRestView(), m.listLines(header, help, record, head))
+	rest := tailRows(m.reviewRestView(), m.listLines(help, record, head))
 
-	return header + padRows(head+rest, m.listLines(header, help, record)) + record + help
-}
-
-func (m model) reviewHeader() string {
-	return m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
-		m.reviewStatView() +
-		m.reviewDeliveryView() + "\n\n" +
-		m.review.filter.view() + m.reviewMatchCount()
+	return padRows(head+rest, m.listLines(help, record)) + record + help
 }
 
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken its
@@ -128,7 +138,7 @@ func (m model) doesReviewFitDetails() bool {
 	// only ever taken by a key handler and so a copy that starts unfocused stays that way.
 	m.details.focused = false
 
-	spare := m.spareLines(m.reviewHeader(), m.renderHelp(m.reviewHelp()), m.reviewHeadView())
+	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView())
 
 	return spare > m.detailsLines()+detailsChromeLines
 }
@@ -145,37 +155,37 @@ func (m model) reviewHeadView() string {
 		return dimStyle.Render("nothing changed in this worktree") + "\n"
 	}
 
-	return m.reviewDeadView() + m.reviewStaleView() + m.reviewAnchorView()
+	return m.reviewAnchorView()
 }
 
 // reviewDeadView says there is nobody on the other end, since the diff opens for an agent that
 // cannot be written to and every key that would write is refused there.
-func (m model) reviewDeadView() string {
+func (m model) reviewDeadView(width int) string {
 	reason, dead := m.reviewIsReadOnly()
 	if !dead {
 		return ""
 	}
 
-	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
+	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
 // reviewStaleView is the bar saying the worktree has been written to since this round was taken,
 // naming the worktree rather than the agent because a snapshot records what a tree holds and never
 // who put it there.
-func (m model) reviewStaleView() string {
+func (m model) reviewStaleView(width int) string {
 	if !m.review.moved {
 		return ""
 	}
 
 	line := " THE WORKTREE HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
 
-	return reviewStaleStyle.Render(m.reviewFill(line)) + "\n"
+	return reviewStaleStyle.Render(reviewFill(line, width)) + "\n"
 }
 
-// reviewFill pads a line out to the sidebar's width, so a background colour reads as a bar
-// rather than as a highlighted phrase.
-func (m model) reviewFill(line string) string {
-	width := max(20, m.paneWidth()-2)
+// reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
+// than as a highlighted phrase.
+func reviewFill(line string, pane int) string {
+	width := max(20, pane-2)
 	if run := lipgloss.Width(line); run < width {
 		line += strings.Repeat(" ", width-run)
 	}

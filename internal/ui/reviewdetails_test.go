@@ -123,7 +123,8 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 }
 
 // TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped, since
-// this sidebar carries a head and a conversation the lists do not.
+// this sidebar carries a head and a conversation the lists do not and the open legend takes the
+// rows the record would have wanted.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -131,7 +132,8 @@ func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 
 	require.Contains(t, ansi.Strip(m.reviewView()), "agent_id", "the record draws at full height")
 
-	m.height = 12
+	m.helpExpanded = true
+	m.height = 20
 	view := m.reviewView()
 
 	assert.NotContains(t, ansi.Strip(view), "Agent: auth", "and gives way rather than running past the pane")
@@ -145,6 +147,7 @@ func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
+	m.helpExpanded = true
 	m.height = 12
 
 	require.Positive(t, m.detailsLines(), "the pane would hold a record, for this to prove anything")
@@ -171,6 +174,7 @@ func TestReviewRecordGivesTheKeysBackWhenThePaneShrinks(t *testing.T) {
 	focused := next.(model)
 	require.True(t, focused.isDetailsFocused())
 
+	focused.helpExpanded = true
 	focused.height = 12
 	require.NotContains(t, ansi.Strip(focused.reviewView()), "Agent: auth")
 	assert.False(t, focused.isDetailsFocused(), "the record went, so the keys came back")
@@ -281,8 +285,8 @@ func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
 		side string
 		want string
 	}{
-		{name: "the default puts the panel on the left", side: config.SidebarSideLeft, want: "Review · auth"},
-		{name: "and the diff takes that side when it is asked to", side: config.SidebarSideRight, want: "greet.go"},
+		{name: "the default puts the panel on the left", side: config.SidebarSideLeft, want: "greet.go:1"},
+		{name: "and the diff takes that side when it is asked to", side: config.SidebarSideRight, want: "Review · auth"},
 	}
 
 	for _, tt := range tests {
@@ -293,6 +297,8 @@ func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
 			m.frame.Attach("%0")
 			m = openReview(t, m)
 
+			// The band stands over the diff, so the top row opens with the sidebar's own first line
+			// when the panel is on the left and with the band's title when it is on the right.
 			first, _, _ := strings.Cut(reviewFrameText(t, m), "\n")
 			assert.True(t, strings.HasPrefix(first, tt.want), "the top row opens with %q: %q", tt.want, first)
 		})
