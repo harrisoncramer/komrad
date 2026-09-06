@@ -58,12 +58,8 @@ type reviewState struct {
 	// filter so a pattern meant for code does not empty that list.
 	filter filterState
 
-	// pending is the recentring prefix waiting on the key that completes it, which is the one
-	// gesture in the panel a rebinding cannot reach, since a binding is one key and this is two.
-	pending string
-
-	// pinTop holds the window where zt or zb put it until the cursor moves, since the next repaint
-	// would otherwise drag it back to keep the cursor clear of the edge.
+	// pinTop holds the window where a file jump put it until the cursor moves, since the next
+	// repaint would otherwise drag it back to keep the cursor clear of the edge.
 	pinTop bool
 
 	// pinFloor is the row a file jump put at the top of the pane, which the window stays at or
@@ -561,7 +557,7 @@ func (m model) reviewStageArgv(path string) []string {
 // doesTakeEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
 // the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {
-	return r.composing || r.filter.typing || r.pending != ""
+	return r.composing || r.filter.typing
 }
 
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -574,10 +570,6 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	k := key.String()
-
-	if m.review.pending != "" {
-		return m.updateReviewPending(k)
-	}
 	keys := m.keys.Review
 
 	if m.review.view == nil {
@@ -637,10 +629,6 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.jumpReviewMatch(1)
 	case isBound(k, keys.PrevMatch):
 		return m.jumpReviewMatch(-1)
-	case k == recentrePrefix:
-		m.review.pending = recentrePrefix
-
-		return m, nil
 	case isBound(k, keys.PanRight):
 		return m.panReview(m.reviewPanStep())
 	case isBound(k, keys.PanLeft):
@@ -682,41 +670,6 @@ func isReviewWrite(k string, keys config.Keybindings) bool {
 	return isBound(k, keys.Review.Compose) ||
 		isBound(k, keys.Review.Approve) ||
 		isBound(k, keys.Form.Submit)
-}
-
-// recentrePrefix opens the vim recentring chord, zz, zt and zb, which is left as vim spells it.
-const recentrePrefix = "z"
-
-// updateReviewPending answers the key after the recentring prefix, which decides where in the
-// pane the cursor's own row is put.
-func (m model) updateReviewPending(k string) (tea.Model, tea.Cmd) {
-	m.review.pending = ""
-
-	height := m.review.frames.height
-	if height <= 0 {
-		return m, nil
-	}
-
-	switch k {
-	case "z":
-		return m.putReviewWindow(m.review.cursor - height/2)
-	case "t":
-		return m.putReviewWindow(m.review.cursor)
-	case "b":
-		return m.putReviewWindow(m.review.cursor - height + 1)
-	}
-
-	return m, nil
-}
-
-// putReviewWindow scrolls the diff so the cursor's row lands where a recentring key asked for,
-// without moving the cursor itself.
-func (m model) putReviewWindow(top int) (tea.Model, tea.Cmd) {
-	m.review.top = max(min(top, m.review.view.Len()-1), 0)
-	m.review.pinTop = true
-	m.stageReview()
-
-	return m, nil
 }
 
 // updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn
@@ -846,7 +799,7 @@ func (m *model) scrollReviewToCursor() {
 		return
 	}
 
-	// A recentring key has already said where the window goes, and the margin below would drag it
+	// A file jump has already said where the window goes, and the margin below would drag it
 	// straight back off what it was asked to show.
 	if m.review.pinTop {
 		return

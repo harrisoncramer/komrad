@@ -324,7 +324,7 @@ type MailKeys struct {
 // threads are in the sidebar. Paging and panning are the screen's own, since the shared
 // navigation keys move the cursor a row at a time. While a message is being composed or a
 // pattern typed, every other key is a character, so the keys that close those are fixed rather
-// than configured, as is the vim recentring chord zz, zt, zb.
+// than configured.
 type ReviewKeys struct {
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back"`

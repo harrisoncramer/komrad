@@ -522,7 +522,6 @@ func (m model) reviewHelp() keyMap {
 				pairBinding(keys.NextThread, keys.PrevThread, "next/previous thread"),
 				binding(m.keys.Filter.Open, "search"),
 				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),
-				binding([]string{recentrePrefix + "z", recentrePrefix + "t", recentrePrefix + "b"}, "recentre the view"),
 				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
 				binding(keys.EditFile, m.reviewEditorDesc()),
 				binding(keys.Reload, m.reviewReloadDesc()),

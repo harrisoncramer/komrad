@@ -162,10 +162,6 @@ func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 			name:  "a search pattern is being typed",
 			start: func(m *model) { m.review.filter.typing = true },
 		},
-		{
-			name:  "a recentring chord is half pressed",
-			start: func(m *model) { m.review.pending = recentrePrefix },
-		},
 	}
 
 	for _, tt := range tests {
@@ -230,7 +226,7 @@ func TestReviewRefreshKeepsThePlace(t *testing.T) {
 	next, _ := m.panReview(12)
 	m = next.(model)
 
-	moved, _ := m.putReviewWindow(1)
+	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = moved.(model)
 
 	cursor, top, pan := m.review.cursor, m.review.top, m.review.pan

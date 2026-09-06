@@ -1153,31 +1153,6 @@ func TestReviewSearchPaintsWhatItFound(t *testing.T) {
 	assert.Contains(t, reviewStageText(t), "package greet", "and the line still reads the same")
 }
 
-// TestReviewRecentringHoldsTheWindow covers zt overriding the scroll margin, which otherwise
-// drags the window back to keep the cursor clear of the edge.
-func TestReviewRecentringHoldsTheWindow(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	require.Positive(t, m.review.frames.height)
-
-	for range 3 {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-		m = next.(model)
-	}
-
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("z")})
-	m = next.(model)
-	require.Equal(t, "z", m.review.pending, "z waits for the key that says where")
-
-	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("t")})
-	m = next.(model)
-
-	assert.Empty(t, m.review.pending)
-	assert.Equal(t, m.review.cursor, m.review.top, "zt puts the cursor's row at the top")
-}
-
 // TestReviewComposerOwnsTheKeyboard covers typing a message: while the editor is up nothing
 // global is bound, so a key that means something on the screen behind it is just a character.
 func TestReviewComposerOwnsTheKeyboard(t *testing.T) {
@@ -1242,36 +1217,36 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 	assert.Equal(t, "no matches", m.review.notice)
 }
 
-// TestReviewRecentringSurvivesARepaint covers a recentred window holding, since the scroll
-// margin runs on every repaint rather than only on a move.
-func TestReviewRecentringSurvivesARepaint(t *testing.T) {
+// TestReviewFileJumpSurvivesARepaint covers a window pinned by a file jump holding, since the
+// scroll margin runs on every repaint rather than only on a move and would otherwise drag the
+// file's first row back off the top.
+func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	dir := reviewRepo(t)
+
+	// A jump needs somewhere to land, and the repository the other tests share holds one file.
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "second.go"),
+		[]byte("package greet\n\nfunc Second() string {\n\treturn \"second\"\n}\n"), 0o644))
+
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	for range 6 {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
-		m = next.(model)
-	}
-
-	for _, key := range []string{"z", "t"} {
-		next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
-		m = next.(model)
-	}
-
-	require.Equal(t, m.review.cursor, m.review.top)
-
-	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("]")})
 	m = next.(model)
-	assert.Equal(t, m.review.cursor, m.review.top, "panning redraws the same rows and must not move them")
+
+	pinned := m.review.top
+	require.True(t, m.review.pinTop, "a file jump says where the window goes")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
+	m = next.(model)
+	assert.Equal(t, pinned, m.review.top, "panning redraws the same rows and must not move them")
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: nil})
-	assert.Equal(t, m.review.cursor, m.review.top, "and neither does a write landing")
+	assert.Equal(t, pinned, m.review.top, "and neither does a write landing")
 
 	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
 	m = next.(model)
-	assert.Less(t, m.review.top, m.review.cursor, "moving the cursor hands the window back to the margin")
+	assert.False(t, m.review.pinTop, "moving the cursor hands the window back to the margin")
 }
 
 // TestReviewSearchLeavesTheAgentsListAlone covers the review keeping its own filter, since the

@@ -182,8 +182,6 @@ back           = ["esc"]
 # Write a message on the line under the cursor, replying in the thread already there
 # or opening a new one.
 compose        = ["c"]
-# Delete the thread under the cursor, with every message in it.
-delete_thread  = ["D"]
 # Open the file under the cursor in your editor, on the line the cursor is on.
 edit_file      = ["e"]
 # Scroll down half a screen.
