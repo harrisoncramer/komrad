@@ -107,7 +107,7 @@ func TestReviewRefreshSeesDeliveryMoveWithoutAStamp(t *testing.T) {
 			m.applyReviewRefreshed(reviewRefreshedMsg{agentID: "a1", threads: moved})
 
 			assert.NotEmpty(t, tmux.sentKeys, "the screen is drawn again")
-			assert.Contains(t, ansi.Strip(m.reviewView()), reviewDeliveryWord(tt.then))
+			assert.Contains(t, ansi.Strip(m.reviewView()), reviewDeliveryOf(tt.then).word)
 		})
 	}
 }
@@ -318,30 +318,6 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 
 	_, jumped := next.review.view.JumpMatch(next.review.cursor, 1)
 	assert.True(t, jumped, "the search still has rows to step through")
-}
-
-// TestReviewReloadDiffKeepsTheSearch covers the reload key stepping to the next round without
-// losing the search the reader had running.
-func TestReviewReloadDiffKeepsTheSearch(t *testing.T) {
-	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
-
-	m.review.filter.setQuery("hello")
-	m.searchReview()
-	matches := m.review.view.MatchCount()
-	require.Positive(t, matches)
-
-	stepped, cmd := m.reloadReviewDiff()
-	m = stepped.(model)
-	require.NotNil(t, cmd)
-
-	loaded, ok := cmd().(reviewLoadedMsg)
-	require.True(t, ok)
-	m.applyReviewLoaded(loaded)
-
-	assert.Equal(t, matches, m.review.view.MatchCount())
-	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), fmt.Sprintf("1 of %d", matches))
 }
 
 // TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed, since the

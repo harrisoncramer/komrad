@@ -39,53 +39,29 @@ var reviewDeliveryOrder = []agentv1.ReviewDeliveryState{
 	agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED,
 }
 
-// reviewDeliveryWord is what each state is called wherever it is drawn, so the count at the top
-// of the sidebar and the badge under a comment read as the same thing.
-func reviewDeliveryWord(state agentv1.ReviewDeliveryState) string {
-	switch state {
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
-		return "unsent"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return "waiting"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
-		return "delivered"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
-		return ""
-	}
-
-	return ""
+// reviewDelivery is how one delivery state is drawn: what it is called, the glyph a badge opens
+// with, and the colour both of those carry.
+type reviewDelivery struct {
+	word  string
+	mark  string
+	style lipgloss.Style
 }
 
-func reviewDeliveryStyle(state agentv1.ReviewDeliveryState) lipgloss.Style {
+// reviewDeliveryOf is how a state is drawn wherever it appears, so the count at the top of the
+// sidebar, the badge under a comment and the gutter's own mark read as one thing.
+func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	switch state {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
-		return reviewUnsentStyle
+		return reviewDelivery{word: "unsent", mark: "◇", style: reviewUnsentStyle}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return reviewSentStyle
+		return reviewDelivery{word: "waiting", mark: "→", style: reviewSentStyle}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
-		return reviewDeliveredStyle
+		return reviewDelivery{word: "delivered", mark: "✓", style: reviewDeliveredStyle}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
-		return dimStyle
+		return reviewDelivery{style: dimStyle}
 	}
 
-	return dimStyle
-}
-
-// reviewDeliveryMark is the glyph a badge opens with, the same one the gutter uses where the
-// gutter has one, so a mark beside a line and a badge under a comment are read together.
-func reviewDeliveryMark(state agentv1.ReviewDeliveryState) string {
-	switch state {
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
-		return "◇"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return "→"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
-		return "✓"
-	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
-		return ""
-	}
-
-	return ""
+	return reviewDelivery{style: dimStyle}
 }
 
 // reviewView draws the sidebar while the review is up, which is the thread the cursor is
@@ -230,15 +206,6 @@ func (m model) reviewAnchorView() string {
 	return m.nameStyle(true, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
 }
 
-// countedLines is how many lines a suggestion puts in place of the range it covers.
-func countedLines(count int) string {
-	if count == 1 {
-		return "1 line"
-	}
-
-	return fmt.Sprintf("%d lines", count)
-}
-
 // heldSuggestion is the edit the next comment would carry, which is the front of the queue since
 // the reviewer answers for one at a time.
 func (m model) heldSuggestion() (pendingSuggestion, bool) {
@@ -265,7 +232,7 @@ func describeAdriftEdits(adrift []review.Suggestion) string {
 func (m model) describeSuggestion(held pendingSuggestion) string {
 	line := fmt.Sprintf("edit held for %s (%s)",
 		review.FormatLocation(held.anchor.FilePath, held.anchor.OldStart, held.anchor.NewStart),
-		countedLines(len(held.lines)))
+		counted(len(held.lines), "line"))
 
 	if waiting := len(m.review.suggestions) - 1; waiting > 0 {
 		line += fmt.Sprintf(", %d more behind it", waiting)
@@ -303,8 +270,6 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 		return "request changes"
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
 		return "comment only"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-		return "comment only"
 	default:
 		return "comment only"
 	}
@@ -335,12 +300,7 @@ func (m model) reviewStatView() string {
 		return ""
 	}
 
-	files := fmt.Sprintf("%d file", stat.Files)
-	if stat.Files != 1 {
-		files += "s"
-	}
-
-	out := dimStyle.Render(files+" changed") + "  " +
+	out := dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 
@@ -358,7 +318,7 @@ func (m model) reviewMatchCount() string {
 		return ""
 	}
 
-	where := matchesFound(m.review.view.MatchCount())
+	where := counted(m.review.view.MatchCount(), "match")
 	if at, ok := m.review.view.MatchNumber(m.review.cursor); ok {
 		where = fmt.Sprintf("%d of %d", at, m.review.view.MatchCount())
 	}
@@ -370,14 +330,6 @@ func (m model) reviewMatchCount() string {
 	}
 
 	return dimStyle.Render("  "+where) + "\n\n"
-}
-
-func matchesFound(count int) string {
-	if count == 1 {
-		return "1 match"
-	}
-
-	return fmt.Sprintf("%d matches", count)
 }
 
 func (m model) reviewThreadView() string {
@@ -427,19 +379,17 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 // itself because how the whole review is doing does not answer what this one is doing, and drawn
 // not at all for what the agent wrote, since nobody is waiting to be told about that.
 func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
-	state := message.GetDelivery()
-
-	word := reviewDeliveryWord(state)
-	if word == "" {
+	drawn := reviewDeliveryOf(message.GetDelivery())
+	if drawn.word == "" {
 		return ""
 	}
 
-	badge := reviewDeliveryMark(state) + " " + word
+	badge := drawn.mark + " " + drawn.word
 	if when := reviewTimeOf(reviewDeliveryStamp(message)); when != "" {
 		badge += " " + when
 	}
 
-	return reviewDeliveryStyle(state).Render("  "+badge) + "\n"
+	return drawn.style.Render("  "+badge) + "\n"
 }
 
 // reviewDeliveryStamp is the moment a badge names, which is the last thing that happened to the
@@ -456,16 +406,15 @@ func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 // phrase for the whole review could never say what any one comment was doing, which is the thing
 // per-comment delivery exists to answer.
 func (m model) reviewDeliveryView() string {
-	counted := m.reviewDeliveryCounts()
-
 	parts := make([]string, 0, len(reviewDeliveryOrder))
 	for _, state := range reviewDeliveryOrder {
-		if counted[state] == 0 {
+		count := m.review.activity.delivery[deliverySlot(state)]
+		if count == 0 {
 			continue
 		}
 
-		parts = append(parts, reviewDeliveryStyle(state).Render(
-			fmt.Sprintf("%d %s", counted[state], reviewDeliveryWord(state))))
+		drawn := reviewDeliveryOf(state)
+		parts = append(parts, drawn.style.Render(fmt.Sprintf("%d %s", count, drawn.word)))
 	}
 
 	if len(parts) == 0 {
@@ -473,19 +422,6 @@ func (m model) reviewDeliveryView() string {
 	}
 
 	return strings.Join(parts, dimStyle.Render(" · "))
-}
-
-// reviewDeliveryCounts is how many of the person's comments stand in each state, counted over
-// every thread since delivery is a property of the comment rather than of where it is pinned.
-func (m model) reviewDeliveryCounts() map[agentv1.ReviewDeliveryState]int {
-	counted := map[agentv1.ReviewDeliveryState]int{}
-	for _, thread := range m.review.threads {
-		for _, message := range thread.GetMessages() {
-			counted[message.GetDelivery()]++
-		}
-	}
-
-	return counted
 }
 
 // reviewIsReadOnly is whether there is nobody there to receive a comment, and what to say about

@@ -174,8 +174,7 @@ func (v *View) SetFileViewed(path string, viewed bool) {
 		delete(v.viewed, path)
 	}
 
-	v.build()
-	v.PinThreads(v.threads)
+	v.SetViewed(v.viewed)
 }
 
 // IsViewed reports whether a file is drawn collapsed, which is what the toggle reads to know
@@ -194,9 +193,6 @@ func (v *View) CountViewedFiles() (int, int) {
 	return read, len(v.patch.Files)
 }
 
-// GetFileAt returns the file the cursor is inside, which is what a mark of having read one is put on.
-func (v *View) GetFileAt(y int) (diff.File, bool) { return v.getFile(y) }
-
 // isCollapsed reports whether a file is drawn as its header alone.
 func (v *View) isCollapsed(fileIndex int) bool {
 	if fileIndex < 0 || fileIndex >= len(v.patch.Files) {
@@ -211,9 +207,6 @@ func (v *View) Len() int { return len(v.rows) }
 
 // Stat is the size of the patch behind the view.
 func (v *View) Stat() diff.Stat { return v.patch.Stat() }
-
-// Base is what the diff was measured against.
-func (v *View) Base() string { return v.patch.BaseSHA }
 
 // PinThreads works out where each thread is drawn now that the agent has been editing under
 // it, and never drops one for having moved.
@@ -561,8 +554,9 @@ func (v *View) getKey(y int) (anchorKey, bool) {
 	}, true
 }
 
-// getFile is the file the cursor is inside, header rows included.
-func (v *View) getFile(y int) (diff.File, bool) {
+// GetFileAt is the file the cursor is inside, header rows included, which is what a mark of
+// having read one is put on.
+func (v *View) GetFileAt(y int) (diff.File, bool) {
 	current, ok := v.getRow(y)
 	if !ok || current.file < 0 {
 		return diff.File{}, false
@@ -583,7 +577,7 @@ func (v *View) getLine(y int) (diff.Line, bool) {
 
 // GetAnchor lifts the cursor's row into an anchor, which is what a new thread is pinned to.
 func (v *View) GetAnchor(y int) (*Anchor, bool) {
-	file, fileOK := v.getFile(y)
+	file, fileOK := v.GetFileAt(y)
 	line, lineOK := v.getLine(y)
 	if !fileOK || !lineOK {
 		return nil, false
@@ -625,7 +619,7 @@ func (v *View) getStyledLine(current row, line diff.Line) styledLine {
 // GetEditTarget returns the file the cursor is in and the line to open it on, answering with the
 // nearest surviving line when the cursor is on a deleted one.
 func (v *View) GetEditTarget(y int) (string, int, bool) {
-	file, ok := v.getFile(y)
+	file, ok := v.GetFileAt(y)
 	if !ok || file.NewPath == "" {
 		return "", 0, false
 	}
