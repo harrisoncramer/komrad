@@ -93,9 +93,13 @@ func (m model) reviewDiffView(split reviewSplit) string {
 }
 
 // paneWidth is the column the panel draws its own list, record and help in, which is the whole
-// pane except while the review is holding the window and drawing the diff beside itself.
+// pane except while a screen is holding the window and drawing a column of its own beside itself.
 func (m model) paneWidth() int {
 	if split, ok := m.reviewColumns(); ok {
+		return split.sidebar
+	}
+
+	if split, ok := m.archiveSplit(); ok {
 		return split.sidebar
 	}
 

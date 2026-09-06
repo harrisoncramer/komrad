@@ -422,11 +422,29 @@ func (m model) archiveHelp() keyMap {
 		short: short,
 		full: slices.Concat(
 			rows,
-			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+			[]key.Binding{
+				m.detailsBinding(),
+				m.filterBinding(),
+				m.moveBinding(),
+				m.jumpBinding(),
+				m.archiveScrollBinding(),
+			},
 			editFilter,
 			m.globalHelp(),
 		),
 	}
+}
+
+// archiveScrollBinding is the pair that moves the document beside the list, drawn as one row
+// since they are the same key going either way.
+func (m model) archiveScrollBinding() key.Binding {
+	return key.NewBinding(
+		key.WithKeys(slices.Concat(m.keys.Archive.ScrollDown, m.keys.Archive.ScrollUp)...),
+		key.WithHelp(
+			keyLabel(m.keys.Archive.ScrollDown)+"/"+keyLabel(m.keys.Archive.ScrollUp),
+			"scroll the notes",
+		),
+	)
 }
 
 func (m model) archiveRowHelp() []key.Binding {

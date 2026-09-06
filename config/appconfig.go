@@ -412,6 +412,10 @@ type ArchiveKeys struct {
 	Quit []string `mapstructure:"quit"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
+	// Scroll the document beside the list down a few lines.
+	ScrollDown []string `mapstructure:"scroll_down"`
+	// Scroll the document beside the list up a few lines.
+	ScrollUp []string `mapstructure:"scroll_up"`
 }
 
 // Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -679,12 +683,14 @@ func DefaultKeybindings() Keybindings {
 			ShowHidden:   []string{"H"},
 		},
 		Archive: ArchiveKeys{
-			Back:    []string{"esc"},
-			Delete:  []string{"d"},
-			Empty:   []string{"D"},
-			Open:    []string{"Z"},
-			Quit:    []string{"ctrl+c"},
-			Restore: []string{"r"},
+			Back:       []string{"esc"},
+			Delete:     []string{"d"},
+			Empty:      []string{"D"},
+			Open:       []string{"Z"},
+			Quit:       []string{"ctrl+c"},
+			Restore:    []string{"r"},
+			ScrollDown: []string{"ctrl+n"},
+			ScrollUp:   []string{"ctrl+p"},
 		},
 		Details: DetailsKeys{
 			Copy:  []string{"y"},

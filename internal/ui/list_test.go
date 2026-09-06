@@ -10,6 +10,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -145,6 +146,7 @@ func TestScreensFitThePane(t *testing.T) {
 	m := model{
 		keys:    config.DefaultKeybindings(),
 		height:  height,
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}},
 	}
 	for i := range total {

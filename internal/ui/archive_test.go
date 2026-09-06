@@ -3,6 +3,7 @@ package ui
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -612,8 +613,8 @@ func TestArchiveView(t *testing.T) {
 	}
 }
 
-// TestArchiveMarkdown covers the document the stage pages for an archived agent, which must
-// not read as one merely dormant and waiting to be opened.
+// TestArchiveMarkdown covers the document drawn beside the list for an archived agent, which
+// must not read as one merely dormant and waiting to be opened.
 func TestArchiveMarkdown(t *testing.T) {
 	got := archiveMarkdown(agentstore.Agent{Name: "api-refactor"})
 
@@ -623,9 +624,9 @@ func TestArchiveMarkdown(t *testing.T) {
 	assert.NotContains(t, got, "dormant", "an archived agent is not one waiting to be opened")
 }
 
-// TestArchiveStagesWhyADeleteLeftARowBehind covers the stage for an agent whose
-// deprovisioner failed, since the archive is the only place that failure is legible.
-func TestArchiveStagesWhyADeleteLeftARowBehind(t *testing.T) {
+// TestArchiveDrawsWhyADeleteLeftARowBehind covers the document for an agent whose deprovisioner
+// failed, since the archive is the only place that failure is legible.
+func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
 	m.archive = archiveState{agents: []agentstore.Agent{{
@@ -636,11 +637,11 @@ func TestArchiveStagesWhyADeleteLeftARowBehind(t *testing.T) {
 		Metadata:   []agentstore.Metadata{{Key: failureReasonKey, Value: "the worktree is dirty"}},
 	}}}
 
-	staged := m.archiveDocument(m.archive.agents[0])
+	drawn := m.archiveDocument(m.archive.agents[0])
 
-	assert.Contains(t, staged, "teardown failed")
-	assert.Contains(t, staged, "the worktree is dirty")
-	assert.NotContains(t, staged, "Restore brings it back", "this row is not one merely waiting to be restored")
+	assert.Contains(t, drawn, "teardown failed")
+	assert.Contains(t, drawn, "the worktree is dirty")
+	assert.NotContains(t, drawn, "Restore brings it back", "this row is not one merely waiting to be restored")
 }
 
 // TestArchiveFields covers what the details under the list draw for an archived agent: what
@@ -871,4 +872,133 @@ func (f *fakeArchiveAgents) DeleteAgents(_ context.Context, req *connect.Request
 	f.deleted = append(f.deleted, req.Msg.GetIds()...)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
+}
+
+// splitArchiveModel is the archive holding the whole window, which is the state it draws its own
+// two columns in.
+func splitArchiveModel(t *testing.T) model {
+	t.Helper()
+
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.width, m.height = 140, 24
+	m.frame.Attach("%0")
+	m.frame.Solo(true)
+
+	return m
+}
+
+// TestArchiveDrawsTheDocumentBesideTheList pins the collapse itself: the row the cursor is on is
+// drawn in the panel's own frame rather than pushed into a pager in a pane of its own.
+func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
+	m := splitArchiveModel(t)
+	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend", Context: "the shared notes"}}
+
+	view := ansi.Strip(m.View())
+
+	assert.Contains(t, view, "api-refactor", "the list is still drawn")
+	assert.Contains(t, view, "kept until deleted", "and the hovered row's document beside it")
+
+	for _, row := range lines(view) {
+		assert.LessOrEqual(t, ansi.StringWidth(row), m.width, "neither column runs past the window")
+	}
+
+	m.archive.place(0)
+	assert.Contains(t, ansi.Strip(m.View()), "the shared notes", "the document follows the cursor onto the folder")
+}
+
+// TestArchiveDrawsNothingArchivedBesideTheList covers the empty archive, which has no row to
+// describe and so used to be the one document nothing hovered.
+func TestArchiveDrawsNothingArchivedBesideTheList(t *testing.T) {
+	m := splitArchiveModel(t)
+	m.archive = archiveState{}
+	m.listing.workflows = nil
+
+	view := ansi.Strip(m.View())
+
+	assert.Contains(t, view, "nothing archived", "the list says the archive is empty")
+	assert.Contains(t, view, "until you delete them", "and the notice beside it says what the archive is for")
+}
+
+// TestArchiveScrollsTheDocument covers the scrolling less was doing before the document was drawn
+// in the panel's own frame: it moves, it says what is past each end, and it stops at both.
+func TestArchiveScrollsTheDocument(t *testing.T) {
+	m := splitArchiveModel(t)
+	m.archive.place(0)
+	m.listing.workflows = []workflowstore.Workflow{{
+		ID:      "w1",
+		Name:    "backend",
+		Context: strings.Repeat("a sentence long enough to wrap the column it is drawn into. ", 60),
+	}}
+
+	split, ok := m.archiveSplit()
+	require.True(t, ok, "the archive holds the window")
+	require.Greater(t, len(m.archiveDocRows(split.diff)), split.rows, "the document runs past the window")
+
+	top := ansi.Strip(m.View())
+	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
+	assert.Contains(t, top, "↓", "and the reader is told the document goes on")
+
+	scrolled, _ := m.scrollArchive(1)
+	m, ok = scrolled.(model)
+	require.True(t, ok)
+	assert.Equal(t, archiveScrollStep, m.archive.top)
+	assert.Contains(t, ansi.Strip(m.View()), "↑", "the reader is told what they scrolled past")
+
+	for range 100 {
+		scrolled, _ = m.scrollArchive(1)
+		m, ok = scrolled.(model)
+		require.True(t, ok)
+	}
+
+	bottom := ansi.Strip(m.View())
+	assert.NotContains(t, bottom, "↓", "the last row of the document is reachable")
+	assert.Contains(t, bottom, "↑")
+
+	for range 100 {
+		scrolled, _ = m.scrollArchive(-1)
+		m, ok = scrolled.(model)
+		require.True(t, ok)
+	}
+
+	assert.Zero(t, m.archive.top, "and scrolling back stops at the top rather than going negative")
+}
+
+// TestArchiveCursorTakesTheDocumentBackToItsTop covers the offset belonging to the row it was
+// scrolled on, since the next row is a document the reader has not seen the start of.
+func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
+	m := splitArchiveModel(t)
+	m.archive.top = 12
+
+	m = m.moveArchiveCursor(-1)
+	assert.Zero(t, m.archive.top, "the cursor landed on another row")
+
+	m.archive.top = 12
+	m = m.moveArchiveCursor(-1)
+	assert.Equal(t, 12, m.archive.top, "a cursor that could not move leaves the offset where it was")
+}
+
+// TestArchiveHandsTheWindowBack covers the zoom, which has to go whenever something of somebody
+// else's is on screen: the pane the logs draw in, and the screen the reader leaves for.
+func TestArchiveHandsTheWindowBack(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
+	m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
+	m.frame = layout.New(tmux, config.DefaultLayout())
+	m.frame.Attach("%0")
+
+	entered, _ := m.enterArchive()
+	m, ok := entered.(model)
+	require.True(t, ok)
+	assert.True(t, m.frame.IsSolo(), "the archive draws both columns itself, so it takes the window")
+
+	require.True(t, m.claimInfo(infoRunLog, ""))
+	assert.False(t, m.frame.IsSolo(), "the log pane is covered by a zoomed sidebar")
+
+	m = m.closeInfo()
+	assert.True(t, m.frame.IsSolo(), "and the window comes back once the pane has gone")
+
+	left, _ := m.updateArchive(keyMsg("esc"))
+	m, ok = left.(model)
+	require.True(t, ok)
+	assert.False(t, m.frame.IsSolo(), "leaving the archive gives the other panes their share back")
 }

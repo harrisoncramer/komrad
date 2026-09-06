@@ -919,10 +919,10 @@ func headerLine(t *testing.T, view, name string) string {
 // hits were previewed against belongs to the search and the row the jump lands on has its own.
 func TestJumpLeavesTheSearchBehind(t *testing.T) {
 	tests := []struct {
-		name       string
-		hit        searchHit
-		wantSwaps  int
-		wantStaged string
+		name      string
+		hit       searchHit
+		wantSwaps int
+		wantDrawn string
 	}{
 		{
 			name: "a live hit takes the agent's own pane",
@@ -945,7 +945,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				length:   3,
 				snippet:  marked("two"),
 			},
-			wantStaged: stageTextPath,
+			wantDrawn: "kept until deleted",
 		},
 	}
 
@@ -956,6 +956,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
 			m.frame = layout.New(tmux, config.DefaultLayout())
 			m.frame.Attach("%0")
+			m.width, m.height = 120, 40
 			m.api = api{
 				agents:    &fakeSearchAgents{},
 				workflows: emptyLists{},
@@ -978,8 +979,8 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			staged := strings.Join(tmux.respawns, "\n")
 			assert.NotContains(t, staged, stageTranscriptPath, "the preview does not follow the jump")
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
-			if tt.wantStaged != "" {
-				assert.Contains(t, staged, tt.wantStaged, "the row's own record is what is paged")
+			if tt.wantDrawn != "" {
+				assert.Contains(t, landed.View(), tt.wantDrawn, "the row's own record is what is drawn beside the list")
 			}
 			assert.Empty(t, landed.search.query, "the search is let go of")
 			assert.Empty(t, landed.search.hits, "the search is let go of")
