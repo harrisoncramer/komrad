@@ -57,4 +57,5 @@ Weave is a terminal tool, intended for power users. It does not aspire to be a r
 - [schedules](docs/schedules.md): Durable schedules for running your agents
 - [mcp](docs/mcp.md): Lets agents spawn or manage other agents
 - [mail](docs/mail.md): How agents communicate with each other
+- [review](docs/review.md): Reading an agent's diff, commenting on it, and sending a verdict
 - [cli](docs/commands.md): The CLI tool and commands
