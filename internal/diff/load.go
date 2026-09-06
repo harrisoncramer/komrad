@@ -3,6 +3,7 @@ package diff
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,10 @@ import (
 )
 
 const gitTimeout = 30 * time.Second
+
+// ErrNoChanges is a worktree that has not moved off its base, which is refused rather than
+// answered with an empty patch, since a diff with no files in it is nothing to show anybody.
+var ErrNoChanges = errors.New("the worktree holds no change against the base branch")
 
 // maxFileBytes is the point past which a file's source is not read, giving up the syntax
 // colouring while the patch still shows its hunks.
@@ -63,11 +68,16 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, err
 	}
 
+	files = append(files, untracked...)
+	if len(files) == 0 {
+		return nil, ErrNoChanges
+	}
+
 	return &Patch{
 		Root:   root,
 		Base:   base,
 		Commit: commit,
-		Files:  append(files, untracked...),
+		Files:  files,
 	}, nil
 }
 

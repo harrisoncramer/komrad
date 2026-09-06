@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/diff"
 	"weave/internal/review"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -404,6 +405,25 @@ func TestReviewDiffPollIgnoresAPatchThatHasNotMoved(t *testing.T) {
 
 	assert.Nil(t, m.review.held)
 	assert.NotContains(t, ansi.Strip(m.reviewView()), "THE DIFF HAS MOVED")
+}
+
+// TestReviewDiffPollSaysAWorktreeWasEmptied covers the agent that throws its work away while the
+// review is open, which holds no patch to swap in and so has to be said in words.
+func TestReviewDiffPollSaysAWorktreeWasEmptied(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	gitIn(t, dir, "checkout", "--", ".")
+
+	polled, ok := m.pollReviewDiffCmd()().(reviewDiffPolledMsg)
+	require.True(t, ok)
+	require.ErrorIs(t, polled.err, diff.ErrNoChanges)
+
+	m.applyReviewDiffPolled(polled)
+
+	assert.Nil(t, m.review.held, "there is no patch to hold")
+	assert.Contains(t, ansi.Strip(m.reviewView()), "no change")
 }
 
 // TestReviewReloadKeySwapsTheHeldPatchIn pins the opt-in: the held patch goes on screen when the
