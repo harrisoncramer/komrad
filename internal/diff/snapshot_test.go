@@ -179,3 +179,27 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 
 	assert.Empty(t, changed(patch))
 }
+
+// TestFileAtReadsTheRoundRatherThanTheWorktree is what lets a review quote the code a comment was
+// written about: the round holds its own copy, so what the agent does afterwards cannot change it.
+func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
+	root := repo(t)
+	write(t, root, "greet.go", "package main\n\nfunc greet() {}\n")
+
+	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	lines, err := FileAt(t.Context(), root, snapshot.SHA, "greet.go")
+	require.NoError(t, err)
+	assert.Equal(t, []string{"package main", "", "func greet() {}"}, lines)
+
+	// The agent rewrites the file wholesale, which is the case the round exists for.
+	write(t, root, "greet.go", "package main\n\nfunc greet(name string) {}\n")
+
+	again, err := FileAt(t.Context(), root, snapshot.SHA, "greet.go")
+	require.NoError(t, err)
+	assert.Equal(t, lines, again, "the round still holds what the comment was written about")
+
+	_, err = FileAt(t.Context(), root, snapshot.SHA, "never-existed.go")
+	require.Error(t, err, "a path the round does not hold is an error the caller falls back from")
+}
