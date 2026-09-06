@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -237,6 +238,18 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.base, m.review.exclude)
 }
 
+// refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
+// was read, since the screen the reader is dropped onto is the one the banner belongs to.
+func (m *model) refuseReview(err error) {
+	name := m.review.agentName
+	m.review = reviewState{}
+
+	m.enterScreen(screenAgents)
+	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
+	m.stageSelection()
+	m.reportBrief("Nothing to review in "+name, err.Error(), nil)
+}
+
 func (m model) loadReviewCmd(agentID, dir, base string, exclude []string) tea.Cmd {
 	agents := m.api.agents
 
@@ -306,6 +319,12 @@ func listReviewThreads(
 
 func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	if msg.agentID != m.review.agentID {
+		return
+	}
+
+	if errors.Is(msg.err, diff.ErrNoChanges) {
+		m.refuseReview(msg.err)
+
 		return
 	}
 
@@ -1301,6 +1320,15 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 	}
 
 	m.review.diffPolling = false
+
+	// A worktree emptied under an open review has no patch to hold, so it is said in the notice
+	// instead, since the diff on screen is of work that is no longer there.
+	if errors.Is(msg.err, diff.ErrNoChanges) {
+		m.review.held = nil
+		m.review.notice = msg.err.Error()
+
+		return
+	}
 
 	if msg.err != nil || msg.patch == nil {
 		return
