@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
-	"weave/internal/git"
 
 	"weave/config"
 	"weave/internal/frames"
+	"weave/internal/git"
 	"weave/internal/logging"
 	"weave/internal/store"
 	"weave/lib/xslice"

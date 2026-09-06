@@ -141,7 +141,7 @@ func FormatLocation(filePath string, oldStart, newStart int) string {
 	return fmt.Sprintf("%s:%d (removed)", filePath, oldStart)
 }
 
-// FormatThreadLocation is Where for a thread, which is the form every caller outside a new anchor wants.
+// FormatThreadLocation formats a thread's location for callers outside a new anchor.
 func FormatThreadLocation(thread *agentv1.ReviewThread) string {
 	return FormatLocation(thread.GetFilePath(), int(thread.GetOldStart()), int(thread.GetNewStart()))
 }

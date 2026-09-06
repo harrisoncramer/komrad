@@ -169,7 +169,7 @@ func (a *PRArchiver) stamp(ctx context.Context, archived []agentstore.Agent) {
 	}
 }
 
-// isPullRequestClosed reports whether the pull request an agent recorded has merged or isPullRequestClosed and is still
+// isPullRequestClosed reports whether the pull request an agent recorded has merged or closed and is still
 // the one weave thinks it is, leaving the agent alone when the lookup fails.
 func (a *PRArchiver) isPullRequestClosed(ctx context.Context, agent agentstore.Agent, url, repo string) bool {
 	lookupCtx, cancel := context.WithTimeout(ctx, prStateTimeout)
