@@ -62,6 +62,7 @@ type Deps struct {
 	ProcessViewer   string
 	Editor          string
 	RunLogsDir      string
+	RoundsDir       string
 	ConfigErr       error
 	StartupErr      error
 	StartupFindings []errui.Finding
@@ -112,6 +113,7 @@ type model struct {
 	processViewer   string
 	editor          string
 	runLogsDir      string
+	roundsDir       string
 	pane            string
 	// self is the weave binary, which the panel runs in the stage pane to draw into it.
 	self string
@@ -145,6 +147,7 @@ func newModel(deps Deps, isDark bool) model {
 		processViewer:   deps.ProcessViewer,
 		editor:          deps.Editor,
 		runLogsDir:      deps.RunLogsDir,
+		roundsDir:       deps.RoundsDir,
 		pane:            deps.Pane,
 		self:            deps.Self,
 		keys:            deps.Keys,

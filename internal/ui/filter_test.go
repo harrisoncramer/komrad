@@ -226,8 +226,16 @@ func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 func TestArchiveSearchWalksAndClears(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.archive.agents = []agentstore.Agent{
-		{ID: "a1", Name: "api-refactor", WorkflowID: "w1"},
-		{ID: "a2", Name: "auth-fix", WorkflowID: "w1"},
+		{
+			ID:         "a1",
+			Name:       "api-refactor",
+			WorkflowID: "w1",
+		},
+		{
+			ID:         "a2",
+			Name:       "auth-fix",
+			WorkflowID: "w1",
+		},
 	}
 	m.archive.cursor = 0
 	require.Equal(t, workflowRowKey("w1"), rowKeyAt(m.archiveRows(), m.archive.cursor))
