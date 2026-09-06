@@ -367,12 +367,12 @@ type ReviewKeys struct {
 	PrevThread []string `mapstructure:"prev_thread"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit"`
-	// Open the next round, once the sidebar says the agent has written since this one was
-	// taken. A round never moves on its own, since that would take the code out from under
-	// a comment being written, so stepping forward is always yours to ask for.
+	// Catch up with the agent, once the sidebar says it has written since you opened the
+	// diff. What you are reading never moves on its own, since that would take the code out
+	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload"`
-	// Let the review go saying this round is good as it stands, which is what tells the
-	// agent it is done. The submit key sends the same batch asking for changes instead.
+	// Send the review saying the work is good as it stands, which is what tells the agent
+	// it is done. The submit key sends the same comments asking for changes instead.
 	Approve []string `mapstructure:"approve"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve"`

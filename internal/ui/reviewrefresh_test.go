@@ -501,3 +501,41 @@ func TestReviewRefreshIsOnlyForTheScreenThatIsUp(t *testing.T) {
 
 	assert.Nil(t, m.refreshReviewCmd(time.Now()))
 }
+
+// TestWhatChangedSinceYourLastReviewSurvivesAKeypress covers a standing fact about the diff being
+// kept out of the notice slot, since every key in the review clears a notice and the reader would
+// otherwise lose the line the moment they scrolled.
+func TestWhatChangedSinceYourLastReviewSurvivesAKeypress(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.since = "4 files changed since you last reviewed"
+	require.Contains(t, ansi.Strip(m.reviewView()), "4 files changed since you last reviewed")
+
+	next, _ := m.Update(keyMsg("j"))
+	scrolled := next.(model)
+
+	assert.Equal(t, "4 files changed since you last reviewed", scrolled.review.since,
+		"scrolling is not an answer to it")
+	assert.Contains(t, ansi.Strip(scrolled.reviewView()), "4 files changed since you last reviewed",
+		"and it is still on screen")
+}
+
+// TestANoticeCoversWhatChangedAndGivesItBack covers the two lines sharing one row: an answer to a
+// keypress wins while it stands, and the standing line returns once the next key clears it.
+func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m.review.since = "4 files changed since you last reviewed"
+	m.review.notice = "no matches"
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "no matches")
+	assert.NotContains(t, shown, "4 files changed", "the answer to the last key wins the row")
+
+	next, _ := m.Update(keyMsg("j"))
+	assert.Contains(t, ansi.Strip(next.(model).reviewView()), "4 files changed since you last reviewed")
+}

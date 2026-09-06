@@ -150,13 +150,13 @@ func (m model) reviewDeadView() string {
 }
 
 // reviewStaleView is the bar saying the agent has written since this round was taken, drawn above
-// the place the cursor is standing, since stepping to the next round is the reader's to ask for.
+// the place the cursor is standing, since catching up is always the reader's to ask for.
 func (m model) reviewStaleView() string {
 	if !m.review.moved {
 		return ""
 	}
 
-	line := " THE AGENT HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " for the next round "
+	line := " THE AGENT HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
 
 	return reviewStaleStyle.Render(m.reviewFill(line)) + "\n"
 }
@@ -183,15 +183,20 @@ func (m model) reviewRestView() string {
 	}
 
 	out := "\n" + m.reviewThreadView()
+
+	// A notice answers the last keypress and a keypress clears it, so what the reader is told
+	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
 		out += "\n" + reviewNoticeStyle.Render("  "+notice) + "\n"
+	} else if since := m.review.since; since != "" {
+		out += "\n" + dimStyle.Render("  "+since) + "\n"
 	}
 
 	return out
 }
 
-// reviewAnchorView is the place the cursor is standing, and the line it is standing on, so the
-// sidebar says what a new thread would be pinned to.
+// reviewAnchorView names the place the cursor is standing, so the sidebar says what a new thread
+// would be pinned to without repeating the line the diff is already drawing beside it.
 func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
@@ -202,12 +207,7 @@ func (m model) reviewAnchorView() string {
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	out := m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
-	for _, quoted := range anchor.QuotedLines {
-		out += reviewQuoteStyle.Render(m.reviewWrap(quoted)) + "\n"
-	}
-
-	return out
+	return m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
 }
 
 // reviewStatView is how big the change is, with the counts coloured the way the lines
@@ -288,7 +288,7 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	out := dimStyle.Render("  written against "+clipName(review.FormatThreadLocation(thread))) + "\n"
+	out := dimStyle.Render("  written against") + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += reviewQuoteStyle.Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
@@ -417,7 +417,6 @@ func (m model) reviewDetails() details {
 // hold: what it was measured against and what was kept out of it.
 func (m model) reviewFields() []recordField {
 	fields := []recordField{
-		{"round", fmt.Sprintf("%d", m.review.round.GetOrdinal())},
 		{"base", orDash(shortSHA(m.review.round.GetBaseSha()))},
 		{"snapshot", orDash(shortSHA(m.review.round.GetSnapshotSha()))},
 	}
@@ -455,10 +454,10 @@ func (m model) reviewComposeDesc() string {
 // exist yet and rereading the one already on screen are different things.
 func (m model) reviewReloadDesc() string {
 	if m.review.moved {
-		return "open the next round"
+		return "catch up"
 	}
 
-	return "read the round again"
+	return "read the diff again"
 }
 
 // shortSHA is how a commit is named in the record, where the whole of it would take the column
@@ -504,7 +503,7 @@ func (m model) reviewHelp() keyMap {
 	if _, dead := m.reviewIsReadOnly(); !dead {
 		composing = []key.Binding{binding(keys.Compose, m.reviewComposeDesc())}
 		writing = slices.Concat(composing, []key.Binding{
-			binding(keys.Approve, "approve the round"),
+			binding(keys.Approve, "approve the work"),
 			binding(m.keys.Form.Submit, "request changes"),
 		})
 	}

@@ -75,7 +75,10 @@ type reviewState struct {
 	editing string
 	loading bool
 	notice  string
-	err     error
+	// since says how much of the diff is new to the reader, which is a standing fact about what
+	// is on screen rather than an answer to a keypress, so it outlives the notice slot.
+	since string
+	err   error
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
 	// the reader back where they left rather than at the top of the diff.
@@ -328,8 +331,7 @@ func changedSinceLastReview(
 		return ""
 	}
 
-	return fmt.Sprintf("%s changed since your review of round %d",
-		files(changed), last.GetRoundOrdinal())
+	return fmt.Sprintf("%s changed since you last reviewed", files(changed))
 }
 
 // lastHumanReview is the newest review the person let go of against a round earlier than this
@@ -367,7 +369,7 @@ func listReviewViewedFiles(
 		RoundId: roundID,
 	}))
 	if err != nil {
-		return nil, fmt.Errorf("failed to read which files of round %q have been viewed: %w", roundID, err)
+		return nil, fmt.Errorf("failed to read which files you have already read: %w", err)
 	}
 
 	return resp.Msg.GetViewed(), nil
@@ -412,7 +414,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	m.review.activity = reviewActivityOf(msg.threads)
 	m.review.round = msg.round
 	m.review.moved = false
-	m.review.notice = msg.since
+	m.review.since = msg.since
 	m.review.cursor = m.review.view.GetFirstRow()
 	if place := m.review.restore; place != nil {
 		if found, ok := m.review.view.Locate(*place); ok {
