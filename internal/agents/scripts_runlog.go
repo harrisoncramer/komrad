@@ -1,0 +1,265 @@
+package agents
+
+import (
+	"context"
+	"errors"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+
+	"weave/config"
+	"weave/internal/logging"
+	"weave/internal/scripts"
+
+	runstore "weave/internal/store/run"
+)
+
+// maxLogRunAttempts bounds the walk up through numbers a second process has already taken,
+// since a run whose log could not be named is still a run that has to happen.
+const maxLogRunAttempts = 64
+
+type runRecorder interface {
+	Begin(ctx context.Context, params runstore.BeginParams) (string, error)
+	Finish(ctx context.Context, params runstore.FinishParams) error
+	Abandon(ctx context.Context, id string) error
+	Prune(ctx context.Context, agentID string, keep int) error
+}
+
+// runRecord is one run as weave is watching it.
+type runRecord struct {
+	logPath string
+	id      string
+}
+
+// claimRunLog names the file one run writes to and creates it empty, taking the number under
+// the lock and by an exclusive create, since a run fired by hand and a launch can begin at the
+// same moment and what the directory said an instant ago is not what it says now.
+func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name string) (string, int) {
+	if s.logsDir == "" || agentID == "" {
+		return "", 0
+	}
+
+	s.logRunMu.Lock()
+	defer s.logRunMu.Unlock()
+
+	dir := config.RunLogDir(s.logsDir, agentID)
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		logging.From(ctx).Warn("failed to make an agent's run log directory", "path", dir, "error", err)
+
+		return "", 0
+	}
+
+	number := 1
+	if runs := config.ListRunLogs(s.logsDir, agentID); len(runs) > 0 {
+		number = runs[0].Number + 1
+	}
+
+	for range maxLogRunAttempts {
+		path := filepath.Join(dir, config.RunLogName(number, trigger, name))
+
+		file, err := os.OpenFile(path, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0o644)
+		if errors.Is(err, fs.ErrExist) {
+			number++
+
+			continue
+		}
+		if err != nil {
+			logging.From(ctx).Warn("failed to open a run log", "path", path, "error", err)
+
+			return "", 0
+		}
+		if closeErr := file.Close(); closeErr != nil {
+			logging.From(ctx).Warn("failed to close a run log", "path", path, "error", closeErr)
+		}
+
+		pruneRunLogs(ctx, s.logsDir, agentID)
+
+		return path, number
+	}
+
+	logging.From(ctx).Warn("failed to name a run of a script", "agent_id", agentID, "script", name)
+
+	return "", 0
+}
+
+// beginRun claims a run's log file and opens the row that indexes it, so a script that fails/succeeds later has somewhere to be recorded.
+func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name string) runRecord {
+	path, number := s.claimRunLog(ctx, agentID, trigger, name)
+	record := runRecord{logPath: path}
+
+	if s.runs == nil || agentID == "" {
+		return record
+	}
+
+	var logNumber *int32
+	if number > 0 {
+		claimed := int32(number)
+		logNumber = &claimed
+	}
+
+	id, err := s.runs.Begin(ctx, runstore.BeginParams{
+		AgentID:   agentID,
+		Trigger:   trigger,
+		Script:    name,
+		LogNumber: logNumber,
+	})
+	if err != nil {
+		logging.From(ctx).Warn("failed to record a run of a script", "agent_id", agentID, "script", name, "error", err)
+
+		return record
+	}
+	record.id = id
+
+	// Bounded by the log-file count so a row never outlives the output it points at.
+	if err := s.runs.Prune(ctx, agentID, config.MaxRunLogs); err != nil {
+		logging.From(ctx).Warn("failed to prune an agent's runs", "agent_id", agentID, "error", err)
+	}
+
+	return record
+}
+
+// failRun closes the row of a run that failed, putting the reason in its log when the script
+// itself said nothing, since the row's mark sends a person to that log and nowhere else.
+func (s *ScriptService) failRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
+	noteEmptyLog(ctx, record.logPath, cause)
+	s.finishRun(ctx, record, result, cause)
+}
+
+// finishRun closes a run's row with what the script exited on and why it failed, if it did.
+func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
+	if s.runs == nil || record.id == "" {
+		return
+	}
+
+	if err := s.runs.Finish(ctx, runstore.FinishParams{
+		ID:       record.id,
+		ExitCode: runExitCode(result),
+		Failure:  failureReason(cause),
+	}); err != nil {
+		logging.From(ctx).Warn("failed to close the record of a run", "run_id", record.id, "error", err)
+	}
+}
+
+// abandonRun drops the row of a run that never started, alongside the empty log removed for the
+// same reason: a refusal is not a run and should not count against what an agent keeps.
+func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
+	if s.runs == nil || record.id == "" {
+		return
+	}
+
+	if err := s.runs.Abandon(ctx, record.id); err != nil {
+		logging.From(ctx).Warn("failed to drop the record of a run that never started", "run_id", record.id, "error", err)
+	}
+}
+
+func runExitCode(result scripts.Result) *int32 {
+	if result.ExitCode < 0 {
+		return nil
+	}
+
+	code := int32(result.ExitCode)
+
+	return &code
+}
+
+// pruneRunLogs drops the runs past the last MaxRunLogs, so an agent resumed daily keeps a
+// readable handful rather than a file for every day of it.
+func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
+	runs := config.ListRunLogs(logsDir, agentID)
+	if len(runs) <= config.MaxRunLogs {
+		return
+	}
+
+	for _, run := range runs[config.MaxRunLogs:] {
+		if err := os.Remove(run.Path); err != nil && !os.IsNotExist(err) {
+			logging.From(ctx).Warn("failed to prune a run log", "path", run.Path, "error", err)
+		}
+	}
+}
+
+func appendNote(ctx context.Context, path string, stderr []byte, note string) []byte {
+	line := []byte("[" + note + "]\n")
+	if len(stderr) > 0 && stderr[len(stderr)-1] != '\n' {
+		line = append([]byte("\n"), line...)
+	}
+
+	if path != "" {
+		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
+		if err != nil {
+			logging.From(ctx).Warn("failed to append to run log", "path", path, "error", err)
+		} else {
+			if _, err := f.Write(line); err != nil {
+				logging.From(ctx).Warn("failed to append to run log", "path", path, "error", err)
+			}
+			f.Close()
+		}
+	}
+
+	return tailBytes(append(stderr, line...), setupPaneOutputLimit)
+}
+
+// noteEmptyLog puts the reason into a log its run never wrote a byte to, since a pane refused
+// before it was respawned leaves the number claimed for it opening an empty pager.
+func noteEmptyLog(ctx context.Context, path string, cause error) {
+	if path == "" {
+		return
+	}
+
+	if info, err := os.Stat(path); err != nil || info.Size() > 0 {
+		return
+	}
+
+	writeRunLog(ctx, path, []byte(cause.Error()+"\n"))
+}
+
+func writeRunLog(ctx context.Context, path string, content []byte) {
+	if path == "" {
+		return
+	}
+
+	if err := os.WriteFile(path, content, 0o644); err != nil {
+		logging.From(ctx).Warn("failed to write run log", "path", path, "error", err)
+	}
+}
+
+// removeEmptyLog drops the file a run claimed but never wrote to, since a refusal is not a run
+// and a number spent on one would push a real run out of the fifty that are kept.
+func removeEmptyLog(ctx context.Context, path string) {
+	if path == "" {
+		return
+	}
+
+	info, err := os.Stat(path)
+	if err != nil || info.Size() > 0 {
+		return
+	}
+
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logging.From(ctx).Warn("failed to remove the log of a run that never started", "path", path, "error", err)
+	}
+}
+
+func removeTemp(ctx context.Context, path string) {
+	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+		logging.From(ctx).Warn("failed to remove temp file", "path", path, "error", err)
+	}
+}
+
+func tailBytes(b []byte, limit int) []byte {
+	if len(b) <= limit {
+		return b
+	}
+
+	return b[len(b)-limit:]
+}
+
+func readProvisionedDir(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return io.ReadAll(io.LimitReader(file, maxProvisionedDir+1))
+}
