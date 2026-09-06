@@ -146,16 +146,17 @@ func TestChildIsNotReviewable(t *testing.T) {
 	assert.False(t, m.isReviewable(m.listing.agents[2].agent))
 }
 
-// TestChildDetailsLeadWithTheParent pins what the details say about a child, since its
-// directory makes no sense without the agent it belongs to.
+// TestChildDetailsLeadWithTheParent pins what the details say about a child under its own name,
+// since its directory makes no sense without the agent it belongs to.
 func TestChildDetailsLeadWithTheParent(t *testing.T) {
 	m := familyTree()
 	m.tree.cursor = 2
 
 	held := m.agentsDetails()
-	require.NotEmpty(t, held.fields)
-	assert.Equal(t, "attached to", held.fields[0].label)
-	assert.Equal(t, "author", held.fields[0].value)
+	require.Greater(t, len(held.fields), 1)
+	assert.Equal(t, "name", held.fields[0].label)
+	assert.Equal(t, "attached to", held.fields[1].label)
+	assert.Equal(t, "author", held.fields[1].value)
 }
 
 // TestPromptSubjectCountsTheChildren pins that a prompt says what goes with the agent named,
