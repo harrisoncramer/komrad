@@ -51,11 +51,23 @@ type reviewDelivery struct {
 func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	switch state {
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT:
-		return reviewDelivery{word: "unsent", mark: "◇", style: reviewUnsentStyle}
+		return reviewDelivery{
+			word:  "unsent",
+			mark:  "◇",
+			style: reviewUnsentStyle,
+		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_SENT:
-		return reviewDelivery{word: "waiting", mark: "→", style: reviewSentStyle}
+		return reviewDelivery{
+			word:  "waiting",
+			mark:  "→",
+			style: reviewSentStyle,
+		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_DELIVERED:
-		return reviewDelivery{word: "delivered", mark: "✓", style: reviewDeliveredStyle}
+		return reviewDelivery{
+			word:  "delivered",
+			mark:  "✓",
+			style: reviewDeliveredStyle,
+		}
 	case agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED:
 		return reviewDelivery{style: dimStyle}
 	}

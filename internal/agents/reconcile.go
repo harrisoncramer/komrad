@@ -65,8 +65,7 @@ type Reconciler struct {
 	// unrecognizedTotal is only ever touched by the reconcile pass, so it needs none of the
 	// locking the tally below does.
 	unrecognizedTotal int
-
-	tally *tally
+	tally             *tally
 }
 
 // NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its

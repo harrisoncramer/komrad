@@ -523,8 +523,16 @@ func TestCreateWithRole(t *testing.T) {
 		role Role
 		want Role
 	}{
-		{name: "an agent writing work of its own", role: RoleImplementer, want: RoleImplementer},
-		{name: "an agent launched to read somebody else's", role: RoleReviewer, want: RoleReviewer},
+		{
+			name: "an agent writing work of its own",
+			role: RoleImplementer,
+			want: RoleImplementer,
+		},
+		{
+			name: "an agent launched to read somebody else's",
+			role: RoleReviewer,
+			want: RoleReviewer,
+		},
 	}
 
 	for _, tt := range tests {
@@ -532,7 +540,11 @@ func TestCreateWithRole(t *testing.T) {
 			f := open(t)
 			ctx := t.Context()
 
-			require.NoError(t, f.Create(ctx, Agent{Name: "agent", State: StateIdle, Role: tt.role}))
+			require.NoError(t, f.Create(ctx, Agent{
+				Name:  "agent",
+				State: StateIdle,
+				Role:  tt.role,
+			}))
 			stored, err := f.Get(ctx, "agent")
 			require.NoError(t, err)
 			require.NotNil(t, stored)

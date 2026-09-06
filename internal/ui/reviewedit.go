@@ -129,7 +129,11 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 			return roundReadyMsg{agentID: agentID, err: err}
 		}
 
-		return roundReadyMsg{agentID: agentID, dir: at, sha: sha}
+		return roundReadyMsg{
+			agentID: agentID,
+			dir:     at,
+			sha:     sha,
+		}
 	}
 }
 
@@ -226,7 +230,12 @@ func (m model) findRoundLeftoverCmd() tea.Cmd {
 			return nil
 		}
 
-		return roundLeftoverMsg{agentID: agentID, dir: at, sha: sha, edits: edits}
+		return roundLeftoverMsg{
+			agentID: agentID,
+			dir:     at,
+			sha:     sha,
+			edits:   edits,
+		}
 	}
 }
 
