@@ -100,6 +100,11 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// Explainer: whether these keys act is a policy about the keys rather than the geometry
+	// holdsWindow answers, since a screen that takes the whole window could as well hand it back
+	// for the keypress and draw the log in the pane underneath. They agree on every screen there
+	// is today, so read this as its own question rather than adding a screen to holdsWindow on
+	// the strength of what it does here.
 	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}
