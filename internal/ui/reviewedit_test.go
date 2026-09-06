@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/git"
 	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -476,11 +477,71 @@ func TestReviewReloadKeepsTheCheckoutToReap(t *testing.T) {
 	assert.Contains(t, m.review.notice, "the round moved on")
 	require.Equal(t, at, m.review.roundDir, "and the checkout is still ours to reap")
 
+	// The next edit has to be of the round on screen, so the checkout is moved onto it rather
+	// than left standing on the one the reader has already left.
+	m = pressEdit(t, m)
+	assert.Equal(t, m.review.round.GetSnapshotSha(), m.review.roundSha)
+	assert.Equal(t, m.review.round.GetSnapshotSha(), headOf(t, at))
+
+	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "the agent moved on", "which is the text the diff is drawing")
+
 	_, cmd = m.leaveReview()
 	require.NotNil(t, cmd)
 	drainCmd(cmd)
 
 	assert.NoDirExists(t, at)
+}
+
+// TestReviewEditsAgainstAStaleRoundAreRefused covers the round moving while the editor is up: the
+// runs are numbered against the checkout's snapshot, so holding them against a diff drawn from a
+// different one would pin the reviewer's words to lines they never looked at.
+func TestReviewEditsAgainstAStaleRoundAreRefused(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"an idea\"\n}\n")
+
+	// The read of the checkout is taken before the round moves, which is the order a slow editor
+	// and a busy agent put these in.
+	_, cmd := m.closeReviewEdit()
+	require.NotNil(t, cmd)
+
+	edited, ok := cmd().(roundEditedMsg)
+	require.True(t, ok)
+	require.NoError(t, edited.err)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
+
+	reloaded, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+
+	m = reloaded
+	m.applyReviewLoaded(loaded)
+	m.applyRoundEdited(edited)
+
+	assert.Empty(t, m.review.suggestions, "nothing is pinned against a round nobody read")
+	assert.Empty(t, m.review.adrift)
+	assert.Contains(t, m.review.notice, "moved on while you were editing")
+}
+
+// headOf is the commit a checkout is standing on, which is what says whether it is the round the
+// diff on screen was drawn from.
+func headOf(t *testing.T, at string) string {
+	t.Helper()
+
+	head, err := git.Run(t.Context(), at, "rev-parse", "HEAD")
+	require.NoError(t, err)
+
+	return head
 }
 
 // TestReviewEditRefusesASecondCheckout covers the key being pressed twice before the first

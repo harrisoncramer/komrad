@@ -17,17 +17,20 @@ import (
 // environment falls back to as well.
 const defaultEditor = "vi"
 
-// roundReadyMsg says the round has been checked out somewhere the editor can open it.
+// roundReadyMsg says the round has been checked out somewhere the editor can open it, naming the
+// snapshot it was put on rather than the one on screen, which may have moved while it was made.
 type roundReadyMsg struct {
 	agentID string
 	dir     string
+	sha     string
 	err     error
 }
 
 // roundEditedMsg is what the reviewer has written into the checkout, read back once the editor
-// that was writing it has gone.
+// that was writing it has gone, against the snapshot that checkout is standing on.
 type roundEditedMsg struct {
 	agentID string
+	sha     string
 	edits   []git.Edit
 	err     error
 }
@@ -65,7 +68,10 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m.closeReviewEdit()
 	}
 
-	if m.review.roundDir == "" {
+	// The checkout is asked for again whenever it stands on a snapshot other than the one being
+	// read, since opening the editor on the previous round is the whole bug this key was changed
+	// to close.
+	if m.review.roundSha != m.review.round.GetSnapshotSha() {
 		// A second press while the first checkout is still being made would run two of them at
 		// the same path, where one reaps the directory the other is writing into.
 		if m.review.materialising {
@@ -102,7 +108,7 @@ func (m model) materialiseRoundCmd() tea.Cmd {
 			return roundReadyMsg{agentID: agentID, err: err}
 		}
 
-		return roundReadyMsg{agentID: agentID, dir: at}
+		return roundReadyMsg{agentID: agentID, dir: at, sha: sha}
 	}
 }
 
@@ -122,6 +128,7 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.roundDir = msg.dir
+	m.review.roundSha = msg.sha
 
 	return m.editReviewFile()
 }
@@ -150,7 +157,7 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 // readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather than
 // the file the editor was opened on, since an editor is free to visit another file.
 func (m model) readRoundEditsCmd() tea.Cmd {
-	agentID, at := m.review.agentID, m.review.roundDir
+	agentID, at, sha := m.review.agentID, m.review.roundDir, m.review.roundSha
 	if at == "" {
 		return nil
 	}
@@ -163,6 +170,7 @@ func (m model) readRoundEditsCmd() tea.Cmd {
 
 		return roundEditedMsg{
 			agentID: agentID,
+			sha:     sha,
 			edits:   edits,
 			err:     err,
 		}
@@ -197,6 +205,14 @@ func (m *model) applyRoundEdited(msg roundEditedMsg) {
 
 	if msg.err != nil {
 		m.review.notice = "what you wrote in the round could not be read back"
+
+		return
+	}
+
+	// The runs are numbered against the snapshot the checkout stands on, so a round that moved
+	// while the editor was up leaves them naming lines of a file the diff no longer draws.
+	if msg.sha != m.review.round.GetSnapshotSha() {
+		m.review.notice = "the round moved on while you were editing, so what you wrote was not read"
 
 		return
 	}

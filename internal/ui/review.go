@@ -82,6 +82,10 @@ type reviewState struct {
 	// agent rather than the round so that it outlives a reload and is still there to be taken
 	// away when the screen closes.
 	roundDir string
+	// roundSha is the snapshot that checkout is standing on, which is what says whether it is
+	// still the round being read, since the directory is named after the agent rather than the
+	// round and outlives any one of them.
+	roundSha string
 	// materialising is set while that checkout is being made, so a second press does not start a
 	// second one against the same directory.
 	materialising bool
