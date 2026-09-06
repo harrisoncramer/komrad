@@ -4,9 +4,9 @@ Weave has its own code review. It looks like a pull request review, but nothing 
 
 This guide walks the whole loop with pictures of what you see at each step.
 
-## The three things that are actually separate
+## Three separate things
 
-Almost every confusion with this screen comes from mixing up three things that look like one thing.
+The screen holds three things that look like one thing.
 
 The round is a frozen photograph of the agent's worktree. Weave takes it the moment you open the diff: everything in that directory, committed or not, ignored files aside, written as one commit nothing else points at. It builds that commit in an index of its own, so the agent's own index, worktree and branch are left exactly as they were and nothing lands on the branch it is working on. The agent goes on typing; the round does not move. Every comment is pinned to a line of the round, not to a line of the file on disk.
 
@@ -389,7 +389,7 @@ You see all of it. Open the diff with `d` and the AI's threads are there in the 
 └──────────────────────────────┴────────────────────────────────────────────────────────┘
 ```
 
-Four things about this are worth knowing before they surprise you.
+Four things about this are worth knowing.
 
 The name on an AI reviewer's comment is the name of the agent being reviewed, not the name of the reviewer that wrote it. The panel labels every comment that came from any agent with the name at the top of the screen. So a comment from `api-refactor-reviewer` reads as `api-refactor`. Read the direction of the sentence to tell them apart: a review says what is wrong, a reply says what was done.
 
