@@ -200,6 +200,7 @@ func (s *Service) ReleaseReview(
 	result, err := s.review.ReleaseReview(ctx, agents.ReleaseReviewParams{
 		AgentID:   req.Msg.GetAgentId(),
 		Verdict:   fromReviewVerdict(req.Msg.GetVerdict()),
+		Body:      req.Msg.GetBody(),
 		Interrupt: req.Msg.GetInterrupt(),
 		Author:    reviewAuthorFrom(ctx),
 	})
@@ -375,6 +376,7 @@ func toReview(review reviewstore.Review) *agentv1.Review {
 		RoundOrdinal:  review.RoundOrdinal,
 		AuthorKind:    kind,
 		AuthorAgentId: review.AuthorAgentID,
+		Body:          review.Body,
 		Path:          review.Path,
 		CreatedAt:     dates.Stamp(review.CreatedAt),
 		UpdatedAt:     dates.Stamp(review.UpdatedAt),

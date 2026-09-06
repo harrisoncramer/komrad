@@ -310,6 +310,9 @@ func (s *ReviewService) mayRead(ctx context.Context, agentID string, author Revi
 type ReleaseReviewParams struct {
 	AgentID string
 	Verdict reviewstore.Verdict
+	// Body is what the author says about the work as a whole rather than about any one line,
+	// which is empty when they said nothing and is the first thing in the file when they did.
+	Body string
 	// Interrupt stops the agent where it stands before the mail is sent, so it reads the review
 	// now rather than at the end of whatever it is doing.
 	Interrupt bool
@@ -364,7 +367,9 @@ func (s *ReviewService) ReleaseReview(
 	if err != nil {
 		return nil, err
 	}
-	if comments == 0 && params.Verdict == reviewstore.VerdictCommented {
+	// Notes with no conclusion have to say something, whether pinned to a line or about the work
+	// as a whole, since mail that carries neither wastes the agent a turn.
+	if comments == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
 	}
 
@@ -378,7 +383,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 
-	path, err := s.writeReview(ctx, *agent, *round, *open, params.Verdict, threads)
+	path, err := s.writeReview(ctx, *agent, *round, *open, params, threads)
 	if err != nil {
 		return nil, err
 	}
@@ -399,6 +404,7 @@ func (s *ReviewService) ReleaseReview(
 	released, err := s.reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
 		ID:             open.ID,
 		Verdict:        params.Verdict,
+		Body:           params.Body,
 		Path:           path,
 		DoorbellMailID: &doorbell.ID,
 	})
@@ -461,7 +467,7 @@ func (s *ReviewService) writeReview(
 	agent agentstore.Agent,
 	round reviewstore.Round,
 	review reviewstore.Review,
-	verdict reviewstore.Verdict,
+	params ReleaseReviewParams,
 	threads []ReviewThreadWithMessages,
 ) (string, error) {
 	dir := filepath.Join(s.stateDir, reviewDirName, agent.ID)
@@ -473,7 +479,8 @@ func (s *ReviewService) writeReview(
 		Agent:   agent,
 		Round:   round,
 		Author:  s.authorName(ctx, review),
-		Verdict: verdict,
+		Verdict: params.Verdict,
+		Said:    params.Body,
 		Threads: threads,
 		Source:  s.snapshotLines(ctx, agent.Cwd, round, threads),
 	})

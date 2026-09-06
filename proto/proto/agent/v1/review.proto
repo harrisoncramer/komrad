@@ -76,6 +76,9 @@ message Review {
   string delivered_at = 10;
   string created_at = 11;
   string updated_at = 12;
+  // What the author said about the work as a whole rather than about any one line, empty when
+  // they said nothing.
+  string body = 13;
 }
 
 // ReviewThread is one conversation pinned to a place in a round of an agent's diff.
@@ -251,6 +254,9 @@ message ReleaseReviewRequest {
   // Stop the agent where it stands before telling it, so it reads now rather than at the end
   // of whatever it is doing.
   bool interrupt = 3;
+  // What to say about the work as a whole rather than about any one line, which goes at the
+  // head of the file the agent reads. Optional: a review of pinned comments alone is complete.
+  string body = 4 [(buf.validate.field).string.max_len = 10000];
 }
 
 message ReleaseReviewResponse {

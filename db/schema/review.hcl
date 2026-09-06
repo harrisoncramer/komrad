@@ -82,6 +82,12 @@ table "reviews" {
     type    = uuid
     comment = "The agent giving the review, null when the person reviewing is. Null does not itself mean the person, author_kind says that. Deleting that agent nulls this rather than taking the review with it, since a reviewer child is deleted as a matter of course and the review it gave is what the agent it reviewed was working from."
   }
+  column "body" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "What the author said about the work as a whole rather than about any one line, empty when they said nothing. It is written at the head of the released file, above the comments, since it is the thing the agent should read first."
+  }
   column "verdict" {
     null    = true
     type    = enum.review_verdict

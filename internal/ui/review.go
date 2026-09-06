@@ -52,6 +52,10 @@ type reviewState struct {
 	top       int
 	frames    *reviewFrames
 	composing bool
+	// releasing is set while the panel is asking what to send, which is one editor for a word
+	// about the work as a whole and one choice of verdict.
+	releasing bool
+	verdict   int
 	editor    textarea.Model
 
 	// filter is the pattern being searched for in the diff, kept apart from the agents list's own
@@ -557,12 +561,16 @@ func (m model) reviewStageArgv(path string) []string {
 // doesTakeEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
 // the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {
-	return r.composing || r.filter.typing
+	return r.composing || r.releasing || r.filter.typing
 }
 
 func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.review.composing {
 		return m.updateReviewComposer(key)
+	}
+
+	if m.review.releasing {
+		return m.updateReviewRelease(key)
 	}
 
 	if m.review.filter.typing {
@@ -643,14 +651,12 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.editReviewFile()
 	case isBound(k, keys.Compose):
 		return m.composeReview()
-	case isBound(k, keys.Approve):
-		return m.approveReview()
 	case isBound(k, keys.Resolve):
 		return m.resolveReviewThread()
 	case isBound(k, keys.ToggleViewed):
 		return m.toggleReviewViewed()
 	case isBound(k, m.keys.Form.Submit):
-		return m.releaseReview()
+		return m.openReviewRelease()
 	}
 
 	return m, nil
@@ -670,7 +676,6 @@ func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 // and marking a file read, since those are the person's own records and send nothing.
 func isReviewWrite(k string, keys config.Keybindings) bool {
 	return isBound(k, keys.Review.Compose) ||
-		isBound(k, keys.Review.Approve) ||
 		isBound(k, keys.Form.Submit)
 }
 
@@ -1043,25 +1048,76 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 	})
 }
 
-// releaseReview lets go of the comments written and not yet sent, asking the agent for changes,
-// which reaches it as one file and one piece of mail rather than a comment at a time.
-func (m model) releaseReview() (tea.Model, tea.Cmd) {
-	return m.releaseReviewWith(agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED)
+// reviewVerdicts is what the release panel offers, in the order a reader most often wants them,
+// so the first is the one the submit key used to send on its own.
+var reviewVerdicts = []agentv1.ReviewVerdict{
+	agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+	agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
+	agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED,
 }
 
-// approveReview lets the batch go saying the round is good as it stands, which is what tells
-// the agent it is done and what gates opening a pull request.
-func (m model) approveReview() (tea.Model, tea.Cmd) {
-	return m.releaseReviewWith(agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED)
+// openReviewRelease asks what to send rather than sending, since a verdict is a decision worth
+// making deliberately and a word about the work as a whole belongs with it.
+func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
+	m.review.releasing = true
+	m.review.verdict = 0
+	m.review.notice = ""
+	m.review.editor.SetValue("")
+	m.review.editor.SetWidth(max(20, m.width-4))
+
+	return m, m.review.editor.Focus()
 }
 
-func (m model) releaseReviewWith(verdict agentv1.ReviewVerdict) (tea.Model, tea.Cmd) {
+// updateReviewRelease takes every key while the panel is up: tab walks the verdict, the submit
+// key sends, escape abandons, and everything else is a word being typed about the work.
+func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
+	k := key.String()
+
+	switch {
+	case k == "esc":
+		return m.closeReviewRelease(), nil
+	case k == "ctrl+c":
+		return m, m.hide()
+	case k == "tab":
+		m.review.verdict = (m.review.verdict + 1) % len(reviewVerdicts)
+
+		return m, nil
+	case k == "shift+tab":
+		m.review.verdict = (m.review.verdict + len(reviewVerdicts) - 1) % len(reviewVerdicts)
+
+		return m, nil
+	case isBound(k, m.keys.Form.Submit):
+		return m.sendReview()
+	}
+
+	editor, cmd := m.review.editor.Update(key)
+	m.review.editor = editor
+
+	return m, cmd
+}
+
+func (m model) closeReviewRelease() model {
+	m.review.editor.Blur()
+	m.review.releasing = false
+
+	return m
+}
+
+// sendReview lets the batch go with the verdict chosen and whatever was written about the work as
+// a whole, which reaches the agent as one file and one piece of mail.
+func (m model) sendReview() (tea.Model, tea.Cmd) {
+	verdict := reviewVerdicts[m.review.verdict]
+	body := strings.TrimSpace(m.review.editor.Value())
+
+	m = m.closeReviewRelease()
+
 	agents, agentID := m.api.agents, m.review.agentID
 
 	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 			AgentId: agentID,
 			Verdict: verdict,
+			Body:    body,
 		}))
 		if err != nil {
 			return "", err

@@ -23,6 +23,9 @@ type RenderReviewParams struct {
 	// Author names who gave the review, which is a person when it is empty.
 	Author  string
 	Verdict reviewstore.Verdict
+	// Said is what the author wrote about the work as a whole rather than about any one line,
+	// empty when they wrote nothing, and it goes above the comments since it frames them.
+	Said    string
 	Threads []ReviewThreadWithMessages
 	// Source holds each file as the round froze it, and a path it has nothing for falls back to
 	// the lines the comment quoted.
@@ -44,6 +47,10 @@ func RenderReview(params RenderReviewParams) string {
 	fmt.Fprintf(&out, "This review was written against the snapshot `%s`, taken from `%s`. "+
 		"To see exactly what was reviewed, run `git diff %s %s`.\n",
 		short(round.SnapshotSHA), short(round.BaseSHA), round.BaseSHA, round.SnapshotSHA)
+
+	if said := strings.TrimSpace(params.Said); said != "" {
+		fmt.Fprintf(&out, "\n## What the reviewer said\n\n%s\n", said)
+	}
 
 	if len(threads) == 0 {
 		return out.String()

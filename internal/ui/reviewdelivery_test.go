@@ -159,26 +159,32 @@ func TestReviewGutterMarksWhatHasNotReachedTheAgent(t *testing.T) {
 	}
 }
 
-// TestReviewApproveIsItsOwnKey covers the verdict being a deliberate choice: the submit key
-// asks for changes and the approve key says the round is good, and each says which it sent.
-func TestReviewApproveIsItsOwnKey(t *testing.T) {
+// TestReviewVerdictIsChosenInThePanel covers the verdict being a deliberate choice made in one
+// place: the submit key asks rather than sends, and what it sends is whatever the selector was
+// left on, so there is no second key that means something different.
+func TestReviewVerdictIsChosenInThePanel(t *testing.T) {
 	tests := []struct {
 		name string
-		key  tea.KeyMsg
+		tabs int
 		want agentv1.ReviewVerdict
 		says string
 	}{
 		{
-			name: "submit asks for changes",
-			key:  tea.KeyMsg{Type: tea.KeyCtrlS},
+			name: "the panel opens on asking for changes",
 			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 			says: "changes requested",
 		},
 		{
-			name: "the approve key says the round is good",
-			key:  tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")},
+			name: "one tab approves",
+			tabs: 1,
 			want: agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED,
 			says: "approved",
+		},
+		{
+			name: "and it wraps back around",
+			tabs: 3,
+			want: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+			says: "changes requested",
 		},
 	}
 
@@ -189,16 +195,26 @@ func TestReviewApproveIsItsOwnKey(t *testing.T) {
 			m, _ := reviewModel(t, agents, dir)
 			m = openReview(t, m)
 
-			next, cmd := m.updateReview(tt.key)
+			next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 			m = next.(model)
+			require.True(t, m.review.releasing, "the submit key asks rather than sends")
+			require.Nil(t, agents.released, "and nothing has gone yet")
+
+			for range tt.tabs {
+				next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyTab})
+				m = next.(model)
+			}
+
+			sent, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+			m = sent.(model)
 			require.NotNil(t, cmd)
+			require.False(t, m.review.releasing, "and the panel is put away")
 
 			wrote, ok := cmd().(reviewWroteMsg)
 			require.True(t, ok)
 			require.NoError(t, wrote.err)
 
 			require.NotNil(t, agents.released)
-			assert.Equal(t, "a1", agents.released.GetAgentId())
 			assert.Equal(t, tt.want, agents.released.GetVerdict())
 			assert.Contains(t, wrote.notice, tt.says)
 
@@ -206,6 +222,49 @@ func TestReviewApproveIsItsOwnKey(t *testing.T) {
 			assert.Contains(t, ansi.Strip(m.reviewView()), tt.says)
 		})
 	}
+}
+
+// TestAReviewCarriesAWordAboutTheWholeThing covers the panel's other half: a comment that belongs
+// to no line goes with the review, which is the thing pinning every note to a line cannot say.
+func TestAReviewCarriesAWordAboutTheWholeThing(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+
+	for _, r := range "the shape is right" {
+		next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+		m = next.(model)
+	}
+
+	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	require.NotNil(t, cmd)
+	cmd()
+
+	require.NotNil(t, agents.released)
+	assert.Equal(t, "the shape is right", agents.released.GetBody())
+}
+
+// TestAbandoningTheReleasePanelSendsNothing covers escape being a way out, since the panel opens
+// on a key a reader presses by habit and pressing it must not commit them to a verdict.
+func TestAbandoningTheReleasePanelSendsNothing(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.True(t, m.review.releasing)
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
+	m = next.(model)
+
+	assert.False(t, m.review.releasing, "the panel is put away")
+	assert.Nil(t, agents.released, "and nothing was sent")
 }
 
 // TestReviewOfADeadAgentIsReadOnly covers the narrower gate inside the screen: the diff opens
@@ -244,15 +303,13 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 
 			m.helpExpanded, m.height = true, 40
 			expanded := ansi.Strip(m.reviewView())
-			assert.NotContains(t, expanded, "approve the round")
-			assert.NotContains(t, expanded, "request changes")
+			assert.NotContains(t, expanded, "send the review")
 			assert.Contains(t, expanded, "settle the thread", "what is the person's own record stays")
 
 			m.helpExpanded = false
 
 			for _, key := range []tea.KeyMsg{
 				{Type: tea.KeyRunes, Runes: []rune("c")},
-				{Type: tea.KeyRunes, Runes: []rune("a")},
 				{Type: tea.KeyCtrlS},
 			} {
 				next, cmd := m.updateReview(key)
@@ -260,6 +317,7 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 
 				assert.Nil(t, cmd, "%v sends nothing", key)
 				assert.False(t, refused.review.composing, "%v does not open the editor", key)
+				assert.False(t, refused.review.releasing, "%v does not open the release panel", key)
 				assert.Contains(t, refused.review.notice, tt.want, "%v says why", key)
 			}
 

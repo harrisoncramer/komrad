@@ -369,9 +369,6 @@ type ReviewKeys struct {
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload"`
-	// Send the review saying the work is good as it stands, which is what tells the agent
-	// it is done. The submit key sends the same comments asking for changes instead.
-	Approve []string `mapstructure:"approve"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
 	Resolve []string `mapstructure:"resolve"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
@@ -749,7 +746,6 @@ func DefaultKeybindings() Keybindings {
 			PrevThread:   []string{"T"},
 			Quit:         []string{"ctrl+c"},
 			Reload:       []string{"R"},
-			Approve:      []string{"a"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
 		},

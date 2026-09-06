@@ -891,18 +891,23 @@ func deliveredComment() *agentv1.ReviewMessage {
 	}
 }
 
-// TestReviewReleaseIsTheSubmitKey covers telling the agent its review is waiting on the same key
-// that submits everywhere else.
+// TestReviewReleaseIsTheSubmitKey covers there being one way to send a review, on the same key
+// that submits everywhere else, which asks what to send rather than deciding for the reader.
 func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, _ := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.True(t, m.review.releasing, "the key opens the panel")
+	require.False(t, m.review.composing, "and not the line composer")
+	require.Nil(t, agents.released, "and sends nothing on its own")
+
 	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
 	m = next.(model)
-	require.NotNil(t, cmd, "the key tells the agent")
-	require.False(t, m.review.composing, "and does not open the editor on the way")
+	require.NotNil(t, cmd, "the same key sends from inside it")
 
 	wrote, ok := cmd().(reviewWroteMsg)
 	require.True(t, ok)

@@ -182,6 +182,10 @@ func (m model) reviewRestView() string {
 			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · esc cancel") + "\n"
 	}
 
+	if m.review.releasing {
+		return m.reviewReleaseView()
+	}
+
 	out := "\n" + m.reviewThreadView()
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
@@ -208,6 +212,55 @@ func (m model) reviewAnchorView() string {
 	}
 
 	return m.nameStyle(true, false, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
+}
+
+// reviewReleaseView asks what to send: a word about the work as a whole, which is optional, and
+// the verdict, which is the part worth choosing deliberately since it is what the agent acts on.
+func (m model) reviewReleaseView() string {
+	out := "\n" + dimStyle.Render("  anything to say about the work as a whole? (optional)") + "\n"
+	out += m.review.editor.View() + "\n\n"
+
+	for i, verdict := range reviewVerdicts {
+		mark, style := "  ", dimStyle
+		if i == m.review.verdict {
+			mark, style = "▸ ", reviewVerdictStyle(verdict)
+		}
+
+		out += style.Render("  "+mark+reviewVerdictWord(verdict)) + "\n"
+	}
+
+	return out + "\n" + dimStyle.Render("  tab to change · "+
+		keyLabel(m.keys.Form.Submit)+" send · esc cancel") + "\n"
+}
+
+// reviewVerdictWord is how a verdict reads in the panel, spelled the way a person would say it
+// rather than the way the wire does.
+func reviewVerdictWord(verdict agentv1.ReviewVerdict) string {
+	switch verdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
+		return "approve"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
+		return "request changes"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+		return "comment only"
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return "comment only"
+	default:
+		return "comment only"
+	}
+}
+
+// reviewVerdictStyle colours the chosen verdict by what it means, since approving and asking for
+// more work are the two outcomes worth telling apart at a glance.
+func reviewVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
+	switch verdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
+		return reviewDeliveredStyle
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
+		return reviewSentStyle
+	default:
+		return reviewUnsentStyle
+	}
 }
 
 // reviewStatView is how big the change is, with the counts coloured the way the lines
@@ -503,8 +556,7 @@ func (m model) reviewHelp() keyMap {
 	if _, dead := m.reviewIsReadOnly(); !dead {
 		composing = []key.Binding{binding(keys.Compose, m.reviewComposeDesc())}
 		writing = slices.Concat(composing, []key.Binding{
-			binding(keys.Approve, "approve the work"),
-			binding(m.keys.Form.Submit, "request changes"),
+			binding(m.keys.Form.Submit, "send the review"),
 		})
 	}
 

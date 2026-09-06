@@ -14,6 +14,7 @@ weave rpc release-review [flags]
 
 ```
       --agent-id string       string, required
+      --body string           string, at most 10000 characters
       --compact               print the response on one line
   -h, --help                  help for release-review
       --interrupt             bool

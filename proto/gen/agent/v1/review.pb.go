@@ -298,9 +298,12 @@ type Review struct {
 	// The absolute path the released review was written to.
 	Path string `protobuf:"bytes,9,opt,name=path,proto3" json:"path,omitempty"`
 	// When the agent claimed the mail that told it the review was waiting.
-	DeliveredAt   string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
-	CreatedAt     string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	DeliveredAt string `protobuf:"bytes,10,opt,name=delivered_at,json=deliveredAt,proto3" json:"delivered_at,omitempty"`
+	CreatedAt   string `protobuf:"bytes,11,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt   string `protobuf:"bytes,12,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// What the author said about the work as a whole rather than about any one line, empty when
+	// they said nothing.
+	Body          string `protobuf:"bytes,13,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -415,6 +418,13 @@ func (x *Review) GetCreatedAt() string {
 func (x *Review) GetUpdatedAt() string {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return ""
+}
+
+func (x *Review) GetBody() string {
+	if x != nil {
+		return x.Body
 	}
 	return ""
 }
@@ -1646,7 +1656,10 @@ type ReleaseReviewRequest struct {
 	Verdict ReviewVerdict `protobuf:"varint,2,opt,name=verdict,proto3,enum=agent.v1.ReviewVerdict" json:"verdict,omitempty"`
 	// Stop the agent where it stands before telling it, so it reads now rather than at the end
 	// of whatever it is doing.
-	Interrupt     bool `protobuf:"varint,3,opt,name=interrupt,proto3" json:"interrupt,omitempty"`
+	Interrupt bool `protobuf:"varint,3,opt,name=interrupt,proto3" json:"interrupt,omitempty"`
+	// What to say about the work as a whole rather than about any one line, which goes at the
+	// head of the file the agent reads. Optional: a review of pinned comments alone is complete.
+	Body          string `protobuf:"bytes,4,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1700,6 +1713,13 @@ func (x *ReleaseReviewRequest) GetInterrupt() bool {
 		return x.Interrupt
 	}
 	return false
+}
+
+func (x *ReleaseReviewRequest) GetBody() string {
+	if x != nil {
+		return x.Body
+	}
+	return ""
 }
 
 type ReleaseReviewResponse struct {
@@ -2034,7 +2054,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\bbase_sha\x18\x04 \x01(\tR\abaseSha\x12!\n" +
 	"\fsnapshot_sha\x18\x05 \x01(\tR\vsnapshotSha\x12\x1d\n" +
 	"\n" +
-	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\xba\x03\n" +
+	"created_at\x18\x06 \x01(\tR\tcreatedAt\"\xce\x03\n" +
 	"\x06Review\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x19\n" +
@@ -2052,7 +2072,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\v \x01(\tR\tcreatedAt\x12\x1d\n" +
 	"\n" +
-	"updated_at\x18\f \x01(\tR\tupdatedAtB\x12\n" +
+	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
+	"\x04body\x18\r \x01(\tR\x04bodyB\x12\n" +
 	"\x10_author_agent_id\"\xfe\x03\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
@@ -2151,12 +2172,13 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x12ListReviewsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"A\n" +
 	"\x13ListReviewsResponse\x12*\n" +
-	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\x97\x01\n" +
+	"\areviews\x18\x01 \x03(\v2\x10.agent.v1.ReviewR\areviews\"\xb5\x01\n" +
 	"\x14ReleaseReviewRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12=\n" +
 	"\averdict\x18\x02 \x01(\x0e2\x17.agent.v1.ReviewVerdictB\n" +
 	"\xbaH\a\x82\x01\x04\x10\x01 \x00R\averdict\x12\x1c\n" +
-	"\tinterrupt\x18\x03 \x01(\bR\tinterrupt\"q\n" +
+	"\tinterrupt\x18\x03 \x01(\bR\tinterrupt\x12\x1c\n" +
+	"\x04body\x18\x04 \x01(\tB\b\xbaH\x05r\x03\x18\x90NR\x04body\"q\n" +
 	"\x15ReleaseReviewResponse\x12(\n" +
 	"\x06review\x18\x01 \x01(\v2\x10.agent.v1.ReviewR\x06review\x12\x1a\n" +
 	"\bcomments\x18\x02 \x01(\x05R\bcomments\x12\x12\n" +

@@ -121,6 +121,7 @@ UPDATE
 SET
     released_at = NOW(),
     verdict = @verdict,
+    body = @body,
     path = @path,
     doorbell_mail_id = sqlc.narg('doorbell_mail_id')
 WHERE

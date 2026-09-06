@@ -48,6 +48,9 @@ type Review struct {
 	Verdict *Verdict
 	// ReleasedAt is when the review was let go of, nil while nothing in it has reached the agent.
 	ReleasedAt *time.Time
+	// Body is what the author said about the work as a whole rather than about any one line,
+	// empty when they said nothing.
+	Body string
 	// Path is the absolute path the released review was written to, empty while it is still open.
 	Path           string
 	DoorbellMailID *string
@@ -259,6 +262,7 @@ func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, erro
 			AuthorAgentID:  row.AuthorAgentID,
 			Verdict:        row.Verdict,
 			ReleasedAt:     row.ReleasedAt,
+			Body:           row.Body,
 			Path:           row.Path,
 			DoorbellMailID: row.DoorbellMailID,
 			CreatedAt:      row.CreatedAt,
@@ -289,8 +293,10 @@ func (s *Store) CountOpenComments(ctx context.Context, reviewID string) (int, er
 }
 
 type ReleaseReviewParams struct {
-	ID             string
-	Verdict        Verdict
+	ID      string
+	Verdict Verdict
+	// Body is what the author said about the work as a whole, empty when they said nothing.
+	Body           string
 	Path           string
 	DoorbellMailID *string
 }
@@ -304,6 +310,7 @@ func (s *Store) ReleaseReview(ctx context.Context, params ReleaseReviewParams) (
 
 	row, err := s.queries.ReleaseReview(ctx, models.ReleaseReviewParams{
 		ID:             params.ID,
+		Body:           params.Body,
 		Verdict:        models.NullReviewVerdict{ReviewVerdict: models.ReviewVerdict(params.Verdict), Valid: params.Verdict != ""},
 		Path:           params.Path,
 		DoorbellMailID: params.DoorbellMailID,
@@ -369,6 +376,7 @@ func reviewFromRow(row models.Review) Review {
 		AuthorKind:     AuthorKind(row.AuthorKind),
 		AuthorAgentID:  row.AuthorAgentID,
 		ReleasedAt:     row.ReleasedAt,
+		Body:           row.Body,
 		Path:           row.Path,
 		DoorbellMailID: row.DoorbellMailID,
 		CreatedAt:      row.CreatedAt,

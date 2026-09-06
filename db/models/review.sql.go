@@ -49,7 +49,7 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one
 SELECT
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
 FROM
     reviews v
 WHERE
@@ -83,6 +83,7 @@ func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleased
 		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Body,
 	)
 	return &i, err
 }
@@ -115,7 +116,7 @@ func (q *Queries) GetLatestReviewRound(ctx context.Context, agentID string) (*Re
 
 const getOpenReview = `-- name: GetOpenReview :one
 SELECT
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
 FROM
     reviews v
 WHERE
@@ -146,13 +147,14 @@ func (q *Queries) GetOpenReview(ctx context.Context, arg GetOpenReviewParams) (*
 		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Body,
 	)
 	return &i, err
 }
 
 const getReview = `-- name: GetReview :one
 SELECT
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
 FROM
     reviews v
 WHERE
@@ -174,6 +176,7 @@ func (q *Queries) GetReview(ctx context.Context, id string) (*Review, error) {
 		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Body,
 	)
 	return &i, err
 }
@@ -300,7 +303,7 @@ VALUES (
     $3,
     $4)
 RETURNING
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
 `
 
 type InsertReviewParams struct {
@@ -330,6 +333,7 @@ func (q *Queries) InsertReview(ctx context.Context, arg InsertReviewParams) (*Re
 		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Body,
 	)
 	return &i, err
 }
@@ -799,7 +803,7 @@ func (q *Queries) ListReviewViewedFiles(ctx context.Context, roundID string) ([]
 
 const listReviews = `-- name: ListReviews :many
 SELECT
-    v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at,
+    v.id, v.agent_id, v.round_id, v.author_kind, v.author_agent_id, v.verdict, v.released_at, v.path, v.doorbell_mail_id, v.created_at, v.updated_at, v.body,
     r.ordinal AS round_ordinal,
     d.claimed_at AS delivered_at
 FROM
@@ -825,6 +829,7 @@ type ListReviewsRow struct {
 	DoorbellMailID *string
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
+	Body           string
 	RoundOrdinal   int32
 	DeliveredAt    *time.Time
 }
@@ -850,6 +855,7 @@ func (q *Queries) ListReviews(ctx context.Context, agentID string) ([]*ListRevie
 			&i.DoorbellMailID,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Body,
 			&i.RoundOrdinal,
 			&i.DeliveredAt,
 		); err != nil {
@@ -930,16 +936,18 @@ UPDATE
 SET
     released_at = NOW(),
     verdict = $1,
-    path = $2,
-    doorbell_mail_id = $3
+    body = $2,
+    path = $3,
+    doorbell_mail_id = $4
 WHERE
-    v.id = $4
+    v.id = $5
 RETURNING
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
 `
 
 type ReleaseReviewParams struct {
 	Verdict        NullReviewVerdict
+	Body           string
 	Path           string
 	DoorbellMailID *string
 	ID             string
@@ -948,6 +956,7 @@ type ReleaseReviewParams struct {
 func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*Review, error) {
 	row := q.db.QueryRow(ctx, releaseReview,
 		arg.Verdict,
+		arg.Body,
 		arg.Path,
 		arg.DoorbellMailID,
 		arg.ID,
@@ -965,6 +974,7 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 		&i.DoorbellMailID,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Body,
 	)
 	return &i, err
 }
