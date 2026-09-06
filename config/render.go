@@ -23,7 +23,7 @@ const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 // RenderConfigTOML builds the documented config file from the Config struct, with dir naming
 // the package source the comment extractor reads.
 func RenderConfigTOML(dir string) ([]byte, error) {
-	schema, err := Schema(dir)
+	schema, err := reflectSchema(dir)
 	if err != nil {
 		return nil, err
 	}

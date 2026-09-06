@@ -55,9 +55,9 @@ func NewRunner() Runner {
 	return Runner{}
 }
 
-// Discover lists the scripts in dir by name with what each header declares, treating a
+// discover lists the scripts in dir by name with what each header declares, treating a
 // missing directory as no scripts rather than an error.
-func Discover(dir string) ([]Script, error) {
+func discover(dir string) ([]Script, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {

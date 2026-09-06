@@ -16,9 +16,9 @@ func GetRoot(ctx context.Context, dir string) (string, error) {
 	return root, nil
 }
 
-// ResolveBase turns a configured base branch into something git can name, preferring a
+// resolveBase turns a configured base branch into something git can name, preferring a
 // remote-tracking ref since a worktree is cut from one.
-func ResolveBase(ctx context.Context, root, base string) string {
+func resolveBase(ctx context.Context, root, base string) string {
 	base = strings.TrimSpace(base)
 	if base == "" {
 		if head, err := Run(ctx, root, "symbolic-ref", "--quiet", "--short", "refs/remotes/origin/HEAD"); err == nil {

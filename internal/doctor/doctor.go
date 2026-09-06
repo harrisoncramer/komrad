@@ -38,10 +38,10 @@ type Problem struct {
 // Error returns the message the check wrote, which is the sentence a person reads.
 func (p *Problem) Error() string { return p.Message }
 
-// CodeOf returns the stable code of the problem err carries, or empty when it carries none;
+// codeOf returns the stable code of the problem err carries, or empty when it carries none;
 // a check wraps its sentinel to add detail, so the code is found through the chain rather
 // than off the error itself.
-func CodeOf(err error) string {
+func codeOf(err error) string {
 	var problem *Problem
 	if errors.As(err, &problem) {
 		return problem.Code
@@ -132,7 +132,7 @@ func Run(ctx context.Context, env Env, checks []Check) Report {
 			Fix:         result.Fix,
 		}
 		if result.Err != nil {
-			finding.Code = CodeOf(result.Err)
+			finding.Code = codeOf(result.Err)
 			finding.Error = result.Err.Error()
 		}
 

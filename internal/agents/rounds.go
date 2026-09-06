@@ -88,11 +88,11 @@ func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]stri
 	return git.ReadFileLines(ctx, dir, sha, path)
 }
 
-// RoundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
+// roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
 // commit so that taking it is idempotent and needs no row to exist first, and so that two agents
 // whose worktrees hash the same hold their rounds separately rather than sharing one ref that
 // either of them deleting would pull out from under the other.
-func RoundRef(agentID, snapshotSHA string) string {
+func roundRef(agentID, snapshotSHA string) string {
 	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
 }
 
@@ -132,7 +132,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 		return latest, nil
 	}
 
-	if err := s.snapshots.Hold(ctx, agent.Cwd, RoundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
+	if err := s.snapshots.Hold(ctx, agent.Cwd, roundRef(agentID, snapshot.SHA), snapshot.SHA); err != nil {
 		return nil, err
 	}
 
@@ -479,7 +479,7 @@ func (s *ReviewService) writeReview(
 		return "", fmt.Errorf("failed to make room for the review of %q: %w", agent.Name, err)
 	}
 
-	body := RenderReview(RenderReviewParams{
+	body := renderReview(RenderReviewParams{
 		Agent:   agent,
 		Round:   round,
 		Author:  s.authorName(ctx, review),

@@ -112,7 +112,7 @@ type queryer interface {
 func getMigrationsToRun(ctx context.Context, q queryer, versions []string) ([]string, error) {
 	rows, err := q.Query(ctx,
 		`SELECT version FROM schema_migrations WHERE version = ANY ($1)`, versions)
-	if IsUndefinedTable(err) {
+	if isUndefinedTable(err) {
 		return versions, nil
 	}
 	if err != nil {
@@ -133,7 +133,7 @@ func getMigrationsToRun(ctx context.Context, q queryer, versions []string) ([]st
 	// The table can be missing on a database that has never been migrated, which the
 	// query above only reports once the rows are walked.
 	if err := rows.Err(); err != nil {
-		if IsUndefinedTable(err) {
+		if isUndefinedTable(err) {
 			return versions, nil
 		}
 

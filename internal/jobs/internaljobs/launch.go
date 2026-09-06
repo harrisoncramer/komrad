@@ -91,7 +91,7 @@ func (w *LaunchAgentWorker) Work(ctx context.Context, job *river.Job[LaunchAgent
 		WorkflowID:     schedule.WorkflowID,
 		ScheduleID:     xptr.Ptr(schedule.ID),
 		Hidden:         schedule.HideAgents,
-		IdempotencyKey: LaunchKey(schedule.ID, job.Args.ScheduledFor),
+		IdempotencyKey: launchKey(schedule.ID, job.Args.ScheduledFor),
 	})
 
 	if errors.Is(err, agents.ErrBadDirectory) ||
@@ -140,9 +140,9 @@ func (w *LaunchAgentWorker) record(ctx context.Context, scheduleID string, statu
 	}
 }
 
-// LaunchKey identifies one firing of one schedule: the schedule says which recurring
+// launchKey identifies one firing of one schedule: the schedule says which recurring
 // launch, the occurrence says which run of it, so tomorrow's 9am is a different agent while
 // a retry of today's is the same one.
-func LaunchKey(scheduleID string, scheduledFor time.Time) string {
+func launchKey(scheduleID string, scheduledFor time.Time) string {
 	return "schedule:" + scheduleID + ":" + scheduledFor.UTC().Format(time.RFC3339)
 }

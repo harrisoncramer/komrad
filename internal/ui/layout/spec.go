@@ -15,9 +15,9 @@ type Spec struct {
 	infoSize       string
 }
 
-// NewSpec resolves a configured layout into the geometry the frame lays panes out at, falling
+// newSpec resolves a configured layout into the geometry the frame lays panes out at, falling
 // back to the defaults for anything the config left out.
-func NewSpec(layout config.Layout) Spec {
+func newSpec(layout config.Layout) Spec {
 	list, info := layout.SidebarWidth, layout.InfoHeight
 	if list <= 0 {
 		list = config.DefaultSidebarWidth

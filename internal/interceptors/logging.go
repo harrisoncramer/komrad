@@ -43,7 +43,7 @@ func (l *loggingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc
 		}
 
 		from := caller.FromHeader(http.Header(req.Header()))
-		attrs = append(attrs, CallerAttrs(from)...)
+		attrs = append(attrs, callerAttrs(from)...)
 
 		logger := l.logger.With(logging.Attrs(attrs)...)
 		ctx = caller.With(caller.WithTrace(logging.WithLogger(ctx, logger), trace), from)
@@ -77,9 +77,9 @@ func (l *loggingInterceptor) WrapStreamingHandler(next connect.StreamingHandlerF
 	return next
 }
 
-// CallerAttrs name the agent a call came from, and nothing at all for the panel or a person,
+// callerAttrs name the agent a call came from, and nothing at all for the panel or a person,
 // so one agent's calls are one filter however they arrived.
-func CallerAttrs(from caller.Caller) []slog.Attr {
+func callerAttrs(from caller.Caller) []slog.Attr {
 	attrs := make([]slog.Attr, 0, 2)
 	if from.AgentID != "" {
 		attrs = append(attrs, slog.String(logging.AgentID, from.AgentID))

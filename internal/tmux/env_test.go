@@ -39,7 +39,7 @@ func TestFromEnv(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.wantSocket, SocketFromEnv(tt.value))
-			assert.Equal(t, tt.wantSession, SessionFromEnv(tt.value))
+			assert.Equal(t, tt.wantSession, sessionFromEnv(tt.value))
 		})
 	}
 }

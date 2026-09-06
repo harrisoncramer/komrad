@@ -26,7 +26,7 @@ type shown struct {
 func New(tmux Tmux, layout config.Layout) *Frame {
 	return &Frame{
 		tmux:  tmux,
-		spec:  NewSpec(layout),
+		spec:  newSpec(layout),
 		shown: map[Region]shown{},
 	}
 }

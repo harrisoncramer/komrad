@@ -23,7 +23,7 @@ func List(dirs ...string) ([]Script, error) {
 			continue
 		}
 
-		listed, err := Discover(dir)
+		listed, err := discover(dir)
 		if err != nil {
 			return nil, err
 		}

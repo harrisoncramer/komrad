@@ -45,10 +45,10 @@ type NewHarnessParams struct {
 // NewHarness builds a harness from opts.
 func NewHarness(opts NewHarnessParams) *Harness {
 	if opts.SessionsDir == "" {
-		opts.SessionsDir = DefaultSessionsDir()
+		opts.SessionsDir = defaultSessionsDir()
 	}
 	if opts.ConfigPath == "" {
-		opts.ConfigPath = DefaultConfigPath()
+		opts.ConfigPath = defaultConfigPath()
 	}
 
 	return &Harness{
@@ -74,9 +74,9 @@ func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 // names the conversation itself, which the panel adopts afterwards through FindSession.
 func (h *Harness) MintSessionID() string { return "" }
 
-// DefaultSessionsDir is where Codex records its rollouts, returning a relative path that
+// defaultSessionsDir is where Codex records its rollouts, returning a relative path that
 // matches no rollouts when the home directory cannot be read.
-func DefaultSessionsDir() string {
+func defaultSessionsDir() string {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		home = ""

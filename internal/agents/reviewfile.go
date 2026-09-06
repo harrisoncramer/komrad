@@ -32,10 +32,10 @@ type RenderReviewParams struct {
 	Source map[string][]string
 }
 
-// RenderReview writes a whole review out as the markdown the agent reads, carrying everything it
+// renderReview writes a whole review out as the markdown the agent reads, carrying everything it
 // needs since the mail says only where this is, and drawing the code around each comment out of
 // the round's own source.
-func RenderReview(params RenderReviewParams) string {
+func renderReview(params RenderReviewParams) string {
 	round, verdict, threads, source := params.Round, params.Verdict, params.Threads, params.Source
 
 	var out strings.Builder

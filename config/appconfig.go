@@ -635,12 +635,12 @@ func Defaults() *Config {
 			ProcessViewer: DefaultProcessViewer,
 		},
 		Debug:      Debug{FrameHistory: DefaultFrameHistory},
-		Connection: DefaultConnection(),
+		Connection: defaultConnection(),
 	}
 }
 
-// DefaultConnection is the instance a config that names none points at.
-func DefaultConnection() Connection {
+// defaultConnection is the instance a config that names none points at.
+func defaultConnection() Connection {
 	return Connection{
 		DatabaseURL: DefaultDatabaseURL,
 		Addr:        DefaultAddr,

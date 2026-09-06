@@ -56,7 +56,7 @@ type ResumeServiceParams struct {
 // NewResumeService builds the service from its dependencies.
 func NewResumeService(p ResumeServiceParams) *ResumeService {
 	if p.FallbackResumeRoot == "" {
-		p.FallbackResumeRoot = DefaultFallbackResumeRoot()
+		p.FallbackResumeRoot = defaultFallbackResumeRoot()
 	}
 
 	return &ResumeService{
