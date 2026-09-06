@@ -753,7 +753,7 @@ func DefaultKeybindings() Keybindings {
 			Archive: []string{"z"},
 			Back:    []string{"esc"},
 			Edit:    []string{"enter"},
-			New:     []string{"n"},
+			New:     []string{"c"},
 			Open:    []string{"S"},
 			Quit:    []string{"ctrl+c"},
 			Toggle:  []string{" "},

@@ -236,7 +236,7 @@ back    = ["esc"]
 # Edit the schedule under the cursor.
 edit    = ["enter"]
 # Write a new schedule.
-new     = ["n"]
+new     = ["c"]
 # Open the schedules screen from the agents list.
 open    = ["S"]
 # Quit the panel.
