@@ -13,6 +13,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/muesli/termenv"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -480,6 +481,29 @@ func TestFilterViewLine(t *testing.T) {
 			assert.Equal(t, tt.want, strings.TrimSpace(ansi.Strip(m.filterView())))
 		})
 	}
+}
+
+// TestFilterSlashMarksAStandingSearch covers the colour of the slash, which is all a line that is
+// always drawn has to say whether anything is being searched for.
+func TestFilterSlashMarksAStandingSearch(t *testing.T) {
+	restore := lipgloss.ColorProfile()
+	lipgloss.SetColorProfile(termenv.TrueColor)
+	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
+
+	m := filterModel()
+
+	assert.Contains(t, m.filterView(), dimStyle.Render("/"), "an idle line is dim")
+	assert.NotContains(t, m.filterView(), cursorStyle.Render("/"))
+
+	typing := m
+	typing.filter.typing = true
+
+	assert.Contains(t, typing.filterView(), cursorStyle.Render("/"), "an open input takes the accent")
+
+	standing := m
+	standing.filter.setQuery("pay")
+
+	assert.Contains(t, standing.filterView(), cursorStyle.Render("/"), "and so does a pattern left standing")
 }
 
 // typeIntoFilter types a whole pattern at the filter, the way a person does one key at a time.
