@@ -85,8 +85,8 @@ func workflowProse(w workflowstore.Workflow) string {
 }
 
 func agentFields(agent agentstore.Agent, schedule, parent string) []recordField {
-	var fields []recordField
-	// What a child is attached to leads, since it is the fact that explains its directory.
+	fields := []recordField{{"name", orDash(agent.Name)}}
+	// What a child is attached to comes early, since it is the fact that explains its directory.
 	if agent.ParentAgentID != nil {
 		fields = append(fields, recordField{"attached to", orDash(parent)})
 	}
@@ -199,6 +199,7 @@ func archiveMarkdown(agent agentstore.Agent) string {
 
 func archiveFields(agent agentstore.Agent, schedule string) []recordField {
 	fields := []recordField{
+		{"name", orDash(agent.Name)},
 		{"agent", orDash(agent.Harness)},
 		{"directory", orDash(agent.Cwd)},
 		{"flags", orDash(agent.Flags)},

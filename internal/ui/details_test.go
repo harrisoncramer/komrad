@@ -284,6 +284,7 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 // it does not reflow as the cursor moves between records with different field counts.
 func TestDetailsPadsToItsShare(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
+	m.detailsHeight = 8
 	held := m.hoveredDetails()
 
 	require.Less(t, len(held.fields), m.detailsLines(), "the record must be shorter than the share for this to prove anything")
@@ -363,8 +364,8 @@ func TestAgentFields(t *testing.T) {
 	}{
 		{
 			name:       "what it was launched with, in the order it was launched with",
-			wantLabels: []string{"agent", "directory", "flags", "agent_id", "session_id"},
-			wantValues: []string{"—", "/repo", "—", "a1", "abc"},
+			wantLabels: []string{"name", "agent", "directory", "flags", "agent_id", "session_id"},
+			wantValues: []string{"auth", "—", "/repo", "—", "a1", "abc"},
 		},
 		{
 			name:       "an agent a schedule launched names the schedule",
@@ -421,6 +422,8 @@ func TestAgentFields(t *testing.T) {
 			agent.Branch = tt.branch
 
 			fields := agentFields(agent, tt.schedule, "")
+			require.NotEmpty(t, fields)
+			assert.Equal(t, "name", fields[0].label, "the name it is filed under leads")
 
 			labels := make([]string, 0, len(fields))
 			values := make([]string, 0, len(fields))
