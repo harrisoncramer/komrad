@@ -35,8 +35,7 @@ type api struct {
 	hooks     hookv1connect.HookServiceClient
 }
 
-// call runs one request against the panel under its own deadline, since the UI has no context to
-// hand down.
+// call runs work under its own deadline, since the UI has no context to hand down.
 func call[T any](timeout time.Duration, fn func(context.Context) (T, error)) (T, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
