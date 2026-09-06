@@ -266,7 +266,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 
 func waitOutTheShellGrace(rec *Reconciler) {
 	at := time.Now().Add(reconcileShellGrace + time.Second)
-	rec.now = func() time.Time { return at }
+	rec.tally.now = func() time.Time { return at }
 }
 
 // TestReconcileWaitsOutALaunch pins that a just-opened pane is not read as an exit, since
@@ -358,7 +358,7 @@ func TestReconcileOverPasses(t *testing.T) {
 				last := i == len(tt.passes)-1
 				if last && tt.archiveBeforeLast {
 					require.NoError(t, st.SoftDelete(ctx, "agent"))
-					assert.NotZero(t, rec.missCount(agent.ID), "the earlier idle pass should have recorded a miss")
+					assert.NotZero(t, rec.tally.countMisses(agent.ID), "the earlier idle pass should have recorded a miss")
 				}
 
 				tmux.captures["%1"] = frame
@@ -378,11 +378,11 @@ func TestReconcileOverPasses(t *testing.T) {
 			if !tt.archiveBeforeLast {
 				assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 			} else {
-				assert.Empty(t, rec.tracked, "what was tracked is reaped once the agent is gone")
+				assert.Empty(t, rec.tally.tracked, "what was tracked is reaped once the agent is gone")
 			}
 
 			if tt.wantMisses != nil {
-				assert.Equal(t, *tt.wantMisses, rec.missCount(agent.ID))
+				assert.Equal(t, *tt.wantMisses, rec.tally.countMisses(agent.ID))
 			}
 		})
 	}
@@ -423,7 +423,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	}
 
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "orphan"))
-	assert.Empty(t, rec.tracked, "an unread frame is not an idle observation")
+	assert.Empty(t, rec.tally.tracked, "an unread frame is not an idle observation")
 }
 
 // TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees pins that a reported boundary
@@ -457,12 +457,12 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			tmux.captures["%1"] = tt.frame
 
 			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-			rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+			rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 			rec.RecordTurnBoundary(agent.ID)
 
 			require.NoError(t, rec.Reconcile(ctx))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
-			assert.Zero(t, rec.missCount(agent.ID), "the boundary settles it in one pass rather than accruing a miss")
+			assert.Zero(t, rec.tally.countMisses(agent.ID), "the boundary settles it in one pass rather than accruing a miss")
 		})
 	}
 }
@@ -479,13 +479,13 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 	tmux.captures["%1"] = idleFrame
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-	rec.now = func() time.Time { return agent.StateSeenAt.Add(-time.Second) }
+	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(-time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
-	rec.now = time.Now
+	rec.tally.now = time.Now
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"), "a stale boundary is not licence to skip a miss")
-	assert.Equal(t, 1, rec.missCount(agent.ID), "the pass still counted as an ordinary miss")
+	assert.Equal(t, 1, rec.tally.countMisses(agent.ID), "the pass still counted as an ordinary miss")
 }
 
 // TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic pins that a frame nothing recognizes
@@ -529,7 +529,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 		tmux.captures["%1"] = fmt.Sprintf("%s-%d", unrecognizedFrame, i)
 		require.NoError(t, rec.Reconcile(ctx))
 		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
-		assert.Zero(t, rec.missCount(agent.ID))
+		assert.Zero(t, rec.tally.countMisses(agent.ID))
 	}
 }
 
@@ -817,7 +817,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	tmux.captures["%1"] = idleFrame
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-	rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 
 	require.NoError(t, rec.Reconcile(ctx))
@@ -915,14 +915,14 @@ func TestReconcileReportedReasonMovesNoState(t *testing.T) {
 	tmux.captures["%1"] = idleFrame
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-	rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 	rec.RecordReportedReason(agent.ID, "Bash")
 
 	require.NoError(t, rec.Reconcile(ctx))
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"),
 		"a reason says nothing about whether the turn ended")
-	assert.Equal(t, 1, rec.missCount(agent.ID), "the pass counted as an ordinary miss")
-	assert.Equal(t, "Bash", rec.reportedReason(agent.ID))
+	assert.Equal(t, 1, rec.tally.countMisses(agent.ID), "the pass counted as an ordinary miss")
+	assert.Equal(t, "Bash", rec.tally.readReportedReason(agent.ID))
 }
 
 // TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain pins that the one positive report weave
@@ -938,7 +938,7 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	tmux.captures["%1"] = unrecognizedFrame
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-	rec.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
+	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 
 	require.NoError(t, rec.Reconcile(ctx))
@@ -1000,7 +1000,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 				"one reading of its own is not the stretch a change is debounced behind")
 			assert.Nil(t, agentByID(t, st, agent.ID).TurnEndedAt,
 				"and nothing has finished a turn on the strength of it either")
-			assert.Equal(t, 1, rec.missCount(agent.ID),
+			assert.Equal(t, 1, rec.tally.countMisses(agent.ID),
 				"the run restarts at one, since the reading counts towards its own destination")
 
 			for range reconcileMisses - 1 {
