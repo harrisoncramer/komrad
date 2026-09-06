@@ -3,6 +3,7 @@ package ui
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	transcriptstore "weave/internal/store/transcript"
@@ -98,8 +99,22 @@ func estimatedLine(rendered string, at, size int) int {
 	return min(max(rows*at/size, 1), rows)
 }
 
+// stageFilePath names a screenful for the panel that wrote it, since every weave on the machine
+// shares one temporary directory and a second panel or a test run would otherwise write over the
+// frame this one is showing.
+func stageFilePath(name string) string {
+	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-%s-%d.ansi", name, os.Getpid()))
+}
+
+// writeStageFile renames the frame into place, so a drawer reading while the panel writes gets
+// the frame before or the frame after rather than half of each.
 func writeStageFile(path, content string) bool {
-	return os.WriteFile(path, []byte(content), 0o644) == nil
+	temp := path + ".tmp"
+	if os.WriteFile(temp, []byte(content), 0o644) != nil {
+		return false
+	}
+
+	return os.Rename(temp, path) == nil
 }
 
 func pagerArgv(path string, line int) []string {

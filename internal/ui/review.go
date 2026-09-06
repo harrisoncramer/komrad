@@ -3,8 +3,6 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -22,7 +20,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-var reviewStagePath = filepath.Join(os.TempDir(), "weave-review.ansi")
+var reviewStagePath = stageFilePath("review")
 
 const reviewTimeout = 30 * time.Second
 

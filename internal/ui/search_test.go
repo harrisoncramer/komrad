@@ -945,7 +945,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				length:   3,
 				snippet:  marked("two"),
 			},
-			wantStaged: "weave-stage.ansi",
+			wantStaged: stageTextPath,
 		},
 	}
 
@@ -976,7 +976,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			require.True(t, ok)
 
 			staged := strings.Join(tmux.respawns, "\n")
-			assert.NotContains(t, staged, "weave-transcript.ansi", "the preview does not follow the jump")
+			assert.NotContains(t, staged, stageTranscriptPath, "the preview does not follow the jump")
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
 			if tt.wantStaged != "" {
 				assert.Contains(t, staged, tt.wantStaged, "the row's own record is what is paged")
@@ -1026,7 +1026,7 @@ func TestJumpDropsALatePreview(t *testing.T) {
 	landed.applyPreview(late)
 
 	staged := strings.Join(tmux.respawns, "\n")
-	assert.NotContains(t, staged, "weave-transcript.ansi", "the late preview is dropped")
+	assert.NotContains(t, staged, stageTranscriptPath, "the late preview is dropped")
 }
 
 // TestSearchViewFitsThePane covers a common query returning more hits than the pane is tall,

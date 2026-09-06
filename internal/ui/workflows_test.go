@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"os"
-	"path/filepath"
 	"testing"
 
 	"weave/config"
@@ -338,7 +337,7 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	assert.Equal(t, "new notes", m.listing.workflows[0].Context)
 	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
 
-	shown, err := os.ReadFile(filepath.Join(os.TempDir(), "weave-stage.ansi"))
+	shown, err := os.ReadFile(stageTextPath)
 	require.NoError(t, err)
 
 	assert.Contains(t, ansi.Strip(string(shown)), "new notes")
