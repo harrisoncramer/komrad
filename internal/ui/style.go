@@ -12,6 +12,29 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+const (
+	unviewedIcon        = "●"
+	childIcon           = "└"
+	scheduledIcon       = "◷"
+	hiddenIcon          = "◌"
+	unreadMailIcon      = "✉"
+	failedRunIcon       = "⚑"
+	worktreeRemovedIcon = "⊘"
+	workflowIcon        = "⧉"
+
+	// noStateIcon fills the column the state icon would take for a row with no live state to
+	// report, so that row keeps the indent every other row has.
+	noStateIcon = "▫"
+
+	// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
+	// not so much that a row stops being a column of names.
+	reasonWidth = 24
+
+	nameWidth = 30
+
+	ansiReset = "\x1b[0m"
+)
+
 var (
 	headerStyle        = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	cursorStyle        = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
@@ -82,21 +105,21 @@ func stateMark(state agentstore.State) string {
 	return lipgloss.NewStyle().Foreground(stateColor(state)).Render(stateIcon(state))
 }
 
-const unviewedIcon = "●"
+// iconMark is the shape every optional mark on a row takes: nothing at all when the fact it
+// stands for is not true, and otherwise a space and the mark in its own colour.
+func iconMark(show bool, icon string, color lipgloss.Color) string {
+	if !show {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(color).Render(icon)
+}
 
 // unviewedMark is its own glyph rather than a colour on the state icon, since either fact can
 // be true without the other.
 func unviewedMark(unviewed bool) string {
-	if !unviewed {
-		return ""
-	}
-
-	return " " + lipgloss.NewStyle().Foreground(colorSuccess).Render(unviewedIcon)
+	return iconMark(unviewed, unviewedIcon, colorSuccess)
 }
-
-// noStateIcon fills the column the state icon would take for a row with no live state to
-// report, so that row keeps the indent every other row has.
-const noStateIcon = "▫"
 
 func noStateMark() string {
 	return dimStyle.Render(noStateIcon)
@@ -112,21 +135,11 @@ func failedMark(agent agentstore.Agent) string {
 	return " " + stateMark(agent.State)
 }
 
-// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
-// not so much that a row stops being a column of names.
-const reasonWidth = 24
-
 // reasonMark is what the agent's own CLI last reported it was doing, drawn last on the row since
 // it is the only part of one that is prose rather than a glyph.
 func reasonMark(agent agentstore.Agent) string {
-	if agent.ReportedReason == "" {
-		return ""
-	}
-
-	return " " + dimStyle.Render(clip(agent.ReportedReason, reasonWidth))
+	return iconMark(agent.ReportedReason != "", clip(agent.ReportedReason, reasonWidth), colorMuted)
 }
-
-const childIcon = "└"
 
 // childMark draws in the column its parent's own state mark sits in, pushing the rest of the
 // child's row across so every parent stays aligned with every other one.
@@ -139,41 +152,19 @@ func childMark(child bool) string {
 }
 
 func archivedTag(w workflowstore.Workflow) string {
-	if w.ArchivedAt == nil {
-		return ""
-	}
-
-	return " " + dimStyle.Render("archived")
+	return iconMark(w.ArchivedAt != nil, "archived", colorMuted)
 }
-
-const scheduledIcon = "◷"
 
 func scheduledMark(agent agentstore.Agent) string {
-	if agent.ScheduleID == nil {
-		return ""
-	}
-
-	return " " + dimStyle.Render(scheduledIcon)
+	return iconMark(agent.ScheduleID != nil, scheduledIcon, colorMuted)
 }
-
-const hiddenIcon = "◌"
 
 func hiddenMark(hidden bool) string {
-	if !hidden {
-		return ""
-	}
-
-	return " " + dimStyle.Render(hiddenIcon)
+	return iconMark(hidden, hiddenIcon, colorMuted)
 }
 
-const unreadMailIcon = "✉"
-
 func unreadMailMark(unread bool) string {
-	if !unread {
-		return ""
-	}
-
-	return " " + lipgloss.NewStyle().Foreground(colorAccent).Render(unreadMailIcon)
+	return iconMark(unread, unreadMailIcon, colorAccent)
 }
 
 func hiddenTally(count int, showing bool) string {
@@ -184,29 +175,15 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
-const failedRunIcon = "⚑"
-
 // failedRunMark says a script weave fired for the agent failed and nobody has read it, which
 // the state icon cannot carry because a hook can fail while the agent itself is working away.
 func failedRunMark(failed bool) string {
-	if !failed {
-		return ""
-	}
-
-	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(failedRunIcon)
+	return iconMark(failed, failedRunIcon, colorDanger)
 }
-
-const worktreeRemovedIcon = "⊘"
 
 func worktreeRemovedMark(agent agentstore.Agent) string {
-	if !agent.WorktreeRemoved {
-		return ""
-	}
-
-	return " " + lipgloss.NewStyle().Foreground(colorDanger).Render(worktreeRemovedIcon)
+	return iconMark(agent.WorktreeRemoved, worktreeRemovedIcon, colorDanger)
 }
-
-const workflowIcon = "⧉"
 
 // markGutter is the column a mark is drawn in, left of every row, so the letters a person
 // addresses rows by read down one edge rather than being hunted for along a row.
@@ -253,8 +230,6 @@ func (m model) nameStyle(hovered, inactive bool) lipgloss.Style {
 	}
 }
 
-const nameWidth = 30
-
 func clipName(name string) string {
 	return clip(name, nameWidth)
 }
@@ -272,8 +247,6 @@ func clip(text string, width int) string {
 // the colours the row is already carrying still read through it, so a selected row keeps its
 // state icon and its cursor rather than trading them for the fact that it is in.
 var selectionBackground = lipgloss.AdaptiveColor{Light: "#cdf0d6", Dark: "#20452c"}
-
-const ansiReset = "\x1b[0m"
 
 // paintRow lays a background under one already-coloured line, setting it again after every reset
 // that line carries, since the first of those would otherwise drop it for the rest of the row,
