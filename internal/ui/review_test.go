@@ -189,25 +189,27 @@ func reviewRepo(t *testing.T) string {
 	t.Helper()
 
 	dir := t.TempDir()
-	run := func(args ...string) {
-		t.Helper()
-		cmd := exec.Command("git", args...)
-		cmd.Dir = dir
-		cmd.Env = append(os.Environ(),
-			"GIT_AUTHOR_NAME=weave", "GIT_AUTHOR_EMAIL=weave@example.com",
-			"GIT_COMMITTER_NAME=weave", "GIT_COMMITTER_EMAIL=weave@example.com")
-		require.NoError(t, cmd.Run(), strings.Join(args, " "))
-	}
 
-	run("init", "-b", "main")
+	gitIn(t, dir, "init", "-b", "main")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
 		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"hello\"\n}\n"), 0o644))
-	run("add", ".")
-	run("commit", "-m", "first")
+	gitIn(t, dir, "add", ".")
+	gitIn(t, dir, "commit", "-m", "first")
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
 		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"goodbye\"\n}\n"), 0o644))
 
 	return dir
+}
+
+func gitIn(t *testing.T, dir string, args ...string) {
+	t.Helper()
+
+	cmd := exec.Command("git", args...)
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(),
+		"GIT_AUTHOR_NAME=weave", "GIT_AUTHOR_EMAIL=weave@example.com",
+		"GIT_COMMITTER_NAME=weave", "GIT_COMMITTER_EMAIL=weave@example.com")
+	require.NoError(t, cmd.Run(), strings.Join(args, " "))
 }
 
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
@@ -252,17 +254,59 @@ func reviewAgent(dir string) agentstore.Agent {
 func openReview(t *testing.T, m model) model {
 	t.Helper()
 
+	m = enterReview(t, m)
+	require.NoError(t, m.review.err)
+
+	return m
+}
+
+// enterReview is the same path without the diff having to be readable, for the worktree that
+// holds nothing and the one that cannot be read at all.
+func enterReview(t *testing.T, m model) model {
+	t.Helper()
+
 	next, cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
 	m = next.(model)
 	require.NotNil(t, cmd)
 
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	require.NoError(t, loaded.err)
 
 	m.applyReviewLoaded(loaded)
 
 	return m
+}
+
+// TestEnterReviewRefusesAnEmptyWorktree pins the drop back to the listing, since an agent that
+// has written nothing used to leave the reader in a diff viewer with no diff in it.
+func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
+	dir := reviewRepo(t)
+	gitIn(t, dir, "commit", "-am", "second")
+
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+
+	m = enterReview(t, m)
+
+	assert.Equal(t, screenAgents, m.screen, "the reader is put back on the listing")
+	assert.Zero(t, m.review, "the refused review keeps nothing")
+	require.NotNil(t, m.banner)
+	assert.Contains(t, m.banner.Summary, "Nothing to review")
+	assert.Contains(t, m.banner.Detail, "no change")
+}
+
+// TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has
+// never seen, which is a diff to read even though git will draw none of it.
+func TestEnterReviewOpensAnUntrackedFile(t *testing.T) {
+	dir := reviewRepo(t)
+	gitIn(t, dir, "commit", "-am", "second")
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "new.go"), []byte("package greet\n"), 0o644))
+
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+
+	m = openReview(t, m)
+
+	assert.Equal(t, screenReview, m.screen)
+	assert.Contains(t, reviewStageText(t), "new.go")
 }
 
 // TestEnterReviewStagesTheDiff pins that opening a review moves to the review screen and
@@ -667,15 +711,9 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 func TestReviewSurvivesAFailedLoad(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, t.TempDir())
 
-	next, cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
-	m = next.(model)
-	require.NotNil(t, cmd)
-
-	loaded, ok := cmd().(reviewLoadedMsg)
-	require.True(t, ok)
-	require.Error(t, loaded.err, "a directory that is not a repository has no diff")
-
-	m.applyReviewLoaded(loaded)
+	m = enterReview(t, m)
+	require.Error(t, m.review.err, "a directory that is not a repository has no diff")
+	require.Equal(t, screenReview, m.screen, "a failure to read is the review's to show, not the listing's")
 
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "failed to find the repository")

@@ -3,6 +3,7 @@ package diff
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -12,6 +13,15 @@ import (
 )
 
 const gitTimeout = 30 * time.Second
+
+// ErrNoChanges is a worktree that has not moved off its base, which is refused rather than
+// answered with an empty patch, since a diff with no files in it is nothing to show anybody.
+var ErrNoChanges = errors.New("the worktree holds no change against the base branch")
+
+// ErrAllExcluded is a worktree that has moved, every part of it inside a path the workflow keeps
+// out of the diff, which draws nothing for the same reason but is not the same thing and must not
+// be reported as one.
+var ErrAllExcluded = errors.New("every change in the worktree is in a path this workflow excludes from the diff")
 
 // maxFileBytes is the point past which a file's source is not read, giving up the syntax
 // colouring while the patch still shows its hunks.
@@ -50,12 +60,33 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 		return nil, err
 	}
 
+	// Untracked files are already in the snapshot, so the parsed list is the whole of what the
+	// reader would see and an empty one is nothing to show them.
+	if len(files) == 0 {
+		return nil, emptyReason(ctx, root, params)
+	}
+
 	return &Patch{
 		Root:        root,
 		BaseSHA:     params.BaseSHA,
 		SnapshotSHA: params.SnapshotSHA,
 		Files:       files,
 	}, nil
+}
+
+// emptyReason says why a round drew nothing, since a worktree that never moved and one whose every
+// change is hidden from the diff both draw nothing while meaning opposite things about the agent.
+func emptyReason(ctx context.Context, root string, params LoadParams) error {
+	if len(params.Exclude) == 0 {
+		return ErrNoChanges
+	}
+
+	raw, err := runGitBytes(ctx, root, diffArgs(params.BaseSHA, params.SnapshotSHA, nil)...)
+	if err != nil || len(bytes.TrimSpace(raw)) == 0 {
+		return ErrNoChanges
+	}
+
+	return ErrAllExcluded
 }
 
 // diffArgs pins the prefix git writes on the header line, since the parser drops the first

@@ -169,15 +169,41 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main", Ref: "refs/weave/rounds/six"})
 	require.NoError(t, err)
 
-	patch, err := Load(t.Context(), LoadParams{
+	// The round holds the excluded file whole, which is what makes an exclude a view of a
+	// snapshot rather than a decision baked into it.
+	lines, err := FileAt(t.Context(), root, snapshot.SHA, "proto/gen/api.pb.go")
+	require.NoError(t, err)
+	assert.Contains(t, lines, "func Gen() {}")
+
+	// The reader is shown none of it, and is told that rather than told the agent did nothing,
+	// since it wrote a file and the exclude is the only reason there is nothing on screen.
+	_, err = Load(t.Context(), LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,
 		SnapshotSHA: snapshot.SHA,
 		Exclude:     []string{"proto/gen"},
 	})
+	require.ErrorIs(t, err, ErrAllExcluded)
+	require.NotErrorIs(t, err, ErrNoChanges)
+}
+
+// TestLoadSaysNothingChangedOnlyWhenNothingDid pins the other half of that: a worktree that really
+// has not moved reads as nothing to review whether or not the workflow excludes anything.
+func TestLoadSaysNothingChangedOnlyWhenNothingDid(t *testing.T) {
+	root := repo(t)
+
+	snapshot, err := Take(t.Context(), SnapshotParams{Dir: root, Base: "main"})
 	require.NoError(t, err)
 
-	assert.Empty(t, changed(patch))
+	for _, exclude := range [][]string{nil, {"proto/gen"}} {
+		_, err = Load(t.Context(), LoadParams{
+			Dir:         root,
+			BaseSHA:     snapshot.BaseSHA,
+			SnapshotSHA: snapshot.SHA,
+			Exclude:     exclude,
+		})
+		require.ErrorIs(t, err, ErrNoChanges)
+	}
 }
 
 // TestFileAtReadsTheRoundRatherThanTheWorktree is what lets a review quote the code a comment was

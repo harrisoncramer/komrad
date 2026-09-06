@@ -2,6 +2,7 @@ package ui
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -36,11 +37,9 @@ type reviewState struct {
 	dir       string
 	root      string
 	exclude   []string
-	// round is the snapshot being reviewed, which is frozen: nothing the cursor stands on can
-	// move until a new round is opened.
-	round   *agentv1.ReviewRound
-	view    *review.View
-	threads []*agentv1.ReviewThread
+	round     *agentv1.ReviewRound
+	view      *review.View
+	threads   []*agentv1.ReviewThread
 
 	// cursor lives here rather than in the stage, since the sidebar draws the thread it stands on.
 	cursor int
@@ -235,6 +234,29 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
 
+// refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
+// was read, since the screen the reader is dropped onto is the one the banner belongs to.
+func (m *model) refuseReview(err error) {
+	name := m.review.agentName
+	m.review = reviewState{}
+
+	m.enterScreen(screenAgents)
+	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
+	m.stageSelection()
+	m.reportBrief(refusedReviewSummary(name, err), err.Error(), nil)
+}
+
+// refusedReviewSummary says which of the two empty diffs this is, since an agent that has written
+// nothing and an agent whose every line is in an excluded path want opposite things said about
+// them: one has not worked yet, the other has and you asked not to be shown it.
+func refusedReviewSummary(name string, err error) string {
+	if errors.Is(err, diff.ErrAllExcluded) {
+		return "Everything " + name + " changed is excluded from the diff"
+	}
+
+	return "Nothing to review in " + name
+}
+
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
 // that has not moved gives back the round already taken of it, so reopening the diff does not
 // walk the ordinal on.
@@ -390,6 +412,13 @@ func listReviewThreads(
 
 func (m *model) applyReviewLoaded(msg reviewLoadedMsg) {
 	if msg.agentID != m.review.agentID {
+		return
+	}
+
+	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
+	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) {
+		m.refuseReview(msg.err)
+
 		return
 	}
 
@@ -1311,6 +1340,8 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 
 	m.review.diffPolling = false
 
+	// A worktree emptied under an open review is a move like any other, so the bar offers to catch
+	// up and the reload is what finds nothing to show and backs out to the listing.
 	if msg.err != nil {
 		return
 	}

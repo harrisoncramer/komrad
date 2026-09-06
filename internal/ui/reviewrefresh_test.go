@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"weave/internal/diff"
 	"weave/internal/review"
 	agentv1 "weave/proto/gen/agent/v1"
 
@@ -400,6 +401,29 @@ func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.reviewView()), "THE AGENT HAS MOVED ON")
 }
 
+// TestReviewBacksOutWhenTheWorktreeWasEmptied covers the agent that throws its work away while
+// the review is open: catching up finds nothing to show, so the reader is put back on the listing
+// rather than left in a diff viewer with no diff in it.
+func TestReviewBacksOutWhenTheWorktreeWasEmptied(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	gitIn(t, dir, "checkout", "--", ".")
+
+	next, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.ErrorIs(t, loaded.err, diff.ErrNoChanges, "the round of an unmoved tree holds nothing")
+
+	next.applyReviewLoaded(loaded)
+
+	assert.Equal(t, screenAgents, next.screen, "the reader is put back on the listing")
+	assert.Nil(t, next.review.view, "and the review is let go of")
+}
+
 // TestReviewReloadKeyOpensTheNextRound pins the opt-in: the reader asks for the next round, and
 // lands back where they were standing in the new one.
 func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
@@ -534,4 +558,30 @@ func TestANoticeCoversWhatChangedAndGivesItBack(t *testing.T) {
 
 	next, _ := m.Update(keyMsg("j"))
 	assert.Contains(t, ansi.Strip(next.(model).reviewView()), "4 files changed since you last reviewed")
+}
+
+// TestReviewSaysWhenEverythingIsExcluded covers the difference the reader has to be told about:
+// an agent that has written nothing and one whose every line is in a path the workflow hides both
+// leave the screen empty, and only one of them means the agent has not worked.
+func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
+	dir := reviewRepo(t)
+	gitIn(t, dir, "checkout", "--", ".")
+	require.NoError(t, os.MkdirAll(filepath.Join(dir, "proto", "gen"), 0o755))
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "proto", "gen", "api.pb.go"),
+		[]byte("package gen\n"), 0o644))
+
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	loaded, ok := m.loadReviewCmd(m.review.agentID, dir, []string{"proto/gen"})().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.ErrorIs(t, loaded.err, diff.ErrAllExcluded, "the agent wrote a file, it is only hidden")
+
+	m.applyReviewLoaded(loaded)
+
+	assert.Equal(t, screenAgents, m.screen, "there is still nothing to draw, so it backs out")
+	require.NotNil(t, m.banner)
+	assert.Contains(t, m.banner.Summary, "excluded from the diff",
+		"and says which of the two empty screens this is")
+	assert.NotContains(t, m.banner.Summary, "Nothing to review")
 }
