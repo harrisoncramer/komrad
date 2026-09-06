@@ -17,7 +17,7 @@ type tmuxReader interface {
 	GetPaneOwner(pane string) string
 	GetHostSocket() string
 	GetInfoPane() string
-	DefaultShell() string
+	GetDefaultShell() string
 	IsPaneAlive(pane string) bool
 	RespawnPane(pane, dir string, argv ...string)
 	WaitFor(ctx context.Context, channel string) error

@@ -177,7 +177,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.reviewDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
 				refocus: (*model).repaintReviewFocus,
-				fits:    model.reviewFitsDetails,
+				fits:    model.doesReviewFitDetails,
 			},
 		}
 	}

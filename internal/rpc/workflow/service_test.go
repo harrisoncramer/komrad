@@ -561,7 +561,7 @@ func (idlePanes) KillPane(string)                               {}
 func (idlePanes) NewWindow(_, _, _ string) (string, error)      { return "", nil }
 func (idlePanes) SetPaneOwner(_, _ string) error                { return nil }
 func (idlePanes) GetPaneOwner(string) string                    { return "" }
-func (idlePanes) HostPath() string                              { return "" }
+func (idlePanes) GetHostPath() string                           { return "" }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
 	t.Helper()

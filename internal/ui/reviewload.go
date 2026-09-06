@@ -268,7 +268,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
-	m.review.view.SetViewed(stillViewed(msg.viewed))
+	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 
 	// The pattern lives on the ui model rather than the view, so a view built from nothing has
@@ -316,9 +316,9 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	return m.findRoundLeftoverCmd()
 }
 
-// stillViewed is which files of the round have been read, and a mark belongs to one round, so a
-// later round starts with none of them and nothing has to be compared to know that.
-func stillViewed(viewed []*agentv1.ReviewViewedFile) map[string]bool {
+// indexViewedFiles indexes the files read in this round; a later round starts with none because
+// marks belong to one round and need no comparison.
+func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
 	for _, mark := range viewed {
 		held[mark.GetFilePath()] = true

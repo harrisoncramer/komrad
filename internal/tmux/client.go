@@ -389,9 +389,9 @@ func (c *Client) SetGlobalChecked(name, value string) error {
 	return nil
 }
 
-// SocketPath is the path of the socket this client's server listens on, which is how a server
+// GetSocketPath returns the path of the socket this client's server listens on, which is how a server
 // named through TMUX is told apart from the one weave runs the panel on.
-func (c *Client) SocketPath() (string, error) {
+func (c *Client) GetSocketPath() (string, error) {
 	path, err := c.query("display-message", "-p", "#{socket_path}")
 	if err != nil {
 		return "", err
@@ -438,9 +438,9 @@ func (c *Client) RecordHostPath(path string) {
 	c.SetGlobal(hostPathOption, path)
 }
 
-// HostPath is the working directory of the pane the panel was opened over, which is where an
+// GetHostPath returns the working directory of the pane the panel was opened over, which is where an
 // agent given no directory of its own goes.
-func (c *Client) HostPath() string {
+func (c *Client) GetHostPath() string {
 	return c.ShowGlobal(hostPathOption)
 }
 
@@ -455,10 +455,10 @@ func (c *Client) SetSessionOption(target, name, value string) {
 	c.run("set-option", "-t", target, name, value)
 }
 
-// DefaultShell returns the shell tmux starts a pane's process with, which is the only
+// GetDefaultShell returns the shell tmux starts a pane's process with, which is the only
 // option that decides what a pane can parse, since tmux runs a non-empty default-command
 // through this shell too.
-func (c *Client) DefaultShell() string {
+func (c *Client) GetDefaultShell() string {
 	return c.ShowGlobal("default-shell")
 }
 

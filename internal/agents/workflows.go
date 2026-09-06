@@ -466,7 +466,7 @@ func requireNamesFree(ctx context.Context, agents nameChecker, archived []agents
 			continue
 		}
 
-		taken, err := agents.ActiveNameExists(ctx, agent.WorkflowID, agent.Name)
+		taken, err := agents.DoesActiveNameExist(ctx, agent.WorkflowID, agent.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
 		}

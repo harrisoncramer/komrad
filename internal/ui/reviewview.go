@@ -97,10 +97,10 @@ func (m model) reviewHeader() string {
 		m.review.filter.view() + m.reviewMatchCount()
 }
 
-// reviewFitsDetails is whether the sidebar has a line left over once the record has taken its
+// doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken its
 // share, since this one carries a head and a conversation the lists do not and drawing the
 // record anyway would run past the bottom of the pane.
-func (m model) reviewFitsDetails() bool {
+func (m model) doesReviewFitDetails() bool {
 	// Measured with the keys on the diff, which keeps this out of its own answer, since focus is
 	// only ever taken by a key handler and so a copy that starts unfocused stays that way.
 	m.details.focused = false

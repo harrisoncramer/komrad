@@ -340,7 +340,7 @@ func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, en
 		}
 
 		if waitCtx.Err() != nil {
-			shell := s.tmux.DefaultShell()
+			shell := s.tmux.GetDefaultShell()
 			if shell == "" {
 				shell = "/bin/sh"
 			}

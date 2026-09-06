@@ -40,8 +40,8 @@ func Run(deps Deps) error {
 
 type uiTmux interface {
 	layout.Tmux
-	HostPath() string
-	DefaultShell() string
+	GetHostPath() string
+	GetDefaultShell() string
 	SetInfoPane(pane string)
 	SelectPane(pane string)
 	SendKeys(target string, keys ...string) error
@@ -162,7 +162,7 @@ func newModel(deps Deps, isDark bool) model {
 	}
 
 	m.frame.Attach(deps.Pane)
-	m.shell = deps.Tmux.DefaultShell()
+	m.shell = deps.Tmux.GetDefaultShell()
 
 	return m
 }
@@ -171,7 +171,7 @@ func (m model) currentDir(dir string) string {
 	if trimmed := strings.TrimSpace(dir); trimmed != "" {
 		return trimmed
 	}
-	if path := m.tmux.HostPath(); path != "" {
+	if path := m.tmux.GetHostPath(); path != "" {
 		return path
 	}
 

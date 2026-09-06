@@ -72,7 +72,7 @@ func (r *Recorder) Record(params RecordParams) error {
 	}
 
 	hash := hashFrame(params.Frame)
-	if !r.isNews(params, hash) {
+	if !r.shouldRecord(params, hash) {
 		return nil
 	}
 
@@ -81,7 +81,7 @@ func (r *Recorder) Record(params RecordParams) error {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 
-	name := fmt.Sprintf("%s-%04d-%s.txt", r.now().UTC().Format(stampFormat), r.count(), params.Activity)
+	name := fmt.Sprintf("%s-%04d-%s.txt", r.now().UTC().Format(stampFormat), r.numberFrame(), params.Activity)
 	if err := os.WriteFile(filepath.Join(dir, name), []byte(params.Frame), 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", name, err)
 	}
@@ -90,9 +90,9 @@ func (r *Recorder) Record(params RecordParams) error {
 	return prune(dir, settings.Keep)
 }
 
-// count numbers a frame within the millisecond it was written in, so that two readings landing
+// numberFrame numbers a frame within the millisecond it was written in, so that two readings landing
 // together do not take the same name.
-func (r *Recorder) count() int {
+func (r *Recorder) numberFrame() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -101,9 +101,9 @@ func (r *Recorder) count() int {
 	return r.written
 }
 
-// isNews reports whether a reading is worth keeping: a frame differing from the last one kept
+// shouldRecord reports whether a reading is worth keeping: a frame differing from the last one kept
 // for that agent, or a verdict disputing the state on record.
-func (r *Recorder) isNews(params RecordParams, hash uint64) bool {
+func (r *Recorder) shouldRecord(params RecordParams, hash uint64) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 

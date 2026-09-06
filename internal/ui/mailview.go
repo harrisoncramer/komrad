@@ -67,7 +67,7 @@ func (m model) mailThreadWord(thread []mailRow) string {
 		return count + " · they spoke last"
 	case last.item.GetClaimedAt() != "":
 		return count + " · read your last"
-	case mailIsExpired(last.item):
+	case isMailExpired(last.item):
 		return count + " · your last expired unread"
 	}
 
@@ -143,16 +143,16 @@ func mailStateWord(item *agentv1.Mail) string {
 	switch {
 	case item.GetClaimedAt() != "":
 		return "read"
-	case mailIsExpired(item):
+	case isMailExpired(item):
 		return "expired unread"
 	}
 
 	return "unread"
 }
 
-// mailIsExpired is whether a message ran out of time before anyone took it, reading a stamp it
+// isMailExpired is whether a message ran out of time before anyone took it, reading a stamp it
 // cannot parse as time left rather than time gone.
-func mailIsExpired(item *agentv1.Mail) bool {
+func isMailExpired(item *agentv1.Mail) bool {
 	expires, err := time.Parse(time.RFC3339, item.GetExpiresAt())
 	if err != nil {
 		return false
@@ -226,7 +226,7 @@ func (m model) mailCountView() string {
 			continue
 		}
 
-		if mailIsExpired(r.item) {
+		if isMailExpired(r.item) {
 			expired++
 
 			continue
@@ -357,7 +357,7 @@ func mailStateMark(item *agentv1.Mail) string {
 	switch {
 	case item.GetClaimedAt() != "":
 		return mailReadStyle.Render("✓")
-	case mailIsExpired(item):
+	case isMailExpired(item):
 		return mailExpiredStyle.Render("!")
 	}
 

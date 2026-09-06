@@ -722,7 +722,7 @@ type realPaneRunner struct {
 func (realPaneRunner) GetPaneOwner(string) string { return "" }
 func (realPaneRunner) GetHostSocket() string      { return "" }
 func (realPaneRunner) GetInfoPane() string        { return "" }
-func (realPaneRunner) DefaultShell() string       { return "" }
+func (realPaneRunner) GetDefaultShell() string    { return "" }
 
 // TestRunDeprovisionRefusesOneThatIsGone pins a renamed script being reported rather than
 // pretended over, leaving the caller to decide the agent is still removable.
@@ -1820,7 +1820,7 @@ type fakePaneOwner struct {
 func (f fakePaneOwner) GetPaneOwner(string) string            { return f.owner }
 func (f fakePaneOwner) GetHostSocket() string                 { return f.hostSocket }
 func (f fakePaneOwner) GetInfoPane() string                   { return f.infoPane }
-func (f fakePaneOwner) DefaultShell() string                  { return f.shell }
+func (f fakePaneOwner) GetDefaultShell() string               { return f.shell }
 func (f fakePaneOwner) IsPaneAlive(string) bool               { return true }
 func (f fakePaneOwner) RespawnPane(string, string, ...string) {}
 func (f fakePaneOwner) WaitFor(context.Context, string) error { return nil }

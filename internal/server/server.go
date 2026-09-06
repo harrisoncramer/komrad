@@ -84,7 +84,7 @@ type Server struct {
 // New builds the service, with nothing listening and no loop running until the caller says
 // so.
 func New(ctx context.Context, p Params) (*Server, error) {
-	if err := harness.RequirePOSIXShell(p.Tmux.DefaultShell()); err != nil {
+	if err := harness.RequirePOSIXShell(p.Tmux.GetDefaultShell()); err != nil {
 		return nil, err
 	}
 
