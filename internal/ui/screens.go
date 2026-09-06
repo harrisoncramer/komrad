@@ -17,6 +17,12 @@ const (
 	screenMail
 )
 
+// holdsWindow reports whether a screen draws its own split across the whole window, which is
+// what says the panel takes the window from the panes beside it while that screen is up.
+func (s screen) holdsWindow() bool {
+	return s == screenReview || s == screenSearch
+}
+
 // screenSpec is everything the panel asks of whichever screen is up, resolved from the screen
 // alone so that adding a screen is one arm here rather than an arm in every file that dispatches.
 type screenSpec struct {

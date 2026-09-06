@@ -263,6 +263,26 @@ func TestSearchStandsDownTheStageKeys(t *testing.T) {
 	assert.Len(t, tmux.respawns, respawns, "nothing is drawn into a pane nobody can see")
 }
 
+// TestSearchHandsTheWindowBackToALandingWrite covers a create that comes back while the search
+// is up: the write puts the new agent's own pane on screen, which is the one thing a zoom the
+// search never let go of would cover.
+func TestSearchHandsTheWindowBackToALandingWrite(t *testing.T) {
+	m, tmux := searchPreviewModel(t)
+	require.True(t, m.frame.IsSolo())
+
+	m.pending = 1
+	next, _ := m.applyWrite(writeResult{
+		summary: "Could not create the agent",
+		written: &written{row: agentRowKey("a9"), pane: "%9"},
+	})
+	landed, ok := next.(model)
+	require.True(t, ok)
+
+	assert.Equal(t, screenAgents, landed.screen, "the write takes the panel to the row it wrote")
+	assert.False(t, landed.frame.IsSolo(), "and the search lets go of the window on the way")
+	assert.Equal(t, 1, tmux.swaps, "so the new agent's own pane is the one on screen")
+}
+
 func splitOf(t *testing.T, m model) searchSplit {
 	t.Helper()
 

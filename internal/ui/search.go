@@ -65,13 +65,6 @@ func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	return m, m.refreshCmd()
 }
 
-// leaveSearch lets go of the search and hands the window back, since the screen it steps to
-// draws in a pane of the frame's rather than in a column of its own.
-func (m *model) leaveSearch() {
-	m.search = searchState{}
-	m.frame.Solo(false)
-}
-
 func (m model) openSearchInput() (tea.Model, tea.Cmd) {
 	m.search.typing = true
 
@@ -253,7 +246,7 @@ func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m model) updateSearchInput(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch k := key.String(); {
 	case k == "esc":
-		m.leaveSearch()
+		m.search = searchState{}
 
 		return m.returnToAgents()
 	case k == "enter":
@@ -344,7 +337,7 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.leaveSearch()
+	m.search = searchState{}
 
 	if hit.archived {
 		m.archive.focus = hit.agentID

@@ -103,6 +103,13 @@ func (m *model) enterScreen(next screen) {
 		m.filter = filterState{}
 	}
 
+	// Every way onto a screen runs through here, the ones nobody pressed a key for included, so
+	// this is where a screen that had taken the window hands it back rather than leaving a pane
+	// covered by a zoom nothing asked for.
+	if !next.holdsWindow() {
+		m.frame.Solo(false)
+	}
+
 	m.screen = next
 }
 

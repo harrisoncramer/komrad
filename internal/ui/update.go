@@ -100,15 +100,15 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if !m.holdsWindow() && isBound(key.String(), m.keys.Logs.Open) {
+	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}
 
-	if !m.holdsWindow() && isBound(key.String(), m.keys.Logs.Older) {
+	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Logs.Older) {
 		return m.olderLog()
 	}
 
-	if !m.holdsWindow() && isBound(key.String(), m.keys.Terminal.Open) {
+	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Terminal.Open) {
 		return m.openTerminal()
 	}
 
@@ -122,13 +122,6 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m.routeScreenKey(key)
-}
-
-// holdsWindow reports whether the screen that is up draws its own split across the whole window,
-// which is what stands down the keys that fill a pane beside it, since there is no such pane to
-// see while it does.
-func (m model) holdsWindow() bool {
-	return m.screen == screenReview || m.screen == screenSearch
 }
 
 func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {
