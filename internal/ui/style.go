@@ -275,11 +275,14 @@ var selectionBackground = lipgloss.AdaptiveColor{Light: "#cdf0d6", Dark: "#20452
 
 const ansiReset = "\x1b[0m"
 
-// paintRow lays a background under a row that has already been coloured, setting it again after
-// every reset the row carries, since the first of those would otherwise drop it for the rest of
-// the line, and filling the row out to the pane so that it reads as a bar rather than a block
-// behind the text.
+// paintRow lays a background under one already-coloured line, setting it again after every reset
+// that line carries, since the first of those would otherwise drop it for the rest of the row,
+// and filling the line out to the pane so that it reads as a bar, which is measured across the
+// whole string it is handed and so holds only for a row of a single line.
 func paintRow(row string, background lipgloss.AdaptiveColor, width int) string {
+	// The diff viewer threads a background into every fragment it draws instead, since its gutter
+	// and its match highlight each carry one of their own, where a row wants the one background
+	// under all of it and the fragments know nothing about it.
 	set := backgroundSequence(background)
 	if set == "" {
 		return row

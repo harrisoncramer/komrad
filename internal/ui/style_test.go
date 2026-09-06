@@ -211,6 +211,9 @@ func TestPaintRow(t *testing.T) {
 		"and every reset inside it sets the background again")
 	assert.Equal(t, 20, lipgloss.Width(painted), "the bar is filled out to the pane")
 	assert.True(t, strings.HasSuffix(painted, ansiReset), "and closes")
+
+	assert.Equal(t, lipgloss.Width(row), lipgloss.Width(paintRow(row, selectionBackground, 2)),
+		"a row wider than the pane is painted as it stands rather than padded")
 }
 
 // TestPaintRowWithoutColour covers a terminal that writes no escapes, where a bar nobody can
