@@ -123,6 +123,7 @@ type recordingTmux struct {
 	respawnDirs   []string
 	deadPanes     map[string]bool
 	sessionClient string
+	zoomed        bool
 }
 
 func (t *recordingTmux) ShowGlobal(name string) string           { return t.globals[name] }
@@ -139,6 +140,7 @@ func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 }
 func (t *recordingTmux) IsPaneAlive(pane string) bool             { return !t.deadPanes[pane] }
 func (t *recordingTmux) GetPaneWidth(string) int                  { return t.width }
+func (t *recordingTmux) SetPaneZoomed(_ string, on bool)          { t.zoomed = on }
 func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }
 func (t *recordingTmux) CapturePane(string) string                { return "" }
 func (t *recordingTmux) SplitRight(string, string, string) string { return "%1" }

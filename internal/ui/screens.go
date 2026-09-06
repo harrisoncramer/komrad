@@ -171,12 +171,10 @@ func (s screen) spec() screenSpec {
 		return screenSpec{
 			key:    model.updateReview,
 			view:   model.reviewView,
-			stage:  (*model).stageReview,
 			typing: func(m model) bool { return m.review.doesTakeEveryKey() },
 			details: &detailsSpec{
 				hovered: model.reviewDetails,
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
-				refocus: (*model).repaintReviewFocus,
 				fits:    model.doesReviewFitDetails,
 			},
 		}

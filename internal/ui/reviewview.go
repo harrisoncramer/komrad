@@ -10,6 +10,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 var (
@@ -75,26 +76,58 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	return reviewDelivery{style: dimStyle}
 }
 
-// reviewView draws the sidebar while the review is up, which is the thread the cursor is
-// standing on and the line it hangs off, since the diff itself is in the stage.
+// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame
+// so that the cursor and the conversation under it can never disagree about the line being read.
 func (m model) reviewView() string {
-	header := m.reviewHeader()
+	// Trimmed so the two halves are the same height, since a trailing newline is a row the
+	// sidebar block would have and the diff beside it would not.
+	sidebar := strings.TrimRight(m.reviewSidebarView(), "\n")
+
+	split, ok := m.reviewSplit()
+	if !ok {
+		return m.reviewBandView(m.paneWidth()) + sidebar
+	}
+
+	sidebar = fitColumn(sidebar, split.sidebar)
+
+	// The band stands over the diff rather than over the whole window, since what it carries acts
+	// on the patch: a pattern typed above the sidebar reads as though it searched the conversation.
+	diff := m.reviewBandView(split.diff) + m.reviewDiffView(split)
+
+	if m.frame.IsSidebarOnRight() {
+		return lipgloss.JoinHorizontal(lipgloss.Top, diff, sidebar)
+	}
+
+	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, diff)
+}
+
+// reviewBandView is what stands over the diff: what is being read, how big it is, what the reader
+// has sent, and the pattern they are searching it for.
+func (m model) reviewBandView(width int) string {
+	out := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
+		m.reviewStatView() +
+		m.reviewDeliveryView() + "\n\n" +
+		m.review.filter.view() + m.reviewMatchCount()
+
+	if m.review.view != nil && m.review.view.Len() > 0 {
+		out += m.reviewDeadView(width) + m.reviewStaleView(width)
+	}
+
+	return out
+}
+
+// reviewSidebarView is the panel's own column: where the cursor is standing and the thread
+// hanging off it.
+func (m model) reviewSidebarView() string {
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	rest := tailRows(m.reviewRestView(), m.listLines(header, help, record, head))
+	rest := tailRows(m.reviewRestView(), m.listLines(help, record, head))
 
-	return header + padRows(head+rest, m.listLines(header, help, record)) + record + help
-}
-
-func (m model) reviewHeader() string {
-	return m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
-		m.reviewStatView() +
-		m.reviewDeliveryView() + "\n\n" +
-		m.review.filter.view() + m.reviewMatchCount()
+	return padRows(head+rest, m.listLines(help, record)) + record + help
 }
 
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken its
@@ -105,7 +138,7 @@ func (m model) doesReviewFitDetails() bool {
 	// only ever taken by a key handler and so a copy that starts unfocused stays that way.
 	m.details.focused = false
 
-	spare := m.spareLines(m.reviewHeader(), m.renderHelp(m.reviewHelp()), m.reviewHeadView())
+	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView())
 
 	return spare > m.detailsLines()+detailsChromeLines
 }
@@ -122,42 +155,55 @@ func (m model) reviewHeadView() string {
 		return dimStyle.Render("nothing changed in this worktree") + "\n"
 	}
 
-	return m.reviewDeadView() + m.reviewStaleView() + m.reviewAnchorView()
+	return m.reviewAnchorView()
 }
 
 // reviewDeadView says there is nobody on the other end, since the diff opens for an agent that
 // cannot be written to and every key that would write is refused there.
-func (m model) reviewDeadView() string {
+func (m model) reviewDeadView(width int) string {
 	reason, dead := m.reviewIsReadOnly()
 	if !dead {
 		return ""
 	}
 
-	return reviewDeadStyle.Render(m.reviewFill(" "+reason+" ")) + "\n"
+	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
 // reviewStaleView is the bar saying the worktree has been written to since this round was taken,
 // naming the worktree rather than the agent because a snapshot records what a tree holds and never
 // who put it there.
-func (m model) reviewStaleView() string {
+func (m model) reviewStaleView(width int) string {
 	if !m.review.moved {
 		return ""
 	}
 
 	line := " THE WORKTREE HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
 
-	return reviewStaleStyle.Render(m.reviewFill(line)) + "\n"
+	return reviewStaleStyle.Render(reviewFill(line, width)) + "\n"
 }
 
-// reviewFill pads a line out to the sidebar's width, so a background colour reads as a bar
-// rather than as a highlighted phrase.
-func (m model) reviewFill(line string) string {
-	width := max(20, m.width-2)
+// reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
+// than as a highlighted phrase.
+func reviewFill(line string, pane int) string {
+	width := max(20, pane-2)
 	if run := lipgloss.Width(line); run < width {
 		line += strings.Repeat(" ", width-run)
 	}
 
 	return line
+}
+
+// reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column,
+// since the diff is drawn alongside and a sentence longer than the column would be cut in half.
+func (m model) reviewNote(style lipgloss.Style, text string) string {
+	width := max(20, m.paneWidth()-2)
+
+	var out strings.Builder
+	for _, row := range strings.Split(ansi.Wordwrap(text, width, ""), "\n") {
+		out.WriteString(style.Render("  "+row) + "\n")
+	}
+
+	return out.String()
 }
 
 func (m model) reviewRestView() string {
@@ -168,7 +214,7 @@ func (m model) reviewRestView() string {
 	if m.review.composing {
 		out, leaving := "\n", "esc cancel"
 		if held, ok := m.heldSuggestion(); ok {
-			out += reviewNoticeStyle.Render("  "+m.describeSuggestion(held)) + "\n"
+			out += m.reviewNote(reviewNoticeStyle, m.describeSuggestion(held))
 			leaving = "esc turn it down"
 		}
 
@@ -183,20 +229,20 @@ func (m model) reviewRestView() string {
 	out := "\n" + m.reviewThreadView()
 
 	if held, ok := m.heldSuggestion(); ok {
-		out += "\n" + reviewNoticeStyle.Render("  "+m.describeSuggestion(held)) + "\n" +
-			dimStyle.Render("  "+keyLabel(m.keys.Review.Compose)+" to comment with it") + "\n"
+		out += "\n" + m.reviewNote(reviewNoticeStyle, m.describeSuggestion(held)) +
+			m.reviewNote(dimStyle, keyLabel(m.keys.Review.Compose)+" to comment with it")
 	}
 
 	if adrift := m.review.adrift; len(adrift) > 0 {
-		out += "\n" + dimStyle.Render("  "+describeAdriftEdits(adrift)) + "\n"
+		out += "\n" + m.reviewNote(dimStyle, describeAdriftEdits(adrift))
 	}
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
-		out += "\n" + reviewNoticeStyle.Render("  "+notice) + "\n"
+		out += "\n" + m.reviewNote(reviewNoticeStyle, notice)
 	} else if since := m.review.since; since != "" {
-		out += "\n" + dimStyle.Render("  "+since) + "\n"
+		out += "\n" + m.reviewNote(dimStyle, since)
 	}
 
 	return out
@@ -281,8 +327,6 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 		return "request changes"
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED, agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
 		return "comment only"
-	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-		return "no verdict"
 	default:
 		return "no verdict"
 	}
@@ -492,7 +536,7 @@ func (m model) reviewFields() []recordField {
 }
 
 func (m model) reviewWrap(body string) string {
-	return lipgloss.NewStyle().Width(max(20, m.width-2)).Render(body)
+	return lipgloss.NewStyle().Width(max(20, m.paneWidth()-2)).Render(body)
 }
 
 func reviewTimeOf(stamp string) string {

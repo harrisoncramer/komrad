@@ -36,12 +36,12 @@ func (m model) renderHelp(k keyMap) string {
 		k = filterHelp()
 	}
 
-	view := helpView(m.width)
+	view := helpView(m.paneWidth())
 	if !m.helpExpanded {
 		return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n"
 	}
 
-	return trimLines(view.FullHelpView(helpColumns(byLabel(k.full), m.width))) + "\n"
+	return trimLines(view.FullHelpView(helpColumns(byLabel(k.full), m.paneWidth()))) + "\n"
 }
 
 func helpView(width int) help.Model {

@@ -101,8 +101,10 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
+	// The editor is a pane of its own, so the window goes back to being shared for as long as
+	// it is up and the review draws its sidebar alone.
+	m.frame.Solo(false)
 	m.frame.Show(layout.RegionInfo, editorContent(m.editor, m.review.roundDir, path, line))
-	m.remeasureReview()
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
 	return m, nil
@@ -332,21 +334,21 @@ func (m model) readRoundEditsCmd() tea.Cmd {
 	}
 }
 
-// reconcileEditor catches the editor pane going away on its own and puts the diff behind it back
-// on screen at the size the stage is left with.
+// reconcileEditor catches the editor pane going away on its own and takes the window back for
+// the diff it was covering.
 func (m model) reconcileEditor() (model, tea.Cmd) {
 	if !m.reconcileInfo() || m.screen != screenReview {
 		return m, nil
 	}
 
-	m.remeasureReview()
+	m.frame.Solo(true)
 
 	return m, m.readRoundEditsCmd()
 }
 
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m = m.closeInfo()
-	m.remeasureReview()
+	m.frame.Solo(true)
 
 	return m, m.readRoundEditsCmd()
 }
@@ -400,13 +402,6 @@ func (m model) holdSuggestions(edits []git.Edit) (held []pendingSuggestion, adri
 	}
 
 	return held, adrift
-}
-
-// remeasureReview draws the diff again at the size the stage is left with, since the drawer is
-// handed exactly one screenful and a stale size is rows the pane cannot show.
-func (m *model) remeasureReview() {
-	m.frame.Claimed(layout.RegionStage)
-	m.stageReview()
 }
 
 func (m model) reviewEditorDesc() string {

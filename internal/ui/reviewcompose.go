@@ -40,7 +40,7 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 
 	m.review.composing = true
 	m.review.editor.SetValue("")
-	m.review.editor.SetWidth(max(20, m.width-4))
+	m.review.editor.SetWidth(max(20, m.paneWidth()-4))
 
 	return m, m.review.editor.Focus()
 }
@@ -217,7 +217,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 		m.review.pinTop = false
 	}
 
-	m.stageReview()
+	m.scrollReviewToCursor()
 
 	agents, roundID := m.api.agents, m.review.round.GetId()
 
@@ -256,7 +256,7 @@ func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
 	m.review.verdict = 0
 	m.review.notice = ""
 	m.review.editor.SetValue("")
-	m.review.editor.SetWidth(max(20, m.width-4))
+	m.review.editor.SetWidth(max(20, m.paneWidth()-4))
 
 	return m, m.review.editor.Focus()
 }

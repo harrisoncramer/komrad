@@ -156,7 +156,7 @@ func (m *model) searchReview() {
 		}
 	}
 
-	m.stageReview()
+	m.scrollReviewToCursor()
 }
 
 // jumpReviewMatch steps to the next or previous line the search found, wrapping at the ends.
@@ -197,7 +197,7 @@ func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
 	m.review.top = max(min(m.review.view.GetFileTopRow(next), m.review.view.Len()-1), 0)
 	m.review.pinTop = true
 	m.review.pinFloor = m.review.top
-	m.stageReview()
+	m.scrollReviewToCursor()
 
 	return m, m.markReviewThreadReadCmd()
 }
@@ -209,7 +209,7 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 
 	m.review.cursor = next
 	m.review.pinTop = false
-	m.stageReview()
+	m.scrollReviewToCursor()
 
 	return m, m.markReviewThreadReadCmd()
 }
@@ -226,7 +226,12 @@ func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
 // reviewPanStep is how far sideways a press goes, a third of the pane, since a fixed few
 // characters meant forty presses to cross a wide diff.
 func (m model) reviewPanStep() int {
-	return max(m.review.frames.width/3, reviewPanStep)
+	split, ok := m.reviewSplit()
+	if !ok {
+		return reviewPanStep
+	}
+
+	return max(split.diff/3, reviewPanStep)
 }
 
 func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
@@ -236,7 +241,6 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.pan = next
-	m.stageReview()
 
 	return m, nil
 }
@@ -244,10 +248,12 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 // scrollReviewToCursor moves the window only when the cursor is about to leave it, since
 // scrolling on every move repaints every row of the pane and reads as a flicker.
 func (m *model) scrollReviewToCursor() {
-	height := m.review.frames.height
-	if height <= 0 {
+	split, ok := m.reviewSplit()
+	if !ok {
 		return
 	}
+
+	height := split.rows
 
 	// A file jump has already said where the window goes, and the margin below would drag it
 	// straight back off what it was asked to show.

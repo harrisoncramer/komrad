@@ -25,6 +25,7 @@ type Tmux interface {
 	SplitBelow(anchorPane, dir, size string) string
 	SplitAbove(anchorPane, dir, size string) string
 	ResizePane(pane, width string)
+	SetPaneZoomed(pane string, zoomed bool)
 	SwapPanes(src, dst string)
 	RespawnPane(pane, dir string, argv ...string)
 	GetSiblingPanes(pane string) []string
