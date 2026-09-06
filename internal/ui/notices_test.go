@@ -41,7 +41,6 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 		{"a failed create", agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate}}, failedToCreateNotice},
 		{"a failed cleanup", agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCleanup}}, failedToCleanupNotice},
 		{"a removed worktree", agentItem{agent: agentstore.Agent{WorktreeRemoved: true}}, worktreeRemovedNotice},
-		{"a scheduled run", agentItem{agent: agentstore.Agent{ScheduleID: xptr.Ptr("s1")}}, scheduledNotice},
 		{"a hidden row", agentItem{agent: agentstore.Agent{Hidden: true}}, hiddenNotice},
 		{"mail waiting", agentItem{unreadMail: true}, unreadMailNotice},
 		{"output nobody read", agentItem{unviewed: true}, unviewedNotice},
@@ -60,17 +59,39 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 	assert.Empty(t, agentNotices(agentItem{alive: true}), "an agent carrying nothing has nothing to say")
 }
 
-// TestArchivedNoticesDropTheLiveOnes covers the archive, whose rows draw only the two marks that
-// are still true of an agent that stopped.
-func TestArchivedNoticesDropTheLiveOnes(t *testing.T) {
-	agent := agentstore.Agent{State: agentstore.StateFailedToCreate, ScheduleID: xptr.Ptr("s1"), Hidden: true}
+// TestNoticesAreOrderedByUrgency covers what a short pane gives up: the marks a person would
+// act on are drawn first, so the ones dropped from the tail are the ones nobody needed spelled out.
+func TestNoticesAreOrderedByUrgency(t *testing.T) {
+	item := agentItem{
+		agent:      agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true, Hidden: true},
+		unreadMail: true,
+		unviewed:   true,
+		failedRun:  true,
+	}
 
-	texts := make([]string, 0, 2)
-	for _, n := range archiveNotices(agent) {
+	texts := make([]string, 0, len(agentNotices(item)))
+	for _, n := range agentNotices(item) {
 		texts = append(texts, n.text)
 	}
 
-	assert.Equal(t, []string{failedToCreateNotice, scheduledNotice}, texts)
+	assert.Equal(t, []string{
+		failedToCreateNotice,
+		failedRunNotice,
+		unreadMailNotice,
+		worktreeRemovedNotice,
+		unviewedNotice,
+		hiddenNotice,
+	}, texts)
+}
+
+// TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
+// own, since the rest stand for facts about an agent that is still running.
+func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
+	agent := agentstore.Agent{State: agentstore.StateFailedToCleanup, ScheduleID: xptr.Ptr("s1"), Hidden: true}
+
+	require.Len(t, failureNotices(agent.State), 1)
+	assert.Equal(t, failedToCleanupNotice, failureNotices(agent.State)[0].text)
+	assert.Empty(t, failureNotices(agentstore.StateIdle))
 }
 
 // TestNoticesKeepTheRecordsHeight covers the share the record is allowed: the notices take their
@@ -108,10 +129,29 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 	assert.Contains(t, view, "name", "a field is still drawn")
 }
 
-// TestWrapText covers the only wrapping the sidebar does, which breaks on words and leaves one
-// too long for the width alone.
-func TestWrapText(t *testing.T) {
-	assert.Equal(t, []string{"one two", "three"}, wrapText("one two three", 8))
-	assert.Equal(t, []string{"antidisestablishmentarianism"}, wrapText("antidisestablishmentarianism", 8))
-	assert.Equal(t, []string{"one two three"}, wrapText("one two three", 0))
+// TestNoticesCutTheFirstOneShort covers a pane too short for even one whole sentence, where the
+// notice is drawn as far as it goes and says so, since the glyph alone would say nothing.
+func TestNoticesCutTheFirstOneShort(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 16, 24
+	m.listing.agents[0].failedRun = true
+
+	view := m.detailsView()
+
+	assert.Contains(t, view, "…")
+	assert.Contains(t, view, "run failed")
+	assert.NotContains(t, view, "opened the log it went to")
+}
+
+// TestNoticesLeaveRoomToCountTheFields covers what the record keeps back for the fields: enough
+// for a field and the line saying how many more there are.
+func TestNoticesLeaveRoomToCountTheFields(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 20, 40
+	m.listing.agents[0].unviewed = true
+
+	view := m.detailsView()
+
+	assert.Contains(t, view, "name")
+	assert.Contains(t, view, "more", "the record still says how many fields it left out")
 }

@@ -335,7 +335,7 @@ func (m model) archiveDetails() details {
 		id:      r.item.agent.ID,
 		kind:    "Agent",
 		title:   r.item.agent.Name,
-		notices: archiveNotices(r.item.agent),
+		notices: failureNotices(r.item.agent.State),
 		fields:  archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
 	}
 }
