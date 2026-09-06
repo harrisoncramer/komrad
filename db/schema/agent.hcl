@@ -6,6 +6,11 @@ enum "agent_state" {
   values = ["idle", "thinking", "waiting", "setting_up", "failed_to_create", "failed_to_cleanup", "uncertain"]
 }
 
+enum "agent_role" {
+  schema = schema.public
+  values = ["implementer", "reviewer"]
+}
+
 table "workflow_configs" {
   schema  = schema.public
   comment = "Default config (harness, cwd, flags) seeded into new agents of a workflow."
@@ -434,6 +439,12 @@ table "agents" {
     null    = false
     type    = text
     default = ""
+  }
+  column "role" {
+    null    = false
+    type    = enum.agent_role
+    default = "implementer"
+    comment = "What the agent was launched to do, which decides the half of the review briefing it is sent. A reviewer reads the work of the agent it is a child of and never writes any of its own."
   }
   column "state" {
     null    = false

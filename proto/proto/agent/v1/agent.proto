@@ -48,6 +48,8 @@ message Agent {
   // What the agent's own CLI last reported it was doing, which annotates the state the pane
   // decided rather than replacing it.
   string reported_reason = 29;
+  // What the agent was launched to do, which decides the half of the review briefing it is sent.
+  string role = 30;
 }
 
 message AgentMetadata {
@@ -103,6 +105,32 @@ message CreateAgentRequest {
 
 message CreateAgentResponse {
   Agent agent = 1;
+}
+
+message RequestReviewRequest {
+  string prompt = 1 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 50000
+  }];
+  optional string agent_id = 2 [(buf.validate.field).string.min_len = 1];
+  string title = 3 [
+    (buf.validate.field).string.max_len = 200,
+    (buf.validate.field).cel = {
+      id: "review.title.printable"
+      message: "title must not contain control characters"
+      expression: "!this.matches('[\\x00-\\x1f\\x7f]')"
+    }
+  ];
+  optional string idempotency_key = 4 [(buf.validate.field).string = {
+    min_len: 1
+    max_len: 200
+  }];
+}
+
+message RequestReviewResponse {
+  Agent reviewer = 1;
+  // What the agent that asked for the review does next, which is the rest of the loop it is in.
+  string guidance = 2;
 }
 
 message AdoptRequest {
@@ -307,6 +335,13 @@ service AgentService {
     option (annotation.v1.tool) = {
       tool_name: "create_agent"
       description: "Launch a background agent with an opening prompt. Requires an absolute or ~-prefixed directory: this spawns a real agent in a real tmux window, and a relative path would point somewhere unpredictable. Each call spawns another agent, so do not retry a call that may have succeeded. There is a ceiling on how many agents may exist at once, and a call past it is refused as resource_exhausted; that means there is no room rather than something being broken, so stop and tell the user instead of trying again. Set parentAgentId to attach the new agent to an existing one as its child, passing your own id from WEAVE_AGENT_ID, which is the default shape for an agent another agent spawns: reach for a child whenever the new agent reads the tree you are in, and leave it off when the new agent writes work of its own and so needs a checkout of its own, or when the person asking said they wanted an agent standing on its own. Set provisionEnabled to false to keep the directory you named rather than be given one: that is how an agent reads a checkout somebody else already has open, and it is what the reviewer case wants. Leave it unset to do whatever the workflow does. A child runs in its parent's directory and provisions nothing of its own, so dir and provisionEnabled are both refused rather than quietly overridden, and workflowId is still required but has to be the parent's own. It may only mail its parent and its parent's other children, it goes when the parent goes, and it cannot be restored on its own while the parent stays archived. A child may not have children of its own."
+      destructive: false
+    };
+  }
+  rpc RequestReview(RequestReviewRequest) returns (RequestReviewResponse) {
+    option (annotation.v1.tool) = {
+      tool_name: "request_review"
+      description: "Get your own work read before you call it finished, which spawns the reviewer for you and hands you back the rest of the loop. Commit on your branch first, since a review is given against a snapshot of your checkout as it stands. The reviewer is launched as your child, in your checkout, marked as a reviewer so it is briefed to read rather than to write, and named after you unless you pass a title. Your prompt is the whole briefing it gets, so say what the change is meant to do and where you are unsure of it rather than only naming a branch. agentId defaults to your own, which is in the WEAVE_AGENT_ID environment variable. Each call spawns another reviewer, so do not retry a call that may have succeeded; pass idempotencyKey to make a retry safe. Returns failed_precondition when the agent cannot hold a reviewer, which a child and a reviewer both cannot, and resource_exhausted when the panel has no room for another agent, which means to carry on and say so rather than to try again."
       destructive: false
     };
   }

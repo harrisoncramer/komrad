@@ -514,3 +514,30 @@ func TestDeleteInBatches(t *testing.T) {
 	require.Len(t, all, 1, "the id that could hold no row took nothing with it")
 	assert.Equal(t, "api", all[0].Name)
 }
+
+// TestCreateWithRole pins the role surviving the round trip, since it is what the launcher reads
+// to decide which half of the review briefing the agent's pane is opened with.
+func TestCreateWithRole(t *testing.T) {
+	tests := []struct {
+		name string
+		role Role
+		want Role
+	}{
+		{name: "an agent writing work of its own", role: RoleImplementer, want: RoleImplementer},
+		{name: "an agent launched to read somebody else's", role: RoleReviewer, want: RoleReviewer},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := open(t)
+			ctx := t.Context()
+
+			require.NoError(t, f.Create(ctx, Agent{Name: "agent", State: StateIdle, Role: tt.role}))
+			stored, err := f.Get(ctx, "agent")
+			require.NoError(t, err)
+			require.NotNil(t, stored)
+
+			assert.Equal(t, tt.want, stored.Role)
+		})
+	}
+}

@@ -527,3 +527,79 @@ func resize(m model, width, height int) tea.Model {
 
 	return next
 }
+
+// TestAgentFieldsReviewingRow pins a reviewer's record drawing whose work it reads exactly once,
+// since the agents briefed before the role existed record that under a key of their own and the
+// derived row would otherwise sit above a stale copy of itself.
+func TestAgentFieldsReviewingRow(t *testing.T) {
+	tests := []struct {
+		name       string
+		role       agentstore.Role
+		metadata   []agentstore.Metadata
+		wantLabels []string
+		wantOnce   []string
+		wantAbsent []string
+	}{
+		{
+			name:       "a reviewer that recorded the key too draws one row, not two",
+			role:       agentstore.RoleReviewer,
+			metadata:   []agentstore.Metadata{{Key: "reviewing", Value: "01a0-stale"}},
+			wantLabels: []string{"reviewing"},
+			wantOnce:   []string{"reviewing"},
+			wantAbsent: []string{"01a0-stale", "attached to"},
+		},
+		{
+			name:       "an ordinary child is drawn as attached rather than reviewing",
+			role:       agentstore.RoleImplementer,
+			wantLabels: []string{"attached to"},
+			wantAbsent: []string{"reviewing"},
+		},
+		{
+			name:       "a child that recorded the key without the role keeps what it recorded",
+			role:       agentstore.RoleImplementer,
+			metadata:   []agentstore.Metadata{{Key: "reviewing", Value: "01a0-someone"}},
+			wantLabels: []string{"attached to", "reviewing"},
+			wantOnce:   []string{"reviewing"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			agent := agentstore.Agent{
+				Name:          "reader",
+				Role:          tt.role,
+				ParentAgentID: xptr.Ptr("01a0-parent"),
+				Metadata:      tt.metadata,
+			}
+
+			fields := agentFields(agent, "", "author")
+
+			labels := make([]string, 0, len(fields))
+			values := make([]string, 0, len(fields))
+			for _, field := range fields {
+				labels = append(labels, field.label)
+				values = append(values, field.value)
+			}
+
+			assert.Subset(t, labels, tt.wantLabels)
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, labels, absent)
+				assert.NotContains(t, values, absent)
+			}
+			for _, once := range tt.wantOnce {
+				assert.Equal(t, 1, countOf(labels, once), "the row is drawn once")
+			}
+		})
+	}
+}
+
+func countOf(labels []string, want string) int {
+	seen := 0
+	for _, label := range labels {
+		if label == want {
+			seen++
+		}
+	}
+
+	return seen
+}

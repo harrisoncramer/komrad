@@ -1949,6 +1949,8 @@ type fakeLauncher struct {
 	resumed        []string
 	resumeErr      error
 	runningCalls   int
+	reviewed       agents.RequestReviewParams
+	guidance       string
 }
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
@@ -1958,6 +1960,15 @@ func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*ag
 	}
 
 	return f.created, nil
+}
+
+func (f *fakeLauncher) RequestReview(_ context.Context, p agents.RequestReviewParams) (*agentstore.Agent, string, error) {
+	f.reviewed = p
+	if f.err != nil {
+		return nil, "", f.err
+	}
+
+	return f.created, f.guidance, nil
 }
 
 func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentstore.Agent, error) {

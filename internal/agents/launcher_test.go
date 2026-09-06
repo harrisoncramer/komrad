@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	agentstore "weave/internal/store/agent"
+
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -298,19 +300,102 @@ func TestBriefingCarriesTheReviewRules(t *testing.T) {
 	launcher := NewLauncher(LauncherParams{Addr: "127.0.0.1:8787"})
 
 	// No context file and no workflow, which is the least an install can give an agent.
-	prompt := launcher.appendedSystemPrompt(launchParams{})
+	base := launcher.appendedSystemPrompt(launchParams{})
+	reviewer := launcher.appendedSystemPrompt(launchParams{Role: agentstore.RoleReviewer})
 
 	for _, want := range []string{
 		"open_review_round",
 		"create_review_thread",
 		"release_review",
-		"add_review_message",
 		"quotedLines",
 	} {
-		assert.Contains(t, prompt, want, "an agent is told the call by name")
+		assert.Contains(t, reviewer, want, "an agent giving a review is told the call by name")
 	}
 
-	assert.Contains(t, prompt, "`gh`", "and told plainly not to reach for the forge")
-	assert.Contains(t, prompt, "the agent you are a child of",
+	assert.Contains(t, base, "add_review_message",
+		"answering one reaches every agent, since a person may review any of them from the panel")
+	assert.Contains(t, base, "`gh`", "and every agent is told plainly not to reach for the forge")
+	assert.Contains(t, reviewer, "the agent you are a child of",
 		"and who it may review, since the rule is refused at the server either way")
+}
+
+// TestAppendedSystemPromptReviewBriefing pins which half of the review loop an agent is sent,
+// since the half it will never use is the half it broke the rules of when it received both.
+func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
+	const (
+		giving    = "### When you are the one reviewing"
+		asking    = "### Getting your own work read"
+		answering = "### When you are the one being reviewed"
+	)
+
+	tests := []struct {
+		name         string
+		role         agentstore.Role
+		ownsCheckout bool
+		wantContain  []string
+		wantAbsent   []string
+	}{
+		{
+			name:         "an agent with a checkout of its own is told to get its work read",
+			role:         agentstore.RoleImplementer,
+			ownsCheckout: true,
+			wantContain:  []string{asking, answering, "Commit on your branch and stop there"},
+			wantAbsent:   []string{giving, "open_review_round"},
+		},
+		{
+			name:        "a reviewer is told how to give one and never to ask for one",
+			role:        agentstore.RoleReviewer,
+			wantContain: []string{giving, answering, "open_review_round", "You do not fix what you find"},
+			wantAbsent:  []string{asking},
+		},
+		{
+			name:         "a reviewer is not told to get its own work read even in its own checkout",
+			role:         agentstore.RoleReviewer,
+			ownsCheckout: true,
+			wantContain:  []string{giving},
+			wantAbsent:   []string{asking},
+		},
+		{
+			name:        "an agent reading somebody else's tree is sent neither half",
+			role:        agentstore.RoleImplementer,
+			wantContain: []string{answering},
+			wantAbsent:  []string{asking, giving},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			launcher := NewLauncher(LauncherParams{
+				Tmux:    newFakeTmux(),
+				Addr:    "127.0.0.1:9999",
+				LogPath: briefedLogPath,
+			})
+
+			prompt := launcher.appendedSystemPrompt(launchParams{Role: tt.role, OwnsCheckout: tt.ownsCheckout})
+
+			for _, want := range tt.wantContain {
+				assert.Contains(t, prompt, want)
+			}
+			for _, absent := range tt.wantAbsent {
+				assert.NotContains(t, prompt, absent)
+			}
+		})
+	}
+}
+
+// TestBriefingKeepsWhatEveryAgentNeeds pins the facts that stayed in the base briefing when the
+// review halves were cut out of it, since an agent a person reviews from the panel was never
+// told it would be and still has to know how to answer.
+func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
+	launcher := NewLauncher(LauncherParams{Tmux: newFakeTmux(), Addr: "127.0.0.1:9999", LogPath: briefedLogPath})
+
+	prompt := launcher.appendedSystemPrompt(launchParams{})
+
+	assert.Contains(t, prompt, "add_review_message", "answering a review reaches every agent")
+	assert.Contains(t, prompt, "spawn that one with request_review rather than create_agent",
+		"since create_agent cannot mark a reviewer, and an unmarked child is told none of this")
+	assert.Contains(t, prompt, "never touches a forge", "so does the rule against mailing one")
+	for _, key := range []string{"`pr`", "`branch`", "`summary`"} {
+		assert.Contains(t, prompt, key, "the metadata keys are named rather than left to invention")
+	}
 }

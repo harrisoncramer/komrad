@@ -37,6 +37,7 @@ type reportRecorder interface {
 
 type agentCreator interface {
 	NewAgent(ctx context.Context, p agents.NewAgentParams) (*agentstore.Agent, error)
+	RequestReview(ctx context.Context, p agents.RequestReviewParams) (*agentstore.Agent, string, error)
 }
 
 type agentAdopter interface {
@@ -194,6 +195,31 @@ func (s *Service) CreateAgent(ctx context.Context, req *connect.Request[agentv1.
 	}
 
 	return connect.NewResponse(&agentv1.CreateAgentResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
+}
+
+// RequestReview spawns the reviewer for the calling agent's own work and answers with the rest
+// of the loop that agent is in.
+func (s *Service) RequestReview(ctx context.Context, req *connect.Request[agentv1.RequestReviewRequest]) (*connect.Response[agentv1.RequestReviewResponse], error) {
+	id, err := scopedAgentID(ctx, req.Msg.GetAgentId())
+	if err != nil {
+		return nil, err
+	}
+
+	reviewer, guidance, err := s.creator.RequestReview(ctx, agents.RequestReviewParams{
+		AgentID:        id,
+		Prompt:         req.Msg.GetPrompt(),
+		Title:          req.Msg.GetTitle(),
+		IdempotencyKey: req.Msg.GetIdempotencyKey(),
+	})
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to request a review",
+			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", id))
+	}
+
+	return connect.NewResponse(&agentv1.RequestReviewResponse{
+		Reviewer: renderAgent(*reviewer, agentFlags{alive: s.liveness.IsAgentRunning(*reviewer)}).Agent,
+		Guidance: guidance,
+	}), nil
 }
 
 // Adopt puts an agent on a branch or pull request that already exists.

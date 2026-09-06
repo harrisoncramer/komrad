@@ -49,6 +49,7 @@ func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 			Prompt:           stored.Prompt,
 			PaneId:           stored.Pane,
 			State:            string(stored.State),
+			Role:             string(stored.Role),
 			SessionId:        stored.SessionID,
 			Harness:          stored.Harness,
 			WorkflowId:       stored.WorkflowID,

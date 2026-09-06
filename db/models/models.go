@@ -10,6 +10,48 @@ import (
 	"time"
 )
 
+type AgentRole string
+
+const (
+	AgentRoleImplementer AgentRole = "implementer"
+	AgentRoleReviewer    AgentRole = "reviewer"
+)
+
+func (e *AgentRole) Scan(src interface{}) error {
+	switch s := src.(type) {
+	case []byte:
+		*e = AgentRole(s)
+	case string:
+		*e = AgentRole(s)
+	default:
+		return fmt.Errorf("unsupported scan type for AgentRole: %T", src)
+	}
+	return nil
+}
+
+type NullAgentRole struct {
+	AgentRole AgentRole
+	Valid     bool // Valid is true if AgentRole is not NULL
+}
+
+// Scan implements the Scanner interface.
+func (ns *NullAgentRole) Scan(value interface{}) error {
+	if value == nil {
+		ns.AgentRole, ns.Valid = "", false
+		return nil
+	}
+	ns.Valid = true
+	return ns.AgentRole.Scan(value)
+}
+
+// Value implements the driver Valuer interface.
+func (ns NullAgentRole) Value() (driver.Value, error) {
+	if !ns.Valid {
+		return nil, nil
+	}
+	return string(ns.AgentRole), nil
+}
+
 type AgentState string
 
 const (
@@ -218,6 +260,8 @@ type Agent struct {
 	ProvisionEnabled *bool
 	// What the agent's own CLI last reported it was doing, which annotates the state the pane decided rather than deciding one of its own. Cleared with the state it annotates whenever that changes, and by a turn ending, so empty means there is nothing to say.
 	ReportedReason string
+	// What the agent was launched to do, which decides the half of the review briefing it is sent. A reviewer reads the work of the agent it is a child of and never writes any of its own.
+	Role AgentRole
 }
 
 // Key/value facts an agent recorded about its own work.
