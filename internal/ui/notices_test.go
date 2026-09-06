@@ -64,7 +64,11 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 // act on are drawn first, so the ones dropped from the tail are the ones nobody needed spelled out.
 func TestNoticesAreOrderedByUrgency(t *testing.T) {
 	item := agentItem{
-		agent:      agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true, Hidden: true},
+		agent: agentstore.Agent{
+			State:           agentstore.StateFailedToCreate,
+			WorktreeRemoved: true,
+			Hidden:          true,
+		},
 		unreadMail: true,
 		unviewed:   true,
 		failedRun:  true,
@@ -88,7 +92,11 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
 // own, since the rest stand for facts about an agent that is still running.
 func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
-	agent := agentstore.Agent{State: agentstore.StateFailedToCleanup, ScheduleID: xptr.Ptr("s1"), Hidden: true}
+	agent := agentstore.Agent{
+		State:      agentstore.StateFailedToCleanup,
+		ScheduleID: xptr.Ptr("s1"),
+		Hidden:     true,
+	}
 
 	require.Len(t, failureNotices(agent.State), 1)
 	assert.Equal(t, failedToCleanupNotice, failureNotices(agent.State)[0].text)

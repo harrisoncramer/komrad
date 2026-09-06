@@ -49,5 +49,9 @@ func appendNotice(notices []notice, show bool, icon string, color lipgloss.Color
 		return notices
 	}
 
-	return append(notices, notice{icon: icon, color: color, text: text})
+	return append(notices, notice{
+		icon:  icon,
+		color: color,
+		text:  text,
+	})
 }

@@ -285,8 +285,16 @@ func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
 		side string
 		want string
 	}{
-		{name: "the default puts the panel on the left", side: config.SidebarSideLeft, want: "greet.go:1"},
-		{name: "and the diff takes that side when it is asked to", side: config.SidebarSideRight, want: "Review · auth"},
+		{
+			name: "the default puts the panel on the left",
+			side: config.SidebarSideLeft,
+			want: "greet.go:1",
+		},
+		{
+			name: "and the diff takes that side when it is asked to",
+			side: config.SidebarSideRight,
+			want: "Review · auth",
+		},
 	}
 
 	for _, tt := range tests {
