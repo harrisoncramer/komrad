@@ -90,7 +90,7 @@ func TestServerCheck(t *testing.T) {
 			result := newServerCheck().Run(t.Context(), serverEnv(tt.status))
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 		})
 	}
 }
@@ -151,7 +151,7 @@ func TestNotReadyWaitsRatherThanRestarts(t *testing.T) {
 		Answering: true, Version: "v1.2.3", Current: true,
 	}, true))
 
-	assert.Equal(t, "server_not_ready", CodeOf(result.Err))
+	assert.Equal(t, "server_not_ready", codeOf(result.Err))
 	assert.NotContains(t, result.Fix, "stop")
 	assert.NotContains(t, result.Fix, "kill")
 }
@@ -211,7 +211,7 @@ func TestListenAddressIsCheckedFirst(t *testing.T) {
 			result := newServerCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 		})
 	}
 }

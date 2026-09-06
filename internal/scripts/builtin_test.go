@@ -16,7 +16,7 @@ func TestInstallBuiltins(t *testing.T) {
 
 	require.NoError(t, InstallBuiltins(dir))
 
-	found, err := Discover(dir)
+	found, err := discover(dir)
 	require.NoError(t, err)
 	require.NotEmpty(t, found, "this build ships at least the worktree provisioner")
 

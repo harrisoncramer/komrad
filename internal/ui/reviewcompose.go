@@ -240,25 +240,13 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 		return nil
 	}
 
-	agents, agentID, id := m.api.agents, m.review.agentID, thread.GetId()
+	agents, id := m.api.agents, thread.GetId()
 
-	return func() tea.Msg {
-		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
-		defer cancel()
-
+	return m.reviewWriteCmd("", func(ctx context.Context) error {
 		_, err := agents.MarkReviewThreadRead(ctx, connect.NewRequest(&agentv1.MarkReviewThreadReadRequest{Id: id}))
-		if err != nil {
-			return reviewWroteMsg{agentID: agentID, err: err}
-		}
 
-		threads, err := listReviewThreads(ctx, agents, agentID)
-
-		return reviewWroteMsg{
-			agentID: agentID,
-			threads: threads,
-			err:     err,
-		}
-	}
+		return err
+	})
 }
 
 // openReviewRelease asks what to send rather than sending, since a verdict is a decision worth
@@ -335,11 +323,20 @@ func (m model) closeReviewRelease() model {
 // releasedNotice says what went, since a review leaving with nothing said about it reads as the
 // key not working.
 func releasedNotice(verdict agentv1.ReviewVerdict, count int32) string {
-	if verdict == agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED {
-		return "approved, " + counted(int(count), "comment") + " sent"
-	}
+	sent := ", " + counted(int(count), "comment") + " sent"
 
-	return "changes requested, " + counted(int(count), "comment") + " sent"
+	switch verdict {
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
+		return "approved" + sent
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED:
+		return "changes requested" + sent
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
+		return "comments only" + sent
+	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
+		return "no verdict" + sent
+	default:
+		return "no verdict" + sent
+	}
 }
 
 // reviewWriteCmd runs one write and reads the review back in the same breath.

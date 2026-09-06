@@ -100,9 +100,9 @@ const (
 	HookPostRestore    = "post-restore"
 )
 
-// RunMoments is every moment by name, which is the set a run's file name is read back against,
+// runMoments is every moment by name, which is the set a run's file name is read back against,
 // since a moment's own name may hold a hyphen.
-func RunMoments() []string {
+func runMoments() []string {
 	return []string{
 		TriggerProvision,
 		TriggerResume,
@@ -191,7 +191,7 @@ func parseRunLogName(name string) (*RunLog, bool) {
 
 	// A moment's name holds a hyphen of its own, so the split is against the moments there are
 	// rather than at the next hyphen along.
-	for _, moment := range RunMoments() {
+	for _, moment := range runMoments() {
 		if script, found := strings.CutPrefix(rest, moment+"-"); found {
 			return &RunLog{
 				Number:  parsed,

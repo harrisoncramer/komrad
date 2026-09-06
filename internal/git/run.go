@@ -23,12 +23,12 @@ func Run(ctx context.Context, dir string, args ...string) (string, error) {
 
 // RunBytes is git's output whole, for the callers that read a patch or a file rather than a line.
 func RunBytes(ctx context.Context, dir string, args ...string) ([]byte, error) {
-	return RunWithEnv(ctx, dir, nil, args...)
+	return runWithEnv(ctx, dir, nil, args...)
 }
 
-// RunWithEnv is git run with an environment of its own, which is what writing an index or a commit
+// runWithEnv is git run with an environment of its own, which is what writing an index or a commit
 // outside the agent's own repository state needs.
-func RunWithEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
+func runWithEnv(ctx context.Context, dir string, env []string, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
 	defer cancel()
 
@@ -43,9 +43,9 @@ func RunWithEnv(ctx context.Context, dir string, env []string, args ...string) (
 	return out, nil
 }
 
-// runEnv is RunWithEnv trimmed, for the snapshot commands that read back a single object name.
+// runEnv is runWithEnv trimmed, for the snapshot commands that read back a single object name.
 func runEnv(ctx context.Context, dir string, env []string, args ...string) (string, error) {
-	out, err := RunWithEnv(ctx, dir, env, args...)
+	out, err := runWithEnv(ctx, dir, env, args...)
 
 	return strings.TrimSpace(string(out)), err
 }

@@ -46,17 +46,6 @@ func KeyBy[T any, K comparable](in []T, key func(T) K) map[K]T {
 	return out
 }
 
-// GroupBy buckets the elements of in by the key key returns for each one, preserving order
-// within a bucket.
-func GroupBy[T any, K comparable](in []T, key func(T) K) map[K][]T {
-	out := make(map[K][]T)
-	for _, v := range in {
-		out[key(v)] = append(out[key(v)], v)
-	}
-
-	return out
-}
-
 // UniqueBy returns the elements of in whose key is first seen, preserving order and
 // dropping any later element sharing that key.
 func UniqueBy[T any, K comparable](in []T, key func(T) K) []T {

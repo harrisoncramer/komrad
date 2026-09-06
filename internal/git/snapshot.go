@@ -90,7 +90,7 @@ func TakeSnapshot(ctx context.Context, params TakeSnapshotParams) (*Snapshot, er
 		return nil, err
 	}
 
-	base := ResolveBase(ctx, root, params.Base)
+	base := resolveBase(ctx, root, params.Base)
 
 	baseSHA, err := Run(ctx, root, "merge-base", base, "HEAD")
 	if err != nil {

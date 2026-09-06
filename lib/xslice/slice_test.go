@@ -36,36 +36,6 @@ func TestKeyBy(t *testing.T) {
 	}
 }
 
-// TestGroupBy pins the map a slice becomes when elements sharing a key are gathered
-// together.
-func TestGroupBy(t *testing.T) {
-	tests := []struct {
-		name string
-		in   []string
-		key  func(string) rune
-		want map[rune][]string
-	}{
-		{
-			name: "empty slice yields an empty map",
-			in:   []string{},
-			key:  func(s string) rune { return rune(s[0]) },
-			want: map[rune][]string{},
-		},
-		{
-			name: "multiple items with the same key land in one bucket, in order",
-			in:   []string{"apple", "avocado", "banana"},
-			key:  func(s string) rune { return rune(s[0]) },
-			want: map[rune][]string{'a': {"apple", "avocado"}, 'b': {"banana"}},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, GroupBy(tt.in, tt.key))
-		})
-	}
-}
-
 // TestUniqueBy pins that only the first element under each key survives, in the order they
 // were given.
 func TestUniqueBy(t *testing.T) {

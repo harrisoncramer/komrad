@@ -22,8 +22,8 @@ func IsUniqueViolation(err error) bool {
 	return hasCode(err, uniqueViolation)
 }
 
-// IsUndefinedTable reports whether an error is a query against a table that does not exist.
-func IsUndefinedTable(err error) bool {
+// isUndefinedTable reports whether an error is a query against a table that does not exist.
+func isUndefinedTable(err error) bool {
 	return hasCode(err, undefinedTable)
 }
 

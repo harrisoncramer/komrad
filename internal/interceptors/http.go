@@ -39,7 +39,7 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 			slog.String(logging.URLPath, r.URL.Path),
 			slog.String(logging.ClientAddress, r.RemoteAddr),
 		}
-		attrs = append(attrs, CallerAttrs(from)...)
+		attrs = append(attrs, callerAttrs(from)...)
 		if method != "" {
 			attrs = append(attrs, slog.String(logging.RPCMethod, method))
 		}

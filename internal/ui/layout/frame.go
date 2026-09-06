@@ -8,7 +8,7 @@ import (
 
 type Frame struct {
 	tmux    Tmux
-	spec    Spec
+	spec    spec
 	sidebar string
 	stage   string
 	info    string
@@ -26,7 +26,7 @@ type shown struct {
 func New(tmux Tmux, layout config.Layout) *Frame {
 	return &Frame{
 		tmux:  tmux,
-		spec:  NewSpec(layout),
+		spec:  newSpec(layout),
 		shown: map[Region]shown{},
 	}
 }

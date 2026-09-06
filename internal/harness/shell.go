@@ -22,9 +22,9 @@ var posixShells = map[string]bool{
 	"zsh":   true,
 }
 
-// SplitArgs breaks a flag string into arguments the way a shell would, honoring single
+// splitArgs breaks a flag string into arguments the way a shell would, honoring single
 // and double quotes so a flag whose value contains a space stays one argument.
-func SplitArgs(flags string) []string {
+func splitArgs(flags string) []string {
 	var (
 		args    []string
 		current strings.Builder
@@ -71,7 +71,7 @@ func QuoteArg(arg string) string {
 // QuoteFlags renders a configured flag string as shell-safe arguments, ready to
 // append to a command line.
 func QuoteFlags(flags string) string {
-	args := SplitArgs(flags)
+	args := splitArgs(flags)
 	if len(args) == 0 {
 		return ""
 	}

@@ -247,10 +247,30 @@ func sliceOrNil(lines []string) []string {
 func TestWithoutSuggestionPutsOneRunBack(t *testing.T) {
 	round := []string{"one", "two", "three", "four"}
 
-	rewrite := git.Edit{Path: "greet.go", Start: 2, End: 2, Lines: []string{"TWO"}}
-	later := git.Edit{Path: "greet.go", Start: 4, End: 4, Lines: []string{"FOUR"}}
-	insert := git.Edit{Path: "greet.go", Start: 3, End: 2, Lines: []string{"two and a half"}}
-	elsewhere := git.Edit{Path: "other.go", Start: 1, End: 1, Lines: []string{"not this file"}}
+	rewrite := git.Edit{
+		Path:  "greet.go",
+		Start: 2,
+		End:   2,
+		Lines: []string{"TWO"},
+	}
+	later := git.Edit{
+		Path:  "greet.go",
+		Start: 4,
+		End:   4,
+		Lines: []string{"FOUR"},
+	}
+	insert := git.Edit{
+		Path:  "greet.go",
+		Start: 3,
+		End:   2,
+		Lines: []string{"two and a half"},
+	}
+	elsewhere := git.Edit{
+		Path:  "other.go",
+		Start: 1,
+		End:   1,
+		Lines: []string{"not this file"},
+	}
 
 	sent, ok := Suggest(rewrite, round)
 	require.True(t, ok)

@@ -300,7 +300,7 @@ func TestLaunchKey(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.wantSame, LaunchKey(tt.schedule, tt.at) == LaunchKey(tt.other, tt.otherAt))
+			assert.Equal(t, tt.wantSame, launchKey(tt.schedule, tt.at) == launchKey(tt.other, tt.otherAt))
 		})
 	}
 }

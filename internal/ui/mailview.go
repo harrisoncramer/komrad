@@ -260,7 +260,7 @@ func (m model) mailRowsView() []string {
 	}
 
 	all := m.mailRows()
-	stamps := mailStampWidth(all)
+	clocks := mailClockWidth(all)
 
 	rows := make([]string, 0, len(all))
 	for i, r := range all {
@@ -275,16 +275,16 @@ func (m model) mailRowsView() []string {
 			prefix = m.rowCursorStyle().Render("› ")
 		}
 
-		rows = append(rows, prefix+m.mailRowView(r, stamps, i == m.mail.cursor))
+		rows = append(rows, prefix+m.mailRowView(r, clocks, i == m.mail.cursor))
 	}
 
 	return rows
 }
 
-// mailStampWidth is the room the stamps need, measured over the mail on screen rather than over
+// mailClockWidth is the room the clocks need, measured over the mail on screen rather than over
 // the widest label dates.Clock could draw, so a mailbox that is all from today spends seven
 // columns on the time rather than fourteen on a date none of it carries.
-func mailStampWidth(rows []mailRow) int {
+func mailClockWidth(rows []mailRow) int {
 	width := 0
 	for _, r := range rows {
 		if r.header {
@@ -312,25 +312,25 @@ const (
 // mailRowView draws one message on one line: when it was written, which way it went and what
 // became of it, then as much of the message as the sidebar has room for, since who it was with
 // is on the thread line above rather than repeated down the block.
-func (m model) mailRowView(r mailRow, stamps int, hovered bool) string {
-	// Padded on the right rather than the left, since right-aligning a stamp that is a time on
+func (m model) mailRowView(r mailRow, clocks int, hovered bool) string {
+	// Padded on the right rather than the left, since right-aligning a clock that is a time on
 	// one row and a day and a time on the next leads the short ones in by half the column, which
 	// reads as though those rows were nested under something.
-	stamp := fmt.Sprintf("%-*s", stamps, mailClock(r.item.GetCreatedAt()))
-	head := " " + dimStyle.Render(stamp) + " " +
+	clock := fmt.Sprintf("%-*s", clocks, mailClock(r.item.GetCreatedAt()))
+	head := " " + dimStyle.Render(clock) + " " +
 		dimStyle.Render(mailDirectionMark(r.sent)) + " " +
 		mailStateMark(r.item)
 
-	// A pane too narrow even for the stamp gets the stamp alone, clipped while it is still plain
+	// A pane too narrow even for the clock gets the clock alone, clipped while it is still plain
 	// text: clipping the styled head would cut through an escape sequence, and a row wider than
 	// the pane wraps onto a line the list has not counted.
 	if room := m.width - mailCursorWidth; lipgloss.Width(head) > room {
-		return dimStyle.Render(clip(strings.TrimSpace(stamp), max(room, 1)))
+		return dimStyle.Render(clip(strings.TrimSpace(clock), max(room, 1)))
 	}
 
 	body := mailSnippet(r.item.GetBody())
 
-	spare := m.width - mailRowIndent - stamps
+	spare := m.width - mailRowIndent - clocks
 	if spare < mailLeastSnippet {
 		return head
 	}

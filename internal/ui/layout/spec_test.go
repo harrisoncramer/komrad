@@ -57,7 +57,7 @@ func TestNewSpecSizes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spec := NewSpec(tt.layout)
+			spec := newSpec(tt.layout)
 
 			assert.Equal(t, tt.wantNav, spec.sidebarSize)
 			assert.Equal(t, tt.wantMain, spec.stageSize)
@@ -99,7 +99,7 @@ func TestNewSpecSides(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			spec := NewSpec(tt.layout)
+			spec := newSpec(tt.layout)
 
 			assert.Equal(t, tt.wantNavOnRight, spec.sidebarOnRight)
 			assert.Equal(t, tt.wantBottomAbove, spec.infoAbove)

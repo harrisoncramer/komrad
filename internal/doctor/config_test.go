@@ -61,7 +61,7 @@ func TestConfigCheck(t *testing.T) {
 		result := newConfigCheck().Run(t.Context(), configEnv(nil, broken, true))
 
 		assert.Equal(t, StatusFail, result.Status)
-		assert.Equal(t, "config_unreadable", CodeOf(result.Err))
+		assert.Equal(t, "config_unreadable", codeOf(result.Err))
 		assert.Contains(t, result.Err.Error(), "invalid keys",
 			"what the parser objected to is carried, since that is the only part naming the typo")
 		assert.Contains(t, result.Fix, "fix or delete")
@@ -119,7 +119,7 @@ func TestDefaultHarnessCheck(t *testing.T) {
 			result := newDefaultHarnessCheck().Run(t.Context(), configEnv(cfg, nil, true))
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			if tt.want == StatusFail {
 				assert.Contains(t, result.Err.Error(), "claude or codex",
 					"the choices are listed, since the fix is picking one of them")
@@ -180,7 +180,7 @@ func TestHarnessBinaryCheck(t *testing.T) {
 			result := newHarnessBinaryCheck(tt.agent).Run(t.Context(), configEnv(cfg, nil, true, tt.installed...))
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 		})
 	}
 }

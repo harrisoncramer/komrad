@@ -107,7 +107,7 @@ func TestHooksCheck(t *testing.T) {
 			result := newHooksCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			if tt.wantDetail != "" {
 				assert.Contains(t, result.Detail, tt.wantDetail)
 			}
@@ -186,7 +186,7 @@ func TestWorktreesCheck(t *testing.T) {
 			result := newWorktreesCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 			if tt.wantDetail != "" {
 				assert.Contains(t, result.Detail, tt.wantDetail)
 			}
@@ -260,7 +260,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 			result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 			assert.Equal(t, tt.want, result.Status)
-			assert.Equal(t, tt.wantCode, CodeOf(result.Err))
+			assert.Equal(t, tt.wantCode, codeOf(result.Err))
 
 			reported := result.Detail
 			if result.Err != nil {
@@ -291,7 +291,7 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	result := newOrphanedWorktreesCheck().Run(t.Context(), env)
 
 	assert.Equal(t, StatusWarn, result.Status)
-	assert.Equal(t, "worktrees_unowned", CodeOf(result.Err))
+	assert.Equal(t, "worktrees_unowned", codeOf(result.Err))
 	assert.Contains(t, result.Err.Error(), "1 worktree in "+own+": 01a9")
 	assert.NotContains(t, result.Err.Error(), "01a0", "the shared directory's one worktree has its agent")
 }

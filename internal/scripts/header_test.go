@@ -137,7 +137,7 @@ func TestReadHeader(t *testing.T) {
 }
 
 // TestReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather
-// than an error, since Discover offers the file either way.
+// than an error, since discover offers the file either way.
 func TestReadHeaderUnreadable(t *testing.T) {
 	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))
 }
