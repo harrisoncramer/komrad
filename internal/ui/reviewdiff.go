@@ -31,7 +31,11 @@ func reviewSplitOf(width, rows, sidebar int) (reviewSplit, bool) {
 
 	sidebar = min(max(sidebar, nameWidth), width-reviewDiffFloor)
 
-	return reviewSplit{diff: width - sidebar, sidebar: sidebar, rows: rows}, true
+	return reviewSplit{
+		diff:    width - sidebar,
+		sidebar: sidebar,
+		rows:    rows,
+	}, true
 }
 
 // reviewColumns is how wide each half of the window is, and carries no row count because the

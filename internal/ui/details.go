@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type detailsState struct {
@@ -15,10 +16,11 @@ type detailsState struct {
 }
 
 type details struct {
-	id     string
-	kind   string
-	title  string
-	fields []recordField
+	id      string
+	kind    string
+	title   string
+	notices []notice
+	fields  []recordField
 }
 
 func (m model) hoveredDetails() details {
@@ -168,12 +170,21 @@ func (m model) detailsView() string {
 		return ""
 	}
 
-	lines := m.detailsLines()
+	// Two field lines are kept back rather than one, since renderList only says how many fields
+	// it left out when it has room for that line and a field under it.
+	notices := m.detailsNotices(held, m.detailsLines()-3)
+	block, lines := "", m.detailsLines()
+	if len(notices) > 0 {
+		block = strings.Join(notices, "\n") + "\n\n"
+		lines -= len(notices) + 1
+	}
+
 	cursor := m.detailsCursor(held)
 	rows := m.detailFieldRows(held.fields, cursor)
 
 	return m.detailsRule() +
 		m.detailsTitle(held) +
+		block +
 		padRows(renderList(rows, cursor, lines), lines) +
 		m.detailsRule()
 }
@@ -194,6 +205,59 @@ func (m model) detailsTitle(held details) string {
 	}
 
 	return titleStyleFor(m.details.focused).Render(clip(title, m.lineWidth())) + "\n\n"
+}
+
+// detailsNotices are the lines the marks on the row take above the fields, giving up a notice
+// that does not fit rather than the fields under it, since the row still carries its glyph.
+func (m model) detailsNotices(held details, budget int) []string {
+	if budget <= 0 {
+		return nil
+	}
+
+	drawn := []string{}
+	for _, n := range held.notices {
+		lines := m.noticeLines(n, 0)
+		if len(drawn)+len(lines) > budget {
+			// The first notice is cut short rather than given up, since at a size where no
+			// sentence fits whole the glyph on its own leaves the reader with nothing.
+			if len(drawn) > 0 {
+				break
+			}
+
+			lines = m.noticeLines(n, budget)
+		}
+
+		drawn = append(drawn, lines...)
+	}
+
+	return drawn
+}
+
+// noticeLines is one notice as it is drawn: the glyph the row carries, then the sentence wrapped
+// under it in the column the glyph left, cut off at a number of lines when it is given one.
+func (m model) noticeLines(n notice, most int) []string {
+	const indent = "    "
+
+	// A notice that is going to be cut keeps a cell back for the ellipsis, since these are the
+	// only lines the record does not clip and one cell past the column is a row the review
+	// screen truncates back, taking the ellipsis with it.
+	width := max(m.lineWidth()-len(indent), 1)
+	if most > 0 {
+		width = max(width-1, 1)
+	}
+
+	text := strings.Split(ansi.Wordwrap(n.text, width, ""), "\n")
+	if most > 0 && len(text) > most {
+		text = text[:most]
+		text[most-1] += "…"
+	}
+
+	lines := []string{"  " + lipgloss.NewStyle().Foreground(n.color).Render(n.icon) + " " + dimStyle.Render(text[0])}
+	for _, line := range text[1:] {
+		lines = append(lines, indent+dimStyle.Render(line))
+	}
+
+	return lines
 }
 
 func (m model) detailFieldRows(fields []recordField, cursor int) []string {
