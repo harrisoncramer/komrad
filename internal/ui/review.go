@@ -93,10 +93,9 @@ type reviewState struct {
 	// materialising is set while that checkout is being made, so a second press does not start a
 	// second one against the same directory.
 	materialising bool
-	// leftover is a checkout of an earlier round found holding work no comment carried, which the
-	// next edit of the round on screen checks out over the top of, so the press that takes it
-	// away is the one that says so.
-	leftover string
+	// replacing is the checkout of an earlier round weave has already said it would take, so the
+	// press after that warning goes through rather than being asked about again.
+	replacing string
 	// suggestions are the runs the reviewer wrote into the checkout, each waiting for a comment
 	// of its own to carry it to the agent.
 	suggestions []pendingSuggestion

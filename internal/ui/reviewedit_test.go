@@ -477,6 +477,12 @@ func TestReviewReloadKeepsTheCheckoutToReap(t *testing.T) {
 	assert.Contains(t, m.review.notice, "the round moved on")
 	require.Equal(t, at, m.review.roundDir, "and the checkout is still ours to reap")
 
+	// What is in that checkout is still the reviewer's, so the press that would take it says so
+	// first, whether or not the reload already said the round had moved.
+	m = pressEdit(t, m)
+	require.Equal(t, at, m.review.replacing)
+	assert.Contains(t, m.review.notice, "press again")
+
 	// The next edit has to be of the round on screen, so the checkout is moved onto it rather
 	// than left standing on the one the reader has already left.
 	m = pressEdit(t, m)
@@ -908,21 +914,20 @@ func TestReviewLeftoverIsNamedAtThePressThatTakesIt(t *testing.T) {
 		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
 
 	m = openReview(t, left.(model))
-	require.Equal(t, at, m.review.leftover, "the leftover is known from the moment the screen opens")
 
-	// A keypress that reaches the diff clears the notice, which is why the press itself has to say
-	// what it is about to take.
+	// A keypress that reaches the diff clears the notice from screen-open, which is why the press
+	// itself has to say what it is about to take.
 	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
 	m = moved.(model)
 	require.Empty(t, m.review.notice)
 
-	next, cmd := m.updateReview(editorKey())
-	m = next.(model)
+	m = pressEdit(t, m)
 
-	assert.Nil(t, cmd, "the first press does not check anything out")
+	assert.Equal(t, at, m.review.replacing, "the press asked the disk and was refused")
 	assert.Contains(t, m.review.notice, at, "it names what would go")
 	assert.Contains(t, m.review.notice, "press again")
 	assert.Equal(t, infoNothing, m.info.kind, "and no editor opened")
+	assert.Empty(t, m.review.roundDir, "and nothing was checked out")
 
 	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
 	require.NoError(t, err)
@@ -931,8 +936,43 @@ func TestReviewLeftoverIsNamedAtThePressThatTakesIt(t *testing.T) {
 	// The second press is the answer, and it is what replaces the checkout.
 	m = pressEdit(t, m)
 	require.Equal(t, m.review.round.GetSnapshotSha(), m.review.roundSha)
+	assert.Empty(t, m.review.replacing, "the warning is spent once it has been answered")
 
 	held, err = os.ReadFile(filepath.Join(at, "greet.go"))
 	require.NoError(t, err)
 	assert.Contains(t, string(held), "the agent moved on", "which is the round the diff is drawing")
+}
+
+// TestReviewLeftoverIsCaughtByAPressThatBeatsTheLookup covers the reader pressing the editor key
+// before the screen-open lookup has landed, which is why the refusal is asked for at the checkout
+// rather than trusted from what was found earlier.
+func TestReviewLeftoverIsCaughtByAPressThatBeatsTheLookup(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	m = pressEdit(t, m)
+	at := m.review.roundDir
+	writeRoundFile(t, m, "package greet\n\nfunc Hello() string {\n\treturn \"the reviewer's idea\"\n}\n")
+	m = closeEditKey(t, m)
+
+	left, cmd := m.leaveReview()
+	drainCmd(cmd)
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "greet.go"),
+		[]byte("package greet\n\nfunc Hello() string {\n\treturn \"the agent moved on\"\n}\n"), 0o644))
+
+	// The screen opens without the lookup ever being applied, which is the state a reader who
+	// presses in the first moments after the diff paints is in.
+	m = enterReviewWithoutPickup(t, left.(model))
+	require.Empty(t, m.review.replacing)
+
+	m = pressEdit(t, m)
+
+	assert.Equal(t, at, m.review.replacing, "the press is still refused once")
+	assert.Contains(t, m.review.notice, "press again")
+
+	held, err := os.ReadFile(filepath.Join(at, "greet.go"))
+	require.NoError(t, err)
+	assert.Contains(t, string(held), "the reviewer's idea", "so the text is still there")
 }

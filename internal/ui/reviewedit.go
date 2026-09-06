@@ -24,7 +24,10 @@ type roundReadyMsg struct {
 	agentID string
 	dir     string
 	sha     string
-	err     error
+	// leftover is the checkout of an earlier round that was found holding work nobody carried,
+	// set instead of a directory since the round was not checked out over the top of it.
+	leftover string
+	err      error
 }
 
 // roundEditedMsg is what the reviewer has written into the checkout, read back once the editor
@@ -89,19 +92,9 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
-		// The notice from screen-open is gone by now, cleared by the first keypress after it, and
-		// this is the press that takes the earlier round's edit away, so it says so itself.
-		if at := m.review.leftover; at != "" {
-			m.review.leftover = ""
-			m.review.notice = "editing this round replaces the edit of an earlier one in " +
-				at + ", so press again to go on"
-
-			return m, nil
-		}
-
 		m.review.materialising = true
 
-		return m, m.materialiseRoundCmd()
+		return m, m.materialiseRoundCmd(m.review.replacing != "")
 	}
 
 	if !m.claimInfo(infoEditFile, target) {
@@ -117,7 +110,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 
 // materialiseRoundCmd checks the round out beside the agent's worktree rather than in it, one
 // directory per agent, since a reader opens many files of one round and rarely two rounds at once.
-func (m model) materialiseRoundCmd() tea.Cmd {
+func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 	agentID, root, sha := m.review.agentID, m.review.root, m.review.round.GetSnapshotSha()
 	at := filepath.Join(m.roundsDir, agentID)
 
@@ -125,12 +118,32 @@ func (m model) materialiseRoundCmd() tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
+		// The disk is asked here rather than on the keypress, since this is the moment the force
+		// checkout below would take an earlier round's edit, and a lookup made when the screen
+		// opened is one a quick reader can beat.
+		if !force && holdsLeftover(ctx, at, sha) {
+			return roundReadyMsg{agentID: agentID, leftover: at}
+		}
+
 		if err := git.Materialise(ctx, root, sha, at); err != nil {
 			return roundReadyMsg{agentID: agentID, err: err}
 		}
 
 		return roundReadyMsg{agentID: agentID, dir: at, sha: sha}
 	}
+}
+
+// holdsLeftover reports whether the checkout is an earlier round's with work still in it, which is
+// the one thing checking this round out over the top of it destroys.
+func holdsLeftover(ctx context.Context, at, sha string) bool {
+	head, ok := git.WorktreeHead(ctx, at)
+	if !ok || head == sha {
+		return false
+	}
+
+	dirty, err := git.IsDirty(ctx, at)
+
+	return err != nil || dirty
 }
 
 // applyRoundReady opens the editor the checkout was asked for, on wherever the cursor has got to
@@ -142,12 +155,21 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 
 	m.review.materialising = false
 
+	if msg.leftover != "" {
+		m.review.replacing = msg.leftover
+		m.review.notice = "editing this round replaces the edit of an earlier one in " +
+			msg.leftover + ", so press again to go on"
+
+		return m, nil
+	}
+
 	if msg.err != nil {
 		m.review.notice = "that round could not be checked out to edit"
 
 		return m, nil
 	}
 
+	m.review.replacing = ""
 	m.review.roundDir = msg.dir
 	m.review.roundSha = msg.sha
 
@@ -220,10 +242,10 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 		return
 	}
 
-	// Nothing takes this away on its own: it is unreadable against the round on screen and the
-	// only thing that ever clears it is the press that checks this round out over the top of it.
+	// Nothing takes this away on its own: it is unreadable against the round on screen, and the
+	// only thing that ever clears it is the press that checks this round out over the top of it,
+	// which asks the disk again rather than trusting what was found here.
 	if msg.sha != m.review.round.GetSnapshotSha() {
-		m.review.leftover = msg.dir
 		m.review.notice = "an edit of an earlier round is still in its checkout"
 
 		return

@@ -53,8 +53,8 @@ func WorktreeHead(ctx context.Context, at string) (string, bool) {
 	return head, true
 }
 
-// IsDirty reports whether a checkout holds anything the commit it stands on does not, untracked
-// files included, which is what says there is work in it somebody would miss.
+// IsDirty reports whether a checkout holds anything the commit it stands on does not, counting
+// untracked files but not ignored ones, which are the editor's leavings rather than the reviewer's.
 func IsDirty(ctx context.Context, at string) (bool, error) {
 	out, err := Run(ctx, at, "status", "--porcelain", "--untracked-files=all")
 	if err != nil {

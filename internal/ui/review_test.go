@@ -261,6 +261,23 @@ func openReview(t *testing.T, m model) model {
 	return m
 }
 
+// enterReviewWithoutPickup is the screen opening with the look for an earlier sitting's checkout
+// still in flight, which is what a reader who presses a key straight away is looking at.
+func enterReviewWithoutPickup(t *testing.T, m model) model {
+	t.Helper()
+
+	next, cmd := m.enterReview(reviewAgent(m.listing.agents[0].agent.Cwd))
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+
+	m.applyReviewLoaded(loaded)
+
+	return m
+}
+
 // enterReview is the same path without the diff having to be readable, for the worktree that
 // holds nothing and the one that cannot be read at all.
 func enterReview(t *testing.T, m model) model {
