@@ -641,17 +641,6 @@ func (m model) openAdoptForm(workflow workflowstore.Workflow, values *adoptFormV
 }
 
 func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValues) (tea.Model, tea.Cmd) {
-	// Which of those two adoption does is the service's to work out, so the pane is claimed on the
-	// strength of the workflow alone.
-	var pane string
-	if workflow.Worktree.Enabled && !m.setupPending {
-		m = m.closeInfo()
-		if m.claimInfo(infoSetup, "") {
-			pane = m.frame.Pane(layout.RegionInfo)
-			m.setupPending = true
-		}
-	}
-
 	cmd := m.adoptCmd(adoptParams{
 		Ref:        values.Ref,
 		Prompt:     values.Prompt,
@@ -659,16 +648,9 @@ func (m model) submitAdopt(workflow workflowstore.Workflow, values adoptFormValu
 		Harness:    values.Harness,
 		Flags:      values.Flags,
 		WorkflowID: workflow.ID,
-		SetupPane:  pane,
 	})
 
-	if pane == "" {
-		return m, tea.Batch(cmd, m.holdForm())
-	}
-
-	next, closeCmd := m.closeForm()
-
-	return next, tea.Batch(cmd, closeCmd)
+	return m, tea.Batch(cmd, m.holdForm())
 }
 
 func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, tea.Cmd) {
@@ -682,38 +664,17 @@ func (m model) submitRename(agent agentstore.Agent, typed string) (tea.Model, te
 }
 
 func (m model) submitAgent(workflow workflowstore.Workflow, values agentFormValues) (tea.Model, tea.Cmd) {
-	provisionEnabled := worktreeOverride(values.Worktree)
-	provisions := workflow.Worktree.Enabled && (provisionEnabled == nil || *provisionEnabled)
-
-	var pane string
-	if provisions && !m.setupPending {
-		m = m.closeInfo()
-		if m.claimInfo(infoSetup, "") {
-			pane = m.frame.Pane(layout.RegionInfo)
-			m.setupPending = true
-		}
-	}
-
-	params := createAgentParams{
+	cmd := m.createCmd(createAgentParams{
 		Prompt:           values.Prompt,
 		Title:            values.Title,
 		Harness:          values.Harness,
 		Dir:              m.currentDir(values.Dir),
 		Flags:            values.Flags,
-		ProvisionEnabled: provisionEnabled,
+		ProvisionEnabled: worktreeOverride(values.Worktree),
 		WorkflowID:       workflow.ID,
-		SetupPane:        pane,
-	}
+	})
 
-	cmd := m.createCmd(params)
-
-	if pane == "" {
-		return m, tea.Batch(cmd, m.holdForm())
-	}
-
-	next, closeCmd := m.closeForm()
-
-	return next, tea.Batch(cmd, closeCmd)
+	return m, tea.Batch(cmd, m.holdForm())
 }
 
 // worktreeOverride reads the one thing an agent can say for itself about its directory: unset

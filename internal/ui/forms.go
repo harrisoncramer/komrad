@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"slices"
 	"strings"
+	"time"
 
 	"weave/config"
 
@@ -396,6 +397,8 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 // lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
 	m.pendingForm = true
+	m.pendingSince = time.Now()
+	m.pendingEpoch = m.epoch
 
 	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
@@ -460,6 +463,8 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 // closeForm drops the form and comes back to the screen it was drawn over.
 func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.pendingForm = false
+	m.pendingSince = time.Time{}
+	m.pendingEpoch = 0
 	m.form = formState{}
 	m.reconcileSolo()
 

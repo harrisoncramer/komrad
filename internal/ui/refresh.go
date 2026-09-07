@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"weave/internal/client"
-	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -219,10 +218,12 @@ func (r refreshResult) err() error {
 }
 
 type writeResult struct {
-	summary   string
-	err       error
-	written   *written
-	setupPane bool
+	summary string
+	err     error
+	written *written
+	// epoch is the write this result belongs to, which tells a held form whose landing is its
+	// own: a person who escapes a slow create and submits another has two in flight at once.
+	epoch int
 }
 
 type written struct {
@@ -324,10 +325,10 @@ func (m model) markRunsReadCmd(id string) tea.Cmd {
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
-		return writeResult{summary: summary, err: write(clients)}
+		return writeResult{summary: summary, err: write(clients), epoch: epoch}
 	}
 }
 
@@ -338,102 +339,93 @@ type resumeParams struct {
 
 func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		agent, err := clients.resumeAgent(params.id)
 		if err != nil {
-			return writeResult{summary: params.summary, err: err}
+			return writeResult{summary: params.summary, err: err, epoch: epoch}
 		}
 
 		return writeResult{
 			summary: params.summary,
 			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			epoch:   epoch,
 		}
 	}
 }
 
 func (m *model) createCmd(params createAgentParams) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		agent, err := clients.createAgent(params)
 		if err != nil {
-			return writeResult{
-				summary:   "Could not start the agent",
-				err:       err,
-				setupPane: params.SetupPane != "",
-			}
+			return writeResult{summary: "Could not start the agent", err: err, epoch: epoch}
 		}
 
 		return writeResult{
-			summary:   "Could not start the agent",
-			written:   &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			setupPane: params.SetupPane != "",
+			summary: "Could not start the agent",
+			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			epoch:   epoch,
 		}
 	}
 }
 
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		const summary = "Could not adopt"
 
 		agent, err := clients.adopt(params)
 		if err != nil {
-			return writeResult{
-				summary:   summary,
-				err:       err,
-				setupPane: params.SetupPane != "",
-			}
+			return writeResult{summary: summary, err: err, epoch: epoch}
 		}
 
 		return writeResult{
-			summary:   summary,
-			written:   &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			setupPane: params.SetupPane != "",
+			summary: summary,
+			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			epoch:   epoch,
 		}
 	}
 }
 
 func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		const summary = "Could not create the workflow"
 
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {
-			return writeResult{summary: summary, err: err}
+			return writeResult{summary: summary, err: err, epoch: epoch}
 		}
 
 		return writeResult{
 			summary: summary,
 			written: &written{row: workflowRowKey(workflow.GetId())},
+			epoch:   epoch,
 		}
 	}
 }
 
-func (m *model) beginWrite() {
+// beginWrite counts a write out and answers with the epoch it belongs to, which is what tells
+// a landing result apart from one an earlier submit is still waiting on.
+func (m *model) beginWrite() int {
 	m.epoch++
 	m.pending++
+
+	return m.epoch
 }
 
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
-	// Only a script that ran leaves its reason in the pane, and every other failure is left
-	// unexplained if the banner stays quiet on the strength of the pane being open.
-	setupRan := result.setupPane && errui.DidSetupRun(result.err)
-	if setupRan {
-		m.reportBrief(result.summary, "the setup failed, and its output is in the pane it ran in", result.err)
-	} else {
-		m.report(result.summary, result.err)
-	}
+	m.report(result.summary, result.err)
 
 	if result.written != nil {
 		m.enterScreen(screenAgents)
@@ -448,16 +440,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if result.setupPane {
-		m.setupPending = false
-
-		if m.info.kind == infoSetup && !setupRan {
-			m = m.closeInfo()
-		}
-	}
-
-	if m.pendingForm {
+	if m.pendingForm && result.epoch == m.pendingEpoch {
 		m.pendingForm = false
+		m.pendingSince = time.Time{}
+		m.pendingEpoch = 0
 
 		if result.err == nil {
 			closed, cmd := m.closeForm()

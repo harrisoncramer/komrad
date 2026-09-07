@@ -495,7 +495,6 @@ type CreateAgentRequest struct {
 	Harness          string                 `protobuf:"bytes,7,opt,name=harness,proto3" json:"harness,omitempty"`
 	IdempotencyKey   *string                `protobuf:"bytes,6,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
 	ProvisionEnabled *bool                  `protobuf:"varint,8,opt,name=provision_enabled,json=provisionEnabled,proto3,oneof" json:"provision_enabled,omitempty"`
-	SetupPane        string                 `protobuf:"bytes,10,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
 	ParentAgentId    *string                `protobuf:"bytes,11,opt,name=parent_agent_id,json=parentAgentId,proto3,oneof" json:"parent_agent_id,omitempty"`
 	unknownFields    protoimpl.UnknownFields
 	sizeCache        protoimpl.SizeCache
@@ -585,13 +584,6 @@ func (x *CreateAgentRequest) GetProvisionEnabled() bool {
 		return *x.ProvisionEnabled
 	}
 	return false
-}
-
-func (x *CreateAgentRequest) GetSetupPane() string {
-	if x != nil {
-		return x.SetupPane
-	}
-	return ""
 }
 
 func (x *CreateAgentRequest) GetParentAgentId() string {
@@ -775,7 +767,6 @@ type AdoptRequest struct {
 	Flags          string                 `protobuf:"bytes,5,opt,name=flags,proto3" json:"flags,omitempty"`
 	Harness        string                 `protobuf:"bytes,6,opt,name=harness,proto3" json:"harness,omitempty"`
 	IdempotencyKey *string                `protobuf:"bytes,7,opt,name=idempotency_key,json=idempotencyKey,proto3,oneof" json:"idempotency_key,omitempty"`
-	SetupPane      string                 `protobuf:"bytes,8,opt,name=setup_pane,json=setupPane,proto3" json:"setup_pane,omitempty"`
 	unknownFields  protoimpl.UnknownFields
 	sizeCache      protoimpl.SizeCache
 }
@@ -855,13 +846,6 @@ func (x *AdoptRequest) GetHarness() string {
 func (x *AdoptRequest) GetIdempotencyKey() string {
 	if x != nil && x.IdempotencyKey != nil {
 		return *x.IdempotencyKey
-	}
-	return ""
-}
-
-func (x *AdoptRequest) GetSetupPane() string {
-	if x != nil {
-		return x.SetupPane
 	}
 	return ""
 }
@@ -1795,7 +1779,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12ListAgentsResponse\x12'\n" +
 	"\x06agents\x18\x01 \x03(\v2\x0f.agent.v1.AgentR\x06agents\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\"\xe7\x04\n" +
+	"\x10_next_page_token\"\xbf\x04\n" +
 	"\x12CreateAgentRequest\x12#\n" +
 	"\x06prompt\x18\x01 \x01(\tB\v\xbaH\br\x06\x10\x01\x18І\x03R\x06prompt\x12\x7f\n" +
 	"\x05title\x18\x02 \x01(\tBi\xbaHf\xba\x01^\n" +
@@ -1807,10 +1791,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\aharness\x18\a \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\x06 \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x120\n" +
-	"\x11provision_enabled\x18\b \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x12&\n" +
-	"\n" +
-	"setup_pane\x18\n" +
-	" \x01(\tB\a\xbaH\x04r\x02\x18\x14R\tsetupPane\x124\n" +
+	"\x11provision_enabled\x18\b \x01(\bH\x01R\x10provisionEnabled\x88\x01\x01\x124\n" +
 	"\x0fparent_agent_id\x18\v \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x02R\rparentAgentId\x88\x01\x01B\x12\n" +
 	"\x10_idempotency_keyB\x14\n" +
 	"\x12_provision_enabledB\x12\n" +
@@ -1829,7 +1810,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10_idempotency_key\"`\n" +
 	"\x15RequestReviewResponse\x12+\n" +
 	"\breviewer\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\breviewer\x12\x1a\n" +
-	"\bguidance\x18\x02 \x01(\tR\bguidance\"\xd0\x03\n" +
+	"\bguidance\x18\x02 \x01(\tR\bguidance\"\xa8\x03\n" +
 	"\fAdoptRequest\x12 \n" +
 	"\x03ref\x18\x01 \x01(\tB\x0e\xbaH\vr\t\xa0\xbb\x18\x01\x10\x01\x18\x90\x03R\x03ref\x12(\n" +
 	"\vworkflow_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\n" +
@@ -1840,9 +1821,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x05flags\x18\x05 \x01(\tB\f\xbaH\tr\a\xa0\xbb\x18\x01\x18\xf4\x03R\x05flags\x12/\n" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\a \x01(\tB\n" +
-	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01\x12&\n" +
-	"\n" +
-	"setup_pane\x18\b \x01(\tB\a\xbaH\x04r\x02\x18\x14R\tsetupPaneB\x12\n" +
+	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
 	"\x10_idempotency_key\"6\n" +
 	"\rAdoptResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +

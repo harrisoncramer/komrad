@@ -569,16 +569,14 @@ type fakeLifecycle struct {
 	hooksMu                  sync.Mutex
 	hooks                    []ranHook
 	provision                []string
-	provisionPane            []string
 	resumed                  []string
 	deprovision              []string
 	deprovisionCwd           []string
 	deprovisionCtxErr        []error
 }
 
-func (f *fakeLifecycle) RunProvision(_ context.Context, _ agentstore.Agent, name, pane string) (string, error) {
+func (f *fakeLifecycle) RunProvision(_ context.Context, _ agentstore.Agent, name string) (string, error) {
 	f.provision = append(f.provision, name)
-	f.provisionPane = append(f.provisionPane, pane)
 	if f.provisionErr != nil {
 		return "", f.provisionErr
 	}

@@ -132,7 +132,7 @@ type harnessGetter interface {
 // agentScriptRunner is the seam onto the executables a user hangs off an agent's life, which are
 // fired on the way in, on the way back in, and on the way out.
 type agentScriptRunner interface {
-	RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error)
+	RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunResume(ctx context.Context, agent agentstore.Agent, name string) (string, error)
 	RunDeprovision(ctx context.Context, agent agentstore.Agent, name string, done func(error)) error
 	RunHook(ctx context.Context, agent agentstore.Agent, name, event string) error

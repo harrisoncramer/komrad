@@ -198,23 +198,22 @@ func TestCreatedAgentReceivesFocus(t *testing.T) {
 	assert.Equal(t, "new", selected.agent.ID)
 }
 
-// TestUnrelatedWriteDoesNotCloseTheSetupPane covers a rename or an archive landing while a
-// create's provisioner is still streaming into its pane: that write's own success is not
-// the create's, so it must not tear down the pane out from under the provisioner.
-func TestUnrelatedWriteDoesNotCloseTheSetupPane(t *testing.T) {
+// TestUnrelatedWriteLeavesTheInfoPaneAlone covers a rename or an archive landing while a log
+// pane is up: that write has nothing to do with the pane, so it must not tear it down.
+func TestUnrelatedWriteLeavesTheInfoPaneAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := model{
 		tmux:   tmux,
 		frame:  layout.New(tmux, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
 		screen: screenAgents,
-		info:   infoState{kind: infoSetup},
+		info:   infoState{kind: infoRunLog},
 	}
 
 	updated, _ := m.applyWrite(writeResult{summary: "Could not rename the agent"})
 	got := asModel(t, updated)
 
-	assert.Equal(t, infoSetup, got.info.kind, "a write that never touched the setup pane leaves it alone")
+	assert.Equal(t, infoRunLog, got.info.kind, "a write that never touched the pane leaves it alone")
 }
 
 // TestCreatedWorkflowReceivesFocus covers the same for a folder, where the cursor lands on

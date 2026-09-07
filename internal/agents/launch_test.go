@@ -861,10 +861,10 @@ type cancellingSetupLifecycle struct {
 	cancel context.CancelFunc
 }
 
-func (c *cancellingSetupLifecycle) RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+func (c *cancellingSetupLifecycle) RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	c.cancel()
 
-	return c.fakeLifecycle.RunProvision(ctx, agent, name, pane)
+	return c.fakeLifecycle.RunProvision(ctx, agent, name)
 }
 
 // TestNewAgentClosesOutACreateTheCallerAbandoned pins the write that marks a create failed

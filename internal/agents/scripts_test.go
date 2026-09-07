@@ -18,8 +18,6 @@ import (
 	"weave/internal/logging"
 	"weave/internal/scripts"
 	"weave/internal/store"
-	"weave/internal/tmux"
-	"weave/internal/tmuxtest"
 
 	agentstore "weave/internal/store/agent"
 	runstore "weave/internal/store/run"
@@ -414,7 +412,7 @@ func TestRunProvision(t *testing.T) {
 			runner := &recordingRunner{results: map[string]runResult{tt.script: tt.result}}
 			service := scriptService(t, dir, runner)
 
-			got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.script, "")
+			got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, tt.script)
 
 			if tt.wantErr {
 				require.ErrorIs(t, err, ErrProvisionFailed)
@@ -442,7 +440,7 @@ func TestRunProvisionDoesNotHoldTheWholeDirFile(t *testing.T) {
 	var before, after runtime.MemStats
 	runtime.ReadMemStats(&before)
 
-	got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy", "")
+	got, err := service.RunProvision(t.Context(), agentstore.Agent{ID: "a1", Name: "auth"}, "greedy")
 
 	runtime.ReadMemStats(&after)
 
@@ -464,7 +462,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 		{
 			name: "fired as a workflow's setup",
 			fire: func(s *ScriptService, _ *recordingRunner) error {
-				_, err := s.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
+				_, err := s.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
 				return err
 			},
 			wantTrigger: TriggerProvision,
@@ -509,165 +507,11 @@ func TestRunProvisionCarriesTheReason(t *testing.T) {
 		"make-worktree": {stderr: "fatal: 'api-auth' is already checked out", err: scripts.ErrFailed},
 	}}
 
-	_, err := scriptService(t, dir, runner).RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree", "")
+	_, err := scriptService(t, dir, runner).RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "make-worktree")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "already checked out")
 }
-
-// TestRunInPaneStreamsToARealPane drives runInPane against a real, throwaway tmux server
-// rather than a fake, since the wrapper script it respawns into a pane is shell rather than
-// Go, and a fake tmux would only ever prove the Go side calls out correctly, not that what
-// it hands tmux actually runs.
-func TestRunInPaneStreamsToARealPane(t *testing.T) {
-	server := tmuxtest.New(t)
-	server.NewSession("test")
-	server.Run("new-window", "-d", "-t", "test:")
-
-	dir := t.TempDir()
-	svc := NewScriptService(ScriptParams{
-		Tmux:   realPaneRunner{server.Client()},
-		Socket: server.Socket(),
-	})
-
-	freshPane := func(t *testing.T) string {
-		t.Helper()
-
-		return server.Run("split-window", "-d", "-P", "-F", "#{pane_id}", "-t", "test:1")
-	}
-
-	t.Run("a script that succeeds", func(t *testing.T) {
-		pane := freshPane(t)
-		script := filepath.Join(dir, "ok")
-		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho \"working in $FOO\" >&2\n"), 0o755))
-
-		result, err := svc.runInPane(t.Context(), scripts.Script{
-			Name:       "ok",
-			Path:       script,
-			Executable: true,
-		}, []string{"FOO=api-auth"}, pane, "", 2*time.Second)
-
-		require.NoError(t, err)
-		assert.Equal(t, 0, result.ExitCode)
-		assert.Contains(t, string(result.Stderr), "working in api-auth", "captured alongside streaming live to the pane")
-	})
-
-	t.Run("a script that fails", func(t *testing.T) {
-		pane := freshPane(t)
-		script := filepath.Join(dir, "bad")
-		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'fatal: already checked out' >&2\nexit 7\n"), 0o755))
-
-		result, err := svc.runInPane(t.Context(), scripts.Script{
-			Name:       "bad",
-			Path:       script,
-			Executable: true,
-		}, nil, pane, "", 2*time.Second)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, scripts.ErrFailed)
-		assert.Equal(t, 7, result.ExitCode)
-		assert.Contains(t, string(result.Stderr), "fatal: already checked out")
-		captured := server.Run("capture-pane", "-p", "-t", pane)
-		assert.Contains(t, captured, "fatal: already checked out", "left up to read rather than only in the error")
-		assert.Contains(t, captured, "exited 7", "held open on a prompt rather than left to vanish")
-
-		server.Run("send-keys", "-t", pane, "Enter")
-	})
-
-	t.Run("a script that only ever writes to stdout", func(t *testing.T) {
-		pane := freshPane(t)
-		script := filepath.Join(dir, "stdout-only")
-		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\necho 'hello 1'\necho 'hello 2'\nexit 1\n"), 0o755))
-		logPath := filepath.Join(t.TempDir(), "setup.log")
-
-		result, err := svc.runInPane(t.Context(), scripts.Script{
-			Name:       "stdout-only",
-			Path:       script,
-			Executable: true,
-		}, nil, pane, logPath, 2*time.Second)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, scripts.ErrFailed)
-		assert.Contains(t, string(result.Stderr), "hello 1")
-		assert.Contains(t, string(result.Stderr), "hello 2")
-		persisted, readErr := os.ReadFile(logPath)
-		require.NoError(t, readErr)
-		assert.Contains(t, string(persisted), "hello 1", "stdout is what most scripts fail through, not just stderr")
-		assert.Contains(t, string(persisted), "hello 2")
-	})
-
-	t.Run("a script that outlives its timeout", func(t *testing.T) {
-		pane := freshPane(t)
-		script := filepath.Join(dir, "slow")
-		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
-		logPath := filepath.Join(t.TempDir(), "setup.log")
-
-		result, err := svc.runInPane(t.Context(), scripts.Script{
-			Name:       "slow",
-			Path:       script,
-			Executable: true,
-		}, nil, pane, logPath, 200*time.Millisecond)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, context.DeadlineExceeded)
-		assert.Contains(t, string(result.Stderr), "gave up after 200ms", "the reason is not silently lost")
-		persisted, readErr := os.ReadFile(logPath)
-		require.NoError(t, readErr)
-		assert.Contains(t, string(persisted), "gave up after 200ms", "and it lands in the durable log a person cycles to later")
-	})
-
-	t.Run("a pane that is already gone", func(t *testing.T) {
-		pane := freshPane(t)
-		server.Run("kill-pane", "-t", pane)
-
-		script := filepath.Join(dir, "ok")
-		result, err := svc.runInPane(t.Context(), scripts.Script{
-			Name:       "ok",
-			Path:       script,
-			Executable: true,
-		}, nil, pane, "", time.Second)
-
-		require.ErrorIs(t, err, scripts.ErrNotStartable)
-		assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
-	})
-
-	t.Run("a pane killed while it is running", func(t *testing.T) {
-		pane := freshPane(t)
-		script := filepath.Join(dir, "slow")
-		require.NoError(t, os.WriteFile(script, []byte("#!/bin/sh\nsleep 30\n"), 0o755))
-		logPath := filepath.Join(t.TempDir(), "setup.log")
-
-		go func() {
-			time.Sleep(300 * time.Millisecond)
-			server.Run("kill-pane", "-t", pane)
-		}()
-
-		began := time.Now()
-		result, err := svc.runInPane(t.Context(), scripts.Script{
-			Name:       "slow",
-			Path:       script,
-			Executable: true,
-		}, nil, pane, logPath, 30*time.Second)
-		elapsed := time.Since(began)
-
-		require.Error(t, err)
-		require.ErrorIs(t, err, errPaneDied)
-		assert.Less(t, elapsed, 5*time.Second, "noticed the pane dying rather than waiting out the full timeout")
-		assert.Contains(t, string(result.Stderr), "pane closed before the script finished")
-		persisted, readErr := os.ReadFile(logPath)
-		require.NoError(t, readErr)
-		assert.Contains(t, string(persisted), "pane closed before the script finished", "left for a person cycling to the setup log to read")
-	})
-}
-
-type realPaneRunner struct {
-	*tmux.Client
-}
-
-func (realPaneRunner) GetPaneOwner(string) string { return "" }
-func (realPaneRunner) GetHostSocket() string      { return "" }
-func (realPaneRunner) GetInfoPane() string        { return "" }
-func (realPaneRunner) GetDefaultShell() string    { return "" }
 
 // TestRunDeprovisionRefusesOneThatIsGone pins a renamed script being reported rather than
 // pretended over, leaving the caller to decide the agent is still removable.
@@ -790,7 +634,7 @@ func TestProvisionerLogsBothEnds(t *testing.T) {
 			ctx, records := loggedContext(t)
 
 			_, err := scriptService(t, dir, runner).
-				RunProvision(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree", "")
+				RunProvision(ctx, agentstore.Agent{ID: "a1", Cwd: "/repo"}, "make-worktree")
 			if tt.result.err != nil {
 				require.Error(t, err)
 			} else {
@@ -906,7 +750,7 @@ func TestRunProvisionPersistsStdoutOnAFailure(t *testing.T) {
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 	ctx, records := loggedContext(t)
 
-	_, err := svc.RunProvision(ctx, agentstore.Agent{ID: "a1"}, "setup", "")
+	_, err := svc.RunProvision(ctx, agentstore.Agent{ID: "a1"}, "setup")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "diagnosing 1", "the refusal a create call sees carries what the script said")
@@ -1331,17 +1175,17 @@ func TestARefusedRunDropsItsRow(t *testing.T) {
 	assert.Equal(t, []string{"run-1"}, recorder.abandoned)
 }
 
-// TestAProvisionerRefusedInItsPaneSaysSo covers the pane path's own refusals, where the script
-// never runs and so writes nothing: the row must not read as a clean exit and the number claimed
-// for it must not open an empty pager.
-func TestAProvisionerRefusedInItsPaneSaysSo(t *testing.T) {
+// TestARefusedProvisionerSaysSo covers a provisioner that never runs and so writes nothing:
+// the row must not read as a clean exit and the number claimed for it must not open an empty
+// pager.
+func TestARefusedProvisionerSaysSo(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\nexit 0\n"), 0o644))
 
 	logsDir := t.TempDir()
 	svc, recorder := scriptServiceRecording(t, dir, scripts.NewRunner(), logsDir)
 
-	_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup", "%3")
+	_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup")
 
 	require.ErrorIs(t, err, ErrProvisionFailed)
 
@@ -1365,7 +1209,7 @@ func TestClaimRunLogNumbersEveryRun(t *testing.T) {
 	svc := scriptServiceWithLogsDir(t, dir, scripts.NewRunner(), logsDir)
 
 	for range 2 {
-		_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup", "")
+		_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, "setup")
 		require.NoError(t, err)
 	}
 
@@ -1532,7 +1376,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a provisioner that declares nothing keeps the ceiling a launch needs",
 			script: "bare",
 			fire: func(s *ScriptService, name string) error {
-				_, err := s.RunProvision(context.Background(), agent, name, "")
+				_, err := s.RunProvision(context.Background(), agent, name)
 
 				return err
 			},
@@ -1542,7 +1386,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a provisioner that declares one is held to what it declared",
 			script: "declared",
 			fire: func(s *ScriptService, name string) error {
-				_, err := s.RunProvision(context.Background(), agent, name, "")
+				_, err := s.RunProvision(context.Background(), agent, name)
 
 				return err
 			},
@@ -1648,7 +1492,7 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		{
 			name: "a provisioner is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				_, err := svc.RunProvision(context.Background(), agentstore.Agent{ID: "a1"}, firedScript, "")
+				_, err := svc.RunProvision(context.Background(), agentstore.Agent{ID: "a1"}, firedScript)
 
 				return err
 			},
@@ -1766,13 +1610,10 @@ type fakePaneOwner struct {
 	infoPane   string
 }
 
-func (f fakePaneOwner) GetPaneOwner(string) string            { return f.owner }
-func (f fakePaneOwner) GetHostSocket() string                 { return f.hostSocket }
-func (f fakePaneOwner) GetInfoPane() string                   { return f.infoPane }
-func (f fakePaneOwner) GetDefaultShell() string               { return f.shell }
-func (f fakePaneOwner) IsPaneAlive(string) bool               { return true }
-func (f fakePaneOwner) RespawnPane(string, string, ...string) {}
-func (f fakePaneOwner) WaitFor(context.Context, string) error { return nil }
+func (f fakePaneOwner) GetPaneOwner(string) string { return f.owner }
+func (f fakePaneOwner) GetHostSocket() string      { return f.hostSocket }
+func (f fakePaneOwner) GetInfoPane() string        { return f.infoPane }
+func (f fakePaneOwner) GetDefaultShell() string    { return f.shell }
 
 type recordingRunner struct {
 	ran     []string

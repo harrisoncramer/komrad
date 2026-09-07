@@ -78,7 +78,14 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	if _, ok := msg.(tea.KeyMsg); ok && m.pendingForm {
+	if key, ok := msg.(tea.KeyMsg); ok && m.pendingForm {
+		// A provision can run for minutes, so esc gives the panel back rather than holding the
+		// keyboard for the whole of it: the write is still in flight and applyWrite still lands
+		// the agent it was for.
+		if key.String() == "esc" {
+			return m.closeForm()
+		}
+
 		return m, nil
 	}
 

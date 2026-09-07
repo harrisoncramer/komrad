@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/errui"
@@ -112,6 +113,12 @@ type model struct {
 	marks         markState
 	form          formState
 	pendingForm   bool
+	// pendingSince is when the write the form is being held for was sent, which the notice above
+	// the form counts up from so a provisioner taking its time does not read as a wedged panel.
+	pendingSince time.Time
+	// pendingEpoch is the write the held form is waiting on, since a person who escapes a slow
+	// create and submits another has two in flight and only one of them owns the form.
+	pendingEpoch  int
 	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking
 	// since a panel nobody is typing at has nothing to blink for.
 	blurred       bool
