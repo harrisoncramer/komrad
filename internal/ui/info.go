@@ -35,6 +35,10 @@ func (m *model) claimInfo(kind infoKind, subject string) bool {
 	m.info.run = 0
 	m.reconcileSolo()
 
+	// The stage is uncovered by handing the window back, so whatever was parked in it while it
+	// was covered has to be put right before it is on screen again.
+	m.restageScreen()
+
 	return true
 }
 

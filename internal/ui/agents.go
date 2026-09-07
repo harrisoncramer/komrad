@@ -424,13 +424,32 @@ func (m *model) stageSelection() {
 	m.column.place(rowKeyAt(rows, m.tree.cursor))
 	m.reconcileSolo()
 
-	if r, ok := rowAt(rows, m.tree.cursor); ok && !m.hasNoAgentPane() {
+	switch r, ok := rowAt(rows, m.tree.cursor); {
+	case ok && !m.hasNoAgentPane():
 		m.frame.ShowGuest(r.item.agent.Pane)
-	} else {
+	case m.frame.IsSolo() && m.isGuestLive():
+	default:
 		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
 
 	m.stageInfo()
+}
+
+// isGuestLive reports whether the pane parked in the stage still belongs to an agent the last
+// listing found running, which is what says it can be left there while the panel covers it.
+func (m model) isGuestLive() bool {
+	guest := m.frame.GuestPane()
+	if guest == "" {
+		return true
+	}
+
+	for _, item := range m.listing.agents {
+		if item.agent.Pane == guest {
+			return item.alive
+		}
+	}
+
+	return false
 }
 
 // parentName is what the agent a child is attached to is called, which is what the details show
