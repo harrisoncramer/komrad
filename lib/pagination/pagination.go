@@ -38,11 +38,12 @@ type Paginator[C Cursor, M Cursorable[C]] struct {
 	cursor *C
 }
 
-// The limits a Paginator applies, so a caller that asks for nothing gets a readable page
-// and one that asks for too much is capped.
+// The limits a Paginator applies, so a caller that asks for nothing gets a readable page and one
+// that asks for too much is capped to what a caller reading the page through a context window can
+// take, rather than to what the database could return.
 const (
-	defaultLimit int64 = 50
-	maxLimit     int64 = 500
+	defaultLimit int64 = 20
+	maxLimit     int64 = 100
 )
 
 // New builds a Paginator from a request's pagination, which may be nil for the first page
@@ -97,6 +98,17 @@ func Token[C Cursor](cursor C) (*string, error) {
 	token := base64.URLEncoding.EncodeToString(raw)
 
 	return &token, nil
+}
+
+// Decode unpacks a page token a handler holds on its own, which an endpoint whose window is
+// not a count of records needs, since it cannot hold a Paginator to decode for it.
+func Decode[C Cursor](token string) (*C, error) {
+	cursor, err := decode[C](token)
+	if err != nil {
+		return nil, connect.NewError(connect.CodeInvalidArgument, fmt.Errorf("invalid pagination cursor: %w", err))
+	}
+
+	return cursor, nil
 }
 
 // decode unpacks a base64 JSON token into a cursor, or nil when the token is empty.

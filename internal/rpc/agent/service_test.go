@@ -14,11 +14,13 @@ import (
 	"weave/internal/caller"
 	"weave/internal/logging"
 	"weave/internal/logtest"
+	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
 	"weave/lib/xptr"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
+	viewv1 "weave/proto/gen/view/v1"
 
 	agentstore "weave/internal/store/agent"
 	reviewstore "weave/internal/store/review"
@@ -2337,4 +2339,51 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 
 	assert.Equal(t, []string{"auth", "api"}, names)
 	assert.Equal(t, 1, launcher.runningCalls, "liveness is read once for the batch, not once per agent")
+}
+
+// TestListAgentsSummarisesThePrompt covers the default view holding back the bulk of a page,
+// since a prompt is most of what an agent's row weighs.
+func TestListAgentsSummarisesThePrompt(t *testing.T) {
+	svc, st := service(t)
+	prompt := strings.Repeat("a", render.SummaryHead+50)
+	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle, Prompt: prompt})
+	st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateIdle, Prompt: "fix auth"})
+
+	summary, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+	require.NoError(t, err)
+	byName := agentsByName(summary.Msg.GetAgents())
+	assert.Equal(t, prompt[:render.SummaryHead], byName["alpha"].GetPrompt())
+	assert.True(t, byName["alpha"].GetPromptTruncated())
+	assert.Equal(t, "fix auth", byName["beta"].GetPrompt(), "a prompt inside the head is whole")
+	assert.False(t, byName["beta"].GetPromptTruncated())
+
+	full, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{
+		View: viewv1.View_VIEW_FULL,
+	}))
+	require.NoError(t, err)
+	byName = agentsByName(full.Msg.GetAgents())
+	assert.Equal(t, prompt, byName["alpha"].GetPrompt())
+	assert.False(t, byName["alpha"].GetPromptTruncated())
+}
+
+// TestGetAgentKeepsTheWholePrompt covers the one-record endpoint, which no view narrows since a
+// caller asking for a single agent has already narrowed it.
+func TestGetAgentKeepsTheWholePrompt(t *testing.T) {
+	svc, st := service(t)
+	prompt := strings.Repeat("a", render.SummaryHead+50)
+	seeded := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle, Prompt: prompt})
+
+	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: seeded.ID}))
+	require.NoError(t, err)
+	assert.Equal(t, prompt, got.Msg.GetAgent().GetPrompt())
+	assert.False(t, got.Msg.GetAgent().GetPromptTruncated())
+}
+
+func agentsByName(listed []*agentv1.Agent) map[string]*agentv1.Agent {
+	byName := make(map[string]*agentv1.Agent, len(listed))
+	for _, a := range listed {
+		byName[a.GetName()] = a
+	}
+
+	return byName
 }

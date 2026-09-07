@@ -1,13 +1,16 @@
 package schedule
 
 import (
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/rpc/render"
 	"weave/internal/storetest"
 	paginationv1 "weave/proto/gen/pagination/v1"
 	schedulev1 "weave/proto/gen/schedule/v1"
+	viewv1 "weave/proto/gen/view/v1"
 
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -521,4 +524,62 @@ func createSchedule(t *testing.T, svc *Service, workflow, name string) string {
 	require.NoError(t, err)
 
 	return created.Msg.GetSchedule().GetId()
+}
+
+// TestListSchedulesSummarisesThePrompt covers the default view holding back the bulk of a page,
+// since a schedule is almost entirely the prompt it launches with.
+func TestListSchedulesSummarisesThePrompt(t *testing.T) {
+	svc, workflow := service(t)
+	prompt := strings.Repeat("p", render.SummaryHead+50)
+	seedSchedule(t, svc, workflow, "nightly", prompt)
+	seedSchedule(t, svc, workflow, "hourly", "check CI")
+
+	summary, err := svc.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{}))
+	require.NoError(t, err)
+	byName := schedulesByName(summary.Msg.GetSchedules())
+	assert.Equal(t, prompt[:render.SummaryHead], byName["nightly"].GetPrompt())
+	assert.True(t, byName["nightly"].GetPromptTruncated())
+	assert.Equal(t, "check CI", byName["hourly"].GetPrompt(), "a prompt inside the head is whole")
+	assert.False(t, byName["hourly"].GetPromptTruncated())
+
+	full, err := svc.ListSchedules(t.Context(), connect.NewRequest(&schedulev1.ListSchedulesRequest{
+		View: viewv1.View_VIEW_FULL,
+	}))
+	require.NoError(t, err)
+	byName = schedulesByName(full.Msg.GetSchedules())
+	assert.Equal(t, prompt, byName["nightly"].GetPrompt())
+	assert.False(t, byName["nightly"].GetPromptTruncated())
+}
+
+// TestGetScheduleKeepsTheWholePrompt covers the one-record endpoint, which no view narrows since
+// a caller asking for a single schedule has already narrowed it.
+func TestGetScheduleKeepsTheWholePrompt(t *testing.T) {
+	svc, workflow := service(t)
+	prompt := strings.Repeat("p", render.SummaryHead+50)
+	id := seedSchedule(t, svc, workflow, "nightly", prompt)
+
+	got, err := svc.GetSchedule(t.Context(), connect.NewRequest(&schedulev1.GetScheduleRequest{Id: id}))
+	require.NoError(t, err)
+	assert.Equal(t, prompt, got.Msg.GetSchedule().GetPrompt())
+	assert.False(t, got.Msg.GetSchedule().GetPromptTruncated())
+}
+
+func seedSchedule(t *testing.T, svc *Service, workflow, name, prompt string) string {
+	t.Helper()
+
+	created, err := svc.CreateSchedule(t.Context(), connect.NewRequest(&schedulev1.CreateScheduleRequest{
+		Name: name, Cron: "0 9 * * 1-5", Prompt: prompt, Enabled: true, WorkflowId: workflow,
+	}))
+	require.NoError(t, err)
+
+	return created.Msg.GetSchedule().GetId()
+}
+
+func schedulesByName(listed []*schedulev1.Schedule) map[string]*schedulev1.Schedule {
+	byName := make(map[string]*schedulev1.Schedule, len(listed))
+	for _, s := range listed {
+		byName[s.GetName()] = s
+	}
+
+	return byName
 }

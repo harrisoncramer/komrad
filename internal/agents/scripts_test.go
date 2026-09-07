@@ -302,61 +302,6 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 	assert.Less(t, len(encoded), 128*1024, "the payload stays well inside what an exec carries")
 }
 
-// TestHead covers the cut itself, which has to leave text a script can decode rather than half of
-// whatever character the limit landed inside.
-func TestHead(t *testing.T) {
-	tests := []struct {
-		name          string
-		s             string
-		limit         int
-		want          string
-		wantTruncated bool
-	}{
-		{
-			name:  "a string inside the limit is untouched",
-			s:     "fix auth",
-			limit: 8,
-			want:  "fix auth",
-		},
-		{
-			name:          "a longer string is cut to the limit",
-			s:             "fix auth now",
-			limit:         8,
-			want:          "fix auth",
-			wantTruncated: true,
-		},
-		{
-			name:          "a cut inside a character pulls back to the one before it",
-			s:             "日本語",
-			limit:         7,
-			want:          "日本",
-			wantTruncated: true,
-		},
-		{
-			name:          "a limit inside the first character keeps nothing",
-			s:             "日本語",
-			limit:         2,
-			want:          "",
-			wantTruncated: true,
-		},
-		{
-			name:  "an empty string is not truncated",
-			s:     "",
-			limit: 8,
-			want:  "",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, truncated := head(tt.s, tt.limit)
-
-			assert.Equal(t, tt.want, got)
-			assert.Equal(t, tt.wantTruncated, truncated)
-		})
-	}
-}
-
 // TestRunScriptOnADormantAgent pins a script being told the agent is not running, rather than
 // left to send keys into a pane somebody else has taken over.
 func TestRunScriptOnADormantAgent(t *testing.T) {

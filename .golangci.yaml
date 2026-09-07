@@ -190,6 +190,13 @@ linters:
         linters:
           - forcetypeassert
           - noctx
+      # depguard matches a denied package by prefix, so the panel's rule against
+      # weave/internal/tmux also catches weave/internal/tmuxtest, which is the fixture the
+      # panel's own tests stand a real tmux server up with rather than the adapter itself.
+      - path: internal/ui/
+        linters:
+          - depguard
+        text: tmuxtest
       # Tests and the fixtures they share discard errors in t.Cleanup teardown, where a
       # failure means the throwaway server or file is already gone.
       - path: (_test\.go|internal/(pgtest|tmuxtest|storetest|harnesstest|logtest|weavetest)/)

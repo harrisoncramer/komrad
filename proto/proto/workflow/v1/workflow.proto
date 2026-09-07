@@ -7,6 +7,7 @@ import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
+import "view/v1/view.proto";
 
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
@@ -24,6 +25,8 @@ message Workflow {
   repeated WorkflowHook hooks = 12;
   // The letter a person addresses this workflow by in the panel, if it holds one.
   optional string mark = 13;
+  // Whether context holds only its opening, which a summary listing returns.
+  bool context_truncated = 14;
 }
 
 message WorkflowHook {
@@ -81,6 +84,7 @@ message WorktreeConfig {
 message ListWorkflowsRequest {
   optional pagination.v1.Pagination pagination = 1;
   bool archived = 2;
+  view.v1.View view = 3;
 }
 
 message ListWorkflowsResponse {
@@ -170,7 +174,7 @@ service WorkflowService {
     option idempotency_level = NO_SIDE_EFFECTS;
     option (annotation.v1.tool) = {
       tool_name: "list_workflows"
-      description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents\x27 lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next."
+      description: "List the workflows agents are grouped into, in alphabetical order, with each one\x27s shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents\x27 lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response\x27s nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow\x27s context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page."
     };
   }
   rpc GetWorkflow(GetWorkflowRequest) returns (GetWorkflowResponse) {
@@ -183,7 +187,7 @@ service WorkflowService {
   rpc CreateWorkflow(CreateWorkflowRequest) returns (CreateWorkflowResponse) {
     option (annotation.v1.tool) = {
       tool_name: "create_workflow"
-      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. worktree.dir is the parent those worktrees are made in, for a repository whose own tooling expects them somewhere particular; left blank they go in the configured worktrees directory, which every workflow shares. hooks hang your own scripts on a moment in those agents' lives, each naming an event and a hook from list_hooks: pre-launch runs in the agent's own directory before its pane opens and a failure abandons the create, while post-launch, post-resume and post-restore run in the background once the pane is up, the agent is back in a pane, or the archived row has come back. One hook per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
+      description: "Create a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents\x27 system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. hooks hang your own scripts on a moment in those agents\x27 lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume or post-restore; only pre-launch is waited for, and a failure there abandons the create. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there."
       destructive: false
     };
   }
@@ -191,7 +195,7 @@ service WorkflowService {
     option idempotency_level = IDEMPOTENT;
     option (annotation.v1.tool) = {
       tool_name: "update_workflow"
-      description: "Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir is the parent new worktrees are made in and reaches only agents spawned afterwards, since an agent already provisioned holds the directory it was given; left blank they go in the configured worktrees directory, which every workflow shares. hooks is written whole like everything else, so send back the list you are not changing: each names an event, one of pre-launch, post-launch, post-resume or post-restore, and a hook from list_hooks, one per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on."
+      description: "Replace a workflow\x27s name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent\x27s directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there."
       destructive: false
     };
   }

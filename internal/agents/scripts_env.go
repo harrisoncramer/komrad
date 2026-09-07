@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	"weave/config"
 	"weave/internal/scripts"
 	"weave/internal/store"
+	"weave/lib/xstr"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -114,7 +114,7 @@ func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, e
 		Hidden:    agent.Hidden,
 		Metadata:  make(map[string]string, len(agent.Metadata)),
 	}
-	payload.Prompt, payload.PromptTruncated = head(agent.Prompt, maxScriptPrompt)
+	payload.Prompt, payload.PromptTruncated = xstr.Head(agent.Prompt, maxScriptPrompt)
 	if !agent.CreatedAt.IsZero() {
 		payload.CreatedAt = agent.CreatedAt.Format(time.RFC3339)
 	}
@@ -213,17 +213,4 @@ func (s *ScriptService) worktreeEnv(workflow workflowstore.Workflow, agent agent
 		"WEAVE_WORKTREE_SYMLINK_PATHS=" + strings.Join(cfg.SymlinkPaths, "\n"),
 		"WEAVE_WORKTREE_ADOPT_BRANCH=" + agent.AdoptedBranch,
 	}, nil
-}
-
-func head(s string, limit int) (string, bool) {
-	if len(s) <= limit {
-		return s, false
-	}
-
-	cut := s[:limit]
-	for len(cut) > 0 && !utf8.ValidString(cut) {
-		cut = cut[:len(cut)-1]
-	}
-
-	return cut, true
 }

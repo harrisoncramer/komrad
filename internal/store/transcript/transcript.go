@@ -187,6 +187,20 @@ type Cursor struct {
 	Near    *Position `json:"n,omitempty"`
 }
 
+// ContentCursor locates where in one transcript's content the next window starts.
+type ContentCursor struct {
+	Offset int64 `json:"o"`
+}
+
+// Validate refuses an offset this server would never have handed out.
+func (c ContentCursor) Validate() error {
+	if c.Offset < 0 {
+		return fmt.Errorf("cursor offset is negative")
+	}
+
+	return nil
+}
+
 // Validate refuses a cursor whose sections are not both positions this server could have
 // handed out.
 func (c Cursor) Validate() error {

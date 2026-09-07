@@ -17,6 +17,7 @@ import (
 	_ "weave/proto/gen/annotation/v1"
 	v1 "weave/proto/gen/pagination/v1"
 	_ "weave/proto/gen/rules/v1"
+	v11 "weave/proto/gen/view/v1"
 )
 
 const (
@@ -39,9 +40,11 @@ type Workflow struct {
 	ArchiveOnPrClosed bool                   `protobuf:"varint,11,opt,name=archive_on_pr_closed,json=archiveOnPrClosed,proto3" json:"archive_on_pr_closed,omitempty"`
 	Hooks             []*WorkflowHook        `protobuf:"bytes,12,rep,name=hooks,proto3" json:"hooks,omitempty"`
 	// The letter a person addresses this workflow by in the panel, if it holds one.
-	Mark          *string `protobuf:"bytes,13,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Mark *string `protobuf:"bytes,13,opt,name=mark,proto3,oneof" json:"mark,omitempty"`
+	// Whether context holds only its opening, which a summary listing returns.
+	ContextTruncated bool `protobuf:"varint,14,opt,name=context_truncated,json=contextTruncated,proto3" json:"context_truncated,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Workflow) Reset() {
@@ -149,6 +152,13 @@ func (x *Workflow) GetMark() string {
 		return *x.Mark
 	}
 	return ""
+}
+
+func (x *Workflow) GetContextTruncated() bool {
+	if x != nil {
+		return x.ContextTruncated
+	}
+	return false
 }
 
 type WorkflowHook struct {
@@ -291,6 +301,7 @@ type ListWorkflowsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Pagination    *v1.Pagination         `protobuf:"bytes,1,opt,name=pagination,proto3,oneof" json:"pagination,omitempty"`
 	Archived      bool                   `protobuf:"varint,2,opt,name=archived,proto3" json:"archived,omitempty"`
+	View          v11.View               `protobuf:"varint,3,opt,name=view,proto3,enum=view.v1.View" json:"view,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -337,6 +348,13 @@ func (x *ListWorkflowsRequest) GetArchived() bool {
 		return x.Archived
 	}
 	return false
+}
+
+func (x *ListWorkflowsRequest) GetView() v11.View {
+	if x != nil {
+		return x.View
+	}
+	return v11.View(0)
 }
 
 type ListWorkflowsResponse struct {
@@ -911,7 +929,7 @@ var File_workflow_v1_workflow_proto protoreflect.FileDescriptor
 
 const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\n" +
-	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x89\x03\n" +
+	"\x1aworkflow/v1/workflow.proto\x12\vworkflow.v1\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\x1a\x12view/v1/view.proto\"\xb6\x03\n" +
 	"\bWorkflow\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x18\n" +
@@ -925,7 +943,8 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	" \x01(\v2\x1b.workflow.v1.WorktreeConfigR\bworktree\x12/\n" +
 	"\x14archive_on_pr_closed\x18\v \x01(\bR\x11archiveOnPrClosed\x12/\n" +
 	"\x05hooks\x18\f \x03(\v2\x19.workflow.v1.WorkflowHookR\x05hooks\x12\x17\n" +
-	"\x04mark\x18\r \x01(\tH\x01R\x04mark\x88\x01\x01B\x0e\n" +
+	"\x04mark\x18\r \x01(\tH\x01R\x04mark\x88\x01\x01\x12+\n" +
+	"\x11context_truncated\x18\x0e \x01(\bR\x10contextTruncatedB\x0e\n" +
 	"\f_archived_atB\a\n" +
 	"\x05_markJ\x04\b\a\x10\bJ\x04\b\b\x10\t\"W\n" +
 	"\fWorkflowHook\x12\x1f\n" +
@@ -939,12 +958,13 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"copy_paths\x18\x03 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\tcopyPaths\x128\n" +
 	"\rsymlink_paths\x18\x04 \x03(\tB\x13\xbaH\x10\x92\x01\r\x102\"\tr\aл\x18\x01\x18\xff\x01R\fsymlinkPaths\x128\n" +
 	"\fdiff_exclude\x18\x05 \x03(\tB\x15\xbaH\x12\x92\x01\x0f\x102\"\vr\tл\x18\x01\x10\x01\x18\xff\x01R\vdiffExclude\x12\x1e\n" +
-	"\x03dir\x18\x06 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\"\x81\x01\n" +
+	"\x03dir\x18\x06 \x01(\tB\f\xbaH\tr\a\xb0\xbb\x18\x01\x18\x80 R\x03dir\"\xa4\x01\n" +
 	"\x14ListWorkflowsRequest\x12>\n" +
 	"\n" +
 	"pagination\x18\x01 \x01(\v2\x19.pagination.v1.PaginationH\x00R\n" +
 	"pagination\x88\x01\x01\x12\x1a\n" +
-	"\barchived\x18\x02 \x01(\bR\barchivedB\r\n" +
+	"\barchived\x18\x02 \x01(\bR\barchived\x12!\n" +
+	"\x04view\x18\x03 \x01(\x0e2\r.view.v1.ViewR\x04viewB\r\n" +
 	"\v_pagination\"\x8d\x01\n" +
 	"\x15ListWorkflowsResponse\x123\n" +
 	"\tworkflows\x18\x01 \x03(\v2\x15.workflow.v1.WorkflowR\tworkflows\x12+\n" +
@@ -986,16 +1006,16 @@ const file_workflow_v1_workflow_proto_rawDesc = "" +
 	"\x17RestoreWorkflowResponse\x121\n" +
 	"\bworkflow\x18\x01 \x01(\v2\x15.workflow.v1.WorkflowR\bworkflow\"0\n" +
 	"\x15DeleteWorkflowRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xbc1\n" +
-	"\x0fWorkflowService\x12\xfd\x03\n" +
-	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xa4\x03\x9a\xb5\x18\x9c\x03\n" +
-	"\x0elist_workflows\x12\x89\x03List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xe6%\n" +
+	"\x0fWorkflowService\x12\xc6\x05\n" +
+	"\rListWorkflows\x12!.workflow.v1.ListWorkflowsRequest\x1a\".workflow.v1.ListWorkflowsResponse\"\xed\x04\x9a\xb5\x18\xe5\x04\n" +
+	"\x0elist_workflows\x12\xd2\x04List the workflows agents are grouped into, in alphabetical order, with each one's shared context, the working directory and flags its agents start from, and the scripts hooked to moments in their agents' lives. Archived workflows are excluded unless archived is set, which lists those and only those. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each workflow's context, marked by contextTruncated; get_workflow returns one whole, and view VIEW_FULL returns every context on the page.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetWorkflow\x12\x1f.workflow.v1.GetWorkflowRequest\x1a .workflow.v1.GetWorkflowResponse\"^\x9a\xb5\x18W\n" +
-	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xee\x0f\n" +
-	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\x92\x0f\x9a\xb5\x18\x8d\x0f\n" +
-	"\x0fcreate_workflow\x12\xf7\x0eCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. worktree.dir is the parent those worktrees are made in, for a repository whose own tooling expects them somewhere particular; left blank they go in the configured worktrees directory, which every workflow shares. hooks hang your own scripts on a moment in those agents' lives, each naming an event and a hook from list_hooks: pre-launch runs in the agent's own directory before its pane opens and a failure abandons the create, while post-launch, post-resume and post-restore run in the background once the pane is up, the agent is back in a pane, or the archived row has come back. One hook per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x12\xb2\x0e\n" +
-	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xe3\r\x9a\xb5\x18\xdb\r\n" +
-	"\x0fupdate_workflow\x12\xc5\rReplace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir is the parent new worktrees are made in and reaches only agents spawned afterwards, since an agent already provisioned holds the directory it was given; left blank they go in the configured worktrees directory, which every workflow shares. hooks is written whole like everything else, so send back the list you are not changing: each names an event, one of pre-launch, post-launch, post-resume or post-restore, and a hook from list_hooks, one per moment. worktree.diffExclude drops paths from the diff the panel shows for those agents, as relative paths or globs such as proto/gen or *.pb.go, and is read fresh every time a diff is drawn rather than snapshotted at launch. archiveOnPrClosed archives an agent once the pull request weave recorded for it merges or closes, checked every couple of minutes and only once that agent is idle or dormant, so nothing is taken out from under one mid-turn; the record, the transcript, and the worktree all survive, and restore_agents puts it back for good, since restoring an agent settles the pull request it carries and no later pass archives it for that one again. It works with or without a worktree, since the pull request it follows is only believed while it names the repository the workflow points at and the branch the agent's own checkout is on. \x00\x90\x02\x02\x12\xff\x02\n" +
+	"\fget_workflow\x12GFetch one workflow by id. Returns not_found if no workflow has that id.\x90\x02\x01\x12\xcc\t\n" +
+	"\x0eCreateWorkflow\x12\".workflow.v1.CreateWorkflowRequest\x1a#.workflow.v1.CreateWorkflowResponse\"\xf0\b\x9a\xb5\x18\xeb\b\n" +
+	"\x0fcreate_workflow\x12\xd5\bCreate a workflow to group agents under. Nothing runs as a result; this is organisation. The cwd and flags become the defaults prefilled when an agent is created inside it, and the context is appended to those agents' system prompts. worktree.enabled gives every agent a git worktree of its own, cut from cwd, which weave makes before the agent starts and removes when it is deleted; left off, agents run in the directory they are given and weave provisions nothing. hooks hang your own scripts on a moment in those agents' lives, one per moment, each naming a hook from list_hooks and one of pre-launch, post-launch, post-resume or post-restore; only pre-launch is waited for, and a failure there abandons the create. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there. \x00\x12\xb5\a\n" +
+	"\x0eUpdateWorkflow\x12\".workflow.v1.UpdateWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xe6\x06\x9a\xb5\x18\xde\x06\n" +
+	"\x0fupdate_workflow\x12\xc8\x06Replace a workflow's name, context, directory, flags, worktree config and hooks. Every field is written, so read the workflow first and send back the ones you are not changing, the hooks list included. Editing the context reaches only agents spawned afterwards, since existing agents took a snapshot at launch, while worktree.enabled reaches agents already running, since whether weave removes an agent's directory is read when the agent is deleted. worktree.dir names the parent new worktrees are made in, blank meaning the one every workflow shares. worktree.diffExclude drops paths from the diff the panel draws, as paths or globs relative to the checkout such as proto/gen or *.pb.go. archiveOnPrClosed archives an agent once weave sees the pull request it recorded merge or close. docs/workflows.md says why each of the three is there. \x00\x90\x02\x02\x12\xff\x02\n" +
 	"\x0fArchiveWorkflow\x12#.workflow.v1.ArchiveWorkflowRequest\x1a\x16.google.protobuf.Empty\"\xae\x02\x9a\xb5\x18\xa6\x02\n" +
 	"\x10archive_workflow\x12\x8f\x02Hide a workflow from the panel, archiving the agents inside it. Nothing is destroyed: the agents stay findable through search_transcripts and no transcript goes with them. Refused while any schedule still launches into the workflow, since those would have nowhere to run. \x00\x90\x02\x02\x12\xd6\x04\n" +
 	"\x0fRestoreWorkflow\x12#.workflow.v1.RestoreWorkflowRequest\x1a$.workflow.v1.RestoreWorkflowResponse\"\xf7\x03\x9a\xb5\x18\xef\x03\n" +
@@ -1032,39 +1052,41 @@ var file_workflow_v1_workflow_proto_goTypes = []any{
 	(*RestoreWorkflowResponse)(nil), // 12: workflow.v1.RestoreWorkflowResponse
 	(*DeleteWorkflowRequest)(nil),   // 13: workflow.v1.DeleteWorkflowRequest
 	(*v1.Pagination)(nil),           // 14: pagination.v1.Pagination
-	(*emptypb.Empty)(nil),           // 15: google.protobuf.Empty
+	(v11.View)(0),                   // 15: view.v1.View
+	(*emptypb.Empty)(nil),           // 16: google.protobuf.Empty
 }
 var file_workflow_v1_workflow_proto_depIdxs = []int32{
 	2,  // 0: workflow.v1.Workflow.worktree:type_name -> workflow.v1.WorktreeConfig
 	1,  // 1: workflow.v1.Workflow.hooks:type_name -> workflow.v1.WorkflowHook
 	14, // 2: workflow.v1.ListWorkflowsRequest.pagination:type_name -> pagination.v1.Pagination
-	0,  // 3: workflow.v1.ListWorkflowsResponse.workflows:type_name -> workflow.v1.Workflow
-	0,  // 4: workflow.v1.GetWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	2,  // 5: workflow.v1.CreateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
-	1,  // 6: workflow.v1.CreateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
-	0,  // 7: workflow.v1.CreateWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	2,  // 8: workflow.v1.UpdateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
-	1,  // 9: workflow.v1.UpdateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
-	0,  // 10: workflow.v1.RestoreWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
-	3,  // 11: workflow.v1.WorkflowService.ListWorkflows:input_type -> workflow.v1.ListWorkflowsRequest
-	5,  // 12: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
-	7,  // 13: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
-	9,  // 14: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
-	10, // 15: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
-	11, // 16: workflow.v1.WorkflowService.RestoreWorkflow:input_type -> workflow.v1.RestoreWorkflowRequest
-	13, // 17: workflow.v1.WorkflowService.DeleteWorkflow:input_type -> workflow.v1.DeleteWorkflowRequest
-	4,  // 18: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
-	6,  // 19: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
-	8,  // 20: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
-	15, // 21: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
-	15, // 22: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
-	12, // 23: workflow.v1.WorkflowService.RestoreWorkflow:output_type -> workflow.v1.RestoreWorkflowResponse
-	15, // 24: workflow.v1.WorkflowService.DeleteWorkflow:output_type -> google.protobuf.Empty
-	18, // [18:25] is the sub-list for method output_type
-	11, // [11:18] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	15, // 3: workflow.v1.ListWorkflowsRequest.view:type_name -> view.v1.View
+	0,  // 4: workflow.v1.ListWorkflowsResponse.workflows:type_name -> workflow.v1.Workflow
+	0,  // 5: workflow.v1.GetWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	2,  // 6: workflow.v1.CreateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
+	1,  // 7: workflow.v1.CreateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
+	0,  // 8: workflow.v1.CreateWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	2,  // 9: workflow.v1.UpdateWorkflowRequest.worktree:type_name -> workflow.v1.WorktreeConfig
+	1,  // 10: workflow.v1.UpdateWorkflowRequest.hooks:type_name -> workflow.v1.WorkflowHook
+	0,  // 11: workflow.v1.RestoreWorkflowResponse.workflow:type_name -> workflow.v1.Workflow
+	3,  // 12: workflow.v1.WorkflowService.ListWorkflows:input_type -> workflow.v1.ListWorkflowsRequest
+	5,  // 13: workflow.v1.WorkflowService.GetWorkflow:input_type -> workflow.v1.GetWorkflowRequest
+	7,  // 14: workflow.v1.WorkflowService.CreateWorkflow:input_type -> workflow.v1.CreateWorkflowRequest
+	9,  // 15: workflow.v1.WorkflowService.UpdateWorkflow:input_type -> workflow.v1.UpdateWorkflowRequest
+	10, // 16: workflow.v1.WorkflowService.ArchiveWorkflow:input_type -> workflow.v1.ArchiveWorkflowRequest
+	11, // 17: workflow.v1.WorkflowService.RestoreWorkflow:input_type -> workflow.v1.RestoreWorkflowRequest
+	13, // 18: workflow.v1.WorkflowService.DeleteWorkflow:input_type -> workflow.v1.DeleteWorkflowRequest
+	4,  // 19: workflow.v1.WorkflowService.ListWorkflows:output_type -> workflow.v1.ListWorkflowsResponse
+	6,  // 20: workflow.v1.WorkflowService.GetWorkflow:output_type -> workflow.v1.GetWorkflowResponse
+	8,  // 21: workflow.v1.WorkflowService.CreateWorkflow:output_type -> workflow.v1.CreateWorkflowResponse
+	16, // 22: workflow.v1.WorkflowService.UpdateWorkflow:output_type -> google.protobuf.Empty
+	16, // 23: workflow.v1.WorkflowService.ArchiveWorkflow:output_type -> google.protobuf.Empty
+	12, // 24: workflow.v1.WorkflowService.RestoreWorkflow:output_type -> workflow.v1.RestoreWorkflowResponse
+	16, // 25: workflow.v1.WorkflowService.DeleteWorkflow:output_type -> google.protobuf.Empty
+	19, // [19:26] is the sub-list for method output_type
+	12, // [12:19] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_workflow_v1_workflow_proto_init() }

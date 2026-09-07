@@ -56,7 +56,8 @@ func (s *Service) ListSchedules(ctx context.Context, req *connect.Request[schedu
 
 	now := time.Now()
 
-	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now) })
+	view := scheduleViewOptions(req.Msg.GetView())
+	resources := xslice.Map(page, func(stored schedulestore.Schedule) schedule { return renderSchedule(stored, now, view...) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {

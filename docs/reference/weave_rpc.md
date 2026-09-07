@@ -40,7 +40,7 @@ flags, and the response is the API's own JSON on stdout.
 * [weave rpc get-agent](weave_rpc_get-agent.md)	 - Fetch one agent by id, including whatever metadata it has recorded about its own work.
 * [weave rpc get-config](weave_rpc_get-config.md)	 - Read the panel's configuration as it is currently in force, keyed the same way the user's config file is.
 * [weave rpc get-schedule](weave_rpc_get-schedule.md)	 - Fetch one schedule by id.
-* [weave rpc get-transcript](weave_rpc_get-transcript.md)	 - Fetch one agent's full transcript by agent id, not by name.
+* [weave rpc get-transcript](weave_rpc_get-transcript.md)	 - Fetch one window of an agent's transcript by agent id, not by name.
 * [weave rpc get-workflow](weave_rpc_get-workflow.md)	 - Fetch one workflow by id.
 * [weave rpc list-agents](weave_rpc_list-agents.md)	 - List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow.
 * [weave rpc list-hooks](weave_rpc_list-hooks.md)	 - List the hooks the user has written, which are executable files in their hooks directory.

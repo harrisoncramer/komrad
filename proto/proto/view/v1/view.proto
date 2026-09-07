@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package view.v1;
+
+option go_package = "weave/proto/gen/view/v1;viewv1";
+
+// View is how much of each record a listing returns, so that the panel, which draws every
+// field, and a model reading the same endpoint through a context window ask for different
+// amounts of the same rows.
+enum View {
+  // Unspecified is summary, since a caller that has not thought about it is the one that
+  // should not be handed a megabyte.
+  VIEW_UNSPECIFIED = 0;
+  VIEW_SUMMARY = 1;
+  VIEW_FULL = 2;
+}

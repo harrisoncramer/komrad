@@ -4,7 +4,7 @@ List the recurring agent launches, most recently updated first, with each one's 
 
 ### Synopsis
 
-List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.
+List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each schedule's prompt, marked by promptTruncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.
 
 ```
 weave rpc list-schedules [flags]
@@ -19,6 +19,7 @@ weave rpc list-schedules [flags]
       --pagination.limit int32     int32
       --request-json string        the whole request as JSON, which the flags above are laid over
       --timeout duration           how long to wait for the call (default 30s)
+      --view string                VIEW_SUMMARY|VIEW_FULL
 ```
 
 ### Options inherited from parent commands

@@ -3,18 +3,22 @@ package workflow
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/rpc/render"
 	"weave/internal/store"
 	"weave/internal/storetest"
 	"weave/internal/tmux"
 	paginationv1 "weave/proto/gen/pagination/v1"
+	viewv1 "weave/proto/gen/view/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -665,4 +669,51 @@ func TestListWorkflowsArchived(t *testing.T) {
 			require.NoError(t, err, "as RFC 3339")
 		})
 	}
+}
+
+// TestListWorkflowsSummarisesTheContext covers the default view holding back the bulk of a page,
+// since a workflow's context is most of what its row weighs.
+func TestListWorkflowsSummarisesTheContext(t *testing.T) {
+	svc, st := service(t)
+	shared := strings.Repeat("c", render.SummaryHead+50)
+	st.SeedWorkflow(t, workflowstore.Config{Name: "alpha", Context: shared})
+	st.SeedWorkflow(t, workflowstore.Config{Name: "beta", Context: "ship it"})
+
+	summary, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{}))
+	require.NoError(t, err)
+	byName := workflowsByName(summary.Msg.GetWorkflows())
+	assert.Equal(t, shared[:render.SummaryHead], byName["alpha"].GetContext())
+	assert.True(t, byName["alpha"].GetContextTruncated())
+	assert.Equal(t, "ship it", byName["beta"].GetContext(), "a context inside the head is whole")
+	assert.False(t, byName["beta"].GetContextTruncated())
+
+	full, err := svc.ListWorkflows(t.Context(), connect.NewRequest(&workflowv1.ListWorkflowsRequest{
+		View: viewv1.View_VIEW_FULL,
+	}))
+	require.NoError(t, err)
+	byName = workflowsByName(full.Msg.GetWorkflows())
+	assert.Equal(t, shared, byName["alpha"].GetContext())
+	assert.False(t, byName["alpha"].GetContextTruncated())
+}
+
+// TestGetWorkflowKeepsTheWholeContext covers the one-record endpoint, which no view narrows since
+// a caller asking for a single workflow has already narrowed it.
+func TestGetWorkflowKeepsTheWholeContext(t *testing.T) {
+	svc, st := service(t)
+	shared := strings.Repeat("c", render.SummaryHead+50)
+	seeded := st.SeedWorkflow(t, workflowstore.Config{Name: "alpha", Context: shared})
+
+	got, err := svc.GetWorkflow(t.Context(), connect.NewRequest(&workflowv1.GetWorkflowRequest{Id: seeded.ID}))
+	require.NoError(t, err)
+	assert.Equal(t, shared, got.Msg.GetWorkflow().GetContext())
+	assert.False(t, got.Msg.GetWorkflow().GetContextTruncated())
+}
+
+func workflowsByName(listed []*workflowv1.Workflow) map[string]*workflowv1.Workflow {
+	byName := make(map[string]*workflowv1.Workflow, len(listed))
+	for _, w := range listed {
+		byName[w.GetName()] = w
+	}
+
+	return byName
 }
