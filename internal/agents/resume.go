@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"weave/config"
@@ -23,15 +24,11 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
-// resumeClaimStale is how long a resume may hold the row before another one takes it over, which
-// has to outlast the post-resume hook the claim is held across.
-const resumeClaimStale = hookTimeout + 5*time.Minute
-
 // resumeAgentReadWriter is the slice of the agent store a resume writes to, which is the row's state
 // and the pane it comes back in.
 type resumeAgentReadWriter interface {
 	agentGetter
-	MarkSettingUpIfLive(ctx context.Context, id string, staleAfter time.Duration) (bool, error)
+	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
 	SetStateByID(ctx context.Context, id string, state agentstore.State) error
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
@@ -45,6 +42,12 @@ type ResumeService struct {
 	harnesses          harnessGetter
 	scripts            agentScriptRunner
 	fallbackResumeRoot string
+	// inFlight holds the agents this panel is part-way through resuming, which is what stops two
+	// callers each opening a window for one agent. It is kept here rather than on the row because
+	// a resume is only ever run by this process, and a row left in setting_up by a panel that died
+	// would otherwise refuse the resume that is meant to bring the agent back.
+	inFlight   map[string]struct{}
+	inFlightMu sync.Mutex
 }
 
 type ResumeServiceParams struct {
@@ -71,6 +74,7 @@ func NewResumeService(p ResumeServiceParams) *ResumeService {
 		harnesses:          p.Harnesses,
 		scripts:            p.Scripts,
 		fallbackResumeRoot: p.FallbackResumeRoot,
+		inFlight:           map[string]struct{}{},
 	}
 }
 
@@ -107,21 +111,34 @@ func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Age
 	return agent, nil
 }
 
-// whyUnclaimed says which of the two rows a claim refuses this was, since one is the caller's to
-// fix by restoring the agent and the other is somebody else already doing this work.
-func (s *ResumeService) whyUnclaimed(ctx context.Context, agent agentstore.Agent) error {
-	current, err := s.agents.GetByID(ctx, agent.ID)
-	if err != nil {
-		return fmt.Errorf("failed to read %q after its resume was refused: %w", agent.Name, err)
-	}
-	if current.ArchivedAt != nil {
-		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+// takeInFlight takes the right to resume one agent, reporting false when this panel is already
+// part-way through resuming it, and hands back what gives that right up.
+func (s *ResumeService) takeInFlight(id string) (func(), bool) {
+	s.inFlightMu.Lock()
+	defer s.inFlightMu.Unlock()
+
+	if _, held := s.inFlight[id]; held {
+		return nil, false
 	}
 
-	return fmt.Errorf("%w: %q is already being resumed", ErrResumeInFlight, agent.Name)
+	s.inFlight[id] = struct{}{}
+
+	return func() {
+		s.inFlightMu.Lock()
+		defer s.inFlightMu.Unlock()
+		delete(s.inFlight, id)
+	}, true
 }
 
 func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) error {
+	// Answers written at once each ask for the same reviewer to be woken, and a second caller
+	// getting this far is what would open a second window for one agent.
+	done, taken := s.takeInFlight(agent.ID)
+	if !taken {
+		return fmt.Errorf("%w: %q is already being resumed", ErrResumeInFlight, agent.Name)
+	}
+	defer done()
+
 	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err
@@ -129,12 +146,12 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	// Until this write the row reads as a dormant agent nobody is touching, which is exactly what
 	// a background pass archives.
-	claimed, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID, resumeClaimStale)
+	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
 	if err != nil {
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
 	}
-	if !claimed {
-		return s.whyUnclaimed(ctx, agent)
+	if !live {
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
 	}
 
 	// Read before the resume starts overwriting the copy it was handed, since the restore

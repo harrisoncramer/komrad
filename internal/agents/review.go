@@ -368,6 +368,11 @@ func (s *ReviewService) AddReviewMessage(
 	return message, nil
 }
 
+// resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
+// leave one running for the life of the panel. A resume cut off here puts the row back as it
+// found it, which leaves the reviewer resumable by hand.
+const resumeWakeTimeout = hookTimeout + 5*time.Minute
+
 // wakeTheReviewer puts a reviewer back in a pane, since mail waits for one rather than making
 // one and nothing else would ever hand a dormant reviewer this doorbell. It runs on its own
 // because the resume runs the workflow's post-resume hook, which is not something an agent
@@ -377,7 +382,7 @@ func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), resumeClaimStale)
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), resumeWakeTimeout)
 	defer cancel()
 
 	// Answers written at once each ask for the same reviewer, and the claim inside the resume is

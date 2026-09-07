@@ -391,8 +391,8 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 }
 
 // TestASecondResumeOpensNoSecondWindow pins the claim inside the resume, since AddReviewMessage
-// resumes a dormant reviewer and a harness that batches its tool calls answers several threads
-// at once, which is several resumes of one agent in flight together.
+// wakes a dormant reviewer and a harness that batches its tool calls answers several threads at
+// once, which is several resumes of one agent in flight together.
 func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -401,15 +401,59 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
 
-	claimed, err := st.Agents.MarkSettingUpIfLive(ctx, agent.ID, resumeClaimStale)
-	require.NoError(t, err)
-	require.True(t, claimed, "the resume that got there first holds the row")
+	// The second resume arrives while the first is part-way through, which is the window both of
+	// them would otherwise go on to open a window in.
+	arrived := make(chan struct{})
+	release := make(chan struct{})
+	tmux.beforeNewWindow = func() {
+		select {
+		case <-arrived:
+		default:
+			close(arrived)
+			<-release
+		}
+	}
 
-	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+	manager := newManager(tmux, st, "")
+
+	first := make(chan error, 1)
+	go func() {
+		_, err := manager.resume.ResumeAgent(context.WithoutCancel(ctx), agent.ID)
+		first <- err
+	}()
+
+	<-arrived
+
+	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	require.ErrorIs(t, err, ErrResumeInFlight)
+
+	close(release)
+	require.NoError(t, <-first)
+
+	assert.Equal(t, 1, tmux.windowsOpened(), "the second resume opened no window of its own")
+}
+
+// TestAResumeIsClaimableAgainAfterOneFinishes pins that the claim is held for the length of a
+// resume rather than for the life of the agent, since a reviewer woken once still has to come
+// back the next time its pane goes.
+func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
+
+	manager := newManager(tmux, st, "")
+
+	_, err := manager.resume.ResumeAgent(ctx, agent.ID)
+	require.NoError(t, err)
+
+	require.NoError(t, tmux.ClearPaneOwner(agentByID(t, st, agent.ID).Pane))
 
 	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
-	require.ErrorIs(t, err, ErrResumeInFlight)
-	assert.Empty(t, tmux.newWindows, "the second resume opened no window of its own")
+	require.NoError(t, err, "the claim goes with the resume that took it")
+	assert.Equal(t, 2, tmux.windowsOpened())
 }
 
 // archivingTmux runs one pull request archiving pass the first time a resume asks whether the

@@ -1237,19 +1237,12 @@ SET
 WHERE
     id = $1
     AND archived_at IS NULL
-    AND (state IS DISTINCT FROM 'setting_up'
-        OR state_changed_at < NOW() - interval '1 microsecond' * $2::bigint)
 RETURNING
     id
 `
 
-type MarkAgentSettingUpIfLiveParams struct {
-	ID          string
-	StaleMicros int64
-}
-
-func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, arg MarkAgentSettingUpIfLiveParams) ([]string, error) {
-	rows, err := q.db.Query(ctx, markAgentSettingUpIfLive, arg.ID, arg.StaleMicros)
+func (q *Queries) MarkAgentSettingUpIfLive(ctx context.Context, id string) ([]string, error) {
+	rows, err := q.db.Query(ctx, markAgentSettingUpIfLive, id)
 	if err != nil {
 		return nil, err
 	}
