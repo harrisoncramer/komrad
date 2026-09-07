@@ -418,7 +418,7 @@ func (m model) archiveListView() string {
 		hovered := i == m.archive.cursor
 		prefix := "  "
 		if hovered {
-			prefix = m.rowCursorStyle().Render("› ")
+			prefix = m.rowCursorPrefix()
 		}
 
 		if r.header {

@@ -20,6 +20,7 @@ import (
 	schedulev1connect "weave/proto/gen/schedule/v1/schedulev1connect"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
+	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -106,10 +107,14 @@ type model struct {
 	review        reviewState
 	mail          mailState
 	filter        filterState
+	rowCursor     cursor.Model
 	column        columnState
 	marks         markState
 	form          formState
 	pendingForm   bool
+	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking
+	// since a panel nobody is typing at has nothing to blink for.
+	blurred       bool
 	setupPending  bool
 	helpExpanded  bool
 	topHeld       bool
@@ -173,6 +178,7 @@ func newModel(deps Deps, isDark bool) model {
 		startupErr:      deps.StartupErr,
 		startupFindings: deps.StartupFindings,
 		screen:          screenAgents,
+		rowCursor:       newRowCursor(),
 	}
 
 	if m.fatal() != nil {

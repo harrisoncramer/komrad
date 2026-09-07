@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"github.com/charmbracelet/bubbles/cursor"
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -28,12 +29,21 @@ func (m model) Init() tea.Cmd {
 
 	m.popup.HoldFocusKey(m.focusKey, m.pane, m.screen == screenAgents)
 
-	return tea.Batch(refreshTick(), m.refreshCmd())
+	return tea.Batch(refreshTick(), m.refreshCmd(), cursor.Blink)
 }
 
-// Update routes a message to the screen that owns it.
+// Update routes a message to the screen that owns it, and keeps the row cursor blinking.
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	return m.route(msg)
+	next, cmd := m.route(msg)
+
+	routed, ok := next.(model)
+	if !ok {
+		return next, cmd
+	}
+
+	routed, blink := routed.updateRowCursor(msg)
+
+	return routed, tea.Batch(cmd, blink)
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -181,10 +191,12 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing, edited), true
 	case tea.BlurMsg:
+		m.blurred = true
 		m.syncKeys()
 
 		return m, nil, true
 	case tea.FocusMsg:
+		m.blurred = false
 		m.syncKeys()
 
 		next, cmd := m.reconcileEditor()
