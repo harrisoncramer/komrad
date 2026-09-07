@@ -271,17 +271,6 @@ func (c *Client) ResizePane(pane, width string) {
 	c.run("resize-pane", "-t", pane, "-x", width)
 }
 
-// SetPaneZoomed gives a pane the whole window or hands the others their share back, asked of
-// tmux as a condition rather than a toggle so that it costs one call and lands the same whether
-// or not the pane was already there.
-func (c *Client) SetPaneZoomed(pane string, zoomed bool) {
-	if pane == "" {
-		return
-	}
-
-	c.run(zoomArgs(pane, zoomed)...)
-}
-
 // GetPaneFocus reports whether a pane is the one its window is sending keys to and whether it is
 // filling that window, asked together because a key bound on the server moves both at once and
 // one query answers for both.
@@ -298,20 +287,6 @@ func (c *Client) GetPaneFocus(pane string) (focused, zoomed bool) {
 	active, window, _ := strings.Cut(out, ",")
 
 	return active == "1", active == "1" && window == "1"
-}
-
-// IsPaneZoomed reports whether a pane is the one currently filling its window.
-func (c *Client) IsPaneZoomed(pane string) bool {
-	if pane == "" {
-		return false
-	}
-
-	out, err := c.query("display-message", "-p", "-t", pane, zoomedFormat)
-	if err != nil {
-		return false
-	}
-
-	return out == "1"
 }
 
 // NewWindow creates a detached window in a session, rooted at dir and titled name, and
@@ -336,19 +311,6 @@ func (c *Client) ResizeWindow(pane string, width, height int) {
 	}
 
 	c.run("resize-window", "-t", pane, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height))
-}
-
-// SwapPanes exchanges two panes' positions, keeping the active pane unchanged, which is
-// how a pane moves into and out of the stage slot without disturbing focus.
-func (c *Client) SwapPanes(src, dst string) {
-	c.run("swap-pane", "-d", "-s", src, "-t", dst)
-}
-
-// RespawnPane replaces a pane's process with argv, or re-runs the default shell and blanks
-// the pane when argv is empty.
-func (c *Client) RespawnPane(pane, dir string, argv ...string) {
-	c.run(append([]string{"respawn-pane", "-k", "-t", pane, "-c", dir}, argv...)...)
-	c.run("clear-history", "-t", pane)
 }
 
 // GetSiblingPanes gets the other panes sharing a window with the given one.

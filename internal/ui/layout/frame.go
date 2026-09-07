@@ -246,7 +246,7 @@ func (f *Frame) StageCols() int { return f.stageCols }
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {
-	f.stageCols = f.tmux.GetPaneWidth(f.getDisplayedPane())
+	f.stageCols = f.tmux.GetPaneWidth(f.visibleStagePane())
 }
 
 // IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
@@ -304,7 +304,9 @@ func (f *Frame) isShowing(region Region, content Content, target Target) bool {
 	return !content.Wraps || (was.width == target.Width && was.height == target.Height)
 }
 
-func (f *Frame) getDisplayedPane() string {
+// visibleStagePane is the pane the user is actually looking at in the stage slot, which is the
+// guest while one is swapped in and the frame's own pane otherwise.
+func (f *Frame) visibleStagePane() string {
 	if f.guest != "" {
 		return f.guest
 	}
@@ -388,7 +390,7 @@ func (f *Frame) claimInfo() {
 		return
 	}
 
-	anchor, home := f.getDisplayedPane(), getHomeDir()
+	anchor, home := f.visibleStagePane(), getHomeDir()
 	if f.spec.infoAbove {
 		f.info = f.tmux.SplitAbove(anchor, home, f.spec.infoSize)
 	} else {

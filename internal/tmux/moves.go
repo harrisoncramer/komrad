@@ -8,34 +8,34 @@ import (
 	"weave/internal/panes"
 )
 
-// zoomedFormat asks whether a pane is the one filling its window, which is the same question
-// IsPaneZoomed asks, put where tmux can answer it for itself.
+// zoomedFormat asks whether a pane is the one filling its window, put as a format so that tmux
+// can answer it for itself inside a conditional.
 const zoomedFormat = "#{&&:#{window_zoomed_flag},#{pane_active}}"
 
 // MovePanes runs a change's pane moves in one invocation, which tmux processes in a single pass
 // and paints once, so a change that moves several panes reaches the terminal as one frame rather
 // than one frame per command.
 func (c *Client) MovePanes(moves []panes.Move) {
-	if len(moves) == 0 {
+	var args []string
+
+	for _, move := range moves {
+		for _, command := range argsForMove(move) {
+			if len(args) > 0 {
+				args = append(args, ";")
+			}
+
+			args = append(args, command...)
+		}
+	}
+
+	if len(args) == 0 {
 		return
 	}
 
-	var argv [][]string
-	for _, move := range moves {
-		argv = append(argv, argsForMove(move)...)
-	}
-
-	var args []string
-	for i, command := range argv {
-		if i > 0 {
-			args = append(args, ";")
-		}
-
-		args = append(args, command...)
-	}
-
 	if _, err := c.query(args...); err != nil {
-		attrs := append(logging.Err(err), slog.String("commands", describeCommands(argv)))
+		// One invocation reports one status, so the log names every command it held rather than
+		// saying only that something in it went wrong.
+		attrs := append(logging.Err(err), slog.String("commands", strings.Join(args, " ")))
 		slog.Default().Warn("a tmux pane move failed", logging.Attrs(attrs)...)
 	}
 }
@@ -74,15 +74,4 @@ func zoomArgs(pane string, zoomed bool) []string {
 	}
 
 	return []string{"if-shell", "-F", "-t", pane, zoomedFormat, then, otherwise}
-}
-
-// describeCommands names what a failed invocation held, since one invocation reports one status
-// and the log would otherwise say only that something in it went wrong.
-func describeCommands(argv [][]string) string {
-	commands := make([]string, 0, len(argv))
-	for _, command := range argv {
-		commands = append(commands, strings.Join(command, " "))
-	}
-
-	return strings.Join(commands, " ; ")
 }
