@@ -915,8 +915,9 @@ func headerLine(t *testing.T, view, name string) string {
 	return ""
 }
 
-// TestJumpLeavesTheSearchBehind covers the stage going with the screen, since the transcript the
-// hits were previewed against belongs to the search and the row the jump lands on has its own.
+// TestJumpLeavesTheSearchBehind covers the window going back with the screen, since the transcript
+// the hits were previewed against belongs to the search and the row the jump lands on draws in a
+// pane of the frame's instead.
 func TestJumpLeavesTheSearchBehind(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -976,7 +977,8 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			require.True(t, ok)
 
 			staged := strings.Join(tmux.respawns, "\n")
-			assert.NotContains(t, staged, stageTranscriptPath, "the preview does not follow the jump")
+			assert.Empty(t, landed.search.preview.conversation, "the preview does not follow the jump")
+			assert.False(t, landed.frame.IsSolo(), "the panes the search covered have their share back")
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
 			if tt.wantStaged != "" {
 				assert.Contains(t, staged, tt.wantStaged, "the row's own record is what is paged")
@@ -1025,8 +1027,7 @@ func TestJumpDropsALatePreview(t *testing.T) {
 	}
 	landed.applyPreview(late)
 
-	staged := strings.Join(tmux.respawns, "\n")
-	assert.NotContains(t, staged, stageTranscriptPath, "the late preview is dropped")
+	assert.Empty(t, landed.search.preview.conversation, "the late preview is dropped")
 }
 
 // TestSearchViewFitsThePane covers a common query returning more hits than the pane is tall,

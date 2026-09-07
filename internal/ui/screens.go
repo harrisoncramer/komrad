@@ -17,6 +17,21 @@ const (
 	screenMail
 )
 
+// holdsWindow reports whether a screen draws its own split across the whole window, which is
+// what says the panel takes the window from the panes beside it while that screen is up.
+func (s screen) holdsWindow() bool {
+	switch s {
+	case screenSearch, screenReview:
+		return true
+	case screenAgents, screenSchedules, screenArchive, screenMail:
+		return false
+	}
+
+	// The switch carries every screen and no default, so this is what a screen added without an
+	// arm compiles to until the exhaustive check refuses it.
+	return false
+}
+
 // screenSpec is everything the panel asks of whichever screen is up, resolved from the screen
 // alone so that adding a screen is one arm here rather than an arm in every file that dispatches.
 type screenSpec struct {
