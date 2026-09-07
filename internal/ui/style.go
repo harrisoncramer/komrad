@@ -43,7 +43,7 @@ var (
 )
 
 func (m model) titleStyle() lipgloss.Style {
-	return titleStyleFor(!m.isDetailsFocused())
+	return titleStyleFor(m.isListFocused())
 }
 
 func (m model) rowCursorStyle() lipgloss.Style {

@@ -43,6 +43,8 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 // keyboard, steady while something else holds it, and gone for the half of the phase the bubble
 // sets Blink over.
 func (m model) cursorPrefix(focused bool) string {
+	focused = focused && !m.takesEveryKey()
+
 	if focused && !m.blurred && m.rowCursor.Blink {
 		return blankCursor
 	}
@@ -50,13 +52,20 @@ func (m model) cursorPrefix(focused bool) string {
 	return cursorStyleFor(focused).Render(rowCursorGlyph)
 }
 
+// takesEveryKey reports whether a text input holds the keyboard, which the row cursor reads as
+// the list not having it since the arrows are going into the query rather than moving the rows.
+func (m model) takesEveryKey() bool {
+	return m.filter.typing || m.isTyping()
+}
+
 // rowCursorPrefix is cursorPrefix for a list whose focus is the list's own.
 func (m model) rowCursorPrefix() string {
 	return m.cursorPrefix(m.isListFocused())
 }
 
-// isListFocused reports whether the keys are the list's rather than the record beside it, which
-// is what decides how the row under the cursor is drawn, arrow and name alike.
+// isListFocused reports whether the keys are the list's rather than the record beside it or a
+// form standing over it, which is what decides how the row under the cursor is drawn, arrow and
+// name alike.
 func (m model) isListFocused() bool {
-	return !m.isDetailsFocused()
+	return !m.isDetailsFocused() && !m.form.isActive()
 }

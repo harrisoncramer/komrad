@@ -197,3 +197,18 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 	width, _ := m.formBox()
 	assert.Equal(t, m.width, width)
 }
+
+// TestFormBlursTheListBesideIt covers the list a form is opened over: the form has every key, so
+// the list is drawn the way it is when the record beside it holds them, title and row cursor
+// alike, rather than reading as the half being typed at.
+func TestFormBlursTheListBesideIt(t *testing.T) {
+	m := formColumnModel(t)
+	require.True(t, m.isListFocused(), "the list holds the keys to start with")
+	require.Equal(t, headerStyle, m.titleStyle())
+
+	m = openWorkflowForm(t, m)
+
+	assert.False(t, m.isListFocused(), "the form holds them once it is up")
+	assert.Equal(t, blurredHeaderStyle, m.titleStyle(), "so the list's title is drawn blurred")
+	assert.Equal(t, blurredCursorStyle.Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
+}

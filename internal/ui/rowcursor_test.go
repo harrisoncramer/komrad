@@ -127,3 +127,20 @@ func drain(cmd tea.Cmd) []tea.Msg {
 
 	return []tea.Msg{msg}
 }
+
+// TestRowCursorStandsStillWhileTyping covers a search being typed at, on the archive's own filter
+// and on the search screen's query, neither of which moves the rows, so the arrow stands still
+// rather than saying the keyboard is the list's.
+func TestRowCursorStandsStillWhileTyping(t *testing.T) {
+	m := model{rowCursor: newRowCursor(), screen: screenArchive}
+	m.rowCursor.Blink = true
+	m.filter.typing = true
+
+	assert.Equal(t, blurredCursorStyle.Render(rowCursorGlyph), m.cursorPrefix(true), "the filter holds the keys")
+
+	m.filter.typing = false
+	m.screen = screenSearch
+	m.search.typing = true
+
+	assert.Equal(t, blurredCursorStyle.Render(rowCursorGlyph), m.cursorPrefix(true), "the query holds them")
+}
