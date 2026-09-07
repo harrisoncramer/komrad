@@ -102,8 +102,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateFilterInput(key)
 	}
 
-	// Something being typed into owns the keyboard, since every global key is also a character
-	// somebody means to type.
+	// The filter has gone by here, so what is left is the screen's own input, which owns the
+	// keyboard since every global key is also a character somebody means to type.
 	if m.isTyping() {
 		return m.routeScreenKey(key)
 	}

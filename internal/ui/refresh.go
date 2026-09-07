@@ -7,10 +7,9 @@ import (
 
 	"weave/internal/client"
 
-	agentv1 "weave/proto/gen/agent/v1"
-
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
 )

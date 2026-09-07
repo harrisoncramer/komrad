@@ -39,9 +39,9 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 	return m, cmd
 }
 
-// cursorPrefix is the arrow a list draws on its hovered row, which goes for the hidden half of
-// the blink only while that list is the thing being typed at, since a blink says where the
-// keyboard is going and a list that is not taking the arrows is not where it is going.
+// cursorPrefix is the arrow a list draws on its hovered row, blinking while that list has the
+// keyboard, steady while something is being typed into, and gone for the half of the phase the
+// bubble sets Blink over.
 func (m model) cursorPrefix(focused bool) string {
 	if focused && !m.blurred && !m.isTyping() && m.rowCursor.Blink {
 		return blankCursor
