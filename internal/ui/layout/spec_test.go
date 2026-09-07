@@ -20,25 +20,25 @@ func TestNewSpecSizes(t *testing.T) {
 		{
 			name:     "a layout naming nothing falls back to the defaults",
 			layout:   config.Layout{},
-			wantNav:  "40",
+			wantNav:  "30",
 			wantInfo: "40%",
 		},
 		{
 			name:     "a width in columns is handed over as it is",
-			layout:   config.Layout{SidebarWidth: 30},
-			wantNav:  "30",
+			layout:   config.Layout{SidebarWidth: 50},
+			wantNav:  "50",
 			wantInfo: "40%",
 		},
 		{
 			name:     "a height in rows is too",
 			layout:   config.Layout{InfoHeight: 12},
-			wantNav:  "40",
+			wantNav:  "30",
 			wantInfo: "12",
 		},
 		{
 			name:     "a share of the stage rounds to a percent",
 			layout:   config.Layout{InfoHeight: 0.335},
-			wantNav:  "40",
+			wantNav:  "30",
 			wantInfo: "34%",
 		},
 	}

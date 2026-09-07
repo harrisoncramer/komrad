@@ -256,9 +256,9 @@ func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok)
-	assert.Equal(t, 40, split.sidebar, "the columns the divider leaves it")
-	assert.Equal(t, 160, split.column)
-	assert.Equal(t, 40, m.paneWidth(), "which is the column the sidebar is laid out in")
+	assert.Equal(t, 30, split.sidebar, "the columns the divider leaves it")
+	assert.Equal(t, 170, split.column)
+	assert.Equal(t, 30, m.paneWidth(), "which is the column the sidebar is laid out in")
 
 	// A window narrower than the divider was measured against falls back to the configured
 	// columns, and the diff keeps the rest.
@@ -266,8 +266,8 @@ func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
 
 	split, ok = m.screenColumnSplit()
 	require.True(t, ok)
-	assert.Equal(t, 40, split.sidebar)
-	assert.Equal(t, 80, split.column)
+	assert.Equal(t, 30, split.sidebar)
+	assert.Equal(t, 90, split.column)
 
 	m.width = 45
 
