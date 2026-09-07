@@ -455,8 +455,12 @@ func (t *recordingTmux) SplitAbove(anchor, _, size string) string {
 	return t.recordSplit("above", anchor, size)
 }
 
+// recordSplit answers with the pane a split left, dropping the zoom the way tmux was measured to:
+// split-window, resize-pane, swap-pane, kill-pane and break-pane each unzoom the window they land
+// in, and only respawn-pane leaves a zoom standing.
 func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 	t.splits = append(t.splits, strings.Join([]string{direction, anchor, size}, " "))
+	t.zoomed = false
 
 	if direction == "left" || direction == "right" {
 		t.anchors = append(t.anchors, anchor)
@@ -471,9 +475,13 @@ func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 
 func (t *recordingTmux) ResizePane(pane, width string) {
 	t.resizes = append(t.resizes, pane+" "+width)
+	t.zoomed = false
 }
 
-func (t *recordingTmux) SwapPanes(string, string) { t.swaps++ }
+func (t *recordingTmux) SwapPanes(string, string) {
+	t.swaps++
+	t.zoomed = false
+}
 
 func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
@@ -483,8 +491,16 @@ func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 
 func (t *recordingTmux) GetSiblingPanes(string) []string { return t.siblings }
 func (t *recordingTmux) GetPaneOwner(pane string) string { return t.owners[pane] }
-func (t *recordingTmux) BreakPane(pane string)           { t.broken = append(t.broken, pane) }
-func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.killed, pane) }
+
+func (t *recordingTmux) BreakPane(pane string) {
+	t.broken = append(t.broken, pane)
+	t.zoomed = false
+}
+
+func (t *recordingTmux) KillPane(pane string) {
+	t.killed = append(t.killed, pane)
+	t.zoomed = false
+}
 
 // TestFrameSoloTakesTheWholeWindow covers a screen that draws its own split: the panes it was
 // sharing with are covered rather than closed, and giving the window back uncovers them.
