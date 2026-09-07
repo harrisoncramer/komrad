@@ -11,6 +11,33 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
+// messagesRows is what the region takes under the record, drawn whether or not there is anything
+// to say, so a message arriving moves no row of the list above it.
+const messagesRows = 3
+
+// messagesRegionRows is what the region costs the pane: its rows and the rule under them.
+const messagesRegionRows = messagesRows + 1
+
+// messagesHeaderRows is what the title, the blank under it, and the filter take above the list.
+const messagesHeaderRows = 3
+
+// messagesListFloor is how many rows the list keeps once the region has taken its own.
+const messagesListFloor = 2
+
+// messagesTallyWidth is the room held on the right of the summary for the count beside it.
+const messagesTallyWidth = 8
+
+// messagesFocusKey takes the region and hands it back, and is not tab because huh binds tab as
+// the key that moves between a form's fields.
+const messagesFocusKey = "ctrl+g"
+
+// messagesMockKey pushes a fixture into the stack, which is how the region is looked at without
+// having to make the panel refuse something first.
+const messagesMockKey = "M"
+
+// messagesCap is how far back the stack goes, since nobody reads the hundredth refusal.
+const messagesCap = 50
+
 type messageKind int
 
 const (
@@ -35,25 +62,6 @@ type messagesState struct {
 	focused bool
 }
 
-// messagesRows is what the region takes under the record, drawn whether or not there is anything
-// to say, so a message arriving moves no row of the list above it.
-const messagesRows = 3
-
-// messagesRegionRows is what the region costs the pane: its rows and the rule under them.
-const messagesRegionRows = messagesRows + 1
-
-// messagesFocusKey takes the region and hands it back, and is not tab because huh binds tab as
-// the key that moves between a form's fields.
-const messagesFocusKey = "ctrl+g"
-
-// messagesMockKey pushes a fixture into the stack, which is how the region is looked at without
-// having to make the panel refuse something first.
-const messagesMockKey = "M"
-
-// messagesCap is how far back the stack goes, since nobody reads the hundredth refusal and the
-// panel holds these for as long as it runs.
-const messagesCap = 50
-
 // messagesRegion is the region as it is drawn under the record, given the record and the legend
 // it sits between so it can tell whether the pane has the rows to spare for it.
 func (m model) messagesRegion(record, help string) string {
@@ -70,7 +78,7 @@ func (m model) messagesRegion(record, help string) string {
 }
 
 // isMessagesDrawn is whether the region's rows come out of the list without taking it below a
-// list worth reading, which is what stops a short pane drawing its chrome past its own bottom.
+// list worth reading.
 func (m model) isMessagesDrawn(record, help string) bool {
 	if m.height <= 0 || !m.isMessagesRegion() {
 		return false
@@ -79,32 +87,35 @@ func (m model) isMessagesDrawn(record, help string) bool {
 	return m.spareLines(record, help)-messagesHeaderRows-messagesRegionRows >= messagesListFloor
 }
 
-// messagesHeaderRows is what the title, the blank under it, and the filter take above the list,
-// which the region is measured against because it is drawn below all three.
-const messagesHeaderRows = 3
-
-// messagesListFloor is how many rows the list keeps once the region has taken its own.
-const messagesListFloor = 2
-
 // messagesSlot is the message the cursor is on said in the rows the region always holds: what
 // happened, as much of the reason as one line carries, and the way into the rest of it.
 func (m model) messagesSlot() []string {
 	if len(m.messages.items) == 0 {
 		return []string{
-			kindStyle(messageSuccess).Render(kindIcon(messageSuccess)+" No messages") + m.messagesTally(),
+			kindStyle(messageSuccess).Render(m.messagesSummaryLine()) + m.messagesTally(),
 			dimStyle.Render("  Weave is running normally"),
 		}
 	}
 
 	held := m.messages.items[m.messagesCursor()]
-	summary := clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
-	detail := dimStyle.Render("  " + clip(held.detail, max(m.lineWidth()-2, 1)))
 
 	return []string{
-		m.messagesSummaryStyle(held).Render(summary) + m.messagesTally(),
-		detail,
+		m.messagesSummaryStyle(held).Render(m.messagesSummaryLine()) + m.messagesTally(),
+		dimStyle.Render("  " + clip(held.detail, max(m.lineWidth()-2, 1))),
 		dimStyle.Render("  " + m.messagesHint()),
 	}
+}
+
+// messagesSummaryLine is the summary on its own, measured so the tally can be pushed to the far
+// side of the region rather than sat next to a name whose length nobody knows.
+func (m model) messagesSummaryLine() string {
+	if len(m.messages.items) == 0 {
+		return kindIcon(messageSuccess) + " No messages"
+	}
+
+	held := m.messages.items[m.messagesCursor()]
+
+	return clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
 }
 
 func (m model) messagesSummaryStyle(held message) lipgloss.Style {
@@ -122,8 +133,6 @@ func (m model) messagesHint() string {
 
 	return messagesFocusKey + " to read"
 }
-
-const messagesTallyWidth = 8
 
 // messagesTally is the count on the right of the summary, which says how much is behind this
 // message while the list has the keys and where in the stack the reader is once it does not.
@@ -152,24 +161,13 @@ func (m model) messagesTally() string {
 	return strings.Repeat(" ", pad) + style.Render(tally)
 }
 
-// messagesSummaryLine is the summary on its own, measured so the tally can be pushed to the far
-// side of the region rather than sat next to a name whose length nobody knows.
-func (m model) messagesSummaryLine() string {
-	if len(m.messages.items) == 0 {
-		return kindIcon(messageSuccess) + " No messages"
-	}
-
-	held := m.messages.items[m.messagesCursor()]
-
-	return clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
-}
-
-// pushMessage puts a message at the front of the stack, which is where the region draws from, and
-// keeps the reader on whatever they were reading when it lands.
+// pushMessage puts a message at the front of the stack and keeps the reader on whatever they
+// were reading when it lands.
 func (m *model) pushMessage(next message) {
 	if next.detail == "" {
 		next.detail = "no reason given"
 	}
+
 	if next.at.IsZero() {
 		next.at = time.Now()
 	}
@@ -198,9 +196,8 @@ func (m *model) setNewestHint(hint string) {
 	m.messages.items[0].hint = hint
 }
 
-// messagesDoc is the whole of the message the cursor is on, drawn in the block beside the list
-// while the region holds the keys, so the reason is read at the width of the window rather than
-// folded into the three rows the region keeps.
+// messagesDoc is the whole of the message the cursor is on, drawn in the block beside the list so
+// the reason is read at the width of the window rather than folded into three rows.
 func (m model) messagesDoc() string {
 	if len(m.messages.items) == 0 {
 		return "_No messages_\n\nWeave is running normally."
@@ -227,8 +224,8 @@ func messagesColumn() columnSpec {
 	return columnSpec{floor: columnFloor, doc: model.messagesDoc}
 }
 
-// messagesBlock is the message drawn in the block beside the list, scrolled to where the reader
-// left it, which is asked for directly because a form keeps the column spec while it is up.
+// messagesBlock is the message drawn in the block beside the list, asked for directly because a
+// form keeps the column spec while it is up.
 func (m model) messagesBlock(split columnSplit) docWindow {
 	return docWindow{
 		rows:    docRows(m.messagesDoc(), split.column),
@@ -248,16 +245,14 @@ func (m model) isMessagesRegion() bool {
 }
 
 // isMessagesFocused is whether the region holds the keys, which it cannot on a screen that does
-// not draw it, so the focus goes dormant there rather than following the reader onto it.
+// not draw it.
 func (m model) isMessagesFocused() bool {
 	return m.messages.focused && m.isMessagesRegion()
 }
 
 // toggleMessagesFocus moves the keys between the list and the region, which is also what puts the
-// message in the block beside the list, since the block belongs to whoever holds the keys.
+// message in the block beside the list.
 func (m model) toggleMessagesFocus() model {
-	// Nothing to read is nothing to hold the keys for, the way the record refuses them with no
-	// fields under it.
 	if !m.messages.focused && len(m.messages.items) == 0 {
 		return m
 	}
@@ -274,8 +269,8 @@ func (m model) toggleMessagesFocus() model {
 }
 
 func (m model) updateMessages(key tea.KeyMsg) model {
-	// Routed here rather than left to the global keys, since the region takes every key while it
-	// holds them and the message it is showing is the thing being scrolled.
+	// Routed here rather than left to the global keys, since the message being shown is the thing
+	// the scroll keys move while the region holds them.
 	if direction, ok := m.isColumnScroll(key.String()); ok {
 		return m.scrollColumn(direction)
 	}
@@ -299,7 +294,7 @@ func (m model) updateMessages(key tea.KeyMsg) model {
 }
 
 // dismissMessage drops the message on screen and lands on the one behind it, handing the keys back
-// to the list once the stack is empty, since a region holding nothing is a dead end.
+// to the list once the stack is empty.
 func (m model) dismissMessage() model {
 	if len(m.messages.items) == 0 {
 		return m.toggleMessagesFocus()
@@ -319,7 +314,7 @@ func (m model) dismissMessage() model {
 	return m
 }
 
-// pushMockMessage fills the region from the fixtures, which is how the three states are looked at
+// pushMockMessage fills the region from the fixtures, which is how the states are looked at
 // without waiting for the panel to be refused something.
 func (m model) pushMockMessage() model {
 	m.pushMessage(mockMessages[len(m.messages.items)%len(mockMessages)])
@@ -397,7 +392,7 @@ func kindStyle(kind messageKind) lipgloss.Style {
 }
 
 // mockMessages are the fixtures the region is drawn from while nothing real reports through it,
-// long enough in the reason to show what the three rows do with one that does not fit.
+// long enough in the reason to show what the rows do with one that does not fit.
 var mockMessages = []message{
 	{
 		kind:    messageError,

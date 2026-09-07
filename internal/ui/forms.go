@@ -96,9 +96,8 @@ func (m model) openRedrawnForm(kind formKind, build func(model) *huh.Form, submi
 // title and the prose under it without either folding.
 const formColumnFloor = 50
 
-// formColumn is the form drawn beside the list it was opened over, which every form asking a
-// question takes, a confirmation at the narrower floor a sentence of prose and a row of buttons
-// read at, so that the row the question is about is still on screen while it is answered.
+// formColumn is the form drawn beside the list it was opened over, so the row it is about is
+// still on screen while it is answered, at the narrower floor for a confirmation.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
 	case formAgent, formChild, formAdopt, formWorkflow, formSchedule:
