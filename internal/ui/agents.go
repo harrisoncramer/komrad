@@ -346,7 +346,7 @@ func (m model) agentsDetails() details {
 		kind:    "Agent",
 		title:   r.item.agent.Name,
 		notices: agentNotices(r.item),
-		fields:  agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
+		fields:  agentFields(r.item, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
 	}
 }
 
@@ -494,7 +494,7 @@ func (m model) agentsListView() string {
 
 		item := r.item
 		name := m.filter.highlight(clipName(item.agent.Name), m.nameStyle(hovered, !item.alive))
-		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
+		row := prefix + markGutter(m.listing.marks[rowKey(r)]) + childMark(r.child) + stateMark(displayState(item)) + " " + name + " " + worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) + unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) + failedRunMark(item.failedRun) + reviewRoundsMark(reviewRounds(item)) + hiddenTally(r.hiddenCount, m.tree.showHidden) + reasonMark(item.agent)
 		if m.tree.selected.has(item.agent.ID) {
 			row = paintRow(row, selectionBackground, m.width)
 		}

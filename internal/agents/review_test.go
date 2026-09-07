@@ -1294,6 +1294,10 @@ func (f *fakeReviewStore) LastReleasedReviewOf(_ context.Context, params reviews
 	return f.released, nil
 }
 
+func (f *fakeReviewStore) ListTallies(context.Context) ([]reviewstore.Tally, error) {
+	return nil, nil
+}
+
 func (f *fakeReviewStore) ListReviews(context.Context, string) ([]reviewstore.Review, error) {
 	reviews := make([]reviewstore.Review, 0, len(f.reviews))
 	for _, review := range f.reviews {

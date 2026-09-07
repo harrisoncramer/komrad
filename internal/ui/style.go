@@ -19,6 +19,7 @@ const (
 	hiddenIcon          = "◌"
 	unreadMailIcon      = "✉"
 	failedRunIcon       = "⚑"
+	reviewRoundsIcon    = "⟳"
 	worktreeRemovedIcon = "⊘"
 	workflowIcon        = "⧉"
 
@@ -171,6 +172,16 @@ func hiddenTally(count int, showing bool) string {
 	}
 
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
+}
+
+// reviewRoundsMark counts the rounds of review an agent has taken part in, which is drawn as a
+// number because a change going round again and again is what it is there to show.
+func reviewRoundsMark(rounds int32) string {
+	if rounds == 0 {
+		return ""
+	}
+
+	return " " + lipgloss.NewStyle().Foreground(colorMuted).Render(fmt.Sprintf("%s%d", reviewRoundsIcon, rounds))
 }
 
 // failedRunMark says a script weave fired for the agent failed and nobody has read it, which

@@ -421,7 +421,7 @@ func TestAgentFields(t *testing.T) {
 			agent.Metadata = tt.metadata
 			agent.Branch = tt.branch
 
-			fields := agentFields(agent, tt.schedule, "")
+			fields := agentFields(agentItem{agent: agent}, tt.schedule, "")
 			require.NotEmpty(t, fields)
 			assert.Equal(t, "name", fields[0].label, "the name it is filed under leads")
 
@@ -572,7 +572,7 @@ func TestAgentFieldsReviewingRow(t *testing.T) {
 				Metadata:      tt.metadata,
 			}
 
-			fields := agentFields(agent, "", "author")
+			fields := agentFields(agentItem{agent: agent}, "", "author")
 
 			labels := make([]string, 0, len(fields))
 			values := make([]string, 0, len(fields))

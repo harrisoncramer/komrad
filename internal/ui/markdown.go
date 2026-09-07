@@ -84,7 +84,8 @@ func workflowProse(w workflowstore.Workflow) string {
 	return w.Context
 }
 
-func agentFields(agent agentstore.Agent, schedule, parent string) []recordField {
+func agentFields(item agentItem, schedule, parent string) []recordField {
+	agent := item.agent
 	fields := []recordField{{"name", orDash(agent.Name)}}
 	// What a child is attached to comes early, since it is the fact that explains its directory,
 	// and for a reviewer that same row is whose work it is reading.
@@ -114,6 +115,9 @@ func agentFields(agent agentstore.Agent, schedule, parent string) []recordField 
 	}
 	if created := dates.Friendly(agent.CreatedAt); created != "" {
 		fields = append(fields, recordField{"created", created})
+	}
+	if reviewRounds(item) > 0 {
+		fields = append(fields, recordField{"review rounds", fmt.Sprintf("%d received, %d sent", item.roundsReceived, item.roundsSent)})
 	}
 	for _, entry := range agent.Metadata {
 		if entry.Key == failureReasonKey {
