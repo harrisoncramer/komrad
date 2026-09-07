@@ -84,13 +84,8 @@ type columnSpec struct {
 	fits func(model, columnSplit) bool
 }
 
-// columnGeometry is how wide each half of the window is, and carries the row budget the frame
-// gave rather than the one the block is drawn in, because a screen measuring what stands over its
-// block would ask this its own question and render itself to answer.
 // sidebarColumns is how wide the panel's own list is drawn while it holds the window, and the
-// block it is holding it for. It stops at the width on purpose: the geometry below takes the rows
-// off what stands over the block, and what stands there is measured against this width, so a
-// width that asked for those rows would be asking its own answer.
+// block it is holding it for.
 func (m model) sidebarColumns() (int, columnSpec, bool) {
 	// Nothing can be divided before the first window size arrives, and the frame has no layout to
 	// answer for either.
@@ -120,9 +115,13 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
 	}
 
-	return sidebar, spec, true
+	// Clamped to what splitOf will settle on, so that a banner folded to this width is drawn in
+	// the column it was measured against.
+	return min(max(sidebar, 1), m.width-1), spec, true
 }
 
+// columnGeometry is how wide each half of the window is, and how many rows the block beside the
+// list is drawn in.
 func (m model) columnGeometry() (columnSplit, bool) {
 	sidebar, spec, ok := m.sidebarColumns()
 	if !ok {

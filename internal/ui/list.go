@@ -28,8 +28,8 @@ func (m model) spareLines(chrome ...string) int {
 	return lines
 }
 
-// chromeLines is what the view draws above whatever screen is up, which is room the screen and
-// the block beside it do not have.
+// chromeLines is what the view draws above whatever screen is up, which is room that screen does
+// not have.
 func (m model) chromeLines() int {
 	if m.banner == nil {
 		return 0

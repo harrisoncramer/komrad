@@ -35,10 +35,10 @@ func (m model) View() string {
 
 // bannerWidth is what a banner folds to, which is the panel's own list rather than the window,
 // since a panel drawing a block beside that list is as wide as the window and a banner folded to
-// that runs out over the block. It asks for the width alone rather than the split, because the
-// split takes the banner's own rows off the block and asking for it here would be asking a
-// question this answer decides.
+// that runs out over the block.
 func (m model) bannerWidth() int {
+	// The width alone rather than the whole split, because the split takes the banner's own rows
+	// off the block, and asking for it here would be asking a question this answer decides.
 	if sidebar, _, ok := m.sidebarColumns(); ok {
 		return sidebar
 	}
