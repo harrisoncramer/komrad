@@ -186,8 +186,12 @@ func failedRunMark(failed bool) string {
 	return iconMark(failed, failedRunIcon, colorDanger)
 }
 
-func worktreeRemovedMark(agent agentstore.Agent) string {
-	return iconMark(agent.WorktreeRemoved, worktreeRemovedIcon, colorDanger)
+// worktreeRemovedMark says the directory an agent was given is gone, and stays quiet for a
+// failed create, whose state icon already stands for a worktree that was never finished.
+func worktreeRemovedMark(item agentItem) string {
+	gone := item.agent.WorktreeRemoved && displayState(item) != agentstore.StateFailedToCreate
+
+	return iconMark(gone, worktreeRemovedIcon, colorDanger)
 }
 
 // markGutter is the column a mark is drawn in, left of every row, so the letters a person

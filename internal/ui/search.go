@@ -388,7 +388,7 @@ func (m model) hitHeader(hit searchHit) string {
 	}
 
 	return markGutter(m.listing.marks[agentRowKey(item.agent.ID)]) + stateMark(displayState(item)) + " " + name +
-		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
+		worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
 		failedRunMark(item.failedRun) + reviewRoundsMark(item.rounds)
 }
