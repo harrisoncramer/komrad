@@ -244,8 +244,8 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.roundsDir = t.TempDir()
-	// The review holds the whole window, so the sidebar falls back to the configured columns the
-	// rest of the panel's screens are measured at.
+	// The review holds the whole window, so this is the size the rest of the panel's screens are
+	// measured at.
 	m.width, m.height = 200, 30
 	m.listing = listing{
 		workflows: []workflowstore.Workflow{
