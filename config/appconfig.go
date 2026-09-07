@@ -99,7 +99,7 @@ const DefaultFocusKey = "C-a"
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
 	DefaultSidebarSide  = SidebarSideLeft
-	DefaultSidebarWidth = 40
+	DefaultSidebarWidth = 30
 	DefaultInfoSide     = InfoSideBelow
 	DefaultInfoHeight   = 0.4
 	// DefaultDetailsHeight leaves the list twice the room the record under it takes, which
