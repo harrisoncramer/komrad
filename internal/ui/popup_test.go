@@ -8,9 +8,10 @@ import (
 )
 
 type bindingTmux struct {
-	globals map[string]string
-	bound   map[string][]string
-	unbound []string
+	globals   map[string]string
+	bound     map[string][]string
+	unbound   []string
+	rootBinds int
 }
 
 func (t *bindingTmux) SetGlobal(name, value string) {
@@ -40,6 +41,7 @@ func (t *bindingTmux) BindRootKey(key string, command ...string) {
 	}
 
 	t.bound["root:"+key] = command
+	t.rootBinds++
 }
 
 func (t *bindingTmux) UnbindRootKey(key string) {
@@ -247,22 +249,21 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 }
 
-// TestFocusKeyHeldOnlyByTheAgentsList pins the key being taken from the panes for as long as the
-// agents list is up and no longer, which is the whole of what scopes an unconditional binding.
-func TestFocusKeyHeldOnlyByTheAgentsList(t *testing.T) {
+// TestFocusKeyHeldOnlyOverAStagedAgent pins the key being taken from the panes only while an
+// agent's own pane is on the stage, which is the whole of what scopes an unconditional binding.
+func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	binds := &bindingTmux{}
-	m := filterModel()
-	m.popup = NewPopupWindow(binds, "weave")
-	m.focusKey = "C-a"
-	m.pane = "%3"
+	m := focusKeyModel(binds)
 
-	m.enterScreen(screenMail)
+	m.tree.cursor = 0
+	m.holdFocusKey()
 
 	_, bound := binds.bound["root:C-a"]
 	assert.False(t, bound)
 	assert.Equal(t, []string{"C-a"}, binds.unbound)
 
-	m.enterScreen(screenAgents)
+	m.tree.cursor = 1
+	m.holdFocusKey()
 
 	command, bound := binds.bound["root:C-a"]
 	require.True(t, bound)
@@ -270,4 +271,51 @@ func TestFocusKeyHeldOnlyByTheAgentsList(t *testing.T) {
 		"if-shell", "-F", "#{==:#{pane_id},%3}",
 		"select-pane -l", "select-pane -t %3",
 	}, command)
+
+	m.screen = screenMail
+	m.holdFocusKey()
+
+	_, bound = binds.bound["root:C-a"]
+	assert.False(t, bound)
+	assert.Equal(t, []string{"C-a", "C-a"}, binds.unbound)
+}
+
+// TestFocusKeyGivenBackByADeadAgent pins the row with no pane of its own being the same answer as
+// a workflow header, since the key would otherwise go to whatever pane was last worked in.
+func TestFocusKeyGivenBackByADeadAgent(t *testing.T) {
+	binds := &bindingTmux{}
+	m := focusKeyModel(binds)
+
+	m.holdFocusKey()
+	m.listing.agents[0].alive = false
+	m.holdFocusKey()
+
+	_, bound := binds.bound["root:C-a"]
+	assert.False(t, bound)
+	assert.Equal(t, []string{"C-a"}, binds.unbound)
+}
+
+// TestFocusKeyReachesTmuxOnce pins a settled key being left alone, since the panel works this out
+// on every message and cannot pay for a tmux call each time.
+func TestFocusKeyReachesTmuxOnce(t *testing.T) {
+	binds := &bindingTmux{}
+	m := focusKeyModel(binds)
+
+	m.holdFocusKey()
+	m.holdFocusKey()
+
+	assert.Equal(t, 1, binds.rootBinds)
+}
+
+func focusKeyModel(binds *bindingTmux) model {
+	m := filterModel()
+	m.popup = NewPopupWindow(binds, "weave")
+	m.focusKey = "C-a"
+	m.pane = "%3"
+	for i := range m.listing.agents {
+		m.listing.agents[i].alive = true
+		m.listing.agents[i].agent.Pane = "%9"
+	}
+
+	return m
 }
