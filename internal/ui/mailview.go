@@ -280,7 +280,7 @@ func (m model) mailRowsView() []string {
 
 		prefix := "  "
 		if i == m.mail.cursor {
-			prefix = m.rowCursorStyle().Render("› ")
+			prefix = m.rowCursorPrefix()
 		}
 
 		rows = append(rows, prefix+m.mailRowView(r, clocks, i == m.mail.cursor))

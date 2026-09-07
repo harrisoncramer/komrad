@@ -511,7 +511,7 @@ func (m model) agentsListView() string {
 		hovered := i == m.tree.cursor
 		prefix := "  "
 		if hovered {
-			prefix = m.rowCursorStyle().Render("› ")
+			prefix = m.rowCursorPrefix()
 		}
 
 		if r.header {

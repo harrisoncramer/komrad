@@ -412,7 +412,7 @@ func (m model) searchRows() ([]string, int) {
 
 		prefix := "    "
 		if i == m.search.cursor {
-			prefix = "  " + m.rowCursorStyle().Render("› ")
+			prefix = "  " + m.rowCursorPrefix()
 			cursor = len(rows)
 		}
 
