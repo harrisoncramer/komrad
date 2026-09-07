@@ -115,15 +115,11 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 			Values:    values,
 			Hooks:     m.getAvailableHooks(),
 			Keys:      m.keys.Form,
-			Height:    m.formHeight(),
 		})
 	}
 
-	form, _ := build(m)
-
 	return m, m.openForm(formState{
 		kind: formWorkflow,
-		form: form,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateWorkflowForm(msg, values, build)
 		},

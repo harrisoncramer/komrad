@@ -14,10 +14,6 @@ const searchPreviewFloor = 40
 // hit was found on is read in what was being said around it rather than at the top of the column.
 const transcriptPreviewBefore = 12
 
-// searchScrollStep is how far a scroll key moves the preview, kept short of a screenful so the
-// lines around what was being read stay in view.
-const searchScrollStep = 15
-
 // searchPreview is the transcript standing beside the hits: what it was drawn from, the rows it
 // drew to, and where in them the words the hit matched on landed.
 type searchPreview struct {
@@ -25,41 +21,13 @@ type searchPreview struct {
 	// the column is wrapped again whenever the window changes width.
 	conversation string
 	spans        []span
-	rows         []string
-	// top is the first row the column is showing.
-	top int
+	doc          docWindow
 }
 
-// searchSplit is how the window is divided while the search holds it: the transcript on one side
-// and the panel's own column on the other.
-type searchSplit struct {
-	preview int
-	sidebar int
-	rows    int
-}
-
-// searchSplitOf divides a window between the preview and the sidebar, widening the configured
-// share to what a list of hits can be read in and refusing a window that cannot hold both, where
-// the sidebar takes the whole of it and the transcript waits for the room.
-func searchSplitOf(width, rows, sidebar int) (searchSplit, bool) {
-	if rows <= 0 || width < nameWidth+searchPreviewFloor {
-		return searchSplit{}, false
-	}
-
-	sidebar = min(max(sidebar, nameWidth), width-searchPreviewFloor)
-
-	return searchSplit{preview: width - sidebar, sidebar: sidebar, rows: rows}, true
-}
-
-// searchColumns is the window the preview is drawn across, false while the screen is not up,
-// nothing has been fetched for the cursor to stand on, the frame is sharing the window with a
-// pane of somebody else's, or what it holds is too narrow to carry both halves.
-func (m model) searchColumns() (searchSplit, bool) {
-	if m.screen != screenSearch || m.search.preview.conversation == "" || !m.frame.IsSolo() {
-		return searchSplit{}, false
-	}
-
-	return searchSplitOf(m.width, m.height-m.bannerLines(), m.frame.SidebarWidth(m.width))
+// searchColumn is the transcript drawn beside the hits, which stands whether or not anything has
+// been fetched for it so that typing a query does not move the hits out from under the reader.
+func searchColumn() columnSpec {
+	return columnSpec{floor: searchPreviewFloor}
 }
 
 // holdPreview takes the transcript a hit was fetched for and draws it at the width it will be
@@ -81,48 +49,57 @@ func (m *model) drawPreview() {
 		return
 	}
 
-	split, ok := m.searchColumns()
+	split, ok := m.screenColumnSplit()
 	if !ok {
-		preview.rows, preview.top = nil, 0
+		preview.doc = docWindow{}
 
 		return
 	}
 
-	text, line := renderTranscript(preview.conversation, preview.spans, split.preview)
-	preview.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
+	text, line := renderTranscript(preview.conversation, preview.spans, split.column)
+	preview.doc.rows = strings.Split(strings.TrimRight(text, "\n"), "\n")
 
-	preview.top = 0
+	preview.doc.top = 0
 	if line > 0 {
-		preview.top = max(line-1-transcriptPreviewBefore, 0)
+		preview.doc.top = max(line-1-transcriptPreviewBefore, 0)
 	}
 
-	preview.top = m.clampPreviewTop(preview.top, split)
+	preview.doc.top = preview.doc.clamp(preview.doc.top, split.rows)
 }
 
-// clampPreviewTop keeps the window inside the transcript, since a match near the end would
-// otherwise open on rows that are not there and draw an empty column.
-func (m model) clampPreviewTop(top int, split searchSplit) int {
-	return max(min(top, len(m.search.preview.rows)-split.rows), 0)
+// searchPreviewView is the screenful of the transcript beside the hits, drawn without the markers
+// the archive's document carries because the match it opened on is what says where in it this is.
+func (m model) searchPreviewView(split columnSplit) string {
+	doc := m.search.preview.doc
+	if len(doc.rows) == 0 {
+		doc = docWindow{rows: docRows(m.searchPreviewNotice(), split.column)}
+	}
+
+	return doc.view(split.rows)
 }
 
-// searchPreviewView is the screenful of the transcript beside the hits, squared off at its share
-// of the window so the list cannot slide under a paragraph that fell short of the column.
-func (m model) searchPreviewView(split searchSplit) string {
-	rows := m.search.preview.rows
-	start := m.clampPreviewTop(m.search.preview.top, split)
-
-	return fitColumn(strings.Join(rows[start:min(start+split.rows, len(rows))], "\n"), split.preview)
+// searchPreviewNotice is what stands in the column before a transcript does, since the column is
+// there from the moment the screen is and an empty half of the window says nothing about why.
+func (m model) searchPreviewNotice() string {
+	switch {
+	case strings.TrimSpace(m.search.query) == "":
+		return searchWaitingMarkdown
+	case len(m.search.hits) == 0:
+		return noSearchHitsMarkdown
+	default:
+		return searchLoadingMarkdown
+	}
 }
 
 // scrollPreview moves the transcript under the hits, which is the whole of what the pager it
 // replaced was doing once it had opened on the match.
 func (m model) scrollPreview(delta int) (tea.Model, tea.Cmd) {
-	split, ok := m.searchColumns()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return m, nil
 	}
 
-	m.search.preview.top = m.clampPreviewTop(m.search.preview.top+delta, split)
+	m.search.preview.doc.scroll(delta, split.rows)
 
 	return m, nil
 }

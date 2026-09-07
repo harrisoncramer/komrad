@@ -127,6 +127,7 @@ func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
 		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
 		screen: screenAgents,
 		keys:   config.DefaultKeybindings(),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 	}
 	opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
 	m = asModel(t, opened)

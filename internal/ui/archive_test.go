@@ -930,9 +930,9 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 		Context: strings.Repeat("a sentence long enough to wrap the column it is drawn into. ", 60),
 	}}
 
-	split, ok := m.archiveSplit()
+	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the archive holds the window")
-	require.Greater(t, len(m.archiveDocRows(split.diff)), split.rows, "the document runs past the window")
+	require.Greater(t, len(docRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
 
 	top := ansi.Strip(m.View())
 	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
@@ -941,7 +941,7 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 	scrolled, _ := m.scrollArchive(1)
 	m, ok = scrolled.(model)
 	require.True(t, ok)
-	assert.Equal(t, archiveScrollStep, m.archive.top)
+	assert.Equal(t, docScrollStep, m.archive.top)
 	assert.Contains(t, ansi.Strip(m.View()), "↑", "the reader is told what they scrolled past")
 
 	for range 100 {
@@ -1050,13 +1050,13 @@ func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
 	m.width, m.height = 120, 10
 	m.helpExpanded = true
 
-	_, ok := m.archiveSplit()
+	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "ten rows cannot hold the list beside the document")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the whole of the pane")
 	assert.LessOrEqual(t, countLines(m.View()), m.height, "and stays inside it")
 
 	m.height = 24
-	split, ok := m.archiveSplit()
+	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "a taller window holds both halves")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "and the list is laid out against its own column")
 	assert.LessOrEqual(t, countLines(m.View()), m.height)
@@ -1074,13 +1074,13 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 		Context: strings.Repeat("a line of the document. ", 30),
 	}}
 
-	total := len(m.archiveDocRows(60))
+	total := len(docRows(m.archiveDoc(), 60))
 	require.Greater(t, total, 5, "the document runs past every window this walks")
 
 	for rows := 1; rows <= 5; rows++ {
 		for _, top := range []int{0, 1, 2, total - 1, total, total + 5} {
 			m.archive.top = top
-			drawn := m.archiveDocView(reviewSplit{diff: 60, sidebar: 30, rows: rows})
+			drawn := m.archiveDocView(columnSplit{column: 60, sidebar: 30, rows: rows})
 
 			assert.Equal(t, rows, countLines(drawn), "rows=%d top=%d", rows, top)
 		}

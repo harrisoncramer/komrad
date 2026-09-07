@@ -90,10 +90,10 @@ func TestSearchTakesTheWindow(t *testing.T) {
 func TestSearchPreviewOpensOnTheMatch(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
-	require.NotEmpty(t, m.search.preview.rows)
-	assert.Positive(t, m.search.preview.top, "the preview is scrolled to the match")
+	require.NotEmpty(t, m.search.preview.doc.rows)
+	assert.Positive(t, m.search.preview.doc.top, "the preview is scrolled to the match")
 
-	shown := ansi.Strip(m.searchPreviewView(splitOf(t, m)))
+	shown := ansi.Strip(m.searchPreviewView(previewSplit(t, m)))
 	assert.Contains(t, shown, "the reconcile loop", "the matched turn is on screen")
 	assert.NotContains(t, shown, "line 0 of the conversation before", "the top of the transcript is not")
 	assert.Contains(t, shown, "line 199 of the conversation before",
@@ -104,24 +104,24 @@ func TestSearchPreviewOpensOnTheMatch(t *testing.T) {
 // pager that was doing the scrolling went away.
 func TestSearchPreviewScrolls(t *testing.T) {
 	m, _ := searchPreviewModel(t)
-	opened := m.search.preview.top
+	opened := m.search.preview.doc.top
 
 	m = pressSearch(t, m, "ctrl+n")
-	assert.Equal(t, opened+searchScrollStep, m.search.preview.top, "a press moves a few lines")
+	assert.Equal(t, opened+docScrollStep, m.search.preview.doc.top, "a press moves a few lines")
 
 	m = pressSearch(t, m, "ctrl+p")
-	assert.Equal(t, opened, m.search.preview.top, "and back again")
+	assert.Equal(t, opened, m.search.preview.doc.top, "and back again")
 
 	for range 100 {
 		m = pressSearch(t, m, "ctrl+p")
 	}
-	assert.Zero(t, m.search.preview.top, "the top of the transcript is as far up as it goes")
+	assert.Zero(t, m.search.preview.doc.top, "the top of the transcript is as far up as it goes")
 
 	for range 200 {
 		m = pressSearch(t, m, "ctrl+n")
 	}
-	split := splitOf(t, m)
-	assert.Equal(t, len(m.search.preview.rows)-split.rows, m.search.preview.top,
+	split := previewSplit(t, m)
+	assert.Equal(t, len(m.search.preview.doc.rows)-split.rows, m.search.preview.doc.top,
 		"the last screenful is as far down as it goes")
 	assert.Contains(t, ansi.Strip(m.searchPreviewView(split)), "line 199 of the conversation after",
 		"the end of the transcript is drawn rather than empty rows past it")
@@ -133,7 +133,7 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
 	m = pressSearch(t, m, "ctrl+n")
-	moved := m.search.preview.top
+	moved := m.search.preview.doc.top
 
 	content, offset, length := searchTranscript()
 	m.search.hits = append(m.search.hits, searchHit{
@@ -146,8 +146,8 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 	m.search.cursor = 1
 	m.applyPreview(previewResult{agentID: "a2", query: "reconcile", content: content})
 
-	assert.NotEqual(t, moved, m.search.preview.top, "the preview is put back on the new match")
-	assert.Contains(t, ansi.Strip(m.searchPreviewView(splitOf(t, m))), "the reconcile loop")
+	assert.NotEqual(t, moved, m.search.preview.doc.top, "the preview is put back on the new match")
+	assert.Contains(t, ansi.Strip(m.searchPreviewView(previewSplit(t, m))), "the reconcile loop")
 }
 
 // TestSearchDrawsBothHalves covers the two columns being joined into one frame, which is what
@@ -155,7 +155,7 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 func TestSearchDrawsBothHalves(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 
-	split := splitOf(t, m)
+	split := previewSplit(t, m)
 	rows := drawnLines(m.searchView())
 
 	assert.LessOrEqual(t, len(rows), m.height, "the frame is no taller than the window")
@@ -206,7 +206,7 @@ func TestSearchWithoutTheRoomDrawsTheHitsAlone(t *testing.T) {
 	m.width = nameWidth + searchPreviewFloor - 1
 	m.drawPreview()
 
-	_, ok := m.searchColumns()
+	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "there is no room for a split")
 
 	view := ansi.Strip(m.searchView())
@@ -235,16 +235,16 @@ func TestSearchPreviewWithoutATranscript(t *testing.T) {
 // wrapped into the column it is read in rather than into a pane that would fold it.
 func TestSearchPreviewRewrapsOnResize(t *testing.T) {
 	m, _ := searchPreviewModel(t)
-	before := len(m.search.preview.rows)
+	before := len(m.search.preview.doc.rows)
 
 	next, _ := m.route(tea.WindowSizeMsg{Width: 120, Height: 30})
 	resized, ok := next.(model)
 	require.True(t, ok)
 
-	split := splitOf(t, resized)
-	assert.NotEqual(t, before, len(resized.search.preview.rows), "the transcript is wrapped again")
-	for _, row := range strings.Split(resized.searchPreviewView(split), "\n") {
-		assert.Equal(t, split.preview, lipgloss.Width(row), "every row is squared off at the column")
+	assert.NotEqual(t, before, len(resized.search.preview.doc.rows), "the transcript is wrapped again")
+	for _, row := range strings.Split(resized.searchView(), "\n") {
+		assert.Equal(t, resized.width, lipgloss.Width(row),
+			"and every row of the frame is squared off, so neither half slides under the other")
 	}
 }
 
@@ -270,14 +270,14 @@ func TestSearchPreviewKeepsItsPlaceOnAHeightChange(t *testing.T) {
 
 	m = pressSearch(t, m, "ctrl+n")
 	m = pressSearch(t, m, "ctrl+n")
-	scrolled := m.search.preview.top
+	scrolled := m.search.preview.doc.top
 	require.NotEqual(t, 0, scrolled)
 
 	next, _ := m.route(tea.WindowSizeMsg{Width: m.width, Height: 44})
 	taller, ok := next.(model)
 	require.True(t, ok)
 
-	assert.Equal(t, scrolled, taller.search.preview.top, "the reader keeps their place")
+	assert.Equal(t, scrolled, taller.search.preview.doc.top, "the reader keeps their place")
 }
 
 // TestSearchPreviewDrawsOnceThereIsRoom covers a window that had no rows to give the preview and
@@ -287,13 +287,13 @@ func TestSearchPreviewDrawsOnceThereIsRoom(t *testing.T) {
 
 	m.height = 0
 	m.drawPreview()
-	require.Empty(t, m.search.preview.rows, "an unmeasured window has no rows to draw into")
+	require.Empty(t, m.search.preview.doc.rows, "an unmeasured window has no rows to draw into")
 
 	next, _ := m.route(tea.WindowSizeMsg{Width: m.width, Height: 30})
 	grown, ok := next.(model)
 	require.True(t, ok)
 
-	assert.NotEmpty(t, grown.search.preview.rows, "the rows it was owed are drawn")
+	assert.NotEmpty(t, grown.search.preview.doc.rows, "the rows it was owed are drawn")
 }
 
 // TestSearchHandsTheWindowBackToALandingWrite covers a create that comes back while the search
@@ -316,10 +316,10 @@ func TestSearchHandsTheWindowBackToALandingWrite(t *testing.T) {
 	assert.Equal(t, 1, tmux.swaps, "so the new agent's own pane is the one on screen")
 }
 
-func splitOf(t *testing.T, m model) searchSplit {
+func previewSplit(t *testing.T, m model) columnSplit {
 	t.Helper()
 
-	split, ok := m.searchColumns()
+	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the window holds both halves")
 
 	return split

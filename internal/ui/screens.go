@@ -17,21 +17,6 @@ const (
 	screenMail
 )
 
-// holdsWindow reports whether a screen draws its own split across the whole window, which is
-// what says the panel takes the window from the panes beside it while that screen is up.
-func (s screen) holdsWindow() bool {
-	switch s {
-	case screenArchive, screenSearch, screenReview:
-		return true
-	case screenAgents, screenSchedules, screenMail:
-		return false
-	}
-
-	// The switch carries every screen and no default, so this is what a screen added without an
-	// arm compiles to until the exhaustive check refuses it.
-	return false
-}
-
 // opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen, which
 // a screen holding the whole window can still say yes to by handing it back for as long as the
 // pane is up, the way the archive does so its own logs can be read.
@@ -78,6 +63,10 @@ type screenSpec struct {
 	typing  func(model) bool
 	details *detailsSpec
 	filter  *filterSpec
+
+	// column is the block the screen draws beside its own list, left nil by a screen that draws
+	// none, which is what says the panel keeps the share of the window the frame gave it.
+	column func() columnSpec
 }
 
 // detailsSpec is the record a screen draws under its list, left nil by a screen that draws
@@ -175,6 +164,7 @@ func (s screen) spec() screenSpec {
 				place:   (*model).placeArchiveCursor,
 				rows:    model.archiveFilterRows,
 			},
+			column: archiveColumn,
 		}
 	case screenSearch:
 		return screenSpec{
@@ -182,6 +172,7 @@ func (s screen) spec() screenSpec {
 			view:         model.searchView,
 			needsArchive: true,
 			typing:       func(m model) bool { return m.search.typing },
+			column:       searchColumn,
 		}
 	case screenMail:
 		return screenSpec{
@@ -208,6 +199,7 @@ func (s screen) spec() screenSpec {
 				quit:    func(keys config.Keybindings) []string { return keys.Review.Quit },
 				fits:    model.doesReviewFitDetails,
 			},
+			column: reviewColumn,
 		}
 	}
 

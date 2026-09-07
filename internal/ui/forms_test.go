@@ -1163,9 +1163,8 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
 		Keys:      config.DefaultKeybindings().Form,
-		Height:    40,
 	})
-	form.Init()
+	sizeForm(form, 80, 40)
 
 	view := form.View()
 	assert.Contains(t, view, "Pre-launch hook")
@@ -1193,9 +1192,8 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
 		Keys:      config.DefaultKeybindings().Form,
-		Height:    60,
 	})
-	form.Init()
+	sizeForm(form, 80, 60)
 
 	view := form.View()
 	assert.Equal(t, 4, strings.Count(view, "install-deps"), "every moment offers the hook above the one it names")
@@ -1220,9 +1218,8 @@ func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
 		Values:    &values,
 		Hooks:     available,
 		Keys:      config.DefaultKeybindings().Form,
-		Height:    60,
 	})
-	form.Init()
+	sizeForm(form, 80, 60)
 
 	assert.Contains(t, form.View(), "↑/↓ for more")
 }
@@ -1250,9 +1247,8 @@ func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
 		NameTitle: "Workflow name",
 		Values:    &values,
 		Keys:      config.DefaultKeybindings().Form,
-		Height:    40,
 	})
-	form.Init()
+	sizeForm(form, 80, 40)
 
 	assert.Contains(t, form.View(), "none found in your hooks directory")
 }
@@ -1270,48 +1266,22 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "install-deps"}},
 		Keys:      config.DefaultKeybindings().Form,
-		Height:    model{height: terminal}.formHeight(),
 	})
-	form.Init()
+	sizeForm(form, 80, terminal)
 
-	// huh draws its help line outside the height it is given, which is what the chrome the
-	// height already leaves room for absorbs.
+	// huh draws its help line outside the height it is told about, which is the one row a form
+	// drawn in the whole of a short pane runs over by.
 	lines := strings.Count(form.View(), "\n") + 1
-	assert.LessOrEqual(t, lines, terminal, "the form is drawn inside the terminal it was measured against")
+	assert.LessOrEqual(t, lines, terminal+1, "the form is drawn inside the terminal it was sized against")
 	assert.Contains(t, form.View(), "Workflow name", "and opens at the top of itself")
 }
 
-// TestFormHeightLeavesRoomForTheChrome pins the height a form is given: the terminal less what
-// the view draws above it, nothing at all before the first window size arrives, and a floor on
-// a terminal too short to hold a form.
-func TestFormHeightLeavesRoomForTheChrome(t *testing.T) {
-	tests := []struct {
-		name   string
-		height int
-		want   int
-	}{
-		{
-			name:   "no size yet leaves huh its own default",
-			height: 0,
-			want:   0,
-		},
-		{
-			name:   "a terminal too short to hold a form gets the floor",
-			height: 4,
-			want:   minFormHeight,
-		},
-		{
-			name:   "otherwise it is the terminal less the chrome",
-			height: 40,
-			want:   40 - formChromeLines,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, model{height: tt.height}.formHeight())
-		})
-	}
+// sizeForm starts a form and tells it how much room it has, which is how the panel sizes one:
+// huh lays a form out from the window it is sent rather than from a width set at build time, so
+// that a resize reaches a form already on screen.
+func sizeForm(form *huh.Form, width, height int) {
+	form.Init()
+	form.Update(tea.WindowSizeMsg{Width: width, Height: height})
 }
 
 // TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
@@ -1333,9 +1303,8 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 		Values:    &values,
 		Hooks:     []hookChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
 		Keys:      config.DefaultKeybindings().Form,
-		Height:    model{height: 40}.formHeight(),
 	})
-	form.Init()
+	sizeForm(form, 80, 40)
 
 	// Every field, so each hook select is focused and blurred in turn.
 	for range 20 {

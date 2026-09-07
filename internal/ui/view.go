@@ -33,9 +33,20 @@ func (m model) View() string {
 }
 
 func (m model) screenView() string {
-	if m.form.isActive() {
+	if !m.form.isActive() {
+		return m.screen.spec().view(m)
+	}
+
+	split, ok := m.columnSplit()
+	if !ok {
 		return m.form.form.View()
 	}
 
-	return m.screen.spec().view(m)
+	// Asked for before either half is drawn, so the halves are laid out already knowing their
+	// column rather than sending every line of chrome back through paneWidth into the geometry.
+	held := m.at(split.sidebar)
+
+	// The list is drawn beside the form as the context the form was opened from, and takes none of
+	// the keys while it is there, since the form has them all.
+	return m.joinColumns(split, held.screen.spec().view(held), m.form.form.View())
 }

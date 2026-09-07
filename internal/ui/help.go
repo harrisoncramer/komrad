@@ -427,7 +427,7 @@ func (m model) archiveHelp() keyMap {
 				m.filterBinding(),
 				m.moveBinding(),
 				m.jumpBinding(),
-				m.archiveScrollBinding(),
+				m.columnScrollBinding("the notes"),
 			},
 			editFilter,
 			m.globalHelp(),
@@ -435,14 +435,14 @@ func (m model) archiveHelp() keyMap {
 	}
 }
 
-// archiveScrollBinding is the pair that moves the document beside the list, drawn as one row
-// since they are the same key going either way.
-func (m model) archiveScrollBinding() key.Binding {
+// columnScrollBinding is the pair that moves the block beside the list, drawn as one row since
+// they are the same key going either way, and named by what the screen has put in that block.
+func (m model) columnScrollBinding(what string) key.Binding {
 	return key.NewBinding(
-		key.WithKeys(slices.Concat(m.keys.Archive.ScrollDown, m.keys.Archive.ScrollUp)...),
+		key.WithKeys(slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)...),
 		key.WithHelp(
-			keyLabel(m.keys.Archive.ScrollDown)+"/"+keyLabel(m.keys.Archive.ScrollUp),
-			"scroll the notes",
+			keyLabel(m.keys.Column.ScrollDown)+"/"+keyLabel(m.keys.Column.ScrollUp),
+			"scroll "+what,
 		),
 	)
 }
@@ -485,7 +485,7 @@ func (m model) searchHelp() keyMap {
 				edit,
 				m.moveBinding(),
 				m.jumpBinding(),
-				pairBinding(m.keys.Search.ScrollDown, m.keys.Search.ScrollUp, "scroll the preview"),
+				m.columnScrollBinding("the conversation"),
 			},
 			m.globalHelp(),
 		),

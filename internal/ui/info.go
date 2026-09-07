@@ -34,7 +34,7 @@ func (m *model) claimInfo(kind infoKind, subject string) bool {
 	m.info.kind = kind
 	m.info.subject = subject
 	m.info.run = 0
-	m.soloArchive()
+	m.reconcileSolo()
 
 	return true
 }
@@ -52,7 +52,7 @@ func (m *model) forgetInfo() {
 	m.info.kind = infoNothing
 	m.info.subject = ""
 	m.info.run = 0
-	m.soloArchive()
+	m.reconcileSolo()
 }
 
 func (m *model) stageInfo() {

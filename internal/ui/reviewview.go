@@ -83,22 +83,16 @@ func (m model) reviewView() string {
 	// sidebar block would have and the diff beside it would not.
 	sidebar := strings.TrimRight(m.reviewSidebarView(), "\n")
 
-	split, ok := m.reviewSplit()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return m.reviewBandView(m.paneWidth()) + sidebar
 	}
 
-	sidebar = fitColumn(sidebar, split.sidebar)
-
 	// The band stands over the diff rather than over the whole window, since what it carries acts
 	// on the patch: a pattern typed above the sidebar reads as though it searched the conversation.
-	diff := m.reviewBandView(split.diff) + m.reviewDiffView(split)
+	diff := m.reviewBandView(split.column) + m.reviewDiffView(split)
 
-	if m.frame.IsSidebarOnRight() {
-		return lipgloss.JoinHorizontal(lipgloss.Top, diff, sidebar)
-	}
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, diff)
+	return m.joinColumns(split, sidebar, diff)
 }
 
 // reviewBandView is what stands over the diff: what is being read, how big it is, what the reader

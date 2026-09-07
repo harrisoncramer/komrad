@@ -147,9 +147,9 @@ type Keybindings struct {
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
-	// The search screen, where the transcript of the hit under the cursor is drawn
-	// beside the hits themselves.
-	Search SearchKeys `mapstructure:"search"`
+	// Scrolling the block the panel draws beside its own list, shared by every screen
+	// that draws one.
+	Column ColumnKeys `mapstructure:"column"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
@@ -384,14 +384,14 @@ type ReviewKeys struct {
 	ToggleViewed []string `mapstructure:"toggle_viewed"`
 }
 
-// SearchKeys are the bindings for the search screen, where the transcript of the hit
-// under the cursor is drawn beside the hits. The keys that move between the hits are the
-// shared navigation ones, so these are only what moves the transcript itself, and while
-// the query is being typed every key is a character.
-type SearchKeys struct {
-	// Scroll the transcript down a few lines.
+// ColumnKeys move the block the panel draws beside its own list, the archived agent's
+// notes and the transcript of a search hit among them. There is one set rather than one
+// per screen because only one block is ever on screen, and the keys that move the list
+// beside it are the shared navigation ones.
+type ColumnKeys struct {
+	// Scroll the block down a few lines.
 	ScrollDown []string `mapstructure:"scroll_down"`
-	// Scroll the transcript up a few lines.
+	// Scroll the block up a few lines.
 	ScrollUp []string `mapstructure:"scroll_up"`
 }
 
@@ -435,10 +435,6 @@ type ArchiveKeys struct {
 	Quit []string `mapstructure:"quit"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
-	// Scroll the document beside the list down a few lines.
-	ScrollDown []string `mapstructure:"scroll_down"`
-	// Scroll the document beside the list up a few lines.
-	ScrollUp []string `mapstructure:"scroll_up"`
 }
 
 // Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -715,12 +711,14 @@ func DefaultKeybindings() Keybindings {
 			ShowHidden:   []string{"H"},
 		},
 		Archive: ArchiveKeys{
-			Back:       []string{"esc"},
-			Delete:     []string{"d"},
-			Empty:      []string{"D"},
-			Open:       []string{"Z"},
-			Quit:       []string{"ctrl+c"},
-			Restore:    []string{"r"},
+			Back:    []string{"esc"},
+			Delete:  []string{"d"},
+			Empty:   []string{"D"},
+			Open:    []string{"Z"},
+			Quit:    []string{"ctrl+c"},
+			Restore: []string{"r"},
+		},
+		Column: ColumnKeys{
 			ScrollDown: []string{"ctrl+n"},
 			ScrollUp:   []string{"ctrl+p"},
 		},
@@ -779,10 +777,6 @@ func DefaultKeybindings() Keybindings {
 			Reload:       []string{"R"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
-		},
-		Search: SearchKeys{
-			ScrollDown: []string{"ctrl+n"},
-			ScrollUp:   []string{"ctrl+p"},
 		},
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},

@@ -64,10 +64,6 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		editor:    editor,
 		loading:   true,
 	}
-	// The review draws the diff and the sidebar itself, so it takes the window off the panes it
-	// would otherwise be sharing with.
-	m.frame.Solo(true)
-
 	return m, m.loadReviewCmd(m.review.agentID, m.review.dir, m.review.exclude)
 }
 

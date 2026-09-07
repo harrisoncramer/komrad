@@ -114,9 +114,6 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// The editor is a pane of its own, so the window goes back to being shared for as long as
-	// it is up and the review draws its sidebar alone.
-	m.frame.Solo(false)
 	m.frame.Show(layout.RegionInfo, editorContent(m.editor, m.review.roundDir, path, line))
 	m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 
@@ -308,14 +305,11 @@ func (m model) reconcileEditor() (model, tea.Cmd) {
 		return m, nil
 	}
 
-	m.frame.Solo(true)
-
 	return m, m.readRoundEditsCmd()
 }
 
 func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	m = m.closeInfo()
-	m.frame.Solo(true)
 
 	return m, m.readRoundEditsCmd()
 }

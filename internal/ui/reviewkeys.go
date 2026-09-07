@@ -226,12 +226,12 @@ func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
 // reviewPanStep is how far sideways a press goes, a third of the pane, since a fixed few
 // characters meant forty presses to cross a wide diff.
 func (m model) reviewPanStep() int {
-	split, ok := m.reviewSplit()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return reviewPanStep
 	}
 
-	return max(split.diff/3, reviewPanStep)
+	return max(split.column/3, reviewPanStep)
 }
 
 func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
@@ -248,7 +248,7 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 // scrollReviewToCursor moves the window only when the cursor is about to leave it, since
 // scrolling on every move repaints every row of the pane and reads as a flicker.
 func (m *model) scrollReviewToCursor() {
-	split, ok := m.reviewSplit()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return
 	}

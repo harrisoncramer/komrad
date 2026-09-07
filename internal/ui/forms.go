@@ -59,12 +59,25 @@ func (f formState) isActive() bool {
 	return f.form != nil
 }
 
-// openForm puts a form on screen over the screen the panel is already on, which is where
-// closing it lands.
+// isOpening reports whether a form is on screen or is about to be, which the kind answers and the
+// built form cannot: a form is built at the width its own column gives it, so the column has to
+// be settled before there is a form to ask.
+func (f formState) isOpening() bool {
+	return f.kind != formNone
+}
+
+// openForm puts a form on screen over the screen the panel is already on, which is where closing
+// it lands, taking the window first so that a form with a column of its own is laid out in the
+// column rather than in the share of the frame the panel had a moment ago.
 func (m *model) openForm(f formState) tea.Cmd {
 	m.form = f
+	m.reconcileSolo()
 
-	return f.form.Init()
+	if m.form.form == nil {
+		m.form.form = m.form.rebuild(*m)
+	}
+
+	return tea.Batch(m.form.form.Init(), formResized())
 }
 
 // openRedrawnForm puts up a form the panel can draw again from one builder, which is every form
@@ -72,11 +85,50 @@ func (m *model) openForm(f formState) tea.Cmd {
 func (m model) openRedrawnForm(kind formKind, build func(model) *huh.Form, submit func(model) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
 	return m, m.openForm(formState{
 		kind:    kind,
-		form:    build(m),
 		update:  model.updateForm,
 		submit:  submit,
 		rebuild: build,
 	})
+}
+
+// formColumnFloor is the narrowest a form is worth drawing beside a list at, which is a field's
+// title and the prose under it without either folding.
+const formColumnFloor = 50
+
+// formColumn is the form drawn beside the list it was opened over, which the forms that ask for
+// something take and the ones that only want an answer do not, since two lines and a button have
+// nothing to fill a column with.
+func formColumn(kind formKind) (columnSpec, bool) {
+	switch kind {
+	case formAgent, formChild, formAdopt, formWorkflow, formSchedule:
+		return columnSpec{floor: formColumnFloor}, true
+	case formNone, formRename, formAgentArchive, formWorkflowArchive,
+		formScheduleArchive, formArchiveDelete, formArchiveEmpty:
+		return columnSpec{}, false
+	}
+
+	// The switch carries every kind and no default, so this is what a form added without an arm
+	// compiles to until the exhaustive check refuses it.
+	return columnSpec{}, false
+}
+
+// formResizedMsg tells the form on screen how much room it has, since huh lays a form out from
+// the window size it is sent and the window the panel was sent is not the column the form is
+// drawn in.
+type formResizedMsg struct{}
+
+func formResized() tea.Cmd {
+	return func() tea.Msg { return formResizedMsg{} }
+}
+
+// formBox is the room a form has on screen, which is its own column while it has one and the
+// panel's own pane while it does not.
+func (m model) formBox() (width, height int) {
+	if split, ok := m.columnGeometry(); ok {
+		return split.column, split.rows
+	}
+
+	return m.width, m.height - m.chromeLines()
 }
 
 // confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,
@@ -354,7 +406,7 @@ func (m *model) rebuildForm() tea.Cmd {
 	form := m.form.rebuild(*m)
 	m.form.form = form
 
-	return form.Init()
+	return tea.Batch(form.Init(), formResized())
 }
 
 // answerForm runs what the form on screen was filled in to do.
@@ -368,6 +420,8 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.answerForm()
 	}
+
+	msg = m.formSizeOf(msg)
 
 	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {
@@ -386,10 +440,24 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 }
 
+// formSizeOf turns a resize into the room the form has rather than the room the panel has, and
+// leaves every other message alone.
+func (m model) formSizeOf(msg tea.Msg) tea.Msg {
+	switch msg.(type) {
+	case formResizedMsg, tea.WindowSizeMsg:
+		width, height := m.formBox()
+
+		return tea.WindowSizeMsg{Width: width, Height: height}
+	default:
+		return msg
+	}
+}
+
 // closeForm drops the form and comes back to the screen it was drawn over.
 func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.pendingForm = false
 	m.form = formState{}
+	m.reconcileSolo()
 
 	reenter := m.screen.spec().reenter
 	if reenter == nil {
@@ -502,32 +570,13 @@ func provisionerOptions() []huh.Option[string] {
 	}
 }
 
-// formChromeLines is what the view draws above a form, a banner or a submitting notice, which
-// is room the form itself does not have.
-const formChromeLines = 2
-
-// minFormHeight is the floor a form is given on a terminal too short to hold one, since huh
-// scrolling a two-line window is still more use than a form drawn off the screen.
-const minFormHeight = 8
-
-// formHeight is the room a form has on screen, and zero until the first window size arrives so
-// that huh keeps its own default rather than being told the terminal is nothing tall.
-func (m model) formHeight() int {
-	if m.height <= 0 {
-		return 0
-	}
-
-	return max(m.height-formChromeLines, minFormHeight)
-}
-
-// workflowConfigParams is what the workflow form is drawn from: the values it edits, the hooks
-// it offers, and the height it has to fit inside.
+// workflowConfigParams is what the workflow form is drawn from: the values it edits and the
+// hooks it offers.
 type workflowConfigParams struct {
 	NameTitle string
 	Values    *workflowFormValues
 	Hooks     []hookChoice
 	Keys      config.FormKeys
-	Height    int
 }
 
 func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex int) {
@@ -554,13 +603,12 @@ func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex
 	fields = append(fields, hookFields(values, p.Hooks)...)
 	fields = append(fields, archiveOnPRClosedField(values))
 
-	// The form is taller than most terminals now, so it is given the height it has to fit in and
-	// huh scrolls it around whichever field has the cursor.
+	// The form is taller than most terminals now, so it takes its height from the resize the panel
+	// sends it and huh scrolls it around whichever field has the cursor.
 	built := huh.NewForm(huh.NewGroup(fields...)).
 		WithShowHelp(true).
 		WithKeyMap(multiFieldKeyMap(keys)).
-		WithTheme(formTheme()).
-		WithHeight(p.Height)
+		WithTheme(formTheme())
 
 	return built, toggleIndex
 }

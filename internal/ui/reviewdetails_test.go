@@ -254,24 +254,24 @@ func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	split, ok := m.reviewSplit()
+	split, ok := m.screenColumnSplit()
 	require.True(t, ok)
 	assert.Equal(t, 40, split.sidebar, "a fifth of the window")
-	assert.Equal(t, 160, split.diff)
+	assert.Equal(t, 160, split.column)
 	assert.Equal(t, 40, m.paneWidth(), "which is the column the sidebar is laid out in")
 
 	// A fifth of this window is a column of single words, so the sidebar takes what it needs and
 	// the diff keeps the rest.
 	m.width = 120
 
-	split, ok = m.reviewSplit()
+	split, ok = m.screenColumnSplit()
 	require.True(t, ok)
 	assert.Equal(t, nameWidth, split.sidebar)
-	assert.Equal(t, 90, split.diff)
+	assert.Equal(t, 90, split.column)
 
 	m.width = 45
 
-	_, ok = m.reviewSplit()
+	_, ok = m.screenColumnSplit()
 	assert.False(t, ok, "there is no room for a conversation and a gutter both")
 	assert.Equal(t, 45, m.paneWidth(), "so the sidebar takes the window")
 	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "and the diff waits")
