@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/panes"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -405,6 +406,21 @@ type recordingTmux struct {
 	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
 	keysElsewhere bool
 	zooms         []bool
+}
+
+// MovePanes replays a change's pane moves onto the fake, so a test asserting on swaps and
+// zooms sees what the frame asked for whether or not they were collected first.
+func (t *recordingTmux) MovePanes(moves []panes.Move) {
+	for _, move := range moves {
+		switch move.Kind {
+		case panes.KindZoom:
+			t.SetPaneZoomed(move.Pane, move.Zoomed)
+		case panes.KindSwap:
+			t.SwapPanes(move.Pane, move.Other)
+		case panes.KindRespawn:
+			t.RespawnPane(move.Pane, move.Dir, move.Argv...)
+		}
+	}
 }
 
 func (t *recordingTmux) IsPaneAlive(pane string) bool { return !t.deadPanes[pane] }

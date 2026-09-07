@@ -198,6 +198,15 @@ func (m *model) reconcileSolo() {
 	}
 
 	m.frame.Solo(want)
+
+	// A collected change has not moved the panes yet, so the size is read back once it has
+	// landed rather than here, where tmux would answer for the layout as it stood.
+	if m.frame.IsCollecting() {
+		m.resizeOwed = true
+
+		return
+	}
+
 	m.resize()
 }
 

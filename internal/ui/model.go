@@ -148,6 +148,9 @@ type model struct {
 	// isDark is the terminal's background, settled before the program started and never asked of
 	// lipgloss again while the panel runs.
 	isDark bool
+	// resizeOwed says the zoom moved inside a change that was still being collected, so the
+	// panel's own size is read back once the change has landed rather than before it.
+	resizeOwed bool
 }
 
 // at is the only writer of paneMeasure, handing back a model that measures its own chrome in a

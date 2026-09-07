@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/panes"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
@@ -55,24 +56,27 @@ func (t *traceTmux) GetSiblingPanes(pane string) []string {
 	return t.recordingTmux.GetSiblingPanes(pane)
 }
 
-func (t *traceTmux) SetPaneZoomed(pane string, on bool) {
-	// The real client asks tmux whether the pane is already zoomed before it acts.
-	t.note("q zoomed %s", pane)
-	if t.recordingTmux.zoomed == on {
-		return
+func (t *traceTmux) MovePanes(moves []panes.Move) {
+	t.note("PAINT %s", describeMoves(moves))
+	t.recordingTmux.MovePanes(moves)
+}
+
+// describeMoves names what one invocation of tmux carried, since it is the invocations that are
+// repaints and the moves inside one that are free.
+func describeMoves(moves []panes.Move) string {
+	described := make([]string, 0, len(moves))
+	for _, move := range moves {
+		switch move.Kind {
+		case panes.KindZoom:
+			described = append(described, fmt.Sprintf("zoom %s %v", move.Pane, move.Zoomed))
+		case panes.KindSwap:
+			described = append(described, fmt.Sprintf("swap %s <-> %s", move.Pane, move.Other))
+		case panes.KindRespawn:
+			described = append(described, fmt.Sprintf("respawn %s [%s]", move.Pane, strings.Join(move.Argv, " ")))
+		}
 	}
-	t.note("MUT zoom %s %v", pane, on)
-	t.recordingTmux.SetPaneZoomed(pane, on)
-}
 
-func (t *traceTmux) SwapPanes(src, dst string) {
-	t.note("MUT swap %s <-> %s", src, dst)
-	t.recordingTmux.SwapPanes(src, dst)
-}
-
-func (t *traceTmux) RespawnPane(pane, dir string, argv ...string) {
-	t.note("MUT respawn %s [%s]", pane, strings.Join(argv, " "))
-	t.recordingTmux.RespawnPane(pane, dir, argv...)
+	return strings.Join(described, " ; ")
 }
 
 func (t *traceTmux) ResizePane(pane, width string) {
@@ -131,17 +135,17 @@ func flickerPanel(t *testing.T) (model, *traceTmux) {
 	return m, tmux
 }
 
-// mutations is how many commands moved a pane, which is how many times tmux repaints the whole
-// window, and so how many frames the reader sees go by for one keypress.
-func mutations(trace []string) []string {
-	var moved []string
+// paints is what each invocation of tmux carried, one entry per invocation, which is one entry
+// per repaint and so per frame the reader sees go by for one keypress.
+func paints(trace []string) []string {
+	var painted []string
 	for _, line := range trace {
-		if after, ok := strings.CutPrefix(line, "MUT "); ok {
-			moved = append(moved, after)
+		if after, ok := strings.CutPrefix(line, "PAINT "); ok {
+			painted = append(painted, after)
 		}
 	}
 
-	return moved
+	return painted
 }
 
 // TestCursorMovesPaintOnce pins what one move of the cursor costs the window, since every pane
@@ -155,12 +159,12 @@ func TestCursorMovesPaintOnce(t *testing.T) {
 
 	m.tree.cursor = 0
 	m.stageSelection()
-	assert.Equal(t, []string{"zoom %0 true"}, mutations(tmux.take()),
+	assert.Equal(t, []string{"zoom %0 true"}, paints(tmux.take()),
 		"landing on a folder header covers the stage and leaves what is parked in it alone")
 
 	m.tree.cursor = 1
 	m.stageSelection()
-	assert.Equal(t, []string{"zoom %0 false"}, mutations(tmux.take()),
+	assert.Equal(t, []string{"zoom %0 false"}, paints(tmux.take()),
 		"and coming back to the agent it was parked on only uncovers it again")
 }
 
@@ -200,5 +204,6 @@ func TestCoveredStageReleasesADeadGuest(t *testing.T) {
 	m.stageSelection()
 
 	assert.Empty(t, m.frame.GuestPane(), "the dead agent's pane is put back rather than left holding the stage")
-	assert.Contains(t, mutations(tmux.take()), "swap %1 <-> %9")
+	assert.Equal(t, []string{"swap %1 <-> %9 ; respawn %1 [] ; zoom %0 true"}, paints(tmux.take()),
+		"and putting it back, blanking the stage and holding the zoom is still one repaint")
 }

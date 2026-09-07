@@ -7,6 +7,8 @@
 // them are open, so the screens ask for a region rather than for a pane id.
 package layout
 
+import "weave/internal/panes"
+
 type Region int
 
 const (
@@ -17,6 +19,7 @@ const (
 )
 
 type Tmux interface {
+	MovePanes(moves []panes.Move)
 	IsPaneAlive(pane string) bool
 	GetPaneWidth(pane string) int
 	GetPaneHeight(pane string) int
@@ -25,10 +28,7 @@ type Tmux interface {
 	SplitBelow(anchorPane, dir, size string) string
 	SplitAbove(anchorPane, dir, size string) string
 	ResizePane(pane, width string)
-	SetPaneZoomed(pane string, zoomed bool)
 	GetPaneFocus(pane string) (focused, zoomed bool)
-	SwapPanes(src, dst string)
-	RespawnPane(pane, dir string, argv ...string)
 	GetSiblingPanes(pane string) []string
 	BreakPane(pane string)
 	KillPane(pane string)

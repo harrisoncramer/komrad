@@ -420,6 +420,9 @@ func (m *model) sizeAgentWindows() {
 // running agent is the agent's own and for everything else is nothing: the panel takes the window
 // and says why there is no pane in its own frame instead.
 func (m *model) stageSelection() {
+	m.frame.Begin()
+	defer m.afterStaging()
+
 	rows := m.agentRows()
 	m.column.place(rowKeyAt(rows, m.tree.cursor))
 	m.reconcileSolo()
@@ -433,6 +436,18 @@ func (m *model) stageSelection() {
 	}
 
 	m.stageInfo()
+}
+
+// afterStaging sends the pane moves staging collected and reads the panel's own size back off
+// the layout they left, which is the one moment it is worth asking tmux for.
+func (m *model) afterStaging() {
+	m.frame.Flush()
+
+	if m.resizeOwed {
+		m.resizeOwed = false
+
+		m.resize()
+	}
 }
 
 // isGuestLive reports whether the pane parked in the stage still belongs to an agent the last

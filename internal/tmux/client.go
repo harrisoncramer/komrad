@@ -271,14 +271,15 @@ func (c *Client) ResizePane(pane, width string) {
 	c.run("resize-pane", "-t", pane, "-x", width)
 }
 
-// SetPaneZoomed gives a pane the whole window or hands the others their share back, which is
-// how the panel takes the window over for a screen that draws its own split.
+// SetPaneZoomed gives a pane the whole window or hands the others their share back, asked of
+// tmux as a condition rather than a toggle so that it costs one call and lands the same whether
+// or not the pane was already there.
 func (c *Client) SetPaneZoomed(pane string, zoomed bool) {
-	if pane == "" || c.IsPaneZoomed(pane) == zoomed {
+	if pane == "" {
 		return
 	}
 
-	c.run("resize-pane", "-Z", "-t", pane)
+	c.run(zoomArgs(pane, zoomed)...)
 }
 
 // GetPaneFocus reports whether a pane is the one its window is sending keys to and whether it is
@@ -305,7 +306,7 @@ func (c *Client) IsPaneZoomed(pane string) bool {
 		return false
 	}
 
-	out, err := c.query("display-message", "-p", "-t", pane, "#{&&:#{window_zoomed_flag},#{pane_active}}")
+	out, err := c.query("display-message", "-p", "-t", pane, zoomedFormat)
 	if err != nil {
 		return false
 	}
