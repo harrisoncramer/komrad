@@ -38,22 +38,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
-		// The transcript is wrapped into the column it is read in rather than into a pane that
-		// would fold it, so only a window that changed width has to wrap it again, and a preview
-		// that has never drawn is one the rows are still owed to.
-		rewrap := size.Width != m.width || len(m.search.preview.doc.rows) == 0
-
-		m.height = size.Height
-		m.width = size.Width
-
-		// A window that changed size is also how a divider being dragged arrives, since the panel
-		// is a pane beside the one it measures itself against.
-		m.frame.SyncSplit()
-		m.sizeAgentWindows()
-
-		if rewrap {
-			m.drawPreview()
-		}
+		m = m.resizeTo(size)
 	}
 
 	if m.fatal() != nil {
@@ -108,43 +93,77 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.routeScreenKey(key)
 	}
 
+	if next, cmd, handled := m.routeGlobalKey(key); handled {
+		return next, cmd
+	}
+
+	return m.routeScreenKey(key)
+}
+
+// resizeTo takes the panel to the size a window message reports, which is also how a divider
+// being dragged arrives, since the panel is a pane beside the one it measures itself against.
+func (m model) resizeTo(size tea.WindowSizeMsg) model {
+	// The transcript is wrapped into the column it is read in rather than into a pane that would
+	// fold it, so only a window that changed width has to wrap it again, and a preview that has
+	// never drawn is one the rows are still owed to.
+	rewrap := size.Width != m.width || len(m.search.preview.doc.rows) == 0
+
+	m.height = size.Height
+	m.width = size.Width
+
+	m.frame.SyncSplit()
+	m.sizeAgentWindows()
+
+	if rewrap {
+		m.drawPreview()
+	}
+
+	return m
+}
+
+// routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
+// took the press so the screen underneath gets whatever it left alone.
+func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	if isBound(key.String(), m.keys.Help.Toggle) {
 		m.helpExpanded = !m.helpExpanded
 
-		return m, nil
+		return m, nil, true
 	}
 
 	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
 	// answers, and the two do not line up in either direction: the mail screen holds no window and
 	// takes them, while the archive and the review draw the whole window and refuse them.
-	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Open) {
-		return m.cycleLogs()
-	}
+	if m.screen.opensInfoPane() {
+		switch {
+		case isBound(key.String(), m.keys.Logs.Open):
+			return m.cycleLogs(), nil, true
+		case isBound(key.String(), m.keys.Logs.Older):
+			return m.olderLog(), nil, true
+		case isBound(key.String(), m.keys.Terminal.Open):
+			next, cmd := m.openTerminal()
 
-	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Older) {
-		return m.olderLog()
-	}
-
-	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Terminal.Open) {
-		return m.openTerminal()
+			return next, cmd, true
+		}
 	}
 
 	// The block beside the list is the panel's own to scroll, so the keys that move it are routed
 	// here rather than repeated on every screen that draws one.
 	if direction, ok := m.isColumnScroll(key.String()); ok {
-		return m.scrollColumn(direction)
+		return m.scrollColumn(direction), nil, true
 	}
 
 	if m.isDetailsScreen() {
 		if m.isDetailsFocused() {
-			return m.updateDetails(key)
+			next, cmd := m.updateDetails(key)
+
+			return next, cmd, true
 		}
 		if isBound(key.String(), m.keys.Details.Focus) {
-			return m.toggleDetailsFocus()
+			return m.toggleDetailsFocus(), nil, true
 		}
 	}
 
-	return m.routeScreenKey(key)
+	return m, nil, false
 }
 
 func (m model) routeScreenKey(key tea.KeyMsg) (tea.Model, tea.Cmd) {

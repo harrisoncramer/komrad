@@ -9,8 +9,6 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	"weave/internal/ui/layout"
-
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 const logEnvPath = "WEAVE_LOG"
@@ -68,23 +66,23 @@ func (m model) logTarget() (agentstore.Agent, bool) {
 	return item.agent, true
 }
 
-func (m model) cycleLogs() (tea.Model, tea.Cmd) {
+func (m model) cycleLogs() model {
 	if m.setupPending {
-		return m, nil
+		return m
 	}
 
 	agent, ok := m.logTarget()
 	if !ok {
-		return m, nil
+		return m
 	}
 
 	idx := slices.Index(logCycle, m.info.kind)
 	if idx == len(logCycle)-1 {
-		return m.closeInfo(), nil
+		return m.closeInfo()
 	}
 
 	if !m.claimInfo(logCycle[idx+1], "") {
-		return m, nil
+		return m
 	}
 
 	// A mark says there is a failed run to read, so the pane opens on that run rather than on
@@ -94,31 +92,31 @@ func (m model) cycleLogs() (tea.Model, tea.Cmd) {
 	}
 	m.stageInfo()
 
-	return m, nil
+	return m
 }
 
 // olderLog steps the info pane back to the run before the one it is showing, wrapping round
 // to the most recent, since one direction reaches every run and two keys for a handful of
 // files is a key too many.
-func (m model) olderLog() (tea.Model, tea.Cmd) {
+func (m model) olderLog() model {
 	if m.info.kind != infoRunLog {
-		return m, nil
+		return m
 	}
 
 	agent, ok := m.logTarget()
 	if !ok {
-		return m, nil
+		return m
 	}
 
 	runs := config.ListRunLogs(m.runLogsDir, agent.ID)
 	if len(runs) < 2 {
-		return m, nil
+		return m
 	}
 
 	m.info.run = (m.info.run + 1) % len(runs)
 	m.stageInfo()
 
-	return m, nil
+	return m
 }
 
 // runPosition labels the older-run key with where through an agent's runs the pane has got,

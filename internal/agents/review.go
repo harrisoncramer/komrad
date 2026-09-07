@@ -369,12 +369,12 @@ func (s *ReviewService) AddReviewMessage(
 }
 
 // resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
-// leave one running for the life of the panel. A resume cut off here puts the row back as it
+// leave one running for the life of the panel, and a resume cut off here puts the row back as it
 // found it, which leaves the reviewer resumable by hand.
 const resumeWakeTimeout = hookTimeout + 5*time.Minute
 
-// wakeTheReviewer puts a reviewer back in a pane, since mail waits for one rather than making
-// one and nothing else would ever hand a dormant reviewer this doorbell. It runs on its own
+// wakeTheReviewer puts a reviewer back in a pane, since mail waits for one rather than making one
+// and nothing else would ever hand a dormant reviewer this doorbell, and it runs on its own
 // because the resume runs the workflow's post-resume hook, which is not something an agent
 // writing an answer should be held up by, and the mail is already waiting whenever it lands.
 func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore.Agent) {
@@ -405,11 +405,12 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 	}
 
 	reviewer, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
-	if err != nil || reviewer == nil {
-		if err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the reviewer to tell about a review answer",
-				append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
-		}
+	if errors.Is(err, ErrNoLiveReviewer) {
+		return
+	}
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the reviewer to tell about a review answer",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
 
 		return
 	}

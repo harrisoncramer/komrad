@@ -49,6 +49,10 @@ var (
 	// its work, which stays with the change across every round rather than one per round.
 	ErrReviewerAlreadyRunning = errors.New("this agent already has a reviewer")
 
+	// ErrNoLiveReviewer says the agent has no reviewer still owed an answer, which is the state a
+	// change starts in and the state an approval leaves it in.
+	ErrNoLiveReviewer = errors.New("this agent has no reviewer still reading its work")
+
 	// ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
 	// parent and that parent's other children.
 	ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")

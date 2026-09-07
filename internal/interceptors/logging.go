@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"net/http"
 	"strings"
 	"time"
 
@@ -42,7 +41,7 @@ func (l *loggingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc
 			slog.String(logging.ClientAddress, req.Peer().Addr),
 		}
 
-		from := caller.FromHeader(http.Header(req.Header()))
+		from := caller.FromHeader(req.Header())
 		attrs = append(attrs, callerAttrs(from)...)
 
 		logger := l.logger.With(logging.Attrs(attrs)...)

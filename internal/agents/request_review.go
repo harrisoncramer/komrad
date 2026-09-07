@@ -57,7 +57,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 	}
 
 	running, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
-	if err != nil {
+	if err != nil && !errors.Is(err, ErrNoLiveReviewer) {
 		return nil, "", err
 	}
 	if running != nil {
@@ -89,8 +89,8 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 
 // liveReviewerFor is the reviewer an agent still has to answer to, which is what keeps one
 // reviewer on a change for all of its rounds rather than a second one arriving at the round after
-// the first. One that approved is skipped, since approved is the end of what it has to say and
-// the agent's next piece of work needs a reader of its own.
+// the first, and skips one that approved, since approved is the end of what it has to say and the
+// agent's next piece of work needs a reader of its own.
 func liveReviewerFor(
 	ctx context.Context,
 	agents childLister,
@@ -118,7 +118,7 @@ func liveReviewerFor(
 		return &child, nil
 	}
 
-	return nil, nil
+	return nil, fmt.Errorf("%w: %q", ErrNoLiveReviewer, author.Name)
 }
 
 // hasApproved reports whether the last thing a reviewer let go of was an approval, which is the

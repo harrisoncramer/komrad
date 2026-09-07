@@ -13,7 +13,7 @@ import (
 // and the provisioning of their directories, all of which must land together so a caller
 // outside a transaction gets one through InTx.
 func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
-	configID, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
+	config, err := s.queries.InsertWorkflowConfig(ctx, models.InsertWorkflowConfigParams{
 		Harness: cfg.Harness,
 		Cwd:     cfg.Cwd,
 		Flags:   cfg.Flags,
@@ -22,7 +22,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, fmt.Errorf("failed to insert config for workflow %q: %w", cfg.Name, err)
 	}
 
-	provisionerConfigID, err := s.queries.InsertWorkflowProvisionerConfig(ctx, models.InsertWorkflowProvisionerConfigParams{
+	provisioner, err := s.queries.InsertWorkflowProvisionerConfig(ctx, models.InsertWorkflowProvisionerConfigParams{
 		WorktreeEnabled:      cfg.Worktree.Enabled,
 		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
 		WorktreeDir:          cfg.Worktree.Dir,
@@ -38,8 +38,8 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 	row, err := s.queries.InsertWorkflow(ctx, models.InsertWorkflowParams{
 		Name:                cfg.Name,
 		Context:             cfg.Context,
-		WorkflowConfigID:    configID,
-		ProvisionerConfigID: provisionerConfigID,
+		WorkflowConfigID:    config.ID,
+		ProvisionerConfigID: provisioner.ID,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to create workflow %q: %w", cfg.Name, err)
@@ -49,19 +49,12 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, err
 	}
 
-	workflow := workflowFromRow(*row, workflowConfigFields{
-		Harness: cfg.Harness,
-		Cwd:     cfg.Cwd,
-		Flags:   cfg.Flags,
-	}, provisionerConfigFields{
-		WorktreeEnabled:      cfg.Worktree.Enabled,
-		WorktreeBaseBranch:   cfg.Worktree.BaseBranch,
-		WorktreeDir:          cfg.Worktree.Dir,
-		WorktreeCopyPaths:    orEmpty(cfg.Worktree.CopyPaths),
-		WorktreeSymlinkPaths: orEmpty(cfg.Worktree.SymlinkPaths),
-		WorktreeDiffExclude:  orEmpty(cfg.Worktree.DiffExclude),
-		ArchiveOnPRClosed:    cfg.ArchiveOnPRClosed,
-	}, cfg.Hooks)
+	workflow := workflowFromRow(workflowRow{
+		Workflow:    *row,
+		Config:      *config,
+		Provisioner: *provisioner,
+		Hooks:       cfg.Hooks,
+	})
 
 	return &workflow, nil
 }

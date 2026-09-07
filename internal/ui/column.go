@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 )
@@ -27,7 +26,11 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 
 	sidebar = min(max(sidebar, 1), width-1)
 
-	return columnSplit{column: width - sidebar, sidebar: sidebar, rows: rows}, true
+	return columnSplit{
+		column:  width - sidebar,
+		sidebar: sidebar,
+		rows:    rows,
+	}, true
 }
 
 // columnFloor is the narrowest a document is worth drawing beside a list at, which is about as
@@ -278,22 +281,26 @@ func (m model) columnDoc(split columnSplit) docWindow {
 		return docWindow{}
 	}
 
-	return docWindow{rows: docRows(spec.doc(m), split.column), top: m.column.top, markers: true}
+	return docWindow{
+		rows:    docRows(spec.doc(m), split.column),
+		top:     m.column.top,
+		markers: true,
+	}
 }
 
 // scrollColumn moves the block beside the list, clamped to what is left of it so the reader cannot
 // scroll a short document off the top of its own column.
-func (m model) scrollColumn(direction int) (tea.Model, tea.Cmd) {
+func (m model) scrollColumn(direction int) model {
 	split, ok := m.screenColumnSplit()
 	if !ok {
-		return m, nil
+		return m
 	}
 
 	doc := m.columnDoc(split)
 	doc.scroll(direction*docScrollStep, split.rows)
 	m.column.top = doc.top
 
-	return m, nil
+	return m
 }
 
 // isColumnScroll reports whether a key moves the block beside the list, which it does only on a
