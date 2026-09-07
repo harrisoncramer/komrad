@@ -1,7 +1,9 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
+	"time"
 
 	"weave/internal/errui"
 )
@@ -24,12 +26,25 @@ func (m model) View() string {
 	var chrome string
 	switch {
 	case m.pendingForm:
-		chrome = dimStyle.Render("  submitting…") + "\n\n"
+		chrome = dimStyle.Render(submittingNotice(m.pendingSince, time.Now())) + "\n\n"
 	case m.banner != nil:
 		chrome = m.banner.Render(m.width)
 	}
 
 	return m.fitFrame(strings.TrimRight(chrome+m.screenView(), "\n"))
+}
+
+// submittingNotice is the line drawn over a held form, counting up once the write has taken long
+// enough that a still line would read as a wedged panel.
+func submittingNotice(since, now time.Time) string {
+	const patience = 2 * time.Second
+
+	elapsed := now.Sub(since)
+	if since.IsZero() || elapsed < patience {
+		return "  submitting…"
+	}
+
+	return fmt.Sprintf("  submitting… %ds", int(elapsed.Seconds()))
 }
 
 // fitFrame pads the panel out to the height of its pane, so a shorter frame covers the rows the

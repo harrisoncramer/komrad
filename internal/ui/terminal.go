@@ -29,10 +29,6 @@ func terminalContent(shell, dir string) layout.Content {
 // openTerminal puts a shell in the pane below the stage, rooted at the hovered agent's directory,
 // and moves the shell there when the key is pressed over an agent it is not already rooted in.
 func (m model) openTerminal() (tea.Model, tea.Cmd) {
-	if m.setupPending {
-		return m, nil
-	}
-
 	focus := func() (tea.Model, tea.Cmd) {
 		m.tmux.SelectPane(m.frame.Pane(layout.RegionInfo))
 

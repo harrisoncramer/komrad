@@ -88,7 +88,6 @@ type createAgentParams struct {
 	Flags            string
 	ProvisionEnabled *bool
 	WorkflowID       string
-	SetupPane        string
 	ParentAgentID    string
 }
 
@@ -112,7 +111,6 @@ func (a api) createAgent(params createAgentParams) (*agentv1.Agent, error) {
 			Flags:            params.Flags,
 			ProvisionEnabled: params.ProvisionEnabled,
 			WorkflowId:       params.WorkflowID,
-			SetupPane:        params.SetupPane,
 			ParentAgentId:    nilIfBlank(params.ParentAgentID),
 		}))
 		if err != nil {
@@ -130,7 +128,6 @@ type adoptParams struct {
 	Harness    string
 	Flags      string
 	WorkflowID string
-	SetupPane  string
 }
 
 func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
@@ -142,7 +139,6 @@ func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
 			Harness:    params.Harness,
 			Flags:      params.Flags,
 			WorkflowId: params.WorkflowID,
-			SetupPane:  params.SetupPane,
 		}))
 		if err != nil {
 			return nil, err

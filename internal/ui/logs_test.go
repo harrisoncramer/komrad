@@ -141,33 +141,6 @@ func TestCycleLogsDoesNothingWithoutASelectedAgent(t *testing.T) {
 	assert.Empty(t, tmux.respawns)
 }
 
-// TestCycleLogsBlockedWhileASetupIsStreaming pins that a setup still writing to the pane is
-// left alone rather than paged over.
-func TestCycleLogsBlockedWhileASetupIsStreaming(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, _ := logsModel(t, tmux)
-	m.info.kind = infoSetup
-	m.setupPending = true
-
-	shown := pressLogs(t, m)
-
-	assert.Equal(t, infoSetup, shown.info.kind, "the live pane is left alone rather than hijacked")
-	assert.Empty(t, tmux.respawns)
-}
-
-// TestCycleLogsWorksAfterASetupHasResolved pins that a finished setup stops blocking the key,
-// even while its pane is still up.
-func TestCycleLogsWorksAfterASetupHasResolved(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, _ := logsModel(t, tmux)
-	m.info.kind = infoSetup
-	m.setupPending = false
-
-	shown := pressLogs(t, m)
-
-	assert.Equal(t, infoRunLog, shown.info.kind, "a resolved create no longer blocks the key, even though the crash pane is still up")
-}
-
 // TestCycleLogsSurvivesACursorMove pins that moving the cursor leaves the staged log where it
 // is rather than resetting the stop.
 func TestCycleLogsSurvivesACursorMove(t *testing.T) {

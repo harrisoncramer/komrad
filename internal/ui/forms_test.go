@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -16,7 +17,6 @@ import (
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
-	"weave/internal/caller"
 	agentstore "weave/internal/store/agent"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
@@ -493,40 +493,25 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	}
 }
 
-// refusedAfterProvision is the refusal a provisioner that ran and failed comes back as,
-// which the service marks so the panel does not print what the pane is already showing.
-func refusedAfterProvision(message string) error {
-	refused := connect.NewError(connect.CodeFailedPrecondition, errors.New(message))
-	refused.Meta().Set(caller.SetupRanHeader, "true")
-
-	return refused
-}
-
-// TestNewAgentSubmitClosesImmediately covers the new-agent form closing on submit rather than
-// holding for the write, since a provisioner can run for minutes.
-func TestNewAgentSubmitClosesImmediately(t *testing.T) {
+// TestNewAgentSubmitHoldsTheForm covers the new-agent form staying up with the submitting
+// notice over it until the create lands, rather than tearing the view down to stream a
+// provisioner into a pane of its own.
+func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 	tests := []struct {
 		name       string
 		refuse     error
-		wantOpen   bool
 		wantDetail string
 	}{
 		{name: "a create that lands"},
 		{
 			name:       "a setup that fails",
-			refuse:     refusedAfterProvision("the provisioner failed: exit 7"),
-			wantOpen:   true,
-			wantDetail: "the setup failed, and its output is in the pane it ran in",
+			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("the provisioner failed: exit 7")),
+			wantDetail: "the provisioner failed: exit 7",
 		},
 		{
 			name:       "a create refused before the provisioner ever ran",
 			refuse:     connect.NewError(connect.CodeInvalidArgument, errors.New("not allowed")),
 			wantDetail: "not allowed",
-		},
-		{
-			name:       "a refusal the provisioner never got as far as",
-			refuse:     connect.NewError(connect.CodeFailedPrecondition, errors.New("that branch is already checked out")),
-			wantDetail: "that branch is already checked out",
 		},
 	}
 
@@ -551,31 +536,28 @@ func TestNewAgentSubmitClosesImmediately(t *testing.T) {
 			updated, cmd := m.answerForm()
 			m = asModel(t, updated)
 
-			assert.False(t, m.form.isActive(), "the form is gone the moment it was submitted")
-			assert.Equal(t, screenAgents, m.screen, "and the list it was drawn over is back")
-			assert.False(t, m.pendingForm)
-			assert.Equal(t, infoSetup, m.info.kind, "a pane opened for the provisioner to stream into")
-			assert.Equal(t, "%2", recorder.infoPane)
+			assert.True(t, m.form.isActive(), "the form is still up while the create is in flight")
+			assert.True(t, m.pendingForm)
+			assert.False(t, m.pendingSince.IsZero(), "and the notice over it has something to count from")
+			assert.Equal(t, infoNothing, m.info.kind, "no pane is opened for the provisioner")
+			assert.Empty(t, recorder.infoPane)
 
 			got := settle(t, m, cmd)
 
 			if tt.refuse != nil {
 				require.NotNil(t, got.banner, "a refused create is reported")
 				assert.Equal(t, tt.wantDetail, got.banner.Detail)
-
-				if tt.wantOpen {
-					assert.Equal(t, infoSetup, got.info.kind, "left up so what the provisioner printed can still be read")
-				} else {
-					assert.Equal(t, infoNothing, got.info.kind, "nothing ran in it, so it closes with the refusal")
-				}
+				assert.Equal(t, formAgent, got.form.kind, "and the form it came from is still up")
 
 				return
 			}
 
 			assert.Nil(t, got.banner)
-			assert.Equal(t, infoNothing, got.info.kind, "closed once the create it was for has landed")
+			assert.False(t, got.form.isActive(), "the form goes once the create has landed")
+			assert.False(t, got.pendingForm)
+			assert.Equal(t, infoNothing, got.info.kind)
 			require.NotNil(t, sent.createdAgent)
-			assert.Equal(t, "%2", sent.createdAgent.GetSetupPane())
+			assert.Empty(t, sent.createdAgent.GetSetupPane(), "the panel asks for no pane to stream into")
 		})
 	}
 }
@@ -1316,4 +1298,14 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 	}
 
 	assert.Equal(t, before, values.toConfig().Hooks, "walking the form leaves every moment as it was")
+}
+
+// TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is
+// quick and starts counting once it is not, so a slow provisioner does not read as a wedge.
+func TestSubmittingNoticeCountsUp(t *testing.T) {
+	since := time.Now()
+
+	assert.Equal(t, "  submitting…", submittingNotice(time.Time{}, since))
+	assert.Equal(t, "  submitting…", submittingNotice(since, since.Add(time.Second)))
+	assert.Equal(t, "  submitting… 12s", submittingNotice(since, since.Add(12*time.Second)))
 }

@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"weave/internal/client"
-	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
@@ -219,10 +218,9 @@ func (r refreshResult) err() error {
 }
 
 type writeResult struct {
-	summary   string
-	err       error
-	written   *written
-	setupPane bool
+	summary string
+	err     error
+	written *written
 }
 
 type written struct {
@@ -360,17 +358,12 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 	return func() tea.Msg {
 		agent, err := clients.createAgent(params)
 		if err != nil {
-			return writeResult{
-				summary:   "Could not start the agent",
-				err:       err,
-				setupPane: params.SetupPane != "",
-			}
+			return writeResult{summary: "Could not start the agent", err: err}
 		}
 
 		return writeResult{
-			summary:   "Could not start the agent",
-			written:   &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			setupPane: params.SetupPane != "",
+			summary: "Could not start the agent",
+			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
 		}
 	}
 }
@@ -384,17 +377,12 @@ func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 
 		agent, err := clients.adopt(params)
 		if err != nil {
-			return writeResult{
-				summary:   summary,
-				err:       err,
-				setupPane: params.SetupPane != "",
-			}
+			return writeResult{summary: summary, err: err}
 		}
 
 		return writeResult{
-			summary:   summary,
-			written:   &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			setupPane: params.SetupPane != "",
+			summary: summary,
+			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
 		}
 	}
 }
@@ -426,14 +414,7 @@ func (m *model) beginWrite() {
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 	m.pending--
 
-	// Only a script that ran leaves its reason in the pane, and every other failure is left
-	// unexplained if the banner stays quiet on the strength of the pane being open.
-	setupRan := result.setupPane && errui.DidSetupRun(result.err)
-	if setupRan {
-		m.reportBrief(result.summary, "the setup failed, and its output is in the pane it ran in", result.err)
-	} else {
-		m.report(result.summary, result.err)
-	}
+	m.report(result.summary, result.err)
 
 	if result.written != nil {
 		m.enterScreen(screenAgents)
@@ -445,14 +426,6 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			m.frame.Solo(false)
 			m.resize()
 			m.frame.ShowGuest(result.written.pane)
-		}
-	}
-
-	if result.setupPane {
-		m.setupPending = false
-
-		if m.info.kind == infoSetup && !setupRan {
-			m = m.closeInfo()
 		}
 	}
 

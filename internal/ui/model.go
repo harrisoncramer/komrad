@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"weave/config"
 	"weave/internal/errui"
@@ -110,7 +111,9 @@ type model struct {
 	marks         markState
 	form          formState
 	pendingForm   bool
-	setupPending  bool
+	// pendingSince is when the write the form is being held for was sent, which the notice above
+	// the form counts up from so a provisioner taking its time does not read as a wedged panel.
+	pendingSince  time.Time
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings
