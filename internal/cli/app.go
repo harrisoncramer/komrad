@@ -20,7 +20,6 @@ type app struct {
 	processViewer  string
 	logLevel       string
 	layout         config.Layout
-	focusKey       string
 	configErr      error
 	contextPath    string
 	configPaths    []string

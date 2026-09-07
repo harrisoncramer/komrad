@@ -16,8 +16,6 @@ Your own server is where you work. Weave's server, named by `WEAVE_TMUX_SOCKET` 
 
 The panel reaches you through a popup. Pressing the weave keybinding runs a tmux popup on _your_ server whose command _attaches to the manager session_ on weave's server. Hiding the panel detaches that client. This leaves the session and every agent running in the background.
 
-Inside the panel, focus moves between the sidebar and the pane you were working in with `C-a`. That one is bound outside tmux's prefix table on weave's own server, because a pane running an agent hands every key it gets to that agent, so the panel's own bindings never see one. It is the only key weave takes that way, and the agents in those panes lose it, so `[panel] focus_key` in your config renames it or, left empty, binds nothing. A press with nowhere to go back to does nothing. Your own tmux server never sees this binding, but it does see the key first: if `C-a` is your prefix, weave's binding is never reached and you want another key here.
-
 ## Weave's API
 
 Every call into weave goes through an API. The panel calls them as a ConnectRPC client.

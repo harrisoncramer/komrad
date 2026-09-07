@@ -46,11 +46,6 @@ info_height    = 0.4
 # How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
 details_height = 0.33
 
-# How the panel itself behaves.
-[panel]
-# The tmux key, named the way tmux names one, that moves focus to the panel from any pane inside it and back to that pane on the next press. Empty binds nothing.
-focus_key = "C-a"
-
 # Panel keybindings, scoped to the screen each binding acts in.
 
 # The agents list, the panel's main screen.
