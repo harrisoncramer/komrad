@@ -536,7 +536,8 @@ func (m model) agentsView() string {
 }
 
 func (m model) agentsListView() string {
-	below := m.detailsView() + m.renderHelp(m.agentHelp())
+	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
+	below := record + m.messagesRegion(record, help) + help
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))

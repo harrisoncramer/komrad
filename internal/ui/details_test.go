@@ -2,6 +2,7 @@ package ui
 
 import (
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -602,4 +603,36 @@ func countOf(labels []string, want string) int {
 	}
 
 	return seen
+}
+
+// TestDetailsKeepsToSevenLinesByDefault covers the section on a tall sidebar, where the default is
+// a line count rather than a share, so the room the list gains from a taller pane stays with it.
+func TestDetailsKeepsToSevenLinesByDefault(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height = 60
+	m.detailsHeight = config.DefaultDetailsHeight
+
+	assert.Equal(t, 7, m.detailsLines())
+}
+
+// TestDetailsScrollPastTheLinesItHas covers a record with more fields than the section draws,
+// which windows around the cursor and says how many are left over on either side of it.
+func TestDetailsScrollPastTheLinesItHas(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.detailsHeight = 60, config.DefaultDetailsHeight
+	for i := range 12 {
+		m.listing.agents[0].agent.Metadata = append(m.listing.agents[0].agent.Metadata, agentstore.Metadata{
+			Key:   fmt.Sprintf("key%d", i),
+			Value: fmt.Sprintf("value%d", i),
+		})
+	}
+
+	held := m.hoveredDetails()
+	require.Greater(t, len(held.fields), m.detailsLines())
+
+	assert.Contains(t, m.detailsView(), "↓")
+
+	bottom := m.setDetailsCursor(held, len(held.fields)-1)
+
+	assert.Contains(t, bottom.detailsView(), "↑")
 }

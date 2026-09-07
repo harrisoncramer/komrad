@@ -249,8 +249,8 @@ func TestChildKeyOnAChildIsRefused(t *testing.T) {
 	refused, ok := next.(model)
 	require.True(t, ok)
 
-	require.NotNil(t, refused.banner)
-	assert.Contains(t, refused.banner.Detail, "may not have children")
+	require.NotEmpty(t, refused.messages.items)
+	assert.Contains(t, newestMessage(refused).detail, "may not have children")
 }
 
 // TestHiddenChildCountsOnItsParent pins the tally landing on the row the child hangs off rather

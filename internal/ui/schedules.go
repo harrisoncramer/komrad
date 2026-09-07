@@ -273,7 +273,8 @@ func (m model) schedulesView() string {
 }
 
 func (m model) schedulesListView() string {
-	below := m.detailsView() + m.renderHelp(m.scheduleHelp())
+	record, help := m.detailsView(), m.renderHelp(m.scheduleHelp())
+	below := record + m.messagesRegion(record, help) + help
 
 	all := m.scheduleRows()
 	if len(all) == 0 {

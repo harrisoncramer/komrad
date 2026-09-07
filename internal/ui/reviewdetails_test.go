@@ -25,8 +25,12 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 
 	assert.Contains(t, view, "Agent: auth")
 	assert.Contains(t, view, "agent_id")
-	assert.Contains(t, view, "base", "the commit the diff was taken from")
-	assert.Contains(t, view, "snapshot", "the commit the diff on screen was frozen as")
+
+	held := m.hoveredDetails()
+	bottom := ansi.Strip(m.setDetailsCursor(held, len(held.fields)-1).reviewView())
+
+	assert.Contains(t, bottom, "base", "the commit the diff was taken from")
+	assert.Contains(t, bottom, "snapshot", "the commit the diff on screen was frozen as")
 }
 
 // TestReviewRecordNamesWhatTheDiffIsAgainst covers the record naming the two commits the diff

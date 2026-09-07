@@ -55,7 +55,7 @@ func (m model) openTerminal() (tea.Model, tea.Cmd) {
 	if _, err := os.Stat(agent.Cwd); err != nil {
 		m.report("Could not open a terminal", err)
 
-		// The shell up is still worth the keyboard, and the banner says why it did not move.
+		// The shell up is still worth the keyboard, and the message says why it did not move.
 		if up {
 			return focus()
 		}

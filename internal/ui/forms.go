@@ -161,7 +161,7 @@ func (m model) formBox() (width, height int) {
 		return split.column, max(split.rows-formHelpLines-held, 1)
 	}
 
-	return m.width, max(m.height-m.chromeLines()-formHelpLines-held, 1)
+	return m.width, max(m.height-formHelpLines-held, 1)
 }
 
 // confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,

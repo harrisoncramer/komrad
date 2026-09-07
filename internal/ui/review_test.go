@@ -334,9 +334,9 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 
 	assert.Equal(t, screenAgents, m.screen, "the reader is put back on the listing")
 	assert.Zero(t, m.review, "the refused review keeps nothing")
-	require.NotNil(t, m.banner)
-	assert.Contains(t, m.banner.Summary, "Nothing to review")
-	assert.Contains(t, m.banner.Detail, "no change")
+	require.NotEmpty(t, m.messages.items)
+	assert.Contains(t, newestMessage(m).summary, "Nothing to review")
+	assert.Contains(t, newestMessage(m).detail, "no change")
 }
 
 // TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has

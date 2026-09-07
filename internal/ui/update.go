@@ -69,21 +69,26 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A mark binding owns the key after it, whatever that key is otherwise bound to, and takes it
-	// ahead of the banner's own escape, which would otherwise eat the press that backs out of a
-	// mark and leave the panel waiting for a letter with nothing on screen saying so.
+	// A mark binding owns the key after it, whatever that key is otherwise bound to, since a key
+	// bound elsewhere would otherwise eat the press that backs out of a mark and leave the panel
+	// waiting for a letter with nothing on screen saying so.
 	if isKey && m.marks.pending != markPendingNone {
 		return m.readMark(key)
 	}
 
-	if isKey && m.banner != nil && !m.form.isActive() && key.String() == "esc" {
-		m.banner = nil
-
-		return m, nil
-	}
-
 	if next, cmd, handled := m.routeAsyncMessage(msg); handled {
 		return next, cmd
+	}
+
+	// Reached before the form and before a held write, since a refusal reported by a form is the
+	// one whose whole reason a person most needs, and the form owns every other key.
+	if isKey && m.isMessagesRegion() {
+		switch {
+		case m.isMessagesFocused():
+			return m.updateMessages(key), nil
+		case key.String() == messagesFocusKey:
+			return m.toggleMessagesFocus(), nil
+		}
 	}
 
 	if isKey && m.held.active {
@@ -173,6 +178,10 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	// here rather than repeated on every screen that draws one.
 	if direction, ok := m.isColumnScroll(key.String()); ok {
 		return m.scrollColumn(direction), nil, true
+	}
+
+	if m.isMessagesRegion() && key.String() == messagesMockKey {
+		return m.pushMockMessage(), nil, true
 	}
 
 	if m.isDetailsScreen() {

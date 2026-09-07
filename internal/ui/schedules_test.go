@@ -115,7 +115,7 @@ func TestScheduleKeys(t *testing.T) {
 			assert.Equal(t, tt.wantScreen, got.screen)
 			assert.Equal(t, tt.wantForm, got.form.kind, "the form that opened, if any")
 			assert.Equal(t, tt.wantWrites, client.writes)
-			assert.Equal(t, tt.wantReported, got.banner != nil, "whether the panel had something to say")
+			assert.Equal(t, tt.wantReported, len(got.messages.items) > 0, "whether the panel had something to say")
 		})
 	}
 }
@@ -433,8 +433,8 @@ func TestScheduleWriteFailure(t *testing.T) {
 
 			got := tt.act(t, m)
 
-			require.NotNil(t, got.banner, "a refused write has to be reported")
-			assert.Contains(t, got.banner.Render(got.width), tt.wantErr)
+			require.NotEmpty(t, got.messages.items, "a refused write has to be reported")
+			assert.Contains(t, newestMessage(got).summary+" "+newestMessage(got).detail, tt.wantErr)
 		})
 	}
 }

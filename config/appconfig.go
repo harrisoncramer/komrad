@@ -102,9 +102,9 @@ const (
 	DefaultSidebarWidth = 30
 	DefaultInfoSide     = InfoSideBelow
 	DefaultInfoHeight   = 0.4
-	// DefaultDetailsHeight leaves the list twice the room the record under it takes, which
-	// holds an agent's fields without the list it belongs to shrinking to a handful of rows.
-	DefaultDetailsHeight = 0.33
+	// DefaultDetailsHeight holds a record's first fields and scrolls the rest, since a share of
+	// the sidebar takes room off the list on a tall screen without showing any more of a record.
+	DefaultDetailsHeight = 7
 )
 
 // Where each region of the panel's layout can sit.

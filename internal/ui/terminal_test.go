@@ -227,8 +227,8 @@ func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 
 	assert.Equal(t, dir, refused.info.subject)
 	assert.Equal(t, []string{dir}, infoRespawns(tmux))
-	require.NotNil(t, refused.banner)
-	assert.Contains(t, refused.banner.Summary, "Could not open a terminal")
+	require.NotEmpty(t, refused.messages.items)
+	assert.Contains(t, newestMessage(refused).summary, "Could not open a terminal")
 	assert.Equal(t, []string{"%2", "%2"}, tmux.selected)
 }
 
@@ -258,8 +258,8 @@ func TestTerminalRefusesAMissingDirectory(t *testing.T) {
 
 	assert.Equal(t, infoNothing, shown.info.kind)
 	assert.Empty(t, tmux.respawns)
-	require.NotNil(t, shown.banner)
-	assert.Contains(t, shown.banner.Summary, "Could not open a terminal")
+	require.NotEmpty(t, shown.messages.items)
+	assert.Contains(t, newestMessage(shown).summary, "Could not open a terminal")
 }
 
 // TestTerminalDoesNothingWithoutAnAgent pins that the key is inert on a workflow header, which

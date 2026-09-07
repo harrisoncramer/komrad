@@ -334,7 +334,7 @@ func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 
 			got := settle(t, submitted, cmd)
 
-			require.Nil(t, got.banner, "the service accepted the write")
+			require.Empty(t, got.messages.items, "the service accepted the write")
 			assert.False(t, got.form.isActive(), "a write the service took closes the form")
 			tt.check(t, sent)
 		})
@@ -481,9 +481,9 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			updated, cmd := tt.submit(m)
 			got := settle(t, asModel(t, updated), cmd)
 
-			require.NotNil(t, got.banner, "a refused write is reported")
-			assert.Equal(t, "not allowed", got.banner.Detail)
-			assert.Equal(t, "fix and submit again", got.banner.Hint, "esc backs out of the form rather than clearing the banner")
+			require.NotEmpty(t, got.messages.items, "a refused write is reported")
+			assert.Equal(t, "not allowed", newestMessage(got).detail)
+			assert.Equal(t, "fix and submit again", newestMessage(got).hint, "esc backs out of the form rather than clearing the banner")
 			assert.Equal(t, tt.form, got.form.kind, "the form is still up and owns the keys")
 			assert.Equal(t, tt.typed, held(), "and still holds what was filled in")
 			assert.NotEqual(t, huh.StateCompleted, got.form.form.State, "a completed form draws as nothing, so the form is built back")
@@ -545,14 +545,14 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 			got := settle(t, m, cmd)
 
 			if tt.refuse != nil {
-				require.NotNil(t, got.banner, "a refused create is reported")
-				assert.Equal(t, tt.wantDetail, got.banner.Detail)
+				require.NotEmpty(t, got.messages.items, "a refused create is reported")
+				assert.Equal(t, tt.wantDetail, newestMessage(got).detail)
 				assert.Equal(t, formAgent, got.form.kind, "and the form it came from is still up")
 
 				return
 			}
 
-			assert.Nil(t, got.banner)
+			assert.Empty(t, got.messages.items)
 			assert.False(t, got.form.isActive(), "the form goes once the create has landed")
 			assert.False(t, got.held.active)
 			assert.Equal(t, infoNothing, got.info.kind)
@@ -667,7 +667,7 @@ func TestArchivePromptChoices(t *testing.T) {
 
 			got := deliver(t, m, keyMsg("ctrl+s"))
 
-			require.Nil(t, got.banner)
+			require.Empty(t, got.messages.items)
 			assert.Equal(t, screenAgents, got.screen, "every answer lands back on the list")
 			assert.Equal(t, tt.wantArchived, sent.archivedAgents.GetIds())
 			assert.Equal(t, tt.wantDeleted, sent.deletedAgents.GetIds())
@@ -711,8 +711,8 @@ func TestArchivePromptKeepsTheRecordWhenTheArchiveIsRefused(t *testing.T) {
 	submitted, cmd := m.form.update(m, keyMsg("enter"))
 	got := settle(t, asModel(t, submitted), cmd)
 
-	require.NotNil(t, got.banner, "the refusal is reported")
-	assert.Equal(t, `Could not archive and delete agent "api-refactor"`, got.banner.Summary)
+	require.NotEmpty(t, got.messages.items, "the refusal is reported")
+	assert.Equal(t, `Could not archive and delete agent "api-refactor"`, newestMessage(got).summary)
 	assert.Nil(t, sent.deletedAgents, "nothing was destroyed")
 }
 
@@ -1328,7 +1328,7 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 
 	got := settle(t, m, cmd)
 
-	assert.Nil(t, got.banner)
+	assert.Empty(t, got.messages.items)
 	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
 	assert.Equal(t, agentRowKey("somewhere-else"), got.tree.focus, "and it lands without taking the cursor back")
 }

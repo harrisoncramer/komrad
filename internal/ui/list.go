@@ -20,22 +20,12 @@ func (m model) spareLines(chrome ...string) int {
 		return 0
 	}
 
-	lines := m.height - m.chromeLines()
+	lines := m.height
 	for _, part := range chrome {
 		lines -= strings.Count(part, "\n")
 	}
 
 	return lines
-}
-
-// chromeLines is what the view draws above whatever screen is up, which is room that screen does
-// not have.
-func (m model) chromeLines() int {
-	if m.banner == nil {
-		return 0
-	}
-
-	return strings.Count(m.banner.Render(m.bannerWidth()), "\n")
 }
 
 func renderList(rows []string, cursor, lines int) string {

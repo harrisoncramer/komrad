@@ -383,7 +383,7 @@ func TestWorkflowEditFormRoundTripsTheStoredConfig(t *testing.T) {
 	updated, cmd := editing.answerForm()
 	submitted, ok := updated.(model)
 	require.True(t, ok)
-	require.Nil(t, settle(t, submitted, cmd).banner, "the service accepted the write")
+	require.Empty(t, settle(t, submitted, cmd).messages.items, "the service accepted the write")
 
 	require.NotNil(t, sent.updatedWorkflow)
 	assert.Equal(t, "/work/api", sent.updatedWorkflow.GetCwd())
@@ -415,7 +415,7 @@ func TestWorkflowRenameKeepsTheRestOfTheConfig(t *testing.T) {
 	updated, cmd := renaming.answerForm()
 	submitted, ok := updated.(model)
 	require.True(t, ok)
-	require.Nil(t, settle(t, submitted, cmd).banner, "the service accepted the write")
+	require.Empty(t, settle(t, submitted, cmd).messages.items, "the service accepted the write")
 
 	require.NotNil(t, sent.updatedWorkflow)
 	assert.Equal(t, "backend", sent.updatedWorkflow.GetName())

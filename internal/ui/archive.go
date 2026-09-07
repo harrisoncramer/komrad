@@ -406,7 +406,8 @@ func (m model) archiveView() string {
 }
 
 func (m model) archiveListView() string {
-	below := m.detailsView() + m.renderHelp(m.archiveHelp())
+	record, help := m.detailsView(), m.renderHelp(m.archiveHelp())
+	below := record + m.messagesRegion(record, help) + help
 
 	all := m.archiveRows()
 	if len(all) == 0 {

@@ -52,7 +52,7 @@ it lands back on the list it went up beside. The info region is what is open in 
 below, which stays put as the user moves between lists above it. The frame is the panel's own
 tmux layout.
 
-Panel chrome is the rest: the banner over a refused write, the errors that replace the panel,
+Panel chrome is the rest: the messages a refused write is reported as, the errors that replace the panel,
 the keybindings, the dimensions of its own pane.
 
 ## How data arrives
@@ -82,7 +82,7 @@ into a command that calls the service through api.go. Nothing on screen changes 
 
 The command runs off the render loop and comes back as a message. On success the panel
 re-lists, so what appears is what the service stored rather than what the panel assumed. On
-a refusal the banner goes up over the screen it happened on and nothing else moves, which is
+a refusal the message goes into the region under the record and nothing else moves, which is
 what makes a refused delete different from a keypress that never registered: the row is still
 there either way.
 
@@ -131,8 +131,8 @@ around itself and is the only thing here that talks to tmux.
 
 ## Why the errors live in another package
 
-internal/errui holds the failures that replace the panel, and the banner that reports a
-refused write without replacing it.
+internal/errui holds the failures that replace the panel, and the readers that reduce a service
+error to the reason and the trace the panel reports.
 
 It is a separate package for two reasons. The first is that a screen shown instead of the
 panel cannot depend on the panel: a config that will not parse means the keybindings were

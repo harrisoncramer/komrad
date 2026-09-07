@@ -37,20 +37,20 @@ func (f *fakeClipboard) WriteAll(text string) error {
 	return f.err
 }
 
-// TestCopyResultReportsOnFailureAndClearsOnSuccess covers the banner the panel shows
-// when a copy is refused, and that a later success clears whatever the last one said.
-func TestCopyResultReportsOnFailureAndClearsOnSuccess(t *testing.T) {
+// TestCopyResultReportsOnFailure covers the message the panel shows when a copy is refused, and
+// that a later success says nothing rather than taking the refusal away unread.
+func TestCopyResultReportsOnFailure(t *testing.T) {
 	m := model{}
 
 	updated, cmd := m.Update(copyResult{err: errors.New("no clipboard utility found")})
 	next, ok := updated.(model)
 	require.True(t, ok)
 	require.Nil(t, cmd)
-	require.NotNil(t, next.banner)
-	assert.Contains(t, next.banner.Summary, "clipboard")
+	require.NotEmpty(t, next.messages.items)
+	assert.Contains(t, newestMessage(next).summary, "clipboard")
 
-	cleared, _ := next.Update(copyResult{err: nil})
-	final, ok := cleared.(model)
+	succeeded, _ := next.Update(copyResult{err: nil})
+	final, ok := succeeded.(model)
 	require.True(t, ok)
-	assert.Nil(t, final.banner)
+	assert.Len(t, final.messages.items, 1, "a copy that worked reports nothing of its own")
 }

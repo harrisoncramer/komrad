@@ -557,8 +557,8 @@ func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
 	m.applyReviewLoaded(loaded)
 
 	assert.Equal(t, screenAgents, m.screen, "there is still nothing to draw, so it backs out")
-	require.NotNil(t, m.banner)
-	assert.Contains(t, m.banner.Summary, "excluded from the diff",
+	require.NotEmpty(t, m.messages.items)
+	assert.Contains(t, newestMessage(m).summary, "excluded from the diff",
 		"and says which of the two empty screens this is")
-	assert.NotContains(t, m.banner.Summary, "Nothing to review")
+	assert.NotContains(t, newestMessage(m).summary, "Nothing to review")
 }

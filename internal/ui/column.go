@@ -115,7 +115,7 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
 	}
 
-	// Clamped to what splitOf will settle on, so that a banner folded to this width is drawn in
+	// Clamped to what splitOf will settle on, so that anything folded to this width is drawn in
 	// the column it was measured against.
 	return min(max(sidebar, 1), m.width-1), spec, true
 }
@@ -128,8 +128,8 @@ func (m model) columnGeometry() (columnSplit, bool) {
 		return columnSplit{}, false
 	}
 
-	// The whole height, since a banner is drawn inside the sidebar beside this block rather than
-	// over the pair of them, so the block gives up no rows for it.
+	// The whole height, since the sidebar's own chrome is drawn inside it beside this block rather
+	// than over the pair of them, so the block gives up no rows for it.
 	split, ok := splitOf(m.width, m.height, sidebar, spec.floor)
 	if !ok {
 		return columnSplit{}, false
@@ -177,6 +177,12 @@ func (m model) screenColumnSplit() (columnSplit, bool) {
 func (m model) columnOf() (columnSpec, bool) {
 	if m.form.isOpening() {
 		return formColumn(m.form.kind)
+	}
+
+	// The region takes the block while it holds the keys, except under a form, which keeps the
+	// column it was laid out against and gives up only what is drawn in it.
+	if m.isMessagesFocused() && !m.form.isOpening() {
+		return messagesColumn(), true
 	}
 
 	column := m.screen.spec().column
@@ -246,13 +252,6 @@ func (m *model) syncKeys() {
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
 // sidebar, having squared each off at its share first.
 func (m model) joinColumns(split columnSplit, sidebar, column string) string {
-	// The banner belongs to the sidebar rather than to the window, since one drawn over both
-	// halves takes its rows off the top and moves everything below it, the block beside the list
-	// included.
-	if m.banner != nil {
-		sidebar = m.banner.Render(split.sidebar) + sidebar
-	}
-
 	// Trimmed so the two halves are the same height, since a trailing newline is a row the
 	// sidebar block would have and the block beside it would not.
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
@@ -306,6 +305,10 @@ func (m model) docColumnView(split columnSplit) string {
 // columnDoc is the document the block is drawn from, empty on a screen whose block is not one,
 // which docWindow draws as the blank half of a window rather than refusing to draw at all.
 func (m model) columnDoc(split columnSplit) docWindow {
+	if m.isMessagesFocused() {
+		return m.messagesBlock(split)
+	}
+
 	spec, ok := m.columnOf()
 	if !ok || spec.doc == nil {
 		return docWindow{}
@@ -322,6 +325,12 @@ func (m model) columnDoc(split columnSplit) docWindow {
 // scroll a short document off the top of its own column.
 func (m model) scrollColumn(direction int) model {
 	split, ok := m.screenColumnSplit()
+
+	// A form refuses the screen's own split because the form has the column, and the region
+	// borrows that same column to draw the message the reader is scrolling.
+	if !ok && m.isMessagesFocused() {
+		split, ok = m.columnSplit()
+	}
 	if !ok {
 		return m
 	}
@@ -336,7 +345,7 @@ func (m model) scrollColumn(direction int) model {
 // isColumnScroll reports whether a key moves the block beside the list, which it does only on a
 // screen whose block is a document the panel scrolls rather than one the screen scrolls itself.
 func (m model) isColumnScroll(k string) (int, bool) {
-	if spec, ok := m.columnOf(); !ok || spec.doc == nil {
+	if spec, ok := m.columnOf(); !m.isMessagesFocused() && (!ok || spec.doc == nil) {
 		return 0, false
 	}
 

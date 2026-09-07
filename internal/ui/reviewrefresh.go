@@ -132,7 +132,7 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 
 	m.review.polling = false
 
-	// A read that failed says nothing, since the banner belongs to the listing, the screen is
+	// A read that failed says nothing, since the message belongs to the listing, the screen is
 	// still showing the conversation as it last stood, and the next tick asks again.
 	if msg.err != nil || m.review.view == nil {
 		return

@@ -58,5 +58,5 @@ func (m model) rowCursorPrefix() string {
 // form standing over it, which is what decides how the row under the cursor is drawn, arrow and
 // name alike.
 func (m model) isListFocused() bool {
-	return !m.isDetailsFocused() && !m.form.isActive()
+	return !m.isDetailsFocused() && !m.isMessagesFocused() && !m.form.isActive()
 }

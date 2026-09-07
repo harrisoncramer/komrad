@@ -119,7 +119,7 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 
 	assert.Equal(t, plain, strings.Count(flagged, "\n"))
 	assert.Contains(t, flagged, "worktree gone")
-	assert.Contains(t, flagged, "agent_id", "a field survives however many marks the row carries")
+	assert.Contains(t, flagged, "name", "a field survives however many marks the row carries")
 }
 
 // TestNoticesGiveUpBeforeTheFields covers a pane too short for everything: the notices that do

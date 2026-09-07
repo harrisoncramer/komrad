@@ -95,7 +95,6 @@ type model struct {
 	configErr       error
 	startupErr      error
 	startupFindings []errui.Finding
-	banner          *errui.Banner
 	screen          screen
 	height          int
 	width           int
@@ -106,6 +105,7 @@ type model struct {
 
 	info          infoState
 	details       detailsState
+	messages      messagesState
 	detailsHeight float64
 	listing       listing
 	tree          treeState

@@ -146,10 +146,6 @@ func TestScreensFitTheirPane(t *testing.T) {
 			name:     "the unreachable screen",
 			rendered: RenderUnreachableError(narrowPane, "127.0.0.1:8787", err),
 		},
-		{
-			name:     "a refused write's banner",
-			rendered: Banner{Summary: `Could not rename agent "api-refactor"`, Detail: GetReason(err)}.Render(narrowPane),
-		},
 	}
 
 	for _, tt := range tests {
@@ -235,15 +231,6 @@ func TestUnreachable(t *testing.T) {
 	}
 }
 
-// TestBannerRendersWithoutAReason covers a service that fails without saying why,
-// which would otherwise render as a red line with nothing under it.
-func TestBannerRendersWithoutAReason(t *testing.T) {
-	rendered := Banner{Summary: "Could not delete the agent"}.Render(narrowPane)
-
-	assert.Contains(t, rendered, "no reason given")
-	assert.NotContains(t, strings.Split(rendered, "\n")[1], "esc", "the reason line is its own line")
-}
-
 // TestReason covers reducing a service error to the part worth reading.
 func TestReason(t *testing.T) {
 	tests := []struct {
@@ -307,19 +294,4 @@ func tracedError(trace string) error {
 	err.Meta().Set(caller.TraceHeader, trace)
 
 	return err
-}
-
-// TestBannerOffersTheTrace covers the banner naming the command that reads the failure,
-// rather than an id the reader has to know what to do with.
-func TestBannerOffersTheTrace(t *testing.T) {
-	traced := Banner{
-		Summary: "Could not archive agent",
-		Detail:  "the pane was already gone",
-		Trace:   "abc-123",
-	}
-	assert.Contains(t, traced.Render(80), "weave trace abc-123")
-	assert.Contains(t, traced.Render(80), "esc to dismiss", "the way out is still said")
-
-	plain := Banner{Summary: "Could not archive agent", Detail: "the pane was already gone"}
-	assert.NotContains(t, plain.Render(80), "weave trace", "a failure with no trace offers no command")
 }

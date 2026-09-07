@@ -535,9 +535,9 @@ func TestRefusedArchiveWritesAreReported(t *testing.T) {
 
 			got := tt.act(t, m)
 
-			require.NotNil(t, got.banner)
-			assert.Equal(t, tt.wantSummary, got.banner.Summary)
-			assert.Equal(t, "no such agent", got.banner.Detail)
+			require.NotEmpty(t, got.messages.items)
+			assert.Equal(t, tt.wantSummary, newestMessage(got).summary)
+			assert.Equal(t, "no such agent", newestMessage(got).detail)
 		})
 	}
 }

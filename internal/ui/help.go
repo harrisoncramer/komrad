@@ -32,6 +32,9 @@ func (m model) renderHelp(k keyMap) string {
 	if m.isDetailsFocused() {
 		k = m.detailsHelp()
 	}
+	if m.isMessagesFocused() {
+		k = m.messagesHelp()
+	}
 	if m.filter.typing {
 		k = filterHelp()
 	}
@@ -239,6 +242,7 @@ func (m model) agentHelp() keyMap {
 		m.screenHelp(),
 		[]key.Binding{
 			m.detailsBinding(),
+			m.messagesBinding(),
 			m.filterBinding(),
 			m.moveBinding(),
 			m.jumpBinding(),
@@ -402,6 +406,7 @@ func (m model) scheduleHelp() keyMap {
 			binding(m.keys.Schedules.Toggle, toggle),
 			binding(m.keys.Schedules.Archive, "archive"),
 			m.detailsBinding(),
+			m.messagesBinding(),
 			m.filterBinding(),
 			m.moveBinding(),
 			m.columnScrollBinding("the record"),
@@ -420,6 +425,7 @@ func (m model) mailHelp() keyMap {
 			[]key.Binding{back},
 			[]key.Binding{
 				m.detailsBinding(),
+				m.messagesBinding(),
 				m.filterBinding(),
 				m.moveBinding(),
 				m.jumpBinding(),
@@ -457,6 +463,7 @@ func (m model) archiveHelp() keyMap {
 			rows,
 			[]key.Binding{
 				m.detailsBinding(),
+				m.messagesBinding(),
 				m.filterBinding(),
 				m.moveBinding(),
 				m.jumpBinding(),

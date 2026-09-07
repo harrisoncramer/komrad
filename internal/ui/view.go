@@ -23,27 +23,7 @@ func (m model) View() string {
 		return errui.RenderUnreachableError(m.width, m.addr, m.unreachable)
 	}
 
-	// Only over a panel drawing nothing beside its list, since a banner over a panel that is
-	// gets drawn in the sidebar by the join instead.
-	var chrome string
-	if _, drawsColumn := m.columnSplit(); m.banner != nil && !drawsColumn {
-		chrome = m.banner.Render(m.bannerWidth())
-	}
-
-	return m.fitFrame(strings.TrimRight(chrome+m.screenView(), "\n"))
-}
-
-// bannerWidth is what a banner folds to, which is the panel's own list rather than the window,
-// since a panel drawing a block beside that list is as wide as the window and a banner folded to
-// that runs out over the block.
-func (m model) bannerWidth() int {
-	// The width alone rather than the whole split, because the split takes the banner's own rows
-	// off the block, and asking for it here would be asking a question this answer decides.
-	if sidebar, _, ok := m.sidebarColumns(); ok {
-		return sidebar
-	}
-
-	return m.width
+	return m.fitFrame(strings.TrimRight(m.screenView(), "\n"))
 }
 
 // submittingNotice is the line drawn under a held form, counting up once the write has taken
@@ -99,7 +79,14 @@ func (m model) screenView() string {
 
 	// The list is drawn beside the form as the context the form was opened from, and takes none of
 	// the keys while it is there, since the form has them all.
-	return m.joinColumns(split, held.screen.spec().view(held), form)
+	block := form
+	if m.isMessagesFocused() {
+		// A refusal is reported into the region under the list, and the reason is longer than the
+		// three rows it keeps, so reading it borrows the column the form is drawn in.
+		block = m.docColumnView(split)
+	}
+
+	return m.joinColumns(split, held.screen.spec().view(held), block)
 }
 
 // heldFormView is the form with the submitting notice under it, which is a row the form gives

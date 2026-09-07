@@ -451,11 +451,11 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			return m, tea.Batch(cmd, m.refreshCmd())
 		}
 
-		m.banner.Hint = "fix and submit again"
+		m.setNewestHint("fix and submit again")
 	}
 
-	// A refusal puts a banner above the form, which is chrome the form was not measured against
-	// and which nothing else is going to tell it about.
+	// A refusal is reported into the region under the record, which the form is drawn beside
+	// rather than over, so the form is told to lay itself out again either way.
 	if m.form.isActive() {
 		return m, tea.Batch(m.refreshCmd(), formResized())
 	}

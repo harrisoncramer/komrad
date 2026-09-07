@@ -70,7 +70,7 @@ You can configure a small set of metadata for a hook by adding _headers_ to the 
 
 # Add whatever logic you want here.
 # What this writes to stdout or stderr is captured, kept in full in weave's log and
-# the per-agent run log, and cut to a few hundred bytes in a refusal's banner.
+# the per-agent run log, and cut to a few hundred bytes in the message a refusal is reported as.
 # You can also send messages to the log manually, like this:
 weave rpc log --message 'Hello world' --script "$WEAVE_SCRIPT"
 ```

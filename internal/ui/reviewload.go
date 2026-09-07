@@ -68,7 +68,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
-// was read, since the screen the reader is dropped onto is the one the banner belongs to.
+// was read, since the screen the reader is dropped onto is the one the message belongs to.
 func (m *model) refuseReview(err error) {
 	name := m.review.agentName
 	m.review = reviewState{}

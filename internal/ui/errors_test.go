@@ -6,8 +6,9 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/charmbracelet/x/ansi"
+
 	"weave/config"
-	"weave/internal/errui"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
@@ -79,9 +80,9 @@ func TestRefusedWriteIsReported(t *testing.T) {
 
 	m = settle(t, pressed, cmd)
 
-	require.NotNil(t, m.banner, "a refused archive is reported rather than swallowed")
-	assert.Equal(t, `Could not archive agent "api-refactor"`, m.banner.Summary)
-	assert.Equal(t, "already archived", m.banner.Detail,
+	require.NotEmpty(t, m.messages.items, "a refused archive is reported rather than swallowed")
+	assert.Equal(t, `Could not archive agent "api-refactor"`, newestMessage(m).summary)
+	assert.Equal(t, "already archived", newestMessage(m).detail,
 		"the service's message is shown rather than the connect code in front of it")
 }
 
@@ -114,29 +115,27 @@ func TestRefusedResumeIsReported(t *testing.T) {
 
 	got := settle(t, pressed, cmd)
 
-	require.NotNil(t, got.banner)
-	assert.Equal(t, `Could not resume agent "api-refactor"`, got.banner.Summary)
-	assert.Equal(t, "no such agent", got.banner.Detail,
+	require.NotEmpty(t, got.messages.items)
+	assert.Equal(t, `Could not resume agent "api-refactor"`, newestMessage(got).summary)
+	assert.Equal(t, "no such agent", newestMessage(got).detail,
 		"the wrapper the panel put around the call is not what the reader is shown")
 }
 
-// TestBannerSurvivesTheFormItWasReportedFrom covers a failure reported by a form, since the
-// banner is chrome above whatever screen the panel lands on.
-func TestBannerSurvivesTheFormItWasReportedFrom(t *testing.T) {
+// TestMessageSurvivesTheFormItWasReportedFrom covers a failure reported by a form, which is held
+// in the stack rather than drawn over the form, so it is still there when the form comes down.
+func TestMessageSurvivesTheFormItWasReportedFrom(t *testing.T) {
 	m := model{
-		banner: &errui.Banner{Summary: `Could not rename agent "api-refactor"`, Detail: "name is taken"},
-		screen: screenAgents,
-		keys:   config.DefaultKeybindings(),
-		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		messages: oneMessage(`Could not rename agent "api-refactor"`, "name is taken"),
+		screen:   screenAgents,
+		keys:     config.DefaultKeybindings(),
+		frame:    layout.New(&recordingTmux{}, config.DefaultLayout()),
 	}
 	opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
 	m = asModel(t, opened)
 
-	view := m.View()
-
-	assert.Contains(t, view, "Could not rename agent")
-	assert.Contains(t, view, "name is taken")
-	assert.Contains(t, view, "Rename", "the form is still on screen under the banner")
+	assert.Contains(t, m.View(), "Rename", "the form is on screen")
+	require.Len(t, m.messages.items, 1, "the refusal is still waiting to be read")
+	assert.Equal(t, "name is taken", newestMessage(m).detail)
 }
 
 type acceptingAgents struct {
@@ -151,9 +150,9 @@ func (acceptingAgents) ListAgents(context.Context, *connect.Request[agentv1.List
 	return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 }
 
-// TestSuccessfulWriteClearsTheBanner covers clearing being folded into the call that sets,
-// so a write cannot succeed and leave the previous failure on screen.
-func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
+// TestSuccessfulWriteReportsNothing covers a write that worked saying nothing of its own, and
+// leaving whatever was reported before it in the stack rather than taking it away unread.
+func TestSuccessfulWriteReportsNothing(t *testing.T) {
 	m := model{
 		api:    api{agents: acceptingAgents{}, workflows: emptyLists{}},
 		tmux:   &recordingTmux{},
@@ -172,7 +171,7 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 				},
 			},
 		},
-		banner: &errui.Banner{Summary: "Could not archive agent \"gone\"", Detail: "stale"},
+		messages: oneMessage("Could not archive agent \"gone\"", "stale"),
 	}
 	m.tree.cursor = firstAgentRowIndex(m.agentRows())
 
@@ -187,49 +186,40 @@ func TestSuccessfulWriteClearsTheBanner(t *testing.T) {
 
 	got := settle(t, pressed, cmd)
 
-	assert.Nil(t, got.banner, "a write that succeeded clears the previous failure")
+	assert.Len(t, got.messages.items, 1, "a write that succeeded says nothing and takes nothing away")
 }
 
-// TestBannerRendersOverTheList covers a refused write reporting without taking the screen,
-// since the row the error is about is in the list underneath.
-func TestBannerRendersOverTheList(t *testing.T) {
-	m := model{
-		banner: &errui.Banner{Summary: `Could not archive agent "api-refactor"`, Detail: "already archived"},
-		screen: screenAgents,
-		keys:   config.DefaultKeybindings(),
-		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "backend"}}, agents: []agentItem{
-			{agent: agentstore.Agent{
-				Name:       "api-refactor",
-				State:      agentstore.StateIdle,
-				WorkflowID: "w1",
-			}},
-		}},
-	}
+// TestMessageDrawsInTheRegion covers a refused write reporting without taking the screen, since
+// the row the failure is about is in the list above the region it is drawn in.
+func TestMessageDrawsInTheRegion(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+	m.messages = oneMessage(`Could not archive agent "api-refactor"`, "already archived")
 
-	view := m.View()
+	view := ansi.Strip(m.View())
 
 	assert.Contains(t, view, "Could not archive agent")
 	assert.Contains(t, view, "already archived")
-	assert.Contains(t, view, "esc to dismiss")
-	assert.Contains(t, view, "api-refactor", "the list is still on screen under the banner")
+	assert.Contains(t, view, "to read", "the way into the whole message is said")
+	assert.Contains(t, view, m.listing.agents[0].agent.Name, "the list is still on screen above the region")
 }
 
-// TestBannerYieldsToTakeoverScreens pins the precedence, since a banner over a list that
-// cannot be trusted would report one failed write while every row behind it was stale.
-func TestBannerYieldsToTakeoverScreens(t *testing.T) {
+// TestMessagesYieldToTakeoverScreens pins the precedence, since a region under a list that
+// cannot be trusted would report one failed write while every row above it was stale.
+func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 	tests := []struct {
 		name string
 		m    model
 		want string
 	}{
 		{
-			name: "an unreachable service takes the screen from the banner",
-			m:    model{banner: &errui.Banner{Summary: "Could not delete"}, unreachable: errors.New("refused")},
+			name: "an unreachable service takes the screen from the region",
+			m:    model{messages: oneMessage("Could not delete", "nope"), unreachable: errors.New("refused")},
 			want: "Cannot reach the server",
 		},
 		{
 			name: "and so does a config error",
-			m:    model{banner: &errui.Banner{Summary: "Could not delete"}, configErr: errors.New("bad")},
+			m:    model{messages: oneMessage("Could not delete", "nope"), configErr: errors.New("bad")},
 			want: "Your configuration could not be read",
 		},
 	}
@@ -244,60 +234,18 @@ func TestBannerYieldsToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestBannerDismissal covers esc clearing the banner, except in a form, which owns its own
-// esc and has to keep it.
-func TestBannerDismissal(t *testing.T) {
-	tests := []struct {
-		name      string
-		screen    screen
-		withForm  bool
-		key       tea.KeyMsg
-		wantClear bool
-	}{
-		{
-			name:      "esc clears the banner",
-			screen:    screenAgents,
-			key:       tea.KeyMsg{Type: tea.KeyEsc},
-			wantClear: true,
-		},
-		{
-			name:   "a navigation key leaves it up",
-			screen: screenAgents,
-			key:    tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'h'}},
-		},
-		{
-			name:     "and a form keeps its own esc",
-			screen:   screenAgents,
-			withForm: true,
-			key:      tea.KeyMsg{Type: tea.KeyEsc},
-		},
-	}
+// TestMessagesKeepEscOffTheList covers esc staying the list's own key, since the region only
+// takes it once it holds the keys and a press on the list would otherwise dismiss unread.
+func TestMessagesKeepEscOffTheList(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+	m.messages = oneMessage("Could not delete", "nope")
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			m := model{
-				banner: &errui.Banner{Summary: "Could not delete", Detail: "nope"},
-				screen: tt.screen,
-				keys:   config.DefaultKeybindings(),
-				tmux:   &recordingTmux{},
-				frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
-			}
-			if tt.withForm {
-				opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
-				m = asModel(t, opened)
-			}
+	onList := send(t, m, "esc")
+	assert.NotEmpty(t, onList.messages.items, "the list's own esc leaves the region alone")
 
-			updated, _ := m.Update(tt.key)
-			got, ok := updated.(model)
-			require.True(t, ok)
-
-			if tt.wantClear {
-				assert.Nil(t, got.banner)
-			} else {
-				assert.NotNil(t, got.banner)
-			}
-		})
-	}
+	inRegion := send(t, send(t, m, messagesFocusKey), "esc")
+	assert.Empty(t, inRegion.messages.items, "the region's esc dismisses what it is showing")
 }
 
 // TestConfigErrorView covers the screen shown when the config file will not parse, which is

@@ -142,7 +142,7 @@ func TestJumpMarkReachesAWorkflow(t *testing.T) {
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	jumped := pressMark(t, m, m.keys.Marks.Jump[0], "c")
-	assert.Nil(t, jumped.banner)
+	assert.Empty(t, jumped.messages.items)
 	assert.Equal(t, workflowRowKey("w2"), rowKeyAt(jumped.agentRows(), jumped.tree.cursor))
 }
 
@@ -161,7 +161,7 @@ func TestSetMarkRefusesWhatIsNotALetter(t *testing.T) {
 	after, ok := next.(model)
 	require.True(t, ok)
 	assert.Equal(t, markPendingNone, after.marks.pending, "the press is spent either way")
-	require.NotNil(t, after.banner)
+	require.NotEmpty(t, after.messages.items)
 	assert.Empty(t, agents.id)
 }
 
@@ -179,7 +179,7 @@ func TestSetMarkEscapes(t *testing.T) {
 	after, ok := next.(model)
 	require.True(t, ok)
 	assert.Equal(t, markPendingNone, after.marks.pending)
-	assert.Nil(t, after.banner)
+	assert.Empty(t, after.messages.items)
 	assert.Empty(t, agents.id)
 }
 
@@ -266,7 +266,7 @@ func TestJumpMark(t *testing.T) {
 
 			after, ok := next.(model)
 			require.True(t, ok)
-			assert.Nil(t, after.banner)
+			assert.Empty(t, after.messages.items)
 			assert.Equal(t, agentRowKey(tt.marked), rowKeyAt(after.agentRows(), after.tree.cursor))
 		})
 	}
@@ -287,7 +287,7 @@ func TestJumpMarkThatCannotLandKeepsTheScreen(t *testing.T) {
 
 	after, ok := next.(model)
 	require.True(t, ok)
-	require.NotNil(t, after.banner)
+	require.NotEmpty(t, after.messages.items)
 	assert.Equal(t, "auth", after.filter.query, "the filter stands")
 	assert.False(t, after.tree.showHidden, "and the hidden rows stay hidden")
 }
@@ -321,8 +321,8 @@ func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 	at := rowKeyAt(jumped.agentRows(), jumped.tree.cursor)
 
 	after := pressMark(t, jumped, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
-	require.NotNil(t, after.banner)
-	assert.Equal(t, "Could not jump back", after.banner.Summary, "the key says what it failed at")
+	require.NotEmpty(t, after.messages.items)
+	assert.Equal(t, "Could not jump back", newestMessage(after).summary, "the key says what it failed at")
 	assert.Empty(t, after.marks.origin, "the row that has gone is forgotten")
 	assert.Equal(t, at, rowKeyAt(after.agentRows(), after.tree.cursor), "and the cursor stays where it was")
 }
@@ -353,7 +353,7 @@ func TestJumpMarkUnknownLetter(t *testing.T) {
 
 	after, ok := next.(model)
 	require.True(t, ok)
-	require.NotNil(t, after.banner)
+	require.NotEmpty(t, after.messages.items)
 	assert.Equal(t, agentRowKey("a1"), rowKeyAt(after.agentRows(), after.tree.cursor))
 }
 
@@ -381,7 +381,7 @@ func TestJumpMarkBackWithNowhereToGo(t *testing.T) {
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
 
 	after := pressMark(t, m, m.keys.Marks.Jump[0], m.keys.Marks.Jump[0])
-	assert.Nil(t, after.banner)
+	assert.Empty(t, after.messages.items)
 	assert.Equal(t, agentRowKey("a1"), rowKeyAt(after.agentRows(), after.tree.cursor))
 }
 

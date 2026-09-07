@@ -143,11 +143,9 @@ func TestFormStaysInsideTheFrame(t *testing.T) {
 	}
 }
 
-// TestFormStaysInsideTheFrameUnderABanner covers a refused submit, which puts a banner over the
-// form and leaves it up for the retry: the banner is chrome the form was not measured against,
-// and it cannot be dismissed while a form holds the keys, so without a resize the overflow lasts
-// for as long as the person is fixing what was refused.
-func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
+// TestFormStaysInsideTheFrameUnderARefusal covers a refused submit, which reports the reason into
+// the region under the list and leaves the form up for the retry.
+func TestFormStaysInsideTheFrameUnderARefusal(t *testing.T) {
 	for _, height := range []int{24, 32, 40} {
 		m := resizedTo(t, formColumnModel(t), 160, height)
 
@@ -161,7 +159,7 @@ func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
 		m = asModel(t, refused)
 		m = delivered(t, m, cmd)
 
-		require.NotNil(t, m.banner, "the reason is on screen")
+		require.NotEmpty(t, m.messages.items, "the reason is on screen")
 		require.True(t, m.form.isActive(), "and the form is still up to fix it in")
 		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
 	}
@@ -229,4 +227,37 @@ func TestFormBlursTheListBesideIt(t *testing.T) {
 	assert.False(t, m.isListFocused(), "the form holds them once it is up")
 	assert.Equal(t, blurredHeaderStyle, m.titleStyle(), "so the list's title is drawn blurred")
 	assert.Equal(t, blurredCursorStyle.Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
+}
+
+// TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving the
+// form it was refused from, since the three rows the region keeps cut a long one short and the
+// form owns every other key.
+func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
+	m := resizedTo(t, formColumnModel(t), 160, 40)
+
+	opened, cmd := m.newWorkflowForm()
+	m = asModel(t, opened)
+	m = delivered(t, m, cmd)
+
+	m.pending, m.held = 1, heldWrite{active: true}
+	refused, cmd := m.applyWrite(writeResult{summary: "Could not create the workflow", err: errNoWorkflow})
+	m = asModel(t, refused)
+	m = delivered(t, m, cmd)
+
+	require.True(t, m.form.isActive())
+
+	reading := send(t, m, messagesFocusKey)
+
+	require.True(t, reading.isMessagesFocused(), "the focus key reaches the region past the form")
+
+	view := ansi.Strip(reading.View())
+	assert.Contains(t, view, "Could not create the workflow")
+	assert.Contains(t, view, errNoWorkflow.Error(), "the whole reason is drawn in the block")
+	assert.NotContains(t, view, "New workflow name", "the form gives up what is drawn in its column")
+
+	back := send(t, reading, messagesFocusKey)
+
+	assert.False(t, back.isMessagesFocused())
+	assert.Contains(t, ansi.Strip(back.View()), "New workflow name", "and takes it back")
+	assert.True(t, back.form.isActive(), "the form was never closed")
 }
