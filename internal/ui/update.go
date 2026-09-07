@@ -165,7 +165,9 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		return next, cmd, true
 	case roundEditedMsg:
-		m.applyRoundEdited(msg)
+		return m, m.applyRoundEdited(msg), true
+	case roundHarvestedMsg:
+		m.applyRoundHarvested(msg)
 
 		return m, nil, true
 	case roundLeftoverMsg:

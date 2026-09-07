@@ -212,14 +212,8 @@ func (m model) reviewRestView() string {
 	}
 
 	if m.review.composing {
-		out, leaving := "\n", "esc cancel"
-		if held, ok := m.heldSuggestion(); ok {
-			out += m.reviewNote(reviewNoticeStyle, m.describeSuggestion(held))
-			leaving = "esc turn it down"
-		}
-
-		return out + m.review.editor.View() + "\n" +
-			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · "+leaving) + "\n"
+		return "\n" + m.review.editor.View() + "\n" +
+			dimStyle.Render("  "+keyLabel(m.keys.Form.Submit)+" save · esc cancel") + "\n"
 	}
 
 	if m.review.releasing {
@@ -227,15 +221,6 @@ func (m model) reviewRestView() string {
 	}
 
 	out := "\n" + m.reviewThreadView()
-
-	if held, ok := m.heldSuggestion(); ok {
-		out += "\n" + m.reviewNote(reviewNoticeStyle, m.describeSuggestion(held)) +
-			m.reviewNote(dimStyle, keyLabel(m.keys.Review.Compose)+" to comment with it")
-	}
-
-	if adrift := m.review.adrift; len(adrift) > 0 {
-		out += "\n" + m.reviewNote(dimStyle, describeAdriftEdits(adrift))
-	}
 
 	// A notice answers the last keypress and a keypress clears it, so what the reader is told
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
@@ -261,41 +246,6 @@ func (m model) reviewAnchorView() string {
 	}
 
 	return m.nameStyle(true, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
-}
-
-// heldSuggestion is the edit the next comment would carry, which is the front of the queue since
-// the reviewer answers for one at a time.
-func (m model) heldSuggestion() (pendingSuggestion, bool) {
-	if len(m.review.suggestions) == 0 {
-		return pendingSuggestion{}, false
-	}
-
-	return m.review.suggestions[0], true
-}
-
-// describeAdriftEdits names what the reviewer wrote on lines the diff does not draw, since they
-// wrote it on purpose and the text is still sitting in the checkout for them to go back to.
-func describeAdriftEdits(adrift []review.Suggestion) string {
-	where := review.FormatLocation(adrift[0].FilePath, 0, adrift[0].NewStart)
-	if len(adrift) > 1 {
-		where = fmt.Sprintf("%s and %d more", where, len(adrift)-1)
-	}
-
-	return where + " is not in the diff, so that edit stays in the round's checkout"
-}
-
-// describeSuggestion names the edit of the round waiting to be sent, since it is pinned where it
-// was made rather than under the cursor and the reader would otherwise have to guess where.
-func (m model) describeSuggestion(held pendingSuggestion) string {
-	line := fmt.Sprintf("edit held for %s (%s)",
-		review.FormatLocation(held.anchor.FilePath, held.anchor.OldStart, held.anchor.NewStart),
-		counted(len(held.lines), "line"))
-
-	if waiting := len(m.review.suggestions) - 1; waiting > 0 {
-		line += fmt.Sprintf(", %d more behind it", waiting)
-	}
-
-	return line
 }
 
 // reviewReleaseView asks what to send: a word about the work as a whole, which is optional, and
