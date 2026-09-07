@@ -7,6 +7,8 @@ import (
 
 	"weave/internal/client"
 
+	agentv1 "weave/proto/gen/agent/v1"
+
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
@@ -221,8 +223,8 @@ type writeResult struct {
 	summary string
 	err     error
 	written *written
-	// epoch is the write this result belongs to, which tells a held form whose landing is its
-	// own: a person who escapes a slow create and submits another has two in flight at once.
+	// epoch is the write this result belongs to, which is how a held form tells its own landing
+	// from one an earlier submit is still waiting on.
 	epoch int
 }
 
@@ -337,80 +339,62 @@ type resumeParams struct {
 	id      string
 }
 
-func (m *model) resumeCmd(params resumeParams) tea.Cmd {
+// rowWriteCmd sends a write whose landing takes the panel to the row it made, and stamps the
+// result with the epoch so a held form knows whether the landing is the one it is waiting on.
+func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) tea.Cmd {
 	clients := m.api
 	epoch := m.beginWrite()
 
 	return func() tea.Msg {
-		agent, err := clients.resumeAgent(params.id)
+		row, err := write(clients)
 		if err != nil {
-			return writeResult{summary: params.summary, err: err, epoch: epoch}
+			return writeResult{summary: summary, err: err, epoch: epoch}
 		}
 
-		return writeResult{
-			summary: params.summary,
-			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			epoch:   epoch,
-		}
+		return writeResult{summary: summary, written: &row, epoch: epoch}
 	}
+}
+
+// agentWriteCmd is rowWriteCmd for a write answering with an agent, whose row is shown in the
+// pane the agent is running in.
+func (m *model) agentWriteCmd(summary string, write func(api) (*agentv1.Agent, error)) tea.Cmd {
+	return m.rowWriteCmd(summary, func(clients api) (written, error) {
+		agent, err := write(clients)
+		if err != nil {
+			return written{}, err
+		}
+
+		return written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()}, nil
+	})
+}
+
+func (m *model) resumeCmd(params resumeParams) tea.Cmd {
+	return m.agentWriteCmd(params.summary, func(clients api) (*agentv1.Agent, error) {
+		return clients.resumeAgent(params.id)
+	})
 }
 
 func (m *model) createCmd(params createAgentParams) tea.Cmd {
-	clients := m.api
-	epoch := m.beginWrite()
-
-	return func() tea.Msg {
-		agent, err := clients.createAgent(params)
-		if err != nil {
-			return writeResult{summary: "Could not start the agent", err: err, epoch: epoch}
-		}
-
-		return writeResult{
-			summary: "Could not start the agent",
-			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			epoch:   epoch,
-		}
-	}
+	return m.agentWriteCmd("Could not start the agent", func(clients api) (*agentv1.Agent, error) {
+		return clients.createAgent(params)
+	})
 }
 
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
-	clients := m.api
-	epoch := m.beginWrite()
-
-	return func() tea.Msg {
-		const summary = "Could not adopt"
-
-		agent, err := clients.adopt(params)
-		if err != nil {
-			return writeResult{summary: summary, err: err, epoch: epoch}
-		}
-
-		return writeResult{
-			summary: summary,
-			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
-			epoch:   epoch,
-		}
-	}
+	return m.agentWriteCmd("Could not adopt", func(clients api) (*agentv1.Agent, error) {
+		return clients.adopt(params)
+	})
 }
 
 func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
-	clients := m.api
-	epoch := m.beginWrite()
-
-	return func() tea.Msg {
-		const summary = "Could not create the workflow"
-
+	return m.rowWriteCmd("Could not create the workflow", func(clients api) (written, error) {
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {
-			return writeResult{summary: summary, err: err, epoch: epoch}
+			return written{}, err
 		}
 
-		return writeResult{
-			summary: summary,
-			written: &written{row: workflowRowKey(workflow.GetId())},
-			epoch:   epoch,
-		}
-	}
+		return written{row: workflowRowKey(workflow.GetId())}, nil
+	})
 }
 
 // beginWrite counts a write out and answers with the epoch it belongs to, which is what tells
@@ -443,10 +427,8 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.pendingForm && result.epoch == m.pendingEpoch {
-		m.pendingForm = false
-		m.pendingSince = time.Time{}
-		m.pendingEpoch = 0
+	if m.held.owns(result.epoch) {
+		m.held = heldWrite{}
 
 		if result.err == nil {
 			closed, cmd := m.closeForm()
@@ -460,9 +442,8 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.banner.Hint = "fix and submit again"
 	}
 
-	// The banner stands where the submitting notice did and is taller than it, so a form still on
-	// screen was measured against chrome that is no longer what is drawn above it, and nothing
-	// else is going to tell it.
+	// A refusal puts a banner above the form, which is chrome the form was not measured against
+	// and which nothing else is going to tell it about.
 	if m.form.isActive() {
 		return m, tea.Batch(m.refreshCmd(), formResized())
 	}
