@@ -81,6 +81,39 @@ func TestHelpColumnsFollowTheWidth(t *testing.T) {
 	}
 }
 
+// TestNoLegendIsDrawnAsAnEllipsis draws every screen's expanded legend at the narrowest sidebar a
+// split ever leaves, which is the ordinary case rather than an edge, since splitOf floors the
+// sidebar at nameWidth and so every window under 150 columns lands there at the default share.
+func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
+	legends := map[screen]func(model) keyMap{
+		screenAgents:    model.agentHelp,
+		screenSchedules: model.scheduleHelp,
+		screenArchive:   model.archiveHelp,
+		screenSearch:    model.searchHelp,
+		screenMail:      model.mailHelp,
+		screenReview:    model.reviewHelp,
+	}
+
+	for s, legend := range legends {
+		m := helpModel()
+		m.screen = s
+		m.helpExpanded = true
+		m = m.at(nameWidth)
+
+		k := legend(m)
+		drawn := ansi.Strip(m.renderHelp(k))
+
+		assert.NotEqual(t, "…", strings.TrimSpace(drawn), "screen %d draws its legend as an ellipsis", s)
+
+		// The short bindings are the ones a person looks for, and they are drawn whichever form
+		// the legend fell back to, since the short form is what a legend too wide gives up to.
+		for _, binding := range byLabel(k.short) {
+			assert.Contains(t, drawn, binding.Help().Desc,
+				"screen %d loses %q at %d columns", s, binding.Help().Desc, nameWidth)
+		}
+	}
+}
+
 func helpModel() model {
 	return model{
 		keys:    config.DefaultKeybindings(),

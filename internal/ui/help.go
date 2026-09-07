@@ -36,12 +36,24 @@ func (m model) renderHelp(k keyMap) string {
 		k = filterHelp()
 	}
 
-	view := helpView(m.paneWidth())
+	width := m.paneWidth()
+	view := helpView(width)
+	short := func() string { return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n" }
+
 	if !m.helpExpanded {
-		return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n"
+		return short()
 	}
 
-	return trimLines(view.FullHelpView(helpColumns(byLabel(k.full), m.paneWidth()))) + "\n"
+	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
+	// it, and helpColumns has already dropped to one column by then, so a legend the sidebar
+	// cannot hold gives way to its short form, a width of zero being a panel that has not been
+	// told how wide it is and which bubbles reads as no limit.
+	columns := helpColumns(byLabel(k.full), width)
+	if width > 0 && helpWidth(columns) > width {
+		return short()
+	}
+
+	return trimLines(view.FullHelpView(columns)) + "\n"
 }
 
 func helpView(width int) help.Model {
@@ -222,6 +234,7 @@ func (m model) agentHelp() keyMap {
 		m.olderLogBindings(),
 		[]key.Binding{
 			binding(m.keys.Terminal.Open, m.terminalDesc()),
+			m.columnScrollBinding("the notes"),
 		},
 		m.editFilterBinding(m.keys.Agents.Back),
 		m.matchBindings(),
@@ -378,6 +391,7 @@ func (m model) scheduleHelp() keyMap {
 			m.detailsBinding(),
 			m.filterBinding(),
 			m.moveBinding(),
+			m.columnScrollBinding("the record"),
 		}, editFilter, m.globalHelp()),
 	}
 }
@@ -391,7 +405,13 @@ func (m model) mailHelp() keyMap {
 		short: slices.Concat([]key.Binding{back}, editFilter, []key.Binding{m.helpBinding()}),
 		full: slices.Concat(
 			[]key.Binding{back},
-			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+			[]key.Binding{
+				m.detailsBinding(),
+				m.filterBinding(),
+				m.moveBinding(),
+				m.jumpBinding(),
+				m.columnScrollBinding("the message"),
+			},
 			editFilter,
 			m.globalHelp(),
 		),
@@ -485,7 +505,7 @@ func (m model) searchHelp() keyMap {
 				edit,
 				m.moveBinding(),
 				m.jumpBinding(),
-				m.columnScrollBinding("the conversation"),
+				m.columnScrollBinding("the transcript"),
 			},
 			m.globalHelp(),
 		),

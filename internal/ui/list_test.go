@@ -138,8 +138,9 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 func TestScreensFitThePane(t *testing.T) {
 	const (
 		// Taller than the tallest legend on purpose, since a pane too short for its own chrome
-		// overflows by design.
-		height = 27
+		// overflows by design, and the agents legend grew a key when the block beside the list
+		// gained one.
+		height = 28
 		total  = 40
 	)
 

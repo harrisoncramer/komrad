@@ -44,12 +44,13 @@ Shared concerns are the things that sit across screens on purpose. The column is
 drawn beside whichever list is up, and there is one of it rather than one per screen, because
 only one block is ever on screen: where the reader has scrolled in it, and which row they
 scrolled it on. The filter narrows whichever list is on screen, and there is one of it rather
-than one per screen, because only the list being looked at can be narrowed. The details under that list are shared for the same
-reason: one cursor and one focus, whichever list is above them, with each screen saying only
-what its own hovered row holds. The form owns the keys while it is up, and is drawn over
-whichever screen opened it rather than being a screen of its own, so closing it lands back
-there. The info region is what is open in the pane below, which stays put as the user moves
-between lists above it. The frame is the panel's own tmux layout.
+than one per screen, because only the list being looked at can be narrowed. The details under
+that list are shared for the same reason: one cursor and one focus, whichever list is above
+them, with each screen saying only what its own hovered row holds. The form owns the keys
+while it is up, and is drawn in that column rather than being a screen of its own, so closing
+it lands back on the list it went up beside. The info region is what is open in the pane
+below, which stays put as the user moves between lists above it. The frame is the panel's own
+tmux layout.
 
 Panel chrome is the rest: the banner over a refused write, the errors that replace the panel,
 the keybindings, the dimensions of its own pane.

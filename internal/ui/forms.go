@@ -121,8 +121,10 @@ func formResized() tea.Cmd {
 	return func() tea.Msg { return formResizedMsg{} }
 }
 
-// formHelpLines is the strip of keys huh draws under a form, which it draws outside the height it
-// was given, so it is a row the panel keeps back rather than one the form is told about.
+// formHelpLines is the row the panel keeps back rather than tells the form about, because
+// Group.View joins its header, its viewport and its footer with a blank line before the footer
+// while the height it was given subtracts only the footer, so a form with a strip of keys under
+// it renders exactly one row taller than it was asked for.
 const formHelpLines = 1
 
 // formBox is the room a form has on screen, which is its own column while it has one and the

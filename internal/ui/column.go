@@ -175,7 +175,16 @@ func (m model) holdsWindow() bool {
 // and every way into a form, and hands it back while the info pane is up since a sidebar holding
 // the window covers the pane the logs and the editor are drawn in.
 func (m *model) reconcileSolo() {
-	m.frame.Solo(m.holdsWindow() && m.info.kind == infoNothing)
+	// Compared here rather than inside Frame.Solo, which Attach calls with the field already
+	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
+	// holds, while Solo asks tmux with a subprocess, and this runs on every refresh tick and
+	// every cursor move.
+	want := m.holdsWindow() && m.info.kind == infoNothing
+	if want == m.frame.IsSolo() {
+		return
+	}
+
+	m.frame.Solo(want)
 }
 
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
@@ -231,8 +240,13 @@ func (m model) docColumnView(split columnSplit) string {
 	return m.columnDoc(split).view(split.rows)
 }
 
+// columnDoc is the document the block is drawn from, empty on a screen whose block is not one,
+// which docWindow draws as the blank half of a window rather than refusing to draw at all.
 func (m model) columnDoc(split columnSplit) docWindow {
-	spec, _ := m.columnOf()
+	spec, ok := m.columnOf()
+	if !ok || spec.doc == nil {
+		return docWindow{}
+	}
 
 	return docWindow{rows: docRows(spec.doc(m), split.column), top: m.column.top, markers: true}
 }

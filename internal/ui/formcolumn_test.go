@@ -20,7 +20,7 @@ func formColumnModel(t *testing.T) model {
 	tmux := &recordingTmux{width: 200, height: 40}
 	m := infoModel(tmux)
 	m.width, m.height = 200, 40
-	m.api = api{hooks: &fakeHooks{}}
+	m.api = api{agents: emptyLists{}, workflows: emptyLists{}, schedules: emptyLists{}, hooks: &fakeHooks{}}
 
 	return m
 }
@@ -120,15 +120,36 @@ func TestFormStaysInsideTheFrame(t *testing.T) {
 		opened, cmd := m.newWorkflowForm()
 		m = asModel(t, opened)
 
-		// The open batches the form's own start and the resize that tells it its column, which is
-		// what bubbletea would run before the next frame is drawn.
-		for _, msg := range drainCmd(cmd) {
-			next, _ := m.route(msg)
-			m = asModel(t, next)
-		}
+		m = delivered(t, m, cmd)
 
 		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
 		assert.Contains(t, ansi.Strip(m.View()), "New workflow name", "height=%d opens at the top of itself", height)
+	}
+}
+
+// TestFormStaysInsideTheFrameUnderABanner covers a refused submit, which puts a banner where the
+// submitting notice was and leaves the form up for the retry: the banner is taller than the notice
+// the form was measured against, and it cannot be dismissed while a form holds the keys, so
+// without a resize the overflow lasts for as long as the person is fixing what was refused.
+func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
+	for _, height := range []int{24, 32, 40} {
+		m := formColumnModel(t)
+		sized, _ := m.route(tea.WindowSizeMsg{Width: 160, Height: height})
+		m = asModel(t, sized)
+
+		opened, cmd := m.newWorkflowForm()
+		m = asModel(t, opened)
+		m = delivered(t, m, cmd)
+
+		// The submit the service refuses, which holds the form up and puts the reason over it.
+		m.pending, m.pendingForm = 1, true
+		refused, cmd := m.applyWrite(writeResult{summary: "Could not create the workflow", err: errNoWorkflow})
+		m = asModel(t, refused)
+		m = delivered(t, m, cmd)
+
+		require.NotNil(t, m.banner, "the reason is on screen")
+		require.True(t, m.form.isActive(), "and the form is still up to fix it in")
+		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
 	}
 }
 
