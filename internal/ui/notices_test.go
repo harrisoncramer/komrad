@@ -65,7 +65,7 @@ func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 func TestNoticesAreOrderedByUrgency(t *testing.T) {
 	item := agentItem{
 		agent: agentstore.Agent{
-			State:           agentstore.StateFailedToCreate,
+			State:           agentstore.StateFailedToCleanup,
 			WorktreeRemoved: true,
 			Hidden:          true,
 		},
@@ -80,13 +80,25 @@ func TestNoticesAreOrderedByUrgency(t *testing.T) {
 	}
 
 	assert.Equal(t, []string{
-		failedToCreateNotice,
+		failedToCleanupNotice,
 		failedRunNotice,
 		unreadMailNotice,
 		worktreeRemovedNotice,
 		unviewedNotice,
 		hiddenNotice,
 	}, texts)
+}
+
+// TestAFailedCreateSaysNothingOfItsWorktree covers the pair a failed setup would otherwise
+// draw: the worktree it was never given is what the failure already stands for.
+func TestAFailedCreateSaysNothingOfItsWorktree(t *testing.T) {
+	item := agentItem{agent: agentstore.Agent{State: agentstore.StateFailedToCreate, WorktreeRemoved: true}}
+
+	notices := agentNotices(item)
+
+	require.Len(t, notices, 1)
+	assert.Equal(t, failedToCreateNotice, notices[0].text)
+	assert.Empty(t, worktreeRemovedMark(item), "the row draws no mark of its own either")
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their

@@ -39,10 +39,12 @@ func reviewRoundsNotice(rounds int32) string {
 // agentNotices orders the marks by how much each wants a person's attention, since the record
 // gives up the ones at the end of the list when the pane is short.
 func agentNotices(item agentItem) []notice {
-	notices := failureNotices(displayState(item))
+	state := displayState(item)
+
+	notices := failureNotices(state)
 	notices = appendNotice(notices, item.failedRun, failedRunIcon, colorDanger, failedRunNotice)
 	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, colorAccent, unreadMailNotice)
-	notices = appendNotice(notices, item.agent.WorktreeRemoved, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
+	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
 
