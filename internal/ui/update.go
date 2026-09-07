@@ -42,8 +42,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	routed, blink := routed.updateRowCursor(msg)
+	routed, warming := routed.pollWarmup()
 
-	return routed, tea.Batch(cmd, blink)
+	return routed, tea.Batch(cmd, blink, warming)
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -206,6 +207,10 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 
 		next, cmd := m.reconcileEditor()
 		next.reconcileSolo()
+
+		return next, cmd, true
+	case warmupTickMsg:
+		next, cmd := m.applyWarmupTick()
 
 		return next, cmd, true
 	case refreshResult:

@@ -251,6 +251,8 @@ func (t *recordingTmux) ResizeWindow(pane string, width, height int) {
 	t.windowSizes[pane] = fmt.Sprintf("%dx%d", width, height)
 }
 
+func (t *recordingTmux) IsPaneRunningCLI(pane string) bool { return pane != "" }
+
 func (t *recordingTmux) ResizePane(string, string) { t.zoomed = false }
 
 func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {

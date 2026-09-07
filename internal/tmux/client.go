@@ -536,3 +536,18 @@ func (c *Client) value(args ...string) string {
 func (c *Client) paneID(target string) (string, error) {
 	return c.query("display-message", "-p", "-t", target, "#{pane_id}")
 }
+
+// IsPaneRunningCLI reports whether a pane's foreground program is something other than a plain
+// shell, which is what says the harness weave typed into that pane has started.
+func (c *Client) IsPaneRunningCLI(pane string) bool {
+	if pane == "" {
+		return false
+	}
+
+	command, err := c.query("display-message", "-p", "-t", pane, "#{pane_current_command}")
+	if err != nil || command == "" {
+		return false
+	}
+
+	return !PaneStatus{Command: command}.IsRunningShell()
+}

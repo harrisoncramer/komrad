@@ -228,8 +228,9 @@ type writeResult struct {
 }
 
 type written struct {
-	row  string
-	pane string
+	row     string
+	pane    string
+	harness string
 }
 
 // markViewedCmd claims what an agent has finished without going through the write path, since
@@ -363,7 +364,7 @@ func (m *model) agentWriteCmd(summary string, write func(api) (*agentv1.Agent, e
 			return written{}, err
 		}
 
-		return written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()}, nil
+		return written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId(), harness: agent.GetHarness()}, nil
 	})
 }
 
@@ -420,13 +421,25 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		if result.written.pane != "" {
 			// The cursor only catches up on the next listing, so the window is given up on the
 			// strength of the pane itself rather than left zoomed over the thing being shown.
-			m.frame.Solo(false)
-			m.resize()
-			m.frame.ShowGuest(result.written.pane)
+			if m.isPaneWarm(result.written.pane, result.written.harness) {
+				m.frame.Solo(false)
+				m.resize()
+				m.frame.ShowGuest(result.written.pane)
+			} else {
+				m.holdForWarmup(result.written.pane, result.written.harness)
+			}
 		}
 	}
 
 	if m.held.owns(result.epoch) {
+		// A form taken down now would leave the panel drawn over the whole window until the pane
+		// it made turns up, so it is left standing and closed by the reveal instead.
+		if result.err == nil && m.warm.pending != "" {
+			m.warm.closesForm = true
+
+			return m, m.refreshCmd()
+		}
+
 		m.held = heldWrite{}
 
 		if result.err == nil {

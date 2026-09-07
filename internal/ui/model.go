@@ -14,6 +14,7 @@ import (
 
 	"weave/config"
 	"weave/internal/errui"
+	"weave/internal/harness"
 	"weave/internal/ui/layout"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -42,6 +43,8 @@ func Run(deps Deps) error {
 type uiTmux interface {
 	layout.Tmux
 	ResizeWindow(pane string, width, height int)
+	IsPaneRunningCLI(pane string) bool
+	CapturePane(pane string) string
 	SetSessionOption(target, name, value string)
 	GetHostPath() string
 	GetDefaultShell() string
@@ -50,9 +53,16 @@ type uiTmux interface {
 	SendKeys(target string, keys ...string) error
 }
 
+// harnessReader is the panel's half of the harness registry, which it reads a frame through to
+// tell a harness that has drawn itself from one that has only started.
+type harnessReader interface {
+	GetByID(id string) (harness.Harness, error)
+}
+
 type Deps struct {
 	PopupWindow     *PopupWindow
 	Tmux            uiTmux
+	Harnesses       harnessReader
 	Agents          agentv1connect.AgentServiceClient
 	Workflows       workflowv1connect.WorkflowServiceClient
 	Schedules       schedulev1connect.ScheduleServiceClient
@@ -77,6 +87,7 @@ type model struct {
 	popup           *PopupWindow
 	api             api
 	tmux            uiTmux
+	harnesses       harnessReader
 	frame           *layout.Frame
 	addr            string
 	unreachable     error
@@ -144,6 +155,10 @@ type model struct {
 	// resizeOwed says the zoom moved inside a change that was still being collected, so the
 	// panel's own size is read back once the change has landed rather than before it.
 	resizeOwed bool
+
+	// warm is the panes whose harness the panel has seen start, which is what it waits for before
+	// giving one the stage.
+	warm warmupState
 }
 
 // at is the only writer of paneMeasure, handing back a model that measures its own chrome in a
@@ -167,6 +182,7 @@ func newModel(deps Deps, isDark bool) model {
 		popup:           deps.PopupWindow,
 		clip:            systemClipboard{},
 		tmux:            deps.Tmux,
+		harnesses:       deps.Harnesses,
 		frame:           layout.New(deps.Tmux, deps.Layout),
 		detailsHeight:   deps.Layout.DetailsHeight,
 		addr:            deps.Addr,
@@ -184,6 +200,7 @@ func newModel(deps Deps, isDark bool) model {
 		startupFindings: deps.StartupFindings,
 		screen:          screenAgents,
 		rowCursor:       newRowCursor(),
+		warm:            newWarmupState(),
 	}
 
 	if m.fatal() != nil {
