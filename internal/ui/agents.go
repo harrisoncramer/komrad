@@ -394,6 +394,10 @@ func (m *model) sizeAgentWindows() {
 		return
 	}
 
+	if m.sized == nil {
+		m.sized = map[string]string{}
+	}
+
 	want := fmt.Sprintf("%dx%d", width, height)
 	guest := m.frame.GuestPane()
 
@@ -407,11 +411,6 @@ func (m *model) sizeAgentWindows() {
 		}
 
 		m.tmux.ResizeWindow(pane, width, height)
-
-		if m.sized == nil {
-			m.sized = map[string]string{}
-		}
-
 		m.sized[pane] = want
 	}
 }
