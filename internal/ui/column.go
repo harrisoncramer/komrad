@@ -115,9 +115,7 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
 	}
 
-	// Clamped to what splitOf will settle on, so this width and the split's are the same answer
-	// rather than two that agree by coincidence.
-	return min(max(sidebar, 1), m.width-1), spec, true
+	return sidebar, spec, true
 }
 
 // columnGeometry is how wide each half of the window is, and how many rows the block beside the
@@ -270,7 +268,7 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 func (m model) paneWidth() int {
 	// A screen working out whether its own split leaves room for its chrome has already chosen
 	// the column, so it is told the answer rather than asked for the split it is still deciding,
-	// which is also what keeps the banner's own rows out of that measurement.
+	// which is also what keeps the chrome it is measuring from asking that question back.
 	if m.paneMeasure > 0 {
 		return m.paneMeasure
 	}
