@@ -112,8 +112,9 @@ type model struct {
 	runLogsDir      string
 	roundsDir       string
 	pane            string
-	// paneMeasure is the column a screen is measuring its own chrome in while it works out
-	// whether its split leaves room for it, since paneWidth is the answer that measurement feeds.
+	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
+	// its split leaves room for it, which paneWidth reads because it is the answer that
+	// measurement feeds.
 	paneMeasure int
 	// shell is what tmux starts a pane's process with, read once since the terminal has to name
 	// it rather than leave the pane to rerun whatever was in it last.
@@ -123,6 +124,15 @@ type model struct {
 	// isDark is the terminal's background, settled before the program started and never asked of
 	// lipgloss again while the panel runs.
 	isDark bool
+}
+
+// at is the only writer of paneMeasure, handing back a model that measures its own chrome in a
+// column named outright rather than asking which column it has, which is the question a screen
+// deciding its own split is still in the middle of.
+func (m model) at(width int) model {
+	m.paneMeasure = width
+
+	return m
 }
 
 func newModel(deps Deps, isDark bool) model {

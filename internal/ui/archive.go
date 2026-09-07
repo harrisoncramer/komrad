@@ -457,10 +457,7 @@ func (m model) archiveSplit() (reviewSplit, bool) {
 	// The legend gives up its columns as the sidebar narrows and stands taller for it, so a window
 	// the list fitted whole may not hold it once the document has taken half, and the list is
 	// worth more whole at the full width than halved and running off the bottom.
-	held := m
-	held.paneMeasure = split.sidebar
-
-	return split, countLines(held.archiveListView()) <= split.rows
+	return split, countLines(m.at(split.sidebar).archiveListView()) <= split.rows
 }
 
 // archiveDocRows is the document rendered into its own column, a row at a time.
@@ -513,17 +510,19 @@ func (m model) archiveDocView(split reviewSplit) string {
 }
 
 func (m model) archiveView() string {
-	list := m.archiveListView()
-
 	split, ok := m.archiveSplit()
 	if !ok {
-		return list
+		return m.archiveListView()
 	}
+
+	// Asked for before either half is drawn, so the halves are laid out already knowing their
+	// column rather than sending every line of chrome back through paneWidth into the geometry.
+	held := m.at(split.sidebar)
 
 	// Trimmed so the two halves are the same height, since a trailing newline is a row the list
 	// block would have and the document beside it would not.
-	list = fitColumn(strings.TrimRight(list, "\n"), split.sidebar)
-	doc := fitColumn(m.archiveDocView(split), split.diff)
+	list := fitColumn(strings.TrimRight(held.archiveListView(), "\n"), split.sidebar)
+	doc := fitColumn(held.archiveDocView(split), split.diff)
 
 	if m.frame.IsSidebarOnRight() {
 		return lipgloss.JoinHorizontal(lipgloss.Top, doc, list)
