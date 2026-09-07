@@ -10,6 +10,7 @@ import (
 type bindingTmux struct {
 	globals map[string]string
 	bound   map[string][]string
+	unbound []string
 }
 
 func (t *bindingTmux) SetGlobal(name, value string) {
@@ -39,6 +40,12 @@ func (t *bindingTmux) BindRootKey(key string, command ...string) {
 	}
 
 	t.bound["root:"+key] = command
+}
+
+func (t *bindingTmux) UnbindRootKey(key string) {
+	delete(t.bound, "root:"+key)
+
+	t.unbound = append(t.unbound, key)
 }
 
 type panelKeyRecorder struct {
@@ -207,7 +214,7 @@ func TestBindFocusKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &bindingTmux{}
 
-			NewPopupWindow(tmux, "weave").BindFocusKey(tt.key, tt.sidebar)
+			NewPopupWindow(tmux, "weave").HoldFocusKey(tt.key, tt.sidebar, true)
 
 			command, bound := tmux.bound["root:"+tt.key]
 			if tt.want == nil {
@@ -220,4 +227,47 @@ func TestBindFocusKey(t *testing.T) {
 			assert.Equal(t, tt.want, command)
 		})
 	}
+}
+
+// TestHoldFocusKeyGivesItBack pins the key going back to the panes, and that no key means no tmux call at
+// all rather than an unbind of the empty string.
+func TestHoldFocusKeyGivesItBack(t *testing.T) {
+	tmux := &bindingTmux{}
+	popup := NewPopupWindow(tmux, "weave")
+
+	popup.HoldFocusKey("C-a", "%3", true)
+	popup.HoldFocusKey("C-a", "%3", false)
+
+	_, bound := tmux.bound["root:C-a"]
+	assert.False(t, bound)
+	assert.Equal(t, []string{"C-a"}, tmux.unbound)
+
+	popup.HoldFocusKey("", "%3", false)
+
+	assert.Equal(t, []string{"C-a"}, tmux.unbound)
+}
+
+// TestFocusKeyHeldOnlyByTheAgentsList pins the key being taken from the panes for as long as the
+// agents list is up and no longer, which is the whole of what scopes an unconditional binding.
+func TestFocusKeyHeldOnlyByTheAgentsList(t *testing.T) {
+	binds := &bindingTmux{}
+	m := filterModel()
+	m.popup = NewPopupWindow(binds, "weave")
+	m.focusKey = "C-a"
+	m.pane = "%3"
+
+	m.enterScreen(screenMail)
+
+	_, bound := binds.bound["root:C-a"]
+	assert.False(t, bound)
+	assert.Equal(t, []string{"C-a"}, binds.unbound)
+
+	m.enterScreen(screenAgents)
+
+	command, bound := binds.bound["root:C-a"]
+	require.True(t, bound)
+	assert.Equal(t, []string{
+		"if-shell", "-F", "#{==:#{pane_id},%3}",
+		"select-pane -l", "select-pane -t %3",
+	}, command)
 }

@@ -67,6 +67,7 @@ type Deps struct {
 	StartupErr      error
 	StartupFindings []errui.Finding
 	Pane            string
+	FocusKey        string
 }
 
 type model struct {
@@ -113,6 +114,7 @@ type model struct {
 	runLogsDir      string
 	roundsDir       string
 	pane            string
+	focusKey        string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
 	// its split leaves room for it, which paneWidth reads because it is the answer that
 	// measurement feeds.
@@ -158,6 +160,7 @@ func newModel(deps Deps, isDark bool) model {
 		runLogsDir:      deps.RunLogsDir,
 		roundsDir:       deps.RoundsDir,
 		pane:            deps.Pane,
+		focusKey:        deps.FocusKey,
 		keys:            deps.Keys,
 		configErr:       deps.ConfigErr,
 		startupErr:      deps.StartupErr,

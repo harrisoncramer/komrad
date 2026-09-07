@@ -412,6 +412,11 @@ func (c *Client) BindRootKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", "-n", key}, command...)...)
 }
 
+// UnbindRootKey gives a key bound outside the prefix table back to whatever is running in the panes.
+func (c *Client) UnbindRootKey(key string) {
+	c.run("unbind-key", "-n", key)
+}
+
 // BindKeyChecked binds a key like BindKey but reports why tmux refused, for the person who
 // typed a command to bind one and is reading its output.
 func (c *Client) BindKeyChecked(key string, command ...string) error {

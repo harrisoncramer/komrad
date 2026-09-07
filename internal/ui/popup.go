@@ -11,6 +11,7 @@ type popupTmux interface {
 	SetSessionOption(target, name, value string)
 	BindKey(key string, command ...string)
 	BindRootKey(key string, command ...string)
+	UnbindRootKey(key string)
 	DetachSession(name string)
 }
 
@@ -46,17 +47,21 @@ func (p *PopupWindow) BindHide(key string) {
 // goes is settled by tmux comparing the active pane against the sidebar's, with no shell and no
 // call back into weave, and coming back is tmux's own last-pane, so nothing here remembers where
 // the press came from. A press with no pane to go back to is refused by tmux and does nothing,
-// which is the same outcome as returning to a pane that has since died.
+// which is the same outcome as returning to a pane that has since died. A root binding is
+// unconditional for as long as it stands, so the panel only stands it up while the agents list
+// is the screen showing, and takes it back on the screens that put no agent's pane on the stage.
 
-// BindFocusKey binds the key that moves focus between the panel's sidebar and the pane last
-// worked in, on weave's own server, and binds nothing when either the key or the pane is empty.
-func (p *PopupWindow) BindFocusKey(key, sidebar string) {
-	if key == "" || sidebar == "" {
-		return
+// HoldFocusKey takes the key that moves focus between the panel's sidebar and the pane last
+// worked in, or gives it back to the panes, and does neither when the key or the pane is empty.
+func (p *PopupWindow) HoldFocusKey(key, sidebar string, hold bool) {
+	switch {
+	case key == "" || sidebar == "":
+	case hold:
+		p.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
+			"select-pane -l", "select-pane -t "+sidebar)
+	default:
+		p.tmux.UnbindRootKey(key)
 	}
-
-	p.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
-		"select-pane -l", "select-pane -t "+sidebar)
 }
 
 type keyNamer interface {

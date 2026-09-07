@@ -91,8 +91,8 @@ const (
 const DefaultHarness = "claude"
 
 // DefaultFocusKey is the key that jumps between the panel and the pane last worked in when the
-// config names none, bound on weave's own tmux server so it is only ever taken from a pane inside
-// the panel.
+// config names none, bound on weave's own tmux server while the agents list is up so it is only
+// ever taken from a pane inside the panel, and only for as long as that list is showing.
 const DefaultFocusKey = "C-a"
 
 // The layout the panel lays itself out at when the config names none. The info pane opens
@@ -480,7 +480,7 @@ type Layout struct {
 
 // Panel is how the panel itself behaves, apart from where it draws its regions.
 type Panel struct {
-	// The tmux key, named the way tmux names one, that moves focus to the panel from any pane inside it and back to that pane on the next press. Empty binds nothing.
+	// The tmux key, named the way tmux names one, that moves focus to the panel from the pane on the stage beside the agents list and back to that pane on the next press, bound only while that list is showing. Empty binds nothing.
 	FocusKey string `mapstructure:"focus_key"`
 }
 

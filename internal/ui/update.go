@@ -26,6 +26,8 @@ func (m model) Init() tea.Cmd {
 		return nil
 	}
 
+	m.popup.HoldFocusKey(m.focusKey, m.pane, m.screen == screenAgents)
+
 	return tea.Batch(refreshTick(), m.refreshCmd())
 }
 
