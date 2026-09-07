@@ -46,8 +46,8 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 // soloArchive takes the window for the archive's own split, or hands it back while the info pane
 // is up, since a sidebar holding the whole window covers the pane the logs are drawn in.
 func (m *model) soloArchive() {
-	// Every other screen answers for its own zoom, the review already and the search shortly, so
-	// this says nothing at all about a window it is not the archive holding.
+	// enterScreen hands the window back for every screen, so what is left here is the taking of
+	// it, which is the archive's own and nobody else's to be told about.
 	if m.screen != screenArchive {
 		return
 	}
@@ -390,10 +390,11 @@ func (m model) archiveDetails() details {
 	}
 
 	return details{
-		id:     r.item.agent.ID,
-		kind:   "Agent",
-		title:  r.item.agent.Name,
-		fields: archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
+		id:      r.item.agent.ID,
+		kind:    "Agent",
+		title:   r.item.agent.Name,
+		notices: failureNotices(r.item.agent.State),
+		fields:  archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
 	}
 }
 

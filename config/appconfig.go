@@ -142,6 +142,9 @@ type Keybindings struct {
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
+	// The search screen, where the transcript of the hit under the cursor is drawn
+	// beside the hits themselves.
+	Search SearchKeys `mapstructure:"search"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
@@ -372,6 +375,17 @@ type ReviewKeys struct {
 	ToggleViewed []string `mapstructure:"toggle_viewed"`
 }
 
+// SearchKeys are the bindings for the search screen, where the transcript of the hit
+// under the cursor is drawn beside the hits. The keys that move between the hits are the
+// shared navigation ones, so these are only what moves the transcript itself, and while
+// the query is being typed every key is a character.
+type SearchKeys struct {
+	// Scroll the transcript down a few lines.
+	ScrollDown []string `mapstructure:"scroll_down"`
+	// Scroll the transcript up a few lines.
+	ScrollUp []string `mapstructure:"scroll_up"`
+}
+
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
 // rather than part of the agents tree. Open enters it from the agents list, and
 // the rest act on the hovered schedule once inside.
@@ -455,7 +469,7 @@ type Layout struct {
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
-	// How many lines of fields the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
+	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
 	DetailsHeight float64 `mapstructure:"details_height"`
 }
 
@@ -746,6 +760,10 @@ func DefaultKeybindings() Keybindings {
 			Reload:       []string{"R"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
+		},
+		Search: SearchKeys{
+			ScrollDown: []string{"ctrl+n"},
+			ScrollUp:   []string{"ctrl+p"},
 		},
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},

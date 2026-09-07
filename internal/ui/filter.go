@@ -103,10 +103,10 @@ func (m *model) enterScreen(next screen) {
 		m.filter = filterState{}
 	}
 
-	// The archive holds the whole window while it is up and has to give it back on the way out,
-	// which this is the only place that sees, since a write landing from another screen moves the
-	// reader off it as readily as the back key does.
-	if m.screen == screenArchive && next != screenArchive {
+	// Every way onto a screen runs through here, the ones nobody pressed a key for included, so
+	// this is where a screen that had taken the window hands it back rather than leaving a pane
+	// covered by a zoom nothing asked for.
+	if !next.holdsWindow() {
 		m.frame.Solo(false)
 	}
 

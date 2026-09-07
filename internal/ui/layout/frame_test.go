@@ -513,10 +513,30 @@ func TestFrameSidebarWidthResolvesTheConfiguredShare(t *testing.T) {
 		total int
 		want  int
 	}{
-		{name: "a share of the window", width: 0.25, total: 200, want: 50},
-		{name: "a count of columns is taken as it is", width: 40, total: 200, want: 40},
-		{name: "and never more than the window holds", width: 400, total: 200, want: 200},
-		{name: "an unmeasured window has no columns to divide", width: 0.25, total: 0, want: 0},
+		{
+			name:  "a share of the window",
+			width: 0.25,
+			total: 200,
+			want:  50,
+		},
+		{
+			name:  "a count of columns is taken as it is",
+			width: 40,
+			total: 200,
+			want:  40,
+		},
+		{
+			name:  "and never more than the window holds",
+			width: 400,
+			total: 200,
+			want:  200,
+		},
+		{
+			name:  "an unmeasured window has no columns to divide",
+			width: 0.25,
+			total: 0,
+			want:  0,
+		},
 	}
 
 	for _, tt := range tests {

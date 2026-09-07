@@ -524,7 +524,7 @@ service AgentService {
   rpc ReleaseReview(ReleaseReviewRequest) returns (ReleaseReviewResponse) {
     option (annotation.v1.tool) = {
       tool_name: "release_review"
-      description: "Let go of the review you have been writing on another agent's diff, which is what sends it. Weave writes every comment out as one file and mails that agent the path, so the whole review arrives as one thing rather than a comment at a time. Give a verdict: approved if the round is good as it stands, changes requested if the agent should keep working, commented for notes without a conclusion. The verdict is what tells that agent whether it is done, so choose it deliberately. Interrupt stops it where it stands rather than waiting for the turn to end. Each call sends another review, so do not retry a call that may have succeeded."
+      description: "Let go of the review you have been writing on another agent's diff, which is what sends it. Weave writes every comment out as one file and mails that agent the path, so the whole review arrives as one thing rather than a comment at a time. Give a verdict: approved if you wrote no comments on the round, changes requested if you wrote any, since every comment is blocking and a nit is still a comment; commented for notes without a conclusion. Approved is what tells that agent it is done and sends it off to open its pull request, so it is the last thing you say about that change rather than something to pair with findings. Interrupt stops it where it stands rather than waiting for the turn to end. Each call sends another review, so do not retry a call that may have succeeded."
       destructive: false
       idempotent: false
     };

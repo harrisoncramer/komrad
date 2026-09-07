@@ -480,7 +480,13 @@ func (m model) searchHelp() keyMap {
 	return keyMap{
 		short: []key.Binding{open, edit, m.helpBinding()},
 		full: slices.Concat(
-			[]key.Binding{open, edit, m.moveBinding(), m.jumpBinding()},
+			[]key.Binding{
+				open,
+				edit,
+				m.moveBinding(),
+				m.jumpBinding(),
+				pairBinding(m.keys.Search.ScrollDown, m.keys.Search.ScrollUp, "scroll the preview"),
+			},
 			m.globalHelp(),
 		),
 	}
