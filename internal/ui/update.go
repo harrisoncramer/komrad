@@ -27,7 +27,7 @@ func (m model) Init() tea.Cmd {
 		return nil
 	}
 
-	m.popup.HoldFocusKey(m.focusKey, m.pane, m.screen == screenAgents)
+	m.holdFocusKey()
 
 	return tea.Batch(refreshTick(), m.refreshCmd(), cursor.Blink)
 }
@@ -43,8 +43,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	routed, blink := routed.updateRowCursor(msg)
 	routed, warming := routed.pollWarmup()
+	routed.holdFocusKey()
 
 	return routed, tea.Batch(cmd, blink, warming)
+}
+
+// holdFocusKey binds the focus key while an agent's pane is on the stage, and gives it back when
+// there is no pane for the key to jump to.
+func (m model) holdFocusKey() {
+	m.popup.HoldFocusKey(m.focusKey, m.pane, m.screen == screenAgents && !m.hasNoAgentPane())
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
