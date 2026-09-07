@@ -40,6 +40,8 @@ func Run(deps Deps) error {
 
 type uiTmux interface {
 	layout.Tmux
+	ResizeWindow(pane string, width, height int)
+	SetSessionOption(target, name, value string)
 	GetHostPath() string
 	GetDefaultShell() string
 	SetInfoPane(pane string)
@@ -86,35 +88,40 @@ type model struct {
 	screen          screen
 	height          int
 	width           int
-	info            infoState
-	details         detailsState
-	detailsHeight   float64
-	listing         listing
-	tree            treeState
-	hover           hoverState
-	runHover        hoverState
-	schedules       scheduleState
-	archive         archiveState
-	search          searchState
-	review          reviewState
-	mail            mailState
-	filter          filterState
-	column          columnState
-	marks           markState
-	form            formState
-	pendingForm     bool
-	setupPending    bool
-	helpExpanded    bool
-	topHeld         bool
-	keys            config.Keybindings
-	logPath         string
-	logViewer       string
-	processViewer   string
-	editor          string
-	runLogsDir      string
-	roundsDir       string
-	pane            string
-	focusKey        string
+
+	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
+	// has not moved costs no tmux calls.
+	sized map[string]string
+
+	info          infoState
+	details       detailsState
+	detailsHeight float64
+	listing       listing
+	tree          treeState
+	hover         hoverState
+	runHover      hoverState
+	schedules     scheduleState
+	archive       archiveState
+	search        searchState
+	review        reviewState
+	mail          mailState
+	filter        filterState
+	column        columnState
+	marks         markState
+	form          formState
+	pendingForm   bool
+	setupPending  bool
+	helpExpanded  bool
+	topHeld       bool
+	keys          config.Keybindings
+	logPath       string
+	logViewer     string
+	processViewer string
+	editor        string
+	runLogsDir    string
+	roundsDir     string
+	pane          string
+	focusKey      string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
 	// its split leaves room for it, which paneWidth reads because it is the answer that
 	// measurement feeds.

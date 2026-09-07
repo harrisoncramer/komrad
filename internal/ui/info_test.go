@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -109,6 +110,8 @@ const panelViewer = "/dev/ttys004"
 type recordingTmux struct {
 	path          string
 	swaps         int
+	windowSizes   map[string]string
+	sessionOpts   map[string]string
 	respawns      []string
 	width         int
 	height        int
@@ -128,15 +131,21 @@ type recordingTmux struct {
 	keysElsewhere bool
 }
 
-func (t *recordingTmux) ShowGlobal(name string) string           { return t.globals[name] }
-func (t *recordingTmux) GetSessionClient(string) string          { return t.sessionClient }
-func (t *recordingTmux) SetSessionOption(string, string, string) {}
-func (t *recordingTmux) DetachSession(string)                    { t.detaches++ }
-func (t *recordingTmux) BindKey(string, ...string)               {}
-func (t *recordingTmux) BindRootKey(string, ...string)           {}
-func (t *recordingTmux) UnbindRootKey(string)                    {}
-func (t *recordingTmux) GetHostPath() string                     { return t.path }
-func (t *recordingTmux) GetDefaultShell() string                 { return "/bin/zsh" }
+func (t *recordingTmux) ShowGlobal(name string) string  { return t.globals[name] }
+func (t *recordingTmux) GetSessionClient(string) string { return t.sessionClient }
+func (t *recordingTmux) SetSessionOption(_, name, value string) {
+	if t.sessionOpts == nil {
+		t.sessionOpts = map[string]string{}
+	}
+
+	t.sessionOpts[name] = value
+}
+func (t *recordingTmux) DetachSession(string)          { t.detaches++ }
+func (t *recordingTmux) BindKey(string, ...string)     {}
+func (t *recordingTmux) BindRootKey(string, ...string) {}
+func (t *recordingTmux) UnbindRootKey(string)          {}
+func (t *recordingTmux) GetHostPath() string           { return t.path }
+func (t *recordingTmux) GetDefaultShell() string       { return "/bin/zsh" }
 func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 	t.sentKeys = append(t.sentKeys, strings.Join(append([]string{target}, keys...), " "))
 
@@ -214,6 +223,15 @@ func (t *recordingTmux) KillPane(pane string) {
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
+}
+
+// ResizeWindow records the size an agent's own window was put at, keyed by pane.
+func (t *recordingTmux) ResizeWindow(pane string, width, height int) {
+	if t.windowSizes == nil {
+		t.windowSizes = map[string]string{}
+	}
+
+	t.windowSizes[pane] = fmt.Sprintf("%dx%d", width, height)
 }
 
 func (t *recordingTmux) ResizePane(string, string) { t.zoomed = false }

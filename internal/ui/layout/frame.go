@@ -210,6 +210,10 @@ func (f *Frame) SidebarWidth(total int) (int, bool) {
 	return f.spec.SidebarWidth(total), false
 }
 
+// StageCols is how wide the pane beside the sidebar was last measured at, which is the width
+// anything shown there is given.
+func (f *Frame) StageCols() int { return f.stageCols }
+
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
 // over the whole window keeps the width the user has dragged the divider to.
 func (f *Frame) SyncSplit() {

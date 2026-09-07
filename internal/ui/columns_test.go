@@ -378,3 +378,21 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 	assert.Equal(t, 174, split.sidebar, "the window less the stage and the divider")
 	assert.Equal(t, 26, split.column, "and the block keeps what is left rather than its floor")
 }
+
+// TestAgentWindowsAreTheSizeOfTheStage covers an agent's own window being kept at the size of the
+// slot it is shown in, since a pane swapped into a slot of another size is resized by tmux and the
+// CLI in it redraws its whole transcript.
+func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+	m.listing.agents = append(m.listing.agents, agentItem{agent: agentstore.Agent{
+		ID:         "a2",
+		Name:       "dormant",
+		WorkflowID: "w1",
+	}})
+
+	m = resizedTo(t, m, 200, 40)
+
+	assert.Equal(t, "200x40", tmux.windowSizes["%9"], "the running agent's own window is put at the stage's size")
+	assert.NotContains(t, tmux.windowSizes, "", "and a dormant agent has no window to size")
+}

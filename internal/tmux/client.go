@@ -327,6 +327,16 @@ func (c *Client) NewWindow(session, name, dir string) (string, error) {
 	return pane, nil
 }
 
+// ResizeWindow sets the size of the window a pane sits in, which is how a window nobody is
+// watching is kept at the size of the slot its pane will be shown in.
+func (c *Client) ResizeWindow(pane string, width, height int) {
+	if pane == "" || width <= 0 || height <= 0 {
+		return
+	}
+
+	c.run("resize-window", "-t", pane, "-x", strconv.Itoa(width), "-y", strconv.Itoa(height))
+}
+
 // SwapPanes exchanges two panes' positions, keeping the active pane unchanged, which is
 // how a pane moves into and out of the stage slot without disturbing focus.
 func (c *Client) SwapPanes(src, dst string) {
