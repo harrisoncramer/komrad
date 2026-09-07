@@ -232,7 +232,7 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 
 	tallied, err := s.review.ListTallies(ctx)
 	if err != nil {
-		return nil, rpcerr.Wrap(err, "failed to count the rounds of review the agents have taken part in")
+		return nil, rpcerr.Wrap(err, "failed to count the rounds of review the agents have been through")
 	}
 	tallies := xslice.KeyBy(tallied, func(tally reviewstore.Tally) string { return tally.AgentID })
 
@@ -259,14 +259,13 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 		failure, hasFailure := failed[a.ID]
 
 		return agentFlags{
-			mark:           marks[a.ID],
-			alive:          running[a.ID],
-			unreadMail:     hasMail,
-			unviewed:       hasOutput,
-			failedRun:      hasFailure,
-			failedRunLog:   failure.LogNumber,
-			roundsReceived: tallies[a.ID].Received,
-			roundsSent:     tallies[a.ID].Sent,
+			mark:         marks[a.ID],
+			alive:        running[a.ID],
+			unreadMail:   hasMail,
+			unviewed:     hasOutput,
+			failedRun:    hasFailure,
+			failedRunLog: failure.LogNumber,
+			rounds:       tallies[a.ID].Rounds,
 		}
 	}, nil
 }

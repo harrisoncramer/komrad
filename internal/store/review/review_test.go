@@ -517,10 +517,10 @@ func catchUp(t *testing.T, st *fixture, agentID string) {
 	}
 }
 
-// TestTalliesCountReleasedRoundsBothWays is what the panel draws a loop from: the agent whose
-// work went round is counted against the rounds, the agent that read it against the reviews it
-// let go of, and a batch nobody has released is counted against neither.
-func TestTalliesCountReleasedRoundsBothWays(t *testing.T) {
+// TestTalliesCountTheAgentHoldingTheDiff is what the panel draws a loop from: the rounds are
+// counted against the agent whose work went round, the reviewer that read it is not counted at
+// all, and a batch nobody has released is counted against neither.
+func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
@@ -541,13 +541,8 @@ func TestTalliesCountReleasedRoundsBothWays(t *testing.T) {
 	tallies, err := st.ListTallies(ctx)
 	require.NoError(t, err)
 
-	byAgent := make(map[string]Tally, len(tallies))
-	for _, tally := range tallies {
-		byAgent[tally.AgentID] = tally
-	}
-
-	assert.Equal(t, Tally{AgentID: agentID, Received: 2}, byAgent[agentID])
-	assert.Equal(t, Tally{AgentID: reviewer, Sent: 2}, byAgent[reviewer])
+	require.Len(t, tallies, 1, "the reviewer holds no diff of its own to have gone round")
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0])
 }
 
 // TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
@@ -571,10 +566,6 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	tallies, err := st.ListTallies(ctx)
 	require.NoError(t, err)
 
-	require.Len(t, tallies, 2)
-	for _, tally := range tallies {
-		if tally.AgentID == agentID {
-			assert.Equal(t, int32(1), tally.Received)
-		}
-	}
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
 }

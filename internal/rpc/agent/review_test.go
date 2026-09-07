@@ -133,8 +133,8 @@ func (stubSnapshotter) FileAt(context.Context, string, string, string) ([]string
 }
 
 // TestListedAgentsCarryTheirReviewRounds is the wiring the panel draws its loop mark from: a
-// released review is counted against the agent whose work it was given on and against the agent
-// that gave it, and a review still being written is counted against neither.
+// released review is counted against the agent whose work it was given on, and a review still
+// being written is counted against nobody.
 func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 	svc, st := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{Name: "worker", Cwd: "/repo", State: agentstore.StateIdle})
@@ -159,19 +159,19 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	counts := func() map[string][2]int32 {
+	counts := func() map[string]int32 {
 		listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
 		require.NoError(t, err)
 
-		rounds := make(map[string][2]int32, len(listed.Msg.GetAgents()))
+		rounds := make(map[string]int32, len(listed.Msg.GetAgents()))
 		for _, agent := range listed.Msg.GetAgents() {
-			rounds[agent.GetName()] = [2]int32{agent.GetReviewRoundsReceived(), agent.GetReviewRoundsSent()}
+			rounds[agent.GetName()] = agent.GetReviewRounds()
 		}
 
 		return rounds
 	}
 
-	assert.Equal(t, [2]int32{0, 0}, counts()["worker"], "a review nobody has released is nothing yet")
+	assert.Zero(t, counts()["worker"], "a review nobody has released is nothing yet")
 
 	_, err = svc.ReleaseReview(asReviewer, connect.NewRequest(&agentv1.ReleaseReviewRequest{
 		AgentId: worker.ID,
@@ -179,6 +179,6 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 	}))
 	require.NoError(t, err)
 
-	assert.Equal(t, [2]int32{1, 0}, counts()["worker"])
-	assert.Equal(t, [2]int32{0, 1}, counts()["reviewer"])
+	assert.Equal(t, int32(1), counts()["worker"])
+	assert.Zero(t, counts()["reviewer"], "the reviewer holds no diff of its own to have gone round")
 }

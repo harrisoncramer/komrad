@@ -33,10 +33,8 @@ type agentFlags struct {
 	// failedRunLog is the log the failure went to, which is what opens the pane on the run
 	// that failed rather than on whatever ran last.
 	failedRunLog *int32
-	// roundsReceived is how many rounds of its own work an author has released a review against.
-	roundsReceived int32
-	// roundsSent is how many rounds of another agent's work it has released a review against.
-	roundsSent int32
+	// rounds is how many rounds of review this agent's own work has been through.
+	rounds int32
 }
 
 func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
@@ -46,37 +44,36 @@ func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 
 	return agent{
 		Agent: &agentv1.Agent{
-			Id:                   stored.ID,
-			Name:                 stored.Name,
-			Cwd:                  stored.Cwd,
-			Flags:                stored.Flags,
-			Prompt:               stored.Prompt,
-			PaneId:               stored.Pane,
-			State:                string(stored.State),
-			Role:                 string(stored.Role),
-			SessionId:            stored.SessionID,
-			Harness:              stored.Harness,
-			WorkflowId:           stored.WorkflowID,
-			ScheduleId:           stored.ScheduleID,
-			CreatedAt:            dates.Stamp(stored.CreatedAt),
-			StateChangedAt:       dates.Stamp(stored.StateChangedAt),
-			ReportedReason:       stored.ReportedReason,
-			ArchivedAt:           dates.StampPtr(stored.ArchivedAt),
-			Alive:                flags.alive,
-			UnreadMail:           flags.unreadMail,
-			Mark:                 flags.mark,
-			Hidden:               stored.Hidden,
-			Metadata:             metadata,
-			IdempotencyKey:       stored.IdempotencyKey,
-			SpawnedByAgentId:     stored.SpawnedByAgentID,
-			ParentAgentId:        stored.ParentAgentID,
-			Branch:               stored.Branch,
-			WorktreeRemoved:      stored.WorktreeRemoved,
-			Unviewed:             flags.unviewed,
-			FailedRun:            flags.failedRun,
-			FailedRunLog:         flags.failedRunLog,
-			ReviewRoundsReceived: flags.roundsReceived,
-			ReviewRoundsSent:     flags.roundsSent,
+			Id:               stored.ID,
+			Name:             stored.Name,
+			Cwd:              stored.Cwd,
+			Flags:            stored.Flags,
+			Prompt:           stored.Prompt,
+			PaneId:           stored.Pane,
+			State:            string(stored.State),
+			Role:             string(stored.Role),
+			SessionId:        stored.SessionID,
+			Harness:          stored.Harness,
+			WorkflowId:       stored.WorkflowID,
+			ScheduleId:       stored.ScheduleID,
+			CreatedAt:        dates.Stamp(stored.CreatedAt),
+			StateChangedAt:   dates.Stamp(stored.StateChangedAt),
+			ReportedReason:   stored.ReportedReason,
+			ArchivedAt:       dates.StampPtr(stored.ArchivedAt),
+			Alive:            flags.alive,
+			UnreadMail:       flags.unreadMail,
+			Mark:             flags.mark,
+			Hidden:           stored.Hidden,
+			Metadata:         metadata,
+			IdempotencyKey:   stored.IdempotencyKey,
+			SpawnedByAgentId: stored.SpawnedByAgentID,
+			ParentAgentId:    stored.ParentAgentID,
+			Branch:           stored.Branch,
+			WorktreeRemoved:  stored.WorktreeRemoved,
+			Unviewed:         flags.unviewed,
+			FailedRun:        flags.failedRun,
+			FailedRunLog:     flags.failedRunLog,
+			ReviewRounds:     flags.rounds,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

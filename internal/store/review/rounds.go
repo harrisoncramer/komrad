@@ -399,18 +399,15 @@ func reviewNotFound(id string) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
 
-// Tally is how many rounds of review one agent has taken part in, counted in both directions
-// since a loop shows on the agent being reviewed and on the one reviewing it.
+// Tally is how many rounds of review one agent's work has been through, counted against the
+// agent holding the diff since that is the one going round again rather than whoever read it.
 type Tally struct {
 	AgentID string
-	// Received is how many of its own rounds an author has released a review against.
-	Received int32
-	// Sent is how many rounds of another agent's work it has released a review against.
-	Sent int32
+	Rounds  int32
 }
 
-// ListTallies is the rounds of review every agent has taken part in, leaving out the agents
-// that have taken part in none.
+// ListTallies is the rounds of review every agent's work has been through, leaving out the
+// agents whose work has been through none.
 func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
 	rows, err := s.queries.ListReviewRoundTallies(ctx)
 	if err != nil {
@@ -418,6 +415,6 @@ func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListReviewRoundTalliesRow) Tally {
-		return Tally{AgentID: row.AgentID, Received: row.Received, Sent: row.Sent}
+		return Tally{AgentID: row.AgentID, Rounds: row.Rounds}
 	}), nil
 }

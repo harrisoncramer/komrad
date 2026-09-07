@@ -22,22 +22,14 @@ func TestReviewRoundsMarkCarriesTheCount(t *testing.T) {
 	assert.Contains(t, reviewRoundsMark(4), "4")
 }
 
-// TestReviewRoundsMarkAddsBothDirections covers the reviewer and the agent it reads for wearing
-// the same count, since one agent is only ever on one side of a round.
-func TestReviewRoundsMarkAddsBothDirections(t *testing.T) {
-	assert.Equal(t, int32(3), reviewRounds(agentItem{roundsReceived: 3}))
-	assert.Equal(t, int32(3), reviewRounds(agentItem{roundsSent: 3}))
-}
-
-// TestReviewRoundsNoticeSaysWhichWay is why the record spells the count out: the row adds the
-// two directions up, and which of them ran away is the difference between a loop and a reviewer
-// that has read a lot.
-func TestReviewRoundsNoticeSaysWhichWay(t *testing.T) {
-	notices := agentNotices(agentItem{roundsReceived: 3, roundsSent: 1})
+// TestReviewRoundsNoticeSaysWhatTheGlyphMeans is why the record spells the count out: the glyph
+// says a number without saying what was counted.
+func TestReviewRoundsNoticeSaysWhatTheGlyphMeans(t *testing.T) {
+	notices := agentNotices(agentItem{rounds: 3})
 
 	require.Len(t, notices, 1)
-	assert.Contains(t, notices[0].text, "3 given on its work")
-	assert.Contains(t, notices[0].text, "1 it has given")
+	assert.Contains(t, notices[0].text, "reviewed 3 times")
+	assert.Contains(t, agentNotices(agentItem{rounds: 1})[0].text, "reviewed once", "one round is not 1 times")
 	assert.Empty(t, agentNotices(agentItem{}), "an agent no review has touched says nothing")
 }
 
@@ -46,9 +38,9 @@ func TestReviewRoundsNoticeSaysWhichWay(t *testing.T) {
 // every other mark stands for something a person can still act on.
 func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
 	notices := agentNotices(agentItem{
-		agent:          agentstore.Agent{Hidden: true},
-		unreadMail:     true,
-		roundsReceived: 2,
+		agent:      agentstore.Agent{Hidden: true},
+		unreadMail: true,
+		rounds:     2,
 	})
 
 	require.Len(t, notices, 3)
@@ -66,7 +58,7 @@ func TestAgentsViewReviewRounds(t *testing.T) {
 				ID:         "a1",
 				Name:       "going-round",
 				WorkflowID: "w1",
-			}, roundsReceived: 4},
+			}, rounds: 4},
 			{agent: agentstore.Agent{
 				ID:         "a2",
 				Name:       "first-pass",

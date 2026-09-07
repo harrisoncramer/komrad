@@ -174,8 +174,8 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
-// reviewRoundsMark counts the rounds of review an agent has taken part in, which is drawn as a
-// number because a change going round again and again is what it is there to show.
+// reviewRoundsMark counts the rounds of review an agent's work has been through, which is drawn
+// as a number because a change going round again and again is what it is there to show.
 func reviewRoundsMark(rounds int32) string {
 	return iconMark(rounds > 0, fmt.Sprintf("%s%d", reviewRoundsIcon, rounds), colorMuted)
 }

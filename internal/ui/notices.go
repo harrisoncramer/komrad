@@ -26,11 +26,14 @@ const (
 	hiddenNotice          = "hidden: the sidebar leaves this row out until hidden agents are shown"
 )
 
-// reviewRoundsNotice is the only place the two directions are drawn apart, since the count on the
-// row is the two of them added up and which one it stands for tells a loop from a reviewer that
-// has read a lot.
-func reviewRoundsNotice(item agentItem) string {
-	return fmt.Sprintf("review rounds: %d given on its work, %d it has given", item.roundsReceived, item.roundsSent)
+// reviewRoundsNotice counts against the agent holding the diff, since a change read four times
+// is the loop worth catching and the reviewer that read it went round no more than once itself.
+func reviewRoundsNotice(rounds int32) string {
+	if rounds == 1 {
+		return "review rounds: its work has been reviewed once"
+	}
+
+	return fmt.Sprintf("review rounds: its work has been reviewed %d times", rounds)
 }
 
 // agentNotices orders the marks by how much each wants a person's attention, since the record
@@ -43,7 +46,7 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
 
-	return appendNotice(notices, reviewRounds(item) > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item))
+	return appendNotice(notices, item.rounds > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item.rounds))
 }
 
 // failureNotices is the whole of what an archived row has to say, since every other mark stands

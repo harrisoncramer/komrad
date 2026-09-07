@@ -247,16 +247,8 @@ type agentItem struct {
 	failedRun  bool
 	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
 	failedRunLog *int32
-	// roundsReceived is how many rounds of its own work an author has released a review against.
-	roundsReceived int32
-	// roundsSent is how many rounds of another agent's work it has released a review against.
-	roundsSent int32
-}
-
-// reviewRounds is how many rounds of review an agent has taken part in, in either direction,
-// since an agent is reviewed or reviewing rather than both.
-func reviewRounds(item agentItem) int32 {
-	return item.roundsReceived + item.roundsSent
+	// rounds is how many rounds of review this agent's own work has been through.
+	rounds int32
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

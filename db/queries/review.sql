@@ -423,33 +423,12 @@ DELETE FROM review_threads
 WHERE id = @id;
 
 -- name: ListReviewRoundTallies :many
-WITH received AS (
-    SELECT
-        v.agent_id AS agent_id,
-        COUNT(DISTINCT v.round_id) AS rounds
-    FROM
-        reviews v
-    WHERE
-        v.released_at IS NOT NULL
-    GROUP BY
-        v.agent_id
-),
-sent AS (
-    SELECT
-        v.author_agent_id AS agent_id,
-        COUNT(DISTINCT v.round_id) AS rounds
-    FROM
-        reviews v
-    WHERE
-        v.released_at IS NOT NULL
-        AND v.author_agent_id IS NOT NULL
-    GROUP BY
-        v.author_agent_id
-)
 SELECT
-    COALESCE(r.agent_id, s.agent_id)::uuid AS agent_id,
-    COALESCE(r.rounds, 0)::int AS received,
-    COALESCE(s.rounds, 0)::int AS sent
+    v.agent_id,
+    COUNT(DISTINCT v.round_id)::int AS rounds
 FROM
-    received r
-    FULL JOIN sent s ON s.agent_id = r.agent_id;
+    reviews v
+WHERE
+    v.released_at IS NOT NULL
+GROUP BY
+    v.agent_id;
