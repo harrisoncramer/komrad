@@ -20,7 +20,13 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 		require.NotNil(t, spec.view, "screen %d draws nothing", s)
 
 		if spec.fromListing {
-			assert.NotNil(t, spec.stage, "screen %d is drawn from the listing but stages nothing", s)
+			assert.True(t, spec.stage != nil || spec.column != nil,
+				"screen %d is drawn from the listing but neither stages a pane nor draws a block of its own", s)
+		}
+
+		if spec.column != nil {
+			column := spec.column()
+			assert.Positive(t, column.floor, "screen %d draws a block at no width", s)
 		}
 
 		if spec.details != nil {

@@ -120,6 +120,12 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openTerminal()
 	}
 
+	// The block beside the list is the panel's own to scroll, so the keys that move it are routed
+	// here rather than repeated on every screen that draws one.
+	if direction, ok := m.isColumnScroll(key.String()); ok {
+		return m.scrollColumn(direction)
+	}
+
 	if m.isDetailsScreen() {
 		if m.isDetailsFocused() {
 			return m.updateDetails(key)

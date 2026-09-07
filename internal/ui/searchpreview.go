@@ -6,10 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// searchPreviewFloor is the narrowest the transcript is worth wrapping into, which is about as
-// short as a line of prose stays readable at.
-const searchPreviewFloor = 40
-
 // transcriptPreviewBefore is how many rows of lead-in the preview opens with, so the match the
 // hit was found on is read in what was being said around it rather than at the top of the column.
 const transcriptPreviewBefore = 12
@@ -27,7 +23,7 @@ type searchPreview struct {
 // searchColumn is the transcript drawn beside the hits, which stands whether or not anything has
 // been fetched for it so that typing a query does not move the hits out from under the reader.
 func searchColumn() columnSpec {
-	return columnSpec{floor: searchPreviewFloor}
+	return columnSpec{floor: columnFloor}
 }
 
 // holdPreview takes the transcript a hit was fetched for and draws it at the width it will be

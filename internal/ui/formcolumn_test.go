@@ -13,7 +13,7 @@ import (
 )
 
 // formColumnModel is the agents list on a window wide enough to hold a form beside it.
-func formColumnModel(t *testing.T) (model, *recordingTmux) {
+func formColumnModel(t *testing.T) model {
 	t.Helper()
 
 	tmux := &recordingTmux{width: 200, height: 40}
@@ -21,7 +21,7 @@ func formColumnModel(t *testing.T) (model, *recordingTmux) {
 	m.width, m.height = 200, 40
 	m.api = api{hooks: &fakeHooks{}}
 
-	return m, tmux
+	return m
 }
 
 func openWorkflowForm(t *testing.T, m model) model {
@@ -36,7 +36,7 @@ func openWorkflowForm(t *testing.T, m model) model {
 // column of its own, with the list it was opened over still beside it, since the list is the
 // context the form was opened from.
 func TestFormTakesTheWindowBesideTheList(t *testing.T) {
-	m, _ := formColumnModel(t)
+	m := formColumnModel(t)
 	require.False(t, m.frame.IsSolo(), "the agents list shares the window")
 
 	m = openWorkflowForm(t, m)
@@ -60,7 +60,7 @@ func TestFormTakesTheWindowBesideTheList(t *testing.T) {
 // TestFormHandsTheWindowBackOnClose covers the way off a form, since the panes beside the panel
 // are covered by the zoom the form was holding for as long as it holds it.
 func TestFormHandsTheWindowBackOnClose(t *testing.T) {
-	m, _ := formColumnModel(t)
+	m := formColumnModel(t)
 	m = openWorkflowForm(t, m)
 	require.True(t, m.frame.IsSolo())
 
@@ -74,7 +74,7 @@ func TestFormHandsTheWindowBackOnClose(t *testing.T) {
 // TestConfirmDrawsWithoutAColumn covers a form that only wants an answer, which has nothing to
 // fill a column with and so leaves the window as it found it.
 func TestConfirmDrawsWithoutAColumn(t *testing.T) {
-	m, _ := formColumnModel(t)
+	m := formColumnModel(t)
 
 	opened, _ := m.archiveWorkflowConfirm(workflowstore.Workflow{ID: "w1", Name: "backend"})
 	m = asModel(t, opened)
@@ -91,7 +91,7 @@ func TestConfirmDrawsWithoutAColumn(t *testing.T) {
 // than in the pane the panel had a moment before, since huh takes its width from a window size
 // and the window the panel was sent is the whole terminal.
 func TestFormIsSizedToItsColumn(t *testing.T) {
-	m, _ := formColumnModel(t)
+	m := formColumnModel(t)
 	m = openWorkflowForm(t, m)
 
 	split, ok := m.columnSplit()
@@ -110,7 +110,7 @@ func TestFormIsSizedToItsColumn(t *testing.T) {
 // TestFormKeepsTheWholePaneOnANarrowWindow covers a window with no room for both halves, where
 // the form is worth more whole than beside a list neither of them fits next to.
 func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
-	m, _ := formColumnModel(t)
+	m := formColumnModel(t)
 	m.width = nameWidth + formColumnFloor - 1
 
 	m = openWorkflowForm(t, m)

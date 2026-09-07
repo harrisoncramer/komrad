@@ -1164,7 +1164,7 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
 		Keys:      config.DefaultKeybindings().Form,
 	})
-	sizeForm(form, 80, 40)
+	sizeForm(form, 40)
 
 	view := form.View()
 	assert.Contains(t, view, "Pre-launch hook")
@@ -1193,7 +1193,7 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 		Hooks:     []hookChoice{{name: "install-deps"}, {name: "copy-env"}},
 		Keys:      config.DefaultKeybindings().Form,
 	})
-	sizeForm(form, 80, 60)
+	sizeForm(form, 60)
 
 	view := form.View()
 	assert.Equal(t, 4, strings.Count(view, "install-deps"), "every moment offers the hook above the one it names")
@@ -1219,7 +1219,7 @@ func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
 		Hooks:     available,
 		Keys:      config.DefaultKeybindings().Form,
 	})
-	sizeForm(form, 80, 60)
+	sizeForm(form, 60)
 
 	assert.Contains(t, form.View(), "↑/↓ for more")
 }
@@ -1248,7 +1248,7 @@ func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
 		Values:    &values,
 		Keys:      config.DefaultKeybindings().Form,
 	})
-	sizeForm(form, 80, 40)
+	sizeForm(form, 40)
 
 	assert.Contains(t, form.View(), "none found in your hooks directory")
 }
@@ -1267,7 +1267,7 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 		Hooks:     []hookChoice{{name: "install-deps"}},
 		Keys:      config.DefaultKeybindings().Form,
 	})
-	sizeForm(form, 80, terminal)
+	sizeForm(form, terminal)
 
 	// huh draws its help line outside the height it is told about, which is the one row a form
 	// drawn in the whole of a short pane runs over by.
@@ -1276,12 +1276,16 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 	assert.Contains(t, form.View(), "Workflow name", "and opens at the top of itself")
 }
 
+// formColumnWidth is what these forms are measured in, which is about what the panel's own
+// column comes to on a wide terminal.
+const formColumnWidth = 80
+
 // sizeForm starts a form and tells it how much room it has, which is how the panel sizes one:
 // huh lays a form out from the window it is sent rather than from a width set at build time, so
 // that a resize reaches a form already on screen.
-func sizeForm(form *huh.Form, width, height int) {
+func sizeForm(form *huh.Form, height int) {
 	form.Init()
-	form.Update(tea.WindowSizeMsg{Width: width, Height: height})
+	form.Update(tea.WindowSizeMsg{Width: formColumnWidth, Height: height})
 }
 
 // TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
@@ -1304,7 +1308,7 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 		Hooks:     []hookChoice{{name: "announce"}, {name: "copy-env"}, {name: "install-deps"}},
 		Keys:      config.DefaultKeybindings().Form,
 	})
-	sizeForm(form, 80, 40)
+	sizeForm(form, 40)
 
 	// Every field, so each hook select is focused and blurred in turn.
 	for range 20 {

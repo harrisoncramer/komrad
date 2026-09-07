@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-
-	"weave/internal/ui/layout"
 )
 
 func (m model) listLines(chrome ...string) int {
@@ -211,10 +209,6 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	c.cursor = next
 
 	return c, true
-}
-
-func (m *model) stageDocument(markdown string) {
-	m.frame.Show(layout.RegionStage, newTextContent(markdown))
 }
 
 func (m model) listView(title string, rows []string, cursor int, help string) string {

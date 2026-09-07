@@ -25,10 +25,19 @@ type scheduleItem struct {
 
 func (m model) enterSchedules() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSchedules)
-	m.schedules.cursor = clampCursor(m.schedules.cursor, len(m.scheduleRows()))
-	m.stageSchedule()
+	rows := m.scheduleRows()
+	m.landScheduleCursor(rows, clampCursor(m.schedules.cursor, len(rows)))
 
 	return m, nil
+}
+
+func (m model) moveScheduleCursor(delta int) model {
+	rows := m.scheduleRows()
+	if next, ok := stepCursor(m.schedules.cursor, delta, len(rows)); ok {
+		m.landScheduleCursor(rows, next)
+	}
+
+	return m
 }
 
 func (m model) scheduleRows() []scheduleItem {
@@ -54,15 +63,9 @@ func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case isBound(k, m.keys.Schedules.Back):
 		return m.returnToAgents()
 	case isBound(k, m.keys.Nav.Up):
-		if next, ok := stepCursor(m.schedules.cursor, -1, len(m.scheduleRows())); ok {
-			m.schedules.cursor = next
-			m.stageSchedule()
-		}
+		return m.moveScheduleCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
-		if next, ok := stepCursor(m.schedules.cursor, 1, len(m.scheduleRows())); ok {
-			m.schedules.cursor = next
-			m.stageSchedule()
-		}
+		return m.moveScheduleCursor(1), nil
 	case isBound(k, m.keys.Schedules.New):
 		return m.newScheduleForm()
 	case isBound(k, m.keys.Schedules.Edit):
@@ -100,8 +103,7 @@ func (m *model) placeScheduleCursor(hovered string) {
 		}
 	}
 
-	m.schedules.cursor = placeCursor(found, m.schedules.cursor, len(rows))
-	m.stageSchedule()
+	m.landScheduleCursor(rows, placeCursor(found, m.schedules.cursor, len(rows)))
 }
 
 func (m model) schedulesDetails() details {
@@ -118,15 +120,20 @@ func (m model) schedulesDetails() details {
 	}
 }
 
-func (m *model) stageSchedule() {
+// schedulesColumn is the hovered schedule's own record drawn beside the list.
+func schedulesColumn() columnSpec {
+	return columnSpec{floor: columnFloor, doc: model.scheduleDoc}
+}
+
+// scheduleDoc is the markdown drawn beside the list: the notice for an empty list, or the
+// schedule the cursor is on.
+func (m model) scheduleDoc() string {
 	item, ok := m.selectedSchedule()
 	if !ok {
-		m.stageDocument(noSchedulesMarkdown)
-
-		return
+		return noSchedulesMarkdown
 	}
 
-	m.stageDocument(scheduleMarkdown(item))
+	return scheduleMarkdown(item)
 }
 
 func (m model) workflowByID(id string) *workflowstore.Workflow {
@@ -248,7 +255,24 @@ func (m model) archiveScheduleConfirm() (tea.Model, tea.Cmd) {
 	})
 }
 
+// landScheduleCursor puts the cursor on a row, naming the row rather than only its place in the
+// list so the record's own offset is kept for as long as the reader is still on it.
+func (m *model) landScheduleCursor(rows []scheduleItem, idx int) {
+	m.schedules.cursor = idx
+
+	key := ""
+	if item, ok := rowAt(rows, idx); ok {
+		key = item.schedule.ID
+	}
+
+	m.column.place(key)
+}
+
 func (m model) schedulesView() string {
+	return m.columnView(model.schedulesListView)
+}
+
+func (m model) schedulesListView() string {
 	below := m.detailsView() + "\n" + m.renderHelp(m.scheduleHelp())
 
 	all := m.scheduleRows()
@@ -283,11 +307,11 @@ func (m *model) applySchedules(fresh []scheduleItem) {
 	rows := m.scheduleRows()
 	for i, item := range rows {
 		if item.schedule.ID == selected {
-			m.schedules.cursor = i
+			m.landScheduleCursor(rows, i)
 
 			return
 		}
 	}
 
-	m.schedules.cursor = clampCursor(m.schedules.cursor, len(rows))
+	m.landScheduleCursor(rows, clampCursor(m.schedules.cursor, len(rows)))
 }

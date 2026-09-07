@@ -130,12 +130,12 @@ func (s screen) spec() screenSpec {
 				place:   (*model).placeAgentCursor,
 				rows:    model.agentFilterRows,
 			},
+			column: agentsColumn,
 		}
 	case screenSchedules:
 		return screenSpec{
 			key:         model.updateSchedules,
 			view:        model.schedulesView,
-			stage:       (*model).stageSchedule,
 			fromListing: true,
 			reenter:     model.enterSchedules,
 			details: &detailsSpec{
@@ -146,6 +146,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.hoveredScheduleKey,
 				place:   (*model).placeScheduleCursor,
 			},
+			column: schedulesColumn,
 		}
 	case screenArchive:
 		return screenSpec{
@@ -188,6 +189,7 @@ func (s screen) spec() screenSpec {
 				hovered: model.hoveredMailKey,
 				place:   (*model).placeMailCursor,
 			},
+			column: mailColumn,
 		}
 	case screenReview:
 		return screenSpec{

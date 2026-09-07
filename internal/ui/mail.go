@@ -10,7 +10,6 @@ import (
 	"time"
 
 	agentstore "weave/internal/store/agent"
-	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -72,8 +71,6 @@ func (m model) enterMail(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		agentName: agent.Name,
 		loading:   true,
 	}
-	m.frame.Show(layout.RegionStage, newTextContent("_reading the mailbox…_"))
-
 	return m, m.loadMailCmd(agent.ID)
 }
 
@@ -355,7 +352,7 @@ func (m model) hoveredMailKey() string {
 
 func (m *model) placeMailCursor(hovered string) {
 	rows := m.mailRows()
-	m.mail.cursor = nextMailRow(rows, placeCursor(mailRowIndexOfKey(rows, hovered), m.mail.cursor, len(rows)), 1)
+	m.landMailCursor(rows, nextMailRow(rows, placeCursor(mailRowIndexOfKey(rows, hovered), m.mail.cursor, len(rows)), 1))
 	m.stageMail()
 }
 
@@ -368,13 +365,34 @@ func (m model) hoveredMail() (mailRow, bool) {
 	return r, true
 }
 
-func (m *model) stageMail() {
-	if r, ok := m.hoveredMail(); ok {
-		m.stageDocument(m.mailMarkdown(r))
-	} else {
-		m.stageDocument(mailEmptyMarkdown)
+// mailColumn is the message the cursor is standing on drawn beside the threads.
+func mailColumn() columnSpec {
+	return columnSpec{floor: columnFloor, doc: model.mailDoc}
+}
+
+// mailDoc is the markdown drawn beside the threads: the message the cursor is on, or a notice
+// while the mailbox is still being read or has nothing in it.
+func (m model) mailDoc() string {
+	if m.mail.loading {
+		return mailLoadingMarkdown
 	}
 
+	r, ok := m.hoveredMail()
+	if !ok {
+		return mailEmptyMarkdown
+	}
+
+	return m.mailMarkdown(r)
+}
+
+// landMailCursor puts the cursor on a row, naming the row rather than only its place in the list
+// so the message's own offset is kept for as long as the reader is still on it.
+func (m *model) landMailCursor(rows []mailRow, idx int) {
+	m.mail.cursor = idx
+	m.column.place(mailRowKeyAt(rows, idx))
+}
+
+func (m *model) stageMail() {
 	m.stageInfo()
 }
 
@@ -451,7 +469,7 @@ func (m model) moveMailCursor(delta int) model {
 		return m
 	}
 
-	m.mail.cursor = next
+	m.landMailCursor(m.mailRows(), next)
 	m.stageMail()
 
 	return m
@@ -470,7 +488,7 @@ func (m model) jumpMailCursor(idx int) model {
 		direction = -1
 	}
 
-	m.mail.cursor = nextMailRow(rows, next, direction)
+	m.landMailCursor(rows, nextMailRow(rows, next, direction))
 	m.stageMail()
 
 	return m

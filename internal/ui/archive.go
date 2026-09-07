@@ -15,23 +15,7 @@ type archiveState struct {
 	agents    []agentstore.Agent
 	workflows []workflowstore.Workflow
 	// top is how far the document beside the list has been scrolled, held here rather than
-	// worked out from the cursor because the reader moves it themselves.
-	top int
-	// topKey is the row that offset was scrolled on, kept because the cursor's own index slides
-	// under a reader who has not moved whenever a row above them is archived or filtered away.
-	topKey string
 	rowCursor
-}
-
-// place moves the cursor and takes the document beside the list back to its top, since the offset
-// was scrolled on the row the cursor is leaving.
-func (a *archiveState) place(idx int, key string) {
-	if key != a.topKey {
-		a.top = 0
-	}
-
-	a.topKey = key
-	a.cursor = idx
 }
 
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
@@ -96,7 +80,8 @@ func (m *model) placeArchiveCursor(hovered string) {
 // landArchiveCursor puts the cursor on a row, naming the row rather than only its place in the
 // list so the document's own offset is kept for as long as the reader is still on it.
 func (m *model) landArchiveCursor(rows []agentRow, idx int) {
-	m.archive.place(idx, rowKeyAt(rows, idx))
+	m.archive.cursor = idx
+	m.column.place(rowKeyAt(rows, idx))
 }
 
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
@@ -163,10 +148,6 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveArchiveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
 		return m.moveArchiveCursor(1), nil
-	case isBound(k, m.keys.Column.ScrollDown):
-		return m.scrollArchive(1)
-	case isBound(k, m.keys.Column.ScrollUp):
-		return m.scrollArchive(-1)
 	case isBound(k, m.keys.Archive.Restore):
 		return m.restoreFromArchive()
 	case isBound(k, m.keys.Archive.Delete):
@@ -232,21 +213,6 @@ func (m model) jumpArchiveCursor(idx int) model {
 	m.stageArchive()
 
 	return m
-}
-
-// scrollArchive moves the document beside the list, clamped to what is left of it so the reader
-// cannot scroll a short document off the top of its own column.
-func (m model) scrollArchive(direction int) (tea.Model, tea.Cmd) {
-	split, ok := m.screenColumnSplit()
-	if !ok {
-		return m, nil
-	}
-
-	window := docWindow{rows: docRows(m.archiveDoc(), split.column), top: m.archive.top, markers: true}
-	window.scroll(direction*docScrollStep, split.rows)
-	m.archive.top = window.top
-
-	return m, nil
 }
 
 func (m model) selectedArchived() (agentstore.Agent, bool) {
@@ -424,7 +390,8 @@ func (m model) archivedCount(workflowID string) int {
 // would not fit the narrower column the split leaves it.
 func archiveColumn() columnSpec {
 	return columnSpec{
-		floor: reviewDiffFloor,
+		floor: columnFloor,
+		doc:   model.archiveDoc,
 		fits: func(m model, split columnSplit) bool {
 			// The legend gives up its columns as the sidebar narrows and stands taller for it, so a
 			// window the list fitted whole may not hold it once the document has taken half, and
@@ -434,26 +401,8 @@ func archiveColumn() columnSpec {
 	}
 }
 
-// archiveDocView is the screenful of the document beside the list, from the row the reader has
-// scrolled to, with a marker on each end counting what is past it, since a document cut to the
-// window reads as a document that ended.
-func (m model) archiveDocView(split columnSplit) string {
-	window := docWindow{rows: docRows(m.archiveDoc(), split.column), top: m.archive.top, markers: true}
-
-	return window.view(split.rows)
-}
-
 func (m model) archiveView() string {
-	split, ok := m.screenColumnSplit()
-	if !ok {
-		return m.archiveListView()
-	}
-
-	// Asked for before either half is drawn, so the halves are laid out already knowing their
-	// column rather than sending every line of chrome back through paneWidth into the geometry.
-	held := m.at(split.sidebar)
-
-	return m.joinColumns(split, held.archiveListView(), held.archiveDocView(split))
+	return m.columnView(model.archiveListView)
 }
 
 func (m model) archiveListView() string {

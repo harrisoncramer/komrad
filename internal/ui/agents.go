@@ -350,26 +350,54 @@ func (m model) agentsDetails() details {
 	}
 }
 
-func (m *model) stageSelection() {
-	r, ok := rowAt(m.agentRows(), m.tree.cursor)
-	if !ok {
-		m.frame.Show(layout.RegionStage, newBlankContent())
-		m.stageInfo()
+// agentsColumn is what stands where a running agent's own pane would: a folder's shared notes, or
+// why the row under the cursor has no pane to show.
+func agentsColumn() columnSpec {
+	return columnSpec{floor: columnFloor, doc: model.agentDoc, holds: model.hasNoAgentPane}
+}
 
-		return
+// hasNoAgentPane reports whether the row the cursor is on has no pane of its own, which is what
+// leaves the window free for the panel to say why instead.
+func (m model) hasNoAgentPane() bool {
+	r, ok := rowAt(m.agentRows(), m.tree.cursor)
+	if !ok || r.header {
+		return true
 	}
 
+	return !r.item.alive ||
+		r.item.agent.State == agentstore.StateSettingUp ||
+		r.item.agent.State.IsFailed()
+}
+
+// agentDoc is the markdown drawn beside the list for a row with no pane of its own.
+func (m model) agentDoc() string {
+	r, ok := rowAt(m.agentRows(), m.tree.cursor)
 	switch {
+	case !ok:
+		return noAgentsMarkdown
 	case r.header:
-		m.stageDocument(workflowContextMarkdown(r.workflow))
+		return workflowContextMarkdown(r.workflow)
 	case r.item.agent.State == agentstore.StateSettingUp:
-		m.stageDocument(settingUpPlaceholder)
+		return settingUpPlaceholder
 	case r.item.agent.State.IsFailed():
-		m.stageDocument(m.failedPlaceholder(r.item.agent))
-	case r.item.alive:
-		m.frame.ShowGuest(r.item.agent.Pane)
+		return m.failedPlaceholder(r.item.agent)
 	default:
-		m.stageDocument(dormantPlaceholder)
+		return dormantPlaceholder
+	}
+}
+
+// stageSelection puts the pane of whatever the cursor is standing on beside the list, which for a
+// running agent is the agent's own and for everything else is nothing: the panel takes the window
+// and says why there is no pane in its own frame instead.
+func (m *model) stageSelection() {
+	rows := m.agentRows()
+	m.column.place(rowKeyAt(rows, m.tree.cursor))
+	m.reconcileSolo()
+
+	if r, ok := rowAt(rows, m.tree.cursor); ok && !m.hasNoAgentPane() {
+		m.frame.ShowGuest(r.item.agent.Pane)
+	} else {
+		m.frame.Show(layout.RegionStage, newBlankContent())
 	}
 
 	m.stageInfo()
@@ -405,6 +433,10 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
+// noAgentsMarkdown is what stands beside an empty list, since a blank half of the window says
+// nothing about why it is blank.
+const noAgentsMarkdown = "# Agents\n\n_nothing here yet_\n\nPress new to make a workflow and an agent in it.\n"
+
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
 
 // failureReasonKey is the metadata key a failed create or cleanup records its reason under,
@@ -437,6 +469,10 @@ func (m model) failedPlaceholder(agent agentstore.Agent) string {
 }
 
 func (m model) agentsView() string {
+	return m.columnView(model.agentsListView)
+}
+
+func (m model) agentsListView() string {
 	below := m.detailsView() + "\n" + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()

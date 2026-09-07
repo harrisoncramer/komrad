@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -83,6 +84,7 @@ func TestHelpColumnsFollowTheWidth(t *testing.T) {
 func helpModel() model {
 	return model{
 		keys:    config.DefaultKeybindings(),
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		height:  24,
 		width:   46,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},

@@ -203,7 +203,7 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 // where the hits take the whole of it and the transcript waits for the room.
 func TestSearchWithoutTheRoomDrawsTheHitsAlone(t *testing.T) {
 	m, _ := searchPreviewModel(t)
-	m.width = nameWidth + searchPreviewFloor - 1
+	m.width = nameWidth + columnFloor - 1
 	m.drawPreview()
 
 	_, ok := m.screenColumnSplit()
