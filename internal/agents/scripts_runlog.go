@@ -178,27 +178,6 @@ func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
 	}
 }
 
-func appendNote(ctx context.Context, path string, stderr []byte, note string) []byte {
-	line := []byte("[" + note + "]\n")
-	if len(stderr) > 0 && stderr[len(stderr)-1] != '\n' {
-		line = append([]byte("\n"), line...)
-	}
-
-	if path != "" {
-		f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-		if err != nil {
-			logging.From(ctx).Warn("failed to append to run log", "path", path, "error", err)
-		} else {
-			if _, err := f.Write(line); err != nil {
-				logging.From(ctx).Warn("failed to append to run log", "path", path, "error", err)
-			}
-			f.Close()
-		}
-	}
-
-	return tailBytes(append(stderr, line...), setupPaneOutputLimit)
-}
-
 // noteEmptyLog puts the reason into a log its run never wrote a byte to, since a pane refused
 // before it was respawned leaves the number claimed for it opening an empty pager.
 func noteEmptyLog(ctx context.Context, path string, cause error) {
@@ -237,12 +216,6 @@ func removeEmptyLog(ctx context.Context, path string) {
 
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		logging.From(ctx).Warn("failed to remove the log of a run that never started", "path", path, "error", err)
-	}
-}
-
-func removeTemp(ctx context.Context, path string) {
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		logging.From(ctx).Warn("failed to remove temp file", "path", path, "error", err)
 	}
 }
 

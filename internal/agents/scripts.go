@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"sync"
 
 	"weave/config"
@@ -18,9 +17,6 @@ type tmuxReadWriter interface {
 	GetHostSocket() string
 	GetInfoPane() string
 	GetDefaultShell() string
-	IsPaneAlive(pane string) bool
-	RespawnPane(pane, dir string, argv ...string)
-	WaitFor(ctx context.Context, channel string) error
 }
 
 type ScriptService struct {

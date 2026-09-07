@@ -8,8 +8,6 @@ import (
 	"io/fs"
 	"log/slog"
 	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"weave/internal/logging"
@@ -28,42 +26,11 @@ const maxProvisionedDir = 4096
 
 const setupDirFileVar = "WEAVE_SETUP_DIR_FILE"
 
-const setupPaneOutputLimit = 64 << 10
-
-// setupPaneWrapper prints what happened before it signals, so a caller woken by the signal
-// looks at a pane that already says it.
-const setupPaneWrapper = `
-mkfifo "$6"
-tee "$5" >&2 <"$6" &
-teepid=$!
-"$1" >"$6" 2>&1
-ec=$?
-wait "$teepid"
-rm -f "$6"
-echo "$ec" >"$4"
-if [ "$ec" -ne 0 ]; then
-  printf '\n[provisioner exited %s -- press enter to close]\n' "$ec"
-fi
-tmux -L "$2" wait-for -S "$3"
-if [ "$ec" -ne 0 ]; then
-  read -r _dismiss
-fi
-`
-
-const setupPaneGaveUpWrapper = `
-printf '\n[provisioner %s: gave up after %s]\n' "$1" "$2"
-exec "$3"
-`
-
-const panePollInterval = 500 * time.Millisecond
-
 var ErrProvisionFailed = errors.New("the provisioner failed")
 
 var ErrHookFailed = errors.New("a hook failed")
 
 var ErrScriptAlreadyRunning = errors.New("the script is already running for this agent")
-
-var errPaneDied = errors.New("the pane closed before it finished")
 
 type scriptRunner interface {
 	Run(p scripts.RunParams) error
@@ -94,12 +61,12 @@ type startParams struct {
 }
 
 // RunProvision runs the provisioner that owns an agent's directory before creating it.
-func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent, name, pane string) (string, error) {
+func (s *ScriptService) RunProvision(ctx context.Context, agent agentstore.Agent, name string) (string, error) {
 	return s.runAwaited(ctx, prepareParams{
 		agent:   agent,
 		name:    name,
 		trigger: TriggerProvision,
-	}, pane)
+	})
 }
 
 // RunHook runs one of a workflow's hooks and waits for it, in the directory the agent was
@@ -166,14 +133,10 @@ func (s *ScriptService) RunResume(ctx context.Context, agent agentstore.Agent, n
 		agent:   agent,
 		name:    name,
 		trigger: TriggerResume,
-	}, "")
+	})
 }
 
-func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane string) (string, error) {
-	if pane != "" && pane != s.tmux.GetInfoPane() {
-		pane = ""
-	}
-
+func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string, error) {
 	script, env, err := s.prepare(ctx, p)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrProvisionFailed, err)
@@ -204,18 +167,13 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane st
 	timeout := script.Header.TimeoutOr(provisionTimeout)
 	record := s.beginRun(ctx, p.agent.ID, p.trigger, p.name)
 
-	var result scripts.Result
-	if pane != "" {
-		result, err = s.runInPane(ctx, script, env, pane, record.logPath, timeout)
-	} else {
-		result, err = s.runner.RunAndWait(ctx, scripts.RunParams{
-			Script:  script,
-			Dir:     script.GetDir(),
-			Env:     env,
-			Timeout: timeout,
-		})
-		writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
-	}
+	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
+		Script:  script,
+		Dir:     script.GetDir(),
+		Env:     env,
+		Timeout: timeout,
+	})
+	writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 
 	logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
 
@@ -238,143 +196,6 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams, pane st
 	}
 
 	return string(bytes.TrimSpace(named)), nil
-}
-
-func (s *ScriptService) waitForPane(ctx context.Context, pane, channel string) error {
-	done := make(chan error, 1)
-	go func() { done <- s.tmux.WaitFor(ctx, channel) }()
-
-	ticker := time.NewTicker(panePollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case err := <-done:
-			return err
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ticker.C:
-			select {
-			case err := <-done:
-				return err
-			default:
-			}
-
-			if !s.tmux.IsPaneAlive(pane) {
-				return errPaneDied
-			}
-		}
-	}
-}
-
-func (s *ScriptService) runInPane(ctx context.Context, script scripts.Script, env []string, pane, logPath string, timeout time.Duration) (scripts.Result, error) {
-	if !script.Executable {
-		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptNotExecutable)
-	}
-
-	dir := script.GetDir()
-	if info, statErr := os.Stat(dir); statErr != nil || !info.IsDir() {
-		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s in %s: %w", script.Name, dir, ErrScriptDirMissing)
-	}
-
-	if !s.tmux.IsPaneAlive(pane) {
-		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w: the pane %s is gone", script.Name, scripts.ErrNotStartable, pane)
-	}
-
-	exitFile, err := os.CreateTemp("", "weave-provision-exit-")
-	if err != nil {
-		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
-	}
-	exitFile.Close()
-	defer removeTemp(ctx, exitFile.Name())
-
-	errPath := logPath
-	if errPath == "" {
-		errFile, err := os.CreateTemp("", "weave-provision-err-")
-		if err != nil {
-			return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
-		}
-		errFile.Close()
-		errPath = errFile.Name()
-		defer removeTemp(ctx, errPath)
-	}
-
-	fifoFile, err := os.CreateTemp("", "weave-provision-fifo-")
-	if err != nil {
-		return scripts.Result{ExitCode: -1}, fmt.Errorf("failed to run script %s: %w", script.Name, err)
-	}
-	fifoPath := fifoFile.Name()
-	fifoFile.Close()
-	removeTemp(ctx, fifoPath)
-	defer removeTemp(ctx, fifoPath)
-
-	channel := fmt.Sprintf("weave-provision-%s-%d", strings.TrimPrefix(pane, "%"), time.Now().UnixNano())
-
-	waitCtx := ctx
-	if timeout > 0 {
-		var cancel context.CancelFunc
-		waitCtx, cancel = context.WithTimeout(ctx, timeout)
-		defer cancel()
-	}
-
-	argv := append([]string{"env", "-i"}, os.Environ()...)
-	argv = append(argv, env...)
-	argv = append(argv, "sh", "-c", setupPaneWrapper, "sh",
-		script.Path, s.socket, channel, exitFile.Name(), errPath, fifoPath)
-	s.tmux.RespawnPane(pane, dir, argv...)
-
-	waitErr := s.waitForPane(waitCtx, pane, channel)
-
-	stderr, readErr := os.ReadFile(errPath)
-	if readErr != nil {
-		logging.From(ctx).Warn("failed to read setup pane stderr", "path", errPath, "error", readErr)
-	}
-	stderr = tailBytes(stderr, setupPaneOutputLimit)
-
-	if waitErr != nil {
-		if errors.Is(waitErr, errPaneDied) {
-			stderr = appendNote(ctx, errPath, stderr, "the pane closed before the script finished")
-
-			return scripts.Result{Stderr: stderr, ExitCode: -1},
-				fmt.Errorf("failed to run script %s: %w: %w", script.Name, scripts.ErrNotStartable, errPaneDied)
-		}
-
-		if waitCtx.Err() != nil {
-			shell := s.tmux.GetDefaultShell()
-			if shell == "" {
-				shell = "/bin/sh"
-			}
-			s.tmux.RespawnPane(pane, dir, "sh", "-c", setupPaneGaveUpWrapper, "sh", script.Name, timeout.String(), shell)
-			stderr = appendNote(ctx, errPath, stderr, fmt.Sprintf("gave up after %s", timeout))
-
-			return scripts.Result{Stderr: stderr, ExitCode: -1},
-				fmt.Errorf("failed to run script %s: %w: gave up after %s", script.Name, waitCtx.Err(), timeout)
-		}
-
-		stderr = appendNote(ctx, errPath, stderr, "could not tell whether it finished: "+waitErr.Error())
-
-		return scripts.Result{Stderr: stderr, ExitCode: -1},
-			fmt.Errorf("failed to run script %s: could not tell whether it finished: %w", script.Name, waitErr)
-	}
-
-	exitRaw, err := os.ReadFile(exitFile.Name())
-	if err != nil {
-		return scripts.Result{Stderr: stderr, ExitCode: -1},
-			fmt.Errorf("failed to run script %s: could not read its exit status: %w", script.Name, err)
-	}
-
-	exitCode, convErr := strconv.Atoi(strings.TrimSpace(string(exitRaw)))
-	if convErr != nil {
-		return scripts.Result{Stderr: stderr, ExitCode: -1},
-			fmt.Errorf("failed to run script %s: could not read its exit status: %w", script.Name, convErr)
-	}
-
-	result := scripts.Result{Stderr: stderr, ExitCode: exitCode}
-	if exitCode != 0 {
-		return result, fmt.Errorf("failed to run script %s: %w: exited %d", script.Name, scripts.ErrFailed, exitCode)
-	}
-
-	return result, nil
 }
 
 // RunDeprovision starts the deprovisioner without waiting for it to finish, calling done once

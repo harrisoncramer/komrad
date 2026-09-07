@@ -83,7 +83,6 @@ type AdoptParams struct {
 	WorkflowID     string
 	Hidden         bool
 	IdempotencyKey string
-	SetupPane      string
 }
 
 // Adopt puts an agent on a branch weave did not make, named directly or through a pull request,
@@ -131,7 +130,6 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		WorkflowID:     p.WorkflowID,
 		Hidden:         p.Hidden,
 		IdempotencyKey: p.IdempotencyKey,
-		SetupPane:      p.SetupPane,
 		AdoptedBranch:  branch,
 	}
 

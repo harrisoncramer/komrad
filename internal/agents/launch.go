@@ -118,7 +118,6 @@ type NewAgentParams struct {
 	ScheduleID       *string
 	Hidden           bool
 	IdempotencyKey   string
-	SetupPane        string
 	AdoptedBranch    string
 	ParentAgentID    string
 	Role             agentstore.Role
@@ -396,7 +395,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		s.failCreate(teardown, agent, launchErr)
 	}()
 
-	named, err := s.runProvision(ctx, agent, plan.provisioner, p.SetupPane)
+	named, err := s.runProvision(ctx, agent, plan.provisioner)
 	if err != nil {
 		return nil, err
 	}
@@ -509,12 +508,12 @@ func awaitDeprovision(ctx context.Context, deprovision agentScriptRunner, agent 
 	}
 }
 
-func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Agent, name, pane string) (string, error) {
+func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Agent, name string) (string, error) {
 	if s.scripts == nil || name == "" {
 		return "", nil
 	}
 
-	return s.scripts.RunProvision(ctx, planned, name, pane)
+	return s.scripts.RunProvision(ctx, planned, name)
 }
 
 func (s *LaunchService) provisionedDir(planned, named string) (string, error) {

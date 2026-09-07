@@ -557,7 +557,6 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 			assert.False(t, got.pendingForm)
 			assert.Equal(t, infoNothing, got.info.kind)
 			require.NotNil(t, sent.createdAgent)
-			assert.Empty(t, sent.createdAgent.GetSetupPane(), "the panel asks for no pane to stream into")
 		})
 	}
 }

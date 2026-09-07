@@ -6,7 +6,6 @@ import (
 	"testing"
 
 	"weave/internal/agents"
-	"weave/internal/errui"
 	"weave/internal/rpcerr"
 	"weave/internal/scripts"
 	"weave/internal/store"
@@ -140,24 +139,13 @@ func TestWrapSayingLeavesOthers(t *testing.T) {
 	assert.Contains(t, err.Error(), "too many agents")
 }
 
-// TestWrapMarksAScriptThatRan covers the failure whose reason is already on screen, which the
-// panel is told about so it does not print the output the pane is showing.
-func TestWrapMarksAScriptThatRan(t *testing.T) {
+// TestWrapKeepsTheCodeOfAScriptThatRan covers a provisioner that ran and exited non-zero,
+// which is a refusal the caller is told about rather than an internal failure.
+func TestWrapKeepsTheCodeOfAScriptThatRan(t *testing.T) {
 	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrProvisionFailed, scripts.ErrFailed)
 
 	err := rpcerr.Wrap(ran, "failed to create the agent")
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-	assert.True(t, errui.DidSetupRun(err))
-}
-
-// TestWrapLeavesRefusalsUnmarked covers a refusal reached before any script ran, which the panel
-// has to report itself since nothing else says what happened.
-func TestWrapLeavesRefusalsUnmarked(t *testing.T) {
-	err := rpcerr.Wrap(agents.ErrAdoptBranchInUse, "failed to adopt")
-
-	require.Error(t, err)
-	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
-	assert.False(t, errui.DidSetupRun(err))
 }

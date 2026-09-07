@@ -14,10 +14,9 @@ import (
 )
 
 const (
-	TraceHeader    = "X-Request-Id"
-	AgentHeader    = "X-Weave-Agent-Id"
-	SessionHeader  = "X-Weave-Session-Id"
-	SetupRanHeader = "X-Weave-Setup-Ran"
+	TraceHeader   = "X-Request-Id"
+	AgentHeader   = "X-Weave-Agent-Id"
+	SessionHeader = "X-Weave-Session-Id"
 )
 
 type Caller struct {

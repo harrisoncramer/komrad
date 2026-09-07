@@ -55,17 +55,6 @@ func GetTrace(err error) string {
 	return ""
 }
 
-// DidSetupRun reports whether the failure was a script weave ran on the way in, running and exiting
-// non-zero, which is the one failure whose output the caller is already looking at.
-func DidSetupRun(err error) bool {
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
-		return connectErr.Meta().Get(caller.SetupRanHeader) == "true"
-	}
-
-	return false
-}
-
 // GetReason reduces a service error to the part worth reading: a connect error stringifies
 // with its code in front of the message, and the code says less to a person reading it
 // than the message does.
