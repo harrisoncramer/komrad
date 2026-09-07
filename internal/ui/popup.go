@@ -10,6 +10,7 @@ type popupTmux interface {
 	GetSessionClient(session string) string
 	SetSessionOption(target, name, value string)
 	BindKey(key string, command ...string)
+	BindRootKey(key string, command ...string)
 	DetachSession(name string)
 }
 
@@ -37,6 +38,25 @@ func (p *PopupWindow) BindHide(key string) {
 	}
 
 	p.tmux.BindKey(key, "detach-client", "-s", p.session)
+}
+
+// Explainer: the focus key is bound outside the prefix table on weave's own tmux server, which
+// is the only place that sees every press: a pane running an agent hands its keys to that agent,
+// so the panel's own bubbletea bindings can never reach past the sidebar. Which way the press
+// goes is settled by tmux comparing the active pane against the sidebar's, with no shell and no
+// call back into weave, and coming back is tmux's own last-pane, so nothing here remembers where
+// the press came from. A press with no pane to go back to is refused by tmux and does nothing,
+// which is the same outcome as returning to a pane that has since died.
+
+// BindFocusKey binds the key that moves focus between the panel's sidebar and the pane last
+// worked in, on weave's own server, and binds nothing when either the key or the pane is empty.
+func (p *PopupWindow) BindFocusKey(key, sidebar string) {
+	if key == "" || sidebar == "" {
+		return
+	}
+
+	p.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
+		"select-pane -l", "select-pane -t "+sidebar)
 }
 
 type keyNamer interface {
