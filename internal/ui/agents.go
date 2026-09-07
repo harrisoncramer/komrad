@@ -386,6 +386,36 @@ func (m model) agentDoc() string {
 	}
 }
 
+// sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in, since a
+// pane swapped into a slot of another size is resized and its program redraws everything it holds.
+func (m *model) sizeAgentWindows() {
+	width, height := m.frame.StageCols(), m.height
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	want := fmt.Sprintf("%dx%d", width, height)
+	guest := m.frame.GuestPane()
+
+	for _, item := range m.listing.agents {
+		pane := item.agent.Pane
+
+		// The guest is standing in the panel's own window, so resizing its window would resize the
+		// terminal weave is drawn in.
+		if pane == "" || pane == guest || m.sized[pane] == want {
+			continue
+		}
+
+		m.tmux.ResizeWindow(pane, width, height)
+
+		if m.sized == nil {
+			m.sized = map[string]string{}
+		}
+
+		m.sized[pane] = want
+	}
+}
+
 // stageSelection puts the pane of whatever the cursor is standing on beside the list, which for a
 // running agent is the agent's own and for everything else is nothing: the panel takes the window
 // and says why there is no pane in its own frame instead.

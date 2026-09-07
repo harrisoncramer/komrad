@@ -49,6 +49,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// A window that changed size is also how a divider being dragged arrives, since the panel
 		// is a pane beside the one it measures itself against.
 		m.frame.SyncSplit()
+		m.sizeAgentWindows()
 
 		if rewrap {
 			m.drawPreview()

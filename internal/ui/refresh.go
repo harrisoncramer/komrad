@@ -185,6 +185,10 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applySchedules(result.schedules)
 	}
 
+	// Done here as well as on a resize, since an agent spawned since the last pass has a window of
+	// its own that has never been put at the size it will be shown at.
+	m.sizeAgentWindows()
+
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}
