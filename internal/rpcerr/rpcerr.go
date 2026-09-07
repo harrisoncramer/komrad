@@ -36,6 +36,7 @@ var table = []mapping{
 	{agents.ErrParentNotFound, connect.CodeNotFound},
 
 	{store.ErrNameTaken, connect.CodeAlreadyExists},
+	{agents.ErrReviewerAlreadyRunning, connect.CodeAlreadyExists},
 
 	{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
 	{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
@@ -48,6 +49,7 @@ var table = []mapping{
 	{agents.ErrAdoptNeedsWorktree, connect.CodeFailedPrecondition},
 	{agents.ErrAdoptBranchInUse, connect.CodeFailedPrecondition},
 	{agents.ErrParentStillArchived, connect.CodeFailedPrecondition},
+	{agents.ErrResumeInFlight, connect.CodeFailedPrecondition},
 	{agents.ErrChildNeedsParentDirectory, connect.CodeFailedPrecondition},
 	{agents.ErrNoPullRequest, connect.CodeFailedPrecondition},
 	{agents.ErrReviewNoRound, connect.CodeFailedPrecondition},

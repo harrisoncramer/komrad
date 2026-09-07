@@ -9,6 +9,7 @@ import (
 	"weave/internal/harness"
 	"weave/internal/harness/claude"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/storetest"
@@ -105,6 +106,7 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchServi
 	return agents.NewLaunchService(agents.LaunchServiceParams{
 		Tmux:               &stubTmux{},
 		Agents:             stores.Agents,
+		Reviews:            reviewstore.New(stores.Pool.GetDB()),
 		Workflows:          stores.Workflows,
 		Tx:                 stores.Pool,
 		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),

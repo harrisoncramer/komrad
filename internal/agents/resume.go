@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"weave/config"
@@ -41,6 +42,12 @@ type ResumeService struct {
 	harnesses          harnessGetter
 	scripts            agentScriptRunner
 	fallbackResumeRoot string
+	// inFlight holds the agents this panel is part-way through resuming, which is what stops two
+	// callers each opening a window for one agent. It is kept here rather than on the row because
+	// a resume is only ever run by this process, and a row left in setting_up by a panel that died
+	// would otherwise refuse the resume that is meant to bring the agent back.
+	inFlight   map[string]struct{}
+	inFlightMu sync.Mutex
 }
 
 type ResumeServiceParams struct {
@@ -67,6 +74,7 @@ func NewResumeService(p ResumeServiceParams) *ResumeService {
 		harnesses:          p.Harnesses,
 		scripts:            p.Scripts,
 		fallbackResumeRoot: p.FallbackResumeRoot,
+		inFlight:           map[string]struct{}{},
 	}
 }
 
@@ -103,7 +111,34 @@ func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Age
 	return agent, nil
 }
 
+// takeInFlight takes the right to resume one agent, reporting false when this panel is already
+// part-way through resuming it, and hands back what gives that right up.
+func (s *ResumeService) takeInFlight(id string) (func(), bool) {
+	s.inFlightMu.Lock()
+	defer s.inFlightMu.Unlock()
+
+	if _, held := s.inFlight[id]; held {
+		return nil, false
+	}
+
+	s.inFlight[id] = struct{}{}
+
+	return func() {
+		s.inFlightMu.Lock()
+		defer s.inFlightMu.Unlock()
+		delete(s.inFlight, id)
+	}, true
+}
+
 func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) error {
+	// Answers written at once each ask for the same reviewer to be woken, and a second caller
+	// getting this far is what would open a second window for one agent.
+	done, taken := s.takeInFlight(agent.ID)
+	if !taken {
+		return fmt.Errorf("%w: %q is already being resumed", ErrResumeInFlight, agent.Name)
+	}
+	defer done()
+
 	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
 		return err

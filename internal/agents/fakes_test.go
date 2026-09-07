@@ -40,10 +40,14 @@ type fakeTmux struct {
 	detached       []string
 	sessionOptions map[string]string
 	newWindowErr   error
-	setOwnerErr    error
-	sendKeysErr    error
-	paneOwnersErr  error
-	clearOwnerErr  error
+	// beforeNewWindow runs before a window is opened, which is where a test holds one resume
+	// open while another arrives.
+	beforeNewWindow func()
+	newWindowCalls  int
+	setOwnerErr     error
+	sendKeysErr     error
+	paneOwnersErr   error
+	clearOwnerErr   error
 }
 
 func newFakeTmux() *fakeTmux {
@@ -150,6 +154,10 @@ func (f *fakeTmux) SendKeys(target string, keys ...string) error {
 func (f *fakeTmux) SplitRight(anchorPane, dir string) string { return "%stage" }
 
 func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
+	if f.beforeNewWindow != nil {
+		f.beforeNewWindow()
+	}
+
 	f.mu.Lock()
 	defer f.mu.Unlock()
 
@@ -157,11 +165,20 @@ func (f *fakeTmux) NewWindow(session, name, dir string) (string, error) {
 		return "", f.newWindowErr
 	}
 
+	f.newWindowCalls++
+
 	f.newWindows[name] = dir
 	pane := "%" + name
 	f.owners[pane] = ""
 
 	return pane, nil
+}
+
+func (f *fakeTmux) windowsOpened() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return f.newWindowCalls
 }
 
 func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
@@ -448,6 +465,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	launch := NewLaunchService(LaunchServiceParams{
 		Tmux:               options.tmux,
 		Agents:             agents,
+		Reviews:            reviewstore.New(s.Pool.GetDB()),
 		Workflows:          s.Workflows,
 		Tx:                 tx,
 		Launcher:           launcher,

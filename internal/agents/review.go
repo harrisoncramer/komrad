@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"weave/internal/logging"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 )
@@ -61,6 +64,19 @@ type reviewViewedFileReadWriter interface {
 	ListViewedFiles(ctx context.Context, roundID string) ([]reviewstore.ViewedFile, error)
 }
 
+// reviewAgentReader is what the review needs of the agent store: the row a call is about, and
+// the children of it, since the reviewer to ring is one of them.
+type reviewAgentReader interface {
+	agentGetter
+	childLister
+}
+
+// reviewerResumer puts a reviewer back in a pane, which answers a dormant one for whom mail
+// would otherwise wait forever.
+type reviewerResumer interface {
+	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
 type reviewNoticeSender interface {
 	SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error)
 }
@@ -94,8 +110,9 @@ type ReviewServiceParams struct {
 	Reviews     reviewBatchReadWriter
 	Snapshots   reviewSnapshotter
 	Workflows   workflowGetter
-	Agents      agentGetter
+	Agents      reviewAgentReader
 	Mailer      reviewNoticeSender
+	Resumer     reviewerResumer
 	Interrupter agentInterrupter
 	// StateDir is where weave keeps its own files, which is where a released review is written.
 	StateDir string
@@ -111,8 +128,9 @@ type ReviewService struct {
 	reviews     reviewBatchReadWriter
 	snapshots   reviewSnapshotter
 	workflows   workflowGetter
-	agents      agentGetter
+	agents      reviewAgentReader
 	mailer      reviewNoticeSender
+	resumer     reviewerResumer
 	interrupter agentInterrupter
 	stateDir    string
 }
@@ -129,6 +147,7 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 		workflows:   params.Workflows,
 		agents:      params.Agents,
 		mailer:      params.Mailer,
+		resumer:     params.Resumer,
 		interrupter: params.Interrupter,
 		stateDir:    params.StateDir,
 	}
@@ -330,7 +349,7 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
-	return s.messages.AddMessage(ctx, reviewstore.AddMessageParams{
+	message, err := s.messages.AddMessage(ctx, reviewstore.AddMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      reviewID,
 		Suggestion:    params.Suggestion,
@@ -338,6 +357,83 @@ func (s *ReviewService) AddReviewMessage(
 		AuthorAgentID: params.Author.AgentID,
 		Body:          params.Body,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if reviewID == nil {
+		s.ringTheReviewer(ctx, thread.AgentID)
+	}
+
+	return message, nil
+}
+
+// resumeWakeTimeout bounds a wake nobody is waiting on, so a post-resume hook that hangs cannot
+// leave one running for the life of the panel. A resume cut off here puts the row back as it
+// found it, which leaves the reviewer resumable by hand.
+const resumeWakeTimeout = hookTimeout + 5*time.Minute
+
+// wakeTheReviewer puts a reviewer back in a pane, since mail waits for one rather than making
+// one and nothing else would ever hand a dormant reviewer this doorbell. It runs on its own
+// because the resume runs the workflow's post-resume hook, which is not something an agent
+// writing an answer should be held up by, and the mail is already waiting whenever it lands.
+func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore.Agent) {
+	if s.resumer == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), resumeWakeTimeout)
+	defer cancel()
+
+	// Answers written at once each ask for the same reviewer, and the claim inside the resume is
+	// what makes that one window rather than three.
+	if _, err := s.resumer.ResumeAgent(ctx, reviewer.ID); err != nil && !errors.Is(err, ErrResumeInFlight) {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put a reviewer back in a pane to be told about an answer",
+			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
+	}
+}
+
+// ringTheReviewer tells the reviewer of an agent that the agent has answered it, since a
+// reviewer that has released its verdict is idle and nothing else in the loop wakes it.
+func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
+	author, err := s.agents.GetByID(ctx, agentID)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to read the agent a review answer was written on",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+
+		return
+	}
+
+	reviewer, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
+	if err != nil || reviewer == nil {
+		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the reviewer to tell about a review answer",
+				append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+		}
+
+		return
+	}
+
+	if _, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+		ToAgentID: reviewer.ID,
+		Body:      answerNotice(author.Name),
+		Kind:      mailstore.KindReviewActivity,
+		About:     &author.ID,
+	}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell a reviewer that its review was answered",
+			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
+
+		return
+	}
+
+	go s.wakeTheReviewer(ctx, *reviewer)
+}
+
+// answerNotice is the doorbell a reviewer gets, which says where to look rather than what was
+// said, the same way the review it released says nothing of itself.
+func answerNotice(authorName string) string {
+	return fmt.Sprintf("weave: %s answered your review. Read the threads with list_review_threads, "+
+		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
 }
 
 type EditReviewMessageParams struct {
