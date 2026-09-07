@@ -64,6 +64,11 @@ func TestGhostSlotHoldsOneColumn(t *testing.T) {
 		require.True(t, ok)
 		assert.True(t, strings.HasPrefix(ansi.Strip(row), blank), "the %s row opens with the slot", name)
 	}
+
+	header, ok := rowNamed(rows, "weave")
+	require.True(t, ok)
+	assert.Equal(t, strings.TrimRight(ansi.Strip(header), " "), ansi.Strip(header),
+		"a header ends where its label does")
 }
 
 // TestGhostSlotKeepsTheWidestRow renders an agent wearing every icon under a full-width name,
@@ -101,7 +106,7 @@ func TestGhostSlotHiddenWhenTheRowWouldOverrun(t *testing.T) {
 	long := "      • " + strings.Repeat("x", nameWidth)
 	width := lipgloss.Width(long) + ghostGap + ghostWidth - 1
 
-	assert.NotEqual(t, short, ghostSlot(short, width))
+	assert.Equal(t, strings.Repeat(" ", ghostWidth+ghostGap)+short, ghostSlot(short, width))
 	assert.Equal(t, long, ghostSlot(long, width))
 }
 
