@@ -499,6 +499,7 @@ service AgentService {
     };
   }
   rpc EditReviewMessage(EditReviewMessageRequest) returns (EditReviewMessageResponse) {}
+  rpc HarvestRoundEdits(HarvestRoundEditsRequest) returns (HarvestRoundEditsResponse) {}
   rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
     option idempotency_level = IDEMPOTENT;
   }

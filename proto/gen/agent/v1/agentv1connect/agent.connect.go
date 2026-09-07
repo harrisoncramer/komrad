@@ -108,6 +108,9 @@ const (
 	// AgentServiceEditReviewMessageProcedure is the fully-qualified name of the AgentService's
 	// EditReviewMessage RPC.
 	AgentServiceEditReviewMessageProcedure = "/agent.v1.AgentService/EditReviewMessage"
+	// AgentServiceHarvestRoundEditsProcedure is the fully-qualified name of the AgentService's
+	// HarvestRoundEdits RPC.
+	AgentServiceHarvestRoundEditsProcedure = "/agent.v1.AgentService/HarvestRoundEdits"
 	// AgentServiceMarkReviewThreadReadProcedure is the fully-qualified name of the AgentService's
 	// MarkReviewThreadRead RPC.
 	AgentServiceMarkReviewThreadReadProcedure = "/agent.v1.AgentService/MarkReviewThreadRead"
@@ -164,6 +167,7 @@ type AgentServiceClient interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
+	HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
@@ -371,6 +375,12 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("EditReviewMessage")),
 			connect.WithClientOptions(opts...),
 		),
+		harvestRoundEdits: connect.NewClient[v1.HarvestRoundEditsRequest, v1.HarvestRoundEditsResponse](
+			httpClient,
+			baseURL+AgentServiceHarvestRoundEditsProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("HarvestRoundEdits")),
+			connect.WithClientOptions(opts...),
+		),
 		markReviewThreadRead: connect.NewClient[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse](
 			httpClient,
 			baseURL+AgentServiceMarkReviewThreadReadProcedure,
@@ -455,6 +465,7 @@ type agentServiceClient struct {
 	createReviewThread      *connect.Client[v1.CreateReviewThreadRequest, v1.CreateReviewThreadResponse]
 	addReviewMessage        *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
 	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
+	harvestRoundEdits       *connect.Client[v1.HarvestRoundEditsRequest, v1.HarvestRoundEditsResponse]
 	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
 	setReviewThreadResolved *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
 	openReviewRound         *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
@@ -605,6 +616,11 @@ func (c *agentServiceClient) EditReviewMessage(ctx context.Context, req *connect
 	return c.editReviewMessage.CallUnary(ctx, req)
 }
 
+// HarvestRoundEdits calls agent.v1.AgentService.HarvestRoundEdits.
+func (c *agentServiceClient) HarvestRoundEdits(ctx context.Context, req *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error) {
+	return c.harvestRoundEdits.CallUnary(ctx, req)
+}
+
 // MarkReviewThreadRead calls agent.v1.AgentService.MarkReviewThreadRead.
 func (c *agentServiceClient) MarkReviewThreadRead(ctx context.Context, req *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {
 	return c.markReviewThreadRead.CallUnary(ctx, req)
@@ -675,6 +691,7 @@ type AgentServiceHandler interface {
 	CreateReviewThread(context.Context, *connect.Request[v1.CreateReviewThreadRequest]) (*connect.Response[v1.CreateReviewThreadResponse], error)
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
+	HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
@@ -878,6 +895,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("EditReviewMessage")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServiceHarvestRoundEditsHandler := connect.NewUnaryHandler(
+		AgentServiceHarvestRoundEditsProcedure,
+		svc.HarvestRoundEdits,
+		connect.WithSchema(agentServiceMethods.ByName("HarvestRoundEdits")),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceMarkReviewThreadReadHandler := connect.NewUnaryHandler(
 		AgentServiceMarkReviewThreadReadProcedure,
 		svc.MarkReviewThreadRead,
@@ -987,6 +1010,8 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceAddReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceEditReviewMessageProcedure:
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
+		case AgentServiceHarvestRoundEditsProcedure:
+			agentServiceHarvestRoundEditsHandler.ServeHTTP(w, r)
 		case AgentServiceMarkReviewThreadReadProcedure:
 			agentServiceMarkReviewThreadReadHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewThreadResolvedProcedure:
@@ -1122,6 +1147,10 @@ func (UnimplementedAgentServiceHandler) AddReviewMessage(context.Context, *conne
 
 func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.EditReviewMessage is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.HarvestRoundEdits is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {

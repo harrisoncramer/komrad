@@ -1870,7 +1870,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\xa9\x9f\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x89\xa0\x01\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
@@ -1923,7 +1923,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x14create_review_thread\x12\xa2\x05Pin a comment to a place in another agent's diff, which is how you give it a review rather than mailing it prose. You may only review the agent you are a child of. The comment is filed under a batch of your own that nobody sees until you release it with release_review, so write every comment you have and then release once. Anchor it with the file and the line range from the round you are reviewing, and pass the diff lines you are writing about as quotedLines so the anchor still says something after the code moves. Pass suggestion to propose exact replacement lines the agent should apply. Each call opens another thread, so do not retry a call that may have succeeded. \x00(\x00\x12\xd4\x04\n" +
 	"\x10AddReviewMessage\x12!.agent.v1.AddReviewMessageRequest\x1a\".agent.v1.AddReviewMessageResponse\"\xf8\x03\x9a\xb5\x18\xf3\x03\n" +
 	"\x12add_review_message\x12\xd8\x03Say something in a review thread, which is how you answer feedback on your own diff. Use it to report what you changed and why, or to ask what was meant when the note is not clear enough to act on. Your answer belongs to no batch and reaches the reviewer as soon as it is written, unlike a review, which is released whole. The message is attributed to you rather than to the person reviewing. Each call adds another message, so do not retry a call that may have succeeded. \x00(\x00\x12^\n" +
-	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\x00\x12j\n" +
+	"\x11EditReviewMessage\x12\".agent.v1.EditReviewMessageRequest\x1a#.agent.v1.EditReviewMessageResponse\"\x00\x12^\n" +
+	"\x11HarvestRoundEdits\x12\".agent.v1.HarvestRoundEditsRequest\x1a#.agent.v1.HarvestRoundEditsResponse\"\x00\x12j\n" +
 	"\x14MarkReviewThreadRead\x12%.agent.v1.MarkReviewThreadReadRequest\x1a&.agent.v1.MarkReviewThreadReadResponse\"\x03\x90\x02\x02\x12s\n" +
 	"\x17SetReviewThreadResolved\x12(.agent.v1.SetReviewThreadResolvedRequest\x1a).agent.v1.SetReviewThreadResolvedResponse\"\x03\x90\x02\x02\x12\x9d\x04\n" +
 	"\x0fOpenReviewRound\x12 .agent.v1.OpenReviewRoundRequest\x1a!.agent.v1.OpenReviewRoundResponse\"\xc4\x03\x9a\xb5\x18\xbf\x03\n" +
@@ -1988,31 +1989,33 @@ var file_agent_v1_agent_proto_goTypes = []any{
 	(*CreateReviewThreadRequest)(nil),       // 35: agent.v1.CreateReviewThreadRequest
 	(*AddReviewMessageRequest)(nil),         // 36: agent.v1.AddReviewMessageRequest
 	(*EditReviewMessageRequest)(nil),        // 37: agent.v1.EditReviewMessageRequest
-	(*MarkReviewThreadReadRequest)(nil),     // 38: agent.v1.MarkReviewThreadReadRequest
-	(*SetReviewThreadResolvedRequest)(nil),  // 39: agent.v1.SetReviewThreadResolvedRequest
-	(*OpenReviewRoundRequest)(nil),          // 40: agent.v1.OpenReviewRoundRequest
-	(*ListReviewRoundsRequest)(nil),         // 41: agent.v1.ListReviewRoundsRequest
-	(*ListReviewsRequest)(nil),              // 42: agent.v1.ListReviewsRequest
-	(*ReleaseReviewRequest)(nil),            // 43: agent.v1.ReleaseReviewRequest
-	(*SetReviewFileViewedRequest)(nil),      // 44: agent.v1.SetReviewFileViewedRequest
-	(*ListReviewViewedFilesRequest)(nil),    // 45: agent.v1.ListReviewViewedFilesRequest
-	(*SendMailResponse)(nil),                // 46: agent.v1.SendMailResponse
-	(*ReadMailResponse)(nil),                // 47: agent.v1.ReadMailResponse
-	(*ListMailResponse)(nil),                // 48: agent.v1.ListMailResponse
-	(*SearchTranscriptsResponse)(nil),       // 49: agent.v1.SearchTranscriptsResponse
-	(*GetTranscriptResponse)(nil),           // 50: agent.v1.GetTranscriptResponse
-	(*ListReviewThreadsResponse)(nil),       // 51: agent.v1.ListReviewThreadsResponse
-	(*CreateReviewThreadResponse)(nil),      // 52: agent.v1.CreateReviewThreadResponse
-	(*AddReviewMessageResponse)(nil),        // 53: agent.v1.AddReviewMessageResponse
-	(*EditReviewMessageResponse)(nil),       // 54: agent.v1.EditReviewMessageResponse
-	(*MarkReviewThreadReadResponse)(nil),    // 55: agent.v1.MarkReviewThreadReadResponse
-	(*SetReviewThreadResolvedResponse)(nil), // 56: agent.v1.SetReviewThreadResolvedResponse
-	(*OpenReviewRoundResponse)(nil),         // 57: agent.v1.OpenReviewRoundResponse
-	(*ListReviewRoundsResponse)(nil),        // 58: agent.v1.ListReviewRoundsResponse
-	(*ListReviewsResponse)(nil),             // 59: agent.v1.ListReviewsResponse
-	(*ReleaseReviewResponse)(nil),           // 60: agent.v1.ReleaseReviewResponse
-	(*SetReviewFileViewedResponse)(nil),     // 61: agent.v1.SetReviewFileViewedResponse
-	(*ListReviewViewedFilesResponse)(nil),   // 62: agent.v1.ListReviewViewedFilesResponse
+	(*HarvestRoundEditsRequest)(nil),        // 38: agent.v1.HarvestRoundEditsRequest
+	(*MarkReviewThreadReadRequest)(nil),     // 39: agent.v1.MarkReviewThreadReadRequest
+	(*SetReviewThreadResolvedRequest)(nil),  // 40: agent.v1.SetReviewThreadResolvedRequest
+	(*OpenReviewRoundRequest)(nil),          // 41: agent.v1.OpenReviewRoundRequest
+	(*ListReviewRoundsRequest)(nil),         // 42: agent.v1.ListReviewRoundsRequest
+	(*ListReviewsRequest)(nil),              // 43: agent.v1.ListReviewsRequest
+	(*ReleaseReviewRequest)(nil),            // 44: agent.v1.ReleaseReviewRequest
+	(*SetReviewFileViewedRequest)(nil),      // 45: agent.v1.SetReviewFileViewedRequest
+	(*ListReviewViewedFilesRequest)(nil),    // 46: agent.v1.ListReviewViewedFilesRequest
+	(*SendMailResponse)(nil),                // 47: agent.v1.SendMailResponse
+	(*ReadMailResponse)(nil),                // 48: agent.v1.ReadMailResponse
+	(*ListMailResponse)(nil),                // 49: agent.v1.ListMailResponse
+	(*SearchTranscriptsResponse)(nil),       // 50: agent.v1.SearchTranscriptsResponse
+	(*GetTranscriptResponse)(nil),           // 51: agent.v1.GetTranscriptResponse
+	(*ListReviewThreadsResponse)(nil),       // 52: agent.v1.ListReviewThreadsResponse
+	(*CreateReviewThreadResponse)(nil),      // 53: agent.v1.CreateReviewThreadResponse
+	(*AddReviewMessageResponse)(nil),        // 54: agent.v1.AddReviewMessageResponse
+	(*EditReviewMessageResponse)(nil),       // 55: agent.v1.EditReviewMessageResponse
+	(*HarvestRoundEditsResponse)(nil),       // 56: agent.v1.HarvestRoundEditsResponse
+	(*MarkReviewThreadReadResponse)(nil),    // 57: agent.v1.MarkReviewThreadReadResponse
+	(*SetReviewThreadResolvedResponse)(nil), // 58: agent.v1.SetReviewThreadResolvedResponse
+	(*OpenReviewRoundResponse)(nil),         // 59: agent.v1.OpenReviewRoundResponse
+	(*ListReviewRoundsResponse)(nil),        // 60: agent.v1.ListReviewRoundsResponse
+	(*ListReviewsResponse)(nil),             // 61: agent.v1.ListReviewsResponse
+	(*ReleaseReviewResponse)(nil),           // 62: agent.v1.ReleaseReviewResponse
+	(*SetReviewFileViewedResponse)(nil),     // 63: agent.v1.SetReviewFileViewedResponse
+	(*ListReviewViewedFilesResponse)(nil),   // 64: agent.v1.ListReviewViewedFilesResponse
 }
 var file_agent_v1_agent_proto_depIdxs = []int32{
 	1,  // 0: agent.v1.Agent.metadata:type_name -> agent.v1.AgentMetadata
@@ -2052,52 +2055,54 @@ var file_agent_v1_agent_proto_depIdxs = []int32{
 	35, // 34: agent.v1.AgentService.CreateReviewThread:input_type -> agent.v1.CreateReviewThreadRequest
 	36, // 35: agent.v1.AgentService.AddReviewMessage:input_type -> agent.v1.AddReviewMessageRequest
 	37, // 36: agent.v1.AgentService.EditReviewMessage:input_type -> agent.v1.EditReviewMessageRequest
-	38, // 37: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
-	39, // 38: agent.v1.AgentService.SetReviewThreadResolved:input_type -> agent.v1.SetReviewThreadResolvedRequest
-	40, // 39: agent.v1.AgentService.OpenReviewRound:input_type -> agent.v1.OpenReviewRoundRequest
-	41, // 40: agent.v1.AgentService.ListReviewRounds:input_type -> agent.v1.ListReviewRoundsRequest
-	42, // 41: agent.v1.AgentService.ListReviews:input_type -> agent.v1.ListReviewsRequest
-	43, // 42: agent.v1.AgentService.ReleaseReview:input_type -> agent.v1.ReleaseReviewRequest
-	44, // 43: agent.v1.AgentService.SetReviewFileViewed:input_type -> agent.v1.SetReviewFileViewedRequest
-	45, // 44: agent.v1.AgentService.ListReviewViewedFiles:input_type -> agent.v1.ListReviewViewedFilesRequest
-	3,  // 45: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
-	11, // 46: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
-	5,  // 47: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
-	7,  // 48: agent.v1.AgentService.RequestReview:output_type -> agent.v1.RequestReviewResponse
-	9,  // 49: agent.v1.AgentService.Adopt:output_type -> agent.v1.AdoptResponse
-	33, // 50: agent.v1.AgentService.SetMark:output_type -> google.protobuf.Empty
-	33, // 51: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
-	33, // 52: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty
-	33, // 53: agent.v1.AgentService.Log:output_type -> google.protobuf.Empty
-	46, // 54: agent.v1.AgentService.SendMail:output_type -> agent.v1.SendMailResponse
-	47, // 55: agent.v1.AgentService.ReadMail:output_type -> agent.v1.ReadMailResponse
-	48, // 56: agent.v1.AgentService.ListMail:output_type -> agent.v1.ListMailResponse
-	33, // 57: agent.v1.AgentService.DeleteMail:output_type -> google.protobuf.Empty
-	33, // 58: agent.v1.AgentService.ArchiveAgents:output_type -> google.protobuf.Empty
-	21, // 59: agent.v1.AgentService.RestoreAgents:output_type -> agent.v1.RestoreAgentsResponse
-	23, // 60: agent.v1.AgentService.ResumeAgent:output_type -> agent.v1.ResumeAgentResponse
-	33, // 61: agent.v1.AgentService.DeleteAgents:output_type -> google.protobuf.Empty
-	33, // 62: agent.v1.AgentService.UpdateAgent:output_type -> google.protobuf.Empty
-	49, // 63: agent.v1.AgentService.SearchTranscripts:output_type -> agent.v1.SearchTranscriptsResponse
-	50, // 64: agent.v1.AgentService.GetTranscript:output_type -> agent.v1.GetTranscriptResponse
-	33, // 65: agent.v1.AgentService.EmptyArchive:output_type -> google.protobuf.Empty
-	33, // 66: agent.v1.AgentService.RecordReport:output_type -> google.protobuf.Empty
-	33, // 67: agent.v1.AgentService.SetAgentViewed:output_type -> google.protobuf.Empty
-	33, // 68: agent.v1.AgentService.MarkRunsRead:output_type -> google.protobuf.Empty
-	51, // 69: agent.v1.AgentService.ListReviewThreads:output_type -> agent.v1.ListReviewThreadsResponse
-	52, // 70: agent.v1.AgentService.CreateReviewThread:output_type -> agent.v1.CreateReviewThreadResponse
-	53, // 71: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
-	54, // 72: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
-	55, // 73: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse
-	56, // 74: agent.v1.AgentService.SetReviewThreadResolved:output_type -> agent.v1.SetReviewThreadResolvedResponse
-	57, // 75: agent.v1.AgentService.OpenReviewRound:output_type -> agent.v1.OpenReviewRoundResponse
-	58, // 76: agent.v1.AgentService.ListReviewRounds:output_type -> agent.v1.ListReviewRoundsResponse
-	59, // 77: agent.v1.AgentService.ListReviews:output_type -> agent.v1.ListReviewsResponse
-	60, // 78: agent.v1.AgentService.ReleaseReview:output_type -> agent.v1.ReleaseReviewResponse
-	61, // 79: agent.v1.AgentService.SetReviewFileViewed:output_type -> agent.v1.SetReviewFileViewedResponse
-	62, // 80: agent.v1.AgentService.ListReviewViewedFiles:output_type -> agent.v1.ListReviewViewedFilesResponse
-	45, // [45:81] is the sub-list for method output_type
-	9,  // [9:45] is the sub-list for method input_type
+	38, // 37: agent.v1.AgentService.HarvestRoundEdits:input_type -> agent.v1.HarvestRoundEditsRequest
+	39, // 38: agent.v1.AgentService.MarkReviewThreadRead:input_type -> agent.v1.MarkReviewThreadReadRequest
+	40, // 39: agent.v1.AgentService.SetReviewThreadResolved:input_type -> agent.v1.SetReviewThreadResolvedRequest
+	41, // 40: agent.v1.AgentService.OpenReviewRound:input_type -> agent.v1.OpenReviewRoundRequest
+	42, // 41: agent.v1.AgentService.ListReviewRounds:input_type -> agent.v1.ListReviewRoundsRequest
+	43, // 42: agent.v1.AgentService.ListReviews:input_type -> agent.v1.ListReviewsRequest
+	44, // 43: agent.v1.AgentService.ReleaseReview:input_type -> agent.v1.ReleaseReviewRequest
+	45, // 44: agent.v1.AgentService.SetReviewFileViewed:input_type -> agent.v1.SetReviewFileViewedRequest
+	46, // 45: agent.v1.AgentService.ListReviewViewedFiles:input_type -> agent.v1.ListReviewViewedFilesRequest
+	3,  // 46: agent.v1.AgentService.ListAgents:output_type -> agent.v1.ListAgentsResponse
+	11, // 47: agent.v1.AgentService.GetAgent:output_type -> agent.v1.GetAgentResponse
+	5,  // 48: agent.v1.AgentService.CreateAgent:output_type -> agent.v1.CreateAgentResponse
+	7,  // 49: agent.v1.AgentService.RequestReview:output_type -> agent.v1.RequestReviewResponse
+	9,  // 50: agent.v1.AgentService.Adopt:output_type -> agent.v1.AdoptResponse
+	33, // 51: agent.v1.AgentService.SetMark:output_type -> google.protobuf.Empty
+	33, // 52: agent.v1.AgentService.SetHidden:output_type -> google.protobuf.Empty
+	33, // 53: agent.v1.AgentService.SetMetadata:output_type -> google.protobuf.Empty
+	33, // 54: agent.v1.AgentService.Log:output_type -> google.protobuf.Empty
+	47, // 55: agent.v1.AgentService.SendMail:output_type -> agent.v1.SendMailResponse
+	48, // 56: agent.v1.AgentService.ReadMail:output_type -> agent.v1.ReadMailResponse
+	49, // 57: agent.v1.AgentService.ListMail:output_type -> agent.v1.ListMailResponse
+	33, // 58: agent.v1.AgentService.DeleteMail:output_type -> google.protobuf.Empty
+	33, // 59: agent.v1.AgentService.ArchiveAgents:output_type -> google.protobuf.Empty
+	21, // 60: agent.v1.AgentService.RestoreAgents:output_type -> agent.v1.RestoreAgentsResponse
+	23, // 61: agent.v1.AgentService.ResumeAgent:output_type -> agent.v1.ResumeAgentResponse
+	33, // 62: agent.v1.AgentService.DeleteAgents:output_type -> google.protobuf.Empty
+	33, // 63: agent.v1.AgentService.UpdateAgent:output_type -> google.protobuf.Empty
+	50, // 64: agent.v1.AgentService.SearchTranscripts:output_type -> agent.v1.SearchTranscriptsResponse
+	51, // 65: agent.v1.AgentService.GetTranscript:output_type -> agent.v1.GetTranscriptResponse
+	33, // 66: agent.v1.AgentService.EmptyArchive:output_type -> google.protobuf.Empty
+	33, // 67: agent.v1.AgentService.RecordReport:output_type -> google.protobuf.Empty
+	33, // 68: agent.v1.AgentService.SetAgentViewed:output_type -> google.protobuf.Empty
+	33, // 69: agent.v1.AgentService.MarkRunsRead:output_type -> google.protobuf.Empty
+	52, // 70: agent.v1.AgentService.ListReviewThreads:output_type -> agent.v1.ListReviewThreadsResponse
+	53, // 71: agent.v1.AgentService.CreateReviewThread:output_type -> agent.v1.CreateReviewThreadResponse
+	54, // 72: agent.v1.AgentService.AddReviewMessage:output_type -> agent.v1.AddReviewMessageResponse
+	55, // 73: agent.v1.AgentService.EditReviewMessage:output_type -> agent.v1.EditReviewMessageResponse
+	56, // 74: agent.v1.AgentService.HarvestRoundEdits:output_type -> agent.v1.HarvestRoundEditsResponse
+	57, // 75: agent.v1.AgentService.MarkReviewThreadRead:output_type -> agent.v1.MarkReviewThreadReadResponse
+	58, // 76: agent.v1.AgentService.SetReviewThreadResolved:output_type -> agent.v1.SetReviewThreadResolvedResponse
+	59, // 77: agent.v1.AgentService.OpenReviewRound:output_type -> agent.v1.OpenReviewRoundResponse
+	60, // 78: agent.v1.AgentService.ListReviewRounds:output_type -> agent.v1.ListReviewRoundsResponse
+	61, // 79: agent.v1.AgentService.ListReviews:output_type -> agent.v1.ListReviewsResponse
+	62, // 80: agent.v1.AgentService.ReleaseReview:output_type -> agent.v1.ReleaseReviewResponse
+	63, // 81: agent.v1.AgentService.SetReviewFileViewed:output_type -> agent.v1.SetReviewFileViewedResponse
+	64, // 82: agent.v1.AgentService.ListReviewViewedFiles:output_type -> agent.v1.ListReviewViewedFilesResponse
+	46, // [46:83] is the sub-list for method output_type
+	9,  // [9:46] is the sub-list for method input_type
 	9,  // [9:9] is the sub-list for extension type_name
 	9,  // [9:9] is the sub-list for extension extendee
 	0,  // [0:9] is the sub-list for field type_name
