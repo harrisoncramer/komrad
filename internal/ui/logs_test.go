@@ -357,25 +357,28 @@ func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 	assert.Contains(t, m.failedPlaceholder(agent), "tmux refused", "with nothing to read, the reason is what is left")
 }
 
-// TestLogKeysAreInertInTheArchive pins that the archive draws its own two columns and none of
-// the keys that open a pane beside the panel reach it.
-func TestLogKeysAreInertInTheArchive(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, _ := logsModel(t, tmux)
-	writeRun(t, m.runLogsDir, "a1", 1, config.TriggerDeprovision, "drop-worktree")
-	m.screen = screenArchive
+// TestLogKeysAreInertOffTheAgentList pins that the screens whose rows name no agent leave the
+// keys that open a pane beside the panel alone, rather than reading them against whichever agent
+// the list they are not showing has its cursor on.
+func TestLogKeysAreInertOffTheAgentList(t *testing.T) {
+	for _, screen := range []screen{screenArchive, screenSchedules} {
+		tmux := &recordingTmux{}
+		m, _ := logsModel(t, tmux)
+		writeRun(t, m.runLogsDir, "a1", 1, config.TriggerDeprovision, "drop-worktree")
+		m.screen = screen
 
-	pressed := pressLogs(t, m)
-	assert.Equal(t, infoNothing, pressed.info.kind, "the log key opens nothing there")
-	assert.Equal(t, infoNothing, pressTerminal(t, m).info.kind, "and neither does the terminal key")
-	assert.Equal(t, infoNothing, pressOlderLog(t, m).info.kind, "nor the one that steps back a run")
-	assert.Empty(t, tmux.respawnPanes, "and nothing is paged into a pane")
+		pressed := pressLogs(t, m)
+		assert.Equal(t, infoNothing, pressed.info.kind, "the log key opens nothing there")
+		assert.Equal(t, infoNothing, pressTerminal(t, m).info.kind, "and neither does the terminal key")
+		assert.Equal(t, infoNothing, pressOlderLog(t, m).info.kind, "nor the one that steps back a run")
+		assert.Empty(t, tmux.respawnPanes, "and nothing is paged into a pane")
+	}
 }
 
 // TestEnteringAScreenWithoutTheKeysClosesTheInfoPane pins that a log opened on the agents list
 // does not follow the reader onto a screen with no key left to close it.
 func TestEnteringAScreenWithoutTheKeysClosesTheInfoPane(t *testing.T) {
-	for _, next := range []screen{screenArchive, screenSearch, screenReview} {
+	for _, next := range []screen{screenArchive, screenSearch, screenReview, screenSchedules} {
 		tmux := &recordingTmux{}
 		m, _ := logsModel(t, tmux)
 		require.True(t, m.claimInfo(infoAgentLog, ""))
