@@ -1,16 +1,8 @@
 -- name: ListWorkflowsPage :many
 SELECT
     sqlc.embed(w),
-    wc.harness,
-    wc.cwd,
-    wc.flags,
-    pc.worktree_enabled,
-    pc.worktree_base_branch,
-    pc.worktree_dir,
-    pc.worktree_copy_paths,
-    pc.worktree_symlink_paths,
-    pc.worktree_diff_exclude,
-    pc.archive_on_pr_closed
+    sqlc.embed(wc),
+    sqlc.embed(pc)
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -31,16 +23,8 @@ LIMIT @lim;
 -- name: ListWorkflows :many
 SELECT
     sqlc.embed(w),
-    wc.harness,
-    wc.cwd,
-    wc.flags,
-    pc.worktree_enabled,
-    pc.worktree_base_branch,
-    pc.worktree_dir,
-    pc.worktree_copy_paths,
-    pc.worktree_symlink_paths,
-    pc.worktree_diff_exclude,
-    pc.archive_on_pr_closed
+    sqlc.embed(wc),
+    sqlc.embed(pc)
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -55,16 +39,8 @@ ORDER BY
 -- name: GetWorkflow :one
 SELECT
     sqlc.embed(w),
-    wc.harness,
-    wc.cwd,
-    wc.flags,
-    pc.worktree_enabled,
-    pc.worktree_base_branch,
-    pc.worktree_dir,
-    pc.worktree_copy_paths,
-    pc.worktree_symlink_paths,
-    pc.worktree_diff_exclude,
-    pc.archive_on_pr_closed
+    sqlc.embed(wc),
+    sqlc.embed(pc)
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id
@@ -84,7 +60,7 @@ VALUES (
     @cwd,
     @flags)
 RETURNING
-    id;
+    *;
 
 -- name: InsertWorkflowProvisionerConfig :one
 INSERT INTO workflow_provisioner_configs(
@@ -104,7 +80,7 @@ VALUES (
     @worktree_diff_exclude,
     @archive_on_pr_closed)
 RETURNING
-    id;
+    *;
 
 -- name: InsertWorkflow :one
 INSERT INTO workflows(
@@ -225,16 +201,8 @@ WHERE id = @id;
 -- name: GetWorkflowIncludingArchived :one
 SELECT
     sqlc.embed(w),
-    wc.harness,
-    wc.cwd,
-    wc.flags,
-    pc.worktree_enabled,
-    pc.worktree_base_branch,
-    pc.worktree_dir,
-    pc.worktree_copy_paths,
-    pc.worktree_symlink_paths,
-    pc.worktree_diff_exclude,
-    pc.archive_on_pr_closed
+    sqlc.embed(wc),
+    sqlc.embed(pc)
 FROM
     workflows w
     JOIN workflow_configs wc ON wc.id = w.workflow_config_id

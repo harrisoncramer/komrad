@@ -61,23 +61,23 @@ func (m model) isDetailsFocused() bool {
 	return m.details.focused && m.isDetailsDrawn(m.hoveredDetails())
 }
 
-func (m model) toggleDetailsFocus() (tea.Model, tea.Cmd) {
+func (m model) toggleDetailsFocus() model {
 	if m.isDetailsFocused() {
 		m.details.focused = false
 
-		return m.refocused(), nil
+		return m.refocused()
 	}
 
 	held := m.hoveredDetails()
 	if !m.isDetailsDrawn(held) {
-		return m, nil
+		return m
 	}
 
 	m.details.focused = true
 	m.details.cursor = 0
 	m.details.row = held.id
 
-	return m.refocused(), nil
+	return m.refocused()
 }
 
 // refocused tells the screen the keys have moved between its list and the record under it, since

@@ -90,41 +90,32 @@ func orEmpty(paths []string) []string {
 	return paths
 }
 
-type workflowConfigFields struct {
-	Harness string
-	Cwd     string
-	Flags   string
+type workflowRow struct {
+	Workflow    models.Workflow
+	Config      models.WorkflowConfig
+	Provisioner models.WorkflowProvisionerConfig
+	Hooks       []Hook
 }
 
-type provisionerConfigFields struct {
-	WorktreeEnabled      bool
-	WorktreeBaseBranch   string
-	WorktreeDir          string
-	WorktreeCopyPaths    []string
-	WorktreeSymlinkPaths []string
-	WorktreeDiffExclude  []string
-	ArchiveOnPRClosed    bool
-}
-
-func workflowFromRow(w models.Workflow, cfg workflowConfigFields, pc provisionerConfigFields, hooks []Hook) Workflow {
+func workflowFromRow(row workflowRow) Workflow {
 	return Workflow{
-		ID:      w.ID,
-		Name:    w.Name,
-		Context: w.Context,
-		Harness: cfg.Harness,
-		Cwd:     cfg.Cwd,
-		Flags:   cfg.Flags,
+		ID:      row.Workflow.ID,
+		Name:    row.Workflow.Name,
+		Context: row.Workflow.Context,
+		Harness: row.Config.Harness,
+		Cwd:     row.Config.Cwd,
+		Flags:   row.Config.Flags,
 		Worktree: WorktreeConfig{
-			Enabled:      pc.WorktreeEnabled,
-			BaseBranch:   pc.WorktreeBaseBranch,
-			Dir:          pc.WorktreeDir,
-			CopyPaths:    pc.WorktreeCopyPaths,
-			SymlinkPaths: pc.WorktreeSymlinkPaths,
-			DiffExclude:  pc.WorktreeDiffExclude,
+			Enabled:      row.Provisioner.WorktreeEnabled,
+			BaseBranch:   row.Provisioner.WorktreeBaseBranch,
+			Dir:          row.Provisioner.WorktreeDir,
+			CopyPaths:    row.Provisioner.WorktreeCopyPaths,
+			SymlinkPaths: row.Provisioner.WorktreeSymlinkPaths,
+			DiffExclude:  row.Provisioner.WorktreeDiffExclude,
 		},
-		Hooks:             hooks,
-		ArchiveOnPRClosed: pc.ArchiveOnPRClosed,
-		ArchivedAt:        w.ArchivedAt,
-		UpdatedAt:         w.UpdatedAt,
+		Hooks:             row.Hooks,
+		ArchiveOnPRClosed: row.Provisioner.ArchiveOnPrClosed,
+		ArchivedAt:        row.Workflow.ArchivedAt,
+		UpdatedAt:         row.Workflow.UpdatedAt,
 	}
 }

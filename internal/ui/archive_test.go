@@ -891,7 +891,11 @@ func splitArchiveModel(t *testing.T) model {
 // drawn in the panel's own frame rather than pushed into a pager in a pane of its own.
 func TestArchiveDrawsTheDocumentBesideTheList(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend", Context: "the shared notes"}}
+	m.listing.workflows = []workflowstore.Workflow{{
+		ID:      "w1",
+		Name:    "backend",
+		Context: "the shared notes",
+	}}
 
 	view := ansi.Strip(m.View())
 
@@ -938,16 +942,12 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
 	assert.Contains(t, top, "↓", "and the reader is told the document goes on")
 
-	scrolled, _ := m.scrollColumn(1)
-	m, ok = scrolled.(model)
-	require.True(t, ok)
+	m = m.scrollColumn(1)
 	assert.Equal(t, docScrollStep, m.column.top)
 	assert.Contains(t, ansi.Strip(m.View()), "↑", "the reader is told what they scrolled past")
 
 	for range 100 {
-		scrolled, _ = m.scrollColumn(1)
-		m, ok = scrolled.(model)
-		require.True(t, ok)
+		m = m.scrollColumn(1)
 	}
 
 	bottom := ansi.Strip(m.View())
@@ -955,9 +955,7 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 	assert.Contains(t, bottom, "↑")
 
 	for range 100 {
-		scrolled, _ = m.scrollColumn(-1)
-		m, ok = scrolled.(model)
-		require.True(t, ok)
+		m = m.scrollColumn(-1)
 	}
 
 	assert.Zero(t, m.column.top, "and scrolling back stops at the top rather than going negative")
@@ -993,7 +991,12 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 
 	// A live agent's own pane is what stands beside the list there, so the panel gives the window
 	// back on the way to a row that has one.
-	m.listing.agents = []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "auth", Pane: "%9", WorkflowID: "w1"}, alive: true}}
+	m.listing.agents = []agentItem{{agent: agentstore.Agent{
+		ID:         "a1",
+		Name:       "auth",
+		Pane:       "%9",
+		WorkflowID: "w1",
+	}, alive: true}}
 	m.tree.cursor = 1
 
 	left, _ := m.updateArchive(keyMsg("esc"))
@@ -1022,7 +1025,11 @@ func TestArchiveHandsTheWindowBackWhenAWriteLands(t *testing.T) {
 // them, and the offset belongs to the row rather than to the place it sits in the list.
 func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	m := splitArchiveModel(t)
-	held := []agentstore.Agent{{ID: "a2", Name: "middle", WorkflowID: "w1"}}
+	held := []agentstore.Agent{{
+		ID:         "a2",
+		Name:       "middle",
+		WorkflowID: "w1",
+	}}
 	m.applyArchive(held, nil, "")
 
 	rows := m.archiveRows()
@@ -1030,7 +1037,11 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 	m.column.top = 20
 
 	was := m.archive.cursor
-	grown := append([]agentstore.Agent{{ID: "a0", Name: "alpha", WorkflowID: "w1"}}, held...)
+	grown := append([]agentstore.Agent{{
+		ID:         "a0",
+		Name:       "alpha",
+		WorkflowID: "w1",
+	}}, held...)
 	m.applyArchive(grown, nil, agentRowKey("a2"))
 
 	assert.Greater(t, m.archive.cursor, was, "the row the reader is on has slid down the list")
@@ -1079,7 +1090,11 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	for rows := 1; rows <= 5; rows++ {
 		for _, top := range []int{0, 1, 2, total - 1, total, total + 5} {
 			m.column.top = top
-			drawn := m.docColumnView(columnSplit{column: 60, sidebar: 30, rows: rows})
+			drawn := m.docColumnView(columnSplit{
+				column:  60,
+				sidebar: 30,
+				rows:    rows,
+			})
 
 			assert.Equal(t, rows, countLines(drawn), "rows=%d top=%d", rows, top)
 		}

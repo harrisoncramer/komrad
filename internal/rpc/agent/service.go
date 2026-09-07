@@ -301,6 +301,17 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 	return connect.NewResponse(response), nil
 }
 
+// renderOneAgent gathers the facts an agent's row does not hold and renders it, which is what a
+// call answering with a single agent wants.
+func (s *Service) renderOneAgent(ctx context.Context, stored agentstore.Agent) (*agentv1.Agent, error) {
+	flags, err := s.agentFlagsFor(ctx, []agentstore.Agent{stored})
+	if err != nil {
+		return nil, err
+	}
+
+	return renderAgent(stored, flags(stored)).Agent, nil
+}
+
 // GetAgent returns one agent by id, archived or not.
 func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.GetAgentRequest]) (*connect.Response[agentv1.GetAgentResponse], error) {
 	agent, err := s.agents.GetByID(ctx, req.Msg.GetId())
@@ -309,12 +320,12 @@ func (s *Service) GetAgent(ctx context.Context, req *connect.Request[agentv1.Get
 			rpcerr.Saying(store.ErrNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
-	flags, err := s.agentFlagsFor(ctx, []agentstore.Agent{*agent})
+	rendered, err := s.renderOneAgent(ctx, *agent)
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: renderAgent(*agent, flags(*agent)).Agent}), nil
+	return connect.NewResponse(&agentv1.GetAgentResponse{Agent: rendered}), nil
 }
 
 // SetMark puts a letter on an agent or a workflow, taking it off whichever row held it, and
@@ -546,12 +557,12 @@ func (s *Service) ResumeAgent(ctx context.Context, req *connect.Request[agentv1.
 			rpcerr.Saying(agents.ErrAgentNotFound, "no agent with id %q", req.Msg.GetId()))
 	}
 
-	flags, err := s.agentFlagsFor(ctx, []agentstore.Agent{*resumed})
+	rendered, err := s.renderOneAgent(ctx, *resumed)
 	if err != nil {
 		return nil, err
 	}
 
-	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: renderAgent(*resumed, flags(*resumed)).Agent}), nil
+	return connect.NewResponse(&agentv1.ResumeAgentResponse{Agent: rendered}), nil
 }
 
 // UpdateAgent renames the agent with the given id, reporting a name another agent holds as

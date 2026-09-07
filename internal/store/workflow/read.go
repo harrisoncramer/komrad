@@ -36,19 +36,12 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
-		return workflowFromRow(row.Workflow, workflowConfigFields{
-			Harness: row.Harness,
-			Cwd:     row.Cwd,
-			Flags:   row.Flags,
-		}, provisionerConfigFields{
-			WorktreeEnabled:      row.WorktreeEnabled,
-			WorktreeBaseBranch:   row.WorktreeBaseBranch,
-			WorktreeDir:          row.WorktreeDir,
-			WorktreeCopyPaths:    row.WorktreeCopyPaths,
-			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
-			WorktreeDiffExclude:  row.WorktreeDiffExclude,
-			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-		}, hooks[row.Workflow.ID])
+		return workflowFromRow(workflowRow{
+			Workflow:    row.Workflow,
+			Config:      row.WorkflowConfig,
+			Provisioner: row.WorkflowProvisionerConfig,
+			Hooks:       hooks[row.Workflow.ID],
+		})
 	}), nil
 }
 
@@ -98,19 +91,12 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
-		return workflowFromRow(row.Workflow, workflowConfigFields{
-			Harness: row.Harness,
-			Cwd:     row.Cwd,
-			Flags:   row.Flags,
-		}, provisionerConfigFields{
-			WorktreeEnabled:      row.WorktreeEnabled,
-			WorktreeBaseBranch:   row.WorktreeBaseBranch,
-			WorktreeDir:          row.WorktreeDir,
-			WorktreeCopyPaths:    row.WorktreeCopyPaths,
-			WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
-			WorktreeDiffExclude:  row.WorktreeDiffExclude,
-			ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-		}, hooks[row.Workflow.ID])
+		return workflowFromRow(workflowRow{
+			Workflow:    row.Workflow,
+			Config:      row.WorkflowConfig,
+			Provisioner: row.WorkflowProvisionerConfig,
+			Hooks:       hooks[row.Workflow.ID],
+		})
 	}), nil
 }
 
@@ -133,19 +119,12 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, err
 	}
 
-	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
-		Harness: row.Harness,
-		Cwd:     row.Cwd,
-		Flags:   row.Flags,
-	}, provisionerConfigFields{
-		WorktreeEnabled:      row.WorktreeEnabled,
-		WorktreeBaseBranch:   row.WorktreeBaseBranch,
-		WorktreeDir:          row.WorktreeDir,
-		WorktreeCopyPaths:    row.WorktreeCopyPaths,
-		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
-		WorktreeDiffExclude:  row.WorktreeDiffExclude,
-		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-	}, hooks)
+	workflow := workflowFromRow(workflowRow{
+		Workflow:    row.Workflow,
+		Config:      row.WorkflowConfig,
+		Provisioner: row.WorkflowProvisionerConfig,
+		Hooks:       hooks,
+	})
 
 	return &workflow, nil
 }
@@ -170,19 +149,12 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		return nil, err
 	}
 
-	workflow := workflowFromRow(row.Workflow, workflowConfigFields{
-		Harness: row.Harness,
-		Cwd:     row.Cwd,
-		Flags:   row.Flags,
-	}, provisionerConfigFields{
-		WorktreeEnabled:      row.WorktreeEnabled,
-		WorktreeBaseBranch:   row.WorktreeBaseBranch,
-		WorktreeDir:          row.WorktreeDir,
-		WorktreeCopyPaths:    row.WorktreeCopyPaths,
-		WorktreeSymlinkPaths: row.WorktreeSymlinkPaths,
-		WorktreeDiffExclude:  row.WorktreeDiffExclude,
-		ArchiveOnPRClosed:    row.ArchiveOnPrClosed,
-	}, hooks)
+	workflow := workflowFromRow(workflowRow{
+		Workflow:    row.Workflow,
+		Config:      row.WorkflowConfig,
+		Provisioner: row.WorkflowProvisionerConfig,
+		Hooks:       hooks,
+	})
 
 	return &workflow, nil
 }
