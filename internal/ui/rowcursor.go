@@ -50,8 +50,13 @@ func (m model) cursorPrefix(focused bool) string {
 	return cursorStyleFor(focused).Render(rowCursorGlyph)
 }
 
-// rowCursorPrefix is cursorPrefix for the lists whose focus is decided by whether the record
-// beside them has been stepped into.
+// rowCursorPrefix is cursorPrefix for a list whose focus is the list's own.
 func (m model) rowCursorPrefix() string {
-	return m.cursorPrefix(!m.isDetailsFocused())
+	return m.cursorPrefix(m.isListFocused())
+}
+
+// isListFocused reports whether the keys are the list's rather than the record beside it, which
+// is what decides how the row under the cursor is drawn, arrow and name alike.
+func (m model) isListFocused() bool {
+	return !m.isDetailsFocused()
 }
