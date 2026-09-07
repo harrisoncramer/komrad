@@ -244,7 +244,7 @@ func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir str
 	m := infoModel(tmux)
 	m.api = api{agents: agents}
 	m.roundsDir = t.TempDir()
-	// The review holds the whole window, so the default fifth of this is the forty columns the
+	// The review holds the whole window, so the sidebar falls back to the configured columns the
 	// rest of the panel's screens are measured at.
 	m.width, m.height = 200, 30
 	m.listing = listing{
@@ -851,11 +851,11 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	assert.Equal(t, 53, m.reviewPanStep(), "a third of the 160 columns the diff is drawn in")
+	assert.Equal(t, 56, m.reviewPanStep(), "a third of the 170 columns the diff is drawn in")
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	m = next.(model)
-	assert.Equal(t, 53, m.review.pan)
+	assert.Equal(t, 56, m.review.pan)
 
 	// Until the pane has been measured there is nothing to take a third of.
 	m.width = 0
