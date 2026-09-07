@@ -9,6 +9,8 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -121,6 +123,29 @@ func TestMailDrawsTheHoveredMessage(t *testing.T) {
 	require.True(t, m.frame.IsSolo(), "the mail screen draws both halves itself")
 	assert.Contains(t, ansi.Strip(m.View()), "the linter is unhappy", "the message body stands beside the threads")
 	assert.Empty(t, tmux.respawns, "nothing is pushed into a pane to put it there")
+}
+
+// TestTheWindowComesBackWhenTheKeysDo covers the focus key, which is bound on weave's own tmux
+// server and moves the keys with select-pane: tmux drops the sidebar's zoom on the way out and
+// does not put it back on the way in, and nothing calls into weave either way, so the panel hears
+// about it only as the keys leaving and coming back.
+func TestTheWindowComesBackWhenTheKeysDo(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend", Context: "notes"}}
+
+	m.tree.cursor = 0
+	m.stageSelection()
+	require.True(t, m.frame.IsSolo(), "the folder header has no pane, so the panel holds the window")
+
+	left, _ := m.route(tea.BlurMsg{})
+	m = asModel(t, left)
+	assert.False(t, m.frame.IsSolo(), "tmux dropped the zoom when the keys moved off the sidebar")
+	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the share of the frame it has")
+
+	back, _ := m.route(tea.FocusMsg{})
+	m = asModel(t, back)
+	assert.True(t, m.frame.IsSolo(), "and the panel takes the window again when the keys come home")
 }
 
 // TestColumnOffsetResetsOnANewRow covers the scroll offset belonging to the row it was scrolled

@@ -153,6 +153,11 @@ func (f *Frame) Solo(on bool) {
 // IsSolo reports whether the sidebar is holding the whole window.
 func (f *Frame) IsSolo() bool { return f.solo }
 
+// Unzoomed records that the other panes have their share back without asking tmux to give it to
+// them, which is what tmux has already done itself: it drops a pane's zoom when the keys move off
+// that pane, and a key bound on the server moves them without telling weave.
+func (f *Frame) Unzoomed() { f.solo = false }
+
 // SidebarWidth is how many columns the sidebar draws in when it is holding a window of the
 // given width, which is what a screen splitting the window itself lays itself out against.
 func (f *Frame) SidebarWidth(total int) int { return f.spec.SidebarWidth(total) }

@@ -154,8 +154,16 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, edited := next.reconcileEditor()
 
 		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing, edited), true
+	case tea.BlurMsg:
+		// The focus key is bound on weave's own tmux server and moves the keys with select-pane,
+		// which drops the sidebar's zoom and tells weave nothing, so the frame is put right rather
+		// than left believing it still holds the window.
+		m.frame.Unzoomed()
+
+		return m, nil, true
 	case tea.FocusMsg:
 		next, cmd := m.reconcileEditor()
+		next.reconcileSolo()
 
 		return next, cmd, true
 	case refreshResult:
