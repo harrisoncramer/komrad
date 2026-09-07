@@ -448,6 +448,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 	launch := NewLaunchService(LaunchServiceParams{
 		Tmux:               options.tmux,
 		Agents:             agents,
+		Reviews:            reviewstore.New(s.Pool.GetDB()),
 		Workflows:          s.Workflows,
 		Tx:                 tx,
 		Launcher:           launcher,

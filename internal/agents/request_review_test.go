@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	"weave/lib/xptr"
 
 	"github.com/stretchr/testify/assert"
@@ -181,6 +182,97 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
 	require.NoError(t, err, "an agent whose reviewer is gone may have another")
 	assert.NotEqual(t, reviewer.ID, second.ID)
+}
+
+// TestRequestReviewRetryAnswersWithTheSameReviewer pins that a spent idempotency key is still a
+// retry rather than a second ask, since the guard would otherwise refuse the caller the row it
+// created.
+func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	first, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID:        author.ID,
+		Prompt:         "read it",
+		IdempotencyKey: "abc",
+	})
+	require.NoError(t, err)
+
+	retried, guidance, err := manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID:        author.ID,
+		Prompt:         "read it",
+		IdempotencyKey: "abc",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, first.ID, retried.ID)
+	assert.NotEmpty(t, guidance, "a retry is answered with everything the call it repeats answered with")
+
+	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{
+		AgentID:        author.ID,
+		Prompt:         "read it",
+		IdempotencyKey: "def",
+	})
+	assert.ErrorIs(t, err, ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
+}
+
+// TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one reviewer
+// rather than an agent to one for its whole life, since nothing archives a reviewer that approved
+// and the next piece of work still needs reading.
+func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	reviews := reviewstore.New(st.Pool.GetDB())
+	ctx := t.Context()
+
+	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	first, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
+	require.NoError(t, err)
+
+	round, err := reviews.CreateRound(ctx, reviewstore.CreateRoundParams{
+		AgentID:     author.ID,
+		BaseSHA:     "base-sha",
+		SnapshotSHA: "snapshot-sha",
+	})
+	require.NoError(t, err)
+
+	open, err := reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
+		AgentID:       author.ID,
+		RoundID:       round.ID,
+		AuthorKind:    reviewstore.AuthorAgent,
+		AuthorAgentID: &first.ID,
+	})
+	require.NoError(t, err)
+
+	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
+	require.ErrorIs(t, err, ErrReviewerAlreadyRunning, "an unreleased review is a reviewer still reading")
+
+	_, err = reviews.ReleaseReview(ctx, reviewstore.ReleaseReviewParams{
+		ID:      open.ID,
+		Verdict: reviewstore.VerdictApproved,
+	})
+	require.NoError(t, err)
+
+	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read the next one"})
+	require.NoError(t, err, "a reviewer that approved has said everything it has to say")
+	assert.NotEqual(t, first.ID, second.ID)
 }
 
 // TestRequestReviewRefusesAChild pins that an ordinary child is refused too, since it writes in

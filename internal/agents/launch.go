@@ -62,6 +62,7 @@ type launchAgentReadWriter interface {
 type LaunchService struct {
 	tmux               paneController
 	agents             launchAgentReadWriter
+	reviews            reviewVerdictReader
 	workflows          workflowReader
 	tx                 txRunner
 	launcher           *Launcher
@@ -76,6 +77,7 @@ type LaunchService struct {
 type LaunchServiceParams struct {
 	Tmux               paneController
 	Agents             launchAgentReadWriter
+	Reviews            reviewVerdictReader
 	Workflows          workflowReader
 	Tx                 txRunner
 	Launcher           *Launcher
@@ -92,6 +94,7 @@ func NewLaunchService(p LaunchServiceParams) *LaunchService {
 	return &LaunchService{
 		tmux:               p.Tmux,
 		agents:             p.Agents,
+		reviews:            p.Reviews,
 		workflows:          p.Workflows,
 		tx:                 p.Tx,
 		launcher:           p.Launcher,

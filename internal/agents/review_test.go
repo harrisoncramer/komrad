@@ -904,6 +904,15 @@ func (agentsWithReviewer) ListChildren(_ context.Context, parentIDs []string) ([
 	}}, nil
 }
 
+// fakeResumer records the agents put back in a pane before mail is written to them.
+type fakeResumer struct{ resumed []string }
+
+func (f *fakeResumer) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+	f.resumed = append(f.resumed, id)
+
+	return &agentstore.Agent{ID: id}, nil
+}
+
 // TestAnsweringAReviewRingsTheReviewer pins the doorbell back the other way: a reviewer that has
 // released its verdict is idle, so an answer it is never told about is an answer it never reads.
 func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
@@ -920,6 +929,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reviews := newFakeReviewStore()
 			notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+			resumer := &fakeResumer{}
 			service := NewReviewService(ReviewServiceParams{
 				Threads:   reviews,
 				Messages:  reviews,
@@ -930,6 +940,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 				Workflows: fakeWorkflowGetter{},
 				Agents:    agentsWithReviewer{fakeAgentReaderFunc(findLiveAgent)},
 				Mailer:    notices,
+				Resumer:   resumer,
 				StateDir:  t.TempDir(),
 			})
 
@@ -942,9 +953,13 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 
 			if !tt.want {
 				assert.Empty(t, notices.sent, "the person is looking at the thread already")
+				assert.Empty(t, resumer.resumed)
 
 				return
 			}
+
+			assert.Equal(t, []string{reviewerAgentID}, resumer.resumed,
+				"mail waits for a pane rather than making one, so a dormant reviewer would never be handed this")
 
 			require.Len(t, notices.sent, 1)
 			assert.Equal(t, reviewerAgentID, notices.sent[0].ToAgentID)

@@ -49,23 +49,6 @@ func buildServices(p Params, st *stores) (*services, error) {
 		return nil, err
 	}
 
-	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
-		Threads:   st.review,
-		Messages:  st.review,
-		Viewed:    st.review,
-		Rounds:    st.review,
-		Reviews:   st.review,
-		Snapshots: agents.GitSnapshotter{},
-		Workflows: st.workflows,
-		Agents:    st.agents,
-		Mailer:    mailService,
-		StateDir:  stateDir,
-		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
-			Agents:    st.agents,
-			Harnesses: p.Harnesses,
-			Panes:     p.Tmux,
-		}),
-	})
 	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
@@ -117,6 +100,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 	launchService := agents.NewLaunchService(agents.LaunchServiceParams{
 		Tmux:               p.Tmux,
 		Agents:             st.agents,
+		Reviews:            st.review,
 		Workflows:          st.workflows,
 		Tx:                 st.pool,
 		Launcher:           harnessLauncher,
@@ -135,6 +119,24 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Harnesses:          p.Harnesses,
 		Scripts:            scriptService,
 		FallbackResumeRoot: p.FallbackResumeRoot,
+	})
+	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
+		Threads:   st.review,
+		Messages:  st.review,
+		Viewed:    st.review,
+		Rounds:    st.review,
+		Reviews:   st.review,
+		Snapshots: agents.GitSnapshotter{},
+		Workflows: st.workflows,
+		Agents:    st.agents,
+		Mailer:    mailService,
+		Resumer:   resumeService,
+		StateDir:  stateDir,
+		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
+			Agents:    st.agents,
+			Harnesses: p.Harnesses,
+			Panes:     p.Tmux,
+		}),
 	})
 	adoptService := agents.NewAdoptService(agents.AdoptServiceParams{
 		Agents:       st.agents,

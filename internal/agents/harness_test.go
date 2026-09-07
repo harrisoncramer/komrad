@@ -5,6 +5,7 @@ import (
 
 	"weave/internal/harness"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/google/uuid"
@@ -131,6 +132,7 @@ func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	service := NewLaunchService(LaunchServiceParams{
 		Tmux:               tmux,
 		Agents:             st.Agents,
+		Reviews:            reviewstore.New(st.Pool.GetDB()),
 		Workflows:          st.Workflows,
 		Tx:                 st.Pool,
 		Launcher:           NewLauncher(LauncherParams{Tmux: tmux}),

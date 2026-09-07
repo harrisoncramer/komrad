@@ -9,6 +9,7 @@ import (
 
 	"weave/internal/logging"
 	"weave/internal/store"
+	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
 )
@@ -70,6 +71,12 @@ type reviewAgentReader interface {
 	childLister
 }
 
+// reviewerResumer puts a reviewer back in a pane, which answers a dormant one for whom mail
+// would otherwise wait forever.
+type reviewerResumer interface {
+	ResumeAgent(ctx context.Context, id string) (*agentstore.Agent, error)
+}
+
 type reviewNoticeSender interface {
 	SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error)
 }
@@ -105,6 +112,7 @@ type ReviewServiceParams struct {
 	Workflows   workflowGetter
 	Agents      reviewAgentReader
 	Mailer      reviewNoticeSender
+	Resumer     reviewerResumer
 	Interrupter agentInterrupter
 	// StateDir is where weave keeps its own files, which is where a released review is written.
 	StateDir string
@@ -122,6 +130,7 @@ type ReviewService struct {
 	workflows   workflowGetter
 	agents      reviewAgentReader
 	mailer      reviewNoticeSender
+	resumer     reviewerResumer
 	interrupter agentInterrupter
 	stateDir    string
 }
@@ -138,6 +147,7 @@ func NewReviewService(params ReviewServiceParams) *ReviewService {
 		workflows:   params.Workflows,
 		agents:      params.Agents,
 		mailer:      params.Mailer,
+		resumer:     params.Resumer,
 		interrupter: params.Interrupter,
 		stateDir:    params.StateDir,
 	}
@@ -369,7 +379,7 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 		return
 	}
 
-	reviewer, err := liveReviewerFor(ctx, s.agents, *author)
+	reviewer, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
 	if err != nil || reviewer == nil {
 		if err != nil {
 			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the reviewer to tell about a review answer",
@@ -377,6 +387,15 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 		}
 
 		return
+	}
+
+	// Mail waits for a pane rather than making one, so a reviewer whose pane has gone would
+	// never be handed this and the agent cannot ask for another reviewer instead.
+	if s.resumer != nil {
+		if _, err := s.resumer.ResumeAgent(ctx, reviewer.ID); err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put a reviewer back in a pane to be told about an answer",
+				append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
+		}
 	}
 
 	if _, err := s.mailer.SendNotice(ctx, SendNoticeParams{

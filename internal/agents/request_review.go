@@ -8,11 +8,18 @@ import (
 
 	"weave/internal/store"
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 )
 
 // ErrReviewNeedsOwnWork says the agent asked for is one with no work of its own to be read,
 // which a reviewer and a child both are.
 var ErrReviewNeedsOwnWork = errors.New("this agent has no work of its own to have read")
+
+// reviewVerdictReader reads where a reviewer last stood on an agent's work, which is how one
+// that has approved is told from one still owed an answer.
+type reviewVerdictReader interface {
+	LastReleasedReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+}
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the panel's
 // sidebar says whose work a row is for without anything having to be looked up.
@@ -49,12 +56,19 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, author.Name)
 	}
 
-	running, err := liveReviewerFor(ctx, s.agents, *author)
+	running, err := liveReviewerFor(ctx, s.agents, s.reviews, *author)
 	if err != nil {
 		return nil, "", err
 	}
 	if running != nil {
-		return nil, "", fmt.Errorf("%w: %q (%s) is reading it, and answering its threads is what tells it there is more to read",
+		// A key spent on the reviewer that exists is a retry of the call that made it, which is
+		// asking for that reviewer rather than for a second one.
+		if p.IdempotencyKey != "" && running.IdempotencyKey != nil && *running.IdempotencyKey == p.IdempotencyKey {
+			return running, implementerDoc, nil
+		}
+
+		return nil, "", fmt.Errorf(
+			"%w: %q (%s) is reading it, so answer its threads rather than asking again, and resume it with resume_agent if its pane is gone",
 			ErrReviewerAlreadyRunning, running.Name, running.ID)
 	}
 
@@ -73,9 +87,16 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 	return reviewer, implementerDoc, nil
 }
 
-// liveReviewerFor is the reviewer an agent already has, which is what keeps one reviewer on a
-// change for all of its rounds rather than a second one arriving at the round after the first.
-func liveReviewerFor(ctx context.Context, agents childLister, author agentstore.Agent) (*agentstore.Agent, error) {
+// liveReviewerFor is the reviewer an agent still has to answer to, which is what keeps one
+// reviewer on a change for all of its rounds rather than a second one arriving at the round after
+// the first. One that approved is skipped, since approved is the end of what it has to say and
+// the agent's next piece of work needs a reader of its own.
+func liveReviewerFor(
+	ctx context.Context,
+	agents childLister,
+	reviews reviewVerdictReader,
+	author agentstore.Agent,
+) (*agentstore.Agent, error) {
 	children, err := agents.ListChildren(ctx, []string{author.ID})
 	if err != nil {
 		return nil, err
@@ -86,10 +107,36 @@ func liveReviewerFor(ctx context.Context, agents childLister, author agentstore.
 			continue
 		}
 
+		approved, err := hasApproved(ctx, reviews, author.ID, child.ID)
+		if err != nil {
+			return nil, err
+		}
+		if approved {
+			continue
+		}
+
 		return &child, nil
 	}
 
 	return nil, nil
+}
+
+// hasApproved reports whether the last thing a reviewer let go of was an approval, which is the
+// end of what it has to say about the work it was given.
+func hasApproved(ctx context.Context, reviews reviewVerdictReader, agentID, reviewerID string) (bool, error) {
+	last, err := reviews.LastReleasedReviewOf(ctx, reviewstore.AuthorParams{
+		AgentID:       agentID,
+		AuthorKind:    reviewstore.AuthorAgent,
+		AuthorAgentID: &reviewerID,
+	})
+	if errors.Is(err, store.ErrNotFound) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+
+	return last.Verdict != nil && *last.Verdict == reviewstore.VerdictApproved, nil
 }
 
 func reviewerTitle(title, authorName string) string {
