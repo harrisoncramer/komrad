@@ -388,6 +388,12 @@ func (c *Client) BindKey(key string, command ...string) {
 	c.run(append([]string{"bind-key", key}, command...)...)
 }
 
+// BindRootKey binds a key outside the prefix table, where it fires whatever pane holds the
+// keyboard, taking that key away from whatever is running in those panes.
+func (c *Client) BindRootKey(key string, command ...string) {
+	c.run(append([]string{"bind-key", "-n", key}, command...)...)
+}
+
 // BindKeyChecked binds a key like BindKey but reports why tmux refused, for the person who
 // typed a command to bind one and is reading its output.
 func (c *Client) BindKeyChecked(key string, command ...string) error {

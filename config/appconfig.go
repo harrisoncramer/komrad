@@ -90,6 +90,11 @@ const (
 // rather than taken from the registry since this is a default a user overrides.
 const DefaultHarness = "claude"
 
+// DefaultFocusKey is the key that jumps between the panel and the pane last worked in when the
+// config names none, bound on weave's own tmux server so it is only ever taken from a pane inside
+// the panel.
+const DefaultFocusKey = "C-a"
+
 // The layout the panel lays itself out at when the config names none. The info pane opens
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
@@ -473,6 +478,12 @@ type Layout struct {
 	DetailsHeight float64 `mapstructure:"details_height"`
 }
 
+// Panel is how the panel itself behaves, apart from where it draws its regions.
+type Panel struct {
+	// The tmux key, named the way tmux names one, that moves focus to the panel from any pane inside it and back to that pane on the next press. Empty binds nothing.
+	FocusKey string `mapstructure:"focus_key"`
+}
+
 // Harness is how one agent CLI is configured.
 type Harness struct {
 	// Flags appended to every agent's command line for this CLI, ahead of the flags that agent carries itself.
@@ -619,6 +630,8 @@ type Config struct {
 	Harness     Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
+	// How the panel itself behaves.
+	Panel Panel `mapstructure:"panel"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -645,6 +658,7 @@ func Defaults() *Config {
 		MaxAgents:      DefaultMaxAgents,
 		MaxChildren:    DefaultMaxChildren,
 		Layout:         DefaultLayout(),
+		Panel:          Panel{FocusKey: DefaultFocusKey},
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log: Log{
