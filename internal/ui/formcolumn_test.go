@@ -6,6 +6,7 @@ import (
 
 	workflowstore "weave/internal/store/workflow"
 
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -99,11 +100,35 @@ func TestFormIsSizedToItsColumn(t *testing.T) {
 
 	width, height := m.formBox()
 	assert.Equal(t, split.column, width, "the form has its own column and not the terminal")
-	assert.Equal(t, split.rows, height)
+	assert.Equal(t, split.rows-formHelpLines, height, "less the row huh draws its own keys in")
 	assert.Less(t, width, m.width, "which is narrower than the window the panel was told about")
 
 	for _, row := range strings.Split(m.form.form.View(), "\n") {
 		assert.LessOrEqual(t, lipgloss.Width(row), split.column, "and nothing it draws runs past it")
+	}
+}
+
+// TestFormStaysInsideTheFrame covers the form being drawn inside the window rather than past the
+// bottom of it, which is the whole reason the panel tells it how much room it has: the workflow
+// form asks for four moments of hooks under everything else and is taller than most terminals.
+func TestFormStaysInsideTheFrame(t *testing.T) {
+	for _, height := range []int{16, 24, 32, 60} {
+		m := formColumnModel(t)
+		sized, _ := m.route(tea.WindowSizeMsg{Width: 160, Height: height})
+		m = asModel(t, sized)
+
+		opened, cmd := m.newWorkflowForm()
+		m = asModel(t, opened)
+
+		// The open batches the form's own start and the resize that tells it its column, which is
+		// what bubbletea would run before the next frame is drawn.
+		for _, msg := range drainCmd(cmd) {
+			next, _ := m.route(msg)
+			m = asModel(t, next)
+		}
+
+		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
+		assert.Contains(t, ansi.Strip(m.View()), "New workflow name", "height=%d opens at the top of itself", height)
 	}
 }
 

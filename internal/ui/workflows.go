@@ -150,7 +150,8 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
 	form, toggleIndex := build(m)
 
-	cmds := []tea.Cmd{form.Init()}
+	// Redrawn from nothing, so it is told its own column again along with everything else.
+	cmds := []tea.Cmd{form.Init(), formResized()}
 	for range toggleIndex {
 		cmds = append(cmds, form.NextField())
 	}

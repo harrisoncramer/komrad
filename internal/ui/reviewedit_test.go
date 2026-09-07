@@ -646,17 +646,26 @@ func writeRoundFile(t *testing.T, m model, content string) {
 }
 
 // drainCmd runs a command and every command a batch of them holds, since a batch is what the
-// panel returns when one keypress does two things.
-func drainCmd(cmd tea.Cmd) {
+// panel returns when one keypress does two things, and hands back what they answered with so a
+// test can put those messages through the panel itself.
+func drainCmd(cmd tea.Cmd) []tea.Msg {
 	if cmd == nil {
-		return
+		return nil
 	}
 
-	if batch, ok := cmd().(tea.BatchMsg); ok {
-		for _, next := range batch {
-			drainCmd(next)
-		}
+	msg := cmd()
+
+	batch, ok := msg.(tea.BatchMsg)
+	if !ok {
+		return []tea.Msg{msg}
 	}
+
+	var out []tea.Msg
+	for _, next := range batch {
+		out = append(out, drainCmd(next)...)
+	}
+
+	return out
 }
 
 // TestReviewKeepsDrawingAfterAReload pins the diff still being drawn after a reload, since a

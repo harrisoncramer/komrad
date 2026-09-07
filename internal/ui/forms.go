@@ -121,14 +121,18 @@ func formResized() tea.Cmd {
 	return func() tea.Msg { return formResizedMsg{} }
 }
 
+// formHelpLines is the strip of keys huh draws under a form, which it draws outside the height it
+// was given, so it is a row the panel keeps back rather than one the form is told about.
+const formHelpLines = 1
+
 // formBox is the room a form has on screen, which is its own column while it has one and the
 // panel's own pane while it does not.
 func (m model) formBox() (width, height int) {
 	if split, ok := m.columnGeometry(); ok {
-		return split.column, split.rows
+		return split.column, max(split.rows-formHelpLines, 1)
 	}
 
-	return m.width, m.height - m.chromeLines()
+	return m.width, max(m.height-m.chromeLines()-formHelpLines, 1)
 }
 
 // confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,
@@ -420,8 +424,6 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if key, ok := msg.(tea.KeyMsg); ok && isBound(key.String(), m.keys.Form.Submit) {
 		return m.answerForm()
 	}
-
-	msg = m.formSizeOf(msg)
 
 	form, cmd := m.form.form.Update(msg)
 	if updated, ok := form.(*huh.Form); ok {

@@ -81,7 +81,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.form.isActive() {
-		return m.form.update(m, msg)
+		// A resize says how big the panel's window is, and the form is drawn in a column of it, so
+		// the size is rewritten here rather than in each form's own handler.
+		return m.form.update(m, m.formSizeOf(msg))
 	}
 
 	key, ok := msg.(tea.KeyMsg)
