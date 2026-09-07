@@ -33,6 +33,14 @@ func (t *bindingTmux) BindKey(key string, command ...string) {
 	t.bound[key] = command
 }
 
+func (t *bindingTmux) BindRootKey(key string, command ...string) {
+	if t.bound == nil {
+		t.bound = map[string][]string{}
+	}
+
+	t.bound["root:"+key] = command
+}
+
 type panelKeyRecorder struct {
 	bindingTmux
 	err error
@@ -163,4 +171,53 @@ func TestUserPanelKey(t *testing.T) {
 	tmux.SetGlobal(managerKeyOption, "w")
 
 	assert.Equal(t, "w", UserPanelKey(tmux))
+}
+
+// TestBindFocusKey pins the branch test being a tmux format rather than a shell command, since a
+// key pressed this often cannot afford to fork, and pins the two ways of binding nothing.
+func TestBindFocusKey(t *testing.T) {
+	tests := []struct {
+		name    string
+		key     string
+		sidebar string
+		want    []string
+	}{
+		{
+			name:    "the key toggles against the sidebar's own pane",
+			key:     "C-a",
+			sidebar: "%3",
+			want: []string{
+				"if-shell", "-F", "#{==:#{pane_id},%3}",
+				"select-pane -l", "select-pane -t %3",
+			},
+		},
+		{
+			name:    "no key binds nothing",
+			key:     "",
+			sidebar: "%3",
+		},
+		{
+			name:    "no pane binds nothing",
+			key:     "C-a",
+			sidebar: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &bindingTmux{}
+
+			NewPopupWindow(tmux, "weave").BindFocusKey(tt.key, tt.sidebar)
+
+			command, bound := tmux.bound["root:"+tt.key]
+			if tt.want == nil {
+				assert.False(t, bound)
+
+				return
+			}
+
+			require.True(t, bound)
+			assert.Equal(t, tt.want, command)
+		})
+	}
 }
