@@ -72,20 +72,38 @@ func TestFormHandsTheWindowBackOnClose(t *testing.T) {
 	assert.Equal(t, m.width, m.paneWidth(), "and the list goes back to the whole of the pane")
 }
 
-// TestConfirmDrawsWithoutAColumn covers a form that only wants an answer, which has nothing to
-// fill a column with and so leaves the window as it found it.
-func TestConfirmDrawsWithoutAColumn(t *testing.T) {
+// TestConfirmDrawsBesideTheList covers a form that only wants an answer being drawn in the column
+// too, since the row it is asking about is the one thing that makes the answer obvious.
+func TestConfirmDrawsBesideTheList(t *testing.T) {
 	m := formColumnModel(t)
 
 	opened, _ := m.archiveWorkflowConfirm(workflowstore.Workflow{ID: "w1", Name: "backend"})
 	m = asModel(t, opened)
 
 	require.True(t, m.form.isActive())
-	assert.False(t, m.frame.IsSolo(), "a confirmation takes no window")
+	assert.True(t, m.frame.IsSolo(), "a confirmation takes the window for as long as it is up")
+
+	split, ok := m.columnSplit()
+	require.True(t, ok, "and draws its column")
+	assert.Equal(t, split.sidebar, m.paneWidth(), "with the list laid out against its own column")
+
+	view := ansi.Strip(m.View())
+	assert.Contains(t, view, "backend", "the prompt is on screen")
+	assert.Contains(t, view, "auth", "and so is the list it was opened over")
+}
+
+// TestConfirmKeepsTheWholePaneOnANarrowWindow covers a window with no room for both halves, where
+// the confirmation is drawn where it always was.
+func TestConfirmKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
+	m := resizedTo(t, formColumnModel(t), nameWidth+columnFloor-1, 40)
+
+	opened, _ := m.archiveWorkflowConfirm(workflowstore.Workflow{ID: "w1", Name: "backend"})
+	m = asModel(t, opened)
 
 	_, ok := m.columnSplit()
-	assert.False(t, ok, "and draws no column")
-	assert.Contains(t, ansi.Strip(m.View()), "backend", "the prompt is on screen")
+	assert.False(t, ok, "the window cannot hold the list beside the prompt")
+	assert.Equal(t, m.width, m.paneWidth(), "so the prompt is drawn in the whole of the pane")
+	assert.Contains(t, ansi.Strip(m.View()), "backend")
 }
 
 // TestFormIsSizedToItsColumn covers the form being laid out in the column it is drawn in rather
