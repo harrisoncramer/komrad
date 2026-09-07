@@ -3,6 +3,7 @@ package ui
 import (
 	"strings"
 	"testing"
+	"time"
 
 	workflowstore "weave/internal/store/workflow"
 
@@ -124,10 +125,10 @@ func TestFormStaysInsideTheFrame(t *testing.T) {
 	}
 }
 
-// TestFormStaysInsideTheFrameUnderABanner covers a refused submit, which puts a banner where the
-// submitting notice was and leaves the form up for the retry: the banner is taller than the notice
-// the form was measured against, and it cannot be dismissed while a form holds the keys, so
-// without a resize the overflow lasts for as long as the person is fixing what was refused.
+// TestFormStaysInsideTheFrameUnderABanner covers a refused submit, which puts a banner over the
+// form and leaves it up for the retry: the banner is chrome the form was not measured against,
+// and it cannot be dismissed while a form holds the keys, so without a resize the overflow lasts
+// for as long as the person is fixing what was refused.
 func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
 	for _, height := range []int{24, 32, 40} {
 		m := resizedTo(t, formColumnModel(t), 160, height)
@@ -146,6 +147,40 @@ func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
 		require.True(t, m.form.isActive(), "and the form is still up to fix it in")
 		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
 	}
+}
+
+// TestAHeldFormCarriesItsOwnNotice covers where the submitting notice is drawn: under the form
+// rather than above the panel, since chrome at the top moves every row below it and a form held
+// for the length of a provision would sit there jittering.
+func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
+	for _, height := range []int{24, 32, 40} {
+		m := resizedTo(t, formColumnModel(t), 160, height)
+
+		opened, cmd := m.newWorkflowForm()
+		m = asModel(t, opened)
+		m = delivered(t, m, cmd)
+
+		m.pending, m.pendingForm, m.pendingSince = 1, true, time.Now()
+		m = delivered(t, m, formResized())
+
+		lines := strings.Split(strings.TrimRight(ansi.Strip(m.View()), "\n"), "\n")
+
+		assert.NotContains(t, lines[0], "submitting", "height=%d the panel keeps its top row", height)
+		assert.Contains(t, lastFilled(lines), "submitting…", "height=%d the notice sits under the form", height)
+		assert.LessOrEqual(t, countLines(m.View()), height, "height=%d", height)
+	}
+}
+
+// lastFilled is the bottom row of a view that says anything, since fitFrame pads the pane out
+// with blanks below whatever was drawn.
+func lastFilled(lines []string) string {
+	for i := len(lines) - 1; i >= 0; i-- {
+		if strings.TrimSpace(lines[i]) != "" {
+			return lines[i]
+		}
+	}
+
+	return ""
 }
 
 // TestFormKeepsTheWholePaneOnANarrowWindow covers a window with no room for both halves, where

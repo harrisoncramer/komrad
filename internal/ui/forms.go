@@ -128,14 +128,23 @@ func formResized() tea.Cmd {
 // it renders exactly one row taller than it was asked for.
 const formHelpLines = 1
 
+// submittingLines is the notice drawn under a held form, which is a row the form is not told
+// about so that what it draws still fits above it.
+const submittingLines = 1
+
 // formBox is the room a form has on screen, which is its own column while it has one and the
 // panel's own pane while it does not.
 func (m model) formBox() (width, height int) {
-	if split, ok := m.columnGeometry(); ok {
-		return split.column, max(split.rows-formHelpLines, 1)
+	held := 0
+	if m.pendingForm {
+		held = submittingLines
 	}
 
-	return m.width, max(m.height-m.chromeLines()-formHelpLines, 1)
+	if split, ok := m.columnGeometry(); ok {
+		return split.column, max(split.rows-formHelpLines-held, 1)
+	}
+
+	return m.width, max(m.height-m.chromeLines()-formHelpLines-held, 1)
 }
 
 // confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,
@@ -416,6 +425,20 @@ func (m *model) rebuildForm() tea.Cmd {
 	m.form.form = form
 
 	return tea.Batch(form.Init(), formResized())
+}
+
+// detachForm gives the keyboard back while the write the form was held for runs on, and
+// remembers which write that was: a person who walked away from a create is not asking to be
+// taken to it when it lands.
+func (m model) detachForm() (tea.Model, tea.Cmd) {
+	if m.pendingEpoch != 0 {
+		if m.detached == nil {
+			m.detached = map[int]struct{}{}
+		}
+		m.detached[m.pendingEpoch] = struct{}{}
+	}
+
+	return m.closeForm()
 }
 
 // answerForm runs what the form on screen was filled in to do.

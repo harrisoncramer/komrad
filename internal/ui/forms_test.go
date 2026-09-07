@@ -1300,8 +1300,8 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 }
 
 // TestEscDetachesFromAHeldForm covers esc during a create: the panel comes back rather than
-// holding every key until a provisioner that may run for minutes has finished, and the write
-// still lands the agent it was sent for.
+// holding every key until a provisioner that may run for minutes has finished, the write still
+// lands the agent it was sent for, and the landing leaves the person where they went.
 func TestEscDetachesFromAHeldForm(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
@@ -1324,11 +1324,13 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	assert.False(t, m.pendingForm, "the panel takes keys again")
 	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
 
+	m.tree.focus = agentRowKey("somewhere-else")
+
 	got := settle(t, m, cmd)
 
 	assert.Nil(t, got.banner)
 	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
-	assert.Equal(t, agentRowKey("new"), got.tree.focus, "and the cursor still lands on the row it made")
+	assert.Equal(t, agentRowKey("somewhere-else"), got.tree.focus, "and it lands without taking the cursor back")
 }
 
 // TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
@@ -1374,7 +1376,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 
 	assert.True(t, got.pendingForm, "the escaped create landing leaves the second form held")
 	assert.True(t, got.form.isActive())
-	assert.Equal(t, agentRowKey("new"), got.tree.focus, "and the cursor still lands on the agent it made")
+	assert.Empty(t, got.tree.focus, "and an escaped create takes nobody to the agent it made")
 }
 
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is

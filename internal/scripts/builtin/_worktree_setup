@@ -94,6 +94,34 @@ has_ref() {
 	git -C "$repo" rev-parse --verify --quiet "$1" >/dev/null 2>&1
 }
 
+# origin_head asks origin which branch it defaults to, which is a network round trip.
+origin_head() {
+	git -C "$repo" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ { sub("refs/heads/", "", $2); print $2; exit }' || true
+}
+
+# record_head writes down what origin answered so the clone can be read instead next time,
+# which only takes once the fetch has made the tracking ref it points at.
+record_head() {
+	git -C "$repo" remote set-head origin "$base" >/dev/null 2>&1 || true
+}
+
+# fetch_base brings the base branch up to date and says where to cut the worktree from, or
+# fails when origin has no such branch to fetch.
+fetch_base() {
+	echo "fetching $base from origin" >&2
+	if ! git -C "$repo" fetch --quiet origin "$base" >&2; then
+		return 1
+	fi
+
+	if has_ref "refs/remotes/origin/$base"; then
+		point="origin/$base"
+	elif git -C "$repo" fetch --quiet --no-tags origin "+$base:$staged" >&2; then
+		point="$staged"
+	fi
+
+	return 0
+}
+
 # A directory removed without telling git leaves a registration behind that still claims the
 # branch. Pruning only once something is blocking this add keeps the blast radius small, since
 # a prune drops the registration of every worktree whose directory it cannot see, including one
@@ -142,19 +170,13 @@ fresh_worktree() {
 	fi
 
 	base="$WEAVE_WORKTREE_BASE_BRANCH"
-
-	if [ -z "$base" ] && [ -n "$origin" ]; then
-		remote_head=$(git -C "$repo" ls-remote --symref origin HEAD 2>/dev/null | awk '/^ref:/ { sub("refs/heads/", "", $2); print $2; exit }') || true
-		if [ -n "$remote_head" ]; then
-			base="$remote_head"
-			git -C "$repo" remote set-head origin "$base" >/dev/null 2>&1 || true
-		fi
-	fi
+	guessed=
 
 	if [ -z "$base" ]; then
 		head_ref=$(git -C "$repo" symbolic-ref --quiet refs/remotes/origin/HEAD 2>/dev/null) || true
 		if [ -n "$head_ref" ] && has_ref "$head_ref"; then
 			base=${head_ref#refs/remotes/origin/}
+			guessed=yes
 		fi
 	fi
 
@@ -162,9 +184,20 @@ fresh_worktree() {
 		for candidate in refs/remotes/origin/main refs/remotes/origin/master refs/heads/main refs/heads/master; do
 			if has_ref "$candidate"; then
 				base=${candidate##*/}
+				guessed=yes
 				break
 			fi
 		done
+	fi
+
+	# Every guess above is answered by the clone in microseconds, so origin is only asked when
+	# the clone holds nothing to guess from, and the fetch below is what catches a guess that
+	# the remote has since renamed away.
+	asked=
+	if [ -z "$base" ] && [ -n "$origin" ]; then
+		base=$(origin_head)
+		guessed=yes
+		asked=yes
 	fi
 
 	if [ -z "$base" ]; then
@@ -183,13 +216,20 @@ fresh_worktree() {
 	staged="refs/weave/base/$WEAVE_AGENT_ID"
 	point=
 	if [ -n "$origin" ]; then
-		echo "fetching $base from origin" >&2
-		if git -C "$repo" fetch --quiet origin "$base" >&2; then
-			if has_ref "refs/remotes/origin/$base"; then
-				point="origin/$base"
-			elif git -C "$repo" fetch --quiet --no-tags origin "+$base:$staged" >&2; then
-				point="$staged"
+		if ! fetch_base && [ -n "$guessed" ]; then
+			# The clone's answer is stale rather than wrong when the default branch has been
+			# renamed on the forge, and a fetch of a branch origin no longer has is how that
+			# shows, so this is the one path that pays to ask origin itself.
+			renamed=$(origin_head)
+			if [ -n "$renamed" ] && [ "$renamed" != "$base" ]; then
+				base="$renamed"
+				asked=yes
+				fetch_base || true
 			fi
+		fi
+
+		if [ -n "$asked" ] && [ -n "$point" ]; then
+			record_head
 		fi
 	fi
 

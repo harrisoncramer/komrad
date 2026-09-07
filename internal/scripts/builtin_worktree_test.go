@@ -614,12 +614,12 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 	assertIsDir(t, strings.TrimSpace(string(result.Stdout)))
 }
 
-// TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch covers a repo whose
-// origin/HEAD was never written, where the branch left checked out is somebody's unfinished work.
-func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *testing.T) {
+// TestBuiltinWorktreeSetupReadsTheCloneRatherThanTheCheckedOutBranch covers the default branch
+// being answered by what the clone already knows, since asking origin is a network round trip
+// paid on every create and the checked-out branch is somebody's own work.
+func TestBuiltinWorktreeSetupReadsTheCloneRatherThanTheCheckedOutBranch(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
-	runGit(t, repo, "remote", "set-head", "origin", "--delete")
 	runGit(t, repo, "checkout", "--quiet", "-b", "harry/wip")
 	require.NoError(t, os.WriteFile(filepath.Join(repo, "wip.txt"), []byte("unfinished\n"), 0o644))
 	commitAll(t, repo)
@@ -634,6 +634,29 @@ func TestBuiltinWorktreeSetupAsksOriginRatherThanReadingTheCheckedOutBranch(t *t
 	tree := strings.TrimSpace(string(result.Stdout))
 	assert.Contains(t, string(result.Stderr), "fetching main from origin")
 	assert.NoFileExists(t, filepath.Join(tree, "wip.txt"), "the agent is not sitting on the checked out branch's work")
+}
+
+// TestBuiltinWorktreeSetupAsksOriginWhenTheCloneHoldsNoDefault covers the one case the clone
+// cannot answer, where origin is asked and its answer recorded so the next create reads it here
+// rather than paying for it again.
+func TestBuiltinWorktreeSetupAsksOriginWhenTheCloneHoldsNoDefault(t *testing.T) {
+	upstream := initBareRepo(t)
+	repo := cloneRepo(t, upstream)
+	runGit(t, repo, "remote", "set-head", "origin", "--delete")
+	runGit(t, repo, "checkout", "--quiet", "-b", "harry/wip")
+	runGit(t, repo, "branch", "--delete", "--force", "main")
+	runGit(t, repo, "update-ref", "-d", "refs/remotes/origin/main")
+
+	require.False(t, hasRef(t, repo, "refs/remotes/origin/main"), "nothing local names the default branch")
+
+	result, err := runBuiltin(t, "_worktree_setup", worktreeEnv{
+		agentID:      "agent-no-cached-head",
+		repo:         repo,
+		worktreesDir: t.TempDir(),
+	})
+	require.NoError(t, err, "stderr: %s", result.Stderr)
+
+	assert.Contains(t, string(result.Stderr), "fetching main from origin")
 	assert.Equal(t, "refs/remotes/origin/main", readSymbolicRef(t, repo, "refs/remotes/origin/HEAD"), "the answer origin gave is recorded for next time")
 }
 

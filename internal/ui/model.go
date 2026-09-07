@@ -118,11 +118,13 @@ type model struct {
 	pendingSince time.Time
 	// pendingEpoch is the write the held form is waiting on, since a person who escapes a slow
 	// create and submits another has two in flight and only one of them owns the form.
-	pendingEpoch  int
+	pendingEpoch int
+	// detached holds the writes a person escaped out of, which land without taking the screen
+	// to what they made since whoever walked away is somewhere else by then.
+	detached map[int]struct{}
 	// blurred is whether another pane holds the keyboard, which stops the row cursor blinking
 	// since a panel nobody is typing at has nothing to blink for.
 	blurred       bool
-	setupPending  bool
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings

@@ -427,7 +427,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 	m.report(result.summary, result.err)
 
-	if result.written != nil {
+	_, walkedAway := m.detached[result.epoch]
+	delete(m.detached, result.epoch)
+
+	if result.written != nil && !walkedAway {
 		m.enterScreen(screenAgents)
 
 		m.tree.focus = result.written.row

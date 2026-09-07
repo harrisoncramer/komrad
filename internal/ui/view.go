@@ -24,18 +24,15 @@ func (m model) View() string {
 	}
 
 	var chrome string
-	switch {
-	case m.pendingForm:
-		chrome = dimStyle.Render(submittingNotice(m.pendingSince, time.Now())) + "\n\n"
-	case m.banner != nil:
+	if m.banner != nil {
 		chrome = m.banner.Render(m.width)
 	}
 
 	return m.fitFrame(strings.TrimRight(chrome+m.screenView(), "\n"))
 }
 
-// submittingNotice is the line drawn over a held form, counting up once the write has taken long
-// enough that a still line would read as a wedged panel.
+// submittingNotice is the line drawn under a held form, counting up once the write has taken
+// long enough that a still line would read as a wedged panel.
 func submittingNotice(since, now time.Time) string {
 	const patience = 2 * time.Second
 
@@ -74,9 +71,11 @@ func (m model) screenView() string {
 		return m.screen.spec().view(m)
 	}
 
+	form := m.heldFormView()
+
 	split, ok := m.columnSplit()
 	if !ok {
-		return m.form.form.View()
+		return form
 	}
 
 	// Asked for before either half is drawn, so the halves are laid out already knowing their
@@ -85,5 +84,17 @@ func (m model) screenView() string {
 
 	// The list is drawn beside the form as the context the form was opened from, and takes none of
 	// the keys while it is there, since the form has them all.
-	return m.joinColumns(split, held.screen.spec().view(held), m.form.form.View())
+	return m.joinColumns(split, held.screen.spec().view(held), form)
+}
+
+// heldFormView is the form with the submitting notice under it, which is a row the form gives
+// up rather than one taken off the top of the panel, since chrome appearing above everything
+// moves every row below it.
+func (m model) heldFormView() string {
+	view := m.form.form.View()
+	if !m.pendingForm {
+		return view
+	}
+
+	return strings.TrimRight(view, "\n") + "\n" + dimStyle.Render(submittingNotice(m.pendingSince, time.Now()))
 }
