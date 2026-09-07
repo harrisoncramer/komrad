@@ -36,12 +36,7 @@ func (s *Store) List(ctx context.Context) ([]Workflow, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsRow) Workflow {
-		return workflowFromRow(workflowRow{
-			Workflow:    row.Workflow,
-			Config:      row.WorkflowConfig,
-			Provisioner: row.WorkflowProvisionerConfig,
-			Hooks:       hooks[row.Workflow.ID],
-		})
+		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
 	}), nil
 }
 
@@ -91,12 +86,7 @@ func (s *Store) ListPage(ctx context.Context, limit int64, cursor *Cursor, archi
 	}
 
 	return xslice.Map(rows, func(row *models.ListWorkflowsPageRow) Workflow {
-		return workflowFromRow(workflowRow{
-			Workflow:    row.Workflow,
-			Config:      row.WorkflowConfig,
-			Provisioner: row.WorkflowProvisionerConfig,
-			Hooks:       hooks[row.Workflow.ID],
-		})
+		return workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks[row.Workflow.ID])
 	}), nil
 }
 
@@ -119,12 +109,7 @@ func (s *Store) Get(ctx context.Context, id string) (*Workflow, error) {
 		return nil, err
 	}
 
-	workflow := workflowFromRow(workflowRow{
-		Workflow:    row.Workflow,
-		Config:      row.WorkflowConfig,
-		Provisioner: row.WorkflowProvisionerConfig,
-		Hooks:       hooks,
-	})
+	workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks)
 
 	return &workflow, nil
 }
@@ -149,12 +134,7 @@ func (s *Store) GetIncludingArchived(ctx context.Context, id string) (*Workflow,
 		return nil, err
 	}
 
-	workflow := workflowFromRow(workflowRow{
-		Workflow:    row.Workflow,
-		Config:      row.WorkflowConfig,
-		Provisioner: row.WorkflowProvisionerConfig,
-		Hooks:       hooks,
-	})
+	workflow := workflowFromRow(row.Workflow, row.WorkflowConfig, row.WorkflowProvisionerConfig, hooks)
 
 	return &workflow, nil
 }

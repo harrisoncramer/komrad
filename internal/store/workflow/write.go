@@ -49,12 +49,7 @@ func (s *Store) Create(ctx context.Context, cfg Config) (*Workflow, error) {
 		return nil, err
 	}
 
-	workflow := workflowFromRow(workflowRow{
-		Workflow:    *row,
-		Config:      *config,
-		Provisioner: *provisioner,
-		Hooks:       cfg.Hooks,
-	})
+	workflow := workflowFromRow(*row, *config, *provisioner, cfg.Hooks)
 
 	return &workflow, nil
 }

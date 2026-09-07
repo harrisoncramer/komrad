@@ -90,3 +90,11 @@ func scriptDetail(stdout, stderr []byte, logPath string) string {
 
 	return fmt.Sprintf(": ...%s (%d earlier bytes cut, kept in %s)", kept, cut, logPath)
 }
+
+func tailBytes(b []byte, limit int) []byte {
+	if len(b) <= limit {
+		return b
+	}
+
+	return b[len(b)-limit:]
+}

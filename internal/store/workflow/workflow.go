@@ -90,32 +90,25 @@ func orEmpty(paths []string) []string {
 	return paths
 }
 
-type workflowRow struct {
-	Workflow    models.Workflow
-	Config      models.WorkflowConfig
-	Provisioner models.WorkflowProvisionerConfig
-	Hooks       []Hook
-}
-
-func workflowFromRow(row workflowRow) Workflow {
+func workflowFromRow(w models.Workflow, cfg models.WorkflowConfig, prov models.WorkflowProvisionerConfig, hooks []Hook) Workflow {
 	return Workflow{
-		ID:      row.Workflow.ID,
-		Name:    row.Workflow.Name,
-		Context: row.Workflow.Context,
-		Harness: row.Config.Harness,
-		Cwd:     row.Config.Cwd,
-		Flags:   row.Config.Flags,
+		ID:      w.ID,
+		Name:    w.Name,
+		Context: w.Context,
+		Harness: cfg.Harness,
+		Cwd:     cfg.Cwd,
+		Flags:   cfg.Flags,
 		Worktree: WorktreeConfig{
-			Enabled:      row.Provisioner.WorktreeEnabled,
-			BaseBranch:   row.Provisioner.WorktreeBaseBranch,
-			Dir:          row.Provisioner.WorktreeDir,
-			CopyPaths:    row.Provisioner.WorktreeCopyPaths,
-			SymlinkPaths: row.Provisioner.WorktreeSymlinkPaths,
-			DiffExclude:  row.Provisioner.WorktreeDiffExclude,
+			Enabled:      prov.WorktreeEnabled,
+			BaseBranch:   prov.WorktreeBaseBranch,
+			Dir:          prov.WorktreeDir,
+			CopyPaths:    prov.WorktreeCopyPaths,
+			SymlinkPaths: prov.WorktreeSymlinkPaths,
+			DiffExclude:  prov.WorktreeDiffExclude,
 		},
-		Hooks:             row.Hooks,
-		ArchiveOnPRClosed: row.Provisioner.ArchiveOnPrClosed,
-		ArchivedAt:        row.Workflow.ArchivedAt,
-		UpdatedAt:         row.Workflow.UpdatedAt,
+		Hooks:             hooks,
+		ArchiveOnPRClosed: prov.ArchiveOnPrClosed,
+		ArchivedAt:        w.ArchivedAt,
+		UpdatedAt:         w.UpdatedAt,
 	}
 }

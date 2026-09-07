@@ -3,7 +3,6 @@ package agents
 import (
 	"context"
 	"errors"
-	"io"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -178,8 +177,8 @@ func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
 	}
 }
 
-// noteEmptyLog puts the reason into a log its run never wrote a byte to, since a pane refused
-// before it was respawned leaves the number claimed for it opening an empty pager.
+// noteEmptyLog puts the reason into a log its run never wrote a byte to, since a number claimed
+// for a run that said nothing opens an empty pager on the screen meant to say why.
 func noteEmptyLog(ctx context.Context, path string, cause error) {
 	if path == "" {
 		return
@@ -217,22 +216,4 @@ func removeEmptyLog(ctx context.Context, path string) {
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
 		logging.From(ctx).Warn("failed to remove the log of a run that never started", "path", path, "error", err)
 	}
-}
-
-func tailBytes(b []byte, limit int) []byte {
-	if len(b) <= limit {
-		return b
-	}
-
-	return b[len(b)-limit:]
-}
-
-func readProvisionedDir(path string) ([]byte, error) {
-	file, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	return io.ReadAll(io.LimitReader(file, maxProvisionedDir+1))
 }
