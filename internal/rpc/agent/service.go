@@ -19,6 +19,7 @@ import (
 
 	agentstore "weave/internal/store/agent"
 	markstore "weave/internal/store/mark"
+	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 
 	"connectrpc.com/connect"
@@ -229,6 +230,12 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 	}
 	unviewed := xslice.KeyBy(unseen, func(id string) string { return id })
 
+	tallied, err := s.review.ListTallies(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to count the rounds of review the agents have been through")
+	}
+	tallies := xslice.KeyBy(tallied, func(tally reviewstore.Tally) string { return tally.AgentID })
+
 	failures, err := s.runs.ListUnreadFailures(ctx)
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the agents holding a failed run")
@@ -258,6 +265,7 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 			unviewed:     hasOutput,
 			failedRun:    hasFailure,
 			failedRunLog: failure.LogNumber,
+			rounds:       tallies[a.ID].Rounds,
 		}
 	}, nil
 }

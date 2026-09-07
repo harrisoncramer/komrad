@@ -756,6 +756,43 @@ func (q *Queries) ListReviewMessagesByThreads(ctx context.Context, threadIds []s
 	return items, nil
 }
 
+const listReviewRoundTallies = `-- name: ListReviewRoundTallies :many
+SELECT
+    v.agent_id,
+    COUNT(DISTINCT v.round_id)::int AS rounds
+FROM
+    reviews v
+WHERE
+    v.released_at IS NOT NULL
+GROUP BY
+    v.agent_id
+`
+
+type ListReviewRoundTalliesRow struct {
+	AgentID string
+	Rounds  int32
+}
+
+func (q *Queries) ListReviewRoundTallies(ctx context.Context) ([]*ListReviewRoundTalliesRow, error) {
+	rows, err := q.db.Query(ctx, listReviewRoundTallies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListReviewRoundTalliesRow
+	for rows.Next() {
+		var i ListReviewRoundTalliesRow
+		if err := rows.Scan(&i.AgentID, &i.Rounds); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewRounds = `-- name: ListReviewRounds :many
 SELECT
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at

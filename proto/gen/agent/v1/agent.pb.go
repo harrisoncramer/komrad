@@ -65,9 +65,11 @@ type Agent struct {
 	ReportedReason string `protobuf:"bytes,29,opt,name=reported_reason,json=reportedReason,proto3" json:"reported_reason,omitempty"`
 	// What the agent was launched to do, which decides the half of the review briefing it is sent.
 	Role string `protobuf:"bytes,30,opt,name=role,proto3" json:"role,omitempty"`
+	// How many rounds of its own work an author has released a review against.
+	ReviewRounds int32 `protobuf:"varint,31,opt,name=review_rounds,json=reviewRounds,proto3" json:"review_rounds,omitempty"`
 	// Whether prompt holds only its opening, which a summary listing returns so that a page of
 	// agents does not carry every briefing they were launched with.
-	PromptTruncated bool `protobuf:"varint,31,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
+	PromptTruncated bool `protobuf:"varint,32,opt,name=prompt_truncated,json=promptTruncated,proto3" json:"prompt_truncated,omitempty"`
 	unknownFields   protoimpl.UnknownFields
 	sizeCache       protoimpl.SizeCache
 }
@@ -303,6 +305,13 @@ func (x *Agent) GetRole() string {
 		return x.Role
 	}
 	return ""
+}
+
+func (x *Agent) GetReviewRounds() int32 {
+	if x != nil {
+		return x.ReviewRounds
+	}
+	return 0
 }
 
 func (x *Agent) GetPromptTruncated() bool {
@@ -1724,7 +1733,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x12view/v1/view.proto\x1a\x14rules/v1/rules.proto\"\xd2\b\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x12view/v1/view.proto\x1a\x14rules/v1/rules.proto\"\xf7\b\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1762,8 +1771,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0efailed_run_log\x18\x1c \x01(\x05H\aR\ffailedRunLog\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12\x12\n" +
-	"\x04role\x18\x1e \x01(\tR\x04role\x12)\n" +
-	"\x10prompt_truncated\x18\x1f \x01(\bR\x0fpromptTruncatedB\x0e\n" +
+	"\x04role\x18\x1e \x01(\tR\x04role\x12#\n" +
+	"\rreview_rounds\x18\x1f \x01(\x05R\freviewRounds\x12)\n" +
+	"\x10prompt_truncated\x18  \x01(\bR\x0fpromptTruncatedB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\a\n" +
 	"\x05_markB\x12\n" +

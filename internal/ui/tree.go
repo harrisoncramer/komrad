@@ -247,6 +247,8 @@ type agentItem struct {
 	failedRun  bool
 	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
 	failedRunLog *int32
+	// rounds is how many rounds of review this agent's own work has been through.
+	rounds int32
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

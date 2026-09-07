@@ -533,3 +533,63 @@ func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
 	_, cmd = panel.dwellViewed(later.Add(viewedDwell * 2))
 	assert.NotNil(t, cmd, "only by a look of its own")
 }
+
+// TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server, since
+// swap-pane, split-window and resize-pane all drop a window's zoom and call into nothing when they
+// do, which no fake tmux would have told the frame: the cursor coming off a running agent onto its
+// folder left the panel in its share of the frame with the blank stage beside it.
+func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+	require.NotEmpty(t, instance.GetOwnedPane(created.Msg.GetAgent().GetId()))
+
+	instance.Tmux.NewSession(panelSession)
+	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
+
+	client := instance.Tmux.Client()
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			hooks:     instance.Hooks,
+		},
+		tmux:   client,
+		popup:  NewPopupWindow(client, panelSession),
+		frame:  layout.New(client, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+	}
+	panel.width, panel.height = 200, 40
+	panel.frame.Attach(sidebar)
+
+	panel = settle(t, panel, panel.refreshCmd())
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
+
+	zoomed := func() string {
+		return instance.Tmux.Run("display-message", "-p", "-t", sidebar, "#{window_zoomed_flag}")
+	}
+
+	panel.tree.cursor = 1
+	panel.stageSelection()
+	require.Equal(t, "0", zoomed(), "the agent's own pane has the stage to itself")
+
+	panel.tree.cursor = 0
+	panel.stageSelection()
+
+	assert.True(t, panel.frame.IsSolo(), "the panel means to hold the window on its folder row")
+	assert.Equal(t, "1", zoomed(), "and tmux is holding it, rather than the frame only believing so")
+}

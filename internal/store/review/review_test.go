@@ -516,3 +516,56 @@ func catchUp(t *testing.T, st *fixture, agentID string) {
 		require.NoError(t, err)
 	}
 }
+
+// TestTalliesCountTheAgentHoldingTheDiff is what the panel draws a loop from: the rounds are
+// counted against the agent whose work went round, the reviewer that read it is not counted at
+// all, and a batch nobody has released is counted against neither.
+func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedAgentNamed(t, st, "reviewer")
+
+	for _, tree := range []string{"tree-one", "tree-two"} {
+		round := openRound(t, st, agentID, tree)
+		review, err := st.OpenReview(ctx, OpenReviewParams{
+			AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		})
+		require.NoError(t, err)
+		release(t, st, agentID, review.ID, VerdictChangesRequested)
+	}
+
+	third := openRound(t, st, agentID, "tree-three")
+	openReview(t, st, agentID, third.ID)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, tallies, 1, "the reviewer holds no diff of its own to have gone round")
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0])
+}
+
+// TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
+// reading the same snapshot is one round the work went through, not two.
+func TestTalliesCountOneRoundOnce(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedAgentNamed(t, st, "reviewer")
+	round := openRound(t, st, agentID, "tree-one")
+
+	human := openReview(t, st, agentID, round.ID)
+	release(t, st, agentID, human.ID, VerdictCommented)
+
+	agent, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, agent.ID, VerdictChangesRequested)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
+}

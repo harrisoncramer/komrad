@@ -23,6 +23,7 @@ import (
 	viewv1 "weave/proto/gen/view/v1"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	runstore "weave/internal/store/run"
 	transcriptstore "weave/internal/store/transcript"
 	workflowstore "weave/internal/store/workflow"
@@ -2114,10 +2115,25 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Config:         stubMailConfig(config.DefaultMaxExchange),
 	})
 
+	reviews := reviewstore.New(st.Pool.GetDB())
+	review := agents.NewReviewService(agents.ReviewServiceParams{
+		Threads:   reviews,
+		Messages:  reviews,
+		Viewed:    reviews,
+		Rounds:    reviews,
+		Reviews:   reviews,
+		Snapshots: stubSnapshotter{},
+		Workflows: st.Workflows,
+		StateDir:  t.TempDir(),
+		Agents:    st.Agents,
+		Mailer:    mail,
+	})
+
 	return NewService(NewServiceParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Mail:        mail,
+		Review:      review,
 		Runs:        st.Runs,
 		Marks:       markService(st),
 		Creator:     launcher,

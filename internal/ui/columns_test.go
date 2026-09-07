@@ -86,6 +86,25 @@ func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.View()), "dormant", "and says so in its own frame")
 }
 
+// TestLeavingARunningAgentKeepsTheWindow covers the cursor coming off an agent onto a row with no
+// pane, where the guest is swapped back out from under a panel that has just taken the window: the
+// swap drops the zoom, and the panel was left in its share of the frame with the blank stage it
+// had just drawn standing beside it.
+func TestLeavingARunningAgentKeepsTheWindow(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+
+	m.tree.cursor = 1
+	m.stageSelection()
+	require.False(t, tmux.zoomed, "the agent's own pane has the stage to itself")
+
+	m.tree.cursor = 0
+	m.stageSelection()
+
+	assert.True(t, m.frame.IsSolo(), "the panel means to hold the window on a row with no pane")
+	assert.True(t, tmux.zoomed, "and tmux is holding it, rather than the frame only believing so")
+}
+
 // TestSchedulesDrawTheHoveredRecord covers the schedule's own record standing beside the list.
 func TestSchedulesDrawTheHoveredRecord(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())

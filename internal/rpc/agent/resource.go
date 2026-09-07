@@ -36,6 +36,8 @@ type agentFlags struct {
 	// failedRunLog is the log the failure went to, which is what opens the pane on the run
 	// that failed rather than on whatever ran last.
 	failedRunLog *int32
+	// rounds is how many rounds of review this agent's own work has been through.
+	rounds int32
 }
 
 // agentOptions is how much of an agent renderAgent draws.
@@ -107,6 +109,7 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			Unviewed:         flags.unviewed,
 			FailedRun:        flags.failedRun,
 			FailedRunLog:     flags.failedRunLog,
+			ReviewRounds:     flags.rounds,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

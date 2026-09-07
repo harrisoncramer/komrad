@@ -421,3 +421,14 @@ RETURNING
 -- name: DeleteReviewThread :exec
 DELETE FROM review_threads
 WHERE id = @id;
+
+-- name: ListReviewRoundTallies :many
+SELECT
+    v.agent_id,
+    COUNT(DISTINCT v.round_id)::int AS rounds
+FROM
+    reviews v
+WHERE
+    v.released_at IS NOT NULL
+GROUP BY
+    v.agent_id;
