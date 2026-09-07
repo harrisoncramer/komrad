@@ -30,8 +30,8 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	assert.True(t, converted.WorktreeRemoved)
 }
 
-// TestProtoToAgentCarriesTheStateChange pins the timestamp the ghost slot counts from, which
-// is the only field on the row that has to survive the wire for a span to read at all.
+// TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by, since
+// nothing else on the row says when the agent last moved.
 func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
 	converted := protoToAgent(&agentv1.Agent{
@@ -43,7 +43,7 @@ func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 }
 
 // TestProtoToAgentWithoutAStateChange covers a server that sent no timestamp, which leaves the
-// zero time rather than an instant the slot would count a span from.
+// zero time rather than an instant nothing dated it from.
 func TestProtoToAgentWithoutAStateChange(t *testing.T) {
 	assert.True(t, protoToAgent(&agentv1.Agent{Id: "a1"}).StateChangedAt.IsZero())
 }
