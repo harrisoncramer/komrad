@@ -105,20 +105,18 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Explainer: whether these keys act is a policy about the keys rather than the geometry
-	// holdsWindow answers, since a screen that takes the whole window could as well hand it back
-	// for the keypress and draw the log in the pane underneath. They agree on every screen there
-	// is today, so read this as its own question rather than adding a screen to holdsWindow on
-	// the strength of what it does here.
-	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Logs.Open) {
+	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
+	// answers, which the archive is what separates: it takes the whole window and hands it back
+	// for as long as the pane is up, since a failed teardown is the thing its own logs explain.
+	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}
 
-	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Logs.Older) {
+	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Older) {
 		return m.olderLog()
 	}
 
-	if !m.screen.holdsWindow() && isBound(key.String(), m.keys.Terminal.Open) {
+	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Terminal.Open) {
 		return m.openTerminal()
 	}
 

@@ -90,20 +90,24 @@ show_hidden   = ["H"]
 # The archive screen, and the key that opens it from the agents list.
 [keybindings.archive]
 # Leave the archive for the agents list.
-back    = ["esc"]
+back        = ["esc"]
 # Destroy the agent under the cursor for good, with its transcript. This is
 # the one thing in the panel nothing undoes, so it asks first.
-delete  = ["d"]
+delete      = ["d"]
 # Destroy every archived agent for good, however many there are. The panel hands
 # the work to a background job, since tearing down that many agents takes a while.
 # It asks first.
-empty   = ["D"]
+empty       = ["D"]
 # Open the archive from the agents list.
-open    = ["Z"]
+open        = ["Z"]
 # Quit the panel.
-quit    = ["ctrl+c"]
+quit        = ["ctrl+c"]
 # Put the agent under the cursor back in the panel.
-restore = ["r"]
+restore     = ["r"]
+# Scroll the document beside the list down a few lines.
+scroll_down = ["ctrl+n"]
+# Scroll the document beside the list up a few lines.
+scroll_up   = ["ctrl+p"]
 
 # The details under whichever list is on screen: the key that hands them the
 # cursor, and the key that copies the field it lands on.

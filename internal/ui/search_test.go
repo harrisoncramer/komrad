@@ -920,10 +920,11 @@ func headerLine(t *testing.T, view, name string) string {
 // pane of the frame's instead.
 func TestJumpLeavesTheSearchBehind(t *testing.T) {
 	tests := []struct {
-		name       string
-		hit        searchHit
-		wantSwaps  int
-		wantStaged string
+		name      string
+		hit       searchHit
+		wantSwaps int
+		wantDrawn string
+		wantSolo  bool
 	}{
 		{
 			name: "a live hit takes the agent's own pane",
@@ -946,7 +947,10 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 				length:   3,
 				snippet:  marked("two"),
 			},
-			wantStaged: stageTextPath,
+			wantDrawn: "kept until deleted",
+			// The archive draws its own two columns, so it keeps the window the search was
+			// holding rather than handing it back to panes it is not going to use.
+			wantSolo: true,
 		},
 	}
 
@@ -957,6 +961,7 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			m.tmux, m.popup = tmux, NewPopupWindow(tmux, "test-session")
 			m.frame = layout.New(tmux, config.DefaultLayout())
 			m.frame.Attach("%0")
+			m.width, m.height = 120, 40
 			m.api = api{
 				agents:    &fakeSearchAgents{},
 				workflows: emptyLists{},
@@ -976,12 +981,11 @@ func TestJumpLeavesTheSearchBehind(t *testing.T) {
 			landed, ok := updated.(model)
 			require.True(t, ok)
 
-			staged := strings.Join(tmux.respawns, "\n")
 			assert.Empty(t, landed.search.preview.conversation, "the preview does not follow the jump")
-			assert.False(t, landed.frame.IsSolo(), "the panes the search covered have their share back")
+			assert.Equal(t, tt.wantSolo, landed.frame.IsSolo(), "the window goes to whatever the screen jumped to needs")
 			assert.Equal(t, tt.wantSwaps, tmux.swaps, "the row's own stage is what is drawn")
-			if tt.wantStaged != "" {
-				assert.Contains(t, staged, tt.wantStaged, "the row's own record is what is paged")
+			if tt.wantDrawn != "" {
+				assert.Contains(t, landed.View(), tt.wantDrawn, "the row's own record is what is drawn beside the list")
 			}
 			assert.Empty(t, landed.search.query, "the search is let go of")
 			assert.Empty(t, landed.search.hits, "the search is let go of")

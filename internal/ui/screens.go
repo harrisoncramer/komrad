@@ -21,9 +21,25 @@ const (
 // what says the panel takes the window from the panes beside it while that screen is up.
 func (s screen) holdsWindow() bool {
 	switch s {
-	case screenSearch, screenReview:
+	case screenArchive, screenSearch, screenReview:
 		return true
+	case screenAgents, screenSchedules, screenMail:
+		return false
+	}
+
+	// The switch carries every screen and no default, so this is what a screen added without an
+	// arm compiles to until the exhaustive check refuses it.
+	return false
+}
+
+// opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen, which
+// a screen holding the whole window can still say yes to by handing it back for as long as the
+// pane is up, the way the archive does so its own logs can be read.
+func (s screen) opensInfoPane() bool {
+	switch s {
 	case screenAgents, screenSchedules, screenArchive, screenMail:
+		return true
+	case screenSearch, screenReview:
 		return false
 	}
 
