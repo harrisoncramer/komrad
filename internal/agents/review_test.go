@@ -885,6 +885,78 @@ func reviewServiceForAgent(
 	})
 }
 
+// agentsWithReviewer hands back the reviewer as the reviewed agent's child, which is how the
+// doorbell owed to a reviewer finds who to ring.
+type agentsWithReviewer struct{ fakeAgentReaderFunc }
+
+func (agentsWithReviewer) ListChildren(_ context.Context, parentIDs []string) ([]agentstore.Agent, error) {
+	if len(parentIDs) != 1 || parentIDs[0] != reviewedAgentID {
+		return nil, nil
+	}
+
+	parent := reviewedAgentID
+
+	return []agentstore.Agent{{
+		ID:            reviewerAgentID,
+		Name:          "reviewer",
+		Role:          agentstore.RoleReviewer,
+		ParentAgentID: &parent,
+	}}, nil
+}
+
+// TestAnsweringAReviewRingsTheReviewer pins the doorbell back the other way: a reviewer that has
+// released its verdict is idle, so an answer it is never told about is an answer it never reads.
+func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
+	tests := []struct {
+		name   string
+		author ReviewAuthor
+		want   bool
+	}{
+		{name: "the agent under review answers", author: agentAuthor(reviewedAgentID), want: true},
+		{name: "the person reviewing comments", author: humanAuthor()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			reviews := newFakeReviewStore()
+			notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+			service := NewReviewService(ReviewServiceParams{
+				Threads:   reviews,
+				Messages:  reviews,
+				Viewed:    reviews,
+				Rounds:    reviews,
+				Reviews:   reviews,
+				Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
+				Workflows: fakeWorkflowGetter{},
+				Agents:    agentsWithReviewer{fakeAgentReaderFunc(findLiveAgent)},
+				Mailer:    notices,
+				StateDir:  t.TempDir(),
+			})
+
+			_, err := service.AddReviewMessage(t.Context(), AddReviewMessageParams{
+				ThreadID: reviewThreadID,
+				Body:     "fixed, the lookahead now stops at the newline",
+				Author:   tt.author,
+			})
+			require.NoError(t, err)
+
+			if !tt.want {
+				assert.Empty(t, notices.sent, "the person is looking at the thread already")
+
+				return
+			}
+
+			require.Len(t, notices.sent, 1)
+			assert.Equal(t, reviewerAgentID, notices.sent[0].ToAgentID)
+			assert.Equal(t, mailstore.KindReviewActivity, notices.sent[0].Kind)
+			require.NotNil(t, notices.sent[0].About)
+			assert.Equal(t, reviewedAgentID, *notices.sent[0].About)
+			assert.Contains(t, notices.sent[0].Body, "list_review_threads",
+				"the doorbell says where to look rather than what was said")
+		})
+	}
+}
+
 func findLiveAgent(_ context.Context, id string) (*agentstore.Agent, error) {
 	if id == reviewerAgentID {
 		parent := reviewedAgentID

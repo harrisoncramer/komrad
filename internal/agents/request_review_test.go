@@ -149,6 +149,40 @@ func TestRequestReviewRefusals(t *testing.T) {
 	}
 }
 
+// TestRequestReviewKeepsOneReviewer pins that a second ask is refused rather than answered with
+// a second reviewer, since one reviewer stays with a change for every round it goes through.
+func TestRequestReviewKeepsOneReviewer(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+	ctx := t.Context()
+
+	author, err := manager.launch.NewAgent(ctx, NewAgentParams{
+		Title:      "author",
+		Dir:        t.TempDir(),
+		Prompt:     "write the change",
+		WorkflowID: seedWorkflow(t, st),
+	})
+	require.NoError(t, err)
+
+	reviewer, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
+	require.NoError(t, err)
+
+	_, _, err = manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it again"})
+	require.ErrorIs(t, err, ErrReviewerAlreadyRunning)
+	assert.Contains(t, err.Error(), reviewer.Name, "so the asker is told which agent is already reading")
+
+	children, err := st.Agents.ListChildren(ctx, []string{author.ID})
+	require.NoError(t, err)
+	assert.Len(t, children, 1, "and no second reviewer was spawned")
+
+	require.NoError(t, manager.lifecycle.ArchiveAgents(ctx, []string{reviewer.ID}))
+
+	second, _, err := manager.launch.RequestReview(ctx, RequestReviewParams{AgentID: author.ID, Prompt: "read it"})
+	require.NoError(t, err, "an agent whose reviewer is gone may have another")
+	assert.NotEqual(t, reviewer.ID, second.ID)
+}
+
 // TestRequestReviewRefusesAChild pins that an ordinary child is refused too, since it writes in
 // a checkout it does not own however it was briefed.
 func TestRequestReviewRefusesAChild(t *testing.T) {

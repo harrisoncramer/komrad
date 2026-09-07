@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
+	"weave/internal/logging"
 	"weave/internal/store"
 	mailstore "weave/internal/store/mail"
 	reviewstore "weave/internal/store/review"
@@ -61,6 +63,13 @@ type reviewViewedFileReadWriter interface {
 	ListViewedFiles(ctx context.Context, roundID string) ([]reviewstore.ViewedFile, error)
 }
 
+// reviewAgentReader is what the review needs of the agent store: the row a call is about, and
+// the children of it, since the reviewer to ring is one of them.
+type reviewAgentReader interface {
+	agentGetter
+	childLister
+}
+
 type reviewNoticeSender interface {
 	SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error)
 }
@@ -94,7 +103,7 @@ type ReviewServiceParams struct {
 	Reviews     reviewBatchReadWriter
 	Snapshots   reviewSnapshotter
 	Workflows   workflowGetter
-	Agents      agentGetter
+	Agents      reviewAgentReader
 	Mailer      reviewNoticeSender
 	Interrupter agentInterrupter
 	// StateDir is where weave keeps its own files, which is where a released review is written.
@@ -111,7 +120,7 @@ type ReviewService struct {
 	reviews     reviewBatchReadWriter
 	snapshots   reviewSnapshotter
 	workflows   workflowGetter
-	agents      agentGetter
+	agents      reviewAgentReader
 	mailer      reviewNoticeSender
 	interrupter agentInterrupter
 	stateDir    string
@@ -330,7 +339,7 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
-	return s.messages.AddMessage(ctx, reviewstore.AddMessageParams{
+	message, err := s.messages.AddMessage(ctx, reviewstore.AddMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      reviewID,
 		Suggestion:    params.Suggestion,
@@ -338,6 +347,54 @@ func (s *ReviewService) AddReviewMessage(
 		AuthorAgentID: params.Author.AgentID,
 		Body:          params.Body,
 	})
+	if err != nil {
+		return nil, err
+	}
+
+	if reviewID == nil {
+		s.ringTheReviewer(ctx, thread.AgentID)
+	}
+
+	return message, nil
+}
+
+// ringTheReviewer tells the reviewer of an agent that the agent has answered it, since a
+// reviewer that has released its verdict is idle and nothing else in the loop wakes it.
+func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
+	author, err := s.agents.GetByID(ctx, agentID)
+	if err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to read the agent a review answer was written on",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+
+		return
+	}
+
+	reviewer, err := liveReviewerFor(ctx, s.agents, *author)
+	if err != nil || reviewer == nil {
+		if err != nil {
+			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to find the reviewer to tell about a review answer",
+				append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
+		}
+
+		return
+	}
+
+	if _, err := s.mailer.SendNotice(ctx, SendNoticeParams{
+		ToAgentID: reviewer.ID,
+		Body:      answerNotice(author.Name),
+		Kind:      mailstore.KindReviewActivity,
+		About:     &author.ID,
+	}); err != nil {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell a reviewer that its review was answered",
+			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
+	}
+}
+
+// answerNotice is the doorbell a reviewer gets, which says where to look rather than what was
+// said, the same way the review it released says nothing of itself.
+func answerNotice(authorName string) string {
+	return fmt.Sprintf("weave: %s answered your review. Read the threads with list_review_threads, "+
+		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
 }
 
 type EditReviewMessageParams struct {

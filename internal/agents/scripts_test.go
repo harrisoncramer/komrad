@@ -1682,6 +1682,10 @@ func (f fakeAgentReaderFunc) GetByID(ctx context.Context, id string) (*agentstor
 
 func (fakeAgentReaderFunc) SetViewed(context.Context, string, bool) error { return nil }
 
+func (fakeAgentReaderFunc) ListChildren(context.Context, []string) ([]agentstore.Agent, error) {
+	return nil, nil
+}
+
 func scriptService(t *testing.T, dir string, runner scriptRunner) *ScriptService {
 	t.Helper()
 

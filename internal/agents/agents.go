@@ -41,6 +41,10 @@ var (
 	// child a row with nothing to be drawn under.
 	ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
 
+	// ErrReviewerAlreadyRunning says the agent asking already has a reviewer of its own reading
+	// its work, which stays with the change across every round rather than one per round.
+	ErrReviewerAlreadyRunning = errors.New("this agent already has a reviewer")
+
 	// ErrOutsideFamily says a child tried to reach an agent outside its own family, which is its
 	// parent and that parent's other children.
 	ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")

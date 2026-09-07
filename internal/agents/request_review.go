@@ -49,6 +49,15 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 		return nil, "", fmt.Errorf("%w: %q is a child, writing in a checkout it does not own", ErrReviewNeedsOwnWork, author.Name)
 	}
 
+	running, err := liveReviewerFor(ctx, s.agents, *author)
+	if err != nil {
+		return nil, "", err
+	}
+	if running != nil {
+		return nil, "", fmt.Errorf("%w: %q (%s) is reading it, and answering its threads is what tells it there is more to read",
+			ErrReviewerAlreadyRunning, running.Name, running.ID)
+	}
+
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
 		Title:          reviewerTitle(p.Title, author.Name),
 		Prompt:         reviewerPrompt(*author, p.Prompt),
@@ -62,6 +71,25 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 	}
 
 	return reviewer, implementerDoc, nil
+}
+
+// liveReviewerFor is the reviewer an agent already has, which is what keeps one reviewer on a
+// change for all of its rounds rather than a second one arriving at the round after the first.
+func liveReviewerFor(ctx context.Context, agents childLister, author agentstore.Agent) (*agentstore.Agent, error) {
+	children, err := agents.ListChildren(ctx, []string{author.ID})
+	if err != nil {
+		return nil, err
+	}
+
+	for _, child := range children {
+		if child.Role != agentstore.RoleReviewer || child.ArchivedAt != nil || child.State.IsFailed() {
+			continue
+		}
+
+		return &child, nil
+	}
+
+	return nil, nil
 }
 
 func reviewerTitle(title, authorName string) string {

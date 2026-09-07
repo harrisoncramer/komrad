@@ -36,6 +36,7 @@ var table = []mapping{
 	{agents.ErrParentNotFound, connect.CodeNotFound},
 
 	{store.ErrNameTaken, connect.CodeAlreadyExists},
+	{agents.ErrReviewerAlreadyRunning, connect.CodeAlreadyExists},
 
 	{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
 	{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},

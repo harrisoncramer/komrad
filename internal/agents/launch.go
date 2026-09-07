@@ -51,6 +51,7 @@ type launchAgentReadWriter interface {
 	agentGetter
 	agentCounter
 	childCounter
+	childLister
 	nameChecker
 	agentFailWriter
 	GetByIdempotencyKey(ctx context.Context, key string) (*agentstore.Agent, error)
