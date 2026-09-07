@@ -359,7 +359,8 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 
 // TestAnAnswerIsWorkThatMovedNoTree pins what AnsweredSince answers: whether the agent whose
 // work it is has said something of its own since a review was let go of, which the reviewer
-// talking to itself and an answer written before the release are both not.
+// talking to itself, an answer on another agent's diff and one written before the release are
+// all not.
 func TestAnAnswerIsWorkThatMovedNoTree(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -398,6 +399,23 @@ func TestAnAnswerIsWorkThatMovedNoTree(t *testing.T) {
 	answered, err = st.AnsweredSince(ctx, agentID, *released.ReleasedAt)
 	require.NoError(t, err)
 	assert.False(t, answered, "only the agent whose work it is answers")
+
+	other := seedAgentNamed(t, st, "other")
+	otherRound := openRound(t, st, other, "tree-two")
+	otherReview := openReview(t, st, other, otherRound.ID)
+	elsewhere := openThread(t, st, other, otherReview, "and this one leaks")
+
+	_, err = st.AddMessage(ctx, AddMessageParams{
+		ThreadID:      elsewhere.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+		Body:          "answered on somebody else's diff",
+	})
+	require.NoError(t, err)
+
+	answered, err = st.AnsweredSince(ctx, agentID, *released.ReleasedAt)
+	require.NoError(t, err)
+	assert.False(t, answered, "an answer on another agent's diff is not progress on this one")
 
 	_, err = st.AddMessage(ctx, AddMessageParams{
 		ThreadID:      thread.ID,

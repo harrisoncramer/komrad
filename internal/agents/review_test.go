@@ -781,6 +781,40 @@ func TestAReviewerReachesAnAnswerThatChangedNoCode(t *testing.T) {
 	require.NoError(t, err, "and may release the verdict the doorbell sent it to release")
 }
 
+// TestAReviewerApprovesStraightAfterAnAnswer is the deadlock as the doorbell reaches it: the
+// reviewer has nothing more to say and goes for the verdict, so the release is the call that has
+// to open a batch on the round it has already reviewed.
+func TestAReviewerApprovesStraightAfterAnAnswer(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.thread.ReviewAuthorAgentID = ptr(reviewerAgentID)
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+	ctx := t.Context()
+
+	_, err := service.CreateReviewThread(ctx, CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.ReleaseReview(ctx, ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.AddReviewMessage(ctx, AddReviewMessageParams{
+		ThreadID: reviewThreadID,
+		Body:     "left as it was, the caller never passes nil",
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err)
+
+	_, err = service.ReleaseReview(ctx, ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictApproved, Author: reviewer,
+	})
+	require.NoError(t, err, "the verdict with no reply before it opens the batch itself")
+}
+
 // TestAnAnswerBuysTheReviewerOneBatch pins that letting an answer through does not unbound the
 // ping-pong: the reviewer gets one batch per thing the other side does, so a reviewer that has
 // spent the answer is waiting again.
@@ -1618,8 +1652,21 @@ func (f *fakeReviewStore) AddMessage(
 	return &message, nil
 }
 
-func (f *fakeReviewStore) AnsweredSince(_ context.Context, agentID string, since time.Time) (bool, error) {
+func (f *fakeReviewStore) AnsweredSince(ctx context.Context, agentID string, since time.Time) (bool, error) {
+	threads, err := f.ListThreads(ctx, agentID)
+	if err != nil {
+		return false, err
+	}
+
+	own := map[string]bool{}
+	for _, thread := range threads {
+		own[thread.ID] = thread.AgentID == agentID
+	}
+
 	for _, message := range f.messages {
+		if !own[message.ThreadID] {
+			continue
+		}
 		if message.ReviewID != nil || message.AuthorAgentID == nil || *message.AuthorAgentID != agentID {
 			continue
 		}
