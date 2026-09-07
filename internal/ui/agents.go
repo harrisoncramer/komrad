@@ -536,7 +536,7 @@ func (m model) agentsView() string {
 }
 
 func (m model) agentsListView() string {
-	below := m.detailsView() + "\n" + m.renderHelp(m.agentHelp())
+	below := m.detailsView() + m.renderHelp(m.agentHelp())
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))

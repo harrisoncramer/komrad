@@ -442,7 +442,7 @@ func (m model) searchSidebarView() string {
 		query += cursorStyle.Render("▏")
 	}
 	header := m.titleStyle().Render("Search") + "\n\n" + query + "\n\n"
-	help := "\n" + m.renderHelp(m.searchHelp())
+	help := m.renderHelp(m.searchHelp())
 
 	switch {
 	case strings.TrimSpace(m.search.query) == "":
