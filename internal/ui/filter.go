@@ -107,7 +107,6 @@ func (m *model) enterScreen(next screen) {
 
 	if m.screen != next {
 		m.filter = filterState{}
-		m.popup.HoldFocusKey(m.focusKey, m.pane, next == screenAgents)
 	}
 
 	m.screen = next
