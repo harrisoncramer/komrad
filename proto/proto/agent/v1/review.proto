@@ -104,6 +104,9 @@ message ReviewThread {
   string resolved_at = 9;
   // Whether the agent has replied since the person reviewing last looked.
   bool unread_by_human = 11;
+  // Whether weave wrote this thread from an edit of the round's checkout rather than somebody
+  // typing it, which is what makes its body the same sentence every time.
+  bool harvested = 18;
   repeated ReviewMessage messages = 12;
   string created_at = 13;
   string updated_at = 14;

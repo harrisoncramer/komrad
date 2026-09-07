@@ -452,7 +452,10 @@ type ReviewThread struct {
 	// moved, and it is this one that decides whether the thread is still asking for something.
 	ResolvedAt string `protobuf:"bytes,9,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
 	// Whether the agent has replied since the person reviewing last looked.
-	UnreadByHuman bool             `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
+	UnreadByHuman bool `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
+	// Whether weave wrote this thread from an edit of the round's checkout rather than somebody
+	// typing it, which is what makes its body the same sentence every time.
+	Harvested     bool             `protobuf:"varint,18,opt,name=harvested,proto3" json:"harvested,omitempty"`
 	Messages      []*ReviewMessage `protobuf:"bytes,12,rep,name=messages,proto3" json:"messages,omitempty"`
 	CreatedAt     string           `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     string           `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
@@ -577,6 +580,13 @@ func (x *ReviewThread) GetResolvedAt() string {
 func (x *ReviewThread) GetUnreadByHuman() bool {
 	if x != nil {
 		return x.UnreadByHuman
+	}
+	return false
+}
+
+func (x *ReviewThread) GetHarvested() bool {
+	if x != nil {
+		return x.Harvested
 	}
 	return false
 }
@@ -2311,7 +2321,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04bodyB\x12\n" +
-	"\x10_author_agent_id\"\xfe\x03\n" +
+	"\x10_author_agent_id\"\x9c\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
@@ -2326,7 +2336,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\fquoted_lines\x18\b \x03(\tR\vquotedLines\x12\x1f\n" +
 	"\vresolved_at\x18\t \x01(\tR\n" +
 	"resolvedAt\x12&\n" +
-	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x123\n" +
+	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x12\x1c\n" +
+	"\tharvested\x18\x12 \x01(\bR\tharvested\x123\n" +
 	"\bmessages\x18\f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +

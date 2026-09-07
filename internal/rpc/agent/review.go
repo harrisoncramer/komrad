@@ -365,6 +365,7 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 		NewEnd:        thread.Thread.NewEnd,
 		QuotedLines:   thread.Thread.QuotedLines,
 		UnreadByHuman: thread.Thread.UnreadByHuman,
+		Harvested:     thread.Thread.Harvested,
 		CreatedAt:     dates.Stamp(thread.Thread.CreatedAt),
 		UpdatedAt:     dates.Stamp(thread.Thread.UpdatedAt),
 	}
