@@ -314,7 +314,8 @@ func (m model) reviewReleaseView() string {
 	}
 
 	return out + "\n" + dimStyle.Render("  tab to change · "+
-		keyLabel(m.keys.Form.Submit)+" send · esc cancel") + "\n"
+		keyLabel(m.keys.Form.Submit)+" send · "+
+		keyLabel(m.keys.Review.SendNow)+" send and interrupt · esc cancel") + "\n"
 }
 
 // describeVerdict is how a verdict reads in the panel, spelled the way a person would say it

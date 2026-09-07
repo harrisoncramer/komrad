@@ -280,7 +280,9 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case isBound(k, m.keys.Form.Submit):
-		return m.sendReview()
+		return m.sendReview(false)
+	case isBound(k, m.keys.Review.SendNow):
+		return m.sendReview(true)
 	}
 
 	editor, cmd := m.review.editor.Update(key)
@@ -291,7 +293,7 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // sendReview lets the batch go with the verdict chosen and whatever was written about the work as
 // a whole, which reaches the agent as one file and one piece of mail.
-func (m model) sendReview() (tea.Model, tea.Cmd) {
+func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 	verdict := reviewVerdicts[m.review.verdict]
 	body := strings.TrimSpace(m.review.editor.Value())
 
@@ -301,15 +303,16 @@ func (m model) sendReview() (tea.Model, tea.Cmd) {
 
 	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-			AgentId: agentID,
-			Verdict: verdict,
-			Body:    body,
+			AgentId:   agentID,
+			Verdict:   verdict,
+			Interrupt: interrupt,
+			Body:      body,
 		}))
 		if err != nil {
 			return "", err
 		}
 
-		return releasedNotice(verdict, resp.Msg.GetComments()), nil
+		return releasedNotice(verdict, resp.Msg.GetComments(), interrupt), nil
 	})
 }
 
@@ -322,8 +325,11 @@ func (m model) closeReviewRelease() model {
 
 // releasedNotice says what went, since a review leaving with nothing said about it reads as the
 // key not working.
-func releasedNotice(verdict agentv1.ReviewVerdict, count int32) string {
+func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) string {
 	sent := ", " + counted(int(count), "comment") + " sent"
+	if interrupt {
+		sent += " and the agent stopped to read them"
+	}
 
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:

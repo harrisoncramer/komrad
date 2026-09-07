@@ -179,6 +179,10 @@ up     = ["k"]
 [keybindings.review]
 # Leave the review for the agents list.
 back          = ["esc"]
+# Send the review and stop the agent where it stands, so it reads now rather than at
+# the end of whatever it is doing. Only in the release panel, beside the ordinary
+# submit key, which sends without interrupting.
+send_now      = ["ctrl+n"]
 # Write a message on the line under the cursor, replying in the thread already there
 # or opening a new one.
 compose       = ["c"]

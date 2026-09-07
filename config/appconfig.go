@@ -328,6 +328,10 @@ type MailKeys struct {
 type ReviewKeys struct {
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back"`
+	// Send the review and stop the agent where it stands, so it reads now rather than at
+	// the end of whatever it is doing. Only in the release panel, beside the ordinary
+	// submit key, which sends without interrupting.
+	SendNow []string `mapstructure:"send_now"`
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
 	Compose []string `mapstructure:"compose"`
@@ -725,6 +729,7 @@ func DefaultKeybindings() Keybindings {
 			Back:         []string{"esc"},
 			Compose:      []string{"c"},
 			EditFile:     []string{"e"},
+			SendNow:      []string{"ctrl+n"},
 			NextFile:     []string{"]"},
 			NextMatch:    []string{"n"},
 			NextThread:   []string{"t"},
