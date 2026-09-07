@@ -43,17 +43,15 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 // keyboard, steady while something else holds it, and gone for the half of the phase the bubble
 // sets Blink over.
 func (m model) cursorPrefix(focused bool) string {
-	focused = focused && !m.takesEveryKey()
-
-	if focused && !m.blurred && m.rowCursor.Blink {
+	if focused && !m.blurred && !m.takesEveryKey() && m.rowCursor.Blink {
 		return blankCursor
 	}
 
 	return cursorStyleFor(focused).Render(rowCursorGlyph)
 }
 
-// takesEveryKey reports whether a text input holds the keyboard, which the row cursor reads as
-// the list not having it since the arrows are going into the query rather than moving the rows.
+// takesEveryKey reports whether the keyboard is spoken for by something the screen put up, which
+// stands the row cursor still since the arrows are going there rather than moving the rows.
 func (m model) takesEveryKey() bool {
 	return m.filter.typing || m.isTyping()
 }
