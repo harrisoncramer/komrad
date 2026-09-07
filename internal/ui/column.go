@@ -115,8 +115,8 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
 	}
 
-	// Clamped to what splitOf will settle on, so that a banner folded to this width is drawn in
-	// the column it was measured against.
+	// Clamped to what splitOf will settle on, so this width and the split's are the same answer
+	// rather than two that agree by coincidence.
 	return min(max(sidebar, 1), m.width-1), spec, true
 }
 
@@ -265,11 +265,12 @@ func (m model) joinColumns(split columnSplit, sidebar, column string) string {
 	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, column)
 }
 
-// paneWidth is the column the panel draws its own list, record and legend in, which is the whole
-// pane except while it is drawing a block of its own beside them.
+// paneWidth is the column the panel draws its own list, record, legend and banner in, which is
+// the whole pane except while it is drawing a block of its own beside them.
 func (m model) paneWidth() int {
 	// A screen working out whether its own split leaves room for its chrome has already chosen
-	// the column, so it is told the answer rather than asked for the split it is still deciding.
+	// the column, so it is told the answer rather than asked for the split it is still deciding,
+	// which is also what keeps the banner's own rows out of that measurement.
 	if m.paneMeasure > 0 {
 		return m.paneMeasure
 	}
