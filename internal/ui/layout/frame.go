@@ -14,7 +14,12 @@ type Frame struct {
 	info    string
 	guest   string
 	solo    bool
-	shown   map[Region]shown
+
+	// moved says the frame has issued a command tmux drops a window's zoom on since the zoom was
+	// last put back, which is what separates a call that took the zoom down from the refresh tick
+	// asking for content that is already up.
+	moved bool
+	shown map[Region]shown
 }
 
 type shown struct {
@@ -66,6 +71,12 @@ func (f *Frame) GuestPane() string { return f.guest }
 // Open opens a region and returns the pane it landed in, opening the stage on the way since
 // every region hangs off it.
 func (f *Frame) Open(region Region) string {
+	defer f.restoreSolo()
+
+	return f.open(region)
+}
+
+func (f *Frame) open(region Region) string {
 	switch region {
 	case RegionStage:
 		f.claimStage()
@@ -91,6 +102,7 @@ func (f *Frame) IsOpen(region Region) bool {
 func (f *Frame) Close(region Region) {
 	if region == RegionInfo {
 		f.closeInfo()
+		f.restoreSolo()
 	}
 }
 
@@ -105,7 +117,9 @@ func (f *Frame) Show(region Region, content Content) {
 		return
 	}
 
-	f.Open(region)
+	defer f.restoreSolo()
+
+	f.open(region)
 
 	if region == RegionStage {
 		f.restoreGuest()
@@ -176,6 +190,8 @@ func (f *Frame) IsSidebarOnRight() bool { return f.spec.sidebarOnRight }
 
 // ShowGuest swaps a pane somebody else owns into the stage.
 func (f *Frame) ShowGuest(pane string) {
+	defer f.restoreSolo()
+
 	f.claimStage()
 	if f.stage == "" || pane == "" || pane == f.guest {
 		return
@@ -183,6 +199,7 @@ func (f *Frame) ShowGuest(pane string) {
 
 	f.restoreGuest()
 	f.tmux.SwapPanes(pane, f.stage)
+	f.moved = true
 	f.guest = pane
 	f.forget(RegionStage)
 }
@@ -192,7 +209,24 @@ func (f *Frame) ShowGuest(pane string) {
 func (f *Frame) ReleaseGuest(pane string) {
 	if pane != "" && pane == f.guest {
 		f.restoreGuest()
+		f.restoreSolo()
 	}
+}
+
+// restoreSolo puts the sidebar's zoom back after the frame has moved the panes under it, since
+// split-window, swap-pane, resize-pane, kill-pane and break-pane each unzoom the window and call
+// into nothing when they do.
+func (f *Frame) restoreSolo() {
+	moved := f.moved
+	f.moved = false
+
+	// A zoomed sidebar covers the pane the logs and the editor are drawn in, so the window is
+	// left alone while one is up rather than taken back over what was just opened.
+	if !moved || !f.solo || f.sidebar == "" || f.info != "" {
+		return
+	}
+
+	f.tmux.SetPaneZoomed(f.sidebar, true)
 }
 
 func (f *Frame) isShowing(region Region, content Content, target Target) bool {
@@ -225,6 +259,7 @@ func (f *Frame) restoreGuest() {
 
 	if f.tmux.IsPaneAlive(f.guest) {
 		f.tmux.SwapPanes(f.stage, f.guest)
+		f.moved = true
 	}
 
 	f.guest = ""
@@ -237,6 +272,8 @@ func (f *Frame) reclaim() {
 	}
 
 	for _, pane := range f.tmux.GetSiblingPanes(f.sidebar) {
+		f.moved = true
+
 		if f.tmux.GetPaneOwner(pane) != "" {
 			f.tmux.BreakPane(pane)
 
@@ -255,6 +292,7 @@ func (f *Frame) claimStage() {
 	f.abandonStage()
 
 	f.stage = f.splitStage()
+	f.moved = true
 	f.forget(RegionStage)
 	f.forget(RegionInfo)
 
@@ -282,6 +320,7 @@ func (f *Frame) hasStage() bool {
 func (f *Frame) abandonStage() {
 	if f.stage != "" && f.tmux.IsPaneAlive(f.stage) {
 		f.tmux.KillPane(f.stage)
+		f.moved = true
 	}
 
 	f.closeInfo()
@@ -299,6 +338,7 @@ func (f *Frame) claimInfo() {
 	} else {
 		f.info = f.tmux.SplitBelow(anchor, home, f.spec.infoSize)
 	}
+	f.moved = true
 
 	f.forget(RegionInfo)
 }
@@ -309,6 +349,7 @@ func (f *Frame) closeInfo() {
 	}
 
 	f.tmux.KillPane(f.info)
+	f.moved = true
 	f.info = ""
 	f.forget(RegionInfo)
 }

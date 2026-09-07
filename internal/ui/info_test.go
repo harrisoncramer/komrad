@@ -157,19 +157,27 @@ func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
 
 func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }
 func (t *recordingTmux) CapturePane(string) string                { return "" }
-func (t *recordingTmux) SplitRight(string, string, string) string { return "%1" }
-func (t *recordingTmux) SplitLeft(string, string, string) string  { return "%1" }
+func (t *recordingTmux) SplitRight(string, string, string) string { return t.split("%1") }
+func (t *recordingTmux) SplitLeft(string, string, string) string  { return t.split("%1") }
 
 func (t *recordingTmux) SplitBelow(anchor, _, _ string) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
-	return "%2"
+	return t.split("%2")
 }
 
 func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 	t.belowAnchors = append(t.belowAnchors, anchor)
 
-	return "%2"
+	return t.split("%2")
+}
+
+// split answers with the pane a split left, dropping the zoom the way tmux does, since
+// split-window unzooms the window it lands in and calls into nothing when it does.
+func (t *recordingTmux) split(pane string) string {
+	t.zoomed = false
+
+	return pane
 }
 
 func (t *recordingTmux) SetInfoPane(pane string) {
@@ -188,17 +196,28 @@ func (t *recordingTmux) SetGlobal(name, value string) {
 	t.globals[name] = value
 }
 
-func (t *recordingTmux) SwapPanes(string, string)        { t.swaps++ }
 func (t *recordingTmux) GetSiblingPanes(string) []string { return nil }
 func (t *recordingTmux) GetPaneOwner(string) string      { return "" }
-func (t *recordingTmux) BreakPane(string)                {}
-func (t *recordingTmux) KillPane(pane string)            { t.killed = append(t.killed, pane) }
+
+// SwapPanes, BreakPane, KillPane and ResizePane each drop the zoom, which is what tmux was
+// measured to do and what the frame puts back.
+func (t *recordingTmux) SwapPanes(string, string) {
+	t.swaps++
+	t.zoomed = false
+}
+
+func (t *recordingTmux) BreakPane(string) { t.zoomed = false }
+
+func (t *recordingTmux) KillPane(pane string) {
+	t.killed = append(t.killed, pane)
+	t.zoomed = false
+}
 
 func (t *recordingTmux) NewWindow(string, string, string) (string, error) {
 	return "%2", nil
 }
 
-func (t *recordingTmux) ResizePane(string, string) {}
+func (t *recordingTmux) ResizePane(string, string) { t.zoomed = false }
 
 func (t *recordingTmux) RespawnPane(pane, dir string, argv ...string) {
 	t.respawns = append(t.respawns, strings.Join(argv, " "))
