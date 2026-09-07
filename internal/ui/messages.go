@@ -35,7 +35,7 @@ const messagesFocusKey = "ctrl+g"
 // having to make the panel refuse something first.
 const messagesMockKey = "M"
 
-// messagesCap is how far back the stack goes, since nobody reads the hundredth refusal.
+// messagesCap is how far back the stack goes, since nothing frees it while the panel runs.
 const messagesCap = 50
 
 type messageKind int
@@ -106,8 +106,8 @@ func (m model) messagesSlot() []string {
 	}
 }
 
-// messagesSummaryLine is the summary on its own, measured so the tally can be pushed to the far
-// side of the region rather than sat next to a name whose length nobody knows.
+// messagesSummaryLine is the summary row's text, clipped short of the tally so the count sits at
+// the far side rather than next to a name whose length nobody knows.
 func (m model) messagesSummaryLine() string {
 	if len(m.messages.items) == 0 {
 		return kindIcon(messageSuccess) + " No messages"
