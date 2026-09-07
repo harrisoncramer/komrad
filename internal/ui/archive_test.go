@@ -977,8 +977,8 @@ func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
 	assert.Equal(t, 12, m.column.top, "a cursor that could not move leaves the offset where it was")
 }
 
-// TestArchiveHandsTheWindowBack covers the zoom, which has to go whenever something of somebody
-// else's is on screen: the pane the logs draw in, and the screen the reader leaves for.
+// TestArchiveHandsTheWindowBack covers the zoom, which has to go for the screen the reader
+// leaves for, since what stands beside the list there is somebody else's own pane.
 func TestArchiveHandsTheWindowBack(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
@@ -990,12 +990,6 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	m, ok := entered.(model)
 	require.True(t, ok)
 	assert.True(t, m.frame.IsSolo(), "the archive draws both columns itself, so it takes the window")
-
-	require.True(t, m.claimInfo(infoRunLog, ""))
-	assert.False(t, m.frame.IsSolo(), "the log pane is covered by a zoomed sidebar")
-
-	m = m.closeInfo()
-	assert.True(t, m.frame.IsSolo(), "and the window comes back once the pane has gone")
 
 	// A live agent's own pane is what stands beside the list there, so the panel gives the window
 	// back on the way to a row that has one.

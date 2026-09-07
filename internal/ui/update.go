@@ -110,8 +110,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
-	// answers, which the archive is what separates: it takes the whole window and hands it back
-	// for as long as the pane is up, since a failed teardown is the thing its own logs explain.
+	// answers, and the two do not line up in either direction: the mail screen holds no window and
+	// takes them, while the archive and the review draw the whole window and refuse them.
 	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}

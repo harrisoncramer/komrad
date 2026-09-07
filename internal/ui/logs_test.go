@@ -394,22 +394,23 @@ func TestLogKeysAreInertInTheArchive(t *testing.T) {
 
 	pressed := pressLogs(t, m)
 	assert.Equal(t, infoNothing, pressed.info.kind, "the log key opens nothing there")
+	assert.Equal(t, infoNothing, pressTerminal(t, m).info.kind, "and neither does the terminal key")
+	assert.Equal(t, infoNothing, pressOlderLog(t, m).info.kind, "nor the one that steps back a run")
 	assert.Empty(t, tmux.respawnPanes, "and nothing is paged into a pane")
 }
 
-// TestEnteringTheArchiveClosesTheInfoPane pins that a log opened on the agents list does not
-// follow the reader into a screen with no key left to close it.
-func TestEnteringTheArchiveClosesTheInfoPane(t *testing.T) {
-	tmux := &recordingTmux{}
-	m, _ := logsModel(t, tmux)
+// TestEnteringAScreenWithoutTheKeysClosesTheInfoPane pins that a log opened on the agents list
+// does not follow the reader onto a screen with no key left to close it.
+func TestEnteringAScreenWithoutTheKeysClosesTheInfoPane(t *testing.T) {
+	for _, next := range []screen{screenArchive, screenSearch, screenReview} {
+		tmux := &recordingTmux{}
+		m, _ := logsModel(t, tmux)
+		require.True(t, m.claimInfo(infoAgentLog, ""))
 
-	require.True(t, m.claimInfo(infoAgentLog, ""))
+		m.enterScreen(next)
 
-	entered, _ := m.enterArchive()
-	got, ok := entered.(model)
-	require.True(t, ok)
-
-	assert.Equal(t, infoNothing, got.info.kind)
+		assert.Equal(t, infoNothing, m.info.kind)
+	}
 }
 
 // TestAgentLogContentKeyFollowsTheAgent pins that the panel's own log restages when the cursor
