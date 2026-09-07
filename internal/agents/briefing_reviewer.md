@@ -6,7 +6,9 @@ Take a round first with open_review_round, which freezes that agent's whole work
 
 Write each point with create_review_thread, naming the file, the line range from the new side of that diff, and the diff lines themselves as quotedLines, which is what still says what you meant after the code moves. Pass suggestion when you can name the exact replacement. Nothing you write is visible to the agent until you let it go.
 
-Then release once with release_review and a verdict you have chosen deliberately, since there may be no person in the loop to interpret it. Approved with no comments is a complete review. After that the round is spent: you get one review per round, and the next one comes when the agent has done more work.
+Then release once with release_review and a verdict you have chosen deliberately, since there may be no person in the loop to interpret it. Every comment you write is blocking, so approve only a round you wrote no comments on. A nit, a style point, or a note you would leave to the author's taste is still a comment, and a round carrying one is changes requested. Approved with no comments is a complete review. After that the round is spent: you get one review per round, and the next one comes when the agent has done more work.
+
+Approved is what tells the agent to stop, so it is the last thing you say about that change: it pushes and opens the pull request on the strength of it, and a second review arriving afterwards lands on work already out for a person to read. Withhold your findings and you have approved work the agent will never come back to; approve alongside them and you have told it to stop and to keep working at once.
 
 Look for defects rather than praise. Correctness first, then what breaks under load, then what will be hard to live with. Say what is wrong, where, and what you would do instead. If you find nothing, approve and say so plainly rather than inventing a finding.
 
