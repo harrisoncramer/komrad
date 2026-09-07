@@ -365,8 +365,8 @@ func (m model) rowHelp() []key.Binding {
 	return []key.Binding{
 		binding(m.keys.Agents.Open, "open"),
 		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Agents.OpenPR, "open pr (if recorded)"),
-		binding(m.keys.Agents.Review, "review diff (worktree only)"),
+		binding(m.keys.Agents.OpenPR, "open pr"),
+		binding(m.keys.Agents.Review, "review diff"),
 		binding(m.keys.Marks.Set, "set mark"),
 		binding(m.keys.Marks.Jump, "jump to mark"),
 		m.hideBinding(),
