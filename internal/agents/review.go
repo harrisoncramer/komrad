@@ -38,6 +38,9 @@ type reviewThreadReadWriter interface {
 	GetThread(ctx context.Context, id string) (*reviewstore.Thread, error)
 	MarkThreadRead(ctx context.Context, id string) (*reviewstore.Thread, error)
 	SetThreadResolved(ctx context.Context, id string, resolved bool) (*reviewstore.Thread, error)
+	ListHarvested(ctx context.Context, agentID, roundID string) ([]reviewstore.HarvestedThread, error)
+	MoveThread(ctx context.Context, params reviewstore.MoveThreadParams) (*reviewstore.Thread, error)
+	DeleteThread(ctx context.Context, id string) error
 }
 
 // reviewMessageReadWriter is the other half: what was said in those conversations, and how far
@@ -229,6 +232,12 @@ func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 
 type CreateReviewThreadParams struct {
 	AgentID string
+	// RoundID is the round the anchor's line numbers were measured in, empty for a caller that
+	// means whichever round is latest.
+	RoundID string
+	// Harvested says weave read this thread off an edit of the round's checkout rather than
+	// somebody typing it.
+	Harvested bool
 	// Suggestion is replacement lines the author proposes for the range, empty for an ordinary
 	// comment.
 	Suggestion  []string
@@ -254,9 +263,21 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
+	roundID := params.RoundID
+	if roundID == "" {
+		round, err := s.LatestRound(ctx, params.AgentID)
+		if err != nil {
+			return nil, err
+		}
+
+		roundID = round.ID
+	}
+
 	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
 		AgentID:       params.AgentID,
 		ReviewID:      open.ID,
+		RoundID:       roundID,
+		Harvested:     params.Harvested,
 		Suggestion:    params.Suggestion,
 		FilePath:      params.FilePath,
 		OldStart:      params.OldStart,

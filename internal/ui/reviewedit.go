@@ -3,16 +3,29 @@ package ui
 import (
 	"context"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
 	"weave/internal/git"
 	"weave/internal/review"
 	"weave/internal/ui/layout"
+	agentv1 "weave/proto/gen/agent/v1"
 
+	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 )
+
+// roundHarvestedMsg is what writing the reviewer's edits as threads did, carrying the review as
+// it stands afterwards since the panel keeps no copy of what it has just changed.
+type roundHarvestedMsg struct {
+	agentID string
+	opened  int
+	moved   int
+	deleted int
+	skipped int
+	threads []*agentv1.ReviewThread
+	err     error
+}
 
 // defaultEditor is what the file is opened in when nothing said otherwise, which is what the
 // environment falls back to as well.
@@ -249,7 +262,7 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 	}
 
 	// Anything the reader has done since the screen opened is theirs rather than the leftover's.
-	if m.review.roundDir != "" || len(m.review.suggestions) > 0 {
+	if m.review.roundDir != "" {
 		return
 	}
 
@@ -264,52 +277,6 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 
 	m.review.roundDir = msg.dir
 	m.review.roundSha = msg.sha
-	m.review.suggestions, m.review.adrift = m.holdSuggestions(msg.edits)
-}
-
-// carriedEditDrop is the work of putting one run back the way the round holds it, prepared while
-// the view is still to hand and run once the comment carrying it has actually been written, so
-// that the checkout goes on holding only what nobody has taken anywhere.
-func (m model) carriedEditDrop(anchor review.Anchor, lines []string) func(context.Context) {
-	nothing := func(context.Context) {}
-
-	at := m.review.roundDir
-	if at == "" || len(lines) == 0 {
-		return nothing
-	}
-
-	source, ok := m.review.view.GetSource(anchor.FilePath)
-	if !ok {
-		return nothing
-	}
-
-	sent := review.Suggestion{
-		FilePath: anchor.FilePath,
-		NewStart: anchor.NewStart,
-		NewEnd:   anchor.NewEnd,
-		Lines:    lines,
-	}
-
-	return func(ctx context.Context) {
-		edits, err := git.Edits(ctx, at)
-		if err != nil {
-			return
-		}
-
-		round := review.SplitSource(source)
-		rebuilt := strings.Join(review.WithoutSuggestion(round, edits, sent), "\n")
-		if strings.HasSuffix(source, "\n") {
-			rebuilt += "\n"
-		}
-
-		// Nothing is said when this fails: the comment carrying the edit has already been written,
-		// so what it costs is the proposal being offered again rather than anything of the
-		// reviewer's going missing.
-		if err := os.WriteFile(filepath.Join(at, filepath.FromSlash(anchor.FilePath)),
-			[]byte(rebuilt), 0o644); err != nil {
-			return
-		}
-	}
 }
 
 // readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather than
@@ -353,17 +320,19 @@ func (m model) closeReviewEdit() (tea.Model, tea.Cmd) {
 	return m, m.readRoundEditsCmd()
 }
 
-// applyRoundEdited holds every run the reviewer wrote as a suggestion of its own, so that two
-// changes to one file are two proposals rather than one span swallowing the code between them.
-func (m *model) applyRoundEdited(msg roundEditedMsg) {
+// applyRoundEdited sends what the reviewer wrote to be written as threads, which is what makes an
+// edit a comment without them pressing anything else.
+func (m *model) applyRoundEdited(msg roundEditedMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID || m.review.view == nil {
-		return
+		return nil
 	}
+
+	m.review.harvesting = false
 
 	if msg.err != nil {
 		m.review.notice = "what you wrote in the round could not be read back"
 
-		return
+		return nil
 	}
 
 	// The runs are numbered against the snapshot the checkout stands on, so a round that moved
@@ -371,37 +340,137 @@ func (m *model) applyRoundEdited(msg roundEditedMsg) {
 	if msg.sha != m.review.round.GetSnapshotSha() {
 		m.review.notice = "the round moved on while you were editing, so what you wrote was not read"
 
+		return nil
+	}
+
+	return m.harvestCmd(msg.edits)
+}
+
+// harvestCmd writes the runs the reviewer left in the checkout as threads on the round, anchored
+// here because the line numbers and quoted lines a thread is pinned by come from the patch.
+func (m model) harvestCmd(edits []git.Edit) tea.Cmd {
+	// An empty harvest is sent rather than skipped: a reviewer who has undone every edit is
+	// retracting the comments those edits wrote, and only the server can see that.
+	runs := review.RunsFrom(m.review.view, edits, m.roundFallback())
+
+	agents, agentID := m.api.agents, m.review.agentID
+	roundID, force := m.review.round.GetId(), m.review.oversized
+
+	return func() tea.Msg {
+		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
+		defer cancel()
+
+		resp, err := agents.HarvestRoundEdits(ctx, connect.NewRequest(&agentv1.HarvestRoundEditsRequest{
+			AgentId: agentID,
+			RoundId: roundID,
+			Runs:    toHarvestedRuns(runs),
+			Force:   force,
+		}))
+		if err != nil {
+			return roundHarvestedMsg{agentID: agentID, err: err}
+		}
+
+		threads, err := listReviewThreads(ctx, agents, agentID)
+
+		return roundHarvestedMsg{
+			agentID: agentID,
+			opened:  int(resp.Msg.GetOpened()),
+			moved:   int(resp.Msg.GetMoved()),
+			deleted: int(resp.Msg.GetDeleted()),
+			skipped: len(resp.Msg.GetSkipped()),
+			threads: threads,
+			err:     err,
+		}
+	}
+}
+
+// roundFallback reads the round's own copy of a file the patch does not draw, which is how an edit
+// made away from the diff still becomes a comment.
+func (m model) roundFallback() func(string) ([]string, bool) {
+	dir := m.review.roundDir
+	if dir == "" {
+		return nil
+	}
+
+	return func(path string) ([]string, bool) {
+		lines, err := call(reviewTimeout, func(ctx context.Context) ([]string, error) {
+			return git.ReadFileLines(ctx, dir, "HEAD", path)
+		})
+
+		return lines, err == nil
+	}
+}
+
+func toHarvestedRuns(runs []review.Run) []*agentv1.HarvestedRun {
+	out := make([]*agentv1.HarvestedRun, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, &agentv1.HarvestedRun{
+			FilePath:    run.FilePath,
+			OldStart:    int32(run.OldStart),
+			OldEnd:      int32(run.OldEnd),
+			NewStart:    int32(run.NewStart),
+			NewEnd:      int32(run.NewEnd),
+			QuotedLines: run.QuotedLines,
+			Lines:       run.Lines,
+		})
+	}
+
+	return out
+}
+
+// applyRoundHarvested says what the harvest did, since a comment appearing with nobody having
+// asked for one reads as the panel doing something odd unless it is named.
+func (m *model) applyRoundHarvested(msg roundHarvestedMsg) {
+	if msg.agentID != m.review.agentID {
 		return
 	}
 
-	m.review.suggestions, m.review.adrift = m.holdSuggestions(msg.edits)
-}
+	if msg.err != nil {
+		if isHarvestTooLarge(msg.err) {
+			m.review.oversized = true
+			m.review.notice = "that is a lot of changed lines for review comments, " +
+				"press again to write them anyway"
 
-// holdSuggestions turns the runs into proposals, dropping the ones already sent or turned down and
-// answering separately with the ones the diff has no line for.
-func (m model) holdSuggestions(edits []git.Edit) (held []pendingSuggestion, adrift []review.Suggestion) {
-	for _, edit := range edits {
-		source, ok := m.review.view.GetSource(edit.Path)
-		if !ok {
-			continue
+			return
 		}
 
-		suggestion, ok := review.Suggest(edit, review.SplitSource(source))
-		if !ok || m.review.settled[suggestion.Key()] {
-			continue
-		}
+		m.review.notice = "what you wrote could not be written as comments"
 
-		anchor, ok := m.review.view.GetRangeAnchor(edit.Path, suggestion.NewStart, suggestion.NewEnd)
-		if !ok {
-			adrift = append(adrift, suggestion)
-
-			continue
-		}
-
-		held = append(held, pendingSuggestion{anchor: *anchor, lines: suggestion.Lines})
+		return
 	}
 
-	return held, adrift
+	m.review.oversized = false
+	m.review.notice = describeHarvest(msg)
+	m.applyReviewThreads(msg.threads)
+}
+
+// describeHarvest names what changed, and says nothing at all when nothing did.
+func describeHarvest(msg roundHarvestedMsg) string {
+	var parts []string
+
+	if msg.opened > 0 {
+		parts = append(parts, counted(msg.opened, "comment")+" written from your edit")
+	}
+
+	if msg.moved > 0 {
+		parts = append(parts, counted(msg.moved, "comment")+" rewritten")
+	}
+
+	if msg.deleted > 0 {
+		parts = append(parts, counted(msg.deleted, "comment")+" taken back")
+	}
+
+	if msg.skipped > 0 {
+		parts = append(parts, counted(msg.skipped, "edit")+" left alone over a comment already sent")
+	}
+
+	return strings.Join(parts, ", ")
+}
+
+// isHarvestTooLarge reports whether the server refused the harvest for its size, which is the one
+// refusal the reviewer can answer by pressing again.
+func isHarvestTooLarge(err error) bool {
+	return strings.Contains(err.Error(), "too large to read as review comments")
 }
 
 func (m model) reviewEditorDesc() string {

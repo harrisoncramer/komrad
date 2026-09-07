@@ -58,7 +58,7 @@ func renderReview(params renderReviewParams) string {
 
 	out.WriteString("\n")
 	for _, thread := range threads {
-		writeThread(&out, thread, source[thread.Thread.FilePath])
+		writeThread(&out, thread, source[thread.Thread.FilePath], params.Author == "")
 	}
 
 	out.WriteString("Answer by writing in each thread, naming its id.\n")
@@ -66,7 +66,7 @@ func renderReview(params renderReviewParams) string {
 	return out.String()
 }
 
-func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []string) {
+func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []string, byHuman bool) {
 	fmt.Fprintf(out, "## %s\n\n", anchorOf(thread.Thread))
 	fmt.Fprintf(out, "Thread `%s`\n\n", thread.Thread.ID)
 
@@ -84,7 +84,8 @@ func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []
 		out.WriteString("\n\n")
 
 		if len(message.Suggestion) > 0 {
-			out.WriteString("Suggested replacement for those lines:\n\n```\n")
+			out.WriteString(suggestionLead(byHuman))
+			out.WriteString("\n\n```\n")
 			for _, line := range message.Suggestion {
 				out.WriteString(line)
 				out.WriteString("\n")
@@ -92,6 +93,18 @@ func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []
 			out.WriteString("```\n\n")
 		}
 	}
+}
+
+// suggestionLead says how much weight the replacement lines carry, since a person's own edit of
+// the worktree is to be applied rather than weighed.
+func suggestionLead(byHuman bool) string {
+	if byHuman {
+		return "The person reviewing wrote this replacement for those lines themselves. " +
+			"Apply it as written. If it no longer applies because the code was renamed or removed, " +
+			"say so in the thread rather than half-applying it:"
+	}
+
+	return "Suggested replacement for those lines:"
 }
 
 // writeContext draws the file around the lines a comment was written about as the round froze

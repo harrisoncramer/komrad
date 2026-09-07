@@ -28,16 +28,37 @@ import (
 
 type fakeReviewAgents struct {
 	agentv1connect.AgentServiceClient
-	threads  []*agentv1.ReviewThread
-	viewed   []*agentv1.ReviewViewedFile
-	settled  *agentv1.SetReviewThreadResolvedRequest
-	created  *agentv1.CreateReviewThreadRequest
-	replied  *agentv1.AddReviewMessageRequest
-	released *agentv1.ReleaseReviewRequest
-	dir      string
-	rounds   []*agentv1.ReviewRound
-	reviews  []*agentv1.Review
-	marked   *agentv1.SetReviewFileViewedRequest
+	threads    []*agentv1.ReviewThread
+	viewed     []*agentv1.ReviewViewedFile
+	settled    *agentv1.SetReviewThreadResolvedRequest
+	created    *agentv1.CreateReviewThreadRequest
+	replied    *agentv1.AddReviewMessageRequest
+	released   *agentv1.ReleaseReviewRequest
+	dir        string
+	rounds     []*agentv1.ReviewRound
+	reviews    []*agentv1.Review
+	marked     *agentv1.SetReviewFileViewedRequest
+	harvested  *agentv1.HarvestRoundEditsRequest
+	harvests   int
+	harvestErr error
+}
+
+// HarvestRoundEdits records what the panel sent rather than reconciling anything, since the
+// matching itself is covered where it lives.
+func (f *fakeReviewAgents) HarvestRoundEdits(
+	_ context.Context,
+	req *connect.Request[agentv1.HarvestRoundEditsRequest],
+) (*connect.Response[agentv1.HarvestRoundEditsResponse], error) {
+	f.harvested = req.Msg
+	f.harvests++
+
+	if f.harvestErr != nil {
+		return nil, f.harvestErr
+	}
+
+	return connect.NewResponse(&agentv1.HarvestRoundEditsResponse{
+		Opened: int32(len(req.Msg.GetRuns())),
+	}), nil
 }
 
 func (f *fakeReviewAgents) ListReviewViewedFiles(

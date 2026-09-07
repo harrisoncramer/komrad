@@ -20,16 +20,14 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 }
 
 // composeReview opens the editor on the line under the cursor, replying in the thread already
-// there, opening a new one, or carrying an edit of the round that is waiting to be sent, which
-// takes precedence over both since it is pinned where it was made rather than under the cursor.
+// there or opening a new one, which is prose alone: an edit of the round becomes a comment when
+// the editor closes rather than when this key is pressed.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
-	held := len(m.review.suggestions) > 0
 	thread, replying := m.reviewThreadAtCursor()
-	replying = replying && !held
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying && !held {
+	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
 		return m, nil
 	}
 
@@ -71,13 +69,8 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		return m.cancelReviewMessage(), nil
 	}
 
-	held, sending := m.takeSuggestion()
 	m.review.editor.Blur()
 	m.review.composing = false
-
-	if sending {
-		return m, m.createReviewThreadCmd(held.anchor, held.lines, body)
-	}
 
 	agents, threadID := m.api.agents, m.review.editing
 	if threadID != "" {
@@ -98,54 +91,22 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.createReviewThreadCmd(*anchor, nil, body)
+	return m, m.createReviewThreadCmd(*anchor, body)
 }
 
-// cancelReviewMessage puts the composer away, turning down the edit it was asking about, since the
-// composer is where weave asks whether to send one and leaving it is the answer.
+// cancelReviewMessage puts the composer away, which now abandons nothing but the words typed into
+// it, since an edit of the round is a comment before the composer is ever opened.
 func (m model) cancelReviewMessage() model {
 	m.review.editor.Blur()
 	m.review.composing = false
 
-	if held, ok := m.takeSuggestion(); ok {
-		m.review.notice = "your edit of " +
-			review.FormatLocation(held.anchor.FilePath, held.anchor.OldStart, held.anchor.NewStart) +
-			" was turned down"
-	}
-
 	return m
 }
 
-// takeSuggestion lifts the edit the composer is asking about off the front of the queue and
-// records that it has been answered for, so reading the checkout again does not offer it back.
-func (m *model) takeSuggestion() (pendingSuggestion, bool) {
-	if len(m.review.suggestions) == 0 {
-		return pendingSuggestion{}, false
-	}
-
-	held := m.review.suggestions[0]
-	m.review.suggestions = m.review.suggestions[1:]
-
-	if m.review.settled == nil {
-		m.review.settled = map[string]bool{}
-	}
-
-	m.review.settled[held.key().Key()] = true
-
-	return held, true
-}
-
-func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, body string) tea.Cmd {
+func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 
-	notice := "thread opened"
-	if len(suggestion) > 0 {
-		notice = "thread opened with your edit as a suggestion"
-	}
-
-	carried := m.carriedEditDrop(anchor, suggestion)
-
-	return m.reviewWriteCmd(notice, func(ctx context.Context) error {
+	return m.reviewWriteCmd("thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
 			FilePath:    anchor.FilePath,
@@ -154,16 +115,10 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, suggestion []string, 
 			NewStart:    int32(anchor.NewStart),
 			NewEnd:      int32(anchor.NewEnd),
 			QuotedLines: anchor.QuotedLines,
-			Suggestion:  suggestion,
 			Body:        body,
 		}))
-		if err != nil {
-			return err
-		}
 
-		carried(ctx)
-
-		return nil
+		return err
 	})
 }
 
@@ -280,7 +235,9 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 		return m, nil
 	case isBound(k, m.keys.Form.Submit):
-		return m.sendReview()
+		return m.sendReview(false)
+	case isBound(k, m.keys.Review.SendNow):
+		return m.sendReview(true)
 	}
 
 	editor, cmd := m.review.editor.Update(key)
@@ -291,7 +248,7 @@ func (m model) updateReviewRelease(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 // sendReview lets the batch go with the verdict chosen and whatever was written about the work as
 // a whole, which reaches the agent as one file and one piece of mail.
-func (m model) sendReview() (tea.Model, tea.Cmd) {
+func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 	verdict := reviewVerdicts[m.review.verdict]
 	body := strings.TrimSpace(m.review.editor.Value())
 
@@ -301,15 +258,16 @@ func (m model) sendReview() (tea.Model, tea.Cmd) {
 
 	return m, m.reviewWriteNoticeCmd(func(ctx context.Context) (string, error) {
 		resp, err := agents.ReleaseReview(ctx, connect.NewRequest(&agentv1.ReleaseReviewRequest{
-			AgentId: agentID,
-			Verdict: verdict,
-			Body:    body,
+			AgentId:   agentID,
+			Verdict:   verdict,
+			Interrupt: interrupt,
+			Body:      body,
 		}))
 		if err != nil {
 			return "", err
 		}
 
-		return releasedNotice(verdict, resp.Msg.GetComments()), nil
+		return releasedNotice(verdict, resp.Msg.GetComments(), interrupt), nil
 	})
 }
 
@@ -322,8 +280,11 @@ func (m model) closeReviewRelease() model {
 
 // releasedNotice says what went, since a review leaving with nothing said about it reads as the
 // key not working.
-func releasedNotice(verdict agentv1.ReviewVerdict, count int32) string {
+func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) string {
 	sent := ", " + counted(int(count), "comment") + " sent"
+	if interrupt {
+		sent += " and the agent stopped to read them"
+	}
 
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:

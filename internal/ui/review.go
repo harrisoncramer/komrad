@@ -71,16 +71,12 @@ type reviewState struct {
 	// replacing is the checkout of an earlier round weave has already said it would take, so the
 	// press after that warning goes through rather than being asked about again.
 	replacing string
-	// suggestions are the runs the reviewer wrote into the checkout, each waiting for a comment
-	// of its own to carry it to the agent.
-	suggestions []pendingSuggestion
-	// settled is every proposal already sent or turned down, so that reading the checkout again
-	// does not offer back what the reviewer has already answered for.
-	settled map[string]bool
-	// adrift is what the reviewer wrote on lines the diff does not draw, which stands on screen
-	// rather than answering a keypress, since the text is still in the checkout and saying so
-	// once would scroll away before they could act on it.
-	adrift []review.Suggestion
+	// harvesting is set while what the reviewer wrote is being read back and written as threads,
+	// so a second editor closing does not start a harvest beside the one in flight.
+	harvesting bool
+	// oversized is the harvest weave refused for being large enough to be a formatter rather
+	// than a person, held so that the next press writes it rather than asking again.
+	oversized bool
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
 	// the reader back where they left rather than at the top of the diff.
@@ -109,23 +105,4 @@ type reviewState struct {
 // the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {
 	return r.composing || r.releasing || r.filter.typing
-}
-
-// pendingSuggestion is an edit of the round waiting for a comment to carry it, holding the place
-// it is pinned to as well as the lines, since an edit is anchored where it was made rather than
-// where the cursor has since got to.
-type pendingSuggestion struct {
-	anchor review.Anchor
-	lines  []string
-}
-
-// key is what settles this proposal, matching the suggestion it was built from so that reading the
-// checkout again does not offer it back.
-func (p pendingSuggestion) key() review.Suggestion {
-	return review.Suggestion{
-		FilePath: p.anchor.FilePath,
-		NewStart: p.anchor.NewStart,
-		NewEnd:   p.anchor.NewEnd,
-		Lines:    p.lines,
-	}
 }

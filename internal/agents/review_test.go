@@ -1049,7 +1049,8 @@ func (f *fakeReviewStore) CreateThread(
 		ID:          fmt.Sprintf("thread-%d", len(f.threads)+1),
 		AgentID:     params.AgentID,
 		ReviewID:    params.ReviewID,
-		RoundID:     reviewRoundID,
+		RoundID:     roundOr(params.RoundID),
+		Harvested:   params.Harvested,
 		FilePath:    params.FilePath,
 		OldStart:    params.OldStart,
 		OldEnd:      params.OldEnd,
@@ -1076,6 +1077,85 @@ func (f *fakeReviewStore) CreateThread(
 	f.comments++
 
 	return &thread, nil
+}
+
+// roundOr is the round a thread names, falling back to the fixture's own round for the tests
+// written before a thread carried one.
+func roundOr(roundID string) string {
+	if roundID == "" {
+		return reviewRoundID
+	}
+
+	return roundID
+}
+
+func (f *fakeReviewStore) ListHarvested(
+	_ context.Context,
+	agentID, roundID string,
+) ([]reviewstore.HarvestedThread, error) {
+	var harvested []reviewstore.HarvestedThread
+
+	for _, thread := range f.threads {
+		if thread.AgentID != agentID || thread.RoundID != roundID || !thread.Harvested {
+			continue
+		}
+
+		if thread.ReviewReleasedAt != nil {
+			continue
+		}
+
+		var count int64
+		for _, message := range f.messages {
+			if message.ThreadID == thread.ID {
+				count++
+			}
+		}
+
+		harvested = append(harvested, reviewstore.HarvestedThread{Thread: thread, MessageCount: count})
+	}
+
+	return harvested, nil
+}
+
+func (f *fakeReviewStore) MoveThread(
+	_ context.Context,
+	params reviewstore.MoveThreadParams,
+) (*reviewstore.Thread, error) {
+	for i, thread := range f.threads {
+		if thread.ID != params.ID {
+			continue
+		}
+
+		f.threads[i].OldStart = params.OldStart
+		f.threads[i].OldEnd = params.OldEnd
+		f.threads[i].NewStart = params.NewStart
+		f.threads[i].NewEnd = params.NewEnd
+		f.threads[i].QuotedLines = params.QuotedLines
+
+		return &f.threads[i], nil
+	}
+
+	return nil, fmt.Errorf("no thread %q", params.ID)
+}
+
+func (f *fakeReviewStore) DeleteThread(_ context.Context, id string) error {
+	for i, thread := range f.threads {
+		if thread.ID != id {
+			continue
+		}
+
+		f.threads = append(f.threads[:i], f.threads[i+1:]...)
+
+		for messageID, message := range f.messages {
+			if message.ThreadID == id {
+				delete(f.messages, messageID)
+			}
+		}
+
+		return nil
+	}
+
+	return nil
 }
 
 // record files a message and stamps it with the state of the batch it belongs to, which is what
@@ -1339,13 +1419,19 @@ func (f *fakeReviewStore) AddMessage(
 	return &message, nil
 }
 
-func (f *fakeReviewStore) EditMessage(_ context.Context, id, body string, _ []string) (*reviewstore.Message, error) {
+func (f *fakeReviewStore) EditMessage(
+	_ context.Context,
+	id, body string,
+	suggestion []string,
+) (*reviewstore.Message, error) {
 	message, ok := f.messages[id]
 	if !ok {
 		return nil, fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
 	}
 
 	message.Body = body
+	message.Suggestion = suggestion
+	f.messages[id] = message
 
 	return &message, nil
 }

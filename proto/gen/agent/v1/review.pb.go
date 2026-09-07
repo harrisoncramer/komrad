@@ -452,7 +452,10 @@ type ReviewThread struct {
 	// moved, and it is this one that decides whether the thread is still asking for something.
 	ResolvedAt string `protobuf:"bytes,9,opt,name=resolved_at,json=resolvedAt,proto3" json:"resolved_at,omitempty"`
 	// Whether the agent has replied since the person reviewing last looked.
-	UnreadByHuman bool             `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
+	UnreadByHuman bool `protobuf:"varint,11,opt,name=unread_by_human,json=unreadByHuman,proto3" json:"unread_by_human,omitempty"`
+	// Whether weave wrote this thread from an edit of the round's checkout rather than somebody
+	// typing it, which is what makes its body the same sentence every time.
+	Harvested     bool             `protobuf:"varint,18,opt,name=harvested,proto3" json:"harvested,omitempty"`
 	Messages      []*ReviewMessage `protobuf:"bytes,12,rep,name=messages,proto3" json:"messages,omitempty"`
 	CreatedAt     string           `protobuf:"bytes,13,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	UpdatedAt     string           `protobuf:"bytes,14,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
@@ -577,6 +580,13 @@ func (x *ReviewThread) GetResolvedAt() string {
 func (x *ReviewThread) GetUnreadByHuman() bool {
 	if x != nil {
 		return x.UnreadByHuman
+	}
+	return false
+}
+
+func (x *ReviewThread) GetHarvested() bool {
+	if x != nil {
+		return x.Harvested
 	}
 	return false
 }
@@ -2042,6 +2052,243 @@ func (x *ListReviewViewedFilesResponse) GetViewed() []*ReviewViewedFile {
 	return nil
 }
 
+// HarvestedRun is one run of adjacent lines the person reviewing wrote into the round's own
+// checkout, anchored by the panel because the numbers a thread is pinned by come from the patch.
+type HarvestedRun struct {
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	FilePath string                 `protobuf:"bytes,1,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	OldStart int32                  `protobuf:"varint,2,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	OldEnd   int32                  `protobuf:"varint,3,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	NewStart int32                  `protobuf:"varint,4,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	NewEnd   int32                  `protobuf:"varint,5,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	// The diff lines the run was written against, empty for a run in a file the patch does not
+	// draw, which is what leaves its thread adrift rather than pinned.
+	QuotedLines []string `protobuf:"bytes,6,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
+	// The replacement lines the reviewer wrote, which become the thread's suggestion.
+	Lines         []string `protobuf:"bytes,7,rep,name=lines,proto3" json:"lines,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HarvestedRun) Reset() {
+	*x = HarvestedRun{}
+	mi := &file_agent_v1_review_proto_msgTypes[29]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HarvestedRun) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HarvestedRun) ProtoMessage() {}
+
+func (x *HarvestedRun) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[29]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HarvestedRun.ProtoReflect.Descriptor instead.
+func (*HarvestedRun) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{29}
+}
+
+func (x *HarvestedRun) GetFilePath() string {
+	if x != nil {
+		return x.FilePath
+	}
+	return ""
+}
+
+func (x *HarvestedRun) GetOldStart() int32 {
+	if x != nil {
+		return x.OldStart
+	}
+	return 0
+}
+
+func (x *HarvestedRun) GetOldEnd() int32 {
+	if x != nil {
+		return x.OldEnd
+	}
+	return 0
+}
+
+func (x *HarvestedRun) GetNewStart() int32 {
+	if x != nil {
+		return x.NewStart
+	}
+	return 0
+}
+
+func (x *HarvestedRun) GetNewEnd() int32 {
+	if x != nil {
+		return x.NewEnd
+	}
+	return 0
+}
+
+func (x *HarvestedRun) GetQuotedLines() []string {
+	if x != nil {
+		return x.QuotedLines
+	}
+	return nil
+}
+
+func (x *HarvestedRun) GetLines() []string {
+	if x != nil {
+		return x.Lines
+	}
+	return nil
+}
+
+type HarvestRoundEditsRequest struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	RoundId string                 `protobuf:"bytes,2,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
+	Runs    []*HarvestedRun        `protobuf:"bytes,3,rep,name=runs,proto3" json:"runs,omitempty"`
+	// Write a harvest that went past the ceiling anyway, which is the reviewer answering for an
+	// edit big enough to look like a formatter.
+	Force         bool `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HarvestRoundEditsRequest) Reset() {
+	*x = HarvestRoundEditsRequest{}
+	mi := &file_agent_v1_review_proto_msgTypes[30]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HarvestRoundEditsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HarvestRoundEditsRequest) ProtoMessage() {}
+
+func (x *HarvestRoundEditsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[30]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HarvestRoundEditsRequest.ProtoReflect.Descriptor instead.
+func (*HarvestRoundEditsRequest) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{30}
+}
+
+func (x *HarvestRoundEditsRequest) GetAgentId() string {
+	if x != nil {
+		return x.AgentId
+	}
+	return ""
+}
+
+func (x *HarvestRoundEditsRequest) GetRoundId() string {
+	if x != nil {
+		return x.RoundId
+	}
+	return ""
+}
+
+func (x *HarvestRoundEditsRequest) GetRuns() []*HarvestedRun {
+	if x != nil {
+		return x.Runs
+	}
+	return nil
+}
+
+func (x *HarvestRoundEditsRequest) GetForce() bool {
+	if x != nil {
+		return x.Force
+	}
+	return false
+}
+
+type HarvestRoundEditsResponse struct {
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	Opened  int32                  `protobuf:"varint,1,opt,name=opened,proto3" json:"opened,omitempty"`
+	Moved   int32                  `protobuf:"varint,2,opt,name=moved,proto3" json:"moved,omitempty"`
+	Deleted int32                  `protobuf:"varint,3,opt,name=deleted,proto3" json:"deleted,omitempty"`
+	// Runs written over a comment that has already gone out, which weave leaves in the checkout
+	// rather than rewriting words the agent has been sent.
+	Skipped       []*HarvestedRun `protobuf:"bytes,4,rep,name=skipped,proto3" json:"skipped,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *HarvestRoundEditsResponse) Reset() {
+	*x = HarvestRoundEditsResponse{}
+	mi := &file_agent_v1_review_proto_msgTypes[31]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *HarvestRoundEditsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*HarvestRoundEditsResponse) ProtoMessage() {}
+
+func (x *HarvestRoundEditsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_agent_v1_review_proto_msgTypes[31]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use HarvestRoundEditsResponse.ProtoReflect.Descriptor instead.
+func (*HarvestRoundEditsResponse) Descriptor() ([]byte, []int) {
+	return file_agent_v1_review_proto_rawDescGZIP(), []int{31}
+}
+
+func (x *HarvestRoundEditsResponse) GetOpened() int32 {
+	if x != nil {
+		return x.Opened
+	}
+	return 0
+}
+
+func (x *HarvestRoundEditsResponse) GetMoved() int32 {
+	if x != nil {
+		return x.Moved
+	}
+	return 0
+}
+
+func (x *HarvestRoundEditsResponse) GetDeleted() int32 {
+	if x != nil {
+		return x.Deleted
+	}
+	return 0
+}
+
+func (x *HarvestRoundEditsResponse) GetSkipped() []*HarvestedRun {
+	if x != nil {
+		return x.Skipped
+	}
+	return nil
+}
+
 var File_agent_v1_review_proto protoreflect.FileDescriptor
 
 const file_agent_v1_review_proto_rawDesc = "" +
@@ -2074,7 +2321,7 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04bodyB\x12\n" +
-	"\x10_author_agent_id\"\xfe\x03\n" +
+	"\x10_author_agent_id\"\x9c\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
@@ -2089,7 +2336,8 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\fquoted_lines\x18\b \x03(\tR\vquotedLines\x12\x1f\n" +
 	"\vresolved_at\x18\t \x01(\tR\n" +
 	"resolvedAt\x12&\n" +
-	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x123\n" +
+	"\x0funread_by_human\x18\v \x01(\bR\runreadByHuman\x12\x1c\n" +
+	"\tharvested\x18\x12 \x01(\bR\tharvested\x123\n" +
 	"\bmessages\x18\f \x03(\v2\x17.agent.v1.ReviewMessageR\bmessages\x12\x1d\n" +
 	"\n" +
 	"created_at\x18\r \x01(\tR\tcreatedAt\x12\x1d\n" +
@@ -2196,7 +2444,25 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\x1cListReviewViewedFilesRequest\x12\"\n" +
 	"\bround_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aroundId\"S\n" +
 	"\x1dListReviewViewedFilesResponse\x122\n" +
-	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed*r\n" +
+	"\x06viewed\x18\x01 \x03(\v2\x1a.agent.v1.ReviewViewedFileR\x06viewed\"\xd9\x01\n" +
+	"\fHarvestedRun\x12$\n" +
+	"\tfile_path\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x1b\n" +
+	"\told_start\x18\x02 \x01(\x05R\boldStart\x12\x17\n" +
+	"\aold_end\x18\x03 \x01(\x05R\x06oldEnd\x12\x1b\n" +
+	"\tnew_start\x18\x04 \x01(\x05R\bnewStart\x12\x17\n" +
+	"\anew_end\x18\x05 \x01(\x05R\x06newEnd\x12!\n" +
+	"\fquoted_lines\x18\x06 \x03(\tR\vquotedLines\x12\x14\n" +
+	"\x05lines\x18\a \x03(\tR\x05lines\"\xa4\x01\n" +
+	"\x18HarvestRoundEditsRequest\x12\"\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\"\n" +
+	"\bround_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aroundId\x12*\n" +
+	"\x04runs\x18\x03 \x03(\v2\x16.agent.v1.HarvestedRunR\x04runs\x12\x14\n" +
+	"\x05force\x18\x04 \x01(\bR\x05force\"\x95\x01\n" +
+	"\x19HarvestRoundEditsResponse\x12\x16\n" +
+	"\x06opened\x18\x01 \x01(\x05R\x06opened\x12\x14\n" +
+	"\x05moved\x18\x02 \x01(\x05R\x05moved\x12\x18\n" +
+	"\adeleted\x18\x03 \x01(\x05R\adeleted\x120\n" +
+	"\askipped\x18\x04 \x03(\v2\x16.agent.v1.HarvestedRunR\askipped*r\n" +
 	"\x10ReviewAuthorKind\x12\"\n" +
 	"\x1eREVIEW_AUTHOR_KIND_UNSPECIFIED\x10\x00\x12\x1c\n" +
 	"\x18REVIEW_AUTHOR_KIND_HUMAN\x10\x01\x12\x1c\n" +
@@ -2225,7 +2491,7 @@ func file_agent_v1_review_proto_rawDescGZIP() []byte {
 }
 
 var file_agent_v1_review_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 29)
+var file_agent_v1_review_proto_msgTypes = make([]protoimpl.MessageInfo, 32)
 var file_agent_v1_review_proto_goTypes = []any{
 	(ReviewAuthorKind)(0),                   // 0: agent.v1.ReviewAuthorKind
 	(ReviewDeliveryState)(0),                // 1: agent.v1.ReviewDeliveryState
@@ -2259,6 +2525,9 @@ var file_agent_v1_review_proto_goTypes = []any{
 	(*SetReviewFileViewedResponse)(nil),     // 29: agent.v1.SetReviewFileViewedResponse
 	(*ListReviewViewedFilesRequest)(nil),    // 30: agent.v1.ListReviewViewedFilesRequest
 	(*ListReviewViewedFilesResponse)(nil),   // 31: agent.v1.ListReviewViewedFilesResponse
+	(*HarvestedRun)(nil),                    // 32: agent.v1.HarvestedRun
+	(*HarvestRoundEditsRequest)(nil),        // 33: agent.v1.HarvestRoundEditsRequest
+	(*HarvestRoundEditsResponse)(nil),       // 34: agent.v1.HarvestRoundEditsResponse
 }
 var file_agent_v1_review_proto_depIdxs = []int32{
 	0,  // 0: agent.v1.Review.author_kind:type_name -> agent.v1.ReviewAuthorKind
@@ -2279,11 +2548,13 @@ var file_agent_v1_review_proto_depIdxs = []int32{
 	4,  // 15: agent.v1.ReleaseReviewResponse.review:type_name -> agent.v1.Review
 	27, // 16: agent.v1.SetReviewFileViewedResponse.viewed:type_name -> agent.v1.ReviewViewedFile
 	27, // 17: agent.v1.ListReviewViewedFilesResponse.viewed:type_name -> agent.v1.ReviewViewedFile
-	18, // [18:18] is the sub-list for method output_type
-	18, // [18:18] is the sub-list for method input_type
-	18, // [18:18] is the sub-list for extension type_name
-	18, // [18:18] is the sub-list for extension extendee
-	0,  // [0:18] is the sub-list for field type_name
+	32, // 18: agent.v1.HarvestRoundEditsRequest.runs:type_name -> agent.v1.HarvestedRun
+	32, // 19: agent.v1.HarvestRoundEditsResponse.skipped:type_name -> agent.v1.HarvestedRun
+	20, // [20:20] is the sub-list for method output_type
+	20, // [20:20] is the sub-list for method input_type
+	20, // [20:20] is the sub-list for extension type_name
+	20, // [20:20] is the sub-list for extension extendee
+	0,  // [0:20] is the sub-list for field type_name
 }
 
 func init() { file_agent_v1_review_proto_init() }
@@ -2300,7 +2571,7 @@ func file_agent_v1_review_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_agent_v1_review_proto_rawDesc), len(file_agent_v1_review_proto_rawDesc)),
 			NumEnums:      3,
-			NumMessages:   29,
+			NumMessages:   32,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

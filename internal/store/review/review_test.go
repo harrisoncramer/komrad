@@ -68,8 +68,8 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	first := openThread(t, st, agentID, review.ID, "this needs a nil check")
-	second := openThread(t, st, agentID, review.ID, "and this one leaks")
+	first := openThread(t, st, agentID, review, "this needs a nil check")
+	second := openThread(t, st, agentID, review, "and this one leaks")
 
 	_, err := st.AddMessage(ctx, AddMessageParams{
 		ThreadID:      first.ID,
@@ -100,7 +100,7 @@ func TestDeliveryFollowsTheOneMail(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	thread := openThread(t, st, agentID, review.ID, "this needs a nil check")
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
 	assert.Equal(t, DeliveryUnsent, delivery(t, st, thread.ID))
 
 	doorbell := release(t, st, agentID, review.ID, VerdictChangesRequested)
@@ -122,7 +122,7 @@ func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	opened := openThread(t, st, agentID, review.ID, "this needs a nil check")
+	opened := openThread(t, st, agentID, review, "this needs a nil check")
 
 	threads, err := st.ListThreads(t.Context(), agentID)
 	require.NoError(t, err)
@@ -143,7 +143,7 @@ func TestRewritingAReplyIsNewActivity(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	thread := openThread(t, st, agentID, review.ID, "this needs a nil check")
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
 	answered, err := st.AddMessage(ctx, AddMessageParams{
 		ThreadID:      thread.ID,
@@ -172,8 +172,8 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	first := openThread(t, st, agentID, review.ID, "first note")
-	second := openThread(t, st, agentID, review.ID, "second note")
+	first := openThread(t, st, agentID, review, "first note")
+	second := openThread(t, st, agentID, review, "second note")
 
 	for _, thread := range []*Thread{first, second} {
 		_, err := st.AddMessage(ctx, AddMessageParams{
@@ -280,7 +280,7 @@ func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	thread := openThread(t, st, agentID, review.ID, "this needs a nil check")
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
 	_, err := st.SetThreadResolved(ctx, thread.ID, true)
 	require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	round := openRound(t, st, agentID, "tree-one")
 	review := openReview(t, st, agentID, round.ID)
 
-	thread := openThread(t, st, agentID, review.ID, "this needs a nil check")
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
 	_, err := st.SetThreadResolved(ctx, thread.ID, true)
 	require.NoError(t, err)
@@ -341,6 +341,7 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
 		AgentID:    agentID,
 		ReviewID:   review.ID,
+		RoundID:    round.ID,
 		FilePath:   "internal/thing.go",
 		NewStart:   41,
 		NewEnd:     41,
@@ -482,12 +483,13 @@ func openReview(t *testing.T, st *fixture, agentID, roundID string) *Review {
 	return review
 }
 
-func openThread(t *testing.T, st *fixture, agentID, reviewID, body string) *Thread {
+func openThread(t *testing.T, st *fixture, agentID string, review *Review, body string) *Thread {
 	t.Helper()
 
 	thread, err := st.CreateThread(t.Context(), CreateThreadParams{
 		AgentID:     agentID,
-		ReviewID:    reviewID,
+		ReviewID:    review.ID,
+		RoundID:     review.RoundID,
 		FilePath:    "internal/thing.go",
 		NewStart:    41,
 		NewEnd:      41,

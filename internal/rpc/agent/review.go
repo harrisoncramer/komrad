@@ -6,6 +6,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/caller"
+	"weave/internal/review"
 	"weave/internal/rpcerr"
 	reviewstore "weave/internal/store/review"
 	"weave/lib/dates"
@@ -20,6 +21,7 @@ type reviewConversation interface {
 		params agents.ListReviewThreadsParams,
 	) ([]agents.ReviewThreadWithMessages, error)
 	CreateReviewThread(ctx context.Context, params agents.CreateReviewThreadParams) (*agents.ReviewThreadWithMessages, error)
+	HarvestRoundEdits(ctx context.Context, params agents.HarvestRoundEditsParams) (*agents.HarvestResult, error)
 	AddReviewMessage(ctx context.Context, params agents.AddReviewMessageParams) (*reviewstore.Message, error)
 	EditReviewMessage(ctx context.Context, params agents.EditReviewMessageParams) (*reviewstore.Message, error)
 	MarkReviewThreadRead(ctx context.Context, params agents.MarkReviewThreadReadParams) (*reviewstore.Thread, error)
@@ -86,6 +88,65 @@ func (s *Service) CreateReviewThread(
 	}
 
 	return connect.NewResponse(&agentv1.CreateReviewThreadResponse{Thread: toReviewThread(*thread)}), nil
+}
+
+// HarvestRoundEdits turns what the person reviewing wrote in the round's checkout into threads,
+// reconciling against the threads an earlier harvest of the same round wrote.
+func (s *Service) HarvestRoundEdits(
+	ctx context.Context,
+	req *connect.Request[agentv1.HarvestRoundEditsRequest],
+) (*connect.Response[agentv1.HarvestRoundEditsResponse], error) {
+	result, err := s.review.HarvestRoundEdits(ctx, agents.HarvestRoundEditsParams{
+		AgentID: req.Msg.GetAgentId(),
+		RoundID: req.Msg.GetRoundId(),
+		Runs:    runsFrom(req.Msg.GetRuns()),
+		Force:   req.Msg.GetForce(),
+	})
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to harvest what was written in the round")
+	}
+
+	return connect.NewResponse(&agentv1.HarvestRoundEditsResponse{
+		Opened:  int32(result.Opened),
+		Moved:   int32(result.Moved),
+		Deleted: int32(result.Deleted),
+		Skipped: toHarvestedRuns(result.Skipped),
+	}), nil
+}
+
+// runsFrom reads the runs the panel anchored, which arrive already measured against the round.
+func runsFrom(runs []*agentv1.HarvestedRun) []review.Run {
+	out := make([]review.Run, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, review.Run{
+			FilePath:    run.GetFilePath(),
+			OldStart:    int(run.GetOldStart()),
+			OldEnd:      int(run.GetOldEnd()),
+			NewStart:    int(run.GetNewStart()),
+			NewEnd:      int(run.GetNewEnd()),
+			QuotedLines: run.GetQuotedLines(),
+			Lines:       run.GetLines(),
+		})
+	}
+
+	return out
+}
+
+func toHarvestedRuns(runs []review.Run) []*agentv1.HarvestedRun {
+	out := make([]*agentv1.HarvestedRun, 0, len(runs))
+	for _, run := range runs {
+		out = append(out, &agentv1.HarvestedRun{
+			FilePath:    run.FilePath,
+			OldStart:    int32(run.OldStart),
+			OldEnd:      int32(run.OldEnd),
+			NewStart:    int32(run.NewStart),
+			NewEnd:      int32(run.NewEnd),
+			QuotedLines: run.QuotedLines,
+			Lines:       run.Lines,
+		})
+	}
+
+	return out
 }
 
 // AddReviewMessage says something in an existing thread, as whoever is calling.
@@ -304,6 +365,7 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 		NewEnd:        thread.Thread.NewEnd,
 		QuotedLines:   thread.Thread.QuotedLines,
 		UnreadByHuman: thread.Thread.UnreadByHuman,
+		Harvested:     thread.Thread.Harvested,
 		CreatedAt:     dates.Stamp(thread.Thread.CreatedAt),
 		UpdatedAt:     dates.Stamp(thread.Thread.UpdatedAt),
 	}
