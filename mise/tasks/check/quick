@@ -1,0 +1,159 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Fast feedback while you work: build, formatting, and only the packages your branch touched."
+
+usage() {
+	echo "Usage: mise run check:quick"
+	echo
+	echo "The loop to run after an edit. It runs the shell and Go formatters in"
+	echo "reporting mode and builds every package, then tests and lints only the Go"
+	echo "packages your branch changed, taken from the diff against origin/main plus"
+	echo "whatever is still uncommitted. The build is unconditional because deleting"
+	echo "or moving a package leaves nothing for the diff to resolve to while still"
+	echo "breaking everything that imported it."
+	echo
+	echo "It is not the gate. The full test suite, gen:check, and db:validate are"
+	echo "deliberately not here, and the packages that import what you changed are"
+	echo "not tested either, so a pass here says your change compiles and its own"
+	echo "packages are green. Run 'mise run check' before you push."
+	echo
+	echo "The custom linter is only run when local/custom-gcl already exists, since"
+	echo "building it is the slow half of go:lint. Run 'mise run go:build-linter'"
+	echo "once and every later check:quick lints for free."
+}
+
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+MODULE="$(go list -m)"
+BIN_PATH="$MISE_CONFIG_ROOT/local/custom-gcl"
+BASE_REF="origin/main"
+
+changed_files() {
+	if base="$(git merge-base "$BASE_REF" HEAD 2>/dev/null)"; then
+		git diff --name-only "$base"
+	else
+		echo "no $BASE_REF to diff against, so nothing counts as changed" >&2
+	fi
+
+	git ls-files --others --exclude-standard
+}
+
+changed_packages() {
+	local file dir
+	local -a dirs=()
+
+	while IFS= read -r file; do
+		case "$file" in
+		*.go) ;;
+		*) continue ;;
+		esac
+
+		dir="$(dirname "$file")"
+		[ -d "$dir" ] || continue
+		dirs+=("$dir")
+	done < <(changed_files)
+
+	((${#dirs[@]} > 0)) || return 0
+
+	printf '%s\n' "${dirs[@]}" | sort -u | while IFS= read -r dir; do
+		go list "./$dir" 2>/dev/null || true
+	done
+}
+
+untested_dependents() {
+	local -a pkgs=("$@")
+
+	go list -f '{{.ImportPath}}{{range .Deps}} {{.}}{{end}}' ./... |
+		awk -v changed="$(printf '%s ' "${pkgs[@]}")" '
+			BEGIN { split(changed, list, " "); for (i in list) if (list[i] != "") set[list[i]] = 1 }
+			$1 in set { next }
+			{ for (i = 2; i <= NF; i++) if ($i in set) { count++; break } }
+			END { print count + 0 }
+		'
+}
+
+PACKAGES=()
+DIRS=()
+while IFS= read -r pkg; do
+	[ -n "$pkg" ] || continue
+	PACKAGES+=("$pkg")
+
+	if [ "$pkg" = "$MODULE" ]; then
+		DIRS+=(".")
+	else
+		DIRS+=("./${pkg#"$MODULE"/}")
+	fi
+done < <(changed_packages)
+
+failed=()
+run_step() {
+	local name="$1"
+	shift
+
+	gum log --level info "running $name"
+	if ! "$@"; then
+		failed+=("$name")
+	fi
+}
+
+run_step "bash:check" mise run bash:check
+run_step "bash:fmt --check" mise run bash:fmt --check
+run_step "go:fmt --check" mise run go:fmt --check
+run_step "go build" go build ./...
+
+LINTED=false
+if ((${#PACKAGES[@]} > 0)); then
+	run_step "go test" gotestsum --format pkgname -- "${PACKAGES[@]}"
+
+	if [ -x "$BIN_PATH" ]; then
+		LINTED=true
+		run_step "go lint" "$BIN_PATH" run --config "$MISE_CONFIG_ROOT/.golangci.yaml" --timeout 5m "${DIRS[@]}"
+	fi
+fi
+
+if ((${#failed[@]} > 0)); then
+	gum log --level error "check:quick failed: ${failed[*]}"
+	exit 1
+fi
+
+echo
+echo "check:quick passed. This is not 'mise run check'."
+echo
+
+echo "  built     every package"
+
+if ((${#PACKAGES[@]} == 0)); then
+	echo "  tested    nothing: no Go package to run, either nothing Go changed"
+	echo "            or what changed is no longer in the tree"
+	echo "  linted    nothing, for the same reason"
+else
+	echo "  tested    ${#PACKAGES[@]} changed package(s):"
+	printf '              %s\n' "${DIRS[@]}"
+
+	if [ "$LINTED" = true ]; then
+		echo "  linted    the same packages"
+	else
+		echo "  linted    nothing: local/custom-gcl is missing, run 'mise run go:build-linter'"
+	fi
+
+	dependents="$(untested_dependents "${PACKAGES[@]}")"
+	if [ "$dependents" != "0" ]; then
+		echo "  untested  $dependents package(s) import what you changed"
+	fi
+fi
+
+echo "  formatted shell and Go, in reporting mode"
+echo
+echo "  not run   the full test suite, gen:check, db:validate"
+echo
+echo "Run 'mise run check' before you push."
