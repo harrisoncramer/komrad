@@ -18,8 +18,8 @@ type popupTmux interface {
 type PopupWindow struct {
 	tmux    popupTmux
 	session string
-	// holding is whether the key is bound, and is nil until the panel has bound or unbound it once.
-	holding *bool
+	// bound is whether the key is bound on tmux, and is nil until the panel has settled it once.
+	bound *bool
 }
 
 // NewPopupWindow builds the popup's window over a tmux client, for the panel running
@@ -59,14 +59,14 @@ func (p *PopupWindow) BindHide(key string) {
 func (p *PopupWindow) HoldFocusKey(key, sidebar string, hold bool) {
 	switch {
 	case key == "" || sidebar == "":
-	case p.holding != nil && *p.holding == hold:
+	case p.bound != nil && *p.bound == hold:
 	case hold:
 		p.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
 			"select-pane -l", "select-pane -t "+sidebar)
-		p.holding = &hold
+		p.bound = &hold
 	default:
 		p.tmux.UnbindRootKey(key)
-		p.holding = &hold
+		p.bound = &hold
 	}
 }
 
