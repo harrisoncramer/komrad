@@ -160,7 +160,10 @@ func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 // wider than the pane, whatever the tally has grown to and wherever the cursor is standing, since
 // a row a single column over wraps and the region stops being the three rows it promises.
 func TestMessagesRegionStaysInsideThePane(t *testing.T) {
-	summaries := []string{"Could not copy to your clipboard", "x", strings.Repeat("a long reason ", 12)}
+	// A wide rune counts once as a rune and is drawn twice, and an agent may legally be named in
+	// one, so a summary carrying them is a row the region is asked to draw rather than a synthetic
+	// case: a name is repeated into the summary of every write that fails on it.
+	summaries := []string{"Could not copy to your clipboard", "x", strings.Repeat("a long reason ", 12), strings.Repeat("日", 40), "Could not resume agent " + strings.Repeat("本語", 8)}
 
 	for _, width := range []int{4, 8, 12, 20, 30, 40, 60, 80, 120} {
 		for _, focused := range []bool{false, true} {
@@ -168,7 +171,7 @@ func TestMessagesRegionStaysInsideThePane(t *testing.T) {
 				m := detailsModel(&recordingTmux{})
 				m.height, m.width = 40, width
 				for i := range count {
-					m.report(summaries[i%len(summaries)], errNoWorkflow)
+					m.pushMessage(message{kind: messageError, summary: summaries[i%len(summaries)], detail: summaries[(i+1)%len(summaries)]})
 				}
 				m.messages.focused = focused
 
@@ -181,6 +184,32 @@ func TestMessagesRegionStaysInsideThePane(t *testing.T) {
 							"width %d, focused %v, %d messages, cursor %d: %q", width, focused, count, cursor, ansi.Strip(line))
 					}
 				}
+			}
+		}
+	}
+}
+
+// TestMessagesHoldTheKeysOnlyWhereTheyAreDrawn covers the two answers that used to disagree: at
+// every size the panel can be, and with the legend either way up, the region holds the keys only
+// where the pane is drawing it, since holding them anywhere else is a list whose arrows have
+// stopped moving with nothing on screen saying why.
+func TestMessagesHoldTheKeysOnlyWhereTheyAreDrawn(t *testing.T) {
+	for _, width := range []int{20, 30, 40, 60, 80, 120} {
+		for _, expanded := range []bool{false, true} {
+			for height := 6; height <= 40; height++ {
+				m := detailsModel(&recordingTmux{})
+				m.height, m.width = 40, width
+				m.helpExpanded = expanded
+				m.pushMessage(message{kind: messageError, summary: "Could not archive agent", detail: "every agent belongs to a workflow"})
+				m = m.resizeTo(tea.WindowSizeMsg{Width: width, Height: height})
+
+				reading := m.toggleMessagesFocus()
+				if !reading.isMessagesFocused() {
+					continue
+				}
+
+				assert.NotEmpty(t, reading.messagesRegion(reading.messagesChrome()),
+					"width %d, height %d, expanded %v: the region holds the keys off a pane that draws nothing of it", width, height, expanded)
 			}
 		}
 	}

@@ -83,6 +83,14 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Reached before the form and before a held write, since a refusal reported by a form is the
 	// one whose whole reason a person most needs, and the form owns every other key.
 	if isKey && m.isMessagesRegion() {
+		// The record grows under a held focus without a key being pressed, since an agent failing
+		// during a refresh puts notices on it, so the last word on whether the region still has the
+		// rows to be drawn is had here rather than at every seam that could have moved them, and is
+		// paid only while the region holds the keys.
+		if m.messages.focused {
+			m = m.settleMessagesFocus()
+		}
+
 		switch {
 		case m.isMessagesFocused():
 			return m.updateMessages(key), nil

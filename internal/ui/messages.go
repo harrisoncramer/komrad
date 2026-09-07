@@ -9,6 +9,7 @@ import (
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/charmbracelet/x/ansi"
 )
 
 type messageKind int
@@ -92,7 +93,7 @@ func (m model) messagesSlot() []string {
 	if len(m.messages.items) == 0 {
 		return []string{
 			m.messagesSummaryRow(kindIcon(messageSuccess)+" No messages", kindStyle(messageSuccess)),
-			dimStyle.Render(clip("  Weave is running normally", max(m.lineWidth(), 1))),
+			dimStyle.Render(m.messagesCut("  Weave is running normally", m.lineWidth())),
 		}
 	}
 
@@ -100,9 +101,17 @@ func (m model) messagesSlot() []string {
 
 	return []string{
 		m.messagesSummaryRow(kindIcon(held.kind)+" "+held.summary, m.messagesSummaryStyle(held)),
-		dimStyle.Render(clip("  "+held.detail, max(m.lineWidth(), 1))),
-		dimStyle.Render(clip("  "+m.messagesHint(), max(m.lineWidth(), 1))),
+		dimStyle.Render(m.messagesCut("  "+held.detail, m.lineWidth())),
+		dimStyle.Render(m.messagesCut("  "+m.messagesHint(), m.lineWidth())),
 	}
+}
+
+// messagesCut cuts one of the region's rows to the columns it is allowed, measured in what the
+// terminal will draw rather than in runes, since a name or a reason carrying a wide rune counts
+// once as a rune and is drawn twice as wide, which is a row that wraps and a region that has
+// stopped being three rows.
+func (m model) messagesCut(row string, width int) string {
+	return ansi.Truncate(row, max(width, 1), "…")
 }
 
 // messagesTallyGap is the least that stands between the summary and the tally, so the two never
@@ -126,13 +135,13 @@ func (m model) messagesSummaryRow(summary string, style lipgloss.Style) string {
 		room -= len(tally) + messagesTallyGap
 	}
 
-	clipped := clip(summary, max(room, 1))
-	row := style.Render(clipped)
+	cut := m.messagesCut(summary, room)
+	row := style.Render(cut)
 	if tally == "" {
 		return row
 	}
 
-	pad := width - lipgloss.Width(clipped) - len(tally)
+	pad := max(width-ansi.StringWidth(cut)-len(tally), messagesTallyGap)
 
 	return row + strings.Repeat(" ", pad) + m.messagesTallyStyle().Render(tally)
 }
@@ -286,6 +295,12 @@ func (m model) messagesChrome() (string, string) {
 // canHoldMessages is whether the region has the rows to be drawn where the panel stands now, and
 // so whether there is anything for it to hold the keys on behalf of.
 func (m model) canHoldMessages() bool {
+	// A screen naming no legend is measured against no chrome, which reports more rows spare than
+	// it has, so the answer is no rather than a yes taken off an empty measurement.
+	if m.screen.spec().help == nil {
+		return false
+	}
+
 	return m.isMessagesDrawn(m.messagesChrome())
 }
 
@@ -314,8 +329,8 @@ func (m model) settleMessagesFocus() model {
 // message in the block beside the list, since the block belongs to whoever holds the keys.
 func (m model) toggleMessagesFocus() model {
 	// Nothing to read is nothing to hold the keys for, the way the record refuses them with no
-	// fields under it, and a pane too short to draw the region is nothing to read on.
-	if !m.messages.focused && (len(m.messages.items) == 0 || !m.canHoldMessages()) {
+	// fields under it.
+	if !m.messages.focused && len(m.messages.items) == 0 {
 		return m
 	}
 
@@ -327,7 +342,10 @@ func (m model) toggleMessagesFocus() model {
 	m.reconcileSolo()
 	m.restageScreen()
 
-	return m
+	// Settled last rather than before the flip, since taking the keys is itself what swaps the
+	// legend the region is measured against and what restages the pane it is measured in, so a
+	// pane asked before the flip answers about a panel that is no longer the one being drawn.
+	return m.settleMessagesFocus()
 }
 
 func (m model) updateMessages(key tea.KeyMsg) model {
