@@ -141,7 +141,7 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 
 	assert.Equal(t, []string{"https://example.test/1"}, instance.Opened.Targets(),
 		"the address recorded on the agent the cursor was on")
-	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr (if recorded)", "the legend carries the key")
+	assert.Contains(t, helpDescriptions(pressed.rowHelp()), "open pr", "the legend carries the key")
 }
 
 // TestPanelLeavesThePullRequestKeyAloneWithoutOne pins that an agent with no recorded pull
@@ -182,7 +182,7 @@ func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	panel = settle(t, panel, panel.refreshCmd())
 	panel.tree.cursor = 1
 
-	assert.Contains(t, helpDescriptions(panel.rowHelp()), "open pr (if recorded)", "the legend keeps one height, and says when the key answers")
+	assert.Contains(t, helpDescriptions(panel.rowHelp()), "open pr", "the legend keeps one height whether or not the key has an address to open")
 
 	updated, cmd := panel.Update(keyMsg(keys.Agents.OpenPR[0]))
 	pressed, ok := updated.(model)
