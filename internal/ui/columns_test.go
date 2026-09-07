@@ -140,29 +140,26 @@ func paneless(t *testing.T) (model, *recordingTmux) {
 	return m, tmux
 }
 
-// TestTheWindowComesBackWhenTheKeysDo covers the keys moving to a pane of somebody else's, which
-// a key bound on tmux's own server does with select-pane: tmux drops the sidebar's zoom on the way
-// out and does not put it back on the way in, and calls into weave neither time.
-func TestTheWindowComesBackWhenTheKeysDo(t *testing.T) {
+// TestAHandMovedPaneCorrectsTheFrame covers a pane the user moved or zoomed themselves, which
+// tmux's own prefix keys and mouse can still do inside the panel: the sidebar's zoom goes and
+// nothing calls into weave, so the frame would otherwise draw both halves of a split into a pane
+// that is sharing the window.
+func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 	m, tmux := paneless(t)
 
 	tmux.keysElsewhere = true
 	left, _ := m.route(tea.BlurMsg{})
 	m = asModel(t, left)
 
-	assert.False(t, m.frame.IsSolo(), "tmux dropped the zoom when the keys moved off the sidebar")
+	assert.False(t, m.frame.IsSolo(), "the frame is told what tmux did rather than assuming")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the share of the frame it has")
 
-	// The pass that runs once a second, which is what used to drag the reader back inside a second
-	// and take the keyboard with it, since a re-zoom makes the sidebar active again.
-	m.applyRefresh(refreshResult{})
-	assert.False(t, m.frame.IsSolo(), "and the panel leaves the window where the reader put it")
-
+	// The panel wants the window on this row, so it takes it back on the next pass, which is the
+	// behaviour before this branch and what #385 accepts by removing the key that fought it.
 	tmux.keysElsewhere = false
-	back, _ := m.route(tea.FocusMsg{})
-	m = asModel(t, back)
+	m.applyRefresh(refreshResult{})
 
-	assert.True(t, m.frame.IsSolo(), "the panel takes the window again when the keys come home")
+	assert.True(t, m.frame.IsSolo(), "and takes it back on the next pass, since it wants it here")
 }
 
 // TestAnUnfocusedTerminalKeepsTheWindow covers the other thing a focus report means, since tmux

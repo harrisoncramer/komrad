@@ -153,19 +153,17 @@ func (f *Frame) Solo(on bool) {
 // IsSolo reports whether the sidebar is holding the whole window.
 func (f *Frame) IsSolo() bool { return f.solo }
 
-// SyncKeys asks tmux where the keys are and whether the sidebar is still holding the window, and
-// reports whether the keys are on the sidebar; a key bound on the server moves both and calls
-// into nothing, so asking is the only way to find out, and a focus report on its own cannot tell
-// the keys moving off the sidebar from the terminal the whole session is in losing focus.
-func (f *Frame) SyncKeys() bool {
+// SyncKeys puts the frame right about whether the sidebar is still holding the window, since tmux
+// drops a pane's zoom when the keys move off it and calls into nothing when it does, and a focus
+// report cannot tell that from the terminal the whole session is in losing focus, which leaves the
+// zoom alone.
+func (f *Frame) SyncKeys() {
 	if f.sidebar == "" {
-		return true
+		return
 	}
 
-	focused, zoomed := f.tmux.GetPaneFocus(f.sidebar)
+	_, zoomed := f.tmux.GetPaneFocus(f.sidebar)
 	f.solo = zoomed
-
-	return focused
 }
 
 // SidebarWidth is how many columns the sidebar draws in when it is holding a window of the

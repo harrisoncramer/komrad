@@ -179,7 +179,7 @@ func (m *model) reconcileSolo() {
 	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
 	// holds, while Solo asks tmux with a subprocess, and this runs on every refresh tick and
 	// every cursor move.
-	want := m.holdsWindow() && m.info.kind == infoNothing && !m.keysAway
+	want := m.holdsWindow() && m.info.kind == infoNothing
 	if want == m.frame.IsSolo() {
 		return
 	}
@@ -187,11 +187,12 @@ func (m *model) reconcileSolo() {
 	m.frame.Solo(want)
 }
 
-// syncKeys asks tmux where the keys are and whether the sidebar still holds the window, which is
-// what a focus report cannot say on its own: the same message arrives when the keys move off the
-// panel's pane and when the terminal the whole session is in loses focus.
+// syncKeys puts the frame right about whether it still holds the window, which a focus report
+// cannot say on its own: the same message arrives when the keys move off the panel's pane, which
+// drops the sidebar's zoom, and when the terminal the whole session is in loses focus, which does
+// not.
 func (m *model) syncKeys() {
-	m.keysAway = !m.frame.SyncKeys()
+	m.frame.SyncKeys()
 }
 
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
