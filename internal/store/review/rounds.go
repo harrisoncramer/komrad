@@ -241,6 +241,25 @@ func (s *Store) LastReleasedReviewOf(ctx context.Context, params AuthorParams) (
 	return &review, nil
 }
 
+// AnsweredSince reports whether the agent under review has said anything in its own threads
+// since the given moment, which is the answer belonging to no batch and so is the one kind of
+// work an agent does that never moves its tree.
+func (s *Store) AnsweredSince(ctx context.Context, agentID string, since time.Time) (bool, error) {
+	if !store.IsID(agentID) {
+		return false, nil
+	}
+
+	answered, err := s.queries.ReviewAnsweredSince(ctx, models.ReviewAnsweredSinceParams{
+		AgentID: agentID,
+		Since:   since,
+	})
+	if err != nil {
+		return false, fmt.Errorf("failed to read whether agent %q has answered its review: %w", agentID, err)
+	}
+
+	return answered, nil
+}
+
 // ListReviews is every review of an agent, in the order their rounds were taken.
 func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, error) {
 	if !store.IsID(agentID) {

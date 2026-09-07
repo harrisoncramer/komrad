@@ -357,6 +357,61 @@ func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	assert.Equal(t, []string{"if thing == nil {", "\treturn nil", "}"}, messages[0].Suggestion)
 }
 
+// TestAnAnswerIsWorkThatMovedNoTree pins what AnsweredSince answers: whether the agent whose
+// work it is has said something of its own since a review was let go of, which the reviewer
+// talking to itself and an answer written before the release are both not.
+func TestAnAnswerIsWorkThatMovedNoTree(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedAgentNamed(t, st, "reviewer")
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+	thread := openThread(t, st, agentID, review, "this needs a nil check")
+
+	_, err := st.AddMessage(ctx, AddMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+		Body:          "answered before the release",
+	})
+	require.NoError(t, err)
+
+	release(t, st, agentID, review.ID, VerdictChangesRequested)
+
+	released, err := st.LastReleasedReviewOf(ctx, AuthorParams{AgentID: agentID, AuthorKind: AuthorHuman})
+	require.NoError(t, err)
+	require.NotNil(t, released.ReleasedAt)
+
+	answered, err := st.AnsweredSince(ctx, agentID, *released.ReleasedAt)
+	require.NoError(t, err)
+	assert.False(t, answered, "what was said before the review went out is not news")
+
+	_, err = st.AddMessage(ctx, AddMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
+		Body:          "the reviewer talking to itself",
+	})
+	require.NoError(t, err)
+
+	answered, err = st.AnsweredSince(ctx, agentID, *released.ReleasedAt)
+	require.NoError(t, err)
+	assert.False(t, answered, "only the agent whose work it is answers")
+
+	_, err = st.AddMessage(ctx, AddMessageParams{
+		ThreadID:      thread.ID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &agentID,
+		Body:          "left as it was, the caller never passes nil",
+	})
+	require.NoError(t, err)
+
+	answered, err = st.AnsweredSince(ctx, agentID, *released.ReleasedAt)
+	require.NoError(t, err)
+	assert.True(t, answered)
+}
+
 type fixture struct {
 	*Store
 	agents   *agentstore.Store

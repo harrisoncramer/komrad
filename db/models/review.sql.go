@@ -1185,6 +1185,33 @@ func (q *Queries) ReleaseReview(ctx context.Context, arg ReleaseReviewParams) (*
 	return &i, err
 }
 
+const reviewAnsweredSince = `-- name: ReviewAnsweredSince :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            review_messages m
+            JOIN review_threads t ON t.id = m.thread_id
+        WHERE
+            t.agent_id = $1
+            AND m.author_agent_id = $1
+            AND m.review_id IS NULL
+            AND m.created_at > $2)
+`
+
+type ReviewAnsweredSinceParams struct {
+	AgentID string
+	Since   time.Time
+}
+
+func (q *Queries) ReviewAnsweredSince(ctx context.Context, arg ReviewAnsweredSinceParams) (bool, error) {
+	row := q.db.QueryRow(ctx, reviewAnsweredSince, arg.AgentID, arg.Since)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const setReviewThreadResolved = `-- name: SetReviewThreadResolved :one
 UPDATE
     review_threads t

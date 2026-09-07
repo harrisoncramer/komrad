@@ -741,6 +741,88 @@ func TestAReviewerGetsOneReviewPerRound(t *testing.T) {
 	require.NoError(t, err)
 }
 
+// TestAReviewerReachesAnAnswerThatChangedNoCode pins the deadlock the guard used to cause: the
+// briefing tells an agent it may settle a finding by saying what it did not change, and the
+// doorbell then sends its reviewer at threads and a verdict, so both have to be reachable on the
+// round the reviewer has already had its say on.
+func TestAReviewerReachesAnAnswerThatChangedNoCode(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.thread.ReviewAuthorAgentID = ptr(reviewerAgentID)
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+	ctx := t.Context()
+
+	_, err := service.CreateReviewThread(ctx, CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.ReleaseReview(ctx, ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.AddReviewMessage(ctx, AddReviewMessageParams{
+		ThreadID: reviewThreadID,
+		Body:     "left as it was, the caller never passes nil",
+		Author:   agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err, "the agent answers the finding without touching the tree")
+
+	_, err = service.AddReviewMessage(ctx, AddReviewMessageParams{
+		ThreadID: reviewThreadID, Body: "understood, leave it", Author: reviewer,
+	})
+	require.NoError(t, err, "the reviewer may say so in the thread it opened")
+
+	_, err = service.ReleaseReview(ctx, ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictApproved, Author: reviewer,
+	})
+	require.NoError(t, err, "and may release the verdict the doorbell sent it to release")
+}
+
+// TestAnAnswerBuysTheReviewerOneBatch pins that letting an answer through does not unbound the
+// ping-pong: the reviewer gets one batch per thing the other side does, so a reviewer that has
+// spent the answer is waiting again.
+func TestAnAnswerBuysTheReviewerOneBatch(t *testing.T) {
+	reviews := newFakeReviewStore()
+	reviews.thread.ReviewAuthorAgentID = ptr(reviewerAgentID)
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service := reviewService(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+	ctx := t.Context()
+
+	_, err := service.CreateReviewThread(ctx, CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "this needs a nil check", Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.ReleaseReview(ctx, ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.AddReviewMessage(ctx, AddReviewMessageParams{
+		ThreadID: reviewThreadID, Body: "left as it was", Author: agentAuthor(reviewedAgentID),
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(ctx, CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "then this instead", Author: reviewer,
+	})
+	require.NoError(t, err, "the answer is the progress the guard was waiting for")
+
+	_, err = service.ReleaseReview(ctx, ReleaseReviewParams{
+		AgentID: reviewedAgentID, Verdict: reviewstore.VerdictChangesRequested, Author: reviewer,
+	})
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(ctx, CreateReviewThreadParams{
+		AgentID: reviewedAgentID, FilePath: "greet.go", Body: "and another thing", Author: reviewer,
+	})
+	require.ErrorIs(t, err, ErrReviewAlreadyGiven, "that answer has been spent")
+}
+
 // TestOnlyTheReviewedAgentAndItsReviewerReachARound pins who may look at a round at all, which is
 // the agent whose work it is and the agent reviewing that work, and pins that being allowed to
 // look is not the same as being allowed to review.
@@ -1077,6 +1159,15 @@ type fakeReviewStore struct {
 	comments int
 	released *reviewstore.Review
 	doorbell string
+	// tick advances the fake's own clock on every write, so a message written after a review was
+	// let go of reads as later than it.
+	tick int
+}
+
+func (f *fakeReviewStore) now() time.Time {
+	f.tick++
+
+	return settledAt.Add(time.Duration(f.tick) * time.Minute)
 }
 
 func newFakeReviewStore() *fakeReviewStore {
@@ -1424,7 +1515,8 @@ func (f *fakeReviewStore) ReleaseReview(
 
 	verdict := params.Verdict
 	review.Verdict = &verdict
-	review.ReleasedAt = &settledAt
+	released := f.now()
+	review.ReleasedAt = &released
 	review.Path = params.Path
 	review.DoorbellMailID = params.DoorbellMailID
 
@@ -1519,10 +1611,24 @@ func (f *fakeReviewStore) AddMessage(
 		AuthorAgentID: params.AuthorAgentID,
 		Body:          params.Body,
 		Suggestion:    params.Suggestion,
+		CreatedAt:     f.now(),
 	}
 	f.record(message)
 
 	return &message, nil
+}
+
+func (f *fakeReviewStore) AnsweredSince(_ context.Context, agentID string, since time.Time) (bool, error) {
+	for _, message := range f.messages {
+		if message.ReviewID != nil || message.AuthorAgentID == nil || *message.AuthorAgentID != agentID {
+			continue
+		}
+		if message.CreatedAt.After(since) {
+			return true, nil
+		}
+	}
+
+	return false, nil
 }
 
 func (f *fakeReviewStore) EditMessage(

@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"weave/internal/git"
 	"weave/internal/store"
@@ -57,6 +58,7 @@ type reviewBatchReadWriter interface {
 	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
 	OpenReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
 	LastReleasedReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	AnsweredSince(ctx context.Context, agentID string, since time.Time) (bool, error)
 	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
@@ -248,9 +250,9 @@ func (s *ReviewService) openReviewFor(
 	})
 }
 
-// notReviewedAlready holds a reviewing agent to one review per round, which is what bounds a
-// reviewer and its parent ping-ponging: a new round appears only when the parent does work, so
-// the loop is limited by real progress rather than by a number somebody has to tune.
+// notReviewedAlready holds a reviewing agent to one review per thing the agent it is reading
+// does, which is a new round or an answer in a thread, and is what bounds the two of them
+// ping-ponging without a number somebody has to tune.
 func (s *ReviewService) notReviewedAlready(
 	ctx context.Context,
 	params reviewstore.AuthorParams,
@@ -267,11 +269,34 @@ func (s *ReviewService) notReviewedAlready(
 	if err != nil {
 		return err
 	}
-	if last.RoundID == round.ID {
-		return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
+	if last.RoundID != round.ID {
+		return nil
 	}
 
-	return nil
+	answered, err := s.answeredSinceRelease(ctx, params.AgentID, *last)
+	if err != nil {
+		return err
+	}
+	if answered {
+		return nil
+	}
+
+	return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
+}
+
+// answeredSinceRelease reports whether the agent has said anything in its threads since a review
+// was let go of, which is how an answer with no code change counts as the progress the guard is
+// waiting for.
+func (s *ReviewService) answeredSinceRelease(
+	ctx context.Context,
+	agentID string,
+	last reviewstore.Review,
+) (bool, error) {
+	if last.ReleasedAt == nil {
+		return false, nil
+	}
+
+	return s.reviews.AnsweredSince(ctx, agentID, *last.ReleasedAt)
 }
 
 // entitled says whether an author may give a review on an agent, which the person always may and

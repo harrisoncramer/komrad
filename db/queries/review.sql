@@ -335,6 +335,20 @@ FROM
 WHERE
     m.id = @id;
 
+-- name: ReviewAnsweredSince :one
+SELECT
+    EXISTS (
+        SELECT
+            1
+        FROM
+            review_messages m
+            JOIN review_threads t ON t.id = m.thread_id
+        WHERE
+            t.agent_id = @agent_id
+            AND m.author_agent_id = @agent_id
+            AND m.review_id IS NULL
+            AND m.created_at > @since);
+
 -- name: ListReviewMessagesByThreads :many
 SELECT
     m.*,
