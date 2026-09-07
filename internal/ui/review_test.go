@@ -236,7 +236,7 @@ func gitIn(t *testing.T, dir string, args ...string) {
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {
 	t.Helper()
 
-	tmux := &recordingTmux{width: 120, height: 24}
+	tmux := &recordingTmux{width: 200, height: 30}
 	if fake, ok := agents.(*fakeReviewAgents); ok {
 		fake.dir = dir
 	}

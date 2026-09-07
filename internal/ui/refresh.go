@@ -439,6 +439,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 			// The cursor only catches up on the next listing, so the window is given up on the
 			// strength of the pane itself rather than left zoomed over the thing being shown.
 			m.frame.Solo(false)
+			m.resize()
 			m.frame.ShowGuest(result.written.pane)
 		}
 	}

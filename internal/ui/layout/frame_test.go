@@ -455,9 +455,8 @@ func (t *recordingTmux) SplitAbove(anchor, _, size string) string {
 	return t.recordSplit("above", anchor, size)
 }
 
-// recordSplit answers with the pane a split left, dropping the zoom the way tmux was measured to:
-// split-window, resize-pane, swap-pane, kill-pane and break-pane each unzoom the window they land
-// in, and only respawn-pane leaves a zoom standing.
+// recordSplit answers with the pane a split left, dropping the zoom the way tmux does, which only
+// respawn-pane leaves standing.
 func (t *recordingTmux) recordSplit(direction, anchor, size string) string {
 	t.splits = append(t.splits, strings.Join([]string{direction, anchor, size}, " "))
 	t.zoomed = false

@@ -6,7 +6,6 @@ import (
 
 	workflowstore "weave/internal/store/workflow"
 
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -113,9 +112,7 @@ func TestFormIsSizedToItsColumn(t *testing.T) {
 // form asks for four moments of hooks under everything else and is taller than most terminals.
 func TestFormStaysInsideTheFrame(t *testing.T) {
 	for _, height := range []int{16, 24, 32, 60} {
-		m := formColumnModel(t)
-		sized, _ := m.route(tea.WindowSizeMsg{Width: 160, Height: height})
-		m = asModel(t, sized)
+		m := resizedTo(t, formColumnModel(t), 160, height)
 
 		opened, cmd := m.newWorkflowForm()
 		m = asModel(t, opened)
@@ -133,9 +130,7 @@ func TestFormStaysInsideTheFrame(t *testing.T) {
 // without a resize the overflow lasts for as long as the person is fixing what was refused.
 func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
 	for _, height := range []int{24, 32, 40} {
-		m := formColumnModel(t)
-		sized, _ := m.route(tea.WindowSizeMsg{Width: 160, Height: height})
-		m = asModel(t, sized)
+		m := resizedTo(t, formColumnModel(t), 160, height)
 
 		opened, cmd := m.newWorkflowForm()
 		m = asModel(t, opened)
@@ -156,8 +151,7 @@ func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
 // TestFormKeepsTheWholePaneOnANarrowWindow covers a window with no room for both halves, where
 // the form is worth more whole than beside a list neither of them fits next to.
 func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
-	m := formColumnModel(t)
-	m.width = nameWidth + formColumnFloor - 1
+	m := resizedTo(t, formColumnModel(t), nameWidth+formColumnFloor-1, 40)
 
 	m = openWorkflowForm(t, m)
 

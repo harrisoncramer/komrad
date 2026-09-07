@@ -185,6 +185,18 @@ func (m *model) reconcileSolo() {
 	}
 
 	m.frame.Solo(want)
+	m.resize()
+}
+
+// resize reads the panel's size back from its own pane, since a zoom changes that pane before the
+// terminal's resize report arrives.
+func (m *model) resize() {
+	width, height := m.frame.SidebarSize()
+	if width <= 0 || height <= 0 {
+		return
+	}
+
+	m.width, m.height = width, height
 }
 
 // syncKeys puts the frame right about whether it still holds the window, which a focus report
