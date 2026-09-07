@@ -12,8 +12,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+// pageSize is the server's own cap, so a page comes back whole rather than being clamped down
+// to a size the caller did not choose.
 const (
-	pageSize = 200
+	pageSize = 100
 	maxPages = 50
 )
 

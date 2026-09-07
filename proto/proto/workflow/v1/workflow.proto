@@ -7,6 +7,7 @@ import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
+import "view/v1/view.proto";
 
 option go_package = "weave/proto/gen/workflow/v1;workflowv1";
 
@@ -24,6 +25,8 @@ message Workflow {
   repeated WorkflowHook hooks = 12;
   // The letter a person addresses this workflow by in the panel, if it holds one.
   optional string mark = 13;
+  // Whether context holds only its opening, which a summary listing returns.
+  bool context_truncated = 14;
 }
 
 message WorkflowHook {
@@ -81,6 +84,7 @@ message WorktreeConfig {
 message ListWorkflowsRequest {
   optional pagination.v1.Pagination pagination = 1;
   bool archived = 2;
+  view.v1.View view = 3;
 }
 
 message ListWorkflowsResponse {

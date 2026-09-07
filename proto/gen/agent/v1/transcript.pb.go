@@ -252,8 +252,12 @@ func (x *SearchTranscriptsResponse) GetNextPageToken() string {
 }
 
 type GetTranscriptRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	state   protoimpl.MessageState `protogen:"open.v1"`
+	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	// How much content to return. A transcript is one run of text rather than a list of records,
+	// so its window is measured in bytes and carries no pagination.Pagination.
+	MaxBytes      *int32  `protobuf:"varint,2,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
+	Cursor        *string `protobuf:"bytes,3,opt,name=cursor,proto3,oneof" json:"cursor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -295,9 +299,24 @@ func (x *GetTranscriptRequest) GetAgentId() string {
 	return ""
 }
 
+func (x *GetTranscriptRequest) GetMaxBytes() int32 {
+	if x != nil && x.MaxBytes != nil {
+		return *x.MaxBytes
+	}
+	return 0
+}
+
+func (x *GetTranscriptRequest) GetCursor() string {
+	if x != nil && x.Cursor != nil {
+		return *x.Cursor
+	}
+	return ""
+}
+
 type GetTranscriptResponse struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Content       string                 `protobuf:"bytes,1,opt,name=content,proto3" json:"content,omitempty"`
+	NextPageToken *string                `protobuf:"bytes,2,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -339,6 +358,13 @@ func (x *GetTranscriptResponse) GetContent() string {
 	return ""
 }
 
+func (x *GetTranscriptResponse) GetNextPageToken() string {
+	if x != nil && x.NextPageToken != nil {
+		return *x.NextPageToken
+	}
+	return ""
+}
+
 var File_agent_v1_transcript_proto protoreflect.FileDescriptor
 
 const file_agent_v1_transcript_proto_rawDesc = "" +
@@ -368,11 +394,18 @@ const file_agent_v1_transcript_proto_rawDesc = "" +
 	"\amatches\x18\x01 \x03(\v2\x13.agent.v1.SearchHitR\amatches\x12'\n" +
 	"\x04near\x18\x03 \x03(\v2\x13.agent.v1.SearchHitR\x04near\x12+\n" +
 	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
-	"\x10_next_page_token\":\n" +
+	"\x10_next_page_token\"\xa5\x01\n" +
 	"\x14GetTranscriptRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"1\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12)\n" +
+	"\tmax_bytes\x18\x02 \x01(\x05B\a\xbaH\x04\x1a\x02(\x00H\x00R\bmaxBytes\x88\x01\x01\x12%\n" +
+	"\x06cursor\x18\x03 \x01(\tB\b\xbaH\x05r\x03\x18\x80\x10H\x01R\x06cursor\x88\x01\x01B\f\n" +
+	"\n" +
+	"_max_bytesB\t\n" +
+	"\a_cursor\"r\n" +
 	"\x15GetTranscriptResponse\x12\x18\n" +
-	"\acontent\x18\x01 \x01(\tR\acontentB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
+	"\acontent\x18\x01 \x01(\tR\acontent\x12+\n" +
+	"\x0fnext_page_token\x18\x02 \x01(\tH\x00R\rnextPageToken\x88\x01\x01B\x12\n" +
+	"\x10_next_page_tokenB\"Z weave/proto/gen/agent/v1;agentv1b\x06proto3"
 
 var (
 	file_agent_v1_transcript_proto_rawDescOnce sync.Once
@@ -413,6 +446,8 @@ func file_agent_v1_transcript_proto_init() {
 	}
 	file_agent_v1_transcript_proto_msgTypes[0].OneofWrappers = []any{}
 	file_agent_v1_transcript_proto_msgTypes[2].OneofWrappers = []any{}
+	file_agent_v1_transcript_proto_msgTypes[3].OneofWrappers = []any{}
+	file_agent_v1_transcript_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

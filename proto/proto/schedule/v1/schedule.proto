@@ -8,6 +8,7 @@ import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 import "pagination/v1/pagination.proto";
 import "rules/v1/rules.proto";
+import "view/v1/view.proto";
 
 option go_package = "weave/proto/gen/schedule/v1;schedulev1";
 
@@ -24,10 +25,13 @@ message Schedule {
   string last_result_status = 11;
   string last_result_message = 12;
   optional google.protobuf.Timestamp last_result_at = 13;
+  // Whether prompt holds only its opening, which a summary listing returns.
+  bool prompt_truncated = 14;
 }
 
 message ListSchedulesRequest {
   optional pagination.v1.Pagination pagination = 1;
+  view.v1.View view = 2;
 }
 
 message ListSchedulesResponse {

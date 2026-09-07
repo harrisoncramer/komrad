@@ -157,14 +157,12 @@ func (m model) previewCmd(hit searchHit) tea.Cmd {
 
 	return func() tea.Msg {
 		content, err := call(agentsTimeout, func(ctx context.Context) (string, error) {
-			resp, err := client.GetTranscript(ctx, connect.NewRequest(&agentv1.GetTranscriptRequest{
-				AgentId: hit.agentID,
-			}))
+			transcript, err := weaveclient.GetFullTranscript(ctx, client, hit.agentID)
 			if err != nil {
 				return "", err
 			}
 
-			return scrubMarks(resp.Msg.GetContent()), nil
+			return scrubMarks(transcript), nil
 		})
 		if err != nil {
 			return previewResult{agentID: hit.agentID, query: query}

@@ -1,7 +1,10 @@
 // Package xstr holds small generic string helpers.
 package xstr
 
-import "strings"
+import (
+	"strings"
+	"unicode/utf8"
+)
 
 // FirstLine returns the first line of s, without its trailing newline.
 func FirstLine(s string) string {
@@ -33,4 +36,19 @@ func Slug(s string, maxLen int) string {
 	}
 
 	return strings.Trim(b.String(), "-")
+}
+
+// Head returns the first limit bytes of s and whether anything was cut, backing off a byte at
+// a time so the cut never lands inside a rune.
+func Head(s string, limit int) (string, bool) {
+	if len(s) <= limit {
+		return s, false
+	}
+
+	cut := s[:limit]
+	for len(cut) > 0 && !utf8.ValidString(cut) {
+		cut = cut[:len(cut)-1]
+	}
+
+	return cut, true
 }

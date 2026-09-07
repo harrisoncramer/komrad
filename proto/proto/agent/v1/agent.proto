@@ -9,6 +9,7 @@ import "annotation/v1/tool.proto";
 import "buf/validate/validate.proto";
 import "google/protobuf/empty.proto";
 import "pagination/v1/pagination.proto";
+import "view/v1/view.proto";
 import "rules/v1/rules.proto";
 
 option go_package = "weave/proto/gen/agent/v1;agentv1";
@@ -50,6 +51,9 @@ message Agent {
   string reported_reason = 29;
   // What the agent was launched to do, which decides the half of the review briefing it is sent.
   string role = 30;
+  // Whether prompt holds only its opening, which a summary listing returns so that a page of
+  // agents does not carry every briefing they were launched with.
+  bool prompt_truncated = 31;
 }
 
 message AgentMetadata {
@@ -60,6 +64,7 @@ message AgentMetadata {
 message ListAgentsRequest {
   optional pagination.v1.Pagination pagination = 1;
   bool archived = 2;
+  view.v1.View view = 3;
 }
 
 message ListAgentsResponse {
