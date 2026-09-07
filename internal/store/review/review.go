@@ -32,9 +32,11 @@ type Thread struct {
 	// ReviewID is the batch the thread was opened as part of, and through it the round the
 	// thread is anchored to, neither of which ever moves.
 	ReviewID string
-	// RoundID is the round the thread's anchor is a place in, carried here because almost
-	// nothing wants the thread without it.
+	// RoundID is the round the thread's line numbers were measured in.
 	RoundID string
+	// Harvested says weave wrote this thread from an edit of the round's checkout, which is
+	// what makes it weave's to rewrite or delete on a later harvest.
+	Harvested bool
 	// RoundOrdinal names that round the way the panel does, zero when it was not read.
 	RoundOrdinal int32
 	// ReviewReleasedAt is when the batch this thread came out with was let go of, nil while the
@@ -113,6 +115,8 @@ func New(db store.DBTX) *Store {
 type CreateThreadParams struct {
 	AgentID       string
 	ReviewID      string
+	RoundID       string
+	Harvested     bool
 	Suggestion    []string
 	FilePath      string
 	OldStart      int32
@@ -131,6 +135,8 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 	row, err := s.queries.InsertReviewThreadWithMessage(ctx, models.InsertReviewThreadWithMessageParams{
 		AgentID:       params.AgentID,
 		ReviewID:      params.ReviewID,
+		RoundID:       params.RoundID,
+		Harvested:     params.Harvested,
 		Suggestion:    lines(params.Suggestion),
 		FilePath:      params.FilePath,
 		OldStart:      params.OldStart,
@@ -150,6 +156,8 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		ID:                  row.ID,
 		AgentID:             row.AgentID,
 		ReviewID:            row.ReviewID,
+		RoundID:             row.RoundID,
+		Harvested:           row.Harvested,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
 		OldEnd:              row.OldEnd,
@@ -182,6 +190,7 @@ func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, erro
 			AgentID:             row.AgentID,
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
+			Harvested:           row.Harvested,
 			RoundOrdinal:        row.RoundOrdinal,
 			ReviewReleasedAt:    row.ReviewReleasedAt,
 			ReviewAuthorAgentID: row.ReviewAuthorAgentID,
@@ -226,6 +235,8 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 		ID:                  row.ID,
 		AgentID:             row.AgentID,
 		ReviewID:            row.ReviewID,
+		RoundID:             row.RoundID,
+		Harvested:           row.Harvested,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
 		OldEnd:              row.OldEnd,
@@ -238,7 +249,6 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 		CreatedAt:           row.CreatedAt,
 		UpdatedAt:           row.UpdatedAt,
 	})
-	thread.RoundID = row.RoundID
 	thread.ReviewReleasedAt = row.ReviewReleasedAt
 	thread.ReviewAuthorAgentID = row.ReviewAuthorAgentID
 
@@ -496,6 +506,8 @@ func threadFromRow(row models.ReviewThread) Thread {
 		ID:                  row.ID,
 		AgentID:             row.AgentID,
 		ReviewID:            row.ReviewID,
+		RoundID:             row.RoundID,
+		Harvested:           row.Harvested,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
 		OldEnd:              row.OldEnd,
@@ -558,4 +570,104 @@ func threadNotFound(id string) error {
 
 func messageNotFound(id string) error {
 	return fmt.Errorf("%w: review message %q", store.ErrNotFound, id)
+}
+
+// HarvestedThread is a thread weave wrote from an edit of the round's checkout, carrying how
+// many messages it holds so a caller can tell one nobody has answered from one somebody has.
+type HarvestedThread struct {
+	Thread
+	MessageCount int64
+}
+
+// ListHarvested is every unreleased harvested thread on one round, which is the set a later
+// harvest of that round reconciles against.
+func (s *Store) ListHarvested(ctx context.Context, agentID, roundID string) ([]HarvestedThread, error) {
+	if !store.IsID(agentID) || !store.IsID(roundID) {
+		return nil, nil
+	}
+
+	rows, err := s.queries.ListHarvestedReviewThreads(ctx, models.ListHarvestedReviewThreadsParams{
+		AgentID: agentID,
+		RoundID: roundID,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the harvested threads of round %q: %w", roundID, err)
+	}
+
+	threads := make([]HarvestedThread, 0, len(rows))
+	for _, row := range rows {
+		threads = append(threads, HarvestedThread{
+			Thread: threadFromRow(models.ReviewThread{
+				ID:                  row.ID,
+				AgentID:             row.AgentID,
+				ReviewID:            row.ReviewID,
+				RoundID:             row.RoundID,
+				Harvested:           row.Harvested,
+				FilePath:            row.FilePath,
+				OldStart:            row.OldStart,
+				OldEnd:              row.OldEnd,
+				NewStart:            row.NewStart,
+				NewEnd:              row.NewEnd,
+				QuotedLines:         row.QuotedLines,
+				LastAgentActivityAt: row.LastAgentActivityAt,
+				HumanReadAt:         row.HumanReadAt,
+				ResolvedAt:          row.ResolvedAt,
+				CreatedAt:           row.CreatedAt,
+				UpdatedAt:           row.UpdatedAt,
+			}),
+			MessageCount: row.MessageCount,
+		})
+	}
+
+	return threads, nil
+}
+
+type MoveThreadParams struct {
+	ID          string
+	OldStart    int32
+	OldEnd      int32
+	NewStart    int32
+	NewEnd      int32
+	QuotedLines []string
+}
+
+// MoveThread repins a thread to a new range of the same round, which is what a harvested thread
+// needs when the reviewer widens or narrows the run it was written from.
+func (s *Store) MoveThread(ctx context.Context, params MoveThreadParams) (*Thread, error) {
+	if !store.IsID(params.ID) {
+		return nil, threadNotFound(params.ID)
+	}
+
+	row, err := s.queries.MoveReviewThread(ctx, models.MoveReviewThreadParams{
+		ID:          params.ID,
+		OldStart:    params.OldStart,
+		OldEnd:      params.OldEnd,
+		NewStart:    params.NewStart,
+		NewEnd:      params.NewEnd,
+		QuotedLines: lines(params.QuotedLines),
+	})
+	if db.IsNoRows(err) {
+		return nil, threadNotFound(params.ID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to move the review thread %q: %w", params.ID, err)
+	}
+
+	thread := threadFromRow(*row)
+
+	return &thread, nil
+}
+
+// DeleteThread removes a thread and the messages under it, which only ever happens to one weave
+// harvested and nobody has answered.
+func (s *Store) DeleteThread(ctx context.Context, id string) error {
+	if !store.IsID(id) {
+		return threadNotFound(id)
+	}
+
+	if err := s.queries.DeleteReviewThread(ctx, id); err != nil {
+		return fmt.Errorf("failed to delete the review thread %q: %w", id, err)
+	}
+
+	return nil
 }

@@ -413,6 +413,10 @@ type ReviewThread struct {
 	// When the person reviewing settled this thread, null while it is still owed an answer. Settling stays theirs even for a thread an agent opened, since deciding the work is done is not the reviewer's call.
 	ResolvedAt *time.Time
 	ReviewID   string
+	// The round the thread's line numbers were measured in, held here rather than read through the review because a batch stays open across rounds and would report the wrong one.
+	RoundID string
+	// Whether weave wrote this thread from an edit of the round's checkout rather than a person or an agent typing it, which is what makes it weave's to rewrite or delete on a later harvest.
+	Harvested bool
 }
 
 // One file of a round the person reviewing has read. A later round is a different row, which is what makes an agent rewriting the file undo the mark.

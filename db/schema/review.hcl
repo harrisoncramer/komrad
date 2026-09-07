@@ -184,6 +184,11 @@ table "review_threads" {
     null = false
     type = uuid
   }
+  column "round_id" {
+    null    = false
+    type    = uuid
+    comment = "The round the thread's line numbers were measured in, held here rather than read through the review because a batch stays open across rounds and would report the wrong one."
+  }
   column "file_path" {
     null    = false
     type    = text
@@ -234,6 +239,12 @@ table "review_threads" {
     type    = timestamptz
     comment = "When the person reviewing settled this thread, null while it is still owed an answer. Settling stays theirs even for a thread an agent opened, since deciding the work is done is not the reviewer's call."
   }
+  column "harvested" {
+    null    = false
+    type    = boolean
+    default = false
+    comment = "Whether weave wrote this thread from an edit of the round's checkout rather than a person or an agent typing it, which is what makes it weave's to rewrite or delete on a later harvest."
+  }
   column "created_at" {
     null    = false
     type    = timestamptz
@@ -256,6 +267,12 @@ table "review_threads" {
   foreign_key "review_threads_review_id_fkey" {
     columns     = [column.review_id]
     ref_columns = [table.reviews.column.id]
+    on_delete   = CASCADE
+    on_update   = NO_ACTION
+  }
+  foreign_key "review_threads_round_id_fkey" {
+    columns     = [column.round_id]
+    ref_columns = [table.review_rounds.column.id]
     on_delete   = CASCADE
     on_update   = NO_ACTION
   }

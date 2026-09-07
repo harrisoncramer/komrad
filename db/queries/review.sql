@@ -143,6 +143,8 @@ WITH opened AS (
     INSERT INTO review_threads(
         agent_id,
         review_id,
+        round_id,
+        harvested,
         file_path,
         old_start,
         old_end,
@@ -153,6 +155,8 @@ WITH opened AS (
     VALUES (
         @agent_id,
         @review_id,
+        @round_id,
+        @harvested,
         @file_path,
         @old_start,
         @old_end,
@@ -193,7 +197,6 @@ FROM
 -- name: ListReviewThreads :many
 SELECT
     t.*,
-    v.round_id,
     v.released_at AS review_released_at,
     v.author_agent_id AS review_author_agent_id,
     r.ordinal AS round_ordinal,
@@ -203,7 +206,7 @@ SELECT
 FROM
     review_threads t
     JOIN reviews v ON v.id = t.review_id
-    JOIN review_rounds r ON r.id = v.round_id
+    JOIN review_rounds r ON r.id = t.round_id
 WHERE
     t.agent_id = @agent_id
 ORDER BY
@@ -216,7 +219,6 @@ ORDER BY
 -- name: GetReviewThread :one
 SELECT
     t.*,
-    v.round_id,
     v.released_at AS review_released_at,
     v.author_kind AS review_author_kind,
     v.author_agent_id AS review_author_agent_id
@@ -377,3 +379,45 @@ WHERE
     v.round_id = @round_id
 ORDER BY
     v.file_path;
+
+-- name: ListHarvestedReviewThreads :many
+SELECT
+    t.*,
+(
+        SELECT
+            COUNT(*)
+        FROM
+            review_messages m
+        WHERE
+            m.thread_id = t.id) AS message_count
+FROM
+    review_threads t
+    JOIN reviews v ON v.id = t.review_id
+WHERE
+    t.agent_id = @agent_id
+    AND t.round_id = @round_id
+    AND t.harvested
+    AND v.released_at IS NULL
+ORDER BY
+    t.file_path,
+    t.new_start,
+    t.id;
+
+-- name: MoveReviewThread :one
+UPDATE
+    review_threads t
+SET
+    old_start = @old_start,
+    old_end = @old_end,
+    new_start = @new_start,
+    new_end = @new_end,
+    quoted_lines = @quoted_lines,
+    updated_at = NOW()
+WHERE
+    t.id = @id
+RETURNING
+    *;
+
+-- name: DeleteReviewThread :exec
+DELETE FROM review_threads
+WHERE id = @id;
