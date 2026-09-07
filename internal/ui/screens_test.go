@@ -19,8 +19,9 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 		require.NotNil(t, spec.key, "screen %d takes no keys", s)
 		require.NotNil(t, spec.view, "screen %d draws nothing", s)
 
-		if spec.fromListing {
-			assert.NotNil(t, spec.stage, "screen %d is drawn from the listing but stages nothing", s)
+		if spec.column != nil {
+			column := spec.column()
+			assert.Positive(t, column.floor, "screen %d draws a block at no width", s)
 		}
 
 		if spec.details != nil {
@@ -32,6 +33,28 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 			assert.NotNil(t, spec.filter.hovered, "screen %d filters with no cursor to keep", s)
 			assert.NotNil(t, spec.filter.place, "screen %d filters without placing its cursor again", s)
 		}
+	}
+}
+
+// TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
+// each screen the listing feeds, since a screen that answers for its own staging in a way that
+// pass does not expect takes the panel down a tick after it is opened rather than in a test.
+func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
+	for s := screenAgents; s <= screenReview; s++ {
+		if !s.spec().fromListing {
+			continue
+		}
+
+		tmux := &recordingTmux{width: 200, height: 40}
+		m := infoModel(tmux)
+		m.width, m.height = 200, 40
+		m.frame.Attach("%0")
+		m.enterScreen(s)
+
+		m.applyRefresh(refreshResult{})
+
+		assert.Equal(t, s, m.screen, "screen %d left the screen it was on", s)
+		assert.NotEmpty(t, m.View(), "screen %d draws nothing after a pass", s)
 	}
 }
 

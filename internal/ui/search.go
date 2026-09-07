@@ -11,7 +11,6 @@ import (
 
 	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -56,9 +55,6 @@ type previewResult struct {
 func (m model) enterSearch() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenSearch)
 	m.search = searchState{typing: true}
-	// The search draws the transcript and the hits itself, so it takes the window off the panes
-	// it would otherwise be sharing with.
-	m.frame.Solo(true)
 
 	// The archived agents a hit can name are only listed while this screen is up, so the first
 	// pass is asked for here rather than waited on.
@@ -235,6 +231,13 @@ func groupByAgent(hits []searchHit) []searchHit {
 
 const noTranscriptMarkdown = "_no transcript yet_"
 
+// The three things the column beside the hits says before it has a transcript to draw.
+const (
+	searchWaitingMarkdown = "_the conversation the cursor is standing on is read here_"
+	noSearchHitsMarkdown  = "_nothing said that_"
+	searchLoadingMarkdown = "_reading the conversation…_"
+)
+
 func (m model) updateSearch(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.search.typing {
 		return m.updateSearchInput(key)
@@ -295,10 +298,10 @@ func (m model) updateSearchHits(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveSearchCursor(1)
 	case isBound(k, m.keys.Nav.Bottom):
 		return m.placeSearchCursor(len(m.search.hits) - 1)
-	case isBound(k, m.keys.Search.ScrollDown):
-		return m.scrollPreview(searchScrollStep)
-	case isBound(k, m.keys.Search.ScrollUp):
-		return m.scrollPreview(-searchScrollStep)
+	case isBound(k, m.keys.Column.ScrollDown):
+		return m.scrollPreview(docScrollStep)
+	case isBound(k, m.keys.Column.ScrollUp):
+		return m.scrollPreview(-docScrollStep)
 	case k == "enter":
 		return m.jumpToSearchHit()
 	}
@@ -425,19 +428,12 @@ func (m model) searchRows() ([]string, int) {
 func (m model) searchView() string {
 	sidebar := m.searchSidebarView()
 
-	split, ok := m.searchColumns()
+	split, ok := m.screenColumnSplit()
 	if !ok {
 		return sidebar
 	}
 
-	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)
-	preview := m.searchPreviewView(split)
-
-	if m.frame.IsSidebarOnRight() {
-		return lipgloss.JoinHorizontal(lipgloss.Top, preview, sidebar)
-	}
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, sidebar, preview)
+	return m.joinColumns(split, sidebar, m.searchPreviewView(split))
 }
 
 // searchSidebarView is the panel's own column: the query and the hits it found.

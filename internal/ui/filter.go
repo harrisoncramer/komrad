@@ -103,15 +103,12 @@ func (m *model) enterScreen(next screen) {
 		m.filter = filterState{}
 	}
 
+	m.screen = next
+
 	// Every way onto a screen runs through here, the ones nobody pressed a key for included, so
 	// this is where a screen that had taken the window hands it back rather than leaving a pane
 	// covered by a zoom nothing asked for.
-	if !next.holdsWindow() {
-		m.frame.Solo(false)
-	}
-
-	m.screen = next
-	m.soloArchive()
+	m.reconcileSolo()
 }
 
 // takeKey applies one keypress to a search being typed at, and reports whether the keypress was

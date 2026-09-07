@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
@@ -80,9 +81,60 @@ func TestHelpColumnsFollowTheWidth(t *testing.T) {
 	}
 }
 
+// TestNoLegendIsDrawnAsAnEllipsis draws every screen's expanded legend at the narrowest sidebar a
+// split ever leaves, which is the ordinary case rather than an edge, since splitOf floors the
+// sidebar at nameWidth and so every window under 150 columns lands there at the default share.
+func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
+	legends := map[screen]func(model) keyMap{
+		screenAgents:    model.agentHelp,
+		screenSchedules: model.scheduleHelp,
+		screenArchive:   model.archiveHelp,
+		screenSearch:    model.searchHelp,
+		screenMail:      model.mailHelp,
+		screenReview:    model.reviewHelp,
+	}
+
+	for s, legend := range legends {
+		m := helpModel()
+		m.screen = s
+		m.helpExpanded = true
+		m = m.at(nameWidth)
+
+		k := legend(m)
+		drawn := ansi.Strip(m.renderHelp(k))
+
+		assert.NotEqual(t, "…", strings.TrimSpace(drawn), "screen %d draws its legend as an ellipsis", s)
+
+		// Checked by the key rather than by what it is described as, since a refused expansion
+		// re-labels the legend's own key: the claim is that every key the short form names is
+		// findable, not that a particular wording survived.
+		for _, binding := range byLabel(k.short) {
+			assert.Contains(t, drawn, binding.Help().Key,
+				"screen %d loses the key for %q at %d columns", s, binding.Help().Desc, nameWidth)
+		}
+	}
+}
+
+// TestARefusedExpansionSaysItShowedNothing covers the key on a screen whose expanded legend will
+// not fit: it draws the short form, which is the right answer, but helpExpanded is true underneath
+// and the row would otherwise claim to be hiding help it never showed, so the key reads as broken
+// rather than as refused.
+func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
+	m := helpModel()
+	m.helpExpanded = true
+	m = m.at(nameWidth)
+
+	drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
+
+	require.NotContains(t, drawn, "move", "the agents legend does not fit a sidebar this narrow")
+	assert.Contains(t, drawn, "show help", "so the key says it has help left to show")
+	assert.NotContains(t, drawn, "hide help", "rather than claiming to have hidden any")
+}
+
 func helpModel() model {
 	return model{
 		keys:    config.DefaultKeybindings(),
+		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
 		height:  24,
 		width:   46,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},

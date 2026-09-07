@@ -930,22 +930,22 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 		Context: strings.Repeat("a sentence long enough to wrap the column it is drawn into. ", 60),
 	}}
 
-	split, ok := m.archiveSplit()
+	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the archive holds the window")
-	require.Greater(t, len(m.archiveDocRows(split.diff)), split.rows, "the document runs past the window")
+	require.Greater(t, len(docRows(m.archiveDoc(), split.column)), split.rows, "the document runs past the window")
 
 	top := ansi.Strip(m.View())
 	assert.NotContains(t, top, "↑", "nothing is above the first screenful")
 	assert.Contains(t, top, "↓", "and the reader is told the document goes on")
 
-	scrolled, _ := m.scrollArchive(1)
+	scrolled, _ := m.scrollColumn(1)
 	m, ok = scrolled.(model)
 	require.True(t, ok)
-	assert.Equal(t, archiveScrollStep, m.archive.top)
+	assert.Equal(t, docScrollStep, m.column.top)
 	assert.Contains(t, ansi.Strip(m.View()), "↑", "the reader is told what they scrolled past")
 
 	for range 100 {
-		scrolled, _ = m.scrollArchive(1)
+		scrolled, _ = m.scrollColumn(1)
 		m, ok = scrolled.(model)
 		require.True(t, ok)
 	}
@@ -955,26 +955,26 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 	assert.Contains(t, bottom, "↑")
 
 	for range 100 {
-		scrolled, _ = m.scrollArchive(-1)
+		scrolled, _ = m.scrollColumn(-1)
 		m, ok = scrolled.(model)
 		require.True(t, ok)
 	}
 
-	assert.Zero(t, m.archive.top, "and scrolling back stops at the top rather than going negative")
+	assert.Zero(t, m.column.top, "and scrolling back stops at the top rather than going negative")
 }
 
 // TestArchiveCursorTakesTheDocumentBackToItsTop covers the offset belonging to the row it was
 // scrolled on, since the next row is a document the reader has not seen the start of.
 func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
 	m := splitArchiveModel(t)
-	m.archive.top = 12
+	m.column.top = 12
 
 	m = m.moveArchiveCursor(-1)
-	assert.Zero(t, m.archive.top, "the cursor landed on another row")
+	assert.Zero(t, m.column.top, "the cursor landed on another row")
 
-	m.archive.top = 12
+	m.column.top = 12
 	m = m.moveArchiveCursor(-1)
-	assert.Equal(t, 12, m.archive.top, "a cursor that could not move leaves the offset where it was")
+	assert.Equal(t, 12, m.column.top, "a cursor that could not move leaves the offset where it was")
 }
 
 // TestArchiveHandsTheWindowBack covers the zoom, which has to go whenever something of somebody
@@ -997,25 +997,30 @@ func TestArchiveHandsTheWindowBack(t *testing.T) {
 	m = m.closeInfo()
 	assert.True(t, m.frame.IsSolo(), "and the window comes back once the pane has gone")
 
+	// A live agent's own pane is what stands beside the list there, so the panel gives the window
+	// back on the way to a row that has one.
+	m.listing.agents = []agentItem{{agent: agentstore.Agent{ID: "a1", Name: "auth", Pane: "%9", WorkflowID: "w1"}, alive: true}}
+	m.tree.cursor = 1
+
 	left, _ := m.updateArchive(keyMsg("esc"))
 	m, ok = left.(model)
 	require.True(t, ok)
-	assert.False(t, m.frame.IsSolo(), "leaving the archive gives the other panes their share back")
+	assert.False(t, m.frame.IsSolo(), "leaving the archive for a running agent gives the other panes their share back")
 }
 
 // TestArchiveHandsTheWindowBackWhenAWriteLands covers the agent create started on the list that
-// only lands once the reader has opened the archive, which moves the screen out from under a zoom
-// nothing else would have taken back.
+// only lands once the reader has opened the archive, whose new pane would otherwise be shown under
+// a zoom the cursor has not caught up to yet.
 func TestArchiveHandsTheWindowBackWhenAWriteLands(t *testing.T) {
 	m := splitArchiveModel(t)
 	require.True(t, m.frame.IsSolo(), "the archive holds the window to begin with")
 
-	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a1")}})
+	landed, _ := m.applyWrite(writeResult{written: &written{row: agentRowKey("a1"), pane: "%9"}})
 	got, ok := landed.(model)
 	require.True(t, ok)
 
 	assert.Equal(t, screenAgents, got.screen, "the write puts the reader on the row it wrote")
-	assert.False(t, got.frame.IsSolo(), "and that screen does not draw its own split")
+	assert.False(t, got.frame.IsSolo(), "and the pane it made is not left under the archive's own zoom")
 }
 
 // TestArchiveKeepsTheOffsetWhenARowSlides covers a refresh landing while the reader is scrolled
@@ -1028,17 +1033,17 @@ func TestArchiveKeepsTheOffsetWhenARowSlides(t *testing.T) {
 
 	rows := m.archiveRows()
 	m.landArchiveCursor(rows, rowIndexOfKey(rows, agentRowKey("a2")))
-	m.archive.top = 20
+	m.column.top = 20
 
 	was := m.archive.cursor
 	grown := append([]agentstore.Agent{{ID: "a0", Name: "alpha", WorkflowID: "w1"}}, held...)
 	m.applyArchive(grown, nil, agentRowKey("a2"))
 
 	assert.Greater(t, m.archive.cursor, was, "the row the reader is on has slid down the list")
-	assert.Equal(t, 20, m.archive.top, "but the reader has not moved, so neither has the document")
+	assert.Equal(t, 20, m.column.top, "but the reader has not moved, so neither has the document")
 
 	m.applyArchive(grown, nil, agentRowKey("a0"))
-	assert.Zero(t, m.archive.top, "landing on another row does start that one at its top")
+	assert.Zero(t, m.column.top, "landing on another row does start that one at its top")
 }
 
 // TestArchiveGivesUpTheSplitWhenTheListWillNotFit covers the legend, which gives up its columns as
@@ -1050,13 +1055,13 @@ func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
 	m.width, m.height = 120, 10
 	m.helpExpanded = true
 
-	_, ok := m.archiveSplit()
+	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "ten rows cannot hold the list beside the document")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the whole of the pane")
 	assert.LessOrEqual(t, countLines(m.View()), m.height, "and stays inside it")
 
 	m.height = 24
-	split, ok := m.archiveSplit()
+	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "a taller window holds both halves")
 	assert.Equal(t, split.sidebar, m.paneWidth(), "and the list is laid out against its own column")
 	assert.LessOrEqual(t, countLines(m.View()), m.height)
@@ -1074,13 +1079,13 @@ func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 		Context: strings.Repeat("a line of the document. ", 30),
 	}}
 
-	total := len(m.archiveDocRows(60))
+	total := len(docRows(m.archiveDoc(), 60))
 	require.Greater(t, total, 5, "the document runs past every window this walks")
 
 	for rows := 1; rows <= 5; rows++ {
 		for _, top := range []int{0, 1, 2, total - 1, total, total + 5} {
-			m.archive.top = top
-			drawn := m.archiveDocView(reviewSplit{diff: 60, sidebar: 30, rows: rows})
+			m.column.top = top
+			drawn := m.docColumnView(columnSplit{column: 60, sidebar: 30, rows: rows})
 
 			assert.Equal(t, rows, countLines(drawn), "rows=%d top=%d", rows, top)
 		}

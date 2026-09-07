@@ -98,6 +98,7 @@ type model struct {
 	review          reviewState
 	mail            mailState
 	filter          filterState
+	column          columnState
 	marks           markState
 	form            formState
 	pendingForm     bool

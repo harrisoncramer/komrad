@@ -36,12 +36,37 @@ func (m model) renderHelp(k keyMap) string {
 		k = filterHelp()
 	}
 
-	view := helpView(m.paneWidth())
+	width := m.paneWidth()
+	view := helpView(width)
+
 	if !m.helpExpanded {
 		return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n"
 	}
 
-	return trimLines(view.FullHelpView(helpColumns(byLabel(k.full), m.paneWidth()))) + "\n"
+	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
+	// it, and helpColumns has already dropped to one column by then, so a legend the sidebar
+	// cannot hold gives way to its short form, a width of zero being a panel that has not been
+	// told how wide it is and which bubbles reads as no limit.
+	columns := helpColumns(byLabel(k.full), width)
+	if width > 0 && helpWidth(columns) > width {
+		return trimLines(view.ShortHelpView(m.refusedExpansion(byLabel(k.short)))) + "\n"
+	}
+
+	return trimLines(view.FullHelpView(columns)) + "\n"
+}
+
+// refusedExpansion re-labels the legend's own key for the short form drawn in place of an
+// expansion there was no room for, since a key that says it is hiding help when it showed none
+// reads as a key that did not work rather than one that was refused.
+func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
+	out := slices.Clone(bindings)
+	for i, b := range out {
+		if slices.Equal(b.Keys(), m.keys.Help.Toggle) {
+			out[i] = binding(m.keys.Help.Toggle, "show help")
+		}
+	}
+
+	return out
 }
 
 func helpView(width int) help.Model {
@@ -222,6 +247,7 @@ func (m model) agentHelp() keyMap {
 		m.olderLogBindings(),
 		[]key.Binding{
 			binding(m.keys.Terminal.Open, m.terminalDesc()),
+			m.columnScrollBinding("the notes"),
 		},
 		m.editFilterBinding(m.keys.Agents.Back),
 		m.matchBindings(),
@@ -378,6 +404,7 @@ func (m model) scheduleHelp() keyMap {
 			m.detailsBinding(),
 			m.filterBinding(),
 			m.moveBinding(),
+			m.columnScrollBinding("the record"),
 		}, editFilter, m.globalHelp()),
 	}
 }
@@ -391,7 +418,13 @@ func (m model) mailHelp() keyMap {
 		short: slices.Concat([]key.Binding{back}, editFilter, []key.Binding{m.helpBinding()}),
 		full: slices.Concat(
 			[]key.Binding{back},
-			[]key.Binding{m.detailsBinding(), m.filterBinding(), m.moveBinding(), m.jumpBinding()},
+			[]key.Binding{
+				m.detailsBinding(),
+				m.filterBinding(),
+				m.moveBinding(),
+				m.jumpBinding(),
+				m.columnScrollBinding("the message"),
+			},
 			editFilter,
 			m.globalHelp(),
 		),
@@ -427,7 +460,7 @@ func (m model) archiveHelp() keyMap {
 				m.filterBinding(),
 				m.moveBinding(),
 				m.jumpBinding(),
-				m.archiveScrollBinding(),
+				m.columnScrollBinding("the notes"),
 			},
 			editFilter,
 			m.globalHelp(),
@@ -435,14 +468,14 @@ func (m model) archiveHelp() keyMap {
 	}
 }
 
-// archiveScrollBinding is the pair that moves the document beside the list, drawn as one row
-// since they are the same key going either way.
-func (m model) archiveScrollBinding() key.Binding {
+// columnScrollBinding is the pair that moves the block beside the list, drawn as one row since
+// they are the same key going either way, and named by what the screen has put in that block.
+func (m model) columnScrollBinding(what string) key.Binding {
 	return key.NewBinding(
-		key.WithKeys(slices.Concat(m.keys.Archive.ScrollDown, m.keys.Archive.ScrollUp)...),
+		key.WithKeys(slices.Concat(m.keys.Column.ScrollDown, m.keys.Column.ScrollUp)...),
 		key.WithHelp(
-			keyLabel(m.keys.Archive.ScrollDown)+"/"+keyLabel(m.keys.Archive.ScrollUp),
-			"scroll the notes",
+			keyLabel(m.keys.Column.ScrollDown)+"/"+keyLabel(m.keys.Column.ScrollUp),
+			"scroll "+what,
 		),
 	)
 }
@@ -485,7 +518,7 @@ func (m model) searchHelp() keyMap {
 				edit,
 				m.moveBinding(),
 				m.jumpBinding(),
-				pairBinding(m.keys.Search.ScrollDown, m.keys.Search.ScrollUp, "scroll the preview"),
+				m.columnScrollBinding("the transcript"),
 			},
 			m.globalHelp(),
 		),

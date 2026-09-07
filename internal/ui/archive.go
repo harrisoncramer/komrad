@@ -3,37 +3,19 @@ package ui
 import (
 	"fmt"
 	"slices"
-	"strings"
 
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/lib/xslice"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/lipgloss"
 )
 
 type archiveState struct {
 	agents    []agentstore.Agent
 	workflows []workflowstore.Workflow
 	// top is how far the document beside the list has been scrolled, held here rather than
-	// worked out from the cursor because the reader moves it themselves.
-	top int
-	// topKey is the row that offset was scrolled on, kept because the cursor's own index slides
-	// under a reader who has not moved whenever a row above them is archived or filtered away.
-	topKey string
 	rowCursor
-}
-
-// place moves the cursor and takes the document beside the list back to its top, since the offset
-// was scrolled on the row the cursor is leaving.
-func (a *archiveState) place(idx int, key string) {
-	if key != a.topKey {
-		a.top = 0
-	}
-
-	a.topKey = key
-	a.cursor = idx
 }
 
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
@@ -41,18 +23,6 @@ func (m model) enterArchive() (tea.Model, tea.Cmd) {
 	m.stageArchive()
 
 	return m, m.refreshCmd()
-}
-
-// soloArchive takes the window for the archive's own split, or hands it back while the info pane
-// is up, since a sidebar holding the whole window covers the pane the logs are drawn in.
-func (m *model) soloArchive() {
-	// enterScreen hands the window back for every screen, so what is left here is the taking of
-	// it, which is the archive's own and nobody else's to be told about.
-	if m.screen != screenArchive {
-		return
-	}
-
-	m.frame.Solo(m.info.kind == infoNothing)
 }
 
 // archiveFilterRows is the archive's own rows with the name a search reads each by.
@@ -110,7 +80,8 @@ func (m *model) placeArchiveCursor(hovered string) {
 // landArchiveCursor puts the cursor on a row, naming the row rather than only its place in the
 // list so the document's own offset is kept for as long as the reader is still on it.
 func (m *model) landArchiveCursor(rows []agentRow, idx int) {
-	m.archive.place(idx, rowKeyAt(rows, idx))
+	m.archive.cursor = idx
+	m.column.place(rowKeyAt(rows, idx))
 }
 
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {
@@ -177,10 +148,6 @@ func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.moveArchiveCursor(-1), nil
 	case isBound(k, m.keys.Nav.Down):
 		return m.moveArchiveCursor(1), nil
-	case isBound(k, m.keys.Archive.ScrollDown):
-		return m.scrollArchive(1)
-	case isBound(k, m.keys.Archive.ScrollUp):
-		return m.scrollArchive(-1)
 	case isBound(k, m.keys.Archive.Restore):
 		return m.restoreFromArchive()
 	case isBound(k, m.keys.Archive.Delete):
@@ -246,19 +213,6 @@ func (m model) jumpArchiveCursor(idx int) model {
 	m.stageArchive()
 
 	return m
-}
-
-// scrollArchive moves the document beside the list, clamped to what is left of it so the reader
-// cannot scroll a short document off the top of its own column.
-func (m model) scrollArchive(direction int) (tea.Model, tea.Cmd) {
-	split, ok := m.archiveSplit()
-	if !ok {
-		return m, nil
-	}
-
-	m.archive.top = clampDocTop(m.archive.top+direction*archiveScrollStep, len(m.archiveDocRows(split.diff)), split.rows)
-
-	return m, nil
 }
 
 func (m model) selectedArchived() (agentstore.Agent, bool) {
@@ -432,104 +386,23 @@ func (m model) archivedCount(workflowID string) int {
 	return xslice.Count(m.archive.agents, func(agent agentstore.Agent) bool { return agent.WorkflowID == workflowID })
 }
 
-// archiveScrollStep is how far a scroll key moves the document, kept short of a screenful so the
-// reader keeps a few lines of what they were already on.
-const archiveScrollStep = 10
-
-// archiveColumns is how the window would be divided while the archive holds it, which is the list
-// on the panel's own side and the document beside it, and false while the screen is not up or the
-// frame is sharing the window with a pane of somebody else's.
-func (m model) archiveColumns() (reviewSplit, bool) {
-	if m.screen != screenArchive || !m.frame.IsSolo() {
-		return reviewSplit{}, false
+// archiveColumn is the archived agent's own notes drawn beside the list, refused when the list
+// would not fit the narrower column the split leaves it.
+func archiveColumn() columnSpec {
+	return columnSpec{
+		floor: columnFloor,
+		doc:   model.archiveDoc,
+		fits: func(m model, split columnSplit) bool {
+			// The legend gives up its columns as the sidebar narrows and stands taller for it, so a
+			// window the list fitted whole may not hold it once the document has taken half, and
+			// the list is worth more whole at the full width than halved and running off the bottom.
+			return countLines(m.at(split.sidebar).archiveListView()) <= split.rows
+		},
 	}
-
-	return reviewSplitOf(m.width, m.height-m.bannerLines(), m.frame.SidebarWidth(m.width))
-}
-
-// archiveSplit is the window the archive is actually drawn across, which is archiveColumns
-// refused again when the list would not fit the pane in the narrower column it leaves.
-func (m model) archiveSplit() (reviewSplit, bool) {
-	split, ok := m.archiveColumns()
-	if !ok {
-		return split, false
-	}
-
-	// The legend gives up its columns as the sidebar narrows and stands taller for it, so a window
-	// the list fitted whole may not hold it once the document has taken half, and the list is
-	// worth more whole at the full width than halved and running off the bottom.
-	return split, countLines(m.at(split.sidebar).archiveListView()) <= split.rows
-}
-
-// archiveDocRows is the document rendered into its own column, a row at a time.
-func (m model) archiveDocRows(width int) []string {
-	return strings.Split(strings.TrimRight(render(m.archiveDoc(), width), "\n"), "\n")
-}
-
-// clampDocTop keeps an offset inside a document, since the cursor can land on a shorter one while
-// the offset stands and a window past the end would draw nothing.
-func clampDocTop(top, total, rows int) int {
-	if total <= rows {
-		return 0
-	}
-
-	// The marker saying what is above takes a row of its own once the reader has scrolled, so the
-	// end of the document sits one row further down than the window is tall.
-	return max(min(top, total-rows+1), 0)
-}
-
-// archiveDocView is the screenful of the document beside the list, from the row the reader has
-// scrolled to, with a marker on each end counting what is past it, since a document cut to the
-// window reads as a document that ended.
-func (m model) archiveDocView(split reviewSplit) string {
-	all := m.archiveDocRows(split.diff)
-	top := clampDocTop(m.archive.top, len(all), split.rows)
-
-	rows := make([]string, 0, split.rows)
-	if top > 0 {
-		rows = append(rows, dimStyle.Render(fmt.Sprintf("  ↑ %d more", top)))
-	}
-
-	// The marker under the text takes a row as well, so what is left over is one row shorter
-	// again whenever the document runs past the window.
-	end := min(top+max(split.rows-len(rows), 0), len(all))
-	if end < len(all) {
-		end = max(end-1, top)
-	}
-
-	rows = append(rows, all[top:end]...)
-	if rest := len(all) - end; rest > 0 && len(rows) < split.rows {
-		rows = append(rows, dimStyle.Render(fmt.Sprintf("  ↓ %d more", rest)))
-	}
-	// Padded out rather than left short, so a document smaller than the window keeps its half of
-	// it instead of the list sliding under.
-	for len(rows) < split.rows {
-		rows = append(rows, "")
-	}
-
-	return strings.Join(rows, "\n")
 }
 
 func (m model) archiveView() string {
-	split, ok := m.archiveSplit()
-	if !ok {
-		return m.archiveListView()
-	}
-
-	// Asked for before either half is drawn, so the halves are laid out already knowing their
-	// column rather than sending every line of chrome back through paneWidth into the geometry.
-	held := m.at(split.sidebar)
-
-	// Trimmed so the two halves are the same height, since a trailing newline is a row the list
-	// block would have and the document beside it would not.
-	list := fitColumn(strings.TrimRight(held.archiveListView(), "\n"), split.sidebar)
-	doc := fitColumn(held.archiveDocView(split), split.diff)
-
-	if m.frame.IsSidebarOnRight() {
-		return lipgloss.JoinHorizontal(lipgloss.Top, doc, list)
-	}
-
-	return lipgloss.JoinHorizontal(lipgloss.Top, list, doc)
+	return m.columnView(model.archiveListView)
 }
 
 func (m model) archiveListView() string {

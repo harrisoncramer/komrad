@@ -21,8 +21,9 @@ active screen.
 
 screens.go is what the three of them dispatch through. A screen is one entry in one switch
 there, saying what takes its keys, what draws it, what it puts on the stage, and whether it
-draws a details pane or a filter under it. Adding a screen is that entry: the switch carries
-no default, so the exhaustive check refuses a screen that answers for nothing.
+draws a details pane, a filter under it, or a block of its own beside it. Adding a screen is
+that entry: the switch carries no default, so the exhaustive check refuses a screen that
+answers for nothing.
 
 Everything else in the package is one of those three for one screen.
 
@@ -39,14 +40,17 @@ Per-screen state is the rest of what a screen draws: its cursor, and whatever it
 that nothing else reads. treeState, detailsState, scheduleState, archiveState, searchState,
 mailState.
 
-Shared concerns are the things that sit across screens on purpose. The filter narrows
-whichever list is on screen, and there is one of it rather than one per screen, because only
-the list being looked at can be narrowed. The details under that list are shared for the same
-reason: one cursor and one focus, whichever list is above them, with each screen saying only
-what its own hovered row holds. The form owns the keys while it is up, and is drawn over
-whichever screen opened it rather than being a screen of its own, so closing it lands back
-there. The info region is what is open in the pane below, which stays put as the user moves
-between lists above it. The frame is the panel's own tmux layout.
+Shared concerns are the things that sit across screens on purpose. The column is the block
+drawn beside whichever list is up, and there is one of it rather than one per screen, because
+only one block is ever on screen: where the reader has scrolled in it, and which row they
+scrolled it on. The filter narrows whichever list is on screen, and there is one of it rather
+than one per screen, because only the list being looked at can be narrowed. The details under
+that list are shared for the same reason: one cursor and one focus, whichever list is above
+them, with each screen saying only what its own hovered row holds. The form owns the keys
+while it is up, and is drawn in that column rather than being a screen of its own, so closing
+it lands back on the list it went up beside. The info region is what is open in the pane
+below, which stays put as the user moves between lists above it. The frame is the panel's own
+tmux layout.
 
 Panel chrome is the rest: the banner over a refused write, the errors that replace the panel,
 the keybindings, the dimensions of its own pane.
@@ -86,14 +90,38 @@ The one thing the panel does directly is its own layout. Splitting, swapping, an
 panes goes to tmux without a round trip through the service, because how the panel arranges
 its own window is nobody else's business.
 
+## The block beside the list
+
+Every screen draws a list on the panel's own side and, beside it, one block: the diff being
+reviewed, the transcript of a search hit, an archived agent's notes, a schedule's record, a
+message's body, the folder context or the reason a row has no pane, or a form somebody is
+filling in.
+
+column.go owns all of it. A screen names a columnSpec in screens.go and the machinery does the
+rest: columnGeometry divides the window and refuses one too narrow to hold both halves,
+columnSplit takes off whatever stands over the block, and joinColumns squares each half off and
+puts the sidebar on the side the frame wants it. Whether the panel is drawing a block is the
+same question as whether it takes the whole window from the panes beside it, so reconcileSolo
+answers both at once and every way onto a screen and into a form runs through it.
+
+Two things are worth knowing before changing any of it. Anything the block renders that asks
+paneWidth reaches back into the geometry that is still deciding the width, which is why the
+widths and the row budget are two functions, and why a screen that has to measure its own
+sidebar to decide is handed the answer through m.at rather than asked. And a block that falls
+short of its share lets the other half slide under it, which is what fitColumn is for.
+
+The exception is the agents list, whose block is only drawn for a row with no pane of its own.
+A running agent's own terminal is what stands there, so that screen's columnSpec says when it
+holds the window and when it gives it up.
+
 ## The files
 
 Screens, listed in screens.go and each holding its own rows, keys, and view: agents.go, with
 tree.go for the rows and the cursor, workflows.go for the keys that act on a folder header,
 and selection.go for the multi-select. Then archive.go, schedules.go, search.go, and mail.go.
 
-Shared concerns: api.go, details.go, filter.go, forms.go, help.go, info.go, logs.go,
-refresh.go, keys.go, clipboard.go, report.go, convert.go.
+Shared concerns: api.go, column.go, details.go, document.go, filter.go, forms.go, help.go,
+info.go, logs.go, refresh.go, keys.go, clipboard.go, report.go, convert.go.
 
 Presentation, holding no panel state at all: content.go, list.go, markdown.go, palette.go,
 render.go, snippet.go, style.go.

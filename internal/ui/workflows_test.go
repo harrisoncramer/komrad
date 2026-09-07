@@ -3,7 +3,6 @@ package ui
 import (
 	"context"
 	"errors"
-	"os"
 	"testing"
 
 	"weave/config"
@@ -297,16 +296,19 @@ func TestApplyWorkflows(t *testing.T) {
 	}
 }
 
-// TestRefreshRestagesWorkflowContext pins a context edited elsewhere reaching the stage,
-// without restaging identical text and respawning the pane every tick.
-func TestRefreshRestagesWorkflowContext(t *testing.T) {
-	tmux := &recordingTmux{}
+// TestRefreshDrawsAnEditedWorkflowContext pins a context edited elsewhere reaching the column on
+// the next listing, which it does by being drawn from the row the cursor is on rather than pushed
+// into a pane that had to be told the text had changed.
+func TestRefreshDrawsAnEditedWorkflowContext(t *testing.T) {
+	tmux := &recordingTmux{width: 200, height: 40}
 	frame := layout.New(tmux, config.DefaultLayout())
 	frame.Attach("%0")
 
 	m := model{
 		frame:  frame,
 		keys:   config.DefaultKeybindings(),
+		width:  200,
+		height: 40,
 		screen: screenAgents,
 		listing: listing{
 			workflows: []workflowstore.Workflow{
@@ -319,6 +321,8 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 		},
 	}
 	m.stageSelection()
+	require.Contains(t, ansi.Strip(m.View()), "old notes", "the folder's notes stand beside the list")
+
 	staged := len(tmux.respawns)
 
 	fresh := refreshResult{
@@ -335,19 +339,11 @@ func TestRefreshRestagesWorkflowContext(t *testing.T) {
 	require.True(t, ok)
 
 	assert.Equal(t, "new notes", m.listing.workflows[0].Context)
-	require.Greater(t, len(tmux.respawns), staged, "the edit is restaged without the cursor moving")
 
-	shown, err := os.ReadFile(stageTextPath)
-	require.NoError(t, err)
-
-	assert.Contains(t, ansi.Strip(string(shown)), "new notes")
-
-	staged = len(tmux.respawns)
-	updated, _ = m.Update(fresh)
-	_, ok = updated.(model)
-	require.True(t, ok)
-
-	assert.Len(t, tmux.respawns, staged, "an unchanged refresh leaves the stage pane alone")
+	view := ansi.Strip(m.View())
+	assert.Contains(t, view, "new notes", "the edit is on screen without the cursor moving")
+	assert.NotContains(t, view, "old notes")
+	assert.Len(t, tmux.respawns, staged, "and nothing was pushed into a pane to put it there")
 }
 
 func describeRows(rows []agentRow) []string {

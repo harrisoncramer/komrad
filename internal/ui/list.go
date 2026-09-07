@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-
-	"weave/internal/ui/layout"
 )
 
 func (m model) listLines(chrome ...string) int {
@@ -22,7 +20,7 @@ func (m model) spareLines(chrome ...string) int {
 		return 0
 	}
 
-	lines := m.height - m.bannerLines()
+	lines := m.height - m.chromeLines()
 	for _, part := range chrome {
 		lines -= strings.Count(part, "\n")
 	}
@@ -36,6 +34,20 @@ func (m model) bannerLines() int {
 	}
 
 	return strings.Count(m.banner.Render(m.width), "\n")
+}
+
+// submittingLines is the notice the view draws while a form's write is in flight, which stands
+// instead of the banner rather than above it.
+const submittingLines = 2
+
+// chromeLines is what the view draws above whatever screen is up, which is room the screen and
+// the block beside it do not have.
+func (m model) chromeLines() int {
+	if m.pendingForm {
+		return submittingLines
+	}
+
+	return m.bannerLines()
 }
 
 func renderList(rows []string, cursor, lines int) string {
@@ -197,10 +209,6 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	c.cursor = next
 
 	return c, true
-}
-
-func (m *model) stageDocument(markdown string) {
-	m.frame.Show(layout.RegionStage, newTextContent(markdown))
 }
 
 func (m model) listView(title string, rows []string, cursor int, help string) string {

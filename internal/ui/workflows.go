@@ -115,15 +115,11 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 			Values:    values,
 			Hooks:     m.getAvailableHooks(),
 			Keys:      m.keys.Form,
-			Height:    m.formHeight(),
 		})
 	}
 
-	form, _ := build(m)
-
 	return m, m.openForm(formState{
 		kind: formWorkflow,
-		form: form,
 		update: func(m model, msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateWorkflowForm(msg, values, build)
 		},
@@ -154,7 +150,8 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
 	form, toggleIndex := build(m)
 
-	cmds := []tea.Cmd{form.Init()}
+	// Redrawn from nothing, so it is told its own column again along with everything else.
+	cmds := []tea.Cmd{form.Init(), formResized()}
 	for range toggleIndex {
 		cmds = append(cmds, form.NextField())
 	}

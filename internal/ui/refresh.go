@@ -189,9 +189,12 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applyArchive(result.archived, result.archivedWorkflows, archiveRow)
 	}
 
-	// A form drawn over the list holds the stage as it was when it went up, and the review
-	// draws a diff this pass knows nothing about.
-	if spec := m.screen.spec(); spec.fromListing && !m.form.isActive() {
+	// Explainer: a form drawn over the list holds the stage as it was when it went up, and the
+	// review draws a diff this pass knows nothing about.
+	//
+	// A screen that draws what it holds beside its own list stages nothing at all, since the pass
+	// that changed the rows has already changed what is drawn from them.
+	if spec := m.screen.spec(); spec.fromListing && spec.stage != nil && !m.form.isActive() {
 		spec.stage(m)
 	}
 }
@@ -433,6 +436,9 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 		m.tree.focus = result.written.row
 		if result.written.pane != "" {
+			// The cursor only catches up on the next listing, so the window is given up on the
+			// strength of the pane itself rather than left zoomed over the thing being shown.
+			m.frame.Solo(false)
 			m.frame.ShowGuest(result.written.pane)
 		}
 	}
@@ -458,6 +464,13 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 
 		m.banner.Hint = "fix and submit again"
+	}
+
+	// The banner stands where the submitting notice did and is taller than it, so a form still on
+	// screen was measured against chrome that is no longer what is drawn above it, and nothing
+	// else is going to tell it.
+	if m.form.isActive() {
+		return m, tea.Batch(m.refreshCmd(), formResized())
 	}
 
 	return m, m.refreshCmd()

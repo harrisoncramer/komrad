@@ -185,6 +185,10 @@ func mailClock(stamp string) string {
 
 const mailEmptyMarkdown = "# Mail\n\n_nothing here_\n"
 
+// mailLoadingMarkdown stands in the column while the mailbox is being read, so the column is
+// there from the moment the screen is rather than arriving under the reader.
+const mailLoadingMarkdown = "_reading the mailbox…_"
+
 // mailMarkdown is the one message the cursor is on, since the rows around it already carry the
 // rest of its thread and drawing the conversation again only asked the reader to find their
 // place in it twice.
@@ -202,6 +206,10 @@ func (m model) mailMarkdown(r mailRow) string {
 }
 
 func (m model) mailView() string {
+	return m.columnView(model.mailListView)
+}
+
+func (m model) mailListView() string {
 	header := m.titleStyle().Render("Mail · "+m.mail.agentName) + "\n" +
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()

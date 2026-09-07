@@ -39,7 +39,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// The transcript is wrapped into the column it is read in rather than into a pane that
 		// would fold it, so only a window that changed width has to wrap it again, and a preview
 		// that has never drawn is one the rows are still owed to.
-		rewrap := size.Width != m.width || len(m.search.preview.rows) == 0
+		rewrap := size.Width != m.width || len(m.search.preview.doc.rows) == 0
 
 		m.height = size.Height
 		m.width = size.Width
@@ -81,7 +81,9 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	if m.form.isActive() {
-		return m.form.update(m, msg)
+		// A resize says how big the panel's window is, and the form is drawn in a column of it, so
+		// the size is rewritten here rather than in each form's own handler.
+		return m.form.update(m, m.formSizeOf(msg))
 	}
 
 	key, ok := msg.(tea.KeyMsg)
@@ -120,6 +122,12 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.openTerminal()
 	}
 
+	// The block beside the list is the panel's own to scroll, so the keys that move it are routed
+	// here rather than repeated on every screen that draws one.
+	if direction, ok := m.isColumnScroll(key.String()); ok {
+		return m.scrollColumn(direction)
+	}
+
 	if m.isDetailsScreen() {
 		if m.isDetailsFocused() {
 			return m.updateDetails(key)
@@ -146,8 +154,15 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 		next, edited := next.reconcileEditor()
 
 		return next, tea.Batch(next.refreshCmd(), refreshTick(), viewed, reviewing, readRuns, mailing, edited), true
+	case tea.BlurMsg:
+		m.syncKeys()
+
+		return m, nil, true
 	case tea.FocusMsg:
+		m.syncKeys()
+
 		next, cmd := m.reconcileEditor()
+		next.reconcileSolo()
 
 		return next, cmd, true
 	case refreshResult:

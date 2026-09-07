@@ -124,6 +124,8 @@ type recordingTmux struct {
 	deadPanes     map[string]bool
 	sessionClient string
 	zoomed        bool
+	// keysElsewhere is the keyboard sitting in a pane other than the one being asked about.
+	keysElsewhere bool
 }
 
 func (t *recordingTmux) ShowGlobal(name string) string           { return t.globals[name] }
@@ -139,9 +141,20 @@ func (t *recordingTmux) SendKeys(target string, keys ...string) error {
 
 	return nil
 }
-func (t *recordingTmux) IsPaneAlive(pane string) bool             { return !t.deadPanes[pane] }
-func (t *recordingTmux) GetPaneWidth(string) int                  { return t.width }
-func (t *recordingTmux) SetPaneZoomed(_ string, on bool)          { t.zoomed = on }
+func (t *recordingTmux) IsPaneAlive(pane string) bool    { return !t.deadPanes[pane] }
+func (t *recordingTmux) GetPaneWidth(string) int         { return t.width }
+func (t *recordingTmux) SetPaneZoomed(_ string, on bool) { t.zoomed = on }
+
+// GetPaneFocus answers the way tmux was measured to: a pane the keys have moved off is neither
+// the active one nor zoomed any more, since select-pane drops a zoom on its way out.
+func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
+	if t.keysElsewhere {
+		return false, false
+	}
+
+	return true, t.zoomed
+}
+
 func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }
 func (t *recordingTmux) CapturePane(string) string                { return "" }
 func (t *recordingTmux) SplitRight(string, string, string) string { return "%1" }

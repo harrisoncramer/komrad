@@ -676,7 +676,7 @@ func TestReviewKeepsDrawingAfterAReload(t *testing.T) {
 	m = reloaded
 	m.applyReviewLoaded(loaded)
 
-	_, ok = m.reviewSplit()
+	_, ok = m.screenColumnSplit()
 	require.True(t, ok, "the window is still divided between the diff and the sidebar")
 
 	moved, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("j")})
@@ -946,7 +946,7 @@ func TestReviewDrawsTheSidebarAloneWhileTheEditorIsUp(t *testing.T) {
 
 	m = pressEdit(t, m)
 
-	_, ok := m.reviewSplit()
+	_, ok := m.screenColumnSplit()
 	assert.False(t, ok, "the window is shared with the editor")
 	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "so the diff waits")
 	assert.Contains(t, ansi.Strip(m.View()), "Review · auth", "and the sidebar keeps the column")
