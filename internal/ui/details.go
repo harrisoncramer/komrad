@@ -269,7 +269,7 @@ func (m model) detailFieldRows(fields []recordField, cursor int) []string {
 	for i, field := range fields {
 		prefix := "  "
 		if i == cursor {
-			prefix = cursorStyleFor(m.details.focused).Render("› ")
+			prefix = m.cursorPrefix(m.details.focused)
 		}
 
 		label := dimStyle.Render(padRight(field.label, labels))

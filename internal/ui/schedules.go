@@ -285,7 +285,7 @@ func (m model) schedulesListView() string {
 		selected := i == m.schedules.cursor
 		prefix := "  "
 		if selected {
-			prefix = m.rowCursorStyle().Render("› ")
+			prefix = m.rowCursorPrefix()
 		}
 
 		name := m.filter.highlight(item.schedule.Name, m.nameStyle(selected, !item.schedule.Enabled))
