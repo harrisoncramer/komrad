@@ -1331,6 +1331,52 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 	assert.Equal(t, agentRowKey("new"), got.tree.focus, "and the cursor still lands on the row it made")
 }
 
+// TestAnEarlierWriteLeavesALaterHoldAlone covers escaping a slow create and submitting another:
+// the first one landing must not tear down the form the second is still being held for.
+func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
+	sent := &formRecorder{}
+	m := formModel(sent)
+
+	workflow := m.listing.workflows[0]
+
+	first := agentPrefill(workflow)
+	first.Prompt = "the slow one"
+
+	opened, _ := m.openAgentForm(workflow, &first)
+	m = asModel(t, opened)
+
+	submitted, _ := m.answerForm()
+	m = asModel(t, submitted)
+
+	escaped := m.epoch
+
+	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = asModel(t, detached)
+
+	second := agentPrefill(workflow)
+	second.Prompt = "the second one"
+
+	opened, _ = m.openAgentForm(workflow, &second)
+	m = asModel(t, opened)
+
+	submitted, _ = m.answerForm()
+	m = asModel(t, submitted)
+
+	require.True(t, m.pendingForm)
+	require.NotEqual(t, escaped, m.pendingEpoch, "the two submits are told apart by their own epochs")
+
+	landed, _ := m.applyWrite(writeResult{
+		summary: "Could not start the agent",
+		written: &written{row: agentRowKey("new")},
+		epoch:   escaped,
+	})
+	got := asModel(t, landed)
+
+	assert.True(t, got.pendingForm, "the escaped create landing leaves the second form held")
+	assert.True(t, got.form.isActive())
+	assert.Equal(t, agentRowKey("new"), got.tree.focus, "and the cursor still lands on the agent it made")
+}
+
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is
 // quick and starts counting once it is not, so a slow provisioner does not read as a wedge.
 func TestSubmittingNoticeCountsUp(t *testing.T) {
@@ -1338,6 +1384,6 @@ func TestSubmittingNoticeCountsUp(t *testing.T) {
 
 	assert.Equal(t, "  submitting…", submittingNotice(time.Time{}, since))
 	assert.Equal(t, "  submitting…", submittingNotice(since, since.Add(time.Second)))
-	assert.Equal(t, "  submitting… 12s", submittingNotice(since, since.Add(12*time.Second)))
-	assert.Equal(t, "  submitting… 6m40s", submittingNotice(since, since.Add(400*time.Second)))
+	assert.Equal(t, "  submitting… 12s · esc to keep working", submittingNotice(since, since.Add(12*time.Second)))
+	assert.Equal(t, "  submitting… 6m40s · esc to keep working", submittingNotice(since, since.Add(400*time.Second)))
 }

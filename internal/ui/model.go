@@ -113,7 +113,10 @@ type model struct {
 	pendingForm   bool
 	// pendingSince is when the write the form is being held for was sent, which the notice above
 	// the form counts up from so a provisioner taking its time does not read as a wedged panel.
-	pendingSince  time.Time
+	pendingSince time.Time
+	// pendingEpoch is the write the held form is waiting on, since a person who escapes a slow
+	// create and submits another has two in flight and only one of them owns the form.
+	pendingEpoch  int
 	helpExpanded  bool
 	topHeld       bool
 	keys          config.Keybindings

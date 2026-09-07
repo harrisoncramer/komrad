@@ -45,10 +45,10 @@ func submittingNotice(since, now time.Time) string {
 	}
 
 	if elapsed < time.Minute {
-		return fmt.Sprintf("  submitting… %ds", int(elapsed.Seconds()))
+		return fmt.Sprintf("  submitting… %ds · esc to keep working", int(elapsed.Seconds()))
 	}
 
-	return fmt.Sprintf("  submitting… %dm%02ds", int(elapsed.Minutes()), int(elapsed.Seconds())%60)
+	return fmt.Sprintf("  submitting… %dm%02ds · esc to keep working", int(elapsed.Minutes()), int(elapsed.Seconds())%60)
 }
 
 // fitFrame pads the panel out to the height of its pane, so a shorter frame covers the rows the

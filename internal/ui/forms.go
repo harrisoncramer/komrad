@@ -398,6 +398,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 func (m *model) holdForm() tea.Cmd {
 	m.pendingForm = true
 	m.pendingSince = time.Now()
+	m.pendingEpoch = m.epoch
 
 	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
@@ -463,6 +464,7 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 func (m model) closeForm() (tea.Model, tea.Cmd) {
 	m.pendingForm = false
 	m.pendingSince = time.Time{}
+	m.pendingEpoch = 0
 	m.form = formState{}
 	m.reconcileSolo()
 

@@ -221,6 +221,9 @@ type writeResult struct {
 	summary string
 	err     error
 	written *written
+	// epoch is the write this result belongs to, which tells a held form whose landing is its
+	// own: a person who escapes a slow create and submits another has two in flight at once.
+	epoch int
 }
 
 type written struct {
@@ -322,10 +325,10 @@ func (m model) markRunsReadCmd(id string) tea.Cmd {
 
 func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
-		return writeResult{summary: summary, err: write(clients)}
+		return writeResult{summary: summary, err: write(clients), epoch: epoch}
 	}
 }
 
@@ -336,79 +339,87 @@ type resumeParams struct {
 
 func (m *model) resumeCmd(params resumeParams) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		agent, err := clients.resumeAgent(params.id)
 		if err != nil {
-			return writeResult{summary: params.summary, err: err}
+			return writeResult{summary: params.summary, err: err, epoch: epoch}
 		}
 
 		return writeResult{
 			summary: params.summary,
 			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			epoch:   epoch,
 		}
 	}
 }
 
 func (m *model) createCmd(params createAgentParams) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		agent, err := clients.createAgent(params)
 		if err != nil {
-			return writeResult{summary: "Could not start the agent", err: err}
+			return writeResult{summary: "Could not start the agent", err: err, epoch: epoch}
 		}
 
 		return writeResult{
 			summary: "Could not start the agent",
 			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			epoch:   epoch,
 		}
 	}
 }
 
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		const summary = "Could not adopt"
 
 		agent, err := clients.adopt(params)
 		if err != nil {
-			return writeResult{summary: summary, err: err}
+			return writeResult{summary: summary, err: err, epoch: epoch}
 		}
 
 		return writeResult{
 			summary: summary,
 			written: &written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId()},
+			epoch:   epoch,
 		}
 	}
 }
 
 func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
 	clients := m.api
-	m.beginWrite()
+	epoch := m.beginWrite()
 
 	return func() tea.Msg {
 		const summary = "Could not create the workflow"
 
 		workflow, err := clients.createWorkflow(cfg)
 		if err != nil {
-			return writeResult{summary: summary, err: err}
+			return writeResult{summary: summary, err: err, epoch: epoch}
 		}
 
 		return writeResult{
 			summary: summary,
 			written: &written{row: workflowRowKey(workflow.GetId())},
+			epoch:   epoch,
 		}
 	}
 }
 
-func (m *model) beginWrite() {
+// beginWrite counts a write out and answers with the epoch it belongs to, which is what tells
+// a landing result apart from one an earlier submit is still waiting on.
+func (m *model) beginWrite() int {
 	m.epoch++
 	m.pending++
+
+	return m.epoch
 }
 
 func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
@@ -429,9 +440,10 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	if m.pendingForm {
+	if m.pendingForm && result.epoch == m.pendingEpoch {
 		m.pendingForm = false
 		m.pendingSince = time.Time{}
+		m.pendingEpoch = 0
 
 		if result.err == nil {
 			closed, cmd := m.closeForm()

@@ -21,7 +21,6 @@ weave rpc adopt [flags]
       --prompt string            string, at most 50000 characters
       --ref string               string, required, at most 400 characters
       --request-json string      the whole request as JSON, which the flags above are laid over
-      --setup-pane string        string, at most 20 characters
       --timeout duration         how long to wait for the call (default 30s)
       --title string             string, at most 200 characters
       --workflow-id string       string, required
