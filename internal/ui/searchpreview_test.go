@@ -46,8 +46,8 @@ func searchPreviewModel(t *testing.T) (model, *recordingTmux) {
 
 	tmux := &recordingTmux{width: 200, height: 30}
 	m := infoModel(tmux)
-	// The search holds the whole window, so the default fifth of this is the forty columns the
-	// rest of the panel's screens are measured at.
+	// The search holds the whole window, so this is the size the rest of the panel's screens are
+	// measured at.
 	m.width, m.height = 200, 30
 
 	next, _ := m.enterSearch()
