@@ -77,7 +77,6 @@ func (m *model) refuseReview(err error) {
 	name := m.review.agentName
 	m.review = reviewState{}
 
-	m.frame.Solo(false)
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))
 	m.stageSelection()
@@ -386,8 +385,6 @@ func (m model) reloadReview() (model, tea.Cmd) {
 func (m model) leaveReview() (tea.Model, tea.Cmd) {
 	reap := m.reapRoundCmd(m.review.root, m.review.roundDir)
 	m.review = reviewState{}
-
-	m.frame.Solo(false)
 
 	next, cmd := m.returnToAgents()
 

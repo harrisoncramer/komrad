@@ -9,6 +9,7 @@ import (
 	transcriptstore "weave/internal/store/transcript"
 
 	"github.com/charmbracelet/glamour"
+	"github.com/charmbracelet/x/ansi"
 )
 
 func render(markdown string, wrap int) string {
@@ -65,6 +66,13 @@ var scrubMarks = strings.NewReplacer(transcriptstore.SnippetOpen, " ", transcrip
 // styled, and reports the line the first of them ended up on.
 func renderTranscript(conversation string, spans []span, width int) (string, int) {
 	rendered := render(markSpans(conversation, spans), width)
+
+	// The markdown wraps on words, which leaves a code block or a link that will not break wider
+	// than the column, and the panel draws the column itself rather than handing it to a pager
+	// that would fold the overflow.
+	if width > 0 {
+		rendered = ansi.Hardwrap(rendered, width, true)
+	}
 
 	line := markedLine(rendered)
 	if line == 0 && len(spans) > 0 {

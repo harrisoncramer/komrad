@@ -31,7 +31,11 @@ func reviewSplitOf(width, rows, sidebar int) (reviewSplit, bool) {
 
 	sidebar = min(max(sidebar, nameWidth), width-reviewDiffFloor)
 
-	return reviewSplit{diff: width - sidebar, sidebar: sidebar, rows: rows}, true
+	return reviewSplit{
+		diff:    width - sidebar,
+		sidebar: sidebar,
+		rows:    rows,
+	}, true
 }
 
 // reviewColumns is how wide each half of the window is, and carries no row count because the
@@ -93,9 +97,23 @@ func (m model) reviewDiffView(split reviewSplit) string {
 }
 
 // paneWidth is the column the panel draws its own list, record and help in, which is the whole
-// pane except while the review is holding the window and drawing the diff beside itself.
+// pane except while a screen is holding the window and drawing a column of its own beside itself.
 func (m model) paneWidth() int {
+	// A screen working out whether its own split leaves room for its chrome has already chosen
+	// the column, so it is told the answer rather than asked for the split it is still deciding.
+	if m.paneMeasure > 0 {
+		return m.paneMeasure
+	}
+
 	if split, ok := m.reviewColumns(); ok {
+		return split.sidebar
+	}
+
+	if split, ok := m.searchColumns(); ok {
+		return split.sidebar
+	}
+
+	if split, ok := m.archiveSplit(); ok {
 		return split.sidebar
 	}
 

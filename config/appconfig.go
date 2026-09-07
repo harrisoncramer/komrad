@@ -90,6 +90,11 @@ const (
 // rather than taken from the registry since this is a default a user overrides.
 const DefaultHarness = "claude"
 
+// DefaultFocusKey is the key that jumps between the panel and the pane last worked in when the
+// config names none, bound on weave's own tmux server so it is only ever taken from a pane inside
+// the panel.
+const DefaultFocusKey = "C-a"
+
 // The layout the panel lays itself out at when the config names none. The info pane opens
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
@@ -142,6 +147,9 @@ type Keybindings struct {
 	// The review screen, which draws an agent's diff in the stage and its review
 	// threads in the sidebar.
 	Review ReviewKeys `mapstructure:"review"`
+	// The search screen, where the transcript of the hit under the cursor is drawn
+	// beside the hits themselves.
+	Search SearchKeys `mapstructure:"search"`
 	// The schedules screen, and the key that opens it from the agents list.
 	Schedules SchedulesKeys `mapstructure:"schedules"`
 	// Choosing several agents at once, shared by the two screens that draw a tree.
@@ -376,6 +384,17 @@ type ReviewKeys struct {
 	ToggleViewed []string `mapstructure:"toggle_viewed"`
 }
 
+// SearchKeys are the bindings for the search screen, where the transcript of the hit
+// under the cursor is drawn beside the hits. The keys that move between the hits are the
+// shared navigation ones, so these are only what moves the transcript itself, and while
+// the query is being typed every key is a character.
+type SearchKeys struct {
+	// Scroll the transcript down a few lines.
+	ScrollDown []string `mapstructure:"scroll_down"`
+	// Scroll the transcript up a few lines.
+	ScrollUp []string `mapstructure:"scroll_up"`
+}
+
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
 // rather than part of the agents tree. Open enters it from the agents list, and
 // the rest act on the hovered schedule once inside.
@@ -416,6 +435,10 @@ type ArchiveKeys struct {
 	Quit []string `mapstructure:"quit"`
 	// Put the agent under the cursor back in the panel.
 	Restore []string `mapstructure:"restore"`
+	// Scroll the document beside the list down a few lines.
+	ScrollDown []string `mapstructure:"scroll_down"`
+	// Scroll the document beside the list up a few lines.
+	ScrollUp []string `mapstructure:"scroll_up"`
 }
 
 // Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -455,8 +478,14 @@ type Layout struct {
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
 	InfoHeight float64 `mapstructure:"info_height"`
-	// How many lines of fields the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
+	// How many lines the details under the list draw, either a share of the sidebar's height below one or a whole number of lines. The marks the hovered row is carrying are spelled out in that same room, ahead of the fields. The chrome around them is added on top, and the two together never take more than half the sidebar's height.
 	DetailsHeight float64 `mapstructure:"details_height"`
+}
+
+// Panel is how the panel itself behaves, apart from where it draws its regions.
+type Panel struct {
+	// The tmux key, named the way tmux names one, that moves focus to the panel from any pane inside it and back to that pane on the next press. Empty binds nothing.
+	FocusKey string `mapstructure:"focus_key"`
 }
 
 // Harness is how one agent CLI is configured.
@@ -605,6 +634,8 @@ type Config struct {
 	Harness     Harnesses `mapstructure:"harness"`
 	// Where the panel's sidebar, the stage beside it, and the info pane under the stage sit, and how much of the popup each takes.
 	Layout Layout `mapstructure:"layout"`
+	// How the panel itself behaves.
+	Panel Panel `mapstructure:"panel"`
 	// Panel keybindings, scoped to the screen each binding acts in.
 	Keybindings Keybindings `mapstructure:"keybindings"`
 	// Where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -631,6 +662,7 @@ func Defaults() *Config {
 		MaxAgents:      DefaultMaxAgents,
 		MaxChildren:    DefaultMaxChildren,
 		Layout:         DefaultLayout(),
+		Panel:          Panel{FocusKey: DefaultFocusKey},
 		Keybindings:    DefaultKeybindings(),
 		Mail:           Mail{DeliveryDeadline: DefaultDeliveryDeadline, MaxExchange: DefaultMaxExchange},
 		Log: Log{
@@ -683,12 +715,14 @@ func DefaultKeybindings() Keybindings {
 			ShowHidden:   []string{"H"},
 		},
 		Archive: ArchiveKeys{
-			Back:    []string{"esc"},
-			Delete:  []string{"d"},
-			Empty:   []string{"D"},
-			Open:    []string{"Z"},
-			Quit:    []string{"ctrl+c"},
-			Restore: []string{"r"},
+			Back:       []string{"esc"},
+			Delete:     []string{"d"},
+			Empty:      []string{"D"},
+			Open:       []string{"Z"},
+			Quit:       []string{"ctrl+c"},
+			Restore:    []string{"r"},
+			ScrollDown: []string{"ctrl+n"},
+			ScrollUp:   []string{"ctrl+p"},
 		},
 		Details: DetailsKeys{
 			Copy:  []string{"y"},
@@ -745,6 +779,10 @@ func DefaultKeybindings() Keybindings {
 			Reload:       []string{"R"},
 			Resolve:      []string{"r"},
 			ToggleViewed: []string{"v"},
+		},
+		Search: SearchKeys{
+			ScrollDown: []string{"ctrl+n"},
+			ScrollUp:   []string{"ctrl+p"},
 		},
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},

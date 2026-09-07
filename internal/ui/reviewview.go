@@ -461,14 +461,16 @@ func (m model) reviewDetails() details {
 		return details{}
 	}
 
-	agent := m.listing.agents[index].agent
+	item := m.listing.agents[index]
+	agent := item.agent
 	fields := agentFields(agent, m.scheduleName(agent), m.parentName(agent))
 
 	return details{
-		id:     agent.ID,
-		kind:   "Agent",
-		title:  agent.Name,
-		fields: append(fields, m.reviewFields()...),
+		id:      agent.ID,
+		kind:    "Agent",
+		title:   agent.Name,
+		notices: agentNotices(item),
+		fields:  append(fields, m.reviewFields()...),
 	}
 }
 

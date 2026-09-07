@@ -36,8 +36,17 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	if size, ok := msg.(tea.WindowSizeMsg); ok {
+		// The transcript is wrapped into the column it is read in rather than into a pane that
+		// would fold it, so only a window that changed width has to wrap it again, and a preview
+		// that has never drawn is one the rows are still owed to.
+		rewrap := size.Width != m.width || len(m.search.preview.rows) == 0
+
 		m.height = size.Height
 		m.width = size.Width
+
+		if rewrap {
+			m.drawPreview()
+		}
 	}
 
 	if m.fatal() != nil {
@@ -96,15 +105,18 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if m.screen != screenReview && isBound(key.String(), m.keys.Logs.Open) {
+	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow
+	// answers, which the archive is what separates: it takes the whole window and hands it back
+	// for as long as the pane is up, since a failed teardown is the thing its own logs explain.
+	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Open) {
 		return m.cycleLogs()
 	}
 
-	if m.screen != screenReview && isBound(key.String(), m.keys.Logs.Older) {
+	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Logs.Older) {
 		return m.olderLog()
 	}
 
-	if m.screen != screenReview && isBound(key.String(), m.keys.Terminal.Open) {
+	if m.screen.opensInfoPane() && isBound(key.String(), m.keys.Terminal.Open) {
 		return m.openTerminal()
 	}
 

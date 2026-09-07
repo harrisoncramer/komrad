@@ -342,10 +342,11 @@ func (m model) agentsDetails() details {
 	}
 
 	return details{
-		id:     r.item.agent.ID,
-		kind:   "Agent",
-		title:  r.item.agent.Name,
-		fields: agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
+		id:      r.item.agent.ID,
+		kind:    "Agent",
+		title:   r.item.agent.Name,
+		notices: agentNotices(r.item),
+		fields:  agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
 	}
 }
 
