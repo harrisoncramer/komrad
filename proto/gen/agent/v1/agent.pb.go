@@ -1870,7 +1870,7 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x12UpdateAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\xfd\x01\n" +
 	"\x04name\x18\x02 \x01(\tB\xe8\x01\xbaH\xe4\x01\xba\x01\xd9\x01\n" +
-	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x89\xa0\x01\n" +
+	"\rname.storable\x12Jname must not contain spaces, colons, dots, slashes, or control characters\x1a|!this.contains(' ') && !this.contains(':') && !this.contains('.') && !this.contains('/') && !this.matches('[\\x00-\\x1f\\x7f]')r\x05\x10\x01\x18\xc8\x01R\x04name2\x9e\xa1\x01\n" +
 	"\fAgentService\x12\xe4\x03\n" +
 	"\n" +
 	"ListAgents\x12\x1b.agent.v1.ListAgentsRequest\x1a\x1c.agent.v1.ListAgentsResponse\"\x9a\x03\x9a\xb5\x18\x92\x03\n" +
