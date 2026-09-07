@@ -102,17 +102,21 @@ type model struct {
 	marks           markState
 	form            formState
 	pendingForm     bool
-	setupPending    bool
-	helpExpanded    bool
-	topHeld         bool
-	keys            config.Keybindings
-	logPath         string
-	logViewer       string
-	processViewer   string
-	editor          string
-	runLogsDir      string
-	roundsDir       string
-	pane            string
+	// keysAway is whether the keyboard is in a pane of somebody else's rather than the panel's own,
+	// which is what stops the panel taking the window back from under a reader who went to look at
+	// a pane it would cover.
+	keysAway      bool
+	setupPending  bool
+	helpExpanded  bool
+	topHeld       bool
+	keys          config.Keybindings
+	logPath       string
+	logViewer     string
+	processViewer string
+	editor        string
+	runLogsDir    string
+	roundsDir     string
+	pane          string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
 	// its split leaves room for it, which paneWidth reads because it is the answer that
 	// measurement feeds.

@@ -38,10 +38,9 @@ func (m model) renderHelp(k keyMap) string {
 
 	width := m.paneWidth()
 	view := helpView(width)
-	short := func() string { return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n" }
 
 	if !m.helpExpanded {
-		return short()
+		return trimLines(view.ShortHelpView(byLabel(k.short))) + "\n"
 	}
 
 	// bubbles truncates a column wider than it was given to a single ellipsis rather than wrapping
@@ -50,10 +49,24 @@ func (m model) renderHelp(k keyMap) string {
 	// told how wide it is and which bubbles reads as no limit.
 	columns := helpColumns(byLabel(k.full), width)
 	if width > 0 && helpWidth(columns) > width {
-		return short()
+		return trimLines(view.ShortHelpView(m.refusedExpansion(byLabel(k.short)))) + "\n"
 	}
 
 	return trimLines(view.FullHelpView(columns)) + "\n"
+}
+
+// refusedExpansion re-labels the legend's own key for the short form drawn in place of an
+// expansion there was no room for, since a key that says it is hiding help when it showed none
+// reads as a key that did not work rather than one that was refused.
+func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
+	out := slices.Clone(bindings)
+	for i, b := range out {
+		if slices.Equal(b.Keys(), m.keys.Help.Toggle) {
+			out[i] = binding(m.keys.Help.Toggle, "show help")
+		}
+	}
+
+	return out
 }
 
 func helpView(width int) help.Model {

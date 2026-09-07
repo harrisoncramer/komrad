@@ -23,15 +23,36 @@ func reviewColumn() columnSpec {
 	}
 }
 
+// What the review says while there is no patch to draw, shared by the sidebar's head and the
+// diff's own column so the two halves of the window cannot drift apart on the wording.
+const (
+	reviewLoadingWord = "loading the diff…"
+	reviewEmptyWord   = "nothing changed in this worktree"
+	reviewBrokenWord  = "the diff could not be read"
+)
+
+// reviewDiffNotice is what stands in the diff's own column before a patch does, which the sidebar
+// says as well but in a fraction of the room and away from where the reader is looking.
+func (m model) reviewDiffNotice() string {
+	switch {
+	case m.review.err != nil:
+		return "_" + reviewBrokenWord + "_"
+	case m.review.loading:
+		return "_" + reviewLoadingWord + "_"
+	default:
+		return "_" + reviewEmptyWord + "_"
+	}
+}
+
 // reviewDiffView is the screenful of the patch beside the sidebar, starting at top, with the
 // cursor's own row dim while the keys are on the record rather than on the diff.
 func (m model) reviewDiffView(split columnSplit) string {
 	view := m.review.view
-	if view == nil {
-		// The sidebar says what is being waited on, so the column stands empty rather than saying
-		// it again, and stands rather than collapsing so the frame does not shift under the reader
-		// when the patch lands.
-		return blankColumn(split)
+	if view == nil || view.Len() == 0 {
+		// This is the larger half of the window, so it says what is being waited on rather than
+		// standing empty under a band, and stands rather than collapsing so the frame does not
+		// shift under the reader when the patch lands.
+		return docWindow{rows: docRows(m.reviewDiffNotice(), split.column)}.view(split.rows)
 	}
 
 	start := max(min(m.review.top, view.Len()-split.rows), 0)

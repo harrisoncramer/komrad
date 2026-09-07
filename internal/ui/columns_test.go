@@ -125,27 +125,84 @@ func TestMailDrawsTheHoveredMessage(t *testing.T) {
 	assert.Empty(t, tmux.respawns, "nothing is pushed into a pane to put it there")
 }
 
-// TestTheWindowComesBackWhenTheKeysDo covers the focus key, which is bound on weave's own tmux
-// server and moves the keys with select-pane: tmux drops the sidebar's zoom on the way out and
-// does not put it back on the way in, and nothing calls into weave either way, so the panel hears
-// about it only as the keys leaving and coming back.
-func TestTheWindowComesBackWhenTheKeysDo(t *testing.T) {
+// paneless is the panel on a row with no pane of its own, which is where it holds the window.
+func paneless(t *testing.T) (model, *recordingTmux) {
+	t.Helper()
+
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend", Context: "notes"}}
-
 	m.tree.cursor = 0
 	m.stageSelection()
+
 	require.True(t, m.frame.IsSolo(), "the folder header has no pane, so the panel holds the window")
 
+	return m, tmux
+}
+
+// TestTheWindowComesBackWhenTheKeysDo covers the keys moving to a pane of somebody else's, which
+// a key bound on tmux's own server does with select-pane: tmux drops the sidebar's zoom on the way
+// out and does not put it back on the way in, and calls into weave neither time.
+func TestTheWindowComesBackWhenTheKeysDo(t *testing.T) {
+	m, tmux := paneless(t)
+
+	tmux.keysElsewhere = true
 	left, _ := m.route(tea.BlurMsg{})
 	m = asModel(t, left)
+
 	assert.False(t, m.frame.IsSolo(), "tmux dropped the zoom when the keys moved off the sidebar")
 	assert.Equal(t, m.width, m.paneWidth(), "so the list is drawn in the share of the frame it has")
 
+	// The pass that runs once a second, which is what used to drag the reader back inside a second
+	// and take the keyboard with it, since a re-zoom makes the sidebar active again.
+	m.applyRefresh(refreshResult{})
+	assert.False(t, m.frame.IsSolo(), "and the panel leaves the window where the reader put it")
+
+	tmux.keysElsewhere = false
 	back, _ := m.route(tea.FocusMsg{})
 	m = asModel(t, back)
-	assert.True(t, m.frame.IsSolo(), "and the panel takes the window again when the keys come home")
+
+	assert.True(t, m.frame.IsSolo(), "the panel takes the window again when the keys come home")
+}
+
+// TestAnUnfocusedTerminalKeepsTheWindow covers the other thing a focus report means, since tmux
+// passes its client's own focus-out to the active pane and so alt-tabbing to another application
+// looks exactly like the keys leaving while the zoom is untouched, measured as window_zoomed_flag
+// 1 and pane_active 1 against 0 and 0 for a select-pane.
+func TestAnUnfocusedTerminalKeepsTheWindow(t *testing.T) {
+	m, _ := paneless(t)
+	before := m.View()
+
+	// The keys have not moved, which is what separates this from the case above.
+	left, _ := m.route(tea.BlurMsg{})
+	m = asModel(t, left)
+
+	assert.True(t, m.frame.IsSolo(), "the terminal losing focus is not the panel losing the window")
+	assert.Equal(t, before, m.View(), "so nothing is re-laid out behind an unfocused terminal")
+}
+
+// TestTheDiffColumnSaysWhatItIsWaitingFor covers the review screen before its patch arrives,
+// which can be seconds on a large worktree and read as a screen that had hung, since the column
+// is the larger half of the window and the band standing over it carries only the title.
+func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+	m.enterScreen(screenReview)
+	m.review = reviewState{agentID: "a1", agentName: "auth", loading: true}
+
+	split, ok := m.screenColumnSplit()
+	require.True(t, ok, "the screen holds the window from the moment it is entered")
+	require.Greater(t, split.column, split.sidebar, "and the diff has the larger half of it")
+
+	column := ansi.Strip(m.reviewDiffView(split))
+	assert.Contains(t, column, reviewLoadingWord, "which says what it is waiting for")
+	// lipgloss rather than countLines, which takes one trailing newline off and so under-reports a
+	// block whose last row is blank padding, as this one's is.
+	assert.Equal(t, split.rows, lipgloss.Height(column), "and stands its full height while it waits")
+
+	m.review.loading = false
+	assert.Contains(t, ansi.Strip(m.reviewDiffView(split)), reviewEmptyWord,
+		"a worktree that turned out to hold nothing says that instead")
 }
 
 // TestColumnOffsetResetsOnANewRow covers the scroll offset belonging to the row it was scrolled

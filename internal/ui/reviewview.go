@@ -144,9 +144,9 @@ func (m model) reviewHeadView() string {
 	case m.review.err != nil:
 		return brokenStyle.Render(m.review.err.Error()) + "\n"
 	case m.review.loading:
-		return dimStyle.Render("loading the diff…") + "\n"
+		return dimStyle.Render(reviewLoadingWord) + "\n"
 	case m.review.view == nil || m.review.view.Len() == 0:
-		return dimStyle.Render("nothing changed in this worktree") + "\n"
+		return dimStyle.Render(reviewEmptyWord) + "\n"
 	}
 
 	return m.reviewAnchorView()

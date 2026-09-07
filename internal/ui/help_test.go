@@ -105,13 +105,30 @@ func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 
 		assert.NotEqual(t, "…", strings.TrimSpace(drawn), "screen %d draws its legend as an ellipsis", s)
 
-		// The short bindings are the ones a person looks for, and they are drawn whichever form
-		// the legend fell back to, since the short form is what a legend too wide gives up to.
+		// Checked by the key rather than by what it is described as, since a refused expansion
+		// re-labels the legend's own key: the claim is that every key the short form names is
+		// findable, not that a particular wording survived.
 		for _, binding := range byLabel(k.short) {
-			assert.Contains(t, drawn, binding.Help().Desc,
-				"screen %d loses %q at %d columns", s, binding.Help().Desc, nameWidth)
+			assert.Contains(t, drawn, binding.Help().Key,
+				"screen %d loses the key for %q at %d columns", s, binding.Help().Desc, nameWidth)
 		}
 	}
+}
+
+// TestARefusedExpansionSaysItShowedNothing covers the key on a screen whose expanded legend will
+// not fit: it draws the short form, which is the right answer, but helpExpanded is true underneath
+// and the row would otherwise claim to be hiding help it never showed, so the key reads as broken
+// rather than as refused.
+func TestARefusedExpansionSaysItShowedNothing(t *testing.T) {
+	m := helpModel()
+	m.helpExpanded = true
+	m = m.at(nameWidth)
+
+	drawn := ansi.Strip(m.renderHelp(m.agentHelp()))
+
+	require.NotContains(t, drawn, "move", "the agents legend does not fit a sidebar this narrow")
+	assert.Contains(t, drawn, "show help", "so the key says it has help left to show")
+	assert.NotContains(t, drawn, "hide help", "rather than claiming to have hidden any")
 }
 
 func helpModel() model {

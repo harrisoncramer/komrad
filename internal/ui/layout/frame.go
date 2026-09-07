@@ -153,10 +153,20 @@ func (f *Frame) Solo(on bool) {
 // IsSolo reports whether the sidebar is holding the whole window.
 func (f *Frame) IsSolo() bool { return f.solo }
 
-// Unzoomed records that the other panes have their share back without asking tmux to give it to
-// them, which is what tmux has already done itself: it drops a pane's zoom when the keys move off
-// that pane, and a key bound on the server moves them without telling weave.
-func (f *Frame) Unzoomed() { f.solo = false }
+// SyncKeys asks tmux where the keys are and whether the sidebar is still holding the window, and
+// reports whether the keys are on the sidebar; a key bound on the server moves both and calls
+// into nothing, so asking is the only way to find out, and a focus report on its own cannot tell
+// the keys moving off the sidebar from the terminal the whole session is in losing focus.
+func (f *Frame) SyncKeys() bool {
+	if f.sidebar == "" {
+		return true
+	}
+
+	focused, zoomed := f.tmux.GetPaneFocus(f.sidebar)
+	f.solo = zoomed
+
+	return focused
+}
 
 // SidebarWidth is how many columns the sidebar draws in when it is holding a window of the
 // given width, which is what a screen splitting the window itself lays itself out against.

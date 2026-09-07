@@ -179,12 +179,19 @@ func (m *model) reconcileSolo() {
 	// false on purpose to clear a zoom a dead panel left behind: the frame answers from what it
 	// holds, while Solo asks tmux with a subprocess, and this runs on every refresh tick and
 	// every cursor move.
-	want := m.holdsWindow() && m.info.kind == infoNothing
+	want := m.holdsWindow() && m.info.kind == infoNothing && !m.keysAway
 	if want == m.frame.IsSolo() {
 		return
 	}
 
 	m.frame.Solo(want)
+}
+
+// syncKeys asks tmux where the keys are and whether the sidebar still holds the window, which is
+// what a focus report cannot say on its own: the same message arrives when the keys move off the
+// panel's pane and when the terminal the whole session is in loses focus.
+func (m *model) syncKeys() {
+	m.keysAway = !m.frame.SyncKeys()
 }
 
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
@@ -281,12 +288,6 @@ func (m model) isColumnScroll(k string) (int, bool) {
 	default:
 		return 0, false
 	}
-}
-
-// blankColumn is a column's share of the window with nothing in it, drawn by a screen still
-// waiting on what goes there rather than giving the split up and moving everything else.
-func blankColumn(split columnSplit) string {
-	return strings.Repeat("\n", max(split.rows-1, 0))
 }
 
 // fitColumn squares a block off at a width, since the halves of the window are joined side by

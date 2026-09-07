@@ -281,6 +281,24 @@ func (c *Client) SetPaneZoomed(pane string, zoomed bool) {
 	c.run("resize-pane", "-Z", "-t", pane)
 }
 
+// GetPaneFocus reports whether a pane is the one its window is sending keys to and whether it is
+// filling that window, asked together because a key bound on the server moves both at once and
+// one query answers for both.
+func (c *Client) GetPaneFocus(pane string) (focused, zoomed bool) {
+	if pane == "" {
+		return false, false
+	}
+
+	out, err := c.query("display-message", "-p", "-t", pane, "#{pane_active},#{window_zoomed_flag}")
+	if err != nil {
+		return false, false
+	}
+
+	active, window, _ := strings.Cut(out, ",")
+
+	return active == "1", active == "1" && window == "1"
+}
+
 // IsPaneZoomed reports whether a pane is the one currently filling its window.
 func (c *Client) IsPaneZoomed(pane string) bool {
 	if pane == "" {
