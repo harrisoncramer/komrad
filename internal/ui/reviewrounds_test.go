@@ -41,19 +41,18 @@ func TestReviewRoundsNoticeSaysWhichWay(t *testing.T) {
 	assert.Empty(t, agentNotices(agentItem{}), "an agent no review has touched says nothing")
 }
 
-// TestReviewRoundsFieldSplitsTheCount pins the record carrying both numbers, which is the only
-// place the two directions are drawn apart.
-func TestReviewRoundsFieldSplitsTheCount(t *testing.T) {
-	agent := agentstore.Agent{ID: "a1", Name: "worker"}
+// TestReviewRoundsNoticeIsGivenUpFirst pins where the count sits in the order: a short pane drops
+// the notices at the tail, and a count of rounds already gone by is the one worth losing, since
+// every other mark stands for something a person can still act on.
+func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
+	notices := agentNotices(agentItem{
+		agent:          agentstore.Agent{Hidden: true},
+		unreadMail:     true,
+		roundsReceived: 2,
+	})
 
-	fields := agentFields(agentItem{agent: agent, roundsReceived: 3, roundsSent: 1}, "", "")
-	assert.Contains(t, fields, recordField{"review rounds", "3 received, 1 sent"})
-
-	labels := make([]string, 0, len(fields))
-	for _, field := range agentFields(agentItem{agent: agent}, "", "") {
-		labels = append(labels, field.label)
-	}
-	assert.NotContains(t, labels, "review rounds", "an agent no review has touched has no row for it")
+	require.Len(t, notices, 3)
+	assert.Contains(t, notices[len(notices)-1].text, "review rounds")
 }
 
 // TestAgentsViewReviewRounds pins the glyph drawn per agent, so one that has been round several

@@ -457,7 +457,7 @@ func (m model) reviewDetails() details {
 
 	item := m.listing.agents[index]
 	agent := item.agent
-	fields := agentFields(item, m.scheduleName(agent), m.parentName(agent))
+	fields := agentFields(agent, m.scheduleName(agent), m.parentName(agent))
 
 	return details{
 		id:      agent.ID,

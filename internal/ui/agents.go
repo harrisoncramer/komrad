@@ -346,7 +346,7 @@ func (m model) agentsDetails() details {
 		kind:    "Agent",
 		title:   r.item.agent.Name,
 		notices: agentNotices(r.item),
-		fields:  agentFields(r.item, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
+		fields:  agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
 	}
 }
 

@@ -26,8 +26,9 @@ const (
 	hiddenNotice          = "hidden: the sidebar leaves this row out until hidden agents are shown"
 )
 
-// reviewRoundsNotice says both directions, since the count on the row is the two of them added
-// up and which one it stands for is what tells a loop from a reviewer that has read a lot.
+// reviewRoundsNotice is the only place the two directions are drawn apart, since the count on the
+// row is the two of them added up and which one it stands for tells a loop from a reviewer that
+// has read a lot.
 func reviewRoundsNotice(item agentItem) string {
 	return fmt.Sprintf("review rounds: %d given on its work, %d it has given", item.roundsReceived, item.roundsSent)
 }
@@ -40,9 +41,9 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, colorAccent, unreadMailNotice)
 	notices = appendNotice(notices, item.agent.WorktreeRemoved, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
-	notices = appendNotice(notices, reviewRounds(item) > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item))
+	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
 
-	return appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
+	return appendNotice(notices, reviewRounds(item) > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item))
 }
 
 // failureNotices is the whole of what an archived row has to say, since every other mark stands
