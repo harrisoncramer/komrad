@@ -41,6 +41,10 @@ var (
 	// child a row with nothing to be drawn under.
 	ErrParentStillArchived = errors.New("a child agent cannot come back before its parent")
 
+	// ErrResumeInFlight says another resume of the same agent is already under way, which is one
+	// window being opened rather than a failure to open one.
+	ErrResumeInFlight = errors.New("this agent is already being resumed")
+
 	// ErrReviewerAlreadyRunning says the agent asking already has a reviewer of its own reading
 	// its work, which stays with the change across every round rather than one per round.
 	ErrReviewerAlreadyRunning = errors.New("this agent already has a reviewer")

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"slices"
+	"sync"
 	"testing"
 	"time"
 
@@ -904,13 +905,26 @@ func (agentsWithReviewer) ListChildren(_ context.Context, parentIDs []string) ([
 	}}, nil
 }
 
-// fakeResumer records the agents put back in a pane before mail is written to them.
-type fakeResumer struct{ resumed []string }
+// fakeResumer records the agents put back in a pane, which the review writes ask for on their
+// own rather than waiting for.
+type fakeResumer struct {
+	mu      sync.Mutex
+	resumed []string
+}
 
 func (f *fakeResumer) ResumeAgent(_ context.Context, id string) (*agentstore.Agent, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.resumed = append(f.resumed, id)
 
 	return &agentstore.Agent{ID: id}, nil
+}
+
+func (f *fakeResumer) took() []string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	return slices.Clone(f.resumed)
 }
 
 // TestAnsweringAReviewRingsTheReviewer pins the doorbell back the other way: a reviewer that has
@@ -953,13 +967,14 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 
 			if !tt.want {
 				assert.Empty(t, notices.sent, "the person is looking at the thread already")
-				assert.Empty(t, resumer.resumed)
+				assert.Empty(t, resumer.took())
 
 				return
 			}
 
-			assert.Equal(t, []string{reviewerAgentID}, resumer.resumed,
+			require.Eventually(t, func() bool { return len(resumer.took()) == 1 }, time.Second, 10*time.Millisecond,
 				"mail waits for a pane rather than making one, so a dormant reviewer would never be handed this")
+			assert.Equal(t, []string{reviewerAgentID}, resumer.took())
 
 			require.Len(t, notices.sent, 1)
 			assert.Equal(t, reviewerAgentID, notices.sent[0].ToAgentID)

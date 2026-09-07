@@ -390,6 +390,28 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 		"a resume that gave up leaves the row reading as it found it")
 }
 
+// TestASecondResumeOpensNoSecondWindow pins the claim inside the resume, since AddReviewMessage
+// resumes a dormant reviewer and a harness that batches its tool calls answers several threads
+// at once, which is several resumes of one agent in flight together.
+func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
+	st := newStore(t)
+	tmux := newFakeTmux()
+	ctx := t.Context()
+
+	workflowID := seedWorkflow(t, st)
+	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
+
+	claimed, err := st.Agents.MarkSettingUpIfLive(ctx, agent.ID, resumeClaimStale)
+	require.NoError(t, err)
+	require.True(t, claimed, "the resume that got there first holds the row")
+
+	manager := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, &fakeLifecycle{})
+
+	_, err = manager.resume.ResumeAgent(ctx, agent.ID)
+	require.ErrorIs(t, err, ErrResumeInFlight)
+	assert.Empty(t, tmux.newWindows, "the second resume opened no window of its own")
+}
+
 // archivingTmux runs one pull request archiving pass the first time a resume asks whether the
 // agent is already running, which is the only call between the caller reading the row and the
 // resume marking it.

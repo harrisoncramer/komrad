@@ -368,6 +368,26 @@ func (s *ReviewService) AddReviewMessage(
 	return message, nil
 }
 
+// wakeTheReviewer puts a reviewer back in a pane, since mail waits for one rather than making
+// one and nothing else would ever hand a dormant reviewer this doorbell. It runs on its own
+// because the resume runs the workflow's post-resume hook, which is not something an agent
+// writing an answer should be held up by, and the mail is already waiting whenever it lands.
+func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore.Agent) {
+	if s.resumer == nil {
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), resumeClaimStale)
+	defer cancel()
+
+	// Answers written at once each ask for the same reviewer, and the claim inside the resume is
+	// what makes that one window rather than three.
+	if _, err := s.resumer.ResumeAgent(ctx, reviewer.ID); err != nil && !errors.Is(err, ErrResumeInFlight) {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put a reviewer back in a pane to be told about an answer",
+			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
+	}
+}
+
 // ringTheReviewer tells the reviewer of an agent that the agent has answered it, since a
 // reviewer that has released its verdict is idle and nothing else in the loop wakes it.
 func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
@@ -389,15 +409,6 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 		return
 	}
 
-	// Mail waits for a pane rather than making one, so a reviewer whose pane has gone would
-	// never be handed this and the agent cannot ask for another reviewer instead.
-	if s.resumer != nil {
-		if _, err := s.resumer.ResumeAgent(ctx, reviewer.ID); err != nil {
-			logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to put a reviewer back in a pane to be told about an answer",
-				append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
-		}
-	}
-
 	if _, err := s.mailer.SendNotice(ctx, SendNoticeParams{
 		ToAgentID: reviewer.ID,
 		Body:      answerNotice(author.Name),
@@ -406,7 +417,11 @@ func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 	}); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to tell a reviewer that its review was answered",
 			append([]slog.Attr{slog.String(logging.AgentID, reviewer.ID)}, logging.Err(err)...)...)
+
+		return
 	}
+
+	go s.wakeTheReviewer(ctx, *reviewer)
 }
 
 // answerNotice is the doorbell a reviewer gets, which says where to look rather than what was

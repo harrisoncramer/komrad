@@ -380,6 +380,8 @@ SET
 WHERE
     id = @id
     AND archived_at IS NULL
+    AND (state IS DISTINCT FROM 'setting_up'
+        OR state_changed_at < NOW() - interval '1 microsecond' * @stale_micros::bigint)
 RETURNING
     id;
 

@@ -98,14 +98,20 @@ func (s *Store) ListUnseenTurns(ctx context.Context) ([]string, error) {
 	return rows, nil
 }
 
-// MarkSettingUpIfLive says a resume is in flight on one agent and reports whether it did,
-// refusing an archived row so the resume notices rather than writing a pane onto a hidden one.
-func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string) (bool, error) {
+// MarkSettingUpIfLive takes the right to resume one agent and reports whether it did, refusing
+// an archived row so the resume notices rather than writing a pane onto a hidden one, and
+// refusing a row another resume is already setting up so two of them cannot each open a window.
+// A claim older than staleAfter is taken anyway, since nothing outside the resume itself moves a
+// row out of setting_up and a resume whose process died would otherwise hold it for good.
+func (s *Store) MarkSettingUpIfLive(ctx context.Context, id string, staleAfter time.Duration) (bool, error) {
 	if !store.IsID(id) {
 		return false, nil
 	}
 
-	marked, err := s.queries.MarkAgentSettingUpIfLive(ctx, id)
+	marked, err := s.queries.MarkAgentSettingUpIfLive(ctx, models.MarkAgentSettingUpIfLiveParams{
+		ID:          id,
+		StaleMicros: staleAfter.Microseconds(),
+	})
 	if err != nil {
 		return false, fmt.Errorf("failed to mark id %q as setting up: %w", id, err)
 	}

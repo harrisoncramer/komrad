@@ -422,13 +422,37 @@ func TestMarkSettingUpClearsTheReportedReason(t *testing.T) {
 	require.NotNil(t, created)
 	require.NoError(t, st.SetReportedReason(ctx, created.ID, "Bash"))
 
-	marked, err := st.MarkSettingUpIfLive(ctx, created.ID)
+	marked, err := st.MarkSettingUpIfLive(ctx, created.ID, time.Minute)
 	require.NoError(t, err)
 	require.True(t, marked)
 
 	resumed, err := st.Get(ctx, "agent")
 	require.NoError(t, err)
 	assert.Empty(t, resumed.ReportedReason)
+}
+
+// TestMarkSettingUpIsClaimedOnce pins that two resumes racing on one agent do not both go on to
+// open a window, and that a claim left behind by a resume that died is taken over rather than
+// holding the row for good.
+func TestMarkSettingUpIsClaimedOnce(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+
+	require.NoError(t, st.Create(ctx, Agent{Name: "agent", State: StateIdle}))
+	created, err := st.Get(ctx, "agent")
+	require.NoError(t, err)
+
+	claimed, err := st.MarkSettingUpIfLive(ctx, created.ID, time.Minute)
+	require.NoError(t, err)
+	require.True(t, claimed)
+
+	second, err := st.MarkSettingUpIfLive(ctx, created.ID, time.Minute)
+	require.NoError(t, err)
+	assert.False(t, second, "the second resume is the one that would open the extra window")
+
+	takenOver, err := st.MarkSettingUpIfLive(ctx, created.ID, 0)
+	require.NoError(t, err)
+	assert.True(t, takenOver, "a claim older than the window belongs to a resume that is gone")
 }
 
 // TestSetTurnEndedRefusesAnIDThatIsNotOne pins that a malformed id is an error rather than a

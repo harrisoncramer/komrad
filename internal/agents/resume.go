@@ -23,11 +23,15 @@ const interruptedPrompt = "Your last turn was cut off part-way through when your
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
 	"say so rather than doing it again."
 
+// resumeClaimStale is how long a resume may hold the row before another one takes it over, which
+// has to outlast the post-resume hook the claim is held across.
+const resumeClaimStale = hookTimeout + 5*time.Minute
+
 // resumeAgentReadWriter is the slice of the agent store a resume writes to, which is the row's state
 // and the pane it comes back in.
 type resumeAgentReadWriter interface {
 	agentGetter
-	MarkSettingUpIfLive(ctx context.Context, id string) (bool, error)
+	MarkSettingUpIfLive(ctx context.Context, id string, staleAfter time.Duration) (bool, error)
 	SetStateByID(ctx context.Context, id string, state agentstore.State) error
 	SetInterruptedAtByID(ctx context.Context, id string, at *time.Time) error
 	UpdateIfLive(ctx context.Context, agent agentstore.Agent) (bool, error)
@@ -103,6 +107,20 @@ func (s *ResumeService) getByID(ctx context.Context, id string) (*agentstore.Age
 	return agent, nil
 }
 
+// whyUnclaimed says which of the two rows a claim refuses this was, since one is the caller's to
+// fix by restoring the agent and the other is somebody else already doing this work.
+func (s *ResumeService) whyUnclaimed(ctx context.Context, agent agentstore.Agent) error {
+	current, err := s.agents.GetByID(ctx, agent.ID)
+	if err != nil {
+		return fmt.Errorf("failed to read %q after its resume was refused: %w", agent.Name, err)
+	}
+	if current.ArchivedAt != nil {
+		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+	}
+
+	return fmt.Errorf("%w: %q is already being resumed", ErrResumeInFlight, agent.Name)
+}
+
 func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) error {
 	hn, err := s.harnesses.GetByID(agent.Harness)
 	if err != nil {
@@ -111,12 +129,12 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	// Until this write the row reads as a dormant agent nobody is touching, which is exactly what
 	// a background pass archives.
-	live, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID)
+	claimed, err := s.agents.MarkSettingUpIfLive(ctx, agent.ID, resumeClaimStale)
 	if err != nil {
 		return fmt.Errorf("failed to mark %q as resuming: %w", agent.Name, err)
 	}
-	if !live {
-		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
+	if !claimed {
+		return s.whyUnclaimed(ctx, agent)
 	}
 
 	// Read before the resume starts overwriting the copy it was handed, since the restore
