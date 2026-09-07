@@ -27,6 +27,20 @@ func sizedTo(m model, tmux *recordingTmux) model {
 	return m
 }
 
+// resizedTo puts the terminal and the panel's pane at the same size, since the panel reads its
+// size back from the pane.
+func resizedTo(t *testing.T, m model, width, height int) model {
+	t.Helper()
+
+	tmux, ok := m.tmux.(*recordingTmux)
+	require.True(t, ok)
+	tmux.width, tmux.height = width, height
+
+	sized, _ := m.route(tea.WindowSizeMsg{Width: width, Height: height})
+
+	return asModel(t, sized)
+}
+
 // TestAgentsDrawTheHoveredRowsNotes covers a row with no pane of its own, whose notes are drawn in
 // the panel's own frame now rather than paged into the stage.
 func TestAgentsDrawTheHoveredRowsNotes(t *testing.T) {
@@ -86,10 +100,8 @@ func TestAgentsSayWhyADormantAgentHasNoPane(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.View()), "dormant", "and says so in its own frame")
 }
 
-// TestLeavingARunningAgentKeepsTheWindow covers the cursor coming off an agent onto a row with no
-// pane, where the guest is swapped back out from under a panel that has just taken the window: the
-// swap drops the zoom, and the panel was left in its share of the frame with the blank stage it
-// had just drawn standing beside it.
+// TestLeavingARunningAgentKeepsTheWindow covers moving off an agent onto a row with no pane, where
+// the swap that puts the agent's pane back drops the zoom and left an empty pane beside the panel.
 func TestLeavingARunningAgentKeepsTheWindow(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
@@ -103,6 +115,19 @@ func TestLeavingARunningAgentKeepsTheWindow(t *testing.T) {
 
 	assert.True(t, m.frame.IsSolo(), "the panel means to hold the window on a row with no pane")
 	assert.True(t, tmux.zoomed, "and tmux is holding it, rather than the frame only believing so")
+}
+
+// TestTheFrameCoversThePane covers the rows under a short frame, which used to keep whatever the
+// taller frame before it had drawn there.
+func TestTheFrameCoversThePane(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+
+	// The running agent, whose own pane takes the window back, which is the short frame.
+	m.tree.cursor = 1
+	m.stageSelection()
+
+	assert.Len(t, strings.Split(m.View(), "\n"), m.height, "the frame is as tall as the pane it is painted into")
 }
 
 // TestSchedulesDrawTheHoveredRecord covers the schedule's own record standing beside the list.

@@ -15,9 +15,8 @@ type Frame struct {
 	guest   string
 	solo    bool
 
-	// moved says the frame has issued a command tmux drops a window's zoom on since the zoom was
-	// last put back, which is what separates a call that took the zoom down from the refresh tick
-	// asking for content that is already up.
+	// moved says the frame has run a command tmux drops the zoom on since the zoom was last put
+	// back, which the refresh tick has not.
 	moved bool
 	shown map[Region]shown
 }
@@ -180,6 +179,15 @@ func (f *Frame) SyncKeys() {
 	f.solo = zoomed
 }
 
+// SidebarSize is how big tmux has the panel's own pane right now.
+func (f *Frame) SidebarSize() (width, height int) {
+	if f.sidebar == "" {
+		return 0, 0
+	}
+
+	return f.tmux.GetPaneWidth(f.sidebar), f.tmux.GetPaneHeight(f.sidebar)
+}
+
 // SidebarWidth is how many columns the sidebar draws in when it is holding a window of the
 // given width, which is what a screen splitting the window itself lays itself out against.
 func (f *Frame) SidebarWidth(total int) int { return f.spec.SidebarWidth(total) }
@@ -213,15 +221,13 @@ func (f *Frame) ReleaseGuest(pane string) {
 	}
 }
 
-// restoreSolo puts the sidebar's zoom back after the frame has moved the panes under it, since
-// split-window, swap-pane, resize-pane, kill-pane and break-pane each unzoom the window and call
-// into nothing when they do.
+// restoreSolo puts the sidebar's zoom back after the frame has moved the panes, since
+// split-window, swap-pane, resize-pane, kill-pane and break-pane all drop it silently.
 func (f *Frame) restoreSolo() {
 	moved := f.moved
 	f.moved = false
 
-	// A zoomed sidebar covers the pane the logs and the editor are drawn in, so the window is
-	// left alone while one is up rather than taken back over what was just opened.
+	// A zoomed sidebar covers the info pane, so the window is left alone while one is up.
 	if !moved || !f.solo || f.sidebar == "" || f.info != "" {
 		return
 	}

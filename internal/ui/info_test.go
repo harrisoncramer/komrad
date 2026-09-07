@@ -173,8 +173,7 @@ func (t *recordingTmux) SplitAbove(anchor, _, _ string) string {
 	return t.split("%2")
 }
 
-// split answers with the pane a split left, dropping the zoom the way tmux does, since
-// split-window unzooms the window it lands in and calls into nothing when it does.
+// split answers with the pane a split left, dropping the zoom the way tmux does.
 func (t *recordingTmux) split(pane string) string {
 	t.zoomed = false
 
@@ -200,8 +199,7 @@ func (t *recordingTmux) SetGlobal(name, value string) {
 func (t *recordingTmux) GetSiblingPanes(string) []string { return nil }
 func (t *recordingTmux) GetPaneOwner(string) string      { return "" }
 
-// SwapPanes, BreakPane, KillPane and ResizePane each drop the zoom, which is what tmux was
-// measured to do and what the frame puts back.
+// SwapPanes, BreakPane, KillPane and ResizePane each drop the zoom, the way tmux does.
 func (t *recordingTmux) SwapPanes(string, string) {
 	t.swaps++
 	t.zoomed = false

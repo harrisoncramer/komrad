@@ -15,6 +15,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/huh"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -535,9 +536,7 @@ func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
 }
 
 // TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server, since
-// swap-pane, split-window and resize-pane all drop a window's zoom and call into nothing when they
-// do, which no fake tmux would have told the frame: the cursor coming off a running agent onto its
-// folder left the panel in its share of the frame with the blank stage beside it.
+// the zoom these swaps drop is only real there.
 func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -592,4 +591,72 @@ func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 
 	assert.True(t, panel.frame.IsSolo(), "the panel means to hold the window on its folder row")
 	assert.Equal(t, "1", zoomed(), "and tmux is holding it, rather than the frame only believing so")
+}
+
+// TestPanelIsTheSizeOfThePaneItWasGiven covers the panel drawing at the size of the pane it has
+// just been given rather than the one it had before the zoom, which is what the flicker was.
+func TestPanelIsTheSizeOfThePaneItWasGiven(t *testing.T) {
+	instance := weavetest.Start(t, weavetest.Params{})
+	ctx := t.Context()
+
+	workflow, err := instance.Workflows.CreateWorkflow(ctx, connect.NewRequest(&workflowv1.CreateWorkflowRequest{
+		Name: "backend",
+		Cwd:  t.TempDir(),
+	}))
+	require.NoError(t, err)
+
+	created, err := instance.Agents.CreateAgent(ctx, connect.NewRequest(&agentv1.CreateAgentRequest{
+		Prompt:     "fix the flaky login test",
+		Title:      "login",
+		WorkflowId: workflow.Msg.GetWorkflow().GetId(),
+	}))
+	require.NoError(t, err)
+	require.NotEmpty(t, instance.GetOwnedPane(created.Msg.GetAgent().GetId()))
+
+	instance.Tmux.NewSession(panelSession)
+	sidebar := instance.Tmux.Run("display-message", "-p", "-t", panelSession, "#{pane_id}")
+	instance.Tmux.Run("resize-window", "-t", panelSession, "-x", "341", "-y", "50")
+
+	client := instance.Tmux.Client()
+	panel := model{
+		api: api{
+			agents:    instance.Agents,
+			workflows: instance.Workflows,
+			schedules: instance.Schedules,
+			hooks:     instance.Hooks,
+		},
+		tmux:   client,
+		popup:  NewPopupWindow(client, panelSession),
+		frame:  layout.New(client, config.DefaultLayout()),
+		keys:   config.DefaultKeybindings(),
+		screen: screenAgents,
+	}
+	panel.frame.Attach(sidebar)
+	panel = settle(t, panel, panel.refreshCmd())
+	require.Equal(t, []string{"header:backend", "agent:login"}, describeRows(panel.agentRows()))
+
+	// The one report the panel gets for free, which is the terminal's own on the way in.
+	panel.width, panel.height = client.GetPaneWidth(sidebar), client.GetPaneHeight(sidebar)
+	share := panel.width
+	require.Less(t, share, 341, "the panel starts on its share of the frame")
+
+	paneWidth := func() int {
+		width, _ := panel.frame.SidebarSize()
+
+		return width
+	}
+
+	panel.tree.cursor = 0
+	panel.stageSelection()
+
+	require.Equal(t, 341, paneWidth(), "the folder row takes the window")
+	assert.Equal(t, paneWidth(), panel.width, "and the panel is the size of the pane it now has")
+	assert.Equal(t, 341, lipgloss.Width(panel.View()), "so the frame covers it")
+
+	panel.tree.cursor = 1
+	panel.stageSelection()
+
+	require.Equal(t, share, paneWidth(), "the agent's own pane takes it back")
+	assert.Equal(t, paneWidth(), panel.width, "and the panel is the size of the pane it is left with")
+	assert.LessOrEqual(t, lipgloss.Width(panel.View()), share, "so nothing it draws runs past the pane and wraps")
 }
