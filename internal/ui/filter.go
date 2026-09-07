@@ -99,6 +99,12 @@ func (m model) openFilter() (tea.Model, tea.Cmd) {
 }
 
 func (m *model) enterScreen(next screen) {
+	// A pane opened on a screen that takes these keys would follow the reader onto one that does
+	// not, where no key is left to close it, so it goes while the screen it belongs to is still up.
+	if !next.opensInfoPane() && m.info.kind != infoNothing {
+		*m = m.closeInfo()
+	}
+
 	if m.screen != next {
 		m.filter = filterState{}
 		m.popup.HoldFocusKey(m.focusKey, m.pane, next == screenAgents)
