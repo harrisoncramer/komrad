@@ -249,8 +249,8 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 }
 
-// TestFocusKeyHeldOnlyOverAStagedAgent pins the key being taken from the panes only while an
-// agent's own pane is on the stage, which is the whole of what scopes an unconditional binding.
+// TestFocusKeyHeldOnlyOverAStagedAgent checks the key is bound only while an agent's pane is on
+// the stage, since the binding is unconditional for as long as it stands.
 func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)
@@ -280,8 +280,8 @@ func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	assert.Equal(t, []string{"C-a", "C-a"}, binds.unbound)
 }
 
-// TestFocusKeyGivenBackByADeadAgent pins the row with no pane of its own being the same answer as
-// a workflow header, since the key would otherwise go to whatever pane was last worked in.
+// TestFocusKeyGivenBackByADeadAgent checks a row with no pane of its own unbinds the key, which
+// would otherwise jump to whatever pane was last worked in.
 func TestFocusKeyGivenBackByADeadAgent(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)
@@ -295,8 +295,8 @@ func TestFocusKeyGivenBackByADeadAgent(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, binds.unbound)
 }
 
-// TestFocusKeyReachesTmuxOnce pins a settled key being left alone, since the panel works this out
-// on every message and cannot pay for a tmux call each time.
+// TestFocusKeyReachesTmuxOnce checks a key that is already right is left alone, since the panel
+// works this out on every message and cannot call tmux each time.
 func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)

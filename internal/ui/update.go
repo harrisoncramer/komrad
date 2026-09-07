@@ -47,9 +47,8 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return routed, tea.Batch(cmd, blink)
 }
 
-// holdFocusKey stands the focus key up exactly while an agent's own pane is the one on the stage,
-// which is the same question staging asks, since a workflow header and an agent with no pane both
-// leave the key nowhere of the cursor's to go to.
+// holdFocusKey binds the focus key while an agent's pane is on the stage, and gives it back when
+// there is no pane for the key to jump to.
 func (m model) holdFocusKey() {
 	m.popup.HoldFocusKey(m.focusKey, m.pane, m.screen == screenAgents && !m.hasNoAgentPane())
 }

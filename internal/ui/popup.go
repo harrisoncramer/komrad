@@ -18,8 +18,7 @@ type popupTmux interface {
 type PopupWindow struct {
 	tmux    popupTmux
 	session string
-	// holding is what the key is doing now, unset until the panel has settled it once so the
-	// first pass reaches tmux rather than trusting a server it has not touched.
+	// holding is whether the key is bound, and is nil until the panel has bound or unbound it once.
 	holding *bool
 }
 
@@ -51,9 +50,9 @@ func (p *PopupWindow) BindHide(key string) {
 // call back into weave, and coming back is tmux's own last-pane, so nothing here remembers where
 // the press came from. A press with no pane to go back to is refused by tmux and does nothing,
 // which is the same outcome as returning to a pane that has since died. A root binding is
-// unconditional for as long as it stands, so the panel only stands it up while an agent's own pane
-// is on the stage, and takes it back on a workflow header, on an agent with no pane, and on the
-// screens that stage no agent at all.
+// unconditional for as long as it stands, so the panel binds it only while an agent's pane is on
+// the stage, and unbinds it on a workflow header, on an agent with no pane, and on the screens
+// that stage no agent.
 
 // HoldFocusKey takes the key that moves focus between the panel's sidebar and the pane last
 // worked in, or gives it back to the panes, and does neither when the key or the pane is empty.
