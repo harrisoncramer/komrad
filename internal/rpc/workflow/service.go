@@ -71,7 +71,8 @@ func (s *Service) ListWorkflows(ctx context.Context, req *connect.Request[workfl
 		return nil, err
 	}
 
-	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, marks[w.ID]) })
+	view := workflowViewOptions(req.Msg.GetView())
+	resources := xslice.Map(stored, func(w workflowstore.Workflow) workflow { return renderWorkflow(w, marks[w.ID], view...) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {

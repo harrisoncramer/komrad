@@ -4,6 +4,7 @@ import (
 	"context"
 
 	paginationv1 "weave/proto/gen/pagination/v1"
+	viewv1 "weave/proto/gen/view/v1"
 	workflowv1 "weave/proto/gen/workflow/v1"
 	"weave/proto/gen/workflow/v1/workflowv1connect"
 
@@ -27,6 +28,7 @@ func listAllWorkflows(ctx context.Context, workflows workflowv1connect.WorkflowS
 		resp, err := workflows.ListWorkflows(ctx, connect.NewRequest(&workflowv1.ListWorkflowsRequest{
 			Pagination: page,
 			Archived:   archived,
+			View:       viewv1.View_VIEW_FULL,
 		}))
 		if err != nil {
 			return nil, "", err

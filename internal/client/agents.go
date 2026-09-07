@@ -6,6 +6,7 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	paginationv1 "weave/proto/gen/pagination/v1"
+	viewv1 "weave/proto/gen/view/v1"
 
 	"connectrpc.com/connect"
 )
@@ -28,6 +29,7 @@ func listAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient
 		resp, err := agents.ListAgents(ctx, connect.NewRequest(&agentv1.ListAgentsRequest{
 			Pagination: page,
 			Archived:   archived,
+			View:       viewv1.View_VIEW_FULL,
 		}))
 		if err != nil {
 			return nil, "", err

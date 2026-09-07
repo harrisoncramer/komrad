@@ -4,7 +4,7 @@ List the agents the panel tracks, live and dormant, with each one's name, state,
 
 ### Synopsis
 
-List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. Start here to find the id or name another tool needs.
+List the agents the panel tracks, live and dormant, with each one's name, state, working directory, flags, and workflow. Archived agents are excluded unless archived is set, which lists those and only those. Returns one page, most recently updated first; pass the response's nextPageToken back as pagination.cursor for the next one. The summary this returns by default holds only the opening of each agent's prompt, marked by promptTruncated; get_agent returns one whole, and view VIEW_FULL returns every prompt on the page at the cost of a very large reply. Start here to find the id or name another tool needs.
 
 ```
 weave rpc list-agents [flags]
@@ -20,6 +20,7 @@ weave rpc list-agents [flags]
       --pagination.limit int32     int32
       --request-json string        the whole request as JSON, which the flags above are laid over
       --timeout duration           how long to wait for the call (default 30s)
+      --view string                VIEW_SUMMARY|VIEW_FULL
 ```
 
 ### Options inherited from parent commands

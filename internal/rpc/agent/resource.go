@@ -1,13 +1,16 @@
 package agent
 
 import (
+	"weave/internal/rpc/render"
 	"weave/lib/dates"
 
 	agentstore "weave/internal/store/agent"
 	mailstore "weave/internal/store/mail"
 	transcriptstore "weave/internal/store/transcript"
 	"weave/lib/xslice"
+	"weave/lib/xstr"
 	agentv1 "weave/proto/gen/agent/v1"
+	viewv1 "weave/proto/gen/view/v1"
 )
 
 type agent struct {
@@ -35,10 +38,42 @@ type agentFlags struct {
 	failedRunLog *int32
 }
 
-func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
+// agentOptions is how much of an agent renderAgent draws.
+type agentOptions struct {
+	promptHead int
+}
+
+type agentOption = render.LoadOption[agentOptions]
+
+// withPromptHead draws the opening of the prompt rather than the whole of it.
+func withPromptHead(limit int) agentOption {
+	return func(o *agentOptions) { o.promptHead = limit }
+}
+
+// agentViewOptions turns the view a request asked for into the options renderAgent takes, so the
+// enum stops at the handler rather than reaching the renderer.
+func agentViewOptions(view viewv1.View) []agentOption {
+	if view == viewv1.View_VIEW_FULL {
+		return nil
+	}
+
+	return []agentOption{withPromptHead(render.SummaryHead)}
+}
+
+func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption) agent {
+	options := agentOptions{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
 	metadata := xslice.Map(stored.Metadata, func(entry agentstore.Metadata) *agentv1.AgentMetadata {
 		return &agentv1.AgentMetadata{Key: entry.Key, Value: entry.Value}
 	})
+
+	prompt, promptTruncated := stored.Prompt, false
+	if options.promptHead > 0 {
+		prompt, promptTruncated = xstr.Head(stored.Prompt, options.promptHead)
+	}
 
 	return agent{
 		Agent: &agentv1.Agent{
@@ -46,7 +81,8 @@ func renderAgent(stored agentstore.Agent, flags agentFlags) agent {
 			Name:             stored.Name,
 			Cwd:              stored.Cwd,
 			Flags:            stored.Flags,
-			Prompt:           stored.Prompt,
+			Prompt:           prompt,
+			PromptTruncated:  promptTruncated,
 			PaneId:           stored.Pane,
 			State:            string(stored.State),
 			Role:             string(stored.Role),

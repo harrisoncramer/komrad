@@ -38,9 +38,9 @@ type Paginator[C Cursor, M Cursorable[C]] struct {
 	cursor *C
 }
 
-// The limits a Paginator applies, so a caller that asks for nothing gets a readable page
-// and one that asks for too much is capped. The cap is what a caller reading the page through
-// a context window can actually take, rather than what the database could return.
+// The limits a Paginator applies, so a caller that asks for nothing gets a readable page and one
+// that asks for too much is capped to what a caller reading the page through a context window can
+// take, rather than to what the database could return.
 const (
 	defaultLimit int64 = 20
 	maxLimit     int64 = 100

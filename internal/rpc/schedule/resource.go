@@ -4,8 +4,11 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/rpc/render"
 	schedulestore "weave/internal/store/schedule"
+	"weave/lib/xstr"
 	schedulev1 "weave/proto/gen/schedule/v1"
+	viewv1 "weave/proto/gen/view/v1"
 
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -20,7 +23,39 @@ func (s schedule) Cursor() (schedulestore.Cursor, error) {
 	return s.cursor, nil
 }
 
-func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
+// scheduleOptions is how much of a schedule renderSchedule draws.
+type scheduleOptions struct {
+	promptHead int
+}
+
+type scheduleOption = render.LoadOption[scheduleOptions]
+
+// withPromptHead draws the opening of the prompt rather than the whole of it.
+func withPromptHead(limit int) scheduleOption {
+	return func(o *scheduleOptions) { o.promptHead = limit }
+}
+
+// scheduleViewOptions turns the view a request asked for into the options renderSchedule takes,
+// so the enum stops at the handler rather than reaching the renderer.
+func scheduleViewOptions(view viewv1.View) []scheduleOption {
+	if view == viewv1.View_VIEW_FULL {
+		return nil
+	}
+
+	return []scheduleOption{withPromptHead(render.SummaryHead)}
+}
+
+func renderSchedule(s schedulestore.Schedule, now time.Time, opts ...scheduleOption) schedule {
+	options := scheduleOptions{}
+	for _, opt := range opts {
+		opt(&options)
+	}
+
+	prompt, promptTruncated := s.Prompt, false
+	if options.promptHead > 0 {
+		prompt, promptTruncated = xstr.Head(s.Prompt, options.promptHead)
+	}
+
 	rendered := &schedulev1.Schedule{
 		Id:                s.ID,
 		Name:              s.Name,
@@ -28,7 +63,8 @@ func renderSchedule(s schedulestore.Schedule, now time.Time) schedule {
 		Timezone:          s.Timezone,
 		Enabled:           s.Enabled,
 		HideAgents:        s.HideAgents,
-		Prompt:            s.Prompt,
+		Prompt:            prompt,
+		PromptTruncated:   promptTruncated,
 		WorkflowId:        s.WorkflowID,
 		LastResultStatus:  string(s.LastResultStatus),
 		LastResultMessage: s.LastResultMessage,

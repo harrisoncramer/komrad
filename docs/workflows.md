@@ -22,6 +22,12 @@ It reaches only agents spawned afterwards, since an agent already provisioned ho
 
 Which CLI the agents run is known as the "harness." Currently, `claude` and `codex` are supported. Like all settings, agents already spawned keep the harness they started on, so changing this only affects new ones.
 
+## Excluding paths from the diff
+
+The panel draws a diff of what each agent has written, and generated output drowns it: a regenerated protobuf or sqlc directory is thousands of lines nobody reads. A workflow can name paths to leave out, as directories or globs relative to the agent's checkout, such as `proto/gen` or `*.pb.go`.
+
+The list is read every time a diff is drawn rather than snapshotted at launch, so adding to it fixes the agents already running as well as the ones spawned afterwards.
+
 ## The context
 
 Weave assembles the appended system prompt in three layers, general to specific: the standing briefing about weave itself (the MCP, how to send mail, etc), your global context file, shared across all agents, and then the workflow's context. The workflow comes last, so it reads as the final word on anything the layers above it also mention. The global file is configured under `[context]` in your [config](configuration.md).

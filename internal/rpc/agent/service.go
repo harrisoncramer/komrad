@@ -279,7 +279,8 @@ func (s *Service) ListAgents(ctx context.Context, req *connect.Request[agentv1.L
 		return nil, err
 	}
 
-	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, flags(a)) })
+	view := agentViewOptions(req.Msg.GetView())
+	resources := xslice.Map(agents, func(a agentstore.Agent) agent { return renderAgent(a, flags(a), view...) })
 
 	next, err := paginator.NextToken(resources)
 	if err != nil {

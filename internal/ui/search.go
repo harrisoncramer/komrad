@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"weave/internal/client"
 	"weave/lib/xslice"
 	agentv1 "weave/proto/gen/agent/v1"
 	paginationv1 "weave/proto/gen/pagination/v1"
@@ -152,12 +153,12 @@ func (m *model) applySearch(result searchResult) tea.Cmd {
 }
 
 func (m model) previewCmd(hit searchHit) tea.Cmd {
-	client := m.api.agents
+	agents := m.api.agents
 	query := m.search.query
 
 	return func() tea.Msg {
 		content, err := call(agentsTimeout, func(ctx context.Context) (string, error) {
-			transcript, err := weaveclient.GetFullTranscript(ctx, client, hit.agentID)
+			transcript, err := client.GetFullTranscript(ctx, agents, hit.agentID)
 			if err != nil {
 				return "", err
 			}

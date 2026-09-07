@@ -760,10 +760,10 @@ const file_schedule_v1_schedule_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\x12\x18\n" +
 	"\aenabled\x18\x02 \x01(\bR\aenabled\"1\n" +
 	"\x16ArchiveScheduleRequest\x12\x17\n" +
-	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\x9e\x11\n" +
-	"\x0fScheduleService\x12\xf5\x02\n" +
-	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\x9c\x02\x9a\xb5\x18\x94\x02\n" +
-	"\x0elist_schedules\x12\x81\x02List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next.\x90\x02\x01\x12\xb0\x01\n" +
+	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id2\xe4\x12\n" +
+	"\x0fScheduleService\x12\xbb\x04\n" +
+	"\rListSchedules\x12!.schedule.v1.ListSchedulesRequest\x1a\".schedule.v1.ListSchedulesResponse\"\xe2\x03\x9a\xb5\x18\xda\x03\n" +
+	"\x0elist_schedules\x12\xc7\x03List the recurring agent launches, most recently updated first, with each one's cron expression, prompt, workflow, next run time, and the outcome of its last firing. Returns one page; pass the response's nextPageToken back as pagination.cursor for the next. The summary this returns by default holds only the opening of each schedule's prompt, marked by promptTruncated; get_schedule returns one whole, and view VIEW_FULL returns every prompt on the page.\x90\x02\x01\x12\xb0\x01\n" +
 	"\vGetSchedule\x12\x1f.schedule.v1.GetScheduleRequest\x1a .schedule.v1.GetScheduleResponse\"^\x9a\xb5\x18W\n" +
 	"\fget_schedule\x12GFetch one schedule by id. Returns not_found if no schedule has that id.\x90\x02\x01\x12\xc3\x04\n" +
 	"\x0eCreateSchedule\x12\".schedule.v1.CreateScheduleRequest\x1a#.schedule.v1.CreateScheduleResponse\"\xe7\x03\x9a\xb5\x18\xe2\x03\n" +

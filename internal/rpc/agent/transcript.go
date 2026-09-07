@@ -3,6 +3,7 @@ package agent
 import (
 	"context"
 	"fmt"
+	"unicode/utf8"
 
 	"weave/internal/caller"
 	"weave/internal/rpcerr"
@@ -60,9 +61,9 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 	}), nil
 }
 
-// maxTranscriptWindow is the most content one GetTranscript call returns. A transcript runs to
-// a hundred kilobytes, which is more than a caller reading it through a context window can take
-// in one piece, so the rest is fetched by following the page token.
+// maxTranscriptWindow is the most content one GetTranscript call returns, since a transcript runs
+// to a hundred kilobytes and a caller reading it through a context window takes the rest of it by
+// following the page token.
 const maxTranscriptWindow = 32 * 1024
 
 // GetTranscript returns one window of an agent's stored transcript by id, so the search preview
@@ -85,6 +86,9 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetAgentId()))
 	}
 
+	// The store hands over the whole transcript and the window is cut from it below, so the cap
+	// bounds what the caller reads rather than what the server does, and paging one to its end
+	// costs the whole transcript once per window.
 	tr, err := s.transcripts.Get(ctx, req.Msg.GetAgentId())
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to get transcript")
@@ -99,8 +103,8 @@ func (s *Service) GetTranscript(ctx context.Context, req *connect.Request[agentv
 }
 
 // transcriptWindow cuts the window the request asked for out of content and mints the token for
-// the one after it. The cut is rune-safe, so the offset a token carries always lands between
-// characters and a window is always text the caller can decode.
+// the one after it, cutting between runes so that the offset a token carries always names the
+// start of a character and a window is always text the caller can decode.
 func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, requested int32) (string, *string, error) {
 	limit := maxTranscriptWindow
 	if requested > 0 && int(requested) < limit {
@@ -116,6 +120,11 @@ func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, req
 	// the agent is still writing grows between one call and the next.
 	if offset >= len(content) {
 		return "", nil, nil
+	}
+
+	if !utf8.RuneStart(content[offset]) {
+		return "", nil, connect.NewError(connect.CodeInvalidArgument,
+			fmt.Errorf("cursor no longer names the start of a character, since the transcript was rewritten; read it again from the first window"))
 	}
 
 	window, truncated := xstr.Head(content[offset:], limit)

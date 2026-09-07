@@ -11,8 +11,9 @@ import (
 	"connectrpc.com/connect"
 )
 
-// GetFullTranscript returns one agent's whole transcript, following the page tokens until the
-// content is exhausted, since the endpoint returns a bounded window of it at a time.
+// GetFullTranscript returns one agent's transcript, following the page tokens until the content
+// is exhausted or the page ceiling is reached, since a preview of most of a very long conversation
+// beats an error where the caller wanted something to draw.
 func GetFullTranscript(ctx context.Context, agents agentv1connect.AgentServiceClient, agentID string) (string, error) {
 	var (
 		content strings.Builder
@@ -39,5 +40,5 @@ func GetFullTranscript(ctx context.Context, agents agentv1connect.AgentServiceCl
 		cursor = resp.Msg.GetNextPageToken()
 	}
 
-	return "", fmt.Errorf("failed to get transcript: still paging after %d pages", maxPages)
+	return content.String(), nil
 }
