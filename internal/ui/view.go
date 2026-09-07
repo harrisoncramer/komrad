@@ -92,9 +92,9 @@ func (m model) screenView() string {
 // moves every row below it.
 func (m model) heldFormView() string {
 	view := m.form.form.View()
-	if !m.pendingForm {
+	if !m.held.active {
 		return view
 	}
 
-	return strings.TrimRight(view, "\n") + "\n" + dimStyle.Render(submittingNotice(m.pendingSince, time.Now()))
+	return strings.TrimRight(view, "\n") + "\n" + dimStyle.Render(submittingNotice(m.held.since, time.Now()))
 }

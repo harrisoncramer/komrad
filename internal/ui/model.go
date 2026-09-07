@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"os"
 	"strings"
-	"time"
 
 	"weave/config"
 	"weave/internal/errui"
@@ -112,13 +111,7 @@ type model struct {
 	column        columnState
 	marks         markState
 	form          formState
-	pendingForm   bool
-	// pendingSince is when the write the form is being held for was sent, which the notice above
-	// the form counts up from so a provisioner taking its time does not read as a wedged panel.
-	pendingSince time.Time
-	// pendingEpoch is the write the held form is waiting on, since a person who escapes a slow
-	// create and submits another has two in flight and only one of them owns the form.
-	pendingEpoch int
+	held          heldWrite
 	// detached holds the writes a person escaped out of, which land without taking the screen
 	// to what they made since whoever walked away is somewhere else by then.
 	detached map[int]struct{}

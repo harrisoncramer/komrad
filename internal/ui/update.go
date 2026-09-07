@@ -51,8 +51,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m = m.resizeTo(size)
 	}
 
+	key, isKey := msg.(tea.KeyMsg)
+
 	if m.fatal() != nil {
-		if _, ok := msg.(tea.KeyMsg); ok {
+		if isKey {
 			return m, tea.Quit
 		}
 
@@ -62,23 +64,21 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// A mark binding owns the key after it, whatever that key is otherwise bound to, and takes it
 	// ahead of the banner's own escape, which would otherwise eat the press that backs out of a
 	// mark and leave the panel waiting for a letter with nothing on screen saying so.
-	if key, ok := msg.(tea.KeyMsg); ok && m.marks.pending != markPendingNone {
+	if isKey && m.marks.pending != markPendingNone {
 		return m.readMark(key)
 	}
 
-	if m.banner != nil && !m.form.isActive() {
-		if key, ok := msg.(tea.KeyMsg); ok && key.String() == "esc" {
-			m.banner = nil
+	if isKey && m.banner != nil && !m.form.isActive() && key.String() == "esc" {
+		m.banner = nil
 
-			return m, nil
-		}
+		return m, nil
 	}
 
 	if next, cmd, handled := m.routeAsyncMessage(msg); handled {
 		return next, cmd
 	}
 
-	if key, ok := msg.(tea.KeyMsg); ok && m.pendingForm {
+	if isKey && m.held.active {
 		// A provision can run for minutes, so esc gives the panel back rather than holding the
 		// keyboard for the whole of it, with the write left in flight.
 		if key.String() == "esc" {
@@ -94,8 +94,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.form.update(m, m.formSizeOf(msg))
 	}
 
-	key, ok := msg.(tea.KeyMsg)
-	if !ok {
+	if !isKey {
 		return m, nil
 	}
 
@@ -103,8 +102,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.updateFilterInput(key)
 	}
 
-	// Something being typed into owns the keyboard, since every global key is also a character
-	// somebody means to type.
+	// The filter has gone by here, so what is left is the screen's own input, which owns the
+	// keyboard since every global key is also a character somebody means to type.
 	if m.isTyping() {
 		return m.routeScreenKey(key)
 	}
@@ -271,9 +270,13 @@ func (m model) routeAsyncMessage(msg tea.Msg) (tea.Model, tea.Cmd, bool) {
 	}
 }
 
-// isTyping reports whether the panel's own bindings are off: a text input is up taking
-// characters, or a key prefix is waiting on the key that completes it.
+// isTyping reports whether the panel's own bindings are off, which is the list's filter, a text
+// input the screen put up, or a key prefix waiting on the key that completes it.
 func (m model) isTyping() bool {
+	if m.filter.typing {
+		return true
+	}
+
 	typing := m.screen.spec().typing
 
 	return typing != nil && typing(m)

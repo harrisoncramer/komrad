@@ -138,7 +138,7 @@ func TestFormStaysInsideTheFrameUnderABanner(t *testing.T) {
 		m = delivered(t, m, cmd)
 
 		// The submit the service refuses, which holds the form up and puts the reason over it.
-		m.pending, m.pendingForm = 1, true
+		m.pending, m.held = 1, heldWrite{active: true}
 		refused, cmd := m.applyWrite(writeResult{summary: "Could not create the workflow", err: errNoWorkflow})
 		m = asModel(t, refused)
 		m = delivered(t, m, cmd)
@@ -160,7 +160,7 @@ func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
 		m = asModel(t, opened)
 		m = delivered(t, m, cmd)
 
-		m.pending, m.pendingForm, m.pendingSince = 1, true, time.Now()
+		m.pending, m.held = 1, heldWrite{active: true, since: time.Now()}
 		m = delivered(t, m, formResized())
 
 		lines := strings.Split(strings.TrimRight(ansi.Strip(m.View()), "\n"), "\n")

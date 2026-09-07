@@ -488,7 +488,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 			assert.Equal(t, tt.typed, held(), "and still holds what was filled in")
 			assert.NotEqual(t, huh.StateCompleted, got.form.form.State, "a completed form draws as nothing, so the form is built back")
 			assert.NotEmpty(t, got.form.form.View())
-			assert.False(t, got.pendingForm, "and takes keys again, since the write it was waiting on has landed")
+			assert.False(t, got.held.active, "and takes keys again, since the write it was waiting on has landed")
 		})
 	}
 }
@@ -537,8 +537,8 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 			m = asModel(t, updated)
 
 			assert.True(t, m.form.isActive(), "the form is still up while the create is in flight")
-			assert.True(t, m.pendingForm)
-			assert.False(t, m.pendingSince.IsZero(), "and the notice over it has something to count from")
+			assert.True(t, m.held.active)
+			assert.False(t, m.held.since.IsZero(), "and the notice over it has something to count from")
 			assert.Equal(t, infoNothing, m.info.kind, "no pane is opened for the provisioner")
 			assert.Empty(t, recorder.infoPane)
 
@@ -554,7 +554,7 @@ func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 
 			assert.Nil(t, got.banner)
 			assert.False(t, got.form.isActive(), "the form goes once the create has landed")
-			assert.False(t, got.pendingForm)
+			assert.False(t, got.held.active)
 			assert.Equal(t, infoNothing, got.info.kind)
 			require.NotNil(t, sent.createdAgent)
 		})
@@ -1014,7 +1014,7 @@ func TestFormTakesNoKeysWhileItsWriteIsInFlight(t *testing.T) {
 
 	opened, _ := m.openAgentForm(workflow, &values)
 	m = asModel(t, opened)
-	m.pendingForm = true
+	m.held.active = true
 
 	updated, cmd := m.Update(keyMsg("ctrl+s"))
 	got := settle(t, asModel(t, updated), cmd)
@@ -1316,12 +1316,12 @@ func TestEscDetachesFromAHeldForm(t *testing.T) {
 
 	updated, cmd := m.answerForm()
 	m = asModel(t, updated)
-	require.True(t, m.pendingForm)
+	require.True(t, m.held.active)
 
 	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	m = asModel(t, detached)
 
-	assert.False(t, m.pendingForm, "the panel takes keys again")
+	assert.False(t, m.held.active, "the panel takes keys again")
 	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
 
 	m.tree.focus = agentRowKey("somewhere-else")
@@ -1364,8 +1364,8 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	submitted, _ = m.answerForm()
 	m = asModel(t, submitted)
 
-	require.True(t, m.pendingForm)
-	require.NotEqual(t, escaped, m.pendingEpoch, "the two submits are told apart by their own epochs")
+	require.True(t, m.held.active)
+	require.NotEqual(t, escaped, m.held.epoch, "the two submits are told apart by their own epochs")
 
 	landed, _ := m.applyWrite(writeResult{
 		summary: "Could not start the agent",
@@ -1374,7 +1374,7 @@ func TestAnEarlierWriteLeavesALaterHoldAlone(t *testing.T) {
 	})
 	got := asModel(t, landed)
 
-	assert.True(t, got.pendingForm, "the escaped create landing leaves the second form held")
+	assert.True(t, got.held.active, "the escaped create landing leaves the second form held")
 	assert.True(t, got.form.isActive())
 	assert.Empty(t, got.tree.focus, "and an escaped create takes nobody to the agent it made")
 }

@@ -12,8 +12,8 @@ const (
 	blankCursor    = "  "
 )
 
-// newRowCursor is the blink the lists share, focused from the start since the panel comes up with
-// the keyboard and a cursor nothing has ticked yet would sit there dark.
+// newRowCursor is the blink the lists share, focused from the start since a cursor nothing has
+// ticked yet would sit there dark.
 func newRowCursor() cursor.Model {
 	c := cursor.New()
 	_ = c.Focus()
@@ -21,9 +21,9 @@ func newRowCursor() cursor.Model {
 	return c
 }
 
-// updateRowCursor carries the blink, which is the bubble's own timer rather than one of ours, and
-// puts the arrow back on for a keypress so a row being moved to is drawn solid rather than under
-// whichever half of the blink the press landed in.
+// updateRowCursor carries the bubble's own blink timer, and puts the arrow back on for a keypress
+// so a row being moved to is drawn solid rather than under whichever half of the blink the press
+// landed in.
 func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 	next, cmd := m.rowCursor.Update(msg)
 	m.rowCursor = next
@@ -40,23 +40,16 @@ func (m model) updateRowCursor(msg tea.Msg) (model, tea.Cmd) {
 }
 
 // cursorPrefix is the arrow a list draws on its hovered row, blinking while that list has the
-// keyboard, steady while something else holds it, and gone for the half of the phase the bubble
-// sets Blink over.
+// keyboard, steady while something is being typed into, and gone for the half of the phase the
+// bubble sets Blink over.
 func (m model) cursorPrefix(focused bool) string {
-	if focused && !m.blurred && !m.takesEveryKey() && m.rowCursor.Blink {
+	if focused && !m.blurred && !m.isTyping() && m.rowCursor.Blink {
 		return blankCursor
 	}
 
 	return cursorStyleFor(focused).Render(rowCursorGlyph)
 }
 
-// takesEveryKey reports whether the keyboard is spoken for by something the screen put up, which
-// stands the row cursor still since the arrows are going there rather than moving the rows.
-func (m model) takesEveryKey() bool {
-	return m.filter.typing || m.isTyping()
-}
-
-// rowCursorPrefix is cursorPrefix for a list whose focus is the list's own.
 func (m model) rowCursorPrefix() string {
 	return m.cursorPrefix(m.isListFocused())
 }

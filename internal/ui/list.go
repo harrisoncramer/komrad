@@ -28,18 +28,14 @@ func (m model) spareLines(chrome ...string) int {
 	return lines
 }
 
-func (m model) bannerLines() int {
+// chromeLines is what the view draws above whatever screen is up, which is room the screen and
+// the block beside it do not have.
+func (m model) chromeLines() int {
 	if m.banner == nil {
 		return 0
 	}
 
 	return strings.Count(m.banner.Render(m.width), "\n")
-}
-
-// chromeLines is what the view draws above whatever screen is up, which is room the screen and
-// the block beside it do not have.
-func (m model) chromeLines() int {
-	return m.bannerLines()
 }
 
 func renderList(rows []string, cursor, lines int) string {

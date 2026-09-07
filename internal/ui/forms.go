@@ -132,11 +132,26 @@ const formHelpLines = 1
 // about so that what it draws still fits above it.
 const submittingLines = 1
 
+// heldWrite is the write a form is being kept up for: when it was sent, which the notice under
+// the form counts up from so a provisioner taking its time does not read as a wedged panel, and
+// which write it is, since a person who escapes a slow create and submits another has two in
+// flight and only one of them owns the form.
+type heldWrite struct {
+	active bool
+	since  time.Time
+	epoch  int
+}
+
+// owns reports whether a landing write is the one the form on screen is waiting on.
+func (h heldWrite) owns(epoch int) bool {
+	return h.active && h.epoch == epoch
+}
+
 // formBox is the room a form has on screen, which is its own column while it has one and the
 // panel's own pane while it does not.
 func (m model) formBox() (width, height int) {
 	held := 0
-	if m.pendingForm {
+	if m.held.active {
 		held = submittingLines
 	}
 
@@ -405,9 +420,7 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
 // lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
-	m.pendingForm = true
-	m.pendingSince = time.Now()
-	m.pendingEpoch = m.epoch
+	m.held = heldWrite{active: true, since: time.Now(), epoch: m.epoch}
 
 	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
@@ -431,11 +444,11 @@ func (m *model) rebuildForm() tea.Cmd {
 // remembers which write that was: a person who walked away from a create is not asking to be
 // taken to it when it lands.
 func (m model) detachForm() (tea.Model, tea.Cmd) {
-	if m.pendingEpoch != 0 {
+	if m.held.epoch != 0 {
 		if m.detached == nil {
 			m.detached = map[int]struct{}{}
 		}
-		m.detached[m.pendingEpoch] = struct{}{}
+		m.detached[m.held.epoch] = struct{}{}
 	}
 
 	return m.closeForm()
@@ -485,9 +498,7 @@ func (m model) formSizeOf(msg tea.Msg) tea.Msg {
 
 // closeForm drops the form and comes back to the screen it was drawn over.
 func (m model) closeForm() (tea.Model, tea.Cmd) {
-	m.pendingForm = false
-	m.pendingSince = time.Time{}
-	m.pendingEpoch = 0
+	m.held = heldWrite{}
 	m.form = formState{}
 	m.reconcileSolo()
 
