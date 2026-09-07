@@ -107,3 +107,56 @@ func TestFileAtReadsTheRoundRatherThanTheWorktree(t *testing.T) {
 	_, err = ReadFileLines(t.Context(), root, snapshot.SHA, "never-existed.go")
 	require.Error(t, err, "a path the round does not hold is an error the caller falls back from")
 }
+
+// TestTakeRefusesAWorktreeParkedOffItsBranch is the whole point of the state check: a round taken
+// while HEAD sits on the base commit records a snapshot whose tree is the base's own, which reads
+// as an agent that has written nothing.
+func TestTakeRefusesAWorktreeParkedOffItsBranch(t *testing.T) {
+	root := repo(t)
+	base := capture(t, root, "rev-parse", "HEAD")
+	run(t, root, "checkout", "-b", "work")
+	write(t, root, "written.go", "package main\n\nfunc D() {}\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "work")
+
+	run(t, root, "checkout", "--detach", base)
+
+	_, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.ErrorIs(t, err, ErrDetachedHead)
+}
+
+// TestTakeRefusesAWorktreeMidRebase covers the other half, since a rebase's working state is the
+// tool's rather than anything the agent means to show a reviewer.
+func TestTakeRefusesAWorktreeMidRebase(t *testing.T) {
+	root := repo(t)
+	run(t, root, "checkout", "-b", "work")
+	write(t, root, "conflict.go", "package main\n\nfunc Theirs() {}\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "theirs")
+
+	run(t, root, "checkout", "main")
+	write(t, root, "conflict.go", "package main\n\nfunc Ours() {}\n")
+	run(t, root, "add", "-A")
+	run(t, root, "commit", "-m", "ours")
+
+	run(t, root, "checkout", "work")
+	rebase := exec.Command("git", "-C", root, "rebase", "main")
+	out, err := rebase.CombinedOutput()
+	require.Error(t, err, string(out))
+
+	_, err = TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.ErrorIs(t, err, ErrOperationInProgress)
+}
+
+// TestTakeAllowsABranchStillOnItsBase is the state the check must not refuse, since an agent whose
+// first work is not committed yet has HEAD on the base and a worktree well worth reading.
+func TestTakeAllowsABranchStillOnItsBase(t *testing.T) {
+	root := repo(t)
+	run(t, root, "checkout", "-b", "work")
+	write(t, root, "loose.go", "package main\n\nfunc E() {}\n")
+
+	snapshot, err := TakeSnapshot(t.Context(), TakeSnapshotParams{Dir: root, Base: "main"})
+	require.NoError(t, err)
+
+	assert.NotEqual(t, capture(t, root, "rev-parse", "HEAD^{tree}"), capture(t, root, "rev-parse", snapshot.SHA+"^{tree}"))
+}

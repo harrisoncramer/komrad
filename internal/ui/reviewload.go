@@ -79,15 +79,18 @@ func (m *model) refuseReview(err error) {
 	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
 }
 
-// describeRefusedReview says which of the two empty diffs this is, since an agent that has written
-// nothing and an agent whose every line is in an excluded path want opposite things said about
-// them: one has not worked yet, the other has and you asked not to be shown it.
+// describeRefusedReview says which of the three refusals this is, since an agent that has written
+// nothing, an agent whose every line is in an excluded path, and an agent whose worktree could not
+// be frozen at all want different things said about them.
 func describeRefusedReview(name string, err error) string {
-	if errors.Is(err, diff.ErrAllExcluded) {
+	switch {
+	case errors.Is(err, diff.ErrAllExcluded):
 		return "Everything " + name + " changed is excluded from the diff"
+	case connect.CodeOf(err) == connect.CodeFailedPrecondition:
+		return "Cannot take a round of " + name + " as it stands"
+	default:
+		return "Nothing to review in " + name
 	}
-
-	return "Nothing to review in " + name
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
@@ -249,8 +252,12 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
-	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) {
+	// Explainer: An empty diff and an entirely excluded one both draw nothing, so both back out
+	// rather than leaving the reader in a viewer with nothing in it, and so does a refused round,
+	// since a worktree that could not be frozen has nothing to draw either. A load that failed
+	// for any other reason stays on the screen, which is where the reader is shown why.
+	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) ||
+		connect.CodeOf(msg.err) == connect.CodeFailedPrecondition {
 		m.refuseReview(msg.err)
 
 		return nil

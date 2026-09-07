@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"weave/internal/git"
 	"weave/internal/review"
+	"weave/internal/rpcerr"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	agentv1 "weave/proto/gen/agent/v1"
@@ -117,7 +118,7 @@ func (f *fakeReviewAgents) OpenReviewRound(
 ) (*connect.Response[agentv1.OpenReviewRoundResponse], error) {
 	snapshot, err := git.TakeSnapshot(ctx, git.TakeSnapshotParams{Dir: f.dir, Base: "main"})
 	if err != nil {
-		return nil, err
+		return nil, rpcerr.Wrap(err, "failed to open a review round")
 	}
 
 	if len(f.rounds) == 0 || f.rounds[len(f.rounds)-1].GetSnapshotSha() != snapshot.SHA {
@@ -337,6 +338,24 @@ func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 	require.NotEmpty(t, m.messages.items)
 	assert.Contains(t, newestMessage(m).summary, "Nothing to review")
 	assert.Contains(t, newestMessage(m).detail, "no change")
+}
+
+// TestEnterReviewRefusesAParkedWorktree pins the drop back to the listing for a worktree whose
+// HEAD has been left off its branch, since freezing that records a round of somebody else's commit
+// and reads as an agent that has written nothing.
+func TestEnterReviewRefusesAParkedWorktree(t *testing.T) {
+	dir := reviewRepo(t)
+	gitIn(t, dir, "checkout", "--detach", "HEAD")
+
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+
+	m = enterReview(t, m)
+
+	assert.Equal(t, screenAgents, m.screen, "the reader is put back on the listing")
+	assert.Zero(t, m.review, "the refused review keeps nothing")
+	require.NotNil(t, m.banner)
+	assert.Contains(t, m.banner.Summary, "Cannot take a round")
+	assert.Contains(t, m.banner.Detail, "detached head")
 }
 
 // TestEnterReviewOpensAnUntrackedFile covers the worktree whose only work is a file git has
@@ -863,8 +882,10 @@ func TestReviewSurvivesAFailedLoad(t *testing.T) {
 	require.Error(t, m.review.err, "a directory that is not a repository has no diff")
 	require.Equal(t, screenReview, m.screen, "a failure to read is the review's to show, not the listing's")
 
+	require.ErrorContains(t, m.review.err, "failed to find the repository")
+
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "failed to find the repository")
+	assert.Contains(t, shown, reviewBrokenWord)
 
 	// Every key has to be answerable with no view behind it.
 	for _, key := range []tea.KeyMsg{

@@ -8,6 +8,7 @@ import (
 
 	"weave/internal/agents"
 	"weave/internal/browser"
+	"weave/internal/git"
 	"weave/internal/store"
 
 	agentstore "weave/internal/store/agent"
@@ -54,6 +55,8 @@ var table = []mapping{
 	{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
 	{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 	{agents.ErrReviewNeedsOwnWork, connect.CodeFailedPrecondition},
+	{git.ErrDetachedHead, connect.CodeFailedPrecondition},
+	{git.ErrOperationInProgress, connect.CodeFailedPrecondition},
 
 	{agents.ErrBadCron, connect.CodeInvalidArgument},
 	{agents.ErrBadDirectory, connect.CodeInvalidArgument},
