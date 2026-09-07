@@ -35,7 +35,7 @@ func (m model) chromeLines() int {
 		return 0
 	}
 
-	return strings.Count(m.banner.Render(m.width), "\n")
+	return strings.Count(m.banner.Render(m.bannerWidth()), "\n")
 }
 
 func renderList(rows []string, cursor, lines int) string {

@@ -87,24 +87,28 @@ type columnSpec struct {
 // columnGeometry is how wide each half of the window is, and carries the row budget the frame
 // gave rather than the one the block is drawn in, because a screen measuring what stands over its
 // block would ask this its own question and render itself to answer.
-func (m model) columnGeometry() (columnSplit, bool) {
+// sidebarColumns is how wide the panel's own list is drawn while it holds the window, and the
+// block it is holding it for. It stops at the width on purpose: the geometry below takes the rows
+// off what stands over the block, and what stands there is measured against this width, so a
+// width that asked for those rows would be asking its own answer.
+func (m model) sidebarColumns() (int, columnSpec, bool) {
 	// Nothing can be divided before the first window size arrives, and the frame has no layout to
 	// answer for either.
 	if m.width <= 0 || m.height <= 0 {
-		return columnSplit{}, false
+		return 0, columnSpec{}, false
 	}
 
 	spec, ok := m.columnOf()
 	if !ok {
-		return columnSplit{}, false
+		return 0, columnSpec{}, false
 	}
 
 	if spec.holds != nil && !spec.holds(m) {
-		return columnSplit{}, false
+		return 0, columnSpec{}, false
 	}
 
 	if !m.frame.IsSolo() {
-		return columnSplit{}, false
+		return 0, columnSpec{}, false
 	}
 
 	sidebar, measured := m.frame.SidebarWidth(m.width)
@@ -116,7 +120,18 @@ func (m model) columnGeometry() (columnSplit, bool) {
 		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
 	}
 
-	split, ok := splitOf(m.width, m.height-m.chromeLines(), sidebar, spec.floor)
+	return sidebar, spec, true
+}
+
+func (m model) columnGeometry() (columnSplit, bool) {
+	sidebar, spec, ok := m.sidebarColumns()
+	if !ok {
+		return columnSplit{}, false
+	}
+
+	// The whole height, since a banner is drawn inside the sidebar beside this block rather than
+	// over the pair of them, so the block gives up no rows for it.
+	split, ok := splitOf(m.width, m.height, sidebar, spec.floor)
 	if !ok {
 		return columnSplit{}, false
 	}
@@ -232,6 +247,13 @@ func (m *model) syncKeys() {
 // joinColumns lays the two halves of the window side by side, on the side the frame puts the
 // sidebar, having squared each off at its share first.
 func (m model) joinColumns(split columnSplit, sidebar, column string) string {
+	// The banner belongs to the sidebar rather than to the window, since one drawn over both
+	// halves takes its rows off the top and moves everything below it, the block beside the list
+	// included.
+	if m.banner != nil {
+		sidebar = m.banner.Render(split.sidebar) + sidebar
+	}
+
 	// Trimmed so the two halves are the same height, since a trailing newline is a row the
 	// sidebar block would have and the block beside it would not.
 	sidebar = fitColumn(strings.TrimRight(sidebar, "\n"), split.sidebar)

@@ -427,7 +427,7 @@ func (m *model) stageSelection() {
 	m.reconcileSolo()
 
 	switch r, ok := rowAt(rows, m.tree.cursor); {
-	case ok && !m.hasNoAgentPane() && m.isPaneWarm(r.item.agent.Pane, r.item.agent.Harness):
+	case ok && !m.hasNoAgentPane() && m.isPaneStageable(r.item.agent.Pane, r.item.agent.Harness):
 		m.frame.ShowGuest(r.item.agent.Pane)
 	case m.frame.IsSolo() && m.isGuestLive():
 	default:

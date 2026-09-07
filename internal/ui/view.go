@@ -23,12 +23,27 @@ func (m model) View() string {
 		return errui.RenderUnreachableError(m.width, m.addr, m.unreachable)
 	}
 
+	// Only over a panel drawing nothing beside its list, since a banner over a panel that is
+	// gets drawn in the sidebar by the join instead.
 	var chrome string
-	if m.banner != nil {
-		chrome = m.banner.Render(m.width)
+	if _, drawsColumn := m.columnSplit(); m.banner != nil && !drawsColumn {
+		chrome = m.banner.Render(m.bannerWidth())
 	}
 
 	return m.fitFrame(strings.TrimRight(chrome+m.screenView(), "\n"))
+}
+
+// bannerWidth is what a banner folds to, which is the panel's own list rather than the window,
+// since a panel drawing a block beside that list is as wide as the window and a banner folded to
+// that runs out over the block. It asks for the width alone rather than the split, because the
+// split takes the banner's own rows off the block and asking for it here would be asking a
+// question this answer decides.
+func (m model) bannerWidth() int {
+	if sidebar, _, ok := m.sidebarColumns(); ok {
+		return sidebar
+	}
+
+	return m.width
 }
 
 // submittingNotice is the line drawn under a held form, counting up once the write has taken

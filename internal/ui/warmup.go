@@ -109,6 +109,30 @@ func (m *model) hasHarnessDrawn(pane, harnessID string) bool {
 	return false
 }
 
+// isPaneStageable reports whether a pane may be shown as the cursor lands on it, which holds back
+// only a launch still in flight: a harness that has started and has yet to draw. A pane sitting at
+// its shell has nothing coming that waiting would catch, since the launch either has not been
+// typed yet or the harness that was typed there has gone, so it is shown as it stands.
+func (m *model) isPaneStageable(pane, harnessID string) bool {
+	if pane == "" {
+		return false
+	}
+	if m.warm.ready == nil {
+		m.warm = newWarmupState()
+	}
+	if m.warm.ready[pane] {
+		return true
+	}
+
+	// Left unmarked, since a pane that has not been typed into yet is one this will be asked
+	// about again rather than one weave has seen its harness in.
+	if !m.tmux.IsPaneRunningCLI(pane) {
+		return true
+	}
+
+	return m.isPaneWarm(pane, harnessID)
+}
+
 func (m *model) markWarm(pane string) {
 	m.warm.ready[pane] = true
 	delete(m.warm.since, pane)
@@ -117,6 +141,12 @@ func (m *model) markWarm(pane string) {
 // sizeWarmingWindow puts a pane's own window at the size of the slot it is about to be shown in,
 // which the periodic sizing pass does not reach until the agent turns up in a listing.
 func (m *model) sizeWarmingWindow(pane string) {
+	// A guest is standing in the panel's own window, so resizing its window would resize the
+	// terminal weave is drawn in and take the whole layout down with it.
+	if pane == m.frame.GuestPane() {
+		return
+	}
+
 	width, height := m.frame.StageCols(), m.height
 	if width > 0 && height > 0 {
 		m.tmux.ResizeWindow(pane, width, height)

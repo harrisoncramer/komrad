@@ -39,7 +39,7 @@ func (b Banner) Render(width int) string {
 		hint += "  ·  weave trace " + b.Trace
 	}
 
-	out.WriteString(Dim.Render(bannerIndent+hint) + "\n\n")
+	out.WriteString(styled(Dim, bannerIndent+fold(hint, folded, bannerIndent)) + "\n\n")
 
 	return out.String()
 }
