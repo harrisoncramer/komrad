@@ -60,7 +60,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			return ui.Run(ui.Deps{
 				PopupWindow:     state.popup,
 				Tmux:            state.tmux,
-				Harnesses:       state.harnesses,
+				HarnessFrames:   paneFrameReader{panes: state.tmux, harnesses: state.harnesses},
 				Agents:          agentClient,
 				Workflows:       workflowClient,
 				Schedules:       scheduleClient,

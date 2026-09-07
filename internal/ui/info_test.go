@@ -183,7 +183,6 @@ func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
 }
 
 func (t *recordingTmux) GetPaneHeight(string) int                 { return t.height }
-func (t *recordingTmux) CapturePane(string) string                { return "" }
 func (t *recordingTmux) SplitRight(string, string, string) string { return t.split("%1") }
 func (t *recordingTmux) SplitLeft(string, string, string) string  { return t.split("%1") }
 

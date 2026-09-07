@@ -3,8 +3,6 @@ package ui
 import (
 	"time"
 
-	"weave/internal/harness"
-
 	tea "github.com/charmbracelet/bubbletea"
 )
 
@@ -43,10 +41,7 @@ func newWarmupState() warmupState {
 }
 
 // isPaneWarm reports whether a pane may be swapped into the stage, which is once its harness has
-// drawn itself there. The pane's foreground program says the harness started, which it does most
-// of a second before it paints, so what settles it is a frame the harness recognizes as its own.
-// A pane still being waited on is sized to the slot it will be shown in, so the harness draws
-// once at the size it will be read at.
+// drawn itself there.
 func (m *model) isPaneWarm(pane, harnessID string) bool {
 	if pane == "" {
 		return false
@@ -58,6 +53,8 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 		return true
 	}
 
+	// The foreground program says the harness started, which it does most of a second before it
+	// paints, so what settles the wait is a frame the harness reads as its own.
 	if m.hasHarnessDrawn(pane, harnessID) {
 		m.markWarm(pane)
 
@@ -81,52 +78,34 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 	return true
 }
 
-// hasHarnessDrawn reports whether the pane holds a frame its harness reads as one of its own,
-// which is what a started harness has yet to draw while the shell it was typed into is still on
-// screen. A harness weave cannot look up is taken at the word of its foreground program, since
-// waiting on a frame nothing can classify would wait for the cap every time.
+// hasHarnessDrawn reports whether a pane is showing the harness that was typed into it rather
+// than the shell it was typed at.
 func (m *model) hasHarnessDrawn(pane, harnessID string) bool {
 	if !m.tmux.IsPaneRunningCLI(pane) {
 		return false
 	}
 
-	if m.harnesses == nil {
+	// A panel given no reader takes the foreground program for the answer, which is what the
+	// frame would settle if one could be classified.
+	if m.harnessFrames == nil {
 		return true
 	}
 
-	hn, err := m.harnesses.GetByID(harnessID)
-	if err != nil {
-		return true
-	}
-
-	switch hn.ReadActivity(m.tmux.CapturePane(pane)) {
-	case harness.ActivityWorking, harness.ActivityWaiting, harness.ActivityIdle, harness.ActivityComposing:
-		return true
-	case harness.ActivityUnknown, harness.ActivityUnrecognized:
-		return false
-	}
-
-	return false
+	return m.harnessFrames.DoesFrameShowHarness(pane, harnessID)
 }
 
 // isPaneStageable reports whether a pane may be shown as the cursor lands on it, which holds back
-// only a launch still in flight: a harness that has started and has yet to draw. A pane sitting at
-// its shell has nothing coming that waiting would catch, since the launch either has not been
-// typed yet or the harness that was typed there has gone, so it is shown as it stands.
+// only a launch still in flight: a harness that has started and has yet to draw.
 func (m *model) isPaneStageable(pane, harnessID string) bool {
 	if pane == "" {
 		return false
 	}
-	if m.warm.ready == nil {
-		m.warm = newWarmupState()
-	}
-	if m.warm.ready[pane] {
-		return true
-	}
 
-	// Left unmarked, since a pane that has not been typed into yet is one this will be asked
-	// about again rather than one weave has seen its harness in.
-	if !m.tmux.IsPaneRunningCLI(pane) {
+	// Explainer: a pane sitting at its shell has nothing coming that waiting would catch, since
+	// the launch either has not been typed yet or the harness that was typed there has gone. It
+	// is asked ahead of the wait so that no timer is started for it, and left unmarked, since it
+	// is a pane this will be asked about again rather than one weave has seen a harness in.
+	if !m.warm.ready[pane] && !m.tmux.IsPaneRunningCLI(pane) {
 		return true
 	}
 
