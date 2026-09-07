@@ -384,35 +384,32 @@ func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 	assert.Contains(t, m.failedPlaceholder(agent), "tmux refused", "with nothing to read, the reason is what is left")
 }
 
-// TestLogKeysFollowTheArchiveCursor pins that the archive's own cursor picks which teardown
-// log is paged, not whatever the agents list was last left pointing at.
-func TestLogKeysFollowTheArchiveCursor(t *testing.T) {
+// TestLogKeysAreInertInTheArchive pins that the archive draws its own two columns and none of
+// the keys that open a pane beside the panel reach it.
+func TestLogKeysAreInertInTheArchive(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
-	m.archive = archiveState{
-		agents: []agentstore.Agent{{
-			ID:         "a2",
-			Name:       "api-refactor",
-			WorkflowID: "w1",
-			State:      agentstore.StateFailedToCleanup,
-		}},
-		rowCursor: rowCursor{cursor: 1},
-	}
-
-	for _, id := range []string{"a1", "a2"} {
-		writeRun(t, m.runLogsDir, id, 1, config.TriggerDeprovision, "drop-worktree")
-	}
-
-	assert.Contains(t, m.runLogContent().Key, "a1", "the agents screen reads its own cursor")
-
+	writeRun(t, m.runLogsDir, "a1", 1, config.TriggerDeprovision, "drop-worktree")
 	m.screen = screenArchive
 
-	assert.Contains(t, m.runLogContent().Key, "a2")
+	pressed := pressLogs(t, m)
+	assert.Equal(t, infoNothing, pressed.info.kind, "the log key opens nothing there")
+	assert.Empty(t, tmux.respawnPanes, "and nothing is paged into a pane")
+}
 
-	argv, ok := m.agentLogContent().Render(layout.Target{})
+// TestEnteringTheArchiveClosesTheInfoPane pins that a log opened on the agents list does not
+// follow the reader into a screen with no key left to close it.
+func TestEnteringTheArchiveClosesTheInfoPane(t *testing.T) {
+	tmux := &recordingTmux{}
+	m, _ := logsModel(t, tmux)
+
+	require.True(t, m.claimInfo(infoAgentLog, ""))
+
+	entered, _ := m.enterArchive()
+	got, ok := entered.(model)
 	require.True(t, ok)
-	require.Len(t, argv, 3)
-	assert.Contains(t, argv[2], "export WEAVE_AGENT_ID='a2'; ", "the panel's own log is filtered to the archived agent")
+
+	assert.Equal(t, infoNothing, got.info.kind)
 }
 
 // TestAgentLogContentKeyFollowsTheAgent pins that the panel's own log restages when the cursor

@@ -19,6 +19,11 @@ type archiveState struct {
 }
 
 func (m model) enterArchive() (tea.Model, tea.Cmd) {
+	// The archive draws both its columns itself and none of the pane keys reach it, so a pane
+	// opened on the list before would sit there with no key to close it.
+	if m.info.kind != infoNothing {
+		m = m.closeInfo()
+	}
 	m.enterScreen(screenArchive)
 	m.stageArchive()
 

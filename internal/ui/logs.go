@@ -58,13 +58,8 @@ func (m model) logsDesc() string {
 	}
 }
 
-// logTarget is the agent the log keys read, which follows the archive's own cursor while that
-// screen is up rather than the agents list.
+// logTarget is the agent the log keys read.
 func (m model) logTarget() (agentstore.Agent, bool) {
-	if m.screen == screenArchive {
-		return m.selectedArchived()
-	}
-
 	item, ok := m.selectedAgent()
 	if !ok {
 		return agentstore.Agent{}, false

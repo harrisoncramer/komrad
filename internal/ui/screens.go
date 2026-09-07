@@ -18,13 +18,13 @@ const (
 )
 
 // opensInfoPane reports whether the keys that draw a pane beside the panel act on a screen, which
-// a screen holding the whole window can still say yes to by handing it back for as long as the
-// pane is up, the way the archive does so its own logs can be read.
+// the screens drawing the whole window themselves say no to rather than hand it back to a pane
+// drawn over what they came to show.
 func (s screen) opensInfoPane() bool {
 	switch s {
-	case screenAgents, screenSchedules, screenArchive, screenMail:
+	case screenAgents, screenSchedules, screenMail:
 		return true
-	case screenSearch, screenReview:
+	case screenArchive, screenSearch, screenReview:
 		return false
 	}
 
