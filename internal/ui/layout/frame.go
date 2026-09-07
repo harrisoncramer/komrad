@@ -66,6 +66,12 @@ func (f *Frame) GuestPane() string { return f.guest }
 // Open opens a region and returns the pane it landed in, opening the stage on the way since
 // every region hangs off it.
 func (f *Frame) Open(region Region) string {
+	defer f.restoreSolo()
+
+	return f.open(region)
+}
+
+func (f *Frame) open(region Region) string {
 	switch region {
 	case RegionStage:
 		f.claimStage()
@@ -91,6 +97,7 @@ func (f *Frame) IsOpen(region Region) bool {
 func (f *Frame) Close(region Region) {
 	if region == RegionInfo {
 		f.closeInfo()
+		f.restoreSolo()
 	}
 }
 
@@ -105,7 +112,9 @@ func (f *Frame) Show(region Region, content Content) {
 		return
 	}
 
-	f.Open(region)
+	defer f.restoreSolo()
+
+	f.open(region)
 
 	if region == RegionStage {
 		f.restoreGuest()
@@ -176,6 +185,8 @@ func (f *Frame) IsSidebarOnRight() bool { return f.spec.sidebarOnRight }
 
 // ShowGuest swaps a pane somebody else owns into the stage.
 func (f *Frame) ShowGuest(pane string) {
+	defer f.restoreSolo()
+
 	f.claimStage()
 	if f.stage == "" || pane == "" || pane == f.guest {
 		return
@@ -192,7 +203,19 @@ func (f *Frame) ShowGuest(pane string) {
 func (f *Frame) ReleaseGuest(pane string) {
 	if pane != "" && pane == f.guest {
 		f.restoreGuest()
+		f.restoreSolo()
 	}
+}
+
+// restoreSolo puts the sidebar's zoom back after a command that dropped it, since split-window,
+// swap-pane, resize-pane, kill-pane and break-pane each unzoom the window and call into nothing
+// when they do.
+func (f *Frame) restoreSolo() {
+	if !f.solo || f.sidebar == "" {
+		return
+	}
+
+	f.tmux.SetPaneZoomed(f.sidebar, true)
 }
 
 func (f *Frame) isShowing(region Region, content Content, target Target) bool {
