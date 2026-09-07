@@ -1299,6 +1299,38 @@ func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 	assert.Equal(t, before, values.toConfig().Hooks, "walking the form leaves every moment as it was")
 }
 
+// TestEscDetachesFromAHeldForm covers esc during a create: the panel comes back rather than
+// holding every key until a provisioner that may run for minutes has finished, and the write
+// still lands the agent it was sent for.
+func TestEscDetachesFromAHeldForm(t *testing.T) {
+	sent := &formRecorder{}
+	m := formModel(sent)
+
+	workflow := m.listing.workflows[0]
+
+	values := agentPrefill(workflow)
+	values.Prompt = "check CI"
+
+	opened, _ := m.openAgentForm(workflow, &values)
+	m = asModel(t, opened)
+
+	updated, cmd := m.answerForm()
+	m = asModel(t, updated)
+	require.True(t, m.pendingForm)
+
+	detached, _ := m.Update(tea.KeyMsg{Type: tea.KeyEsc})
+	m = asModel(t, detached)
+
+	assert.False(t, m.pendingForm, "the panel takes keys again")
+	assert.False(t, m.form.isActive(), "and the form it was holding is gone")
+
+	got := settle(t, m, cmd)
+
+	assert.Nil(t, got.banner)
+	require.NotNil(t, sent.createdAgent, "the create the form was submitted for still ran")
+	assert.Equal(t, agentRowKey("new"), got.tree.focus, "and the cursor still lands on the row it made")
+}
+
 // TestSubmittingNoticeCountsUp pins that a held form's notice stands still while the write is
 // quick and starts counting once it is not, so a slow provisioner does not read as a wedge.
 func TestSubmittingNoticeCountsUp(t *testing.T) {
@@ -1307,4 +1339,5 @@ func TestSubmittingNoticeCountsUp(t *testing.T) {
 	assert.Equal(t, "  submitting…", submittingNotice(time.Time{}, since))
 	assert.Equal(t, "  submitting…", submittingNotice(since, since.Add(time.Second)))
 	assert.Equal(t, "  submitting… 12s", submittingNotice(since, since.Add(12*time.Second)))
+	assert.Equal(t, "  submitting… 6m40s", submittingNotice(since, since.Add(400*time.Second)))
 }

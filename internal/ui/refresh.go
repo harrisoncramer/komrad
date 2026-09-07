@@ -431,6 +431,7 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 	if m.pendingForm {
 		m.pendingForm = false
+		m.pendingSince = time.Time{}
 
 		if result.err == nil {
 			closed, cmd := m.closeForm()
