@@ -213,7 +213,7 @@ func (m model) mailListView() string {
 	header := m.titleStyle().Render("Mail · "+m.mail.agentName) + "\n" +
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()
-	record, help := m.detailsView(), m.renderHelp(m.mailHelp())
+	record, help := m.messagesChrome()
 	below := record + m.messagesRegion(record, help) + help
 
 	rows := m.mailRowsView()

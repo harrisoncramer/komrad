@@ -146,7 +146,10 @@ func (m model) resizeTo(size tea.WindowSizeMsg) model {
 		m.drawPreview()
 	}
 
-	return m
+	// A pane that has just lost the rows the region was drawn in is the ordinary way the region
+	// ends up holding the keys off a screen showing nothing of it, since an agent's pane opening
+	// on the stage and a divider being dragged both arrive here.
+	return m.settleMessagesFocus()
 }
 
 // routeGlobalKey answers the keys the panel owns whatever screen is up, reporting whether it
@@ -155,7 +158,9 @@ func (m model) routeGlobalKey(key tea.KeyMsg) (tea.Model, tea.Cmd, bool) {
 	if isBound(key.String(), m.keys.Help.Toggle) {
 		m.helpExpanded = !m.helpExpanded
 
-		return m, nil, true
+		// The legend the region is measured against is the one that just changed height, so an
+		// expansion that leaves the region no rows takes the keys back with it.
+		return m.settleMessagesFocus(), nil, true
 	}
 
 	// Whether these keys act is a policy about the keys rather than the geometry holdsWindow

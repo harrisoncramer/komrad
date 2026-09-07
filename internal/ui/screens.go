@@ -42,6 +42,11 @@ type screenSpec struct {
 	// view draws the screen into the panel's own pane.
 	view func(model) string
 
+	// help is the legend the screen draws under its own list, left nil by a screen that draws no
+	// message region, since the legend is one of the two pieces of chrome the region is measured
+	// against before it takes its rows from the list.
+	help func(model) keyMap
+
 	// stage puts the row the cursor is on into the stage pane, and is nil on a screen whose
 	// stage is filled by something arriving later rather than drawn from what is already held.
 	stage func(*model)
@@ -118,6 +123,7 @@ func (s screen) spec() screenSpec {
 		return screenSpec{
 			key:         model.updateAgents,
 			view:        model.agentsView,
+			help:        model.agentHelp,
 			stage:       (*model).stageSelection,
 			fromListing: true,
 			reenter:     model.returnToAgents,
@@ -136,6 +142,7 @@ func (s screen) spec() screenSpec {
 		return screenSpec{
 			key:         model.updateSchedules,
 			view:        model.schedulesView,
+			help:        model.scheduleHelp,
 			fromListing: true,
 			reenter:     model.enterSchedules,
 			details: &detailsSpec{
@@ -152,6 +159,7 @@ func (s screen) spec() screenSpec {
 		return screenSpec{
 			key:          model.updateArchive,
 			view:         model.archiveView,
+			help:         model.archiveHelp,
 			stage:        (*model).stageArchive,
 			fromListing:  true,
 			needsArchive: true,
@@ -179,6 +187,7 @@ func (s screen) spec() screenSpec {
 		return screenSpec{
 			key:          model.updateMail,
 			view:         model.mailView,
+			help:         model.mailHelp,
 			stage:        (*model).stageMail,
 			needsArchive: true,
 			details: &detailsSpec{

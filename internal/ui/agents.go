@@ -536,7 +536,7 @@ func (m model) agentsView() string {
 }
 
 func (m model) agentsListView() string {
-	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
+	record, help := m.messagesChrome()
 	below := record + m.messagesRegion(record, help) + help
 
 	all := m.agentRows()

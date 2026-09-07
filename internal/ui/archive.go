@@ -406,7 +406,7 @@ func (m model) archiveView() string {
 }
 
 func (m model) archiveListView() string {
-	record, help := m.detailsView(), m.renderHelp(m.archiveHelp())
+	record, help := m.messagesChrome()
 	below := record + m.messagesRegion(record, help) + help
 
 	all := m.archiveRows()

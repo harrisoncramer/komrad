@@ -91,20 +91,50 @@ const messagesListFloor = 2
 func (m model) messagesSlot() []string {
 	if len(m.messages.items) == 0 {
 		return []string{
-			kindStyle(messageSuccess).Render(kindIcon(messageSuccess)+" No messages") + m.messagesTally(),
-			dimStyle.Render("  Weave is running normally"),
+			m.messagesSummaryRow(kindIcon(messageSuccess)+" No messages", kindStyle(messageSuccess)),
+			dimStyle.Render(clip("  Weave is running normally", max(m.lineWidth(), 1))),
 		}
 	}
 
 	held := m.messages.items[m.messagesCursor()]
-	summary := clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
-	detail := dimStyle.Render("  " + clip(held.detail, max(m.lineWidth()-2, 1)))
 
 	return []string{
-		m.messagesSummaryStyle(held).Render(summary) + m.messagesTally(),
-		detail,
-		dimStyle.Render("  " + m.messagesHint()),
+		m.messagesSummaryRow(kindIcon(held.kind)+" "+held.summary, m.messagesSummaryStyle(held)),
+		dimStyle.Render(clip("  "+held.detail, max(m.lineWidth(), 1))),
+		dimStyle.Render(clip("  "+m.messagesHint(), max(m.lineWidth(), 1))),
 	}
+}
+
+// messagesTallyGap is the least that stands between the summary and the tally, so the two never
+// read as one word.
+const messagesTallyGap = 1
+
+// messagesSummaryRow is the summary with its tally pushed to the far side of the region, built
+// from the tally backwards: what the tally takes is settled first and the summary is clipped
+// against what is left, since a row a single column wider than the pane wraps and the region
+// stops being the fixed three rows the rest of the panel is laid out against.
+func (m model) messagesSummaryRow(summary string, style lipgloss.Style) string {
+	width := max(m.lineWidth(), 1)
+
+	tally := m.messagesTally()
+	if len(tally)+messagesTallyGap >= width {
+		tally = ""
+	}
+
+	room := width
+	if tally != "" {
+		room -= len(tally) + messagesTallyGap
+	}
+
+	clipped := clip(summary, max(room, 1))
+	row := style.Render(clipped)
+	if tally == "" {
+		return row
+	}
+
+	pad := width - lipgloss.Width(clipped) - len(tally)
+
+	return row + strings.Repeat(" ", pad) + m.messagesTallyStyle().Render(tally)
 }
 
 func (m model) messagesSummaryStyle(held message) lipgloss.Style {
@@ -123,8 +153,6 @@ func (m model) messagesHint() string {
 	return messagesFocusKey + " to read"
 }
 
-const messagesTallyWidth = 8
-
 // messagesTally is the count on the right of the summary, which says how much is behind this
 // message while the list has the keys and where in the stack the reader is once it does not.
 func (m model) messagesTally() string {
@@ -133,35 +161,25 @@ func (m model) messagesTally() string {
 		return ""
 	}
 
-	tally := fmt.Sprintf("+%d", count-1)
 	if m.messages.focused {
-		tally = fmt.Sprintf("%d of %d", m.messagesCursor()+1, count)
-	} else if count < 2 {
+		return fmt.Sprintf("%d of %d", m.messagesCursor()+1, count)
+	}
+
+	if count < 2 {
 		return ""
 	}
 
-	pad := max(m.lineWidth()-lipgloss.Width(m.messagesSummaryLine())-len(tally), 1)
-
-	// The tally is where the region says the keys are its own, since it has no title of its own to
-	// draw in the colour every other focused section is drawn in.
-	style := dimStyle
-	if m.messages.focused {
-		style = headerStyle
-	}
-
-	return strings.Repeat(" ", pad) + style.Render(tally)
+	return fmt.Sprintf("+%d", count-1)
 }
 
-// messagesSummaryLine is the summary on its own, measured so the tally can be pushed to the far
-// side of the region rather than sat next to a name whose length nobody knows.
-func (m model) messagesSummaryLine() string {
-	if len(m.messages.items) == 0 {
-		return kindIcon(messageSuccess) + " No messages"
+// messagesTallyStyle is where the region says the keys are its own, since it has no title of its
+// own to draw in the colour every other focused section is drawn in.
+func (m model) messagesTallyStyle() lipgloss.Style {
+	if m.messages.focused {
+		return headerStyle
 	}
 
-	held := m.messages.items[m.messagesCursor()]
-
-	return clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
+	return dimStyle
 }
 
 // pushMessage puts a message at the front of the stack, which is where the region draws from, and
@@ -253,12 +271,51 @@ func (m model) isMessagesFocused() bool {
 	return m.messages.focused && m.isMessagesRegion()
 }
 
+// messagesChrome is the record and the legend the region sits between, which is what says how
+// many rows the list has left to give it, drawn from the screen rather than passed down because
+// the key router and the layout have neither to hand.
+func (m model) messagesChrome() (string, string) {
+	help := m.screen.spec().help
+	if help == nil {
+		return "", ""
+	}
+
+	return m.detailsView(), m.renderHelp(help(m))
+}
+
+// canHoldMessages is whether the region has the rows to be drawn where the panel stands now, and
+// so whether there is anything for it to hold the keys on behalf of.
+func (m model) canHoldMessages() bool {
+	return m.isMessagesDrawn(m.messagesChrome())
+}
+
+// settleMessagesFocus hands the keys back when the region no longer has the rows to draw itself,
+// since a region holding the keys off a pane that draws nothing is a list whose arrows have gone
+// dead with nothing on screen saying why.
+func (m model) settleMessagesFocus() model {
+	if !m.messages.focused || m.canHoldMessages() {
+		return m
+	}
+
+	// Growing the pane back does not take the keys again, since the reader asked for the region
+	// once and did not ask for it a second time.
+
+	m.messages.focused = false
+	m.messages.cursor = 0
+	m.column.top = 0
+
+	m.reconcileSolo()
+	m.restageScreen()
+
+	return m
+}
+
 // toggleMessagesFocus moves the keys between the list and the region, which is also what puts the
 // message in the block beside the list, since the block belongs to whoever holds the keys.
 func (m model) toggleMessagesFocus() model {
 	// Nothing to read is nothing to hold the keys for, the way the record refuses them with no
-	// fields under it.
-	if !m.messages.focused && len(m.messages.items) == 0 {
+	// fields under it, and a pane too short to draw the region is nothing to read on.
+	if !m.messages.focused && (len(m.messages.items) == 0 || !m.canHoldMessages()) {
 		return m
 	}
 

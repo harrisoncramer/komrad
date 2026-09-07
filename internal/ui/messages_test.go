@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/muesli/termenv"
@@ -137,10 +139,9 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 	m.height, m.width = 40, 60
 	m.pushMessage(message{kind: messageError, summary: "Nothing to review in fix-ci", detail: "no change"})
 
-	blurred := m.messagesTally()
-	assert.Empty(t, ansi.Strip(blurred), "one message on its own counts nothing while it is unread")
+	assert.Empty(t, m.messagesTally(), "one message on its own counts nothing while it is unread")
 
-	focused := m.toggleMessagesFocus().messagesTally()
+	focused := m.toggleMessagesFocus().messagesSlot()[0]
 
 	assert.Contains(t, ansi.Strip(focused), "1 of 1")
 	assert.Contains(t, focused, "\x1b[1;34m", "the accent says the region holds the keys")
@@ -151,6 +152,70 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
+
+	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
+}
+
+// TestMessagesRegionStaysInsideThePane covers the region's own width: no row it draws is ever
+// wider than the pane, whatever the tally has grown to and wherever the cursor is standing, since
+// a row a single column over wraps and the region stops being the three rows it promises.
+func TestMessagesRegionStaysInsideThePane(t *testing.T) {
+	summaries := []string{"Could not copy to your clipboard", "x", strings.Repeat("a long reason ", 12)}
+
+	for _, width := range []int{4, 8, 12, 20, 30, 40, 60, 80, 120} {
+		for _, focused := range []bool{false, true} {
+			for _, count := range []int{0, 1, 2, 12, messagesCap} {
+				m := detailsModel(&recordingTmux{})
+				m.height, m.width = 40, width
+				for i := range count {
+					m.report(summaries[i%len(summaries)], errNoWorkflow)
+				}
+				m.messages.focused = focused
+
+				for cursor := range max(count, 1) {
+					m.messages.cursor = cursor
+					region := m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()))
+
+					for _, line := range strings.Split(region, "\n") {
+						assert.LessOrEqual(t, ansi.StringWidth(line), m.lineWidth(),
+							"width %d, focused %v, %d messages, cursor %d: %q", width, focused, count, cursor, ansi.Strip(line))
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestMessagesDropTheKeysWhenThePaneShrinks covers the region losing its rows under a reader who
+// is holding them: a pane too short to draw the region hands the keys back to the list, since a
+// list whose arrows have stopped moving with no message on screen says nothing about why.
+func TestMessagesDropTheKeysWhenThePaneShrinks(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 40, 60
+	m.pushMessage(message{kind: messageError, summary: "Could not archive agent", detail: "every agent belongs to a workflow"})
+
+	reading := m.toggleMessagesFocus()
+	require.True(t, reading.isMessagesFocused())
+
+	small := reading.resizeTo(tea.WindowSizeMsg{Width: 60, Height: 12})
+	require.Empty(t, small.messagesRegion(small.detailsView(), small.renderHelp(small.agentHelp())))
+
+	assert.False(t, small.isMessagesFocused(), "the region cannot hold the keys off a pane it is not drawn on")
+	assert.True(t, small.isListFocused(), "the list has the keys back")
+
+	// The reader asked for the region once, on a pane that could draw it, and asking again is
+	// theirs to do rather than the panel's to do for them.
+	grown := small.resizeTo(tea.WindowSizeMsg{Width: 60, Height: 40})
+	assert.False(t, grown.isMessagesFocused())
+}
+
+// TestMessagesRefuseFocusOnAShortPane covers the key pressed on a pane that was already too short
+// for the region, which is the same dead end reached without a resize.
+func TestMessagesRefuseFocusOnAShortPane(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 12, 60
+	m.pushMessage(message{kind: messageError, summary: "Could not archive agent", detail: "every agent belongs to a workflow"})
+	require.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp())))
 
 	assert.False(t, m.toggleMessagesFocus().isMessagesFocused())
 }
