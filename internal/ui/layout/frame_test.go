@@ -550,7 +550,9 @@ func TestFrameSidebarWidthFallsBackToTheConfiguredColumns(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			frame := New(&recordingTmux{}, config.Layout{SidebarWidth: tt.width})
 
-			assert.Equal(t, tt.want, frame.SidebarWidth(tt.total))
+			width, measured := frame.SidebarWidth(tt.total)
+			assert.Equal(t, tt.want, width)
+			assert.False(t, measured, "nothing has been measured, so this is the configured width")
 		})
 	}
 }
@@ -562,15 +564,21 @@ func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
 	frame.Attach("%0")
 
-	assert.Equal(t, 79, frame.SidebarWidth(200), "the window less the stage and the divider")
+	width, measured := frame.SidebarWidth(200)
+	assert.Equal(t, 79, width, "the window less the stage and the divider")
+	assert.True(t, measured)
 
 	tmux.width = 160
 	frame.SyncSplit()
 
-	assert.Equal(t, 39, frame.SidebarWidth(200), "a dragged divider is followed on the next sync")
+	width, measured = frame.SidebarWidth(200)
+	assert.Equal(t, 39, width, "a dragged divider is followed on the next sync")
+	assert.True(t, measured)
 
 	tmux.width = 0
 	frame.SyncSplit()
 
-	assert.Equal(t, 40, frame.SidebarWidth(200), "and an unreadable pane leaves the configured width")
+	width, measured = frame.SidebarWidth(200)
+	assert.Equal(t, 40, width, "and an unreadable pane leaves the configured width")
+	assert.False(t, measured, "which the caller is told is the configured one")
 }

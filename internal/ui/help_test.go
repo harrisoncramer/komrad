@@ -82,8 +82,8 @@ func TestHelpColumnsFollowTheWidth(t *testing.T) {
 }
 
 // TestNoLegendIsDrawnAsAnEllipsis draws every screen's expanded legend at the narrowest sidebar a
-// split ever leaves, which is the ordinary case rather than an edge, since splitOf floors the
-// sidebar at nameWidth and so every window under 150 columns lands there at the default share.
+// configured split leaves, which is the ordinary case rather than an edge, since a width nobody
+// has dragged is widened to nameWidth and a dragged one is the reader's own doing.
 func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 	legends := map[screen]func(model) keyMap{
 		screenAgents:    model.agentHelp,

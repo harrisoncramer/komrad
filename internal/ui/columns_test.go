@@ -7,6 +7,7 @@ import (
 	"weave/config"
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -258,4 +259,122 @@ func TestColumnOffsetResetsOnANewRow(t *testing.T) {
 
 	state.place("agent:a2")
 	assert.Equal(t, 0, state.top, "a different row opens at its own top")
+}
+
+// TestSplitOfDrawsTheWidthItIsHanded covers the boundary being where the divider is: a measured
+// width is the pane under the panel, so it is drawn there even where it leaves the sidebar or the
+// block less than either would have asked for.
+func TestSplitOfDrawsTheWidthItIsHanded(t *testing.T) {
+	tests := []struct {
+		name        string
+		width       int
+		sidebar     int
+		wantSidebar int
+		wantOK      bool
+	}{
+		{
+			name:        "a width in the middle of the range is drawn as it stands",
+			width:       200,
+			sidebar:     60,
+			wantSidebar: 60,
+			wantOK:      true,
+		},
+		{
+			name:        "a width narrower than a list of names is still where the divider is",
+			width:       200,
+			sidebar:     12,
+			wantSidebar: 12,
+			wantOK:      true,
+		},
+		{
+			name:        "so is one that leaves the block less than its floor",
+			width:       100,
+			sidebar:     80,
+			wantSidebar: 80,
+			wantOK:      true,
+		},
+		{
+			name:        "a width past the window keeps a column for the block",
+			width:       100,
+			sidebar:     140,
+			wantSidebar: 99,
+			wantOK:      true,
+		},
+		{
+			name:    "and a window too narrow for both halves holds neither",
+			width:   60,
+			sidebar: 30,
+			wantOK:  false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			split, ok := splitOf(tt.width, 20, tt.sidebar, columnFloor)
+
+			require.Equal(t, tt.wantOK, ok)
+			if !ok {
+				return
+			}
+
+			assert.Equal(t, tt.wantSidebar, split.sidebar)
+			assert.Equal(t, tt.width-tt.wantSidebar, split.column)
+		})
+	}
+}
+
+// TestAConfiguredWidthIsWidenedAndCapped covers the width nobody has dragged: it is where the
+// panel starts rather than a boundary the reader placed, so it is held to what a list of names
+// reads in and to what leaves the block beside it its floor.
+func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
+	tests := []struct {
+		name    string
+		columns int
+		want    int
+	}{
+		{
+			name:    "narrower than a list of names",
+			columns: 8,
+			want:    nameWidth,
+		},
+		{
+			name:    "wider than the block's floor leaves",
+			columns: 190,
+			want:    200 - reviewDiffFloor,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tmux := &recordingTmux{}
+			m := sizedTo(infoModel(tmux), tmux)
+			m.frame = layout.New(tmux, config.Layout{SidebarWidth: tt.columns})
+			m.frame.Attach("%0")
+			m.enterScreen(screenReview)
+			m.review = reviewState{agentID: "a1", agentName: "auth", loading: true}
+
+			split, ok := m.screenColumnSplit()
+			require.True(t, ok)
+			assert.Equal(t, tt.want, split.sidebar)
+		})
+	}
+}
+
+// TestADraggedDividerIsDrawnWhereItIs covers the width the reader placed: the terminal underneath
+// is split there, so the panel draws its own boundary there too rather than at a width the block
+// beside it would rather have.
+func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
+	tmux := &recordingTmux{}
+	m := sizedTo(infoModel(tmux), tmux)
+	m.enterScreen(screenReview)
+	m.review = reviewState{agentID: "a1", agentName: "auth", loading: true}
+
+	// A divider dragged until the stage holds 25 columns, which leaves the block under its floor.
+	tmux.width = 25
+	m.frame.SyncSplit()
+
+	split, ok := m.screenColumnSplit()
+	require.True(t, ok)
+	assert.Equal(t, 174, split.sidebar, "the window less the stage and the divider")
+	assert.Equal(t, 26, split.column, "and the block keeps what is left rather than its floor")
 }

@@ -16,15 +16,16 @@ type columnSplit struct {
 	rows    int
 }
 
-// splitOf divides a window between a block and the sidebar, widening the configured share to
-// what a list of names can be read in and refusing a window that cannot hold both, where the
-// sidebar takes the whole of it and the block waits for the room.
+// splitOf divides a window between a block and the sidebar at the width it is handed, which is
+// left where it was asked for since a boundary drawn anywhere but the divider under the panel is
+// the misalignment the measuring is for, and refuses a window that cannot hold both halves, where
+// the sidebar takes the whole of it and the block waits for the room.
 func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 	if rows <= 0 || width < nameWidth+floor {
 		return columnSplit{}, false
 	}
 
-	sidebar = min(max(sidebar, nameWidth), width-floor)
+	sidebar = min(max(sidebar, 1), width-1)
 
 	return columnSplit{column: width - sidebar, sidebar: sidebar, rows: rows}, true
 }
@@ -103,7 +104,16 @@ func (m model) columnGeometry() (columnSplit, bool) {
 		return columnSplit{}, false
 	}
 
-	split, ok := splitOf(m.width, m.height-m.chromeLines(), m.frame.SidebarWidth(m.width), spec.floor)
+	sidebar, measured := m.frame.SidebarWidth(m.width)
+
+	// A configured width is a starting point rather than a boundary anybody placed, so it is
+	// widened to what a list of names reads in and capped at what leaves the block its floor,
+	// while a measured one is drawn where the divider is whatever that leaves either half.
+	if !measured {
+		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
+	}
+
+	split, ok := splitOf(m.width, m.height-m.chromeLines(), sidebar, spec.floor)
 	if !ok {
 		return columnSplit{}, false
 	}

@@ -164,6 +164,12 @@ func (f *Frame) Solo(on bool) {
 		return
 	}
 
+	// Taking the window is the last moment the divider can be read from the sidebar's own side of
+	// it, and it costs one call per zoom rather than one per tick.
+	if on {
+		f.SyncSplit()
+	}
+
 	f.solo = on
 	f.tmux.SetPaneZoomed(f.sidebar, on)
 }
@@ -194,14 +200,14 @@ func (f *Frame) SidebarSize() (width, height int) {
 }
 
 // SidebarWidth is how many columns the sidebar draws in when it is holding a window of the given
-// width, taken from where the divider was last measured and falling back to the configured
-// columns while there is nothing beside it to measure.
-func (f *Frame) SidebarWidth(total int) int {
+// width, and whether that came from the divider rather than from the config, since a width the
+// user placed themselves is drawn as it stands and a configured one is only a starting point.
+func (f *Frame) SidebarWidth(total int) (int, bool) {
 	if width := total - f.stageCols - 1; f.stageCols > 0 && width > 0 {
-		return width
+		return width, true
 	}
 
-	return f.spec.SidebarWidth(total)
+	return f.spec.SidebarWidth(total), false
 }
 
 // SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn

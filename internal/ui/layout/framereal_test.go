@@ -33,18 +33,22 @@ func TestSidebarWidthFollowsADraggedDividerUnderTheWindow(t *testing.T) {
 	frame, server, sidebar := realFrame(t)
 
 	total := paneWidth(t, server, sidebar) + paneWidth(t, server, frame.Pane(RegionStage)) + 1
-	require.Equal(t, config.DefaultSidebarWidth, frame.SidebarWidth(total), "the configured columns to begin with")
+	width, _ := frame.SidebarWidth(total)
+	require.Equal(t, config.DefaultSidebarWidth, width, "the configured columns to begin with")
 
 	server.Run("resize-pane", "-t", sidebar, "-x", "50")
 	frame.SyncSplit()
 
-	assert.Equal(t, 50, frame.SidebarWidth(total), "a dragged divider is what the sidebar draws in")
+	width, measured := frame.SidebarWidth(total)
+	assert.Equal(t, 50, width, "a dragged divider is what the sidebar draws in")
+	assert.True(t, measured)
 
 	frame.Solo(true)
 	require.Equal(t, total, paneWidth(t, server, sidebar), "the zoomed sidebar has the whole window")
 	frame.SyncSplit()
 
-	assert.Equal(t, 50, frame.SidebarWidth(total), "and holding the window leaves the divider where it was")
+	width, _ = frame.SidebarWidth(total)
+	assert.Equal(t, 50, width, "and holding the window leaves the divider where it was")
 }
 
 func paneWidth(t *testing.T, server *tmuxtest.Server, pane string) int {
