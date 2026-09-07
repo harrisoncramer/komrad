@@ -5,6 +5,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"io/fs"
 	"log/slog"
 	"os"
@@ -49,15 +50,6 @@ type prepareParams struct {
 	// hook resolves the name against the hooks directory rather than the built-in scripts directory,
 	// since a hook is a script nothing fires by hand: a workflow names it against a moment.
 	hook bool
-}
-
-type startParams struct {
-	script  scripts.Script
-	env     []string
-	agent   agentstore.Agent
-	trigger string
-	run     runRecord
-	done    func(error)
 }
 
 // RunProvision runs the provisioner that owns an agent's directory before creating it.
@@ -142,6 +134,8 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string
 		return "", fmt.Errorf("%w: %w", ErrProvisionFailed, err)
 	}
 
+	logger := s.runLogger(ctx, p.name, p.trigger, p.agent)
+
 	dirFile, err := os.CreateTemp("", "weave-provision-dir-*")
 	if err != nil {
 		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, err)
@@ -150,7 +144,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string
 	closeErr := dirFile.Close()
 	defer func() {
 		if removeErr := os.Remove(dirPath); removeErr != nil && !errors.Is(removeErr, fs.ErrNotExist) {
-			s.runLogger(ctx, p.name, p.trigger, p.agent).LogAttrs(ctx, slog.LevelWarn,
+			logger.LogAttrs(ctx, slog.LevelWarn,
 				"failed to remove the provisioner's directory file", logging.Err(removeErr)...)
 		}
 	}()
@@ -160,18 +154,16 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string
 
 	env = append(env, setupDirFileVar+"="+dirPath)
 
-	logger := s.runLogger(ctx, p.name, p.trigger, p.agent)
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 
-	timeout := script.Header.TimeoutOr(provisionTimeout)
 	record := s.beginRun(ctx, p.agent.ID, p.trigger, p.name)
 
 	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
 		Script:  script,
 		Dir:     script.GetDir(),
 		Env:     env,
-		Timeout: timeout,
+		Timeout: script.Header.TimeoutOr(provisionTimeout),
 	})
 	writeRunLog(ctx, record.logPath, combinedOutput(result.Stdout, result.Stderr))
 
@@ -210,14 +202,54 @@ func (s *ScriptService) RunDeprovision(ctx context.Context, agent agentstore.Age
 		return err
 	}
 
-	return s.start(ctx, startParams{
-		script:  script,
-		env:     env,
-		agent:   agent,
-		trigger: TriggerDeprovision,
-		run:     s.beginRun(ctx, agent.ID, TriggerDeprovision, name),
-		done:    done,
+	run := s.beginRun(ctx, agent.ID, TriggerDeprovision, name)
+
+	key := scriptKey{agentID: agent.ID, name: script.Name}
+	if !s.claim(key) {
+		removeEmptyLog(ctx, run.logPath)
+		s.abandonRun(ctx, run)
+
+		return fmt.Errorf("failed to run script %s: %w", script.Name, ErrScriptAlreadyRunning)
+	}
+
+	logger := s.runLogger(ctx, script.Name, TriggerDeprovision, agent)
+	ctx = context.WithoutCancel(ctx)
+	began := time.Now()
+
+	err = s.runner.Run(scripts.RunParams{
+		Script:  script,
+		Dir:     script.GetDir(),
+		Env:     env,
+		Timeout: script.Header.TimeoutOr(deprovisionTimeout),
+		Done: func(result scripts.Result, err error) {
+			defer s.release(key)
+
+			writeRunLog(ctx, run.logPath, combinedOutput(result.Stdout, result.Stderr))
+			if err != nil {
+				s.failRun(ctx, run, result, fmt.Errorf("%s: %w", script.Name, err))
+				logger.LogAttrs(ctx, slog.LevelError, "script failed",
+					append(failedScript(result, err), slog.Int64(logging.DurationMS, elapsedMS(began)))...)
+			} else {
+				s.finishRun(ctx, run, result, nil)
+				logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
+			}
+
+			if done != nil {
+				done(err)
+			}
+		},
 	})
+	if err != nil {
+		s.release(key)
+		removeEmptyLog(ctx, run.logPath)
+		s.abandonRun(ctx, run)
+
+		return err
+	}
+
+	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
+
+	return nil
 }
 
 func (s *ScriptService) claim(key scriptKey) bool {
@@ -238,63 +270,6 @@ func (s *ScriptService) release(key scriptKey) {
 	defer s.inFlightMu.Unlock()
 
 	delete(s.inFlight, key)
-}
-
-func timeoutFallback(trigger string) time.Duration {
-	if trigger == TriggerDeprovision {
-		return deprovisionTimeout
-	}
-
-	return 0
-}
-
-func (s *ScriptService) start(ctx context.Context, p startParams) error {
-	key := scriptKey{agentID: p.agent.ID, name: p.script.Name}
-	if !s.claim(key) {
-		removeEmptyLog(ctx, p.run.logPath)
-		s.abandonRun(ctx, p.run)
-
-		return fmt.Errorf("failed to run script %s: %w", p.script.Name, ErrScriptAlreadyRunning)
-	}
-
-	logger := s.runLogger(ctx, p.script.Name, p.trigger, p.agent)
-	ctx = context.WithoutCancel(ctx)
-	began := time.Now()
-
-	err := s.runner.Run(scripts.RunParams{
-		Script:  p.script,
-		Dir:     p.script.GetDir(),
-		Env:     p.env,
-		Timeout: p.script.Header.TimeoutOr(timeoutFallback(p.trigger)),
-		Done: func(result scripts.Result, err error) {
-			defer s.release(key)
-
-			writeRunLog(ctx, p.run.logPath, combinedOutput(result.Stdout, result.Stderr))
-			if err != nil {
-				s.failRun(ctx, p.run, result, fmt.Errorf("%s: %w", p.script.Name, err))
-				logger.LogAttrs(ctx, slog.LevelError, "script failed",
-					append(failedScript(result, err), slog.Int64(logging.DurationMS, elapsedMS(began)))...)
-			} else {
-				s.finishRun(ctx, p.run, result, nil)
-				logger.LogAttrs(ctx, slog.LevelInfo, "script finished", finishedScript(result, began)...)
-			}
-
-			if p.done != nil {
-				p.done(err)
-			}
-		},
-	})
-	if err != nil {
-		s.release(key)
-		removeEmptyLog(ctx, p.run.logPath)
-		s.abandonRun(ctx, p.run)
-
-		return err
-	}
-
-	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
-
-	return nil
 }
 
 func (s *ScriptService) prepare(ctx context.Context, p prepareParams) (scripts.Script, []string, error) {
@@ -319,4 +294,14 @@ func (s *ScriptService) prepare(ctx context.Context, p prepareParams) (scripts.S
 	}
 
 	return script, env, nil
+}
+
+func readProvisionedDir(path string) ([]byte, error) {
+	file, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	return io.ReadAll(io.LimitReader(file, maxProvisionedDir+1))
 }

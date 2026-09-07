@@ -139,9 +139,9 @@ func TestWrapSayingLeavesOthers(t *testing.T) {
 	assert.Contains(t, err.Error(), "too many agents")
 }
 
-// TestWrapKeepsTheCodeOfAScriptThatRan covers a provisioner that ran and exited non-zero,
-// which is a refusal the caller is told about rather than an internal failure.
-func TestWrapKeepsTheCodeOfAScriptThatRan(t *testing.T) {
+// TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel covers an error carrying a sentinel the
+// table holds no entry for, which must not cost it the code of the mapped sentinel beside it.
+func TestWrapKeepsTheMappedCodeBesideAnUnmappedSentinel(t *testing.T) {
 	ran := fmt.Errorf("%w: %w: exited 1", agents.ErrProvisionFailed, scripts.ErrFailed)
 
 	err := rpcerr.Wrap(ran, "failed to create the agent")

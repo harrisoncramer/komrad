@@ -401,9 +401,12 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	}
 	provisioned = true
 
-	dir, err := s.provisionedDir(plan.dir, named)
+	dir, err := namedDir(named)
 	if err != nil {
 		return nil, err
+	}
+	if dir == "" {
+		dir = plan.dir
 	}
 	agent = plan.agent(p, id, sessionID, dir, "", spawner)
 
@@ -514,14 +517,6 @@ func (s *LaunchService) runProvision(ctx context.Context, planned agentstore.Age
 	}
 
 	return s.scripts.RunProvision(ctx, planned, name)
-}
-
-func (s *LaunchService) provisionedDir(planned, named string) (string, error) {
-	if named == "" {
-		return planned, nil
-	}
-
-	return namedDir(named)
 }
 
 func namedDir(named string) (string, error) {

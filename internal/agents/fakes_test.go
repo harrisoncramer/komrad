@@ -34,8 +34,6 @@ type fakeTmux struct {
 	sent           map[string][][]string
 	globals        map[string]string
 	newWindows     map[string]string
-	swaps          [][2]string
-	respawns       [][]string
 	killedPanes    []string
 	detached       []string
 	sessionOptions map[string]string
@@ -192,18 +190,6 @@ func (f *fakeTmux) SetPaneOwner(pane, agentID string) error {
 	f.owners[pane] = agentID
 
 	return nil
-}
-
-func (f *fakeTmux) SwapPanes(src, dst string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.swaps = append(f.swaps, [2]string{src, dst})
-}
-
-func (f *fakeTmux) RespawnPane(pane, dir string, argv ...string) {
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	f.respawns = append(f.respawns, append([]string{pane}, argv...))
 }
 
 func (f *fakeTmux) KillPane(pane string) {
