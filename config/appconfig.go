@@ -99,7 +99,7 @@ const DefaultFocusKey = "C-a"
 // tall enough to read a log in without pushing the agent above it off the screen.
 const (
 	DefaultSidebarSide  = SidebarSideLeft
-	DefaultSidebarWidth = 0.2
+	DefaultSidebarWidth = 40
 	DefaultInfoSide     = InfoSideBelow
 	DefaultInfoHeight   = 0.4
 	// DefaultDetailsHeight leaves the list twice the room the record under it takes, which
@@ -468,8 +468,8 @@ type Context struct {
 type Layout struct {
 	// Which side of the popup the panel's sidebar sits on, "left" or "right".
 	SidebarSide string `mapstructure:"sidebar_side"`
-	// How wide the panel's sidebar is, either a share of the popup's width below one or a whole number of columns.
-	SidebarWidth float64 `mapstructure:"sidebar_width"`
+	// How many columns wide the panel's sidebar opens at. Dragging the divider afterwards moves it, and the panel follows.
+	SidebarWidth int `mapstructure:"sidebar_width"`
 	// Which side of the stage the info pane opens on, "below" or "above". That pane is where the server log and an editor are drawn.
 	InfoSide string `mapstructure:"info_side"`
 	// How tall the info pane opens, either a share of the stage's height below one or a whole number of rows.
@@ -808,8 +808,8 @@ func DefaultKeybindings() Keybindings {
 // validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted
 // size reads, so it falls back to the default rather than being called a mistake.
 func validateLayout(layout Layout) error {
-	if err := validatePaneSize("layout.sidebar_width", layout.SidebarWidth); err != nil {
-		return err
+	if layout.SidebarWidth < 0 {
+		return fmt.Errorf("layout.sidebar_width: %d is not a width", layout.SidebarWidth)
 	}
 	if err := validatePaneSize("layout.info_height", layout.InfoHeight); err != nil {
 		return err

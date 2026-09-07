@@ -22,15 +22,6 @@ func TestFrameAttachAnchorsToTheGivenPane(t *testing.T) {
 	assert.Equal(t, "%7", frame.Pane(RegionSidebar))
 }
 
-// TestFrameSizesTheNavPane covers which of the two panes a split leaves is put at the width
-// the config states, which is the sidebar, since that is the one the width is stated for.
-func TestFrameSizesTheNavPane(t *testing.T) {
-	tmux := &recordingTmux{}
-	New(tmux, config.Layout{SidebarWidth: 0.4}).Attach("%0")
-
-	assert.Equal(t, []string{"%0 40%"}, tmux.resizes, "the sidebar is what is put at the configured width")
-}
-
 // TestFrameRedrawsWhenOnlyTheHeightMoves covers the stage keeping its width while a split opens
 // under it, which leaves rows blank if the height is never re-read.
 func TestFrameRedrawsWhenOnlyTheHeightMoves(t *testing.T) {
@@ -87,22 +78,17 @@ func TestFrameLaysRegionsOutOnTheConfiguredSides(t *testing.T) {
 		{
 			name:   "the defaults put the stage right of the sidebar and the info pane below it",
 			layout: config.Layout{},
-			want:   []string{"right %0 80%", "below %1 40%"},
+			want:   []string{"right %0 50%", "below %1 40%"},
 		},
 		{
 			name:   "a sidebar on the right leaves the stage the left",
 			layout: config.Layout{SidebarSide: config.SidebarSideRight},
-			want:   []string{"left %0 80%", "below %1 40%"},
+			want:   []string{"left %0 50%", "below %1 40%"},
 		},
 		{
 			name:   "an info pane above opens over the stage",
 			layout: config.Layout{InfoSide: config.InfoSideAbove},
-			want:   []string{"right %0 80%", "above %1 40%"},
-		},
-		{
-			name:   "a width in columns splits the stage evenly and resizes afterwards",
-			layout: config.Layout{SidebarWidth: 40},
-			want:   []string{"right %0 50%", "below %1 40%"},
+			want:   []string{"right %0 50%", "above %1 40%"},
 		},
 	}
 
@@ -362,7 +348,7 @@ func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 		owners:   map[string]string{"%7": "019fbb22-3735-71a9-ad83-acf4aa537acb"},
 	}
 
-	New(tmux, config.Layout{SidebarWidth: 0.4}).Attach("%0")
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
 
 	assert.Equal(t, []string{"%7"}, tmux.broken, "a staged agent is returned to its own window")
 	assert.Equal(t, []string{"%8"}, tmux.killed, "the last frame's own pane is not kept")
@@ -373,7 +359,7 @@ func TestFrameAttachReclaimsTheWindow(t *testing.T) {
 func TestFrameAttachLeavesAnEmptyWindowAlone(t *testing.T) {
 	tmux := &recordingTmux{}
 
-	New(tmux, config.Layout{SidebarWidth: 0.4}).Attach("%0")
+	New(tmux, config.Layout{SidebarWidth: 40}).Attach("%0")
 
 	assert.Empty(t, tmux.broken)
 	assert.Empty(t, tmux.killed)
@@ -531,21 +517,15 @@ func TestFrameAttachGivesTheWindowBack(t *testing.T) {
 	assert.False(t, tmux.zoomed)
 }
 
-// TestFrameSidebarWidthResolvesTheConfiguredShare covers the columns a screen holding the window
-// lays its own split out against, which the spec knows only as a share until there is a window.
-func TestFrameSidebarWidthResolvesTheConfiguredShare(t *testing.T) {
+// TestFrameSidebarWidthFallsBackToTheConfiguredColumns covers the columns a screen holding the
+// window lays its own split out against before the divider has been measured.
+func TestFrameSidebarWidthFallsBackToTheConfiguredColumns(t *testing.T) {
 	tests := []struct {
 		name  string
-		width float64
+		width int
 		total int
 		want  int
 	}{
-		{
-			name:  "a share of the window",
-			width: 0.25,
-			total: 200,
-			want:  50,
-		},
 		{
 			name:  "a count of columns is taken as it is",
 			width: 40,
@@ -560,7 +540,7 @@ func TestFrameSidebarWidthResolvesTheConfiguredShare(t *testing.T) {
 		},
 		{
 			name:  "an unmeasured window has no columns to divide",
-			width: 0.25,
+			width: 40,
 			total: 0,
 			want:  0,
 		},
@@ -570,7 +550,35 @@ func TestFrameSidebarWidthResolvesTheConfiguredShare(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			frame := New(&recordingTmux{}, config.Layout{SidebarWidth: tt.width})
 
-			assert.Equal(t, tt.want, frame.SidebarWidth(tt.total))
+			width, measured := frame.SidebarWidth(tt.total)
+			assert.Equal(t, tt.want, width)
+			assert.False(t, measured, "nothing has been measured, so this is the configured width")
 		})
 	}
+}
+
+// TestFrameSidebarWidthFollowsTheDivider covers a divider the user has dragged: the sidebar is
+// measured off the pane beside it, which a zoom leaves alone, rather than off its own width.
+func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
+	tmux := &recordingTmux{width: 120}
+	frame := New(tmux, config.Layout{SidebarWidth: 40})
+	frame.Attach("%0")
+
+	width, measured := frame.SidebarWidth(200)
+	assert.Equal(t, 79, width, "the window less the stage and the divider")
+	assert.True(t, measured)
+
+	tmux.width = 160
+	frame.SyncSplit()
+
+	width, measured = frame.SidebarWidth(200)
+	assert.Equal(t, 39, width, "a dragged divider is followed on the next sync")
+	assert.True(t, measured)
+
+	tmux.width = 0
+	frame.SyncSplit()
+
+	width, measured = frame.SidebarWidth(200)
+	assert.Equal(t, 40, width, "and an unreadable pane leaves the configured width")
+	assert.False(t, measured, "which the caller is told is the configured one")
 }

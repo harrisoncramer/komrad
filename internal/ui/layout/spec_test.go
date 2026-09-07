@@ -8,50 +8,38 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestNewSpecSizes covers the sizes tmux is handed, where the stage takes what the sidebar
-// leaves so the two are the whole window.
+// TestNewSpecSizes covers the sizes tmux is handed, where the sidebar is a count of columns and
+// the info pane may still be a share of what it divides.
 func TestNewSpecSizes(t *testing.T) {
 	tests := []struct {
 		name     string
 		layout   config.Layout
 		wantNav  string
-		wantMain string
 		wantInfo string
 	}{
 		{
 			name:     "a layout naming nothing falls back to the defaults",
 			layout:   config.Layout{},
-			wantNav:  "20%",
-			wantMain: "80%",
-			wantInfo: "40%",
-		},
-		{
-			name:     "a share that does not land on a whole percent rounds",
-			layout:   config.Layout{SidebarWidth: 0.335},
-			wantNav:  "34%",
-			wantMain: "66%",
+			wantNav:  "40",
 			wantInfo: "40%",
 		},
 		{
 			name:     "a width in columns is handed over as it is",
-			layout:   config.Layout{SidebarWidth: 40},
-			wantNav:  "40",
-			wantMain: "50%",
+			layout:   config.Layout{SidebarWidth: 30},
+			wantNav:  "30",
 			wantInfo: "40%",
 		},
 		{
-			name:     "so is a height in rows",
+			name:     "a height in rows is too",
 			layout:   config.Layout{InfoHeight: 12},
-			wantNav:  "20%",
-			wantMain: "80%",
+			wantNav:  "40",
 			wantInfo: "12",
 		},
 		{
-			name:     "an even split",
-			layout:   config.Layout{SidebarWidth: 0.5, InfoHeight: 0.5},
-			wantNav:  "50%",
-			wantMain: "50%",
-			wantInfo: "50%",
+			name:     "a share of the stage rounds to a percent",
+			layout:   config.Layout{InfoHeight: 0.335},
+			wantNav:  "40",
+			wantInfo: "34%",
 		},
 	}
 
@@ -60,7 +48,6 @@ func TestNewSpecSizes(t *testing.T) {
 			spec := newSpec(tt.layout)
 
 			assert.Equal(t, tt.wantNav, spec.sidebarSize)
-			assert.Equal(t, tt.wantMain, spec.stageSize)
 			assert.Equal(t, tt.wantInfo, spec.infoSize)
 		})
 	}

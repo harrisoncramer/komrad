@@ -256,18 +256,18 @@ func TestReviewSidebarKeepsTheWindowWhenThereIsNoRoomForTheDiff(t *testing.T) {
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok)
-	assert.Equal(t, 40, split.sidebar, "a fifth of the window")
+	assert.Equal(t, 40, split.sidebar, "the columns the divider leaves it")
 	assert.Equal(t, 160, split.column)
 	assert.Equal(t, 40, m.paneWidth(), "which is the column the sidebar is laid out in")
 
-	// A fifth of this window is a column of single words, so the sidebar takes what it needs and
-	// the diff keeps the rest.
+	// A window narrower than the divider was measured against falls back to the configured
+	// columns, and the diff keeps the rest.
 	m.width = 120
 
 	split, ok = m.screenColumnSplit()
 	require.True(t, ok)
-	assert.Equal(t, nameWidth, split.sidebar)
-	assert.Equal(t, 90, split.column)
+	assert.Equal(t, 40, split.sidebar)
+	assert.Equal(t, 80, split.column)
 
 	m.width = 45
 
@@ -301,7 +301,7 @@ func TestReviewPutsTheSidebarOnItsConfiguredSide(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			dir := reviewRepo(t)
 			m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
-			m.frame = layout.New(tmux, config.Layout{SidebarSide: tt.side, SidebarWidth: 0.2})
+			m.frame = layout.New(tmux, config.Layout{SidebarSide: tt.side, SidebarWidth: 24})
 			m.frame.Attach("%0")
 			m = openReview(t, m)
 

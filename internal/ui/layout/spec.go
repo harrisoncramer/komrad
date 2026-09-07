@@ -9,21 +9,20 @@ import (
 
 type spec struct {
 	sidebarOnRight bool
-	sidebarSize    string
-	// sidebarShare is that same width as the number rather than the string tmux takes, since a
-	// screen holding the whole window draws its own split and needs the columns.
-	sidebarShare float64
-	stageSize    string
-	infoAbove    bool
-	infoSize     string
+	// sidebarCols is the width the sidebar is first laid out at, in columns, which is where its
+	// own drawing starts from until the split has been measured.
+	sidebarCols int
+	sidebarSize string
+	infoAbove   bool
+	infoSize    string
 }
 
 // newSpec resolves a configured layout into the geometry the frame lays panes out at, falling
 // back to the defaults for anything the config left out.
 func newSpec(layout config.Layout) spec {
-	list, info := layout.SidebarWidth, layout.InfoHeight
-	if list <= 0 {
-		list = config.DefaultSidebarWidth
+	cols, info := layout.SidebarWidth, layout.InfoHeight
+	if cols <= 0 {
+		cols = config.DefaultSidebarWidth
 	}
 	if info <= 0 {
 		info = config.DefaultInfoHeight
@@ -31,13 +30,16 @@ func newSpec(layout config.Layout) spec {
 
 	return spec{
 		sidebarOnRight: layout.SidebarSide == config.SidebarSideRight,
-		sidebarSize:    formatSize(list),
-		sidebarShare:   list,
-		stageSize:      formatComplement(list),
+		sidebarCols:    cols,
+		sidebarSize:    strconv.Itoa(cols),
 		infoAbove:      layout.InfoSide == config.InfoSideAbove,
 		infoSize:       formatSize(info),
 	}
 }
+
+// stageSize is the share the stage is split off at, before the sidebar is resized to the columns
+// it was configured for, since the window's own width is not known at the split.
+const stageSize = "50%"
 
 func formatSize(size float64) string {
 	if size >= 1 {
@@ -47,28 +49,16 @@ func formatSize(size float64) string {
 	return strconv.Itoa(percent(size)) + "%"
 }
 
-func formatComplement(size float64) string {
-	if size >= 1 {
-		return "50%"
-	}
-
-	return strconv.Itoa(100-percent(size)) + "%"
-}
-
 func percent(share float64) int {
 	return int(math.Round(share * 100))
 }
 
-// SidebarWidth is how many of a window's columns the sidebar takes, resolving a share of the
-// window against the width it is actually being drawn at.
+// SidebarWidth is how many of a window's columns the sidebar starts at, which is what a screen
+// splitting the window itself lays itself out against until the divider has been measured.
 func (s spec) SidebarWidth(total int) int {
 	if total <= 0 {
 		return 0
 	}
 
-	if s.sidebarShare >= 1 {
-		return min(int(s.sidebarShare), total)
-	}
-
-	return min(int(math.Round(s.sidebarShare*float64(total))), total)
+	return min(s.sidebarCols, total)
 }

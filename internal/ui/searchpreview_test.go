@@ -187,7 +187,7 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m, tmux := searchPreviewModel(t)
-			m.frame = layout.New(tmux, config.Layout{SidebarSide: tt.side, SidebarWidth: 0.2})
+			m.frame = layout.New(tmux, config.Layout{SidebarSide: tt.side, SidebarWidth: 40})
 			m.frame.Attach("%0")
 			m.frame.Solo(true)
 			m.drawPreview()
