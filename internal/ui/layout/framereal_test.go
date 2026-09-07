@@ -95,15 +95,35 @@ func TestAGuestIsShownUnderTheWindow(t *testing.T) {
 	assert.True(t, isZoomed(t, server, sidebar), "and tmux is still holding it for the frame")
 }
 
-// TestTheInfoPaneIsNotDrawnUnderAZoom covers the panel handing the window back, since the logs
-// and the editor are drawn in a pane a zoomed sidebar would cover.
-func TestTheInfoPaneIsNotDrawnUnderAZoom(t *testing.T) {
+// TestTheInfoPaneIsNotCoveredByTheWindow covers the logs being opened under a panel holding the
+// window, since a zoomed sidebar covers the pane they are drawn in.
+func TestTheInfoPaneIsNotCoveredByTheWindow(t *testing.T) {
 	frame, server, sidebar := realFrame(t)
 
 	frame.Solo(true)
-	frame.Solo(false)
-	frame.Open(RegionInfo)
+	require.True(t, isZoomed(t, server, sidebar), "the sidebar has the window to begin with")
 
-	assert.False(t, frame.IsSolo(), "the frame gave the window up for the info pane")
-	assert.False(t, isZoomed(t, server, sidebar), "so nothing puts the zoom back over it")
+	info := frame.Open(RegionInfo)
+
+	require.NotEmpty(t, info, "the info pane is open")
+	assert.False(t, isZoomed(t, server, sidebar), "and nothing puts the zoom back over it")
+}
+
+// TestAWindowGivenUpByHandIsLeftAlone covers the user's own prefix+z, which drops the zoom without
+// calling into weave: the refresh tick asks for the content that is already up, and a restore hung
+// on the call rather than on what the call moved would take the window back within the second.
+func TestAWindowGivenUpByHandIsLeftAlone(t *testing.T) {
+	frame, server, sidebar := realFrame(t)
+	content := blankContent(t)
+
+	frame.Solo(true)
+	frame.Show(RegionStage, content)
+	require.True(t, isZoomed(t, server, sidebar), "the panel has the window")
+
+	server.Run("resize-pane", "-Z", "-t", sidebar)
+	require.False(t, isZoomed(t, server, sidebar), "which the user takes back by hand")
+
+	frame.Show(RegionStage, content)
+
+	assert.False(t, isZoomed(t, server, sidebar), "and the next tick leaves it where they put it")
 }
