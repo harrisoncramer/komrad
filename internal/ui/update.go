@@ -81,7 +81,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	// Reached before the form and before a held write, since a refusal reported by a form is the
-	// one whose whole reason a person most needs, and the form owns every other key.
+	// one whose whole reason a person most needs.
 	if isKey && m.isMessagesRegion() {
 		switch {
 		case m.isMessagesFocused():
