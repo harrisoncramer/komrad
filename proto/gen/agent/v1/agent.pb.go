@@ -63,9 +63,13 @@ type Agent struct {
 	// decided rather than replacing it.
 	ReportedReason string `protobuf:"bytes,29,opt,name=reported_reason,json=reportedReason,proto3" json:"reported_reason,omitempty"`
 	// What the agent was launched to do, which decides the half of the review briefing it is sent.
-	Role          string `protobuf:"bytes,30,opt,name=role,proto3" json:"role,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Role string `protobuf:"bytes,30,opt,name=role,proto3" json:"role,omitempty"`
+	// How many rounds of its own work an author has released a review against.
+	ReviewRoundsReceived int32 `protobuf:"varint,31,opt,name=review_rounds_received,json=reviewRoundsReceived,proto3" json:"review_rounds_received,omitempty"`
+	// How many rounds of another agent's work it has released a review against.
+	ReviewRoundsSent int32 `protobuf:"varint,32,opt,name=review_rounds_sent,json=reviewRoundsSent,proto3" json:"review_rounds_sent,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *Agent) Reset() {
@@ -299,6 +303,20 @@ func (x *Agent) GetRole() string {
 		return x.Role
 	}
 	return ""
+}
+
+func (x *Agent) GetReviewRoundsReceived() int32 {
+	if x != nil {
+		return x.ReviewRoundsReceived
+	}
+	return 0
+}
+
+func (x *Agent) GetReviewRoundsSent() int32 {
+	if x != nil {
+		return x.ReviewRoundsSent
+	}
+	return 0
 }
 
 type AgentMetadata struct {
@@ -1705,7 +1723,7 @@ var File_agent_v1_agent_proto protoreflect.FileDescriptor
 
 const file_agent_v1_agent_proto_rawDesc = "" +
 	"\n" +
-	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\xa7\b\n" +
+	"\x14agent/v1/agent.proto\x12\bagent.v1\x1a\x13agent/v1/mail.proto\x1a\x15agent/v1/review.proto\x1a\x19agent/v1/transcript.proto\x1a\x18annotation/v1/tool.proto\x1a\x1bbuf/validate/validate.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1epagination/v1/pagination.proto\x1a\x14rules/v1/rules.proto\"\x8b\t\n" +
 	"\x05Agent\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12\x10\n" +
@@ -1743,7 +1761,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x0efailed_run_log\x18\x1c \x01(\x05H\aR\ffailedRunLog\x88\x01\x01\x12(\n" +
 	"\x10state_changed_at\x18\x19 \x01(\tR\x0estateChangedAt\x12'\n" +
 	"\x0freported_reason\x18\x1d \x01(\tR\x0ereportedReason\x12\x12\n" +
-	"\x04role\x18\x1e \x01(\tR\x04roleB\x0e\n" +
+	"\x04role\x18\x1e \x01(\tR\x04role\x124\n" +
+	"\x16review_rounds_received\x18\x1f \x01(\x05R\x14reviewRoundsReceived\x12,\n" +
+	"\x12review_rounds_sent\x18  \x01(\x05R\x10reviewRoundsSentB\x0e\n" +
 	"\f_archived_atB\x0e\n" +
 	"\f_schedule_idB\a\n" +
 	"\x05_markB\x12\n" +

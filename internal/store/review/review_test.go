@@ -516,3 +516,65 @@ func catchUp(t *testing.T, st *fixture, agentID string) {
 		require.NoError(t, err)
 	}
 }
+
+// TestTalliesCountReleasedRoundsBothWays is what the panel draws a loop from: the agent whose
+// work went round is counted against the rounds, the agent that read it against the reviews it
+// let go of, and a batch nobody has released is counted against neither.
+func TestTalliesCountReleasedRoundsBothWays(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedAgentNamed(t, st, "reviewer")
+
+	for _, tree := range []string{"tree-one", "tree-two"} {
+		round := openRound(t, st, agentID, tree)
+		review, err := st.OpenReview(ctx, OpenReviewParams{
+			AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		})
+		require.NoError(t, err)
+		release(t, st, agentID, review.ID, VerdictChangesRequested)
+	}
+
+	third := openRound(t, st, agentID, "tree-three")
+	openReview(t, st, agentID, third.ID)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+
+	byAgent := make(map[string]Tally, len(tallies))
+	for _, tally := range tallies {
+		byAgent[tally.AgentID] = tally
+	}
+
+	assert.Equal(t, Tally{AgentID: agentID, Received: 2}, byAgent[agentID])
+	assert.Equal(t, Tally{AgentID: reviewer, Sent: 2}, byAgent[reviewer])
+}
+
+// TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
+// reading the same snapshot is one round the work went through, not two.
+func TestTalliesCountOneRoundOnce(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedAgentNamed(t, st, "reviewer")
+	round := openRound(t, st, agentID, "tree-one")
+
+	human := openReview(t, st, agentID, round.ID)
+	release(t, st, agentID, human.ID, VerdictCommented)
+
+	agent, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, agent.ID, VerdictChangesRequested)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, tallies, 2)
+	for _, tally := range tallies {
+		if tally.AgentID == agentID {
+			assert.Equal(t, int32(1), tally.Received)
+		}
+	}
+}

@@ -109,10 +109,12 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 	})
 
 	return NewService(NewServiceParams{
-		Agents: st.Agents,
-		Mail:   mail,
-		Review: review,
-		Runs:   st.Runs,
+		Agents:   st.Agents,
+		Mail:     mail,
+		Review:   review,
+		Runs:     st.Runs,
+		Marks:    markService(st),
+		Liveness: &fakeLauncher{},
 	}), st
 }
 
@@ -128,4 +130,55 @@ func (stubSnapshotter) Hold(context.Context, string, string, string) error { ret
 
 func (stubSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
 	return nil, nil
+}
+
+// TestListedAgentsCarryTheirReviewRounds is the wiring the panel draws its loop mark from: a
+// released review is counted against the agent whose work it was given on and against the agent
+// that gave it, and a review still being written is counted against neither.
+func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
+	svc, st := reviewService(t)
+	worker := st.SeedAgent(t, agentstore.Agent{Name: "worker", Cwd: "/repo", State: agentstore.StateIdle})
+	reviewer := st.SeedAgent(t, agentstore.Agent{
+		Name: "reviewer", Cwd: "/repo", State: agentstore.StateIdle,
+		Role: agentstore.RoleReviewer, ParentAgentID: &worker.ID,
+	})
+
+	asReviewer := caller.With(t.Context(), caller.Caller{AgentID: reviewer.ID})
+	_, err := svc.OpenReviewRound(asReviewer, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+		AgentId: worker.ID,
+	}))
+	require.NoError(t, err)
+
+	_, err = svc.CreateReviewThread(asReviewer, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
+		AgentId:     worker.ID,
+		FilePath:    "greet.go",
+		NewStart:    41,
+		NewEnd:      41,
+		QuotedLines: []string{"+\tgreet(nil)"},
+		Body:        "this needs a nil check",
+	}))
+	require.NoError(t, err)
+
+	counts := func() map[string][2]int32 {
+		listed, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
+		require.NoError(t, err)
+
+		rounds := make(map[string][2]int32, len(listed.Msg.GetAgents()))
+		for _, agent := range listed.Msg.GetAgents() {
+			rounds[agent.GetName()] = [2]int32{agent.GetReviewRoundsReceived(), agent.GetReviewRoundsSent()}
+		}
+
+		return rounds
+	}
+
+	assert.Equal(t, [2]int32{0, 0}, counts()["worker"], "a review nobody has released is nothing yet")
+
+	_, err = svc.ReleaseReview(asReviewer, connect.NewRequest(&agentv1.ReleaseReviewRequest{
+		AgentId: worker.ID,
+		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
+	}))
+	require.NoError(t, err)
+
+	assert.Equal(t, [2]int32{1, 0}, counts()["worker"])
+	assert.Equal(t, [2]int32{0, 1}, counts()["reviewer"])
 }

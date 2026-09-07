@@ -398,3 +398,26 @@ func roundNotFound(id string) error {
 func reviewNotFound(id string) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
+
+// Tally is how many rounds of review one agent has taken part in, counted in both directions
+// since a loop shows on the agent being reviewed and on the one reviewing it.
+type Tally struct {
+	AgentID string
+	// Received is how many of its own rounds an author has released a review against.
+	Received int32
+	// Sent is how many rounds of another agent's work it has released a review against.
+	Sent int32
+}
+
+// ListTallies is the rounds of review every agent has taken part in, leaving out the agents
+// that have taken part in none.
+func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
+	rows, err := s.queries.ListReviewRoundTallies(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to count the rounds of review: %w", err)
+	}
+
+	return xslice.Map(rows, func(row *models.ListReviewRoundTalliesRow) Tally {
+		return Tally{AgentID: row.AgentID, Received: row.Received, Sent: row.Sent}
+	}), nil
+}

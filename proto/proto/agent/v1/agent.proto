@@ -50,6 +50,10 @@ message Agent {
   string reported_reason = 29;
   // What the agent was launched to do, which decides the half of the review briefing it is sent.
   string role = 30;
+  // How many rounds of its own work an author has released a review against.
+  int32 review_rounds_received = 31;
+  // How many rounds of another agent's work it has released a review against.
+  int32 review_rounds_sent = 32;
 }
 
 message AgentMetadata {

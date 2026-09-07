@@ -1,6 +1,8 @@
 package ui
 
 import (
+	"fmt"
+
 	agentstore "weave/internal/store/agent"
 
 	"github.com/charmbracelet/lipgloss"
@@ -24,6 +26,13 @@ const (
 	hiddenNotice          = "hidden: the sidebar leaves this row out until hidden agents are shown"
 )
 
+// reviewRoundsNotice is the only place the two directions are drawn apart, since the count on the
+// row is the two of them added up and which one it stands for tells a loop from a reviewer that
+// has read a lot.
+func reviewRoundsNotice(item agentItem) string {
+	return fmt.Sprintf("review rounds: %d given on its work, %d it has given", item.roundsReceived, item.roundsSent)
+}
+
 // agentNotices orders the marks by how much each wants a person's attention, since the record
 // gives up the ones at the end of the list when the pane is short.
 func agentNotices(item agentItem) []notice {
@@ -32,8 +41,9 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.unreadMail, unreadMailIcon, colorAccent, unreadMailNotice)
 	notices = appendNotice(notices, item.agent.WorktreeRemoved, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
+	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
 
-	return appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
+	return appendNotice(notices, reviewRounds(item) > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item))
 }
 
 // failureNotices is the whole of what an archived row has to say, since every other mark stands

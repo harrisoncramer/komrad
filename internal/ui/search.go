@@ -391,7 +391,7 @@ func (m model) hitHeader(hit searchHit) string {
 	return markGutter(m.listing.marks[agentRowKey(item.agent.ID)]) + stateMark(displayState(item)) + " " + name +
 		worktreeRemovedMark(item.agent) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
-		failedRunMark(item.failedRun)
+		failedRunMark(item.failedRun) + reviewRoundsMark(reviewRounds(item))
 }
 
 // searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own

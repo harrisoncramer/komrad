@@ -756,6 +756,65 @@ func (q *Queries) ListReviewMessagesByThreads(ctx context.Context, threadIds []s
 	return items, nil
 }
 
+const listReviewRoundTallies = `-- name: ListReviewRoundTallies :many
+WITH received AS (
+    SELECT
+        v.agent_id AS agent_id,
+        COUNT(DISTINCT v.round_id) AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    GROUP BY
+        v.agent_id
+),
+sent AS (
+    SELECT
+        v.author_agent_id AS agent_id,
+        COUNT(DISTINCT v.round_id) AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+        AND v.author_agent_id IS NOT NULL
+    GROUP BY
+        v.author_agent_id
+)
+SELECT
+    COALESCE(r.agent_id, s.agent_id)::uuid AS agent_id,
+    COALESCE(r.rounds, 0)::int AS received,
+    COALESCE(s.rounds, 0)::int AS sent
+FROM
+    received r
+    FULL JOIN sent s ON s.agent_id = r.agent_id
+`
+
+type ListReviewRoundTalliesRow struct {
+	AgentID  string
+	Received int32
+	Sent     int32
+}
+
+func (q *Queries) ListReviewRoundTallies(ctx context.Context) ([]*ListReviewRoundTalliesRow, error) {
+	rows, err := q.db.Query(ctx, listReviewRoundTallies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListReviewRoundTalliesRow
+	for rows.Next() {
+		var i ListReviewRoundTalliesRow
+		if err := rows.Scan(&i.AgentID, &i.Received, &i.Sent); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewRounds = `-- name: ListReviewRounds :many
 SELECT
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at

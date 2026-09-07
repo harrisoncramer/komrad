@@ -61,6 +61,7 @@ type reviewBatchReadWriter interface {
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
 	DeleteReview(ctx context.Context, id string) error
+	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
 }
 
 type reviewSnapshotter interface {
@@ -167,6 +168,12 @@ func (s *ReviewService) ListRounds(
 	}
 
 	return s.rounds.ListRounds(ctx, agentID)
+}
+
+// ListTallies is how many rounds of review each agent has taken part in, which the listing reads
+// once for every row rather than asking per agent.
+func (s *ReviewService) ListTallies(ctx context.Context) ([]reviewstore.Tally, error) {
+	return s.reviews.ListTallies(ctx)
 }
 
 // ListReviews is every review given on an agent, in the order their rounds were taken, with the
