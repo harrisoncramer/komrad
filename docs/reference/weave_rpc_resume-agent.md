@@ -4,7 +4,7 @@ Relaunch an agent's CLI on the same conversation, keyed by id, which is what rea
 
 ### Synopsis
 
-Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first.
+Relaunch an agent's CLI on the same conversation, keyed by id, which is what reaches an agent whose pane has since died. An agent already running is returned as it stands rather than started twice. An archived agent is refused, so call restore_agent first, and one this panel is already part-way through resuming is refused as failed_precondition, which means to wait for the pane rather than to call again.
 
 ```
 weave rpc resume-agent [flags]
