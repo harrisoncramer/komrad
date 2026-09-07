@@ -3,7 +3,6 @@ package ui
 import (
 	"strings"
 	"testing"
-	"time"
 
 	"weave/config"
 	"weave/lib/xptr"
@@ -19,8 +18,6 @@ import (
 )
 
 func ghostTree(width int) model {
-	now := time.Now()
-
 	return model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:   config.DefaultKeybindings(),
@@ -32,11 +29,10 @@ func ghostTree(width int) model {
 			agents: []agentItem{
 				{
 					agent: agentstore.Agent{
-						ID:             "a1",
-						Name:           "bare",
-						WorkflowID:     "w1",
-						State:          agentstore.StateThinking,
-						StateChangedAt: now.Add(-6 * time.Minute),
+						ID:         "a1",
+						Name:       "bare",
+						WorkflowID: "w1",
+						State:      agentstore.StateThinking,
 					},
 					alive: true,
 				},
@@ -46,7 +42,6 @@ func ghostTree(width int) model {
 						Name:            "decorated",
 						WorkflowID:      "w1",
 						State:           agentstore.StateIdle,
-						StateChangedAt:  now.Add(-27 * time.Minute),
 						ScheduleID:      xptr.Ptr("s1"),
 						WorktreeRemoved: true,
 					},
@@ -58,18 +53,22 @@ func ghostTree(width int) model {
 	}
 }
 
-// TestGhostSlotHoldsOneColumn pins that the slot opens the row and holds the same width whatever
+// TestGhostSlotHoldsOneColumn pins that the slot opens every row at the same width whatever
 // icons the row wears, since a column that moves with the row is not one anybody can read down.
 func TestGhostSlotHoldsOneColumn(t *testing.T) {
 	rows := strings.Split(ghostTree(120).agentsView(), "\n")
+	blank := strings.Repeat(" ", ghostWidth+ghostGap)
 
-	bare, ok := rowNamed(rows, "bare")
-	require.True(t, ok)
-	decorated, ok := rowNamed(rows, "decorated")
-	require.True(t, ok)
+	for _, name := range []string{"weave", "bare", "decorated"} {
+		row, ok := rowNamed(rows, name)
+		require.True(t, ok)
+		assert.True(t, strings.HasPrefix(ansi.Strip(row), blank), "the %s row opens with the slot", name)
+	}
 
-	assert.True(t, strings.HasPrefix(ansi.Strip(bare), "  6m "), "the bare row opens with its span")
-	assert.True(t, strings.HasPrefix(ansi.Strip(decorated), " 27m "), "and so does the decorated one")
+	header, ok := rowNamed(rows, "weave")
+	require.True(t, ok)
+	assert.Equal(t, strings.TrimRight(ansi.Strip(header), " "), ansi.Strip(header),
+		"a header ends where its label does")
 }
 
 // TestGhostSlotKeepsTheWidestRow renders an agent wearing every icon under a full-width name,
@@ -83,7 +82,6 @@ func TestGhostSlotKeepsTheWidestRow(t *testing.T) {
 			Name:            strings.Repeat("x", nameWidth),
 			WorkflowID:      "w1",
 			State:           agentstore.StateIdle,
-			StateChangedAt:  time.Now().Add(-27 * time.Minute),
 			ScheduleID:      xptr.Ptr("s1"),
 			Hidden:          true,
 			WorktreeRemoved: true,
@@ -96,7 +94,8 @@ func TestGhostSlotKeepsTheWidestRow(t *testing.T) {
 	widest, ok := rowNamed(rows, strings.Repeat("x", nameWidth))
 	require.True(t, ok)
 
-	assert.True(t, strings.HasPrefix(ansi.Strip(widest), " 27m "), "the span still opens the row")
+	assert.True(t, strings.HasPrefix(ansi.Strip(widest), strings.Repeat(" ", ghostWidth+ghostGap)),
+		"the slot still opens the row")
 }
 
 // TestGhostSlotHiddenWhenTheRowWouldOverrun pins that the pane is measured against the row in
@@ -107,8 +106,8 @@ func TestGhostSlotHiddenWhenTheRowWouldOverrun(t *testing.T) {
 	long := "      • " + strings.Repeat("x", nameWidth)
 	width := lipgloss.Width(long) + ghostGap + ghostWidth - 1
 
-	assert.Contains(t, ghostSlot(short, "6m", width), "6m")
-	assert.Equal(t, long, ghostSlot(long, "27m", width))
+	assert.Equal(t, strings.Repeat(" ", ghostWidth+ghostGap)+short, ghostSlot(short, width))
+	assert.Equal(t, long, ghostSlot(long, width))
 }
 
 // TestGhostSlotNeverOverrunsThePane walks a long row across every pane width the slot could be
@@ -117,37 +116,7 @@ func TestGhostSlotNeverOverrunsThePane(t *testing.T) {
 	row := strings.Repeat("x", nameWidth+ghostGap)
 
 	for width := range nameWidth + ghostWidth + 2*ghostGap + 4 {
-		assert.LessOrEqual(t, lipgloss.Width(ghostSlot(row, "27m", width)), max(width, len(row)),
+		assert.LessOrEqual(t, lipgloss.Width(ghostSlot(row, width)), max(width, len(row)),
 			"a row drawn at width %d", width)
 	}
-}
-
-// TestGhostSlotPadsHeaders pins that a workflow header holds the column open without a span,
-// since a workflow is not in a state and has nothing to be counting, but the rows under it read
-// down the same column it starts in.
-func TestGhostSlotPadsHeaders(t *testing.T) {
-	rows := strings.Split(ghostTree(120).agentsView(), "\n")
-
-	header, ok := rowNamed(rows, "weave")
-	require.True(t, ok)
-
-	blank := strings.Repeat(" ", ghostWidth+ghostGap)
-	assert.Equal(t, blank, ansi.Strip(header)[:len(blank)])
-	assert.Equal(t, strings.TrimRight(ansi.Strip(header), " "), ansi.Strip(header))
-}
-
-// TestGhostTextWithoutATimestamp covers an agent whose state change never reached the panel,
-// which draws no span rather than one counted from the zero time.
-func TestGhostTextWithoutATimestamp(t *testing.T) {
-	assert.Empty(t, ghostText(agentItem{agent: agentstore.Agent{Name: "unknown"}}))
-}
-
-// TestGhostTextUnderAMinute covers a state entered moments ago, which reads as freshText rather
-// than a count of seconds that would redraw on every tick.
-func TestGhostTextUnderAMinute(t *testing.T) {
-	fresh := agentItem{agent: agentstore.Agent{Name: "fresh", StateChangedAt: time.Now().Add(-20 * time.Second)}}
-	assert.Equal(t, freshText, ghostText(fresh))
-
-	held := agentItem{agent: agentstore.Agent{Name: "held", StateChangedAt: time.Now().Add(-90 * time.Second)}}
-	assert.Equal(t, "1m", ghostText(held))
 }

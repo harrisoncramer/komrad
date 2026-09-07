@@ -48,63 +48,6 @@ func TestFriendly(t *testing.T) {
 // something about the conversion rather than about the machine's zone.
 var utcAfternoon = time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)
 
-// TestElapsed pins the unit each span reads in, since the panel shows one short label and the
-// boundaries between units are where it would otherwise say something misleading.
-func TestElapsed(t *testing.T) {
-	tests := []struct {
-		name string
-		in   time.Duration
-		want string
-	}{
-		{
-			name: "a backwards clock reads as no time at all",
-			in:   -5 * time.Second,
-			want: "0s",
-		},
-		{
-			name: "a span under a minute reads in seconds",
-			in:   43 * time.Second,
-			want: "43s",
-		},
-		{
-			name: "a minute exactly reads in minutes",
-			in:   time.Minute,
-			want: "1m",
-		},
-		{
-			name: "a span under an hour rounds down to minutes",
-			in:   59*time.Minute + 59*time.Second,
-			want: "59m",
-		},
-		{
-			name: "an hour exactly reads in hours",
-			in:   time.Hour,
-			want: "1h",
-		},
-		{
-			name: "a span under a day rounds down to hours",
-			in:   23*time.Hour + 59*time.Minute,
-			want: "23h",
-		},
-		{
-			name: "a day and a half reads as one day",
-			in:   36 * time.Hour,
-			want: "1d",
-		},
-		{
-			name: "a long span reads in days",
-			in:   9 * 24 * time.Hour,
-			want: "9d",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			assert.Equal(t, tt.want, Elapsed(tt.in))
-		})
-	}
-}
-
 // TestClock pins the two shapes a row label takes, since the point of it is that today and
 // last week do not read the same.
 func TestClock(t *testing.T) {
