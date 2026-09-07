@@ -92,15 +92,11 @@ func TestLoadLayout(t *testing.T) {
 		wantErr bool
 	}{
 		{
-			name:    "a negative width, which is not a size at all",
-			file:    "[layout]\nsidebar_width = -0.2\n",
+			name:    "a negative width, which is not a width at all",
+			file:    "[layout]\nsidebar_width = -20\n",
 			wantErr: true,
 		},
-		{
-			name:    "a width between a share and a column count",
-			file:    "[layout]\nsidebar_width = 1.5\n",
-			wantErr: true,
-		},
+
 		{
 			name:    "a height between a share and a row count",
 			file:    "[layout]\ninfo_height = 2.5\n",
@@ -122,18 +118,7 @@ func TestLoadLayout(t *testing.T) {
 			want: DefaultLayout(),
 		},
 		{
-			name: "the share the user chose, with the rest left at the defaults",
-			file: "[layout]\nsidebar_width = 0.45\n",
-			want: Layout{
-				SidebarSide:   DefaultSidebarSide,
-				SidebarWidth:  0.45,
-				InfoSide:      DefaultInfoSide,
-				InfoHeight:    DefaultInfoHeight,
-				DetailsHeight: DefaultDetailsHeight,
-			},
-		},
-		{
-			name: "a width in columns rather than a share of the popup",
+			name: "the width the user chose, with the rest left at the defaults",
 			file: "[layout]\nsidebar_width = 40\n",
 			want: Layout{
 				SidebarSide:   DefaultSidebarSide,

@@ -46,6 +46,10 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.height = size.Height
 		m.width = size.Width
 
+		// A window that changed size is also how a divider being dragged arrives, since the panel
+		// is a pane beside the one it measures itself against.
+		m.frame.SyncSplit()
+
 		if rewrap {
 			m.drawPreview()
 		}

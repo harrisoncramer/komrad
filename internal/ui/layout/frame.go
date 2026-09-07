@@ -15,6 +15,11 @@ type Frame struct {
 	guest   string
 	solo    bool
 
+	// stageCols is how wide the pane beside the sidebar was when the divider was last measured,
+	// which is where the sidebar's own width comes from: zooming the sidebar reports it as the
+	// whole window while leaving the width of the pane beside it alone.
+	stageCols int
+
 	// moved says the frame has run a command tmux drops the zoom on since the zoom was last put
 	// back, which the refresh tick has not.
 	moved bool
@@ -188,9 +193,22 @@ func (f *Frame) SidebarSize() (width, height int) {
 	return f.tmux.GetPaneWidth(f.sidebar), f.tmux.GetPaneHeight(f.sidebar)
 }
 
-// SidebarWidth is how many columns the sidebar draws in when it is holding a window of the
-// given width, which is what a screen splitting the window itself lays itself out against.
-func (f *Frame) SidebarWidth(total int) int { return f.spec.SidebarWidth(total) }
+// SidebarWidth is how many columns the sidebar draws in when it is holding a window of the given
+// width, taken from where the divider was last measured and falling back to the configured
+// columns while there is nothing beside it to measure.
+func (f *Frame) SidebarWidth(total int) int {
+	if width := total - f.stageCols - 1; f.stageCols > 0 && width > 0 {
+		return width
+	}
+
+	return f.spec.SidebarWidth(total)
+}
+
+// SyncSplit measures the divider between the sidebar and the pane beside it, so a sidebar drawn
+// over the whole window keeps the width the user has dragged the divider to.
+func (f *Frame) SyncSplit() {
+	f.stageCols = f.tmux.GetPaneWidth(f.getDisplayedPane())
+}
 
 // IsSidebarOnRight is the side the panel's own column sits on, so a screen drawing its own split
 // puts it where the panes it took the window from would have.
@@ -304,15 +322,16 @@ func (f *Frame) claimStage() {
 
 	if f.stage != "" {
 		f.tmux.ResizePane(f.sidebar, f.spec.sidebarSize)
+		f.SyncSplit()
 	}
 }
 
 func (f *Frame) splitStage() string {
 	if f.spec.sidebarOnRight {
-		return f.tmux.SplitLeft(f.sidebar, getHomeDir(), f.spec.stageSize)
+		return f.tmux.SplitLeft(f.sidebar, getHomeDir(), stageSize)
 	}
 
-	return f.tmux.SplitRight(f.sidebar, getHomeDir(), f.spec.stageSize)
+	return f.tmux.SplitRight(f.sidebar, getHomeDir(), stageSize)
 }
 
 func (f *Frame) hasStage() bool {
