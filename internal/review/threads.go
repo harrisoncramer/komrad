@@ -132,6 +132,9 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 // doesQuoteMatch reports whether the line drawn at a row is the line a thread quoted, under
 // either of the two spellings a quote is stored in.
 func doesQuoteMatch(drawn, stored string) bool {
+	// Explainer: the row is settled by the time this is asked, so a quote both spellings can be
+	// read as is taken rather than refused, unlike in quoted, where the two readings would be
+	// naming different rows and there would be a wrong one to be steered onto.
 	if stored == "" {
 		return drawn == stored
 	}

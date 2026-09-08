@@ -365,7 +365,8 @@ func TestPinRefusesWhenTwoRowsReadTheSameWithoutMarkers(t *testing.T) {
 
 // TestPinTakesTheOneReadingAQuoteHas covers a quote of code that begins with a space, which is
 // indistinguishable from a marker-led quote: only the bare reading names a row, so that is the
-// reading it gets rather than a refusal.
+// reading it gets rather than a refusal, even though the row it names is one the round draws as
+// deleted and pinned reads oddly against a line that is gone.
 func TestPinTakesTheOneReadingAQuoteHas(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "conf.yaml",
@@ -409,7 +410,7 @@ func TestPinHoldsOnABareQuoteOfSpaceIndentedCode(t *testing.T) {
 	thread := threadAt("t1", "agent.proto", 10, 11, "  bool in_local_review = 41;")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	assert.False(t, view.IsGhosted(thread))
+	assert.Equal(t, pinned, view.placed[thread.GetId()])
 }
 
 // TestPinRefusesWhenBothReadingsOfAQuoteNameARow covers the crossing a first-byte guess allows: a
@@ -438,4 +439,53 @@ func TestPinRefusesWhenBothReadingsOfAQuoteNameARow(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, adrift, view.placed[thread.GetId()])
+}
+
+// TestPinTakesTheBareReadingWhenTheTwoDisagree covers the readings disagreeing at a row the
+// coordinates already named: the quote reads marked as a context line of code that is a brace,
+// and bare as an addition of code that is a space and a brace, and nothing here can tell which
+// was meant, so the bare reading is taken and the row reads as pinned rather than ghosted.
+func TestPinTakesTheBareReadingWhenTheTwoDisagree(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "conf.yaml",
+		NewPath: "conf.yaml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      " }",
+				NewNumber: 7,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "conf.yaml", 0, 7, " }")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, pinned, view.placed[thread.GetId()])
+}
+
+// TestPinStillCrossesOnALoneWrongReading covers what reading both spellings does not close: a
+// bare quote of code that begins with a space, on coordinates nothing agrees with, names one row
+// under the marked reading alone and pins onto it.
+func TestPinStillCrossesOnALoneWrongReading(t *testing.T) {
+	// Explainer: refusing this would need the spelling recorded, since a lone match under the
+	// wrong reading cannot be told from a lone match under the right one, and refusing every
+	// space-led quote that names one row would throw away the real threads to save this.
+	view := NewView(patchWith(diff.File{
+		OldPath: "steps.yml",
+		NewPath: "steps.yml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "run: check",
+				OldNumber: 4,
+				NewNumber: 21,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "steps.yml", 0, 99, " run: check")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, pinned, view.placed[thread.GetId()])
 }
