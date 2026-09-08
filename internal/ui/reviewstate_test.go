@@ -18,15 +18,29 @@ import (
 // TestVerdictMarkDrawsOnlyAConclusion is why commented carries no glyph: the row says what wants
 // a person, and notes without a conclusion want nothing.
 func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
-	for _, tt := range []struct {
+	tests := []struct {
 		name    string
 		verdict reviewstore.Verdict
 		icon    string
 	}{
-		{name: "approved", verdict: reviewstore.VerdictApproved, icon: localApprovedIcon},
-		{name: "changes requested", verdict: reviewstore.VerdictChangesRequested, icon: localChangesRequestedIcon},
-		{name: "commented", verdict: reviewstore.VerdictCommented},
-	} {
+		{
+			name:    "commented",
+			verdict: reviewstore.VerdictCommented,
+			icon:    "",
+		},
+		{
+			name:    "approved",
+			verdict: reviewstore.VerdictApproved,
+			icon:    localApprovedIcon,
+		},
+		{
+			name:    "changes requested",
+			verdict: reviewstore.VerdictChangesRequested,
+			icon:    localChangesRequestedIcon,
+		},
+	}
+
+	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mark := localReviewMark(false, string(tt.verdict))
 			if tt.icon == "" {
@@ -98,14 +112,25 @@ func TestAgentsViewReviewState(t *testing.T) {
 	}
 
 	rows := strings.Split(m.agentsView(), "\n")
-	for _, tt := range []struct {
+	tests := []struct {
 		name string
 		icon string
 	}{
-		{name: "being-read", icon: inLocalReviewIcon},
-		{name: "signed-off", icon: localApprovedIcon},
-		{name: "sent-back", icon: localChangesRequestedIcon},
-	} {
+		{
+			name: "being-read",
+			icon: inLocalReviewIcon,
+		},
+		{
+			name: "signed-off",
+			icon: localApprovedIcon,
+		},
+		{
+			name: "sent-back",
+			icon: localChangesRequestedIcon,
+		},
+	}
+
+	for _, tt := range tests {
 		row, ok := rowNamed(rows, tt.name)
 		require.True(t, ok, tt.name)
 		assert.Contains(t, row, tt.icon)
