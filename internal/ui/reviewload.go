@@ -794,7 +794,6 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
-	opening := m.review.loading
 	m.review.loading = false
 	m.review.err = msg.err
 	if msg.patch == nil {
@@ -833,13 +832,6 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	}
 
 	m.setReviewThreads(msg.threads)
-
-	// A reader opening the screen on comments they never sent is already writing, since those
-	// comments are the review in hand. Only the first read does this, so putting the review down
-	// with the back key is not undone by the next reload.
-	if opening && m.doesReviewHoldUnsent() {
-		m.review.writing = true
-	}
 
 	m.review.round = msg.round
 	m.review.moved = false
