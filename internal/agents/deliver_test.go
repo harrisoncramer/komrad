@@ -254,8 +254,7 @@ func TestDeliver(t *testing.T) {
 	}
 }
 
-// TestDeliverSaysWhenANudgeWentNowhere pins which second nudge is worth a warning, since
-// nudged_at stands whether or not the agent answered the line it stamped.
+// TestDeliverSaysWhenANudgeWentNowhere pins which second nudge is worth a warning.
 func TestDeliverSaysWhenANudgeWentNowhere(t *testing.T) {
 	nudgedAt := time.Date(2026, time.August, 4, 12, 0, 0, 0, time.UTC)
 	before := nudgedAt.Add(-time.Minute)
@@ -451,8 +450,8 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 	assert.False(t, agents.taken)
 }
 
-// TestDeliverToAnAgentNoPassCanRead pins that an agent whose harness this binary cannot run
-// is told once, rather than deferred every pass until the mail runs out of time.
+// TestDeliverToAnAgentNoPassCanRead pins that an agent whose harness this binary cannot run is
+// told once rather than deferred every pass.
 func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -515,8 +514,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	assert.Len(t, panes.text, 1, "and told once, not once a pass")
 }
 
-// TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back,
-// since a line tmux took and the agent never saw leaves nothing about the agent changed.
+// TestDeliverRetriesANudgeTheAgentNeverActedOn pins that unread mail puts the nudge back.
 func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	st := newStore(t)
 	ctx := context.Background()
@@ -637,7 +635,7 @@ type fixedHarnesses struct{ harness harness.Harness }
 func (f fixedHarnesses) GetByID(string) (harness.Harness, error) { return f.harness, nil }
 
 // TestDeliverDefersToARealHarnessStillComingUp wires the registered harnesses into the gate,
-// since the fake answers correctly by construction and so proves nothing about a real one.
+// which the fake answers correctly by construction.
 func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 	shellEcho := "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc"
 

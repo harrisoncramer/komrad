@@ -14,8 +14,7 @@ import (
 	runstore "weave/internal/store/run"
 )
 
-// maxLogRunAttempts bounds the walk up through numbers a second process has already taken,
-// since a run whose log could not be named is still a run that has to happen.
+// maxLogRunAttempts bounds the walk up through numbers a second process has already taken.
 const maxLogRunAttempts = 64
 
 type runRecorder interface {
@@ -31,9 +30,8 @@ type runRecord struct {
 	id      string
 }
 
-// claimRunLog names the file one run writes to and creates it empty, taking the number under
-// the lock and by an exclusive create, since a run fired by hand and a launch can begin at the
-// same moment and what the directory said an instant ago is not what it says now.
+// claimRunLog names the file one run writes to and creates it empty, taking the number under the
+// lock and by an exclusive create.
 func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name string) (string, int) {
 	if s.logsDir == "" || agentID == "" {
 		return "", 0
@@ -119,7 +117,7 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 }
 
 // failRun closes the row of a run that failed, putting the reason in its log when the script
-// itself said nothing, since the row's mark sends a person to that log and nowhere else.
+// itself said nothing.
 func (s *ScriptService) failRun(ctx context.Context, record runRecord, result scripts.Result, cause error) {
 	noteEmptyLog(ctx, record.logPath, cause)
 	s.finishRun(ctx, record, result, cause)
@@ -177,8 +175,7 @@ func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
 	}
 }
 
-// noteEmptyLog puts the reason into a log its run never wrote a byte to, since a number claimed
-// for a run that said nothing opens an empty pager on the screen meant to say why.
+// noteEmptyLog puts the reason into a log its run never wrote a byte to.
 func noteEmptyLog(ctx context.Context, path string, cause error) {
 	if path == "" {
 		return
@@ -201,8 +198,7 @@ func writeRunLog(ctx context.Context, path string, content []byte) {
 	}
 }
 
-// removeEmptyLog drops the file a run claimed but never wrote to, since a refusal is not a run
-// and a number spent on one would push a real run out of the fifty that are kept.
+// removeEmptyLog drops the file a run claimed but never wrote to.
 func removeEmptyLog(ctx context.Context, path string) {
 	if path == "" {
 		return

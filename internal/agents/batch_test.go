@@ -40,8 +40,7 @@ func TestArchiveAgentsTakesTheWholeBatch(t *testing.T) {
 	assert.Empty(t, live, "the batch spanned both workflows")
 }
 
-// TestArchiveUnchangedAgents covers the guard a background pass needs, since one deciding from
-// an older read would hide an agent that has just come back.
+// TestArchiveUnchangedAgents covers the guard a background pass needs.
 func TestArchiveUnchangedAgents(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -66,8 +65,7 @@ func TestArchiveUnchangedAgents(t *testing.T) {
 	assert.Equal(t, []string{"%1"}, tmux.killedPanes, "the pane goes with the archive it belongs to")
 }
 
-// TestArchiveAgentsRefusesTheWholeBatch pins one bad id refusing the batch, since nothing
-// would undo the half that landed.
+// TestArchiveAgentsRefusesTheWholeBatch pins one bad id refusing the batch.
 func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -106,8 +104,7 @@ func TestArchiveAgentsRefusesTheWholeBatch(t *testing.T) {
 	}
 }
 
-// TestDeleteAgentsFiresEveryWorkflowsCleanup pins each agent's own worktree being removed,
-// since the directory belongs to the agent rather than to the batch.
+// TestDeleteAgentsFiresEveryWorkflowsCleanup pins each agent's own worktree being removed.
 func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -144,8 +141,7 @@ func TestDeleteAgentsFiresEveryWorkflowsCleanup(t *testing.T) {
 	assert.Empty(t, all)
 }
 
-// TestDeleteAgentsTakesTheirTranscripts pins the conversations going with the rows, since one
-// left behind would keep answering the SQL tools.
+// TestDeleteAgentsTakesTheirTranscripts pins the conversations going with the rows.
 func TestDeleteAgentsTakesTheirTranscripts(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -200,8 +196,7 @@ func TestDeleteAgentsRefusesTheWholeBatch(t *testing.T) {
 	assert.Len(t, all, 1)
 }
 
-// TestRestoreAgentsBringsBackEveryWorkflow pins each workflow coming back with its agents,
-// since one restored under a workflow nothing lists would get no row anywhere.
+// TestRestoreAgentsBringsBackEveryWorkflow pins each workflow coming back with its agents.
 func TestRestoreAgentsBringsBackEveryWorkflow(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -249,8 +244,8 @@ func TestRestoreAgentsRefusesTheWholeBatch(t *testing.T) {
 	assert.NotNil(t, agentByID(t, st, archived.ID).ArchivedAt, "the agent stays in the archive")
 }
 
-// TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling pins the whole batch being counted,
-// since asking one at a time would let five through a panel with room for two.
+// TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling pins the whole batch being counted at
+// once.
 func TestRestoreAgentsCountsTheWholeBatchAgainstTheCeiling(t *testing.T) {
 	st := newStore(t)
 	manager := st.agentServiceCapped(newFakeTmux(), &fakeLifecycle{}, 3)
@@ -331,7 +326,7 @@ func TestRestoreAgentsRefusesOnANameTaken(t *testing.T) {
 }
 
 // TestRestoreAgentsAllowsANameSharedAcrossWorkflows pins that two agents called auth in two
-// workflows are not a clash, since a name is only unique inside its own.
+// workflows are not a clash, a name being unique only inside its own.
 func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")
@@ -354,8 +349,7 @@ func TestRestoreAgentsAllowsANameSharedAcrossWorkflows(t *testing.T) {
 	}
 }
 
-// TestRestoreAgentsPassesOverTheLiveOnes pins live agents being skipped, since counting them
-// against the ceiling would refuse a batch over slots they already hold.
+// TestRestoreAgentsPassesOverTheLiveOnes pins live agents being skipped.
 func TestRestoreAgentsPassesOverTheLiveOnes(t *testing.T) {
 	st := newStore(t)
 	manager := st.agentServiceCapped(newFakeTmux(), &fakeLifecycle{}, 2)
@@ -399,8 +393,7 @@ func seedRunningIn(t *testing.T, st *testStore, tmux paneStamper, workflowID, na
 	return agent
 }
 
-// TestArchiveAgentsNamesOnlyTheFirstMissing pins the refusal naming one id, since a hundred
-// would put four kilobytes of uuids into a panel banner.
+// TestArchiveAgentsNamesOnlyTheFirstMissing pins the refusal naming one id.
 func TestArchiveAgentsNamesOnlyTheFirstMissing(t *testing.T) {
 	st := newStore(t)
 	manager := newManager(newFakeTmux(), st, "")

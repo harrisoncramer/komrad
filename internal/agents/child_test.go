@@ -52,7 +52,7 @@ func TestNewChildAgentTakesItsLaunchFromTheParent(t *testing.T) {
 }
 
 // TestNewChildAgentRefusals pins that a request asking for what the parent decides is answered
-// rather than quietly overridden, since a caller told nothing would never know.
+// rather than quietly overridden.
 func TestNewChildAgentRefusals(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -122,7 +122,7 @@ func TestNewChildAgentRefusals(t *testing.T) {
 }
 
 // TestNewChildAgentRefusesAnArchivedParent pins that a child is never attached to an agent
-// already on its way out, since it would be archived on the next sweep with nothing to answer.
+// already on its way out.
 func TestNewChildAgentRefusesAnArchivedParent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -206,8 +206,7 @@ func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 }
 
 // TestRestoreOfAChildUnderTheChildCeiling pins that a child comes back only while its parent
-// still has room, since a child archived on its own may have been replaced while it was gone
-// and two children of one parent would then edit the one checkout at once.
+// still has room.
 func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -238,8 +237,8 @@ func TestRestoreOfAChildUnderTheChildCeiling(t *testing.T) {
 	assert.Equal(t, 1, held)
 }
 
-// TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, since
-// a workflow archived after a child was replaced holds both of them.
+// TestRestoreOfAWorkflowUnderTheChildCeiling pins the same ceiling on the other way back, for a
+// workflow archived holding two children of one parent.
 func TestRestoreOfAWorkflowUnderTheChildCeiling(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -350,7 +349,7 @@ func TestArchiveOfAChildLeavesTheParent(t *testing.T) {
 }
 
 // TestArchiveOfAParentTellsTheChildNothing pins that a child archived alongside its parent
-// raises no lifecycle mail, since the only agent it could be addressed to is going too.
+// raises no lifecycle mail.
 func TestArchiveOfAParentTellsTheChildNothing(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -368,7 +367,7 @@ func TestArchiveOfAParentTellsTheChildNothing(t *testing.T) {
 }
 
 // TestArchiveOfAParentTellsAThirdPartySpawner pins that an orchestrator which attached a child
-// to some other agent still hears the child is gone, since it is the one waiting on its mail.
+// to some other agent still hears the child is gone.
 func TestArchiveOfAParentTellsAThirdPartySpawner(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -407,8 +406,7 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 	assert.Contains(t, tmux.killedPanes, child.Pane)
 }
 
-// TestDeleteTakesAChildAlone pins that a child can be destroyed by itself, since it holds no
-// directory of its own for the delete to tear down.
+// TestDeleteTakesAChildAlone pins that a child can be destroyed by itself.
 func TestDeleteTakesAChildAlone(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -427,8 +425,8 @@ func TestDeleteTakesAChildAlone(t *testing.T) {
 	assert.Contains(t, tmux.killedPanes, child.Pane)
 }
 
-// TestRestoreBringsTheChildrenBack pins that a parent taken out of the archive arrives with
-// the children it was archived with, rather than alone with rows left behind it.
+// TestRestoreBringsTheChildrenBack pins that a parent taken out of the archive arrives with the
+// children it was archived with.
 func TestRestoreBringsTheChildrenBack(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -627,8 +625,7 @@ func newFakeFamily() *fakeDirectory {
 	}
 }
 
-// TestChildBriefingReplacesTheDelegateOne pins what a child is told, since the rules it runs
-// under are the reason it was made this way rather than as an agent of its own.
+// TestChildBriefingReplacesTheDelegateOne pins what a child is told.
 func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
 	launcher := NewLauncher(LauncherParams{
 		Tmux:    newFakeTmux(),

@@ -178,8 +178,8 @@ func (s *LaunchService) releaseFailedLaunch(ctx context.Context, existing agents
 		return false, nil
 	}
 
-	// The row is left where it stands rather than relaunched into, since its id names the
-	// worktree and branch the deprovisioner is still tearing down in the background.
+	// The row is left where it stands rather than relaunched into, its id naming the worktree and
+	// branch the deprovisioner is still tearing down.
 	return s.agents.ReleaseIdempotencyKey(ctx, key)
 }
 
@@ -235,8 +235,7 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 }
 
 // childParams holds a child to what its parent gives it, writing the disabled provisioner onto
-// the row rather than leaving it unset, since an unset one follows the workflow and for a
-// worktree-enabled workflow that would tear the parent's checkout down from under it.
+// the row rather than leaving it unset.
 func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
 	p.Dir = parent.Cwd
 	p.ProvisionEnabled = xptr.Ptr(false)
@@ -305,10 +304,8 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		provisioner, deprovisioner = worktreeProvisioner, worktreeDeprovisioner
 	}
 
-	// The hooks a workflow lists are read only for the agents that own their own directory, since
-	// a child runs in its parent's checkout and an agent told to keep the directory it was given
-	// was handed somebody else's, where an install-deps hook would be working in a tree nobody
-	// asked it to touch.
+	// The hooks a workflow lists are read only for the agents that own their own directory, and a
+	// child or an agent told to keep the directory it was given was handed somebody else's.
 	hooks := wf.Hooks
 	if p.ParentAgentID != "" || isProvisionerDisabled(p.ProvisionEnabled) {
 		hooks = nil
@@ -598,15 +595,14 @@ func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildr
 }
 
 // claimRoomForRestoredChildren holds every parent a restoring batch hangs a child under to the
-// same ceiling a create is held to, since a child archived on its own may have been replaced
-// while it was gone.
+// same ceiling a create is held to.
 func claimRoomForRestoredChildren(ctx context.Context, agents restoredChildSlotLocker, maxChildren int, restoring []agentstore.Agent) error {
 	if maxChildren <= 0 {
 		return nil
 	}
 
-	// The whole batch is counted against each parent at once, since children checked one at a
-	// time would each find room and walk past the ceiling together.
+	// The whole batch is counted against each parent at once, which children checked one at a time
+	// would walk past together.
 	want := make(map[string]int, len(restoring))
 	var parentIDs []string
 	for _, agent := range restoring {

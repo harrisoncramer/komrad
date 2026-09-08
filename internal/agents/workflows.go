@@ -191,9 +191,8 @@ func (w *WorkflowService) UpdateWorkflow(ctx context.Context, id string, cfg wor
 	return nil
 }
 
-// normalizeHooks trims what a caller sent and drops the blanks, since a select with None on it
-// sends the empty string, and refuses a moment weave does not fire rather than storing a script
-// nothing will ever run.
+// normalizeHooks trims what a caller sent, drops the blanks a select with None on it sends, and
+// refuses a moment weave does not fire.
 func normalizeHooks(hooks []workflowstore.Hook) ([]workflowstore.Hook, error) {
 	kept := make([]workflowstore.Hook, 0, len(hooks))
 	for _, hook := range hooks {
@@ -220,8 +219,8 @@ func normalizeWorktree(cfg *workflowstore.Config) {
 	cfg.Worktree.DiffExclude = cleanPaths(cfg.Worktree.DiffExclude)
 }
 
-// cleanPaths drops the blank entries and stores the shortest spelling of the rest, since the
-// setup script refuses an entry holding a dot segment and ./.env names the same file as .env.
+// cleanPaths drops the blank entries and stores the shortest spelling of the rest, which the
+// setup script needs of a path written ./.env.
 func cleanPaths(paths []string) []string {
 	if paths == nil {
 		return nil
@@ -277,8 +276,7 @@ func validateWorktreePath(path string) error {
 	return nil
 }
 
-// requireWorktreeRepo holds a workflow that provisions worktrees to a cwd it can cut them
-// from, since the worktree is weave's to make and it has nowhere to make it otherwise.
+// requireWorktreeRepo holds a workflow that provisions worktrees to a cwd it can cut them from.
 func requireWorktreeRepo(cfg workflowstore.Config) error {
 	if cfg.Cwd == "" {
 		return ErrWorktreeNeedsCwd
@@ -296,8 +294,7 @@ func requirePrimaryCheckout(cwd string) error {
 	return nil
 }
 
-// ArchiveWorkflow archives a workflow and every agent inside it, since an agent cannot be left
-// behind without a workflow to belong to.
+// ArchiveWorkflow archives a workflow and every agent inside it.
 func (w *WorkflowService) ArchiveWorkflow(ctx context.Context, id string) error {
 	existing, err := w.GetWorkflow(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {

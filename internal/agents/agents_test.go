@@ -15,9 +15,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestFailureReasonIsSomethingARowCanHold covers the cut and the scrub, since a script's own
-// output reaches this and Postgres refuses a text column holding a NUL or half a rune, which
-// would lose the very failure the row exists to carry.
+// TestFailureReasonIsSomethingARowCanHold covers the cut and the scrub, with Postgres refusing
+// a text column that holds a NUL or half a rune.
 func TestFailureReasonIsSomethingARowCanHold(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -92,9 +91,8 @@ func TestDeprovisionerLogsAWorkflowThatWouldNotRead(t *testing.T) {
 	assert.Equal(t, "/repo/.worktrees/auth", got["weave.script.agent.cwd"])
 }
 
-// TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half,
-// since a workflow whose agents keep the directory they are given is not a fault and a line
-// about one would be noise on every delete.
+// TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing covers the quiet half, where
+// a workflow's agents keep the directory they are given.
 func TestDeprovisionerSaysNothingAboutAWorkflowThatProvisionsNothing(t *testing.T) {
 	ctx, records := loggedContext(t)
 

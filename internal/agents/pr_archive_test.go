@@ -403,8 +403,7 @@ func TestPRArchiverSyncLeavesARestoredAgentAlone(t *testing.T) {
 	assert.Len(t, archiver.archived, 1, "and it is not archived again")
 }
 
-// TestPRArchiverSyncStampsAnAgentItReallyArchived drives the real archive, since a store that
-// refused metadata to archived rows would leave every archive unstamped.
+// TestPRArchiverSyncStampsAnAgentItReallyArchived drives the real archive.
 func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -425,8 +424,7 @@ func TestPRArchiverSyncStampsAnAgentItReallyArchived(t *testing.T) {
 	assert.Equal(t, prURL, metadataFor(archived, prArchivedMetadataKey), "and the archive says which pull request it was for")
 }
 
-// TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone pins the stamp being written on restore,
-// since an agent archived by hand carries none of its own.
+// TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone pins the stamp being written on restore.
 func TestPRArchiverSyncLeavesAnAgentRestoredByHandAlone(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -529,7 +527,7 @@ func TestPRArchiverSyncRefusesAPullRequestThatIsNotTheAgentsOwn(t *testing.T) {
 }
 
 // TestPRArchiverSyncJudgesABlankBranchByTheWorktree pins that a blank branch is judged by the
-// worktree, since a timeout and a detached HEAD read the same as a directory that has gone.
+// worktree.
 func TestPRArchiverSyncJudgesABlankBranchByTheWorktree(t *testing.T) {
 	tests := []struct {
 		name            string
@@ -597,7 +595,7 @@ func TestPRArchiverSyncMatchesTheRepositoryWhateverItsCasing(t *testing.T) {
 }
 
 // TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL pins that a bare number is
-// ignored, since gh resolves it against whichever repository it runs in.
+// ignored.
 func TestPRArchiverSyncIgnoresAPullRequestReferenceThatIsNotAURL(t *testing.T) {
 	st := newStore(t)
 
@@ -649,8 +647,7 @@ func TestPRArchiverSyncGoesQuietOnAnOpenPullRequest(t *testing.T) {
 	assert.Len(t, archiver.archived, 1, "once the pause is over the merge is noticed")
 }
 
-// TestPRArchiverSyncReportsAFailedArchive covers the pass surfacing what it could not do,
-// since the loop's own logging is the only place a failed archive shows up.
+// TestPRArchiverSyncReportsAFailedArchive covers the pass surfacing what it could not do.
 func TestPRArchiverSyncReportsAFailedArchive(t *testing.T) {
 	st := newStore(t)
 

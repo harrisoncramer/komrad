@@ -207,9 +207,7 @@ func TestCwdSyncerSyncClearsAStaleRemoval(t *testing.T) {
 	assert.False(t, after.WorktreeRemoved)
 }
 
-// TestCwdSyncerSyncSkipsArchivedAgents covers that the pass walks live agents only, since
-// an archived agent's cwd is expected to be gone and there is nothing left to show either
-// field beside.
+// TestCwdSyncerSyncSkipsArchivedAgents covers that the pass walks live agents only.
 func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 	tests := []struct {
 		name string

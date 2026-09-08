@@ -112,8 +112,7 @@ func TestEditingAgainRewritesTheSameThread(t *testing.T) {
 	}
 }
 
-// TestUndoingTheEditTakesTheCommentWithIt is how a harvested comment is retracted, since there is
-// no key that turns one down any more.
+// TestUndoingTheEditTakesTheCommentWithIt is how a harvested comment is retracted.
 func TestUndoingTheEditTakesTheCommentWithIt(t *testing.T) {
 	t.Parallel()
 

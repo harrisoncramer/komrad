@@ -87,10 +87,8 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 	return reviewer, implementerDoc, nil
 }
 
-// liveReviewerFor is the reviewer an agent still has to answer to, which is what keeps one
-// reviewer on a change for all of its rounds rather than a second one arriving at the round after
-// the first, and skips one that approved, since approved is the end of what it has to say and the
-// agent's next piece of work needs a reader of its own.
+// liveReviewerFor is the reviewer an agent still has to answer to, which keeps one reviewer on a
+// change for all of its rounds and skips one that has approved.
 func liveReviewerFor(
 	ctx context.Context,
 	agents childLister,
@@ -148,7 +146,7 @@ func reviewerTitle(title, authorName string) string {
 }
 
 // reviewerPrompt says whose work this is and where it sits before handing over what the agent
-// asking wrote, since the branch is the one fact weave holds that the asker tends to leave out.
+// asking wrote.
 func reviewerPrompt(author agentstore.Agent, prompt string) string {
 	opening := fmt.Sprintf("You are the reviewer for agent %s (%s). Read the work in %s and release a review of it.",
 		author.Name, author.ID, author.Cwd)

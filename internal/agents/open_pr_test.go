@@ -11,8 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestOpenPullRequestRefusals covers everything answered before the desktop is asked anything,
-// since each of these is a banner on the panel rather than a window that never appeared.
+// TestOpenPullRequestRefusals covers everything answered before the desktop is asked anything.
 func TestOpenPullRequestRefusals(t *testing.T) {
 	tests := []struct {
 		name    string

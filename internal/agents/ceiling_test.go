@@ -8,8 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgentCeilingUnderConcurrency drives more creates than fit at once, since every
-// agent past the ceiling is a real CLI in a real pane nobody agreed to.
+// TestNewAgentCeilingUnderConcurrency drives more creates than fit at once.
 func TestNewAgentCeilingUnderConcurrency(t *testing.T) {
 	t.Parallel()
 

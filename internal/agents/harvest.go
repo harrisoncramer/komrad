@@ -18,8 +18,8 @@ const HarvestedBody = "The person reviewing wrote this edit themselves. Apply it
 // the number a formatter or a generator run in the checkout goes far past and a person does not.
 const harvestRunCeiling = 25
 
-// harvestFileCeiling is the same for files, since a generator rewrites few lines in very many
-// files and would otherwise slip under the run ceiling.
+// harvestFileCeiling is the same for files, which a generator rewrites very many of while
+// slipping under the run ceiling.
 const harvestFileCeiling = 8
 
 // ErrHarvestTooLarge is a harvest that would open more comments than a person plausibly wrote,

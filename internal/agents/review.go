@@ -65,7 +65,7 @@ type reviewViewedFileReadWriter interface {
 }
 
 // reviewAgentReader is what the review needs of the agent store: the row a call is about, and
-// the children of it, since the reviewer to ring is one of them.
+// the children of it.
 type reviewAgentReader interface {
 	agentGetter
 	childLister
@@ -119,7 +119,7 @@ type ReviewServiceParams struct {
 }
 
 // ReviewService owns the conversations pinned to the lines of an agent's diff and holds the only
-// copy, since mail says feedback exists without carrying any of it.
+// copy.
 type ReviewService struct {
 	threads     reviewThreadReadWriter
 	messages    reviewMessageReadWriter
@@ -159,8 +159,7 @@ type ListReviewThreadsParams struct {
 }
 
 // ListReviewThreads is every thread on an agent's diff with its messages, all of it for the
-// person reviewing and only what they have let go of for an agent, so that a review is read
-// once it is a review rather than over their shoulder as it is typed.
+// person reviewing and only what they have let go of for an agent.
 func (s *ReviewService) ListReviewThreads(
 	ctx context.Context,
 	params ListReviewThreadsParams,
@@ -206,7 +205,7 @@ func (s *ReviewService) ListReviewThreads(
 }
 
 // ownsReview reports whether an author is reading back a thread it opened itself, which it may
-// see whole, unreleased comments included, since they are its own words.
+// see whole, unreleased comments included.
 func ownsReview(author ReviewAuthor, thread reviewstore.Thread) bool {
 	return author.AgentID != nil &&
 		thread.ReviewAuthorAgentID != nil &&
@@ -270,9 +269,8 @@ type CreateReviewThreadParams struct {
 	Author      ReviewAuthor
 }
 
-// CreateReviewThread pins a conversation to a place in a round and writes its first message under
-// the author's open batch, opening one when they have none, so that writing a comment is what
-// starts a review.
+// CreateReviewThread pins a conversation to a place in a round and writes its first message
+// under the author's open batch, opening one when they have none.
 func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
@@ -373,10 +371,8 @@ func (s *ReviewService) AddReviewMessage(
 // found it, which leaves the reviewer resumable by hand.
 const resumeWakeTimeout = hookTimeout + 5*time.Minute
 
-// wakeTheReviewer puts a reviewer back in a pane, since mail waits for one rather than making one
-// and nothing else would ever hand a dormant reviewer this doorbell, and it runs on its own
-// because the resume runs the workflow's post-resume hook, which is not something an agent
-// writing an answer should be held up by, and the mail is already waiting whenever it lands.
+// wakeTheReviewer puts a reviewer back in a pane, on its own so the workflow's post-resume hook
+// does not hold up the agent writing the answer.
 func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore.Agent) {
 	if s.resumer == nil {
 		return
@@ -393,8 +389,7 @@ func (s *ReviewService) wakeTheReviewer(ctx context.Context, reviewer agentstore
 	}
 }
 
-// ringTheReviewer tells the reviewer of an agent that the agent has answered it, since a
-// reviewer that has released its verdict is idle and nothing else in the loop wakes it.
+// ringTheReviewer tells the reviewer of an agent that the agent has answered it.
 func (s *ReviewService) ringTheReviewer(ctx context.Context, agentID string) {
 	author, err := s.agents.GetByID(ctx, agentID)
 	if err != nil {
@@ -462,8 +457,7 @@ type MarkReviewThreadReadParams struct {
 	Author ReviewAuthor
 }
 
-// MarkReviewThreadRead catches the person up on a single conversation, and is theirs alone,
-// since what the agent has been told is recorded per comment rather than per thread.
+// MarkReviewThreadRead catches the person up on a single conversation, and is theirs alone.
 func (s *ReviewService) MarkReviewThreadRead(
 	ctx context.Context,
 	params MarkReviewThreadReadParams,
@@ -510,7 +504,7 @@ type SetReviewFileViewedParams struct {
 }
 
 // SetReviewFileViewed marks one file of a round read or drops the mark, which only the person
-// reviewing may do, since it is a record of what they have looked at.
+// reviewing may do.
 func (s *ReviewService) SetReviewFileViewed(
 	ctx context.Context,
 	params SetReviewFileViewedParams,

@@ -58,8 +58,8 @@ func TestNewAgentRunsPreLaunchHooksInOrder(t *testing.T) {
 		"and the second runs after it, in the order the workflow lists them")
 }
 
-// TestNewAgentRunsPostLaunchHooksInTheBackground pins the other half of the pair: the call
-// does not wait for them, since the agent is already in its pane by then.
+// TestNewAgentRunsPostLaunchHooksInTheBackground pins the other half of the pair: the call does
+// not wait for them.
 func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -90,8 +90,7 @@ func TestNewAgentRunsPostLaunchHooksInTheBackground(t *testing.T) {
 }
 
 // TestNewAgentAbandonsACreateAPreLaunchHookRefused pins a failing pre-launch hook taking the
-// create with it, since there is no agent yet and a directory built for one that never
-// started is a directory nothing will ever tear down.
+// create with it.
 func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -131,8 +130,7 @@ func TestNewAgentAbandonsACreateAPreLaunchHookRefused(t *testing.T) {
 	assert.Equal(t, agentstore.StateFailedToCreate, agents[0].State)
 }
 
-// TestNewChildAgentRunsNoHooks pins a child running no moment of its own, since it is spawned
-// into a directory its parent already prepared.
+// TestNewChildAgentRunsNoHooks pins a child running no moment of its own.
 func TestNewChildAgentRunsNoHooks(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -201,8 +199,8 @@ func TestARetiredProvisionerRunsNoHooks(t *testing.T) {
 	assert.Empty(t, lifecycle.ranHooks(), "so no moment fires against it")
 }
 
-// TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire pins the refusal, since a hook hung on
-// a moment nothing fires is a script that silently never runs.
+// TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire pins the refusal a hook hung on a moment
+// nothing fires is answered with.
 func TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -215,8 +213,8 @@ func TestNewWorkflowRefusesAHookOnAMomentWeaveDoesNotFire(t *testing.T) {
 	require.ErrorIs(t, err, ErrUnknownHookEvent)
 }
 
-// TestWorkflowHooksRoundTripInOrder pins the hooks coming back as they were written, since
-// the order they are listed in is the order they run.
+// TestWorkflowHooksRoundTripInOrder pins the hooks coming back as they were written, in the
+// order they run.
 func TestWorkflowHooksRoundTripInOrder(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -385,9 +383,8 @@ func TestAProvisionerDisabledAgentRunsNoHooksOnTheWayBackIn(t *testing.T) {
 	}
 }
 
-// TestRestoreFiresPostRestoreOnlyOnWhatWasArchived pins the set a restore owes its hooks, since
-// a batch may name an agent running right now and telling that one it just came out of the
-// archive runs a script in the directory of an agent mid-turn.
+// TestRestoreFiresPostRestoreOnlyOnWhatWasArchived pins the set a restore owes its hooks, which
+// leaves out an agent in the batch that was already running.
 func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -428,9 +425,7 @@ func TestRestoreFiresPostRestoreOnlyOnWhatWasArchived(t *testing.T) {
 	assert.Equal(t, archived.Cwd, lifecycle.ranHooks()[0].Cwd, "the hook ran in the restored agent's directory")
 }
 
-// TestRestoreWorkflowFiresPostRestoreHooks pins the sibling path owing the same thing, since
-// restoring the folder is the ordinary way a batch of agents comes back and it leaves them in
-// the state restoring them one at a time does.
+// TestRestoreWorkflowFiresPostRestoreHooks pins the sibling path owing the same thing.
 func TestRestoreWorkflowFiresPostRestoreHooks(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

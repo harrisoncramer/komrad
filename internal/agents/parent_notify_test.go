@@ -228,8 +228,7 @@ func TestDeleteOfASpawnerPairTellsNobody(t *testing.T) {
 	assert.Empty(t, notifier.to, "a spawner deleted alongside its delegate is not written to")
 }
 
-// recordingNotifier keeps who was written to, since a delete takes the row the mail was
-// addressed to and the mailbox cannot be read afterwards.
+// recordingNotifier keeps who was written to, which outlives the row a delete takes.
 type recordingNotifier struct {
 	to []string
 }
@@ -241,7 +240,7 @@ func (n *recordingNotifier) SendSystemMail(_ context.Context, toAgentID, _ strin
 }
 
 // TestNotifyParentsSkipsTheActorsOwnDelegate pins that a parent is not mailed news it made
-// itself, since reading it would spend a turn for nothing.
+// itself.
 func TestNotifyParentsSkipsTheActorsOwnDelegate(t *testing.T) {
 	tests := []struct {
 		name     string

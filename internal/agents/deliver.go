@@ -25,8 +25,7 @@ const (
 const nudgeEnterDelay = 300 * time.Millisecond
 
 // nudgeRetryAfter is how long a nudge stands before unread mail is taken as evidence it went
-// nowhere, since keys typed at a pane can be swallowed silently and a nudge that landed is
-// answered in seconds.
+// nowhere.
 const nudgeRetryAfter = time.Minute
 
 type paneReader interface {
@@ -158,9 +157,8 @@ func (s *DeliveryService) canPaneTakeKeys(agent agentstore.Agent) bool {
 		return true
 	}
 
-	// A CLI still starting up takes the line into the terminal buffer and loses the newline, so
-	// the nudge is never submitted, and a prompt already holding typed text is not idle either,
-	// since the newline would send whatever somebody was halfway through writing along with it.
+	// A CLI still starting up takes the line into the terminal buffer and loses the newline, and a
+	// prompt already holding typed text is not idle either.
 	return hn.ReadActivity(s.paneReadWriter.CapturePane(agent.Pane)) == harness.ActivityIdle
 }
 
@@ -192,8 +190,7 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 }
 
 // didLastNudgeGoNowhere reports whether the agent was told about mail before and has ended no
-// turn since, which is the only reading under which the keys are known to have been swallowed,
-// since nudged_at stands until the next nudge whether or not the agent answered.
+// turn since, which is the only reading under which the keys are known to have been swallowed.
 func didLastNudgeGoNowhere(agent agentstore.Agent) bool {
 	if agent.NudgedAt == nil {
 		return false

@@ -13,8 +13,7 @@ const unrecognizedHoldLimit = 5
 const reconcileShellGrace = 10 * time.Second
 
 // listingsBeforePaneGone is how many pane listings in a row have to leave a pane out before it
-// is believed gone, since a listing that came back short reads exactly like one that came back
-// right and forgetting a live pane costs the agent a binding nothing restores.
+// is believed gone.
 const listingsBeforePaneGone = 3
 
 // prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
@@ -25,9 +24,8 @@ const prRateLimitBackoff = 15 * time.Minute
 // tally is what the reconcile passes have accrued about each agent, all of it counters and
 // timestamps the panes drove rather than anything the store holds.
 type tally struct {
-	// mu guards tracked and every field of the entries inside it, since an entry is
-	// reached by the reconcile pass, by the RPC handler recording a turn boundary, and by
-	// the goroutine a pull request check runs on.
+	// mu guards tracked and every field of the entries inside it, which the reconcile pass, the RPC
+	// handler and a pull request check all reach.
 	mu      sync.Mutex
 	tracked map[string]trackedAgent
 	now     func() time.Time
@@ -36,8 +34,7 @@ type tally struct {
 // trackedAgent is what one pass leaves the next to work from about a single agent.
 type trackedAgent struct {
 	misses int
-	// missesToward is the state the current run of misses is evidence for, since three passes
-	// only settle a change when all three agreed on where the agent was going.
+	// missesToward is the state the current run of misses is evidence for.
 	missesToward      agentstore.State
 	listingsMissing   int
 	shellSince        time.Time

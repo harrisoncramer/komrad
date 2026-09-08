@@ -124,7 +124,7 @@ func TestResumeRefusesUnknownHarness(t *testing.T) {
 }
 
 // TestNewAgentFlagsFollowTheHarness pins that an agent inherits only the flags configured for
-// the CLI it runs, since flag vocabularies do not overlap.
+// the CLI it runs.
 func TestNewAgentFlagsFollowTheHarness(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

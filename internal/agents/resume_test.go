@@ -16,8 +16,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestResumeDir pins that a restore produces a usable directory whatever became of the
-// recorded one, since a pane can only be opened somewhere that exists.
+// TestResumeDir pins that a restore produces a usable directory whatever became of the recorded
+// one.
 func TestResumeDir(t *testing.T) {
 	const sessionID = "6f1b0c34-0b6b-4a17-9d1f-1f4b6c0e9a11"
 
@@ -77,8 +77,7 @@ func TestResumeDir(t *testing.T) {
 	}
 }
 
-// TestAnInterruptedTurnIsAskedForAgain pins the resume asking again as an ordinary message,
-// since nothing about a cut-off turn survives the pane.
+// TestAnInterruptedTurnIsAskedForAgain pins the resume asking again as an ordinary message.
 func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	const sessionID = "0f0b6f2c-6f8f-4a0e-9c2f-2a8f9d0a1b22"
 
@@ -220,8 +219,8 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 	})
 }
 
-// TestATurnCutOffWithNoTmuxServerIsAskedForAgain pins the resume making the ask itself when
-// no pass ever ran, since the tmux server was killed before any agent was put back.
+// TestATurnCutOffWithNoTmuxServerIsAskedForAgain pins the resume making the ask itself when no
+// pass ever ran.
 func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	const sessionID = "1c7a3e8b-4d5f-4a6b-9c8d-7e6f5a4b3c21"
 
@@ -364,8 +363,7 @@ func TestAPassArchivesAResumeThatFinishedFirst(t *testing.T) {
 	assert.Equal(t, []string{resumed.Pane}, tmux.killedPanes, "the pane goes with the archive it belongs to")
 }
 
-// TestAResumeThatGivesUpPutsTheStateBack pins the state going back, since nothing else in
-// weave moves a row out of setting_up.
+// TestAResumeThatGivesUpPutsTheStateBack pins the state going back.
 func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -390,9 +388,8 @@ func TestAResumeThatGivesUpPutsTheStateBack(t *testing.T) {
 		"a resume that gave up leaves the row reading as it found it")
 }
 
-// TestASecondResumeOpensNoSecondWindow pins the claim inside the resume, since AddReviewMessage
-// wakes a dormant reviewer and a harness that batches its tool calls answers several threads at
-// once, which is several resumes of one agent in flight together.
+// TestASecondResumeOpensNoSecondWindow pins the claim inside the resume, which several resumes
+// of one agent can be in flight against.
 func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -434,8 +431,7 @@ func TestASecondResumeOpensNoSecondWindow(t *testing.T) {
 }
 
 // TestAResumeIsClaimableAgainAfterOneFinishes pins that the claim is held for the length of a
-// resume rather than for the life of the agent, since a reviewer woken once still has to come
-// back the next time its pane goes.
+// resume rather than for the life of the agent.
 func TestAResumeIsClaimableAgainAfterOneFinishes(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -749,8 +745,7 @@ func TestResumeWithoutAProvisionerFiresNothing(t *testing.T) {
 }
 
 // TestResumeGivesBackThePaneItOpened pins a resume that opens a window and then refuses giving
-// it up, since what it leaves behind is a bare shell with no CLI in it and a row saying the
-// agent is idle in that shell.
+// it up.
 func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -788,8 +783,8 @@ func TestResumeGivesBackThePaneItOpened(t *testing.T) {
 	}
 }
 
-// TestResumeAfterARefusedRelaunchGetsThrough pins the recovery, since a pane left behind is
-// stamped with the agent's id and makes every resume after it report success having done nothing.
+// TestResumeAfterARefusedRelaunchGetsThrough pins the recovery from a pane left behind stamped
+// with the agent's id.
 func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.sendKeysErr = errors.New("tmux dropped the keys")
@@ -816,8 +811,7 @@ func TestResumeAfterARefusedRelaunchGetsThrough(t *testing.T) {
 	assert.Equal(t, agentstore.StateIdle, resumed.State)
 }
 
-// TestResumeRefusesArchived pins the refusal naming the way out, since the pane would
-// otherwise sit behind a row nothing lists.
+// TestResumeRefusesArchived pins the refusal naming the way out.
 func TestResumeRefusesArchived(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
