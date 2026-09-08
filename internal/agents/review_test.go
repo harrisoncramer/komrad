@@ -1376,14 +1376,6 @@ func (f *fakeReviewStore) OpenReviewOf(_ context.Context, params reviewstore.Aut
 	return f.open, nil
 }
 
-func (f *fakeReviewStore) GetLastReleasedReview(_ context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error) {
-	if f.released == nil {
-		return nil, fmt.Errorf("%w: released review on %q", store.ErrNotFound, params.AgentID)
-	}
-
-	return f.released, nil
-}
-
 func (f *fakeReviewStore) GetReleasedReviewOnRound(
 	_ context.Context,
 	params reviewstore.AuthorParams,

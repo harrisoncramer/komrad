@@ -32,7 +32,7 @@ var ErrReviewOwnWork = errors.New("an agent cannot review its own work")
 
 // ErrReviewAlreadyGiven is answered when an agent asks to review a round it has reviewed once,
 // which is what keeps a reviewer and the agent it reviews from answering each other forever.
-var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wait for the agent to write something")
+var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; comment on a round you have not")
 
 // ErrReviewInFlight is answered when somebody writes a comment on one snapshot while holding
 // unsent comments on another.
@@ -63,7 +63,6 @@ type reviewBatchReadWriter interface {
 	OpenReview(ctx context.Context, params reviewstore.OpenReviewParams) (*reviewstore.Review, error)
 	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
 	OpenReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
-	GetLastReleasedReview(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
 	GetReleasedReviewOnRound(ctx context.Context, params reviewstore.AuthorParams, roundID string) (*reviewstore.Review, error)
 	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)

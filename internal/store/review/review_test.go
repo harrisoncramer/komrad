@@ -689,33 +689,39 @@ func TestDeletingAThreadTakesWhatWasSaidInIt(t *testing.T) {
 	assert.Equal(t, staying.ID, messages[0].ThreadID)
 }
 
-// TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last
-// looked.
-func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
+// TestAReleasedReviewIsFoundByItsOwnRound pins the question the reviewer bound asks: whether this
+// author has already had its say on one round, rather than which round it last looked at.
+func TestAReleasedReviewIsFoundByItsOwnRound(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
 	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorHuman}
 
-	_, err := st.GetLastReleasedReview(ctx, author)
-	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has looked nowhere")
-
 	first := openRound(t, st, agentID, "tree-one")
-	firstReview := openReview(t, st, agentID, first.ID)
-	release(t, st, agentID, firstReview.ID, VerdictChangesRequested)
-
 	second := openRound(t, st, agentID, "tree-two")
-	secondReview := openReview(t, st, agentID, second.ID)
 
-	held, err := st.GetLastReleasedReview(ctx, author)
+	_, err := st.GetReleasedReviewOnRound(ctx, author, first.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has had no say")
+
+	review := openReview(t, st, agentID, first.ID)
+
+	_, err = st.GetReleasedReviewOnRound(ctx, author, first.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "a batch still being written is not a say they have had")
+
+	release(t, st, agentID, review.ID, VerdictChangesRequested)
+
+	held, err := st.GetReleasedReviewOnRound(ctx, author, first.ID)
 	require.NoError(t, err)
-	assert.Equal(t, firstReview.ID, held.ID, "a batch still being written is not one they have looked at")
+	assert.Equal(t, review.ID, held.ID)
 
-	release(t, st, agentID, secondReview.ID, VerdictApproved)
+	_, err = st.GetReleasedReviewOnRound(ctx, author, second.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "a round they have not reviewed is still open to them")
 
-	latest, err := st.GetLastReleasedReview(ctx, author)
-	require.NoError(t, err)
-	assert.Equal(t, secondReview.ID, latest.ID)
+	_, err = st.GetReleasedReviewOnRound(ctx, AuthorParams{
+		AgentID: agentID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	}, first.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "one author's review is not another's")
 }
 
 // TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it, which is what
@@ -749,11 +755,6 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 	reviewer := seedAgentNamed(t, st, "reviewer")
-	author := AuthorParams{
-		AgentID:       agentID,
-		AuthorKind:    AuthorAgent,
-		AuthorAgentID: &reviewer,
-	}
 
 	first := openRound(t, st, agentID, "tree-one")
 	released, err := st.OpenReview(ctx, OpenReviewParams{
@@ -777,8 +778,6 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, released.ID, kept.ID, "the review the agent was already given stands")
 
-	_, err = st.GetLastReleasedReview(ctx, author)
-	require.NoError(t, err)
 }
 
 // seedReviewerChild is a reviewer attached to the agent whose work it reads, which is the shape

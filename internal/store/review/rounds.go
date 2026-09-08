@@ -217,30 +217,6 @@ func (s *Store) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review,
 	return &review, nil
 }
 
-// GetLastReleasedReview is the newest batch an author has let go of against an agent, which is what
-// says where they last looked, ErrNotFound when they have released none.
-func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
-	if !store.IsID(params.AgentID) {
-		return nil, reviewNotFound(params.AgentID)
-	}
-
-	row, err := s.queries.GetLastReleasedReview(ctx, models.GetLastReleasedReviewParams{
-		AgentID:       params.AgentID,
-		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
-		AuthorAgentID: params.AuthorAgentID,
-	})
-	if db.IsNoRows(err) {
-		return nil, reviewNotFound(params.AgentID)
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to read the last released review on agent %q: %w", params.AgentID, err)
-	}
-
-	review := reviewFromRow(*row)
-
-	return &review, nil
-}
-
 // GetReleasedReviewOnRound is the batch an author has already let go of against one round of an
 // agent, ErrNotFound when they have released none on it.
 func (s *Store) GetReleasedReviewOnRound(

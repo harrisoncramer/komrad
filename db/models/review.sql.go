@@ -60,47 +60,6 @@ func (q *Queries) DeleteReviewThread(ctx context.Context, id string) (string, er
 	return id, err
 }
 
-const getLastReleasedReview = `-- name: GetLastReleasedReview :one
-SELECT
-    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
-FROM
-    reviews v
-WHERE
-    v.agent_id = $1
-    AND v.author_kind = $2
-    AND v.author_agent_id IS NOT DISTINCT FROM $3
-    AND v.released_at IS NOT NULL
-ORDER BY
-    v.released_at DESC
-LIMIT 1
-`
-
-type GetLastReleasedReviewParams struct {
-	AgentID       string
-	AuthorKind    ReviewAuthorKind
-	AuthorAgentID *string
-}
-
-func (q *Queries) GetLastReleasedReview(ctx context.Context, arg GetLastReleasedReviewParams) (*Review, error) {
-	row := q.db.QueryRow(ctx, getLastReleasedReview, arg.AgentID, arg.AuthorKind, arg.AuthorAgentID)
-	var i Review
-	err := row.Scan(
-		&i.ID,
-		&i.AgentID,
-		&i.RoundID,
-		&i.AuthorKind,
-		&i.AuthorAgentID,
-		&i.Verdict,
-		&i.ReleasedAt,
-		&i.Path,
-		&i.DoorbellMailID,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Body,
-	)
-	return &i, err
-}
-
 const getLatestReviewRound = `-- name: GetLatestReviewRound :one
 SELECT
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at
