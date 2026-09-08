@@ -328,3 +328,49 @@ func suggestionOf(t *testing.T, edit git.Edit, round []string) Suggestion {
 
 	return suggestion
 }
+
+// TestRunsFromWritesNoOldSideWhenItIsForeign covers the harvest, which is the other writer that
+// reads its anchors off the view: a run taken while the diff is measured from an earlier round
+// must not carry that round's old-side numbers into a thread.
+func TestRunsFromWritesNoOldSideWhenItIsForeign(t *testing.T) {
+	file := diff.File{
+		OldPath:   "greet.go",
+		NewPath:   "greet.go",
+		NewSource: "package greet\nwas here\n",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "was here",
+				OldNumber: 2,
+				NewNumber: 2,
+			},
+		)},
+	}
+
+	edits := []git.Edit{{
+		Path:  "greet.go",
+		Start: 2,
+		End:   2,
+		Lines: []string{"is here now"},
+	}}
+
+	measured := NewView(patchWith(file), false)
+	runs := RunsFrom(measured, edits, nil)
+	require.Len(t, runs, 1)
+	require.Equal(t, 2, runs[0].OldStart, "the round's own base numbers the old side")
+
+	foreign := NewView(patchWith(file), false)
+	foreign.SetOldSideForeign(true)
+	runs = RunsFrom(foreign, edits, nil)
+	require.Len(t, runs, 1)
+
+	assert.Equal(t, 2, runs[0].NewStart, "the new side is the round's own numbering either way")
+	assert.Zero(t, runs[0].OldStart, "and the old side is left unsaid rather than written wrong")
+	assert.Zero(t, runs[0].OldEnd)
+}

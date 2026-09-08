@@ -73,6 +73,12 @@ func reviewTable() []action {
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.panReview(-m.review.pan) },
 		},
 		{
+			id:   actionReviewBase,
+			keys: func(k config.Keybindings) []string { return k.Review.Base },
+			when: func(m model) bool { return m.review.baseRound != nil || m.review.base != "" },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
+		},
+		{
 			id:   actionReviewReload,
 			keys: func(k config.Keybindings) []string { return k.Review.Reload },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.reloadReview() },
@@ -187,6 +193,11 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewEdit},
 			desc: model.reviewEditorDesc,
+		},
+		{
+			of:   []actionID{actionReviewBase},
+			desc: model.reviewBaseDesc,
+			show: model.doesReviewFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewReload},

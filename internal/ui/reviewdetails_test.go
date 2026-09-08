@@ -123,12 +123,15 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	assert.Equal(t, live, reviewFrameRaw(t, back), "and painted back when the keys come back")
 }
 
-// TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped.
+// TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped, with an
+// earlier review to measure from, since the legend is a row longer in that case and it is the case
+// the pane is least likely to hold.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	dir := reviewRepo(t)
-	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
-	m = openReview(t, m)
+	agents := &fakeReviewAgents{}
+	m := reviewWithAnEarlierReview(t, dir, agents)
 
+	require.NotNil(t, m.review.baseRound, "the base key has somewhere to go")
 	require.Contains(t, ansi.Strip(m.reviewView()), "agent_id", "the record draws at full height")
 
 	m.helpExpanded = true

@@ -237,7 +237,7 @@ func (m model) reviewRestView() string {
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
 		out += "\n" + m.reviewNote(reviewNoticeStyle, notice)
-	} else if since := m.review.since; since != "" {
+	} else if since := m.review.since; since != "" && m.review.baseLabel == "" {
 		out += "\n" + m.reviewNote(dimStyle, since)
 	}
 
@@ -319,7 +319,12 @@ func (m model) reviewStatView() string {
 		return ""
 	}
 
-	out := dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
+	out := ""
+	if m.review.baseLabel != "" {
+		out += dimStyle.Render(m.review.baseLabel + " · ")
+	}
+
+	out += dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 

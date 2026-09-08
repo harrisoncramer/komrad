@@ -67,6 +67,9 @@ type View struct {
 
 	// placed is how each thread reached its row, by thread id.
 	placed map[string]placement
+	// oldSideForeign is set while the patch is measured from something other than the round's
+	// own base, which renumbers the old side out from under every thread.
+	oldSideForeign bool
 	// viewed is the files the person reviewing has read, by path, which are drawn collapsed.
 	viewed map[string]bool
 	// threads is what was last pinned, kept so that collapsing a file can pin them again over
@@ -151,6 +154,18 @@ func (v *View) build() {
 	}
 
 	v.patchRows = len(v.rows)
+}
+
+// SetOldSideForeign says the old side of this patch came from somewhere other than the round's
+// own base, so the numbers a thread carries do not name lines in it.
+func (v *View) SetOldSideForeign(foreign bool) {
+	v.oldSideForeign = foreign
+}
+
+// IsOldSideForeign reports whether the old side of this patch came from somewhere other than the
+// round's own base.
+func (v *View) IsOldSideForeign() bool {
+	return v.oldSideForeign
 }
 
 // SetViewed says which files have been read, collapsing each of those to its header and pinning
