@@ -39,6 +39,10 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 				return err
 			}
 
+			// Recorded before anything slow: while no pane is on record the session looks like one
+			// whose panel has gone, and a second open would start a second panel in it.
+			state.tmux.RecordPanelPane(state.env.TmuxPane)
+
 			var startupErr error
 			if state.configErr == nil {
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
@@ -62,7 +66,6 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
-			state.tmux.RecordPanelPane(state.env.TmuxPane)
 
 			return ui.Run(ui.Deps{
 				PopupWindow:     state.popup,

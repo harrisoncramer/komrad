@@ -39,13 +39,17 @@ it needs somewhere for agents to be put back into.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := ensureManagerSession(cmd.Context(), state); err != nil {
+			if err := ensureManagerSession(cmd.Context(), state, detach); err != nil {
 				return err
 			}
 
 			if detach {
 				return nil
 			}
+
+			// Only the attaching path says which window is current, since select-window moves every
+			// client attached to the session and nobody asked a detached open to move them.
+			state.tmux.SelectWindow(state.tmux.GetPanelPane())
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)
 			state.tmux.RecordHostSocket(socket)
@@ -95,19 +99,17 @@ func isPanelRunning(ctx context.Context, state *app) bool {
 
 // ensureManagerSession puts a panel up, making the session when there is none and a window in
 // the session it already has when only the panel has gone.
-func ensureManagerSession(ctx context.Context, state *app) error {
+func ensureManagerSession(ctx context.Context, state *app, detached bool) error {
 	if !isManagerSessionRunning(ctx, state) {
 		return runTmux(ctx, state, "failed to create the manager session", buildManagerSessionArgs(state, getSelfPath()))
 	}
 
 	if isPanelRunning(ctx, state) {
-		state.tmux.SelectWindow(state.tmux.GetPanelPane())
-
 		return nil
 	}
 
 	return runTmux(ctx, state, "failed to open a panel window in the manager session",
-		buildPanelWindowArgs(state, getSelfPath()))
+		buildPanelWindowArgs(state, getSelfPath(), detached))
 }
 
 func runTmux(ctx context.Context, state *app, summary string, args []string) error {
@@ -125,10 +127,15 @@ func buildManagerSessionArgs(state *app, self string) []string {
 	return append([]string{"new-session", "-d", "-s", agents.ManagerSession}, panelCommandArgs(state, self)...)
 }
 
-// buildPanelWindowArgs opens the panel in a session that is already there, which is undetached
-// so the attach that follows lands on it.
-func buildPanelWindowArgs(state *app, self string) []string {
-	return append([]string{"new-window", "-t", agents.ManagerSession}, panelCommandArgs(state, self)...)
+// buildPanelWindowArgs opens the panel in a session that is already there, detached when the
+// caller is not about to attach and so has no business moving whoever is watching.
+func buildPanelWindowArgs(state *app, self string, detached bool) []string {
+	args := []string{"new-window"}
+	if detached {
+		args = append(args, "-d")
+	}
+
+	return append(append(args, "-t", agents.ManagerSession), panelCommandArgs(state, self)...)
 }
 
 func panelCommandArgs(state *app, self string) []string {
