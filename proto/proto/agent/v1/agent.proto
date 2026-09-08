@@ -56,6 +56,11 @@ message Agent {
   // Whether prompt holds only its opening, which a summary listing returns so that a page of
   // agents does not carry every briefing they were launched with.
   bool prompt_truncated = 32;
+  // What the last released review of the agent's own work concluded, empty when none has been
+  // released.
+  string review_verdict = 33;
+  // Whether a reviewer child is still owed an answer about the agent's own work.
+  bool in_review = 34;
 }
 
 message AgentMetadata {

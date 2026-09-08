@@ -38,6 +38,11 @@ type agentFlags struct {
 	failedRunLog *int32
 	// rounds is how many rounds of review this agent's own work has been through.
 	rounds int32
+	// verdict is what the last released review of this agent's work concluded, empty when none
+	// has been released.
+	verdict string
+	// inReview reports whether a reviewer child is still owed an answer about this agent's work.
+	inReview bool
 }
 
 // agentOptions is how much of an agent renderAgent draws.
@@ -110,6 +115,8 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 			FailedRun:        flags.failedRun,
 			FailedRunLog:     flags.failedRunLog,
 			ReviewRounds:     flags.rounds,
+			ReviewVerdict:    flags.verdict,
+			InReview:         flags.inReview,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}

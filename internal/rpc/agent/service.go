@@ -263,8 +263,20 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 			failedRun:    hasFailure,
 			failedRunLog: failure.LogNumber,
 			rounds:       tallies[a.ID].Rounds,
+			verdict:      verdictOf(tallies[a.ID]),
+			inReview:     tallies[a.ID].InReview,
 		}
 	}, nil
+}
+
+// verdictOf is the tally's verdict as the wire carries it, which is the empty string for the
+// agent whose work no review has concluded on.
+func verdictOf(tally reviewstore.Tally) string {
+	if tally.Verdict == nil {
+		return ""
+	}
+
+	return string(*tally.Verdict)
 }
 
 // ListAgents returns one page of stored agents, newest first.

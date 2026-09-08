@@ -399,22 +399,33 @@ func reviewNotFound(id string) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
 
-// Tally is how many rounds of review one agent's work has been through, counted against the
-// agent holding the diff since that is the one going round again rather than whoever read it.
+// Tally is where one agent's work stands with the people and agents reading it, counted against
+// the agent holding the diff since that is the one going round again rather than whoever read it.
 type Tally struct {
 	AgentID string
 	Rounds  int32
+	// Verdict is what the last released review of this work concluded, nil when none has been
+	// released.
+	Verdict *Verdict
+	// InReview reports whether a reviewer child is still owed an answer about this work.
+	InReview bool
 }
 
-// ListTallies is the rounds of review every agent's work has been through, leaving out the
-// agents whose work has been through none.
+// ListTallies is where every agent's work stands, leaving out the agents whose work nobody has
+// released a review of and nobody is reading.
 func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
-	rows, err := s.queries.ListReviewRoundTallies(ctx)
+	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to count the rounds of review: %w", err)
 	}
 
-	return xslice.Map(rows, func(row *models.ListReviewRoundTalliesRow) Tally {
-		return Tally{AgentID: row.AgentID, Rounds: row.Rounds}
+	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) Tally {
+		tally := Tally{AgentID: row.AgentID, Rounds: row.Rounds, InReview: row.InReview}
+		if row.Verdict.Valid {
+			verdict := Verdict(row.Verdict.ReviewVerdict)
+			tally.Verdict = &verdict
+		}
+
+		return tally
 	}), nil
 }

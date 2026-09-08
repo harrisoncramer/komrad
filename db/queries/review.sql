@@ -424,13 +424,65 @@ WHERE id = @id
 RETURNING
     id;
 
--- name: ListReviewRoundTallies :many
+-- name: ListReviewTallies :many
+WITH released AS (
+    SELECT
+        v.agent_id,
+        COUNT(DISTINCT v.round_id)::int AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    GROUP BY
+        v.agent_id
+),
+concluded AS (
+    SELECT DISTINCT ON (v.agent_id)
+        v.agent_id,
+        v.verdict
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    ORDER BY
+        v.agent_id,
+        v.released_at DESC
+),
+reading AS (
+    SELECT DISTINCT
+        c.parent_agent_id AS agent_id
+    FROM
+        agents c
+    WHERE
+        c.role = 'reviewer'
+        AND c.parent_agent_id IS NOT NULL
+        AND c.archived_at IS NULL
+        AND c.state <> 'failed_to_create'
+        AND c.state <> 'failed_to_cleanup'
+        AND (
+            SELECT
+                v.verdict
+            FROM
+                reviews v
+            WHERE
+                v.agent_id = c.parent_agent_id
+                AND v.author_kind = 'agent'
+                AND v.author_agent_id = c.id
+                AND v.released_at IS NOT NULL
+            ORDER BY
+                v.released_at DESC
+            LIMIT 1) IS DISTINCT FROM 'approved'
+)
 SELECT
-    v.agent_id,
-    COUNT(DISTINCT v.round_id)::int AS rounds
+    a.id AS agent_id,
+    COALESCE(r.rounds, 0)::int AS rounds,
+    c.verdict,
+(d.agent_id IS NOT NULL)::bool AS in_review
 FROM
-    reviews v
+    agents a
+    LEFT JOIN released r ON r.agent_id = a.id
+    LEFT JOIN concluded c ON c.agent_id = a.id
+    LEFT JOIN reading d ON d.agent_id = a.id
 WHERE
-    v.released_at IS NOT NULL
-GROUP BY
-    v.agent_id;
+    r.agent_id IS NOT NULL
+    OR d.agent_id IS NOT NULL;

@@ -7,21 +7,25 @@ import (
 	"weave/internal/errui"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/lipgloss"
 )
 
 const (
-	unviewedIcon        = "●"
-	childIcon           = "└"
-	scheduledIcon       = "◷"
-	hiddenIcon          = "◌"
-	unreadMailIcon      = "✉"
-	failedRunIcon       = "⚑"
-	reviewRoundsIcon    = "⟳"
-	worktreeRemovedIcon = "⊘"
-	workflowIcon        = "⧉"
+	unviewedIcon         = "●"
+	childIcon            = "└"
+	scheduledIcon        = "◷"
+	hiddenIcon           = "◌"
+	unreadMailIcon       = "✉"
+	failedRunIcon        = "⚑"
+	reviewRoundsIcon     = "⟳"
+	inReviewIcon         = "✎"
+	approvedIcon         = "✓"
+	changesRequestedIcon = "✗"
+	worktreeRemovedIcon  = "⊘"
+	workflowIcon         = "⧉"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
 	// report, keeping the indent every other row has.
@@ -176,6 +180,33 @@ func hiddenTally(count int, showing bool) string {
 // number.
 func reviewRoundsMark(rounds int32) string {
 	return iconMark(rounds > 0, fmt.Sprintf("%s%d", reviewRoundsIcon, rounds), colorMuted)
+}
+
+// verdictMark says what the last released review of an agent's work concluded.
+func verdictMark(verdict string) string {
+	icon, color := verdictIcon(verdict)
+
+	return iconMark(icon != "", icon, color)
+}
+
+// verdictIcon draws nothing for a review released without a conclusion, since the row says what
+// wants a person rather than what has happened.
+func verdictIcon(verdict string) (string, lipgloss.Color) {
+	switch reviewstore.Verdict(verdict) {
+	case reviewstore.VerdictApproved:
+		return approvedIcon, colorSuccess
+	case reviewstore.VerdictChangesRequested:
+		return changesRequestedIcon, colorDanger
+	case reviewstore.VerdictCommented:
+		return "", colorMuted
+	}
+
+	return "", colorMuted
+}
+
+// inReviewMark says a reviewer is still owed an answer about this agent's work.
+func inReviewMark(inReview bool) string {
+	return iconMark(inReview, inReviewIcon, colorAccent)
 }
 
 // failedRunMark says a script weave fired for the agent failed and nobody has read it, which the

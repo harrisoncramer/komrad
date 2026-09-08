@@ -540,7 +540,8 @@ func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, tallies, 1, "the reviewer holds no diff of its own to have gone round")
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0])
+	changesRequested := VerdictChangesRequested
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2, Verdict: &changesRequested}, tallies[0])
 }
 
 // TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
@@ -565,7 +566,8 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, tallies, 1)
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
+	changesRequested := VerdictChangesRequested
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1, Verdict: &changesRequested}, tallies[0])
 }
 
 // TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten pins what the reconcile pass reads, which
@@ -777,4 +779,89 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 
 	_, err = st.GetLastReleasedReview(ctx, author)
 	require.NoError(t, err)
+}
+
+// seedReviewerChild is a reviewer attached to the agent whose work it reads, which is the shape
+// a tally reads to decide that work is being read right now.
+func seedReviewerChild(t *testing.T, st *fixture, name, parentID string) string {
+	t.Helper()
+	ctx := t.Context()
+
+	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
+		Name:          name,
+		State:         agentstore.StateIdle,
+		WorkflowID:    st.workflow,
+		Role:          agentstore.RoleReviewer,
+		ParentAgentID: &parentID,
+	}))
+	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return got.ID
+}
+
+// TestTalliesReportWorkBeingRead is the state a round count cannot say: a reviewer that has been
+// spawned and has released nothing yet leaves no rounds behind it.
+func TestTalliesReportWorkBeingRead(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	seedReviewerChild(t, st, "worker-reviewer", agentID)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, InReview: true}, tallies[0])
+}
+
+// TestTalliesStopReportingReadingOnceApproved pins the end of the loop: an approval is the last
+// thing a reviewer says, so the work is no longer owed an answer.
+func TestTalliesStopReportingReadingOnceApproved(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, "worker-reviewer", agentID)
+	round := openRound(t, st, agentID, "tree-one")
+
+	review, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, review.ID, VerdictChangesRequested)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+	assert.True(t, tallies[0].InReview, "changes requested is the middle of the loop")
+
+	second := openRound(t, st, agentID, "tree-two")
+	signed, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: second.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, signed.ID, VerdictApproved)
+
+	tallies, err = st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+
+	approved := VerdictApproved
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2, Verdict: &approved}, tallies[0])
+}
+
+// TestTalliesLeaveOutADeadReviewer pins that a reviewer whose setup failed is not read as still
+// reading, which would leave the work looking busy forever.
+func TestTalliesLeaveOutADeadReviewer(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, "worker-reviewer", agentID)
+
+	require.NoError(t, st.agents.SetStateByID(ctx, reviewer, agentstore.StateFailedToCreate))
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, tallies, "nothing is reading the work and no review has been released of it")
 }

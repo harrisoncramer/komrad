@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -25,6 +26,17 @@ const (
 	hiddenNotice          = "hidden: the sidebar leaves this row out until hidden agents are shown"
 )
 
+const inReviewNotice = "in review: a reviewer is reading this agent's work and is still owed an answer"
+
+// verdictNotice says where the last released review of an agent's work left it.
+func verdictNotice(verdict string) string {
+	if reviewstore.Verdict(verdict) == reviewstore.VerdictApproved {
+		return "approved: the last review of its work signed it off, so it is ready to land"
+	}
+
+	return "changes requested: the last review of its work asked for more, and it has not been read again since"
+}
+
 // reviewRoundsNotice counts against the agent holding the diff.
 func reviewRoundsNotice(rounds int32) string {
 	if rounds == 1 {
@@ -44,6 +56,10 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
+	notices = appendNotice(notices, item.inReview, inReviewIcon, colorAccent, inReviewNotice)
+
+	verdictIcon, verdictColor := verdictIcon(item.verdict)
+	notices = appendNotice(notices, verdictIcon != "", verdictIcon, verdictColor, verdictNotice(item.verdict))
 
 	return appendNotice(notices, item.rounds > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item.rounds))
 }

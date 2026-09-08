@@ -759,43 +759,6 @@ func (q *Queries) ListReviewMessagesByThreads(ctx context.Context, threadIds []s
 	return items, nil
 }
 
-const listReviewRoundTallies = `-- name: ListReviewRoundTallies :many
-SELECT
-    v.agent_id,
-    COUNT(DISTINCT v.round_id)::int AS rounds
-FROM
-    reviews v
-WHERE
-    v.released_at IS NOT NULL
-GROUP BY
-    v.agent_id
-`
-
-type ListReviewRoundTalliesRow struct {
-	AgentID string
-	Rounds  int32
-}
-
-func (q *Queries) ListReviewRoundTallies(ctx context.Context) ([]*ListReviewRoundTalliesRow, error) {
-	rows, err := q.db.Query(ctx, listReviewRoundTallies)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*ListReviewRoundTalliesRow
-	for rows.Next() {
-		var i ListReviewRoundTalliesRow
-		if err := rows.Scan(&i.AgentID, &i.Rounds); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listReviewRounds = `-- name: ListReviewRounds :many
 SELECT
     id, agent_id, ordinal, base_sha, snapshot_sha, created_at
@@ -823,6 +786,102 @@ func (q *Queries) ListReviewRounds(ctx context.Context, agentID string) ([]*Revi
 			&i.BaseSha,
 			&i.SnapshotSha,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReviewTallies = `-- name: ListReviewTallies :many
+WITH released AS (
+    SELECT
+        v.agent_id,
+        COUNT(DISTINCT v.round_id)::int AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    GROUP BY
+        v.agent_id
+),
+concluded AS (
+    SELECT DISTINCT ON (v.agent_id)
+        v.agent_id,
+        v.verdict
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    ORDER BY
+        v.agent_id,
+        v.released_at DESC
+),
+reading AS (
+    SELECT DISTINCT
+        c.parent_agent_id AS agent_id
+    FROM
+        agents c
+    WHERE
+        c.role = 'reviewer'
+        AND c.parent_agent_id IS NOT NULL
+        AND c.archived_at IS NULL
+        AND c.state <> 'failed_to_create'
+        AND c.state <> 'failed_to_cleanup'
+        AND (
+            SELECT
+                v.verdict
+            FROM
+                reviews v
+            WHERE
+                v.agent_id = c.parent_agent_id
+                AND v.author_kind = 'agent'
+                AND v.author_agent_id = c.id
+                AND v.released_at IS NOT NULL
+            ORDER BY
+                v.released_at DESC
+            LIMIT 1) IS DISTINCT FROM 'approved'
+)
+SELECT
+    a.id AS agent_id,
+    COALESCE(r.rounds, 0)::int AS rounds,
+    c.verdict,
+(d.agent_id IS NOT NULL)::bool AS in_review
+FROM
+    agents a
+    LEFT JOIN released r ON r.agent_id = a.id
+    LEFT JOIN concluded c ON c.agent_id = a.id
+    LEFT JOIN reading d ON d.agent_id = a.id
+WHERE
+    r.agent_id IS NOT NULL
+    OR d.agent_id IS NOT NULL
+`
+
+type ListReviewTalliesRow struct {
+	AgentID  string
+	Rounds   int32
+	Verdict  NullReviewVerdict
+	InReview bool
+}
+
+func (q *Queries) ListReviewTallies(ctx context.Context) ([]*ListReviewTalliesRow, error) {
+	rows, err := q.db.Query(ctx, listReviewTallies)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListReviewTalliesRow
+	for rows.Next() {
+		var i ListReviewTalliesRow
+		if err := rows.Scan(
+			&i.AgentID,
+			&i.Rounds,
+			&i.Verdict,
+			&i.InReview,
 		); err != nil {
 			return nil, err
 		}

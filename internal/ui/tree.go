@@ -247,6 +247,11 @@ type agentItem struct {
 	failedRunLog *int32
 	// rounds is how many rounds of review this agent's own work has been through.
 	rounds int32
+	// verdict is what the last released review of this agent's work concluded, empty when none
+	// has been released.
+	verdict string
+	// inReview reports whether a reviewer child is still owed an answer about this agent's work.
+	inReview bool
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

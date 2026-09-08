@@ -55,6 +55,8 @@ func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 			failedRun:    agent.GetFailedRun(),
 			failedRunLog: agent.FailedRunLog,
 			rounds:       agent.GetReviewRounds(),
+			verdict:      agent.GetReviewVerdict(),
+			inReview:     agent.GetInReview(),
 		}
 	})
 }
