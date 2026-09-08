@@ -269,27 +269,28 @@ func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 	}
 }
 
-// TestMapRangesReadsOnlyThePathsAsked covers the caller that holds comments on one file.
-func TestMapRangesReadsOnlyThePathsAsked(t *testing.T) {
+// TestMapRangesFindsARenameAcrossTheWholeTree pins why the whole tree is read: git applies a
+// pathspec before it looks for renames, so a diff filtered to a file's old path reports that file
+// deleted and every position on it is lost.
+func TestMapRangesFindsARenameAcrossTheWholeTree(t *testing.T) {
 	root := repo(t)
-	write(t, root, "one.go", numbered(4))
-	write(t, root, "two.go", numbered(4))
-	from := commitAll(t, root, "two files")
+	write(t, root, "old.go", numbered(9))
+	from := commitAll(t, root, "before the rename")
 
-	write(t, root, "one.go", numbered(6))
-	write(t, root, "two.go", numbered(6))
-	to := commitAll(t, root, "both changed")
+	require.NoError(t, os.Remove(filepath.Join(root, "old.go")))
+	write(t, root, "new.go", strings.Replace(numbered(9), "original 2\n", "rewritten 2\n", 1))
+	to := commitAll(t, root, "after the rename")
 
 	mappings, err := MapRanges(t.Context(), MapRangesParams{
 		Dir:     root,
 		FromSHA: from,
 		ToSHA:   to,
-		Paths:   []string{"one.go"},
 	})
 	require.NoError(t, err)
 
 	require.Len(t, mappings, 1)
-	assert.Equal(t, "one.go", mappings[0].File.OldPath)
+	assert.Equal(t, "old.go", mappings[0].File.OldPath)
+	assert.Equal(t, "new.go", mappings[0].File.NewPath, "a rename read as a deletion drops every position on the file")
 }
 
 // TestATracedLineHoldsItsContent proves the hunk convention read here is the one git writes: a

@@ -10,7 +10,7 @@ import (
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
 
-// MapRangesParams says which two commits to read and which paths of them.
+// MapRangesParams says which two commits to read.
 type MapRangesParams struct {
 	// Dir is anywhere inside the repository holding both commits.
 	Dir string
@@ -18,9 +18,6 @@ type MapRangesParams struct {
 	FromSHA string
 	// ToSHA is the commit they are being moved to.
 	ToSHA string
-	// Paths are the files to read in the coordinates of the earlier commit, or none for the whole
-	// tree.
-	Paths []string
 }
 
 // MapRanges is what the later commit did to each file, in the form the position package moves a
@@ -51,8 +48,7 @@ func MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping,
 	return mappings, nil
 }
 
-// mapPatch reads a patch git has already written, kept apart from running git so a fuzzer can
-// reach it.
+// mapPatch reads a patch git has already written.
 func mapPatch(raw []byte) ([]position.Mapping, error) {
 	files, _, err := gitdiff.Parse(bytes.NewReader(raw))
 	if err != nil {
@@ -73,9 +69,13 @@ func mapPatch(raw []byte) ([]position.Mapping, error) {
 	return mappings, nil
 }
 
-// mapRangesArgs pins the prefixes git writes on the header lines so the parser does not eat a
-// real directory off every path.
+// mapRangesArgs is the diff the mappings are read from.
 func mapRangesArgs(params MapRangesParams) []string {
+	// Explainer: the prefixes git writes on the header lines are pinned here. The parser drops
+	// the first segment of every path whatever it is, so a repository configured to write bare
+	// paths would have a real directory eaten off the front of each one. The whole tree is read
+	// rather than one path, because git applies a pathspec before it looks for renames, so
+	// filtering by a file's old path reports it deleted rather than renamed.
 	args := []string{
 		"-c", "core.quotepath=false",
 		"-c", "diff.external=",
@@ -85,14 +85,10 @@ func mapRangesArgs(params MapRangesParams) []string {
 		"-c", "diff.dstPrefix=b/",
 		"--no-pager", "diff",
 		"--no-ext-diff", "--no-color", "--find-renames", "--unified=0", "--full-index",
-		params.FromSHA, params.ToSHA, "--",
+		params.FromSHA, params.ToSHA, "--", ".",
 	}
 
-	if len(params.Paths) == 0 {
-		return append(args, ".")
-	}
-
-	return append(args, params.Paths...)
+	return args
 }
 
 // rangesOf is the regions of one file the later commit rewrote, and nothing for a file the patch

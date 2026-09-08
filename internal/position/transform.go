@@ -124,7 +124,9 @@ func shiftRange(mappings []RangeMapping, lines Range) (Range, bool) {
 
 	start, end := lines.Start, lines.End
 	for _, mapping := range ordered {
-		if lines.doesOverlap(mapping.Old) {
+		// An empty position is never overlapped, since it covers no line, so a region holding it
+		// strictly inside is refused here instead.
+		if lines.doesOverlap(mapping.Old) || mapping.Old.Start < lines.Start && lines.End < mapping.Old.End {
 			return Range{}, false
 		}
 
@@ -134,12 +136,24 @@ func shiftRange(mappings []RangeMapping, lines Range) (Range, bool) {
 		case mapping.Old.End <= lines.Start:
 			start, end = start+delta, end+delta
 		case mapping.Old.Start < lines.End:
-			// Only an insertion reaches here, and lines arriving inside a range lengthen it.
+			// Only lines arriving inside the range reach here, and they lengthen it rather than
+			// moving where it starts.
 			end += delta
 		default:
-			return Range{Start: start, End: end}, true
+			return validRange(start, end)
 		}
 	}
 
-	return Range{Start: start, End: end}, true
+	return validRange(start, end)
+}
+
+// validRange refuses a range the walk cannot vouch for, so no arithmetic slip is ever reported as
+// a placement.
+func validRange(start, end int) (Range, bool) {
+	moved := Range{Start: start, End: end}
+	if !moved.IsValid() {
+		return Range{}, false
+	}
+
+	return moved, true
 }

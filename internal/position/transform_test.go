@@ -334,6 +334,78 @@ func TestTransform(t *testing.T) {
 			},
 		},
 		{
+			name:      "an insertion point inside a rewritten region has nowhere to sit",
+			positions: []Position{{Path: "a.go", Lines: lines(5, 5)}},
+			mappings: []Mapping{
+				{
+					File:   FileMapping{OldPath: "a.go", NewPath: "a.go"},
+					Ranges: []RangeMapping{rewrite(3, 9, 3, 3)},
+				},
+			},
+			policy: OmitOnConflict,
+			want: []Result{
+				{
+					Index:    0,
+					Position: Position{Path: "a.go", Lines: lines(5, 5)},
+					Outcome:  Dropped,
+				},
+			},
+		},
+		{
+			name:      "an insertion point inside a replaced region keeps its file when asked",
+			positions: []Position{{Path: "a.go", Lines: lines(5, 5)}},
+			mappings: []Mapping{
+				{
+					File:   FileMapping{OldPath: "a.go", NewPath: "a.go"},
+					Ranges: []RangeMapping{rewrite(3, 9, 3, 5)},
+				},
+			},
+			policy: FileOnConflict,
+			want: []Result{
+				{
+					Index:    0,
+					Position: Position{Path: "a.go"},
+					Outcome:  FileOnly,
+				},
+			},
+		},
+		{
+			name:      "an insertion point where a region starts is the gap above it and stays",
+			positions: []Position{{Path: "a.go", Lines: lines(3, 3)}},
+			mappings: []Mapping{
+				{
+					File:   FileMapping{OldPath: "a.go", NewPath: "a.go"},
+					Ranges: []RangeMapping{rewrite(3, 9, 3, 5)},
+				},
+			},
+			policy: OmitOnConflict,
+			want: []Result{
+				{
+					Index:    0,
+					Position: Position{Path: "a.go", Lines: lines(3, 3)},
+					Outcome:  Placed,
+				},
+			},
+		},
+		{
+			name:      "an insertion point where a region ends moves with the lines below it",
+			positions: []Position{{Path: "a.go", Lines: lines(9, 9)}},
+			mappings: []Mapping{
+				{
+					File:   FileMapping{OldPath: "a.go", NewPath: "a.go"},
+					Ranges: []RangeMapping{rewrite(3, 9, 3, 5)},
+				},
+			},
+			policy: OmitOnConflict,
+			want: []Result{
+				{
+					Index:    0,
+					Position: Position{Path: "a.go", Lines: lines(5, 5)},
+					Outcome:  Placed,
+				},
+			},
+		},
+		{
 			name: "every position handed in is answered for",
 			positions: []Position{
 				{Path: "a.go", Lines: lines(10, 12)},
@@ -414,7 +486,7 @@ func (s script) apply(old []string) []string {
 }
 
 // mappings is the script said the way a diff would say it.
-func (s script) mappings(path string) []Mapping {
+func (s script) mappings() []Mapping {
 	ranges := make([]RangeMapping, 0, len(s))
 	shift := 0
 	for _, current := range s {
@@ -429,7 +501,7 @@ func (s script) mappings(path string) []Mapping {
 
 	return []Mapping{
 		{
-			File:   FileMapping{OldPath: path, NewPath: path},
+			File:   FileMapping{OldPath: "a.go", NewPath: "a.go"},
 			Ranges: ranges,
 		},
 	}
@@ -498,7 +570,7 @@ func TestASurvivingLineTracesToItself(t *testing.T) {
 
 		results := Transform(TransformParams{
 			Positions: positions,
-			Mappings:  edit.mappings("a.go"),
+			Mappings:  edit.mappings(),
 			Policy:    OmitOnConflict,
 		})
 		require.Len(t, results, len(positions), "round %d answered for the wrong number of positions", round)
@@ -506,11 +578,57 @@ func TestASurvivingLineTracesToItself(t *testing.T) {
 		for index, result := range results {
 			require.Equal(t, Placed, result.Outcome,
 				"round %d dropped an untouched line %d", round, positions[index].Lines.Start)
+			require.True(t, result.Position.Lines.IsValid(),
+				"round %d placed line %d as %v", round, positions[index].Lines.Start, result.Position.Lines)
 			require.GreaterOrEqual(t, result.Position.Lines.Start, 1)
 			require.LessOrEqual(t, result.Position.Lines.Start, len(next),
 				"round %d placed line %d past the end of the file", round, positions[index].Lines.Start)
 			assert.Equal(t, wanted[index], next[result.Position.Lines.Start-1],
 				"round %d moved line %d onto the wrong content", round, positions[index].Lines.Start)
+		}
+	}
+}
+
+// doesSwallowGap reports whether the script rewrote a region holding this gap strictly inside it,
+// which is a gap the later file has no place for.
+func (s script) doesSwallowGap(gap int) bool {
+	return slices.ContainsFunc(s, func(current replacement) bool {
+		return current.oldStart < gap && gap < current.oldEnd
+	})
+}
+
+// TestAnInsertionPointIsPlacedOrRefused covers the zero width position the package supports and
+// the tests above never build: a point between two lines is either carried to a real gap or
+// refused, and never placed as a range no file could hold.
+func TestAnInsertionPointIsPlacedOrRefused(t *testing.T) {
+	random := rand.New(rand.NewSource(4088))
+
+	const fileLines = 50
+
+	for round := 0; round < 200; round++ {
+		edit := buildScript(random, fileLines)
+
+		for gap := 1; gap <= fileLines+1; gap++ {
+			results := Transform(TransformParams{
+				Positions: []Position{{Path: "a.go", Lines: lines(gap, gap)}},
+				Mappings:  edit.mappings(),
+				Policy:    OmitOnConflict,
+			})
+			require.Len(t, results, 1)
+
+			if edit.doesSwallowGap(gap) {
+				assert.Equal(t, Dropped, results[0].Outcome,
+					"round %d placed gap %d that a rewritten region swallowed", round, gap)
+
+				continue
+			}
+
+			require.Equal(t, Placed, results[0].Outcome,
+				"round %d refused gap %d that nothing swallowed", round, gap)
+			assert.True(t, results[0].Position.Lines.IsEmpty(),
+				"round %d turned gap %d into a range of lines", round, gap)
+			assert.True(t, results[0].Position.Lines.IsValid(),
+				"round %d placed gap %d as %v", round, gap, results[0].Position.Lines)
 		}
 	}
 }
@@ -538,13 +656,17 @@ func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 		for _, policy := range []Policy{OmitOnConflict, FileOnConflict} {
 			results := Transform(TransformParams{
 				Positions: positions,
-				Mappings:  edit.mappings("a.go"),
+				Mappings:  edit.mappings(),
 				Policy:    policy,
 			})
 			require.Len(t, results, len(positions))
 
 			for index, result := range results {
 				require.Equal(t, index, result.Index, "round %d answered out of order", round)
+				if result.Outcome == Placed {
+					require.True(t, result.Position.Lines.IsValid(),
+						"round %d placed %v", round, result.Position.Lines)
+				}
 			}
 		}
 	}
@@ -563,7 +685,7 @@ func TestOnlyARewrittenLineConflicts(t *testing.T) {
 		for line := 1; line <= fileLines; line++ {
 			results := Transform(TransformParams{
 				Positions: []Position{{Path: "a.go", Lines: lines(line, line+1)}},
-				Mappings:  edit.mappings("a.go"),
+				Mappings:  edit.mappings(),
 				Policy:    FileOnConflict,
 			})
 			require.Len(t, results, 1)
