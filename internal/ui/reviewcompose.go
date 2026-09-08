@@ -288,10 +288,9 @@ func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) 
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_COMMENTED:
 		return "comments only" + sent
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_UNSPECIFIED:
-		return "no verdict" + sent
-	default:
-		return "no verdict" + sent
 	}
+
+	return "no verdict" + sent
 }
 
 // reviewWriteCmd runs one write and reads the review back in the same breath.

@@ -190,10 +190,8 @@ linters:
             skip: false
             exclude:
               - config/appconfig\.go$
-          # Left off: it asks for code changes, and the sweep that turned the two comment
-          # rules on was comments only.
           switch_default:
-            skip: true
+            skip: false
           comment_clause:
             skip: false
             exclude:
