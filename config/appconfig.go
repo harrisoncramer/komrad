@@ -349,6 +349,10 @@ type ReviewKeys struct {
 	// becomes a suggestion, which your next comment carries to the agent for it to apply
 	// in its own turn.
 	EditFile []string `mapstructure:"edit_file"`
+	// Move the keys onto the thread in the sidebar, so up and down read the conversation
+	// rather than the diff, and press it again to hand them back. A thread longer than the
+	// sidebar is otherwise only readable from its end.
+	FocusThread []string `mapstructure:"focus_thread"`
 	// Jump to the next file in the diff.
 	NextFile []string `mapstructure:"next_file"`
 	// Jump to the next line matching the pattern the filter key searched for.
@@ -761,6 +765,7 @@ func DefaultKeybindings() Keybindings {
 			Back:         []string{"esc"},
 			Compose:      []string{"c"},
 			EditFile:     []string{"e"},
+			FocusThread:  []string{"ctrl+f"},
 			SendNow:      []string{"ctrl+n"},
 			NextFile:     []string{"]"},
 			NextMatch:    []string{"n"},

@@ -708,6 +708,128 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 	}
 }
 
+// reviewLongThread is a conversation taller than a short pane, standing on the line the cursor
+// is on so the sidebar draws it.
+func reviewLongThread(t *testing.T, m model) []*agentv1.ReviewThread {
+	t.Helper()
+
+	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	require.True(t, ok)
+
+	long := &agentv1.ReviewThread{
+		Id:          "t1",
+		FilePath:    anchor.FilePath,
+		OldStart:    int32(anchor.OldStart),
+		NewStart:    int32(anchor.NewStart),
+		QuotedLines: anchor.QuotedLines,
+	}
+	for i := range 6 {
+		long.Messages = append(long.Messages, &agentv1.ReviewMessage{
+			Id:         "m" + strconv.Itoa(i),
+			AuthorKind: agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+			Body:       "note " + strconv.Itoa(i),
+		})
+	}
+
+	return []*agentv1.ReviewThread{long}
+}
+
+// TestReviewThreadScrollsToItsStart covers reading a conversation taller than the sidebar, which
+// is drawn from its end and was reachable no further back than that.
+func TestReviewThreadScrollsToItsStart(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.height = 14
+
+	require.NotContains(t, ansi.Strip(m.reviewView()), "note 0", "the start of the thread is off the sidebar")
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = next.(model)
+	require.True(t, m.isReviewThreadFocused())
+
+	cursor := m.review.cursor
+	for range 20 {
+		next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+		m = next.(model)
+	}
+
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "note 0", "scrolling up reaches the first message")
+	assert.NotContains(t, shown, "note 5", "the end of the thread has scrolled away")
+	assert.Equal(t, cursor, m.review.cursor, "the diff cursor stays where it was")
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyEsc})
+	m = next.(model)
+
+	assert.False(t, m.isReviewThreadFocused())
+	assert.Equal(t, screenReview, m.screen, "esc hands the keys back rather than leaving the review")
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "note 0", "the thread is drawn from its end again")
+}
+
+// TestReviewThreadFocusIsRefusedWithoutAThread pins that the key does nothing on a line with no
+// conversation on it, since the reader would be holding keys that moved nothing.
+func TestReviewThreadFocusIsRefusedWithoutAThread(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = next.(model)
+
+	assert.False(t, m.isReviewThreadFocused())
+	assert.NotEmpty(t, m.review.notice)
+}
+
+// TestReviewThreadCursorMoveDropsTheScroll covers the window being counted from the end of one
+// conversation, which says nothing about the next one the cursor lands on.
+func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.height = 14
+
+	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlF})
+	m = next.(model)
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("k")})
+	m = next.(model)
+	require.Positive(t, m.review.threadScroll)
+
+	next, _ = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlN})
+	m = next.(model)
+
+	assert.Zero(t, m.review.threadScroll)
+}
+
+// TestReviewThreadWindowNeverOutgrowsThePane covers the sidebar staying inside the pane at every
+// place the conversation can be scrolled to, since bubbletea draws whatever it is handed.
+func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+	m.height = 14
+	m.review.threadFocus = true
+
+	for _, pane := range []int{8, 10, 14, 30} {
+		for _, scroll := range []int{0, 1, 5, 40} {
+			m.height, m.review.threadScroll = pane, scroll
+
+			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
+			assert.LessOrEqual(t, height, pane,
+				"the sidebar drew %d lines into a %d line pane, scroll=%d", height, pane, scroll)
+		}
+	}
+}
+
 // TestReviewRendersWhileLoading covers the frame drawn before the patch arrives, which used to
 // panic the whole panel and take its pane with it.
 func TestReviewRendersWhileLoading(t *testing.T) {

@@ -59,7 +59,7 @@ func (m model) reviewDiffView(split columnSplit) string {
 	start := max(min(m.review.top, view.Len()-split.rows), 0)
 
 	held := review.LiveCursor
-	if m.isDetailsFocused() {
+	if m.isDetailsFocused() || m.isReviewThreadFocused() {
 		held = review.DimCursor
 	}
 

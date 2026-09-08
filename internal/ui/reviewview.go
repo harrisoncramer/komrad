@@ -119,9 +119,65 @@ func (m model) reviewSidebarView() string {
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	rest := tailRows(m.reviewRestView(), m.listLines(help, record, head))
+	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(help, record, head))
 
 	return padRows(head+rest, m.listLines(help, record)) + record + help
+}
+
+// reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
+// unless the reader has taken the keys and scrolled up into it.
+func (m model) reviewThreadWindow(rendered string, lines int) string {
+	if lines <= 0 {
+		return ""
+	}
+
+	rows := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+	if len(rows) <= lines {
+		return rendered
+	}
+
+	// A conversation taller than the sidebar always loses its start, so there is a marker to pay
+	// for from the outset and a second one only once the end has scrolled away too.
+	for markers := 1; markers <= 2; markers++ {
+		visible := lines - markers
+		if visible < 1 {
+			return m.reviewThreadMarker(len(rows))
+		}
+
+		start := len(rows) - visible - min(m.review.threadScroll, len(rows)-visible)
+		if markersFor(start, visible, len(rows)) <= markers {
+			return m.reviewDrawThread(rows, start, visible)
+		}
+	}
+
+	return m.reviewDrawThread(rows, len(rows)-(lines-1), lines-1)
+}
+
+// reviewThreadMarker is the count on its own, which is all a sidebar with one row to spare can
+// say without drawing past the bottom of the pane.
+func (m model) reviewThreadMarker(hidden int) string {
+	return m.reviewMarkerStyle().Render(fmt.Sprintf("  ↑ %d more", hidden)) + "\n"
+}
+
+// reviewDrawThread is the window of the conversation with the counts of what is above and below
+// it, drawn in the panel's own colour while the keys are on the thread so the markers say where
+// the arrows would go.
+func (m model) reviewDrawThread(rows []string, start, visible int) string {
+	style := m.reviewMarkerStyle()
+	end := min(start+visible, len(rows))
+
+	var b strings.Builder
+	if start > 0 {
+		b.WriteString(style.Render(fmt.Sprintf("  ↑ %d more", start)) + "\n")
+	}
+	for _, row := range rows[start:end] {
+		b.WriteString(row + "\n")
+	}
+	if rest := len(rows) - end; rest > 0 {
+		b.WriteString(style.Render(fmt.Sprintf("  ↓ %d more", rest)) + "\n")
+	}
+
+	return b.String()
 }
 
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken its
@@ -480,6 +536,16 @@ func (m model) reviewFields() []recordField {
 	}
 
 	return fields
+}
+
+// reviewMarkerStyle is what the counts above and below the conversation are drawn in, which is
+// the panel's own colour while the keys are on the thread rather than on the diff.
+func (m model) reviewMarkerStyle() lipgloss.Style {
+	if m.isReviewThreadFocused() {
+		return headerStyle
+	}
+
+	return dimStyle
 }
 
 func (m model) reviewWrap(body string) string {

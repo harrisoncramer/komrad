@@ -104,30 +104,6 @@ func padRows(rendered string, lines int) string {
 	return rendered + strings.Repeat("\n", lines-got)
 }
 
-// tailRows cuts a block down to what the pane can hold, keeping the end, since bubbletea draws
-// whatever it is handed and a view taller than the pane scrolls the pane away.
-func tailRows(rendered string, lines int) string {
-	if lines <= 0 {
-		return ""
-	}
-
-	rows := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
-	if len(rows) <= lines {
-		return rendered
-	}
-
-	kept := rows[len(rows)-(lines-1):]
-	marker := dimStyle.Render(fmt.Sprintf("  ↑ %d more", len(rows)-len(kept))) + "\n"
-
-	// Joining an empty tail onto the marker still writes a newline, which is one row more than
-	// the pane has.
-	if len(kept) == 0 {
-		return marker
-	}
-
-	return marker + strings.Join(kept, "\n") + "\n"
-}
-
 func windowStart(cursor, total, visible int) int {
 	if visible >= total {
 		return 0

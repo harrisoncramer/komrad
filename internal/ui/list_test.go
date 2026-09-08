@@ -11,7 +11,6 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 
-	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -233,13 +232,4 @@ func TestListLines(t *testing.T) {
 			assert.Equal(t, tt.want, m.listLines(header, help))
 		})
 	}
-}
-
-// TestTailRowsFitsASingleLineOfRoom pins that one line of room is spent saying how much is
-// hidden rather than on a row that would not fit.
-func TestTailRowsFitsASingleLineOfRoom(t *testing.T) {
-	out := tailRows("one\ntwo\nthree\n", 1)
-
-	assert.Equal(t, 1, strings.Count(out, "\n"))
-	assert.Contains(t, ansi.Strip(out), "↑ 3 more")
 }
