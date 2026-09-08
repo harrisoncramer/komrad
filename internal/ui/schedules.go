@@ -265,7 +265,7 @@ func (m *model) landScheduleCursor(rows []scheduleItem, idx int) {
 		key = item.schedule.ID
 	}
 
-	m.column.place(key)
+	m.placeColumn(screenSchedules, key)
 }
 
 func (m model) schedulesView() string {

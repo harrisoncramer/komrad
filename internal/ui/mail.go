@@ -389,7 +389,7 @@ func (m model) mailDoc() string {
 // so the message's own offset is kept for as long as the reader is still on it.
 func (m *model) landMailCursor(rows []mailRow, idx int) {
 	m.mail.cursor = idx
-	m.column.place(mailRowKeyAt(rows, idx))
+	m.placeColumn(screenMail, mailRowKeyAt(rows, idx))
 }
 
 func (m *model) stageMail() {

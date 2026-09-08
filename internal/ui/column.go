@@ -59,6 +59,17 @@ func (c *columnState) place(row string) {
 	c.row = row
 }
 
+// placeColumn takes the block back to its top for the screen that holds it, ignoring a screen
+// that is not on top, since the refresh places the cursor of every list it read and only the
+// screen on screen owns the offset.
+func (m *model) placeColumn(owner screen, row string) {
+	if m.screen != owner {
+		return
+	}
+
+	m.column.place(row)
+}
+
 // columnSpec is the block a screen draws beside its own list, left nil by a screen that draws
 // none, which is what says the panel keeps the window to the share the frame gave it.
 type columnSpec struct {

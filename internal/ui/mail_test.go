@@ -540,6 +540,24 @@ func TestMailLoadedIgnoresAnotherAgentsMailbox(t *testing.T) {
 	assert.Empty(t, m.mail.inbox)
 }
 
+// TestMailScrollSurvivesARefresh covers a reader partway down a long message when the panel's
+// own tick lands, which placed the cursor of every list it read and took the block back to its
+// top under them.
+func TestMailScrollSurvivesARefresh(t *testing.T) {
+	m := mailModel(config.DefaultKeybindings())
+	m.width, m.height = 120, 40
+
+	inbox := []*agentv1.Mail{received("m1", "neovim-fan", strings.Repeat("vim wins. ", 200))}
+	m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: inbox})
+	m.column.top = 5
+
+	m.applyRefresh(refreshResult{})
+	assert.Equal(t, 5, m.column.top, "the agents listing moved the mailbox's own offset")
+
+	m.applyMailLoaded(mailLoadedMsg{agentID: "a1", inbox: inbox})
+	assert.Equal(t, 5, m.column.top, "reading the mailbox again moved the offset")
+}
+
 func mailModel(keys config.Keybindings) model {
 	tmux := &recordingTmux{}
 
