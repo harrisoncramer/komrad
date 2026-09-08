@@ -353,7 +353,11 @@ func (m model) agentsDetails() details {
 // agentsColumn is what stands where a running agent's own pane would: a folder's shared notes, or
 // why the row under the cursor has no pane to show.
 func agentsColumn() columnSpec {
-	return columnSpec{floor: columnFloor, doc: model.agentDoc, holds: model.hasNoAgentPane}
+	return columnSpec{
+		floor: columnFloor,
+		doc:   model.agentDoc,
+		holds: model.hasNoAgentPane,
+	}
 }
 
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own, which is what

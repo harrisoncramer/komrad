@@ -144,7 +144,11 @@ func rankPairs(runs []Run, pinned []Pinned, takenRun, takenPinned []bool) []pair
 				continue
 			}
 
-			pairs = append(pairs, pair{run: i, pinned: j, overlap: overlap})
+			pairs = append(pairs, pair{
+				run:     i,
+				pinned:  j,
+				overlap: overlap,
+			})
 		}
 	}
 

@@ -65,7 +65,11 @@ func searchPreviewModel(t *testing.T) (model, *recordingTmux) {
 		snippet: marked("reconcile"),
 	}}
 
-	m.applyPreview(previewResult{agentID: "a1", query: "reconcile", content: content})
+	m.applyPreview(previewResult{
+		agentID: "a1",
+		query:   "reconcile",
+		content: content,
+	})
 
 	return m, tmux
 }
@@ -144,7 +148,11 @@ func TestSearchPreviewFollowsTheCursor(t *testing.T) {
 		snippet: marked("reconcile"),
 	})
 	m.search.cursor = 1
-	m.applyPreview(previewResult{agentID: "a2", query: "reconcile", content: content})
+	m.applyPreview(previewResult{
+		agentID: "a2",
+		query:   "reconcile",
+		content: content,
+	})
 
 	assert.NotEqual(t, moved, m.search.preview.doc.top, "the preview is put back on the new match")
 	assert.Contains(t, ansi.Strip(m.searchPreviewView(previewSplit(t, m))), "the reconcile loop")
@@ -180,8 +188,16 @@ func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 		side string
 		want string
 	}{
-		{name: "the default puts the hits on the left", side: config.SidebarSideLeft, want: "Search"},
-		{name: "and the transcript takes that side when it is asked to", side: config.SidebarSideRight, want: "line"},
+		{
+			name: "the default puts the hits on the left",
+			side: config.SidebarSideLeft,
+			want: "Search",
+		},
+		{
+			name: "and the transcript takes that side when it is asked to",
+			side: config.SidebarSideRight,
+			want: "line",
+		},
 	}
 
 	for _, tt := range tests {

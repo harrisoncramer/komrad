@@ -137,7 +137,11 @@ func (stubSnapshotter) FileAt(context.Context, string, string, string) ([]string
 // being written is counted against nobody.
 func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 	svc, st := reviewService(t)
-	worker := st.SeedAgent(t, agentstore.Agent{Name: "worker", Cwd: "/repo", State: agentstore.StateIdle})
+	worker := st.SeedAgent(t, agentstore.Agent{
+		Name:  "worker",
+		Cwd:   "/repo",
+		State: agentstore.StateIdle,
+	})
 	reviewer := st.SeedAgent(t, agentstore.Agent{
 		Name: "reviewer", Cwd: "/repo", State: agentstore.StateIdle,
 		Role: agentstore.RoleReviewer, ParentAgentID: &worker.ID,

@@ -377,3 +377,46 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "how do I use trigram search", tr.Content)
 }
+
+// TestSyncStartsOverOnALogEmptiedBetweenPasses pins the pass that sees nothing but a restart,
+// which is what a CLI that truncates its log before rewriting it leaves behind.
+func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
+	st := newStore(t)
+	ctx := context.Background()
+	projects := t.TempDir()
+
+	agent := seedWithSessionID(t, st, testSessionID, "agent")
+	path := writeLog(t, projects, `{"type":"user","message":{"content":"the conversation that was"}}`+"\n")
+
+	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+		Agents:      st.Agents,
+		Transcripts: st.Transcripts,
+		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
+	})
+	require.NoError(t, syncer.Sync(ctx))
+
+	before, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	require.Equal(t, "the conversation that was", before.Content)
+
+	require.NoError(t, os.WriteFile(path, nil, 0o644))
+	require.NoError(t, syncer.Sync(ctx))
+
+	emptied, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Empty(t, emptied.Content, "the transcript of a log that is gone is gone with it")
+	assert.Zero(t, emptied.SyncedOffset, "and the next pass reads the new log from its start")
+
+	require.NoError(t, os.WriteFile(path, []byte(
+		`{"type":"user","message":{"content":"a longer conversation that replaced the first one"}}`+"\n",
+	), 0o644))
+	require.NoError(t, syncer.Sync(ctx))
+
+	after, err := st.GetTranscript(ctx, agent.ID)
+	require.NoError(t, err)
+	assert.Equal(t, "a longer conversation that replaced the first one", after.Content)
+
+	found, err := st.Transcripts.Search(ctx, transcriptstore.SearchParams{Query: "was", Limit: 10})
+	require.NoError(t, err)
+	assert.Empty(t, found.Matches, "and search no longer answers with the conversation that went")
+}

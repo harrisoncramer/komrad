@@ -330,7 +330,11 @@ func (m *model) writeCmd(summary string, write func(api) error) tea.Cmd {
 	epoch := m.beginWrite()
 
 	return func() tea.Msg {
-		return writeResult{summary: summary, err: write(clients), epoch: epoch}
+		return writeResult{
+			summary: summary,
+			err:     write(clients),
+			epoch:   epoch,
+		}
 	}
 }
 
@@ -348,10 +352,18 @@ func (m *model) rowWriteCmd(summary string, write func(api) (written, error)) te
 	return func() tea.Msg {
 		row, err := write(clients)
 		if err != nil {
-			return writeResult{summary: summary, err: err, epoch: epoch}
+			return writeResult{
+				summary: summary,
+				err:     err,
+				epoch:   epoch,
+			}
 		}
 
-		return writeResult{summary: summary, written: &row, epoch: epoch}
+		return writeResult{
+			summary: summary,
+			written: &row,
+			epoch:   epoch,
+		}
 	}
 }
 
@@ -364,7 +376,11 @@ func (m *model) agentWriteCmd(summary string, write func(api) (*agentv1.Agent, e
 			return written{}, err
 		}
 
-		return written{row: agentRowKey(agent.GetId()), pane: agent.GetPaneId(), harness: agent.GetHarness()}, nil
+		return written{
+			row:     agentRowKey(agent.GetId()),
+			pane:    agent.GetPaneId(),
+			harness: agent.GetHarness(),
+		}, nil
 	})
 }
 

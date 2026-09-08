@@ -421,7 +421,11 @@ func confirmFormStartingOn(confirmed bool, title, description, affirmative strin
 // holdForm keeps the form up while the write it was submitted for is in flight, so a refusal
 // lands back on the form that caused it.
 func (m *model) holdForm() tea.Cmd {
-	m.held = heldWrite{active: true, since: time.Now(), epoch: m.epoch}
+	m.held = heldWrite{
+		active: true,
+		since:  time.Now(),
+		epoch:  m.epoch,
+	}
 
 	if m.form.isActive() && m.form.form.State == huh.StateCompleted {
 		return m.rebuildForm()
