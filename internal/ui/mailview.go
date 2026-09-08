@@ -218,10 +218,10 @@ func (m model) mailListView() string {
 
 	rows := m.mailRowsView()
 	if len(rows) == 0 {
-		return header + renderList([]string{dimStyle.Render(m.mailNotice())}, 0, m.listLines(header, below)) + below
+		return m.headedListView(header, []string{dimStyle.Render(m.mailNotice())}, 0, below)
 	}
 
-	return header + renderList(rows, m.mail.cursor, m.listLines(header, below)) + below
+	return m.headedListView(header, rows, m.mail.cursor, below)
 }
 
 // mailCountView is what the mailbox holds and what of it is owed an answer, since a message

@@ -665,7 +665,11 @@ func (s *Store) DeleteThread(ctx context.Context, id string) error {
 		return threadNotFound(id)
 	}
 
-	if err := s.queries.DeleteReviewThread(ctx, id); err != nil {
+	_, err := s.queries.DeleteReviewThread(ctx, id)
+	if db.IsNoRows(err) {
+		return threadNotFound(id)
+	}
+	if err != nil {
 		return fmt.Errorf("failed to delete the review thread %q: %w", id, err)
 	}
 

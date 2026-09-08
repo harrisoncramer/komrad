@@ -119,9 +119,30 @@ func (m model) reviewSidebarView() string {
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	rest := tailRows(m.reviewRestView(), m.listLines(help, record, head))
+	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(help, record, head))
 
 	return padRows(head+rest, m.listLines(help, record)) + record + help
+}
+
+// reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
+// unless the reader has taken the keys and scrolled up into it.
+func (m model) reviewThreadWindow(rendered string, lines int) string {
+	if lines <= 0 {
+		return ""
+	}
+
+	rows := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+	if len(rows) <= lines {
+		return rendered
+	}
+
+	// Placed from the end of the conversation rather than around a cursor, so the newest message
+	// holds its row as the thread grows and the reader walks back from there.
+	place := func(visible int) int {
+		return len(rows) - visible - min(m.review.threadScroll, len(rows)-visible)
+	}
+
+	return windowRows(rows, lines, place, m.reviewMarkerStyle())
 }
 
 // doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken its
@@ -480,6 +501,16 @@ func (m model) reviewFields() []recordField {
 	}
 
 	return fields
+}
+
+// reviewMarkerStyle is what the counts above and below the conversation are drawn in, which is
+// the panel's own colour while the keys are on the thread rather than on the diff.
+func (m model) reviewMarkerStyle() lipgloss.Style {
+	if m.isReviewThreadFocused() {
+		return headerStyle
+	}
+
+	return dimStyle
 }
 
 func (m model) reviewWrap(body string) string {

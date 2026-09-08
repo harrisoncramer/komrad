@@ -8,6 +8,7 @@ import (
 	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
+	agentv1 "weave/proto/gen/agent/v1"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,7 +36,7 @@ func TestHelpToggle(t *testing.T) {
 	assert.Contains(t, view, "archive", "the expanded help names every binding")
 	assert.Contains(t, view, "hide help", "and says the key that puts it away")
 
-	assert.Greater(t, m.listLines(m.agentsView()), expanded.listLines(expanded.agentsView()),
+	assert.Greater(t, m.listLines(m.renderHelp(m.agentHelp())), expanded.listLines(expanded.renderHelp(expanded.agentHelp())),
 		"the rows the help takes are the list's")
 
 	back, _ := expanded.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})
@@ -187,4 +188,76 @@ func legendLabels(bindings []key.Binding) []string {
 	}
 
 	return out
+}
+
+// TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once, since
+// a key two actions claim reaches whichever one the update function tries first and leaves the
+// other looking broken.
+func TestNoScreenBindsOneKeyTwice(t *testing.T) {
+	base := helpModel()
+	base.mail.inbox = []*agentv1.Mail{{Id: "m1"}}
+	base.schedules.items = []scheduleItem{{}}
+
+	tests := []struct {
+		name   string
+		screen screen
+		legend func(model) keyMap
+	}{
+		{
+			name:   "the agents tree",
+			screen: screenAgents,
+			legend: model.agentHelp,
+		},
+		{
+			name:   "the archive",
+			screen: screenArchive,
+			legend: model.archiveHelp,
+		},
+		{
+			name:   "the schedules",
+			screen: screenSchedules,
+			legend: model.scheduleHelp,
+		},
+		{
+			name:   "the mailbox",
+			screen: screenMail,
+			legend: model.mailHelp,
+		},
+		{
+			name:   "the search",
+			screen: screenSearch,
+			legend: model.searchHelp,
+		},
+		{
+			name:   "the review",
+			screen: screenReview,
+			legend: model.reviewHelp,
+		},
+		{
+			name:   "the details under a list",
+			screen: screenAgents,
+			legend: model.detailsHelp,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := base
+			m.screen = tt.screen
+
+			held := map[string]string{}
+			for _, b := range tt.legend(m).full {
+				for _, k := range b.Keys() {
+					desc := b.Help().Desc
+					if was, taken := held[k]; taken {
+						assert.Failf(t, "one key, two actions",
+							"%q is bound to both %q and %q", k, was, desc)
+
+						continue
+					}
+					held[k] = desc
+				}
+			}
+		})
+	}
 }

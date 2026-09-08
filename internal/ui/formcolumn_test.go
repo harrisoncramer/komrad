@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	agentstore "weave/internal/store/agent"
 	workflowstore "weave/internal/store/workflow"
 
 	"github.com/charmbracelet/lipgloss"
@@ -265,4 +266,24 @@ func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
 	assert.False(t, back.isMessagesFocused())
 	assert.Contains(t, ansi.Strip(back.View()), "New workflow name", "and takes it back")
 	assert.True(t, back.form.isActive(), "the form was never closed")
+}
+
+// TestRenameDrawsBesideTheList covers the rename form being drawn in a column of its own like
+// every other form, since the name it is replacing is on the row it was opened from.
+func TestRenameDrawsBesideTheList(t *testing.T) {
+	m := formColumnModel(t)
+
+	opened, _ := m.openRename(agentstore.Agent{ID: "a1", Name: "api-refactor"})
+	m = asModel(t, opened)
+
+	require.True(t, m.form.isActive())
+	assert.True(t, m.frame.IsSolo(), "the form takes the window while it is up")
+
+	split, ok := m.columnSplit()
+	require.True(t, ok, "and draws its column")
+	assert.Equal(t, split.sidebar, m.paneWidth(), "with the list laid out against its own column")
+
+	view := ansi.Strip(m.View())
+	assert.Contains(t, view, "api-refactor", "the prompt is on screen")
+	assert.Contains(t, view, "auth", "and so is the list it was opened over")
 }

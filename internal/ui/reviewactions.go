@@ -92,6 +92,11 @@ func reviewTable() []action {
 			keys: func(k config.Keybindings) []string { return k.Review.ToggleViewed },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleReviewViewed() },
 		},
+		{
+			id:   actionReviewFocusThread,
+			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.focusReviewThread(), nil },
+		},
 		// The two keys that write are taken whether or not anybody is there to read, so that a
 		// habit press is answered with the reason rather than by nothing happening at all.
 		{
@@ -167,16 +172,14 @@ func reviewLegend() []legendRow {
 				return headLabel(k.Review.NextMatch) + "/" + headLabel(k.Review.PrevMatch)
 			},
 		},
+		// Panning and its reset share a row, since the reset is part of the gesture and the
+		// sidebar has no line to spare on the screens this legend has to fit.
 		{
-			of:   []actionID{actionReviewPan},
+			of:   []actionID{actionReviewPan, actionReviewPanReset},
 			desc: func(model) string { return "pan sideways" },
 			label: func(k config.Keybindings) string {
-				return headLabel(k.Review.PanLeft) + "/" + headLabel(k.Review.PanRight)
+				return headLabel(k.Review.PanLeft) + "/" + headLabel(k.Review.PanRight) + "/" + keyLabel(k.Review.PanReset)
 			},
-		},
-		{
-			of:   []actionID{actionReviewPanReset},
-			desc: func(model) string { return "stop panning" },
 		},
 		{
 			of:    []actionID{actionJump},
@@ -198,6 +201,10 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewViewed},
 			desc: model.reviewViewedDesc,
+		},
+		{
+			of:   []actionID{actionReviewFocusThread},
+			desc: model.reviewThreadDesc,
 		},
 		{
 			of:    []actionID{actionReviewCompose},

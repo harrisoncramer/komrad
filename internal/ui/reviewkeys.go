@@ -44,7 +44,87 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	m.review.notice = ""
 
+	// The conversation takes the keys ahead of the diff, since the keys it wants are the ones the
+	// diff is otherwise moving under it.
+	if next, handled := m.updateReviewThread(k); handled {
+		return next, nil
+	}
+
 	return reviewActions().dispatch(m, k)
+}
+
+// updateReviewThread is the conversation answering the keys while it holds them, reporting
+// whether it took the press so the diff underneath gets whatever it left alone.
+func (m model) updateReviewThread(k string) (model, bool) {
+	if !m.isReviewThreadFocused() {
+		return m, false
+	}
+
+	switch {
+	case isBound(k, m.keys.Review.FocusThread), k == "esc":
+		return m.blurReviewThread(), true
+	case isBound(k, m.keys.Nav.Up):
+		return m.scrollReviewThread(1), true
+	case isBound(k, m.keys.Nav.Down):
+		return m.scrollReviewThread(-1), true
+	case isBound(k, m.keys.Nav.Top):
+		return m.scrollReviewThread(m.reviewThreadMax()), true
+	case isBound(k, m.keys.Nav.Bottom):
+		return m.scrollReviewThread(-m.review.threadScroll), true
+	}
+
+	return m, false
+}
+
+// isReviewThreadFocused is whether the conversation in the sidebar holds the keys, which it
+// cannot while the record under it does, since both are read with the same keys.
+func (m model) isReviewThreadFocused() bool {
+	if !m.review.threadFocus || m.screen != screenReview || m.isDetailsFocused() {
+		return false
+	}
+
+	_, ok := m.reviewThreadAtCursor()
+
+	return ok
+}
+
+// focusReviewThread moves the keys onto the conversation, refused while there is none to read,
+// since the reader would then be holding keys that moved nothing.
+func (m model) focusReviewThread() model {
+	if _, ok := m.reviewThreadAtCursor(); !ok {
+		m.review.notice = "no thread here to read"
+
+		return m
+	}
+
+	m.review.threadFocus = true
+
+	return m
+}
+
+// blurReviewThread hands the keys back to the diff and drops the reader back to the end of the
+// conversation, since that is where a thread stands whenever it is not being read.
+func (m model) blurReviewThread() model {
+	m.review.threadFocus = false
+	m.review.threadScroll = 0
+
+	return m
+}
+
+// scrollReviewThread moves the sidebar's window up the conversation, counted from its end so the
+// newest message stays where it is as the thread grows.
+func (m model) scrollReviewThread(delta int) model {
+	m.review.threadScroll = max(min(m.review.threadScroll+delta, m.reviewThreadMax()), 0)
+
+	return m
+}
+
+// reviewThreadMax is how far up the conversation the sidebar can be scrolled, which is whatever
+// it holds beyond the rows the sidebar has for it.
+func (m model) reviewThreadMax() int {
+	lines := m.listLines(m.renderHelp(m.reviewHelp()), m.detailsView(), m.reviewHeadView())
+
+	return max(countLines(m.reviewRestView())-max(lines-1, 1), 0)
 }
 
 // refuseReviewWrite says why a key that would write to the agent did nothing, since the key is
@@ -125,6 +205,7 @@ func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.cursor = next
+	m = m.blurReviewThread()
 	m.review.top = max(min(m.review.view.GetFileTopRow(next), m.review.view.Len()-1), 0)
 	m.review.pinTop = true
 	m.review.pinFloor = m.review.top
@@ -140,6 +221,10 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 
 	m.review.cursor = next
 	m.review.pinTop = false
+
+	// The keys and the window both belong to the conversation the cursor was standing on, so
+	// neither means anything against the next one it lands on.
+	m = m.blurReviewThread()
 	m.scrollReviewToCursor()
 
 	return m, m.markReviewThreadReadCmd()

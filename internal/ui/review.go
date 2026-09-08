@@ -39,6 +39,13 @@ type reviewState struct {
 	// filter so a pattern meant for code does not empty that list.
 	filter filterState
 
+	// threadFocus is set while the keys are on the conversation in the sidebar rather than on the
+	// diff, which is the only way a thread taller than the pane can be read to its start.
+	threadFocus bool
+	// threadScroll is how far up from the end of the conversation the sidebar is showing, since
+	// the newest message is what a reader wants without asking for it.
+	threadScroll int
+
 	// pinTop holds the window where a file jump put it until the cursor moves, since the next
 	// repaint would otherwise drag it back to keep the cursor clear of the edge.
 	pinTop bool

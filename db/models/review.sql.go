@@ -47,14 +47,17 @@ func (q *Queries) DeleteReview(ctx context.Context, id string) error {
 	return err
 }
 
-const deleteReviewThread = `-- name: DeleteReviewThread :exec
+const deleteReviewThread = `-- name: DeleteReviewThread :one
 DELETE FROM review_threads
 WHERE id = $1
+RETURNING
+    id
 `
 
-func (q *Queries) DeleteReviewThread(ctx context.Context, id string) error {
-	_, err := q.db.Exec(ctx, deleteReviewThread, id)
-	return err
+func (q *Queries) DeleteReviewThread(ctx context.Context, id string) (string, error) {
+	row := q.db.QueryRow(ctx, deleteReviewThread, id)
+	err := row.Scan(&id)
+	return id, err
 }
 
 const getLastReleasedReview = `-- name: GetLastReleasedReview :one

@@ -80,6 +80,7 @@ const (
 	actionReviewViewed
 	actionReviewCompose
 	actionReviewSend
+	actionReviewFocusThread
 )
 
 // action is one arm of a screen's dispatch, the description living on the legend row instead

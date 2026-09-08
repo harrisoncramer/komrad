@@ -354,6 +354,17 @@ func (m model) reviewHelp() keyMap {
 	}
 }
 
+// reviewThreadDesc names the key that moves between the diff and the conversation beside it, read
+// from the flag rather than from whether the thread holds the keys, since asking that measures
+// the legend this row is drawn in.
+func (m model) reviewThreadDesc() string {
+	if _, ok := m.reviewThreadAtCursor(); ok && m.review.threadFocus {
+		return "back to the diff"
+	}
+
+	return "read the thread"
+}
+
 func keyLabel(keys []string) string {
 	out := make([]string, len(keys))
 	for i, k := range keys {

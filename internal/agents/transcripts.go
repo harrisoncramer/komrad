@@ -114,15 +114,14 @@ func (ts *TranscriptSyncer) syncOne(ctx context.Context, agent agentstore.Agent)
 		return err
 	}
 
-	offset, content := tr.SyncedOffset, tr.Content
-	if read.Restart {
-		offset, content = 0, ""
-	}
-	if read.Consumed == 0 {
+	if read.Consumed == 0 && !read.Restart {
 		return nil
 	}
 
+	offset, content := tr.SyncedOffset, tr.Content
 	if read.Restart {
+		offset, content = 0, ""
+
 		if err := ts.store.DeleteTurns(ctx, agent.ID); err != nil {
 			return err
 		}
