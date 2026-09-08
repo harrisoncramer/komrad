@@ -245,7 +245,7 @@ func (q *Queries) GetReviewRound(ctx context.Context, id string) (*ReviewRound, 
 
 const getReviewThread = `-- name: GetReviewThread :one
 SELECT
-    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.harvested,
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.harvested, t.base_sha,
     v.released_at AS review_released_at,
     v.author_kind AS review_author_kind,
     v.author_agent_id AS review_author_agent_id
@@ -273,6 +273,7 @@ type GetReviewThreadRow struct {
 	ReviewID            string
 	RoundID             string
 	Harvested           bool
+	BaseSha             string
 	ReviewReleasedAt    *time.Time
 	ReviewAuthorKind    ReviewAuthorKind
 	ReviewAuthorAgentID *string
@@ -298,6 +299,7 @@ func (q *Queries) GetReviewThread(ctx context.Context, id string) (*GetReviewThr
 		&i.ReviewID,
 		&i.RoundID,
 		&i.Harvested,
+		&i.BaseSha,
 		&i.ReviewReleasedAt,
 		&i.ReviewAuthorKind,
 		&i.ReviewAuthorAgentID,
@@ -485,6 +487,7 @@ WITH opened AS (
         review_id,
         round_id,
         harvested,
+        base_sha,
         file_path,
         old_start,
         old_end,
@@ -503,11 +506,12 @@ WITH opened AS (
         $8,
         $9,
         $10,
-        CASE WHEN $11::review_author_kind = 'agent' THEN
+        $11,
+        CASE WHEN $12::review_author_kind = 'agent' THEN
             NOW()
         END)
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested, base_sha
 ),
 said AS (
     INSERT INTO review_messages(
@@ -520,17 +524,17 @@ said AS (
     SELECT
         o.id,
         $2,
-        $11::review_author_kind,
-        $12,
+        $12::review_author_kind,
         $13,
-        $14
+        $14,
+        $15
     FROM
         opened o
     RETURNING
         id, thread_id, author_kind, author_agent_id, body, created_at, updated_at, review_id, suggestion
 )
 SELECT
-    o.id, o.agent_id, o.file_path, o.old_start, o.old_end, o.new_start, o.new_end, o.quoted_lines, o.human_read_at, o.created_at, o.updated_at, o.last_agent_activity_at, o.resolved_at, o.review_id, o.round_id, o.harvested
+    o.id, o.agent_id, o.file_path, o.old_start, o.old_end, o.new_start, o.new_end, o.quoted_lines, o.human_read_at, o.created_at, o.updated_at, o.last_agent_activity_at, o.resolved_at, o.review_id, o.round_id, o.harvested, o.base_sha
 FROM
     opened o
 `
@@ -540,6 +544,7 @@ type InsertReviewThreadWithMessageParams struct {
 	ReviewID      string
 	RoundID       string
 	Harvested     bool
+	BaseSha       string
 	FilePath      string
 	OldStart      int32
 	OldEnd        int32
@@ -569,6 +574,7 @@ type InsertReviewThreadWithMessageRow struct {
 	ReviewID            string
 	RoundID             string
 	Harvested           bool
+	BaseSha             string
 }
 
 func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertReviewThreadWithMessageParams) (*InsertReviewThreadWithMessageRow, error) {
@@ -577,6 +583,7 @@ func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertR
 		arg.ReviewID,
 		arg.RoundID,
 		arg.Harvested,
+		arg.BaseSha,
 		arg.FilePath,
 		arg.OldStart,
 		arg.OldEnd,
@@ -606,13 +613,14 @@ func (q *Queries) InsertReviewThreadWithMessage(ctx context.Context, arg InsertR
 		&i.ReviewID,
 		&i.RoundID,
 		&i.Harvested,
+		&i.BaseSha,
 	)
 	return &i, err
 }
 
 const listHarvestedReviewThreads = `-- name: ListHarvestedReviewThreads :many
 SELECT
-    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.harvested,
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.harvested, t.base_sha,
 (
         SELECT
             COUNT(*)
@@ -656,6 +664,7 @@ type ListHarvestedReviewThreadsRow struct {
 	ReviewID            string
 	RoundID             string
 	Harvested           bool
+	BaseSha             string
 	MessageCount        int64
 }
 
@@ -685,6 +694,7 @@ func (q *Queries) ListHarvestedReviewThreads(ctx context.Context, arg ListHarves
 			&i.ReviewID,
 			&i.RoundID,
 			&i.Harvested,
+			&i.BaseSha,
 			&i.MessageCount,
 		); err != nil {
 			return nil, err
@@ -918,7 +928,7 @@ func (q *Queries) ListReviewTallies(ctx context.Context) ([]*ListReviewTalliesRo
 
 const listReviewThreads = `-- name: ListReviewThreads :many
 SELECT
-    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.harvested,
+    t.id, t.agent_id, t.file_path, t.old_start, t.old_end, t.new_start, t.new_end, t.quoted_lines, t.human_read_at, t.created_at, t.updated_at, t.last_agent_activity_at, t.resolved_at, t.review_id, t.round_id, t.harvested, t.base_sha,
     v.released_at AS review_released_at,
     v.author_agent_id AS review_author_agent_id,
     r.ordinal AS round_ordinal,
@@ -956,6 +966,7 @@ type ListReviewThreadsRow struct {
 	ReviewID            string
 	RoundID             string
 	Harvested           bool
+	BaseSha             string
 	ReviewReleasedAt    *time.Time
 	ReviewAuthorAgentID *string
 	RoundOrdinal        int32
@@ -988,6 +999,7 @@ func (q *Queries) ListReviewThreads(ctx context.Context, agentID string) ([]*Lis
 			&i.ReviewID,
 			&i.RoundID,
 			&i.Harvested,
+			&i.BaseSha,
 			&i.ReviewReleasedAt,
 			&i.ReviewAuthorAgentID,
 			&i.RoundOrdinal,
@@ -1138,7 +1150,7 @@ SET
 WHERE
     t.id = $1
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested, base_sha
 `
 
 func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewThread, error) {
@@ -1161,6 +1173,7 @@ func (q *Queries) MarkReviewThreadRead(ctx context.Context, id string) (*ReviewT
 		&i.ReviewID,
 		&i.RoundID,
 		&i.Harvested,
+		&i.BaseSha,
 	)
 	return &i, err
 }
@@ -1169,19 +1182,21 @@ const moveReviewThread = `-- name: MoveReviewThread :one
 UPDATE
     review_threads t
 SET
-    old_start = $1,
-    old_end = $2,
-    new_start = $3,
-    new_end = $4,
-    quoted_lines = $5,
+    base_sha = $1,
+    old_start = $2,
+    old_end = $3,
+    new_start = $4,
+    new_end = $5,
+    quoted_lines = $6,
     updated_at = NOW()
 WHERE
-    t.id = $6
+    t.id = $7
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested, base_sha
 `
 
 type MoveReviewThreadParams struct {
+	BaseSha     string
 	OldStart    int32
 	OldEnd      int32
 	NewStart    int32
@@ -1192,6 +1207,7 @@ type MoveReviewThreadParams struct {
 
 func (q *Queries) MoveReviewThread(ctx context.Context, arg MoveReviewThreadParams) (*ReviewThread, error) {
 	row := q.db.QueryRow(ctx, moveReviewThread,
+		arg.BaseSha,
 		arg.OldStart,
 		arg.OldEnd,
 		arg.NewStart,
@@ -1217,6 +1233,7 @@ func (q *Queries) MoveReviewThread(ctx context.Context, arg MoveReviewThreadPara
 		&i.ReviewID,
 		&i.RoundID,
 		&i.Harvested,
+		&i.BaseSha,
 	)
 	return &i, err
 }
@@ -1282,7 +1299,7 @@ SET
 WHERE
     t.id = $2
 RETURNING
-    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested
+    id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested, base_sha
 `
 
 type SetReviewThreadResolvedParams struct {
@@ -1310,6 +1327,7 @@ func (q *Queries) SetReviewThreadResolved(ctx context.Context, arg SetReviewThre
 		&i.ReviewID,
 		&i.RoundID,
 		&i.Harvested,
+		&i.BaseSha,
 	)
 	return &i, err
 }

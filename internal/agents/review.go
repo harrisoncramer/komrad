@@ -251,7 +251,10 @@ type CreateReviewThreadParams struct {
 	Harvested bool
 	// Suggestion is replacement lines the author proposes for the range, empty for an ordinary
 	// comment.
-	Suggestion  []string
+	Suggestion []string
+	// BaseSHA is the commit the old side of these line numbers was read against, empty for the
+	// round's own base.
+	BaseSHA     string
 	FilePath    string
 	OldStart    int32
 	OldEnd      int32
@@ -273,7 +276,7 @@ func (s *ReviewService) CreateReviewThread(
 		return nil, err
 	}
 
-	roundID := params.RoundID
+	roundID, baseSHA := params.RoundID, params.BaseSHA
 	if roundID == "" {
 		round, err := s.GetLatestRound(ctx, params.AgentID)
 		if err != nil {
@@ -283,11 +286,23 @@ func (s *ReviewService) CreateReviewThread(
 		roundID = round.ID
 	}
 
+	// A caller that says nothing read its numbers against the round's own base, which is what
+	// every caller did before a diff could be narrowed.
+	if baseSHA == "" {
+		round, err := s.rounds.GetRound(ctx, roundID)
+		if err != nil {
+			return nil, err
+		}
+
+		baseSHA = round.BaseSHA
+	}
+
 	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
 		AgentID:       params.AgentID,
 		ReviewID:      open.ID,
 		RoundID:       roundID,
 		Harvested:     params.Harvested,
+		BaseSHA:       baseSHA,
 		Suggestion:    params.Suggestion,
 		FilePath:      params.FilePath,
 		OldStart:      params.OldStart,

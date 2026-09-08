@@ -145,6 +145,7 @@ WITH opened AS (
         review_id,
         round_id,
         harvested,
+        base_sha,
         file_path,
         old_start,
         old_end,
@@ -157,6 +158,7 @@ WITH opened AS (
         @review_id,
         @round_id,
         @harvested,
+        @base_sha,
         @file_path,
         @old_start,
         @old_end,
@@ -407,6 +409,7 @@ ORDER BY
 UPDATE
     review_threads t
 SET
+    base_sha = @base_sha,
     old_start = @old_start,
     old_end = @old_end,
     new_start = @new_start,

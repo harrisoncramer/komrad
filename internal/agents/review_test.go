@@ -1132,6 +1132,7 @@ func (f *fakeReviewStore) CreateThread(
 		ReviewID:    params.ReviewID,
 		RoundID:     roundOr(params.RoundID),
 		Harvested:   params.Harvested,
+		BaseSHA:     params.BaseSHA,
 		FilePath:    params.FilePath,
 		OldStart:    params.OldStart,
 		OldEnd:      params.OldEnd,
@@ -1207,6 +1208,7 @@ func (f *fakeReviewStore) MoveThread(
 			continue
 		}
 
+		f.threads[i].BaseSHA = params.BaseSHA
 		f.threads[i].OldStart = params.OldStart
 		f.threads[i].OldEnd = params.OldEnd
 		f.threads[i].NewStart = params.NewStart

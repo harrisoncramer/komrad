@@ -75,6 +75,7 @@ func (s *Service) CreateReviewThread(
 ) (*connect.Response[agentv1.CreateReviewThreadResponse], error) {
 	thread, err := s.review.CreateReviewThread(ctx, agents.CreateReviewThreadParams{
 		AgentID:     req.Msg.GetAgentId(),
+		BaseSHA:     req.Msg.GetBaseSha(),
 		FilePath:    req.Msg.GetFilePath(),
 		OldStart:    req.Msg.GetOldStart(),
 		OldEnd:      req.Msg.GetOldEnd(),
@@ -102,6 +103,7 @@ func (s *Service) HarvestRoundEdits(
 		AgentID: req.Msg.GetAgentId(),
 		RoundID: req.Msg.GetRoundId(),
 		Runs:    runsFrom(req.Msg.GetRuns()),
+		BaseSHA: req.Msg.GetBaseSha(),
 		Force:   req.Msg.GetForce(),
 	})
 	if err != nil {
@@ -360,6 +362,7 @@ func toReviewThread(thread agents.ReviewThreadWithMessages) *agentv1.ReviewThrea
 		ReviewId:      thread.Thread.ReviewID,
 		RoundId:       thread.Thread.RoundID,
 		RoundOrdinal:  thread.Thread.RoundOrdinal,
+		BaseSha:       thread.Thread.BaseSHA,
 		FilePath:      thread.Thread.FilePath,
 		OldStart:      thread.Thread.OldStart,
 		OldEnd:        thread.Thread.OldEnd,

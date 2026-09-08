@@ -91,6 +91,9 @@ message ReviewThread {
   string round_id = 16;
   // Which round that is, counting from one.
   int32 round_ordinal = 17;
+  // The commit the old side of these line numbers was read against, which is the round's own
+  // base unless the diff was narrowed to an earlier round when the thread was written.
+  string base_sha = 19;
   string file_path = 3;
   int32 old_start = 4;
   int32 old_end = 5;
@@ -150,6 +153,9 @@ message ListReviewThreadsResponse {
 message CreateReviewThreadRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string file_path = 2 [(buf.validate.field).string.min_len = 1];
+  // The commit the old side of these line numbers was read against, empty for the round's own
+  // base.
+  string base_sha = 10;
   int32 old_start = 3;
   int32 old_end = 4;
   int32 new_start = 5;
@@ -319,6 +325,8 @@ message HarvestRoundEditsRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string round_id = 2 [(buf.validate.field).string.min_len = 1];
   repeated HarvestedRun runs = 3;
+  // The commit the old side of these runs was measured from, empty for the round's own base.
+  string base_sha = 5;
   // Write a harvest that went past the ceiling anyway, which is the reviewer answering for an
   // edit big enough to look like a formatter.
   bool force = 4;

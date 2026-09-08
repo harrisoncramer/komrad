@@ -116,8 +116,8 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 	}
 
 	// The base commit holds the old-side line still however much the agent rewrites the new one,
-	// which stops being true the moment the old side comes from somewhere else.
-	if old := int(thread.GetOldStart()); old > 0 && !v.oldSideForeign {
+	// which stops being true when the thread counted its old side from a different commit.
+	if old := int(thread.GetOldStart()); old > 0 && v.doesShareBase(thread) {
 		if y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]; ok {
 			return y, v.placementFor(y, quote)
 		}
@@ -155,6 +155,12 @@ func doesCarryMarker(quote string) bool {
 	}
 
 	return false
+}
+
+// doesShareBase reports whether a thread's old-side numbers were counted from the same commit
+// this patch measures against.
+func (v *View) doesShareBase(thread *agentv1.ReviewThread) bool {
+	return thread.GetBaseSha() == v.patch.BaseSHA
 }
 
 // strippedQuote is a quoted line with its diff marker taken off the front.

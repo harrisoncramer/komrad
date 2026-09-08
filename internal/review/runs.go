@@ -36,13 +36,6 @@ func RunsFrom(view *View, edits []git.Edit, fallback func(path string) ([]string
 			run.NewStart = anchor.NewStart
 			run.NewEnd = anchor.NewEnd
 			run.QuotedLines = anchor.QuotedLines
-
-			// Explainer: a patch measured from somewhere other than the round's own base numbers
-			// its old side against that other commit. A thread records no such commit, so an
-			// old-side number taken from here would name a line nobody can find again.
-			if view.IsOldSideForeign() {
-				run.OldStart, run.OldEnd = 0, 0
-			}
 		}
 
 		runs = append(runs, run)

@@ -32,6 +32,9 @@ type HarvestRoundEditsParams struct {
 	// Runs are the edited runs read off the checkout, anchored by the panel that holds the patch
 	// their line numbers and quoted lines come from.
 	Runs []review.Run
+	// BaseSHA is the commit the old side of those runs was measured from, empty for the round's
+	// own base.
+	BaseSHA string
 	// Force writes a harvest that went past the ceiling, which is the reviewer answering for it.
 	Force bool
 }
@@ -65,6 +68,12 @@ func (s *ReviewService) HarvestRoundEdits(
 		return nil, err
 	}
 
+	// A panel that says nothing measured the runs from the round's own base, and both writes below
+	// need the answer rather than the silence.
+	if params.BaseSHA == "" {
+		params.BaseSHA = round.BaseSHA
+	}
+
 	pinned, frozen, err := s.harvestGround(ctx, params.AgentID, params.RoundID)
 	if err != nil {
 		return nil, err
@@ -79,7 +88,7 @@ func (s *ReviewService) HarvestRoundEdits(
 	result := HarvestResult{Skipped: plan.Skipped}
 
 	for _, move := range plan.Move {
-		if err := s.moveHarvested(ctx, move); err != nil {
+		if err := s.moveHarvested(ctx, moveHarvestedParams{Move: move, BaseSHA: params.BaseSHA}); err != nil {
 			return nil, err
 		}
 
@@ -174,11 +183,23 @@ func (s *ReviewService) harvestGround(
 	return pinned, frozen, nil
 }
 
+// moveHarvestedParams is the run a thread is being repinned onto and the commit its numbers were
+// measured from.
+type moveHarvestedParams struct {
+	Move    review.Move
+	BaseSHA string
+}
+
 // moveHarvested repins a thread onto the run it now stands for and rewrites the suggestion it
 // carries, which are two writes.
-func (s *ReviewService) moveHarvested(ctx context.Context, move review.Move) error {
+func (s *ReviewService) moveHarvested(ctx context.Context, params moveHarvestedParams) error {
+	move := params.Move
+
+	// The numbers and the commit they were counted from move together, since either alone says
+	// something that was never true.
 	if _, err := s.threads.MoveThread(ctx, reviewstore.MoveThreadParams{
 		ID:          move.ID,
+		BaseSHA:     params.BaseSHA,
 		OldStart:    int32(move.Run.OldStart),
 		OldEnd:      int32(move.Run.OldEnd),
 		NewStart:    int32(move.Run.NewStart),
@@ -207,6 +228,7 @@ func createFromRun(params HarvestRoundEditsParams, run review.Run) CreateReviewT
 		AgentID:     params.AgentID,
 		RoundID:     params.RoundID,
 		Harvested:   true,
+		BaseSHA:     params.BaseSHA,
 		FilePath:    run.FilePath,
 		OldStart:    int32(run.OldStart),
 		OldEnd:      int32(run.OldEnd),

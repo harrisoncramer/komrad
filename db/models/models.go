@@ -417,6 +417,8 @@ type ReviewThread struct {
 	RoundID string
 	// Whether weave wrote this thread from an edit of the round's checkout rather than a person or an agent typing it, which is what makes it weave's to rewrite or delete on a later harvest.
 	Harvested bool
+	// The commit the old side of the thread's line numbers was read against, which is the round's own base for a thread written on the whole change and an earlier round's snapshot for one written while the diff was narrowed.
+	BaseSha string
 }
 
 // One file of a round the person reviewing has read. A later round is a different row, which is what makes an agent rewriting the file undo the mark.

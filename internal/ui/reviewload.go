@@ -386,7 +386,6 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.baseRound = msg.earlier
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
-	m.review.view.SetOldSideForeign(m.review.base != "")
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 

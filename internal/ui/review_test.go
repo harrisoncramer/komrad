@@ -1700,10 +1700,10 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 	assert.Contains(t, m.review.notice, "nothing written")
 }
 
-// TestReviewBaseWritesNoOldSideWhileNarrowed covers the durable half: an anchor read off a
-// narrowed patch carries old-side numbers from the earlier snapshot, and the row has no column
-// saying so.
-func TestReviewBaseWritesNoOldSideWhileNarrowed(t *testing.T) {
+// TestReviewBaseRecordsWhatItWasMeasuredFrom covers the durable half: a comment written while the
+// diff is narrowed records the commit its old side was counted from, so a later reader is not left
+// assuming the round's own base.
+func TestReviewBaseRecordsWhatItWasMeasuredFrom(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 
@@ -1711,24 +1711,28 @@ func TestReviewBaseWritesNoOldSideWhileNarrowed(t *testing.T) {
 	m = pressReviewBase(t, m)
 	require.NotEmpty(t, m.review.base)
 
-	var anchor *review.Anchor
 	for row := 0; row < m.review.view.Len(); row++ {
-		found, ok := m.review.view.GetAnchor(row)
-		if ok && found.NewStart > 0 {
+		if found, ok := m.review.view.GetAnchor(row); ok && found.NewStart > 0 {
 			m.review.cursor = row
-			anchor = found
 
 			break
 		}
 	}
 
-	require.NotNil(t, anchor, "a narrowed patch still has lines to comment on")
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing, "the composer opens on a narrowed diff")
 
-	written := m.anchorInRoundNumbering(*anchor)
+	m.review.editor.SetValue("this line, in the work since I last looked")
+	next, cmd := m.updateReviewComposer(keyMsg("ctrl+s"))
+	m = next.(model)
+	require.NotNil(t, cmd)
+	cmd()
 
-	assert.Equal(t, anchor.NewStart, written.NewStart, "the new side is the round's own numbering")
-	assert.Zero(t, written.OldStart, "and the old side is left unsaid rather than written wrong")
-	assert.Zero(t, written.OldEnd)
+	require.NotNil(t, agents.created, "the thread reached the service")
+	assert.Equal(t, m.review.base, agents.created.GetBaseSha(),
+		"and says which commit its old side was counted from")
+	assert.Positive(t, agents.created.GetNewStart())
 }
 
 // TestReviewBaseIsRefusedWhenTheBaseMoved covers two rounds measured from different points, where
