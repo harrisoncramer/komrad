@@ -59,7 +59,9 @@ func URL(t *testing.T) string {
 	}
 
 	t.Cleanup(func() {
-		dropCtx := context.Background()
+		// The test's own context is already cancelled by the time a cleanup runs, and the
+		// drop still has to reach the server.
+		dropCtx := context.Background() //nolint:usetesting // as above
 
 		conn, err := pgx.Connect(dropCtx, replaceDatabase(baseURL, "postgres"))
 		if err != nil {

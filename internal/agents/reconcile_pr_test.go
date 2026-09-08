@@ -56,7 +56,7 @@ func seedWithBranch(t *testing.T, st *testStore, state agentstore.State) agentst
 
 func metadataOf(t *testing.T, st *testStore) []agentstore.Metadata {
 	t.Helper()
-	got, err := st.Get(context.Background(), "agent")
+	got, err := st.Get(t.Context(), "agent")
 	require.NoError(t, err)
 	require.NotNil(t, got)
 
@@ -75,7 +75,7 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 	finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 	require.Eventually(t, func() bool {
@@ -94,7 +94,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 	t.Run("a pull request already recorded is not looked up again", func(t *testing.T) {
 		st := newStore(t)
 		agent := seedWithBranch(t, st, agentstore.StateThinking)
-		_, err := st.Agents.SetMetadata(context.Background(), agentstore.SetMetadataParams{
+		_, err := st.Agents.SetMetadata(t.Context(), agentstore.SetMetadataParams{
 			ID: agent.ID, Key: "pr", Value: xptr.Ptr("https://github.com/harrisoncramer/weave/pull/1"),
 		})
 		require.NoError(t, err)
@@ -104,7 +104,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/2"}
 
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
-		require.NoError(t, rec.Reconcile(context.Background()))
+		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 		time.Sleep(50 * time.Millisecond) // give a wrongly-fired lookup a chance to land
@@ -120,7 +120,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
-		require.NoError(t, rec.Reconcile(context.Background()))
+		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 		time.Sleep(50 * time.Millisecond)
@@ -136,7 +136,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
-		require.NoError(t, rec.Reconcile(context.Background()))
+		require.NoError(t, rec.Reconcile(t.Context()))
 
 		time.Sleep(50 * time.Millisecond)
 		assert.Equal(t, int64(0), finder.calls.Load(), "re-confirming idle is not the transition into it")
@@ -149,7 +149,7 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		tmux := newFakeTmux()
 		tmux.owners["%1"] = ""
 		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-		require.NoError(t, rec.Reconcile(context.Background()))
+		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
 		assert.Empty(t, metadataOf(t, st))
@@ -167,7 +167,7 @@ func TestReconcileSwallowsALookupFailure(t *testing.T) {
 	finder := &fakePRFinder{err: errors.New("gh: command not found")}
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithPRFinder(finder)
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Eventually(t, func() bool { return finder.calls.Load() == 1 }, time.Second, 5*time.Millisecond)
 	assert.Empty(t, metadataOf(t, st), "a failed lookup records nothing")
@@ -189,17 +189,17 @@ func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
 	at := time.Now()
 	rec.tally.now = func() time.Time { return at }
 
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 	require.Eventually(t, func() bool { return finder.calls.Load() == 1 }, time.Second, 5*time.Millisecond)
 
-	require.NoError(t, st.Agents.SetStateByID(context.Background(), agent.ID, agentstore.StateThinking))
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateThinking))
+	require.NoError(t, rec.Reconcile(t.Context()))
 	time.Sleep(50 * time.Millisecond)
 	assert.Equal(t, int64(1), finder.calls.Load(), "still inside the backoff window, so not asked again")
 
 	at = at.Add(prRateLimitBackoff + time.Second)
-	require.NoError(t, st.Agents.SetStateByID(context.Background(), agent.ID, agentstore.StateThinking))
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateThinking))
+	require.NoError(t, rec.Reconcile(t.Context()))
 	require.Eventually(t, func() bool { return finder.calls.Load() == 2 }, time.Second, 5*time.Millisecond,
 		"the backoff window has passed")
 }

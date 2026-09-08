@@ -801,7 +801,7 @@ func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration
 
 func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
 	t.Helper()
-	got, err := st.Get(context.Background(), name)
+	got, err := st.Get(t.Context(), name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 

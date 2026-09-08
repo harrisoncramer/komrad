@@ -351,6 +351,7 @@ func (c *Client) KillPane(pane string) {
 	}
 
 	if _, err := c.query("kill-pane", "-t", pane); err != nil && !strings.Contains(err.Error(), "can't find pane") {
+		//nolint:sloglint // as in MovePanes, there is no context here to carry a logger on
 		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
 	}
 }
@@ -520,6 +521,7 @@ func stderrDetail(err error) string {
 
 func (c *Client) run(args ...string) {
 	if _, err := c.query(args...); err != nil {
+		//nolint:sloglint // as in MovePanes, there is no context here to carry a logger on
 		slog.Default().Warn("a tmux command failed", logging.Attrs(logging.Err(err))...)
 	}
 }
@@ -527,6 +529,7 @@ func (c *Client) run(args ...string) {
 func (c *Client) value(args ...string) string {
 	out, err := c.query(args...)
 	if err != nil {
+		//nolint:sloglint // as in MovePanes, there is no context here to carry a logger on
 		slog.Default().Debug("a tmux query failed", logging.Attrs(logging.Err(err))...)
 	}
 

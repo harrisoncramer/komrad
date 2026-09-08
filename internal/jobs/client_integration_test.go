@@ -147,6 +147,7 @@ func TestEmptyArchiveIsQueuedOnce(t *testing.T) {
 func TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes(t *testing.T) {
 	client := newRiverClient(t)
 	require.NoError(t, client.Start(t.Context()))
+	//nolint:usetesting // a cleanup runs after the test's context is cancelled, and the stop is meant to be graceful
 	t.Cleanup(func() { _ = client.Stop(context.Background()) })
 
 	first, err := client.Insert(t.Context(), internaljobs.EmptyArchiveArgs{}, nil)

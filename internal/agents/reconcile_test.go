@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"testing"
@@ -118,7 +117,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			tmux.captures["%1"] = tt.frame
 
 			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-			require.NoError(t, rec.Reconcile(context.Background()))
+			require.NoError(t, rec.Reconcile(t.Context()))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 		})
 	}
@@ -136,7 +135,7 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
 	assert.Equal(t, busyFrame, recorder.recorded[0].Frame)
@@ -157,7 +156,7 @@ func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
 	assert.Equal(t, "unrecognized", recorder.recorded[0].Activity)
@@ -176,7 +175,7 @@ func TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent(t *test
 
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
 	assert.False(t, recorder.recorded[0].Disputes)
@@ -194,7 +193,7 @@ func TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent(t *testing.T
 
 	recorder := &fakeFrameRecorder{}
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
-	require.NoError(t, rec.Reconcile(context.Background()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
 	assert.True(t, recorder.recorded[0].Disputes)
@@ -212,7 +211,7 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 
-	assert.NoError(t, rec.Reconcile(context.Background()))
+	assert.NoError(t, rec.Reconcile(t.Context()))
 }
 
 // TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id, which it
@@ -240,7 +239,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := newFakeTmux()
@@ -273,7 +272,7 @@ func waitOutTheShellGrace(rec *Reconciler) {
 // weave types the launch command into a shell that is holding a live agent.
 func TestReconcileWaitsOutALaunch(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 
 	tmux := newFakeTmux()
@@ -352,7 +351,7 @@ func TestReconcileOverPasses(t *testing.T) {
 			tmux.owners["%1"] = agent.ID
 
 			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
-			ctx := context.Background()
+			ctx := t.Context()
 
 			for i, frame := range tt.passes {
 				last := i == len(tt.passes)-1
@@ -402,7 +401,7 @@ func repeatFrame(frame string, n int) []string {
 // frame.
 func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:    "orphan",
@@ -449,7 +448,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := newFakeTmux()
@@ -471,7 +470,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 // before the last look is stale and is ignored.
 func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -493,7 +492,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 // claiming the agent finished.
 func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -514,7 +513,7 @@ func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 // but which keeps moving is work in progress rather than an idle pane.
 func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -537,7 +536,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 // forever stops resetting the miss counter, so the hold cannot run on without end.
 func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -570,7 +569,7 @@ func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T)
 // which is what says a harness has changed its output.
 func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -588,7 +587,7 @@ func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
 // the failure as an answer would clear every pane and demote every agent at once.
 func TestReconcileWithoutTmux(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:  "busy",
@@ -657,7 +656,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
 				Name:    "agent",
@@ -697,7 +696,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 // which would be an update per agent every couple of seconds.
 func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -758,7 +757,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := newFakeTmux()
@@ -787,7 +786,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 // that finished indistinguishable from one nobody has worked.
 func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -809,7 +808,7 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 // mark rather than a second writer racing the hook for it.
 func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -831,7 +830,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 // agent is done.
 func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateIdle)
 
 	tmux := newFakeTmux()
@@ -850,7 +849,7 @@ func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 // mark, since a screen weave could not read is no evidence a turn ended.
 func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -870,7 +869,7 @@ func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 // than a trap, so a pane that comes back is read as whatever it now shows.
 func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateUncertain)
 
 	tmux := newFakeTmux()
@@ -887,7 +886,7 @@ func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 // marked, since a turn that lost its pane was interrupted rather than finished.
 func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -907,7 +906,7 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 // agent working and the misses a transition needs are still earned one pass at a time.
 func TestReconcileReportedReasonMovesNoState(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -930,7 +929,7 @@ func TestReconcileReportedReasonMovesNoState(t *testing.T) {
 // whether it finished, so an unreadable frame still earns its misses.
 func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 	tmux := newFakeTmux()
@@ -980,7 +979,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			agent := seed(t, st, "agent", "%1", agentstore.StateThinking)
 
 			tmux := newFakeTmux()

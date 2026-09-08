@@ -2,7 +2,6 @@ package interceptors
 
 import (
 	"bytes"
-	"context"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -20,7 +19,7 @@ import (
 // nothing the caller sent explains it and a panic can hold anything.
 func TestRecoverRPCIsInternal(t *testing.T) {
 	var out bytes.Buffer
-	ctx := logging.WithLogger(context.Background(), logging.New(&out, slog.LevelError))
+	ctx := logging.WithLogger(t.Context(), logging.New(&out, slog.LevelError))
 
 	err := recoverRPC(ctx, "the pool was closed")
 

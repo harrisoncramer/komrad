@@ -116,7 +116,7 @@ func TestTranscriptSyncer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			projects := t.TempDir()
 
 			agent := seedWithSessionID(t, st, testSessionID, "agent")
@@ -177,7 +177,7 @@ func TestTranscriptSyncer(t *testing.T) {
 // older agent behind it, since the same agent would fail on every pass.
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	projects := t.TempDir()
 
 	readable := seedWithSessionID(t, st, "claude-readable", "readable")
@@ -223,7 +223,7 @@ const testSessionID = "claude-abc"
 
 func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:      name,
 		State:     agentstore.StateIdle,
@@ -265,7 +265,7 @@ func appendToLog(t *testing.T, path, body string) {
 // than skipped, since a search that quietly finds nothing goes unnoticed.
 func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:      "orphan",
@@ -314,7 +314,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
 				Name: "adopter", State: agentstore.StateIdle, SessionID: tt.held,
@@ -339,7 +339,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 // then read, driving the real codex harness over a real rollout.
 func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	sessions := t.TempDir()
 	cwd := t.TempDir()
 
@@ -382,7 +382,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 // which is what a CLI that truncates its log before rewriting it leaves behind.
 func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	projects := t.TempDir()
 
 	agent := seedWithSessionID(t, st, testSessionID, "agent")

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -44,7 +45,8 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 
 	dir := config.RunLogDir(s.logsDir, agentID)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
-		logging.From(ctx).Warn("failed to make an agent's run log directory", "path", dir, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to make an agent's run log directory",
+			append([]slog.Attr{slog.String(logging.FilePath, dir)}, logging.Err(err)...)...)
 
 		return "", 0
 	}
@@ -64,12 +66,14 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 			continue
 		}
 		if err != nil {
-			logging.From(ctx).Warn("failed to open a run log", "path", path, "error", err)
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to open a run log",
+				append([]slog.Attr{slog.String(logging.FilePath, path)}, logging.Err(err)...)...)
 
 			return "", 0
 		}
 		if closeErr := file.Close(); closeErr != nil {
-			logging.From(ctx).Warn("failed to close a run log", "path", path, "error", closeErr)
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to close a run log",
+				append([]slog.Attr{slog.String(logging.FilePath, path)}, logging.Err(closeErr)...)...)
 		}
 
 		pruneRunLogs(ctx, s.logsDir, agentID)
@@ -77,7 +81,9 @@ func (s *ScriptService) claimRunLog(ctx context.Context, agentID, trigger, name 
 		return path, number
 	}
 
-	logging.From(ctx).Warn("failed to name a run of a script", "agent_id", agentID, "script", name)
+	logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to name a run of a script",
+		slog.String(logging.AgentID, agentID),
+		slog.String(logging.ScriptName, name))
 
 	return "", 0
 }
@@ -104,7 +110,11 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 		LogNumber: logNumber,
 	})
 	if err != nil {
-		logging.From(ctx).Warn("failed to record a run of a script", "agent_id", agentID, "script", name, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to record a run of a script",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agentID),
+				slog.String(logging.ScriptName, name),
+			}, logging.Err(err)...)...)
 
 		return record
 	}
@@ -112,7 +122,8 @@ func (s *ScriptService) beginRun(ctx context.Context, agentID, trigger, name str
 
 	// Bounded by the log-file count so a row never outlives the output it points at.
 	if err := s.runs.Prune(ctx, agentID, config.MaxRunLogs); err != nil {
-		logging.From(ctx).Warn("failed to prune an agent's runs", "agent_id", agentID, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to prune an agent's runs",
+			append([]slog.Attr{slog.String(logging.AgentID, agentID)}, logging.Err(err)...)...)
 	}
 
 	return record
@@ -136,7 +147,8 @@ func (s *ScriptService) finishRun(ctx context.Context, record runRecord, result 
 		ExitCode: runExitCode(result),
 		Failure:  failureReason(cause),
 	}); err != nil {
-		logging.From(ctx).Warn("failed to close the record of a run", "run_id", record.id, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to close the record of a run",
+			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)
 	}
 }
 
@@ -148,7 +160,8 @@ func (s *ScriptService) abandonRun(ctx context.Context, record runRecord) {
 	}
 
 	if err := s.runs.Abandon(ctx, record.id); err != nil {
-		logging.From(ctx).Warn("failed to drop the record of a run that never started", "run_id", record.id, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to drop the record of a run that never started",
+			append([]slog.Attr{slog.String(logging.RunID, record.id)}, logging.Err(err)...)...)
 	}
 }
 
@@ -172,7 +185,8 @@ func pruneRunLogs(ctx context.Context, logsDir, agentID string) {
 
 	for _, run := range runs[config.MaxRunLogs:] {
 		if err := os.Remove(run.Path); err != nil && !os.IsNotExist(err) {
-			logging.From(ctx).Warn("failed to prune a run log", "path", run.Path, "error", err)
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to prune a run log",
+				append([]slog.Attr{slog.String(logging.FilePath, run.Path)}, logging.Err(err)...)...)
 		}
 	}
 }
@@ -197,7 +211,8 @@ func writeRunLog(ctx context.Context, path string, content []byte) {
 	}
 
 	if err := os.WriteFile(path, content, 0o644); err != nil {
-		logging.From(ctx).Warn("failed to write run log", "path", path, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to write run log",
+			append([]slog.Attr{slog.String(logging.FilePath, path)}, logging.Err(err)...)...)
 	}
 }
 
@@ -214,6 +229,7 @@ func removeEmptyLog(ctx context.Context, path string) {
 	}
 
 	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
-		logging.From(ctx).Warn("failed to remove the log of a run that never started", "path", path, "error", err)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to remove the log of a run that never started",
+			append([]slog.Attr{slog.String(logging.FilePath, path)}, logging.Err(err)...)...)
 	}
 }

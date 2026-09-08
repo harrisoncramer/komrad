@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"fmt"
 	"testing"
 
@@ -18,7 +17,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rec := NewReconciler(cli, mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 
 	busyPane := it.Spawn("busy", `sh -c 'printf "\033[H· Cooking… (3s · down 1k tokens)\n"; exec cat'`)
@@ -106,7 +105,7 @@ func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rec := NewReconciler(cli, mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 
 	pane := it.Spawn("exited", `sh -c 'printf "\033[H❯ ready\n"; exec sh'`)
@@ -161,7 +160,7 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 
 	it.Spawn("bystander", "sleep 300")
@@ -214,7 +213,7 @@ func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 
 	board := seedBoard(t, it, st, 8)
@@ -242,7 +241,7 @@ func TestReconcileHoldsAPaneWhateverElseTheListingKept(t *testing.T) {
 func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	rec := NewReconciler(it.Client(), mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 
 	board := seedBoard(t, it, st, 5)
@@ -279,7 +278,7 @@ func TestReconcileForgetsAPaneThatStaysGone(t *testing.T) {
 func TestReconcileReturnsAHoldWhenTheListingComesBack(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	dropping := &listingDroppingPanes{Client: it.Client()}
 	rec := NewReconciler(dropping, mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})), st.Agents)
 

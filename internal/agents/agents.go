@@ -356,8 +356,11 @@ const maxFailureReasonLen = 480
 func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent, state agentstore.State, verb string, cause error) {
 	agent.State = state
 	if err := agents.Update(ctx, agent); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.LifecycleAction, verb),
+			}, logging.Err(err)...)...)
 
 		return
 	}
@@ -368,8 +371,11 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 		Key:   "error",
 		Value: &reason,
 	}); err != nil {
-		logging.From(ctx).LogAttrs(ctx, slog.LevelError, fmt.Sprintf("failed to record why an agent's %s failed", verb),
-			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
+		logging.From(ctx).LogAttrs(ctx, slog.LevelError, "failed to record why an agent's lifecycle action failed",
+			append([]slog.Attr{
+				slog.String(logging.AgentID, agent.ID),
+				slog.String(logging.LifecycleAction, verb),
+			}, logging.Err(err)...)...)
 	}
 }
 

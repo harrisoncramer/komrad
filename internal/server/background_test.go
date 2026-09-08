@@ -35,7 +35,7 @@ func drive(t *testing.T, level slog.Level, each []func(context.Context) error) s
 
 	var out bytes.Buffer
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	defer cancel()
 
 	remaining := each
@@ -158,7 +158,7 @@ func TestLoopFoldsARepeatingPanic(t *testing.T) {
 func TestLoopSaysNothingOnceCancelled(t *testing.T) {
 	var out bytes.Buffer
 
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	done := make(chan struct{})
 
 	go func() {
@@ -206,7 +206,7 @@ func (f *fakeRunner) Stop(ctx context.Context) error {
 // TestBackgroundOutlivesTheSignal keeps the signal off River's own context, which River
 // treats as a hard stop that cuts a launch off mid-flight.
 func TestBackgroundOutlivesTheSignal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	runner := &fakeRunner{}
 
 	work, err := startBackground(ctx, runner, nil, logging.New(io.Discard, slog.LevelError))
@@ -217,7 +217,7 @@ func TestBackgroundOutlivesTheSignal(t *testing.T) {
 	require.NotNil(t, runner.startCtx)
 	require.NoError(t, runner.startCtx.Err(), "the context River was started on outlives the signal")
 
-	work.stop(context.Background())
+	work.stop(t.Context())
 }
 
 // TestBackgroundStopWaitsForTheLoops covers the loops being waited on rather than left to
@@ -226,7 +226,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 	var passes atomic.Int64
 	runner := &fakeRunner{}
 
-	work, err := startBackground(context.Background(), runner, []Loop{{
+	work, err := startBackground(t.Context(), runner, []Loop{{
 		Name:     "reconcile",
 		Interval: time.Millisecond,
 		Pass: func(context.Context) error {
@@ -239,7 +239,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 
 	require.Eventually(t, func() bool { return passes.Load() > 0 }, 5*time.Second, time.Millisecond)
 
-	work.stop(context.Background())
+	work.stop(t.Context())
 
 	settled := passes.Load()
 	time.Sleep(10 * time.Millisecond)
@@ -250,7 +250,7 @@ func TestBackgroundStopWaitsForTheLoops(t *testing.T) {
 // TestStartBackgroundReportsAFailedRunner covers River refusing to come up, which is a
 // server that can never fire a schedule and has to say so rather than serve anyway.
 func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
-	_, err := startBackground(context.Background(), &fakeRunner{startErr: errors.New("river is unreachable")},
+	_, err := startBackground(t.Context(), &fakeRunner{startErr: errors.New("river is unreachable")},
 		nil, logging.New(io.Discard, slog.LevelError))
 
 	require.Error(t, err)
@@ -260,7 +260,7 @@ func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
 // TestShutdownDeadlineOutlivesTheSignal covers each teardown stage getting a clock of its
 // own, since deriving from the already-cancelled signal would give them no time at all.
 func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
 
 	deadline, release := shutdownDeadline(ctx, jobStopTimeout)

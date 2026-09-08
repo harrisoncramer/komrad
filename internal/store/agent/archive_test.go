@@ -290,7 +290,7 @@ func waitForBlockedArchive(t *testing.T, st *fixture) {
 
 	for range 500 {
 		var waiting bool
-		require.NoError(t, st.pool.GetRawPool().QueryRow(context.Background(), `
+		require.NoError(t, st.pool.GetRawPool().QueryRow(t.Context(), `
 			SELECT EXISTS (
 				SELECT
 					1

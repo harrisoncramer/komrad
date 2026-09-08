@@ -47,7 +47,7 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("a listing carries each hook and what it declares", func(t *testing.T) {
-		resp, err := client.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+		resp, err := client.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 		require.NoError(t, err)
 
 		listed := resp.Msg.GetHooks()
@@ -58,7 +58,7 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("an agent nobody has is not found", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "gone",
 		}))
 
@@ -67,7 +67,7 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("an agent id nothing could answer to is refused before the handler", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "",
 		}))
 
@@ -76,7 +76,7 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("an agent with nothing recorded is refused", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "a2",
 		}))
 
@@ -86,7 +86,7 @@ func TestHookServiceOverHTTP(t *testing.T) {
 	})
 
 	t.Run("opening hands the recorded URL to the opener", func(t *testing.T) {
-		_, err := client.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+		_, err := client.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 			AgentId: "a1",
 		}))
 		require.NoError(t, err)

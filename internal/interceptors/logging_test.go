@@ -33,7 +33,7 @@ func loggedCall(t *testing.T, level slog.Level, req connect.AnyRequest, handlerE
 		return connect.NewResponse(&agentv1.ListAgentsResponse{}), nil
 	}
 
-	res, err := interceptor.WrapUnary(next)(context.Background(), req)
+	res, err := interceptor.WrapUnary(next)(t.Context(), req)
 
 	require.NotNil(t, seen)
 	assert.NotEmpty(t, caller.Trace(seen), "the handler can reach the trace id")
@@ -215,7 +215,7 @@ func TestLoggingHandsTheIdentityDown(t *testing.T) {
 	}
 
 	var out bytes.Buffer
-	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(context.Background(), req)
+	_, err := NewLogging(logging.New(&out, slog.LevelDebug)).WrapUnary(next)(t.Context(), req)
 	require.NoError(t, err)
 
 	assert.Equal(t, caller.Caller{AgentID: "agent-1"}, seen)

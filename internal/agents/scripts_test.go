@@ -85,7 +85,7 @@ func TestFiredScriptRefusals(t *testing.T) {
 			}
 
 			runner := &recordingRunner{}
-			err := fireScript(context.Background(), t, scriptService(t, dir, runner))
+			err := fireScript(t.Context(), t, scriptService(t, dir, runner))
 
 			require.ErrorIs(t, err, tt.wantIs)
 			assert.Empty(t, runner.ran, "nothing started")
@@ -102,7 +102,7 @@ func TestScriptPayload(t *testing.T) {
 	runner := &recordingRunner{}
 	service := scriptService(t, dir, runner)
 
-	require.NoError(t, fireScript(context.Background(), t, service))
+	require.NoError(t, fireScript(t.Context(), t, service))
 
 	require.Equal(t, []string{firedScript}, runner.ran)
 	assert.Equal(t, dir, runner.dir, "a script starts among its own siblings, not in the agent")
@@ -210,7 +210,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 				},
 			})
 
-			require.NoError(t, fireScript(context.Background(), t, service))
+			require.NoError(t, fireScript(t.Context(), t, service))
 
 			values := map[string]string{}
 			for _, entry := range runner.env {
@@ -255,7 +255,7 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 		archived: true,
 	}
 
-	require.NoError(t, fireScript(context.Background(), t, service))
+	require.NoError(t, fireScript(t.Context(), t, service))
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
@@ -282,7 +282,7 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 		Prompt: strings.Repeat("prompt ", maxScriptPrompt),
 	}}
 
-	require.NoError(t, fireScript(context.Background(), t, service))
+	require.NoError(t, fireScript(t.Context(), t, service))
 
 	var encoded string
 	for _, entry := range runner.env {
@@ -310,7 +310,7 @@ func TestRunScriptOnADormantAgent(t *testing.T) {
 	service := scriptService(t, dir, runner)
 	service.tmux = fakePaneOwner{owner: "somebody-else"}
 
-	require.NoError(t, fireScript(context.Background(), t, service))
+	require.NoError(t, fireScript(t.Context(), t, service))
 
 	var payload scriptPayload
 	for _, entry := range runner.env {
@@ -337,7 +337,7 @@ func TestFiredScriptWithTheAgentDirectoryGone(t *testing.T) {
 		Cwd:  gone,
 	}}
 
-	require.NoError(t, fireScript(context.Background(), t, service))
+	require.NoError(t, fireScript(t.Context(), t, service))
 
 	assert.Equal(t, dir, runner.dir)
 
@@ -1313,7 +1313,7 @@ func loggedContext(t *testing.T) (context.Context, func() []map[string]any) {
 
 	var written bytes.Buffer
 
-	ctx := logging.WithLogger(context.Background(), logging.New(&written, slog.LevelDebug))
+	ctx := logging.WithLogger(t.Context(), logging.New(&written, slog.LevelDebug))
 
 	return ctx, func() []map[string]any {
 		records := make([]map[string]any, 0, 2)
@@ -1360,7 +1360,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a cleanup that declares nothing gets the default ceiling",
 			script: "bare",
 			fire: func(s *ScriptService, name string) error {
-				return s.RunDeprovision(context.Background(), agent, name, nil)
+				return s.RunDeprovision(t.Context(), agent, name, nil)
 			},
 			want: 2 * time.Minute,
 		},
@@ -1368,7 +1368,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a cleanup that declares no limit stays unbounded",
 			script: "unlimited",
 			fire: func(s *ScriptService, name string) error {
-				return s.RunDeprovision(context.Background(), agent, name, nil)
+				return s.RunDeprovision(t.Context(), agent, name, nil)
 			},
 			want: 0,
 		},
@@ -1376,7 +1376,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a provisioner that declares nothing keeps the ceiling a launch needs",
 			script: "bare",
 			fire: func(s *ScriptService, name string) error {
-				_, err := s.RunProvision(context.Background(), agent, name)
+				_, err := s.RunProvision(t.Context(), agent, name)
 
 				return err
 			},
@@ -1386,7 +1386,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a provisioner that declares one is held to what it declared",
 			script: "declared",
 			fire: func(s *ScriptService, name string) error {
-				_, err := s.RunProvision(context.Background(), agent, name)
+				_, err := s.RunProvision(t.Context(), agent, name)
 
 				return err
 			},
@@ -1396,7 +1396,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a resume runs the same provisioner under the same declaration",
 			script: "declared",
 			fire: func(s *ScriptService, name string) error {
-				_, err := s.RunResume(context.Background(), agent, name)
+				_, err := s.RunResume(t.Context(), agent, name)
 
 				return err
 			},
@@ -1406,7 +1406,7 @@ func TestScriptTimeouts(t *testing.T) {
 			name:   "a hook that declares one is bounded by it",
 			script: "declared",
 			fire: func(s *ScriptService, name string) error {
-				return s.RunHook(context.Background(), agent, name, workflowstore.HookPreLaunch)
+				return s.RunHook(t.Context(), agent, name, workflowstore.HookPreLaunch)
 			},
 			want: 30 * time.Second,
 		},
@@ -1441,13 +1441,13 @@ func TestFiredScriptRefusesASecondConcurrentRun(t *testing.T) {
 
 	svc := scriptService(t, dir, scripts.NewRunner())
 
-	require.NoError(t, fireScript(context.Background(), t, svc))
+	require.NoError(t, fireScript(t.Context(), t, svc))
 
-	err := fireScript(context.Background(), t, svc)
+	err := fireScript(t.Context(), t, svc)
 	require.ErrorIs(t, err, ErrScriptAlreadyRunning)
 
 	require.Eventually(t, func() bool {
-		return fireScript(context.Background(), t, svc) == nil
+		return fireScript(t.Context(), t, svc) == nil
 	}, 5*time.Second, 20*time.Millisecond, "the claim is released once the first run finishes")
 
 	time.Sleep(500 * time.Millisecond)
@@ -1462,9 +1462,9 @@ func TestFiredScriptReleasesTheClaimWhenItNeverStarts(t *testing.T) {
 
 	svc := scriptService(t, dir, scripts.NewRunner())
 
-	require.ErrorIs(t, fireScript(context.Background(), t, svc), scripts.ErrNotExecutable)
+	require.ErrorIs(t, fireScript(t.Context(), t, svc), scripts.ErrNotExecutable)
 
-	err := fireScript(context.Background(), t, svc)
+	err := fireScript(t.Context(), t, svc)
 	require.ErrorIs(t, err, scripts.ErrNotExecutable)
 	assert.NotErrorIs(t, err, ErrScriptAlreadyRunning, "a refusal that never started must not strand the claim")
 }
@@ -1480,19 +1480,19 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 		{
 			name: "the same script for a different agent runs alongside it",
 			fire: func(svc *ScriptService) error {
-				return fireScriptFor(context.Background(), t, svc, "a2")
+				return fireScriptFor(t.Context(), t, svc, "a2")
 			},
 		},
 		{
 			name: "a hook is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				return svc.RunHook(context.Background(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, firedScript, workflowstore.HookPreLaunch)
+				return svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, firedScript, workflowstore.HookPreLaunch)
 			},
 		},
 		{
 			name: "a provisioner is never guarded by the in-flight set",
 			fire: func(svc *ScriptService) error {
-				_, err := svc.RunProvision(context.Background(), agentstore.Agent{ID: "a1"}, firedScript)
+				_, err := svc.RunProvision(t.Context(), agentstore.Agent{ID: "a1"}, firedScript)
 
 				return err
 			},
@@ -1509,7 +1509,7 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 				return &agentstore.Agent{ID: id}, nil
 			})
 
-			require.NoError(t, fireScript(context.Background(), t, svc))
+			require.NoError(t, fireScript(t.Context(), t, svc))
 
 			assert.NoError(t, tt.fire(svc))
 
@@ -1721,7 +1721,7 @@ func TestFiredScriptPrefersTheBuiltinOverAHookOfTheSameName(t *testing.T) {
 	service := scriptService(t, hooksDir, runner)
 	service.builtinDir = builtinDir
 
-	require.NoError(t, fireScript(context.Background(), t, service))
+	require.NoError(t, fireScript(t.Context(), t, service))
 
 	assert.Equal(t, builtinDir, runner.dir, "the one weave ships is the one that ran")
 }
@@ -1780,7 +1780,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 				},
 			})
 
-			require.NoError(t, fireScript(context.Background(), t, service))
+			require.NoError(t, fireScript(t.Context(), t, service))
 
 			values := map[string]string{}
 			for _, entry := range runner.env {

@@ -51,7 +51,7 @@ func TestOpenPullRequestRefusals(t *testing.T) {
 				Opener: opener,
 			})
 
-			err := service.OpenPullRequest(context.Background(), tt.agentID)
+			err := service.OpenPullRequest(t.Context(), tt.agentID)
 
 			require.ErrorIs(t, err, tt.wantIs)
 			assert.Empty(t, opener.targets, "the desktop was never asked")
@@ -70,7 +70,7 @@ func TestOpenPullRequestCarriesWhyTheOpenerFailed(t *testing.T) {
 		Opener: &recordingOpener{err: errors.New("no application knows how to open it")},
 	})
 
-	err := service.OpenPullRequest(context.Background(), "a1")
+	err := service.OpenPullRequest(t.Context(), "a1")
 
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "https://github.test/weave/pull/7")
@@ -92,7 +92,7 @@ func TestOpenPullRequestHandsOverTheRecordedURL(t *testing.T) {
 		Opener: opener,
 	})
 
-	require.NoError(t, service.OpenPullRequest(context.Background(), "a1"))
+	require.NoError(t, service.OpenPullRequest(t.Context(), "a1"))
 
 	assert.Equal(t, []string{"https://github.test/weave/pull/7"}, opener.targets)
 }
