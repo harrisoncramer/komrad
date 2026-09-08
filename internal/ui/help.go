@@ -239,38 +239,22 @@ func (m model) globalHelp() []key.Binding {
 }
 
 func (m model) agentHelp() keyMap {
-	if m.tree.selected.isActive() {
-		hovered, _ := m.hoveredRow()
+	own := agentsActions().help(m)
 
-		return m.selectionHelp(
-			m.tree.selected,
-			hovered,
-			binding(m.keys.Agents.Archive, "archive all"),
-			m.showHiddenBinding(),
-		)
-	}
-
-	rows := m.rowHelp()
+	// The keys every screen shares are appended rather than written into each screen's table,
+	// since one of them is the legend's own key and the rest belong to the panel's chrome.
 	full := slices.Concat(
-		rows,
-		m.screenHelp(),
+		own.full,
 		[]key.Binding{
 			m.detailsBinding(),
 			m.messagesBinding(),
-			m.filterBinding(),
-			m.moveBinding(),
-			m.jumpBinding(),
 		},
 		m.infoPaneHelp(),
-		[]key.Binding{
-			m.columnScrollBinding("the notes"),
-		},
-		m.editFilterBinding(m.keys.Agents.Back),
-		m.matchBindings(),
+		[]key.Binding{m.columnScrollBinding("the notes")},
 		m.globalHelp(),
 	)
 
-	return keyMap{short: []key.Binding{rows[0], m.helpBinding()}, full: full}
+	return keyMap{short: slices.Concat(own.short, m.globalHelp()), full: full}
 }
 
 func (m model) detailsBinding() key.Binding {
@@ -314,92 +298,12 @@ func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Bindi
 	return keyMap{short: []key.Binding{toggle, clear, m.helpBinding()}, full: full}
 }
 
-func (m model) newBinding() key.Binding {
-	keys := slices.Concat(m.keys.Agents.New, m.keys.Workflows.New)
-
-	return key.NewBinding(
-		key.WithKeys(keys...),
-		key.WithHelp(keyLabel(m.keys.Agents.New)+"/"+keyLabel(m.keys.Workflows.New), "new agent/workflow"),
-	)
-}
-
-func (m model) showHiddenBinding() key.Binding {
-	return binding(m.keys.Agents.ShowHidden, m.showHiddenDesc())
-}
-
 func (m model) showHiddenDesc() string {
 	if m.tree.showHidden {
 		return "put hidden away"
 	}
 
 	return "show hidden"
-}
-
-func (m model) hideBinding() key.Binding {
-	keys := slices.Concat(m.keys.Agents.Hide, m.keys.Agents.ShowHidden)
-
-	hide := "hide"
-	if item, ok := m.selectedAgent(); ok && item.agent.Hidden {
-		hide = "unhide"
-	}
-
-	return key.NewBinding(
-		key.WithKeys(keys...),
-		key.WithHelp(
-			keyLabel(m.keys.Agents.Hide)+"/"+keyLabel(m.keys.Agents.ShowHidden),
-			hide+"/"+m.showHiddenDesc(),
-		),
-	)
-}
-
-func (m model) archiveBinding(away []string) key.Binding {
-	keys := slices.Concat(away, m.keys.Archive.Open)
-
-	return key.NewBinding(
-		key.WithKeys(keys...),
-		key.WithHelp(keyLabel(away)+"/"+keyLabel(m.keys.Archive.Open), "archive/archived agents"),
-	)
-}
-
-func (m model) rowHelp() []key.Binding {
-	if _, hoveringWorkflow := m.hoveredWorkflow(); hoveringWorkflow {
-		return []key.Binding{
-			m.newBinding(),
-			binding(m.keys.Workflows.Adopt, "adopt a branch or pr"),
-			binding(m.keys.Selection.Toggle, "select folder"),
-			binding(m.keys.Workflows.Rename, "rename"),
-			binding(m.keys.Workflows.Edit, "edit"),
-			m.archiveBinding(m.keys.Workflows.Archive),
-			binding(m.keys.Marks.Set, "set mark"),
-			binding(m.keys.Marks.Jump, "jump to mark"),
-			m.showHiddenBinding(),
-		}
-	}
-
-	// The pr and review keys answer for some agents and not others, and the caveats say which,
-	// so that the legend keeps one height as the cursor moves rather than shifting the list.
-	return []key.Binding{
-		binding(m.keys.Agents.Open, "open"),
-		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Agents.OpenPR, "open pr"),
-		binding(m.keys.Agents.Review, "review diff"),
-		binding(m.keys.Agents.Mail, "mailbox"),
-		binding(m.keys.Marks.Set, "set mark"),
-		binding(m.keys.Marks.Jump, "jump to mark"),
-		m.hideBinding(),
-		m.newBinding(),
-		binding(m.keys.Agents.Child, "attach child"),
-		binding(m.keys.Agents.Rename, "rename"),
-		binding(m.keys.Agents.ToggleViewed, "mark read/unread"),
-		m.archiveBinding(m.keys.Agents.Archive),
-	}
-}
-
-func (m model) screenHelp() []key.Binding {
-	return []key.Binding{
-		binding(m.keys.Agents.Search, "search"),
-		binding(m.keys.Schedules.Open, "schedules"),
-	}
 }
 
 func (m model) scheduleHelp() keyMap {

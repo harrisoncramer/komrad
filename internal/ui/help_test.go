@@ -142,9 +142,9 @@ func helpModel() model {
 	}
 }
 
-// TestLegendOrderIsPinned records the order every screen names its bindings in, since the
-// order is hand-tuned reading order rather than anything derived, and a refactor that moves
-// where the bindings are built would otherwise rearrange them without failing anything.
+// TestLegendOrderIsPinned records the order a screen that has not been converted yet names its
+// bindings in, since that order is hand-tuned and nothing else holds it, and it goes screen by
+// screen as each one comes to declare its own order in a table.
 func TestLegendOrderIsPinned(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -153,38 +153,6 @@ func TestLegendOrderIsPinned(t *testing.T) {
 		short []string
 		full  []string
 	}{
-		{
-			name:  "agents",
-			s:     screenAgents,
-			of:    model.agentHelp,
-			short: []string{"enter open", "? show help"},
-			full: []string{
-				"enter open",
-				"v select",
-				"o open pr",
-				"d review diff",
-				"m mailbox",
-				"t set mark",
-				"' jump to mark",
-				"h/H hide/show hidden",
-				"c/w new agent/workflow",
-				"C attach child",
-				"r rename",
-				"u mark read/unread",
-				"z/Z archive/archived agents",
-				"s search",
-				"S schedules",
-				"C-t details",
-				"C-g messages",
-				"/ search",
-				"k/j move",
-				"gg/G top/bottom",
-				"l run log",
-				"T terminal here",
-				"C-n/C-p scroll the notes",
-				"? show help",
-			},
-		},
 		{
 			name:  "schedules",
 			s:     screenSchedules,

@@ -12,39 +12,6 @@ import (
 	"github.com/charmbracelet/huh"
 )
 
-func (m model) updateHoveredWorkflow(key tea.KeyMsg, workflow workflowstore.Workflow) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	switch {
-	case isBound(k, m.keys.Agents.Quit):
-		return m, m.hide()
-	case isBound(k, m.keys.Agents.Back):
-		return m, m.hide()
-	case isBound(k, m.keys.Nav.Up):
-		if m.tree.cursor > 0 {
-			m.tree.cursor--
-			m.stageSelection()
-		}
-	case isBound(k, m.keys.Nav.Down):
-		if m.tree.cursor < len(m.agentRows())-1 {
-			m.tree.cursor++
-			m.stageSelection()
-		}
-	case isBound(k, m.keys.Agents.New):
-		return m.openNewAgent(&workflow)
-	case isBound(k, m.keys.Workflows.Adopt):
-		return m.openAdopt(&workflow)
-	case isBound(k, m.keys.Workflows.Rename):
-		return m.renameWorkflowForm(workflow)
-	case isBound(k, m.keys.Workflows.Edit):
-		return m.editWorkflowForm(workflow)
-	case isBound(k, m.keys.Workflows.Archive):
-		return m.archiveWorkflowConfirm(workflow)
-	}
-
-	return m, nil
-}
-
 func (m model) returnToAgents() (tea.Model, tea.Cmd) {
 	m.enterScreen(screenAgents)
 	m.tree.cursor = clampCursor(m.tree.cursor, len(m.agentRows()))

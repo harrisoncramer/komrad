@@ -24,110 +24,18 @@ var errChildOfChild = errors.New("a child agent may not have children of its own
 func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// The doubled top key is a gesture rather than a binding, so it is settled before the table,
+	// which would otherwise let a single press jump.
 	if m.takeTopPress(k) {
 		return m.jumpCursor(0), nil
 	}
 	if m.topHeld {
 		return m, nil
 	}
-	if isBound(k, m.keys.Nav.Bottom) {
-		return m.jumpCursor(len(m.agentRows()) - 1), nil
-	}
 
-	if sel, took := m.applySelectionKey(k, m.tree.selected, m.agentRows(), m.tree.cursor); took {
-		m.tree.selected = sel
+	next, cmd, _ := agentsActions().dispatch(m, k)
 
-		return m, nil
-	}
-
-	if m.tree.selected.isActive() {
-		return m.updateAgentsSelection(key)
-	}
-
-	return m.updateAgentsBrowsing(key)
-}
-
-func (m model) updateAgentsBrowsing(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	if isBound(k, m.keys.Filter.Open) {
-		return m.openFilter()
-	}
-	if m.filter.isStanding() && isBound(k, m.keys.Filter.NextMatch) {
-		return m.jumpMatch(1)
-	}
-	if m.filter.isStanding() && isBound(k, m.keys.Filter.PrevMatch) {
-		return m.jumpMatch(-1)
-	}
-	if m.filter.isStanding() && isBound(k, m.keys.Agents.Back) {
-		return m.clearSearch()
-	}
-	if isBound(k, m.keys.Workflows.New) {
-		return m.newWorkflowForm()
-	}
-	if isBound(k, m.keys.Agents.Search) {
-		return m.enterSearch()
-	}
-	if isBound(k, m.keys.Schedules.Open) {
-		return m.enterSchedules()
-	}
-	if isBound(k, m.keys.Archive.Open) {
-		return m.enterArchive()
-	}
-	if isBound(k, m.keys.Agents.ShowHidden) {
-		return m.toggleHiddenAgents()
-	}
-	if isBound(k, m.keys.Marks.Jump) {
-		return m.beginMark(markPendingJump)
-	}
-	if isBound(k, m.keys.Marks.Set) {
-		return m.beginMark(markPendingSet)
-	}
-	if workflow, ok := m.hoveredWorkflow(); ok {
-		return m.updateHoveredWorkflow(key, workflow)
-	}
-
-	switch {
-	case isBound(k, m.keys.Agents.Quit), isBound(k, m.keys.Agents.Back):
-		return m, m.hide()
-	case isBound(k, m.keys.Agents.New):
-		return m.openNewAgent(m.enclosingWorkflow())
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveCursor(-1), nil
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveCursor(1), nil
-	case isBound(k, m.keys.Agents.Open):
-		return m.openAgent()
-	}
-
-	return m.updateHoveredAgent(key)
-}
-
-func (m model) updateHoveredAgent(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	return m.withSelectedAgent(func(item agentItem) (tea.Model, tea.Cmd) {
-		switch {
-		case isBound(k, m.keys.Agents.ToggleViewed):
-			return m.toggleAgentViewed(item)
-		case isBound(k, m.keys.Agents.Hide):
-			return m.hideAgent(item.agent)
-		case isBound(k, m.keys.Agents.OpenPR):
-			return m.openAgentPR(item.agent)
-		case isBound(k, m.keys.Agents.Review):
-			return m.enterReview(item.agent)
-		case isBound(k, m.keys.Agents.Mail):
-			return m.enterMail(item.agent)
-		case isBound(k, m.keys.Agents.Child):
-			return m.openNewChild(item.agent)
-		case isBound(k, m.keys.Agents.Rename):
-			return m.openRename(item.agent)
-		case isBound(k, m.keys.Agents.Archive):
-			return m.archiveAgentsConfirm([]agentstore.Agent{item.agent})
-		}
-
-		return m, nil
-	})
+	return next, cmd
 }
 
 func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {
@@ -137,25 +45,6 @@ func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.M
 	}
 
 	return fn(item)
-}
-
-func (m model) updateAgentsSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	switch {
-	case isBound(k, m.keys.Agents.Quit):
-		return m, m.hide()
-	case isBound(k, m.keys.Agents.Archive):
-		return m.archiveAgentsConfirm(chosenAgents(m.tree.selected, m.agentRows()))
-	case isBound(k, m.keys.Agents.ShowHidden):
-		return m.toggleHiddenAgents()
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveCursor(-1), nil
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveCursor(1), nil
-	}
-
-	return m, nil
 }
 
 func (m model) archiveAgentsConfirm(agents []agentstore.Agent) (tea.Model, tea.Cmd) {
@@ -353,7 +242,11 @@ func (m model) agentsDetails() details {
 // agentsColumn is what stands where a running agent's own pane would: a folder's shared notes, or
 // why the row under the cursor has no pane to show.
 func agentsColumn() columnSpec {
-	return columnSpec{floor: columnFloor, doc: model.agentDoc, holds: model.hasNoAgentPane}
+	return columnSpec{
+		floor: columnFloor,
+		doc:   model.agentDoc,
+		holds: model.hasNoAgentPane,
+	}
 }
 
 // hasNoAgentPane reports whether the row the cursor is on has no pane of its own, which is what
