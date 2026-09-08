@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
@@ -38,7 +39,7 @@ func validateReadOnly(sql string) (string, error) {
 	trimmed = strings.TrimSpace(trimmed)
 
 	if trimmed == "" {
-		return "", fmt.Errorf("query is empty")
+		return "", errors.New("query is empty")
 	}
 
 	code, err := stripQuoted(trimmed)
@@ -48,17 +49,17 @@ func validateReadOnly(sql string) (string, error) {
 	code = strings.TrimSpace(code)
 
 	if code == "" {
-		return "", fmt.Errorf("query is empty")
+		return "", errors.New("query is empty")
 	}
 	if strings.Contains(code, ";") {
-		return "", fmt.Errorf("only a single statement is allowed")
+		return "", errors.New("only a single statement is allowed")
 	}
 	upper := strings.ToUpper(code)
 	if !strings.HasPrefix(upper, "SELECT") && !strings.HasPrefix(upper, "WITH") {
-		return "", fmt.Errorf("query must start with SELECT or WITH")
+		return "", errors.New("query must start with SELECT or WITH")
 	}
 	if forbiddenPattern.MatchString(code) || replaceStatement.MatchString(code) {
-		return "", fmt.Errorf("query contains a forbidden keyword; only read-only SELECT statements are allowed")
+		return "", errors.New("query contains a forbidden keyword; only read-only SELECT statements are allowed")
 	}
 
 	return trimmed, nil
@@ -80,7 +81,7 @@ func stripQuoted(statement string) (string, error) {
 		case c == '[':
 			end := strings.IndexByte(statement[i:], ']')
 			if end < 0 {
-				return "", fmt.Errorf("unterminated [ quote in query")
+				return "", errors.New("unterminated [ quote in query")
 			}
 			b.WriteByte(' ')
 			i += end + 1
@@ -96,7 +97,7 @@ func stripQuoted(statement string) (string, error) {
 		case c == '/' && i+1 < len(statement) && statement[i+1] == '*':
 			end := strings.Index(statement[i:], "*/")
 			if end < 0 {
-				return "", fmt.Errorf("unterminated block comment in query")
+				return "", errors.New("unterminated block comment in query")
 			}
 			b.WriteByte(' ')
 			i += end + len("*/")
@@ -136,19 +137,19 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 
 	tx, err := d.db.BeginTx(ctx, pgx.TxOptions{AccessMode: pgx.ReadOnly})
 	if err != nil {
-		return nil, fmt.Errorf("begin read-only transaction: %w", err)
+		return nil, fmt.Errorf("failed to begin a read-only transaction: %w", err)
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
 	if _, err := tx.Exec(ctx, fmt.Sprintf("SET LOCAL statement_timeout = %d", queryTimeout.Milliseconds())); err != nil {
-		return nil, fmt.Errorf("set statement timeout: %w", err)
+		return nil, fmt.Errorf("failed to set the statement timeout: %w", err)
 	}
 
 	wrapped := fmt.Sprintf("SELECT * FROM (\n%s\n) AS _mcp_q LIMIT %d", trimmed, maxRows+1)
 
 	rows, err := tx.Query(ctx, wrapped)
 	if err != nil {
-		return nil, fmt.Errorf("query failed: %w", err)
+		return nil, fmt.Errorf("failed to run the query: %w", err)
 	}
 	defer rows.Close()
 
@@ -164,7 +165,7 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 
 		vals, err := rows.Values()
 		if err != nil {
-			return nil, fmt.Errorf("read row: %w", err)
+			return nil, fmt.Errorf("failed to read a row: %w", err)
 		}
 
 		row := make(map[string]any, len(cols))
@@ -174,7 +175,7 @@ func (d *dbTools) query(ctx context.Context, statement string) (*queryResult, er
 		out = append(out, row)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate rows: %w", err)
+		return nil, fmt.Errorf("failed to iterate the rows: %w", err)
 	}
 
 	return &queryResult{
@@ -220,12 +221,12 @@ func scanStrings(rows pgx.Rows) ([]string, error) {
 	for rows.Next() {
 		var value string
 		if err := rows.Scan(&value); err != nil {
-			return nil, fmt.Errorf("scan row: %w", err)
+			return nil, fmt.Errorf("failed to scan a row: %w", err)
 		}
 		out = append(out, value)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate rows: %w", err)
+		return nil, fmt.Errorf("failed to iterate the rows: %w", err)
 	}
 
 	return out, nil
