@@ -36,7 +36,7 @@ func TestHelpToggle(t *testing.T) {
 	assert.Contains(t, view, "archive", "the expanded help names every binding")
 	assert.Contains(t, view, "hide help", "and says the key that puts it away")
 
-	assert.Greater(t, m.listLines(m.renderHelp(m.agentHelp())), expanded.listLines(expanded.renderHelp(expanded.agentHelp())),
+	assert.Greater(t, m.spareLines(m.renderHelp(m.agentHelp())), expanded.spareLines(expanded.renderHelp(expanded.agentHelp())),
 		"the rows the help takes are the list's")
 
 	back, _ := expanded.route(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("?")})

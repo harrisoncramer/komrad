@@ -424,8 +424,9 @@ func (m model) agentsView() string {
 }
 
 func (m model) agentsListView() string {
+	header := m.listHeader("Agents and Workflows")
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(header, record, help) + help
 
 	all := m.agentRows()
 	rows := make([]string, 0, len(all))
@@ -454,7 +455,7 @@ func (m model) agentsListView() string {
 		rows = append(rows, row)
 	}
 
-	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
+	return m.headedListView(header, rows, m.tree.cursor, below)
 }
 
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {

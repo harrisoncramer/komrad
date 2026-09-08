@@ -450,5 +450,5 @@ func (m model) searchSidebarView() string {
 
 	rows, cursor := m.searchRows()
 
-	return header + renderList(rows, cursor, m.listLines(header, help)) + help
+	return header + renderList(rows, cursor, m.listBudget(len(rows), header, help)) + help
 }

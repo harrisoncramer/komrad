@@ -42,15 +42,21 @@ func submittingNotice(since, now time.Time) string {
 	return fmt.Sprintf("  submitting… %dm%02ds · esc to keep working", int(elapsed.Minutes()), int(elapsed.Seconds())%60)
 }
 
-// fitFrame pads the panel out to the height of its pane, so a shorter frame covers the rows the
-// one before it left behind.
+// fitFrame draws the panel at the height of its pane, padding a shorter frame out so it covers
+// the rows the one before it left behind and cutting the legend off the bottom of a taller one so
+// bubbletea is never handed rows the pane has not got, which every screen budgeting its own
+// sections leaves biting only where the chrome alone is taller than the pane.
 func (m model) fitFrame(view string) string {
 	if m.height <= 0 || m.width <= 0 {
 		return view
 	}
 
 	rows := strings.Count(view, "\n") + 1
-	if rows >= m.height {
+	if rows > m.height {
+		return strings.Join(strings.Split(view, "\n")[:m.height], "\n")
+	}
+
+	if rows == m.height {
 		return view
 	}
 

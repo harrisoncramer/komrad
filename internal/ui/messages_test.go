@@ -35,9 +35,10 @@ func TestMessagesRegionKeepsItsHeight(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 
+	header := m.listHeader("Agents and Workflows")
 	record, help := m.detailsView(), m.renderHelp(m.agentHelp())
 
-	idle := m.messagesRegion(record, help)
+	idle := m.messagesRegion(header, record, help)
 	require.NotEmpty(t, idle)
 	assert.Contains(t, ansi.Strip(idle), "No messages")
 
@@ -46,7 +47,7 @@ func TestMessagesRegionKeepsItsHeight(t *testing.T) {
 		summary: "Nothing to review in fix-ci",
 		detail:  "the worktree holds no change against the base",
 	})
-	filled := m.messagesRegion(record, help)
+	filled := m.messagesRegion(header, record, help)
 
 	assert.Equal(t, strings.Count(idle, "\n"), strings.Count(filled, "\n"))
 	assert.Contains(t, ansi.Strip(filled), "Nothing to review in fix-ci")
@@ -58,7 +59,7 @@ func TestMessagesRegionGivesUpAShortPane(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 12, 60
 
-	assert.Empty(t, m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp())))
+	assert.Empty(t, m.messagesRegion(m.listHeader("Agents and Workflows"), m.detailsView(), m.renderHelp(m.agentHelp())))
 }
 
 // TestMessagesStackKeepsWhatCameBefore covers the stack: a second failure does not erase the
@@ -72,7 +73,7 @@ func TestMessagesStackKeepsWhatCameBefore(t *testing.T) {
 
 	require.Len(t, m.messages.items, 2)
 	assert.Equal(t, "Could not review agent", newestMessage(m).summary)
-	assert.Contains(t, ansi.Strip(m.messagesRegion(m.detailsView(), m.renderHelp(m.agentHelp()))), "+1")
+	assert.Contains(t, ansi.Strip(m.messagesRegion(m.listHeader("Agents and Workflows"), m.detailsView(), m.renderHelp(m.agentHelp()))), "+1")
 }
 
 // TestMessagesFocusTakesTheBlock covers focus moving the keys off the list, which is what draws

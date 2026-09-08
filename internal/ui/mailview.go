@@ -212,7 +212,7 @@ func (m model) mailListView() string {
 		dimStyle.Render(m.mailCountView()) + "\n\n" +
 		m.filterView()
 	record, help := m.detailsView(), m.renderHelp(m.mailHelp())
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(header, record, help) + help
 
 	rows := m.mailRowsView()
 	if len(rows) == 0 {

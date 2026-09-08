@@ -51,17 +51,20 @@ func TestRenderListFits(t *testing.T) {
 			rows:  numbered(10),
 			lines: 10,
 		},
-		{
-			name:  "a height nothing has measured yet",
-			rows:  numbered(100),
-			lines: 0,
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			assert.Equal(t, tt.rows, lines(renderList(tt.rows, 0, tt.lines)))
 		})
+	}
+}
+
+// TestRenderListHasNoRoom pins that a budget of nothing draws nothing, which is what lets a
+// screen say the pane is full rather than having the list take a row anyway.
+func TestRenderListHasNoRoom(t *testing.T) {
+	for _, lines := range []int{0, -1, -4} {
+		assert.Empty(t, renderList(numbered(100), 0, lines), "budget of %d", lines)
 	}
 }
 
@@ -194,9 +197,9 @@ func TestScreensFitThePane(t *testing.T) {
 	}
 }
 
-// TestListLines pins that the chrome comes off the pane, and that a pane too short to hold even
-// that keeps one line for the hovered row.
-func TestListLines(t *testing.T) {
+// TestSpareLines pins that the chrome comes off the pane, and that a pane too short to hold even
+// that reports the shortfall rather than a row it has not got.
+func TestSpareLines(t *testing.T) {
 	header := "Archive\n\n"
 	help := "\nrestore\ndelete\nback\n"
 
@@ -206,14 +209,14 @@ func TestListLines(t *testing.T) {
 		want   int
 	}{
 		{
-			name:   "an unmeasured pane is unbounded",
+			name:   "an unmeasured pane has nothing to give",
 			height: 0,
 			want:   0,
 		},
 		{
-			name:   "a pane shorter than its chrome keeps one row",
+			name:   "a pane shorter than its chrome has no room for a row",
 			height: 3,
-			want:   1,
+			want:   -3,
 		},
 		{
 			name:   "the pane less the chrome around the list",
@@ -226,7 +229,7 @@ func TestListLines(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := model{height: tt.height}
 
-			assert.Equal(t, tt.want, m.listLines(header, help))
+			assert.Equal(t, tt.want, m.spareLines(header, help))
 		})
 	}
 }

@@ -692,14 +692,44 @@ func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: threads})
 
-	for _, pane := range []int{10, 12, 24, 50} {
-		for _, composing := range []bool{false, true} {
-			m.height, m.review.composing = pane, composing
+	// Swept across the width as well as the height, since the band stands over the sidebar rather
+	// than over the diff on a window too narrow to split, and comes out of the sidebar's own
+	// budget only in that layout.
+	for _, width := range paneWidths {
+		for pane := reviewChromeFloor; pane <= 40; pane++ {
+			for _, composing := range []bool{false, true} {
+				m.width, m.height, m.review.composing = width, pane, composing
 
-			// Measured the way bubbletea receives it: View trims the trailing newline off the screen.
-			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
-			assert.LessOrEqual(t, height, pane,
-				"the sidebar drew %d lines into a %d line pane, composing=%v", height, pane, composing)
+				height := frameHeight(m.reviewView())
+				assert.LessOrEqual(t, height, pane,
+					"the sidebar drew %d lines into a %d line pane at width %d, composing=%v",
+					height, pane, width, composing)
+			}
+		}
+	}
+}
+
+// TestReviewChromeFloorIsWhatTheScreenDraws derives the review's own floor rather than trusting
+// the constant its sweeps start from, the band carrying rows no list's header does.
+func TestReviewChromeFloorIsWhatTheScreenDraws(t *testing.T) {
+	dir := reviewRepo(t)
+	base, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	base = openReview(t, base)
+	base.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, base)})
+
+	for _, width := range paneWidths {
+		drawn := func(pane int) int {
+			m := base
+			m.width, m.height = width, pane
+
+			return frameHeight(m.reviewView())
+		}
+
+		assert.Equal(t, reviewChromeFloor, derivedChromeFloor(drawn), "width %d", width)
+
+		for pane := 1; pane < reviewChromeFloor; pane++ {
+			assert.Equal(t, reviewChromeFloor, drawn(pane),
+				"width %d in a %d line pane", width, pane)
 		}
 	}
 }
@@ -818,13 +848,16 @@ func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
 	m.height = 14
 	m.review.threadFocus = true
 
-	for _, pane := range []int{8, 10, 14, 30} {
-		for _, scroll := range []int{0, 1, 5, 40} {
-			m.height, m.review.threadScroll = pane, scroll
+	for _, width := range paneWidths {
+		for pane := reviewChromeFloor; pane <= 40; pane++ {
+			for _, scroll := range []int{0, 1, 5, 40} {
+				m.width, m.height, m.review.threadScroll = width, pane, scroll
 
-			height := strings.Count(strings.TrimRight(m.reviewView(), "\n"), "\n") + 1
-			assert.LessOrEqual(t, height, pane,
-				"the sidebar drew %d lines into a %d line pane, scroll=%d", height, pane, scroll)
+				height := frameHeight(m.reviewView())
+				assert.LessOrEqual(t, height, pane,
+					"the sidebar drew %d lines into a %d line pane at width %d, scroll=%d",
+					height, pane, width, scroll)
+			}
 		}
 	}
 }
@@ -1555,4 +1588,19 @@ func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 	require.False(t, on, "the cursor is standing off every match")
 
 	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), "2 matches")
+}
+
+// TestReviewThreadHasNoScrollWithoutASidebar covers a pane the chrome fills, where the sidebar
+// draws no conversation and so offers nothing to scroll back through.
+func TestReviewThreadHasNoScrollWithoutASidebar(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", threads: reviewLongThread(t, m)})
+
+	m.width, m.height = 60, 14
+	require.Positive(t, m.reviewThreadMax(), "a conversation taller than the sidebar can be scrolled")
+
+	m.height = reviewChromeFloor
+	assert.Zero(t, m.reviewThreadMax())
 }

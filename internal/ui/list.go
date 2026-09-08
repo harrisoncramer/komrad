@@ -7,16 +7,9 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-func (m model) listLines(chrome ...string) int {
-	if m.height <= 0 {
-		return 0
-	}
-
-	return max(m.spareLines(chrome...), 1)
-}
-
-// spareLines is what the pane has left once the chrome has taken its share, unclamped, which is
-// how a section that would not fit is dropped rather than drawn past the bottom of the pane.
+// spareLines is what the pane has left once the chrome has taken its share, and it goes to zero
+// and below rather than being clamped, which is how a section that has no room left is dropped
+// rather than drawn past the bottom of the pane.
 func (m model) spareLines(chrome ...string) int {
 	if m.height <= 0 {
 		return 0
@@ -35,7 +28,11 @@ func renderList(rows []string, cursor, lines int) string {
 		return ""
 	}
 
-	if lines <= 0 || len(rows) <= lines {
+	if lines <= 0 {
+		return ""
+	}
+
+	if len(rows) <= lines {
 		return strings.Join(rows, "\n") + "\n"
 	}
 
@@ -179,15 +176,28 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 	return c, true
 }
 
-func (m model) listView(title string, rows []string, cursor int, help string) string {
-	return m.headedListView(m.titleStyle().Render(title)+"\n\n"+m.filterView(), rows, cursor, help)
+// listHeader is what a titled list draws above its rows, which the screens measure their own
+// chrome against before they draw it.
+func (m model) listHeader(title string) string {
+	return m.titleStyle().Render(title) + "\n\n" + m.filterView()
 }
 
 // headedListView draws a list under a header it is handed rather than one built from a title,
 // padded out so the record and the legend under it sit at the bottom of the pane whether the
 // list fills it or not.
 func (m model) headedListView(header string, rows []string, cursor int, help string) string {
-	lines := m.listLines(header, help)
+	lines := m.listBudget(len(rows), header, help)
 
 	return header + padRows(renderList(rows, cursor, lines), lines) + help
+}
+
+// listBudget is the rows a list has to draw into: what the pane has left once the chrome has
+// taken its share, or the whole list on a pane nothing has measured yet, which has no height to
+// budget against and so bounds nothing.
+func (m model) listBudget(rows int, chrome ...string) int {
+	if m.height <= 0 {
+		return rows
+	}
+
+	return m.spareLines(chrome...)
 }

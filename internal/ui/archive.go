@@ -341,12 +341,13 @@ func (m model) archiveView() string {
 }
 
 func (m model) archiveListView() string {
+	header := m.listHeader("Archive")
 	record, help := m.detailsView(), m.renderHelp(m.archiveHelp())
-	below := record + m.messagesRegion(record, help) + help
+	below := record + m.messagesRegion(header, record, help) + help
 
 	all := m.archiveRows()
 	if len(all) == 0 {
-		return m.listView("Archive", []string{dimStyle.Render("nothing archived")}, 0, below)
+		return m.headedListView(header, []string{dimStyle.Render("nothing archived")}, 0, below)
 	}
 
 	rows := make([]string, 0, len(all))
@@ -374,5 +375,5 @@ func (m model) archiveListView() string {
 		rows = append(rows, row)
 	}
 
-	return m.listView("Archive", rows, m.archive.cursor, below)
+	return m.headedListView(header, rows, m.archive.cursor, below)
 }

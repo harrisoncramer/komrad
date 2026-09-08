@@ -18,9 +18,6 @@ const messagesRows = 3
 // messagesRegionRows is what the region costs the pane: its rows and the rule under them.
 const messagesRegionRows = messagesRows + 1
 
-// messagesHeaderRows is what the title, the blank under it, and the filter take above the list.
-const messagesHeaderRows = 3
-
 // messagesListFloor is how many rows the list keeps once the region has taken its own.
 const messagesListFloor = 2
 
@@ -62,10 +59,11 @@ type messagesState struct {
 	focused bool
 }
 
-// messagesRegion is the region as it is drawn under the record, given the record and the legend
-// it sits between so it can tell whether the pane has the rows to spare for it.
-func (m model) messagesRegion(record, help string) string {
-	if !m.isMessagesDrawn(record, help) {
+// messagesRegion is the region as it is drawn under the record, given the header above the list
+// and the record and the legend it sits between so it can tell whether the pane has the rows to
+// spare for it.
+func (m model) messagesRegion(header, record, help string) string {
+	if !m.isMessagesDrawn(header, record, help) {
 		return ""
 	}
 
@@ -79,12 +77,15 @@ func (m model) messagesRegion(record, help string) string {
 
 // isMessagesDrawn is whether the region's rows come out of the list without taking it below a
 // list worth reading.
-func (m model) isMessagesDrawn(record, help string) bool {
+func (m model) isMessagesDrawn(header, record, help string) bool {
 	if m.height <= 0 || !m.isMessagesRegion() {
 		return false
 	}
 
-	return m.spareLines(record, help)-messagesHeaderRows-messagesRegionRows >= messagesListFloor
+	// Measured against the header the screen actually draws rather than a count of its own: the
+	// mailbox carries a line the other lists do not, and a header taller than the count went on
+	// being charged for three rows.
+	return m.spareLines(header, record, help)-messagesRegionRows >= messagesListFloor
 }
 
 // messagesSlot is the message the cursor is on said in the rows the region always holds: what
