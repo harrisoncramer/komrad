@@ -1825,7 +1825,9 @@ func TestReviewBaseSurvivesAReviewOfALaterRound(t *testing.T) {
 
 	m := reviewWithAnEarlierReview(t, dir, agents)
 	m = pressReviewBase(t, m)
-	require.Equal(t, m.review.baseWanted, agents.rounds[0].GetId())
+
+	reviewed, narrowedTo := agents.rounds[0].GetId(), m.review.baseWanted
+	require.Equal(t, reviewed, narrowedTo)
 
 	second := agents.rounds[1]
 	agents.reviews = append(agents.reviews, &agentv1.Review{
@@ -1844,7 +1846,8 @@ func TestReviewBaseSurvivesAReviewOfALaterRound(t *testing.T) {
 	require.Len(t, agents.rounds, 3)
 	require.Equal(t, agents.rounds[0].GetBaseSha(), agents.rounds[2].GetBaseSha(), "nothing moved")
 
-	assert.Equal(t, m.review.baseWanted, agents.rounds[0].GetId(), "the narrowing is still the reader's")
+	narrowedTo = m.review.baseWanted
+	assert.Equal(t, reviewed, narrowedTo, "the narrowing is still the reader's")
 	assert.Equal(t, "since round 1", m.review.baseLabel)
 	assert.NotContains(t, m.review.notice, "the base moved", "since it did not")
 }
