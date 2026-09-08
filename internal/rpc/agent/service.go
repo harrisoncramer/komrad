@@ -262,22 +262,22 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 		failure, hasFailure := failed[a.ID]
 
 		return agentFlags{
-			mark:         marks[a.ID],
-			alive:        running[a.ID],
-			unreadMail:   hasMail,
-			unviewed:     hasOutput,
-			failedRun:    hasFailure,
-			failedRunLog: failure.LogNumber,
-			rounds:       tallies[a.ID].Rounds,
-			verdict:      verdictOf(tallies[a.ID]),
-			inReview:     reading[a.ID].ReviewerID != "",
+			mark:          marks[a.ID],
+			alive:         running[a.ID],
+			unreadMail:    hasMail,
+			unviewed:      hasOutput,
+			failedRun:     hasFailure,
+			failedRunLog:  failure.LogNumber,
+			localRounds:   tallies[a.ID].Rounds,
+			localVerdict:  localVerdictOf(tallies[a.ID]),
+			inLocalReview: reading[a.ID].ReviewerID != "",
 		}
 	}, nil
 }
 
-// verdictOf is the tally's verdict as the wire carries it, which is the empty string for the
+// localVerdictOf is the tally's verdict as the wire carries it, which is the empty string for the
 // agent whose work no review has concluded on.
-func verdictOf(tally reviewstore.Tally) string {
+func localVerdictOf(tally reviewstore.Tally) string {
 	if tally.Verdict == nil {
 		return ""
 	}

@@ -51,16 +51,16 @@ message Agent {
   string reported_reason = 29;
   // What the agent was launched to do, which decides the half of the review briefing it is sent.
   string role = 30;
-  // How many rounds of its own work an author has released a review against.
-  int32 review_rounds = 31;
+  // How many rounds of local review its own work has been through.
+  int32 local_review_rounds = 31;
   // Whether prompt holds only its opening, which a summary listing returns so that a page of
   // agents does not carry every briefing they were launched with.
   bool prompt_truncated = 32;
-  // What the last released review of the agent's own work concluded, empty when none has been
-  // released.
-  string review_verdict = 33;
+  // What the last released local review of the agent's newest round concluded, empty when that
+  // round carries none.
+  string local_review_verdict = 33;
   // Whether a reviewer child is still owed an answer about the agent's own work.
-  bool in_review = 34;
+  bool in_local_review = 34;
 }
 
 message AgentMetadata {

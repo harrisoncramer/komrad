@@ -245,13 +245,14 @@ type agentItem struct {
 	failedRun  bool
 	// failedRunLog is the run its unread failure was written to, so the pane opens on that one.
 	failedRunLog *int32
-	// rounds is how many rounds of review this agent's own work has been through.
-	rounds int32
-	// verdict is what the last released review of this agent's work concluded, empty when none
-	// has been released.
-	verdict string
-	// inReview reports whether a reviewer child is still owed an answer about this agent's work.
-	inReview bool
+	// localRounds is how many rounds of local review this agent's own work has been through.
+	localRounds int32
+	// localVerdict is what the last released local review of this agent's newest round concluded,
+	// empty when that round carries none.
+	localVerdict string
+	// inLocalReview reports whether a reviewer child is still owed an answer about this agent's
+	// work.
+	inLocalReview bool
 }
 
 // displayState is the state a row wears, which is idle once the pane has gone even though the

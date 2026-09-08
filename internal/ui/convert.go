@@ -48,15 +48,15 @@ func protoToAgent(s *agentv1.Agent) agentstore.Agent {
 func agentItemsFrom(listed []*agentv1.Agent) []agentItem {
 	return xslice.Map(listed, func(agent *agentv1.Agent) agentItem {
 		return agentItem{
-			agent:        protoToAgent(agent),
-			alive:        agent.GetAlive(),
-			unreadMail:   agent.GetUnreadMail(),
-			unviewed:     agent.GetUnviewed(),
-			failedRun:    agent.GetFailedRun(),
-			failedRunLog: agent.FailedRunLog,
-			rounds:       agent.GetReviewRounds(),
-			verdict:      agent.GetReviewVerdict(),
-			inReview:     agent.GetInReview(),
+			agent:         protoToAgent(agent),
+			alive:         agent.GetAlive(),
+			unreadMail:    agent.GetUnreadMail(),
+			unviewed:      agent.GetUnviewed(),
+			failedRun:     agent.GetFailedRun(),
+			failedRunLog:  agent.FailedRunLog,
+			localRounds:   agent.GetLocalReviewRounds(),
+			localVerdict:  agent.GetLocalReviewVerdict(),
+			inLocalReview: agent.GetInLocalReview(),
 		}
 	})
 }

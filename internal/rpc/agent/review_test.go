@@ -168,7 +168,7 @@ func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
 
 		rounds := make(map[string]int32, len(listed.Msg.GetAgents()))
 		for _, agent := range listed.Msg.GetAgents() {
-			rounds[agent.GetName()] = agent.GetReviewRounds()
+			rounds[agent.GetName()] = agent.GetLocalReviewRounds()
 		}
 
 		return rounds

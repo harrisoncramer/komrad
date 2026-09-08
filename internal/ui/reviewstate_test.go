@@ -23,12 +23,12 @@ func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
 		verdict reviewstore.Verdict
 		icon    string
 	}{
-		{name: "approved", verdict: reviewstore.VerdictApproved, icon: approvedIcon},
-		{name: "changes requested", verdict: reviewstore.VerdictChangesRequested, icon: changesRequestedIcon},
+		{name: "approved", verdict: reviewstore.VerdictApproved, icon: localApprovedIcon},
+		{name: "changes requested", verdict: reviewstore.VerdictChangesRequested, icon: localChangesRequestedIcon},
 		{name: "commented", verdict: reviewstore.VerdictCommented},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			mark := verdictMark(string(tt.verdict))
+			mark := localVerdictMark(string(tt.verdict))
 			if tt.icon == "" {
 				assert.Empty(t, mark)
 
@@ -38,32 +38,32 @@ func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
 		})
 	}
 
-	assert.Empty(t, verdictMark(""), "work no review has concluded on carries nothing")
+	assert.Empty(t, localVerdictMark(""), "work no review has concluded on carries nothing")
 }
 
 // TestInReviewMarkSaysAReviewerIsOwedAnAnswer pins the glyph that separates work being read from
 // work whose reading is over.
 func TestInReviewMarkSaysAReviewerIsOwedAnAnswer(t *testing.T) {
-	assert.Contains(t, inReviewMark(true), inReviewIcon)
-	assert.Empty(t, inReviewMark(false))
+	assert.Contains(t, inLocalReviewMark(true), inLocalReviewIcon)
+	assert.Empty(t, inLocalReviewMark(false))
 }
 
 // TestReviewStateNoticesSayWhatTheGlyphsMean covers the two the record spells out, since a tick
 // beside a name says nothing about what was ticked.
 func TestReviewStateNoticesSayWhatTheGlyphsMean(t *testing.T) {
-	reading := agentNotices(agentItem{inReview: true})
+	reading := agentNotices(agentItem{inLocalReview: true})
 	require.Len(t, reading, 1)
-	assert.Contains(t, reading[0].text, "in review")
+	assert.Contains(t, reading[0].text, "in local review")
 
-	approved := agentNotices(agentItem{verdict: string(reviewstore.VerdictApproved)})
+	approved := agentNotices(agentItem{localVerdict: string(reviewstore.VerdictApproved)})
 	require.Len(t, approved, 1)
-	assert.Contains(t, approved[0].text, "approved")
+	assert.Contains(t, approved[0].text, "approved locally")
 
-	changes := agentNotices(agentItem{verdict: string(reviewstore.VerdictChangesRequested)})
+	changes := agentNotices(agentItem{localVerdict: string(reviewstore.VerdictChangesRequested)})
 	require.Len(t, changes, 1)
-	assert.Contains(t, changes[0].text, "changes requested")
+	assert.Contains(t, changes[0].text, "changes requested locally")
 
-	assert.Empty(t, agentNotices(agentItem{verdict: string(reviewstore.VerdictCommented)}),
+	assert.Empty(t, agentNotices(agentItem{localVerdict: string(reviewstore.VerdictCommented)}),
 		"a review released without a conclusion says nothing")
 }
 
@@ -74,9 +74,9 @@ func TestAgentsViewReviewState(t *testing.T) {
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "being-read", WorkflowID: "w1"}, inReview: true},
-			{agent: agentstore.Agent{ID: "a2", Name: "signed-off", WorkflowID: "w1"}, verdict: string(reviewstore.VerdictApproved)},
-			{agent: agentstore.Agent{ID: "a3", Name: "sent-back", WorkflowID: "w1"}, verdict: string(reviewstore.VerdictChangesRequested)},
+			{agent: agentstore.Agent{ID: "a1", Name: "being-read", WorkflowID: "w1"}, inLocalReview: true},
+			{agent: agentstore.Agent{ID: "a2", Name: "signed-off", WorkflowID: "w1"}, localVerdict: string(reviewstore.VerdictApproved)},
+			{agent: agentstore.Agent{ID: "a3", Name: "sent-back", WorkflowID: "w1"}, localVerdict: string(reviewstore.VerdictChangesRequested)},
 			{agent: agentstore.Agent{ID: "a4", Name: "unread", WorkflowID: "w1"}},
 		}},
 	}
@@ -86,9 +86,9 @@ func TestAgentsViewReviewState(t *testing.T) {
 		name string
 		icon string
 	}{
-		{name: "being-read", icon: inReviewIcon},
-		{name: "signed-off", icon: approvedIcon},
-		{name: "sent-back", icon: changesRequestedIcon},
+		{name: "being-read", icon: inLocalReviewIcon},
+		{name: "signed-off", icon: localApprovedIcon},
+		{name: "sent-back", icon: localChangesRequestedIcon},
 	} {
 		row, ok := rowNamed(rows, tt.name)
 		require.True(t, ok, tt.name)
@@ -97,7 +97,7 @@ func TestAgentsViewReviewState(t *testing.T) {
 
 	fresh, ok := rowNamed(rows, "unread")
 	require.True(t, ok)
-	for _, icon := range []string{inReviewIcon, approvedIcon, changesRequestedIcon} {
+	for _, icon := range []string{inLocalReviewIcon, localApprovedIcon, localChangesRequestedIcon} {
 		assert.NotContains(t, fresh, icon)
 	}
 }

@@ -14,18 +14,18 @@ import (
 )
 
 const (
-	unviewedIcon         = "●"
-	childIcon            = "└"
-	scheduledIcon        = "◷"
-	hiddenIcon           = "◌"
-	unreadMailIcon       = "✉"
-	failedRunIcon        = "⚑"
-	reviewRoundsIcon     = "⟳"
-	inReviewIcon         = "✎"
-	approvedIcon         = "✓"
-	changesRequestedIcon = "✗"
-	worktreeRemovedIcon  = "⊘"
-	workflowIcon         = "⧉"
+	unviewedIcon              = "●"
+	childIcon                 = "└"
+	scheduledIcon             = "◷"
+	hiddenIcon                = "◌"
+	unreadMailIcon            = "✉"
+	failedRunIcon             = "⚑"
+	localReviewRoundsIcon     = "⟳"
+	inLocalReviewIcon         = "✎"
+	localApprovedIcon         = "✓"
+	localChangesRequestedIcon = "✗"
+	worktreeRemovedIcon       = "⊘"
+	workflowIcon              = "⧉"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
 	// report, keeping the indent every other row has.
@@ -176,26 +176,26 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
-// reviewRoundsMark counts the rounds of review an agent's work has been through, drawn as a
-// number.
-func reviewRoundsMark(rounds int32) string {
-	return iconMark(rounds > 0, fmt.Sprintf("%s%d", reviewRoundsIcon, rounds), colorMuted)
+// localReviewRoundsMark counts the rounds of local review an agent's work has been through, drawn
+// as a number.
+func localReviewRoundsMark(rounds int32) string {
+	return iconMark(rounds > 0, fmt.Sprintf("%s%d", localReviewRoundsIcon, rounds), colorMuted)
 }
 
-// verdictMark says what the last released review of an agent's work concluded.
-func verdictMark(verdict string) string {
-	icon, color := verdictIcon(verdict)
+// localVerdictMark says what the last released local review of an agent's newest round concluded.
+func localVerdictMark(verdict string) string {
+	icon, color := localVerdictIcon(verdict)
 
 	return iconMark(icon != "", icon, color)
 }
 
-// verdictIcon is the glyph and colour a released verdict wears.
-func verdictIcon(verdict string) (string, lipgloss.Color) {
+// localVerdictIcon is the glyph and colour a released local verdict wears.
+func localVerdictIcon(verdict string) (string, lipgloss.Color) {
 	switch reviewstore.Verdict(verdict) {
 	case reviewstore.VerdictApproved:
-		return approvedIcon, colorSuccess
+		return localApprovedIcon, colorSuccess
 	case reviewstore.VerdictChangesRequested:
-		return changesRequestedIcon, colorDanger
+		return localChangesRequestedIcon, colorDanger
 	case reviewstore.VerdictCommented:
 		return "", colorMuted
 	}
@@ -203,9 +203,9 @@ func verdictIcon(verdict string) (string, lipgloss.Color) {
 	return "", colorMuted
 }
 
-// inReviewMark says a reviewer is still owed an answer about this agent's work.
-func inReviewMark(inReview bool) string {
-	return iconMark(inReview, inReviewIcon, colorAccent)
+// inLocalReviewMark says a reviewer is still owed an answer about this agent's work.
+func inLocalReviewMark(inLocalReview bool) string {
+	return iconMark(inLocalReview, inLocalReviewIcon, colorAccent)
 }
 
 // failedRunMark says a script weave fired for the agent failed and nobody has read it, which the

@@ -36,13 +36,14 @@ type agentFlags struct {
 	// failedRunLog is the log the failure went to, which is what opens the pane on the run
 	// that failed rather than on whatever ran last.
 	failedRunLog *int32
-	// rounds is how many rounds of review this agent's own work has been through.
-	rounds int32
-	// verdict is what the last released review of this agent's work concluded, empty when none
-	// has been released.
-	verdict string
-	// inReview reports whether a reviewer child is still owed an answer about this agent's work.
-	inReview bool
+	// localRounds is how many rounds of local review this agent's own work has been through.
+	localRounds int32
+	// localVerdict is what the last released local review of this agent's newest round concluded,
+	// empty when that round carries none.
+	localVerdict string
+	// inLocalReview reports whether a reviewer child is still owed an answer about this agent's
+	// work.
+	inLocalReview bool
 }
 
 // agentOptions is how much of an agent renderAgent draws.
@@ -84,39 +85,39 @@ func renderAgent(stored agentstore.Agent, flags agentFlags, opts ...agentOption)
 
 	return agent{
 		Agent: &agentv1.Agent{
-			Id:               stored.ID,
-			Name:             stored.Name,
-			Cwd:              stored.Cwd,
-			Flags:            stored.Flags,
-			Prompt:           prompt,
-			PromptTruncated:  promptTruncated,
-			PaneId:           stored.Pane,
-			State:            string(stored.State),
-			Role:             string(stored.Role),
-			SessionId:        stored.SessionID,
-			Harness:          stored.Harness,
-			WorkflowId:       stored.WorkflowID,
-			ScheduleId:       stored.ScheduleID,
-			CreatedAt:        dates.Stamp(stored.CreatedAt),
-			StateChangedAt:   dates.Stamp(stored.StateChangedAt),
-			ReportedReason:   stored.ReportedReason,
-			ArchivedAt:       dates.StampPtr(stored.ArchivedAt),
-			Alive:            flags.alive,
-			UnreadMail:       flags.unreadMail,
-			Mark:             flags.mark,
-			Hidden:           stored.Hidden,
-			Metadata:         metadata,
-			IdempotencyKey:   stored.IdempotencyKey,
-			SpawnedByAgentId: stored.SpawnedByAgentID,
-			ParentAgentId:    stored.ParentAgentID,
-			Branch:           stored.Branch,
-			WorktreeRemoved:  stored.WorktreeRemoved,
-			Unviewed:         flags.unviewed,
-			FailedRun:        flags.failedRun,
-			FailedRunLog:     flags.failedRunLog,
-			ReviewRounds:     flags.rounds,
-			ReviewVerdict:    flags.verdict,
-			InReview:         flags.inReview,
+			Id:                 stored.ID,
+			Name:               stored.Name,
+			Cwd:                stored.Cwd,
+			Flags:              stored.Flags,
+			Prompt:             prompt,
+			PromptTruncated:    promptTruncated,
+			PaneId:             stored.Pane,
+			State:              string(stored.State),
+			Role:               string(stored.Role),
+			SessionId:          stored.SessionID,
+			Harness:            stored.Harness,
+			WorkflowId:         stored.WorkflowID,
+			ScheduleId:         stored.ScheduleID,
+			CreatedAt:          dates.Stamp(stored.CreatedAt),
+			StateChangedAt:     dates.Stamp(stored.StateChangedAt),
+			ReportedReason:     stored.ReportedReason,
+			ArchivedAt:         dates.StampPtr(stored.ArchivedAt),
+			Alive:              flags.alive,
+			UnreadMail:         flags.unreadMail,
+			Mark:               flags.mark,
+			Hidden:             stored.Hidden,
+			Metadata:           metadata,
+			IdempotencyKey:     stored.IdempotencyKey,
+			SpawnedByAgentId:   stored.SpawnedByAgentID,
+			ParentAgentId:      stored.ParentAgentID,
+			Branch:             stored.Branch,
+			WorktreeRemoved:    stored.WorktreeRemoved,
+			Unviewed:           flags.unviewed,
+			FailedRun:          flags.failedRun,
+			FailedRunLog:       flags.failedRunLog,
+			LocalReviewRounds:  flags.localRounds,
+			LocalReviewVerdict: flags.localVerdict,
+			InLocalReview:      flags.inLocalReview,
 		},
 		cursor: agentstore.Cursor{ID: stored.ID},
 	}
