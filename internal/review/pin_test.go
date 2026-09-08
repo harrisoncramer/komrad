@@ -289,9 +289,8 @@ func TestAdriftThreadsSortByLineNotByText(t *testing.T) {
 	assert.Equal(t, "t1", tenth.GetId())
 }
 
-// TestPinTakesAQuoteStoredWithoutItsMarker covers the thread an agent opened, which stores the
-// line as code rather than as the diff drew it, and which used to read as ghosted whatever the
-// line said.
+// TestPinTakesAQuoteStoredWithoutItsMarker covers a thread whose quote is stored as bare code
+// rather than as the diff drew it.
 func TestPinTakesAQuoteStoredWithoutItsMarker(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
@@ -362,4 +361,27 @@ func TestPinRefusesWhenTwoRowsReadTheSameWithoutMarkers(t *testing.T) {
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
 	assert.Equal(t, adrift, view.placed[thread.GetId()])
+}
+
+// TestPinKeepsAMarkedQuoteOffACollidingLine covers the hazard of holding both spellings in one
+// index: a marked context quote whose text is a space and a brace reads the same as the stripped
+// spelling of a row whose code is a space and a brace, and that row is a deletion.
+func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "conf.yaml",
+		NewPath: "conf.yaml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      " }",
+				OldNumber: 5,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "conf.yaml", 0, 200, " }")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, adrift, view.placed[thread.GetId()],
+		"a context line the newer round draws as a deletion is gone")
 }
