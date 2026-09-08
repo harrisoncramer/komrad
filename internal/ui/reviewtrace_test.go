@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -160,20 +159,26 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 	assert.Empty(t, traced, "a later round is not traced backwards into an earlier one")
 }
 
-// TestTraceThreadsGivesUpWholeRatherThanInPart covers the deadline landing while the pairs are
-// being read: placing the threads of whichever pairs answered would make the same two commits
-// draw a comment in different places on different loads.
+// TestTraceThreadsGivesUpWholeRatherThanInPart covers one pair failing while another answers:
+// keeping the answers that arrived would make placement depend on which pairs could be read, so
+// two loads of the same screen would draw the same comments in different places.
 func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	dir, first, second := traceRepo(t)
 
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
+	rounds := []*agentv1.ReviewRound{
+		{Id: "r1", Ordinal: 1, SnapshotSha: first},
+		{Id: "gone", Ordinal: 2, SnapshotSha: "0000000000000000000000000000000000000000"},
+	}
+	threads := []*agentv1.ReviewThread{
+		{Id: "readable", RoundId: "r1", FilePath: "greet.go", NewStart: 4, NewEnd: 4},
+		{Id: "unreadable", RoundId: "gone", FilePath: "greet.go", NewStart: 4, NewEnd: 4},
+	}
 
-	traced := traceThreads(ctx, traceThreadsParams{
+	traced := traceThreads(t.Context(), traceThreadsParams{
 		Dir:     dir,
 		ToSHA:   second,
-		Threads: []*agentv1.ReviewThread{{Id: "t1", RoundId: "r1", FilePath: "greet.go", NewStart: 4, NewEnd: 4}},
-		Rounds:  []*agentv1.ReviewRound{{Id: "r1", Ordinal: 1, SnapshotSha: first}},
+		Threads: threads,
+		Rounds:  rounds,
 	})
 
 	assert.Empty(t, traced, "a pair nobody could read means no tracing rather than some of it")
