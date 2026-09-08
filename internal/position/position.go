@@ -1,5 +1,3 @@
-// Package position moves a place in one commit to the place it has become in another, which is
-// how a comment written against an old snapshot is shown against a newer one.
 package position
 
 // Range is a span of lines, numbered from one, holding its start and not its end, so that a span
