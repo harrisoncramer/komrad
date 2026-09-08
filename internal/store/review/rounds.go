@@ -105,8 +105,8 @@ func (s *Store) GetRound(ctx context.Context, id string) (*Round, error) {
 	return &round, nil
 }
 
-// LatestRound is the newest round taken of an agent, ErrNotFound when none has been.
-func (s *Store) LatestRound(ctx context.Context, agentID string) (*Round, error) {
+// GetLatestRound is the newest round taken of an agent, ErrNotFound when none has been.
+func (s *Store) GetLatestRound(ctx context.Context, agentID string) (*Round, error) {
 	if !store.IsID(agentID) {
 		return nil, roundNotFound(agentID)
 	}
@@ -217,9 +217,9 @@ func (s *Store) OpenReviewOf(ctx context.Context, params AuthorParams) (*Review,
 	return &review, nil
 }
 
-// LastReleasedReviewOf is the newest batch an author has let go of against an agent, which is what
+// GetLastReleasedReview is the newest batch an author has let go of against an agent, which is what
 // says where they last looked, ErrNotFound when they have released none.
-func (s *Store) LastReleasedReviewOf(ctx context.Context, params AuthorParams) (*Review, error) {
+func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) (*Review, error) {
 	if !store.IsID(params.AgentID) {
 		return nil, reviewNotFound(params.AgentID)
 	}

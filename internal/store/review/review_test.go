@@ -27,7 +27,7 @@ func TestARoundIsNumberedAfterTheOnesBeforeIt(t *testing.T) {
 	assert.Equal(t, int32(1), first.Ordinal)
 	assert.Equal(t, int32(2), second.Ordinal)
 
-	latest, err := st.LatestRound(t.Context(), agentID)
+	latest, err := st.GetLatestRound(t.Context(), agentID)
 	require.NoError(t, err)
 	require.NotNil(t, latest)
 	assert.Equal(t, second.ID, latest.ID)
@@ -71,7 +71,7 @@ func TestReleasingAReviewCarriesEveryCommentInIt(t *testing.T) {
 	first := openThread(t, st, agentID, review, "this needs a nil check")
 	second := openThread(t, st, agentID, review, "and this one leaks")
 
-	_, err := st.AddMessage(ctx, AddMessageParams{
+	_, err := st.CreateMessage(ctx, CreateMessageParams{
 		ThreadID:      first.ID,
 		AuthorKind:    AuthorAgent,
 		AuthorAgentID: &agentID,
@@ -145,7 +145,7 @@ func TestRewritingAReplyIsNewActivity(t *testing.T) {
 
 	thread := openThread(t, st, agentID, review, "this needs a nil check")
 
-	answered, err := st.AddMessage(ctx, AddMessageParams{
+	answered, err := st.CreateMessage(ctx, CreateMessageParams{
 		ThreadID:      thread.ID,
 		AuthorKind:    AuthorAgent,
 		AuthorAgentID: &agentID,
@@ -155,7 +155,7 @@ func TestRewritingAReplyIsNewActivity(t *testing.T) {
 
 	catchUp(t, st, agentID)
 
-	_, err = st.EditMessage(ctx, answered.ID, "rewritten", nil)
+	_, err = st.UpdateMessage(ctx, answered.ID, "rewritten", nil)
 	require.NoError(t, err)
 
 	threads, err := st.ListThreads(ctx, agentID)
@@ -176,7 +176,7 @@ func TestMarkThreadReadCatchesUpOneSide(t *testing.T) {
 	second := openThread(t, st, agentID, review, "second note")
 
 	for _, thread := range []*Thread{first, second} {
-		_, err := st.AddMessage(ctx, AddMessageParams{
+		_, err := st.CreateMessage(ctx, CreateMessageParams{
 			ThreadID:      thread.ID,
 			AuthorKind:    AuthorAgent,
 			AuthorAgentID: &agentID,
@@ -232,7 +232,7 @@ func TestMissingRowsAnswerNotFound(t *testing.T) {
 			_, err = st.MarkThreadRead(ctx, tt.id)
 			require.ErrorIs(t, err, store.ErrNotFound)
 
-			_, err = st.EditMessage(ctx, tt.id, "rewritten", nil)
+			_, err = st.UpdateMessage(ctx, tt.id, "rewritten", nil)
 			require.ErrorIs(t, err, store.ErrNotFound)
 
 			_, err = st.GetRound(ctx, tt.id)
@@ -305,7 +305,7 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	_, err := st.SetThreadResolved(ctx, thread.ID, true)
 	require.NoError(t, err)
 
-	said, err := st.AddMessage(ctx, AddMessageParams{
+	said, err := st.CreateMessage(ctx, CreateMessageParams{
 		ThreadID:   thread.ID,
 		ReviewID:   &review.ID,
 		Body:       "one more thing",
@@ -321,7 +321,7 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	_, err = st.SetThreadResolved(ctx, thread.ID, true)
 	require.NoError(t, err)
 
-	_, err = st.EditMessage(ctx, said.ID, "one more thing, rewritten", nil)
+	_, err = st.UpdateMessage(ctx, said.ID, "one more thing, rewritten", nil)
 	require.NoError(t, err)
 
 	edited, err := st.GetThread(ctx, thread.ID)
@@ -621,7 +621,7 @@ func TestMovingAThreadKeepsWhatWasSaidInIt(t *testing.T) {
 	review := openReview(t, st, agentID, round.ID)
 	thread := openThread(t, st, agentID, review, "the first word")
 
-	_, err := st.AddMessage(ctx, AddMessageParams{
+	_, err := st.CreateMessage(ctx, CreateMessageParams{
 		ThreadID: thread.ID, ReviewID: &review.ID, Body: "the second", AuthorKind: AuthorHuman,
 	})
 	require.NoError(t, err)
@@ -699,7 +699,7 @@ func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
 	agentID := seedAgent(t, st)
 	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorHuman}
 
-	_, err := st.LastReleasedReviewOf(ctx, author)
+	_, err := st.GetLastReleasedReview(ctx, author)
 	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has looked nowhere")
 
 	first := openRound(t, st, agentID, "tree-one")
@@ -709,13 +709,13 @@ func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
 	second := openRound(t, st, agentID, "tree-two")
 	secondReview := openReview(t, st, agentID, second.ID)
 
-	held, err := st.LastReleasedReviewOf(ctx, author)
+	held, err := st.GetLastReleasedReview(ctx, author)
 	require.NoError(t, err)
 	assert.Equal(t, firstReview.ID, held.ID, "a batch still being written is not one they have looked at")
 
 	release(t, st, agentID, secondReview.ID, VerdictApproved)
 
-	latest, err := st.LastReleasedReviewOf(ctx, author)
+	latest, err := st.GetLastReleasedReview(ctx, author)
 	require.NoError(t, err)
 	assert.Equal(t, secondReview.ID, latest.ID)
 }
@@ -779,6 +779,6 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, released.ID, kept.ID, "the review the agent was already given stands")
 
-	_, err = st.LastReleasedReviewOf(ctx, author)
+	_, err = st.GetLastReleasedReview(ctx, author)
 	require.NoError(t, err)
 }

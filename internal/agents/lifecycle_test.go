@@ -682,7 +682,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	first := seedRoundedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
 	second := seedRoundedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
 
-	round, err := reviews.LatestRound(t.Context(), worker)
+	round, err := reviews.GetLatestRound(t.Context(), worker)
 	require.NoError(t, err)
 
 	// The first reviewer has had its say and started another; the second is still writing its

@@ -108,7 +108,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Agent, error) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.GetAgentsByID(ctx, storable)
+	rows, err := s.queries.ListAgentsByID(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %d agents: %w", len(storable), err)
 	}
@@ -130,8 +130,8 @@ func (s *Store) Exists(ctx context.Context, id string) (bool, error) {
 	return exists, nil
 }
 
-// DoesActiveNameExist reports whether a live agent holds the name in a workflow.
-func (s *Store) DoesActiveNameExist(ctx context.Context, workflowID, name string) (bool, error) {
+// ActiveNameExists reports whether a live agent holds the name in a workflow.
+func (s *Store) ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error) {
 	exists, err := s.queries.ActiveNameExists(ctx, models.ActiveNameExistsParams{
 		WorkflowID: workflowID,
 		Name:       name,
@@ -143,9 +143,9 @@ func (s *Store) DoesActiveNameExist(ctx context.Context, workflowID, name string
 	return exists, nil
 }
 
-// NamesHoldingSchedule returns the names of the agents outside a workflow that still point
+// ListNamesHoldingSchedule returns the names of the agents outside a workflow that still point
 // at a schedule, which is only the ones a schedule moved between workflows left behind.
-func (s *Store) NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
+func (s *Store) ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error) {
 	if !store.IsID(scheduleID) || !store.IsID(workflowID) {
 		return nil, nil
 	}

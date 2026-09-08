@@ -297,7 +297,7 @@ func (s *Store) SetThreadResolved(ctx context.Context, id string, resolved bool)
 	return &thread, nil
 }
 
-type AddMessageParams struct {
+type CreateMessageParams struct {
 	ThreadID string
 	// ReviewID is the batch the message goes out with, nil for an answer.
 	ReviewID   *string
@@ -309,9 +309,9 @@ type AddMessageParams struct {
 	Body          string
 }
 
-// AddMessage writes a message into a thread and moves the writer's activity stamp, both in
+// CreateMessage writes a message into a thread and moves the writer's activity stamp, both in
 // one statement.
-func (s *Store) AddMessage(ctx context.Context, params AddMessageParams) (*Message, error) {
+func (s *Store) CreateMessage(ctx context.Context, params CreateMessageParams) (*Message, error) {
 	row, err := s.queries.InsertReviewMessage(ctx, models.InsertReviewMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      params.ReviewID,
@@ -340,9 +340,9 @@ func (s *Store) AddMessage(ctx context.Context, params AddMessageParams) (*Messa
 	return &message, nil
 }
 
-// EditMessage rewrites a message and moves its author's activity stamp with it, so the other
+// UpdateMessage rewrites a message and moves its author's activity stamp with it, so the other
 // side sees a rewrite as something new rather than as the text it was already shown.
-func (s *Store) EditMessage(ctx context.Context, id, body string, suggestion []string) (*Message, error) {
+func (s *Store) UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*Message, error) {
 	if !store.IsID(id) {
 		return nil, messageNotFound(id)
 	}

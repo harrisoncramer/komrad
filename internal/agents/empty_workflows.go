@@ -20,7 +20,7 @@ type emptyWorkflowGetDeleter interface {
 
 type workflowResidentLister interface {
 	ListArchivedInWorkflow(ctx context.Context, workflowID string) ([]agentstore.Agent, error)
-	NamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error)
+	ListNamesHoldingSchedule(ctx context.Context, scheduleID, workflowID string) ([]string, error)
 }
 
 type workflowScheduleListDeleter interface {
@@ -96,7 +96,7 @@ func (d *EmptyWorkflowDeleter) heldSchedules(ctx context.Context, existing *work
 	}
 
 	for _, schedule := range schedules {
-		held, err := d.agents.NamesHoldingSchedule(ctx, schedule.ID, existing.ID)
+		held, err := d.agents.ListNamesHoldingSchedule(ctx, schedule.ID, existing.ID)
 		if err != nil {
 			return nil, err
 		}

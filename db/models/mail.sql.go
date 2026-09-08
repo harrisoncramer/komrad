@@ -160,49 +160,6 @@ func (q *Queries) GetMail(ctx context.Context, id string) (*Mail, error) {
 	return &i, err
 }
 
-const getMailByID = `-- name: GetMailByID :many
-SELECT
-    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id
-FROM
-    mail m
-WHERE
-    m.id = ANY ($1::uuid[])
-`
-
-func (q *Queries) GetMailByID(ctx context.Context, ids []string) ([]*Mail, error) {
-	rows, err := q.db.Query(ctx, getMailByID, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Mail
-	for rows.Next() {
-		var i Mail
-		if err := rows.Scan(
-			&i.ID,
-			&i.FromAgentID,
-			&i.FromName,
-			&i.ToAgentID,
-			&i.Body,
-			&i.ReplyTo,
-			&i.ClaimedAt,
-			&i.ReportedAt,
-			&i.ExpiresAt,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.Kind,
-			&i.AboutAgentID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getPendingMailOfKind = `-- name: GetPendingMailOfKind :one
 SELECT
     id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id
@@ -308,6 +265,49 @@ func (q *Queries) InsertMail(ctx context.Context, arg InsertMailParams) (*Mail, 
 		&i.AboutAgentID,
 	)
 	return &i, err
+}
+
+const listMailByID = `-- name: ListMailByID :many
+SELECT
+    id, from_agent_id, from_name, to_agent_id, body, reply_to, claimed_at, reported_at, expires_at, created_at, updated_at, kind, about_agent_id
+FROM
+    mail m
+WHERE
+    m.id = ANY ($1::uuid[])
+`
+
+func (q *Queries) ListMailByID(ctx context.Context, ids []string) ([]*Mail, error) {
+	rows, err := q.db.Query(ctx, listMailByID, ids)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Mail
+	for rows.Next() {
+		var i Mail
+		if err := rows.Scan(
+			&i.ID,
+			&i.FromAgentID,
+			&i.FromName,
+			&i.ToAgentID,
+			&i.Body,
+			&i.ReplyTo,
+			&i.ClaimedAt,
+			&i.ReportedAt,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.AboutAgentID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listMailPage = `-- name: ListMailPage :many

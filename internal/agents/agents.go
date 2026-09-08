@@ -78,7 +78,7 @@ type agentGetter interface {
 }
 
 type nameChecker interface {
-	DoesActiveNameExist(ctx context.Context, workflowID, name string) (bool, error)
+	ActiveNameExists(ctx context.Context, workflowID, name string) (bool, error)
 }
 
 // agentFailWriter records that an agent's create or cleanup gave up, which is a write to the
