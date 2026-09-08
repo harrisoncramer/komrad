@@ -62,10 +62,13 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
-	notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, colorAccent, inLocalReviewNotice)
 
 	icon, color := localVerdictIcon(item.localVerdict)
 	said := localVerdictNotice(item.localVerdict)
+	if icon == "" || said == "" {
+		notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, colorAccent, inLocalReviewNotice)
+	}
+
 	notices = appendNotice(notices, icon != "" && said != "", icon, color, said)
 
 	return appendNotice(notices, item.localRounds > 0, localReviewRoundsIcon, colorMuted, localReviewRoundsNotice(item.localRounds))

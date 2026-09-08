@@ -28,7 +28,7 @@ func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
 		{name: "commented", verdict: reviewstore.VerdictCommented},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			mark := localVerdictMark(string(tt.verdict))
+			mark := localReviewMark(false, string(tt.verdict))
 			if tt.icon == "" {
 				assert.Empty(t, mark)
 
@@ -38,14 +38,30 @@ func TestVerdictMarkDrawsOnlyAConclusion(t *testing.T) {
 		})
 	}
 
-	assert.Empty(t, localVerdictMark(""), "work no review has concluded on carries nothing")
+	assert.Empty(t, localReviewMark(false, ""), "work no review has concluded on carries nothing")
 }
 
 // TestInReviewMarkSaysAReviewerIsOwedAnAnswer pins the glyph that separates work being read from
 // work whose reading is over.
 func TestInReviewMarkSaysAReviewerIsOwedAnAnswer(t *testing.T) {
-	assert.Contains(t, inLocalReviewMark(true), inLocalReviewIcon)
-	assert.Empty(t, inLocalReviewMark(false))
+	assert.Contains(t, localReviewMark(true, ""), inLocalReviewIcon)
+	assert.Empty(t, localReviewMark(false, ""))
+}
+
+// TestReviewMarkGivesAVerdictTheColumn is why a sent-back round draws one glyph rather than two:
+// a live reviewer is implied by every verdict short of approval, so the pencil beside it said
+// nothing a person could act on.
+func TestReviewMarkGivesAVerdictTheColumn(t *testing.T) {
+	sentBack := localReviewMark(true, string(reviewstore.VerdictChangesRequested))
+	assert.Contains(t, sentBack, localChangesRequestedIcon)
+	assert.NotContains(t, sentBack, inLocalReviewIcon)
+
+	noted := localReviewMark(true, string(reviewstore.VerdictCommented))
+	assert.Contains(t, noted, inLocalReviewIcon, "notes without a conclusion leave the reading unfinished")
+
+	notices := agentNotices(agentItem{inLocalReview: true, localVerdict: string(reviewstore.VerdictChangesRequested)})
+	require.Len(t, notices, 1, "the record says it once too")
+	assert.Contains(t, notices[0].text, "asked for changes")
 }
 
 // TestReviewStateNoticesSayWhatTheGlyphsMean covers the two the record spells out, since a tick

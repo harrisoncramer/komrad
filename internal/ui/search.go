@@ -388,7 +388,7 @@ func (m model) hitHeader(hit searchHit) string {
 		worktreeRemovedMark(item) + scheduledMark(item.agent) + hiddenMark(item.agent.Hidden) +
 		unreadMailMark(item.unreadMail) + unviewedMark(item.unviewed) +
 		failedRunMark(item.failedRun) + localReviewRoundsMark(item.localRounds) +
-		inLocalReviewMark(item.inLocalReview) + localVerdictMark(item.localVerdict)
+		localReviewMark(item.inLocalReview, item.localVerdict)
 }
 
 // searchRows lays the hits out as the lines the screen draws, reporting where the cursor's own
