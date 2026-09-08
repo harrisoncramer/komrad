@@ -130,8 +130,10 @@ type adoptParams struct {
 	WorkflowID string
 }
 
-func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
-	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.Agent, error) {
+// adopt answers with the whole response rather than the agent, since whether the branch already
+// had one is what the panel has to say out loud.
+func (a api) adopt(params adoptParams) (*agentv1.AdoptResponse, error) {
+	return call(createAgentTimeout, func(ctx context.Context) (*agentv1.AdoptResponse, error) {
 		resp, err := a.agents.Adopt(ctx, connect.NewRequest(&agentv1.AdoptRequest{
 			Ref:        params.Ref,
 			Prompt:     params.Prompt,
@@ -144,7 +146,7 @@ func (a api) adopt(params adoptParams) (*agentv1.Agent, error) {
 			return nil, err
 		}
 
-		return resp.Msg.GetAgent(), nil
+		return resp.Msg, nil
 	})
 }
 

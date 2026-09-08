@@ -1909,23 +1909,24 @@ func TestAgentLifecycleGoesThroughTheService(t *testing.T) {
 // fakeLauncher stands in for every service the handler talks to at once, so a test can wire one
 // fake into all five of its params rather than five.
 type fakeLauncher struct {
-	got            agents.NewAgentParams
-	adopted        agents.AdoptParams
-	created        *agentstore.Agent
-	err            error
-	alive          bool
-	deleted        []string
-	deleteErr      error
-	archived       []string
-	archiveErr     error
-	restored       []string
-	restoredAgents []agentstore.Agent
-	restoreErr     error
-	resumed        []string
-	resumeErr      error
-	runningCalls   int
-	reviewed       agents.RequestReviewParams
-	guidance       string
+	got             agents.NewAgentParams
+	adopted         agents.AdoptParams
+	adoptedExisting bool
+	created         *agentstore.Agent
+	err             error
+	alive           bool
+	deleted         []string
+	deleteErr       error
+	archived        []string
+	archiveErr      error
+	restored        []string
+	restoredAgents  []agentstore.Agent
+	restoreErr      error
+	resumed         []string
+	resumeErr       error
+	runningCalls    int
+	reviewed        agents.RequestReviewParams
+	guidance        string
 }
 
 func (f *fakeLauncher) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
@@ -1946,13 +1947,13 @@ func (f *fakeLauncher) RequestReview(_ context.Context, p agents.RequestReviewPa
 	return f.created, f.guidance, nil
 }
 
-func (f *fakeLauncher) Adopt(_ context.Context, p agents.AdoptParams) (*agentstore.Agent, error) {
-	f.adopted = p
+func (f *fakeLauncher) Adopt(_ context.Context, params agents.AdoptParams) (agents.Adoption, error) {
+	f.adopted = params
 	if f.err != nil {
-		return nil, f.err
+		return agents.Adoption{}, f.err
 	}
 
-	return f.created, nil
+	return agents.Adoption{Agent: f.created, Existing: f.adoptedExisting}, nil
 }
 
 // IsAgentRunning answers for the fake's agents, which are live exactly when the test says so.
