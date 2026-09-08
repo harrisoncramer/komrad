@@ -221,3 +221,30 @@ func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
 
 	assert.Equal(t, frames, written, "every frame was written")
 }
+
+// TestDocRowsFitTheColumn covers a message carrying an indented code block, whose tabs are a
+// width the terminal draws and the panel's own measuring does not, so a row that overran the
+// column wrapped and pushed the frame past the pane it was drawn in.
+func TestDocRowsFitTheColumn(t *testing.T) {
+	body := "Here is the queue:\n\n    125:\t\t\tqueues.SupervisorReconciliation: {\n    135:\t\t\t\t\tGlobalLimit: 1,\n\nSo it is there.\n"
+
+	for _, width := range []int{40, 50, 60, 80} {
+		t.Run(strconv.Itoa(width), func(t *testing.T) {
+			for _, row := range docRows(body, width) {
+				plain := ansi.Strip(row)
+
+				assert.NotContains(t, plain, "\t", "a row holds no tab for the terminal to widen")
+				assert.LessOrEqual(t, ansi.StringWidth(row), width, "the row fits its column: %q", plain)
+			}
+		})
+	}
+}
+
+// TestExpandTabs covers the stops the tabs are taken to, counted from the start of each line.
+func TestExpandTabs(t *testing.T) {
+	assert.Equal(t, "    ", expandTabs("\t"))
+	assert.Equal(t, "ab  cd", expandTabs("ab\tcd"))
+	assert.Equal(t, "abc d", expandTabs("abc\td"))
+	assert.Equal(t, "a   \nbc  d", expandTabs("a\t\nbc\td"))
+	assert.Equal(t, "no tabs here", expandTabs("no tabs here"))
+}

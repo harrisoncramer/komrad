@@ -12,7 +12,36 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const tabWidth = 4
+
+func expandTabs(text string) string {
+	if !strings.Contains(text, "\t") {
+		return text
+	}
+
+	var b strings.Builder
+	column := 0
+	for _, r := range text {
+		switch r {
+		case '\t':
+			pad := tabWidth - column%tabWidth
+			b.WriteString(strings.Repeat(" ", pad))
+			column += pad
+		case '\n':
+			b.WriteRune(r)
+			column = 0
+		default:
+			b.WriteRune(r)
+			column++
+		}
+	}
+
+	return b.String()
+}
+
 func render(markdown string, wrap int) string {
+	markdown = expandTabs(markdown)
+
 	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
