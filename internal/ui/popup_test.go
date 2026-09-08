@@ -61,9 +61,8 @@ func (t *panelKeyRecorder) BindKeyChecked(key string, command ...string) error {
 	return t.err
 }
 
-// TestBindPanelKey pins the binding naming this binary's own path, since a tmux server keeps
-// whatever PATH it started with for life, and pins both branches going through it, since the
-// key press decides nothing for itself.
+// TestBindPanelKey pins the binding naming this binary's own path, and pins both branches going
+// through it.
 func TestBindPanelKey(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -110,8 +109,7 @@ func TestBindPanelKey(t *testing.T) {
 	}
 }
 
-// TestBindPanelKeyReportsRefusal pins the refusal reaching the person who asked for it, since
-// a tmux that is not running is what a rejected binding looks like.
+// TestBindPanelKeyReportsRefusal pins the refusal reaching the person who asked for it.
 func TestBindPanelKeyReportsRefusal(t *testing.T) {
 	tmux := &panelKeyRecorder{err: assert.AnError}
 
@@ -143,8 +141,7 @@ func TestIsShown(t *testing.T) {
 	}
 }
 
-// TestBindHide pins the key the popup closes on being the one handed in, since it is read off
-// the user's own server and this client is bound to the manager's.
+// TestBindHide pins the key the popup closes on being the one handed in.
 func TestBindHide(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -182,8 +179,8 @@ func TestUserPanelKey(t *testing.T) {
 	assert.Equal(t, "w", UserPanelKey(tmux))
 }
 
-// TestBindFocusKey pins the branch test being a tmux format rather than a shell command, since a
-// key pressed this often cannot afford to fork, and pins the two ways of binding nothing.
+// TestBindFocusKey pins the branch test being a tmux format and not a shell command, and pins
+// the two ways of binding nothing.
 func TestBindFocusKey(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -250,7 +247,7 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 }
 
 // TestFocusKeyHeldOnlyOverAStagedAgent checks the key is bound only while an agent's pane is on
-// the stage, since the binding is unconditional for as long as it stands.
+// the stage.
 func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)
@@ -295,8 +292,7 @@ func TestFocusKeyGivenBackByADeadAgent(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, binds.unbound)
 }
 
-// TestFocusKeyReachesTmuxOnce checks a key that is already right is left alone, since the panel
-// works this out on every message and cannot call tmux each time.
+// TestFocusKeyReachesTmuxOnce checks a key that is already right is left alone.
 func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)

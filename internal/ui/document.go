@@ -15,13 +15,11 @@ type docWindow struct {
 	rows []string
 	top  int
 	// markers is whether the window counts the rows above and below it, which a document read
-	// from the top wants and a transcript opened on a match does not, since the match is what
-	// says where in it the reader is.
+	// from the top wants and a transcript opened on a match does not.
 	markers bool
 }
 
-// clamp keeps the window inside the document, since the cursor can land on a shorter one while
-// the offset stands and a window past the end would draw nothing.
+// clamp keeps the window inside the document.
 func (d docWindow) clamp(top, rows int) int {
 	if len(d.rows) <= rows {
 		return 0

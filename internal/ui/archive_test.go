@@ -238,8 +238,7 @@ func TestArchiveRows(t *testing.T) {
 	}
 }
 
-// TestArchiveHelpSplitsOnTheRow covers the legend saying what the row under the cursor takes,
-// since restore means a different thing on a folder than on an agent.
+// TestArchiveHelpSplitsOnTheRow covers the legend saying what the row under the cursor takes.
 func TestArchiveHelpSplitsOnTheRow(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -419,7 +418,7 @@ func TestArchiveEmptyConfirm(t *testing.T) {
 }
 
 // TestEmptyArchivePromptStartsOnCancel covers the prompt opening on the answer that costs
-// nothing, since nothing in the panel undoes emptying the archive.
+// nothing.
 func TestEmptyArchivePromptStartsOnCancel(t *testing.T) {
 	client := &fakeArchiveAgents{}
 	keys := config.DefaultKeybindings()
@@ -625,7 +624,7 @@ func TestArchiveMarkdown(t *testing.T) {
 }
 
 // TestArchiveDrawsWhyADeleteLeftARowBehind covers the document for an agent whose deprovisioner
-// failed, since the archive is the only place that failure is legible.
+// failed.
 func TestArchiveDrawsWhyADeleteLeftARowBehind(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend"}}
@@ -665,8 +664,8 @@ func TestArchiveFields(t *testing.T) {
 	assert.Contains(t, labels, "archived", "the record says when it was put away")
 }
 
-// TestArchiveIsOrderedByWhenAgentsWereArchived covers the archive's order, since the listing
-// arrives keyed on the id and would otherwise sort by when each agent was created.
+// TestArchiveIsOrderedByWhenAgentsWereArchived covers the archive being ordered by when each
+// agent was archived and not by when it was created.
 func TestArchiveIsOrderedByWhenAgentsWereArchived(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -962,7 +961,7 @@ func TestArchiveScrollsTheDocument(t *testing.T) {
 }
 
 // TestArchiveCursorTakesTheDocumentBackToItsTop covers the offset belonging to the row it was
-// scrolled on, since the next row is a document the reader has not seen the start of.
+// scrolled on.
 func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.column.top = 12
@@ -975,8 +974,8 @@ func TestArchiveCursorTakesTheDocumentBackToItsTop(t *testing.T) {
 	assert.Equal(t, 12, m.column.top, "a cursor that could not move leaves the offset where it was")
 }
 
-// TestArchiveHandsTheWindowBack covers the zoom, which has to go for the screen the reader
-// leaves for, since what stands beside the list there is somebody else's own pane.
+// TestArchiveHandsTheWindowBack covers the zoom going when the reader leaves for another
+// screen.
 func TestArchiveHandsTheWindowBack(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
@@ -1072,9 +1071,8 @@ func TestArchiveGivesUpTheSplitWhenTheListWillNotFit(t *testing.T) {
 	assert.LessOrEqual(t, countLines(m.View()), m.height)
 }
 
-// TestArchiveDocViewFillsItsColumn covers the document's own column at the row counts the join is
-// least forgiving of: the block stands exactly as tall as its half of the window at every offset,
-// since a block that falls short lets the list beside it slide underneath.
+// TestArchiveDocViewFillsItsColumn covers the document's own column standing exactly as tall as
+// its half of the window at every offset.
 func TestArchiveDocViewFillsItsColumn(t *testing.T) {
 	m := splitArchiveModel(t)
 	m.landArchiveCursor(m.archiveRows(), 0)

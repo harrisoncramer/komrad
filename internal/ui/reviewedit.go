@@ -80,8 +80,7 @@ func editorContent(editor, dir, path string, line int) layout.Content {
 }
 
 // editReviewFile opens the round's own copy of the file under the cursor in a split under the
-// diff, so that what the reviewer types is invisible to the agent still writing to the worktree,
-// and the line the cursor is standing on is a line of the file being opened.
+// diff, on the line the cursor is standing on.
 func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	path, line, ok := m.review.view.GetEditTarget(m.review.cursor)
 	if !ok {
@@ -96,8 +95,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 	}
 
 	// The checkout is asked for again whenever it stands on a snapshot other than the one being
-	// read, since opening the editor on the previous round is the whole bug this key was changed
-	// to close.
+	// read.
 	if m.review.roundSha != m.review.round.GetSnapshotSha() {
 		// A second press while the first checkout is still being made would run two of them at
 		// the same path, where one reaps the directory the other is writing into.
@@ -121,7 +119,7 @@ func (m model) editReviewFile() (tea.Model, tea.Cmd) {
 }
 
 // materialiseRoundCmd checks the round out beside the agent's worktree rather than in it, one
-// directory per agent, since a reader opens many files of one round and rarely two rounds at once.
+// directory per agent.
 func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 	agentID, root, sha := m.review.agentID, m.review.root, m.review.round.GetSnapshotSha()
 	at := filepath.Join(m.roundsDir, agentID)
@@ -130,9 +128,8 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		// The disk is asked here rather than on the keypress, since this is the moment the force
-		// checkout below would take an earlier round's edit, and a lookup made when the screen
-		// opened is one a quick reader can beat.
+		// The disk is asked here rather than on the keypress, which is the moment the force
+		// checkout below would take an earlier round's edit.
 		if !force && doesHoldLeftover(ctx, at, sha) {
 			return roundReadyMsg{agentID: agentID, leftover: at}
 		}
@@ -192,9 +189,8 @@ func (m model) applyRoundReady(msg roundReadyMsg) (tea.Model, tea.Cmd) {
 	return m.editReviewFile()
 }
 
-// reapRoundCmd takes the checkout away when the screen it was cut for closes, unless the reviewer
-// wrote something into it that no comment has carried yet, since leaving a screen is not an answer
-// to what they typed and the checkout is the only place that text lives.
+// reapRoundCmd takes the checkout away when the screen it was cut for closes, unless the
+// reviewer wrote something into it that no comment has carried yet.
 func (m model) reapRoundCmd(root, at string) tea.Cmd {
 	if at == "" {
 		return nil
@@ -222,8 +218,7 @@ func (m model) reapRoundCmd(root, at string) tea.Cmd {
 	}
 }
 
-// findRoundLeftoverCmd looks for the checkout an earlier sitting left behind, since the edits in it
-// were never carried anywhere else and the reader would otherwise never be offered them again.
+// findRoundLeftoverCmd looks for the checkout an earlier sitting left behind.
 func (m model) findRoundLeftoverCmd() tea.Cmd {
 	agentID := m.review.agentID
 	at := filepath.Join(m.roundsDir, agentID)
@@ -252,7 +247,7 @@ func (m model) findRoundLeftoverCmd() tea.Cmd {
 }
 
 // applyRoundLeftover picks the checkout back up when it is standing on the round being read, and
-// otherwise says it is there, since the next edit checks this round out over the top of it.
+// otherwise says it is there.
 func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 	if msg.agentID != m.review.agentID || m.review.view == nil {
 		return
@@ -276,8 +271,8 @@ func (m *model) applyRoundLeftover(msg roundLeftoverMsg) {
 	m.review.roundSha = msg.sha
 }
 
-// readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it rather than
-// the file the editor was opened on, since an editor is free to visit another file.
+// readRoundEditsCmd asks the checkout what the reviewer wrote, which is the whole of it and not
+// just the file the editor was opened on.
 func (m model) readRoundEditsCmd() tea.Cmd {
 	agentID, at, sha := m.review.agentID, m.review.roundDir, m.review.roundSha
 	if at == "" {
@@ -412,8 +407,7 @@ func toHarvestedRuns(runs []review.Run) []*agentv1.HarvestedRun {
 	return out
 }
 
-// applyRoundHarvested says what the harvest did, since a comment appearing with nobody having
-// asked for one reads as the panel doing something odd unless it is named.
+// applyRoundHarvested says what the harvest did.
 func (m *model) applyRoundHarvested(msg roundHarvestedMsg) {
 	if msg.agentID != m.review.agentID {
 		return

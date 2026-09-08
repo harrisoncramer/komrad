@@ -80,8 +80,7 @@ func (m model) toggleDetailsFocus() model {
 	return m.refocused()
 }
 
-// refocused tells the screen the keys have moved between its list and the record under it, since
-// a screen drawing its own pane has to repaint to say so.
+// refocused tells the screen the keys have moved between its list and the record under it.
 func (m model) refocused() model {
 	spec := m.screen.spec().details
 	if spec == nil || spec.refocus == nil {
@@ -170,8 +169,8 @@ func (m model) detailsView() string {
 		return ""
 	}
 
-	// Two field lines are kept back rather than one, since renderList only says how many fields
-	// it left out when it has room for that line and a field under it.
+	// Two field lines are kept back rather than one, which is what renderList needs to say how
+	// many fields it left out.
 	notices := m.detailsNotices(held, m.detailsLines()-3)
 	block, lines := "", m.detailsLines()
 	if len(notices) > 0 {
@@ -208,7 +207,7 @@ func (m model) detailsTitle(held details) string {
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice
-// that does not fit rather than the fields under it, since the row still carries its glyph.
+// that does not fit rather than the fields under it.
 func (m model) detailsNotices(held details, budget int) []string {
 	if budget <= 0 {
 		return nil
@@ -218,8 +217,7 @@ func (m model) detailsNotices(held details, budget int) []string {
 	for _, n := range held.notices {
 		lines := m.noticeLines(n, 0)
 		if len(drawn)+len(lines) > budget {
-			// The first notice is cut short rather than given up, since at a size where no
-			// sentence fits whole the glyph on its own leaves the reader with nothing.
+			// The first notice is cut short rather than given up.
 			if len(drawn) > 0 {
 				break
 			}
@@ -238,9 +236,7 @@ func (m model) detailsNotices(held details, budget int) []string {
 func (m model) noticeLines(n notice, most int) []string {
 	const indent = "    "
 
-	// A notice that is going to be cut keeps a cell back for the ellipsis, since these are the
-	// only lines the record does not clip and one cell past the column is a row the review
-	// screen truncates back, taking the ellipsis with it.
+	// A notice that is going to be cut keeps a cell back for the ellipsis.
 	width := max(m.lineWidth()-len(indent), 1)
 	if most > 0 {
 		width = max(width-1, 1)

@@ -117,8 +117,7 @@ func TestRenderListWindow(t *testing.T) {
 	}
 }
 
-// TestRenderListKeepsCursorVisible walks the cursor down the list at every pane height,
-// since the window is derived from the cursor and holds no offset of its own.
+// TestRenderListKeepsCursorVisible walks the cursor down the list at every pane height.
 func TestRenderListKeepsCursorVisible(t *testing.T) {
 	rows := numbered(50)
 
@@ -132,13 +131,11 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 	}
 }
 
-// TestScreensFitThePane pins the header, the list, and the legend fitting the pane together,
-// since a legend shoved off the bottom is what the clipping is there to save.
+// TestScreensFitThePane pins the header, the list, and the legend fitting the pane together.
 func TestScreensFitThePane(t *testing.T) {
 	const (
-		// Taller than the tallest legend on purpose, since a pane too short for its own chrome
-		// overflows by design, and the agents legend grew a key when the block beside the list
-		// gained one, and another when the mailbox key was finally named.
+		// Taller than the tallest legend on purpose: a pane too short for its own chrome overflows
+		// by design.
 		height = 29
 		total  = 40
 	)
@@ -236,7 +233,7 @@ func TestListLines(t *testing.T) {
 }
 
 // TestWindowRowsNeverOutgrowsThePane pins the one bound every caller of the marker arithmetic
-// rests on, since bubbletea draws whatever it is handed and a taller block scrolls the pane away.
+// rests on.
 func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
 	rows := make([]string, 12)
 	for i := range rows {

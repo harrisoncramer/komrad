@@ -213,8 +213,8 @@ func TestReviewEditorFollowsTheCursor(t *testing.T) {
 	assert.Contains(t, reopened, "vi +5 'greet.go'")
 }
 
-// TestReviewEditCloseHoldsTheEdit pins every way the editor closes reading what was written in the
-// round, since that is the only moment weave can tell an edit from an untouched file.
+// TestReviewEditCloseHoldsTheEdit pins every way the editor closes reading what was written in
+// the round.
 func TestReviewEditCloseHoldsTheEdit(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -620,8 +620,7 @@ func TestReviewEditReapsTheCheckout(t *testing.T) {
 	assert.NoDirExists(t, at, "the checkout went with the screen")
 }
 
-// TestReviewEditCloseCaughtByTheTick pins the tick catching the editor gone as well, since a
-// tmux that reports no focus event would otherwise leave the diff behind it stale.
+// TestReviewEditCloseCaughtByTheTick pins the tick catching the editor gone as well.
 func TestReviewEditCloseCaughtByTheTick(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -645,8 +644,7 @@ func writeRoundFile(t *testing.T, m model, content string) {
 	require.NoError(t, os.WriteFile(filepath.Join(m.review.roundDir, "greet.go"), []byte(content), 0o644))
 }
 
-// drainCmd runs a command and every command a batch of them holds, since a batch is what the
-// panel returns when one keypress does two things.
+// drainCmd runs a command and every command a batch of them holds.
 func drainCmd(cmd tea.Cmd) {
 	if cmd == nil {
 		return
@@ -659,8 +657,7 @@ func drainCmd(cmd tea.Cmd) {
 	}
 }
 
-// TestReviewKeepsDrawingAfterAReload pins the diff still being drawn after a reload, since a
-// reload that lost the patch would leave the sidebar moving over an empty half.
+// TestReviewKeepsDrawingAfterAReload pins the diff still being drawn after a reload.
 func TestReviewKeepsDrawingAfterAReload(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)

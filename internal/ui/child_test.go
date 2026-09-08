@@ -74,8 +74,7 @@ func TestChildRowsFollowTheirParent(t *testing.T) {
 	assert.False(t, rows[4].child)
 }
 
-// TestHiddenParentTakesItsChildren pins that hiding a parent hides the rows under it, since a
-// child indented under nothing reads as belonging to whatever is above it.
+// TestHiddenParentTakesItsChildren pins that hiding a parent hides the rows under it.
 func TestHiddenParentTakesItsChildren(t *testing.T) {
 	m := familyTree()
 	m.listing.agents[0].agent.Hidden = true
@@ -95,7 +94,7 @@ func TestHiddenParentTakesItsChildren(t *testing.T) {
 }
 
 // TestOrphanedChildStandsOnItsOwn pins that a child whose parent is not in the listing is still
-// drawn, since a row that vanishes is worse than one indented under nothing.
+// drawn.
 func TestOrphanedChildStandsOnItsOwn(t *testing.T) {
 	m := familyTree()
 	m.listing.agents = m.listing.agents[1:]
@@ -136,8 +135,7 @@ func TestAgentsViewIndentsAChild(t *testing.T) {
 		"and the name sits two columns further in")
 }
 
-// TestChildIsNotReviewable pins that the review key answers on the parent's row only, since the
-// diff in a child's directory is the parent's work and the threads on it are the parent's.
+// TestChildIsNotReviewable pins that the review key answers on the parent's row only.
 func TestChildIsNotReviewable(t *testing.T) {
 	m := familyTree()
 	m.listing.workflows[0].Worktree = workflowstore.WorktreeConfig{Enabled: true}
@@ -146,8 +144,7 @@ func TestChildIsNotReviewable(t *testing.T) {
 	assert.False(t, m.isReviewable(m.listing.agents[2].agent))
 }
 
-// TestChildDetailsLeadWithTheParent pins what the details say about a child under its own name,
-// since its directory makes no sense without the agent it belongs to.
+// TestChildDetailsLeadWithTheParent pins the details naming the parent a child belongs to.
 func TestChildDetailsLeadWithTheParent(t *testing.T) {
 	m := familyTree()
 	m.tree.cursor = 2
@@ -159,8 +156,7 @@ func TestChildDetailsLeadWithTheParent(t *testing.T) {
 	assert.Equal(t, "author", held.fields[1].value)
 }
 
-// TestPromptSubjectCountsTheChildren pins that a prompt says what goes with the agent named,
-// since the children go whether or not anybody asked about them.
+// TestPromptSubjectCountsTheChildren pins that a prompt says what goes with the agent named.
 func TestPromptSubjectCountsTheChildren(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -200,8 +196,7 @@ func TestPromptSubjectCountsTheChildren(t *testing.T) {
 	}
 }
 
-// TestDeletePromptSaysWhatGoesWithIt pins the hard delete asking about the children too, since
-// it is the prompt with nothing to undo it and the archive prompt already says so.
+// TestDeletePromptSaysWhatGoesWithIt pins the hard delete asking about the children too.
 func TestDeletePromptSaysWhatGoesWithIt(t *testing.T) {
 	form, _ := deleteAgentsForm([]agentstore.Agent{{ID: "a1", Name: "author"}}, 2, config.DefaultKeybindings().Form)
 	form.Init()
@@ -223,7 +218,7 @@ func TestUnnamedChildren(t *testing.T) {
 }
 
 // TestUnnamedChildrenReadsTheArchivesOwnRows pins the count coming from the screen doing the
-// asking, since the archive holds families the live listing does not.
+// asking.
 func TestUnnamedChildrenReadsTheArchivesOwnRows(t *testing.T) {
 	archived := []agentstore.Agent{
 		{ID: "b1", Name: "old-author"},
@@ -254,7 +249,7 @@ func TestChildKeyOnAChildIsRefused(t *testing.T) {
 }
 
 // TestHiddenChildCountsOnItsParent pins the tally landing on the row the child hangs off rather
-// than on the workflow, since the parent is where a person went looking for it.
+// than on the workflow.
 func TestHiddenChildCountsOnItsParent(t *testing.T) {
 	m := familyTree()
 	m.listing.agents[2].agent.Hidden = true

@@ -75,7 +75,7 @@ func (m model) mailThreadWord(thread []mailRow) string {
 }
 
 // counted is how many of something there are, taking -es after an ending a bare s will not sit
-// on, since a match is one of those and will not be the last.
+// on.
 func counted(count int, word string) string {
 	if count == 1 {
 		return "1 " + word
@@ -189,9 +189,7 @@ const mailEmptyMarkdown = "# Mail\n\n_nothing here_\n"
 // there from the moment the screen is rather than arriving under the reader.
 const mailLoadingMarkdown = "_reading the mailbox…_"
 
-// mailMarkdown is the one message the cursor is on, since the rows around it already carry the
-// rest of its thread and drawing the conversation again only asked the reader to find their
-// place in it twice.
+// mailMarkdown is the one message the cursor is on.
 func (m model) mailMarkdown(r mailRow) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s %s\n\n", mailDirectionWord(r.sent), m.mailCounterparty(r))
@@ -224,8 +222,7 @@ func (m model) mailListView() string {
 	return m.headedListView(header, rows, m.mail.cursor, below)
 }
 
-// mailCountView is what the mailbox holds and what of it is owed an answer, since a message
-// nobody has taken is the reason this screen is usually open.
+// mailCountView is what the mailbox holds and what of it is owed an answer.
 func (m model) mailCountView() string {
 	rows := m.mailItems()
 
@@ -319,12 +316,10 @@ const (
 )
 
 // mailRowView draws one message on one line: when it was written, which way it went and what
-// became of it, then as much of the message as the sidebar has room for, since who it was with
-// is on the thread line above rather than repeated down the block.
+// became of it, then as much of the message as the sidebar has room for.
 func (m model) mailRowView(r mailRow, clocks int, hovered bool) string {
-	// Padded on the right rather than the left, since right-aligning a clock that is a time on
-	// one row and a day and a time on the next leads the short ones in by half the column, which
-	// reads as though those rows were nested under something.
+	// Padded on the right rather than the left, which keeps a clock that is a time on one row and
+	// a day and a time on the next from leading the short ones in by half the column.
 	clock := fmt.Sprintf("%-*s", clocks, mailClock(r.item.GetCreatedAt()))
 	head := " " + dimStyle.Render(clock) + " " +
 		dimStyle.Render(mailDirectionMark(r.sent)) + " " +

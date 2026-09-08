@@ -69,8 +69,8 @@ func TestEveryKeyTakenIsDrawn(t *testing.T) {
 				continue
 			}
 
-			// A fresh model every press, since a key that changes screen or opens a form would
-			// otherwise decide what the next press means.
+			// A fresh model every press, keeping a key that changes screen or opens a form from
+			// deciding what the next press means.
 			if !isKeyTaken(t, driftModel(t, s), pressed) {
 				continue
 			}
@@ -92,9 +92,8 @@ func TestTheAllowlistIsSpent(t *testing.T) {
 	}
 }
 
-// isKeyTaken presses one key and reports whether any dispatch arm matched it, which is asked of
-// the bindings themselves rather than of what changed, since a key can be handled and draw the
-// same screen back.
+// isKeyTaken presses one key and reports whether any dispatch arm matched it, asked of the
+// bindings themselves and not of what changed.
 func isKeyTaken(t *testing.T, m model, pressed string) bool {
 	t.Helper()
 
@@ -107,8 +106,7 @@ func isKeyTaken(t *testing.T, m model, pressed string) bool {
 	return taken
 }
 
-// drawnKeys is every key string the legend names, short form and expanded together, since a key
-// on either is one the reader can find.
+// drawnKeys is every key string the legend names, short form and expanded together.
 func drawnKeys(k keyMap) []string {
 	var out []string
 	for _, binding := range slices.Concat(k.short, k.full) {
@@ -143,8 +141,8 @@ func configuredKeys(t *testing.T, keys config.Keybindings) []string {
 	return out
 }
 
-// keyMsgOf turns a configured key string back into the press bubbletea would deliver, and checks
-// the round trip, since a key this cannot build would otherwise be silently untested.
+// keyMsgOf turns a configured key string back into the press bubbletea would deliver, and
+// checks the round trip.
 func keyMsgOf(t *testing.T, pressed string) tea.KeyMsg {
 	t.Helper()
 
@@ -213,8 +211,7 @@ func driftReviewModel(t *testing.T) model {
 	return m
 }
 
-// driftAPI answers every client a key might reach for, since a form opened by one of these
-// presses fills its fields from the service before it is drawn.
+// driftAPI answers every client a key might reach for.
 func driftAPI() api {
 	return api{
 		agents:    emptyLists{},

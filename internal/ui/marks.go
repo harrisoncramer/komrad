@@ -7,8 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// markPending is the press the panel is waiting on a letter for, since setting a mark and
-// jumping to one are each two keys the way vim's own marks are.
+// markPending is the press the panel is waiting on a letter for.
 type markPending int
 
 const (

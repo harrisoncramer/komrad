@@ -43,8 +43,7 @@ type fakeReviewAgents struct {
 	harvestErr error
 }
 
-// HarvestRoundEdits records what the panel sent rather than reconciling anything, since the
-// matching itself is covered where it lives.
+// HarvestRoundEdits records what the panel sent rather than reconciling anything.
 func (f *fakeReviewAgents) HarvestRoundEdits(
 	_ context.Context,
 	req *connect.Request[agentv1.HarvestRoundEditsRequest],
@@ -109,8 +108,8 @@ func (f *fakeReviewAgents) ReleaseReview(
 	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: 1}), nil
 }
 
-// OpenReviewRound takes a real snapshot of the repository under test, since the panel diffs the
-// shas it is handed and a made-up one would name no commit git could read.
+// OpenReviewRound takes a real snapshot of the repository under test, which the panel needs to
+// diff the shas it is handed.
 func (f *fakeReviewAgents) OpenReviewRound(
 	ctx context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
@@ -322,8 +321,8 @@ func enterReview(t *testing.T, m model) model {
 	return m
 }
 
-// TestEnterReviewRefusesAnEmptyWorktree pins the drop back to the listing, since an agent that
-// has written nothing used to leave the reader in a diff viewer with no diff in it.
+// TestEnterReviewRefusesAnEmptyWorktree pins the drop back to the listing for an agent that has
+// written nothing.
 func TestEnterReviewRefusesAnEmptyWorktree(t *testing.T) {
 	dir := reviewRepo(t)
 	gitIn(t, dir, "commit", "-am", "second")
@@ -375,7 +374,7 @@ func TestEnterReviewDrawsTheDiffBesideTheSidebar(t *testing.T) {
 }
 
 // TestReviewCursorRedrawsInPlace covers a cursor move changing the frame without anything being
-// respawned or told to re-read, since the diff is drawn by the panel that holds the cursor.
+// respawned or told to re-read.
 func TestReviewCursorRedrawsInPlace(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -431,8 +430,7 @@ func reviewFrameRows(t *testing.T, m model) int {
 }
 
 // TestReviewKeysFollowTheKeymap covers the review screen reading its keys from the config like
-// every other screen, since a binding some screens honour and others ignore is worse than one
-// nothing honours.
+// every other screen.
 func TestReviewKeysFollowTheKeymap(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -652,8 +650,7 @@ func TestReviewAdriftThreadTakesAReply(t *testing.T) {
 	assert.Equal(t, "t1", m.review.editing, "composing answers the thread rather than opening a new one")
 }
 
-// TestReviewViewNeverOutgrowsThePane covers the sidebar staying inside the pane, since
-// bubbletea draws whatever it is handed and a taller view corrupts the frame.
+// TestReviewViewNeverOutgrowsThePane covers the sidebar staying inside the pane.
 func TestReviewViewNeverOutgrowsThePane(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -771,7 +768,7 @@ func TestReviewThreadScrollsToItsStart(t *testing.T) {
 }
 
 // TestReviewThreadFocusIsRefusedWithoutAThread pins that the key does nothing on a line with no
-// conversation on it, since the reader would be holding keys that moved nothing.
+// conversation on it.
 func TestReviewThreadFocusIsRefusedWithoutAThread(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -811,7 +808,7 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 }
 
 // TestReviewThreadWindowNeverOutgrowsThePane covers the sidebar staying inside the pane at every
-// place the conversation can be scrolled to, since bubbletea draws whatever it is handed.
+// place the conversation can be scrolled to.
 func TestReviewThreadWindowNeverOutgrowsThePane(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -879,16 +876,14 @@ func TestReviewSurvivesAFailedLoad(t *testing.T) {
 	}
 }
 
-// TestReviewKeepsDrawingAfterAWrite covers the stage still repainting after a save, since the
-// drawer is started once and a repaint that gave up froze the stage.
+// TestReviewKeepsDrawingAfterAWrite covers the stage still repainting after a save.
 func TestReviewKeepsDrawingAfterAWrite(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 	m, tmux := reviewModel(t, agents, dir)
 	m = openReview(t, m)
 
-	// What saving a comment does to the screen: the threads come back and the rows are dropped,
-	// since a gutter mark may have appeared.
+	// What saving a comment does to the screen: the threads come back and the rows are dropped.
 	m.applyReviewWrote(reviewWroteMsg{agentID: "a1", notice: "thread opened"})
 
 	respawns := len(tmux.respawns)
@@ -969,8 +964,7 @@ func TestReviewRepliesInAThread(t *testing.T) {
 	assert.Nil(t, agents.created, "and does not open a second thread on the same line")
 }
 
-// TestReviewPanStepScalesWithThePane covers how far sideways a press goes, since a fixed few
-// characters means dozens of presses to cross a wide diff.
+// TestReviewPanStepScalesWithThePane covers how far sideways a press goes.
 func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -1107,8 +1101,7 @@ func TestReviewReleaseIsTheSubmitKey(t *testing.T) {
 	assert.Equal(t, "a1", agents.released.GetAgentId())
 }
 
-// TestSettlingAThreadIsWhatQuietsIt covers settling being a key the reviewer presses, since
-// nothing about the code moving says a question was answered.
+// TestSettlingAThreadIsWhatQuietsIt covers settling being a key the reviewer presses.
 func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -1144,8 +1137,7 @@ func TestSettlingAThreadIsWhatQuietsIt(t *testing.T) {
 	assert.Contains(t, reviewGutterFor(t, m, "t1"), "✓",
 		"the gutter is where settling is said, now the line above counts comments instead")
 
-	// Pressing it again reopens, since an answer that was not the end of it has to be able to
-	// come back.
+	// Pressing it again reopens.
 	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
 	m = next.(model)
 	require.NotNil(t, cmd)
@@ -1235,8 +1227,7 @@ func TestDeletingAnAdriftThreadLeavesTheCursorInTheDiff(t *testing.T) {
 	assert.NotPanics(t, func() { m.scrollReviewToCursor() })
 }
 
-// typeReview presses one key after another, through the panel's own routing, since the diff's
-// search is the panel's filter and the filter takes keys before any screen does.
+// typeReview presses one key after another, through the panel's own routing.
 func typeReview(t *testing.T, m model, keys string) model {
 	t.Helper()
 
@@ -1411,9 +1402,8 @@ func TestReviewSearchWithNoMatchesSaysSo(t *testing.T) {
 	assert.Equal(t, "no matches", m.review.notice)
 }
 
-// TestReviewFileJumpSurvivesARepaint covers a window pinned by a file jump holding, since the
-// scroll margin runs on every repaint rather than only on a move and would otherwise drag the
-// file's first row back off the top.
+// TestReviewFileJumpSurvivesARepaint covers a window pinned by a file jump holding across a
+// repaint.
 func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	dir := reviewRepo(t)
 
@@ -1443,8 +1433,7 @@ func TestReviewFileJumpSurvivesARepaint(t *testing.T) {
 	assert.False(t, m.review.pinTop, "moving the cursor hands the window back to the margin")
 }
 
-// TestReviewSearchLeavesTheAgentsListAlone covers the review keeping its own filter, since the
-// agents list narrows by the model's filter whatever screen is up.
+// TestReviewSearchLeavesTheAgentsListAlone covers the review keeping its own filter.
 func TestReviewSearchLeavesTheAgentsListAlone(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)

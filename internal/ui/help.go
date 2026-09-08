@@ -9,8 +9,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// maxHelpColumns is the widest the expanded legend goes, since a sidebar wide enough for a
-// fourth column already has a short legend.
+// maxHelpColumns is the widest the expanded legend goes.
 const maxHelpColumns = 3
 
 type keyMap struct {
@@ -58,8 +57,7 @@ func (m model) renderHelp(k keyMap) string {
 }
 
 // refusedExpansion re-labels the legend's own key for the short form drawn in place of an
-// expansion there was no room for, since a key that says it is hiding help when it showed none
-// reads as a key that did not work rather than one that was refused.
+// expansion there was no room for.
 func (m model) refusedExpansion(bindings []key.Binding) []key.Binding {
 	out := slices.Clone(bindings)
 	for i, b := range out {
@@ -205,8 +203,7 @@ func (m model) globalHelp() []key.Binding {
 func (m model) agentHelp() keyMap {
 	own := agentsActions().help(m)
 
-	// The keys every screen shares are appended rather than written into each screen's table,
-	// since one of them is the legend's own key and the rest belong to the panel's chrome.
+	// The keys every screen shares are appended rather than written into each screen's table.
 	full := slices.Concat(
 		own.full,
 		[]key.Binding{
@@ -339,8 +336,7 @@ func (m model) searchHelp() keyMap {
 	}
 }
 
-// reviewHelp keeps the strip to what the screen is for, since reviewing is reading and the rest
-// of the keys sit behind the help key.
+// reviewHelp keeps the strip to what the screen is for.
 func (m model) reviewHelp() keyMap {
 	own := reviewActions().help(m)
 
@@ -354,9 +350,8 @@ func (m model) reviewHelp() keyMap {
 	}
 }
 
-// reviewThreadDesc names the key that moves between the diff and the conversation beside it, read
-// from the flag rather than from whether the thread holds the keys, since asking that measures
-// the legend this row is drawn in.
+// reviewThreadDesc names the key that moves between the diff and the conversation beside it,
+// read from the flag and not from whether the thread holds the keys.
 func (m model) reviewThreadDesc() string {
 	if _, ok := m.reviewThreadAtCursor(); ok && m.review.threadFocus {
 		return "back to the diff"

@@ -69,9 +69,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	// A mark binding owns the key after it, whatever that key is otherwise bound to, since a key
-	// bound elsewhere would otherwise eat the press that backs out of a mark and leave the panel
-	// waiting for a letter with nothing on screen saying so.
+	// A mark binding owns the key after it, whatever that key is otherwise bound to.
 	if isKey && m.marks.pending != markPendingNone {
 		return m.readMark(key)
 	}
@@ -80,8 +78,8 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	// Reached before the form and before a held write, since a refusal reported by a form is the
-	// one whose whole reason a person most needs.
+	// Reached before the form and before a held write, which is the refusal whose whole reason a
+	// person most needs.
 	if isKey && m.isMessagesRegion() {
 		switch {
 		case m.isMessagesFocused():
@@ -129,7 +127,7 @@ func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 // resizeTo takes the panel to the size a window message reports, which is also how a divider
-// being dragged arrives, since the panel is a pane beside the one it measures itself against.
+// being dragged arrives.
 func (m model) resizeTo(size tea.WindowSizeMsg) model {
 	// The transcript is wrapped into the column it is read in rather than into a pane that would
 	// fold it, so only a window that changed width has to wrap it again, and a preview that has

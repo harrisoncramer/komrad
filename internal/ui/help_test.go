@@ -83,9 +83,8 @@ func TestHelpColumnsFollowTheWidth(t *testing.T) {
 	}
 }
 
-// TestNoLegendIsDrawnAsAnEllipsis draws every screen's expanded legend at the narrowest sidebar a
-// configured split leaves, which is the ordinary case rather than an edge, since a width nobody
-// has dragged is widened to nameWidth and a dragged one is the reader's own doing.
+// TestNoLegendIsDrawnAsAnEllipsis draws every screen's expanded legend at the narrowest sidebar
+// a configured split leaves.
 func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 	legends := map[screen]func(model) keyMap{
 		screenAgents:    model.agentHelp,
@@ -107,9 +106,8 @@ func TestNoLegendIsDrawnAsAnEllipsis(t *testing.T) {
 
 		assert.NotEqual(t, "…", strings.TrimSpace(drawn), "screen %d draws its legend as an ellipsis", s)
 
-		// Checked by the key rather than by what it is described as, since a refused expansion
-		// re-labels the legend's own key: the claim is that every key the short form names is
-		// findable, not that a particular wording survived.
+		// Checked by the key rather than by what it is described as: the claim is that every key
+		// the short form names is findable, not that a particular wording survived.
 		for _, binding := range byLabel(k.short) {
 			assert.Contains(t, drawn, binding.Help().Key,
 				"screen %d loses the key for %q at %d columns", s, binding.Help().Desc, nameWidth)
@@ -190,9 +188,7 @@ func legendLabels(bindings []key.Binding) []string {
 	return out
 }
 
-// TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once, since
-// a key two actions claim reaches whichever one the update function tries first and leaves the
-// other looking broken.
+// TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once.
 func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 	base := helpModel()
 	base.mail.inbox = []*agentv1.Mail{{Id: "m1"}}

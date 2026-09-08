@@ -206,7 +206,7 @@ func (m model) doesArchiveHoldARow() bool {
 }
 
 // doesArchiveHoldAnAgent reports whether the cursor is on an archived agent rather than on the
-// folder holding one, since deleting and emptying answer only for an agent.
+// folder holding one.
 func (m model) doesArchiveHoldAnAgent() bool {
 	if m.archive.selected.isActive() {
 		return false

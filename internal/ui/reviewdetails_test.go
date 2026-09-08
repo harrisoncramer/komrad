@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReviewDrawsTheAgentRecord covers the diff carrying the same record the agents list draws,
-// since the reader is reading one agent's work and the facts about it are the same facts.
+// TestReviewDrawsTheAgentRecord covers the diff carrying the same record the agents list
+// draws.
 func TestReviewDrawsTheAgentRecord(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -34,8 +34,7 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 }
 
 // TestReviewRecordNamesWhatTheDiffIsAgainst covers the record naming the two commits the diff
-// was taken between, which is what the agent can run for itself and all the reader needs, since
-// weave's own numbering for them is not something anyone should have to hold.
+// was taken between, which is what the agent can run for itself.
 func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -52,8 +51,7 @@ func TestReviewRecordNamesWhatTheDiffIsAgainst(t *testing.T) {
 	}
 }
 
-// TestReviewRecordTakesTheKeys covers the whole path a keypress takes, since the record only
-// answers on a screen the panel knows draws one.
+// TestReviewRecordTakesTheKeys covers the whole path a keypress takes.
 func TestReviewRecordTakesTheKeys(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -78,8 +76,7 @@ func TestReviewRecordTakesTheKeys(t *testing.T) {
 	assert.False(t, next.(model).isDetailsFocused(), "the same key gives the keys back")
 }
 
-// TestReviewRecordCopiesAField covers the copy key reaching the record on this screen too, since
-// a directory or a session id is what the reader came for.
+// TestReviewRecordCopiesAField covers the copy key reaching the record on this screen too.
 func TestReviewRecordCopiesAField(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -94,7 +91,7 @@ func TestReviewRecordCopiesAField(t *testing.T) {
 }
 
 // TestReviewDimsTheCursorWhileTheRecordHasTheKeys covers the cursor row saying where the keys
-// are, since a cursor left painted as it was reads as though they were still on the diff.
+// are.
 func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	dir := reviewRepo(t)
 	m, tmux := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -126,9 +123,7 @@ func TestReviewDimsTheCursorWhileTheRecordHasTheKeys(t *testing.T) {
 	assert.Equal(t, live, reviewFrameRaw(t, back), "and painted back when the keys come back")
 }
 
-// TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped, since
-// this sidebar carries a head and a conversation the lists do not and the open legend takes the
-// rows the record would have wanted.
+// TestReviewRecordGivesWayInASmallPane covers the record being the first thing dropped.
 func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -146,7 +141,7 @@ func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 
 // TestReviewRecordCannotTakeTheKeysWhileItIsDropped covers the band of heights where the pane
 // holds a record but this sidebar does not: keys taken by something nobody can see are keys the
-// reader has lost, since the field cursor, the copy and the legend are all off screen.
+// reader has lost.
 func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -167,8 +162,8 @@ func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	assert.Greater(t, next.(model).review.cursor, cursor)
 }
 
-// TestReviewRecordGivesTheKeysBackWhenThePaneShrinks covers the same collision from the other
-// side, since a pane resized under a focused record strands the keys just as well.
+// TestReviewRecordGivesTheKeysBackWhenThePaneShrinks covers a pane resized under a focused
+// record stranding the keys the same way.
 func TestReviewRecordGivesTheKeysBackWhenThePaneShrinks(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -188,8 +183,7 @@ func TestReviewRecordGivesTheKeysBackWhenThePaneShrinks(t *testing.T) {
 	assert.Greater(t, next.(model).review.cursor, cursor)
 }
 
-// TestReviewRecordKeysFollowWhatIsDrawn sweeps the heights either side of both thresholds, since
-// the two were measured apart once already and the band between them is where the keys go astray.
+// TestReviewRecordKeysFollowWhatIsDrawn sweeps the heights either side of both thresholds.
 func TestReviewRecordKeysFollowWhatIsDrawn(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -224,7 +218,7 @@ func TestReviewRecordKeysFollowWhatIsDrawn(t *testing.T) {
 }
 
 // TestReviewRecordSaysNothingAboutAnAgentThatIsGone covers the diff outliving the row it opened
-// from, since an archived agent leaves the review readable and the record with nothing to say.
+// from.
 func TestReviewRecordSaysNothingAboutAnAgentThatIsGone(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)

@@ -121,8 +121,7 @@ func TestWriteStandsTheRefreshDown(t *testing.T) {
 	assert.NotNil(t, settled.refreshCmd(), "and lists again once it has landed")
 }
 
-// TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass,
-// since one placed at startup would open on the workflow header above the agents.
+// TestFirstListingLandsOnTheFirstAgent covers the cursor being placed by the first pass.
 func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -142,7 +141,7 @@ func TestFirstListingLandsOnTheFirstAgent(t *testing.T) {
 }
 
 // TestCreatedAgentReceivesFocus covers the id of a created agent surviving until the listing
-// that holds its row arrives, since the row does not exist when the form closes.
+// that holds its row arrives.
 func TestCreatedAgentReceivesFocus(t *testing.T) {
 	agents := &formRecorder{}
 	tmux := &recordingTmux{}
@@ -390,7 +389,7 @@ func TestArchiveCursorHoldsItsAgentWhenAFolderGoes(t *testing.T) {
 }
 
 // TestSearchListsTheArchive covers the search screen naming archived agents, which it can only
-// do while the refresh is fetching them, since nothing else on that screen holds them.
+// do while the refresh is fetching them.
 func TestSearchListsTheArchive(t *testing.T) {
 	lists := archivedLists{}
 

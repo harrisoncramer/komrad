@@ -15,8 +15,7 @@ import (
 )
 
 // TestAgentsViewRowsOpenAtTheGutter pins how far in a row starts, which is the cursor and the
-// mark column and nothing else, since a column held open for something unwritten reads as the
-// whole list having been nudged sideways.
+// mark column and nothing else.
 func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 	m := model{
 		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),

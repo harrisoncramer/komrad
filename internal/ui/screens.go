@@ -75,8 +75,8 @@ type detailsSpec struct {
 	// hovered is the record the cursor is standing on.
 	hovered func(model) details
 
-	// quit is the screen's own quit binding, since the details take the keys while they hold
-	// the cursor and quitting has to keep working.
+	// quit is the screen's own quit binding, which has to keep working while the details hold the
+	// cursor and the keys.
 	quit func(config.Keybindings) []string
 
 	// refocus is called when the record takes the keys or gives them back, and is nil on a screen

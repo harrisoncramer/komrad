@@ -106,8 +106,7 @@ func renderSnippet(s string, width int) string {
 }
 
 // styleMarks consumes the store's match markers into styling, putting back whatever styling was
-// in force where a mark falls inside it, since the reset a styled word ends with would otherwise
-// strip the colour off the rest of a rendered run.
+// in force where a mark falls inside it.
 func styleMarks(s string, style lipgloss.Style) string {
 	var b strings.Builder
 
@@ -136,7 +135,7 @@ func styleMarks(s string, style lipgloss.Style) string {
 }
 
 // activeSGR reports the styling still in force at the end of a chunk, where a reset clears it
-// and so does a line ending, since the renderer opens its styling again on every line.
+// and so does a line ending.
 func activeSGR(active, chunk string) string {
 	for chunk != "" {
 		i := strings.IndexAny(chunk, "\x1b\n")
@@ -180,8 +179,7 @@ func trimLastRune(s string) string {
 }
 
 // markedTerms pulls the words the search marked in a snippet, which are the forms the turn
-// actually spells rather than the words the query asked for, since a stemmed match spells the
-// word its own way.
+// actually spells and not the words the query asked for.
 func markedTerms(snippet string) []string {
 	var terms []string
 	seen := make(map[string]bool)
@@ -258,9 +256,8 @@ func matchSpans(content string, offset, length int64, terms []string) []span {
 	return mergeSpans(spans)
 }
 
-// doesStartWord reports whether an index falls at the front of a word, reading the rune before it
-// rather than the byte, since the punctuation these transcripts are written with runs well past
-// ASCII and a curly quote is no more a word than a straight one is.
+// doesStartWord reports whether an index falls at the front of a word, reading the rune before
+// it rather than the byte.
 func doesStartWord(s string, at int) bool {
 	if at == 0 {
 		return true
@@ -271,8 +268,7 @@ func doesStartWord(s string, at int) bool {
 	return !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '_'
 }
 
-// mergeSpans folds overlapping spans together, since two of the matched words can be spelled
-// over the same letters and a mark written inside another mark would not close.
+// mergeSpans folds overlapping spans together.
 func mergeSpans(spans []span) []span {
 	if len(spans) == 0 {
 		return nil
@@ -293,9 +289,8 @@ func mergeSpans(spans []span) []span {
 	return merged
 }
 
-// foldASCII lowercases the ASCII letters and leaves every other byte where it is, since the
-// spans it is used to find are byte offsets into the transcript and a Unicode fold can change
-// how long a string is.
+// foldASCII lowercases the ASCII letters and leaves every other byte where it is, keeping the
+// byte offsets a Unicode fold would move.
 func foldASCII(s string) string {
 	b := []byte(s)
 	for i, c := range b {

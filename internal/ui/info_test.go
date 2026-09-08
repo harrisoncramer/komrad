@@ -173,7 +173,7 @@ func (t *recordingTmux) GetPaneWidth(string) int         { return t.width }
 func (t *recordingTmux) SetPaneZoomed(_ string, on bool) { t.zoomed = on }
 
 // GetPaneFocus answers the way tmux was measured to: a pane the keys have moved off is neither
-// the active one nor zoomed any more, since select-pane drops a zoom on its way out.
+// the active one nor zoomed any more.
 func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
 	if t.keysElsewhere {
 		return false, false

@@ -26,7 +26,7 @@ func TestRowCursorBlinksWhileFocused(t *testing.T) {
 
 // TestRowCursorStandsStillUnfocused covers the two ways a list stops being typed at, the record
 // beside it holding the keys and another pane holding them, neither of which is a cursor to
-// blink, since a blink says where the keyboard is going.
+// blink.
 func TestRowCursorStandsStillUnfocused(t *testing.T) {
 	m := model{rowCursor: newRowCursor()}
 	m.rowCursor.Blink = true
@@ -71,8 +71,7 @@ func TestRowCursorFollowsTheKeyboard(t *testing.T) {
 	assert.False(t, focused.blurred)
 }
 
-// TestRowCursorStartsBlinkingOnItsOwn covers the blink the panel opens with, since a cursor whose
-// timer nothing started would sit solid until the first key was pressed.
+// TestRowCursorStartsBlinkingOnItsOwn covers the blink the panel opens with.
 func TestRowCursorStartsBlinkingOnItsOwn(t *testing.T) {
 	m := model{rowCursor: newRowCursor()}
 
@@ -81,9 +80,8 @@ func TestRowCursorStartsBlinkingOnItsOwn(t *testing.T) {
 	assert.NotNil(t, cmd, "the opening blink starts the timer")
 }
 
-// TestRowCursorTimerFlipsThePhase runs the command the panel handed back rather than asserting it
-// was handed one, since what carries the blink is the message that timer sends and the panel
-// having to recognise it when it arrives.
+// TestRowCursorTimerFlipsThePhase runs the command the panel handed back rather than asserting
+// it was handed one.
 func TestRowCursorTimerFlipsThePhase(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.rowCursor = newRowCursor()

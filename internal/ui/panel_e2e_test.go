@@ -22,8 +22,7 @@ import (
 
 const panelSession = "panel"
 
-// TestPanelArchivesThroughTheService takes the archive key all the way to the database, since
-// every other test here answers the panel from a fake client.
+// TestPanelArchivesThroughTheService takes the archive key all the way to the database.
 func TestPanelArchivesThroughTheService(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -145,7 +144,7 @@ func TestPanelOpensThePullRequestKey(t *testing.T) {
 }
 
 // TestPanelLeavesThePullRequestKeyAloneWithoutOne pins that an agent with no recorded pull
-// request asks for nothing, since the panel holds the metadata and answers this itself.
+// request asks for nothing.
 func TestPanelLeavesThePullRequestKeyAloneWithoutOne(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -228,8 +227,7 @@ func TestStagedAgentArchivedElsewhere(t *testing.T) {
 		"the next agent shows beside the panel rather than being swapped off screen")
 }
 
-// TestStagedAgentExitsOnItsOwn covers the same loss with nobody archiving, since agent panes
-// are opened without remain-on-exit and a staged agent's pane is in the panel's window.
+// TestStagedAgentExitsOnItsOwn covers the same loss with nobody archiving.
 func TestStagedAgentExitsOnItsOwn(t *testing.T) {
 	staged := newStagedPanel(t)
 	stagePane := staged.panel.frame.Pane(layout.RegionStage)
@@ -336,8 +334,7 @@ func helpDescriptions(bindings []key.Binding) []string {
 }
 
 // TestPanelClearsTheUnviewedMarkThroughTheService takes the read marker all the way to the
-// database, since the dwell tests answer the panel from a fake client and prove only that it
-// would have made the call.
+// database.
 func TestPanelClearsTheUnviewedMarkThroughTheService(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()
@@ -535,8 +532,8 @@ func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
 	assert.NotNil(t, cmd, "only by a look of its own")
 }
 
-// TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server, since
-// the zoom these swaps drop is only real there.
+// TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server,
+// which is the only place the zoom these swaps drop is real.
 func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

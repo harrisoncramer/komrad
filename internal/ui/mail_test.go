@@ -109,7 +109,7 @@ func TestMailRows(t *testing.T) {
 }
 
 // TestMailCursorStepsOverThreadLines covers the cursor, which moves through messages however
-// much furniture stands between them, since a thread line answers for no record and no stage.
+// much furniture stands between them.
 func TestMailCursorStepsOverThreadLines(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
@@ -167,8 +167,7 @@ func TestMailCursorStepsOverThreadLines(t *testing.T) {
 	}
 }
 
-// TestMailThreadWord covers what the record says a thread is standing on, since a last word
-// that went out and was never taken is the stalled handoff this screen is opened to find.
+// TestMailThreadWord covers what the record says a thread is standing on.
 func TestMailThreadWord(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -212,15 +211,14 @@ func TestMailThreadWord(t *testing.T) {
 }
 
 // TestMailRowClock covers the stamp on a row, which says the time for something that arrived
-// today and the day for anything older, since a bare clock on old mail reads as though it had
-// just come in.
+// today and the day for anything older.
 func TestMailRowClock(t *testing.T) {
 	old := time.Now().AddDate(0, 0, -3)
 
 	m := mailModel(config.DefaultKeybindings())
 	m.height, m.width = 40, 90
-	// The older message takes the lower id, since the ids are uuidv7 in the real thing and
-	// carry the same order the stamps do.
+	// The older message takes the lower id, which is the order uuidv7 gives them in the real
+	// thing.
 	m.mail.inbox = []*agentv1.Mail{
 		agedAt(received("m1", "emacs-fan", "org-mode wins"), old),
 		received("m2", "neovim-fan", "vim wins"),
@@ -236,8 +234,7 @@ func TestMailRowClock(t *testing.T) {
 	assert.Contains(t, ansi.Strip(m.mailRowView(rows[3], mailClockWidth(rows), false)), old.Local().Format("Jan 2 3:04pm"))
 }
 
-// TestMailKeys covers what each key does on the mailbox, since every one of them but back
-// moves the cursor rather than writing anything.
+// TestMailKeys covers what each key does on the mailbox.
 func TestMailKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 
@@ -292,8 +289,7 @@ func TestMailKeys(t *testing.T) {
 	}
 }
 
-// TestMailState covers the three things that become of a piece of mail, since which one it is
-// is the fact a mailbox is usually opened to settle.
+// TestMailState covers the three things that become of a piece of mail.
 func TestMailState(t *testing.T) {
 	tests := []struct {
 		name string
@@ -325,7 +321,7 @@ func TestMailState(t *testing.T) {
 }
 
 // TestMailDetailsNameTheCorrespondents covers the record under the list, which is where the
-// ids are, since the rows have room for a name alone.
+// ids are.
 func TestMailDetailsNameTheCorrespondents(t *testing.T) {
 	m := mailModel(config.DefaultKeybindings())
 	m.mail.outbox = []*agentv1.Mail{sent("m1", "emacs wins")}
@@ -473,8 +469,7 @@ func TestMailLoadedKeepsTheCursorOnItsMail(t *testing.T) {
 }
 
 // TestMailOpensOnTheNewestMessage covers where the cursor sits when a mailbox opens, which is
-// the newest message of the thread something last happened in, since that is what the ordering
-// puts at the top and the cursor steps over the line above it.
+// the newest message of the thread something last happened in.
 func TestMailOpensOnTheNewestMessage(t *testing.T) {
 	arrivals := []*agentv1.Mail{
 		received("m1", "neovim-fan", "vim wins"),

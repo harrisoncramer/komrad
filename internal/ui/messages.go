@@ -35,7 +35,7 @@ const messagesFocusKey = "ctrl+g"
 // having to make the panel refuse something first.
 const messagesMockKey = "M"
 
-// messagesCap is how far back the stack goes, since nothing frees it while the panel runs.
+// messagesCap is how far back the stack goes.
 const messagesCap = 50
 
 type messageKind int
@@ -151,8 +151,8 @@ func (m model) messagesTally() string {
 
 	pad := max(m.lineWidth()-lipgloss.Width(m.messagesSummaryLine())-len(tally), 1)
 
-	// The tally is where the region says the keys are its own, since it has no title of its own to
-	// draw in the colour every other focused section is drawn in.
+	// The tally is where the region says the keys are its own, which is the one thing it has in
+	// place of a title.
 	style := dimStyle
 	if m.messages.focused {
 		style = headerStyle
@@ -269,8 +269,8 @@ func (m model) toggleMessagesFocus() model {
 }
 
 func (m model) updateMessages(key tea.KeyMsg) model {
-	// Routed here rather than left to the global keys, since the message being shown is the thing
-	// the scroll keys move while the region holds them.
+	// Routed here rather than left to the global keys, which move the message being shown while
+	// the region holds them.
 	if direction, ok := m.isColumnScroll(key.String()); ok {
 		return m.scrollColumn(direction)
 	}

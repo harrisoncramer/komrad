@@ -308,8 +308,7 @@ func (m model) archiveDoc() string {
 	}
 }
 
-// archiveDocument is what is drawn for an archived agent, which is why a delete failed when it
-// failed, since the archive is the only place that can be read.
+// archiveDocument is what the panel draws beside an archived agent's row.
 func (m model) archiveDocument(agent agentstore.Agent) string {
 	if agent.State.IsFailed() {
 		return m.failedPlaceholder(agent)

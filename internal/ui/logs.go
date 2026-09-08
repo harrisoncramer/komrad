@@ -91,9 +91,8 @@ func (m model) cycleLogs() model {
 	return m
 }
 
-// olderLog steps the info pane back to the run before the one it is showing, wrapping round
-// to the most recent, since one direction reaches every run and two keys for a handful of
-// files is a key too many.
+// olderLog steps the info pane back to the run before the one it is showing, wrapping round to
+// the most recent.
 func (m model) olderLog() model {
 	if m.info.kind != infoRunLog {
 		return m
@@ -188,8 +187,7 @@ func (m model) failedRunLog(agentID string) *int32 {
 	return nil
 }
 
-// latestRunLog is the most recent run at one of the given moments that has anything to read,
-// since a run refused before its script wrote a byte points at an empty pager.
+// latestRunLog is the most recent run at one of the given moments that has anything to read.
 func (m model) latestRunLog(agentID string, moments []string) (config.RunLog, bool) {
 	for _, run := range config.ListRunLogs(m.runLogsDir, agentID) {
 		if !slices.Contains(moments, run.Trigger) {

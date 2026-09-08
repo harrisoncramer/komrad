@@ -40,8 +40,7 @@ type hoverState struct {
 }
 
 // dwellViewed claims the hovered agent once the cursor has been on it long enough to have read
-// what it said, counting only a live row, since a dormant one stages a placeholder rather than
-// a pane, and writing only an unviewed one, so a settled list makes no calls at all.
+// what it said, counting only a live row and writing only an unviewed one.
 func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 	item, ok := m.dwelledAgent()
 	if !ok {
@@ -50,8 +49,8 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	// The row is tracked whether or not it is unviewed, so that a mark set by hand survives its
-	// own write landing and is let go of only when the cursor moves somewhere else.
+	// The row is tracked whether or not it is unviewed, keeping a mark set by hand until the
+	// cursor moves somewhere else.
 	if m.hover.agentID != item.agent.ID {
 		m.hover = hoverState{agentID: item.agent.ID, since: now}
 	}
@@ -73,9 +72,7 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Asked only here rather than every tick, since this is the one moment the answer changes
-	// anything, and a hidden panel restarts the dwell so coming back to it is a fresh look
-	// rather than a mark that was earned while nobody was watching.
+	// Asked only here rather than every tick, and a hidden panel restarts the dwell.
 	if !m.popup.IsShown() {
 		m.hover.since = now
 
@@ -185,8 +182,8 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applySchedules(result.schedules)
 	}
 
-	// Done here as well as on a resize, since an agent spawned since the last pass has a window of
-	// its own that has never been put at the size it will be shown at.
+	// Done here as well as on a resize, for an agent spawned since the last pass whose window has
+	// never been put at the size it will be shown at.
 	m.sizeAgentWindows()
 
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {
@@ -233,9 +230,7 @@ type written struct {
 	harness string
 }
 
-// markViewedCmd claims what an agent has finished without going through the write path, since
-// the mark is a note about a row already on screen rather than a change the listing has to show,
-// and one that does not land is made again by the next tick that still finds the row unviewed.
+// markViewedCmd claims what an agent has finished without going through the write path.
 func (m model) markViewedCmd(id string) tea.Cmd {
 	clients := m.api
 
@@ -312,9 +307,7 @@ func (m model) isFailedRunShowing(agentID string) bool {
 	return false
 }
 
-// markRunsReadCmd claims an agent's failed runs without going through the write path, since the
-// mark is a note about a row already on screen, and one that does not land is made again by the
-// next tick that still finds the row marked.
+// markRunsReadCmd claims an agent's failed runs without going through the write path.
 func (m model) markRunsReadCmd(id string) tea.Cmd {
 	clients := m.api
 

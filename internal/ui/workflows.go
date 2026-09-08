@@ -113,7 +113,7 @@ func (m model) openWorkflowConfigForm(values *workflowFormValues, target *workfl
 }
 
 // swapProvisioner redraws the form around the provisioner just chosen and puts the cursor back
-// on the field that chose it, since the fields under it are not the ones that were there.
+// on the field that chose it.
 func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.Cmd) {
 	form, toggleIndex := build(m)
 
@@ -129,8 +129,7 @@ func (m model) swapProvisioner(build func(model) (*huh.Form, int)) (model, tea.C
 }
 
 // getAvailableHooks is the hooks directory as the form offers it, and a directory that is not
-// there reads as an empty list rather than an error, since a person who has written no hooks
-// has nothing wrong with their setup.
+// there reads as an empty list rather than an error.
 func (m model) getAvailableHooks() []hookChoice {
 	listed, err := m.api.listHooks()
 	if err != nil {

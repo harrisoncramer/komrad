@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProtoToAgentCarriesTheSyncedColumns pins the branch and the worktree removal flag,
-// since a conversion that drops either leaves the row looking healthy.
+// TestProtoToAgentCarriesTheSyncedColumns pins the branch and the worktree removal flag
+// surviving the conversion.
 func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	branch := "fix/thing"
 	converted := protoToAgent(&agentv1.Agent{
@@ -30,8 +30,7 @@ func TestProtoToAgentCarriesTheSyncedColumns(t *testing.T) {
 	assert.True(t, converted.WorktreeRemoved)
 }
 
-// TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by, since
-// nothing else on the row says when the agent last moved.
+// TestProtoToAgentCarriesTheStateChange pins the timestamp the row's state is dated by.
 func TestProtoToAgentCarriesTheStateChange(t *testing.T) {
 	changed := time.Date(2026, time.September, 1, 9, 9, 0, 0, time.UTC)
 	converted := protoToAgent(&agentv1.Agent{
@@ -49,7 +48,7 @@ func TestProtoToAgentWithoutAStateChange(t *testing.T) {
 }
 
 // TestAgentsViewDrawsWorktreeRemovedFromTheWire covers the way from the proto to the printed
-// row, since the glyph's own test starts from a store agent.
+// row.
 func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 	m := model{
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
@@ -82,9 +81,7 @@ func TestAgentsViewDrawsWorktreeRemovedFromTheWire(t *testing.T) {
 	assert.NotContains(t, reviewer, worktreeRemovedIcon)
 }
 
-// TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field,
-// since every screen reads a workflow out of the listing and writes it back whole, which
-// makes a field the conversion drops a field the next rename clears.
+// TestWorkflowsFromCarriesTheWholeWorkflow covers the listing conversion field by field.
 func TestWorkflowsFromCarriesTheWholeWorkflow(t *testing.T) {
 	got := workflowsFrom([]*workflowv1.Workflow{{
 		Id:                "w1",
@@ -168,8 +165,7 @@ func TestAgentRowSaysWhatTheAgentIsDoing(t *testing.T) {
 	assert.NotContains(t, reviewer, "Bash")
 }
 
-// TestAgentRowClipsALongReason covers a reason too long for the room a row has, since nothing
-// downstream clips a row and one that overruns wraps onto the row below it.
+// TestAgentRowClipsALongReason covers a reason too long for the room a row has.
 func TestAgentRowClipsALongReason(t *testing.T) {
 	reason := strings.Repeat("x", reasonWidth+20)
 	m := model{

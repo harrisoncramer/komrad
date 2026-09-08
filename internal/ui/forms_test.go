@@ -33,7 +33,7 @@ import (
 )
 
 // TestFormsSubmitWhatIsOnScreen covers every form binding its fields to values the panel
-// holds, since huh records a field into its own results only as the cursor leaves it.
+// holds.
 func TestFormsSubmitWhatIsOnScreen(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -386,8 +386,7 @@ func TestNewAgentFormWorktreeOverride(t *testing.T) {
 	}
 }
 
-// TestWorktreeSelectShowsTheCurrentChoiceOnOpen covers the field opening on a visible option,
-// since huh.Select sizes its viewport when Options is called and not when Value is.
+// TestWorktreeSelectShowsTheCurrentChoiceOnOpen covers the field opening on a visible option.
 func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 	agentForm := newAgentForm(config.DefaultKeybindings().Form,
 		&agentFormValues{Worktree: inheritWorktree},
@@ -399,7 +398,7 @@ func TestWorktreeSelectShowsTheCurrentChoiceOnOpen(t *testing.T) {
 }
 
 // TestRefusedSubmitKeepsTheForm covers a refused write leaving the form up with what was
-// filled in, since closing would cost every other field.
+// filled in.
 func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -494,8 +493,7 @@ func TestRefusedSubmitKeepsTheForm(t *testing.T) {
 }
 
 // TestNewAgentSubmitHoldsTheForm covers the new-agent form staying up with the submitting
-// notice over it until the create lands, rather than tearing the view down to stream a
-// provisioner into a pane of its own.
+// notice over it until the create lands.
 func TestNewAgentSubmitHoldsTheForm(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -607,7 +605,7 @@ func TestProvisionerRebuildsTheForm(t *testing.T) {
 }
 
 // TestProvisionerSelectShowsEveryOptionOnOpen covers a select opening on the non-default
-// answer, since huh scrolls to the bound value's index once it has both an accessor and options.
+// answer.
 func TestProvisionerSelectShowsEveryOptionOnOpen(t *testing.T) {
 	form, toggleIndex := workflowConfigForm(workflowConfigParams{
 		NameTitle: "Workflow name",
@@ -675,8 +673,7 @@ func TestArchivePromptChoices(t *testing.T) {
 	}
 }
 
-// TestArchivePromptOpensOnArchive covers the prompt as first drawn, since huh scrolls its
-// list to whatever value is bound and a submit would otherwise answer for nobody.
+// TestArchivePromptOpensOnArchive covers the prompt as first drawn.
 func TestArchivePromptOpensOnArchive(t *testing.T) {
 	form, choice := archiveAgentsForm([]agentstore.Agent{{ID: "a1", Name: "api-refactor"}}, 0, config.DefaultKeybindings().Form)
 	form.Init()
@@ -760,8 +757,8 @@ func asModel(t *testing.T, updated tea.Model) model {
 	return m
 }
 
-// TestFormResultsAreNotWhatIsSubmitted pins why every form binds its values, since a field
-// only reaches huh's own results as the cursor leaves it.
+// TestFormResultsAreNotWhatIsSubmitted pins a field reaching huh's own results only as the
+// cursor leaves it.
 func TestFormResultsAreNotWhatIsSubmitted(t *testing.T) {
 	values := schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep",
@@ -977,8 +974,7 @@ func (f *formRecorder) ArchiveSchedule(_ context.Context, req *connect.Request[s
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// TestOnlyTheSubmitKeySubmitsAForm covers enter never submitting, since it would complete a
-// form huh cannot resume and leave a refusal nowhere to come back to.
+// TestOnlyTheSubmitKeySubmitsAForm covers enter never submitting.
 func TestOnlyTheSubmitKeySubmitsAForm(t *testing.T) {
 	keys := config.DefaultKeybindings().Form
 
@@ -1034,8 +1030,7 @@ func pump(t *testing.T, form *huh.Form, msg tea.Msg) {
 	}
 }
 
-// TestAdoptFormSendsWhatWasTyped covers the adopt form having no directory field, since the
-// service is what decides where the agent runs.
+// TestAdoptFormSendsWhatWasTyped covers the adopt form having no directory field.
 func TestAdoptFormSendsWhatWasTyped(t *testing.T) {
 	sent := &formRecorder{}
 	m := formModel(sent)
@@ -1097,8 +1092,7 @@ func TestAdoptKeyDoesNothingOnAnAgentRow(t *testing.T) {
 	assert.Equal(t, screenAgents, opened.screen)
 }
 
-// TestWorkflowFormRoundTripsEveryHookMoment pins the form editing every moment there is, since
-// a moment it does not ask about is one an edit through the panel would silently drop.
+// TestWorkflowFormRoundTripsEveryHookMoment pins the form editing every moment there is.
 func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 	hooks := []workflowstore.Hook{
 		{Event: workflowstore.HookPreLaunch, Script: "install-deps"},
@@ -1114,8 +1108,7 @@ func TestWorkflowFormRoundTripsEveryHookMoment(t *testing.T) {
 }
 
 // TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo pins what the form does with a workflow
-// written when a moment could hold several, since the select can only sit on one and saving
-// must not invent an order for the rest.
+// written when a moment could hold several.
 func TestWorkflowFormKeepsTheFirstHookOnAMomentHoldingTwo(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
 		Name: "backend",
@@ -1155,8 +1148,7 @@ func TestHookFieldsOfferTheHooksDirectory(t *testing.T) {
 }
 
 // TestHookFieldsDrawEveryOptionThatFits pins a moment already naming a hook still offering the
-// options above it, since huh scrolls a select it was given a height for to whatever is chosen
-// and a form that hides None is a hook nobody can take off a moment.
+// options above it.
 func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
 		Name: "backend",
@@ -1182,7 +1174,7 @@ func TestHookFieldsDrawEveryOptionThatFits(t *testing.T) {
 }
 
 // TestHookFieldsSayWhenTheListScrolls pins a hooks directory too long to draw whole telling a
-// person the list carries on, since huh draws no indicator of its own.
+// person the list carries on.
 func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
 	available := []hookChoice{
 		{name: "copy-env"},
@@ -1206,8 +1198,7 @@ func TestHookFieldsSayWhenTheListScrolls(t *testing.T) {
 }
 
 // TestHookOptionsKeepAHookThatHasGone pins a hook the workflow names but the directory no
-// longer holds still being offered, since an option that is not there is a hook the next save
-// would drop without saying so.
+// longer holds still being offered.
 func TestHookOptionsKeepAHookThatHasGone(t *testing.T) {
 	options := hookOptions([]hookChoice{{name: "install-deps"}}, "copy-env")
 
@@ -1221,7 +1212,7 @@ func TestHookOptionsKeepAHookThatHasGone(t *testing.T) {
 // TestHookFieldsSayWhereHooksGoWhenThereAreNone pins the empty case reading as an empty
 // directory rather than a broken form.
 func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
-	// None, so that the worktree fields are not on screen pushing the hook fields off it.
+	// None keeps the worktree fields off the screen and the hook fields on it.
 	values := workflowFormValues{Provisioner: provisionerNone}
 
 	form, _ := workflowConfigForm(workflowConfigParams{
@@ -1235,8 +1226,7 @@ func TestHookFieldsSayWhereHooksGoWhenThereAreNone(t *testing.T) {
 }
 
 // TestWorkflowFormScrollsToFitTheTerminal pins the form being given the room it has rather
-// than drawing past the bottom of the screen, since it now asks for four moments of hooks
-// under everything else and will not fit on a normal terminal.
+// than drawing past the bottom of the screen.
 func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 	values := workflowFormValues{Provisioner: provisionerWorktree}
 
@@ -1270,8 +1260,7 @@ func sizeForm(form *huh.Form, height int) {
 }
 
 // TestHookFieldsSurviveBeingWalkedThrough pins the fields not rewriting themselves as the
-// cursor passes over them, since a picker that reorders or clears what it was given loses a
-// person's choice with nothing on screen to say so.
+// cursor passes over them.
 func TestHookFieldsSurviveBeingWalkedThrough(t *testing.T) {
 	values := workflowFormValuesFrom(workflowstore.Config{
 		Name:     "backend",

@@ -32,8 +32,8 @@ type formState struct {
 	// whatever the form is about, so neither has to be rediscovered from the model.
 	submit func(model) (tea.Model, tea.Cmd)
 
-	// rebuild draws the form again around those same values, since huh will not take another
-	// key into a form it has already completed.
+	// rebuild draws the form again around those same values, which is the only way huh takes
+	// another key into a form it has already completed.
 	rebuild func(model) *huh.Form
 }
 
@@ -114,29 +114,26 @@ func formColumn(kind formKind) (columnSpec, bool) {
 	return columnSpec{}, false
 }
 
-// formResizedMsg tells the form on screen how much room it has, since huh lays a form out from
-// the window size it is sent and the window the panel was sent is not the column the form is
-// drawn in.
+// formResizedMsg tells the form on screen how much room it has, which is the column it is drawn
+// in and not the terminal huh would otherwise size itself from.
 type formResizedMsg struct{}
 
 func formResized() tea.Cmd {
 	return func() tea.Msg { return formResizedMsg{} }
 }
 
-// formHelpLines is the row the panel keeps back rather than tells the form about, because
-// Group.View joins its header, its viewport and its footer with a blank line before the footer
-// while the height it was given subtracts only the footer, so a form with a strip of keys under
-// it renders exactly one row taller than it was asked for.
+// Explainer: Group.View joins its header, its viewport and its footer with a blank line before
+// the footer, while the height it was given subtracts only the footer, so a form with a strip of
+// keys under it renders exactly one row taller than it was asked for.
+
+// formHelpLines is the row the panel keeps back rather than tells the form about.
 const formHelpLines = 1
 
 // submittingLines is the notice drawn under a held form, which is a row the form is not told
 // about so that what it draws still fits above it.
 const submittingLines = 1
 
-// heldWrite is the write a form is being kept up for: when it was sent, which the notice under
-// the form counts up from so a provisioner taking its time does not read as a wedged panel, and
-// which write it is, since a person who escapes a slow create and submits another has two in
-// flight and only one of them owns the form.
+// heldWrite is the write a form is being kept up for: when it was sent, and which write it is.
 type heldWrite struct {
 	active bool
 	since  time.Time
@@ -163,8 +160,7 @@ func (m model) formBox() (width, height int) {
 	return m.width, max(m.height-formHelpLines-held, 1)
 }
 
-// confirmSubmit answers a prompt by running what it asked for and taking it down as it goes,
-// since a confirmation is finished the moment it is answered either way.
+// confirmSubmit answers a prompt by running what it asked for and taking it down as it goes.
 func confirmSubmit(write func(model) (model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
 	return func(m model) (tea.Model, tea.Cmd) {
 		written, writeCmd := write(m)
@@ -288,8 +284,7 @@ func hookNamed(hooks []workflowstore.Hook, event string) string {
 	return ""
 }
 
-// hookOn is a moment's hook as the store takes it, which is one entry or none, since a moment
-// holds one.
+// hookOn is a moment's hook as the store takes it, which is one entry or none.
 func hookOn(name, event string) []workflowstore.Hook {
 	if name == "" {
 		return nil
@@ -318,7 +313,7 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 }
 
 // newAgentForm asks for the work, and asks about the worktree only in a workflow that makes
-// them, since there is nothing to turn off in one that does not.
+// them.
 func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) *huh.Form {
 	fields := append([]huh.Field{
 		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
@@ -336,8 +331,7 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) 
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-// childAgentForm asks for the work and little else, since a child takes its directory from the
-// parent it is attached to and provisions nothing of its own.
+// childAgentForm asks for the work and little else.
 func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) *huh.Form {
 	fields := []huh.Field{
 		huh.NewText().Key("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
@@ -352,8 +346,7 @@ func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agents
 	return huh.NewForm(huh.NewGroup(fields...)).WithShowHelp(true).WithKeyMap(multiFieldKeyMap(keys)).WithTheme(formTheme())
 }
 
-// adoptAgentForm asks for the work to pick up and little else, since adoption works out where
-// the agent runs.
+// adoptAgentForm asks for the work to pick up and little else.
 func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) *huh.Form {
 	fields := []huh.Field{
 		huh.NewInput().Key("ref").Title("Adopt").
@@ -400,8 +393,7 @@ func confirmForm(title, description, affirmative string, keys config.FormKeys) (
 	return confirmFormStartingOn(true, title, description, affirmative, keys)
 }
 
-// confirmFormStartingOn builds a confirmation sitting on one of its two answers, so that a
-// prompt nothing undoes can start on Cancel and a stray return costs nothing.
+// confirmFormStartingOn builds a confirmation sitting on one of its two answers.
 func confirmFormStartingOn(confirmed bool, title, description, affirmative string, keys config.FormKeys) (*huh.Form, *bool) {
 	form := huh.NewForm(
 		huh.NewGroup(
@@ -560,7 +552,7 @@ const (
 )
 
 // promptSubject names what a prompt is about, counting in the children that were not asked
-// about, since they go with their parents whether or not anybody named them.
+// about.
 func promptSubject(agents []agentstore.Agent, children int) string {
 	subject := fmt.Sprintf("%d agents", len(agents))
 	if len(agents) == 1 {
@@ -738,8 +730,7 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 			Description(hookFieldDescription(moment.description, available, scrolls)).
 			Options(options...).
 			Value(moment.chosen)
-		// Only a list too long for the room gets a height, since huh scrolls a select it was
-		// given one even when every option would have fit, hiding the options above the chosen one.
+		// Only a list too long for the room gets a height.
 		if scrolls {
 			field = field.Height(hookOptionsShown + hookFieldChrome)
 		}
@@ -753,15 +744,12 @@ func hookFields(values *workflowFormValues, available []hookChoice) []huh.Field 
 // Explainer: a list too long to draw whole says so, since there is nothing else on screen to
 // say the options carry on past the ones it can see.
 
-// hookFieldDescription leads with the empty case rather than appending it, since a description
-// long enough to be cut off at the width of a terminal would take the notice with it.
+// hookFieldDescription leads with the empty case rather than appending it.
 func hookFieldDescription(description string, available []hookChoice, scrolls bool) string {
 	if len(available) == 0 {
 		return "none found in your hooks directory; " + description
 	}
 
-	// A list too long to draw whole says so, since there is nothing else on screen to say the
-	// options carry on past the ones it can see.
 	if scrolls {
 		return "↑/↓ for more; " + description
 	}
@@ -770,8 +758,7 @@ func hookFieldDescription(description string, available []hookChoice, scrolls bo
 }
 
 // hookOptions offers None, every hook in the directory, and the one this workflow already names
-// if the directory no longer holds it, since dropping that silently is how a saved form loses a
-// hook a person put there.
+// if the directory no longer holds it.
 func hookOptions(available []hookChoice, chosen string) []huh.Option[string] {
 	options := make([]huh.Option[string], 0, len(available)+2)
 	options = append(options, huh.NewOption("None", ""))

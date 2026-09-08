@@ -150,7 +150,7 @@ func TestReviewRefreshHoldsOneReadAtATime(t *testing.T) {
 }
 
 // TestReviewRefreshStandsDownMidInput pins that the tick does not fire while the reader is
-// typing, since the cursor, the window and the composer are theirs until they are done.
+// typing.
 func TestReviewRefreshStandsDownMidInput(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -295,9 +295,7 @@ func TestReviewReloadKeepsAFileNameSearch(t *testing.T) {
 		"the sidebar still says where in the search the reader is")
 }
 
-// TestReviewReloadKeepsTheSearch pins the whole search surviving the reload key, since the
-// prompt goes on showing the pattern either way and a count of nothing under it reads as the
-// lines having left the diff.
+// TestReviewReloadKeepsTheSearch pins the whole search surviving the reload key.
 func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -321,8 +319,7 @@ func TestReviewReloadKeepsTheSearch(t *testing.T) {
 	assert.True(t, jumped, "the search still has rows to step through")
 }
 
-// TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed, since the
-// reader is mid-review and the next tick asks again.
+// TestReviewRefreshSaysNothingWhenTheReadFails pins a failed read being swallowed.
 func TestReviewRefreshSaysNothingWhenTheReadFails(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -361,8 +358,8 @@ func TestReviewDiffPollSaysTheWorktreeHasMovedOn(t *testing.T) {
 	assert.NotContains(t, shown, "written by the agent")
 }
 
-// TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved pins the probe doing its job, since a notice
-// standing over an unchanged worktree asks for a round nobody needs.
+// TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved pins the probe leaving an unchanged worktree
+// alone.
 func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -446,8 +443,7 @@ func TestReviewReloadKeyOpensTheNextRound(t *testing.T) {
 }
 
 // TestReviewReloadKeyReadsAgainWithNothingMoved pins the key still meaning reload when the
-// background probe has found nothing, since an unmoved tree gives back the round already on
-// screen rather than a new one.
+// background probe has found nothing.
 func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -464,7 +460,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 }
 
 // TestReviewDiffPollWaitsBetweenReads pins git being run every few seconds rather than every
-// tick, since the conversation is cheap to read and the worktree is not.
+// tick.
 func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -486,8 +482,7 @@ func TestReviewDiffPollWaitsBetweenReads(t *testing.T) {
 	assert.True(t, m.review.diffPolling)
 }
 
-// TestReviewRefreshIsOnlyForTheScreenThatIsUp pins the tick doing nothing anywhere else, since
-// the review state is empty the moment the screen is left.
+// TestReviewRefreshIsOnlyForTheScreenThatIsUp pins the tick doing nothing anywhere else.
 func TestReviewRefreshIsOnlyForTheScreenThatIsUp(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
@@ -499,9 +494,8 @@ func TestReviewRefreshIsOnlyForTheScreenThatIsUp(t *testing.T) {
 	assert.Nil(t, m.refreshReviewCmd(time.Now()))
 }
 
-// TestWhatChangedSinceYourLastReviewSurvivesAKeypress covers a standing fact about the diff being
-// kept out of the notice slot, since every key in the review clears a notice and the reader would
-// otherwise lose the line the moment they scrolled.
+// TestWhatChangedSinceYourLastReviewSurvivesAKeypress covers a standing fact about the diff
+// being kept out of the notice slot, which every key in the review clears.
 func TestWhatChangedSinceYourLastReviewSurvivesAKeypress(t *testing.T) {
 	dir := reviewRepo(t)
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)

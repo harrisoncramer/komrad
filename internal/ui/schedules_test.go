@@ -120,8 +120,7 @@ func TestScheduleKeys(t *testing.T) {
 	}
 }
 
-// TestSchedulesView pins the row saying which of the two states a schedule is in, since a
-// paused one keeps its row.
+// TestSchedulesView pins the row saying which of the two states a schedule is in.
 func TestSchedulesView(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -171,8 +170,8 @@ func TestSchedulesView(t *testing.T) {
 	}
 }
 
-// TestScheduleFormButtonsLineUp pins the confirm buttons left, since huh centres them under
-// the field's own prompt and a field carrying a description indents them by its length.
+// TestScheduleFormButtonsLineUp pins the confirm buttons left, which huh otherwise centres
+// under the field's own prompt.
 func TestScheduleFormButtonsLineUp(t *testing.T) {
 	form := scheduleForm(&schedulestore.Config{
 		Name: "sweeper", Cron: "*/5 * * * *", Prompt: "sweep", Enabled: true, WorkflowID: "w1",
@@ -341,8 +340,7 @@ func TestScheduleFields(t *testing.T) {
 	})
 }
 
-// TestApplySchedules pins the cursor following the schedule it was on, since one deleted
-// elsewhere shifts the rows below it up.
+// TestApplySchedules pins the cursor following the schedule it was on.
 func TestApplySchedules(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -387,8 +385,7 @@ func TestApplySchedules(t *testing.T) {
 	}
 }
 
-// TestScheduleWriteFailure pins a rejected cron expression reaching the screen as a banner,
-// since the list looks the same either way.
+// TestScheduleWriteFailure pins a rejected cron expression reaching the screen as a banner.
 func TestScheduleWriteFailure(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -587,8 +584,7 @@ var namedKeys = map[string]tea.KeyType{
 	"ctrl+t": tea.KeyCtrlT,
 }
 
-// TestScheduledMark pins the clock beside a scheduled agent's row and nowhere else, since a
-// person starting one is the ordinary case.
+// TestScheduledMark pins the clock beside a scheduled agent's row and nowhere else.
 func TestScheduledMark(t *testing.T) {
 	tests := []struct {
 		name  string

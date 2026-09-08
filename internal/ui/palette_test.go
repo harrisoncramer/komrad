@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestStageStyleRendersEveryElement pins the fenced code block, since chroma reads the
-// colours under CodeBlock.Chroma as hex alone and panics on anything else, which took the
-// whole panel down.
+// TestStageStyleRendersEveryElement pins the fenced code block, whose colours chroma reads as
+// hex alone and panics on anything else.
 func TestStageStyleRendersEveryElement(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -50,7 +49,7 @@ func TestStageStyleRendersEveryElement(t *testing.T) {
 }
 
 // TestPaletteFollowsTheTerminal pins every colour coming out as one of the sixteen the
-// terminal's scheme maps, since a hex value writes the channels and takes nothing from it.
+// terminal's scheme maps.
 func TestPaletteFollowsTheTerminal(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })

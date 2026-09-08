@@ -127,9 +127,7 @@ func (m *model) sizeWarmingWindow(pane string) {
 	}
 }
 
-// holdForWarmup remembers the pane a create wants shown once its harness is up, since the cursor
-// only reaches the new row on the next listing and the stage would otherwise be given to whatever
-// the cursor is still standing on.
+// holdForWarmup remembers the pane a create wants shown once its harness is up.
 func (m *model) holdForWarmup(pane, harnessID string) {
 	m.warm.pending = pane
 	m.warm.pendingHarness = harnessID

@@ -9,8 +9,7 @@ import (
 
 var stageTextPath = stageFilePath("text")
 
-// homeDir is where content that reads a file rather than a directory is rooted, since a pager
-// takes its path from the argv and cares nothing for where it was started.
+// homeDir is where content that reads a file rather than a directory is rooted.
 func homeDir() string {
 	dir, _ := os.UserHomeDir()
 
@@ -32,8 +31,8 @@ func newTextContent(markdown string) layout.Content {
 	}
 }
 
-// newLogContent keys on the command rather than the file it reads, since the panel's own log is one
-// file every agent shares and only the viewer's environment says which agent it is filtered to.
+// newLogContent keys on the command rather than the file it reads, which is one log every agent
+// shares.
 func newLogContent(argv []string) layout.Content {
 	return layout.Content{
 		Key: "log:" + strings.Join(argv, "\x00"),

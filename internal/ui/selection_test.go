@@ -61,8 +61,8 @@ func selectionTree() model {
 	}
 }
 
-// withColor forces a profile that writes escapes, since a selection shows as a background and
-// nothing renders one under the bare profile a test binary reports.
+// withColor forces a profile that writes escapes, which a selection needs to show its
+// background.
 func withColor(t *testing.T) {
 	t.Helper()
 

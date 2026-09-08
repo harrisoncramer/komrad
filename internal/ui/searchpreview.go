@@ -74,8 +74,7 @@ func (m model) searchPreviewView(split columnSplit) string {
 	return doc.view(split.rows)
 }
 
-// searchPreviewNotice is what stands in the column before a transcript does, since the column is
-// there from the moment the screen is and an empty half of the window says nothing about why.
+// searchPreviewNotice is what stands in the column before a transcript does.
 func (m model) searchPreviewNotice() string {
 	switch {
 	case strings.TrimSpace(m.search.query) == "":

@@ -19,13 +19,12 @@ const reviewDeliveryStates = 8
 // the reader is told the diff has moved and reloads when they are ready.
 const reviewDiffPollInterval = 5 * time.Second
 
-// reviewActivity is the cheap probe a conversation refresh is decided on, since repinning walks
-// every row of the patch and a tick that finds this unmoved does no work at all.
+// reviewActivity is the cheap probe a conversation refresh is decided on.
 type reviewActivity struct {
 	threads  int
 	messages int
-	// newest is the newest thing said or changed, and the counts beside it are what a stamp
-	// cannot see, since deleting a thread moves nothing forward.
+	// newest is the newest thing said or changed, and the counts beside it are what a stamp cannot
+	// see.
 	newest string
 	// delivery is how many comments stand in each state, which is the half of the answer no
 	// stamp reaches: claiming a doorbell writes to mail alone, and a doorbell running out of
@@ -58,8 +57,8 @@ func (m *model) refreshReviewCmd(now time.Time) tea.Cmd {
 		return nil
 	}
 
-	// A reader mid-input is left alone, since the cursor, the window and the composer are theirs
-	// until the key that closes them, and the tick after that picks the work up.
+	// A reader mid-input is left alone, and the tick after the key that closes them picks the work
+	// up.
 	if m.review.doesTakeEveryKey() {
 		return nil
 	}
@@ -98,7 +97,7 @@ func (m model) refreshReviewThreadsCmd() tea.Cmd {
 
 // pollReviewDiffCmd asks whether the agent has written anything since the round on screen was
 // taken, hashing the worktree rather than reading a second patch and leaving the round alone
-// either way, since the point of a round is that it does not move under the reader.
+// either way.
 func (m model) pollReviewDiffCmd() tea.Cmd {
 	agentID, dir := m.review.agentID, m.review.dir
 	snapshot := m.review.round.GetSnapshotSha()
@@ -132,8 +131,7 @@ func (m *model) applyReviewRefreshed(msg reviewRefreshedMsg) {
 
 	m.review.polling = false
 
-	// A read that failed says nothing, since the message belongs to the listing, the screen is
-	// still showing the conversation as it last stood, and the next tick asks again.
+	// A read that failed says nothing, and the next tick asks again.
 	if msg.err != nil || m.review.view == nil {
 		return
 	}
@@ -169,9 +167,7 @@ func (m *model) applyReviewDiffPolled(msg reviewDiffPolledMsg) {
 	m.review.moved = msg.moved
 }
 
-// setReviewThreads holds the conversation and the probe a refresh compares it against together,
-// since the sidebar counts delivery off the probe and would otherwise draw an empty line against
-// a full list.
+// setReviewThreads holds the conversation and the probe a refresh compares it against together.
 func (m *model) setReviewThreads(threads []*agentv1.ReviewThread) {
 	m.review.threads = threads
 	m.review.activity = reviewActivityOf(threads)
@@ -193,7 +189,7 @@ func reviewActivityOf(threads []*agentv1.ReviewThread) reviewActivity {
 }
 
 // deliverySlot is which count a state belongs in, folding a state this build has never heard of
-// into the unspecified slot, since an enum comes off the wire as whatever number was sent.
+// into the unspecified slot.
 func deliverySlot(state agentv1.ReviewDeliveryState) int {
 	if state < 0 || int(state) >= reviewDeliveryStates {
 		return 0

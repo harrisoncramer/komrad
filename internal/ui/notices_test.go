@@ -14,7 +14,7 @@ import (
 )
 
 // TestNoticesSpellOutTheMarksOnTheRow covers the top of the record: every glyph the hovered row
-// is carrying is said again in words, since the row has no room to say what a glyph means.
+// is carrying is said again in words.
 func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.width = 80
@@ -31,8 +31,7 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	assert.NotContains(t, m.detailsView(), "worktree gone", "a mark the row is not carrying says nothing")
 }
 
-// TestNoticesCoverEveryOptionalMark walks the marks one at a time, since each is a different
-// fact about the agent and the row draws them from different places.
+// TestNoticesCoverEveryOptionalMark walks the marks one at a time.
 func TestNoticesCoverEveryOptionalMark(t *testing.T) {
 	tests := []struct {
 		name string
@@ -102,7 +101,7 @@ func TestAFailedCreateSaysNothingOfItsWorktree(t *testing.T) {
 }
 
 // TestArchivedNoticesAreOnlyTheFailures covers the archive, whose rows draw one mark of their
-// own, since the rest stand for facts about an agent that is still running.
+// own.
 func TestArchivedNoticesAreOnlyTheFailures(t *testing.T) {
 	agent := agentstore.Agent{
 		State:      agentstore.StateFailedToCleanup,
@@ -151,7 +150,7 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 }
 
 // TestNoticesCutTheFirstOneShort covers a pane too short for even one whole sentence, where the
-// notice is drawn as far as it goes and says so, since the glyph alone would say nothing.
+// notice is drawn as far as it goes and says so.
 func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 16, 24

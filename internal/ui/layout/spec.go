@@ -38,7 +38,7 @@ func newSpec(layout config.Layout) spec {
 }
 
 // stageSize is the share the stage is split off at, before the sidebar is resized to the columns
-// it was configured for, since the window's own width is not known at the split.
+// it was configured for.
 const stageSize = "50%"
 
 func formatSize(size float64) string {

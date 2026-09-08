@@ -16,8 +16,7 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestIsMarkLetter pins what may be a mark, since the key after the binding is whatever the
-// person happened to press.
+// TestIsMarkLetter pins what may be a mark.
 func TestIsMarkLetter(t *testing.T) {
 	for _, key := range []string{"a", "m", "z"} {
 		assert.True(t, isMarkLetter(key), "key %q", key)
@@ -28,8 +27,7 @@ func TestIsMarkLetter(t *testing.T) {
 	}
 }
 
-// TestMarkGutter pins the gutter keeping one width whether or not the agent is marked, since
-// a row that shifted sideways when marked would unalign the list.
+// TestMarkGutter pins the gutter keeping one width whether or not the agent is marked.
 func TestMarkGutter(t *testing.T) {
 	withColor(t)
 
@@ -99,8 +97,7 @@ func TestSetMark(t *testing.T) {
 	}
 }
 
-// TestSetMarkOnAWorkflow pins a header taking a letter through the same two keys, since the
-// letters name rows rather than agents.
+// TestSetMarkOnAWorkflow pins a header taking a letter through the same two keys.
 func TestSetMarkOnAWorkflow(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
@@ -147,7 +144,7 @@ func TestJumpMarkReachesAWorkflow(t *testing.T) {
 }
 
 // TestSetMarkRefusesWhatIsNotALetter pins a stray key aborting the mark rather than being
-// taken as one, since every key on the screen is reachable while the panel is waiting.
+// taken as one.
 func TestSetMarkRefusesWhatIsNotALetter(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
@@ -200,9 +197,7 @@ func TestSetMarkOwnsTheKeyAfterIt(t *testing.T) {
 	assert.Equal(t, xptr.Ptr(m.keys.Agents.Hide[0]), agents.mark, "the hide key is read as the letter it is")
 }
 
-// TestSetMarkEscapesPastABanner pins escape backing out of a mark even while a banner is up,
-// since the banner's own escape would otherwise leave the panel waiting for a letter and take
-// the next key pressed as one.
+// TestSetMarkEscapesPastABanner pins escape backing out of a mark even while a banner is up.
 func TestSetMarkEscapesPastABanner(t *testing.T) {
 	agents := &fakeMarkAgents{}
 	m := markTree()
@@ -273,7 +268,7 @@ func TestJumpMark(t *testing.T) {
 }
 
 // TestJumpMarkThatCannotLandKeepsTheScreen pins a jump that fails leaving the filter and the
-// hidden rows as they were, since revealing on the way to nowhere loses what you were looking at.
+// hidden rows as they were.
 func TestJumpMarkThatCannotLandKeepsTheScreen(t *testing.T) {
 	m := markTree()
 	markAgent(&m, "a3")
@@ -307,8 +302,7 @@ func TestJumpMarkFromAHeaderComesBack(t *testing.T) {
 	assert.Equal(t, workflowRowKey("w1"), rowKeyAt(back.agentRows(), back.tree.cursor))
 }
 
-// TestJumpMarkBackToARowThatHasGone pins the key saying so and forgetting the row, rather than
-// failing the same way for the rest of the session.
+// TestJumpMarkBackToARowThatHasGone pins the key saying so and forgetting the row.
 func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 	m := markTree()
 	markAgent(&m, "a3")
@@ -328,7 +322,7 @@ func TestJumpMarkBackToARowThatHasGone(t *testing.T) {
 }
 
 // TestJumpMarkKeepsAStandingSearch pins a jump that reveals a hidden row leaving the search
-// alone, since nothing a search does hides a row and dropping it loses what you were reading.
+// alone.
 func TestJumpMarkKeepsAStandingSearch(t *testing.T) {
 	m := markTree()
 	markRow(&m, agentRowKey("a5"))
@@ -343,7 +337,7 @@ func TestJumpMarkKeepsAStandingSearch(t *testing.T) {
 }
 
 // TestJumpMarkUnknownLetter pins a letter nobody holds leaving the cursor where it was and
-// saying so, rather than moving somewhere arbitrary.
+// saying so.
 func TestJumpMarkUnknownLetter(t *testing.T) {
 	m := markTree()
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))

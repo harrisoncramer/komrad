@@ -75,7 +75,7 @@ type keyNamer interface {
 }
 
 // UserPanelKey returns the panel key as the user's own tmux server names it, empty where it
-// names none, since that server is the only place it can be set.
+// names none.
 func UserPanelKey(namer keyNamer) string {
 	return namer.ShowGlobal(managerKeyOption)
 }

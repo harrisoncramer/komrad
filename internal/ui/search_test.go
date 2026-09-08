@@ -356,8 +356,7 @@ func TestMatchSpansFoldsLikeTheTermsDo(t *testing.T) {
 }
 
 // TestHitSpansCoverTheHoveredTurn covers the turn a highlight is measured from, which is the hit
-// under the cursor rather than the preview in hand, since an agent's hits sit next to each other
-// and the transcript on hand can have been fetched for the hit before this one.
+// under the cursor and not the preview in hand.
 func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
 	const content = "alpha reconcile one\n\nbeta reconcile two\n"
 
@@ -398,8 +397,8 @@ func TestHitSpansCoverTheHoveredTurn(t *testing.T) {
 	}
 }
 
-// TestRenderSnippet confirms the store's match markers are consumed into styling
-// and the snippet stays on one line, since the list gives it one row.
+// TestRenderSnippet confirms the store's match markers are consumed into styling and the snippet
+// stays on one line.
 func TestRenderSnippet(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -810,8 +809,7 @@ func TestSearchGroupsByAgent(t *testing.T) {
 	assert.Equal(t, 2, strings.Count(view, "dispatcher"), "one header per agent rather than per name")
 }
 
-// TestSearchHeaderCarriesTheAgent covers a header wearing what the agent's own row wears, since
-// the hit itself says nothing about the state the agent it came from is in.
+// TestSearchHeaderCarriesTheAgent covers a header wearing what the agent's own row wears.
 func TestSearchHeaderCarriesTheAgent(t *testing.T) {
 	marked := "a"
 
@@ -915,9 +913,7 @@ func headerLine(t *testing.T, view, name string) string {
 	return ""
 }
 
-// TestJumpLeavesTheSearchBehind covers the window going back with the screen, since the transcript
-// the hits were previewed against belongs to the search and the row the jump lands on draws in a
-// pane of the frame's instead.
+// TestJumpLeavesTheSearchBehind covers the window going back with the screen.
 func TestJumpLeavesTheSearchBehind(t *testing.T) {
 	tests := []struct {
 		name      string

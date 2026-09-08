@@ -94,8 +94,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 	return m, m.createReviewThreadCmd(*anchor, body)
 }
 
-// cancelReviewMessage puts the composer away, which now abandons nothing but the words typed into
-// it, since an edit of the round is a comment before the composer is ever opened.
+// cancelReviewMessage puts the composer away, abandoning nothing but the words typed into it.
 func (m model) cancelReviewMessage() model {
 	m.review.editor.Blur()
 	m.review.composing = false
@@ -148,8 +147,7 @@ func (m model) resolveReviewThread() (tea.Model, tea.Cmd) {
 }
 
 // toggleReviewViewed folds the file the cursor is in away once it has been read, or opens it
-// again, stepping on to the next file when it has just been folded, since reviewing is a walk
-// down them.
+// again, stepping on to the next file when it has just been folded.
 func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 	file, ok := m.review.view.GetFileAt(m.review.cursor)
 	if !ok {
@@ -159,8 +157,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 	path := file.Path()
 	viewed := !m.review.view.IsViewed(path)
 
-	// Where the cursor is standing is taken before the rows are built again, since folding the
-	// file away takes the line it was on out of the diff.
+	// Where the cursor is standing is taken before the rows are built again.
 	place, located := m.review.view.GetPlace(m.review.cursor)
 	m.review.view.SetFileViewed(path, viewed)
 	m.keepReviewCursor(place, located)
@@ -187,8 +184,7 @@ func (m model) toggleReviewViewed() (tea.Model, tea.Cmd) {
 	})
 }
 
-// markReviewThreadReadCmd claims the thread the cursor has just landed on and only that one,
-// since marking the whole list would claim threads were read that were never opened.
+// markReviewThreadReadCmd claims the thread the cursor has just landed on and only that one.
 func (m model) markReviewThreadReadCmd() tea.Cmd {
 	thread, ok := m.reviewThreadAtCursor()
 	if !ok || !thread.GetUnreadByHuman() {
@@ -204,8 +200,7 @@ func (m model) markReviewThreadReadCmd() tea.Cmd {
 	})
 }
 
-// openReviewRelease asks what to send rather than sending, since a verdict is a decision worth
-// making deliberately and a word about the work as a whole belongs with it.
+// openReviewRelease asks what to send rather than sending.
 func (m model) openReviewRelease() (tea.Model, tea.Cmd) {
 	m.review.releasing = true
 	m.review.verdict = 0
@@ -278,8 +273,7 @@ func (m model) closeReviewRelease() model {
 	return m
 }
 
-// releasedNotice says what went, since a review leaving with nothing said about it reads as the
-// key not working.
+// releasedNotice says what went.
 func releasedNotice(verdict agentv1.ReviewVerdict, count int32, interrupt bool) string {
 	sent := ", " + counted(int(count), "comment") + " sent"
 	if interrupt {
@@ -307,8 +301,7 @@ func (m model) reviewWriteCmd(notice string, write func(context.Context) error) 
 	})
 }
 
-// reviewWriteNoticeCmd is the same for a write whose notice is only known once it has run,
-// since what ringing again did is in the answer rather than in the asking.
+// reviewWriteNoticeCmd is the same for a write whose notice is only known once it has run.
 func (m model) reviewWriteNoticeCmd(write func(context.Context) (string, error)) tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 

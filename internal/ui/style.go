@@ -24,7 +24,7 @@ const (
 	workflowIcon        = "⧉"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
-	// report, so that row keeps the indent every other row has.
+	// report, keeping the indent every other row has.
 	noStateIcon = "▫"
 
 	// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
@@ -114,8 +114,7 @@ func iconMark(show bool, icon string, color lipgloss.Color) string {
 	return " " + lipgloss.NewStyle().Foreground(color).Render(icon)
 }
 
-// unviewedMark is its own glyph rather than a colour on the state icon, since either fact can
-// be true without the other.
+// unviewedMark is its own glyph rather than a colour on the state icon.
 func unviewedMark(unviewed bool) string {
 	return iconMark(unviewed, unviewedIcon, colorSuccess)
 }
@@ -124,8 +123,7 @@ func noStateMark() string {
 	return dimStyle.Render(noStateIcon)
 }
 
-// failedMark is the archive's only state icon, since an archived agent's last live state says
-// nothing but a failed create or cleanup is why the row is still there.
+// failedMark is the archive's only state icon.
 func failedMark(agent agentstore.Agent) string {
 	if !agent.State.IsFailed() {
 		return ""
@@ -258,13 +256,10 @@ func clip(text string, width int) string {
 var selectionBackground = lipgloss.AdaptiveColor{Light: "#cdf0d6", Dark: "#20452c"}
 
 // paintRow lays a background under one already-coloured line, setting it again after every reset
-// that line carries, since the first of those would otherwise drop it for the rest of the row,
-// and filling the line out to the pane so that it reads as a bar, which is measured across the
-// whole string it is handed and so holds only for a row of a single line.
+// that line carries and filling the line out to the pane so it reads as a bar.
 func paintRow(row string, background lipgloss.AdaptiveColor, width int) string {
-	// The diff viewer threads a background into every fragment it draws instead, since its gutter
-	// and its match highlight each carry one of their own, where a row wants the one background
-	// under all of it and the fragments know nothing about it.
+	// The diff viewer threads a background into every fragment it draws instead, its gutter and
+	// its match highlight each carrying one of their own.
 	set := backgroundSequence(background)
 	if set == "" {
 		return row

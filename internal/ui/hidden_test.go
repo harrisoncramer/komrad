@@ -94,8 +94,7 @@ func TestAgentRowsHidden(t *testing.T) {
 	}
 }
 
-// TestToggleHiddenAgentsKeepsTheCursor pins that the cursor follows the agent it was on,
-// since rows appearing above it change what it was counting from.
+// TestToggleHiddenAgentsKeepsTheCursor pins that the cursor follows the agent it was on.
 func TestToggleHiddenAgentsKeepsTheCursor(t *testing.T) {
 	m := hiddenTree()
 	m.tree.cursor = 3
@@ -148,7 +147,7 @@ func TestHiddenTally(t *testing.T) {
 }
 
 // TestHiddenHelpIsOneLine pins the two hidden keys sharing a line on an agent and only the
-// toggle on a workflow header, since nothing hides a folder.
+// toggle on a workflow header.
 func TestHiddenHelpIsOneLine(t *testing.T) {
 	tests := []struct {
 		name        string

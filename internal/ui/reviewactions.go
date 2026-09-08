@@ -97,8 +97,8 @@ func reviewTable() []action {
 			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.focusReviewThread(), nil },
 		},
-		// The two keys that write are taken whether or not anybody is there to read, so that a
-		// habit press is answered with the reason rather than by nothing happening at all.
+		// The two keys that write are taken whether or not anybody is there to read, answering a
+		// habit press with the reason.
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },
@@ -172,8 +172,7 @@ func reviewLegend() []legendRow {
 				return headLabel(k.Review.NextMatch) + "/" + headLabel(k.Review.PrevMatch)
 			},
 		},
-		// Panning and its reset share a row, since the reset is part of the gesture and the
-		// sidebar has no line to spare on the screens this legend has to fit.
+		// Panning and its reset share a row.
 		{
 			of:   []actionID{actionReviewPan, actionReviewPanReset},
 			desc: func(model) string { return "pan sideways" },

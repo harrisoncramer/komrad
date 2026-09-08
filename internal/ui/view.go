@@ -55,7 +55,7 @@ func (m model) fitFrame(view string) string {
 		return view
 	}
 
-	// Spaces rather than empty rows, since only a written cell covers what was there.
+	// Spaces rather than empty rows: only a written cell covers what was there.
 	blank := strings.Repeat(" ", m.width)
 
 	return view + strings.Repeat("\n"+blank, m.height-rows)
@@ -78,7 +78,7 @@ func (m model) screenView() string {
 	held := m.at(split.sidebar)
 
 	// The list is drawn beside the form as the context the form was opened from, and takes none of
-	// the keys while it is there, since the form has them all.
+	// the keys while it is there.
 	block := form
 	if m.isMessagesFocused() {
 		// A reason is longer than the rows the region keeps, so reading it borrows the column the
@@ -90,8 +90,7 @@ func (m model) screenView() string {
 }
 
 // heldFormView is the form with the submitting notice under it, which is a row the form gives
-// up rather than one taken off the top of the panel, since chrome appearing above everything
-// moves every row below it.
+// up rather than one taken off the top of the panel.
 func (m model) heldFormView() string {
 	view := m.form.form.View()
 	if !m.held.active {

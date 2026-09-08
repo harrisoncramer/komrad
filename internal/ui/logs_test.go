@@ -112,7 +112,7 @@ func TestOlderLogStepsBackThroughTheRuns(t *testing.T) {
 }
 
 // TestOlderLogIsInertWithoutARunToStepTo pins the key doing nothing when there is nowhere to
-// step, rather than blanking the pane it is showing.
+// step.
 func TestOlderLogIsInertWithoutARunToStepTo(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -292,10 +292,8 @@ func TestProcessLogArgvFallsBackToTheDefault(t *testing.T) {
 }
 
 // TestFailedPlaceholderPointsAtTheLogWhenThereIsOne covers the two ways a failed agent's
-// placeholder can go: when its script left a durable log, the placeholder just points at
-// it, since repeating the reason there too would be the same failure shown twice; when there
-// is no log to point at — a failure that never reached a script at all, like a tmux refusal
-// — the reason is the only place left to read it, so it is shown inline instead.
+// placeholder can go: at the log when a script left one, and at the reason inline when no
+// script ever ran.
 func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -321,8 +319,7 @@ func TestFailedPlaceholderPointsAtTheLogWhenThereIsOne(t *testing.T) {
 }
 
 // TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate pins the placeholder following the
-// run that actually failed, since a create can die at a pre-launch hook with the provision run
-// beside it green.
+// run that actually failed.
 func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -339,8 +336,8 @@ func TestFailedPlaceholderPointsAtTheHookThatFailedTheCreate(t *testing.T) {
 	assert.Contains(t, m.failedPlaceholder(agent), "run 002", "the hook's run is the one that failed")
 }
 
-// TestFailedPlaceholderSkipsARunWithNothingInIt pins a claimed but empty run being passed over,
-// since pointing at one opens an empty pager and says nothing about why.
+// TestFailedPlaceholderSkipsARunWithNothingInIt pins a claimed but empty run being passed
+// over.
 func TestFailedPlaceholderSkipsARunWithNothingInIt(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)
@@ -387,7 +384,7 @@ func TestEnteringAScreenWithoutTheKeysClosesTheInfoPane(t *testing.T) {
 }
 
 // TestAgentLogContentKeyFollowsTheAgent pins that the panel's own log restages when the cursor
-// moves, since every agent reads the same file and only the filter in the command differs.
+// moves.
 func TestAgentLogContentKeyFollowsTheAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, _ := logsModel(t, tmux)

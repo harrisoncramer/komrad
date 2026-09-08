@@ -62,7 +62,7 @@ func windowRows(rows []string, lines int, place func(visible int) int, style lip
 	}
 
 	// Nothing is said about what is hidden once every window that would say it costs a row the
-	// pane has not got, since a view taller than the pane scrolls the pane away.
+	// pane has not got.
 	start := place(lines)
 
 	return strings.Join(rows[start:start+lines], "\n") + "\n"
