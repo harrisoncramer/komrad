@@ -1,39 +1,36 @@
 # Hooks
 
-A hook is a script or a binary weave runs at a moment in an agent's life. A [workflow](workflows.md) names one against a moment, and weave runs it with the agent's details in its environment.
+A hook is a script or a binary weave runs at a moment in an agent's life spawned by a workflow.
 
-Use hooks to install what a fresh worktree needs, to copy an env file into it, to announce an agent in Slack once it is up, or to release a lock when one comes back from the archive.
-
-Where an agent runs is not a hook's business. That belongs to the workflow's provisioner, which is either a git worktree per agent or nothing at all, and weave owns both: there is no script of yours in that decision.
+Hooks can be used to install worktree packages or other tooling, or run basic setup that cannot be handled by the workflow copy or linking commands. They can also be used to clean up afterwards, or fire when a workflow is restored from the archive.
 
 ## Where they live
 
-Hooks are placed into your hooks directory, which is at `~/.config/weave/hooks` by default, unless your [config](configuration.md) names another:
+Hooks are scripts that should be placed into your hooks directory, at `~/.config/weave/hooks` by default, unless your [config](configuration.md) names another:
 
 ```toml
 [hooks]
 dir = "~/some/other/path"
 ```
 
-A hook runs in the agent's own directory, which is the worktree when its workflow provisions one. A hook whose directory has gone is refused rather than run somewhere else.
+Hooks runs in their agent's directory, which is the worktree when its workflow provisions one.
 
 ## The moments
 
-A workflow can hang one hook on each of these, picked in the workflow form from the hooks directory.
+Every workflow can add one hook on each of these lifecycle event, picked in the workflow:
 
-`pre-launch` runs after the directory exists and before the pane is opened, which is where a dependency install goes. Weave waits for it, and a failure abandons the create: there is no agent yet, and the worktree is given back so one does not survive a create that did not happen.
+- `pre-launch` runs after the agent's directory exists but before the pane is opened. Good for dependency installs (that aren't covered by the workflows copy/symlinks), for instance. This is the only hook weave waits for, because it's failure is blocking: no agent is spawned, and any worktree created is given back.
+- `post-launch` runs once the CLI has been launched into the pane. It runs in the background.
+- `post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. Runs in the background.
+- `post-restore` runs when an archived row comes back. Runs in the background.
 
-`post-launch` runs once the CLI has been launched into the pane. It runs in the background, so the call that created the agent returns straight away and a hook that fails there is reported rather than undone.
-
-`post-resume` runs once a dormant agent is back in a pane, after its worktree has been put back. `post-restore` runs when an archived row comes back, whether it was restored on its own or with the workflow it sits in. Both run in the background like `post-launch`.
-
-A child agent runs no hooks at all, and neither does an agent told to keep the directory it was given, since both are working in a checkout somebody else prepared and a hook there would be writing into a tree nobody asked it to touch.
+Child agents do not run hooks, and neither do non-worktree agents. The reason for this is that both may be working in a directory they do not own.
 
 ## The environment
 
-A hook gets its values through the environment, over whatever the service itself is running with. The scripts weave ships get the same ones.
+Hooks get their values through the environment.
 
-The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent. Other environment variables are:
+The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`, `state`,`cwd`, `harness`, `session_id`, and other information about the agent that fired the hook. Other environment variables are:
 
 - `WEAVE_AGENT_ID` and `WEAVE_AGENT_CWD`, the two fields most scripts want.
 - `WEAVE_ADDR`, this server's address, for calling back into the API or the [CLI](commands.md).
