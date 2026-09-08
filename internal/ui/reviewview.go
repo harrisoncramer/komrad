@@ -100,19 +100,49 @@ func (m model) reviewView() string {
 // reviewBandView is what stands over the diff: what is being read, how big it is, what the reader
 // has sent, and the pattern they are searching it for.
 func (m model) reviewBandView(width int) string {
-	out := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
-		m.reviewModeView() +
-		m.reviewScopeView() +
-		m.reviewStatView() +
-		m.reviewStaleView() +
-		m.reviewDeliveryCountView() + "\n\n" +
-		m.review.filter.view() + m.reviewMatchCount()
+	// Explainer: the band is built as rows rather than one string so a short pane can drop the
+	// ones it has no room for. What the reader is doing and what they are looking at are worth
+	// more than the counts, so the counts go first and the mode line never goes at all.
+	kept := m.reviewBandRows()
+
+	out := strings.Join(kept, "") + "\n\n" + m.review.filter.view() + m.reviewMatchCount()
 
 	if m.review.view != nil && m.review.view.Len() > 0 {
 		out += m.reviewDeadView(width)
 	}
 
 	return out
+}
+
+// reviewBandFloor is how many rows the band leaves the rest of the frame: the blank row, the
+// search prompt, and enough of the diff to be worth drawing.
+const reviewBandFloor = 5
+
+// reviewBandRows is the band's rows in the order they give way, least valuable last.
+func (m model) reviewBandRows() []string {
+	rows := []string{
+		m.titleStyle().Render("Review · "+m.review.agentName) + "\n",
+		m.reviewModeView(),
+		m.reviewScopeView(),
+		m.reviewStatView(),
+		m.reviewStaleView(),
+		m.reviewDeliveryCountView(),
+	}
+
+	// The title and the mode line are what the screen is, so they are never dropped however
+	// short the pane.
+	const pinned = 2
+
+	room := len(rows)
+	if m.height > 0 {
+		room = max(pinned, m.height-reviewBandFloor)
+	}
+
+	if room >= len(rows) {
+		return rows
+	}
+
+	return rows[:room]
 }
 
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
@@ -504,47 +534,55 @@ func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 // doing.
 func (m model) reviewModeView() string {
 	if _, dead := m.reviewIsReadOnly(); dead {
-		return reviewHeldStyle.Render("reading") +
-			dimStyle.Render(" · this agent is gone, so nothing can be sent") + "\n"
+		return m.reviewBandRow(reviewHeldStyle, "reading", "this agent is gone, nothing can be sent")
 	}
 
 	if said, history := m.reviewIsHistory(); history {
-		return reviewHistoryStyle.Render("reading history") +
-			dimStyle.Render(" · "+said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+
-				" for the work you can comment on") + "\n"
+		return m.reviewBandRow(reviewHistoryStyle, "reading history",
+			said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+" for the current work")
 	}
 
 	if m.review.writing {
-		return reviewWritingStyle.Render("writing a review") + dimStyle.Render(m.reviewWritingSaid()) + "\n"
+		return m.reviewBandRow(reviewWritingStyle, "writing a review", m.reviewWritingSaid())
 	}
 
 	if m.doesReviewHoldUnsent() {
-		return reviewHeldStyle.Render("reading") +
-			dimStyle.Render(" · "+counted(m.reviewUnsentCount(), "comment")+" written and not sent · "+
-				keyLabel(m.keys.Review.Compose)+" to carry on writing") + "\n"
+		return m.reviewBandRow(reviewHeldStyle, "reading",
+			counted(m.reviewUnsentCount(), "comment")+" not sent · "+
+				keyLabel(m.keys.Review.Compose)+" to carry on")
 	}
 
 	if m.review.awaiting {
-		return reviewHeldStyle.Render("reading") +
-			dimStyle.Render(" · your review is with the agent") + "\n"
+		return m.reviewBandRow(reviewHeldStyle, "reading", "your review is with the agent")
 	}
 
-	return reviewReadingStyle.Render("reading") +
-		dimStyle.Render(" · press "+keyLabel(m.keys.Review.Compose)+" to comment") + "\n"
+	return m.reviewBandRow(reviewReadingStyle, "reading",
+		"press "+keyLabel(m.keys.Review.Compose)+" to comment")
+}
+
+// reviewBandRow draws one row of the band as a coloured state and a hint after it, cutting the
+// hint rather than letting the row run past the pane it was given.
+func (m model) reviewBandRow(style lipgloss.Style, state, hint string) string {
+	room := m.lineWidth() - lipgloss.Width(state) - len(" · ")
+	if room <= 0 {
+		return style.Render(clip(state, m.lineWidth())) + "\n"
+	}
+
+	return style.Render(state) + dimStyle.Render(" · "+clip(hint, room)) + "\n"
 }
 
 // reviewWritingSaid is what the writing mode offers, which is the way out until something has
 // been written and the way to send it once something has.
 func (m model) reviewWritingSaid() string {
 	if !m.doesReviewHoldUnsent() {
-		return " · nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to reading"
+		return "nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to reading"
 	}
 
 	if m.review.pinned {
-		return " · the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
+		return "the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
 	}
 
-	return " · " + keyLabel(m.keys.Form.Submit) + " sends it to the agent"
+	return keyLabel(m.keys.Form.Submit) + " sends it to the agent"
 }
 
 // reviewUnsentCount is how many comments the reader is holding.

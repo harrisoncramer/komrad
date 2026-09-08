@@ -47,9 +47,16 @@ const (
 // from: the coordinates it was written against, its line on the old side, and its text.
 type lineIndex struct {
 	byKey       map[anchorKey]int
+	byNew       map[newKey]int
 	byOld       map[oldKey]int
 	byQuote     map[quoteKey][]int
 	byBareQuote map[quoteKey][]int
+}
+
+// newKey is a line of the snapshot on screen, which is what a traced position names.
+type newKey struct {
+	filePath string
+	newLine  int32
 }
 
 type oldKey struct {
@@ -65,6 +72,7 @@ type quoteKey struct {
 func (v *View) indexLines() lineIndex {
 	index := lineIndex{
 		byKey:       map[anchorKey]int{},
+		byNew:       map[newKey]int{},
 		byOld:       map[oldKey]int{},
 		byQuote:     map[quoteKey][]int{},
 		byBareQuote: map[quoteKey][]int{},
@@ -85,6 +93,10 @@ func (v *View) indexLines() lineIndex {
 			oldLine:  int32(line.OldNumber),
 		}] = y
 
+		if line.NewNumber > 0 {
+			index.byNew[newKey{filePath: file, newLine: int32(line.NewNumber)}] = y
+		}
+
 		// A row answers to the spelling the diff draws it as.
 		key := quoteKey{filePath: file, quote: quote}
 		index.byQuote[key] = append(index.byQuote[key], y)
@@ -103,37 +115,83 @@ func (v *View) indexLines() lineIndex {
 	return index
 }
 
-// rowFor is the row a thread is drawn on and what that placing is worth, trying the
-// coordinates it was written against, then its old-side line, then its text.
-func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, placement) {
-	quote := ""
-	if lines := thread.GetQuotedLines(); len(lines) > 0 {
-		quote = lines[0]
-	}
+// placeArm is one way of finding a thread's row, and the ladder of them is walked arm by arm
+// across every thread rather than thread by thread across every arm.
+type placeArm func(*View, lineIndex, *agentv1.ReviewThread) (int, placement, bool)
 
-	if y, ok := index.byKey[keyForThread(thread)]; ok {
-		return y, v.placementFor(y, quote)
+// placeArms is the ladder in order of how much the row is worth: the coordinates the thread was
+// written against, then where git says those lines went, then its old-side line, then its text.
+func placeArms() []placeArm {
+	return []placeArm{
+		(*View).rowByKey,
+		(*View).rowByTrace,
+		(*View).rowByOld,
+		(*View).rowByQuote,
 	}
-
-	// The base commit holds the old-side line still however much the agent rewrites the new one,
-	// which stops being true when the thread counted its old side from a different commit.
-	if old := int(thread.GetOldStart()); old > 0 && v.doesShareBase(thread) {
-		if y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]; ok {
-			return y, v.placementFor(y, quote)
-		}
-	}
-
-	// Text catches a line that moved rather than changed, and two matches place nothing rather
-	// than guess between them.
-	if found := index.quoted(thread.GetFilePath(), quote); quote != "" && len(found) == 1 {
-		return found[0], pinned
-	}
-
-	return 0, adrift
 }
 
-// doesQuoteMatch reports whether the line drawn at a row is the line a thread quoted, comparing
-// without the diff marker only for a quote stored without one.
+// rowByKey is the row whose coordinates are the ones the thread was written against.
+func (v *View) rowByKey(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
+	y, ok := index.byKey[keyForThread(thread)]
+	if !ok {
+		return 0, adrift, false
+	}
+
+	return y, v.placementFor(y, quoteOf(thread)), true
+}
+
+// rowByTrace is the row git says the thread's lines became.
+func (v *View) rowByTrace(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
+	y, ok := v.tracedRowFor(index, thread)
+	if !ok {
+		return 0, adrift, false
+	}
+
+	return y, v.placementFor(y, quoteOf(thread)), true
+}
+
+// rowByOld is the thread's line on the old side, which the base commit holds however much the
+// agent rewrites the new one, and which says nothing once the thread counted it from elsewhere.
+func (v *View) rowByOld(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
+	old := int(thread.GetOldStart())
+	if old <= 0 || !v.doesShareBase(thread) {
+		return 0, adrift, false
+	}
+
+	y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]
+	if !ok {
+		return 0, adrift, false
+	}
+
+	return y, v.placementFor(y, quoteOf(thread)), true
+}
+
+// rowByQuote is the row drawing the text the thread quoted, which catches a line that moved
+// rather than changed, and which refuses two matches rather than guessing between them.
+func (v *View) rowByQuote(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
+	quote := quoteOf(thread)
+	if quote == "" {
+		return 0, adrift, false
+	}
+
+	found := index.quoted(thread.GetFilePath(), quote)
+	if len(found) != 1 {
+		return 0, adrift, false
+	}
+
+	return found[0], pinned, true
+}
+
+// quoteOf is the first line a thread quoted, which is the one its row is judged against.
+func quoteOf(thread *agentv1.ReviewThread) string {
+	lines := thread.GetQuotedLines()
+	if len(lines) == 0 {
+		return ""
+	}
+
+	return lines[0]
+}
+
 func doesQuoteMatch(drawn, stored string) bool {
 	if stored == "" || doesCarryMarker(stored) {
 		return drawn == stored

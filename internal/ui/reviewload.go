@@ -43,7 +43,10 @@ type reviewLoadedMsg struct {
 	awaiting bool
 	// chapters are the rounds of the review as the reader can step through them, oldest first.
 	chapters []reviewChapter
-	err      error
+	// traced is where git says each thread's lines went, keyed by thread id, empty for a
+	// repository that could not answer.
+	traced map[string]review.Traced
+	err    error
 }
 
 // reviewChapter is one round of the review as a reader reads it: the work between two of their
@@ -60,7 +63,7 @@ type reviewChapter struct {
 	// while it was the work in hand.
 	Ordinal int32
 	// Until is when the agent moved past this chapter, in RFC 3339, empty for the chapter nothing
-	// follows. Anything said after it was said about later code.
+	// follows, since anything said after it was said about later code.
 	Until string
 	// Comparable is false for a chapter whose two ends hang off different base commits, which a
 	// rebase between two reviews leaves behind.
@@ -322,6 +325,12 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		awaiting := awaitingReviewAnswer(ctx, agents, round)
 		chapters := reviewChapters(ctx, agents, round)
 		earlierAt := releasedAtOf(ctx, agents, round)
+		traced := traceThreads(ctx, traceThreadsParams{
+			Dir:     dir,
+			ToSHA:   head,
+			Threads: threads,
+			Rounds:  roundsOf(ctx, agents, agentID),
+		})
 
 		return reviewLoadedMsg{
 			agentID:   agentID,
@@ -334,6 +343,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			pinned:    pinned,
 			awaiting:  awaiting,
 			chapters:  chapters,
+			traced:    traced,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Dir:         dir,
 				Exclude:     exclude,
@@ -663,6 +673,23 @@ func roundAfter(params roundAfterParams) string {
 	return after
 }
 
+// roundsOf is every round of an agent, and nothing when they cannot be read, since tracing is a
+// better answer where it is available rather than something the screen depends on.
+func roundsOf(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	agentID string,
+) []*agentv1.ReviewRound {
+	resp, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
+		AgentId: agentID,
+	}))
+	if err != nil {
+		return nil
+	}
+
+	return resp.Msg.GetRounds()
+}
+
 // awaitingReviewAnswer reports whether the person has released a review against the round on
 // screen, which is the state the service refuses a second review in.
 func awaitingReviewAnswer(
@@ -856,6 +883,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.applyReviewChapters(msg.chapters)
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
+	m.review.view.SetTraced(msg.traced)
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
 	m.review.view.PinThreads(threadsByChapter(threadsByChapterParams{
 		Threads:  msg.threads,
