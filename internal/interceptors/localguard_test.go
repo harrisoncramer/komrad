@@ -100,18 +100,18 @@ func TestLocalGuard(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
 			status, served, written := guardedCall(t,
-				createAgentCall(test.host, test.origin, test.fetchSite), test.localAddr)
+				createAgentCall(tt.host, tt.origin, tt.fetchSite), tt.localAddr)
 
-			assert.Equal(t, test.want, status)
-			assert.Equal(t, test.want == http.StatusOK, served,
+			assert.Equal(t, tt.want, status)
+			assert.Equal(t, tt.want == http.StatusOK, served,
 				"a refused request must not reach the handler")
 
-			if test.want == http.StatusOK {
+			if tt.want == http.StatusOK {
 				assert.Empty(t, written, "a served request is left to the layers below")
 
 				return
@@ -119,7 +119,7 @@ func TestLocalGuard(t *testing.T) {
 
 			record := logtest.Record(t, written)
 			assert.Equal(t, "WARN", record["severity_text"])
-			assert.Equal(t, test.host, record[logging.RequestHost])
+			assert.Equal(t, tt.host, record[logging.RequestHost])
 			assert.EqualValues(t, http.StatusForbidden, record[logging.HTTPStatus])
 		})
 	}
@@ -134,7 +134,7 @@ func TestLocalGuardOverRealConnection(t *testing.T) {
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })))
 	defer server.Close()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
 
 	res, err := http.DefaultClient.Do(req)
@@ -142,7 +142,7 @@ func TestLocalGuardOverRealConnection(t *testing.T) {
 	require.NoError(t, res.Body.Close())
 	assert.Equal(t, http.StatusOK, res.StatusCode, "a call to the address it is listening on")
 
-	rebound, err := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, nil)
+	rebound, err := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
 	rebound.Host = "evil.example.com"
 
