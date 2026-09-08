@@ -53,9 +53,22 @@ func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 		OldPath: "internal/こんにちは.go",
 		NewPath: "internal/こんにちは.go",
 		Hunks: []diff.Hunk{hunkOf(
-			diff.Line{Kind: diff.Context, Text: "package greet", OldNumber: 1, NewNumber: 1},
-			diff.Line{Kind: diff.Addition, Text: "\tsay(\"日本語のテキスト\")", NewNumber: 2},
-			diff.Line{Kind: diff.Deletion, Text: "\t\tolder line with tabs", OldNumber: 2},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "\tsay(\"日本語のテキスト\")",
+				NewNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "\t\tolder line with tabs",
+				OldNumber: 2,
+			},
 		)},
 	}), false)
 

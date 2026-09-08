@@ -47,7 +47,11 @@ func resizedTo(t *testing.T, m model, width, height int) model {
 func TestAgentsDrawTheHoveredRowsNotes(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend", Context: "always run the linter"}}
+	m.listing.workflows = []workflowstore.Workflow{{
+		ID:      "w1",
+		Name:    "backend",
+		Context: "always run the linter",
+	}}
 
 	// The folder header, which has no pane and never did.
 	m.tree.cursor = 0
@@ -176,7 +180,11 @@ func paneless(t *testing.T) (model, *recordingTmux) {
 
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
-	m.listing.workflows = []workflowstore.Workflow{{ID: "w1", Name: "backend", Context: "notes"}}
+	m.listing.workflows = []workflowstore.Workflow{{
+		ID:      "w1",
+		Name:    "backend",
+		Context: "notes",
+	}}
 	m.tree.cursor = 0
 	m.stageSelection()
 
@@ -230,7 +238,11 @@ func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 	m.enterScreen(screenReview)
-	m.review = reviewState{agentID: "a1", agentName: "auth", loading: true}
+	m.review = reviewState{
+		agentID:   "a1",
+		agentName: "auth",
+		loading:   true,
+	}
 
 	split, ok := m.screenColumnSplit()
 	require.True(t, ok, "the screen holds the window from the moment it is entered")
@@ -351,7 +363,11 @@ func TestAConfiguredWidthIsWidenedAndCapped(t *testing.T) {
 			m.frame = layout.New(tmux, config.Layout{SidebarWidth: tt.columns})
 			m.frame.Attach("%0")
 			m.enterScreen(screenReview)
-			m.review = reviewState{agentID: "a1", agentName: "auth", loading: true}
+			m.review = reviewState{
+				agentID:   "a1",
+				agentName: "auth",
+				loading:   true,
+			}
 
 			split, ok := m.screenColumnSplit()
 			require.True(t, ok)
@@ -367,7 +383,11 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
 	m.enterScreen(screenReview)
-	m.review = reviewState{agentID: "a1", agentName: "auth", loading: true}
+	m.review = reviewState{
+		agentID:   "a1",
+		agentName: "auth",
+		loading:   true,
+	}
 
 	// A divider dragged until the stage holds 25 columns, which leaves the block under its floor.
 	tmux.width = 25

@@ -20,7 +20,12 @@ func formColumnModel(t *testing.T) model {
 	tmux := &recordingTmux{width: 200, height: 40}
 	m := infoModel(tmux)
 	m.width, m.height = 200, 40
-	m.api = api{agents: emptyLists{}, workflows: emptyLists{}, schedules: emptyLists{}, hooks: &fakeHooks{}}
+	m.api = api{
+		agents:    emptyLists{},
+		workflows: emptyLists{},
+		schedules: emptyLists{},
+		hooks:     &fakeHooks{},
+	}
 
 	return m
 }

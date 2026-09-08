@@ -155,13 +155,41 @@ func TestNoScreenBindsOneKeyTwice(t *testing.T) {
 		screen screen
 		legend func(model) keyMap
 	}{
-		{name: "the agents tree", screen: screenAgents, legend: model.agentHelp},
-		{name: "the archive", screen: screenArchive, legend: model.archiveHelp},
-		{name: "the schedules", screen: screenSchedules, legend: model.scheduleHelp},
-		{name: "the mailbox", screen: screenMail, legend: model.mailHelp},
-		{name: "the search", screen: screenSearch, legend: model.searchHelp},
-		{name: "the review", screen: screenReview, legend: model.reviewHelp},
-		{name: "the details under a list", screen: screenAgents, legend: model.detailsHelp},
+		{
+			name:   "the agents tree",
+			screen: screenAgents,
+			legend: model.agentHelp,
+		},
+		{
+			name:   "the archive",
+			screen: screenArchive,
+			legend: model.archiveHelp,
+		},
+		{
+			name:   "the schedules",
+			screen: screenSchedules,
+			legend: model.scheduleHelp,
+		},
+		{
+			name:   "the mailbox",
+			screen: screenMail,
+			legend: model.mailHelp,
+		},
+		{
+			name:   "the search",
+			screen: screenSearch,
+			legend: model.searchHelp,
+		},
+		{
+			name:   "the review",
+			screen: screenReview,
+			legend: model.reviewHelp,
+		},
+		{
+			name:   "the details under a list",
+			screen: screenAgents,
+			legend: model.detailsHelp,
+		},
 	}
 
 	for _, tt := range tests {

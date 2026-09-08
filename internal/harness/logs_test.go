@@ -109,9 +109,21 @@ func TestCleanTextDropsWhatTheTranscriptColumnsCannotHold(t *testing.T) {
 		text string
 		want string
 	}{
-		{name: "prose is trimmed", text: "  a turn  \n", want: "a turn"},
-		{name: "a NUL is dropped", text: "before\x00after", want: "beforeafter"},
-		{name: "a turn that is only a NUL comes back empty", text: "\x00", want: ""},
+		{
+			name: "prose is trimmed",
+			text: "  a turn  \n",
+			want: "a turn",
+		},
+		{
+			name: "a NUL is dropped",
+			text: "before\x00after",
+			want: "beforeafter",
+		},
+		{
+			name: "a turn that is only a NUL comes back empty",
+			text: "\x00",
+			want: "",
+		},
 	}
 
 	for _, tt := range tests {

@@ -656,7 +656,11 @@ func TestMovingAThreadNobodyHoldsIsNotAQuietSuccess(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := open(t)
 
-			_, err := st.MoveThread(t.Context(), MoveThreadParams{ID: tt.id, NewStart: 1, NewEnd: 1})
+			_, err := st.MoveThread(t.Context(), MoveThreadParams{
+				ID:       tt.id,
+				NewStart: 1,
+				NewEnd:   1,
+			})
 			require.ErrorIs(t, err, store.ErrNotFound)
 
 			require.ErrorIs(t, st.DeleteThread(t.Context(), tt.id), store.ErrNotFound)
@@ -747,7 +751,11 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
 	reviewer := seedAgentNamed(t, st, "reviewer")
-	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer}
+	author := AuthorParams{
+		AgentID:       agentID,
+		AuthorKind:    AuthorAgent,
+		AuthorAgentID: &reviewer,
+	}
 
 	first := openRound(t, st, agentID, "tree-one")
 	released, err := st.OpenReview(ctx, OpenReviewParams{
