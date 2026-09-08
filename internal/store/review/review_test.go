@@ -569,3 +569,208 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	require.Len(t, tallies, 1)
 	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
 }
+
+// TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten pins what the reconcile pass reads, since a
+// batch that has gone is a batch whose harvested threads are the agent's business rather than
+// something to move or drop under it.
+func TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	harvested, err := st.CreateThread(ctx, CreateThreadParams{
+		AgentID: agentID, ReviewID: review.ID, RoundID: round.ID, Harvested: true,
+		FilePath: "internal/thing.go", NewStart: 12, NewEnd: 14,
+		QuotedLines: []string{"+\tdoThing()"}, Body: "an edit", AuthorKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+	typed := openThread(t, st, agentID, review, "something a person typed")
+
+	other := seedAgentNamed(t, st, "other")
+	otherRound := openRound(t, st, other, "tree-two")
+	otherReview := openReview(t, st, other, otherRound.ID)
+	_, err = st.CreateThread(ctx, CreateThreadParams{
+		AgentID: other, ReviewID: otherReview.ID, RoundID: otherRound.ID, Harvested: true,
+		FilePath: "internal/thing.go", NewStart: 12, NewEnd: 14,
+		QuotedLines: []string{"+\tdoThing()"}, Body: "another agent's edit", AuthorKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	open, err := st.ListHarvested(ctx, agentID, round.ID)
+	require.NoError(t, err)
+	require.Len(t, open, 1, "the typed thread and the other agent's are not this pass's to touch")
+	assert.Equal(t, harvested.ID, open[0].ID)
+	assert.NotEqual(t, typed.ID, open[0].ID)
+
+	release(t, st, agentID, review.ID, VerdictChangesRequested)
+
+	released, err := st.ListHarvested(ctx, agentID, round.ID)
+	require.NoError(t, err)
+	assert.Empty(t, released, "a released batch is out of the pass's hands")
+}
+
+// TestMovingAThreadKeepsWhatWasSaidInIt pins the repin a widened edit asks for, since a thread
+// rewritten rather than moved would lose the reply the agent had already given it.
+func TestMovingAThreadKeepsWhatWasSaidInIt(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+	thread := openThread(t, st, agentID, review, "the first word")
+
+	_, err := st.AddMessage(ctx, AddMessageParams{
+		ThreadID: thread.ID, ReviewID: &review.ID, Body: "the second", AuthorKind: AuthorHuman,
+	})
+	require.NoError(t, err)
+
+	moved, err := st.MoveThread(ctx, MoveThreadParams{
+		ID: thread.ID, NewStart: 40, NewEnd: 44, QuotedLines: []string{"+\tdoThing()", "+\tandAnother()"},
+	})
+	require.NoError(t, err)
+
+	assert.Equal(t, int32(40), moved.NewStart)
+	assert.Equal(t, int32(44), moved.NewEnd)
+	assert.Equal(t, []string{"+\tdoThing()", "+\tandAnother()"}, moved.QuotedLines)
+	assert.Equal(t, round.ID, moved.RoundID, "a move is within the round the thread was written against")
+
+	messages, err := st.ListMessages(ctx, []string{thread.ID})
+	require.NoError(t, err)
+	assert.Len(t, messages, 2, "both messages are still under it")
+}
+
+// TestMovingAThreadNobodyHoldsIsNotAQuietSuccess pins the refusal, since the reconcile pass acts
+// on what it read a moment ago and a thread deleted under it would otherwise move nothing.
+func TestMovingAThreadNobodyHoldsIsNotAQuietSuccess(t *testing.T) {
+	tests := []struct {
+		name string
+		id   string
+	}{
+		{name: "a string that is not an id at all", id: "not-an-id"},
+		{name: "a well formed id naming nothing", id: uuid.NewString()},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			st := open(t)
+
+			_, err := st.MoveThread(t.Context(), MoveThreadParams{ID: tt.id, NewStart: 1, NewEnd: 1})
+			require.ErrorIs(t, err, store.ErrNotFound)
+
+			require.ErrorIs(t, st.DeleteThread(t.Context(), tt.id), store.ErrNotFound)
+		})
+	}
+}
+
+// TestDeletingAThreadTakesWhatWasSaidInIt pins that an undone edit leaves nothing behind, since a
+// message under no thread is drawn nowhere and read by nothing.
+func TestDeletingAThreadTakesWhatWasSaidInIt(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	going := openThread(t, st, agentID, review, "an edit that was undone")
+	staying := openThread(t, st, agentID, review, "an edit that stands")
+
+	require.NoError(t, st.DeleteThread(ctx, going.ID))
+
+	_, err := st.GetThread(ctx, going.ID)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	messages, err := st.ListMessages(ctx, []string{going.ID, staying.ID})
+	require.NoError(t, err)
+	require.Len(t, messages, 1, "the deleted thread's message goes with it")
+	assert.Equal(t, staying.ID, messages[0].ThreadID)
+}
+
+// TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last
+// looked, since the panel draws what changed since it and the first one never moves.
+func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorHuman}
+
+	_, err := st.LastReleasedReviewOf(ctx, author)
+	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has looked nowhere")
+
+	first := openRound(t, st, agentID, "tree-one")
+	firstReview := openReview(t, st, agentID, first.ID)
+	release(t, st, agentID, firstReview.ID, VerdictChangesRequested)
+
+	second := openRound(t, st, agentID, "tree-two")
+	secondReview := openReview(t, st, agentID, second.ID)
+
+	held, err := st.LastReleasedReviewOf(ctx, author)
+	require.NoError(t, err)
+	assert.Equal(t, firstReview.ID, held.ID, "a batch still being written is not one they have looked at")
+
+	release(t, st, agentID, secondReview.ID, VerdictApproved)
+
+	latest, err := st.LastReleasedReviewOf(ctx, author)
+	require.NoError(t, err)
+	assert.Equal(t, secondReview.ID, latest.ID)
+}
+
+// TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it, which is what
+// lets the same author open another against the next round.
+func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorHuman}
+
+	_, err := st.OpenReviewOf(ctx, author)
+	require.ErrorIs(t, err, store.ErrNotFound)
+
+	round := openRound(t, st, agentID, "tree-one")
+	review := openReview(t, st, agentID, round.ID)
+
+	held, err := st.OpenReviewOf(ctx, author)
+	require.NoError(t, err)
+	assert.Equal(t, review.ID, held.ID)
+
+	release(t, st, agentID, review.ID, VerdictCommented)
+
+	_, err = st.OpenReviewOf(ctx, author)
+	require.ErrorIs(t, err, store.ErrNotFound, "a batch that has gone is not still being written")
+}
+
+// TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased pins the cleanup a departing reviewer
+// gets, since a review already read by the agent it was given to is a record rather than a draft.
+func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedAgentNamed(t, st, "reviewer")
+	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer}
+
+	first := openRound(t, st, agentID, "tree-one")
+	released, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, released.ID, VerdictChangesRequested)
+
+	second := openRound(t, st, agentID, "tree-two")
+	draft, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: second.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+
+	require.NoError(t, st.DeleteOpenReviewsBy(ctx, []string{reviewer}))
+
+	_, err = st.GetReview(ctx, draft.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "the draft nobody will finish goes")
+
+	kept, err := st.GetReview(ctx, released.ID)
+	require.NoError(t, err)
+	assert.Equal(t, released.ID, kept.ID, "the review the agent was already given stands")
+
+	_, err = st.LastReleasedReviewOf(ctx, author)
+	require.NoError(t, err)
+}
