@@ -18,8 +18,9 @@ type popupTmux interface {
 type PopupWindow struct {
 	tmux    popupTmux
 	session string
-	// bound is whether the key is bound on tmux, and is nil until the panel has settled it once.
-	bound *bool
+	// focus is the pane the key is bound to jump to, empty where it is unbound, and nil until
+	// the panel has settled it once.
+	focus *string
 }
 
 // NewPopupWindow builds the popup's window over a tmux client, for the panel running
@@ -46,26 +47,26 @@ func (p *PopupWindow) BindHide(key string) {
 // is the only place that sees every press: a pane running an agent hands its keys to that agent,
 // so the panel's own bubbletea bindings can never reach past the sidebar. Which way the press
 // goes is settled by tmux comparing the active pane against the sidebar's, with no shell and no
-// call back into weave, and coming back is tmux's own last-pane, so nothing here remembers where
-// the press came from. A press with no pane to go back to is refused by tmux and does nothing,
-// which is the same outcome as returning to a pane that has since died. A root binding is
-// unconditional for as long as it stands, so the panel binds it only while an agent's pane is on
-// the stage, and unbinds it on a workflow header, on an agent with no pane, and on the screens
-// that stage no agent.
+// call back into weave, and both arms name the pane they move to, so a split the user opened by
+// hand is never what the key lands on. A press with no pane to go back to is refused by tmux and
+// does nothing, which is the same outcome as returning to a pane that has since died. A root
+// binding is unconditional for as long as it stands, so the panel binds it only while an agent's
+// pane is on the stage, and unbinds it on a workflow header, on an agent with no pane, and on
+// the screens that stage no agent.
 
-// HoldFocusKey takes the key that moves focus between the panel's sidebar and the pane last
-// worked in, or gives it back to the panes, and does neither when the key or the pane is empty.
-func (p *PopupWindow) HoldFocusKey(key, sidebar string, hold bool) {
+// HoldFocusKey takes the key that moves focus between the panel's sidebar and the agent's pane
+// on the stage, or gives it back to the panes when that pane is empty.
+func (p *PopupWindow) HoldFocusKey(key, sidebar, agent string) {
 	switch {
 	case key == "" || sidebar == "":
-	case p.bound != nil && *p.bound == hold:
-	case hold:
+	case p.focus != nil && *p.focus == agent:
+	case agent != "":
 		p.tmux.BindRootKey(key, "if-shell", "-F", "#{==:#{pane_id},"+sidebar+"}",
-			"select-pane -l", "select-pane -t "+sidebar)
-		p.bound = &hold
+			"select-pane -t "+agent, "select-pane -t "+sidebar)
+		p.focus = &agent
 	default:
 		p.tmux.UnbindRootKey(key)
-		p.bound = &hold
+		p.focus = &agent
 	}
 }
 

@@ -186,26 +186,35 @@ func TestBindFocusKey(t *testing.T) {
 		name    string
 		key     string
 		sidebar string
+		agent   string
 		want    []string
 	}{
 		{
-			name:    "the key toggles against the sidebar's own pane",
+			name:    "the key toggles between the sidebar and the agent's own pane",
 			key:     "C-a",
 			sidebar: "%3",
+			agent:   "%9",
 			want: []string{
 				"if-shell", "-F", "#{==:#{pane_id},%3}",
-				"select-pane -l", "select-pane -t %3",
+				"select-pane -t %9", "select-pane -t %3",
 			},
 		},
 		{
 			name:    "no key binds nothing",
 			key:     "",
 			sidebar: "%3",
+			agent:   "%9",
 		},
 		{
-			name:    "no pane binds nothing",
+			name:    "no sidebar binds nothing",
 			key:     "C-a",
 			sidebar: "",
+			agent:   "%9",
+		},
+		{
+			name:    "no agent pane binds nothing",
+			key:     "C-a",
+			sidebar: "%3",
 		},
 	}
 
@@ -213,7 +222,7 @@ func TestBindFocusKey(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			tmux := &bindingTmux{}
 
-			NewPopupWindow(tmux, "weave").HoldFocusKey(tt.key, tt.sidebar, true)
+			NewPopupWindow(tmux, "weave").HoldFocusKey(tt.key, tt.sidebar, tt.agent)
 
 			command, bound := tmux.bound["root:"+tt.key]
 			if tt.want == nil {
@@ -234,14 +243,14 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 	tmux := &bindingTmux{}
 	popup := NewPopupWindow(tmux, "weave")
 
-	popup.HoldFocusKey("C-a", "%3", true)
-	popup.HoldFocusKey("C-a", "%3", false)
+	popup.HoldFocusKey("C-a", "%3", "%9")
+	popup.HoldFocusKey("C-a", "%3", "")
 
 	_, bound := tmux.bound["root:C-a"]
 	assert.False(t, bound)
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 
-	popup.HoldFocusKey("", "%3", false)
+	popup.HoldFocusKey("", "%3", "")
 
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 }
@@ -266,7 +275,7 @@ func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	require.True(t, bound)
 	assert.Equal(t, []string{
 		"if-shell", "-F", "#{==:#{pane_id},%3}",
-		"select-pane -l", "select-pane -t %3",
+		"select-pane -t %9", "select-pane -t %3",
 	}, command)
 
 	m.screen = screenMail
@@ -303,6 +312,25 @@ func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 	assert.Equal(t, 1, binds.rootBinds)
 }
 
+// TestFocusKeyFollowsTheStagedPane checks the key is rebound when another agent's pane takes the
+// stage, rather than being left pointed at the one before it.
+func TestFocusKeyFollowsTheStagedPane(t *testing.T) {
+	binds := &bindingTmux{}
+	m := focusKeyModel(binds)
+
+	m.holdFocusKey()
+	m.frame.ShowGuest("%12")
+	m.holdFocusKey()
+
+	command, bound := binds.bound["root:C-a"]
+	require.True(t, bound)
+	assert.Equal(t, []string{
+		"if-shell", "-F", "#{==:#{pane_id},%3}",
+		"select-pane -t %12", "select-pane -t %3",
+	}, command)
+	assert.Equal(t, 2, binds.rootBinds)
+}
+
 func focusKeyModel(binds *bindingTmux) model {
 	m := filterModel()
 	m.popup = NewPopupWindow(binds, "weave")
@@ -312,6 +340,9 @@ func focusKeyModel(binds *bindingTmux) model {
 		m.listing.agents[i].alive = true
 		m.listing.agents[i].agent.Pane = "%9"
 	}
+
+	m.frame.Attach("%3")
+	m.frame.ShowGuest("%9")
 
 	return m
 }
