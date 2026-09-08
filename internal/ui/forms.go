@@ -100,12 +100,12 @@ const formColumnFloor = 50
 // still on screen while it is answered, at the narrower floor for a confirmation.
 func formColumn(kind formKind) (columnSpec, bool) {
 	switch kind {
-	case formAgent, formChild, formAdopt, formWorkflow, formSchedule:
+	case formAgent, formChild, formAdopt, formRename, formWorkflow, formSchedule:
 		return columnSpec{floor: formColumnFloor}, true
 	case formAgentArchive, formWorkflowArchive, formScheduleArchive,
 		formArchiveDelete, formArchiveEmpty:
 		return columnSpec{floor: columnFloor}, true
-	case formNone, formRename:
+	case formNone:
 		return columnSpec{}, false
 	}
 
