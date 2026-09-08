@@ -704,8 +704,8 @@ func TestSetMark(t *testing.T) {
 	})
 }
 
-// TestSetMetadata covers an agent recording facts about its own work and reading
-// them back off the resource, which is where the panel gets them.
+// TestSetMetadata covers an agent recording a fact about its own work and reading it back off
+// the resource, which is where the panel gets it, the writing itself being the store's own.
 func TestSetMetadata(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -734,32 +734,6 @@ func TestSetMetadata(t *testing.T) {
 			value: xptr.Ptr("https://linear.app/x/issue/ENG-1"),
 			wantStored: []agentstore.Metadata{
 				{Key: "linear_issue", Value: "https://linear.app/x/issue/ENG-1"},
-			},
-		},
-		{
-			name: "revising one fact leaves the others alone",
-			seed: true,
-			recordFirst: []agentstore.Metadata{
-				{Key: "branch", Value: "harry/x"},
-				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
-			},
-			key:   "pr",
-			value: xptr.Ptr("https://github.com/o/r/pull/2"),
-			wantStored: []agentstore.Metadata{
-				{Key: "branch", Value: "harry/x"},
-				{Key: "pr", Value: "https://github.com/o/r/pull/2"},
-			},
-		},
-		{
-			name: "and one is cleared without taking the rest",
-			seed: true,
-			recordFirst: []agentstore.Metadata{
-				{Key: "branch", Value: "harry/x"},
-				{Key: "pr", Value: "https://github.com/o/r/pull/1"},
-			},
-			key: "pr",
-			wantStored: []agentstore.Metadata{
-				{Key: "branch", Value: "harry/x"},
 			},
 		},
 	}

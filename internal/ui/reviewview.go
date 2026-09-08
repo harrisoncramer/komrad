@@ -79,14 +79,16 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 // reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame
 // so that the cursor and the conversation under it can never disagree about the line being read.
 func (m model) reviewView() string {
+	split, ok := m.screenColumnSplit()
+	if !ok {
+		band := m.reviewBandView(m.paneWidth())
+
+		return band + strings.TrimRight(m.reviewSidebarView(band), "\n")
+	}
+
 	// Trimmed so the two halves are the same height, since a trailing newline is a row the
 	// sidebar block would have and the diff beside it would not.
 	sidebar := strings.TrimRight(m.reviewSidebarView(), "\n")
-
-	split, ok := m.screenColumnSplit()
-	if !ok {
-		return m.reviewBandView(m.paneWidth()) + sidebar
-	}
 
 	// The band stands over the diff rather than over the whole window, since what it carries acts
 	// on the patch: a pattern typed above the sidebar reads as though it searched the conversation.
@@ -112,16 +114,17 @@ func (m model) reviewBandView(width int) string {
 
 // reviewSidebarView is the panel's own column: where the cursor is standing and the thread
 // hanging off it.
-func (m model) reviewSidebarView() string {
+func (m model) reviewSidebarView(above ...string) string {
 	help := m.renderHelp(m.reviewHelp())
 
 	// The head is pinned and the conversation gives up the room: where the cursor is standing is
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(help, record, head))
+	chrome := slices.Concat(above, []string{help, record})
+	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
-	return padRows(head+rest, m.listLines(help, record)) + record + help
+	return padRows(head+rest, m.listLines(chrome...)) + record + help
 }
 
 // reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
