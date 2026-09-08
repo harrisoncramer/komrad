@@ -12,7 +12,36 @@ import (
 	"github.com/charmbracelet/x/ansi"
 )
 
+const tabWidth = 4
+
+func expandTabs(text string) string {
+	if !strings.Contains(text, "\t") {
+		return text
+	}
+
+	var b strings.Builder
+	column := 0
+	for _, r := range text {
+		switch r {
+		case '\t':
+			pad := tabWidth - column%tabWidth
+			b.WriteString(strings.Repeat(" ", pad))
+			column += pad
+		case '\n':
+			b.WriteRune(r)
+			column = 0
+		default:
+			b.WriteRune(r)
+			column++
+		}
+	}
+
+	return b.String()
+}
+
 func render(markdown string, wrap int) string {
+	markdown = expandTabs(markdown)
+
 	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
 	if wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
@@ -26,6 +55,13 @@ func render(markdown string, wrap int) string {
 	rendered, err := renderer.Render(markdown)
 	if err != nil {
 		return markdown
+	}
+
+	// The markdown wraps on words, which leaves a code block or a link that will not break wider
+	// than the column, and every caller draws the column itself rather than handing it to a pager
+	// that would fold the overflow.
+	if wrap > 0 {
+		rendered = ansi.Hardwrap(rendered, wrap, true)
 	}
 
 	return rendered
@@ -64,13 +100,6 @@ var scrubMarks = strings.NewReplacer(transcriptstore.SnippetOpen, " ", transcrip
 // styled, and reports the line the first of them ended up on.
 func renderTranscript(conversation string, spans []span, width int) (string, int) {
 	rendered := render(markSpans(conversation, spans), width)
-
-	// The markdown wraps on words, which leaves a code block or a link that will not break wider
-	// than the column, and the panel draws the column itself rather than handing it to a pager
-	// that would fold the overflow.
-	if width > 0 {
-		rendered = ansi.Hardwrap(rendered, width, true)
-	}
 
 	line := markedLine(rendered)
 	if line == 0 && len(spans) > 0 {
