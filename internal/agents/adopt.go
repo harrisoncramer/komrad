@@ -85,41 +85,48 @@ type AdoptParams struct {
 	IdempotencyKey string
 }
 
+// Adoption is what one adopt call did: the agent on the branch, and whether it was already
+// there rather than put there by this call.
+type Adoption struct {
+	Agent    *agentstore.Agent
+	Existing bool
+}
+
 // Adopt puts an agent on a branch weave did not make, named directly or through a pull request,
 // running it either in a worktree of its own or in the checkout already holding the branch.
-func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentstore.Agent, error) {
+func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (Adoption, error) {
 	ref := strings.TrimSpace(params.Ref)
 	if ref == "" {
-		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
+		return Adoption{}, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
 	}
 
 	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, params.WorkflowID)
+		return Adoption{}, fmt.Errorf("%w: %q", ErrWorkflowNotFound, params.WorkflowID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
+		return Adoption{}, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
 	}
 	if !wf.Worktree.Enabled {
-		return nil, fmt.Errorf("%w: %q does not", ErrAdoptNeedsWorktree, wf.Name)
+		return Adoption{}, fmt.Errorf("%w: %q does not", ErrAdoptNeedsWorktree, wf.Name)
 	}
 
 	repo := config.ExpandHome(strings.TrimSpace(wf.Cwd))
 	if repo == "" {
-		return nil, ErrWorktreeNeedsCwd
+		return Adoption{}, ErrWorktreeNeedsCwd
 	}
 
 	pr, branch, err := s.resolveAdoption(ctx, repo, ref)
 	if err != nil {
-		return nil, err
+		return Adoption{}, err
 	}
 
 	existing, err := s.agentOnBranch(ctx, params.WorkflowID, branch)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
-		return nil, err
+		return Adoption{}, err
 	}
 	if err == nil {
-		return existing, nil
+		return Adoption{Agent: existing, Existing: true}, nil
 	}
 
 	create := NewAgentParams{
@@ -135,14 +142,14 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 
 	trees, err := readWorktrees(ctx, repo, branch)
 	if err != nil {
-		return nil, err
+		return Adoption{}, err
 	}
 
 	var owner *agentstore.Agent
 	if trees.holder != "" {
 		found, err := s.agentIn(ctx, trees.holder)
 		if err != nil && !errors.Is(err, store.ErrNotFound) {
-			return nil, err
+			return Adoption{}, err
 		}
 		owner = found
 	}
@@ -150,14 +157,14 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 	switch {
 	case trees.holder == "":
 	case isSameDir(trees.holder, trees.main):
-		return nil, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
+		return Adoption{}, fmt.Errorf("%w: %s is checked out in %s, which is the workflow's own checkout", ErrAdoptBranchInUse, branch, trees.main)
 	case !doesDirExist(trees.holder):
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
 	case owner != nil && isAdopted(*owner, branch):
-		return owner, nil
+		return Adoption{Agent: owner, Existing: true}, nil
 	case owner != nil:
-		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
+		return Adoption{}, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
 	default:
 		// The checkout is somebody else's work, so the provisioner is turned off to stop the
 		// workflow making a second one and, on delete, removing a directory weave never created.
@@ -167,8 +174,12 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 
 	created, err := s.launch.NewAgent(ctx, create)
 	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
-		return nil, err
+		return Adoption{}, err
 	}
+
+	// An idempotency key answered with the agent it already launched is the same answer as a
+	// branch that already had one.
+	adoption := Adoption{Agent: created, Existing: errors.Is(err, ErrAlreadyLaunched)}
 
 	if pr != nil {
 		if _, err := s.agents.SetMetadata(ctx, agentstore.SetMetadataParams{
@@ -176,11 +187,11 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 			Key:   prMetadataKey,
 			Value: &pr.URL,
 		}); err != nil {
-			return nil, fmt.Errorf("failed to record the pull request %s was adopted from: %w", created.Name, err)
+			return Adoption{}, fmt.Errorf("failed to record the pull request %s was adopted from: %w", created.Name, err)
 		}
 	}
 
-	return created, nil
+	return adoption, nil
 }
 
 // resolveAdoption turns what was typed into the branch to adopt, reading the pull request
@@ -233,10 +244,19 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, fmt.Errorf("%w: no agent in workflow %q is adopted onto %q", store.ErrNotFound, workflowID, branch)
 }
 
-// isAdopted reports whether an agent is the one working on a branch right now, which rules out an
-// agent whose worktree is gone and an archived one whose worktree is still its own to remove.
+// Explainer: a create that fails during setup leaves its row behind in failed_to_create, still
+// stamped with the branch it was going to work on. Counting that corpse as the agent on the
+// branch answers every later adopt with it, so the branch can never be adopted again and the
+// caller is told it succeeded. releaseFailedLaunch guards the idempotency key the same way.
+
+// isAdopted reports whether an agent is the one working on a branch right now, which rules out a
+// create that never launched, an agent whose worktree is gone, and an archived one whose worktree
+// is still its own to remove.
 func isAdopted(agent agentstore.Agent, branch string) bool {
-	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
+	return agent.AdoptedBranch == branch &&
+		agent.State != agentstore.StateFailedToCreate &&
+		!agent.WorktreeRemoved &&
+		agent.ArchivedAt == nil
 }
 
 // agentIn returns the agent whose cwd is a directory, archived ones included.
