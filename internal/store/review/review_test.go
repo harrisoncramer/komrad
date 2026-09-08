@@ -695,16 +695,20 @@ func TestAReleasedReviewIsFoundByItsOwnRound(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
-	reviewer := seedReviewerChild(t, st, agentID)
-	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorHuman}
+	one := seedAgentNamed(t, st, "reviewer-one")
+	two := seedAgentNamed(t, st, "reviewer-two")
 
+	author := AuthorParams{AgentID: agentID, AuthorKind: AuthorAgent, AuthorAgentID: &one}
 	first := openRound(t, st, agentID, "tree-one")
 	second := openRound(t, st, agentID, "tree-two")
 
 	_, err := st.GetReleasedReviewOnRound(ctx, author, first.ID)
-	require.ErrorIs(t, err, store.ErrNotFound, "an author who has released none has had no say")
+	require.ErrorIs(t, err, store.ErrNotFound, "a reviewer that has released none has had no say")
 
-	review := openReview(t, st, agentID, first.ID)
+	review, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &one,
+	})
+	require.NoError(t, err)
 
 	_, err = st.GetReleasedReviewOnRound(ctx, author, first.ID)
 	require.ErrorIs(t, err, store.ErrNotFound, "a batch still being written is not a say they have had")
@@ -716,12 +720,19 @@ func TestAReleasedReviewIsFoundByItsOwnRound(t *testing.T) {
 	assert.Equal(t, review.ID, held.ID)
 
 	_, err = st.GetReleasedReviewOnRound(ctx, author, second.ID)
-	require.ErrorIs(t, err, store.ErrNotFound, "a round they have not reviewed is still open to them")
+	require.ErrorIs(t, err, store.ErrNotFound, "a round it has not reviewed is still open to it")
+
+	// The bound is per reviewer, and two entitled reviewers is a real shape, since any child of the
+	// reviewed agent may review it rather than only the one request_review spawned.
+	_, err = st.GetReleasedReviewOnRound(ctx, AuthorParams{
+		AgentID: agentID, AuthorKind: AuthorAgent, AuthorAgentID: &two,
+	}, first.ID)
+	require.ErrorIs(t, err, store.ErrNotFound, "one reviewer's review is not another's")
 
 	_, err = st.GetReleasedReviewOnRound(ctx, AuthorParams{
-		AgentID: agentID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+		AgentID: agentID, AuthorKind: AuthorHuman,
 	}, first.ID)
-	require.ErrorIs(t, err, store.ErrNotFound, "one author's review is not another's")
+	require.ErrorIs(t, err, store.ErrNotFound, "and an agent's review is not the person's")
 }
 
 // TestTheOpenReviewIsTheOneStillBeingWritten pins that releasing a batch closes it, which is what
@@ -777,7 +788,6 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	kept, err := st.GetReview(ctx, released.ID)
 	require.NoError(t, err)
 	assert.Equal(t, released.ID, kept.ID, "the review the agent was already given stands")
-
 }
 
 // seedReviewerChild is a reviewer attached to the agent whose work it reads, which is the shape
