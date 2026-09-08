@@ -36,7 +36,7 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	// that review rather than deleted from the branch, and its old-side number is read against
 	// the earlier snapshot. Nothing about it can be written down in the round's own numbering, so
 	// a new thread there is refused rather than recorded in coordinates nobody can read back.
-	if !replying && m.review.base != "" && anchor.NewStart == 0 {
+	if !replying && m.review.view.IsOldSideForeign() && anchor.NewStart == 0 {
 		m.review.notice = "that line is gone in this round"
 
 		return m, nil
@@ -116,7 +116,7 @@ func (m model) cancelReviewMessage() model {
 // anchorInRoundNumbering is the anchor as the round's own numbering has it, which while the diff
 // is narrowed means no old side at all.
 func (m model) anchorInRoundNumbering(anchor review.Anchor) review.Anchor {
-	if m.review.base == "" {
+	if !m.review.view.IsOldSideForeign() {
 		return anchor
 	}
 

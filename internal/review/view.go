@@ -162,6 +162,12 @@ func (v *View) SetOldSideForeign(foreign bool) {
 	v.oldSideForeign = foreign
 }
 
+// IsOldSideForeign reports whether the old side of this patch came from somewhere other than the
+// round's own base.
+func (v *View) IsOldSideForeign() bool {
+	return v.oldSideForeign
+}
+
 // SetViewed says which files have been read, collapsing each of those to its header and pinning
 // the threads again over the rows that survive it.
 func (v *View) SetViewed(paths map[string]bool) {
