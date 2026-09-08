@@ -639,7 +639,7 @@ func (f fixedHarnesses) GetByID(string) (harness.Harness, error) { return f.harn
 func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 	shellEcho := "harry@mac ~/weave % WEAVE_AGENT_ID=01a0 codex resume 019abc"
 
-	harnesses := []struct {
+	tests := []struct {
 		name    string
 		harness harness.Harness
 	}{
@@ -647,8 +647,8 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 		{name: "codex", harness: codex.NewHarness(codex.NewHarnessParams{SessionsDir: t.TempDir()})},
 	}
 
-	for _, hn := range harnesses {
-		t.Run(hn.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			agents := &fakeAgents{
 				agent: &agentstore.Agent{
 					ID:    "agent-a",
@@ -663,7 +663,7 @@ func TestDeliverDefersToARealHarnessStillComingUp(t *testing.T) {
 				NudgeClaimer:  agents,
 				PaneReader:    panes,
 				PaneTyper:     panes,
-				Harnesses:     fixedHarnesses{harness: hn.harness},
+				Harnesses:     fixedHarnesses{harness: tt.harness},
 			})
 
 			got, err := svc.Deliver(t.Context(), "agent-a")

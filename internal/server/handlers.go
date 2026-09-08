@@ -35,51 +35,51 @@ type newMuxParams struct {
 	StopRequested chan struct{}
 }
 
-func newMux(p newMuxParams) (*http.ServeMux, error) {
+func newMux(params newMuxParams) (*http.ServeMux, error) {
 	validation, err := interceptors.NewValidation()
 	if err != nil {
 		return nil, err
 	}
 
 	options := []connect.HandlerOption{
-		connect.WithInterceptors(interceptors.NewLogging(p.Logger), validation),
+		connect.WithInterceptors(interceptors.NewLogging(params.Logger), validation),
 		interceptors.NewRecovery(),
 		rpccodec.NewStrictJSON(),
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle(HealthPath, newHealthHandler(p.Stores.pool.GetRawPool()))
-	mux.Handle(StopPath, interceptors.NewLoggingHandler(p.Logger, newStopHandler(p.StopRequested)))
+	mux.Handle(HealthPath, newHealthHandler(params.Stores.pool.GetRawPool()))
+	mux.Handle(StopPath, interceptors.NewLoggingHandler(params.Logger, newStopHandler(params.StopRequested)))
 	mux.Handle(agentv1connect.NewAgentServiceHandler(
 		rpcagent.NewService(rpcagent.NewServiceParams{
-			Agents:      p.Stores.agents,
-			Transcripts: p.Stores.transcripts,
-			Mail:        p.Services.mail,
-			Creator:     p.Services.launch,
-			Adopter:     p.Services.adopt,
-			Liveness:    p.Services.liveness,
-			Lifecycle:   p.Services.lifecycle,
-			Resumer:     p.Services.resume,
-			Reconciler:  p.Services.reconciler,
-			Archive:     jobs.NewEnqueuer(p.Jobs),
-			Review:      p.Services.review,
-			Runs:        p.Stores.runs,
-			Marks:       p.Services.marks,
+			Agents:      params.Stores.agents,
+			Transcripts: params.Stores.transcripts,
+			Mail:        params.Services.mail,
+			Creator:     params.Services.launch,
+			Adopter:     params.Services.adopt,
+			Liveness:    params.Services.liveness,
+			Lifecycle:   params.Services.lifecycle,
+			Resumer:     params.Services.resume,
+			Reconciler:  params.Services.reconciler,
+			Archive:     jobs.NewEnqueuer(params.Jobs),
+			Review:      params.Services.review,
+			Runs:        params.Stores.runs,
+			Marks:       params.Services.marks,
 		}), options...))
 	mux.Handle(workflowv1connect.NewWorkflowServiceHandler(
-		rpcworkflow.NewService(p.Stores.workflows, p.Services.workflow, p.Services.marks), options...))
+		rpcworkflow.NewService(params.Stores.workflows, params.Services.workflow, params.Services.marks), options...))
 	mux.Handle(schedulev1connect.NewScheduleServiceHandler(
-		rpcschedule.NewService(p.Stores.schedules, p.Services.schedule), options...))
+		rpcschedule.NewService(params.Stores.schedules, params.Services.schedule), options...))
 	mux.Handle(configv1connect.NewConfigServiceHandler(
-		rpcconfig.NewService(p.Services.loadConfig), options...))
+		rpcconfig.NewService(params.Services.loadConfig), options...))
 	mux.Handle(hookv1connect.NewHookServiceHandler(
-		rpchook.NewService(p.Services.script, p.Services.pullRequests), options...))
+		rpchook.NewService(params.Services.script, params.Services.pullRequests), options...))
 
-	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: p.ReadOnly, BaseURL: "http://" + p.Addr})
+	mcpHandler, err := mcp.NewHandler(mcp.NewHandlerParams{DB: params.ReadOnly, BaseURL: "http://" + params.Addr})
 	if err != nil {
 		return nil, err
 	}
-	mux.Handle("/mcp", interceptors.NewLoggingHandler(p.Logger, mcpHandler))
+	mux.Handle("/mcp", interceptors.NewLoggingHandler(params.Logger, mcpHandler))
 
 	return mux, nil
 }

@@ -90,20 +90,20 @@ type NewLaunchServiceParams struct {
 }
 
 // NewLaunchService builds the service from its dependencies.
-func NewLaunchService(p NewLaunchServiceParams) *LaunchService {
+func NewLaunchService(params NewLaunchServiceParams) *LaunchService {
 	return &LaunchService{
-		tmux:               p.Tmux,
-		agents:             p.Agents,
-		reviews:            p.Reviews,
-		workflows:          p.Workflows,
-		tx:                 p.Tx,
-		launcher:           p.Launcher,
-		harnesses:          p.Harnesses,
-		scripts:            p.Scripts,
-		userDefaultHarness: p.UserDefaultHarness,
-		userDefaultFlags:   p.UserDefaultFlags,
-		maxAgents:          p.MaxAgents,
-		maxChildren:        p.MaxChildren,
+		tmux:               params.Tmux,
+		agents:             params.Agents,
+		reviews:            params.Reviews,
+		workflows:          params.Workflows,
+		tx:                 params.Tx,
+		launcher:           params.Launcher,
+		harnesses:          params.Harnesses,
+		scripts:            params.Scripts,
+		userDefaultHarness: params.UserDefaultHarness,
+		userDefaultFlags:   params.UserDefaultFlags,
+		maxAgents:          params.MaxAgents,
+		maxChildren:        params.MaxChildren,
 	}
 }
 
@@ -125,14 +125,14 @@ type NewAgentParams struct {
 
 // NewAgent creates and launches a background agent, answering a key already spent on a launch
 // with that agent and ErrAlreadyLaunched rather than a bare nil.
-func (s *LaunchService) NewAgent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
-	if p.IdempotencyKey != "" {
-		existing, err := s.agents.GetByIdempotencyKey(ctx, p.IdempotencyKey)
+func (s *LaunchService) NewAgent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
+	if params.IdempotencyKey != "" {
+		existing, err := s.agents.GetByIdempotencyKey(ctx, params.IdempotencyKey)
 		switch {
 		case err == nil:
 			// The row is written before the window is opened, so a create that failed leaves the
 			// key spent on an agent that never ran and a retry answered with a corpse.
-			released, err := s.releaseFailedLaunch(ctx, *existing, p.IdempotencyKey)
+			released, err := s.releaseFailedLaunch(ctx, *existing, params.IdempotencyKey)
 			if err != nil {
 				return nil, err
 			}
@@ -154,20 +154,20 @@ func (s *LaunchService) NewAgent(ctx context.Context, p NewAgentParams) (*agents
 	}
 
 	var parent *agentstore.Agent
-	if p.ParentAgentID != "" {
-		found, err := s.findParent(ctx, p)
+	if params.ParentAgentID != "" {
+		found, err := s.findParent(ctx, params)
 		if err != nil {
 			return nil, err
 		}
 		parent = found
-		p = childParams(p, *found)
+		params = childParams(params, *found)
 	}
 
 	if err := requireRoomForAgents(ctx, s.agents, s.maxAgents, 1); err != nil {
 		return nil, err
 	}
 
-	return s.launchAgent(ctx, p, spawner, parent)
+	return s.launchAgent(ctx, params, spawner, parent)
 }
 
 // releaseFailedLaunch frees an idempotency key held by a create that failed, so the next
@@ -199,10 +199,10 @@ func (s *LaunchService) findSpawner(ctx context.Context, id string) (*agentstore
 // for anything the parent decides instead: the checkout, the provisioner, and the workflow are
 // its parent's rather than the caller's to choose, so a request naming one of them is answered
 // rather than quietly overridden.
-func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agentstore.Agent, error) {
-	parent, err := s.agents.GetByID(ctx, p.ParentAgentID)
+func (s *LaunchService) findParent(ctx context.Context, params NewAgentParams) (*agentstore.Agent, error) {
+	parent, err := s.agents.GetByID(ctx, params.ParentAgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrParentNotFound, p.ParentAgentID)
+		return nil, fmt.Errorf("%w: %q", ErrParentNotFound, params.ParentAgentID)
 	}
 	if err != nil {
 		return nil, err
@@ -221,13 +221,13 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 	}
 
 	switch {
-	case strings.TrimSpace(p.Dir) != "":
+	case strings.TrimSpace(params.Dir) != "":
 		return nil, fmt.Errorf("%w: it runs in %q, its parent's own checkout", ErrChildOwnsLaunch, parent.Cwd)
-	case p.ProvisionEnabled != nil && *p.ProvisionEnabled:
+	case params.ProvisionEnabled != nil && *params.ProvisionEnabled:
 		return nil, fmt.Errorf("%w: it provisions nothing, since the checkout is already there", ErrChildOwnsLaunch)
-	case p.WorkflowID != parent.WorkflowID:
+	case params.WorkflowID != parent.WorkflowID:
 		return nil, fmt.Errorf("%w: it is filed in its parent's workflow %q", ErrChildOwnsLaunch, parent.WorkflowID)
-	case p.ScheduleID != nil:
+	case params.ScheduleID != nil:
 		return nil, fmt.Errorf("%w: a schedule launches into a workflow rather than onto an agent", ErrChildOwnsLaunch)
 	}
 
@@ -236,11 +236,11 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 
 // childParams holds a child to what its parent gives it, writing the disabled provisioner onto
 // the row rather than leaving it unset.
-func childParams(p NewAgentParams, parent agentstore.Agent) NewAgentParams {
-	p.Dir = parent.Cwd
-	p.ProvisionEnabled = xptr.Ptr(false)
+func childParams(params NewAgentParams, parent agentstore.Agent) NewAgentParams {
+	params.Dir = parent.Cwd
+	params.ProvisionEnabled = xptr.Ptr(false)
 
-	return p
+	return params
 }
 
 type launchPlan struct {
@@ -255,16 +255,16 @@ type launchPlan struct {
 	hooks           []workflowstore.Hook
 }
 
-func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*launchPlan, error) {
-	wf, err := s.workflows.Get(ctx, p.WorkflowID)
+func (s *LaunchService) planLaunch(ctx context.Context, params NewAgentParams) (*launchPlan, error) {
+	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, params.WorkflowID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
+		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
 	}
 
-	harnessID := strings.TrimSpace(p.Harness)
+	harnessID := strings.TrimSpace(params.Harness)
 	if harnessID == "" {
 		harnessID = strings.TrimSpace(wf.Harness)
 	}
@@ -277,7 +277,7 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		return nil, err
 	}
 
-	dir := config.ExpandHome(strings.TrimSpace(p.Dir))
+	dir := config.ExpandHome(strings.TrimSpace(params.Dir))
 	if dir == "" {
 		dir = config.ExpandHome(strings.TrimSpace(wf.Cwd))
 	}
@@ -292,14 +292,14 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 		return nil, err
 	}
 
-	agentFlags := strings.TrimSpace(p.Flags)
+	agentFlags := strings.TrimSpace(params.Flags)
 	if agentFlags == "" {
 		agentFlags = strings.TrimSpace(wf.Flags)
 	}
 
 	// The worktree is weave's own, so an agent gets the built-in pair or nothing at all.
 	provisioner, deprovisioner := "", ""
-	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(p.ProvisionEnabled)
+	provisions := wf.Worktree.Enabled && !isProvisionerDisabled(params.ProvisionEnabled)
 	if provisions {
 		provisioner, deprovisioner = worktreeProvisioner, worktreeDeprovisioner
 	}
@@ -307,12 +307,12 @@ func (s *LaunchService) planLaunch(ctx context.Context, p NewAgentParams) (*laun
 	// The hooks a workflow lists are read only for the agents that own their own directory, and a
 	// child or an agent told to keep the directory it was given was handed somebody else's.
 	hooks := wf.Hooks
-	if p.ParentAgentID != "" || isProvisionerDisabled(p.ProvisionEnabled) {
+	if params.ParentAgentID != "" || isProvisionerDisabled(params.ProvisionEnabled) {
 		hooks = nil
 	}
 
 	return &launchPlan{
-		name:            s.uniqueAgentName(ctx, p.WorkflowID, p.Title, p.Prompt),
+		name:            s.uniqueAgentName(ctx, params.WorkflowID, params.Title, params.Prompt),
 		harness:         hn,
 		harnessID:       harnessID,
 		dir:             dir,
@@ -352,8 +352,8 @@ func (plan *launchPlan) agent(params NewAgentParams, id, sessionID, dir, pane st
 	}
 }
 
-func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
-	plan, err := s.planLaunch(ctx, p)
+func (s *LaunchService) launchAgent(ctx context.Context, params NewAgentParams, spawner, parent *agentstore.Agent) (result *agentstore.Agent, launchErr error) {
+	plan, err := s.planLaunch(ctx, params)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		return nil, err
 	}
 	sessionID := plan.harness.MintSessionID()
-	agent := plan.agent(p, id, sessionID, plan.dir, "", spawner)
+	agent := plan.agent(params, id, sessionID, plan.dir, "", spawner)
 	agent.State = agentstore.StateSettingUp
 
 	if err := s.createUnderCeiling(ctx, agent, parent); err != nil {
@@ -405,7 +405,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	if dir == "" {
 		dir = plan.dir
 	}
-	agent = plan.agent(p, id, sessionID, dir, "", spawner)
+	agent = plan.agent(params, id, sessionID, dir, "", spawner)
 
 	if err := runHooks(ctx, hookRunParams{
 		scripts: s.scripts,
@@ -420,7 +420,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 	if err != nil {
 		return nil, fmt.Errorf("failed to open a window for %q: %w", plan.name, err)
 	}
-	agent = plan.agent(p, id, sessionID, dir, pane, spawner)
+	agent = plan.agent(params, id, sessionID, dir, pane, spawner)
 
 	if err := s.tmux.SetPaneOwner(pane, id); err != nil {
 		return nil, fmt.Errorf("failed to stamp the pane for %q: %w", plan.name, err)
@@ -430,7 +430,7 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		return nil, fmt.Errorf("failed to record agent %q: %w", plan.name, err)
 	}
 
-	created, err := s.agents.GetInWorkflow(ctx, p.WorkflowID, plan.name)
+	created, err := s.agents.GetInWorkflow(ctx, params.WorkflowID, plan.name)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("agent %q vanished after being recorded", plan.name)
 	}
@@ -438,11 +438,11 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		return nil, fmt.Errorf("failed to read back agent %q: %w", plan.name, err)
 	}
 
-	params := launchParams{
+	launch := launchParams{
 		Pane:            pane,
 		Dir:             agent.Cwd,
 		Flags:           plan.flags,
-		Prompt:          p.Prompt,
+		Prompt:          params.Prompt,
 		WorkflowContext: plan.workflowContext,
 		SessionID:       sessionID,
 		AgentID:         id,
@@ -450,15 +450,15 @@ func (s *LaunchService) launchAgent(ctx context.Context, p NewAgentParams, spawn
 		OwnsCheckout:    plan.provisioner != "",
 	}
 	if spawner != nil {
-		params.SpawnedByAgentID = spawner.ID
-		params.SpawnedByName = spawner.Name
+		launch.SpawnedByAgentID = spawner.ID
+		launch.SpawnedByName = spawner.Name
 	}
 	if parent != nil {
-		params.ParentAgentID = parent.ID
-		params.ParentName = parent.Name
+		launch.ParentAgentID = parent.ID
+		launch.ParentName = parent.Name
 	}
 
-	if err := s.launcher.launch(plan.harness, params); err != nil {
+	if err := s.launcher.launch(plan.harness, launch); err != nil {
 		return nil, fmt.Errorf("failed to launch the agent for %q: %w", plan.name, err)
 	}
 

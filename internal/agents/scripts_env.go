@@ -92,8 +92,8 @@ func (s *ScriptService) builtinDirs() []string {
 	return []string{s.builtinDir}
 }
 
-func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, error) {
-	agent, dir, trigger := p.agent, p.dir, p.trigger
+func (s *ScriptService) env(ctx context.Context, params scriptEnvParams) ([]string, error) {
+	agent, dir, trigger := params.agent, params.dir, params.trigger
 
 	workflow, err := s.workflows.GetIncludingArchived(ctx, agent.WorkflowID)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
@@ -135,7 +135,7 @@ func (s *ScriptService) env(ctx context.Context, p scriptEnvParams) ([]string, e
 		"WEAVE_TMUX_SOCKET=" + s.socket,
 		"WEAVE_SCRIPT_DIR=" + dir,
 		"WEAVE_TRIGGER=" + trigger,
-		"WEAVE_SCRIPT=" + p.script,
+		"WEAVE_SCRIPT=" + params.script,
 		"WEAVE_INFO_PANE=" + s.tmux.GetInfoPane(),
 		"WEAVE_HOST_TMUX_SOCKET=" + s.tmux.GetHostSocket(),
 		"EDITOR=" + s.editor,

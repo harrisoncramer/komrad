@@ -76,11 +76,11 @@ type NewMailServiceParams struct {
 
 // NewMailService builds the service that sends, claims and lists the mail agents leave for
 // each other.
-func NewMailService(p NewMailServiceParams) *MailService {
+func NewMailService(params NewMailServiceParams) *MailService {
 	return &MailService{
-		mailReadWriter: p.MailReadWriter,
-		agents:         p.Agents,
-		config:         p.Config,
+		mailReadWriter: params.MailReadWriter,
+		agents:         params.Agents,
+		config:         params.Config,
 	}
 }
 

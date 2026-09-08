@@ -43,18 +43,18 @@ type NewLauncherParams struct {
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
-func NewLauncher(p NewLauncherParams) *Launcher {
-	if p.Addr == "" {
-		p.Addr = defaultServerAddr
+func NewLauncher(params NewLauncherParams) *Launcher {
+	if params.Addr == "" {
+		params.Addr = defaultServerAddr
 	}
 
 	return &Launcher{
-		tmux:        p.Tmux,
-		serverAddr:  p.Addr,
-		cacheDir:    p.CacheDir,
-		logPath:     p.LogPath,
-		contextPath: p.ContextPath,
-		hookCommand: p.HookCommand,
+		tmux:        params.Tmux,
+		serverAddr:  params.Addr,
+		cacheDir:    params.CacheDir,
+		logPath:     params.LogPath,
+		contextPath: params.ContextPath,
+		hookCommand: params.HookCommand,
 	}
 }
 

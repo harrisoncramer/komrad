@@ -194,17 +194,17 @@ type hookRunParams struct {
 
 // runHooks runs the hooks on one moment in order, waiting for each, and stops at the first that
 // fails so the ones after it are not handed a directory half prepared.
-func runHooks(ctx context.Context, p hookRunParams) error {
-	if p.scripts == nil {
+func runHooks(ctx context.Context, params hookRunParams) error {
+	if params.scripts == nil {
 		return nil
 	}
 
-	for _, hook := range p.hooks {
-		if hook.Event != p.event {
+	for _, hook := range params.hooks {
+		if hook.Event != params.event {
 			continue
 		}
 
-		if err := p.scripts.RunHook(ctx, p.agent, hook.Script, p.event); err != nil {
+		if err := params.scripts.RunHook(ctx, params.agent, hook.Script, params.event); err != nil {
 			return err
 		}
 	}
@@ -214,8 +214,8 @@ func runHooks(ctx context.Context, p hookRunParams) error {
 
 // startHooks runs a moment's hooks in the background, with nothing for the call that set the
 // moment off to wait on.
-func startHooks(ctx context.Context, p hookRunParams) {
-	if p.scripts == nil || !slices.ContainsFunc(p.hooks, func(hook workflowstore.Hook) bool { return hook.Event == p.event }) {
+func startHooks(ctx context.Context, params hookRunParams) {
+	if params.scripts == nil || !slices.ContainsFunc(params.hooks, func(hook workflowstore.Hook) bool { return hook.Event == params.event }) {
 		return
 	}
 
@@ -223,15 +223,15 @@ func startHooks(ctx context.Context, p hookRunParams) {
 
 	go func() {
 		if err := runHooks(bg, hookRunParams{
-			scripts: p.scripts,
-			agent:   p.agent,
-			hooks:   p.hooks,
-			event:   p.event,
+			scripts: params.scripts,
+			agent:   params.agent,
+			hooks:   params.hooks,
+			event:   params.event,
 		}); err != nil {
 			logging.From(bg).LogAttrs(bg, slog.LevelError, "a hook failed",
 				append([]slog.Attr{
-					slog.String(logging.RunTrigger, p.event),
-					slog.String(logging.ScriptAgentID, p.agent.ID),
+					slog.String(logging.RunTrigger, params.event),
+					slog.String(logging.ScriptAgentID, params.agent.ID),
 				}, logging.Err(err)...)...)
 		}
 	}()

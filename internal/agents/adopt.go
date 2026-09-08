@@ -65,12 +65,12 @@ type NewAdoptServiceParams struct {
 }
 
 // NewAdoptService builds the service from its dependencies.
-func NewAdoptService(p NewAdoptServiceParams) *AdoptService {
+func NewAdoptService(params NewAdoptServiceParams) *AdoptService {
 	return &AdoptService{
-		agents:       p.Agents,
-		workflows:    p.Workflows,
-		launch:       p.Launch,
-		pullRequests: p.PullRequests,
+		agents:       params.Agents,
+		workflows:    params.Workflows,
+		launch:       params.Launch,
+		pullRequests: params.PullRequests,
 	}
 }
 
@@ -87,18 +87,18 @@ type AdoptParams struct {
 
 // Adopt puts an agent on a branch weave did not make, named directly or through a pull request,
 // running it either in a worktree of its own or in the checkout already holding the branch.
-func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Agent, error) {
-	ref := strings.TrimSpace(p.Ref)
+func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentstore.Agent, error) {
+	ref := strings.TrimSpace(params.Ref)
 	if ref == "" {
 		return nil, fmt.Errorf("%w: nothing to adopt", ErrBadDirectory)
 	}
 
-	wf, err := s.workflows.Get(ctx, p.WorkflowID)
+	wf, err := s.workflows.Get(ctx, params.WorkflowID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, p.WorkflowID)
+		return nil, fmt.Errorf("%w: %q", ErrWorkflowNotFound, params.WorkflowID)
 	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to look up workflow %q: %w", p.WorkflowID, err)
+		return nil, fmt.Errorf("failed to look up workflow %q: %w", params.WorkflowID, err)
 	}
 	if !wf.Worktree.Enabled {
 		return nil, fmt.Errorf("%w: %q does not", ErrAdoptNeedsWorktree, wf.Name)
@@ -114,7 +114,7 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		return nil, err
 	}
 
-	existing, err := s.agentOnBranch(ctx, p.WorkflowID, branch)
+	existing, err := s.agentOnBranch(ctx, params.WorkflowID, branch)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
@@ -122,14 +122,14 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 		return existing, nil
 	}
 
-	params := NewAgentParams{
-		Title:          adoptTitle(p.Title, pr, branch),
-		Flags:          p.Flags,
-		Prompt:         adoptPrompt(pr, branch, p.Prompt),
-		Harness:        p.Harness,
-		WorkflowID:     p.WorkflowID,
-		Hidden:         p.Hidden,
-		IdempotencyKey: p.IdempotencyKey,
+	create := NewAgentParams{
+		Title:          adoptTitle(params.Title, pr, branch),
+		Flags:          params.Flags,
+		Prompt:         adoptPrompt(pr, branch, params.Prompt),
+		Harness:        params.Harness,
+		WorkflowID:     params.WorkflowID,
+		Hidden:         params.Hidden,
+		IdempotencyKey: params.IdempotencyKey,
 		AdoptedBranch:  branch,
 	}
 
@@ -161,11 +161,11 @@ func (s *AdoptService) Adopt(ctx context.Context, p AdoptParams) (*agentstore.Ag
 	default:
 		// The checkout is somebody else's work, so the provisioner is turned off to stop the
 		// workflow making a second one and, on delete, removing a directory weave never created.
-		params.Dir = trees.holder
-		params.ProvisionEnabled = xptr.Ptr(false)
+		create.Dir = trees.holder
+		create.ProvisionEnabled = xptr.Ptr(false)
 	}
 
-	created, err := s.launch.NewAgent(ctx, params)
+	created, err := s.launch.NewAgent(ctx, create)
 	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
 		return nil, err
 	}

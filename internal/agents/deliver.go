@@ -67,13 +67,13 @@ type NewDeliveryServiceParams struct {
 }
 
 // NewDeliveryService builds the service from its dependencies.
-func NewDeliveryService(p NewDeliveryServiceParams) *DeliveryService {
+func NewDeliveryService(params NewDeliveryServiceParams) *DeliveryService {
 	return &DeliveryService{
-		mailboxReader:  p.MailboxReader,
-		nudgeClaimer:   p.NudgeClaimer,
-		paneReader:     p.PaneReader,
-		paneReadWriter: p.PaneTyper,
-		harnesses:      p.Harnesses,
+		mailboxReader:  params.MailboxReader,
+		nudgeClaimer:   params.NudgeClaimer,
+		paneReader:     params.PaneReader,
+		paneReadWriter: params.PaneTyper,
+		harnesses:      params.Harnesses,
 	}
 }
 

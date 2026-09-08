@@ -34,15 +34,15 @@ type NewClientParams struct {
 
 // NewClient builds the River client with the workers registered, leaving the periodic jobs
 // to the reconciler that reads them out of the schedules table.
-func NewClient(p NewClientParams) (*river.Client[pgx.Tx], error) {
+func NewClient(params NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
-	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Launcher, p.Running, p.Results, p.Logger))
-	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Deleter))
+	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(params.Schedules, params.Launcher, params.Running, params.Results, params.Logger))
+	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(params.Archived, params.Deleter))
 
-	client, err := river.NewClient(riverpgxv5.New(p.Pool), &river.Config{
+	client, err := river.NewClient(riverpgxv5.New(params.Pool), &river.Config{
 		Schema:      db.RiverSchema,
 		Workers:     workers,
-		Logger:      cmp.Or(p.Logger, slog.Default()),
+		Logger:      cmp.Or(params.Logger, slog.Default()),
 		MaxAttempts: maxAttempts,
 		JobTimeout:  jobTimeout,
 		Queues: map[string]river.QueueConfig{

@@ -194,6 +194,12 @@ linters:
             skip: false
           params_struct:
             skip: false
+            # Structs named after a concept several functions build from rather than after one
+            # function, which the function-name half of the rule cannot fit.
+            allow:
+              - scriptEnvParams
+              - workflowConfigParams
+              - resumeParams
           table_test:
             skip: false
   exclusions:

@@ -126,17 +126,17 @@ func (s *ScriptService) RunResume(ctx context.Context, agent agentstore.Agent, n
 	})
 }
 
-func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string, error) {
-	script, env, err := s.prepare(ctx, p)
+func (s *ScriptService) runAwaited(ctx context.Context, params prepareParams) (string, error) {
+	script, env, err := s.prepare(ctx, params)
 	if err != nil {
 		return "", fmt.Errorf("%w: %w", ErrProvisionFailed, err)
 	}
 
-	logger := s.runLogger(ctx, p.name, p.trigger, p.agent)
+	logger := s.runLogger(ctx, params.name, params.trigger, params.agent)
 
 	dirFile, err := os.CreateTemp("", "weave-provision-dir-*")
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, err)
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, params.name, err)
 	}
 	dirPath := dirFile.Name()
 	closeErr := dirFile.Close()
@@ -147,7 +147,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string
 		}
 	}()
 	if closeErr != nil {
-		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, p.name, closeErr)
+		return "", fmt.Errorf("%w: failed to prepare a place for %s to name its directory: %w", ErrProvisionFailed, params.name, closeErr)
 	}
 
 	env = append(env, setupDirFileVar+"="+dirPath)
@@ -155,7 +155,7 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string
 	logger.LogAttrs(ctx, slog.LevelInfo, "script started")
 	began := time.Now()
 
-	record := s.beginRun(ctx, p.agent.ID, p.trigger, p.name)
+	record := s.beginRun(ctx, params.agent.ID, params.trigger, params.name)
 
 	result, err := s.runner.RunAndWait(ctx, scripts.RunParams{
 		Script:  script,
@@ -178,11 +178,11 @@ func (s *ScriptService) runAwaited(ctx context.Context, p prepareParams) (string
 
 	named, err := readProvisionedDir(dirPath)
 	if err != nil {
-		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrProvisionFailed, p.name, err)
+		return "", fmt.Errorf("%w: failed to read the directory %s named: %w", ErrProvisionFailed, params.name, err)
 	}
 
 	if len(named) > maxProvisionedDir {
-		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrProvisionFailed, p.name, maxProvisionedDir, setupDirFileVar)
+		return "", fmt.Errorf("%w: %s wrote more than %d bytes to %s, where a directory to run in was expected", ErrProvisionFailed, params.name, maxProvisionedDir, setupDirFileVar)
 	}
 
 	return string(bytes.TrimSpace(named)), nil
@@ -270,21 +270,21 @@ func (s *ScriptService) release(key scriptKey) {
 	delete(s.inFlight, key)
 }
 
-func (s *ScriptService) prepare(ctx context.Context, p prepareParams) (scripts.Script, []string, error) {
+func (s *ScriptService) prepare(ctx context.Context, params prepareParams) (scripts.Script, []string, error) {
 	find := s.find
-	if p.hook {
+	if params.hook {
 		find = s.findHook
 	}
 
-	script, err := find(p.name)
+	script, err := find(params.name)
 	if err != nil {
 		return scripts.Script{}, nil, err
 	}
 
 	env, err := s.env(ctx, scriptEnvParams{
-		agent:   p.agent,
+		agent:   params.agent,
 		dir:     script.GetDir(),
-		trigger: p.trigger,
+		trigger: params.trigger,
 		script:  script.Name,
 	})
 	if err != nil {

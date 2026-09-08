@@ -77,11 +77,11 @@ type NewReconcilerParams struct {
 }
 
 // NewReconciler builds a Reconciler over the probe, harnesses and store it is given.
-func NewReconciler(p NewReconcilerParams) *Reconciler {
+func NewReconciler(params NewReconcilerParams) *Reconciler {
 	return &Reconciler{
-		tmux:      p.Panes,
-		harnesses: p.Harnesses,
-		store:     p.States,
+		tmux:      params.Panes,
+		harnesses: params.Harnesses,
+		store:     params.States,
 		tally:     newTally(),
 	}
 }

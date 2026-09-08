@@ -59,19 +59,19 @@ type NewResumeServiceParams struct {
 }
 
 // NewResumeService builds the service from its dependencies.
-func NewResumeService(p NewResumeServiceParams) *ResumeService {
-	if p.FallbackResumeRoot == "" {
-		p.FallbackResumeRoot = defaultFallbackResumeRoot()
+func NewResumeService(params NewResumeServiceParams) *ResumeService {
+	if params.FallbackResumeRoot == "" {
+		params.FallbackResumeRoot = defaultFallbackResumeRoot()
 	}
 
 	return &ResumeService{
-		tmux:               p.Tmux,
-		agents:             p.Agents,
-		workflows:          p.Workflows,
-		launcher:           p.Launcher,
-		harnesses:          p.Harnesses,
-		scripts:            p.Scripts,
-		fallbackResumeRoot: p.FallbackResumeRoot,
+		tmux:               params.Tmux,
+		agents:             params.Agents,
+		workflows:          params.Workflows,
+		launcher:           params.Launcher,
+		harnesses:          params.Harnesses,
+		scripts:            params.Scripts,
+		fallbackResumeRoot: params.FallbackResumeRoot,
 		inFlight:           map[string]struct{}{},
 	}
 }

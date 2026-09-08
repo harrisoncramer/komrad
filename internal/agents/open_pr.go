@@ -25,10 +25,10 @@ type PullRequestOpener struct {
 }
 
 // NewPullRequestOpener builds the opener over the agent registry.
-func NewPullRequestOpener(p NewPullRequestOpenerParams) *PullRequestOpener {
+func NewPullRequestOpener(params NewPullRequestOpenerParams) *PullRequestOpener {
 	return &PullRequestOpener{
-		agents: p.Agents,
-		opener: p.Opener,
+		agents: params.Agents,
+		opener: params.Opener,
 	}
 }
 

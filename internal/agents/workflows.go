@@ -75,19 +75,19 @@ type NewWorkflowServiceParams struct {
 }
 
 // NewWorkflowService builds the service from its dependencies.
-func NewWorkflowService(p NewWorkflowServiceParams) *WorkflowService {
+func NewWorkflowService(params NewWorkflowServiceParams) *WorkflowService {
 	return &WorkflowService{
-		store:        p.Workflows,
-		agents:       p.Agents,
-		agentDeleter: p.AgentDeleter,
-		emptied:      p.Emptied,
-		schedules:    p.Schedules,
-		tmux:         p.Tmux,
-		tx:           p.Tx,
-		scripts:      p.Scripts,
-		maxAgents:    p.MaxAgents,
-		maxChildren:  p.MaxChildren,
-		notifier:     p.Notifier,
+		store:        params.Workflows,
+		agents:       params.Agents,
+		agentDeleter: params.AgentDeleter,
+		emptied:      params.Emptied,
+		schedules:    params.Schedules,
+		tmux:         params.Tmux,
+		tx:           params.Tx,
+		scripts:      params.Scripts,
+		maxAgents:    params.MaxAgents,
+		maxChildren:  params.MaxChildren,
+		notifier:     params.Notifier,
 	}
 }
 

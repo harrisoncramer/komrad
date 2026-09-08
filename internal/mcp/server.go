@@ -22,7 +22,7 @@ type NewHandlerParams struct {
 
 // NewHandler builds the MCP server as an HTTP handler with no auth on it, which is safe only
 // while it listens on loopback.
-func NewHandler(p NewHandlerParams) (http.Handler, error) {
+func NewHandler(params NewHandlerParams) (http.Handler, error) {
 	server := mcpsdk.NewServer(&mcpsdk.Implementation{
 		Name:    "weave-db",
 		Title:   "Claude Agents Database",
@@ -34,10 +34,10 @@ func NewHandler(p NewHandlerParams) (http.Handler, error) {
 			"the agents themselves, and are the only way to spawn, rename, or remove one.",
 	})
 
-	tools := &dbTools{db: p.DB}
+	tools := &dbTools{db: params.DB}
 	tools.registerTools(server)
 
-	if err := registerRPCTools(server, p.BaseURL); err != nil {
+	if err := registerRPCTools(server, params.BaseURL); err != nil {
 		return nil, fmt.Errorf("failed to register rpc tools: %w", err)
 	}
 

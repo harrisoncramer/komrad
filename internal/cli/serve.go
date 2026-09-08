@@ -142,8 +142,8 @@ func getHookBinaryPath(ctx context.Context) string {
 	return path
 }
 
-func serve(ctx context.Context, p serveParams) error {
-	state, logger, addr := p.App, p.Logger, p.Addr
+func serve(ctx context.Context, params serveParams) error {
+	state, logger, addr := params.App, params.Logger, params.Addr
 
 	server, err := serverPkg.New(ctx, serverPkg.Params{
 		Env:            state.env,

@@ -73,20 +73,20 @@ type NewLifecycleServiceParams struct {
 }
 
 // NewLifecycleService builds the service from its dependencies.
-func NewLifecycleService(p NewLifecycleServiceParams) *LifecycleService {
+func NewLifecycleService(params NewLifecycleServiceParams) *LifecycleService {
 	return &LifecycleService{
-		tmux:           p.Tmux,
-		agents:         p.Agents,
-		workflows:      p.Workflows,
-		emptyWorkflows: p.EmptyWorkflows,
-		tx:             p.Tx,
-		scripts:        p.Scripts,
-		notifier:       p.Notifier,
-		reviews:        p.Reviews,
-		logsDir:        p.LogsDir,
-		framesDir:      p.FramesDir,
-		maxAgents:      p.MaxAgents,
-		maxChildren:    p.MaxChildren,
+		tmux:           params.Tmux,
+		agents:         params.Agents,
+		workflows:      params.Workflows,
+		emptyWorkflows: params.EmptyWorkflows,
+		tx:             params.Tx,
+		scripts:        params.Scripts,
+		notifier:       params.Notifier,
+		reviews:        params.Reviews,
+		logsDir:        params.LogsDir,
+		framesDir:      params.FramesDir,
+		maxAgents:      params.MaxAgents,
+		maxChildren:    params.MaxChildren,
 	}
 }
 

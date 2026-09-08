@@ -616,14 +616,14 @@ type workflowConfigParams struct {
 	Keys      config.FormKeys
 }
 
-func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex int) {
-	values, keys := p.Values, p.Keys
+func workflowConfigForm(params workflowConfigParams) (form *huh.Form, focusFieldIndex int) {
+	values, keys := params.Values, params.Keys
 	if values.Provisioner == "" {
 		values.Provisioner = provisionerWorktree
 	}
 
 	fields := append([]huh.Field{
-		huh.NewInput().Key("name").Title(p.NameTitle).Value(&values.Name),
+		huh.NewInput().Key("name").Title(params.NameTitle).Value(&values.Name),
 		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Lines(2).Value(&values.Context),
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
@@ -637,7 +637,7 @@ func workflowConfigForm(p workflowConfigParams) (form *huh.Form, focusFieldIndex
 		fields = append(fields, worktreeDetailFields(values)...)
 	}
 
-	fields = append(fields, hookFields(values, p.Hooks)...)
+	fields = append(fields, hookFields(values, params.Hooks)...)
 	fields = append(fields, archiveOnPRClosedField(values))
 
 	// The form is taller than most terminals now, so it takes its height from the resize the panel

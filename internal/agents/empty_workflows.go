@@ -45,11 +45,11 @@ type NewEmptyWorkflowDeleterParams struct {
 }
 
 // NewEmptyWorkflowDeleter builds the deleter over the three stores a workflow's removal touches.
-func NewEmptyWorkflowDeleter(p NewEmptyWorkflowDeleterParams) *EmptyWorkflowDeleter {
+func NewEmptyWorkflowDeleter(params NewEmptyWorkflowDeleterParams) *EmptyWorkflowDeleter {
 	return &EmptyWorkflowDeleter{
-		workflows: p.Workflows,
-		agents:    p.Agents,
-		schedules: p.Schedules,
+		workflows: params.Workflows,
+		agents:    params.Agents,
+		schedules: params.Schedules,
 	}
 }
 

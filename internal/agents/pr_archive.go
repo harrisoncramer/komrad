@@ -67,12 +67,12 @@ type PRArchiver struct {
 
 // NewPRArchiver builds an archiver over the agent store, the workflows that hold the
 // setting, and the way an agent is archived.
-func NewPRArchiver(p NewPRArchiverParams) *PRArchiver {
+func NewPRArchiver(params NewPRArchiverParams) *PRArchiver {
 	return &PRArchiver{
-		agents:       p.Agents,
-		workflows:    p.Workflows,
-		archiver:     p.Archiver,
-		pullRequests: p.PullRequests,
+		agents:       params.Agents,
+		workflows:    params.Workflows,
+		archiver:     params.Archiver,
+		pullRequests: params.PullRequests,
 		quiet:        map[string]time.Time{},
 		now:          time.Now,
 	}

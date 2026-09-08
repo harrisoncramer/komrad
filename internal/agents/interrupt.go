@@ -23,11 +23,11 @@ type PaneInterrupter struct {
 }
 
 // NewPaneInterrupter builds the interrupter over the registry and the tmux server.
-func NewPaneInterrupter(p NewPaneInterrupterParams) *PaneInterrupter {
+func NewPaneInterrupter(params NewPaneInterrupterParams) *PaneInterrupter {
 	return &PaneInterrupter{
-		agents:    p.Agents,
-		harnesses: p.Harnesses,
-		panes:     p.Panes,
+		agents:    params.Agents,
+		harnesses: params.Harnesses,
+		panes:     params.Panes,
 	}
 }
 

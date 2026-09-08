@@ -41,44 +41,44 @@ type buildLoopsParams struct {
 	Periodic  *jobs.RiverPeriodic
 }
 
-func buildLoops(p buildLoopsParams) []Loop {
+func buildLoops(params buildLoopsParams) []Loop {
 	return []Loop{
 		{
 			Name:     ScheduleReconcileLoop,
 			Interval: ScheduleReconcileInterval,
-			Pass:     internaljobs.NewScheduler(p.Stores.schedules, p.Periodic).Reconcile,
+			Pass:     internaljobs.NewScheduler(params.Stores.schedules, params.Periodic).Reconcile,
 		},
 		{
 			Name:     ReconcileLoop,
 			Interval: ReconcileInterval,
-			Pass:     p.Services.reconciler.Reconcile,
+			Pass:     params.Services.reconciler.Reconcile,
 		},
 		{
 			Name:     MailDeliveryLoop,
 			Interval: MailDeliveryInterval,
-			Pass:     p.Services.delivery.DeliverAll,
+			Pass:     params.Services.delivery.DeliverAll,
 		},
 		{
 			Name:     TranscriptSyncLoop,
 			Interval: TranscriptSyncInterval,
 			Pass: agents.NewTranscriptSyncer(agents.NewTranscriptSyncerParams{
-				Agents:      p.Stores.agents,
-				Transcripts: p.Stores.transcripts,
-				Harnesses:   p.Harnesses,
+				Agents:      params.Stores.agents,
+				Transcripts: params.Stores.transcripts,
+				Harnesses:   params.Harnesses,
 			}).Sync,
 		},
 		{
 			Name:     CwdSyncLoop,
 			Interval: CwdSyncInterval,
-			Pass:     agents.NewCwdSyncer(p.Stores.agents).Sync,
+			Pass:     agents.NewCwdSyncer(params.Stores.agents).Sync,
 		},
 		{
 			Name:     PRArchiveLoop,
 			Interval: PRArchiveInterval,
 			Pass: agents.NewPRArchiver(agents.NewPRArchiverParams{
-				Agents:       p.Stores.agents,
-				Workflows:    p.Stores.workflows,
-				Archiver:     p.Services.lifecycle,
+				Agents:       params.Stores.agents,
+				Workflows:    params.Stores.workflows,
+				Archiver:     params.Services.lifecycle,
 				PullRequests: agents.NewGHPullRequests(),
 			}).Sync,
 		},

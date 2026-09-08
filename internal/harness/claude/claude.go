@@ -28,9 +28,9 @@ type NewHarnessParams struct {
 
 // NewHarness builds a harness reading conversation logs from projectsDir, which is
 // Claude's own location when it is left empty.
-func NewHarness(p NewHarnessParams) *Harness {
+func NewHarness(params NewHarnessParams) *Harness {
 	return &Harness{
-		projectsDir: p.ProjectsDir,
+		projectsDir: params.ProjectsDir,
 	}
 }
 

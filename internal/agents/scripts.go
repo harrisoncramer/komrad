@@ -53,20 +53,20 @@ type NewScriptServiceParams struct {
 }
 
 // NewScriptService builds the service from its dependencies.
-func NewScriptService(p NewScriptServiceParams) *ScriptService {
+func NewScriptService(params NewScriptServiceParams) *ScriptService {
 	return &ScriptService{
-		agents:     p.Agents,
-		workflows:  p.Workflows,
-		tmux:       p.Tmux,
-		runner:     p.Runner,
-		runs:       p.Runs,
-		load:       p.Load,
-		addr:       p.Addr,
-		socket:     p.Socket,
-		builtinDir: p.BuiltinDir,
-		logsDir:    p.LogsDir,
-		editor:     p.Editor,
-		binPath:    p.BinPath,
+		agents:     params.Agents,
+		workflows:  params.Workflows,
+		tmux:       params.Tmux,
+		runner:     params.Runner,
+		runs:       params.Runs,
+		load:       params.Load,
+		addr:       params.Addr,
+		socket:     params.Socket,
+		builtinDir: params.BuiltinDir,
+		logsDir:    params.LogsDir,
+		editor:     params.Editor,
+		binPath:    params.BinPath,
 		inFlight:   make(map[scriptKey]struct{}),
 	}
 }

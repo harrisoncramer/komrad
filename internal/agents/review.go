@@ -136,20 +136,20 @@ type ReviewService struct {
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
-func NewReviewService(p NewReviewServiceParams) *ReviewService {
+func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		threads:     p.Threads,
-		messages:    p.Messages,
-		viewed:      p.Viewed,
-		rounds:      p.Rounds,
-		reviews:     p.Reviews,
-		snapshots:   p.Snapshots,
-		workflows:   p.Workflows,
-		agents:      p.Agents,
-		mailer:      p.Mailer,
-		resumer:     p.Resumer,
-		interrupter: p.Interrupter,
-		stateDir:    p.StateDir,
+		threads:     params.Threads,
+		messages:    params.Messages,
+		viewed:      params.Viewed,
+		rounds:      params.Rounds,
+		reviews:     params.Reviews,
+		snapshots:   params.Snapshots,
+		workflows:   params.Workflows,
+		agents:      params.Agents,
+		mailer:      params.Mailer,
+		resumer:     params.Resumer,
+		interrupter: params.Interrupter,
+		stateDir:    params.StateDir,
 	}
 }
 

@@ -22,8 +22,8 @@ type MarkService struct {
 }
 
 // NewMarkService builds the service over the mark store and the transaction it writes through.
-func NewMarkService(p NewMarkServiceParams) *MarkService {
-	return &MarkService{marks: p.Marks, tx: p.Tx}
+func NewMarkService(params NewMarkServiceParams) *MarkService {
+	return &MarkService{marks: params.Marks, tx: params.Tx}
 }
 
 // ListMarks reads every mark the panel draws.

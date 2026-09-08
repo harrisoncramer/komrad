@@ -123,21 +123,21 @@ type NewServiceParams struct {
 
 // NewService constructs the handler from the stores it reads and the services that move agents
 // through their life.
-func NewService(p NewServiceParams) *Service {
+func NewService(params NewServiceParams) *Service {
 	return &Service{
-		agents:      p.Agents,
-		transcripts: p.Transcripts,
-		mail:        p.Mail,
-		creator:     p.Creator,
-		adopter:     p.Adopter,
-		liveness:    p.Liveness,
-		lifecycle:   p.Lifecycle,
-		resumer:     p.Resumer,
-		reconciler:  p.Reconciler,
-		archive:     p.Archive,
-		review:      p.Review,
-		runs:        p.Runs,
-		marks:       p.Marks,
+		agents:      params.Agents,
+		transcripts: params.Transcripts,
+		mail:        params.Mail,
+		creator:     params.Creator,
+		adopter:     params.Adopter,
+		liveness:    params.Liveness,
+		lifecycle:   params.Lifecycle,
+		resumer:     params.Resumer,
+		reconciler:  params.Reconciler,
+		archive:     params.Archive,
+		review:      params.Review,
+		runs:        params.Runs,
+		marks:       params.Marks,
 	}
 }
 

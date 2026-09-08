@@ -34,10 +34,10 @@ type RequestReviewParams struct {
 
 // RequestReview spawns the reviewer for an agent's own work and hands back the rest of the loop
 // that agent is in, which is the half of the review briefing it was not launched with.
-func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams) (*agentstore.Agent, string, error) {
-	author, err := s.agents.GetByID(ctx, p.AgentID)
+func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewParams) (*agentstore.Agent, string, error) {
+	author, err := s.agents.GetByID(ctx, params.AgentID)
 	if errors.Is(err, store.ErrNotFound) {
-		return nil, "", fmt.Errorf("%w: %q", ErrAgentNotFound, p.AgentID)
+		return nil, "", fmt.Errorf("%w: %q", ErrAgentNotFound, params.AgentID)
 	}
 	if err != nil {
 		return nil, "", err
@@ -63,7 +63,7 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 	if running != nil {
 		// A key spent on the reviewer that exists is a retry of the call that made it, which is
 		// asking for that reviewer rather than for a second one.
-		if p.IdempotencyKey != "" && running.IdempotencyKey != nil && *running.IdempotencyKey == p.IdempotencyKey {
+		if params.IdempotencyKey != "" && running.IdempotencyKey != nil && *running.IdempotencyKey == params.IdempotencyKey {
 			return running, implementerDoc, nil
 		}
 
@@ -73,12 +73,12 @@ func (s *LaunchService) RequestReview(ctx context.Context, p RequestReviewParams
 	}
 
 	reviewer, err := s.NewAgent(ctx, NewAgentParams{
-		Title:          reviewerTitle(p.Title, author.Name),
-		Prompt:         reviewerPrompt(*author, p.Prompt),
+		Title:          reviewerTitle(params.Title, author.Name),
+		Prompt:         reviewerPrompt(*author, params.Prompt),
 		WorkflowID:     author.WorkflowID,
 		ParentAgentID:  author.ID,
 		Role:           agentstore.RoleReviewer,
-		IdempotencyKey: p.IdempotencyKey,
+		IdempotencyKey: params.IdempotencyKey,
 	})
 	if err != nil && !errors.Is(err, ErrAlreadyLaunched) {
 		return nil, "", err
