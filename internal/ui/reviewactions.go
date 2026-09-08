@@ -75,8 +75,14 @@ func reviewTable() []action {
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: func(m model) bool { return m.review.baseRound != nil || m.review.base != "" },
+			when: func(m model) bool { return len(m.review.chapters) > 0 },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
+		},
+		{
+			id:   actionReviewBaseForward,
+			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
+			when: func(m model) bool { return len(m.review.chapters) > 0 },
+			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBaseForward() },
 		},
 		{
 			id:   actionReviewReload,
@@ -86,7 +92,9 @@ func reviewTable() []action {
 		{
 			id:   actionReviewEdit,
 			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.editReviewFile() },
+			// An edit of the round's checkout becomes a suggestion the next comment carries, so
+			// it is a write and belongs behind the same gate as the two that say so.
+			run: orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.editReviewFile() }),
 		},
 		{
 			id:   actionReviewResolve,
@@ -125,6 +133,10 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 			return m.refuseReviewWrite()
 		}
 
+		if said, history := m.reviewIsHistory(); history {
+			return m.refuseReviewHistory(said)
+		}
+
 		return fn(m)
 	}
 }
@@ -134,8 +146,9 @@ func reviewLegend() []legendRow {
 	// would only explain their own refusal are not offered.
 	writable := func(m model) bool {
 		_, dead := m.reviewIsReadOnly()
+		_, history := m.reviewIsHistory()
 
-		return !dead
+		return !dead && !history
 	}
 
 	return []legendRow{
@@ -193,6 +206,7 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewEdit},
 			desc: model.reviewEditorDesc,
+			show: writable,
 		},
 		{
 			of:   []actionID{actionReviewBase},
@@ -216,14 +230,21 @@ func reviewLegend() []legendRow {
 			desc: model.reviewThreadDesc,
 		},
 		{
-			of:    []actionID{actionReviewCompose},
-			desc:  model.reviewComposeDesc,
-			show:  writable,
+			of:   []actionID{actionReviewBaseForward},
+			desc: model.reviewBaseForwardDesc,
+			show: func(m model) bool { return len(m.review.chapters) > 0 },
+		},
+		{
+			of:   []actionID{actionReviewCompose},
+			desc: model.reviewComposeDesc,
+			// The key stays bound while a review is out, so pressing it says why rather than
+			// doing nothing, and only the offer of it goes.
+			show:  func(m model) bool { return writable(m) && !m.review.awaiting },
 			strip: true,
 		},
 		{
 			of:   []actionID{actionReviewSend},
-			desc: func(model) string { return "send the review" },
+			desc: func(model) string { return "send to the agent" },
 			show: writable,
 		},
 		{

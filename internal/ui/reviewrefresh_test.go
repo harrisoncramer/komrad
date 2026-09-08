@@ -354,7 +354,7 @@ func TestReviewDiffPollSaysTheWorktreeHasMovedOn(t *testing.T) {
 	assert.Empty(t, tmux.sentKeys, "the diff on screen is left where the reader had it")
 
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "THE WORKTREE HAS MOVED ON")
+	assert.Contains(t, shown, "the agent has written since")
 	assert.NotContains(t, shown, "written by the agent")
 }
 
@@ -372,7 +372,7 @@ func TestReviewDiffPollIgnoresAWorktreeThatHasNotMoved(t *testing.T) {
 	m.applyReviewDiffPolled(polled)
 
 	assert.False(t, m.review.moved)
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "THE WORKTREE HAS MOVED ON")
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "the agent has written since")
 }
 
 // TestReviewBacksOutWhenTheWorktreeWasEmptied covers the agent that throws its work away while

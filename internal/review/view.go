@@ -10,8 +10,12 @@ import (
 	agentv1 "weave/proto/gen/agent/v1"
 )
 
-// adriftNotice heads the section of threads with no line left to stand on.
-const adriftNotice = "── threads with no line left to stand on ──"
+// changedNotice heads the comments whose code the agent has rewritten or removed.
+const changedNotice = "── the code these were about has changed ──"
+
+// outsideNotice heads the comments that are still in the change but not in the narrower diff on
+// screen, which is a different fact from their code having gone.
+const outsideNotice = "── still in the change, outside what is on screen ──"
 
 type rowKind uint8
 
@@ -267,12 +271,38 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 		)
 	})
 
+	// Explainer: a comment loses its line for two unrelated reasons, and reading them in one
+	// list is what makes a narrowed diff look like it has thrown every comment away. Code that
+	// has gone is the agent answering you. A file the diff on screen does not draw is you having
+	// narrowed the window, and the comment is still on a line of the whole change.
+	var changed, outside []*agentv1.ReviewThread
+	for _, thread := range threads {
+		if _, drawn := v.findFile(thread.GetFilePath()); drawn {
+			changed = append(changed, thread)
+
+			continue
+		}
+
+		outside = append(outside, thread)
+	}
+
+	v.appendFootSection(changedNotice, changed)
+	v.appendFootSection(outsideNotice, outside)
+}
+
+// appendFootSection draws one heading and the threads under it, and nothing at all for a section
+// with no threads in it.
+func (v *View) appendFootSection(notice string, threads []*agentv1.ReviewThread) {
+	if len(threads) == 0 {
+		return
+	}
+
 	v.rows = append(v.rows, row{
 		kind: metadataRow,
 		file: -1,
 		hunk: -1,
 		line: -1,
-		text: adriftNotice,
+		text: notice,
 	})
 
 	for _, thread := range threads {
@@ -286,6 +316,31 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 		v.pinned[len(v.rows)-1] = thread
 		v.placed[thread.GetId()] = adrift
 	}
+}
+
+// GetFile reports whether the patch on screen draws a file at all, which is what tells a comment
+// on it apart from a comment on something outside the diff.
+func (v *View) GetFile(filePath string) (*diff.File, bool) {
+	return v.findFile(filePath)
+}
+
+// CommentPosition is where one comment stands among the comments drawn, counting down the diff,
+// so a reader cycling them knows how many are left.
+func (v *View) CommentPosition(thread *agentv1.ReviewThread) (int, int) {
+	rows := make([]int, 0, len(v.pinned))
+	for y := range v.pinned {
+		rows = append(rows, y)
+	}
+
+	slices.Sort(rows)
+
+	for at, y := range rows {
+		if v.pinned[y].GetId() == thread.GetId() {
+			return at + 1, len(rows)
+		}
+	}
+
+	return 0, len(rows)
 }
 
 // GetThreadAt returns the thread a row carries, which is what the gutter marks.

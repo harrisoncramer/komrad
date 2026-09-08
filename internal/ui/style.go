@@ -39,9 +39,11 @@ const (
 )
 
 var (
-	headerStyle        = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
-	cursorStyle        = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
-	dimStyle           = errui.Dim
+	headerStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	cursorStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	dimStyle    = errui.Dim
+	// reviewScopeOnStyle is the half of the scope switch that is in force.
+	reviewScopeOnStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
 	blurredHeaderStyle = lipgloss.NewStyle().Foreground(colorMuted).Bold(true)
 	blurredCursorStyle = lipgloss.NewStyle().Bold(true)
 )

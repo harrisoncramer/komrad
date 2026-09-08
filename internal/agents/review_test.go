@@ -1796,3 +1796,39 @@ func (f *countingMailbox) CountExchanged(_ context.Context, one, other string) (
 
 	return exchanged, nil
 }
+
+// TestACommentReadFromAnOlderSnapshotIsRefused covers the write the review screen makes while a
+// reader is walking earlier rounds: the numbers describe a snapshot the round on file does not
+// hold, and nothing in the row would later say so.
+func TestACommentReadFromAnOlderSnapshotIsRefused(t *testing.T) {
+	reviews := newFakeReviewStore()
+	service := reviewService(t, reviews, &fakeNoticeSender{})
+
+	round, err := service.OpenRound(t.Context(), reviewedAgentID, humanAuthor())
+	require.NoError(t, err)
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:     reviewedAgentID,
+		SnapshotSHA: "0000000000000000000000000000000000000000",
+		FilePath:    "greet.go",
+		NewStart:    16,
+		NewEnd:      16,
+		QuotedLines: []string{"+\tif name == \"\" {"},
+		Body:        "this rule lives in two places",
+		Author:      humanAuthor(),
+	})
+	require.ErrorIs(t, err, ErrReviewNotCurrent)
+
+	opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:     reviewedAgentID,
+		SnapshotSHA: round.SnapshotSHA,
+		FilePath:    "greet.go",
+		NewStart:    16,
+		NewEnd:      16,
+		QuotedLines: []string{"+\tif name == \"\" {"},
+		Body:        "this rule lives in two places",
+		Author:      humanAuthor(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, round.ID, opened.Thread.RoundID, "the snapshot it named is the round it went under")
+}

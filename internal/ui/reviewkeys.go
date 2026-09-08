@@ -134,6 +134,20 @@ func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// refuseReviewHistory says why a write did not happen on a round the agent has already moved
+// past, and names the key back to the work it could act on.
+func (m model) refuseReviewHistory(said string) (tea.Model, tea.Cmd) {
+	summary := said + " is finished"
+	detail := "Nothing can be written on a round the agent has moved past, since it can only " +
+		"change the work it has now. Press " + keyLabel(m.keys.Review.BaseForward) +
+		" to come back to it."
+
+	m.reportBrief(summary, detail, nil)
+	m.review.notice = summary
+
+	return m, nil
+}
+
 // updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn
 // in the review's own sidebar.
 func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {

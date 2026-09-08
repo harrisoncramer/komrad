@@ -254,7 +254,10 @@ type CreateReviewThreadParams struct {
 	Suggestion []string
 	// BaseSHA is the commit the old side of these line numbers was read against, empty for the
 	// round's own base.
-	BaseSHA     string
+	BaseSHA string
+	// SnapshotSHA is the commit the new side of these line numbers was read against, empty for a
+	// caller that read the round's own snapshot.
+	SnapshotSHA string
 	FilePath    string
 	OldStart    int32
 	OldEnd      int32
@@ -286,15 +289,34 @@ func (s *ReviewService) CreateReviewThread(
 		roundID = round.ID
 	}
 
+	// Explainer: a review is written against one snapshot. Letting a second snapshot into the
+	// batch already open would send the agent comments about two versions of its work in one
+	// message, with nothing in the batch saying which comment meant which. So the reader sends
+	// what they have, or throws it away, before starting on a newer snapshot.
+	if open.RoundID != "" && open.RoundID != roundID {
+		return nil, fmt.Errorf("%w: send or discard the comments you have on the earlier snapshot first", ErrReviewInFlight)
+	}
+
 	// A caller that says nothing read its numbers against the round's own base, which is what
 	// every caller did before a diff could be narrowed.
-	if baseSHA == "" {
+	if baseSHA == "" || params.SnapshotSHA != "" {
 		round, err := s.rounds.GetRound(ctx, roundID)
 		if err != nil {
 			return nil, err
 		}
 
-		baseSHA = round.BaseSHA
+		// Explainer: a thread's new side is line numbers of one snapshot, and the row says which
+		// round it belongs to rather than which snapshot it was read from. So a caller that read
+		// an older snapshot is refused here: the numbers would be filed against a round whose
+		// file they do not describe, and nothing later could tell that they were.
+		if params.SnapshotSHA != "" && params.SnapshotSHA != round.SnapshotSHA {
+			return nil, fmt.Errorf("%w: %s is not the snapshot of the round this would be filed against",
+				ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
+		}
+
+		if baseSHA == "" {
+			baseSHA = round.BaseSHA
+		}
 	}
 
 	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{

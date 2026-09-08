@@ -340,6 +340,9 @@ type ReviewKeys struct {
 	// Measure the diff from the round you last reviewed rather than from the point the
 	// branch left main, and press it again to go back to the whole change.
 	Base []string `mapstructure:"base" default:"d"`
+	// Walk the other way through the rounds, towards the newest work and on to the whole
+	// change.
+	BaseForward []string `mapstructure:"base_forward" default:"D"`
 	// Send the review and stop the agent where it stands, so it reads now rather than at
 	// the end of whatever it is doing. Only in the release panel, beside the ordinary
 	// submit key, which sends without interrupting.
@@ -381,7 +384,7 @@ type ReviewKeys struct {
 	ScrollUp []string `mapstructure:"scroll_up" default:"ctrl+p"`
 	// Quit the panel.
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
-	// Catch up with the agent, once the sidebar says it has written since you opened the
+	// Catch up with the agent, once the band says it has written since you opened the
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
 	Reload []string `mapstructure:"reload" default:"R"`

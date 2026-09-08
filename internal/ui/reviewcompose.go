@@ -109,10 +109,18 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 	// records that rather than leaving a later reader to assume the round's own base.
 	base := m.review.base
 
+	// The new side names the snapshot it was read from, which the service compares against the
+	// round it would file the thread under rather than trusting the numbers.
+	snapshot := m.review.head
+	if snapshot == "" {
+		snapshot = m.review.round.GetSnapshotSha()
+	}
+
 	return m.reviewWriteCmd("thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
 			AgentId:     agentID,
 			BaseSha:     base,
+			SnapshotSha: snapshot,
 			FilePath:    anchor.FilePath,
 			OldStart:    int32(anchor.OldStart),
 			OldEnd:      int32(anchor.OldEnd),

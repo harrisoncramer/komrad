@@ -65,9 +65,23 @@ type reviewState struct {
 	// baseLabel names that commit for the band, empty while the diff is measured from the fork
 	// point.
 	baseLabel string
+	// head is the commit the diff on screen is measured to, empty for the newest snapshot.
+	head string
 	// baseRound is the round the narrowed base came from, nil while there is none to offer.
 	baseRound *agentv1.ReviewRound
-	err       error
+	// baseAt is when the person released the review that round was given against, in clock terms.
+	baseAt string
+	// pinned says the diff is the snapshot the reader's unsent comments were written against
+	// rather than the work as it now stands.
+	pinned bool
+	// awaiting says the last released review has produced no work yet, so a second one would be
+	// refused.
+	awaiting bool
+	// chapters are the rounds of the review the two step keys walk, oldest first.
+	chapters []reviewChapter
+	// chapter is which of those is on screen, negative for the whole change.
+	chapter int
+	err    error
 
 	// roundDir is where the round has been checked out for the editor to read, named after the
 	// agent rather than the round.

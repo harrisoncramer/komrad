@@ -34,6 +34,18 @@ var ErrReviewOwnWork = errors.New("an agent cannot review its own work")
 // which is what keeps a reviewer and the agent it reviews from answering each other forever.
 var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wait for the agent to write something")
 
+// ErrReviewInFlight is answered when somebody writes a comment on one snapshot while holding
+// unsent comments on another.
+var ErrReviewInFlight = errors.New("you have unsent comments on an earlier snapshot")
+
+// ErrReviewNotAnswered is answered when somebody starts a second review while the agent has yet to
+// act on the one they already sent.
+var ErrReviewNotAnswered = errors.New("the agent has not answered your last review yet")
+
+// ErrReviewNotCurrent is answered when a comment's line numbers were read from a snapshot other
+// than the one of the round it would be filed against.
+var ErrReviewNotCurrent = errors.New("those lines were read from an older snapshot")
+
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = errors.New("that review has nothing in it")
 
@@ -242,12 +254,49 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
+	if err := s.previousReviewAnswered(ctx, agentID, params, *round); err != nil {
+		return nil, err
+	}
+
 	return s.reviews.OpenReview(ctx, reviewstore.OpenReviewParams{
 		AgentID:       agentID,
 		RoundID:       round.ID,
 		AuthorKind:    author.Kind,
 		AuthorAgentID: author.AgentID,
 	})
+}
+
+// previousReviewAnswered holds an author to one review at a time, refusing a second batch until
+// the agent has written something in answer to the last one.
+func (s *ReviewService) previousReviewAnswered(
+	ctx context.Context,
+	agentID string,
+	params reviewstore.AuthorParams,
+	round reviewstore.Round,
+) error {
+	// Explainer: the danger a second review runs is being about code that predates the agent's
+	// answer to the first, so the two arrive as one set of comments describing two versions of
+	// the work. A round newer than the release is proof the tree moved, since a snapshot of an
+	// unchanged tree gives back the round already taken of it.
+	last, err := s.reviews.GetLastReleasedReview(ctx, params)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if last.ReleasedAt == nil || round.CreatedAt.After(*last.ReleasedAt) {
+		return nil
+	}
+
+	// An agent nobody can reach will never answer, so a reader is left able to write notes on it
+	// rather than locked out by a wait that cannot end.
+	agent, err := s.getLiveAgent(ctx, agentID)
+	if err != nil || agent == nil {
+		return nil
+	}
+
+	return fmt.Errorf("%w: it has written nothing since", ErrReviewNotAnswered)
 }
 
 // notReviewedAlready holds a reviewing agent to one review per round, which is what bounds a

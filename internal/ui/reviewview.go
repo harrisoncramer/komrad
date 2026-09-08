@@ -20,11 +20,13 @@ var (
 	reviewNoticeStyle  = lipgloss.NewStyle().Foreground(lipgloss.Color("10"))
 	reviewAddedStyle   = lipgloss.NewStyle().Foreground(colorSuccess)
 	reviewRemovedStyle = lipgloss.NewStyle().Foreground(colorDanger)
+	// reviewMovedStyle draws the catch-up notice as coloured text rather than as a filled bar,
+	// since the agent writing while you read is the ordinary case and not an alarm.
+	reviewMovedStyle = lipgloss.NewStyle().Foreground(colorWarning)
 
 	// Reversed rather than merely coloured: a reader who keeps writing against a patch that has
 	// already moved has those comments pinned as ghosted or adrift when they finally reload, so
 	// this is worth a bar across the sidebar rather than a dim line they read past.
-	reviewStaleStyle     = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorWarning).Bold(true)
 	reviewDeadStyle      = lipgloss.NewStyle().Foreground(lipgloss.Color("0")).Background(colorMuted).Bold(true)
 	reviewUnsentStyle    = lipgloss.NewStyle().Foreground(colorAccent)
 	reviewSentStyle      = lipgloss.NewStyle().Foreground(colorWarning)
@@ -99,12 +101,15 @@ func (m model) reviewView() string {
 // has sent, and the pattern they are searching it for.
 func (m model) reviewBandView(width int) string {
 	out := m.titleStyle().Render("Review · "+m.review.agentName) + "\n" +
+		m.reviewModeView() +
+		m.reviewScopeView() +
 		m.reviewStatView() +
-		m.reviewDeliveryView() + "\n\n" +
+		m.reviewStaleView() +
+		m.reviewDeliveryCountView() + "\n\n" +
 		m.review.filter.view() + m.reviewMatchCount()
 
 	if m.review.view != nil && m.review.view.Len() > 0 {
-		out += m.reviewDeadView(width) + m.reviewStaleView(width)
+		out += m.reviewDeadView(width)
 	}
 
 	return out
@@ -119,10 +124,11 @@ func (m model) reviewSidebarView(above ...string) string {
 	// what makes the rest of the pane mean anything.
 	head := m.reviewHeadView()
 	record := m.detailsView()
-	chrome := slices.Concat(above, []string{help, record})
+	messages := m.messagesRegion(record, help)
+	chrome := slices.Concat(above, []string{help, record, messages})
 	rest := m.reviewThreadWindow(m.reviewRestView(), m.listLines(slices.Concat(chrome, []string{head})...))
 
-	return padRows(head+rest, m.listLines(chrome...)) + record + help
+	return padRows(head+rest, m.listLines(chrome...)) + record + messages + help
 }
 
 // reviewThreadWindow cuts the conversation down to the rows the sidebar has, keeping its end
@@ -182,16 +188,16 @@ func (m model) reviewDeadView(width int) string {
 	return reviewDeadStyle.Render(reviewFill(" "+reason+" ", width)) + "\n"
 }
 
-// reviewStaleView is the bar saying the worktree has been written to since this round was taken,
-// naming the worktree rather than the agent.
-func (m model) reviewStaleView(width int) string {
-	if !m.review.moved {
-		return ""
+// reviewStaleView says the agent has written since the photograph on screen was taken, and holds
+// its row when it has not, so the diff under it does not jump by one every time the agent saves.
+func (m model) reviewStaleView() string {
+	if !m.review.moved || m.review.pinned {
+		return "\n"
 	}
 
-	line := " THE WORKTREE HAS MOVED ON · " + keyLabel(m.keys.Review.Reload) + " to catch up "
+	said := "the agent has written since · " + keyLabel(m.keys.Review.Reload) + " to catch up"
 
-	return reviewStaleStyle.Render(reviewFill(line, width)) + "\n"
+	return reviewMovedStyle.Render(said) + "\n"
 }
 
 // reviewFill pads a line out to the band's width, so a background colour reads as a bar rather
@@ -250,13 +256,30 @@ func (m model) reviewAnchorView() string {
 	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
 	if !ok {
 		if thread, ok := m.reviewThreadAtCursor(); ok {
-			return m.nameStyle(true, true).Render(clipName(review.FormatThreadLocation(thread))) + "\n"
+			return m.nameStyle(true, true).Render(clipName(review.FormatThreadLocation(thread))) +
+				m.reviewCommentWhereView(thread) + "\n"
 		}
 
 		return dimStyle.Render("  move onto a line to start a thread on it") + "\n"
 	}
 
-	return m.nameStyle(true, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart))) + "\n"
+	head := m.nameStyle(true, true).Render(clipName(review.FormatLocation(anchor.FilePath, anchor.OldStart, anchor.NewStart)))
+	if thread, ok := m.reviewThreadAtCursor(); ok {
+		head += m.reviewCommentWhereView(thread)
+	}
+
+	return head + "\n"
+}
+
+// reviewCommentWhereView is which comment of how many the cursor is standing on, since cycling
+// them with one key says nothing about how far through them you are.
+func (m model) reviewCommentWhereView(thread *agentv1.ReviewThread) string {
+	at, total := m.review.view.CommentPosition(thread)
+	if at == 0 || total < 2 {
+		return ""
+	}
+
+	return dimStyle.Render(fmt.Sprintf("  %d of %d", at, total))
 }
 
 // reviewReleaseView asks what to send: a word about the work as a whole, which is optional, and
@@ -319,12 +342,7 @@ func (m model) reviewStatView() string {
 		return ""
 	}
 
-	out := ""
-	if m.review.baseLabel != "" {
-		out += dimStyle.Render(m.review.baseLabel + " · ")
-	}
-
-	out += dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
+	out := dimStyle.Render(counted(stat.Files, "file")+", ") +
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 
@@ -333,6 +351,44 @@ func (m model) reviewStatView() string {
 	}
 
 	return out + "\n"
+}
+
+// reviewScopeView says what the diff on screen is measured between, in the reader's own terms
+// rather than as rounds, and draws the other thing the base key could show beside it so the key
+// has a destination visible before it is pressed.
+func (m model) reviewScopeView() string {
+	if m.review.view == nil {
+		return ""
+	}
+
+	from := "all changes"
+	if m.review.baseLabel != "" {
+		from = m.review.baseLabel
+	}
+
+	out := reviewScopeOnStyle.Render(from)
+
+	if m.doesReviewFitBaseLegend() {
+		out += dimStyle.Render(" · " + m.reviewStepSaid())
+	}
+
+	return out + "\n"
+}
+
+// reviewStepSaid is the way through the rounds, naming only the direction that has somewhere to
+// go when the reader is standing at one end of the walk.
+func (m model) reviewStepSaid() string {
+	back := keyLabel(m.keys.Review.Base)
+	forward := keyLabel(m.keys.Review.BaseForward)
+
+	switch {
+	case m.review.chapter < 0:
+		return back + " for the latest round"
+	case m.review.chapter == 0:
+		return forward + " for a later round"
+	default:
+		return back + " back · " + forward + " forward"
+	}
 }
 
 // reviewMatchCount is where in the search the cursor is standing, drawn under the pattern the
@@ -377,12 +433,30 @@ func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 		return ""
 	}
 
-	out := dimStyle.Render("  written against") + "\n"
+	out := dimStyle.Render("  "+m.reviewOriginSaid(thread)) + "\n"
 	for _, quoted := range thread.GetQuotedLines() {
 		out += reviewQuoteStyle.Render(m.reviewWrap("  "+quoted)) + "\n"
 	}
 
 	return out + "\n"
+}
+
+// reviewOriginSaid says why a comment is not on the line it was written against, in terms of what
+// happened rather than of the placement weave settled on.
+func (m model) reviewOriginSaid(thread *agentv1.ReviewThread) string {
+	if _, drawn := m.review.view.GetFile(thread.GetFilePath()); !drawn {
+		if m.review.base != "" {
+			return "still in the change, outside what is on screen · written against"
+		}
+
+		return "the file this was about has gone · written against"
+	}
+
+	if m.review.view.IsGhosted(thread) {
+		return "the code under this has changed · written against"
+	}
+
+	return "moved since it was written · written against"
 }
 
 func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
@@ -425,10 +499,41 @@ func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 	return message.GetSentAt()
 }
 
-// reviewDeliveryView is how the person's own comments stand, counted rather than summarised: one
-// phrase for the whole review could never say what any one comment was doing, which is the thing
-// per-comment delivery exists to answer.
-func (m model) reviewDeliveryView() string {
+// reviewModeView says whether the reader is looking or writing, since a review is something you
+// start rather than something that starts itself, and nothing on the screen said which you were
+// doing.
+func (m model) reviewModeView() string {
+	unsent := m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
+	if unsent == 0 {
+		if _, dead := m.reviewIsReadOnly(); dead {
+			return reviewScopeOnStyle.Render("reading") +
+				dimStyle.Render(" · this agent is gone, so nothing can be sent") + "\n"
+		}
+
+		if said, history := m.reviewIsHistory(); history {
+			return reviewScopeOnStyle.Render("reading history") +
+				dimStyle.Render(" · "+said+" is finished, so nothing can be written on it") + "\n"
+		}
+
+		if m.review.awaiting {
+			return reviewScopeOnStyle.Render("reading") +
+				dimStyle.Render(" · your review is with the agent") + "\n"
+		}
+
+		return reviewScopeOnStyle.Render("reading") +
+			dimStyle.Render(" · press "+keyLabel(m.keys.Review.Compose)+" to comment") + "\n"
+	}
+
+	said := " · " + keyLabel(m.keys.Form.Submit) + " sends it to the agent"
+	if m.review.pinned {
+		said = " · the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
+	}
+
+	return reviewScopeOnStyle.Render("writing a review") + dimStyle.Render(said) + "\n"
+}
+
+// reviewDeliveryCountView is how the person's own comments stand, counted rather than summarised.
+func (m model) reviewDeliveryCountView() string {
 	parts := make([]string, 0, len(reviewDeliveryOrder))
 	for _, state := range reviewDeliveryOrder {
 		count := m.review.activity.delivery[deliverySlot(state)]
@@ -438,10 +543,6 @@ func (m model) reviewDeliveryView() string {
 
 		drawn := reviewDeliveryOf(state)
 		parts = append(parts, drawn.style.Render(fmt.Sprintf("%d %s", count, drawn.word)))
-	}
-
-	if len(parts) == 0 {
-		return dimStyle.Render("nothing written yet")
 	}
 
 	return strings.Join(parts, dimStyle.Render(" · "))
@@ -463,6 +564,22 @@ func (m model) reviewIsReadOnly() (string, bool) {
 	}
 
 	return "this agent is archived · restore it before writing to it", true
+}
+
+// reviewIsHistory says whether the diff on screen ends before the agent's current work, which is
+// a view nothing may be written on, and names the round for the refusal to say.
+func (m model) reviewIsHistory() (string, bool) {
+	at := m.review.chapter
+	if at < 0 || at >= len(m.review.chapters) {
+		return "", false
+	}
+
+	chapter := m.review.chapters[at]
+	if chapter.ToSHA == m.review.round.GetSnapshotSha() {
+		return "", false
+	}
+
+	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
 }
 
 // reviewDetails is the record drawn under the review sidebar, which is the agent whose diff is
@@ -527,7 +644,11 @@ func (m model) reviewComposeDesc() string {
 		return "reply in this thread"
 	}
 
-	return "start a thread here"
+	if m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] == 0 {
+		return "start a review here"
+	}
+
+	return "comment on this line"
 }
 
 // reviewReloadDesc says what the reload key would do.

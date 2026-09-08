@@ -76,6 +76,7 @@ func (s *Service) CreateReviewThread(
 	thread, err := s.review.CreateReviewThread(ctx, agents.CreateReviewThreadParams{
 		AgentID:     req.Msg.GetAgentId(),
 		BaseSHA:     req.Msg.GetBaseSha(),
+		SnapshotSHA: req.Msg.GetSnapshotSha(),
 		FilePath:    req.Msg.GetFilePath(),
 		OldStart:    req.Msg.GetOldStart(),
 		OldEnd:      req.Msg.GetOldEnd(),

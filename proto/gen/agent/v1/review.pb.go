@@ -853,7 +853,10 @@ type CreateReviewThreadRequest struct {
 	FilePath string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
 	// The commit the old side of these line numbers was read against, empty for the round's own
 	// base.
-	BaseSha     string   `protobuf:"bytes,10,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	BaseSha string `protobuf:"bytes,10,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	// The commit the new side of these line numbers was read against, empty for a caller that read
+	// the round's own snapshot.
+	SnapshotSha string   `protobuf:"bytes,11,opt,name=snapshot_sha,json=snapshotSha,proto3" json:"snapshot_sha,omitempty"`
 	OldStart    int32    `protobuf:"varint,3,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
 	OldEnd      int32    `protobuf:"varint,4,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
 	NewStart    int32    `protobuf:"varint,5,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
@@ -914,6 +917,13 @@ func (x *CreateReviewThreadRequest) GetFilePath() string {
 func (x *CreateReviewThreadRequest) GetBaseSha() string {
 	if x != nil {
 		return x.BaseSha
+	}
+	return ""
+}
+
+func (x *CreateReviewThreadRequest) GetSnapshotSha() string {
+	if x != nil {
+		return x.SnapshotSha
 	}
 	return ""
 }
@@ -2396,12 +2406,13 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01B\v\n" +
 	"\t_agent_id\"M\n" +
 	"\x19ListReviewThreadsResponse\x120\n" +
-	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xcf\x02\n" +
+	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xf2\x02\n" +
 	"\x19CreateReviewThreadRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
 	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x19\n" +
 	"\bbase_sha\x18\n" +
-	" \x01(\tR\abaseSha\x12\x1b\n" +
+	" \x01(\tR\abaseSha\x12!\n" +
+	"\fsnapshot_sha\x18\v \x01(\tR\vsnapshotSha\x12\x1b\n" +
 	"\told_start\x18\x03 \x01(\x05R\boldStart\x12\x17\n" +
 	"\aold_end\x18\x04 \x01(\x05R\x06oldEnd\x12\x1b\n" +
 	"\tnew_start\x18\x05 \x01(\x05R\bnewStart\x12\x17\n" +

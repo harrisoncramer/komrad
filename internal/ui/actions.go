@@ -78,6 +78,7 @@ const (
 	actionReviewReload
 	actionReviewResolve
 	actionReviewViewed
+	actionReviewBaseForward
 	actionReviewCompose
 	actionReviewSend
 	actionReviewFocusThread

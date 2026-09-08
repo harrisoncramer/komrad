@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"weave/internal/diff"
 	"weave/internal/git"
@@ -31,7 +32,35 @@ type reviewLoadedMsg struct {
 	since string
 	// earlier is the round the person last released a review against, nil when there is none.
 	earlier *agentv1.ReviewRound
-	err     error
+	// earlierAt is when they released it, in clock terms, empty when there is none.
+	earlierAt string
+	// pinned says the diff is the snapshot the reader's unsent comments were written against
+	// rather than the work as it now stands.
+	pinned bool
+	// awaiting says the reader's last released review has produced no work yet, so the panel will
+	// refuse a second one.
+	awaiting bool
+	// chapters are the rounds of the review as the reader can step through them, oldest first.
+	chapters []reviewChapter
+	err      error
+}
+
+// reviewChapter is one round of the review as a reader reads it: the work between two of their
+// reviews, or between their last one and now.
+type reviewChapter struct {
+	// FromSHA is the snapshot the chapter starts after, empty for the point the branch left main.
+	FromSHA string
+	// ToSHA is the snapshot the chapter ends at.
+	ToSHA string
+	// At is when the review closing the chapter was released, in clock terms, empty for the
+	// chapter nobody has reviewed yet.
+	At string
+	// Ordinal is the round the chapter ends at, which is the newest round whose comments existed
+	// while it was the work in hand.
+	Ordinal int32
+	// Comparable is false for a chapter whose two ends hang off different base commits, which a
+	// rebase between two reviews leaves behind.
+	Comparable bool
 }
 
 // reviewWroteMsg is one write and the review as it stands after it.
@@ -64,6 +93,9 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 		exclude:   worktree.DiffExclude,
 		editor:    editor,
 		loading:   true,
+		// The whole change is what a review opens on, and it sits before the first round rather
+		// than on it, so the first press of the step key lands on the newest round.
+		chapter: -1,
 	}
 	return m, m.loadReviewCmd(loadReviewCmdParams{
 		AgentID: m.review.agentID,
@@ -72,10 +104,48 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 	})
 }
 
-// stepReviewBase moves the diff between the point the branch left main and the round the person
-// last reviewed.
+// stepReviewBase walks back a round, from the whole change to the newest round and on into the
+// older ones, and stops on the oldest.
 func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
-	if m.review.base != "" {
+	if m.review.chapter < 0 {
+		return m.showReviewChapter(len(m.review.chapters) - 1)
+	}
+
+	return m.showReviewChapter(m.review.chapter - 1)
+}
+
+// stepReviewBaseForward walks the other way, and stops on the whole change.
+func (m model) stepReviewBaseForward() (tea.Model, tea.Cmd) {
+	if m.review.chapter < 0 {
+		return m, nil
+	}
+
+	return m.showReviewChapter(m.review.chapter + 1)
+}
+
+// showReviewChapter puts one round of the review on screen, or the whole change past the newest
+// round, and stops at either end so a held key walks to the end and stays there.
+func (m model) showReviewChapter(at int) (tea.Model, tea.Cmd) {
+	held := len(m.review.chapters)
+	if held == 0 {
+		return m, nil
+	}
+
+	// The whole change sits after the newest round rather than before the oldest, since it is
+	// the view that carries every round at once.
+	switch {
+	case at < 0:
+		at = 0
+	case at >= held:
+		at = -1
+	}
+
+	if at == m.review.chapter {
+		return m, nil
+	}
+
+	m.review.chapter = at
+	if at < 0 {
 		m.widenReviewBase()
 
 		next, cmd := m.reloadReview()
@@ -83,18 +153,48 @@ func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	m.review.base = m.review.baseRound.GetSnapshotSha()
-	m.review.baseLabel = fmt.Sprintf("since round %d", m.review.baseRound.GetOrdinal())
+	chapter := m.review.chapters[at]
+	m.review.base = chapter.FromSHA
+	m.review.head = chapter.ToSHA
+	m.review.baseLabel = reviewChapterLabel(reviewChapterLabelParams{
+		Chapter: chapter,
+		At:      at,
+		Held:    held,
+	})
 
 	next, cmd := m.reloadReview()
 
 	return next, cmd
 }
 
+// reviewChapterLabelParams is one chapter and where it sits in the walk.
+type reviewChapterLabelParams struct {
+	Chapter reviewChapter
+	At      int
+	Held    int
+}
+
+// reviewChapterLabel names a chapter for the band, counting from the oldest so a number keeps
+// meaning the same round however many rounds follow it.
+func reviewChapterLabel(params reviewChapterLabelParams) string {
+	said := fmt.Sprintf("round %d of %d", params.At+1, params.Held)
+
+	switch {
+	case !params.Chapter.Comparable:
+		return said + ", not comparable, the branch was rebased"
+	case params.Chapter.At == "":
+		return said + ", not reviewed yet"
+	default:
+		return said + ", reviewed at " + params.Chapter.At
+	}
+}
+
 // widenReviewBase puts the diff back to the whole change.
 func (m *model) widenReviewBase() {
 	m.review.base = ""
+	m.review.head = ""
 	m.review.baseLabel = ""
+	m.review.chapter = -1
 }
 
 // reviewLegendFloor is the shortest pane the expanded legend fits in once it carries the base
@@ -113,14 +213,14 @@ func (m model) doesReviewFitBaseLegend() bool {
 	return m.review.baseRound != nil || m.review.base != ""
 }
 
-// reviewBaseDesc says which way the base key will move, since the same press narrows the diff and
-// widens it again.
+// reviewBaseDesc says which way the base key will move, in the legend's own width budget.
 func (m model) reviewBaseDesc() string {
-	if m.review.base != "" {
-		return "diff from main"
-	}
+	return "an earlier round"
+}
 
-	return "diff since review"
+// reviewBaseForwardDesc is the same for the key going the other way.
+func (m model) reviewBaseForwardDesc() string {
+	return "a later round"
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
@@ -153,6 +253,8 @@ type loadReviewCmdParams struct {
 	Exclude []string
 	// Base is the commit to measure the round from, empty for the point the branch left main.
 	Base string
+	// Head is the commit to measure it to, empty for the round's own snapshot.
+	Head string
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
@@ -166,24 +268,40 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
-			AgentId: agentID,
-		}))
+		threads, err := listReviewThreads(ctx, agents, agentID)
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		round := opened.Msg.GetRound()
+		round, pinned := pendingRound(ctx, agents, pendingRoundParams{
+			AgentID: agentID,
+			Threads: threads,
+		})
+		if round == nil {
+			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
+				AgentId: agentID,
+			}))
+			if err != nil {
+				return reviewLoadedMsg{agentID: agentID, err: err}
+			}
+
+			round = opened.Msg.GetRound()
+		}
 
 		base := round.GetBaseSha()
 		if params.Base != "" {
 			base = params.Base
 		}
 
+		head := round.GetSnapshotSha()
+		if params.Head != "" {
+			head = params.Head
+		}
+
 		patch, err := diff.Load(ctx, diff.LoadParams{
 			Dir:         dir,
 			BaseSHA:     base,
-			SnapshotSHA: round.GetSnapshotSha(),
+			SnapshotSHA: head,
 			Exclude:     exclude,
 		})
 		if err != nil {
@@ -194,26 +312,23 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			}
 		}
 
-		threads, err := listReviewThreads(ctx, agents, agentID)
-		if err != nil {
-			return reviewLoadedMsg{
-				agentID: agentID,
-				round:   round,
-				patch:   patch,
-				err:     err,
-			}
-		}
-
 		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
 		earlier := previousReviewedRound(ctx, agents, round)
+		awaiting := awaitingReviewAnswer(ctx, agents, round)
+		chapters := reviewChapters(ctx, agents, round)
+		earlierAt := releasedAtOf(ctx, agents, round)
 
 		return reviewLoadedMsg{
-			agentID: agentID,
-			round:   round,
-			patch:   patch,
-			threads: threads,
-			viewed:  viewed,
-			earlier: earlier,
+			agentID:   agentID,
+			round:     round,
+			patch:     patch,
+			threads:   threads,
+			viewed:    viewed,
+			earlier:   earlier,
+			earlierAt: earlierAt,
+			pinned:    pinned,
+			awaiting:  awaiting,
+			chapters:  chapters,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Dir:         dir,
 				Exclude:     exclude,
@@ -255,6 +370,38 @@ func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewPa
 	}
 
 	return counted(changed, "file") + " changed since you last reviewed"
+}
+
+// releasedAtOf is the clock time the person last let a review go, which is what the screen says
+// instead of a round number.
+func releasedAtOf(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	round *agentv1.ReviewRound,
+) string {
+	resp, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return ""
+	}
+
+	last := lastHumanReview(resp.Msg.GetReviews(), round.GetOrdinal())
+	if last == nil {
+		return ""
+	}
+
+	return releasedClock(last.GetReleasedAt())
+}
+
+// releasedClock is when a review was let go of, in the terms a reader names it by.
+func releasedClock(released string) string {
+	stamp, err := time.Parse(time.RFC3339, released)
+	if err != nil {
+		return ""
+	}
+
+	return stamp.Local().Format("3:04PM")
 }
 
 // previousReviewedRound is the round the person last released a review against, and nothing when
@@ -299,6 +446,145 @@ func previousReviewedRound(
 	}
 
 	return nil
+}
+
+// reviewChapters is the review broken at the reviews the person released, oldest first, so a
+// reader can step through the work a round at a time rather than only seeing the whole of it.
+func reviewChapters(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	round *agentv1.ReviewRound,
+) []reviewChapter {
+	reviews, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return nil
+	}
+
+	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return nil
+	}
+
+	return chapterList(chapterListParams{
+		Rounds:   rounds.Msg.GetRounds(),
+		Reviews:  reviews.Msg.GetReviews(),
+		OnScreen: round,
+	})
+}
+
+// chapterListParams is everything the chapters are cut from, kept apart from the calls that read
+// it so the cutting can be exercised on its own.
+type chapterListParams struct {
+	Rounds   []*agentv1.ReviewRound
+	Reviews  []*agentv1.Review
+	OnScreen *agentv1.ReviewRound
+}
+
+// chapterList cuts the rounds at every round the person released a review against, and ends the
+// last chapter at the round on screen.
+func chapterList(params chapterListParams) []reviewChapter {
+	closed := map[int32]string{}
+	for _, review := range params.Reviews {
+		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+			continue
+		}
+		if released := review.GetReleasedAt(); released != "" {
+			closed[review.GetRoundOrdinal()] = releasedClock(released)
+		}
+	}
+
+	milestones := make([]*agentv1.ReviewRound, 0, len(closed)+1)
+	for _, candidate := range params.Rounds {
+		if candidate.GetOrdinal() > params.OnScreen.GetOrdinal() {
+			continue
+		}
+		if _, ok := closed[candidate.GetOrdinal()]; ok {
+			milestones = append(milestones, candidate)
+		}
+	}
+
+	// The work nobody has reviewed yet is a chapter of its own, and it is the one a reader
+	// arrives wanting, so it is only left out when the newest review closed the round on screen.
+	if _, ok := closed[params.OnScreen.GetOrdinal()]; !ok {
+		milestones = append(milestones, params.OnScreen)
+	}
+
+	if len(milestones) < 2 {
+		return nil
+	}
+
+	chapters := make([]reviewChapter, 0, len(milestones))
+	from := ""
+	fromBase := params.OnScreen.GetBaseSha()
+	for _, milestone := range milestones {
+		chapters = append(chapters, reviewChapter{
+			FromSHA:    from,
+			ToSHA:      milestone.GetSnapshotSha(),
+			At:         closed[milestone.GetOrdinal()],
+			Ordinal:    milestone.GetOrdinal(),
+			Comparable: from == "" || fromBase == milestone.GetBaseSha(),
+		})
+
+		from, fromBase = milestone.GetSnapshotSha(), milestone.GetBaseSha()
+	}
+
+	return chapters
+}
+
+// threadsByChapterParams is the whole conversation and which round of it is on screen.
+type threadsByChapterParams struct {
+	Threads  []*agentv1.ReviewThread
+	Chapters []reviewChapter
+	At       int
+}
+
+// threadsByChapter drops the comments written after the round on screen, and gives back the
+// whole conversation while the whole change is on screen.
+func threadsByChapter(params threadsByChapterParams) []*agentv1.ReviewThread {
+	if params.At < 0 || params.At >= len(params.Chapters) {
+		return params.Threads
+	}
+
+	ceiling := params.Chapters[params.At].Ordinal
+
+	kept := make([]*agentv1.ReviewThread, 0, len(params.Threads))
+	for _, thread := range params.Threads {
+		if thread.GetRoundOrdinal() <= ceiling {
+			kept = append(kept, thread)
+		}
+	}
+
+	return kept
+}
+
+// awaitingReviewAnswer reports whether the person has released a review against the round on
+// screen, which is the state the service refuses a second review in.
+func awaitingReviewAnswer(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	round *agentv1.ReviewRound,
+) bool {
+	resp, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
+		AgentId: round.GetAgentId(),
+	}))
+	if err != nil {
+		return false
+	}
+
+	for _, review := range resp.Msg.GetReviews() {
+		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
+			continue
+		}
+		if review.GetReleasedAt() != "" && review.GetRoundOrdinal() == round.GetOrdinal() {
+			return true
+		}
+	}
+
+	return false
 }
 
 // lastHumanReview is the newest review the person let go of against a round earlier than this
@@ -349,6 +635,62 @@ func listReviewThreads(
 	return resp.Msg.GetThreads(), nil
 }
 
+// pendingRoundParams says whose review is being read and what has already been written on it.
+type pendingRoundParams struct {
+	AgentID string
+	Threads []*agentv1.ReviewThread
+}
+
+// pendingRound is the round a reader's unsent comments were written against, and nothing when
+// they hold none, so a reader part way through a review keeps reading the snapshot they started
+// on rather than being moved onto whatever the agent has written since.
+func pendingRound(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	params pendingRoundParams,
+) (*agentv1.ReviewRound, bool) {
+	roundID := pendingRoundID(params.Threads)
+	if roundID == "" {
+		return nil, false
+	}
+
+	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
+		AgentId: params.AgentID,
+	}))
+	if err != nil {
+		return nil, false
+	}
+
+	for _, round := range rounds.Msg.GetRounds() {
+		if round.GetId() == roundID {
+			return round, true
+		}
+	}
+
+	return nil, false
+}
+
+// pendingRoundID is the round the reader's unsent comments sit on, empty when every comment has
+// gone to the agent already.
+func pendingRoundID(threads []*agentv1.ReviewThread) string {
+	for _, thread := range threads {
+		if thread.GetRoundId() == "" {
+			continue
+		}
+
+		for _, message := range thread.GetMessages() {
+			if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
+				continue
+			}
+			if message.GetSentAt() == "" {
+				return thread.GetRoundId()
+			}
+		}
+	}
+
+	return ""
+}
+
 func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if msg.agentID != m.review.agentID {
 		return nil
@@ -384,10 +726,18 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	}
 
 	m.review.baseRound = msg.earlier
+	m.review.baseAt = msg.earlierAt
+	m.review.pinned = msg.pinned
+	m.review.awaiting = msg.awaiting
+	m.review.chapters = msg.chapters
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
-	m.review.view.PinThreads(msg.threads)
+	m.review.view.PinThreads(threadsByChapter(threadsByChapterParams{
+		Threads:  msg.threads,
+		Chapters: m.review.chapters,
+		At:       m.review.chapter,
+	}))
 
 	// The pattern lives on the ui model rather than the view, so a view built from nothing has
 	// to be given it back, once the marks and the threads have settled the rows it walks.
@@ -447,6 +797,8 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 
 	m.review.err = msg.err
 	if msg.err != nil {
+		m.report("Could not write on "+m.review.agentName, msg.err)
+
 		return
 	}
 
@@ -458,10 +810,20 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 	m.setReviewThreads(threads)
 
+	// Explainer: a round is a moment, so a comment written after it is not something the reader
+	// could have said about that code. The whole conversation stays in the counts above, since
+	// that is the reader's own standing state, and only what is drawn against the diff is cut
+	// back to the comments that existed by the end of the round on screen.
+	drawn := threadsByChapter(threadsByChapterParams{
+		Threads:  threads,
+		Chapters: m.review.chapters,
+		At:       m.review.chapter,
+	})
+
 	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
 	// the rows a settled or deleted thread takes away from under it.
 	place, ok := m.review.view.GetPlace(m.review.cursor)
-	m.review.view.PinThreads(threads)
+	m.review.view.PinThreads(drawn)
 	m.keepReviewCursor(place, ok)
 
 	m.scrollReviewToCursor()
@@ -500,6 +862,7 @@ func (m model) reloadReview() (model, tea.Cmd) {
 		Dir:     m.review.dir,
 		Exclude: m.review.exclude,
 		Base:    m.review.base,
+		Head:    m.review.head,
 	})
 }
 

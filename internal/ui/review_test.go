@@ -1057,7 +1057,7 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 				activity: reviewActivityOf(tt.threads),
 			}}
 
-			shown := ansi.Strip(m.reviewDeliveryView())
+			shown := ansi.Strip(m.reviewDeliveryCountView())
 			assert.Equal(t, tt.want, shown)
 			assert.NotContains(t, shown, tt.absent)
 		})

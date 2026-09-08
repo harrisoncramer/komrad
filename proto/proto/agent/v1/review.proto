@@ -156,6 +156,9 @@ message CreateReviewThreadRequest {
   // The commit the old side of these line numbers was read against, empty for the round's own
   // base.
   string base_sha = 10;
+  // The commit the new side of these line numbers was read against, empty for a caller that read
+  // the round's own snapshot.
+  string snapshot_sha = 11;
   int32 old_start = 3;
   int32 old_end = 4;
   int32 new_start = 5;
