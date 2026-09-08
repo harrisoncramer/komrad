@@ -306,8 +306,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	return m.findRoundLeftoverCmd()
 }
 
-// indexViewedFiles indexes the files read in this round; a later round starts with none because
-// marks belong to one round and need no comparison.
+// indexViewedFiles indexes the files read in this round; a later round starts with none.
 func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
 	for _, mark := range viewed {

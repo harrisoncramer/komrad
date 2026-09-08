@@ -532,8 +532,7 @@ func TestPanelMakesEachTurnEarnItsOwnDwell(t *testing.T) {
 	assert.NotNil(t, cmd, "only by a look of its own")
 }
 
-// TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server,
-// which is the only place the zoom these swaps drop is real.
+// TestPanelKeepsTheWindowLeavingARunningAgent drives the panel against a real tmux server.
 func TestPanelKeepsTheWindowLeavingARunningAgent(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

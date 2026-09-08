@@ -17,8 +17,8 @@ import (
 
 const prStateTimeout = 15 * time.Second
 
-// prStateQuiet is how long an agent is left alone after a pass learned nothing worth acting
-// on, kept long and flat because a merge nobody is waiting on is not worth the GitHub quota.
+// prStateQuiet is how long an agent is left alone after a pass learned nothing worth acting on,
+// kept long and flat.
 const prStateQuiet = 15 * time.Minute
 
 // prArchivedMetadataKey records the pull request an agent was archived for, which is what stops

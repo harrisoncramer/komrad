@@ -179,8 +179,8 @@ func TestNewChildAgentRefusesAChildOfAChild(t *testing.T) {
 	require.ErrorIs(t, err, ErrParentIsChild)
 }
 
-// TestNewChildAgentUnderTheChildCeiling pins the per-parent cap, which is lower than the
-// panel's own because every child of one parent edits the one checkout.
+// TestNewChildAgentUnderTheChildCeiling pins the per-parent cap, which is lower than the panel's
+// own.
 func TestNewChildAgentUnderTheChildCeiling(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

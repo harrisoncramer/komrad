@@ -214,8 +214,8 @@ func (s *LaunchService) findParent(ctx context.Context, p NewAgentParams) (*agen
 		return nil, fmt.Errorf("%w: %q is itself attached to another agent", ErrParentIsChild, parent.Name)
 	}
 
-	// This is ahead of what the request asked for so that the refusal names the parent's missing
-	// directory rather than reporting a conflict with a directory that is the empty string.
+	// Ahead of what the request asked for, which puts the parent's missing directory in the
+	// refusal rather than a conflict with an empty one.
 	if parent.Cwd == "" {
 		return nil, fmt.Errorf("%w: %q has none recorded", ErrChildNeedsParentDirectory, parent.Name)
 	}
@@ -578,7 +578,7 @@ func claimRoomForAgents(ctx context.Context, agents agentSlotLocker, maxAgents, 
 }
 
 // claimRoomForChildren holds one parent to the children it may run at once, which is a lower
-// ceiling than the panel's because they all edit the one checkout.
+// ceiling than the panel's.
 func claimRoomForChildren(ctx context.Context, agents childSlotLocker, maxChildren int, parent *agentstore.Agent) error {
 	if parent == nil || maxChildren <= 0 {
 		return nil

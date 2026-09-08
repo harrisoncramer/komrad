@@ -178,7 +178,7 @@ func (m model) infoPaneHelp() []key.Binding {
 }
 
 // olderLogBindings appear only while the info pane is showing a run, naming which of an agent's
-// runs is on screen because one wrapping direction gives no other way to tell.
+// runs is on screen.
 func (m model) olderLogBindings() []key.Binding {
 	if m.info.kind != infoRunLog {
 		return nil

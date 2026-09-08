@@ -134,8 +134,7 @@ func TestRenderListKeepsCursorVisible(t *testing.T) {
 // TestScreensFitThePane pins the header, the list, and the legend fitting the pane together.
 func TestScreensFitThePane(t *testing.T) {
 	const (
-		// Taller than the tallest legend on purpose: a pane too short for its own chrome overflows
-		// by design.
+		// Taller than the tallest legend on purpose.
 		height = 29
 		total  = 40
 	)

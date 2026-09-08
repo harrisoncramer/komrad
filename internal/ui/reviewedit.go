@@ -128,8 +128,7 @@ func (m model) materialiseRoundCmd(force bool) tea.Cmd {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
 
-		// The disk is asked here rather than on the keypress, which is the moment the force
-		// checkout below would take an earlier round's edit.
+		// The disk is asked here rather than on the keypress.
 		if !force && doesHoldLeftover(ctx, at, sha) {
 			return roundReadyMsg{agentID: agentID, leftover: at}
 		}
@@ -336,7 +335,7 @@ func (m *model) applyRoundEdited(msg roundEditedMsg) tea.Cmd {
 }
 
 // harvestCmd writes the runs the reviewer left in the checkout as threads on the round, anchored
-// here because the line numbers and quoted lines a thread is pinned by come from the patch.
+// here to the patch the line numbers and quoted lines come from.
 func (m model) harvestCmd(edits []git.Edit) tea.Cmd {
 	// An empty harvest is sent rather than skipped: a reviewer who has undone every edit is
 	// retracting the comments those edits wrote, and only the server can see that.

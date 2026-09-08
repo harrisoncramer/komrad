@@ -34,7 +34,7 @@ func (s screen) opensInfoPane() bool {
 }
 
 // screenSpec is everything the panel asks of whichever screen is up, resolved from the screen
-// alone so that adding a screen is one arm here rather than an arm in every file that dispatches.
+// alone.
 type screenSpec struct {
 	// key takes a keypress the panel's own bindings did not claim.
 	key func(model, tea.KeyMsg) (tea.Model, tea.Cmd)

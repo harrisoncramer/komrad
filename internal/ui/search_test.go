@@ -184,7 +184,7 @@ func marked(s string) string {
 }
 
 // TestMarkedTerms covers the words a highlight is looked for by, which are read back off the
-// snippet because a stemmed match spells the query's word its own way.
+// snippet.
 func TestMarkedTerms(t *testing.T) {
 	tests := []struct {
 		name string

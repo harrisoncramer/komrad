@@ -24,8 +24,7 @@ func reviewColumn() columnSpec {
 }
 
 // What the review says while there is no patch to draw, of which Loading and Empty are said by
-// the sidebar's head as well so the two halves cannot drift apart on the wording, while Broken is
-// the column's own short form because the head has the room for the real error text.
+// the sidebar's head as well, while Broken is the column's own short form.
 const (
 	reviewLoadingWord = "loading the diff…"
 	reviewEmptyWord   = "nothing changed in this worktree"

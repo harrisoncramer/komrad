@@ -108,8 +108,7 @@ func (f *fakeReviewAgents) ReleaseReview(
 	return connect.NewResponse(&agentv1.ReleaseReviewResponse{Comments: 1}), nil
 }
 
-// OpenReviewRound takes a real snapshot of the repository under test, which the panel needs to
-// diff the shas it is handed.
+// OpenReviewRound takes a real snapshot of the repository under test.
 func (f *fakeReviewAgents) OpenReviewRound(
 	ctx context.Context,
 	req *connect.Request[agentv1.OpenReviewRoundRequest],
@@ -410,7 +409,7 @@ func reviewFrameText(t *testing.T, m model) string {
 }
 
 // reviewProse is what the sidebar alone says with its wrapping taken back out, the diff beside
-// it left out because the two are joined row by row and collapsing the frame interleaves them.
+// it left out.
 func reviewProse(m model) string {
 	return strings.Join(strings.Fields(ansi.Strip(m.reviewSidebarView())), " ")
 }

@@ -32,9 +32,8 @@ const managerKeyOption = "@weave_key"
 
 const defaultPanelKey = "g"
 
-// BindHide binds the panel key, handed in because only the user's own server names it, on the
-// manager's own tmux server, which sources the user's config too and would otherwise open a
-// popup inside the popup.
+// BindHide binds the panel key on the manager's own tmux server, which sources the user's config
+// too and would otherwise open a popup inside the popup.
 func (p *PopupWindow) BindHide(key string) {
 	if key == "" {
 		key = defaultPanelKey

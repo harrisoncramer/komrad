@@ -49,8 +49,7 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	// The row is tracked whether or not it is unviewed, keeping a mark set by hand until the
-	// cursor moves somewhere else.
+	// The row is tracked whether or not it is unviewed.
 	if m.hover.agentID != item.agent.ID {
 		m.hover = hoverState{agentID: item.agent.ID, since: now}
 	}
@@ -72,7 +71,7 @@ func (m model) dwellViewed(now time.Time) (model, tea.Cmd) {
 		return m, nil
 	}
 
-	// Asked only here rather than every tick, and a hidden panel restarts the dwell.
+	// Asked only here rather than every tick.
 	if !m.popup.IsShown() {
 		m.hover.since = now
 
@@ -182,8 +181,7 @@ func (m *model) applyRefresh(result refreshResult) {
 		m.applySchedules(result.schedules)
 	}
 
-	// Done here as well as on a resize, for an agent spawned since the last pass whose window has
-	// never been put at the size it will be shown at.
+	// Done here as well as on a resize.
 	m.sizeAgentWindows()
 
 	if result.archivedListed && result.archivedErr == nil && result.archivedWorkflowsErr == nil {

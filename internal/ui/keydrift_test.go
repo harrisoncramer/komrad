@@ -69,8 +69,7 @@ func TestEveryKeyTakenIsDrawn(t *testing.T) {
 				continue
 			}
 
-			// A fresh model every press, keeping a key that changes screen or opens a form from
-			// deciding what the next press means.
+			// A fresh model every press.
 			if !isKeyTaken(t, driftModel(t, s), pressed) {
 				continue
 			}
@@ -117,7 +116,7 @@ func drawnKeys(k keyMap) []string {
 }
 
 // configuredKeys is every key string the default configuration binds anywhere, walked off the
-// struct so that a group added to Keybindings is pressed without this test being told about it.
+// struct.
 func configuredKeys(t *testing.T, keys config.Keybindings) []string {
 	t.Helper()
 

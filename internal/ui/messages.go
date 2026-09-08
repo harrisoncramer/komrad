@@ -27,8 +27,8 @@ const messagesListFloor = 2
 // messagesTallyWidth is the room held on the right of the summary for the count beside it.
 const messagesTallyWidth = 8
 
-// messagesFocusKey takes the region and hands it back, and is not tab because huh binds tab as
-// the key that moves between a form's fields.
+// messagesFocusKey takes the region and hands it back, and is not tab, which huh binds as the
+// key that moves between a form's fields.
 const messagesFocusKey = "ctrl+g"
 
 // messagesMockKey pushes a fixture into the stack, which is how the region is looked at without
@@ -151,8 +151,7 @@ func (m model) messagesTally() string {
 
 	pad := max(m.lineWidth()-lipgloss.Width(m.messagesSummaryLine())-len(tally), 1)
 
-	// The tally is where the region says the keys are its own, which is the one thing it has in
-	// place of a title.
+	// The tally is where the region says the keys are its own.
 	style := dimStyle
 	if m.messages.focused {
 		style = headerStyle
@@ -224,8 +223,7 @@ func messagesColumn() columnSpec {
 	return columnSpec{floor: columnFloor, doc: model.messagesDoc}
 }
 
-// messagesBlock is the message drawn in the block beside the list, asked for directly because a
-// form keeps the column spec while it is up.
+// messagesBlock is the message drawn in the block beside the list, asked for directly.
 func (m model) messagesBlock(split columnSplit) docWindow {
 	return docWindow{
 		rows:    docRows(m.messagesDoc(), split.column),
@@ -239,7 +237,7 @@ func (m model) messagesCursor() int {
 }
 
 // isMessagesRegion is whether the screen on top draws the region at all, which the review screen
-// does not because it composes its own record and legend.
+// does not.
 func (m model) isMessagesRegion() bool {
 	return m.isDetailsScreen() && m.screen != screenReview
 }
@@ -269,8 +267,7 @@ func (m model) toggleMessagesFocus() model {
 }
 
 func (m model) updateMessages(key tea.KeyMsg) model {
-	// Routed here rather than left to the global keys, which move the message being shown while
-	// the region holds them.
+	// Routed here rather than left to the global keys.
 	if direction, ok := m.isColumnScroll(key.String()); ok {
 		return m.scrollColumn(direction)
 	}

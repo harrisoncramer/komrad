@@ -52,8 +52,7 @@ type uiTmux interface {
 }
 
 // harnessFrameReader tells a harness that has drawn itself in a pane from one that has only
-// started, which the panel asks rather than decides because the CLI an agent runs reaches it as
-// data.
+// started, which the panel asks rather than decides.
 type harnessFrameReader interface {
 	DoesFrameShowHarness(pane, harnessID string) bool
 }
@@ -139,8 +138,7 @@ type model struct {
 	pane          string
 	focusKey      string
 	// paneMeasure is the column a screen is measuring its own chrome in while it works out whether
-	// its split leaves room for it, which paneWidth reads because it is the answer that
-	// measurement feeds.
+	// its split leaves room for it, which paneWidth reads.
 	paneMeasure int
 	// shell is what tmux starts a pane's process with, read once since the terminal has to name
 	// it rather than leave the pane to rerun whatever was in it last.

@@ -98,8 +98,8 @@ func (m *model) isPaneStageable(pane, harnessID string) bool {
 		return false
 	}
 
-	// A pane sitting at its shell has nothing coming that waiting would catch, and is left
-	// unmarked because weave has not seen a harness in it.
+	// A pane sitting at its shell has nothing coming that waiting would catch, and weave has seen
+	// no harness in it to mark.
 	if !m.warm.ready[pane] && !m.tmux.IsPaneRunningCLI(pane) {
 		return true
 	}

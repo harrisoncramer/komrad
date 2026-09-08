@@ -43,9 +43,7 @@ type ResumeService struct {
 	scripts            agentScriptRunner
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming, which is what stops two
-	// callers each opening a window for one agent, and is kept here rather than on the row because
-	// a resume is only ever run by this process, and a row left in setting_up by a panel that died
-	// would otherwise refuse the resume that is meant to bring the agent back.
+	// callers each opening a window for one agent, and is kept here rather than on the row.
 	inFlight   map[string]struct{}
 	inFlightMu sync.Mutex
 }

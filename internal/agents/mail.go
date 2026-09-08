@@ -265,9 +265,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 }
 
 // holdToTheExchangeCap refuses a send once two agents have written each other as much mail as
-// the limit allows, counting the pair rather than a thread of it because a send with no reply_to
-// opens a thread and would start any thread-scoped count again, which a rebase, a re-prompt and
-// a new subject all do by accident.
+// the limit allows, counting the pair and not a thread of it.
 func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipient agentstore.Agent) error {
 	maxExchange, err := s.config.GetMaxExchange()
 	if err != nil {

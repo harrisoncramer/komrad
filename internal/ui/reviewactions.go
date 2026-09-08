@@ -97,8 +97,7 @@ func reviewTable() []action {
 			keys: func(k config.Keybindings) []string { return k.Review.FocusThread },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.focusReviewThread(), nil },
 		},
-		// The two keys that write are taken whether or not anybody is there to read, answering a
-		// habit press with the reason.
+		// The two keys that write are taken whether or not anybody is there to read.
 		{
 			id:   actionReviewCompose,
 			keys: func(k config.Keybindings) []string { return k.Review.Compose },

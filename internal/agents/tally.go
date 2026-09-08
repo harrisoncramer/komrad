@@ -17,8 +17,7 @@ const reconcileShellGrace = 10 * time.Second
 const listingsBeforePaneGone = 3
 
 // prRateLimitBackoff is how long a rate-limited agent is left alone before its pull request is
-// checked again, kept long because this is one infrequent check per agent rather than a poll
-// loop.
+// checked again, which is one infrequent check per agent and not a poll loop.
 const prRateLimitBackoff = 15 * time.Minute
 
 // tally is what the reconcile passes have accrued about each agent, all of it counters and

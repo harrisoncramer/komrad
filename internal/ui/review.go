@@ -22,7 +22,7 @@ type reviewState struct {
 	view      *review.View
 	threads   []*agentv1.ReviewThread
 
-	// cursor lives here rather than in the stage, and the sidebar draws the thread it stands on.
+	// cursor lives here rather than in the stage.
 	cursor int
 	pan    int
 	// top is the first row the pane is showing, held rather than derived from the cursor.
@@ -61,8 +61,7 @@ type reviewState struct {
 	err   error
 
 	// roundDir is where the round has been checked out for the editor to read, named after the
-	// agent rather than the round so that it outlives a reload and is still there to be taken
-	// away when the screen closes.
+	// agent rather than the round.
 	roundDir string
 	// roundSha is the snapshot that checkout is standing on, which is what says whether it is
 	// still the round being read.
@@ -76,8 +75,8 @@ type reviewState struct {
 	// harvesting is set while what the reviewer wrote is being read back and written as threads,
 	// so a second editor closing does not start a harvest beside the one in flight.
 	harvesting bool
-	// oversized is the harvest weave refused for being large enough to be a formatter rather
-	// than a person, held so that the next press writes it rather than asking again.
+	// oversized is the harvest weave refused for being large enough to be a formatter rather than
+	// a person, and held for the next press to write.
 	oversized bool
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands

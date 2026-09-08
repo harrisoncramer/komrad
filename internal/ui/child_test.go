@@ -110,7 +110,7 @@ func TestOrphanedChildStandsOnItsOwn(t *testing.T) {
 }
 
 // TestAgentsViewIndentsAChild pins the drawn row, where the branch glyph sits in the column the
-// parent's own state mark is in so that every parent stays aligned with the others.
+// parent's own state mark is in.
 func TestAgentsViewIndentsAChild(t *testing.T) {
 	m := familyTree()
 	m.height = 20

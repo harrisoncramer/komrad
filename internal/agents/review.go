@@ -562,9 +562,8 @@ func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author 
 	return err
 }
 
-// ownThread reads a thread and says whether the caller has any business in it: the person
-// always has, the agent under review has because the thread is about its work, and a reviewing
-// agent has because it wrote the thread.
+// ownThread reads a thread and says whether the caller has any business in it: the person always
+// has, and so do the agent under review and the reviewing agent that wrote it.
 func (s *ReviewService) ownThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
 	thread, err := s.threads.GetThread(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {

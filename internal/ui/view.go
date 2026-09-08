@@ -8,8 +8,7 @@ import (
 	"weave/internal/errui"
 )
 
-// View renders the active screen, taking the failures in the order they happen so that what is
-// shown is the first thing that broke rather than the last thing it caused.
+// View renders the active screen, taking the failures in the order they happen.
 func (m model) View() string {
 	if m.configErr != nil {
 		return errui.RenderConfigError(m.width, m.configErr)
@@ -55,7 +54,7 @@ func (m model) fitFrame(view string) string {
 		return view
 	}
 
-	// Spaces rather than empty rows: only a written cell covers what was there.
+	// Spaces rather than empty rows.
 	blank := strings.Repeat(" ", m.width)
 
 	return view + strings.Repeat("\n"+blank, m.height-rows)

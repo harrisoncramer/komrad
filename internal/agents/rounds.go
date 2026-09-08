@@ -88,10 +88,8 @@ func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]stri
 	return git.ReadFileLines(ctx, dir, sha, path)
 }
 
-// roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
-// commit so that taking it is idempotent and needs no row to exist first, and so that two agents
-// whose worktrees hash the same hold their rounds separately rather than sharing one ref that
-// either of them deleting would pull out from under the other.
+// roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and
+// the commit.
 func roundRef(agentID, snapshotSHA string) string {
 	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
 }

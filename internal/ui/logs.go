@@ -115,7 +115,7 @@ func (m model) olderLog() model {
 }
 
 // runPosition labels the older-run key with where through an agent's runs the pane has got,
-// counting from the newest, and stays short because a longer description blanks the legend.
+// counting from the newest, in a description short enough not to blank the legend.
 func (m model) runPosition() string {
 	agent, ok := m.logTarget()
 	if !ok {

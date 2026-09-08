@@ -167,7 +167,7 @@ func TestScrubMarks(t *testing.T) {
 }
 
 // TestStageFilePathIsThisPanelsOwn covers the name a screenful is written under, which carries
-// the pid because a second panel or a test run shares the same temporary directory.
+// the pid.
 func TestStageFilePathIsThisPanelsOwn(t *testing.T) {
 	path := stageFilePath("review")
 

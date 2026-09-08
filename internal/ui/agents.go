@@ -509,8 +509,7 @@ func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (
 	)
 }
 
-// submitChild launches the child without a directory or provisioning, which the service
-// refuses to be told for a child.
+// submitChild launches the child without a directory or a provisioner.
 func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,

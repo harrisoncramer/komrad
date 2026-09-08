@@ -25,8 +25,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestArchiveKeys covers what each key does on a header and on an agent, where delete opens
-// the prompt rather than acting because the panel cannot undo it.
+// TestArchiveKeys covers what each key does on a header and on an agent, where delete opens the
+// prompt rather than acting.
 func TestArchiveKeys(t *testing.T) {
 	keys := config.DefaultKeybindings()
 

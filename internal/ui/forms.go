@@ -18,8 +18,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// formState is the form drawn over whichever screen is up, held by value so that copying the
-// model copies nothing but huh's own pointer, which huh writes through either way.
+// formState is the form drawn over whichever screen is up, held by value around huh's own
+// pointer.
 type formState struct {
 	kind formKind
 	form *huh.Form
@@ -32,8 +32,7 @@ type formState struct {
 	// whatever the form is about, so neither has to be rediscovered from the model.
 	submit func(model) (tea.Model, tea.Cmd)
 
-	// rebuild draws the form again around those same values, which is the only way huh takes
-	// another key into a form it has already completed.
+	// rebuild draws the form again around those same values.
 	rebuild func(model) *huh.Form
 }
 
@@ -68,8 +67,7 @@ func (f formState) isOpening() bool {
 }
 
 // openForm puts a form on screen over the screen the panel is already on, which is where closing
-// it lands, taking the window first so that a form with a column of its own is laid out in the
-// column rather than in the share of the frame the panel had a moment ago.
+// it lands, taking the window first.
 func (m *model) openForm(f formState) tea.Cmd {
 	m.form = f
 	m.reconcileSolo()
@@ -130,7 +128,7 @@ func formResized() tea.Cmd {
 const formHelpLines = 1
 
 // submittingLines is the notice drawn under a held form, which is a row the form is not told
-// about so that what it draws still fits above it.
+// about.
 const submittingLines = 1
 
 // heldWrite is the write a form is being kept up for: when it was sent, and which write it is.
@@ -189,7 +187,7 @@ type agentFormValues struct {
 }
 
 // The two answers to the only question an agent can override, each a sentinel rather than the
-// empty string so that an unanswered form is telling apart from an answered one.
+// empty string.
 const (
 	inheritWorktree = "\x00inherit"
 	withoutWorktree = "\x00none"

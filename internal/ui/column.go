@@ -38,14 +38,14 @@ func splitOf(width, rows, sidebar, floor int) (columnSplit, bool) {
 const columnFloor = 40
 
 // columnState is where in the block beside the list the reader has scrolled to, held by the panel
-// rather than by each screen because only one block is ever on screen.
+// rather than by each screen.
 type columnState struct {
 	// top is the first row of the block on screen, worked out from nothing but what the reader has
 	// scrolled.
 	top int
 
-	// row is the row that offset was scrolled on, kept because the cursor's own index slides under
-	// a reader who has not moved whenever a row above them is taken away.
+	// row is the row that offset was scrolled on, kept against the cursor's own index sliding under
+	// a reader who has not moved.
 	row string
 }
 
@@ -124,7 +124,7 @@ func (m model) sidebarColumns() (int, columnSpec, bool) {
 		sidebar = min(max(sidebar, nameWidth), m.width-spec.floor)
 	}
 
-	// Clamped to what splitOf will settle on, keeping the fold and the draw at one width.
+	// Clamped so the fold and the draw are at one width.
 	return min(max(sidebar, 1), m.width-1), spec, true
 }
 
@@ -143,9 +143,7 @@ func (m model) columnGeometry() (columnSplit, bool) {
 		return columnSplit{}, false
 	}
 
-	// Asked here rather than in columnSplit because paneWidth reads this one, and a screen given
-	// its own column while its list is drawn in the whole pane would lay the two out against
-	// different widths.
+	// Asked here rather than in columnSplit, which paneWidth reads.
 	if spec.fits != nil && !spec.fits(m, split) {
 		return columnSplit{}, false
 	}
@@ -169,8 +167,8 @@ func (m model) columnSplit() (columnSplit, bool) {
 	return split, true
 }
 
-// screenColumnSplit is the split a screen's own block is drawn across, refused while a form is up
-// because the form has taken the column and the list is drawn beside it as context.
+// screenColumnSplit is the split a screen's own block is drawn across, refused while a form is
+// up.
 func (m model) screenColumnSplit() (columnSplit, bool) {
 	if m.form.isOpening() {
 		return columnSplit{}, false
@@ -331,8 +329,8 @@ func (m model) columnDoc(split columnSplit) docWindow {
 func (m model) scrollColumn(direction int) model {
 	split, ok := m.screenColumnSplit()
 
-	// A form refuses the screen's own split because the form has the column, which the region
-	// borrows to draw the message being scrolled.
+	// A form refuses the screen's own split, and the region borrows the column it has to draw the
+	// message being scrolled.
 	if !ok && m.isMessagesFocused() {
 		split, ok = m.columnSplit()
 	}

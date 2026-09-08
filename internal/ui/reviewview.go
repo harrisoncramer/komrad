@@ -76,8 +76,7 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	return reviewDelivery{style: dimStyle}
 }
 
-// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame
-// so that the cursor and the conversation under it can never disagree about the line being read.
+// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame.
 func (m model) reviewView() string {
 	split, ok := m.screenColumnSplit()
 	if !ok {
@@ -184,8 +183,7 @@ func (m model) reviewDeadView(width int) string {
 }
 
 // reviewStaleView is the bar saying the worktree has been written to since this round was taken,
-// naming the worktree rather than the agent because a snapshot records what a tree holds and never
-// who put it there.
+// naming the worktree rather than the agent.
 func (m model) reviewStaleView(width int) string {
 	if !m.review.moved {
 		return ""

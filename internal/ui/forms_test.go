@@ -1251,9 +1251,7 @@ func TestWorkflowFormScrollsToFitTheTerminal(t *testing.T) {
 // column comes to on a wide terminal.
 const formColumnWidth = 80
 
-// sizeForm starts a form and tells it how much room it has, which is how the panel sizes one:
-// huh lays a form out from the window it is sent rather than from a width set at build time, so
-// that a resize reaches a form already on screen.
+// sizeForm starts a form and tells it how much room it has, which is how the panel sizes one.
 func sizeForm(form *huh.Form, height int) {
 	form.Init()
 	form.Update(tea.WindowSizeMsg{Width: formColumnWidth, Height: height})

@@ -144,9 +144,8 @@ func firstAgentRowIndex(rows []agentRow) int {
 	return 0
 }
 
-// nearestAgentRowIndex steers an index off a header when the row it used to point at
-// was an agent that just vanished, so the cursor doesn't jump to an unrelated workflow's
-// header just because that header now sits at the same numeric position.
+// nearestAgentRowIndex steers an index off a header when the row it used to point at was an
+// agent that just vanished.
 func nearestAgentRowIndex(rows []agentRow, idx int) int {
 	row, ok := rowAt(rows, idx)
 	if !ok || !row.header {

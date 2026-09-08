@@ -163,7 +163,7 @@ func (m model) mailItems() []mailRow {
 		rows = append(rows, mailRow{item: item, sent: true})
 	}
 
-	// Sorted by id rather than by the stamp, which is uuidv7 and already carries the order.
+	// Sorted by id rather than by the stamp.
 	slices.SortFunc(rows, func(a, b mailRow) int {
 		return strings.Compare(a.item.GetId(), b.item.GetId())
 	})
@@ -254,8 +254,7 @@ func mailThreadRoots(rows []mailRow) map[string]string {
 	for _, r := range rows {
 		root := r.item.GetId()
 
-		// Walked with a guard rather than trusted: a cycle in rows off the wire would hang the
-		// panel.
+		// Walked with a guard rather than trusted.
 		seen := map[string]bool{root: true}
 		for {
 			up, ok := parent[root]

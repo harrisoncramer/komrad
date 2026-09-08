@@ -4,8 +4,8 @@ import (
 	"slices"
 )
 
-// keyProbe is the seam for asking which bindings a press reached, and is nil outside the drift
-// test.
+// keyProbe is the seam for asking which bindings a press reached, and is nil unless a test
+// sets it.
 var keyProbe func(keys []string)
 
 func isBound(pressed string, keys []string) bool {

@@ -77,8 +77,7 @@ func NewDeliveryService(p NewDeliveryServiceParams) *DeliveryService {
 	}
 }
 
-// DeliverAll is one pass over every mailbox holding mail, working from the rows each time so
-// that a missed pass costs a delay and nothing else.
+// DeliverAll is one pass over every mailbox holding mail, working from the rows each time.
 func (s *DeliveryService) DeliverAll(ctx context.Context) error {
 	mailboxes, err := s.mailboxReader.ListPendingMailboxes(ctx)
 	if err != nil {

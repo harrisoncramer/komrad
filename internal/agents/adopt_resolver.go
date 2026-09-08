@@ -30,8 +30,8 @@ func NewGHPullRequests() *GHPullRequests {
 	return &GHPullRequests{}
 }
 
-// Resolve reads a pull request named by URL or number, running in dir so that gh can work out
-// the repository when the reference is a bare number.
+// Resolve reads a pull request named by URL or number, running in the dir gh resolves a bare
+// number against.
 func (GHPullRequests) Resolve(ctx context.Context, dir, ref string) (*PullRequest, error) {
 	fields := "url,number,title,headRefName,baseRefName,isCrossRepository,headRepositoryOwner,state"
 	cmd := exec.CommandContext(ctx, "gh", "pr", "view", ref, "--json", fields)

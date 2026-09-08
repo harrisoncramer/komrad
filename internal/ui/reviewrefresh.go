@@ -15,8 +15,7 @@ import (
 const reviewDeliveryStates = 8
 
 // reviewDiffPollInterval is how often the worktree behind the diff is read again while the
-// screen is up, slower than the tick because git is being run and nothing waits on the answer:
-// the reader is told the diff has moved and reloads when they are ready.
+// screen is up, slower than the tick that draws it.
 const reviewDiffPollInterval = 5 * time.Second
 
 // reviewActivity is the cheap probe a conversation refresh is decided on.
