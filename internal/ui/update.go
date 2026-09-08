@@ -51,7 +51,20 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 // holdFocusKey binds the focus key while an agent's pane is on the stage, and gives it back when
 // there is no pane for the key to jump to.
 func (m model) holdFocusKey() {
-	m.popup.HoldFocusKey(m.focusKey, m.pane, m.screen == screenAgents && !m.hasNoAgentPane())
+	if m.focusKey == "" {
+		return
+	}
+
+	m.popup.HoldFocusKey(m.focusKey, m.pane, m.focusPane())
+}
+
+// focusPane is the agent's pane the focus key jumps to, empty where the stage holds none.
+func (m model) focusPane() string {
+	if m.screen != screenAgents {
+		return ""
+	}
+
+	return m.frame.GuestPane()
 }
 
 func (m model) route(msg tea.Msg) (tea.Model, tea.Cmd) {
