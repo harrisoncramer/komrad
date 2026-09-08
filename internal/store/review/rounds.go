@@ -399,20 +399,19 @@ func reviewNotFound(id string) error {
 	return fmt.Errorf("%w: review %q", store.ErrNotFound, id)
 }
 
-// Tally is where one agent's work stands with the people and agents reading it, counted against
-// the agent holding the diff since that is the one going round again rather than whoever read it.
+// Tally is where one agent's work stands with the reviews released of it, counted against the
+// agent holding the diff since that is the one going round again rather than whoever read it.
 type Tally struct {
 	AgentID string
 	Rounds  int32
-	// Verdict is what the last released review of this work concluded, nil when none has been
-	// released.
+	// Verdict is what was concluded about the agent's newest round, nil when the newest round
+	// carries no released review, which is what keeps an approval from outliving the work it
+	// was given.
 	Verdict *Verdict
-	// InReview reports whether a reviewer child is still owed an answer about this work.
-	InReview bool
 }
 
-// ListTallies is where every agent's work stands, leaving out the agents whose work nobody has
-// released a review of and nobody is reading.
+// ListTallies is where every agent's work stands, leaving out the agents no review has been
+// released of.
 func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
 	rows, err := s.queries.ListReviewTallies(ctx)
 	if err != nil {
@@ -420,7 +419,7 @@ func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
 	}
 
 	return xslice.Map(rows, func(row *models.ListReviewTalliesRow) Tally {
-		tally := Tally{AgentID: row.AgentID, Rounds: row.Rounds, InReview: row.InReview}
+		tally := Tally{AgentID: row.AgentID, Rounds: row.Rounds}
 		if row.Verdict.Valid {
 			verdict := Verdict(row.Verdict.ReviewVerdict)
 			tally.Verdict = &verdict
@@ -428,4 +427,30 @@ func (s *Store) ListTallies(ctx context.Context) ([]Tally, error) {
 
 		return tally
 	}), nil
+}
+
+// LiveReviewer is a reviewer still owed an answer about the work of the agent it is attached to.
+type LiveReviewer struct {
+	AgentID    string
+	ReviewerID string
+}
+
+// ListLiveReviewers is every reviewer still owed an answer, which is the one definition of a
+// review being under way: an unarchived reviewer child whose last released verdict on its
+// parent's work was not an approval.
+func (s *Store) ListLiveReviewers(ctx context.Context) ([]LiveReviewer, error) {
+	rows, err := s.queries.ListLiveReviewers(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to list the reviewers still reading: %w", err)
+	}
+
+	live := make([]LiveReviewer, 0, len(rows))
+	for _, row := range rows {
+		if row.AgentID == nil {
+			continue
+		}
+		live = append(live, LiveReviewer{AgentID: *row.AgentID, ReviewerID: row.ReviewerID})
+	}
+
+	return live, nil
 }

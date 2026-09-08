@@ -189,8 +189,7 @@ func verdictMark(verdict string) string {
 	return iconMark(icon != "", icon, color)
 }
 
-// verdictIcon draws nothing for a review released without a conclusion, since the row says what
-// wants a person rather than what has happened.
+// verdictIcon is the glyph and colour a released verdict wears.
 func verdictIcon(verdict string) (string, lipgloss.Color) {
 	switch reviewstore.Verdict(verdict) {
 	case reviewstore.VerdictApproved:

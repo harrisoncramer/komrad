@@ -30,6 +30,7 @@ type reviewConversation interface {
 	ListRounds(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Round, error)
 	ListReviews(ctx context.Context, agentID string, author agents.ReviewAuthor) ([]reviewstore.Review, error)
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
+	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
 	ReleaseReview(ctx context.Context, params agents.ReleaseReviewParams) (*agents.ReleaseReviewResult, error)
 	SetReviewFileViewed(ctx context.Context, params agents.SetReviewFileViewedParams) (*reviewstore.ViewedFile, error)
 	ListReviewViewedFiles(ctx context.Context, params agents.ListReviewViewedFilesParams) ([]reviewstore.ViewedFile, error)

@@ -442,47 +442,50 @@ concluded AS (
         v.verdict
     FROM
         reviews v
+        JOIN review_rounds n ON n.id = v.round_id
     WHERE
         v.released_at IS NOT NULL
-    ORDER BY
-        v.agent_id,
-        v.released_at DESC
-),
-reading AS (
-    SELECT DISTINCT
-        c.parent_agent_id AS agent_id
-    FROM
-        agents c
-    WHERE
-        c.role = 'reviewer'
-        AND c.parent_agent_id IS NOT NULL
-        AND c.archived_at IS NULL
-        AND c.state <> 'failed_to_create'
-        AND c.state <> 'failed_to_cleanup'
-        AND (
+        AND n.ordinal =(
             SELECT
-                v.verdict
+                MAX(o.ordinal)
             FROM
-                reviews v
+                review_rounds o
             WHERE
-                v.agent_id = c.parent_agent_id
-                AND v.author_kind = 'agent'
-                AND v.author_agent_id = c.id
-                AND v.released_at IS NOT NULL
-            ORDER BY
-                v.released_at DESC
-            LIMIT 1) IS DISTINCT FROM 'approved'
+                o.agent_id = v.agent_id)
+        ORDER BY
+            v.agent_id,
+            v.released_at DESC
 )
+    SELECT
+        r.agent_id,
+        r.rounds,
+        c.verdict
+    FROM
+        released r
+    LEFT JOIN concluded c ON c.agent_id = r.agent_id;
+
+-- name: ListLiveReviewers :many
 SELECT
-    a.id AS agent_id,
-    COALESCE(r.rounds, 0)::int AS rounds,
-    c.verdict,
-(d.agent_id IS NOT NULL)::bool AS in_review
+    c.parent_agent_id AS agent_id,
+    c.id AS reviewer_id
 FROM
-    agents a
-    LEFT JOIN released r ON r.agent_id = a.id
-    LEFT JOIN concluded c ON c.agent_id = a.id
-    LEFT JOIN reading d ON d.agent_id = a.id
+    agents c
 WHERE
-    r.agent_id IS NOT NULL
-    OR d.agent_id IS NOT NULL;
+    c.role = 'reviewer'
+    AND c.parent_agent_id IS NOT NULL
+    AND c.archived_at IS NULL
+    AND c.state <> 'failed_to_create'
+    AND c.state <> 'failed_to_cleanup'
+    AND (
+        SELECT
+            v.verdict
+        FROM
+            reviews v
+        WHERE
+            v.agent_id = c.parent_agent_id
+            AND v.author_kind = 'agent'
+            AND v.author_agent_id = c.id
+            AND v.released_at IS NOT NULL
+        ORDER BY
+            v.released_at DESC
+        LIMIT 1) IS DISTINCT FROM 'approved';

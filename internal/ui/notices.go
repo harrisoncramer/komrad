@@ -28,13 +28,19 @@ const (
 
 const inReviewNotice = "in review: a reviewer is reading this agent's work and is still owed an answer"
 
-// verdictNotice says where the last released review of an agent's work left it.
+// verdictNotice says where the last released review of an agent's newest round left it, and says
+// nothing for a verdict that draws nothing, a review released without a conclusion included.
 func verdictNotice(verdict string) string {
-	if reviewstore.Verdict(verdict) == reviewstore.VerdictApproved {
-		return "approved: the last review of its work signed it off, so it is ready to land"
+	switch reviewstore.Verdict(verdict) {
+	case reviewstore.VerdictApproved:
+		return "approved: the last review of its newest round signed that round off"
+	case reviewstore.VerdictChangesRequested:
+		return "changes requested: the last review of its newest round asked for more"
+	case reviewstore.VerdictCommented:
+		return ""
 	}
 
-	return "changes requested: the last review of its work asked for more, and it has not been read again since"
+	return ""
 }
 
 // reviewRoundsNotice counts against the agent holding the diff.
@@ -58,8 +64,9 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
 	notices = appendNotice(notices, item.inReview, inReviewIcon, colorAccent, inReviewNotice)
 
-	verdictIcon, verdictColor := verdictIcon(item.verdict)
-	notices = appendNotice(notices, verdictIcon != "", verdictIcon, verdictColor, verdictNotice(item.verdict))
+	icon, color := verdictIcon(item.verdict)
+	said := verdictNotice(item.verdict)
+	notices = appendNotice(notices, icon != "" && said != "", icon, color, said)
 
 	return appendNotice(notices, item.rounds > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item.rounds))
 }

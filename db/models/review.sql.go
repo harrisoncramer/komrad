@@ -697,6 +697,58 @@ func (q *Queries) ListHarvestedReviewThreads(ctx context.Context, arg ListHarves
 	return items, nil
 }
 
+const listLiveReviewers = `-- name: ListLiveReviewers :many
+SELECT
+    c.parent_agent_id AS agent_id,
+    c.id AS reviewer_id
+FROM
+    agents c
+WHERE
+    c.role = 'reviewer'
+    AND c.parent_agent_id IS NOT NULL
+    AND c.archived_at IS NULL
+    AND c.state <> 'failed_to_create'
+    AND c.state <> 'failed_to_cleanup'
+    AND (
+        SELECT
+            v.verdict
+        FROM
+            reviews v
+        WHERE
+            v.agent_id = c.parent_agent_id
+            AND v.author_kind = 'agent'
+            AND v.author_agent_id = c.id
+            AND v.released_at IS NOT NULL
+        ORDER BY
+            v.released_at DESC
+        LIMIT 1) IS DISTINCT FROM 'approved'
+`
+
+type ListLiveReviewersRow struct {
+	AgentID    *string
+	ReviewerID string
+}
+
+func (q *Queries) ListLiveReviewers(ctx context.Context) ([]*ListLiveReviewersRow, error) {
+	rows, err := q.db.Query(ctx, listLiveReviewers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*ListLiveReviewersRow
+	for rows.Next() {
+		var i ListLiveReviewersRow
+		if err := rows.Scan(&i.AgentID, &i.ReviewerID); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReviewMessagesByThreads = `-- name: ListReviewMessagesByThreads :many
 SELECT
     m.id, m.thread_id, m.author_kind, m.author_agent_id, m.body, m.created_at, m.updated_at, m.review_id, m.suggestion,
@@ -815,57 +867,33 @@ concluded AS (
         v.verdict
     FROM
         reviews v
+        JOIN review_rounds n ON n.id = v.round_id
     WHERE
         v.released_at IS NOT NULL
-    ORDER BY
-        v.agent_id,
-        v.released_at DESC
-),
-reading AS (
-    SELECT DISTINCT
-        c.parent_agent_id AS agent_id
-    FROM
-        agents c
-    WHERE
-        c.role = 'reviewer'
-        AND c.parent_agent_id IS NOT NULL
-        AND c.archived_at IS NULL
-        AND c.state <> 'failed_to_create'
-        AND c.state <> 'failed_to_cleanup'
-        AND (
+        AND n.ordinal =(
             SELECT
-                v.verdict
+                MAX(o.ordinal)
             FROM
-                reviews v
+                review_rounds o
             WHERE
-                v.agent_id = c.parent_agent_id
-                AND v.author_kind = 'agent'
-                AND v.author_agent_id = c.id
-                AND v.released_at IS NOT NULL
-            ORDER BY
-                v.released_at DESC
-            LIMIT 1) IS DISTINCT FROM 'approved'
+                o.agent_id = v.agent_id)
+        ORDER BY
+            v.agent_id,
+            v.released_at DESC
 )
-SELECT
-    a.id AS agent_id,
-    COALESCE(r.rounds, 0)::int AS rounds,
-    c.verdict,
-(d.agent_id IS NOT NULL)::bool AS in_review
-FROM
-    agents a
-    LEFT JOIN released r ON r.agent_id = a.id
-    LEFT JOIN concluded c ON c.agent_id = a.id
-    LEFT JOIN reading d ON d.agent_id = a.id
-WHERE
-    r.agent_id IS NOT NULL
-    OR d.agent_id IS NOT NULL
+    SELECT
+        r.agent_id,
+        r.rounds,
+        c.verdict
+    FROM
+        released r
+    LEFT JOIN concluded c ON c.agent_id = r.agent_id
 `
 
 type ListReviewTalliesRow struct {
-	AgentID  string
-	Rounds   int32
-	Verdict  NullReviewVerdict
-	InReview bool
+	AgentID string
+	Rounds  int32
+	Verdict NullReviewVerdict
 }
 
 func (q *Queries) ListReviewTallies(ctx context.Context) ([]*ListReviewTalliesRow, error) {
@@ -877,12 +905,7 @@ func (q *Queries) ListReviewTallies(ctx context.Context) ([]*ListReviewTalliesRo
 	var items []*ListReviewTalliesRow
 	for rows.Next() {
 		var i ListReviewTalliesRow
-		if err := rows.Scan(
-			&i.AgentID,
-			&i.Rounds,
-			&i.Verdict,
-			&i.InReview,
-		); err != nil {
+		if err := rows.Scan(&i.AgentID, &i.Rounds, &i.Verdict); err != nil {
 			return nil, err
 		}
 		items = append(items, &i)

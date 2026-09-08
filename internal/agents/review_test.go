@@ -881,25 +881,6 @@ func reviewServiceForAgent(
 	})
 }
 
-// agentsWithReviewer hands back the reviewer as the reviewed agent's child, which is how the
-// doorbell owed to a reviewer finds who to ring.
-type agentsWithReviewer struct{ fakeAgentReaderFunc }
-
-func (agentsWithReviewer) ListChildren(_ context.Context, parentIDs []string) ([]agentstore.Agent, error) {
-	if len(parentIDs) != 1 || parentIDs[0] != reviewedAgentID {
-		return nil, nil
-	}
-
-	parent := reviewedAgentID
-
-	return []agentstore.Agent{{
-		ID:            reviewerAgentID,
-		Name:          "reviewer",
-		Role:          agentstore.RoleReviewer,
-		ParentAgentID: &parent,
-	}}, nil
-}
-
 // fakeResumer records the agents put back in a pane, which the review writes ask for on their
 // own rather than waiting for.
 type fakeResumer struct {
@@ -951,7 +932,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 				Reviews:   reviews,
 				Snapshots: &fakeSnapshotter{sha: "snapshot-sha", base: "base-sha"},
 				Workflows: fakeWorkflowGetter{},
-				Agents:    agentsWithReviewer{fakeAgentReaderFunc(findLiveAgent)},
+				Agents:    fakeAgentReaderFunc(findLiveAgent),
 				Mailer:    notices,
 				Resumer:   resumer,
 				StateDir:  t.TempDir(),
@@ -1396,6 +1377,10 @@ func (f *fakeReviewStore) GetLastReleasedReview(_ context.Context, params review
 
 func (f *fakeReviewStore) ListTallies(context.Context) ([]reviewstore.Tally, error) {
 	return nil, nil
+}
+
+func (f *fakeReviewStore) ListLiveReviewers(context.Context) ([]reviewstore.LiveReviewer, error) {
+	return []reviewstore.LiveReviewer{{AgentID: reviewedAgentID, ReviewerID: reviewerAgentID}}, nil
 }
 
 func (f *fakeReviewStore) ListReviews(context.Context, string) ([]reviewstore.Review, error) {

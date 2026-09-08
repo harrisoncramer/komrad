@@ -540,8 +540,8 @@ func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, tallies, 1, "the reviewer holds no diff of its own to have gone round")
-	changesRequested := VerdictChangesRequested
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2, Verdict: &changesRequested}, tallies[0])
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0],
+		"the third round carries no released review, so nothing has been concluded about the work as it stands")
 }
 
 // TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
@@ -782,10 +782,12 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 }
 
 // seedReviewerChild is a reviewer attached to the agent whose work it reads, which is the shape
-// a tally reads to decide that work is being read right now.
-func seedReviewerChild(t *testing.T, st *fixture, name, parentID string) string {
+// the live-reviewer query reads to decide that work is being read right now.
+func seedReviewerChild(t *testing.T, st *fixture, parentID string) string {
 	t.Helper()
 	ctx := t.Context()
+
+	const name = "worker-reviewer"
 
 	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
 		Name:          name,
@@ -801,40 +803,42 @@ func seedReviewerChild(t *testing.T, st *fixture, name, parentID string) string 
 	return got.ID
 }
 
-// TestTalliesReportWorkBeingRead is the state a round count cannot say: a reviewer that has been
-// spawned and has released nothing yet leaves no rounds behind it.
-func TestTalliesReportWorkBeingRead(t *testing.T) {
+// TestLiveReviewersReportWorkBeingRead is the state a round count cannot say: a reviewer that has
+// been spawned and has released nothing yet leaves no rounds behind it.
+func TestLiveReviewersReportWorkBeingRead(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
-	seedReviewerChild(t, st, "worker-reviewer", agentID)
+	reviewer := seedReviewerChild(t, st, agentID)
+
+	live, err := st.ListLiveReviewers(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, []LiveReviewer{{AgentID: agentID, ReviewerID: reviewer}}, live)
 
 	tallies, err := st.ListTallies(ctx)
 	require.NoError(t, err)
-
-	require.Len(t, tallies, 1)
-	assert.Equal(t, Tally{AgentID: agentID, InReview: true}, tallies[0])
+	assert.Empty(t, tallies, "nothing has been released of the work yet")
 }
 
-// TestTalliesStopReportingReadingOnceApproved pins the end of the loop: an approval is the last
-// thing a reviewer says, so the work is no longer owed an answer.
-func TestTalliesStopReportingReadingOnceApproved(t *testing.T) {
+// TestLiveReviewersStopAtAnApproval pins the end of the loop: an approval is the last thing a
+// reviewer says, so the work is no longer owed an answer.
+func TestLiveReviewersStopAtAnApproval(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
-	reviewer := seedReviewerChild(t, st, "worker-reviewer", agentID)
-	round := openRound(t, st, agentID, "tree-one")
+	reviewer := seedReviewerChild(t, st, agentID)
 
-	review, err := st.OpenReview(ctx, OpenReviewParams{
-		AgentID: agentID, RoundID: round.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	first := openRound(t, st, agentID, "tree-one")
+	sentBack, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
 	})
 	require.NoError(t, err)
-	release(t, st, agentID, review.ID, VerdictChangesRequested)
+	release(t, st, agentID, sentBack.ID, VerdictChangesRequested)
 
-	tallies, err := st.ListTallies(ctx)
+	live, err := st.ListLiveReviewers(ctx)
 	require.NoError(t, err)
-	require.Len(t, tallies, 1)
-	assert.True(t, tallies[0].InReview, "changes requested is the middle of the loop")
+	require.Len(t, live, 1, "changes requested is the middle of the loop")
 
 	second := openRound(t, st, agentID, "tree-two")
 	signed, err := st.OpenReview(ctx, OpenReviewParams{
@@ -843,25 +847,58 @@ func TestTalliesStopReportingReadingOnceApproved(t *testing.T) {
 	require.NoError(t, err)
 	release(t, st, agentID, signed.ID, VerdictApproved)
 
-	tallies, err = st.ListTallies(ctx)
+	live, err = st.ListLiveReviewers(ctx)
 	require.NoError(t, err)
-	require.Len(t, tallies, 1)
+	assert.Empty(t, live)
 
 	approved := VerdictApproved
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
 	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2, Verdict: &approved}, tallies[0])
 }
 
-// TestTalliesLeaveOutADeadReviewer pins that a reviewer whose setup failed is not read as still
-// reading, which would leave the work looking busy forever.
-func TestTalliesLeaveOutADeadReviewer(t *testing.T) {
+// TestLiveReviewersLeaveOutADeadReviewer pins that a reviewer whose setup failed is not read as
+// still reading, which would leave the work looking busy forever.
+func TestLiveReviewersLeaveOutADeadReviewer(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
 	agentID := seedAgent(t, st)
-	reviewer := seedReviewerChild(t, st, "worker-reviewer", agentID)
+	reviewer := seedReviewerChild(t, st, agentID)
 
 	require.NoError(t, st.agents.SetStateByID(ctx, reviewer, agentstore.StateFailedToCreate))
 
+	live, err := st.ListLiveReviewers(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, live)
+}
+
+// TestTalliesDropAVerdictAnEditOutLived is why the verdict is scoped to the newest round: an
+// approval that outlived the work would draw a tick over code nobody has read.
+func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
+
+	first := openRound(t, st, agentID, "tree-one")
+	signed, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, signed.ID, VerdictApproved)
+
+	approved := VerdictApproved
 	tallies, err := st.ListTallies(ctx)
 	require.NoError(t, err)
-	assert.Empty(t, tallies, "nothing is reading the work and no review has been released of it")
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1, Verdict: &approved}, tallies[0])
+
+	openRound(t, st, agentID, "tree-two")
+
+	tallies, err = st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0],
+		"the approval was given on a round the agent has since written past")
 }
