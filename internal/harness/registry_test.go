@@ -7,23 +7,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type stub struct {
+type fakeHarness struct {
 	id string
 }
 
-func (s stub) ID() string                          { return s.id }
-func (s stub) Binary() string                      { return s.id }
-func (s stub) BuildCommand(Launch) (string, error) { return "", nil }
-func (s stub) MintSessionID() string               { return "" }
+func (s fakeHarness) ID() string                          { return s.id }
+func (s fakeHarness) Binary() string                      { return s.id }
+func (s fakeHarness) BuildCommand(Launch) (string, error) { return "", nil }
+func (s fakeHarness) MintSessionID() string               { return "" }
 
-func (s stub) FindSession(string) (string, error) { return "", nil }
-func (s stub) ReadActivity(string) Activity       { return ActivityUnknown }
-func (s stub) ReadReport(Event, []byte) (Report, error) {
+func (s fakeHarness) FindSession(string) (string, error) { return "", nil }
+func (s fakeHarness) ReadActivity(string) Activity       { return ActivityUnknown }
+func (s fakeHarness) ReadReport(Event, []byte) (Report, error) {
 	return Report{}, nil
 }
-func (s stub) InterruptKeys() []string                { return nil }
-func (s stub) LogPath(string) string                  { return "" }
-func (s stub) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }
+func (s fakeHarness) InterruptKeys() []string                { return nil }
+func (s fakeHarness) LogPath(string) string                  { return "" }
+func (s fakeHarness) ReadLog(string, int64) (LogRead, error) { return LogRead{}, nil }
 
 // TestNewRegistry covers what a registry refuses to be built from, both cases being ones that
 // would otherwise decide an agent's harness by argument order.
@@ -35,17 +35,17 @@ func TestNewRegistry(t *testing.T) {
 	}{
 		{
 			name:      "two harnesses claiming one id",
-			harnesses: []Harness{stub{id: "claude"}, stub{id: "claude"}},
+			harnesses: []Harness{fakeHarness{id: "claude"}, fakeHarness{id: "claude"}},
 			wantErr:   `two harnesses answer to "claude"`,
 		},
 		{
 			name:      "a harness with no id, which nothing could name",
-			harnesses: []Harness{stub{}},
+			harnesses: []Harness{fakeHarness{}},
 			wantErr:   "answers to no id",
 		},
 		{
 			name:      "distinct ids",
-			harnesses: []Harness{stub{id: "claude"}, stub{id: "codex"}},
+			harnesses: []Harness{fakeHarness{id: "claude"}, fakeHarness{id: "codex"}},
 		},
 		{
 			name: "no harnesses at all, which is a binding that runs nothing",
@@ -71,7 +71,7 @@ func TestNewRegistry(t *testing.T) {
 // TestRegistryGetByID covers an id nothing implements returning an error naming what is
 // available, since the callers are loops that would dereference a nil.
 func TestRegistryGetByID(t *testing.T) {
-	registry, err := NewRegistry(stub{id: "codex"}, stub{id: "claude"})
+	registry, err := NewRegistry(fakeHarness{id: "codex"}, fakeHarness{id: "claude"})
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"claude", "codex"}, registry.IDs(), "sorted, so a message reads the same every time")

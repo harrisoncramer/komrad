@@ -104,12 +104,12 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchServi
 	require.NoError(t, err)
 
 	return agents.NewLaunchService(agents.LaunchServiceParams{
-		Tmux:               &stubTmux{},
+		Tmux:               &fakeTmux{},
 		Agents:             stores.Agents,
 		Reviews:            reviewstore.New(stores.Pool.GetDB()),
 		Workflows:          stores.Workflows,
 		Tx:                 stores.Pool,
-		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &stubTmux{}, Addr: "127.0.0.1:8787"}),
+		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &fakeTmux{}, Addr: "127.0.0.1:8787"}),
 		Harnesses:          registry,
 		UserDefaultHarness: claudeHarnessID,
 	})
@@ -130,28 +130,28 @@ func promoteScheduleAgents(t *testing.T, stores *storetest.Stores, scheduleID st
 	}
 }
 
-type stubTmux struct {
+type fakeTmux struct {
 	panes int
 }
 
-func (s *stubTmux) NewWindow(_, name, _ string) (string, error) {
+func (s *fakeTmux) NewWindow(_, name, _ string) (string, error) {
 	s.panes++
 
 	return fmt.Sprintf("%%%d-%s", s.panes, name), nil
 }
 
-func (s *stubTmux) KillPane(string) {}
+func (s *fakeTmux) KillPane(string) {}
 
-func (s *stubTmux) SetPaneOwner(string, string) error { return nil }
+func (s *fakeTmux) SetPaneOwner(string, string) error { return nil }
 
-func (s *stubTmux) GetPaneOwner(string) string { return "" }
+func (s *fakeTmux) GetPaneOwner(string) string { return "" }
 
-func (s *stubTmux) ClearPaneOwner(string) error { return nil }
+func (s *fakeTmux) ClearPaneOwner(string) error { return nil }
 
-func (s *stubTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
+func (s *fakeTmux) GetPanes() (map[string]tmux.PaneStatus, error) {
 	return map[string]tmux.PaneStatus{}, nil
 }
 
-func (s *stubTmux) GetHostPath() string { return "" }
+func (s *fakeTmux) GetHostPath() string { return "" }
 
-func (s *stubTmux) SendKeys(string, ...string) error { return nil }
+func (s *fakeTmux) SendKeys(string, ...string) error { return nil }

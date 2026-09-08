@@ -128,9 +128,9 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 	require.NoError(t, err)
 
 	service := agents.NewScriptService(agents.ScriptParams{
-		Agents:    stubAgents{cwd: p.work},
-		Workflows: stubWorkflows{},
-		Tmux:      stubPanes{},
+		Agents:    fakeAgents{cwd: p.work},
+		Workflows: fakeWorkflows{},
+		Tmux:      fakePanes{},
 		Runner:    scripts.NewRunner(),
 		Load: func() (*config.Config, error) {
 			cfg := config.Defaults()
@@ -144,7 +144,7 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 	})
 
 	pullRequests := agents.NewPullRequestOpener(agents.PullRequestOpenerParams{
-		Agents: stubAgents{cwd: p.work},
+		Agents: fakeAgents{cwd: p.work},
 		Opener: p.opener,
 	})
 
@@ -160,11 +160,11 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 	return hookv1connect.NewHookServiceClient(server.Client(), server.URL)
 }
 
-type stubAgents struct {
+type fakeAgents struct {
 	cwd string
 }
 
-func (s stubAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
+func (s fakeAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, error) {
 	if id != "a1" && id != "a2" {
 		return nil, fmt.Errorf("%w: agent %q", store.ErrNotFound, id)
 	}
@@ -182,19 +182,19 @@ func (s stubAgents) GetByID(_ context.Context, id string) (*agentstore.Agent, er
 	return agent, nil
 }
 
-type stubWorkflows struct{}
+type fakeWorkflows struct{}
 
-func (s stubWorkflows) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
+func (s fakeWorkflows) Get(ctx context.Context, id string) (*workflowstore.Workflow, error) {
 	return s.GetIncludingArchived(ctx, id)
 }
 
-func (stubWorkflows) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
+func (fakeWorkflows) GetIncludingArchived(_ context.Context, id string) (*workflowstore.Workflow, error) {
 	return &workflowstore.Workflow{ID: id, Name: "backend"}, nil
 }
 
-type stubPanes struct{}
+type fakePanes struct{}
 
-func (stubPanes) GetPaneOwner(string) string { return "a1" }
-func (stubPanes) GetHostSocket() string      { return "" }
-func (stubPanes) GetInfoPane() string        { return "" }
-func (stubPanes) GetDefaultShell() string    { return "/bin/sh" }
+func (fakePanes) GetPaneOwner(string) string { return "a1" }
+func (fakePanes) GetHostSocket() string      { return "" }
+func (fakePanes) GetInfoPane() string        { return "" }
+func (fakePanes) GetDefaultShell() string    { return "/bin/sh" }

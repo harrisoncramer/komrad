@@ -1038,7 +1038,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
-		Config:         stubMailConfig(1),
+		Config:         fakeMailConfig(1),
 	})
 	svc := NewService(NewServiceParams{
 		Agents:      st.Agents,
@@ -2006,11 +2006,11 @@ func (f *fakeLauncher) ResumeAgent(_ context.Context, id string) (*agentstore.Ag
 	return f.created, nil
 }
 
-type stubMailConfig int
+type fakeMailConfig int
 
-func (stubMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
+func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time.Hour, nil }
 
-func (s stubMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
+func (s fakeMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 
 // markService is the real thing over the test stores, since a mark spans two tables and a fake
 // would be agreeing with itself about the rules that matter.
@@ -2086,7 +2086,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
-		Config:         stubMailConfig(config.DefaultMaxExchange),
+		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
 
 	reviews := reviewstore.New(st.Pool.GetDB())
@@ -2096,7 +2096,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 		Viewed:    reviews,
 		Rounds:    reviews,
 		Reviews:   reviews,
-		Snapshots: stubSnapshotter{},
+		Snapshots: fakeSnapshotter{},
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),
 		Agents:    st.Agents,

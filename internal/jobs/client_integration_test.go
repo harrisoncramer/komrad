@@ -26,16 +26,16 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
-	schedules := &stubSchedules{}
+	schedules := &fakeSchedules{}
 
 	client, err := NewClient(ClientParams{
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,
-		Launcher:  &stubAgents{},
-		Deleter:   &stubAgents{},
-		Archived:  &stubArchive{},
-		Running:   &stubRunning{},
+		Launcher:  &fakeAgents{},
+		Deleter:   &fakeAgents{},
+		Archived:  &fakeArchive{},
+		Running:   &fakeRunning{},
 	})
 	require.NoError(t, err)
 
@@ -238,7 +238,7 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))
 
 	launcher := &blockingLauncher{started: make(chan struct{}), release: make(chan struct{})}
-	schedules := &stubSchedules{schedule: &schedulestore.Schedule{
+	schedules := &fakeSchedules{schedule: &schedulestore.Schedule{
 		ID:      "s1",
 		Name:    "nightly",
 		Enabled: true,
@@ -249,9 +249,9 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 		Schedules: schedules,
 		Results:   schedules,
 		Launcher:  launcher,
-		Deleter:   &stubAgents{},
-		Archived:  &stubArchive{},
-		Running:   &stubRunning{},
+		Deleter:   &fakeAgents{},
+		Archived:  &fakeArchive{},
+		Running:   &fakeRunning{},
 	})
 	require.NoError(t, err)
 	require.NoError(t, client.Start(t.Context()))
@@ -291,15 +291,15 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	assert.Equal(t, rivertype.JobStateCompleted, job.State, "the firing is finished rather than left stuck as running")
 }
 
-type stubSchedules struct {
+type fakeSchedules struct {
 	schedule *schedulestore.Schedule
 }
 
-func (s *stubSchedules) Get(context.Context, string) (*schedulestore.Schedule, error) {
+func (s *fakeSchedules) Get(context.Context, string) (*schedulestore.Schedule, error) {
 	return s.schedule, nil
 }
 
-func (s *stubSchedules) List(context.Context) ([]schedulestore.Schedule, error) {
+func (s *fakeSchedules) List(context.Context) ([]schedulestore.Schedule, error) {
 	if s.schedule == nil {
 		return nil, nil
 	}
@@ -307,26 +307,26 @@ func (s *stubSchedules) List(context.Context) ([]schedulestore.Schedule, error) 
 	return []schedulestore.Schedule{*s.schedule}, nil
 }
 
-func (s *stubSchedules) RecordLaunchResult(context.Context, string, schedulestore.LaunchResultStatus, string) error {
+func (s *fakeSchedules) RecordLaunchResult(context.Context, string, schedulestore.LaunchResultStatus, string) error {
 	return nil
 }
 
-type stubAgents struct{}
+type fakeAgents struct{}
 
-func (stubAgents) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
+func (fakeAgents) NewAgent(_ context.Context, p agents.NewAgentParams) (*agentstore.Agent, error) {
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
 }
 
-func (stubAgents) DeleteAgents(context.Context, []string) error { return nil }
+func (fakeAgents) DeleteAgents(context.Context, []string) error { return nil }
 
-type stubArchive struct{}
+type fakeArchive struct{}
 
-func (stubArchive) ListPage(context.Context, int64, *agentstore.Cursor, bool) ([]agentstore.Agent, error) {
+func (fakeArchive) ListPage(context.Context, int64, *agentstore.Cursor, bool) ([]agentstore.Agent, error) {
 	return nil, nil
 }
 
-func (stubArchive) ListByID(context.Context, []string) ([]agentstore.Agent, error) { return nil, nil }
+func (fakeArchive) ListByID(context.Context, []string) ([]agentstore.Agent, error) { return nil, nil }
 
-type stubRunning struct{}
+type fakeRunning struct{}
 
-func (stubRunning) CountLiveForSchedule(context.Context, string) (int64, error) { return 0, nil }
+func (fakeRunning) CountLiveForSchedule(context.Context, string) (int64, error) { return 0, nil }
