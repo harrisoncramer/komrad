@@ -3,8 +3,6 @@ package ui
 import (
 	"fmt"
 	"strings"
-
-	"github.com/charmbracelet/x/ansi"
 )
 
 // docScrollStep is how far a scroll key moves a document, kept short of a screenful so the
@@ -76,10 +74,5 @@ func (d docWindow) view(rows int) string {
 // docRows renders markdown into a column of its own, a row at a time, which is what a document
 // drawn in the panel's own frame is scrolled and measured against.
 func docRows(markdown string, width int) []string {
-	rendered := render(markdown, width)
-	if width > 0 {
-		rendered = ansi.Hardwrap(rendered, width, true)
-	}
-
-	return strings.Split(strings.TrimRight(rendered, "\n"), "\n")
+	return strings.Split(strings.TrimRight(render(markdown, width), "\n"), "\n")
 }

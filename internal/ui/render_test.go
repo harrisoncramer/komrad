@@ -222,21 +222,26 @@ func TestWriteStageFileIsNeverTornInHalf(t *testing.T) {
 	assert.Equal(t, frames, written, "every frame was written")
 }
 
-// TestDocRowsFitTheColumn covers a message carrying an indented code block, whose tabs are a
-// width the terminal draws and the panel's own measuring does not, so a row that overran the
-// column wrapped and pushed the frame past the pane it was drawn in.
+// TestDocRowsFitTheColumn covers a message carrying an indented code block, whose tabs the
+// terminal draws at a width and the panel's own measuring does not, and one carrying a token
+// too long to break on a word, which the word wrap leaves wider than the column.
 func TestDocRowsFitTheColumn(t *testing.T) {
-	body := "Here is the queue:\n\n    125:\t\t\tqueues.SupervisorReconciliation: {\n    135:\t\t\t\t\tGlobalLimit: 1,\n\nSo it is there.\n"
+	bodies := map[string]string{
+		"a code block held with tabs": "Here is the queue:\n\n    125:\t\t\tqueues.SupervisorReconciliation: {\n    135:\t\t\t\t\tGlobalLimit: 1,\n\nSo it is there.\n",
+		"a link nothing will break":   "The run is at https://github.com/chariot-giving/weave/actions/runs/1234567890/job/9876543210 and it failed.\n",
+	}
 
-	for _, width := range []int{40, 50, 60, 80} {
-		t.Run(strconv.Itoa(width), func(t *testing.T) {
-			for _, row := range docRows(body, width) {
-				plain := ansi.Strip(row)
+	for name, body := range bodies {
+		for _, width := range []int{40, 50, 60, 80} {
+			t.Run(name+" at "+strconv.Itoa(width), func(t *testing.T) {
+				for _, row := range docRows(body, width) {
+					plain := ansi.Strip(row)
 
-				assert.NotContains(t, plain, "\t", "a row holds no tab for the terminal to widen")
-				assert.LessOrEqual(t, ansi.StringWidth(row), width, "the row fits its column: %q", plain)
-			}
-		})
+					assert.NotContains(t, plain, "\t", "a row holds no tab for the terminal to widen")
+					assert.LessOrEqual(t, ansi.StringWidth(row), width, "the row fits its column: %q", plain)
+				}
+			})
+		}
 	}
 }
 
