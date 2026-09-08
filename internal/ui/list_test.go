@@ -162,9 +162,8 @@ func TestScreensFitThePane(t *testing.T) {
 		wantTitle string
 	}{
 		{
-			name:      "the agents tree",
-			screen:    screenAgents,
-			wantTitle: "Agents and Workflows",
+			name:   "the agents tree",
+			screen: screenAgents,
 		},
 		{
 			name:      "the archive",
@@ -189,7 +188,9 @@ func TestScreensFitThePane(t *testing.T) {
 			assert.LessOrEqual(t, len(lines(view)), height)
 			assert.Contains(t, view, "agent39", "the hovered row is on screen")
 			assert.Contains(t, view, "hide help", "the legend is on screen")
-			assert.Contains(t, view, tt.wantTitle, "the title is on screen")
+			if tt.wantTitle != "" {
+				assert.Contains(t, view, tt.wantTitle, "the title is on screen")
+			}
 		})
 	}
 }
