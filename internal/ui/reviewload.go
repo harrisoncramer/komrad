@@ -34,7 +34,10 @@ type reviewLoadedMsg struct {
 	// narrowed is the round the diff was actually measured from, nil when it was measured from
 	// the point the branch left its base.
 	narrowed *agentv1.ReviewRound
-	err      error
+	// refused says why the diff is not narrowed to the round that was asked for, empty when none
+	// was asked for or when it was.
+	refused string
+	err     error
 }
 
 // reviewWroteMsg is one write and the review as it stands after it.
@@ -191,15 +194,17 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		}
 
 		round := opened.Msg.GetRound()
-		earlier := previousReviewedRound(ctx, agents, round)
 
-		// The round asked for is only measured from once it is still the round this load would
-		// offer, since a base that has moved under the branch rules it out.
+		// The round asked for is resolved against the round this load opened rather than against
+		// whatever was on screen when the key was pressed.
+		narrowed, refused := narrowedRound(ctx, agents, narrowedRoundParams{
+			Round:   round,
+			RoundID: params.BaseRoundID,
+		})
+
 		base := round.GetBaseSha()
-		var narrowed *agentv1.ReviewRound
-		if params.BaseRoundID != "" && earlier.GetId() == params.BaseRoundID {
-			narrowed = earlier
-			base = earlier.GetSnapshotSha()
+		if narrowed != nil {
+			base = narrowed.GetSnapshotSha()
 		}
 
 		patch, err := diff.Load(ctx, diff.LoadParams{
@@ -213,6 +218,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 				agentID:  agentID,
 				round:    round,
 				narrowed: narrowed,
+				refused:  refused,
 				err:      err,
 			}
 		}
@@ -224,11 +230,13 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 				round:    round,
 				patch:    patch,
 				narrowed: narrowed,
+				refused:  refused,
 				err:      err,
 			}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
+		earlier := previousReviewedRound(ctx, agents, round)
 
 		return reviewLoadedMsg{
 			agentID:  agentID,
@@ -238,6 +246,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			viewed:   viewed,
 			earlier:  earlier,
 			narrowed: narrowed,
+			refused:  refused,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Dir:         dir,
 				Exclude:     exclude,
@@ -247,6 +256,52 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			err: err,
 		}
 	}
+}
+
+// narrowedRoundParams says which round was opened and which one the reader asked the diff to be
+// measured from.
+type narrowedRoundParams struct {
+	// Round is the round this load opened.
+	Round *agentv1.ReviewRound
+	// RoundID is the round to narrow to, empty for the point the branch left its base.
+	RoundID string
+}
+
+// narrowedRound is the round the diff is measured from, with a sentence saying why it is not the
+// one that was asked for.
+func narrowedRound(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	params narrowedRoundParams,
+) (*agentv1.ReviewRound, string) {
+	if params.RoundID == "" {
+		return nil, ""
+	}
+
+	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
+		AgentId: params.Round.GetAgentId(),
+	}))
+	if err != nil {
+		return nil, "the round the diff was measured from could not be read, so this is the whole change"
+	}
+
+	for _, earlier := range rounds.Msg.GetRounds() {
+		if earlier.GetId() != params.RoundID {
+			continue
+		}
+
+		// Explainer: two rounds measured from different points are not comparable. History was
+		// rewritten under the branch between them, so a diff of the two snapshots would carry
+		// whatever else moved on the base as though the agent had written it. This is the same
+		// refusal previousReviewedRound makes when deciding whether to offer the narrowing.
+		if earlier.GetBaseSha() != params.Round.GetBaseSha() {
+			return nil, "the base moved, so this is the whole change"
+		}
+
+		return earlier, ""
+	}
+
+	return nil, "the round the diff was measured from is gone, so this is the whole change"
 }
 
 // changedSinceLastReviewParams says which round to measure against and what to leave out of the
@@ -383,9 +438,8 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
 	if drewNothing && msg.narrowed != nil {
-		said := m.review.baseLabel
 		m.widenReviewBase()
-		m.review.notice = "nothing written " + said
+		m.review.say(fmt.Sprintf("nothing written since round %d", msg.narrowed.GetOrdinal()))
 
 		return m.loadReviewCmd(loadReviewCmdParams{
 			AgentID: m.review.agentID,
@@ -409,8 +463,8 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	// The load has the last word on what the diff was measured from, so a narrowing it ruled out
 	// is said out loud rather than left on the band over a diff that is not that.
-	if m.review.baseWanted != "" && msg.narrowed == nil {
-		m.review.notice = "the base moved, so this is the whole change"
+	if msg.refused != "" {
+		m.review.say(msg.refused)
 	}
 
 	m.narrowReviewBase(msg.narrowed)
@@ -432,7 +486,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		// A checkout still standing on the round being left holds whatever was saved into it, and
 		// the comments already written from it belong to that round rather than to this one.
 		if m.review.roundDir != "" && m.review.roundSha != msg.round.GetSnapshotSha() {
-			m.review.notice = "the round moved on, so your comments stay on the one you wrote them against"
+			m.review.say("the round moved on, so your comments stay on the one you wrote them against")
 		}
 
 		m.review.oversized = false

@@ -110,6 +110,18 @@ type reviewState struct {
 	diffPolled  time.Time
 }
 
+// say adds a sentence to the notice, since one load can have more than one thing to tell the
+// reader and there is a single slot to tell them in.
+func (r *reviewState) say(sentence string) {
+	if r.notice == "" {
+		r.notice = sentence
+
+		return
+	}
+
+	r.notice += "; " + sentence
+}
+
 // doesTakeEveryKey reports whether the review is mid-input, which means a key bound elsewhere in
 // the panel belongs here instead.
 func (r reviewState) doesTakeEveryKey() bool {

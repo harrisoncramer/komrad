@@ -1697,7 +1697,8 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 	require.Equal(t, screenReview, m.screen, "the reader stays on the diff")
 	require.NotNil(t, m.review.view, "and keeps the whole change")
 	assert.Empty(t, m.review.baseWanted, "the base goes back to the fork point")
-	assert.Contains(t, m.review.notice, "nothing written")
+	assert.Equal(t, "nothing written since round 1", m.review.notice,
+		"and the notice names the round rather than trailing off")
 }
 
 // TestReviewBaseRecordsWhatItWasMeasuredFrom covers the durable half: a comment written while the
@@ -1795,4 +1796,78 @@ func TestReviewBaseIsRefusedWhenTheBaseMovesUnderThePress(t *testing.T) {
 	assert.Contains(t, m.review.notice, "the base moved")
 	assert.Equal(t, 2, m.review.view.Stat().Files, "the whole change, and none of what moved on the base")
 	assert.NotContains(t, ansi.Strip(m.reviewView()), "upstream.go")
+}
+
+// reloadReviewOnce reads the diff again the way a refresh does, keeping the state the screen is
+// already holding rather than opening the review from scratch.
+func reloadReviewOnce(t *testing.T, m model) model {
+	t.Helper()
+
+	reloaded, cmd := m.reloadReview()
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+
+	m = reloaded
+	m.applyReviewLoaded(loaded)
+
+	return m
+}
+
+// TestReviewBaseSurvivesAReviewOfALaterRound covers the ordinary loop, where a review released
+// against the round on screen moves which round is the newest reviewed one while the base itself
+// has not moved at all.
+func TestReviewBaseSurvivesAReviewOfALaterRound(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+
+	m := reviewWithAnEarlierReview(t, dir, agents)
+	m = pressReviewBase(t, m)
+	require.Equal(t, m.review.baseWanted, agents.rounds[0].GetId())
+
+	second := agents.rounds[1]
+	agents.reviews = append(agents.reviews, &agentv1.Review{
+		Id:           "v2",
+		RoundId:      second.GetId(),
+		RoundOrdinal: second.GetOrdinal(),
+		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		ReleasedAt:   "2026-09-08T11:00:00Z",
+	})
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "third.go"),
+		[]byte("package greet\n\nfunc Third() {}\n"), 0o644))
+
+	m = reloadReviewOnce(t, m)
+
+	require.Len(t, agents.rounds, 3)
+	require.Equal(t, agents.rounds[0].GetBaseSha(), agents.rounds[2].GetBaseSha(), "nothing moved")
+
+	assert.Equal(t, m.review.baseWanted, agents.rounds[0].GetId(), "the narrowing is still the reader's")
+	assert.Equal(t, "since round 1", m.review.baseLabel)
+	assert.NotContains(t, m.review.notice, "the base moved", "since it did not")
+}
+
+// TestReviewBaseSaysTheBaseMovedWithAnEditOpen covers the reader deepest into the review, whose
+// checkout of the round has its own thing to say about the same round moving.
+func TestReviewBaseSaysTheBaseMovedWithAnEditOpen(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+
+	m := reviewWithAnEarlierReview(t, dir, agents)
+	m.review.roundDir = t.TempDir()
+	m.review.roundSha = m.review.round.GetSnapshotSha()
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "upstream.go"),
+		[]byte("package greet\n\nfunc Upstream() {}\n"), 0o644))
+	gitIn(t, dir, "add", "upstream.go")
+	gitIn(t, dir, "commit", "-m", "upstream moved")
+
+	m = pressReviewBase(t, m)
+
+	assert.Empty(t, m.review.baseWanted)
+	assert.Contains(t, m.review.notice, "the base moved",
+		"the widening is said even though the round moving has something to say too")
+	assert.Contains(t, m.review.notice, "your comments stay on the one you wrote them against")
 }
