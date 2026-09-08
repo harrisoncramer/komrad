@@ -27,7 +27,18 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
-	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
+	anchor, ok := m.review.view.GetAnchor(m.review.cursor)
+	if !ok && !replying {
+		return m, nil
+	}
+
+	// Explainer: while the diff is narrowed, a row with no new-side line is a line deleted since
+	// that review rather than deleted from the branch, and its old-side number is read against
+	// the earlier snapshot. Nothing about it can be written down in the round's own numbering, so
+	// a new thread there is refused rather than recorded in coordinates nobody can read back.
+	if !replying && m.review.base != "" && anchor.NewStart == 0 {
+		m.review.notice = "that line is gone in this round"
+
 		return m, nil
 	}
 
@@ -91,7 +102,7 @@ func (m model) saveReviewMessage() (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	return m, m.createReviewThreadCmd(*anchor, body)
+	return m, m.createReviewThreadCmd(m.anchorInRoundNumbering(*anchor), body)
 }
 
 // cancelReviewMessage puts the composer away, abandoning nothing but the words typed into it.
@@ -100,6 +111,21 @@ func (m model) cancelReviewMessage() model {
 	m.review.composing = false
 
 	return m
+}
+
+// anchorInRoundNumbering is the anchor as the round's own numbering has it, which while the diff
+// is narrowed means no old side at all.
+func (m model) anchorInRoundNumbering(anchor review.Anchor) review.Anchor {
+	if m.review.base == "" {
+		return anchor
+	}
+
+	// Explainer: the old side of a narrowed patch comes from the earlier snapshot, so its line
+	// numbers name lines in a commit the thread does not record. review_threads holds no column
+	// saying which pair a number was read against, so a wrong number is worse than none.
+	anchor.OldStart, anchor.OldEnd = 0, 0
+
+	return anchor
 }
 
 func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd {

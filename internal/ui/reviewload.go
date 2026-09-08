@@ -76,8 +76,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 // last reviewed.
 func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
 	if m.review.base != "" {
-		m.review.base = ""
-		m.review.baseLabel = ""
+		m.widenReviewBase()
 
 		next, cmd := m.reloadReview()
 
@@ -90,6 +89,28 @@ func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
 	next, cmd := m.reloadReview()
 
 	return next, cmd
+}
+
+// widenReviewBase puts the diff back to the whole change.
+func (m *model) widenReviewBase() {
+	m.review.base = ""
+	m.review.baseLabel = ""
+}
+
+// reviewLegendFloor is the shortest pane the expanded legend fits in once it carries the base
+// row.
+const reviewLegendFloor = 21
+
+// doesReviewFitBaseLegend reports whether the base key is worth a legend row.
+func (m model) doesReviewFitBaseLegend() bool {
+	// Explainer: the expanded legend is drawn whole rather than windowed, so a row past the pane
+	// overruns it. The record gives way first at these heights and the newest legend row goes
+	// next, while the key itself keeps working for a reader who knows it.
+	if m.helpExpanded && m.height > 0 && m.height < reviewLegendFloor {
+		return false
+	}
+
+	return m.review.baseRound != nil || m.review.base != ""
 }
 
 // reviewBaseDesc says which way the base key will move, since the same press narrows the diff and
@@ -184,6 +205,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
+		earlier := previousReviewedRound(ctx, agents, round)
 
 		return reviewLoadedMsg{
 			agentID: agentID,
@@ -191,35 +213,42 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			patch:   patch,
 			threads: threads,
 			viewed:  viewed,
-			earlier: previousReviewedRound(ctx, agents, round),
-			since:   changedSinceLastReview(ctx, agents, dir, exclude, round),
-			err:     err,
+			earlier: earlier,
+			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
+				Dir:         dir,
+				Exclude:     exclude,
+				Earlier:     earlier,
+				SnapshotSHA: round.GetSnapshotSha(),
+			}),
+			err: err,
 		}
 	}
+}
+
+// changedSinceLastReviewParams says which round to measure against and what to leave out of the
+// count.
+type changedSinceLastReviewParams struct {
+	Dir     string
+	Exclude []string
+	// Earlier is the round the person last reviewed, nil when there is none.
+	Earlier *agentv1.ReviewRound
+	// SnapshotSHA is the round on screen.
+	SnapshotSHA string
 }
 
 // changedSinceLastReview says how much of this round is new since the person last let a review go,
 // which is a courtesy rather than a fact the screen depends on, so anything that fails to answer
 // says nothing.
-func changedSinceLastReview(
-	ctx context.Context,
-	agents agentv1connect.AgentServiceClient,
-	dir string,
-	exclude []string,
-	round *agentv1.ReviewRound,
-) string {
-	earlier := previousReviewedRound(ctx, agents, round)
-	if earlier == nil {
+func changedSinceLastReview(ctx context.Context, params changedSinceLastReviewParams) string {
+	if params.Earlier == nil {
 		return ""
 	}
 
-	from := earlier.GetSnapshotSha()
-
 	changed, err := git.CountChangedFiles(ctx, git.CountChangedFilesParams{
-		Dir:     dir,
-		FromSHA: from,
-		ToSHA:   round.GetSnapshotSha(),
-		Exclude: exclude,
+		Dir:     params.Dir,
+		FromSHA: params.Earlier.GetSnapshotSha(),
+		ToSHA:   params.SnapshotSHA,
+		Exclude: params.Exclude,
 	})
 	if err != nil || changed == 0 {
 		return ""
@@ -325,8 +354,24 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
+	drewNothing := errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded)
+
+	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
+	// so the whole change comes back with the answer said out loud.
+	if drewNothing && m.review.base != "" {
+		said := m.review.baseLabel
+		m.widenReviewBase()
+		m.review.notice = "nothing written " + said
+
+		return m.loadReviewCmd(loadReviewCmdParams{
+			AgentID: m.review.agentID,
+			Dir:     m.review.dir,
+			Exclude: m.review.exclude,
+		})
+	}
+
 	// Both draw nothing, so both back out rather than leaving the reader in an empty viewer.
-	if errors.Is(msg.err, diff.ErrNoChanges) || errors.Is(msg.err, diff.ErrAllExcluded) {
+	if drewNothing {
 		m.refuseReview(msg.err)
 
 		return nil
@@ -341,6 +386,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.baseRound = msg.earlier
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
+	m.review.view.SetOldSideForeign(m.review.base != "")
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
 	m.review.view.PinThreads(msg.threads)
 

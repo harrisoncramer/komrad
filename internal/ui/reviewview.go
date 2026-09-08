@@ -328,10 +328,7 @@ func (m model) reviewStatView() string {
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 
-	// Explainer: the viewed marks belong to the round rather than to the pair on screen, so a
-	// narrowed diff has fewer files than the marks were made against and the fraction would read
-	// as marks having vanished.
-	if read, total := m.review.view.CountViewedFiles(); read > 0 && m.review.baseLabel == "" {
+	if read, total := m.review.view.CountViewedFiles(); read > 0 {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 

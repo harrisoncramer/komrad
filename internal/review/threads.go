@@ -115,8 +115,9 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 		return y, v.placementFor(y, quote)
 	}
 
-	// The base commit holds the old-side line still however much the agent rewrites the new one.
-	if old := int(thread.GetOldStart()); old > 0 {
+	// The base commit holds the old-side line still however much the agent rewrites the new one,
+	// which stops being true the moment the old side comes from somewhere else.
+	if old := int(thread.GetOldStart()); old > 0 && !v.oldSideForeign {
 		if y, ok := index.byOld[oldKey{filePath: thread.GetFilePath(), oldLine: old}]; ok {
 			return y, v.placementFor(y, quote)
 		}

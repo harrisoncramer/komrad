@@ -385,3 +385,51 @@ func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
 	assert.Equal(t, adrift, view.placed[thread.GetId()],
 		"a context line the newer round draws as a deletion is gone")
 }
+
+// TestPinSkipsTheOldSideWhenItIsForeign covers the diff measured from an earlier round, where the
+// old side is that round's numbering rather than the base branch's and a thread's old-side line
+// names an unrelated row.
+func TestPinSkipsTheOldSideWhenItIsForeign(t *testing.T) {
+	patch := patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "other code",
+				OldNumber: 38,
+				NewNumber: 38,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "func Hello() {}",
+				NewNumber: 60,
+			},
+		)},
+	})
+
+	thread := threadAt("t1", "greet.go", 38, 41, " func Hello() {}")
+
+	measured := NewView(patch, false)
+	measured.PinThreads([]*agentv1.ReviewThread{thread})
+	require.Equal(t, ghosted, measured.placed[thread.GetId()],
+		"the old-side arm lands it on the row that happens to hold line 38")
+
+	foreign := NewView(patch, false)
+	foreign.SetOldSideForeign(true)
+	foreign.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, adrift, foreign.placed[thread.GetId()],
+		"the foot is the honest home for a thread nothing can place")
+
+	for row := range foreign.Len() {
+		found, ok := foreign.GetThreadAt(row)
+		if !ok || found.GetId() != "t1" {
+			continue
+		}
+
+		quote, drawn := foreign.quoteAt(row)
+		assert.False(t, drawn && quote == " other code",
+			"and never the row that happens to hold old line 38")
+	}
+}

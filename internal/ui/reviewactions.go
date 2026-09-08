@@ -197,7 +197,7 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewBase},
 			desc: model.reviewBaseDesc,
-			show: func(m model) bool { return m.review.baseRound != nil || m.review.base != "" },
+			show: model.doesReviewFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewReload},
