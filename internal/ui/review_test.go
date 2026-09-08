@@ -806,7 +806,7 @@ func TestReviewThreadCursorMoveDropsTheScroll(t *testing.T) {
 
 	assert.Zero(t, m.review.threadScroll)
 	assert.False(t, m.review.threadFocus, "the keys go back to the diff with the thread they were on")
-	assert.Equal(t, "read the thread", m.reviewThreadBinding().Help().Desc,
+	assert.Equal(t, "read the thread", m.reviewThreadDesc(),
 		"the legend says where the keys are rather than where they were")
 }
 

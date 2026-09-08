@@ -138,8 +138,8 @@ func TestScreensFitThePane(t *testing.T) {
 	const (
 		// Taller than the tallest legend on purpose, since a pane too short for its own chrome
 		// overflows by design, and the agents legend grew a key when the block beside the list
-		// gained one.
-		height = 28
+		// gained one, and another when the mailbox key was finally named.
+		height = 29
 		total  = 40
 	)
 

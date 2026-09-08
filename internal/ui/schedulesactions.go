@@ -1,0 +1,119 @@
+package ui
+
+import (
+	"weave/config"
+
+	tea "github.com/charmbracelet/bubbletea"
+)
+
+// schedulesActions is the schedules screen as one table, walked in precedence order by the
+// dispatch and named in reading order by a legend of the same ids.
+func schedulesActions() actionSpec {
+	return actionSpec{
+		table: []action{
+			{
+				id:   actionFilterOpen,
+				keys: func(k config.Keybindings) []string { return k.Filter.Open },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.openFilter() },
+			},
+			{
+				id:   actionQuit,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Quit },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m, m.hide() },
+			},
+			{
+				id:   actionFilterClear,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Back },
+				when: func(m model) bool { return m.filter.isStanding() },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.clearSearch() },
+			},
+			{
+				id:   actionScheduleBack,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Back },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.returnToAgents() },
+			},
+			{
+				id:   actionMove,
+				keys: func(k config.Keybindings) []string { return concatKeys(k.Nav.Up, k.Nav.Down) },
+				run:  model.moveSchedules,
+			},
+			{
+				id:   actionScheduleNew,
+				keys: func(k config.Keybindings) []string { return k.Schedules.New },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.newScheduleForm() },
+			},
+			{
+				id:   actionScheduleEdit,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Edit },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.editScheduleForm() },
+			},
+			{
+				id:   actionScheduleToggle,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Toggle },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.toggleSchedule() },
+			},
+			{
+				id:   actionScheduleArchive,
+				keys: func(k config.Keybindings) []string { return k.Schedules.Archive },
+				run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.archiveScheduleConfirm() },
+			},
+		},
+		legend: []legendRow{
+			{
+				of:   []actionID{actionScheduleNew},
+				desc: func(model) string { return "new schedule" },
+			},
+			{
+				of:    []actionID{actionScheduleEdit},
+				desc:  func(model) string { return "edit" },
+				strip: true,
+			},
+			{
+				of:   []actionID{actionScheduleToggle},
+				desc: model.scheduleToggleDesc,
+			},
+			{
+				of:   []actionID{actionScheduleArchive},
+				desc: func(model) string { return "archive" },
+			},
+			{
+				of:   []actionID{actionFilterOpen},
+				desc: model.filterDesc,
+			},
+			{
+				of:    []actionID{actionMove},
+				desc:  func(model) string { return "move" },
+				label: moveLabel,
+			},
+			{
+				of:   []actionID{actionScheduleBack},
+				desc: func(model) string { return "back" },
+			},
+			{
+				of:    []actionID{actionFilterClear},
+				desc:  func(model) string { return "clear search" },
+				strip: true,
+			},
+		},
+	}
+}
+
+func (m model) moveSchedules(pressed string) (tea.Model, tea.Cmd) {
+	if isBound(pressed, m.keys.Nav.Down) {
+		return m.moveScheduleCursor(1), nil
+	}
+
+	return m.moveScheduleCursor(-1), nil
+}
+
+func (m model) scheduleToggleDesc() string {
+	if item, ok := m.selectedSchedule(); ok && !item.schedule.Enabled {
+		return "resume"
+	}
+
+	return "pause"
+}
+
+func moveLabel(k config.Keybindings) string {
+	return keyLabel(k.Nav.Up) + "/" + keyLabel(k.Nav.Down)
+}

@@ -10,6 +10,7 @@ import (
 	"weave/internal/ui/layout"
 	agentv1 "weave/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -140,6 +141,53 @@ func helpModel() model {
 		width:   46,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
+}
+
+// TestLegendOrderIsPinned holds the search screen's legend, which is the one screen with no table
+// to declare its own order, its keys being fixed rather than configured while the query is open.
+func TestLegendOrderIsPinned(t *testing.T) {
+	tests := []struct {
+		name  string
+		s     screen
+		of    func(model) keyMap
+		short []string
+		full  []string
+	}{
+		{
+			name:  "search",
+			s:     screenSearch,
+			of:    model.searchHelp,
+			short: []string{"enter go to it", "esc// edit the query", "? show help"},
+			full: []string{
+				"enter go to it",
+				"esc// edit the query",
+				"k/j move",
+				"gg/G top/bottom",
+				"C-n/C-p scroll the transcript",
+				"? show help",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := helpModel()
+			m.screen = tt.s
+
+			k := tt.of(m)
+			assert.Equal(t, tt.short, legendLabels(k.short), "the short legend")
+			assert.Equal(t, tt.full, legendLabels(k.full), "the expanded legend")
+		})
+	}
+}
+
+func legendLabels(bindings []key.Binding) []string {
+	out := make([]string, len(bindings))
+	for i, b := range bindings {
+		out[i] = b.Help().Key + " " + b.Help().Desc
+	}
+
+	return out
 }
 
 // TestNoScreenBindsOneKeyTwice pins that every legend a screen draws names each key once, since
