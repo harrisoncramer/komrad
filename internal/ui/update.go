@@ -60,9 +60,11 @@ func (m model) holdFocusKey() {
 	m.popup.HoldFocusKey(m.focusKey, m.pane, m.focusPane())
 }
 
-// focusPane is the agent's pane the focus key jumps to, empty where the stage holds none.
+// focusPane is the agent's pane the focus key jumps to, empty where the stage holds none and empty
+// while the panel's own zoom covers the one parked there, since selecting a covered pane drops that
+// zoom and lands the keyboard where nobody can see it.
 func (m model) focusPane() string {
-	if m.screen != screenAgents {
+	if m.screen != screenAgents || m.frame.IsSolo() {
 		return ""
 	}
 

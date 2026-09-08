@@ -293,6 +293,46 @@ func TestFocusKeyGivenBackByAnEmptyStage(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, binds.unbound)
 }
 
+// TestFocusKeyGivenBackWhileThePanelHoldsTheWindow checks the key is unbound wherever the panel
+// zooms its own block over the pane the live row left parked, which is a workflow header, a dead
+// agent, and the messages region holding the keys over a live one.
+func TestFocusKeyGivenBackWhileThePanelHoldsTheWindow(t *testing.T) {
+	tests := []struct {
+		name    string
+		arrange func(*model)
+	}{
+		{name: "workflow header", arrange: func(m *model) { m.tree.cursor = 0 }},
+		{name: "dead agent", arrange: func(m *model) {
+			m.tree.cursor = 2
+			m.listing.agents[1].alive = false
+		}},
+		// The one row that tells the zoom apart from the cursor's own: the region takes the
+		// block over a live agent, so hasNoAgentPane is false here while the pane is covered.
+		{name: "messages region focused", arrange: func(m *model) { m.messages.focused = true }},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			binds := &bindingTmux{}
+			m := focusKeyModel(binds)
+			m.listing.agents[1].agent.Pane = "%12"
+
+			m.stageSelection()
+			m.holdFocusKey()
+			require.Contains(t, binds.bound, "root:C-a", "the live row the cursor starts on holds the key")
+
+			tt.arrange(&m)
+			m.stageSelection()
+			m.holdFocusKey()
+
+			require.True(t, m.frame.IsSolo(), "the panel takes the window")
+			assert.Equal(t, "%9", m.frame.GuestPane(), "the live agent's pane is left parked under the zoom")
+			assert.NotContains(t, binds.bound, "root:C-a")
+			assert.Equal(t, []string{"C-a"}, binds.unbound)
+		})
+	}
+}
+
 // TestFocusKeyReachesTmuxOnce checks a key that is already right is left alone.
 func TestFocusKeyReachesTmuxOnce(t *testing.T) {
 	binds := &bindingTmux{}
