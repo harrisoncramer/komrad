@@ -22,7 +22,7 @@ import (
 // TestListReviewThreadsAnswersTheCallerItHas covers the identity being read off the call rather
 // than assumed.
 func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
-	svc, st := reviewService(t)
+	svc, st, reviews := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{
 		Name:  "worker",
 		Cwd:   "/repo",
@@ -49,6 +49,15 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 		AgentId: worker.ID,
 		Verdict: agentv1.ReviewVerdict_REVIEW_VERDICT_CHANGES_REQUESTED,
 	}))
+	require.NoError(t, err)
+
+	// A second review may only be started once the agent has written something in answer to the
+	// first, so the work moves on before the panel writes again.
+	_, err = reviews.CreateRound(asHuman, reviewstore.CreateRoundParams{
+		AgentID:     worker.ID,
+		BaseSHA:     "base-sha",
+		SnapshotSHA: "moved-on",
+	})
 	require.NoError(t, err)
 
 	_, err = svc.CreateReviewThread(asHuman, connect.NewRequest(&agentv1.CreateReviewThreadRequest{
@@ -84,7 +93,7 @@ func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	assert.Equal(t, agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSPECIFIED, message.GetDelivery())
 }
 
-func reviewService(t *testing.T) (*Service, *storetest.Stores) {
+func reviewService(t *testing.T) (*Service, *storetest.Stores, *reviewstore.Store) {
 	t.Helper()
 
 	st := storetest.Open(t)
@@ -114,7 +123,7 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 		Runs:     st.Runs,
 		Marks:    markService(st),
 		Liveness: &fakeLauncher{},
-	}), st
+	}), st, reviews
 }
 
 // fakeSnapshotter stands in for git, these tests being about who the handler thinks is calling
@@ -135,7 +144,7 @@ func (fakeSnapshotter) FileAt(context.Context, string, string, string) ([]string
 // released review is counted against the agent whose work it was given on, and a review still
 // being written is counted against nobody.
 func TestListedAgentsCarryTheirReviewRounds(t *testing.T) {
-	svc, st := reviewService(t)
+	svc, st, _ := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{
 		Name:  "worker",
 		Cwd:   "/repo",
