@@ -157,23 +157,24 @@ func TestScreensFitThePane(t *testing.T) {
 	m.schedules.cursor = total - 1
 
 	tests := []struct {
-		name      string
-		screen    screen
-		wantTitle string
+		name     string
+		screen   screen
+		wantHead string
 	}{
 		{
-			name:   "the agents tree",
-			screen: screenAgents,
+			name:     "the agents tree",
+			screen:   screenAgents,
+			wantHead: "/",
 		},
 		{
-			name:      "the archive",
-			screen:    screenArchive,
-			wantTitle: "Archive",
+			name:     "the archive",
+			screen:   screenArchive,
+			wantHead: "Archive",
 		},
 		{
-			name:      "the schedules",
-			screen:    screenSchedules,
-			wantTitle: "Schedules",
+			name:     "the schedules",
+			screen:   screenSchedules,
+			wantHead: "Schedules",
 		},
 	}
 
@@ -188,9 +189,7 @@ func TestScreensFitThePane(t *testing.T) {
 			assert.LessOrEqual(t, len(lines(view)), height)
 			assert.Contains(t, view, "agent39", "the hovered row is on screen")
 			assert.Contains(t, view, "hide help", "the legend is on screen")
-			if tt.wantTitle != "" {
-				assert.Contains(t, view, tt.wantTitle, "the title is on screen")
-			}
+			assert.Contains(t, lines(view)[0], tt.wantHead, "the header is on screen")
 		})
 	}
 }
