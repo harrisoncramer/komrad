@@ -253,7 +253,7 @@ func clip(text string, width int) string {
 // selectionBackground is the bar a row taken into a selection is drawn under, dark enough that
 // the colours the row is already carrying still read through it, so a selected row keeps its
 // state icon and its cursor rather than trading them for the fact that it is in.
-var selectionBackground = lipgloss.AdaptiveColor{Light: "#cdf0d6", Dark: "#20452c"}
+var selectionBackground = lipgloss.AdaptiveColor{Light: "#dbeafe", Dark: "#1e3a5f"}
 
 // Explainer: the fill is measured across the whole string paintRow is handed, so it holds only
 // for a row of a single line.
