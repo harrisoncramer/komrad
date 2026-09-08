@@ -116,7 +116,7 @@ func TestReconcileSinglePass(t *testing.T) {
 			tmux.commands["%1"] = tt.command
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 			require.NoError(t, rec.Reconcile(t.Context()))
 			assert.Equal(t, tt.want, stateOf(t, st, "agent"))
 		})
@@ -134,7 +134,7 @@ func TestReconcileRecordsTheFrameItRead(t *testing.T) {
 	tmux.captures["%1"] = busyFrame
 
 	recorder := &fakeFrameRecorder{}
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithFrameRecorder(recorder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
@@ -155,7 +155,7 @@ func TestReconcileRecordsAnUnrecognizedFrameDisputingAnIdleAgent(t *testing.T) {
 	tmux.captures["%1"] = unrecognizedFrame
 
 	recorder := &fakeFrameRecorder{}
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithFrameRecorder(recorder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
@@ -174,7 +174,7 @@ func TestReconcileRecordsAnUnrecognizedFrameAgreeingWithAnUncertainAgent(t *test
 	tmux.captures["%1"] = unrecognizedFrame
 
 	recorder := &fakeFrameRecorder{}
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithFrameRecorder(recorder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
@@ -192,7 +192,7 @@ func TestReconcileRecordsAnUnrecognizedFrameDisputingAThinkingAgent(t *testing.T
 	tmux.captures["%1"] = unrecognizedFrame
 
 	recorder := &fakeFrameRecorder{}
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents).WithFrameRecorder(recorder)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithFrameRecorder(recorder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Len(t, recorder.recorded, 1)
@@ -209,7 +209,7 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = busyFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 
 	require.NoError(t, rec.Reconcile(t.Context()))
 }
@@ -250,7 +250,7 @@ func TestReconcileForgetsAnAbandonedPane(t *testing.T) {
 			tmux.commands["%1"] = tt.command
 			tmux.captures["%1"] = busyFrame
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 			require.NoError(t, rec.Reconcile(ctx))
 			waitOutTheShellGrace(rec)
 			require.NoError(t, rec.Reconcile(ctx))
@@ -280,7 +280,7 @@ func TestReconcileWaitsOutALaunch(t *testing.T) {
 	tmux.commands["%1"] = "zsh"
 	tmux.captures["%1"] = busyFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	require.NoError(t, rec.Reconcile(ctx))
 	require.NoError(t, rec.Reconcile(ctx))
 
@@ -350,7 +350,7 @@ func TestReconcileOverPasses(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.owners["%1"] = agent.ID
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 			ctx := t.Context()
 
 			for i, frame := range tt.passes {
@@ -416,7 +416,7 @@ func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, States: st.Agents})
 	for range reconcileMisses + 1 {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
@@ -455,7 +455,7 @@ func TestReconcileTurnBoundaryOnlyAcceleratesWhatThePaneAgrees(t *testing.T) {
 			tmux.owners["%1"] = agent.ID
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 			rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 			rec.RecordTurnBoundary(agent.ID)
 
@@ -477,7 +477,7 @@ func TestReconcileTurnBoundaryOlderThanTheLastObservationDoesNothing(t *testing.
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(-time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 	rec.tally.now = time.Now
@@ -499,7 +499,7 @@ func TestReconcileUnrecognizedFrameSettlesUncertainWhenStatic(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = unrecognizedFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	for range reconcileMisses - 1 {
 		require.NoError(t, rec.Reconcile(ctx))
 		assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
@@ -519,7 +519,7 @@ func TestReconcileUnrecognizedFrameThatKeepsChangingHolds(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.owners["%1"] = agent.ID
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 
 	tmux.captures["%1"] = unrecognizedFrame + "-0"
 	require.NoError(t, rec.Reconcile(ctx))
@@ -542,7 +542,7 @@ func TestReconcileMissesAccrueRatherThanRestartOnceTheHoldIsCapped(t *testing.T)
 	tmux := newFakeTmux()
 	tmux.owners["%1"] = agent.ID
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 
 	tmux.captures["%1"] = unrecognizedFrame + "-0"
 	require.NoError(t, rec.Reconcile(ctx))
@@ -576,7 +576,7 @@ func TestReconcileCountsUnrecognizedFrames(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = unrecognizedFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	require.NoError(t, rec.Reconcile(ctx))
 	require.NoError(t, rec.Reconcile(ctx))
 
@@ -602,7 +602,7 @@ func TestReconcileWithoutTmux(t *testing.T) {
 	tmux.captures["%1"] = busyFrame
 	tmux.paneOwnersErr = errors.New("no server running")
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	require.Error(t, rec.Reconcile(ctx), "a pass that observed nothing is a failed pass")
 
 	after := agentByID(t, st, agent.ID)
@@ -674,7 +674,7 @@ func TestReconcileStampsWhatItConfirmed(t *testing.T) {
 			tmux.owners["%1"] = agent.ID
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, States: st.Agents})
 			for range tt.passes {
 				require.NoError(t, rec.Reconcile(ctx))
 			}
@@ -703,7 +703,7 @@ func TestReconcileCoalescesTheConfirmationStamp(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = busyFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	for range 5 {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
@@ -771,7 +771,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 				require.NoError(t, st.Agents.Update(ctx, resumed))
 			}}
 
-			rec := NewReconciler(observer, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: observer, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 			require.NoError(t, rec.Reconcile(ctx))
 
 			after := agentByID(t, st, agent.ID)
@@ -793,7 +793,7 @@ func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 
 	for range reconcileMisses {
 		require.NoError(t, rec.Reconcile(ctx))
@@ -815,7 +815,7 @@ func TestReconcileLeavesTheStampToTheHookWhenItReported(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 
@@ -837,7 +837,7 @@ func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = unrecognizedFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	for range reconcileMisses {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
@@ -856,7 +856,7 @@ func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = unrecognizedFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	for range reconcileMisses {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
@@ -876,7 +876,7 @@ func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = busyFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	require.NoError(t, rec.Reconcile(ctx))
 
 	assert.Equal(t, agentstore.StateThinking, stateOf(t, st, "agent"))
@@ -891,7 +891,7 @@ func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 
 	tmux := newFakeTmux()
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 
 	for range listingsBeforePaneGone {
 		require.NoError(t, rec.Reconcile(ctx))
@@ -913,7 +913,7 @@ func TestReconcileReportedReasonMovesNoState(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 	rec.RecordReportedReason(agent.ID, "Bash")
 
@@ -936,7 +936,7 @@ func TestReconcileTurnBoundaryDoesNotShortcutIntoUncertain(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = unrecognizedFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 	rec.tally.now = func() time.Time { return agent.StateSeenAt.Add(time.Second) }
 	rec.RecordTurnBoundary(agent.ID)
 
@@ -985,7 +985,7 @@ func TestReconcileMissesOnlyCountTowardsTheStateTheyWereEarnedFor(t *testing.T) 
 			tmux := newFakeTmux()
 			tmux.owners["%1"] = agent.ID
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 
 			tmux.captures["%1"] = tt.earned
 			for range reconcileMisses - 1 {

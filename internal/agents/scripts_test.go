@@ -189,7 +189,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 			worktreesDir := t.TempDir()
 
 			runner := &recordingRunner{}
-			service := NewScriptService(ScriptParams{
+			service := NewScriptService(NewScriptServiceParams{
 				Agents: fakeAgentReader{agent: &agentstore.Agent{
 					ID:               "a1",
 					Cwd:              "/worktrees/a1",
@@ -1539,7 +1539,7 @@ func scriptService(t *testing.T, dir string, runner scriptRunner) *ScriptService
 func scriptServiceWithLogsDir(t *testing.T, dir string, runner scriptRunner, logsDir string) *ScriptService {
 	t.Helper()
 
-	return NewScriptService(ScriptParams{
+	return NewScriptService(NewScriptServiceParams{
 		Agents: fakeAgentReader{agent: &agentstore.Agent{
 			ID: "a1", Name: "auth", State: agentstore.StateWaiting, Cwd: "/repo",
 			Harness: "claude", SessionID: "sess-1", Flags: "--model opus", Prompt: "fix auth",
@@ -1761,7 +1761,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 			configured := t.TempDir()
 
 			runner := &recordingRunner{}
-			service := NewScriptService(ScriptParams{
+			service := NewScriptService(NewScriptServiceParams{
 				Agents: fakeAgentReader{agent: &agentstore.Agent{
 					ID: "a1", Cwd: "/worktrees/a1", WorkflowID: "w1",
 				}},

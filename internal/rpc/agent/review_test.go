@@ -95,7 +95,7 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 		Agents:         st.Agents,
 		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
-	review := agents.NewReviewService(agents.ReviewServiceParams{
+	review := agents.NewReviewService(agents.NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,

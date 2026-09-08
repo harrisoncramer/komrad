@@ -11,7 +11,7 @@ import (
 
 var ErrNoPullRequest = errors.New("no pull request is recorded on this agent")
 
-type PullRequestOpenerParams struct {
+type NewPullRequestOpenerParams struct {
 	Agents agentGetter
 	Opener browser.Opener
 }
@@ -25,10 +25,10 @@ type PullRequestOpener struct {
 }
 
 // NewPullRequestOpener builds the opener over the agent registry.
-func NewPullRequestOpener(params PullRequestOpenerParams) *PullRequestOpener {
+func NewPullRequestOpener(p NewPullRequestOpenerParams) *PullRequestOpener {
 	return &PullRequestOpener{
-		agents: params.Agents,
-		opener: params.Opener,
+		agents: p.Agents,
+		opener: p.Opener,
 	}
 }
 

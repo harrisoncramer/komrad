@@ -9,7 +9,7 @@ import (
 	markstore "weave/internal/store/mark"
 )
 
-type MarkServiceParams struct {
+type NewMarkServiceParams struct {
 	Marks *markstore.Store
 	Tx    txRunner
 }
@@ -22,7 +22,7 @@ type MarkService struct {
 }
 
 // NewMarkService builds the service over the mark store and the transaction it writes through.
-func NewMarkService(p MarkServiceParams) *MarkService {
+func NewMarkService(p NewMarkServiceParams) *MarkService {
 	return &MarkService{marks: p.Marks, tx: p.Tx}
 }
 

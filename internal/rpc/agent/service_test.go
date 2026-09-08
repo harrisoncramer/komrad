@@ -2015,7 +2015,7 @@ func (s fakeMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 // markService is the real thing over the test stores, since a mark spans two tables and a fake
 // would be agreeing with itself about the rules that matter.
 func markService(st *storetest.Stores) *agents.MarkService {
-	return agents.NewMarkService(agents.MarkServiceParams{Marks: st.Marks, Tx: st.Pool})
+	return agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 }
 
 func service(t *testing.T) (*Service, *storetest.Stores) {
@@ -2090,7 +2090,7 @@ func serviceWithLauncher(t *testing.T) (*Service, *storetest.Stores, *fakeLaunch
 	})
 
 	reviews := reviewstore.New(st.Pool.GetDB())
-	review := agents.NewReviewService(agents.ReviewServiceParams{
+	review := agents.NewReviewService(agents.NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,

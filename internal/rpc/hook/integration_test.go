@@ -127,7 +127,7 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 	validation, err := interceptors.NewValidation()
 	require.NoError(t, err)
 
-	service := agents.NewScriptService(agents.ScriptParams{
+	service := agents.NewScriptService(agents.NewScriptServiceParams{
 		Agents:    fakeAgents{cwd: p.work},
 		Workflows: fakeWorkflows{},
 		Tmux:      fakePanes{},
@@ -143,7 +143,7 @@ func hookClient(t *testing.T, p hookClientParams) hookv1connect.HookServiceClien
 		Socket:     "weave",
 	})
 
-	pullRequests := agents.NewPullRequestOpener(agents.PullRequestOpenerParams{
+	pullRequests := agents.NewPullRequestOpener(agents.NewPullRequestOpenerParams{
 		Agents: fakeAgents{cwd: p.work},
 		Opener: p.opener,
 	})

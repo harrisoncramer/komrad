@@ -203,7 +203,7 @@ func TestNewSchedule(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			workflowID := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
 			cfg := tt.cfg
@@ -253,7 +253,7 @@ func TestScheduleWorkflowMustExist(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
 			ctx := t.Context()
-			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			live := st.SeedWorkflow(t, workflowstore.Config{Name: "backend"}).ID
 			existing, err := svc.NewSchedule(ctx, schedulestore.Config{
@@ -339,7 +339,7 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 			tmux.owners["%1"] = run.ID
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 			for range reconcileMisses + 2 {
 				require.NoError(t, rec.Reconcile(ctx))
 			}
@@ -389,7 +389,7 @@ func TestScheduleNotFound(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			svc := NewScheduleService(ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+			svc := NewScheduleService(NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 			require.ErrorIs(t, tt.call(t, svc), ErrScheduleNotFound)
 		})

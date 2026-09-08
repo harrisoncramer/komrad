@@ -60,7 +60,7 @@ type WorkflowService struct {
 	notifier     systemMailSender
 }
 
-type WorkflowParams struct {
+type NewWorkflowServiceParams struct {
 	Workflows    workflowReader
 	Agents       workflowAgentLister
 	AgentDeleter workflowAgentDeleter
@@ -75,7 +75,7 @@ type WorkflowParams struct {
 }
 
 // NewWorkflowService builds the service from its dependencies.
-func NewWorkflowService(p WorkflowParams) *WorkflowService {
+func NewWorkflowService(p NewWorkflowServiceParams) *WorkflowService {
 	return &WorkflowService{
 		store:        p.Workflows,
 		agents:       p.Agents,

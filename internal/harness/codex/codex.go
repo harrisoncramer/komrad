@@ -43,18 +43,18 @@ type NewHarnessParams struct {
 }
 
 // NewHarness builds a harness from opts.
-func NewHarness(opts NewHarnessParams) *Harness {
-	if opts.SessionsDir == "" {
-		opts.SessionsDir = defaultSessionsDir()
+func NewHarness(p NewHarnessParams) *Harness {
+	if p.SessionsDir == "" {
+		p.SessionsDir = defaultSessionsDir()
 	}
-	if opts.ConfigPath == "" {
-		opts.ConfigPath = defaultConfigPath()
+	if p.ConfigPath == "" {
+		p.ConfigPath = defaultConfigPath()
 	}
 
 	return &Harness{
-		sessionsDir:     opts.SessionsDir,
-		configPath:      opts.ConfigPath,
-		trustLaunchDirs: opts.TrustLaunchDirs,
+		sessionsDir:     p.SessionsDir,
+		configPath:      p.ConfigPath,
+		trustLaunchDirs: p.TrustLaunchDirs,
 	}
 }
 

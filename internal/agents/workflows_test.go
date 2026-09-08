@@ -443,7 +443,7 @@ func TestArchiveWorkflowKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	workflowID := seedWorkflow(t, st)
 	agent := seedInWorkflow(t, st, workflowID, "dormant", "", agentstore.StateIdle)
 
-	workflows := NewWorkflowService(WorkflowParams{
+	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows: st.Workflows,
 		Agents:    st.Agents,
 		Schedules: st.Schedules,
@@ -945,7 +945,7 @@ func TestDeleteWorkflowLeavesAStragglerAndItsWorkflowBehind(t *testing.T) {
 	tmux := newFakeTmux()
 	lifecycle := &fakeLifecycle{deprovisionRunErr: errors.New("worktree is dirty")}
 	agentSvc := st.agentServiceWithLifecycle(tmux, fakeHarnesses{harness: &fakeHarness{}}, lifecycle)
-	workflows := NewWorkflowService(WorkflowParams{
+	workflows := NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    st.Workflows,
 		Agents:       st.Agents,
 		AgentDeleter: agentSvc.lifecycle,

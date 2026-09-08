@@ -136,7 +136,7 @@ func agentIDOf(t *testing.T, st *testStore) string {
 }
 
 func newPRArchiver(st *testStore, prs pullRequestResolver, archiver prArchiveAgentArchiver) *PRArchiver {
-	return NewPRArchiver(PRArchiverParams{
+	return NewPRArchiver(NewPRArchiverParams{
 		Agents:       st.Agents,
 		Workflows:    st.Workflows,
 		Archiver:     archiver,

@@ -65,27 +65,27 @@ func NewRecorder(dir string, settings func() Settings) *Recorder {
 }
 
 // Record writes the frame an agent was read from when that reading says something new.
-func (r *Recorder) Record(params RecordParams) error {
+func (r *Recorder) Record(p RecordParams) error {
 	settings := r.settings()
-	if !settings.On || params.AgentID == "" || params.Frame == "" {
+	if !settings.On || p.AgentID == "" || p.Frame == "" {
 		return nil
 	}
 
-	hash := hashFrame(params.Frame)
-	if !r.shouldRecord(params, hash) {
+	hash := hashFrame(p.Frame)
+	if !r.shouldRecord(p, hash) {
 		return nil
 	}
 
-	dir := AgentDir(r.dir, params.AgentID)
+	dir := AgentDir(r.dir, p.AgentID)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return fmt.Errorf("failed to create %s: %w", dir, err)
 	}
 
-	name := fmt.Sprintf("%s-%04d-%s.txt", r.now().UTC().Format(stampFormat), r.numberFrame(), params.Activity)
-	if err := os.WriteFile(filepath.Join(dir, name), []byte(params.Frame), 0o600); err != nil {
+	name := fmt.Sprintf("%s-%04d-%s.txt", r.now().UTC().Format(stampFormat), r.numberFrame(), p.Activity)
+	if err := os.WriteFile(filepath.Join(dir, name), []byte(p.Frame), 0o600); err != nil {
 		return fmt.Errorf("failed to write %s: %w", name, err)
 	}
-	r.remember(params.AgentID, hash)
+	r.remember(p.AgentID, hash)
 
 	return prune(dir, settings.Keep)
 }

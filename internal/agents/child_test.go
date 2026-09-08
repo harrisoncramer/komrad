@@ -630,7 +630,7 @@ func newFakeFamily() *fakeDirectory {
 // TestChildBriefingReplacesTheDelegateOne pins what a child is told, since the rules it runs
 // under are the reason it was made this way rather than as an agent of its own.
 func TestChildBriefingReplacesTheDelegateOne(t *testing.T) {
-	launcher := NewLauncher(LauncherParams{
+	launcher := NewLauncher(NewLauncherParams{
 		Tmux:    newFakeTmux(),
 		Addr:    "127.0.0.1:9999",
 		LogPath: briefedLogPath,

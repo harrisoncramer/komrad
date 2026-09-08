@@ -103,13 +103,13 @@ func newAgentService(t *testing.T, stores *storetest.Stores) *agents.LaunchServi
 	registry, err := harness.NewRegistry(claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()}))
 	require.NoError(t, err)
 
-	return agents.NewLaunchService(agents.LaunchServiceParams{
+	return agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               &fakeTmux{},
 		Agents:             stores.Agents,
 		Reviews:            reviewstore.New(stores.Pool.GetDB()),
 		Workflows:          stores.Workflows,
 		Tx:                 stores.Pool,
-		Launcher:           agents.NewLauncher(agents.LauncherParams{Tmux: &fakeTmux{}, Addr: "127.0.0.1:8787"}),
+		Launcher:           agents.NewLauncher(agents.NewLauncherParams{Tmux: &fakeTmux{}, Addr: "127.0.0.1:8787"}),
 		Harnesses:          registry,
 		UserDefaultHarness: claudeHarnessID,
 	})

@@ -43,7 +43,7 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 			tmux := newFakeTmux()
 			tmux.sendKeysErr = tt.sendKeysErr
 			h := &fakeHarness{commandErr: tt.commandErr}
-			launcher := NewLauncher(LauncherParams{
+			launcher := NewLauncher(NewLauncherParams{
 				Tmux:     tmux,
 				Addr:     "127.0.0.1:9999",
 				CacheDir: cache,
@@ -84,7 +84,7 @@ func TestLaunchTypesTheHarnessCommand(t *testing.T) {
 func TestLaunchPassesWhatThePanelKnows(t *testing.T) {
 	tmux := newFakeTmux()
 	h := &fakeHarness{}
-	launcher := NewLauncher(LauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
+	launcher := NewLauncher(NewLauncherParams{Tmux: tmux, Addr: "127.0.0.1:9999"})
 
 	require.NoError(t, launcher.launch(h, launchParams{
 		Pane:      "pane",
@@ -141,7 +141,7 @@ func TestAppendedSystemPrompt(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launcher := NewLauncher(LauncherParams{
+			launcher := NewLauncher(NewLauncherParams{
 				Tmux:    newFakeTmux(),
 				Addr:    "127.0.0.1:9999",
 				LogPath: briefedLogPath,
@@ -188,7 +188,7 @@ func TestAppendedSystemPromptDelegateBriefing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launcher := NewLauncher(LauncherParams{
+			launcher := NewLauncher(NewLauncherParams{
 				Tmux:    newFakeTmux(),
 				Addr:    "127.0.0.1:9999",
 				LogPath: briefedLogPath,
@@ -249,7 +249,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 				require.NoError(t, os.WriteFile(path, []byte(tt.global), 0o600))
 			}
 
-			launcher := NewLauncher(LauncherParams{
+			launcher := NewLauncher(NewLauncherParams{
 				Tmux:        newFakeTmux(),
 				Addr:        "127.0.0.1:9999",
 				LogPath:     briefedLogPath,
@@ -278,7 +278,7 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "context.md")
 	require.NoError(t, os.WriteFile(path, []byte("before-the-edit"), 0o600))
 
-	launcher := NewLauncher(LauncherParams{
+	launcher := NewLauncher(NewLauncherParams{
 		Tmux:        newFakeTmux(),
 		Addr:        "127.0.0.1:9999",
 		LogPath:     briefedLogPath,
@@ -297,7 +297,7 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 // than something a person configures, since an agent that reaches for gh or mails its findings has
 // given a review nobody can settle and the panel cannot show.
 func TestBriefingCarriesTheReviewRules(t *testing.T) {
-	launcher := NewLauncher(LauncherParams{Addr: "127.0.0.1:8787"})
+	launcher := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:8787"})
 
 	// No context file and no workflow, which is the least an install can give an agent.
 	base := launcher.appendedSystemPrompt(launchParams{})
@@ -365,7 +365,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			launcher := NewLauncher(LauncherParams{
+			launcher := NewLauncher(NewLauncherParams{
 				Tmux:    newFakeTmux(),
 				Addr:    "127.0.0.1:9999",
 				LogPath: briefedLogPath,
@@ -387,7 +387,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 // review halves were cut out of it, since an agent a person reviews from the panel was never
 // told it would be and still has to know how to answer.
 func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
-	launcher := NewLauncher(LauncherParams{
+	launcher := NewLauncher(NewLauncherParams{
 		Tmux:    newFakeTmux(),
 		Addr:    "127.0.0.1:9999",
 		LogPath: briefedLogPath,

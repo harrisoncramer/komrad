@@ -57,7 +57,7 @@ type LifecycleService struct {
 	maxChildren    int
 }
 
-type LifecycleServiceParams struct {
+type NewLifecycleServiceParams struct {
 	Tmux           paneKiller
 	Agents         lifecycleAgentReadWriter
 	Workflows      workflowReader
@@ -73,7 +73,7 @@ type LifecycleServiceParams struct {
 }
 
 // NewLifecycleService builds the service from its dependencies.
-func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
+func NewLifecycleService(p NewLifecycleServiceParams) *LifecycleService {
 	return &LifecycleService{
 		tmux:           p.Tmux,
 		agents:         p.Agents,

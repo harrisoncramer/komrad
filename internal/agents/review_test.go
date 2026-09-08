@@ -846,7 +846,7 @@ func reviewServiceHolding(
 ) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{
+	return NewReviewService(NewReviewServiceParams{
 		Threads:  reviews,
 		Messages: reviews,
 		Viewed:   reviews,
@@ -872,7 +872,7 @@ func reviewServiceForAgent(
 ) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{
+	return NewReviewService(NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,
@@ -948,7 +948,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			reviews := newFakeReviewStore()
 			notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
 			resumer := &fakeResumer{}
-			service := NewReviewService(ReviewServiceParams{
+			service := NewReviewService(NewReviewServiceParams{
 				Threads:   reviews,
 				Messages:  reviews,
 				Viewed:    reviews,
@@ -1684,7 +1684,7 @@ func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 func reviewServiceWithRealMail(t *testing.T, reviews *fakeReviewStore, mailbox *countingMailbox) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{
+	return NewReviewService(NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,

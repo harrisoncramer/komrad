@@ -470,7 +470,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, States: st.Agents})
 	for range 30 {
 		require.NoError(t, rec.Reconcile(ctx))
 	}

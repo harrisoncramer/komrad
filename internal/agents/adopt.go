@@ -55,7 +55,7 @@ type AdoptService struct {
 	pullRequests pullRequestResolver
 }
 
-type AdoptServiceParams struct {
+type NewAdoptServiceParams struct {
 	Agents    adoptAgentReadWriter
 	Workflows workflowReader
 	Launch    *LaunchService
@@ -65,7 +65,7 @@ type AdoptServiceParams struct {
 }
 
 // NewAdoptService builds the service from its dependencies.
-func NewAdoptService(p AdoptServiceParams) *AdoptService {
+func NewAdoptService(p NewAdoptServiceParams) *AdoptService {
 	return &AdoptService{
 		agents:       p.Agents,
 		workflows:    p.Workflows,

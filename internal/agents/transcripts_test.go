@@ -126,7 +126,7 @@ func TestTranscriptSyncer(t *testing.T) {
 				path = writeLog(t, projects, tt.log)
 			}
 
-			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
@@ -187,7 +187,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
 	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: store,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
@@ -274,7 +274,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 		SessionID: testSessionID,
 	}))
 
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
@@ -320,7 +320,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 				Name: "adopter", State: agentstore.StateIdle, SessionID: tt.held,
 			}))
 
-			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
@@ -360,7 +360,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
 		0o600))
 
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
@@ -388,7 +388,7 @@ func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	agent := seedWithSessionID(t, st, testSessionID, "agent")
 	path := writeLog(t, projects, `{"type":"user","message":{"content":"the conversation that was"}}`+"\n")
 
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),

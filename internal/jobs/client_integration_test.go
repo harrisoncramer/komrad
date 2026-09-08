@@ -28,7 +28,7 @@ func newRiverClient(t *testing.T) *river.Client[pgx.Tx] {
 
 	schedules := &fakeSchedules{}
 
-	client, err := NewClient(ClientParams{
+	client, err := NewClient(NewClientParams{
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,
@@ -244,7 +244,7 @@ func TestStopWaitsForALaunchInFlight(t *testing.T) {
 		Enabled: true,
 	}}
 
-	client, err := NewClient(ClientParams{
+	client, err := NewClient(NewClientParams{
 		Pool:      stores.Pool.GetRawPool(),
 		Schedules: schedules,
 		Results:   schedules,

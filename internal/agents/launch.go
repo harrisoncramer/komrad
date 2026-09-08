@@ -74,7 +74,7 @@ type LaunchService struct {
 	maxChildren        int
 }
 
-type LaunchServiceParams struct {
+type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             launchAgentReadWriter
 	Reviews            reviewVerdictReader
@@ -90,7 +90,7 @@ type LaunchServiceParams struct {
 }
 
 // NewLaunchService builds the service from its dependencies.
-func NewLaunchService(p LaunchServiceParams) *LaunchService {
+func NewLaunchService(p NewLaunchServiceParams) *LaunchService {
 	return &LaunchService{
 		tmux:               p.Tmux,
 		agents:             p.Agents,

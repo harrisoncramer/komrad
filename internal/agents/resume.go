@@ -50,7 +50,7 @@ type ResumeService struct {
 	inFlightMu sync.Mutex
 }
 
-type ResumeServiceParams struct {
+type NewResumeServiceParams struct {
 	Tmux               paneController
 	Agents             resumeAgentReadWriter
 	Workflows          workflowReader
@@ -61,7 +61,7 @@ type ResumeServiceParams struct {
 }
 
 // NewResumeService builds the service from its dependencies.
-func NewResumeService(p ResumeServiceParams) *ResumeService {
+func NewResumeService(p NewResumeServiceParams) *ResumeService {
 	if p.FallbackResumeRoot == "" {
 		p.FallbackResumeRoot = defaultFallbackResumeRoot()
 	}

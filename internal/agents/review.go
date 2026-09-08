@@ -102,7 +102,7 @@ type ReviewThreadWithMessages struct {
 	Messages []reviewstore.Message
 }
 
-type ReviewServiceParams struct {
+type NewReviewServiceParams struct {
 	Threads     reviewThreadReadWriter
 	Messages    reviewMessageReadWriter
 	Viewed      reviewViewedFileReadWriter
@@ -136,20 +136,20 @@ type ReviewService struct {
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
-func NewReviewService(params ReviewServiceParams) *ReviewService {
+func NewReviewService(p NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		threads:     params.Threads,
-		messages:    params.Messages,
-		viewed:      params.Viewed,
-		rounds:      params.Rounds,
-		reviews:     params.Reviews,
-		snapshots:   params.Snapshots,
-		workflows:   params.Workflows,
-		agents:      params.Agents,
-		mailer:      params.Mailer,
-		resumer:     params.Resumer,
-		interrupter: params.Interrupter,
-		stateDir:    params.StateDir,
+		threads:     p.Threads,
+		messages:    p.Messages,
+		viewed:      p.Viewed,
+		rounds:      p.Rounds,
+		reviews:     p.Reviews,
+		snapshots:   p.Snapshots,
+		workflows:   p.Workflows,
+		agents:      p.Agents,
+		mailer:      p.Mailer,
+		resumer:     p.Resumer,
+		interrupter: p.Interrupter,
+		stateDir:    p.StateDir,
 	}
 }
 
