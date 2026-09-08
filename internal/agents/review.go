@@ -274,49 +274,47 @@ func (s *ReviewService) CreateReviewThread(
 	ctx context.Context,
 	params CreateReviewThreadParams,
 ) (*ReviewThreadWithMessages, error) {
-	open, err := s.openReviewFor(ctx, params.AgentID, params.Author)
-	if err != nil {
+	if err := s.entitled(ctx, params.AgentID, params.Author); err != nil {
 		return nil, err
 	}
 
-	roundID, baseSHA := params.RoundID, params.BaseSHA
-	if roundID == "" {
-		round, err := s.GetLatestRound(ctx, params.AgentID)
+	// A caller that names neither leaves the batch it already holds to say which round it is
+	// reading, which is the only word there is on it.
+	var named *reviewstore.Round
+	if params.RoundID != "" || params.SnapshotSHA != "" {
+		found, err := s.namedRound(ctx, params)
 		if err != nil {
 			return nil, err
 		}
 
-		roundID = round.ID
+		named = found
+	}
+
+	open, err := s.openReviewFor(ctx, params.AgentID, params.Author, named)
+	if err != nil {
+		return nil, err
 	}
 
 	// Explainer: a review is written against one snapshot. Letting a second snapshot into the
 	// batch already open would send the agent comments about two versions of its work in one
-	// message, with nothing in the batch saying which comment meant which. So the reader sends
-	// what they have, or throws it away, before starting on a newer snapshot.
-	if open.RoundID != "" && open.RoundID != roundID {
-		return nil, fmt.Errorf("%w: send or discard the comments you have on the earlier snapshot first", ErrReviewInFlight)
+	// message, with nothing in the batch saying which comment meant which. A caller that named
+	// no snapshot is taken to be reading the one its own batch sits on, since a batch is opened
+	// against the round its first comment named and nothing else here says otherwise.
+	roundID := open.RoundID
+	if named != nil && named.ID != roundID {
+		return nil, fmt.Errorf("%w: send the comments you have on the earlier snapshot first", ErrReviewInFlight)
 	}
 
 	// A caller that says nothing read its numbers against the round's own base, which is what
 	// every caller did before a diff could be narrowed.
-	if baseSHA == "" || params.SnapshotSHA != "" {
+	baseSHA := params.BaseSHA
+	if baseSHA == "" {
 		round, err := s.rounds.GetRound(ctx, roundID)
 		if err != nil {
 			return nil, err
 		}
 
-		// Explainer: a thread's new side is line numbers of one snapshot, and the row says which
-		// round it belongs to rather than which snapshot it was read from. So a caller that read
-		// an older snapshot is refused here: the numbers would be filed against a round whose
-		// file they do not describe, and nothing later could tell that they were.
-		if params.SnapshotSHA != "" && params.SnapshotSHA != round.SnapshotSHA {
-			return nil, fmt.Errorf("%w: %s is not the snapshot of the round this would be filed against",
-				ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
-		}
-
-		if baseSHA == "" {
-			baseSHA = round.BaseSHA
-		}
+		baseSHA = round.BaseSHA
 	}
 
 	thread, err := s.threads.CreateThread(ctx, reviewstore.CreateThreadParams{
@@ -348,6 +346,35 @@ func (s *ReviewService) CreateReviewThread(
 	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
 }
 
+// namedRound is the round a caller says its line numbers were read in, which it names by round or
+// by the snapshot it read.
+func (s *ReviewService) namedRound(
+	ctx context.Context,
+	params CreateReviewThreadParams,
+) (*reviewstore.Round, error) {
+	if params.RoundID != "" {
+		return s.rounds.GetRound(ctx, params.RoundID)
+	}
+
+	// Explainer: the snapshot is the stronger fact, since it names the exact tree the numbers
+	// were counted off rather than a round the caller guessed at. A snapshot weave holds no
+	// round of is refused: the numbers would be filed against a round whose file they do not
+	// describe, and nothing later could tell that they were.
+	rounds, err := s.rounds.ListRounds(ctx, params.AgentID)
+	if err != nil {
+		return nil, err
+	}
+
+	for i := range rounds {
+		if rounds[i].SnapshotSHA == params.SnapshotSHA {
+			return &rounds[i], nil
+		}
+	}
+
+	return nil, fmt.Errorf("%w: %s is the snapshot of no round of this agent",
+		ErrReviewNotCurrent, params.SnapshotSHA[:min(len(params.SnapshotSHA), 12)])
+}
+
 type AddReviewMessageParams struct {
 	ThreadID   string
 	Body       string
@@ -369,7 +396,7 @@ func (s *ReviewService) AddReviewMessage(
 
 	var reviewID *string
 	if params.Author.IsHuman() || !doesOwnAgent(params.Author, thread.AgentID) {
-		open, err := s.openReviewFor(ctx, thread.AgentID, params.Author)
+		open, err := s.openReviewFor(ctx, thread.AgentID, params.Author, nil)
 		if err != nil {
 			return nil, err
 		}

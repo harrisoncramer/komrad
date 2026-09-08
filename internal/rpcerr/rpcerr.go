@@ -54,7 +54,6 @@ var table = []mapping{
 	{agents.ErrReviewNoRound, connect.CodeFailedPrecondition},
 	{agents.ErrReviewEmpty, connect.CodeFailedPrecondition},
 	{agents.ErrReviewInFlight, connect.CodeFailedPrecondition},
-	{agents.ErrReviewNotAnswered, connect.CodeFailedPrecondition},
 	{agents.ErrReviewNotCurrent, connect.CodeFailedPrecondition},
 	{agents.ErrReviewAlreadyGiven, connect.CodeFailedPrecondition},
 	{agents.ErrReviewNeedsOwnWork, connect.CodeFailedPrecondition},
