@@ -233,6 +233,12 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 	}
 	tallies := xslice.KeyBy(tallied, func(tally reviewstore.Tally) string { return tally.AgentID })
 
+	live, err := s.review.ListLiveReviewers(ctx)
+	if err != nil {
+		return nil, rpcerr.Wrap(err, "failed to list the agents whose work is being reviewed")
+	}
+	reading := xslice.KeyBy(live, func(reviewer reviewstore.LiveReviewer) string { return reviewer.AgentID })
+
 	failures, err := s.runs.ListUnreadFailures(ctx)
 	if err != nil {
 		return nil, rpcerr.Wrap(err, "failed to list the agents holding a failed run")
@@ -256,15 +262,27 @@ func (s *Service) agentFlagsFor(ctx context.Context, listed []agentstore.Agent) 
 		failure, hasFailure := failed[a.ID]
 
 		return agentFlags{
-			mark:         marks[a.ID],
-			alive:        running[a.ID],
-			unreadMail:   hasMail,
-			unviewed:     hasOutput,
-			failedRun:    hasFailure,
-			failedRunLog: failure.LogNumber,
-			rounds:       tallies[a.ID].Rounds,
+			mark:          marks[a.ID],
+			alive:         running[a.ID],
+			unreadMail:    hasMail,
+			unviewed:      hasOutput,
+			failedRun:     hasFailure,
+			failedRunLog:  failure.LogNumber,
+			localRounds:   tallies[a.ID].Rounds,
+			localVerdict:  localVerdictOf(tallies[a.ID]),
+			inLocalReview: reading[a.ID].ReviewerID != "",
 		}
 	}, nil
+}
+
+// localVerdictOf is the tally's verdict as the wire carries it, which is the empty string for the
+// agent whose work no review has concluded on.
+func localVerdictOf(tally reviewstore.Tally) string {
+	if tally.Verdict == nil {
+		return ""
+	}
+
+	return string(*tally.Verdict)
 }
 
 // ListAgents returns one page of stored agents, newest first.

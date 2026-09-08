@@ -424,13 +424,68 @@ WHERE id = @id
 RETURNING
     id;
 
--- name: ListReviewRoundTallies :many
+-- name: ListReviewTallies :many
+WITH released AS (
+    SELECT
+        v.agent_id,
+        COUNT(DISTINCT v.round_id)::int AS rounds
+    FROM
+        reviews v
+    WHERE
+        v.released_at IS NOT NULL
+    GROUP BY
+        v.agent_id
+),
+concluded AS (
+    SELECT DISTINCT ON (v.agent_id)
+        v.agent_id,
+        v.verdict
+    FROM
+        reviews v
+        JOIN review_rounds n ON n.id = v.round_id
+    WHERE
+        v.released_at IS NOT NULL
+        AND n.ordinal =(
+            SELECT
+                MAX(o.ordinal)
+            FROM
+                review_rounds o
+            WHERE
+                o.agent_id = v.agent_id)
+        ORDER BY
+            v.agent_id,
+            v.released_at DESC
+)
+    SELECT
+        r.agent_id,
+        r.rounds,
+        c.verdict
+    FROM
+        released r
+    LEFT JOIN concluded c ON c.agent_id = r.agent_id;
+
+-- name: ListLiveReviewers :many
 SELECT
-    v.agent_id,
-    COUNT(DISTINCT v.round_id)::int AS rounds
+    c.parent_agent_id AS agent_id,
+    c.id AS reviewer_id
 FROM
-    reviews v
+    agents c
 WHERE
-    v.released_at IS NOT NULL
-GROUP BY
-    v.agent_id;
+    c.role = 'reviewer'
+    AND c.parent_agent_id IS NOT NULL
+    AND c.archived_at IS NULL
+    AND c.state <> 'failed_to_create'
+    AND c.state <> 'failed_to_cleanup'
+    AND (
+        SELECT
+            v.verdict
+        FROM
+            reviews v
+        WHERE
+            v.agent_id = c.parent_agent_id
+            AND v.author_kind = 'agent'
+            AND v.author_agent_id = c.id
+            AND v.released_at IS NOT NULL
+        ORDER BY
+            v.released_at DESC
+        LIMIT 1) IS DISTINCT FROM 'approved';

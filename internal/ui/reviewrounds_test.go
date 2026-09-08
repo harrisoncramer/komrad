@@ -16,19 +16,19 @@ import (
 
 // TestReviewRoundsMarkCarriesTheCount pins the number beside the glyph.
 func TestReviewRoundsMarkCarriesTheCount(t *testing.T) {
-	assert.Empty(t, reviewRoundsMark(0), "an agent no review has touched carries nothing")
-	assert.Contains(t, reviewRoundsMark(4), reviewRoundsIcon)
-	assert.Contains(t, reviewRoundsMark(4), "4")
+	assert.Empty(t, localReviewRoundsMark(0), "an agent no review has touched carries nothing")
+	assert.Contains(t, localReviewRoundsMark(4), localReviewRoundsIcon)
+	assert.Contains(t, localReviewRoundsMark(4), "4")
 }
 
 // TestReviewRoundsNoticeSaysWhatTheGlyphMeans is why the record spells the count out: the glyph
 // says a number without saying what was counted.
 func TestReviewRoundsNoticeSaysWhatTheGlyphMeans(t *testing.T) {
-	notices := agentNotices(agentItem{rounds: 3})
+	notices := agentNotices(agentItem{localRounds: 3})
 
 	require.Len(t, notices, 1)
 	assert.Contains(t, notices[0].text, "reviewed 3 times")
-	assert.Contains(t, agentNotices(agentItem{rounds: 1})[0].text, "reviewed once", "one round is not 1 times")
+	assert.Contains(t, agentNotices(agentItem{localRounds: 1})[0].text, "reviewed once", "one round is not 1 times")
 	assert.Empty(t, agentNotices(agentItem{}), "an agent no review has touched says nothing")
 }
 
@@ -36,13 +36,13 @@ func TestReviewRoundsNoticeSaysWhatTheGlyphMeans(t *testing.T) {
 // drops the notices at the tail, and a count of rounds already gone by is the one worth losing.
 func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
 	notices := agentNotices(agentItem{
-		agent:      agentstore.Agent{Hidden: true},
-		unreadMail: true,
-		rounds:     2,
+		agent:       agentstore.Agent{Hidden: true},
+		unreadMail:  true,
+		localRounds: 2,
 	})
 
 	require.Len(t, notices, 3)
-	assert.Contains(t, notices[len(notices)-1].text, "review rounds")
+	assert.Contains(t, notices[len(notices)-1].text, "local review rounds")
 }
 
 // TestAgentsViewReviewRounds pins the glyph drawn per agent, so one that has been round several
@@ -56,7 +56,7 @@ func TestAgentsViewReviewRounds(t *testing.T) {
 				ID:         "a1",
 				Name:       "going-round",
 				WorkflowID: "w1",
-			}, rounds: 4},
+			}, localRounds: 4},
 			{agent: agentstore.Agent{
 				ID:         "a2",
 				Name:       "first-pass",
@@ -68,10 +68,10 @@ func TestAgentsViewReviewRounds(t *testing.T) {
 	rows := strings.Split(m.agentsView(), "\n")
 	looping, ok := rowNamed(rows, "going-round")
 	require.True(t, ok)
-	assert.Contains(t, looping, reviewRoundsIcon)
+	assert.Contains(t, looping, localReviewRoundsIcon)
 	assert.Contains(t, looping, "4")
 
 	fresh, ok := rowNamed(rows, "first-pass")
 	require.True(t, ok)
-	assert.NotContains(t, fresh, reviewRoundsIcon)
+	assert.NotContains(t, fresh, localReviewRoundsIcon)
 }

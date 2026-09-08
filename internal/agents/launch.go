@@ -62,7 +62,7 @@ type launchAgentReadWriter interface {
 type LaunchService struct {
 	tmux               paneController
 	agents             launchAgentReadWriter
-	reviews            reviewVerdictReader
+	reviews            liveReviewerLister
 	workflows          workflowReader
 	tx                 txRunner
 	launcher           *Launcher
@@ -77,7 +77,7 @@ type LaunchService struct {
 type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             launchAgentReadWriter
-	Reviews            reviewVerdictReader
+	Reviews            liveReviewerLister
 	Workflows          workflowReader
 	Tx                 txRunner
 	Launcher           *Launcher

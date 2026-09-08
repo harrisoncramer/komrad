@@ -15,10 +15,10 @@ import (
 // which a reviewer and a child both are.
 var ErrReviewNeedsOwnWork = errors.New("this agent has no work of its own to have read")
 
-// reviewVerdictReader reads where a reviewer last stood on an agent's work, which is how one
-// that has approved is told from one still owed an answer.
-type reviewVerdictReader interface {
-	GetLastReleasedReview(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+// liveReviewerLister reads which reviewers are still owed an answer, which is the one definition
+// of a review being under way and is shared with the tally the panel draws.
+type liveReviewerLister interface {
+	ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error)
 }
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the panel's
@@ -91,50 +91,24 @@ func (s *LaunchService) RequestReview(ctx context.Context, params RequestReviewP
 // change for all of its rounds and skips one that has approved.
 func liveReviewerFor(
 	ctx context.Context,
-	agents childLister,
-	reviews reviewVerdictReader,
+	agents agentGetter,
+	reviews liveReviewerLister,
 	author agentstore.Agent,
 ) (*agentstore.Agent, error) {
-	children, err := agents.ListChildren(ctx, []string{author.ID})
+	live, err := reviews.ListLiveReviewers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	for _, child := range children {
-		if child.Role != agentstore.RoleReviewer || child.ArchivedAt != nil || child.State.IsFailed() {
+	for _, reading := range live {
+		if reading.AgentID != author.ID {
 			continue
 		}
 
-		approved, err := hasApproved(ctx, reviews, author.ID, child.ID)
-		if err != nil {
-			return nil, err
-		}
-		if approved {
-			continue
-		}
-
-		return &child, nil
+		return agents.GetByID(ctx, reading.ReviewerID)
 	}
 
 	return nil, fmt.Errorf("%w: %q", ErrNoLiveReviewer, author.Name)
-}
-
-// hasApproved reports whether the last thing a reviewer let go of was an approval, which is the
-// end of what it has to say about the work it was given.
-func hasApproved(ctx context.Context, reviews reviewVerdictReader, agentID, reviewerID string) (bool, error) {
-	last, err := reviews.GetLastReleasedReview(ctx, reviewstore.AuthorParams{
-		AgentID:       agentID,
-		AuthorKind:    reviewstore.AuthorAgent,
-		AuthorAgentID: &reviewerID,
-	})
-	if errors.Is(err, store.ErrNotFound) {
-		return false, nil
-	}
-	if err != nil {
-		return false, err
-	}
-
-	return last.Verdict != nil && *last.Verdict == reviewstore.VerdictApproved, nil
 }
 
 func reviewerTitle(title, authorName string) string {

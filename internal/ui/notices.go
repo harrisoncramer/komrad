@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	agentstore "weave/internal/store/agent"
+	reviewstore "weave/internal/store/review"
 
 	"github.com/charmbracelet/lipgloss"
 )
@@ -25,13 +26,30 @@ const (
 	hiddenNotice          = "hidden: the sidebar leaves this row out until hidden agents are shown"
 )
 
-// reviewRoundsNotice counts against the agent holding the diff.
-func reviewRoundsNotice(rounds int32) string {
-	if rounds == 1 {
-		return "review rounds: its work has been reviewed once"
+const inLocalReviewNotice = "in local review: a reviewer is reading this agent's work and is still owed an answer"
+
+// localVerdictNotice says where the last released local review of an agent's newest round left it,
+// and says nothing for a verdict that draws nothing, one released without a conclusion included.
+func localVerdictNotice(verdict string) string {
+	switch reviewstore.Verdict(verdict) {
+	case reviewstore.VerdictApproved:
+		return "approved locally: the last local review of its newest round signed that round off"
+	case reviewstore.VerdictChangesRequested:
+		return "changes requested locally: the last local review of its newest round asked for more"
+	case reviewstore.VerdictCommented:
+		return ""
 	}
 
-	return fmt.Sprintf("review rounds: its work has been reviewed %d times", rounds)
+	return ""
+}
+
+// localReviewRoundsNotice counts against the agent holding the diff.
+func localReviewRoundsNotice(rounds int32) string {
+	if rounds == 1 {
+		return "local review rounds: its work has been reviewed once"
+	}
+
+	return fmt.Sprintf("local review rounds: its work has been reviewed %d times", rounds)
 }
 
 // agentNotices orders the marks by how much each wants a person's attention.
@@ -44,8 +62,13 @@ func agentNotices(item agentItem) []notice {
 	notices = appendNotice(notices, item.agent.WorktreeRemoved && state != agentstore.StateFailedToCreate, worktreeRemovedIcon, colorDanger, worktreeRemovedNotice)
 	notices = appendNotice(notices, item.unviewed, unviewedIcon, colorSuccess, unviewedNotice)
 	notices = appendNotice(notices, item.agent.Hidden, hiddenIcon, colorMuted, hiddenNotice)
+	notices = appendNotice(notices, item.inLocalReview, inLocalReviewIcon, colorAccent, inLocalReviewNotice)
 
-	return appendNotice(notices, item.rounds > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item.rounds))
+	icon, color := localVerdictIcon(item.localVerdict)
+	said := localVerdictNotice(item.localVerdict)
+	notices = appendNotice(notices, icon != "" && said != "", icon, color, said)
+
+	return appendNotice(notices, item.localRounds > 0, localReviewRoundsIcon, colorMuted, localReviewRoundsNotice(item.localRounds))
 }
 
 // failureNotices is the whole of what an archived row has to say.

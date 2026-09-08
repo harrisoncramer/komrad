@@ -64,13 +64,6 @@ type reviewViewedFileReadWriter interface {
 	ListViewedFiles(ctx context.Context, roundID string) ([]reviewstore.ViewedFile, error)
 }
 
-// reviewAgentReader is what the review needs of the agent store: the row a call is about, and
-// the children of it.
-type reviewAgentReader interface {
-	agentGetter
-	childLister
-}
-
 // reviewerResumer puts a reviewer back in a pane, which answers a dormant one for whom mail
 // would otherwise wait forever.
 type reviewerResumer interface {
@@ -110,7 +103,7 @@ type NewReviewServiceParams struct {
 	Reviews     reviewBatchReadWriter
 	Snapshots   reviewSnapshotter
 	Workflows   workflowGetter
-	Agents      reviewAgentReader
+	Agents      agentGetter
 	Mailer      reviewNoticeSender
 	Resumer     reviewerResumer
 	Interrupter agentInterrupter
@@ -128,7 +121,7 @@ type ReviewService struct {
 	reviews     reviewBatchReadWriter
 	snapshots   reviewSnapshotter
 	workflows   workflowGetter
-	agents      reviewAgentReader
+	agents      agentGetter
 	mailer      reviewNoticeSender
 	resumer     reviewerResumer
 	interrupter agentInterrupter

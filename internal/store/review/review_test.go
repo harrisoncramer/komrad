@@ -540,7 +540,8 @@ func TestTalliesCountTheAgentHoldingTheDiff(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, tallies, 1, "the reviewer holds no diff of its own to have gone round")
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0])
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2}, tallies[0],
+		"the third round carries no released review, so nothing has been concluded about the work as it stands")
 }
 
 // TestTalliesCountOneRoundOnce is why the count is of rounds rather than of reviews: two authors
@@ -565,7 +566,8 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Len(t, tallies, 1)
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
+	changesRequested := VerdictChangesRequested
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1, Verdict: &changesRequested}, tallies[0])
 }
 
 // TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten pins what the reconcile pass reads, which
@@ -777,4 +779,126 @@ func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 
 	_, err = st.GetLastReleasedReview(ctx, author)
 	require.NoError(t, err)
+}
+
+// seedReviewerChild is a reviewer attached to the agent whose work it reads, which is the shape
+// the live-reviewer query reads to decide that work is being read right now.
+func seedReviewerChild(t *testing.T, st *fixture, parentID string) string {
+	t.Helper()
+	ctx := t.Context()
+
+	const name = "worker-reviewer"
+
+	require.NoError(t, st.agents.Create(ctx, agentstore.Agent{
+		Name:          name,
+		State:         agentstore.StateIdle,
+		WorkflowID:    st.workflow,
+		Role:          agentstore.RoleReviewer,
+		ParentAgentID: &parentID,
+	}))
+	got, err := st.agents.GetInWorkflow(ctx, st.workflow, name)
+	require.NoError(t, err)
+	require.NotNil(t, got)
+
+	return got.ID
+}
+
+// TestLiveReviewersReportWorkBeingRead is the state a round count cannot say: a reviewer that has
+// been spawned and has released nothing yet leaves no rounds behind it.
+func TestLiveReviewersReportWorkBeingRead(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
+
+	live, err := st.ListLiveReviewers(ctx)
+	require.NoError(t, err)
+
+	assert.Equal(t, []LiveReviewer{{AgentID: agentID, ReviewerID: reviewer}}, live)
+
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, tallies, "nothing has been released of the work yet")
+}
+
+// TestLiveReviewersStopAtAnApproval pins the end of the loop: an approval is the last thing a
+// reviewer says, so the work is no longer owed an answer.
+func TestLiveReviewersStopAtAnApproval(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
+
+	first := openRound(t, st, agentID, "tree-one")
+	sentBack, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, sentBack.ID, VerdictChangesRequested)
+
+	live, err := st.ListLiveReviewers(ctx)
+	require.NoError(t, err)
+	require.Len(t, live, 1, "changes requested is the middle of the loop")
+
+	second := openRound(t, st, agentID, "tree-two")
+	signed, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: second.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, signed.ID, VerdictApproved)
+
+	live, err = st.ListLiveReviewers(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, live)
+
+	approved := VerdictApproved
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2, Verdict: &approved}, tallies[0])
+}
+
+// TestLiveReviewersLeaveOutADeadReviewer pins that a reviewer whose setup failed is not read as
+// still reading, which would leave the work looking busy forever.
+func TestLiveReviewersLeaveOutADeadReviewer(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
+
+	require.NoError(t, st.agents.SetStateByID(ctx, reviewer, agentstore.StateFailedToCreate))
+
+	live, err := st.ListLiveReviewers(ctx)
+	require.NoError(t, err)
+	assert.Empty(t, live)
+}
+
+// TestTalliesDropAVerdictAnEditOutLived is why the verdict is scoped to the newest round: an
+// approval that outlived the work would draw a tick over code nobody has read.
+func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
+	st := open(t)
+	ctx := t.Context()
+	agentID := seedAgent(t, st)
+	reviewer := seedReviewerChild(t, st, agentID)
+
+	first := openRound(t, st, agentID, "tree-one")
+	signed, err := st.OpenReview(ctx, OpenReviewParams{
+		AgentID: agentID, RoundID: first.ID, AuthorKind: AuthorAgent, AuthorAgentID: &reviewer,
+	})
+	require.NoError(t, err)
+	release(t, st, agentID, signed.ID, VerdictApproved)
+
+	approved := VerdictApproved
+	tallies, err := st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1, Verdict: &approved}, tallies[0])
+
+	openRound(t, st, agentID, "tree-two")
+
+	tallies, err = st.ListTallies(ctx)
+	require.NoError(t, err)
+	require.Len(t, tallies, 1)
+	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0],
+		"the approval was given on a round the agent has since written past")
 }

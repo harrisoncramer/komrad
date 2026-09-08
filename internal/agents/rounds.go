@@ -61,6 +61,7 @@ type reviewBatchReadWriter interface {
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
 	DeleteReview(ctx context.Context, id string) error
 	ListTallies(ctx context.Context) ([]reviewstore.Tally, error)
+	liveReviewerLister
 }
 
 type reviewSnapshotter interface {
@@ -170,6 +171,12 @@ func (s *ReviewService) ListRounds(
 // once for every row rather than asking per agent.
 func (s *ReviewService) ListTallies(ctx context.Context) ([]reviewstore.Tally, error) {
 	return s.reviews.ListTallies(ctx)
+}
+
+// ListLiveReviewers is every reviewer still owed an answer, read once for the whole listing the
+// way the tallies are.
+func (s *ReviewService) ListLiveReviewers(ctx context.Context) ([]reviewstore.LiveReviewer, error) {
+	return s.reviews.ListLiveReviewers(ctx)
 }
 
 // ListReviews is every review given on an agent, in the order their rounds were taken, with the
