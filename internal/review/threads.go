@@ -90,10 +90,8 @@ func (v *View) indexLines() lineIndex {
 		index.byQuote[key] = append(index.byQuote[key], y)
 
 		// An agent stores a quote as bare code.
-		if stripped := strippedQuote(quote); stripped != quote {
-			bare := quoteKey{filePath: file, quote: stripped}
-			index.byBareQuote[bare] = append(index.byBareQuote[bare], y)
-		}
+		bare := quoteKey{filePath: file, quote: strippedQuote(quote)}
+		index.byBareQuote[bare] = append(index.byBareQuote[bare], y)
 
 		if line.OldNumber > 0 {
 			index.byOld[oldKey{filePath: file, oldLine: line.OldNumber}] = y
@@ -131,29 +129,14 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 	return 0, adrift
 }
 
-// doesQuoteMatch reports whether the line drawn at a row is the line a thread quoted, comparing
-// without the diff marker only for a quote stored without one.
+// doesQuoteMatch reports whether the line drawn at a row is the line a thread quoted, under
+// either of the two spellings a quote is stored in.
 func doesQuoteMatch(drawn, stored string) bool {
-	if stored == "" || doesCarryMarker(stored) {
+	if stored == "" {
 		return drawn == stored
 	}
 
-	return strippedQuote(drawn) == stored
-}
-
-// doesCarryMarker reports whether a quoted line was stored with the marker the diff draws in
-// front of it.
-func doesCarryMarker(quote string) bool {
-	if quote == "" {
-		return false
-	}
-
-	switch quote[0] {
-	case '+', '-', ' ':
-		return true
-	}
-
-	return false
+	return drawn == stored || strippedQuote(drawn) == stored
 }
 
 // strippedQuote is a quoted line with its diff marker taken off the front.
@@ -170,16 +153,15 @@ func strippedQuote(quote string) string {
 	return quote
 }
 
-// quoted is the rows a thread's quote names, read only against the spelling it was stored in.
+// quoted is the rows a thread's quote names under either spelling it may have been stored in.
 func (index lineIndex) quoted(filePath, quote string) []int {
-	// Explainer: a drawn line always carries a marker and a bare quote never does, so the two
-	// spellings can never name the same row and the maps must not be crossed.
+	// Explainer: nothing records which of the two spellings a row holds, and a quote of code that
+	// begins with a space or a dash reads as marker-led either way, so both maps are asked and a
+	// quote that names a row in each is left for the caller to refuse rather than guessed at. A
+	// drawn line always carries a marker, so no row can answer under both spellings at once.
 	key := quoteKey{filePath: filePath, quote: quote}
-	if doesCarryMarker(quote) {
-		return index.byQuote[key]
-	}
 
-	return index.byBareQuote[key]
+	return append(append([]int{}, index.byQuote[key]...), index.byBareQuote[key]...)
 }
 
 // placementFor is whether the line a thread landed on still reads the way the thread was

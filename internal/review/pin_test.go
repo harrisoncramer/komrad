@@ -363,10 +363,10 @@ func TestPinRefusesWhenTwoRowsReadTheSameWithoutMarkers(t *testing.T) {
 	assert.Equal(t, adrift, view.placed[thread.GetId()])
 }
 
-// TestPinKeepsAMarkedQuoteOffACollidingLine covers the hazard of holding both spellings in one
-// index: a marked context quote whose text is a space and a brace reads the same as the stripped
-// spelling of a row whose code is a space and a brace, and that row is a deletion.
-func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
+// TestPinTakesTheOneReadingAQuoteHas covers a quote of code that begins with a space, which is
+// indistinguishable from a marker-led quote: only the bare reading names a row, so that is the
+// reading it gets rather than a refusal.
+func TestPinTakesTheOneReadingAQuoteHas(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "conf.yaml",
 		NewPath: "conf.yaml",
@@ -382,6 +382,60 @@ func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
 	thread := threadAt("t1", "conf.yaml", 0, 200, " }")
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	assert.Equal(t, adrift, view.placed[thread.GetId()],
-		"a context line the newer round draws as a deletion is gone")
+	assert.Equal(t, pinned, view.placed[thread.GetId()])
+}
+
+// TestPinHoldsOnABareQuoteOfSpaceIndentedCode covers an agent quoting a line of proto as it sent
+// it, bare, on coordinates the round still agrees with.
+func TestPinHoldsOnABareQuoteOfSpaceIndentedCode(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "agent.proto",
+		NewPath: "agent.proto",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "  int32 local_review_rounds = 40;",
+				NewNumber: 10,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "  bool in_local_review = 41;",
+				OldNumber: 10,
+				NewNumber: 11,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "agent.proto", 10, 11, "  bool in_local_review = 41;")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.False(t, view.IsGhosted(thread))
+}
+
+// TestPinRefusesWhenBothReadingsOfAQuoteNameARow covers the crossing a first-byte guess allows: a
+// bare quote of space-indented yaml reads the same as the drawn spelling of a context row whose
+// own code is that quote with its first character taken off.
+func TestPinRefusesWhenBothReadingsOfAQuoteNameARow(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "steps.yml",
+		NewPath: "steps.yml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      " run: check",
+				NewNumber: 20,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "run: check",
+				OldNumber: 4,
+				NewNumber: 21,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "steps.yml", 0, 99, " run: check")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, adrift, view.placed[thread.GetId()])
 }
