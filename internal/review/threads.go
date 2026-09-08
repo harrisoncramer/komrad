@@ -47,9 +47,16 @@ const (
 // from: the coordinates it was written against, its line on the old side, and its text.
 type lineIndex struct {
 	byKey       map[anchorKey]int
+	byNew       map[newKey]int
 	byOld       map[oldKey]int
 	byQuote     map[quoteKey][]int
 	byBareQuote map[quoteKey][]int
+}
+
+// newKey is a line of the snapshot on screen, which is what a traced position names.
+type newKey struct {
+	filePath string
+	newLine  int32
 }
 
 type oldKey struct {
@@ -65,6 +72,7 @@ type quoteKey struct {
 func (v *View) indexLines() lineIndex {
 	index := lineIndex{
 		byKey:       map[anchorKey]int{},
+		byNew:       map[newKey]int{},
 		byOld:       map[oldKey]int{},
 		byQuote:     map[quoteKey][]int{},
 		byBareQuote: map[quoteKey][]int{},
@@ -85,6 +93,10 @@ func (v *View) indexLines() lineIndex {
 			oldLine:  int32(line.OldNumber),
 		}] = y
 
+		if line.NewNumber > 0 {
+			index.byNew[newKey{filePath: file, newLine: int32(line.NewNumber)}] = y
+		}
+
 		// A row answers to the spelling the diff draws it as.
 		key := quoteKey{filePath: file, quote: quote}
 		index.byQuote[key] = append(index.byQuote[key], y)
@@ -103,8 +115,9 @@ func (v *View) indexLines() lineIndex {
 	return index
 }
 
-// rowFor is the row a thread is drawn on and what that placing is worth, trying the
-// coordinates it was written against, then its old-side line, then its text.
+// rowFor is the row a thread is drawn on and what that placing is worth, trying the coordinates
+// it was written against, then where git says those lines went, then its old-side line, then its
+// text.
 func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, placement) {
 	quote := ""
 	if lines := thread.GetQuotedLines(); len(lines) > 0 {
@@ -112,6 +125,13 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 	}
 
 	if y, ok := index.byKey[keyForThread(thread)]; ok {
+		return y, v.placementFor(y, quote)
+	}
+
+	// Explainer: git is asked where the lines went before any string is compared, since it reads
+	// the two snapshots rather than guessing from the text. The placement is still judged by what
+	// the row now says, so a traced line whose content changed is ghosted rather than pinned.
+	if y, ok := v.tracedRowFor(index, thread); ok {
 		return y, v.placementFor(y, quote)
 	}
 

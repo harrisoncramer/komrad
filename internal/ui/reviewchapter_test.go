@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestChapterFilterCutsLaterReplies covers a thread from an earlier round carrying replies
+// written after that round closed, which read as though they had been said about its code.
 func TestChapterFilterCutsLaterReplies(t *testing.T) {
 	rounds := []*agentv1.ReviewRound{
 		{Ordinal: 1, BaseSha: "b", SnapshotSha: "s1", CreatedAt: "2026-09-08T13:17:00-04:00"},

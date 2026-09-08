@@ -228,12 +228,20 @@ func reviewRepo(t *testing.T) string {
 func gitIn(t *testing.T, dir string, args ...string) {
 	t.Helper()
 
+	require.NoError(t, gitCmd(t, dir, args...).Run(), strings.Join(args, " "))
+}
+
+// gitCmd is one git invocation with an author it does not have to look up.
+func gitCmd(t *testing.T, dir string, args ...string) *exec.Cmd {
+	t.Helper()
+
 	cmd := exec.Command("git", args...)
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(),
 		"GIT_AUTHOR_NAME=weave", "GIT_AUTHOR_EMAIL=weave@example.com",
 		"GIT_COMMITTER_NAME=weave", "GIT_COMMITTER_EMAIL=weave@example.com")
-	require.NoError(t, cmd.Run(), strings.Join(args, " "))
+
+	return cmd
 }
 
 func reviewModel(t *testing.T, agents agentv1connect.AgentServiceClient, dir string) (model, *recordingTmux) {

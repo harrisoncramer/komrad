@@ -58,6 +58,7 @@ type Anchor struct {
 
 type View struct {
 	patch   *diff.Patch
+	traced  map[string]Traced
 	rows    []row
 	sources []fileSource
 
@@ -271,10 +272,8 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 		)
 	})
 
-	// Explainer: a comment loses its line for two unrelated reasons, and reading them in one
-	// list is what makes a narrowed diff look like it has thrown every comment away. Code that
-	// has gone is the agent answering you. A file the diff on screen does not draw is you having
-	// narrowed the window, and the comment is still on a line of the whole change.
+	// A comment loses its line for two unrelated reasons, and reading them in one list is what
+	// makes a narrowed diff look like it has thrown every comment away.
 	var changed, outside []*agentv1.ReviewThread
 	for _, thread := range threads {
 		if _, drawn := v.findFile(thread.GetFilePath()); drawn {
