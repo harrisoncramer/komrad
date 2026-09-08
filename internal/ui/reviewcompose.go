@@ -24,8 +24,8 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 // the editor closes rather than when this key is pressed.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
 	// Explainer: reading walks the rounds and writes nothing, so the compose key is also the way
-	// into the mode that can. The switch reloads the whole change and puts the cursor back on the
-	// line it was pressed on, which is why one press still means one thing.
+	// into the mode that can. The switch keeps the reader on the round they narrowed to and on the
+	// line they pressed it on, which is why one press still means one thing.
 	if !m.review.writing {
 		return m.enterReviewWriting()
 	}
