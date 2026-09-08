@@ -808,7 +808,6 @@ type formRecorder struct {
 	storedWorkflow   *workflowv1.Workflow
 	createdAgent     *agentv1.CreateAgentRequest
 	adoptedAgent     *agentv1.AdoptRequest
-	adoptExisting    bool
 	renamedAgent     *agentv1.UpdateAgentRequest
 	deletedAgents    *agentv1.DeleteAgentsRequest
 	archivedAgents   *agentv1.ArchiveAgentsRequest
@@ -851,15 +850,12 @@ func (f *formRecorder) Adopt(_ context.Context, req *connect.Request[agentv1.Ado
 
 	f.adoptedAgent = req.Msg
 
-	return connect.NewResponse(&agentv1.AdoptResponse{
-		Agent: &agentv1.Agent{
-			Id:         "adopted",
-			Name:       "pr-1069",
-			PaneId:     "%adopted",
-			WorkflowId: req.Msg.GetWorkflowId(),
-		},
-		Existing: f.adoptExisting,
-	}), nil
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: &agentv1.Agent{
+		Id:         "adopted",
+		Name:       "pr-1069",
+		PaneId:     "%adopted",
+		WorkflowId: req.Msg.GetWorkflowId(),
+	}}), nil
 }
 
 func (f *formRecorder) UpdateAgent(_ context.Context, req *connect.Request[agentv1.UpdateAgentRequest]) (*connect.Response[emptypb.Empty], error) {
@@ -1379,55 +1375,4 @@ func TestSubmittingNoticeCountsUp(t *testing.T) {
 	assert.Equal(t, "  submitting…", submittingNotice(since, since.Add(time.Second)))
 	assert.Equal(t, "  submitting… 12s · esc to keep working", submittingNotice(since, since.Add(12*time.Second)))
 	assert.Equal(t, "  submitting… 6m40s · esc to keep working", submittingNotice(since, since.Add(400*time.Second)))
-}
-
-// Explainer: adoption answers a branch that already has an agent with that agent, and the panel
-// then moves to a row that was there all along. Without something said out loud that reads as
-// the form having closed over nothing, which is how a working adoption looked like a crash.
-
-// TestAdoptSaysWhenTheBranchAlreadyHadAnAgent covers the panel reporting the answer it cannot
-// otherwise show, since a success pushes no message of its own.
-func TestAdoptSaysWhenTheBranchAlreadyHadAnAgent(t *testing.T) {
-	tests := []struct {
-		name        string
-		existing    bool
-		wantSummary string
-	}{
-		{
-			name:        "the branch was free",
-			existing:    false,
-			wantSummary: "",
-		},
-		{
-			name:        "an agent was already on it",
-			existing:    true,
-			wantSummary: "Already adopted",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			sent := &formRecorder{adoptExisting: tt.existing}
-			m := formModel(sent)
-			workflow := m.listing.workflows[0]
-
-			values := adoptPrefill(workflow)
-			values.Ref = "someones/work"
-
-			opened, _ := m.openAdoptForm(workflow, &values)
-			updated, cmd := asModel(t, opened).answerForm()
-			landed := settle(t, asModel(t, updated), cmd)
-
-			if tt.wantSummary == "" {
-				assert.Empty(t, landed.messages.items, "an adoption that did the work speaks for itself")
-
-				return
-			}
-
-			require.Len(t, landed.messages.items, 1)
-			assert.Equal(t, tt.wantSummary, landed.messages.items[0].summary)
-			assert.Contains(t, landed.messages.items[0].detail, "pr-1069", "the agent already on the branch is named")
-			assert.Equal(t, messageInfo, landed.messages.items[0].kind, "it is an answer rather than a refusal")
-		})
-	}
 }

@@ -100,9 +100,9 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 			}
 
 			require.NoError(t, err)
-			require.NotNil(t, created.Agent)
+			require.NotNil(t, created)
 
-			stored := agentByID(t, st, created.Agent.ID)
+			stored := agentByID(t, st, created.ID)
 			assert.Equal(t, "someones/work", stored.AdoptedBranch, "the branch it was put on is recorded as asked for")
 			assert.Contains(t, stored.Prompt, "someones/work", "the agent is told what it walked into")
 			assert.Contains(t, stored.Prompt, "look at it", "and still asked to do what it was asked to do")
@@ -184,14 +184,13 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
-	require.NoError(t, st.Agents.SetWorktreeRemovedByID(t.Context(), first.Agent.ID, true))
+	require.NoError(t, st.Agents.SetWorktreeRemovedByID(t.Context(), first.ID, true))
 
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	assert.NotEqual(t, first.Agent.ID, second.Agent.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
-	assert.False(t, second.Existing, "a fresh agent is not one that was already there")
-	assert.Equal(t, "someones/work", agentByID(t, st, second.Agent.ID).AdoptedBranch)
+	assert.NotEqual(t, first.ID, second.ID, "the work is taken on by a new agent rather than handed to one with nowhere to run")
+	assert.Equal(t, "someones/work", agentByID(t, st, second.ID).AdoptedBranch)
 }
 
 // TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory pins that a checkout deleted by hand
@@ -217,7 +216,7 @@ func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	created, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	stored := agentByID(t, st, created.Agent.ID)
+	stored := agentByID(t, st, created.ID)
 	assert.Equal(t, "someones/work", stored.AdoptedBranch)
 	assert.Nil(t, stored.ProvisionEnabled, "a worktree of its own is made rather than the directory that is not there")
 }
@@ -254,9 +253,7 @@ func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	assert.Equal(t, first.Agent.ID, second.Agent.ID, "the agent already on the branch comes back")
-	assert.False(t, first.Existing, "the first adoption is what put it there")
-	assert.True(t, second.Existing, "and the second is told it was already there rather than left to guess")
+	assert.Equal(t, first.ID, second.ID, "the agent already on the branch comes back")
 
 	agents, err := st.List(t.Context())
 	require.NoError(t, err)
@@ -288,7 +285,7 @@ func TestAdoptFromAPullRequest(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	stored := agentByID(t, st, created.Agent.ID)
+	stored := agentByID(t, st, created.ID)
 	assert.Equal(t, "harry/eng-3518-logo-upload", stored.AdoptedBranch, "the branch comes from the pull request")
 	assert.Equal(t, "pr-1069", stored.Name, "an unnamed adoption is named after the pull request")
 	assert.Contains(t, stored.Prompt, "https://github.com/acmecorp/admin/pull/1069")
