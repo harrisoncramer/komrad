@@ -131,7 +131,37 @@ func TestTheWidenedDiffIsTheOneOnScreen(t *testing.T) {
 	m = writeReviewComment(t, m, "about this line")
 
 	require.NotNil(t, agents.created)
-	assert.Empty(t, agents.created.GetBaseSha(), "which is the base the numbers were read against")
+	assert.Equal(t, m.review.base, agents.created.GetBaseSha(),
+		"the base the thread records is the one the diff on screen was measured from")
+}
+
+// TestTheWidenIsNotWritableWhileItsDiffIsInFlight covers the gap between the widen and the diff
+// it sends for, where the model saying the whole change over the narrowed patch would file a
+// comment against a base its numbers were never read from.
+func TestTheWidenIsNotWritableWhileItsDiffIsInFlight(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m := reviewWithAnEarlierReview(t, dir, agents)
+	m = pressReviewBase(t, m)
+	require.Equal(t, 1, m.review.view.Stat().Files)
+
+	agents.roundsErr = errors.New("the server went away")
+
+	next, cmd := m.reloadReview()
+	m = next
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+	require.NotNil(t, m.applyReviewLoaded(loaded), "the widen sends for its diff")
+
+	require.Empty(t, m.review.base, "the model widened")
+	assert.Nil(t, m.review.view, "so the narrowed patch goes with it")
+	assert.True(t, m.review.loading)
+
+	after, _ := m.updateReview(keyMsg("c"))
+	assert.False(t, after.(model).review.composing, "and nothing can be written until the diff lands")
 }
 
 // reloadReviewFully presses the reload key and follows whatever the load answers with, including

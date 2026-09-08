@@ -291,11 +291,17 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	// reader goes back to the whole change. The widen has to bring the diff with it. The base the
 	// model carries is what a new thread records its old-side numbers against, so a widened model
 	// over a narrowed patch files comments against a snapshot they were never read from.
-	if m.review.chapter >= 0 && m.review.chapter >= len(msg.chapters) {
+	if m.review.chapter >= len(msg.chapters) {
 		said := m.review.baseLabel
 		m.review.chapters = msg.chapters
 		m.widenReviewBase()
-		m.review.notice = "back to the whole change, " + said + " is no longer there"
+		m.review.notice = "back to the whole change, " + said + " is not on the list now"
+
+		// The screen goes back to where it stands before any diff has arrived, since the patch in
+		// hand is the narrowed one the model has just stopped describing and a comment written
+		// against it would carry a base it was never read from.
+		m.review.loading = true
+		m.review.view = nil
 
 		return m.loadReviewCmd(loadReviewCmdParams{
 			AgentID: m.review.agentID,
