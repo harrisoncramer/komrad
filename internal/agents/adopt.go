@@ -27,6 +27,8 @@ var ErrAdoptForkBranch = errors.New("that pull request is from a fork, whose bra
 
 var ErrAdoptBranchInUse = errors.New("that branch is already checked out")
 
+var ErrAdoptAlreadyAdopted = errors.New("that branch already has an agent on it")
+
 const adoptLookupTimeout = 30 * time.Second
 
 const worktreeListTimeout = 10 * time.Second
@@ -119,7 +121,13 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		return nil, err
 	}
 	if err == nil {
-		return existing, nil
+		// A keyed retry of the call that launched it is the one repeat that means "again, safely"
+		// rather than "a second agent on this branch".
+		if isKeyedReplay(params.IdempotencyKey, *existing) {
+			return existing, nil
+		}
+
+		return nil, fmt.Errorf("%w: %s is on %s already", ErrAdoptAlreadyAdopted, existing.Name, branch)
 	}
 
 	create := NewAgentParams{
@@ -155,7 +163,7 @@ func (s *AdoptService) Adopt(ctx context.Context, params AdoptParams) (*agentsto
 		// Git still has the registration but the directory is gone, so a worktree of this agent's
 		// own is made instead.
 	case owner != nil && isAdopted(*owner, branch):
-		return owner, nil
+		return nil, fmt.Errorf("%w: %s is on %s already, in %s", ErrAdoptAlreadyAdopted, owner.Name, branch, trees.holder)
 	case owner != nil:
 		return nil, fmt.Errorf("%w: %s is the worktree of agent %s, so adopting into it would hand one directory to two agents", ErrAdoptBranchInUse, trees.holder, owner.Name)
 	default:
@@ -233,10 +241,24 @@ func (s *AdoptService) agentOnBranch(ctx context.Context, workflowID, branch str
 	return nil, fmt.Errorf("%w: no agent in workflow %q is adopted onto %q", store.ErrNotFound, workflowID, branch)
 }
 
-// isAdopted reports whether an agent is the one working on a branch right now, which rules out an
-// agent whose worktree is gone and an archived one whose worktree is still its own to remove.
+// Explainer: a create that fails during setup leaves its row behind in failed_to_create, still
+// stamped with the branch it was going to work on. Counting that corpse as the agent on the branch
+// would refuse the branch for good, since the retry that is the whole point of a refusal is the
+// call being refused. releaseFailedLaunch guards the idempotency key the same way.
+
+// isKeyedReplay reports whether an agent is the one a given idempotency key already launched.
+func isKeyedReplay(key string, agent agentstore.Agent) bool {
+	return key != "" && agent.IdempotencyKey != nil && *agent.IdempotencyKey == key
+}
+
+// isAdopted reports whether an agent is the one working on a branch right now, which rules out a
+// create that never launched, an agent whose worktree is gone, and an archived one whose worktree
+// is still its own to remove.
 func isAdopted(agent agentstore.Agent, branch string) bool {
-	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
+	return agent.AdoptedBranch == branch &&
+		agent.State != agentstore.StateFailedToCreate &&
+		!agent.WorktreeRemoved &&
+		agent.ArchivedAt == nil
 }
 
 // agentIn returns the agent whose cwd is a directory, archived ones included.

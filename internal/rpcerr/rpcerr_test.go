@@ -35,6 +35,7 @@ func TestWrapCodes(t *testing.T) {
 		{agents.ErrReviewMessageNotFound, connect.CodeNotFound},
 		{agents.ErrParentNotFound, connect.CodeNotFound},
 		{store.ErrNameTaken, connect.CodeAlreadyExists},
+		{agents.ErrAdoptAlreadyAdopted, connect.CodeAlreadyExists},
 		{agents.ErrAgentArchived, connect.CodeFailedPrecondition},
 		{agents.ErrProvisionFailed, connect.CodeFailedPrecondition},
 		{agents.ErrScriptNotExecutable, connect.CodeFailedPrecondition},
