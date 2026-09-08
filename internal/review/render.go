@@ -89,8 +89,9 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 	background := getBackground(line.Kind, cursor)
 	content := renderTokens(v.getStyledLine(current, line), line.Text, background, v.matchesIn(y))
 
-	return v.renderGutter(y, line, background) +
-		fitWindow(content, offset, max(0, width-GutterWidth), background)
+	return ansi.Truncate(
+		v.renderGutter(y, line, background)+fitWindow(content, offset, max(0, width-GutterWidth), background),
+		width, "…")
 }
 
 // renderFileRow draws a file's header, which once the file is collapsed has to say what is
