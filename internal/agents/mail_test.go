@@ -438,9 +438,8 @@ func TestSendMailSystemNoticeIsNeverRefusedByTheCap(t *testing.T) {
 	}
 }
 
-// TestSendSystemMailStampsWeaveAsTheSender proves the join the framing in hook.go relies
-// on: a lifecycle notice lands with weave's name and no agent id, which is what tells the
-// stop hook this was not the panel operator talking.
+// TestSendSystemMailStampsWeaveAsTheSender proves a lifecycle notice lands with weave's name and
+// no agent id.
 func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{

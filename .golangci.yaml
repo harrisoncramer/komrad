@@ -143,6 +143,12 @@ linters:
         type: module
         description: Checks for this repo; forbids bare os environment access and a nil pointer returned with a nil error, asks the panel to bound the contexts it starts, keeps doc comments present and prefixed with the identifier name, and holds comments to a single sentence.
         settings:
+          # 1464 of these on the day the rule was written, so it is counted by
+          # `mise run go:comments` against a baseline rather than failing the lint.
+          comment_clause:
+            skip: true
+          comment_reference:
+            skip: false
           comment_length:
             skip: false
             # Unanchored regexps over the file path. The config struct's doc comments

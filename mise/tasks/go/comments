@@ -1,0 +1,80 @@
+#!/usr/bin/env bash
+source "$MISE_CONFIG_ROOT/mise/tasks/_"
+set -euo pipefail
+#MISE description="Count the trailing justification clauses against the checked-in baseline."
+
+usage() {
+	echo "Usage: mise run go:comments [--update]"
+	echo
+	echo "Runs fussy's commentclause rule over every package and compares the count per"
+	echo "package against .comment-baseline. A package that gains one fails the task."
+	echo "Pass --update to write the current counts back, which is how a package that has"
+	echo "been cleaned lowers its own ceiling."
+}
+
+UPDATE=false
+for arg in "$@"; do
+	case "$arg" in
+	-h | --help)
+		usage
+		exit 0
+		;;
+	--update)
+		UPDATE=true
+		;;
+	esac
+done
+
+cd "$MISE_CONFIG_ROOT"
+
+BASELINE="$MISE_CONFIG_ROOT/.comment-baseline"
+# FUSSY_BIN points the task at a local build, which is how a change to the rule is tried here
+# before it is tagged.
+FUSSY=("go" "run" "github.com/harrisoncramer/fussy/cmd/fussy@v0.4.0")
+if [ -n "${FUSSY_BIN:-}" ]; then
+	FUSSY=("$FUSSY_BIN")
+fi
+
+# fussy exits 3 when it has findings, which is the ordinary case here.
+found=$("${FUSSY[@]}" -commentclause ./... 2>&1 >/dev/null || true)
+
+counts=$(printf '%s\n' "$found" |
+	{ grep 'comment tacks' || true; } |
+	sed "s|^$MISE_CONFIG_ROOT/||" |
+	cut -d: -f1 |
+	xargs -n1 dirname |
+	sort |
+	uniq -c |
+	awk '{print $2 "\t" $1}')
+
+if [ "$UPDATE" = true ]; then
+	printf '%s\n' "$counts" >"$BASELINE"
+	echo "wrote $BASELINE"
+	exit 0
+fi
+
+if [ ! -f "$BASELINE" ]; then
+	echo "no $BASELINE; run 'mise run go:comments --update' to write one" >&2
+	exit 1
+fi
+
+worse=()
+while IFS=$'\t' read -r package count; do
+	[ -n "$package" ] || continue
+	allowed=$(awk -F'\t' -v p="$package" '$1 == p {print $2}' "$BASELINE")
+	allowed=${allowed:-0}
+	if ((count > allowed)); then
+		worse+=("$package: $count against a baseline of $allowed")
+	fi
+done <<<"$counts"
+
+if ((${#worse[@]} > 0)); then
+	echo "a trailing justification clause was added:" >&2
+	printf '  %s\n' "${worse[@]}" >&2
+	echo >&2
+	echo "cut the clause rather than raising the baseline; see the comments section of AGENTS.md" >&2
+	exit 1
+fi
+
+total=$(printf '%s\n' "$counts" | awk -F'\t' '{sum += $2} END {print sum + 0}')
+echo "no package gained a clause, $total left to clean"

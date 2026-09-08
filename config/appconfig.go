@@ -712,10 +712,7 @@ func DefaultKeybindings() Keybindings {
 	return keys
 }
 
-// defaultKeys is one field's shipped binding, as the comma-separated list its tag holds. A field
-// with no tag, or an empty one, panics rather than binding nothing, since a key that answers
-// nowhere is the quietest way for this file to be wrong. TestEveryBindingShipsAKey catches it
-// before anybody starts the panel.
+// defaultKeys is one field's shipped binding, as the comma-separated list its tag holds.
 func defaultKeys(field reflect.StructField) []string {
 	tag, ok := field.Tag.Lookup("default")
 	if !ok || tag == "" {
