@@ -241,6 +241,35 @@ func (s *Store) GetLastReleasedReview(ctx context.Context, params AuthorParams) 
 	return &review, nil
 }
 
+// GetReleasedReviewOnRound is the batch an author has already let go of against one round of an
+// agent, ErrNotFound when they have released none on it.
+func (s *Store) GetReleasedReviewOnRound(
+	ctx context.Context,
+	params AuthorParams,
+	roundID string,
+) (*Review, error) {
+	if !store.IsID(params.AgentID) {
+		return nil, reviewNotFound(params.AgentID)
+	}
+
+	row, err := s.queries.GetReleasedReviewOnRound(ctx, models.GetReleasedReviewOnRoundParams{
+		AgentID:       params.AgentID,
+		AuthorKind:    models.ReviewAuthorKind(params.AuthorKind),
+		AuthorAgentID: params.AuthorAgentID,
+		RoundID:       roundID,
+	})
+	if db.IsNoRows(err) {
+		return nil, reviewNotFound(params.AgentID)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("failed to read the released review on round %q: %w", roundID, err)
+	}
+
+	review := reviewFromRow(*row)
+
+	return &review, nil
+}
+
 // ListReviews is every review of an agent, in the order their rounds were taken.
 func (s *Store) ListReviews(ctx context.Context, agentID string) ([]Review, error) {
 	if !store.IsID(agentID) {

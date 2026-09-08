@@ -92,6 +92,21 @@ ORDER BY
     v.released_at DESC
 LIMIT 1;
 
+-- name: GetReleasedReviewOnRound :one
+SELECT
+    *
+FROM
+    reviews v
+WHERE
+    v.agent_id = @agent_id
+    AND v.author_kind = @author_kind
+    AND v.author_agent_id IS NOT DISTINCT FROM sqlc.narg('author_agent_id')
+    AND v.round_id = @round_id
+    AND v.released_at IS NOT NULL
+ORDER BY
+    v.released_at DESC
+LIMIT 1;
+
 -- name: ListReviews :many
 SELECT
     v.*,

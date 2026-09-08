@@ -302,7 +302,7 @@ func (s *ReviewService) CreateReviewThread(
 	// against the round its first comment named and nothing else here says otherwise.
 	roundID := open.RoundID
 	if named != nil && named.ID != roundID {
-		return nil, fmt.Errorf("%w: send the comments you have on the earlier snapshot first", ErrReviewInFlight)
+		return nil, fmt.Errorf("%w: send the comments you have on that snapshot first", ErrReviewInFlight)
 	}
 
 	// A caller that says nothing read its numbers against the round's own base, which is what

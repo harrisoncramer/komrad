@@ -1339,8 +1339,15 @@ func (f *fakeReviewStore) OpenReview(
 	_ context.Context,
 	params reviewstore.OpenReviewParams,
 ) (*reviewstore.Review, error) {
+	// The first batch keeps the well-known id the seeded thread points at; later ones get their
+	// own so the store can hold more than one released review at a time.
+	id := reviewBatchID
+	if len(f.reviews) > 0 {
+		id = fmt.Sprintf("batch-%d", len(f.reviews)+1)
+	}
+
 	review := reviewstore.Review{
-		ID:            reviewBatchID,
+		ID:            id,
 		AgentID:       params.AgentID,
 		RoundID:       params.RoundID,
 		AuthorKind:    params.AuthorKind,
@@ -1375,6 +1382,31 @@ func (f *fakeReviewStore) GetLastReleasedReview(_ context.Context, params review
 	}
 
 	return f.released, nil
+}
+
+func (f *fakeReviewStore) GetReleasedReviewOnRound(
+	_ context.Context,
+	params reviewstore.AuthorParams,
+	roundID string,
+) (*reviewstore.Review, error) {
+	for _, review := range f.reviews {
+		if review.ReleasedAt == nil || review.RoundID != roundID {
+			continue
+		}
+		if review.AuthorKind != params.AuthorKind {
+			continue
+		}
+		if (review.AuthorAgentID == nil) != (params.AuthorAgentID == nil) {
+			continue
+		}
+		if review.AuthorAgentID != nil && *review.AuthorAgentID != *params.AuthorAgentID {
+			continue
+		}
+
+		return &review, nil
+	}
+
+	return nil, fmt.Errorf("%w: released review on round %q", store.ErrNotFound, roundID)
 }
 
 func (f *fakeReviewStore) ListTallies(context.Context) ([]reviewstore.Tally, error) {
@@ -2044,4 +2076,54 @@ func TestThePersonAnswersBackAfterAnAnswerThatChangedNoCode(t *testing.T) {
 		Author:  humanAuthor(),
 	})
 	require.NoError(t, err, "and can still say the work is done")
+}
+
+// TestAReviewerCannotAlternateRoundsToReviewForever covers the bound on a reviewer child and its
+// parent once a caller picks its own round: releasing on one round and then another must not let
+// the first round be reviewed again while the tree has never moved.
+func TestAReviewerCannotAlternateRoundsToReviewForever(t *testing.T) {
+	reviews := newFakeReviewStore()
+	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
+	service, snapshots := reviewServiceMoving(t, reviews, notices)
+	reviewer := agentAuthor(reviewerAgentID)
+
+	earlier, err := service.OpenRound(t.Context(), reviewedAgentID, humanAuthor())
+	require.NoError(t, err)
+
+	snapshots.sha = "snapshot-sha-2"
+
+	later, err := service.OpenRound(t.Context(), reviewedAgentID, humanAuthor())
+	require.NoError(t, err)
+
+	for _, round := range []*reviewstore.Round{later, earlier} {
+		opened, err := service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+			AgentID:     reviewedAgentID,
+			SnapshotSHA: round.SnapshotSHA,
+			FilePath:    "greet.go",
+			NewStart:    16,
+			NewEnd:      16,
+			Body:        "this needs a nil check",
+			Author:      reviewer,
+		})
+		require.NoError(t, err, "a round it has not reviewed yet")
+		reviews.thread = opened.Thread
+
+		_, err = service.ReleaseReview(t.Context(), ReleaseReviewParams{
+			AgentID: reviewedAgentID,
+			Verdict: reviewstore.VerdictChangesRequested,
+			Author:  reviewer,
+		})
+		require.NoError(t, err)
+	}
+
+	_, err = service.CreateReviewThread(t.Context(), CreateReviewThreadParams{
+		AgentID:     reviewedAgentID,
+		SnapshotSHA: later.SnapshotSHA,
+		FilePath:    "greet.go",
+		NewStart:    24,
+		NewEnd:      24,
+		Body:        "and back to the newer round",
+		Author:      reviewer,
+	})
+	require.ErrorIs(t, err, ErrReviewAlreadyGiven, "it has had its say on that round already")
 }

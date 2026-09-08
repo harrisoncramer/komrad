@@ -165,6 +165,54 @@ func (q *Queries) GetOpenReview(ctx context.Context, arg GetOpenReviewParams) (*
 	return &i, err
 }
 
+const getReleasedReviewOnRound = `-- name: GetReleasedReviewOnRound :one
+SELECT
+    id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body
+FROM
+    reviews v
+WHERE
+    v.agent_id = $1
+    AND v.author_kind = $2
+    AND v.author_agent_id IS NOT DISTINCT FROM $3
+    AND v.round_id = $4
+    AND v.released_at IS NOT NULL
+ORDER BY
+    v.released_at DESC
+LIMIT 1
+`
+
+type GetReleasedReviewOnRoundParams struct {
+	AgentID       string
+	AuthorKind    ReviewAuthorKind
+	AuthorAgentID *string
+	RoundID       string
+}
+
+func (q *Queries) GetReleasedReviewOnRound(ctx context.Context, arg GetReleasedReviewOnRoundParams) (*Review, error) {
+	row := q.db.QueryRow(ctx, getReleasedReviewOnRound,
+		arg.AgentID,
+		arg.AuthorKind,
+		arg.AuthorAgentID,
+		arg.RoundID,
+	)
+	var i Review
+	err := row.Scan(
+		&i.ID,
+		&i.AgentID,
+		&i.RoundID,
+		&i.AuthorKind,
+		&i.AuthorAgentID,
+		&i.Verdict,
+		&i.ReleasedAt,
+		&i.Path,
+		&i.DoorbellMailID,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Body,
+	)
+	return &i, err
+}
+
 const getReview = `-- name: GetReview :one
 SELECT
     id, agent_id, round_id, author_kind, author_agent_id, verdict, released_at, path, doorbell_mail_id, created_at, updated_at, body

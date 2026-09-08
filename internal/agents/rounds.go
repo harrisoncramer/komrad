@@ -36,11 +36,11 @@ var ErrReviewAlreadyGiven = errors.New("that round has already been reviewed; wa
 
 // ErrReviewInFlight is answered when somebody writes a comment on one snapshot while holding
 // unsent comments on another.
-var ErrReviewInFlight = errors.New("you have unsent comments on an earlier snapshot")
+var ErrReviewInFlight = errors.New("you have unsent comments on a different snapshot")
 
 // ErrReviewNotCurrent is answered when a comment's line numbers name a snapshot weave holds no
 // round of, so there is nowhere honest to file them.
-var ErrReviewNotCurrent = errors.New("those lines were read from a snapshot weave has no round of")
+var ErrReviewNotCurrent = errors.New("those lines were read from a snapshot weave has no round of for this agent")
 
 // ErrReviewEmpty is answered when a review is released with nothing written in it.
 var ErrReviewEmpty = errors.New("that review has nothing in it")
@@ -64,6 +64,7 @@ type reviewBatchReadWriter interface {
 	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
 	OpenReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
 	GetLastReleasedReview(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	GetReleasedReviewOnRound(ctx context.Context, params reviewstore.AuthorParams, roundID string) (*reviewstore.Review, error)
 	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
@@ -273,18 +274,20 @@ func (s *ReviewService) notReviewedAlready(
 		return nil
 	}
 
-	last, err := s.reviews.GetLastReleasedReview(ctx, params)
+	// Explainer: the question is whether this author has already had its say on this round, not
+	// whether the review it released most recently happened to be on it. Those came to the same
+	// thing while a batch could only ever open against the newest round; now that a caller picks
+	// its round by naming a snapshot, an author could alternate between two rounds and release
+	// forever without the tree moving.
+	_, err := s.reviews.GetReleasedReviewOnRound(ctx, params, round.ID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}
 	if err != nil {
 		return err
 	}
-	if last.RoundID == round.ID {
-		return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
-	}
 
-	return nil
+	return fmt.Errorf("%w: round %d", ErrReviewAlreadyGiven, round.Ordinal)
 }
 
 // entitled says whether an author may give a review on an agent, which the person always may and
