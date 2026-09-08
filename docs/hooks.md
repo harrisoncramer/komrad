@@ -42,19 +42,19 @@ The `WEAVE_AGENT` environment variable is a JSON blob that carries `id`, `name`,
 - `WEAVE_HOST_TMUX_SOCKET`, your own tmux server, as the last open recorded it.
 - `EDITOR` and `WEAVE_SHELL`
 
-Every script also runs with `GIT_TERMINAL_PROMPT=0` and `GCM_INTERACTIVE=never`, and with `GIT_ASKPASS` and `SSH_ASKPASS` forced empty, so a git call against expired credentials fails rather than opening a prompt nothing answers. A non-interactive askpass you already configured is left as you set it.
+Every script also runs with `GIT_TERMINAL_PROMPT=0` and `GCM_INTERACTIVE=never`, and with `GIT_ASKPASS` and `SSH_ASKPASS` forced empty, so a git call against expired credentials fails without prompting.
 
-## Where a run's output is kept
+## Hook output
 
-Every run writes a file of its own under the cache directory, numbered so the runs read newest first:
+Every run writes a file of its own under weave's cache directory, numbered so the runs read newest first:
 
     weave-run-logs/<agent-id>/001-provision-_worktree_setup.log
                               002-pre-launch-install-deps.log
                               003-post-launch-announce.log
 
-The number counts up per agent and the name says what set the run off, so nothing overwrites anything: an agent resumed twice has three provision runs to compare rather than one file that was written over. Only the last fifty runs are kept, and they all go when the agent is deleted.
+Nothing overwrites anything else, so that an agent resumed twice has three provision run logs.
 
-In the panel the logs key opens the most recent run in the info pane, and `L` steps back through the runs before it, wrapping round to the most recent. An agent that failed to be created, or failed to be torn down, points at the run that actually failed rather than guessing between two files.
+In weave's panel, the "logs" key opens the most recent run in the info pane (the `l` key by default) and `L` steps back through previous run logs of the same hook type.
 
 ## Hook metadata
 
@@ -74,7 +74,7 @@ weave rpc log --message 'Hello world' --script "$WEAVE_SCRIPT"
 
 This hook will abort and fail if it cannot execute within 1 second.
 
-To report progress on purpose, from a hook or from anywhere else acting on an agent's behalf, there is also `log`:
+To report progress on purpose, from a hook or from anywhere else acting on an agent's behalf, use the `log` CLI command:
 
 ```sh
 weave rpc log --message 'Some custom message'
@@ -93,12 +93,3 @@ url=$(printf '%s' "$agent" | jq -r '[.agent.metadata[]? | select(.key == "pr") |
 
 exec open "$url"
 ```
-
-## The scripts weave ships
-
-Weave ships two scripts of its own, in a directory of its own that nothing configures. They are weave's implementation rather than anything to name or replace, and they are shell today only because that is what they were written in.
-
-`_worktree_setup` and `_worktree_cleanup` are the provisioner behind a workflow's `worktree.enabled` toggle, and are reached only by turning it on. They make the worktree under the workflow's own `worktree.dir` when it names one, and under the configured worktrees directory otherwise. The setup half copies or symlinks whatever `worktree.copy_paths` and `worktree.symlink_paths` name, skipping any path git already tracks, since the fresh checkout already has it. A branch the agent already has is checked out as it stands rather than reset onto the base, so a directory removed by hand and made again keeps whatever the agent had committed.
-
-An agent that [adopted](agents.md) a branch arrives at provision with `WEAVE_WORKTREE_ADOPT_BRANCH` set, and the worktree is made on that branch instead of a new one cut from the base. The cleanup half reads the same variable and leaves the branch where it is, since it was never weave's to delete.
-
