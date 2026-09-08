@@ -37,7 +37,7 @@ func TestTheNewestChapterHidesNothing(t *testing.T) {
 	rounds := chapterRounds()
 	reviews := []*agentv1.Review{releasedAgainst(1, "r1", "2026-09-08T13:30:00-04:00")}
 
-	chapters := chapterList(chapterListParams{
+	chapters := cutChapters(cutChaptersParams{
 		Rounds:   rounds,
 		Reviews:  reviews,
 		OnScreen: rounds[1],
@@ -116,8 +116,10 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 func TestThePinHoldsWhenTheReviewsCannotBeRead(t *testing.T) {
 	agents := &fakeReviewAgents{reviewsErr: errors.New("the server went away")}
 
-	round, pinned, err := pendingRound(t.Context(), agents, pendingRoundParams{AgentID: "a1"})
+	reviews, err := listReviews(t.Context(), agents, "a1")
 	require.Error(t, err, "an unreadable answer is not the same as nothing open")
+
+	round, pinned := findPendingRound(nil, openBatchRoundID(reviews))
 	assert.Nil(t, round)
 	assert.False(t, pinned)
 }

@@ -136,11 +136,24 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		round, pinned, err := pendingRound(ctx, agents, pendingRoundParams{AgentID: agentID})
+		// Explainer: the reviews and the rounds answer six of the questions below between them,
+		// and each question used to ask for them again. They are read once here and handed down,
+		// which also keeps the six answers describing one moment rather than six.
+		reviews, err := listReviews(ctx, agents, agentID)
 		if err != nil {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
+		// The rounds are a better answer where they can be had rather than one the screen depends
+		// on, so only the pin, which cannot be placed without them, gives up when they cannot.
+		rounds, roundsErr := listReviewRounds(ctx, agents, agentID)
+
+		openBatch := openBatchRoundID(reviews)
+		if openBatch != "" && roundsErr != nil {
+			return reviewLoadedMsg{agentID: agentID, err: roundsErr}
+		}
+
+		round, pinned := findPendingRound(rounds, openBatch)
 		if round == nil {
 			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 				AgentId: agentID,
@@ -150,6 +163,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			}
 
 			round = opened.Msg.GetRound()
+			rounds = withRound(rounds, round)
 		}
 
 		base := round.GetBaseSha()
@@ -177,15 +191,17 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
-		earlier := previousReviewedRound(ctx, agents, round)
-		awaiting := awaitingReviewAnswer(ctx, agents, round)
-		chapters := reviewChapters(ctx, agents, round)
-		earlierAt := releasedAtOf(ctx, agents, round)
+		earlier := findPreviousReviewedRound(reviews, rounds, round)
+		chapters := cutChapters(cutChaptersParams{
+			Rounds:   rounds,
+			Reviews:  reviews,
+			OnScreen: round,
+		})
 		traced := traceThreads(ctx, traceThreadsParams{
 			Dir:     dir,
 			ToSHA:   head,
 			Threads: threads,
-			Rounds:  roundsOf(ctx, agents, agentID),
+			Rounds:  rounds,
 		})
 
 		return reviewLoadedMsg{
@@ -195,9 +211,9 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			threads:   threads,
 			viewed:    viewed,
 			earlier:   earlier,
-			earlierAt: earlierAt,
+			earlierAt: releasedAtOf(reviews, round),
 			pinned:    pinned,
-			awaiting:  awaiting,
+			awaiting:  isAwaitingReviewAnswer(reviews, round),
 			chapters:  chapters,
 			traced:    traced,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
@@ -437,4 +453,16 @@ func (m model) worktreeFor(agent agentstore.Agent) workflowstore.WorktreeConfig 
 	}
 
 	return workflowstore.WorktreeConfig{}
+}
+
+// withRound adds a round just opened to the list read before it was, since the round on screen is
+// one of the rounds everything below reads.
+func withRound(rounds []*agentv1.ReviewRound, opened *agentv1.ReviewRound) []*agentv1.ReviewRound {
+	for _, held := range rounds {
+		if held.GetId() == opened.GetId() {
+			return rounds
+		}
+	}
+
+	return append(rounds, opened)
 }

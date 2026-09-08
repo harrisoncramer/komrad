@@ -42,6 +42,9 @@ type fakeReviewAgents struct {
 	harvests   int
 	harvestErr error
 	reviewsErr error
+	// reviewReads and roundReads count what one load asked the server for.
+	reviewReads int
+	roundReads  int
 }
 
 // HarvestRoundEdits records what the panel sent rather than reconciling anything.
@@ -140,6 +143,8 @@ func (f *fakeReviewAgents) ListReviewRounds(
 	context.Context,
 	*connect.Request[agentv1.ListReviewRoundsRequest],
 ) (*connect.Response[agentv1.ListReviewRoundsResponse], error) {
+	f.roundReads++
+
 	return connect.NewResponse(&agentv1.ListReviewRoundsResponse{Rounds: f.rounds}), nil
 }
 
@@ -147,6 +152,8 @@ func (f *fakeReviewAgents) ListReviews(
 	context.Context,
 	*connect.Request[agentv1.ListReviewsRequest],
 ) (*connect.Response[agentv1.ListReviewsResponse], error) {
+	f.reviewReads++
+
 	if f.reviewsErr != nil {
 		return nil, f.reviewsErr
 	}

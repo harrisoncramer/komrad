@@ -1,14 +1,11 @@
 package ui
 
 import (
-	"context"
 	"fmt"
 	"time"
 
 	agentv1 "weave/proto/gen/agent/v1"
-	"weave/proto/gen/agent/v1/agentv1connect"
 
-	"connectrpc.com/connect"
 	tea "github.com/charmbracelet/bubbletea"
 	"google.golang.org/protobuf/proto"
 )
@@ -153,45 +150,17 @@ func (m model) reviewBaseForwardDesc() string {
 	return "a later round"
 }
 
-// reviewChapters is the review broken at the reviews the person released, oldest first, so a
-// reader can step through the work a round at a time rather than only seeing the whole of it.
-func reviewChapters(
-	ctx context.Context,
-	agents agentv1connect.AgentServiceClient,
-	round *agentv1.ReviewRound,
-) []reviewChapter {
-	reviews, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
-		AgentId: round.GetAgentId(),
-	}))
-	if err != nil {
-		return nil
-	}
-
-	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
-		AgentId: round.GetAgentId(),
-	}))
-	if err != nil {
-		return nil
-	}
-
-	return chapterList(chapterListParams{
-		Rounds:   rounds.Msg.GetRounds(),
-		Reviews:  reviews.Msg.GetReviews(),
-		OnScreen: round,
-	})
-}
-
-// chapterListParams is everything the chapters are cut from, kept apart from the calls that read
+// cutChaptersParams is everything the chapters are cut from, kept apart from the calls that read
 // it so the cutting can be exercised on its own.
-type chapterListParams struct {
+type cutChaptersParams struct {
 	Rounds   []*agentv1.ReviewRound
 	Reviews  []*agentv1.Review
 	OnScreen *agentv1.ReviewRound
 }
 
-// chapterList cuts the rounds at every round the person released a review against, and ends the
+// cutChapters cuts the rounds at every round the person released a review against, and ends the
 // last chapter at the round on screen.
-func chapterList(params chapterListParams) []reviewChapter {
+func cutChapters(params cutChaptersParams) []reviewChapter {
 	closed := map[int32]string{}
 	for _, review := range params.Reviews {
 		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
