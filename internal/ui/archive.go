@@ -81,7 +81,7 @@ func (m *model) placeArchiveCursor(hovered string) {
 // list so the document's own offset is kept for as long as the reader is still on it.
 func (m *model) landArchiveCursor(rows []agentRow, idx int) {
 	m.archive.cursor = idx
-	m.column.place(rowKeyAt(rows, idx))
+	m.placeColumn(screenArchive, rowKeyAt(rows, idx))
 }
 
 func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstore.Workflow, selected string) {

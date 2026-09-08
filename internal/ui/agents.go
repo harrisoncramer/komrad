@@ -427,7 +427,7 @@ func (m *model) stageSelection() {
 	defer m.afterStaging()
 
 	rows := m.agentRows()
-	m.column.place(rowKeyAt(rows, m.tree.cursor))
+	m.placeColumn(screenAgents, rowKeyAt(rows, m.tree.cursor))
 	m.reconcileSolo()
 
 	switch r, ok := rowAt(rows, m.tree.cursor); {
