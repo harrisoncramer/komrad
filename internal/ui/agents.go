@@ -450,7 +450,7 @@ func (m model) agentsListView() string {
 		rows = append(rows, row)
 	}
 
-	return m.headedListView(m.filterView(), rows, m.tree.cursor, below)
+	return m.listView("Agents and Workflows", rows, m.tree.cursor, below)
 }
 
 func (m model) openNewAgent(workflow *workflowstore.Workflow) (tea.Model, tea.Cmd) {
