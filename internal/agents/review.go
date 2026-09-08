@@ -95,6 +95,7 @@ type ReviewThreadWithMessages struct {
 	Messages []reviewstore.Message
 }
 
+// NewReviewServiceParams is everything the review service reads and tells.
 type NewReviewServiceParams struct {
 	Threads     reviewThreadReadWriter
 	Messages    reviewMessageReadWriter
@@ -146,6 +147,7 @@ func NewReviewService(params NewReviewServiceParams) *ReviewService {
 	}
 }
 
+// ListReviewThreadsParams says whose diff to read the conversations of, and as whom.
 type ListReviewThreadsParams struct {
 	AgentID string
 	Author  ReviewAuthor
@@ -197,9 +199,9 @@ func (s *ReviewService) ListReviewThreads(
 	return answered, nil
 }
 
-// ownsReview reports whether an author is reading back a thread it opened itself, which it may
+// doesOwnReview reports whether an author is reading back a thread it opened itself, which it may
 // see whole, unreleased comments included.
-func ownsReview(author ReviewAuthor, thread reviewstore.Thread) bool {
+func doesOwnReview(author ReviewAuthor, thread reviewstore.Thread) bool {
 	return author.AgentID != nil &&
 		thread.ReviewAuthorAgentID != nil &&
 		*thread.ReviewAuthorAgentID == *author.AgentID
@@ -241,6 +243,7 @@ func isReadableBy(message reviewstore.Message, author ReviewAuthor) bool {
 	}
 }
 
+// CreateReviewThreadParams is the place a new conversation is pinned to and what it says.
 type CreateReviewThreadParams struct {
 	AgentID string
 	// RoundID is the round the anchor's line numbers were measured in, empty for a caller that
@@ -348,6 +351,7 @@ func (s *ReviewService) CreateReviewThread(
 	return &ReviewThreadWithMessages{Thread: *thread, Messages: messages}, nil
 }
 
+// AddReviewMessageParams is what to say in an existing thread, and as whom.
 type AddReviewMessageParams struct {
 	ThreadID   string
 	Body       string
@@ -362,7 +366,7 @@ func (s *ReviewService) AddReviewMessage(
 	ctx context.Context,
 	params AddReviewMessageParams,
 ) (*reviewstore.Message, error) {
-	thread, err := s.ownThread(ctx, params.ThreadID, params.Author)
+	thread, err := s.getOwnThread(ctx, params.ThreadID, params.Author)
 	if err != nil {
 		return nil, err
 	}
@@ -462,6 +466,7 @@ func answerNotice(authorName string) string {
 		"open a round over its work as it now stands, and release a verdict on that round.", authorName)
 }
 
+// EditReviewMessageParams is the message to rewrite and what it should say instead.
 type EditReviewMessageParams struct {
 	ID         string
 	Body       string
@@ -482,6 +487,7 @@ func (s *ReviewService) EditReviewMessage(
 	return s.messages.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
 }
 
+// MarkReviewThreadReadParams names the thread to catch the person up on.
 type MarkReviewThreadReadParams struct {
 	ID     string
 	Author ReviewAuthor
@@ -503,6 +509,7 @@ func (s *ReviewService) MarkReviewThreadRead(
 	return s.threads.MarkThreadRead(ctx, params.ID)
 }
 
+// SetReviewThreadResolvedParams names the thread to settle or reopen.
 type SetReviewThreadResolvedParams struct {
 	ID       string
 	Resolved bool
@@ -526,6 +533,7 @@ func (s *ReviewService) SetReviewThreadResolved(
 	return s.threads.SetThreadResolved(ctx, params.ID, params.Resolved)
 }
 
+// SetReviewFileViewedParams names one file of a round to mark read or unread.
 type SetReviewFileViewedParams struct {
 	RoundID  string
 	FilePath string
@@ -553,6 +561,7 @@ func (s *ReviewService) SetReviewFileViewed(
 	})
 }
 
+// ListReviewViewedFilesParams names the round whose read files are wanted.
 type ListReviewViewedFilesParams struct {
 	RoundID string
 	Author  ReviewAuthor
@@ -587,14 +596,14 @@ func (s *ReviewService) interrupt(ctx context.Context, agentID string) {
 // requireOwnThread refuses an id that names no thread, and refuses an agent reaching into a
 // review it is neither the subject nor the author of.
 func (s *ReviewService) requireOwnThread(ctx context.Context, id string, author ReviewAuthor) error {
-	_, err := s.ownThread(ctx, id, author)
+	_, err := s.getOwnThread(ctx, id, author)
 
 	return err
 }
 
-// ownThread reads a thread and says whether the caller has any business in it: the person always
+// getOwnThread reads a thread and says whether the caller has any business in it: the person always
 // has, and so do the agent under review and the reviewing agent that wrote it.
-func (s *ReviewService) ownThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
+func (s *ReviewService) getOwnThread(ctx context.Context, id string, author ReviewAuthor) (*reviewstore.Thread, error) {
 	thread, err := s.threads.GetThread(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewThreadNotFound, id)
@@ -602,7 +611,7 @@ func (s *ReviewService) ownThread(ctx context.Context, id string, author ReviewA
 	if err != nil {
 		return nil, err
 	}
-	if author.IsHuman() || doesOwnAgent(author, thread.AgentID) || ownsReview(author, *thread) {
+	if author.IsHuman() || doesOwnAgent(author, thread.AgentID) || doesOwnReview(author, *thread) {
 		return thread, nil
 	}
 
