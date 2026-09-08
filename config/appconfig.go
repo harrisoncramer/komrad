@@ -105,7 +105,7 @@ const (
 	DefaultInfoHeight   = 0.4
 	// DefaultDetailsHeight holds a record's first fields and scrolls the rest, since a share of
 	// the sidebar takes room off the list on a tall screen without showing any more of a record.
-	DefaultDetailsHeight = 7
+	DefaultDetailsHeight = 9
 )
 
 // Where each region of the panel's layout can sit.

@@ -50,6 +50,7 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	m.listing.agents[0].agent.Metadata = append([]agentstore.Metadata{
 		{Key: "branch", Value: "harry/details-height"},
 		{Key: "issue", Value: "WEAVE-1"},
+		{Key: "summary", Value: "gave the record two more lines"},
 	}, m.listing.agents[0].agent.Metadata...)
 
 	view := m.detailsView()
@@ -604,14 +605,14 @@ func countOf(labels []string, want string) int {
 	return seen
 }
 
-// TestDetailsKeepsToSevenLinesByDefault covers the section on a tall sidebar, where the default is
+// TestDetailsKeepsToNineLinesByDefault covers the section on a tall sidebar, where the default is
 // a line count rather than a share, so the room the list gains from a taller pane stays with it.
-func TestDetailsKeepsToSevenLinesByDefault(t *testing.T) {
+func TestDetailsKeepsToNineLinesByDefault(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height = 60
 	m.detailsHeight = config.DefaultDetailsHeight
 
-	assert.Equal(t, 7, m.detailsLines())
+	assert.Equal(t, 9, m.detailsLines())
 }
 
 // TestDetailsScrollPastTheLinesItHas covers a record with more fields than the section draws,
