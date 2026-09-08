@@ -418,9 +418,11 @@ WHERE
 RETURNING
     *;
 
--- name: DeleteReviewThread :exec
+-- name: DeleteReviewThread :one
 DELETE FROM review_threads
-WHERE id = @id;
+WHERE id = @id
+RETURNING
+    id;
 
 -- name: ListReviewRoundTallies :many
 SELECT
