@@ -39,6 +39,7 @@ nothing works without it.
 ` + "`weave start`" + ` spawns this detached with its output going to the log file, which is
 how it usually runs. Run it here to watch that output directly. It stops on an
 interrupt, or when ` + "`weave stop`" + ` asks it to.`,
+		Args: cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logger, err := serveLogger(state.logLevel)
 			if err != nil {
