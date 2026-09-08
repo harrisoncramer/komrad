@@ -125,7 +125,7 @@ func TestMessagesDismissalWalksTheStack(t *testing.T) {
 }
 
 // TestMessagesFocusGoesDormantOffItsScreen covers the review screen, which draws no region, so a
-// focus taken on the agents list does not follow the reader onto it.
+// focus taken on the agents list does not follow the reader onto a screen without one.
 func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 120
@@ -138,7 +138,9 @@ func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 	focused := m.toggleMessagesFocus()
 	require.True(t, focused.isMessagesFocused())
 
-	focused.screen = screenReview
+	// The search screen draws no record and so no message region either, which is what makes the
+	// focus dormant rather than followed.
+	focused.screen = screenSearch
 
 	assert.False(t, focused.isMessagesFocused())
 	assert.True(t, focused.isListFocused())

@@ -528,7 +528,7 @@ func TestReviewSidebarSizesTheDiff(t *testing.T) {
 	m = openReview(t, m)
 
 	shown := ansi.Strip(m.reviewView())
-	assert.Contains(t, shown, "1 file changed")
+	assert.Contains(t, shown, "1 file,")
 	assert.Contains(t, shown, "+1")
 	assert.Contains(t, shown, "-1")
 }
@@ -860,7 +860,7 @@ func TestReviewRendersWhileLoading(t *testing.T) {
 
 	shown := ansi.Strip(m.reviewView())
 	assert.Contains(t, shown, "loading the diff")
-	assert.Contains(t, shown, "start a thread")
+	assert.Contains(t, shown, "start a review here")
 }
 
 // TestReviewSurvivesAFailedLoad is the other frame with no view: a worktree the diff loader
@@ -1012,7 +1012,8 @@ func sentComment() *agentv1.ReviewMessage {
 
 // TestReviewDeliveryViewCountsTheComments covers the line at the top of the sidebar, which
 // counts the person's own comments by how far each has got rather than summarising the lot of
-// them into one phrase.
+// them into one phrase. A review with nothing of the person's own in it counts nothing and says
+// nothing, since the mode line above it is what tells the reader where they are.
 func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -1022,7 +1023,7 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 	}{
 		{
 			name:   "a review with nothing in it",
-			want:   "nothing written yet",
+			want:   "",
 			absent: "unsent",
 		},
 		{
@@ -1057,7 +1058,7 @@ func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 					Body:       "done",
 				}},
 			}},
-			want:   "nothing written yet",
+			want:   "",
 			absent: "waiting",
 		},
 	}
@@ -1606,22 +1607,25 @@ func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
 	m.applyReviewLoaded(loaded)
 
 	assert.Equal(t, 1, m.review.view.Stat().Files, "only the file written since that review")
-	assert.Contains(t, ansi.Strip(m.reviewView()), "since round 1")
+	assert.Contains(t, ansi.Strip(m.reviewView()), "round 2 of 2",
+		"and the band names the round the reader is standing on")
 	assert.NotRegexp(t, `\d+/\d+ viewed`, ansi.Strip(m.reviewView()),
 		"the viewed marks belong to the round rather than to the pair on screen")
 	assert.NotContains(t, ansi.Strip(m.reviewView()), "since you last reviewed",
 		"the courtesy sentence describes the pair the diff is already measured over")
 
-	next, cmd = m.updateReview(keyMsg("d"))
+	// The walk stops at the oldest round rather than cycling, so the way back to the whole
+	// change is the other key.
+	next, cmd = m.updateReview(keyMsg("D"))
 	m = next.(model)
-	require.NotNil(t, cmd, "pressing it again widens the diff back out")
+	require.NotNil(t, cmd, "stepping forward past the newest round widens the diff back out")
 
 	loaded, ok = cmd().(reviewLoadedMsg)
 	require.True(t, ok)
 	m.applyReviewLoaded(loaded)
 
 	assert.Equal(t, 2, m.review.view.Stat().Files, "the whole change again")
-	assert.NotContains(t, ansi.Strip(m.reviewView()), "since round 1")
+	assert.Contains(t, ansi.Strip(m.reviewView()), "all changes")
 }
 
 // reviewWithAnEarlierReview is the panel on a second round with the first one reviewed and
@@ -1792,8 +1796,13 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 
 	assert.Nil(t, m.review.baseRound, "a round measured from somewhere else is not offered")
 
+	// The round is still a stop on the walk, since skipping it would make the key jump an
+	// unpredictable distance, and the band says why it cannot be compared.
 	next, cmd := m.updateReview(keyMsg("d"))
+	m = next.(model)
+	require.NotNil(t, cmd, "the walk still moves")
 
-	assert.Nil(t, cmd, "and the key does nothing")
-	assert.Empty(t, next.(model).review.base)
+	shown := ansi.Strip(m.reviewView())
+	assert.Contains(t, shown, "not comparable",
+		"and says the branch was rebased rather than drawing somebody else's work")
 }
