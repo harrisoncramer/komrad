@@ -171,10 +171,6 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 // TestMessagesDocIsColouredByKind covers the block beside the list drawing a message in the
 // colour its row carries.
 func TestMessagesDocIsColouredByKind(t *testing.T) {
-	restore := lipgloss.ColorProfile()
-	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })
-	lipgloss.SetColorProfile(termenv.TrueColor)
-
 	tests := []struct {
 		name string
 		kind messageKind
