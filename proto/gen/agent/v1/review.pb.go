@@ -439,12 +439,15 @@ type ReviewThread struct {
 	// The round the thread is anchored to, which never moves.
 	RoundId string `protobuf:"bytes,16,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	// Which round that is, counting from one.
-	RoundOrdinal int32  `protobuf:"varint,17,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
-	FilePath     string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	OldStart     int32  `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	OldEnd       int32  `protobuf:"varint,5,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	NewStart     int32  `protobuf:"varint,6,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	NewEnd       int32  `protobuf:"varint,7,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	RoundOrdinal int32 `protobuf:"varint,17,opt,name=round_ordinal,json=roundOrdinal,proto3" json:"round_ordinal,omitempty"`
+	// The commit the old side of these line numbers was read against, which is the round's own
+	// base unless the diff was narrowed to an earlier round when the thread was written.
+	BaseSha  string `protobuf:"bytes,19,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	FilePath string `protobuf:"bytes,3,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	OldStart int32  `protobuf:"varint,4,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	OldEnd   int32  `protobuf:"varint,5,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	NewStart int32  `protobuf:"varint,6,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	NewEnd   int32  `protobuf:"varint,7,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
 	// The diff lines the thread was written against, each keeping its leading marker.
 	QuotedLines []string `protobuf:"bytes,8,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// When the person reviewing settled this thread, empty while it is still owed an answer.
@@ -526,6 +529,13 @@ func (x *ReviewThread) GetRoundOrdinal() int32 {
 		return x.RoundOrdinal
 	}
 	return 0
+}
+
+func (x *ReviewThread) GetBaseSha() string {
+	if x != nil {
+		return x.BaseSha
+	}
+	return ""
 }
 
 func (x *ReviewThread) GetFilePath() string {
@@ -838,14 +848,17 @@ func (x *ListReviewThreadsResponse) GetThreads() []*ReviewThread {
 }
 
 type CreateReviewThreadRequest struct {
-	state       protoimpl.MessageState `protogen:"open.v1"`
-	AgentId     string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
-	FilePath    string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
-	OldStart    int32                  `protobuf:"varint,3,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
-	OldEnd      int32                  `protobuf:"varint,4,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
-	NewStart    int32                  `protobuf:"varint,5,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
-	NewEnd      int32                  `protobuf:"varint,6,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
-	QuotedLines []string               `protobuf:"bytes,7,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
+	state    protoimpl.MessageState `protogen:"open.v1"`
+	AgentId  string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
+	FilePath string                 `protobuf:"bytes,2,opt,name=file_path,json=filePath,proto3" json:"file_path,omitempty"`
+	// The commit the old side of these line numbers was read against, empty for the round's own
+	// base.
+	BaseSha     string   `protobuf:"bytes,10,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
+	OldStart    int32    `protobuf:"varint,3,opt,name=old_start,json=oldStart,proto3" json:"old_start,omitempty"`
+	OldEnd      int32    `protobuf:"varint,4,opt,name=old_end,json=oldEnd,proto3" json:"old_end,omitempty"`
+	NewStart    int32    `protobuf:"varint,5,opt,name=new_start,json=newStart,proto3" json:"new_start,omitempty"`
+	NewEnd      int32    `protobuf:"varint,6,opt,name=new_end,json=newEnd,proto3" json:"new_end,omitempty"`
+	QuotedLines []string `protobuf:"bytes,7,rep,name=quoted_lines,json=quotedLines,proto3" json:"quoted_lines,omitempty"`
 	// The first thing said, which is the thread's reason for existing.
 	Body string `protobuf:"bytes,8,opt,name=body,proto3" json:"body,omitempty"`
 	// Replacement lines proposed for the range, empty for an ordinary comment.
@@ -894,6 +907,13 @@ func (x *CreateReviewThreadRequest) GetAgentId() string {
 func (x *CreateReviewThreadRequest) GetFilePath() string {
 	if x != nil {
 		return x.FilePath
+	}
+	return ""
+}
+
+func (x *CreateReviewThreadRequest) GetBaseSha() string {
+	if x != nil {
+		return x.BaseSha
 	}
 	return ""
 }
@@ -2321,13 +2341,14 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\n" +
 	"updated_at\x18\f \x01(\tR\tupdatedAt\x12\x12\n" +
 	"\x04body\x18\r \x01(\tR\x04bodyB\x12\n" +
-	"\x10_author_agent_id\"\x9c\x04\n" +
+	"\x10_author_agent_id\"\xb7\x04\n" +
 	"\fReviewThread\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bagent_id\x18\x02 \x01(\tR\aagentId\x12\x1b\n" +
 	"\treview_id\x18\x0f \x01(\tR\breviewId\x12\x19\n" +
 	"\bround_id\x18\x10 \x01(\tR\aroundId\x12#\n" +
-	"\rround_ordinal\x18\x11 \x01(\x05R\froundOrdinal\x12\x1b\n" +
+	"\rround_ordinal\x18\x11 \x01(\x05R\froundOrdinal\x12\x19\n" +
+	"\bbase_sha\x18\x13 \x01(\tR\abaseSha\x12\x1b\n" +
 	"\tfile_path\x18\x03 \x01(\tR\bfilePath\x12\x1b\n" +
 	"\told_start\x18\x04 \x01(\x05R\boldStart\x12\x17\n" +
 	"\aold_end\x18\x05 \x01(\x05R\x06oldEnd\x12\x1b\n" +
@@ -2366,10 +2387,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01H\x00R\aagentId\x88\x01\x01B\v\n" +
 	"\t_agent_id\"M\n" +
 	"\x19ListReviewThreadsResponse\x120\n" +
-	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xb4\x02\n" +
+	"\athreads\x18\x01 \x03(\v2\x16.agent.v1.ReviewThreadR\athreads\"\xcf\x02\n" +
 	"\x19CreateReviewThreadRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12$\n" +
-	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x1b\n" +
+	"\tfile_path\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\bfilePath\x12\x19\n" +
+	"\bbase_sha\x18\n" +
+	" \x01(\tR\abaseSha\x12\x1b\n" +
 	"\told_start\x18\x03 \x01(\x05R\boldStart\x12\x17\n" +
 	"\aold_end\x18\x04 \x01(\x05R\x06oldEnd\x12\x1b\n" +
 	"\tnew_start\x18\x05 \x01(\x05R\bnewStart\x12\x17\n" +

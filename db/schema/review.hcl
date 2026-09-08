@@ -189,6 +189,12 @@ table "review_threads" {
     type    = uuid
     comment = "The round the thread's line numbers were measured in, held here rather than read through the review because a batch stays open across rounds and would report the wrong one."
   }
+  column "base_sha" {
+    null    = false
+    type    = text
+    default = ""
+    comment = "The commit the old side of the thread's line numbers was read against, which is the round's own base for a thread written on the whole change and an earlier round's snapshot for one written while the diff was narrowed."
+  }
   column "file_path" {
     null    = false
     type    = text

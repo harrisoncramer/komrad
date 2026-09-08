@@ -37,6 +37,8 @@ type Thread struct {
 	// Harvested says weave wrote this thread from an edit of the round's checkout, which is
 	// what makes it weave's to rewrite or delete on a later harvest.
 	Harvested bool
+	// BaseSHA is the commit the old side of the line numbers was read against.
+	BaseSHA string
 	// RoundOrdinal names that round the way the panel does, zero when it was not read.
 	RoundOrdinal int32
 	// ReviewReleasedAt is when the batch this thread came out with was let go of, nil while the
@@ -116,6 +118,7 @@ type CreateThreadParams struct {
 	ReviewID      string
 	RoundID       string
 	Harvested     bool
+	BaseSHA       string
 	Suggestion    []string
 	FilePath      string
 	OldStart      int32
@@ -136,6 +139,7 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		ReviewID:      params.ReviewID,
 		RoundID:       params.RoundID,
 		Harvested:     params.Harvested,
+		BaseSha:       params.BaseSHA,
 		Suggestion:    lines(params.Suggestion),
 		FilePath:      params.FilePath,
 		OldStart:      params.OldStart,
@@ -157,6 +161,7 @@ func (s *Store) CreateThread(ctx context.Context, params CreateThreadParams) (*T
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		Harvested:           row.Harvested,
+		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
 		OldEnd:              row.OldEnd,
@@ -190,6 +195,7 @@ func (s *Store) ListThreads(ctx context.Context, agentID string) ([]Thread, erro
 			ReviewID:            row.ReviewID,
 			RoundID:             row.RoundID,
 			Harvested:           row.Harvested,
+			BaseSHA:             row.BaseSha,
 			RoundOrdinal:        row.RoundOrdinal,
 			ReviewReleasedAt:    row.ReviewReleasedAt,
 			ReviewAuthorAgentID: row.ReviewAuthorAgentID,
@@ -236,6 +242,7 @@ func (s *Store) GetThread(ctx context.Context, id string) (*Thread, error) {
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		Harvested:           row.Harvested,
+		BaseSha:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
 		OldEnd:              row.OldEnd,
@@ -507,6 +514,7 @@ func threadFromRow(row models.ReviewThread) Thread {
 		ReviewID:            row.ReviewID,
 		RoundID:             row.RoundID,
 		Harvested:           row.Harvested,
+		BaseSHA:             row.BaseSha,
 		FilePath:            row.FilePath,
 		OldStart:            row.OldStart,
 		OldEnd:              row.OldEnd,
@@ -602,6 +610,7 @@ func (s *Store) ListHarvested(ctx context.Context, agentID, roundID string) ([]H
 				ReviewID:            row.ReviewID,
 				RoundID:             row.RoundID,
 				Harvested:           row.Harvested,
+				BaseSha:             row.BaseSha,
 				FilePath:            row.FilePath,
 				OldStart:            row.OldStart,
 				OldEnd:              row.OldEnd,
