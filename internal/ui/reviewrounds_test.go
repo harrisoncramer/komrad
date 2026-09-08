@@ -42,7 +42,7 @@ func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
 	})
 
 	require.Len(t, notices, 3)
-	assert.Contains(t, notices[len(notices)-1].text, "local review rounds")
+	assert.Contains(t, notices[len(notices)-1].text, "reviewed 2 times")
 }
 
 // TestAgentsViewReviewRounds pins the glyph drawn per agent, so one that has been round several

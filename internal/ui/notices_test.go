@@ -23,12 +23,12 @@ func TestNoticesSpellOutTheMarksOnTheRow(t *testing.T) {
 	view := m.detailsView()
 
 	assert.Contains(t, view, worktreeRemovedIcon)
-	assert.Contains(t, view, "worktree gone")
+	assert.Contains(t, view, worktreeRemovedNotice)
 	assert.Contains(t, view, "directory", "the fields are still drawn under the notices")
 
 	m.listing.agents[0].agent.WorktreeRemoved = false
 
-	assert.NotContains(t, m.detailsView(), "worktree gone", "a mark the row is not carrying says nothing")
+	assert.NotContains(t, m.detailsView(), worktreeRemovedNotice, "a mark the row is not carrying says nothing")
 }
 
 // TestNoticesCoverEveryOptionalMark walks the marks one at a time.
@@ -129,7 +129,7 @@ func TestNoticesKeepTheRecordsHeight(t *testing.T) {
 	flagged := m.detailsView()
 
 	assert.Equal(t, plain, strings.Count(flagged, "\n"))
-	assert.Contains(t, flagged, "worktree gone")
+	assert.Contains(t, flagged, worktreeRemovedNotice)
 	assert.Contains(t, flagged, "name", "a field survives however many marks the row carries")
 }
 
@@ -145,7 +145,7 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 	view := m.detailsView()
 
 	assert.Equal(t, m.detailsLines()+detailsChromeLines, strings.Count(view, "\n"))
-	assert.NotContains(t, view, "a script weave fired", "the last mark is given up rather than the fields")
+	assert.NotContains(t, view, failedRunNotice, "the last mark is given up rather than the fields")
 	assert.Contains(t, view, "name", "a field is still drawn")
 }
 
@@ -159,8 +159,8 @@ func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	view := m.detailsView()
 
 	assert.Contains(t, view, "…")
-	assert.Contains(t, view, "run failed")
-	assert.NotContains(t, view, "opened the log it went to")
+	assert.Contains(t, view, "a script weave")
+	assert.NotContains(t, view, "log unread")
 }
 
 // TestNoticesStayInsideTheColumn covers the cut line, which is the one place the record draws
