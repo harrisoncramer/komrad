@@ -143,13 +143,23 @@ func orEnterWriting(fn func(model) (tea.Model, tea.Cmd)) func(model) (tea.Model,
 			return fn(m)
 		}
 
-		if said, history := m.reviewIsHistory(); history {
-			return m.refuseReviewHistory(said)
+		next, cmd := fn(m)
+
+		opened, ok := next.(model)
+		if !ok {
+			return next, cmd
 		}
 
-		m.review.writing = true
+		// Only a write that took opens the mode, and what says so is the editor being on screen
+		// or on its way. A press that opened nothing would otherwise take the round keys away and
+		// say nothing about why.
+		if opened.info.kind != infoEditFile && opened.review.materialising == m.review.materialising {
+			return next, cmd
+		}
 
-		return fn(m)
+		opened.review.writing = true
+
+		return opened, cmd
 	}
 }
 
@@ -159,6 +169,14 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 	return func(m model, _ string) (tea.Model, tea.Cmd) {
 		if _, dead := m.reviewIsReadOnly(); dead {
 			return m.refuseReviewWrite()
+		}
+
+		if said, history := m.reviewIsHistory(); history {
+			return m.refuseReviewHistory(said)
+		}
+
+		if m.review.awaiting {
+			return m.refuseReviewAwaiting()
 		}
 
 		return fn(m)
@@ -267,7 +285,7 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewBaseForward},
 			desc: model.reviewBaseForwardDesc,
-			show: func(m model) bool { return len(m.review.chapters) > 0 },
+			show: model.doesReviewFitBaseLegend,
 		},
 		{
 			of:   []actionID{actionReviewCompose},
@@ -283,7 +301,7 @@ func reviewLegend() []legendRow {
 		},
 		{
 			of:   []actionID{actionReviewBack},
-			desc: func(model) string { return "back to the agents" },
+			desc: model.reviewBackDesc,
 		},
 	}
 }

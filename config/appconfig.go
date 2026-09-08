@@ -337,8 +337,8 @@ type MailKeys struct {
 type ReviewKeys struct {
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
-	// Measure the diff from the round you last reviewed rather than from the point the
-	// branch left main, and press it again to go back to the whole change.
+	// Walk back a round through the review, from the whole change to the newest round and
+	// on into the older ones, stopping on the oldest.
 	Base []string `mapstructure:"base" default:"d"`
 	// Walk the other way through the rounds, towards the newest work and on to the whole
 	// change.

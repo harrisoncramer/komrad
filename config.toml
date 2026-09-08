@@ -184,9 +184,12 @@ up     = ["k"]
 [keybindings.review]
 # Leave the review for the agents list.
 back          = ["esc"]
-# Measure the diff from the round you last reviewed rather than from the point the
-# branch left main, and press it again to go back to the whole change.
+# Walk back a round through the review, from the whole change to the newest round and
+# on into the older ones, stopping on the oldest.
 base          = ["d"]
+# Walk the other way through the rounds, towards the newest work and on to the whole
+# change.
+base_forward  = ["D"]
 # Send the review and stop the agent where it stands, so it reads now rather than at
 # the end of whatever it is doing. Only in the release panel, beside the ordinary
 # submit key, which sends without interrupting.
@@ -228,7 +231,7 @@ scroll_down   = ["ctrl+n"]
 scroll_up     = ["ctrl+p"]
 # Quit the panel.
 quit          = ["ctrl+c"]
-# Catch up with the agent, once the sidebar says it has written since you opened the
+# Catch up with the agent, once the band says it has written since you opened the
 # diff. What you are reading never moves on its own, since that would take the code out
 # from under a comment being written, so catching up is always yours to ask for.
 reload        = ["R"]

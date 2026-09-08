@@ -148,6 +148,20 @@ func (m model) refuseReviewHistory(said string) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// refuseReviewAwaiting says why a write did not happen while the review already sent is still
+// unanswered, which is the state the service refuses a second review in.
+func (m model) refuseReviewAwaiting() (tea.Model, tea.Cmd) {
+	summary := "your review has not been answered yet"
+	detail := "The agent has written nothing since the review you sent, so a second one would be " +
+		"about the same code and the service refuses it. Wait for it to answer, or press " +
+		keyLabel(m.keys.Review.Reload) + " once it has."
+
+	m.reportBrief(summary, detail, nil)
+	m.review.notice = summary
+
+	return m, nil
+}
+
 // updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn
 // in the review's own sidebar.
 func (m model) updateReviewFilter(key tea.KeyMsg) (tea.Model, tea.Cmd) {

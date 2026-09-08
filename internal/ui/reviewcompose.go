@@ -35,7 +35,7 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
 	// what it is still on screen for.
 	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok && !replying {
-		return m, nil
+		return m.refuseReviewLine()
 	}
 
 	m.review.editing = ""
@@ -62,13 +62,21 @@ func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
 
 	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok {
 		if _, replying := m.reviewThreadAtCursor(); !replying {
-			return m, nil
+			return m.refuseReviewLine()
 		}
 	}
 
 	m.review.writing = true
 
 	return m.composeReview()
+}
+
+// refuseReviewLine says why nothing opened on a row that is not a line of code, since silence
+// there reads as the key being broken.
+func (m model) refuseReviewLine() (tea.Model, tea.Cmd) {
+	m.review.notice = "put the cursor on a line of the diff to comment on it"
+
+	return m, nil
 }
 
 // leaveReviewWriting goes back to reading, keeping whatever has been written.
@@ -302,6 +310,10 @@ func (m model) sendReview(interrupt bool) (tea.Model, tea.Cmd) {
 	body := strings.TrimSpace(m.review.editor.Value())
 
 	m = m.closeReviewRelease()
+
+	// The mode existed for the batch that has just gone, so it goes too. Leaving it on parks the
+	// reader in a mode whose own keys have withdrawn along with the review.
+	m.review.writing = false
 
 	agents, agentID := m.api.agents, m.review.agentID
 

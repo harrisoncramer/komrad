@@ -604,13 +604,16 @@ func (m model) reviewSendDesc() string {
 // reviewIsHistory says whether the round on screen ends before the agent's current work, and
 // names it for the refusal to quote.
 func (m model) reviewIsHistory() (string, bool) {
-	at := m.review.chapter
-	if at < 0 || at >= len(m.review.chapters) {
+	// Explainer: what decides this is the snapshot the diff was drawn to, not what the chapter at
+	// the reader's index happens to say now. The list is recut on every load, so an index and a
+	// list can disagree, and the refusal has to follow the code on screen rather than the label.
+	if m.review.head == "" || m.review.head == m.review.round.GetSnapshotSha() {
 		return "", false
 	}
 
-	if m.review.chapters[at].ToSHA == m.review.round.GetSnapshotSha() {
-		return "", false
+	at := m.review.chapter
+	if at < 0 || at >= len(m.review.chapters) {
+		return "an earlier round", true
 	}
 
 	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
@@ -689,6 +692,16 @@ func (m model) reviewComposeDesc() string {
 	}
 
 	return "comment on this line"
+}
+
+// reviewBackDesc says which of the two things the back key leaves, since writing is a mode inside
+// the screen and it is given up first.
+func (m model) reviewBackDesc() string {
+	if m.review.writing {
+		return "stop writing"
+	}
+
+	return "back to the agents"
 }
 
 // reviewReloadDesc says what the reload key would do.

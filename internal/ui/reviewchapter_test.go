@@ -75,7 +75,8 @@ func TestThePinFollowsTheBatchNotTheThread(t *testing.T) {
 		},
 	}
 
-	round, pinned := pendingRound(t.Context(), agents, pendingRoundParams{AgentID: "a1"})
+	round, pinned, err := pendingRound(t.Context(), agents, pendingRoundParams{AgentID: "a1"})
+	require.NoError(t, err)
 	require.NotEqual(t, "r1", round.GetId(), "not the round the replied-to thread belongs to")
 	require.True(t, pinned, "an open batch pins the diff")
 	require.NotNil(t, round)
@@ -96,7 +97,8 @@ func TestNothingOpenLeavesTheDiffAlone(t *testing.T) {
 		}},
 	}
 
-	round, pinned := pendingRound(t.Context(), agents, pendingRoundParams{AgentID: "a1"})
+	round, pinned, err := pendingRound(t.Context(), agents, pendingRoundParams{AgentID: "a1"})
+	require.NoError(t, err)
 	assert.False(t, pinned, "a released review holds nothing open")
 	assert.Nil(t, round)
 }

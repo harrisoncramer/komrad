@@ -41,6 +41,7 @@ type fakeReviewAgents struct {
 	harvested  *agentv1.HarvestRoundEditsRequest
 	harvests   int
 	harvestErr error
+	reviewsErr error
 }
 
 // HarvestRoundEdits records what the panel sent rather than reconciling anything.
@@ -146,6 +147,10 @@ func (f *fakeReviewAgents) ListReviews(
 	context.Context,
 	*connect.Request[agentv1.ListReviewsRequest],
 ) (*connect.Response[agentv1.ListReviewsResponse], error) {
+	if f.reviewsErr != nil {
+		return nil, f.reviewsErr
+	}
+
 	return connect.NewResponse(&agentv1.ListReviewsResponse{Reviews: f.reviews}), nil
 }
 
@@ -1738,6 +1743,7 @@ func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 		{ToSHA: m.review.round.GetSnapshotSha(), Ordinal: 2},
 	}
 	m.review.chapter = 0
+	m.review.head = "an-older-snapshot"
 
 	said, history := m.reviewIsHistory()
 	require.True(t, history)

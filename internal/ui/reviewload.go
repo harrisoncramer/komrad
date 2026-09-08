@@ -277,7 +277,11 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		round, pinned := pendingRound(ctx, agents, pendingRoundParams{AgentID: agentID})
+		round, pinned, err := pendingRound(ctx, agents, pendingRoundParams{AgentID: agentID})
+		if err != nil {
+			return reviewLoadedMsg{agentID: agentID, err: err}
+		}
+
 		if round == nil {
 			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 				AgentId: agentID,
@@ -523,11 +527,15 @@ func chapterList(params chapterListParams) []reviewChapter {
 	fromBase := params.OnScreen.GetBaseSha()
 	for _, milestone := range milestones {
 		chapters = append(chapters, reviewChapter{
-			FromSHA:    from,
-			ToSHA:      milestone.GetSnapshotSha(),
-			At:         closed[milestone.GetOrdinal()],
-			Ordinal:    milestone.GetOrdinal(),
-			Until:      roundAfter(params.Rounds, milestone.GetOrdinal()),
+			FromSHA: from,
+			ToSHA:   milestone.GetSnapshotSha(),
+			At:      closed[milestone.GetOrdinal()],
+			Ordinal: milestone.GetOrdinal(),
+			Until: roundAfter(roundAfterParams{
+				Rounds:  params.Rounds,
+				After:   milestone.GetOrdinal(),
+				Ceiling: params.OnScreen.GetOrdinal(),
+			}),
 			Comparable: from == "" || fromBase == milestone.GetBaseSha(),
 		})
 
@@ -576,7 +584,7 @@ func messagesByChapter(thread *agentv1.ReviewThread, until string) *agentv1.Revi
 
 	kept := make([]*agentv1.ReviewMessage, 0, len(said))
 	for _, message := range said {
-		if isBefore(message.GetCreatedAt(), until) {
+		if doesPredate(message.GetCreatedAt(), until) {
 			kept = append(kept, message)
 		}
 	}
@@ -612,12 +620,39 @@ func isBefore(stamp, mark string) bool {
 	return at.Before(against)
 }
 
+// doesPredate reports whether something was said before a mark, and says yes for a stamp it
+// cannot read, since hiding a comment over an unreadable date leaves a thread drawn with no text
+// and nothing on screen to explain it.
+func doesPredate(stamp, mark string) bool {
+	at, err := time.Parse(time.RFC3339, stamp)
+	if err != nil {
+		return true
+	}
+
+	against, err := time.Parse(time.RFC3339, mark)
+	if err != nil {
+		return true
+	}
+
+	return at.Before(against)
+}
+
+// roundAfterParams says which round to look past and how far the reader can see.
+type roundAfterParams struct {
+	Rounds []*agentv1.ReviewRound
+	// After is the round the chapter ends at.
+	After int32
+	// Ceiling is the round on screen, past which a round is not something the reader is reading
+	// and so cannot be what closed their chapter.
+	Ceiling int32
+}
+
 // roundAfter is when the round following an ordinal was taken, which is the moment the agent left
-// that round behind, and nothing when it is the newest.
-func roundAfter(rounds []*agentv1.ReviewRound, ordinal int32) string {
+// that round behind, and nothing when the reader is standing on the last of them.
+func roundAfter(params roundAfterParams) string {
 	after := ""
-	for _, round := range rounds {
-		if round.GetOrdinal() <= ordinal {
+	for _, round := range params.Rounds {
+		if round.GetOrdinal() <= params.After || round.GetOrdinal() > params.Ceiling {
 			continue
 		}
 		if after == "" || isBefore(round.GetCreatedAt(), after) {
@@ -702,6 +737,17 @@ func listReviewThreads(
 	return resp.Msg.GetThreads(), nil
 }
 
+// applyReviewChapters holds the walk the arriving diff came with, and puts the reader back on the
+// whole change when their place in it is gone, so a list that came back short or empty cannot
+// strand them on a narrowed diff with no key out of it.
+func (m *model) applyReviewChapters(chapters []reviewChapter) {
+	m.review.chapters = chapters
+
+	if m.review.chapter >= len(chapters) {
+		m.widenReviewBase()
+	}
+}
+
 // pendingRoundParams says whose review is being read.
 type pendingRoundParams struct {
 	AgentID string
@@ -714,30 +760,33 @@ func pendingRound(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,
 	params pendingRoundParams,
-) (*agentv1.ReviewRound, bool) {
+) (*agentv1.ReviewRound, bool, error) {
 	// Explainer: the batch says which snapshot the review is being written against, and a thread
 	// does not. Replying into a thread from an earlier round leaves an unsent message on that
 	// thread, so reading the round off the thread would drag the whole diff back to whenever that
 	// conversation started.
-	roundID := openBatchRound(ctx, agents, params.AgentID)
+	roundID, err := openBatchRound(ctx, agents, params.AgentID)
+	if err != nil {
+		return nil, false, err
+	}
 	if roundID == "" {
-		return nil, false
+		return nil, false, nil
 	}
 
 	rounds, err := agents.ListReviewRounds(ctx, connect.NewRequest(&agentv1.ListReviewRoundsRequest{
 		AgentId: params.AgentID,
 	}))
 	if err != nil {
-		return nil, false
+		return nil, false, fmt.Errorf("failed to read the rounds of %q: %w", params.AgentID, err)
 	}
 
 	for _, round := range rounds.Msg.GetRounds() {
 		if round.GetId() == roundID {
-			return round, true
+			return round, true, nil
 		}
 	}
 
-	return nil, false
+	return nil, false, nil
 }
 
 // openBatchRound is the round the person's unreleased review was opened against, empty when they
@@ -746,12 +795,12 @@ func openBatchRound(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,
 	agentID string,
-) string {
+) (string, error) {
 	resp, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
 		AgentId: agentID,
 	}))
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("failed to read the reviews of %q: %w", agentID, err)
 	}
 
 	for _, review := range resp.Msg.GetReviews() {
@@ -759,11 +808,11 @@ func openBatchRound(
 			continue
 		}
 		if review.GetReleasedAt() == "" {
-			return review.GetRoundId()
+			return review.GetRoundId(), nil
 		}
 	}
 
-	return ""
+	return "", nil
 }
 
 func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
@@ -804,7 +853,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.baseAt = msg.earlierAt
 	m.review.pinned = msg.pinned
 	m.review.awaiting = msg.awaiting
-	m.review.chapters = msg.chapters
+	m.applyReviewChapters(msg.chapters)
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetViewed(indexViewedFiles(msg.viewed))
