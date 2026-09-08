@@ -287,6 +287,23 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
+	// Explainer: a place in the walk the arriving list no longer holds cannot be drawn, so the
+	// reader goes back to the whole change. The widen has to bring the diff with it. The base the
+	// model carries is what a new thread records its old-side numbers against, so a widened model
+	// over a narrowed patch files comments against a snapshot they were never read from.
+	if m.review.chapter >= 0 && m.review.chapter >= len(msg.chapters) {
+		said := m.review.baseLabel
+		m.review.chapters = msg.chapters
+		m.widenReviewBase()
+		m.review.notice = "back to the whole change, " + said + " is no longer there"
+
+		return m.loadReviewCmd(loadReviewCmdParams{
+			AgentID: m.review.agentID,
+			Dir:     m.review.dir,
+			Exclude: m.review.exclude,
+		})
+	}
+
 	m.review.loading = false
 	m.review.err = msg.err
 	if msg.patch == nil {
@@ -297,7 +314,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.review.baseAt = msg.earlierAt
 	m.review.pinned = msg.pinned
 	m.review.awaiting = msg.awaiting
-	m.applyReviewChapters(msg.chapters)
+	m.review.chapters = msg.chapters
 	m.review.root = msg.patch.Root
 	m.review.view = review.NewView(msg.patch, m.isDark)
 	m.review.view.SetTraced(msg.traced)

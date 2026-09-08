@@ -103,11 +103,85 @@ func TestReloadWithNoChaptersLetsTheReaderOut(t *testing.T) {
 	require.NotEmpty(t, m.review.base)
 	require.GreaterOrEqual(t, m.review.chapter, 0)
 
-	m.applyReviewChapters(nil)
+	agents.roundsErr = errors.New("the server went away")
+	m = reloadReviewFully(t, m)
 
 	assert.Negative(t, m.review.chapter, "the index does not outlive the list")
 	assert.Empty(t, m.review.base, "and the diff is back to the whole change")
 	assert.Empty(t, m.review.head)
+	assert.Contains(t, m.review.notice, "back to the whole change")
+}
+
+// TestTheWidenedDiffIsTheOneOnScreen covers the widen the lost walk forces: the model saying the
+// whole change over a patch still measured from a round files a comment against a base its own
+// line numbers were never read from.
+func TestTheWidenedDiffIsTheOneOnScreen(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m := reviewWithAnEarlierReview(t, dir, agents)
+	m = pressReviewBase(t, m)
+	require.Equal(t, 1, m.review.view.Stat().Files, "the narrowed diff holds the second file only")
+
+	agents.roundsErr = errors.New("the server went away")
+	m = reloadReviewFully(t, m)
+
+	require.Empty(t, m.review.chapters)
+	assert.Equal(t, 2, m.review.view.Stat().Files, "the diff on screen widened with the model")
+
+	m = writeReviewComment(t, m, "about this line")
+
+	require.NotNil(t, agents.created)
+	assert.Empty(t, agents.created.GetBaseSha(), "which is the base the numbers were read against")
+}
+
+// reloadReviewFully presses the reload key and follows whatever the load answers with, including
+// the second load a widened reader is sent back for.
+func reloadReviewFully(t *testing.T, m model) model {
+	t.Helper()
+
+	next, cmd := m.reloadReview()
+	m = next
+	require.NotNil(t, cmd)
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	require.NoError(t, loaded.err)
+
+	again := m.applyReviewLoaded(loaded)
+	if again == nil {
+		return m
+	}
+
+	switch answer := again().(type) {
+	case reviewLoadedMsg:
+		require.NoError(t, answer.err)
+		m.applyReviewLoaded(answer)
+	case roundLeftoverMsg:
+		m.applyRoundLeftover(answer)
+	}
+
+	return m
+}
+
+// writeReviewComment opens the composer on the row the cursor is standing on and sends what is
+// typed into it.
+func writeReviewComment(t *testing.T, m model, body string) model {
+	t.Helper()
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing)
+	m.review.editor.SetValue(body)
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	m = next.(model)
+	require.NotNil(t, cmd)
+
+	wrote, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NoError(t, wrote.err)
+
+	return m
 }
 
 // TestThePinHoldsWhenTheReviewsCannotBeRead covers the call the pin rests on failing: taking a
