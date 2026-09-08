@@ -2,6 +2,7 @@ package ui
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -231,5 +232,29 @@ func TestListLines(t *testing.T) {
 
 			assert.Equal(t, tt.want, m.listLines(header, help))
 		})
+	}
+}
+
+// TestWindowRowsNeverOutgrowsThePane pins the one bound every caller of the marker arithmetic
+// rests on, since bubbletea draws whatever it is handed and a taller block scrolls the pane away.
+func TestWindowRowsNeverOutgrowsThePane(t *testing.T) {
+	rows := make([]string, 12)
+	for i := range rows {
+		rows[i] = "row " + strconv.Itoa(i)
+	}
+
+	for lines := 1; lines <= len(rows)-1; lines++ {
+		for scroll := range len(rows) + 2 {
+			// Anchored to the end the way the review's own thread is, which is the placement that
+			// puts a start in the middle and so asks for both counts at once.
+			place := func(visible int) int {
+				return len(rows) - visible - min(scroll, len(rows)-visible)
+			}
+
+			out := windowRows(rows, lines, place, dimStyle)
+
+			assert.Equal(t, lines, strings.Count(out, "\n"),
+				"windowRows drew %d rows into %d, scroll=%d", strings.Count(out, "\n"), lines, scroll)
+		}
 	}
 }

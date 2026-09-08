@@ -579,7 +579,7 @@ func (m model) reviewHelp() keyMap {
 // the legend this binding is drawn in.
 func (m model) reviewThreadBinding() key.Binding {
 	desc := "read the thread"
-	if m.review.threadFocus {
+	if _, ok := m.reviewThreadAtCursor(); ok && m.review.threadFocus {
 		desc = "back to the diff"
 	}
 

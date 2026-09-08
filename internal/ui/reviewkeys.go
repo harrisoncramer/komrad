@@ -276,7 +276,7 @@ func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
 	}
 
 	m.review.cursor = next
-	m.review.threadScroll = 0
+	m = m.blurReviewThread()
 	m.review.top = max(min(m.review.view.GetFileTopRow(next), m.review.view.Len()-1), 0)
 	m.review.pinTop = true
 	m.review.pinFloor = m.review.top
@@ -293,9 +293,9 @@ func (m model) moveReviewCursor(next int) (tea.Model, tea.Cmd) {
 	m.review.cursor = next
 	m.review.pinTop = false
 
-	// The window is counted from the end of one conversation, so it means nothing against the
-	// next one the cursor lands on.
-	m.review.threadScroll = 0
+	// The keys and the window both belong to the conversation the cursor was standing on, so
+	// neither means anything against the next one it lands on.
+	m = m.blurReviewThread()
 	m.scrollReviewToCursor()
 
 	return m, m.markReviewThreadReadCmd()
