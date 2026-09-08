@@ -168,6 +168,43 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 	assert.Contains(t, focused, "\x1b[1;34m", "the accent says the region holds the keys")
 }
 
+// TestMessagesDocIsColouredByKind covers the block beside the list drawing a message in the
+// colour its row carries.
+func TestMessagesDocIsColouredByKind(t *testing.T) {
+	tests := []struct {
+		name string
+		kind messageKind
+		want string
+	}{
+		{name: "an error is the scheme's red", kind: messageError, want: "\x1b[91"},
+		{name: "a warning is its yellow", kind: messageWarning, want: "\x1b[93"},
+		{name: "a success is its green", kind: messageSuccess, want: "\x1b[92"},
+		{name: "an info is its muted grey", kind: messageInfo, want: "\x1b[90"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := detailsModel(&recordingTmux{})
+			m.height, m.width = 40, 120
+			m.pushMessage(message{kind: tt.kind, summary: "Nothing to review in fix-ci", detail: "no change against the base"})
+
+			focused := m.toggleMessagesFocus()
+			split, ok := focused.columnSplit()
+			require.True(t, ok)
+
+			head := ""
+			for _, row := range focused.messagesBlock(split).rows {
+				if strings.Contains(ansi.Strip(row), "Nothing to review in fix-ci") {
+					head = row
+				}
+			}
+
+			require.NotEmpty(t, head, "the block draws what happened")
+			assert.Contains(t, head, tt.want)
+		})
+	}
+}
+
 // TestMessagesRefuseFocusWithNothingToRead covers the key being refused rather than opening a
 // region whose block would say there is nothing in it.
 func TestMessagesRefuseFocusWithNothingToRead(t *testing.T) {

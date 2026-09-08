@@ -205,8 +205,8 @@ func (m model) messagesDoc() string {
 	held := m.messages.items[m.messagesCursor()]
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "_Message %d of %d · %s · %s_\n\n", m.messagesCursor()+1, len(m.messages.items), held.at.Format("3:04pm"), kindLabel(held.kind))
-	fmt.Fprintf(&b, "%s %s\n\n%s\n", kindIcon(held.kind), held.summary, held.detail)
+	fmt.Fprintf(&b, "**%s %s**\n\n", kindIcon(held.kind), held.summary)
+	fmt.Fprintf(&b, "_%s · %s · message %d of %d_\n\n%s\n", kindLabel(held.kind), held.at.Format("3:04pm"), m.messagesCursor()+1, len(m.messages.items), held.detail)
 
 	if held.hint != "" {
 		fmt.Fprintf(&b, "\n%s\n", held.hint)
@@ -226,10 +226,18 @@ func messagesColumn() columnSpec {
 // messagesBlock is the message drawn in the block beside the list, asked for directly.
 func (m model) messagesBlock(split columnSplit) docWindow {
 	return docWindow{
-		rows:    docRows(m.messagesDoc(), split.column),
+		rows:    docStyledRows(m.messagesDoc(), split.column, kindStyleConfig(m.messagesKind())),
 		top:     m.column.top,
 		markers: true,
 	}
+}
+
+func (m model) messagesKind() messageKind {
+	if len(m.messages.items) == 0 {
+		return messageSuccess
+	}
+
+	return m.messages.items[m.messagesCursor()].kind
 }
 
 func (m model) messagesCursor() int {
@@ -379,19 +387,23 @@ func kindLabel(kind messageKind) string {
 	return "info"
 }
 
-func kindStyle(kind messageKind) lipgloss.Style {
+func kindColor(kind messageKind) lipgloss.Color {
 	switch kind {
 	case messageError:
-		return lipgloss.NewStyle().Foreground(colorDanger)
+		return colorDanger
 	case messageWarning:
-		return lipgloss.NewStyle().Foreground(colorWarning)
+		return colorWarning
 	case messageSuccess:
-		return lipgloss.NewStyle().Foreground(colorSuccess)
+		return colorSuccess
 	case messageInfo:
-		return dimStyle
+		return colorMuted
 	}
 
-	return dimStyle
+	return colorMuted
+}
+
+func kindStyle(kind messageKind) lipgloss.Style {
+	return lipgloss.NewStyle().Foreground(kindColor(kind))
 }
 
 // mockMessages are the fixtures the region is drawn from while nothing real reports through it,

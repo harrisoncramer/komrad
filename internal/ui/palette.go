@@ -110,6 +110,15 @@ var stageStyle = func() ansi.StyleConfig {
 	return style
 }()
 
+func kindStyleConfig(kind messageKind) ansi.StyleConfig {
+	style := stageStyle
+	color := ansiColor(kindColor(kind))
+	style.Emph.Color = color
+	style.Strong.Color = color
+
+	return style
+}
+
 func ansiColor(color lipgloss.Color) *string {
 	return xptr.Ptr(string(color))
 }
