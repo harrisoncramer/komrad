@@ -1556,3 +1556,89 @@ func TestReviewMatchCountSpellsMatchesOffAMatch(t *testing.T) {
 
 	assert.Contains(t, ansi.Strip(m.reviewMatchCount()), "2 matches")
 }
+
+// TestReviewBaseNarrowsToTheLastReview covers the question a second round is about: the diff
+// measured from the round the person last reviewed rather than from the fork point.
+func TestReviewBaseNarrowsToTheLastReview(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+
+	m = openReview(t, m)
+	require.Len(t, agents.rounds, 1, "the first look takes a round")
+	first := agents.rounds[0]
+
+	agents.reviews = []*agentv1.Review{{
+		Id:           "v1",
+		RoundId:      first.GetId(),
+		RoundOrdinal: first.GetOrdinal(),
+		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		ReleasedAt:   "2026-09-08T10:00:00Z",
+	}}
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "second.go"),
+		[]byte("package greet\n\nfunc Second() {}\n"), 0o644))
+
+	m = openReview(t, m)
+	require.Len(t, agents.rounds, 2, "the tree moved, so the second look takes another round")
+	require.Equal(t, first.GetBaseSha(), agents.rounds[1].GetBaseSha(), "the base has not moved")
+	require.Equal(t, 2, m.review.view.Stat().Files, "the whole change is both files")
+
+	next, cmd := m.updateReview(keyMsg("d"))
+	m = next.(model)
+	require.NotNil(t, cmd, "narrowing the base reloads the diff")
+
+	loaded, ok := cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	m.applyReviewLoaded(loaded)
+
+	assert.Equal(t, 1, m.review.view.Stat().Files, "only the file written since that review")
+	assert.Contains(t, ansi.Strip(m.reviewView()), "since round 1")
+	assert.NotRegexp(t, `\d+/\d+ viewed`, ansi.Strip(m.reviewView()),
+		"the viewed marks belong to the round rather than to the pair on screen")
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "since you last reviewed",
+		"the courtesy sentence describes the pair the diff is already measured over")
+
+	next, cmd = m.updateReview(keyMsg("d"))
+	m = next.(model)
+	require.NotNil(t, cmd, "pressing it again widens the diff back out")
+
+	loaded, ok = cmd().(reviewLoadedMsg)
+	require.True(t, ok)
+	m.applyReviewLoaded(loaded)
+
+	assert.Equal(t, 2, m.review.view.Stat().Files, "the whole change again")
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "since round 1")
+}
+
+// TestReviewBaseIsRefusedWhenTheBaseMoved covers two rounds measured from different points, where
+// a diff of the two snapshots would carry whatever else moved on the base.
+func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+
+	m = openReview(t, m)
+	first := agents.rounds[0]
+	first.BaseSha = "0000000000000000000000000000000000000000"
+
+	agents.reviews = []*agentv1.Review{{
+		Id:           "v1",
+		RoundId:      first.GetId(),
+		RoundOrdinal: first.GetOrdinal(),
+		AuthorKind:   agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN,
+		ReleasedAt:   "2026-09-08T10:00:00Z",
+	}}
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "second.go"),
+		[]byte("package greet\n\nfunc Second() {}\n"), 0o644))
+
+	m = openReview(t, m)
+
+	assert.Nil(t, m.review.baseRound, "a round measured from somewhere else is not offered")
+
+	next, cmd := m.updateReview(keyMsg("d"))
+
+	assert.Nil(t, cmd, "and the key does nothing")
+	assert.Empty(t, next.(model).review.base)
+}

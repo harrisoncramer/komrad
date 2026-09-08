@@ -337,6 +337,9 @@ type MailKeys struct {
 type ReviewKeys struct {
 	// Leave the review for the agents list.
 	Back []string `mapstructure:"back" default:"esc"`
+	// Measure the diff from the round you last reviewed rather than from the point the
+	// branch left main, and press it again to go back to the whole change.
+	Base []string `mapstructure:"base" default:"d"`
 	// Send the review and stop the agent where it stands, so it reads now rather than at
 	// the end of whatever it is doing. Only in the release panel, beside the ordinary
 	// submit key, which sends without interrupting.

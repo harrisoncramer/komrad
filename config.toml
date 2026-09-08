@@ -184,6 +184,9 @@ up     = ["k"]
 [keybindings.review]
 # Leave the review for the agents list.
 back          = ["esc"]
+# Measure the diff from the round you last reviewed rather than from the point the
+# branch left main, and press it again to go back to the whole change.
+base          = ["d"]
 # Send the review and stop the agent where it stands, so it reads now rather than at
 # the end of whatever it is doing. Only in the release panel, beside the ordinary
 # submit key, which sends without interrupting.

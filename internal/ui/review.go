@@ -58,7 +58,16 @@ type reviewState struct {
 	// since says how much of the diff is new to the reader, which is a standing fact about what
 	// is on screen rather than an answer to a keypress, so it outlives the notice slot.
 	since string
-	err   error
+
+	// base is the commit the diff on screen is measured from, empty for the point the branch
+	// left main.
+	base string
+	// baseLabel names that commit for the band, empty while the diff is measured from the fork
+	// point.
+	baseLabel string
+	// baseRound is the round the narrowed base came from, nil while there is none to offer.
+	baseRound *agentv1.ReviewRound
+	err       error
 
 	// roundDir is where the round has been checked out for the editor to read, named after the
 	// agent rather than the round.

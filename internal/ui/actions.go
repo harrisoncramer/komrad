@@ -74,6 +74,7 @@ const (
 	actionReviewPan
 	actionReviewPanReset
 	actionReviewEdit
+	actionReviewBase
 	actionReviewReload
 	actionReviewResolve
 	actionReviewViewed

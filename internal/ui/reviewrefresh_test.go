@@ -544,7 +544,11 @@ func TestReviewSaysWhenEverythingIsExcluded(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	loaded, ok := m.loadReviewCmd(m.review.agentID, dir, []string{"proto/gen"})().(reviewLoadedMsg)
+	loaded, ok := m.loadReviewCmd(loadReviewCmdParams{
+		AgentID: m.review.agentID,
+		Dir:     dir,
+		Exclude: []string{"proto/gen"},
+	})().(reviewLoadedMsg)
 	require.True(t, ok)
 	require.ErrorIs(t, loaded.err, diff.ErrAllExcluded, "the agent wrote a file, it is only hidden")
 

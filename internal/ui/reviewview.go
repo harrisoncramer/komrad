@@ -237,7 +237,7 @@ func (m model) reviewRestView() string {
 	// about the diff itself stands underneath and comes back the moment the answer is gone.
 	if notice := m.review.notice; notice != "" {
 		out += "\n" + m.reviewNote(reviewNoticeStyle, notice)
-	} else if since := m.review.since; since != "" {
+	} else if since := m.review.since; since != "" && m.review.baseLabel == "" {
 		out += "\n" + m.reviewNote(dimStyle, since)
 	}
 
@@ -319,11 +319,19 @@ func (m model) reviewStatView() string {
 		return ""
 	}
 
-	out := dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
+	out := ""
+	if m.review.baseLabel != "" {
+		out += dimStyle.Render(m.review.baseLabel + " · ")
+	}
+
+	out += dimStyle.Render(counted(stat.Files, "file")+" changed") + "  " +
 		reviewAddedStyle.Render(fmt.Sprintf("+%d", stat.Added)) + " " +
 		reviewRemovedStyle.Render(fmt.Sprintf("-%d", stat.Removed))
 
-	if read, total := m.review.view.CountViewedFiles(); read > 0 {
+	// Explainer: the viewed marks belong to the round rather than to the pair on screen, so a
+	// narrowed diff has fewer files than the marks were made against and the fraction would read
+	// as marks having vanished.
+	if read, total := m.review.view.CountViewedFiles(); read > 0 && m.review.baseLabel == "" {
 		out += dimStyle.Render(fmt.Sprintf("  %d/%d viewed", read, total))
 	}
 
