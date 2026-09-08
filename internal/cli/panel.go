@@ -1,10 +1,12 @@
 package cli
 
 import (
+	"log/slog"
 	"net/http"
 
 	"weave/internal/agents"
 	"weave/internal/errui"
+	"weave/internal/logging"
 	"weave/internal/ui"
 	"weave/proto/gen/agent/v1/agentv1connect"
 	"weave/proto/gen/hook/v1/hookv1connect"
@@ -33,6 +35,10 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			logPath := state.env.LogPath()
 
+			if err := installPanelLogger(logPath, state.logLevel); err != nil {
+				return err
+			}
+
 			var startupErr error
 			if state.configErr == nil {
 				startupErr = ensureServer(cmd.Context(), ensureServerParams{
@@ -56,6 +62,7 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 
 			state.popup.SilenceStatus(agents.ManagerSession)
 			state.tmux.EnableFocusEvents()
+			state.tmux.RecordPanelPane(state.env.TmuxPane)
 
 			return ui.Run(ui.Deps{
 				PopupWindow:     state.popup,
@@ -82,4 +89,28 @@ Use ` + "`weave open`" + ` to bring the panel up.`,
 			})
 		},
 	}
+}
+
+// Explainer: the panel's stderr is the tmux pane it draws in, which the alt screen owns and
+// which goes when the window closes, so a record written there is never seen and a panic leaves
+// no trace at all. The default logger is pointed at the same file the service appends to, which
+// is also what main's panic handler writes through.
+
+// installPanelLogger points the default logger at the log file for the life of the process.
+func installPanelLogger(logPath, level string) error {
+	parsed, err := logging.ParseLevel(level)
+	if err != nil {
+		return err
+	}
+
+	// The file is deliberately never closed: main's deferred panic handler logs through it after
+	// this command has already returned.
+	file, err := openLogFile(logPath)
+	if err != nil {
+		return err
+	}
+
+	slog.SetDefault(logging.New(file, parsed).With(slog.String(logging.ProcessName, logging.ProcessPanel)))
+
+	return nil
 }
