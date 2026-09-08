@@ -31,7 +31,10 @@ type reviewLoadedMsg struct {
 	since string
 	// earlier is the round the person last released a review against, nil when there is none.
 	earlier *agentv1.ReviewRound
-	err     error
+	// narrowed is the round the diff was actually measured from, nil when it was measured from
+	// the point the branch left its base.
+	narrowed *agentv1.ReviewRound
+	err      error
 }
 
 // reviewWroteMsg is one write and the review as it stands after it.
@@ -75,7 +78,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 // stepReviewBase moves the diff between the point the branch left main and the round the person
 // last reviewed.
 func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
-	if m.review.base != "" {
+	if m.review.baseWanted != "" {
 		m.widenReviewBase()
 
 		next, cmd := m.reloadReview()
@@ -83,8 +86,9 @@ func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
 		return next, cmd
 	}
 
-	m.review.base = m.review.baseRound.GetSnapshotSha()
-	m.review.baseLabel = fmt.Sprintf("since round %d", m.review.baseRound.GetOrdinal())
+	// Which commit the round turns out to be is settled by the load, against the round it opens
+	// rather than against the one on screen when the key was pressed.
+	m.review.baseWanted = m.review.baseRound.GetId()
 
 	next, cmd := m.reloadReview()
 
@@ -93,8 +97,21 @@ func (m model) stepReviewBase() (tea.Model, tea.Cmd) {
 
 // widenReviewBase puts the diff back to the whole change.
 func (m *model) widenReviewBase() {
-	m.review.base = ""
 	m.review.baseLabel = ""
+	m.review.baseWanted = ""
+}
+
+// narrowReviewBase draws the diff as the load measured it, which is the whole change when the
+// round asked for turned out not to be comparable with the one that was opened.
+func (m *model) narrowReviewBase(narrowed *agentv1.ReviewRound) {
+	if narrowed == nil {
+		m.widenReviewBase()
+
+		return
+	}
+
+	m.review.baseWanted = narrowed.GetId()
+	m.review.baseLabel = fmt.Sprintf("since round %d", narrowed.GetOrdinal())
 }
 
 // reviewLegendFloor is the shortest pane the expanded legend fits in once it carries the base
@@ -110,13 +127,13 @@ func (m model) doesReviewFitBaseLegend() bool {
 		return false
 	}
 
-	return m.review.baseRound != nil || m.review.base != ""
+	return m.review.baseRound != nil || m.review.baseWanted != ""
 }
 
 // reviewBaseDesc says which way the base key will move, since the same press narrows the diff and
 // widens it again.
 func (m model) reviewBaseDesc() string {
-	if m.review.base != "" {
+	if m.review.baseWanted != "" {
 		return "diff from main"
 	}
 
@@ -151,8 +168,8 @@ type loadReviewCmdParams struct {
 	AgentID string
 	Dir     string
 	Exclude []string
-	// Base is the commit to measure the round from, empty for the point the branch left main.
-	Base string
+	// BaseRoundID is the round to measure from, empty for the point the branch left main.
+	BaseRoundID string
 }
 
 // loadReviewCmd opens a round of the agent and reads that rather than the worktree, and a tree
@@ -174,10 +191,15 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		}
 
 		round := opened.Msg.GetRound()
+		earlier := previousReviewedRound(ctx, agents, round)
 
+		// The round asked for is only measured from once it is still the round this load would
+		// offer, since a base that has moved under the branch rules it out.
 		base := round.GetBaseSha()
-		if params.Base != "" {
-			base = params.Base
+		var narrowed *agentv1.ReviewRound
+		if params.BaseRoundID != "" && earlier.GetId() == params.BaseRoundID {
+			narrowed = earlier
+			base = earlier.GetSnapshotSha()
 		}
 
 		patch, err := diff.Load(ctx, diff.LoadParams{
@@ -188,32 +210,34 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 		})
 		if err != nil {
 			return reviewLoadedMsg{
-				agentID: agentID,
-				round:   round,
-				err:     err,
+				agentID:  agentID,
+				round:    round,
+				narrowed: narrowed,
+				err:      err,
 			}
 		}
 
 		threads, err := listReviewThreads(ctx, agents, agentID)
 		if err != nil {
 			return reviewLoadedMsg{
-				agentID: agentID,
-				round:   round,
-				patch:   patch,
-				err:     err,
+				agentID:  agentID,
+				round:    round,
+				patch:    patch,
+				narrowed: narrowed,
+				err:      err,
 			}
 		}
 
 		viewed, err := listReviewViewedFiles(ctx, agents, round.GetId())
-		earlier := previousReviewedRound(ctx, agents, round)
 
 		return reviewLoadedMsg{
-			agentID: agentID,
-			round:   round,
-			patch:   patch,
-			threads: threads,
-			viewed:  viewed,
-			earlier: earlier,
+			agentID:  agentID,
+			round:    round,
+			patch:    patch,
+			threads:  threads,
+			viewed:   viewed,
+			earlier:  earlier,
+			narrowed: narrowed,
 			since: changedSinceLastReview(ctx, changedSinceLastReviewParams{
 				Dir:         dir,
 				Exclude:     exclude,
@@ -358,7 +382,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 
 	// A narrowed diff drawing nothing is an answer about the agent rather than a reason to leave,
 	// so the whole change comes back with the answer said out loud.
-	if drewNothing && m.review.base != "" {
+	if drewNothing && msg.narrowed != nil {
 		said := m.review.baseLabel
 		m.widenReviewBase()
 		m.review.notice = "nothing written " + said
@@ -382,6 +406,14 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	if msg.patch == nil {
 		return nil
 	}
+
+	// The load has the last word on what the diff was measured from, so a narrowing it ruled out
+	// is said out loud rather than left on the band over a diff that is not that.
+	if m.review.baseWanted != "" && msg.narrowed == nil {
+		m.review.notice = "the base moved, so this is the whole change"
+	}
+
+	m.narrowReviewBase(msg.narrowed)
 
 	m.review.baseRound = msg.earlier
 	m.review.root = msg.patch.Root
@@ -496,10 +528,10 @@ func (m model) reloadReview() (model, tea.Cmd) {
 	}
 
 	return m, m.loadReviewCmd(loadReviewCmdParams{
-		AgentID: m.review.agentID,
-		Dir:     m.review.dir,
-		Exclude: m.review.exclude,
-		Base:    m.review.base,
+		AgentID:     m.review.agentID,
+		Dir:         m.review.dir,
+		Exclude:     m.review.exclude,
+		BaseRoundID: m.review.baseWanted,
 	})
 }
 

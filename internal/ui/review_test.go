@@ -1696,7 +1696,7 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 
 	require.Equal(t, screenReview, m.screen, "the reader stays on the diff")
 	require.NotNil(t, m.review.view, "and keeps the whole change")
-	assert.Empty(t, m.review.base, "the base goes back to the fork point")
+	assert.Empty(t, m.review.baseWanted, "the base goes back to the fork point")
 	assert.Contains(t, m.review.notice, "nothing written")
 }
 
@@ -1709,7 +1709,7 @@ func TestReviewBaseRecordsWhatItWasMeasuredFrom(t *testing.T) {
 
 	m := reviewWithAnEarlierReview(t, dir, agents)
 	m = pressReviewBase(t, m)
-	require.NotEmpty(t, m.review.base)
+	require.NotEmpty(t, m.review.baseWanted)
 
 	for row := 0; row < m.review.view.Len(); row++ {
 		if found, ok := m.review.view.GetAnchor(row); ok && found.NewStart > 0 {
@@ -1730,7 +1730,7 @@ func TestReviewBaseRecordsWhatItWasMeasuredFrom(t *testing.T) {
 	cmd()
 
 	require.NotNil(t, agents.created, "the thread reached the service")
-	assert.Equal(t, m.review.base, agents.created.GetBaseSha(),
+	assert.Equal(t, m.review.view.GetBaseSHA(), agents.created.GetBaseSha(),
 		"and says which commit its old side was counted from")
 	assert.Positive(t, agents.created.GetNewStart())
 }
@@ -1764,5 +1764,35 @@ func TestReviewBaseIsRefusedWhenTheBaseMoved(t *testing.T) {
 	next, cmd := m.updateReview(keyMsg("d"))
 
 	assert.Nil(t, cmd, "and the key does nothing")
-	assert.Empty(t, next.(model).review.base)
+	assert.Empty(t, next.(model).review.baseWanted)
+}
+
+// TestReviewBaseIsRefusedWhenTheBaseMovesUnderThePress covers the base moving between the key
+// being offered and the reload that answers it, where the round resolved before the press would
+// have drawn whatever else moved on the base as the agent's own work.
+func TestReviewBaseIsRefusedWhenTheBaseMovesUnderThePress(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+
+	m := reviewWithAnEarlierReview(t, dir, agents)
+	first := agents.rounds[0]
+	require.Equal(t, first.GetBaseSha(), agents.rounds[1].GetBaseSha())
+
+	require.NoError(t, os.WriteFile(filepath.Join(dir, "upstream.go"),
+		[]byte("package greet\n\nfunc Upstream() {}\n"), 0o644))
+	gitIn(t, dir, "add", "upstream.go")
+	gitIn(t, dir, "commit", "-m", "upstream moved")
+
+	m = pressReviewBase(t, m)
+
+	require.Len(t, agents.rounds, 3, "the reload opened a round measured from the moved base")
+	require.NotEqual(t, first.GetBaseSha(), agents.rounds[2].GetBaseSha())
+
+	assert.Empty(t, m.review.baseWanted, "the diff is not narrowed to a round the reload ruled out")
+	assert.Equal(t, agents.rounds[2].GetBaseSha(), m.review.view.GetBaseSHA(),
+		"and is measured from the base of the round it opened")
+	assert.Empty(t, m.review.baseLabel, "so the band does not name one either")
+	assert.Contains(t, m.review.notice, "the base moved")
+	assert.Equal(t, 2, m.review.view.Stat().Files, "the whole change, and none of what moved on the base")
+	assert.NotContains(t, ansi.Strip(m.reviewView()), "upstream.go")
 }

@@ -488,7 +488,7 @@ func (m model) reviewDetails() details {
 // hold: what it was measured against and what was kept out of it.
 func (m model) reviewFields() []recordField {
 	fields := []recordField{
-		{"base", orDash(shortSHA(m.review.round.GetBaseSha()))},
+		{"base", orDash(shortSHA(m.reviewMeasuredFrom()))},
 		{"snapshot", orDash(shortSHA(m.review.round.GetSnapshotSha()))},
 	}
 	if len(m.review.exclude) > 0 {
@@ -496,6 +496,16 @@ func (m model) reviewFields() []recordField {
 	}
 
 	return fields
+}
+
+// reviewMeasuredFrom is the commit the diff on screen was measured from, which is the round's own
+// base until the reader narrows it to an earlier round.
+func (m model) reviewMeasuredFrom() string {
+	if m.review.view == nil {
+		return m.review.round.GetBaseSha()
+	}
+
+	return m.review.view.GetBaseSHA()
 }
 
 // reviewMarkerStyle is what the counts above and below the conversation are drawn in, which is

@@ -107,7 +107,7 @@ func (m model) createReviewThreadCmd(anchor review.Anchor, body string) tea.Cmd 
 
 	// The old side of these numbers came from whatever the diff was measured from, so the thread
 	// records that rather than leaving a later reader to assume the round's own base.
-	base := m.review.base
+	base := m.review.view.GetBaseSHA()
 
 	return m.reviewWriteCmd("thread opened", func(ctx context.Context) error {
 		_, err := agents.CreateReviewThread(ctx, connect.NewRequest(&agentv1.CreateReviewThreadRequest{

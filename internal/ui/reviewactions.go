@@ -75,7 +75,7 @@ func reviewTable() []action {
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: func(m model) bool { return m.review.baseRound != nil || m.review.base != "" },
+			when: func(m model) bool { return m.review.baseRound != nil || m.review.baseWanted != "" },
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
 		},
 		{
