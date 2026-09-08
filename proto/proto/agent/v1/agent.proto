@@ -176,6 +176,8 @@ message AdoptRequest {
 
 message AdoptResponse {
   Agent agent = 1;
+  // Whether the agent was already on that branch, which is what asking twice answers with.
+  bool existing = 2;
 }
 
 message GetAgentRequest {
