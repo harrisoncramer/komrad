@@ -32,8 +32,7 @@ func render(markdown string, wrap int) string {
 }
 
 // markSpans writes the search's own markers around the stretches a hit matched on, before the
-// markdown is rendered, since the rendering reflows the text and the marks have to travel with
-// the words rather than with the lines they started on.
+// markdown is rendered and reflows the text under them.
 func markSpans(content string, spans []span) string {
 	if len(spans) == 0 {
 		return content
@@ -57,9 +56,8 @@ func markSpans(content string, spans []span) string {
 	return b.String()
 }
 
-// scrubMarks blanks the search's own markers wherever a transcript holds one itself, since a
-// stray marker would pair with a real match's closing one, and a space rather than nothing
-// keeps the byte offsets the search reports pointing where they did.
+// scrubMarks blanks the search's own markers wherever a transcript holds one itself, using a
+// space to keep the byte offsets the search reports pointing where they did.
 var scrubMarks = strings.NewReplacer(transcriptstore.SnippetOpen, " ", transcriptstore.SnippetClose, " ").Replace
 
 // renderTranscript draws a transcript as the markdown it is written in, with the matched words
@@ -107,9 +105,8 @@ func estimatedLine(rendered string, at, size int) int {
 	return min(max(rows*at/size, 1), rows)
 }
 
-// stageFilePath names a screenful for the panel that wrote it, since every weave on the machine
-// shares one temporary directory and a second panel or a test run would otherwise write over the
-// frame this one is showing.
+// stageFilePath names a screenful for the panel that wrote it, in the one temporary directory
+// every weave on the machine shares.
 func stageFilePath(name string) string {
 	return filepath.Join(os.TempDir(), fmt.Sprintf("weave-%s-%d.ansi", name, os.Getpid()))
 }

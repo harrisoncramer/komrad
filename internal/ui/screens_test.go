@@ -45,8 +45,7 @@ func TestEveryScreenAnswersForItself(t *testing.T) {
 }
 
 // TestEveryListingScreenSurvivesARefresh drives the pass applyRefresh runs once a second against
-// each screen the listing feeds, since a screen that answers for its own staging in a way that
-// pass does not expect takes the panel down a tick after it is opened rather than in a test.
+// each screen the listing feeds.
 func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 	for s := screenAgents; s <= screenReview; s++ {
 		if !s.spec().fromListing {
@@ -67,7 +66,7 @@ func TestEveryListingScreenSurvivesARefresh(t *testing.T) {
 }
 
 // TestFormIsDrawnOverTheScreenItWasOpenedFrom covers the form being chrome rather than a screen
-// of its own, since what closing it lands on is whatever it went up over.
+// of its own.
 func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
 	m := scheduleModel(&fakeSchedules{}, config.DefaultKeybindings())
 
@@ -86,9 +85,8 @@ func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
 	assert.Equal(t, screenSchedules, got.screen, "and lands back where it was opened from")
 }
 
-// TestNoScreenOutgrowsThePaneItWasGiven sweeps every screen rather than the three that had an
-// instance of their own, at panes tall enough to hold their own chrome, since a pane shorter
-// than its legend overflows by design and one that is not says nothing about the screen.
+// TestNoScreenOutgrowsThePaneItWasGiven sweeps every screen at panes tall enough to hold their
+// own chrome.
 func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
 	sizes := []struct {
 		width  int

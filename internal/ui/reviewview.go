@@ -76,8 +76,7 @@ func reviewDeliveryOf(state agentv1.ReviewDeliveryState) reviewDelivery {
 	return reviewDelivery{style: dimStyle}
 }
 
-// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame
-// so that the cursor and the conversation under it can never disagree about the line being read.
+// reviewView draws the diff and, beside it, the thread the cursor is standing on, as one frame.
 func (m model) reviewView() string {
 	split, ok := m.screenColumnSplit()
 	if !ok {
@@ -86,12 +85,11 @@ func (m model) reviewView() string {
 		return band + strings.TrimRight(m.reviewSidebarView(band), "\n")
 	}
 
-	// Trimmed so the two halves are the same height, since a trailing newline is a row the
-	// sidebar block would have and the diff beside it would not.
+	// Trimmed so the two halves are the same height.
 	sidebar := strings.TrimRight(m.reviewSidebarView(), "\n")
 
-	// The band stands over the diff rather than over the whole window, since what it carries acts
-	// on the patch: a pattern typed above the sidebar reads as though it searched the conversation.
+	// The band stands over the diff rather than over the whole window, and what it carries acts on
+	// the patch.
 	diff := m.reviewBandView(split.column) + m.reviewDiffView(split)
 
 	return m.joinColumns(split, sidebar, diff)
@@ -148,12 +146,10 @@ func (m model) reviewThreadWindow(rendered string, lines int) string {
 	return windowRows(rows, lines, place, m.reviewMarkerStyle())
 }
 
-// doesReviewFitDetails reports whether the sidebar has a line left over once the record has taken its
-// share, since this one carries a head and a conversation the lists do not and drawing the
-// record anyway would run past the bottom of the pane.
+// doesReviewFitDetails reports whether the sidebar has a line left over once the record has
+// taken its share.
 func (m model) doesReviewFitDetails() bool {
-	// Measured with the keys on the diff, which keeps this out of its own answer, since focus is
-	// only ever taken by a key handler and so a copy that starts unfocused stays that way.
+	// Measured with the keys on the diff, which keeps this out of its own answer.
 	m.details.focused = false
 
 	spare := m.spareLines(m.renderHelp(m.reviewHelp()), m.reviewHeadView())
@@ -176,8 +172,7 @@ func (m model) reviewHeadView() string {
 	return m.reviewAnchorView()
 }
 
-// reviewDeadView says there is nobody on the other end, since the diff opens for an agent that
-// cannot be written to and every key that would write is refused there.
+// reviewDeadView says there is nobody on the other end.
 func (m model) reviewDeadView(width int) string {
 	reason, dead := m.reviewIsReadOnly()
 	if !dead {
@@ -188,8 +183,7 @@ func (m model) reviewDeadView(width int) string {
 }
 
 // reviewStaleView is the bar saying the worktree has been written to since this round was taken,
-// naming the worktree rather than the agent because a snapshot records what a tree holds and never
-// who put it there.
+// naming the worktree rather than the agent.
 func (m model) reviewStaleView(width int) string {
 	if !m.review.moved {
 		return ""
@@ -211,8 +205,7 @@ func reviewFill(line string, pane int) string {
 	return line
 }
 
-// reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column,
-// since the diff is drawn alongside and a sentence longer than the column would be cut in half.
+// reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
 func (m model) reviewNote(style lipgloss.Style, text string) string {
 	width := max(20, m.paneWidth()-2)
 
@@ -301,8 +294,7 @@ func describeVerdict(verdict agentv1.ReviewVerdict) string {
 	}
 }
 
-// pickVerdictStyle colours the chosen verdict by what it means, since approving and asking for
-// more work are the two outcomes worth telling apart at a glance.
+// pickVerdictStyle colours the chosen verdict by what it means.
 func pickVerdictStyle(verdict agentv1.ReviewVerdict) lipgloss.Style {
 	switch verdict {
 	case agentv1.ReviewVerdict_REVIEW_VERDICT_APPROVED:
@@ -375,7 +367,7 @@ func (m model) reviewThreadView() string {
 }
 
 // reviewOriginView is where a thread was written and the line it was written against, drawn
-// only once that code has moved, since the diff alongside already shows a thread that has not.
+// only once that code has moved.
 func (m model) reviewOriginView(thread *agentv1.ReviewThread) string {
 	if !m.review.view.HasMoved(thread) {
 		return ""
@@ -404,8 +396,7 @@ func (m model) reviewMessageView(message *agentv1.ReviewMessage) string {
 }
 
 // reviewDeliveryBadge is how far one comment has got towards being read, drawn under the comment
-// itself because how the whole review is doing does not answer what this one is doing, and drawn
-// not at all for what the agent wrote, since nobody is waiting to be told about that.
+// itself and not at all for what the agent wrote.
 func reviewDeliveryBadge(message *agentv1.ReviewMessage) string {
 	drawn := reviewDeliveryOf(message.GetDelivery())
 	if drawn.word == "" {
@@ -453,8 +444,7 @@ func (m model) reviewDeliveryView() string {
 }
 
 // reviewIsReadOnly is whether there is nobody there to receive a comment, and what to say about
-// it, since an archived agent has to be restored and a dormant one resumed before the review is
-// a conversation rather than a read.
+// it.
 func (m model) reviewIsReadOnly() (string, bool) {
 	for _, item := range m.listing.agents {
 		if item.agent.ID != m.review.agentID {
@@ -529,8 +519,7 @@ func reviewTimeOf(stamp string) string {
 	return at.Local().Format("3:04PM")
 }
 
-// reviewComposeDesc says what the compose key would do where the cursor is standing, since it
-// starts a thread on a line that has none and answers the one that is already there.
+// reviewComposeDesc says what the compose key would do where the cursor is standing.
 func (m model) reviewComposeDesc() string {
 	if _, ok := m.reviewThreadAtCursor(); ok {
 		return "reply in this thread"
@@ -539,8 +528,7 @@ func (m model) reviewComposeDesc() string {
 	return "start a thread here"
 }
 
-// reviewReloadDesc says what the reload key would do, since stepping to a round that does not
-// exist yet and rereading the one already on screen are different things.
+// reviewReloadDesc says what the reload key would do.
 func (m model) reviewReloadDesc() string {
 	if m.review.moved {
 		return "catch up"

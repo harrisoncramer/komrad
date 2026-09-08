@@ -61,7 +61,7 @@ func treeRows(workflows []workflowstore.Workflow, agents []agentItem, showHidden
 		head := len(rows)
 		for _, member := range family {
 			// A hidden child leaves its count on the parent drawn above it rather than on the
-			// workflow, since that row is where a person went looking for it.
+			// workflow.
 			if member.agent.Hidden && member.agent.ID != it.agent.ID {
 				rows[head].hiddenCount++
 				if !showHidden {
@@ -144,9 +144,8 @@ func firstAgentRowIndex(rows []agentRow) int {
 	return 0
 }
 
-// nearestAgentRowIndex steers an index off a header when the row it used to point at
-// was an agent that just vanished, so the cursor doesn't jump to an unrelated workflow's
-// header just because that header now sits at the same numeric position.
+// nearestAgentRowIndex steers an index off a header when the row it used to point at was an
+// agent that just vanished.
 func nearestAgentRowIndex(rows []agentRow, idx int) int {
 	row, ok := rowAt(rows, idx)
 	if !ok || !row.header {
@@ -216,8 +215,7 @@ func rowIndexOfKey(rows []agentRow, key string) int {
 }
 
 // unnamedChildren counts the children the named agents hold that are not among them, taking the
-// pool from the screen doing the asking, since the archive holds families the live listing does
-// not.
+// pool from the screen doing the asking.
 func unnamedChildren(pool, named []agentstore.Agent) int {
 	held := make(map[string]bool, len(named))
 	for _, agent := range named {
@@ -280,8 +278,7 @@ func (m *model) applyAgents(fresh []agentItem) {
 	m.listing.agents = fresh
 }
 
-// applyMarks takes the letters off both listings at once, since one letter names one row across
-// the two and a half-applied pass would draw the same letter twice.
+// applyMarks takes the letters off both listings at once.
 func (m *model) applyMarks(onAgents, onWorkflows map[string]string) {
 	marks := make(map[string]string, len(onAgents)+len(onWorkflows))
 	maps.Copy(marks, onAgents)
@@ -343,8 +340,7 @@ func (m *model) placeTreeCursor(selected string) {
 type listing struct {
 	agents    []agentItem
 	workflows []workflowstore.Workflow
-	// marks are the letters a person addresses rows by, keyed by the row key each names, since
-	// a mark sits on an agent or on a workflow and the rows are drawn from one tree.
+	// marks are the letters a person addresses rows by, keyed by the row key each names.
 	marks map[string]string
 }
 

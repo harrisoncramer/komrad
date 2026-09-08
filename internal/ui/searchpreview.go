@@ -21,7 +21,7 @@ type searchPreview struct {
 }
 
 // searchColumn is the transcript drawn beside the hits, which stands whether or not anything has
-// been fetched for it so that typing a query does not move the hits out from under the reader.
+// been fetched for it.
 func searchColumn() columnSpec {
 	return columnSpec{floor: columnFloor}
 }
@@ -64,7 +64,7 @@ func (m *model) drawPreview() {
 }
 
 // searchPreviewView is the screenful of the transcript beside the hits, drawn without the markers
-// the archive's document carries because the match it opened on is what says where in it this is.
+// the archive's document carries.
 func (m model) searchPreviewView(split columnSplit) string {
 	doc := m.search.preview.doc
 	if len(doc.rows) == 0 {
@@ -74,8 +74,7 @@ func (m model) searchPreviewView(split columnSplit) string {
 	return doc.view(split.rows)
 }
 
-// searchPreviewNotice is what stands in the column before a transcript does, since the column is
-// there from the moment the screen is and an empty half of the window says nothing about why.
+// searchPreviewNotice is what stands in the column before a transcript does.
 func (m model) searchPreviewNotice() string {
 	switch {
 	case strings.TrimSpace(m.search.query) == "":

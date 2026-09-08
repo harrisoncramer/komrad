@@ -28,8 +28,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListHooks pins that a file which cannot be run is still listed, since one written and
-// forgotten should show up wanting a chmod rather than never appearing.
+// TestListHooks pins that a file which cannot be run is still listed, wanting a chmod rather
+// than never appearing.
 func TestListHooks(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\n#WEAVE description=\"install it\"\n"), 0o755))
@@ -56,8 +56,7 @@ func TestListHooksWithNoDirectory(t *testing.T) {
 	assert.Empty(t, listed)
 }
 
-// TestFiredScriptRefusals covers everything that can go wrong before the process starts,
-// since nothing waits for a script started this way once it is running.
+// TestFiredScriptRefusals covers everything that can go wrong before the process starts.
 func TestFiredScriptRefusals(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -143,9 +142,8 @@ func TestScriptPayload(t *testing.T) {
 }
 
 // TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne covers the environment the two built-in
-// worktree scripts read their config from: present, and reflecting the workflow's own settings,
-// when its worktree toggle is on and the agent is one the pair provisioned, and absent
-// otherwise, since an agent handed somebody else's checkout has no worktree of its own.
+// worktree scripts read their config from: present and reflecting the workflow's own settings for
+// an agent the pair provisioned, and absent otherwise.
 func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -242,8 +240,7 @@ func TestWorktreeEnvOnlyWhenTheAgentIsProvisionedOne(t *testing.T) {
 	}
 }
 
-// TestRunScriptNamesAnArchivedWorkflow pins an archived workflow still being named, since a
-// script told nothing cannot tell that from a workflow with no name.
+// TestRunScriptNamesAnArchivedWorkflow pins an archived workflow still being named.
 func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
@@ -267,8 +264,8 @@ func TestRunScriptNamesAnArchivedWorkflow(t *testing.T) {
 	assert.Equal(t, "backend", payload.Workflow)
 }
 
-// TestRunScriptBoundsALongPrompt pins a long prompt being cut, since everything an exec is
-// handed shares a kernel limit that would fail the run instead.
+// TestRunScriptBoundsALongPrompt pins a long prompt being cut, which the kernel limit on what an
+// exec is handed would otherwise fail the run over.
 func TestRunScriptBoundsALongPrompt(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
@@ -300,8 +297,7 @@ func TestRunScriptBoundsALongPrompt(t *testing.T) {
 	assert.Less(t, len(encoded), 128*1024, "the payload stays well inside what an exec carries")
 }
 
-// TestRunScriptOnADormantAgent pins a script being told the agent is not running, rather than
-// left to send keys into a pane somebody else has taken over.
+// TestRunScriptOnADormantAgent pins a script being told the agent is not running.
 func TestRunScriptOnADormantAgent(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\n"), 0o755))
@@ -497,8 +493,7 @@ func TestRunProvisionTellsTheScriptWhatSetItOff(t *testing.T) {
 	}
 }
 
-// TestRunProvisionCarriesTheReason pins the script's stderr travelling with the refusal,
-// since it is the only thing that says why.
+// TestRunProvisionCarriesTheReason pins the script's stderr travelling with the refusal.
 func TestRunProvisionCarriesTheReason(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "make-worktree"), []byte("#!/bin/sh\n"), 0o755))
@@ -683,8 +678,8 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 	require.ErrorIs(t, doneErr, scripts.ErrFailed)
 }
 
-// TestRunDeprovisionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
-// worktree cleanup declines that way and would otherwise leave a tree on disk with no trace.
+// TestRunDeprovisionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, which is how
+// the worktree cleanup declines.
 func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "cleanup"), []byte("#!/bin/sh\n"), 0o755))
@@ -708,8 +703,8 @@ func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 	require.NoError(t, doneErr)
 }
 
-// TestRunDeprovisionPersistsStdoutOnAFailure pins stdout being captured too, since a script
-// that fails through a plain echo and a bare exit would otherwise leave the log empty.
+// TestRunDeprovisionPersistsStdoutOnAFailure pins stdout being captured too, for a script that
+// fails through a plain echo and a bare exit.
 func TestRunDeprovisionPersistsStdoutOnAFailure(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "teardown"), []byte(
@@ -900,9 +895,8 @@ func TestScriptEnvGuardsAgainstInteractivePrompts(t *testing.T) {
 	}
 }
 
-// TestRunHookRunsInTheAgentsDirectory drives a real script through the runner, since
-// where a hook runs is the whole point of one: it is there to work on the checkout rather than
-// on the directory the script itself lives in.
+// TestRunHookRunsInTheAgentsDirectory drives a real script through the runner, a hook being there
+// to work on the checkout and not on the directory the script itself lives in.
 func TestRunHookRunsInTheAgentsDirectory(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
@@ -930,8 +924,7 @@ func TestRunHookRunsInTheAgentsDirectory(t *testing.T) {
 	assert.Contains(t, string(logged), "installing in", "and its output is kept under the run that made it")
 }
 
-// TestRunHookCarriesWhatTheScriptSaid pins the refusal a failing hook hands back, since
-// that string is what abandons a create and is the only place a person sees why.
+// TestRunHookCarriesWhatTheScriptSaid pins the refusal a failing hook hands back.
 func TestRunHookCarriesWhatTheScriptSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte(
@@ -947,9 +940,8 @@ func TestRunHookCarriesWhatTheScriptSaid(t *testing.T) {
 	assert.Contains(t, err.Error(), "no lockfile here")
 }
 
-// TestRunHookRefusesADirectoryThatIsGone pins a hook with nowhere to run failing rather
-// than relocating, since a script that installs into the scripts directory instead of the
-// worktree is worse than one that says it could not run.
+// TestRunHookRefusesADirectoryThatIsGone pins a hook with nowhere to run failing rather than
+// relocating.
 func TestRunHookRefusesADirectoryThatIsGone(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
@@ -990,8 +982,7 @@ func TestChmodMakesAHookRunnable(t *testing.T) {
 	require.NoError(t, svc.RunHook(t.Context(), agentstore.Agent{ID: "a1", Cwd: t.TempDir()}, "install-deps", workflowstore.HookPreLaunch))
 }
 
-// TestARefusedRunLeavesNoRunBehind pins a refusal spending no number, since a
-// file claimed by a run that never happened would push a real one out of the fifty kept.
+// TestARefusedRunLeavesNoRunBehind pins a refusal spending no number.
 func TestARefusedRunLeavesNoRunBehind(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
@@ -1159,8 +1150,7 @@ func TestAHookThatFailedSilentlySaysSoInItsLog(t *testing.T) {
 	assert.Contains(t, string(logged), "install-deps", "the run the mark points at says why rather than opening empty")
 }
 
-// TestARefusedRunDropsItsRow pins the row going with the empty log file, since a refusal is not
-// a run and one recorded as such would spend a number and stand as a failure to be read.
+// TestARefusedRunDropsItsRow pins the row going with the empty log file.
 func TestARefusedRunDropsItsRow(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, firedScript), []byte("#!/bin/sh\nexit 0\n"), 0o644))
@@ -1199,8 +1189,7 @@ func TestARefusedProvisionerSaysSo(t *testing.T) {
 	assert.Contains(t, string(logged), "setup", "and the run the mark points at says why rather than opening empty")
 }
 
-// TestClaimRunLogNumbersEveryRun pins each run getting a file of its own rather than the
-// two fixed names that came before, since a resume used to overwrite the log of the create.
+// TestClaimRunLogNumbersEveryRun pins each run getting a file of its own.
 func TestClaimRunLogNumbersEveryRun(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "setup"), []byte("#!/bin/sh\necho made it\n"), 0o755))
@@ -1228,8 +1217,7 @@ func TestClaimRunLogNumbersEveryRun(t *testing.T) {
 	}
 }
 
-// TestClaimRunLogPrunesTheOldestRuns pins the pruning, since an agent resumed daily for a
-// year would otherwise keep a file for every one of them.
+// TestClaimRunLogPrunesTheOldestRuns pins the pruning.
 func TestClaimRunLogPrunesTheOldestRuns(t *testing.T) {
 	dir := t.TempDir()
 	logsDir := t.TempDir()
@@ -1253,8 +1241,8 @@ func TestClaimRunLogPrunesTheOldestRuns(t *testing.T) {
 	assert.Equal(t, 2, runs[len(runs)-1].Number, "the oldest went to make room for it")
 }
 
-// TestClaimRunLogStepsPastANameAlreadyTaken pins the exclusive create, since a manual
-// script and a launch can begin at the same moment and neither may write over the other.
+// TestClaimRunLogStepsPastANameAlreadyTaken pins the exclusive create, which a manual script and
+// a launch beginning together both go through.
 func TestClaimRunLogStepsPastANameAlreadyTaken(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, t.TempDir(), scripts.NewRunner(), logsDir)
@@ -1297,8 +1285,7 @@ func fireScriptFor(ctx context.Context, t *testing.T, svc *ScriptService, agentI
 	return svc.RunDeprovision(ctx, *agent, firedScript, nil)
 }
 
-// onlyRunLog is the one run the fixture's agent has recorded, since a test that ran a single
-// script has no reason to know which number it was given.
+// onlyRunLog is the one run the fixture's agent has recorded.
 func onlyRunLog(t *testing.T, logsDir string) string {
 	t.Helper()
 
@@ -1795,8 +1782,7 @@ func TestWorktreeEnvPrefersTheWorkflowsOwnDirectory(t *testing.T) {
 }
 
 // TestARefusedHookLeavesARunLogSayingWhy pins a hook with nowhere to run writing the log key
-// something to open, since a refusal that never reaches the runner used to leave the panel
-// nothing at all to show.
+// something to open.
 func TestARefusedHookLeavesARunLogSayingWhy(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "install-deps"), []byte("#!/bin/sh\nexit 0\n"), 0o755))
@@ -1817,8 +1803,8 @@ func TestARefusedHookLeavesARunLogSayingWhy(t *testing.T) {
 	assert.Contains(t, string(logged), "/definitely/not/here")
 }
 
-// TestAHookThatCannotStartLeavesARunLogSayingWhy pins the other refusal, since a hook deleted
-// out from under a workflow reads on screen exactly like one that ran and did nothing.
+// TestAHookThatCannotStartLeavesARunLogSayingWhy pins the other refusal, for a hook deleted out
+// from under a workflow.
 func TestAHookThatCannotStartLeavesARunLogSayingWhy(t *testing.T) {
 	logsDir := t.TempDir()
 	svc := scriptServiceWithLogsDir(t, t.TempDir(), scripts.NewRunner(), logsDir)

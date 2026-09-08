@@ -315,8 +315,7 @@ func TestAnAgentReadsOnlyWhatTheReviewerLetGoOf(t *testing.T) {
 }
 
 // TestAThreadWithNothingReleasedIsHiddenFromTheAgent pins that where the person is looking is
-// theirs until they let a comment go, since the file, the lines and the diff they quoted say
-// what is being written about even with none of the words read.
+// theirs until they let a comment go.
 func TestAThreadWithNothingReleasedIsHiddenFromTheAgent(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.messages = map[string]reviewstore.Message{draftMessageID: draftMessage()}
@@ -376,8 +375,7 @@ func TestReleasingAReviewWritesItOutAndRingsOnce(t *testing.T) {
 	assert.Contains(t, string(written), "round 1")
 }
 
-// TestReleasingAnEmptyReviewIsRefused pins that a batch with nothing in it rings nobody, since
-// mail saying there is a review to read and a file with no comments in it wastes a turn.
+// TestReleasingAnEmptyReviewIsRefused pins that a batch with nothing in it rings nobody.
 func TestReleasingAnEmptyReviewIsRefused(t *testing.T) {
 	reviews := newFakeReviewStore()
 	notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
@@ -418,9 +416,7 @@ func TestApprovingWithNothingWrittenStillGoes(t *testing.T) {
 	assert.Contains(t, string(written), "Approved")
 }
 
-// TestNothingIsReleasedWhenTheMailCannotBeSent pins the order a release runs in, since a batch
-// stamped as released with nothing raised for it reads in the panel as one the agent has been
-// told about.
+// TestNothingIsReleasedWhenTheMailCannotBeSent pins the order a release runs in.
 func TestNothingIsReleasedWhenTheMailCannotBeSent(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 3
@@ -468,8 +464,7 @@ func TestAChildMayReviewItsParentAndNothingElse(t *testing.T) {
 }
 
 // TestOpeningARoundTwiceOverAnUnmovedTreeIsTheSameRound pins that opening the diff does not walk
-// the ordinal on, since a round the agent has not written anything into is the round that was
-// already taken of it.
+// the ordinal on.
 func TestOpeningARoundTwiceOverAnUnmovedTreeIsTheSameRound(t *testing.T) {
 	reviews := newFakeReviewStore()
 	service := reviewService(t, reviews, &fakeNoticeSender{})
@@ -563,8 +558,8 @@ func TestAReleasedReviewCarriesTheCodeAroundEachComment(t *testing.T) {
 	assert.NotContains(t, body, "line 20 of greet.go")
 }
 
-// TestAReviewWithNoSourceFallsBackToTheQuotedLines pins that a comment on a file the round cannot
-// hand back is still sent, since a comment is worth more than the code around it.
+// TestAReviewWithNoSourceFallsBackToTheQuotedLines pins that a comment on a file the round
+// cannot hand back is still sent.
 func TestAReviewWithNoSourceFallsBackToTheQuotedLines(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.thread.FilePath = "gone.go"
@@ -801,7 +796,7 @@ func TestAnAgentIsNotToldWhereAnotherReviewWasWritten(t *testing.T) {
 }
 
 // TestReleasingToAnArchivedAgentIsRefused pins that a review is not stamped as sent to an agent
-// that is not there to be told, since the stamp would say it had been.
+// that is not there to be told.
 func TestReleasingToAnArchivedAgentIsRefused(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 1
@@ -1145,8 +1140,7 @@ func draftMessage() reviewstore.Message {
 	}
 }
 
-// CreateThread records what it was asked for rather than answering with the canned thread, since
-// which batch a thread belongs to is the whole of what several of these tests are about.
+// CreateThread records what it was asked for rather than answering with the canned thread.
 func (f *fakeReviewStore) CreateThread(
 	_ context.Context,
 	params reviewstore.CreateThreadParams,
@@ -1598,8 +1592,7 @@ func (f *fakeNoticeSender) SendNotice(_ context.Context, params SendNoticeParams
 	return f.answer, nil
 }
 
-// TestReviewThreadMustExist pins the lookup settling and deleting do first, since without it
-// a bad id is a silent no-op.
+// TestReviewThreadMustExist pins the lookup settling and deleting do first.
 func TestReviewThreadMustExist(t *testing.T) {
 	service := reviewService(t, newFakeReviewStore(), &fakeNoticeSender{})
 	human := ReviewAuthor{Kind: reviewstore.AuthorHuman}
@@ -1643,9 +1636,8 @@ func TestReleasingAReviewCostsTheMailboxOneNotice(t *testing.T) {
 	}
 }
 
-// TestAReleasedReviewLeavesRoomForPeerMail pins that a release does not crowd out the mail
-// other agents send, since read_mail hands over a bounded batch and doorbells filling it
-// would bury an answer an agent is waiting on.
+// TestAReleasedReviewLeavesRoomForPeerMail pins that a release does not crowd out the mail other
+// agents send.
 func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 	reviews := newFakeReviewStore()
 	reviews.comments = 30

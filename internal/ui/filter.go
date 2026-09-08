@@ -16,7 +16,7 @@ type filterState struct {
 	pattern *regexp.Regexp
 	broken  bool
 	// origin is the row the cursor sat on when the search opened, which abandoning it returns
-	// to, since a search you gave up on should leave you where you were looking.
+	// to.
 	origin string
 }
 
@@ -226,8 +226,7 @@ func (m model) filterView() string {
 	return m.filter.view()
 }
 
-// view draws the search line whether or not there is a search, since a line that comes and goes
-// moves every row under it the moment you start typing.
+// view draws the search line whether or not there is a search.
 func (f filterState) view() string {
 	query := f.query
 	if f.broken {
@@ -289,7 +288,7 @@ func (m model) matchAt(from string, delta int) (string, bool) {
 }
 
 // jumpMatch walks the cursor to the next row the search matches, which answers only while a
-// search stands, since the keys it is on are letters at every other time.
+// search stands.
 func (m model) jumpMatch(delta int) (tea.Model, tea.Cmd) {
 	next, ok := m.matchAt(m.hoveredFilterKey(), delta)
 	if !ok {

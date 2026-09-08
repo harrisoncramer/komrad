@@ -24,7 +24,7 @@ const (
 	workflowIcon        = "⧉"
 
 	// noStateIcon fills the column the state icon would take for a row with no live state to
-	// report, so that row keeps the indent every other row has.
+	// report, keeping the indent every other row has.
 	noStateIcon = "▫"
 
 	// reasonWidth is how much of a reported reason a row draws, which is room for a tool name and
@@ -114,8 +114,7 @@ func iconMark(show bool, icon string, color lipgloss.Color) string {
 	return " " + lipgloss.NewStyle().Foreground(color).Render(icon)
 }
 
-// unviewedMark is its own glyph rather than a colour on the state icon, since either fact can
-// be true without the other.
+// unviewedMark is its own glyph rather than a colour on the state icon.
 func unviewedMark(unviewed bool) string {
 	return iconMark(unviewed, unviewedIcon, colorSuccess)
 }
@@ -124,8 +123,7 @@ func noStateMark() string {
 	return dimStyle.Render(noStateIcon)
 }
 
-// failedMark is the archive's only state icon, since an archived agent's last live state says
-// nothing but a failed create or cleanup is why the row is still there.
+// failedMark is the archive's only state icon.
 func failedMark(agent agentstore.Agent) string {
 	if !agent.State.IsFailed() {
 		return ""
@@ -174,14 +172,14 @@ func hiddenTally(count int, showing bool) string {
 	return " " + dimStyle.Render(fmt.Sprintf("+%d", count))
 }
 
-// reviewRoundsMark counts the rounds of review an agent's work has been through, which is drawn
-// as a number because a change going round again and again is what it is there to show.
+// reviewRoundsMark counts the rounds of review an agent's work has been through, drawn as a
+// number.
 func reviewRoundsMark(rounds int32) string {
 	return iconMark(rounds > 0, fmt.Sprintf("%s%d", reviewRoundsIcon, rounds), colorMuted)
 }
 
-// failedRunMark says a script weave fired for the agent failed and nobody has read it, which
-// the state icon cannot carry because a hook can fail while the agent itself is working away.
+// failedRunMark says a script weave fired for the agent failed and nobody has read it, which the
+// state icon cannot carry.
 func failedRunMark(failed bool) string {
 	return iconMark(failed, failedRunIcon, colorDanger)
 }
@@ -257,14 +255,13 @@ func clip(text string, width int) string {
 // state icon and its cursor rather than trading them for the fact that it is in.
 var selectionBackground = lipgloss.AdaptiveColor{Light: "#cdf0d6", Dark: "#20452c"}
 
+// Explainer: the fill is measured across the whole string paintRow is handed, so it holds only
+// for a row of a single line.
+
 // paintRow lays a background under one already-coloured line, setting it again after every reset
-// that line carries, since the first of those would otherwise drop it for the rest of the row,
-// and filling the line out to the pane so that it reads as a bar, which is measured across the
-// whole string it is handed and so holds only for a row of a single line.
+// that line carries and filling the line out to the pane so it reads as a bar.
 func paintRow(row string, background lipgloss.AdaptiveColor, width int) string {
-	// The diff viewer threads a background into every fragment it draws instead, since its gutter
-	// and its match highlight each carry one of their own, where a row wants the one background
-	// under all of it and the fragments know nothing about it.
+	// The diff viewer threads a background into every fragment it draws instead.
 	set := backgroundSequence(background)
 	if set == "" {
 		return row
@@ -279,8 +276,7 @@ func paintRow(row string, background lipgloss.AdaptiveColor, width int) string {
 }
 
 // backgroundSequence is the escape that sets a background and nothing else, which lipgloss will
-// only write around text of its own, and is empty under a profile carrying no colour so that
-// paintRow leaves such a row alone rather than padding it out to a bar nobody can see.
+// only write around text of its own, and is empty under a profile carrying no colour.
 func backgroundSequence(background lipgloss.AdaptiveColor) string {
 	hex := background.Light
 	if lipgloss.HasDarkBackground() {

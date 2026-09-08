@@ -125,9 +125,7 @@ type SendNoticeParams struct {
 }
 
 // SendNotice hands back the notice of that kind the agent is already holding unread and sends
-// one as weave itself only when it holds none, since a notice says that something is waiting
-// rather than carrying it, so a second copy behind the first would say nothing new while
-// spending a place in a mailbox other agents are also writing to.
+// one as weave itself only when it holds none.
 func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (*mailstore.Mail, error) {
 	if params.Kind == "" || params.Kind == mailstore.KindPlain {
 		return nil, fmt.Errorf("%w: a notice needs a kind of its own to be told apart by", ErrNoticeKindMissing)
@@ -151,8 +149,7 @@ func (s *MailService) SendNotice(ctx context.Context, params SendNoticeParams) (
 }
 
 // familyID is what a family is named by, which is a parent's own id and for a child the parent
-// it is attached to, so that one comparison answers parent to child, child to parent, and one
-// child to another.
+// it is attached to.
 func familyID(agent agentstore.Agent) string {
 	if agent.ParentAgentID != nil {
 		return *agent.ParentAgentID
@@ -162,8 +159,7 @@ func familyID(agent agentstore.Agent) string {
 }
 
 // requireSameFamily holds a child to its parent and that parent's other children, letting
-// through the mail weave raises itself and the mail a person sends, since these rules bound what
-// a child may do rather than what may be done to it.
+// through the mail weave raises itself and the mail a person sends.
 func requireSameFamily(sender *agentstore.Agent, recipient agentstore.Agent) error {
 	if sender == nil {
 		return nil
@@ -217,8 +213,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 		return nil, err
 	}
 
-	// The cap decides before the mailbox does, since a full mailbox is a wait and the cap is
-	// permanent, and a permanent refusal reported as a transient one is retried forever.
+	// The cap decides before the mailbox does: a full mailbox is a wait and the cap is permanent.
 	if sender != nil && params.Kind == mailstore.KindPlain {
 		if err := s.holdToTheExchangeCap(ctx, *sender, *recipient); err != nil {
 			return nil, err
@@ -270,9 +265,7 @@ func (s *MailService) send(ctx context.Context, params sendParams) (*mailstore.M
 }
 
 // holdToTheExchangeCap refuses a send once two agents have written each other as much mail as
-// the limit allows, counting the pair rather than a thread of it because a send with no reply_to
-// opens a thread and would start any thread-scoped count again, which a rebase, a re-prompt and
-// a new subject all do by accident.
+// the limit allows, counting the pair and not a thread of it.
 func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipient agentstore.Agent) error {
 	maxExchange, err := s.config.GetMaxExchange()
 	if err != nil {
@@ -292,14 +285,10 @@ func (s *MailService) holdToTheExchangeCap(ctx context.Context, sender, recipien
 	return fmt.Errorf("%w: you and %q have exchanged %d pieces of mail, which is the limit, so nothing further will get through between you; say where you got to and tell the person what is unfinished", ErrExchangeCapped, recipient.Name, exchanged)
 }
 
-// tellTheCapWasReached is what keeps a refusal from stranding the work: the sender is told by
-// the error it gets back, so this marks a row for the person to look at and tells the recipient
-// that mail meant for it was refused, rather than leaving it waiting for a reply that a cap has
-// quietly stopped.
+// tellTheCapWasReached marks a row for the person to look at and tells the recipient that mail
+// meant for it was refused.
 func (s *MailService) tellTheCapWasReached(ctx context.Context, sender, recipient agentstore.Agent, exchanged int64) {
-	// The mark goes on the family's parent, which for an agent that is nobody's child is
-	// itself, since a parent is the row a person is looking at and the agent able to break a
-	// loop between two of its children.
+	// The mark goes on the family's parent, which for an agent that is nobody's child is itself.
 	marked := familyID(sender)
 	attrs := []slog.Attr{
 		slog.String(logging.AgentID, marked),

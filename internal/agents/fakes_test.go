@@ -395,8 +395,7 @@ func (s *testStore) GetTranscript(ctx context.Context, agentID string) (transcri
 }
 
 // testAgentStore is the one store these tests hand to all four services at once, and no
-// production type is expected to satisfy the whole of it, since each service asks only for its
-// own slice.
+// production type is expected to satisfy the whole of it.
 type testAgentStore interface {
 	launchAgentReadWriter
 	resumeAgentReadWriter

@@ -8,8 +8,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// notice is one of the marks a row draws said in words, since the glyph says a fact about the
-// agent is true without saying which fact.
+// notice is one of the marks a row draws said in words.
 type notice struct {
 	icon  string
 	color lipgloss.Color
@@ -26,8 +25,7 @@ const (
 	hiddenNotice          = "hidden: the sidebar leaves this row out until hidden agents are shown"
 )
 
-// reviewRoundsNotice counts against the agent holding the diff, since a change read four times
-// is the loop worth catching and the reviewer that read it went round no more than once itself.
+// reviewRoundsNotice counts against the agent holding the diff.
 func reviewRoundsNotice(rounds int32) string {
 	if rounds == 1 {
 		return "review rounds: its work has been reviewed once"
@@ -36,8 +34,7 @@ func reviewRoundsNotice(rounds int32) string {
 	return fmt.Sprintf("review rounds: its work has been reviewed %d times", rounds)
 }
 
-// agentNotices orders the marks by how much each wants a person's attention, since the record
-// gives up the ones at the end of the list when the pane is short.
+// agentNotices orders the marks by how much each wants a person's attention.
 func agentNotices(item agentItem) []notice {
 	state := displayState(item)
 
@@ -51,8 +48,7 @@ func agentNotices(item agentItem) []notice {
 	return appendNotice(notices, item.rounds > 0, reviewRoundsIcon, colorMuted, reviewRoundsNotice(item.rounds))
 }
 
-// failureNotices is the whole of what an archived row has to say, since every other mark stands
-// for something that is only true of an agent still running.
+// failureNotices is the whole of what an archived row has to say.
 func failureNotices(state agentstore.State) []notice {
 	notices := appendNotice(nil, state == agentstore.StateFailedToCreate, stateIcon(state), stateColor(state), failedToCreateNotice)
 

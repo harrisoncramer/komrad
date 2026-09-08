@@ -17,8 +17,8 @@ import (
 
 const prStateTimeout = 15 * time.Second
 
-// prStateQuiet is how long an agent is left alone after a pass learned nothing worth acting
-// on, kept long and flat because a merge nobody is waiting on is not worth the GitHub quota.
+// prStateQuiet is how long an agent is left alone after a pass learned nothing worth acting on,
+// kept long and flat.
 const prStateQuiet = 15 * time.Minute
 
 // prArchivedMetadataKey records the pull request an agent was archived for, which is what stops
@@ -60,7 +60,7 @@ type PRArchiver struct {
 	archiver     prArchiveAgentArchiver
 	pullRequests pullRequestResolver
 
-	// quiet and now need no lock, since the loop runs one pass at a time.
+	// quiet and now need no lock, with the loop running one pass at a time.
 	quiet map[string]time.Time
 	now   func() time.Time
 }
@@ -204,8 +204,7 @@ func (a *PRArchiver) isPullRequestClosed(ctx context.Context, agent agentstore.A
 	return true
 }
 
-// doesAnswerAbout reports whether a finished pull request is still the one this agent is on,
-// since nothing refreshes the recorded one.
+// doesAnswerAbout reports whether a finished pull request is still the one this agent is on.
 func doesAnswerAbout(agent agentstore.Agent, pr PullRequest, repo string) bool {
 	// One casing comes from a pull request URL and the other from a git remote.
 	if repo != "" && pr.Repository != "" && !strings.EqualFold(pr.Repository, repo) {
@@ -361,8 +360,8 @@ func stampRestoredPRs(ctx context.Context, agents metadataSetter, restored []age
 			continue
 		}
 
-		// The pull request's state is not read, since that means asking GitHub while somebody
-		// waits on a keypress.
+		// The pull request's state is not read, which would mean asking GitHub while somebody waits
+		// on a keypress.
 		if _, err := agents.SetMetadata(ctx, agentstore.SetMetadataParams{
 			ID:    agent.ID,
 			Key:   prArchivedMetadataKey,

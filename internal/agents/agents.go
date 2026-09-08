@@ -58,8 +58,7 @@ var (
 	ErrOutsideFamily = errors.New("a child agent may only mail its parent and its parent's other children")
 
 	// ErrAlreadyLaunched says an idempotency key was already spent on an agent that launched, and
-	// is returned alongside that agent rather than instead of it, so that a caller which has to
-	// know whether this call did the launching can tell.
+	// is returned alongside that agent rather than instead of it.
 	ErrAlreadyLaunched     = errors.New("this idempotency key already launched an agent")
 	ErrHarnessUnknown      = harness.ErrNotRegistered
 	ErrScriptNotFound      = scripts.ErrScriptNotFound
@@ -167,8 +166,7 @@ func killOwnedPanes(ctx context.Context, tmux paneKiller, agents []agentstore.Ag
 	}))
 }
 
-// killPanes kills each pane tmux still says belongs to the agent named beside it, since a tmux
-// server restart reuses pane ids and leaves every recorded pane pointing somewhere new.
+// killPanes kills each pane tmux still says belongs to the agent named beside it.
 func killPanes(ctx context.Context, tmux paneKiller, owned []agentstore.AgentPane) {
 	panes, err := tmux.GetPanes()
 	if err != nil {
@@ -214,9 +212,8 @@ func runHooks(ctx context.Context, p hookRunParams) error {
 	return nil
 }
 
-// startHooks runs a moment's hooks in the background, since the call that set the moment off has
-// nothing to wait for: the agent is already where the hooks are about to look, and one that
-// fails there is reported rather than undone.
+// startHooks runs a moment's hooks in the background, with nothing for the call that set the
+// moment off to wait on.
 func startHooks(ctx context.Context, p hookRunParams) {
 	if p.scripts == nil || !slices.ContainsFunc(p.hooks, func(hook workflowstore.Hook) bool { return hook.Event == p.event }) {
 		return
@@ -379,8 +376,8 @@ func failAs(ctx context.Context, agents agentFailWriter, agent agentstore.Agent,
 	}
 }
 
-// failureReason is a cause as a row can hold it, since a script's own output reaches this and
-// Postgres takes neither a NUL nor the half rune a cut made by byte count leaves behind.
+// failureReason is a cause as a row can hold it, cut and scrubbed of what Postgres refuses in a
+// text column.
 func failureReason(cause error) string {
 	if cause == nil {
 		return ""

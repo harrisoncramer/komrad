@@ -304,8 +304,7 @@ func hashFrame(frame string) uint64 {
 }
 
 // forget drops the pane an agent is no longer running in and reports whether the row it was
-// handed is still the one the store holds, since a resume landing mid-pass replaces the pane
-// the walk is judging by.
+// handed is still the one the store holds.
 func (r *Reconciler) forget(ctx context.Context, agent agentstore.Agent, mine bool) bool {
 	if agent.Pane == "" {
 		return true

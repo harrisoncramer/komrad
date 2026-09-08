@@ -43,8 +43,7 @@ func pressTerminal(t *testing.T, m model) model {
 }
 
 // TestTerminalOpensInTheHoveredAgentDirectory pins that the key splits a shell under the stage,
-// rooted at the agent's own directory, and hands it the keyboard, since a shell nobody can type
-// into is no use.
+// rooted at the agent's own directory, and hands it the keyboard.
 func TestTerminalOpensInTheHoveredAgentDirectory(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
@@ -98,8 +97,7 @@ func TestTerminalRefocusesTheShellAlreadyThere(t *testing.T) {
 }
 
 // TestTerminalStaysPutAsTheCursorMoves pins that the cursor landing on another agent leaves the
-// shell running where it was opened, since respawning the pane under it would kill whatever the
-// user had going in there.
+// shell running where it was opened.
 func TestTerminalStaysPutAsTheCursorMoves(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, first := terminalModel(t, tmux)
@@ -124,8 +122,7 @@ func TestTerminalStaysPutAsTheCursorMoves(t *testing.T) {
 }
 
 // TestTerminalMovesWhenAskedOnAnotherAgent pins that the key pressed over an agent the shell is
-// not rooted in moves it there, since asking for a terminal somewhere is the whole point of the
-// key, and a keypress is the user saying so rather than the cursor passing by.
+// not rooted in moves it there.
 func TestTerminalMovesWhenAskedOnAnotherAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, first := terminalModel(t, tmux)
@@ -154,8 +151,7 @@ func TestTerminalMovesWhenAskedOnAnotherAgent(t *testing.T) {
 }
 
 // TestTerminalStaysPutOnASiblingSharingTheDirectory pins that the key pressed over another agent
-// rooted in the same directory leaves the shell running, since where the shell belongs is a
-// directory rather than an agent and a workflow may root all of its agents in one.
+// rooted in the same directory leaves the shell running.
 func TestTerminalStaysPutOnASiblingSharingTheDirectory(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
@@ -182,7 +178,7 @@ func TestTerminalStaysPutOnASiblingSharingTheDirectory(t *testing.T) {
 }
 
 // TestTerminalStaysPutOverAWorkflowHeader pins that a row holding no directory of its own leaves
-// the shell where it is, since the cursor passes over a header on the way to every agent.
+// the shell where it is.
 func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)
@@ -205,7 +201,7 @@ func TestTerminalStaysPutOverAWorkflowHeader(t *testing.T) {
 
 // TestTerminalRefusesToMoveToAMissingWorktree pins that the key pressed over an agent whose
 // directory has gone reports why, leaves the shell already up alone, and still hands it the
-// keyboard, since a cursor parked on such a row would otherwise put the pane out of reach.
+// keyboard.
 func TestTerminalRefusesToMoveToAMissingWorktree(t *testing.T) {
 	tmux := &recordingTmux{}
 	m, dir := terminalModel(t, tmux)

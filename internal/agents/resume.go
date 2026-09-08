@@ -17,8 +17,8 @@ import (
 	workflowstore "weave/internal/store/workflow"
 )
 
-// interruptedPrompt is what a resumed agent is asked on the way back in, since no CLI carries
-// an unfinished turn across a relaunch and the work can only be picked up by asking for it.
+// interruptedPrompt is what a resumed agent is asked on the way back in, no CLI carrying an
+// unfinished turn across a relaunch.
 const interruptedPrompt = "Your last turn was cut off part-way through when your pane was stopped, " +
 	"so nothing you had in flight was carried over. Read back over the conversation, work out what you " +
 	"had actually finished and what you had not, and carry on from there. If the work was already done, " +
@@ -43,9 +43,7 @@ type ResumeService struct {
 	scripts            agentScriptRunner
 	fallbackResumeRoot string
 	// inFlight holds the agents this panel is part-way through resuming, which is what stops two
-	// callers each opening a window for one agent, and is kept here rather than on the row because
-	// a resume is only ever run by this process, and a row left in setting_up by a panel that died
-	// would otherwise refuse the resume that is meant to bring the agent back.
+	// callers each opening a window for one agent, and is kept here rather than on the row.
 	inFlight   map[string]struct{}
 	inFlightMu sync.Mutex
 }
@@ -154,8 +152,8 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 		return fmt.Errorf("%w: %q was archived while it was being resumed, restore it first", ErrAgentArchived, agent.Name)
 	}
 
-	// Read before the resume starts overwriting the copy it was handed, since the restore
-	// below runs after those writes and is putting back what the resume found.
+	// Read before the resume starts overwriting the copy it was handed, which the restore below
+	// puts back.
 	prior := agent.State
 
 	var pane string
@@ -250,8 +248,7 @@ func (s *ResumeService) resume(ctx context.Context, agent agentstore.Agent) erro
 
 	launched = true
 
-	// A recorded turn does not outlive the relaunch, since the conversation holding it has either
-	// just been asked about it or is gone.
+	// A recorded turn does not outlive the relaunch.
 	if agent.InterruptedAt != nil {
 		if err := s.agents.SetInterruptedAtByID(ctx, agent.ID, nil); err != nil {
 			return fmt.Errorf("failed to clear the interrupted turn for %q: %w", agent.Name, err)

@@ -17,9 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestAppendTurns covers the join and the offsets together, since the offset a turn
-// records is only right if it points at that turn inside the text the same call
-// built.
+// TestAppendTurns covers the join and the offsets together.
 func TestAppendTurns(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -173,8 +171,8 @@ func TestTranscriptSyncer(t *testing.T) {
 	}
 }
 
-// TestSyncSurvivesOneUnsyncableAgent pins that one agent's bad log does not strand every
-// older agent behind it, since the same agent would fail on every pass.
+// TestSyncSurvivesOneUnsyncableAgent pins that one agent's bad log does not strand every older
+// agent behind it.
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -261,8 +259,8 @@ func appendToLog(t *testing.T, path, body string) {
 	require.NoError(t, f.Close())
 }
 
-// TestSyncReportsAnUnknownHarness pins that an agent nothing can index is reported rather
-// than skipped, since a search that quietly finds nothing goes unnoticed.
+// TestSyncReportsAnUnknownHarness pins that an agent nothing can index is reported rather than
+// skipped.
 func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -287,7 +285,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 }
 
 // TestSyncAdoptsSessions pins that the syncer asks codex afterwards which conversation it
-// started, since the panel cannot hand it an id.
+// started.
 func TestSyncAdoptsSessions(t *testing.T) {
 	tests := []struct {
 		name  string

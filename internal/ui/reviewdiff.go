@@ -24,8 +24,7 @@ func reviewColumn() columnSpec {
 }
 
 // What the review says while there is no patch to draw, of which Loading and Empty are said by
-// the sidebar's head as well so the two halves cannot drift apart on the wording, while Broken is
-// the column's own short form because the head has the room for the real error text.
+// the sidebar's head as well, while Broken is the column's own short form.
 const (
 	reviewLoadingWord = "loading the diff…"
 	reviewEmptyWord   = "nothing changed in this worktree"
@@ -63,8 +62,8 @@ func (m model) reviewDiffView(split columnSplit) string {
 		held = review.DimCursor
 	}
 
-	// Only the rows the pane can show are drawn, since a nine thousand row diff takes a tenth of
-	// a second to draw whole and panning would pay that on every keypress.
+	// Only the rows the pane can show are drawn, a nine thousand row diff taking a tenth of a
+	// second to draw whole.
 	rows := make([]string, 0, split.rows)
 	for y := start; y < min(start+split.rows, view.Len()); y++ {
 		mark := review.NoCursor

@@ -44,8 +44,8 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	m.review.notice = ""
 
-	// The conversation takes the keys ahead of the diff, since the keys it wants are the ones the
-	// diff is otherwise moving under it.
+	// The conversation takes the keys ahead of the diff, which is otherwise moving under it on the
+	// same keys.
 	if next, handled := m.updateReviewThread(k); handled {
 		return next, nil
 	}
@@ -77,7 +77,7 @@ func (m model) updateReviewThread(k string) (model, bool) {
 }
 
 // isReviewThreadFocused is whether the conversation in the sidebar holds the keys, which it
-// cannot while the record under it does, since both are read with the same keys.
+// cannot while the record under it does.
 func (m model) isReviewThreadFocused() bool {
 	if !m.review.threadFocus || m.screen != screenReview || m.isDetailsFocused() {
 		return false
@@ -88,8 +88,7 @@ func (m model) isReviewThreadFocused() bool {
 	return ok
 }
 
-// focusReviewThread moves the keys onto the conversation, refused while there is none to read,
-// since the reader would then be holding keys that moved nothing.
+// focusReviewThread moves the keys onto the conversation, refused while there is none to read.
 func (m model) focusReviewThread() model {
 	if _, ok := m.reviewThreadAtCursor(); !ok {
 		m.review.notice = "no thread here to read"
@@ -103,7 +102,7 @@ func (m model) focusReviewThread() model {
 }
 
 // blurReviewThread hands the keys back to the diff and drops the reader back to the end of the
-// conversation, since that is where a thread stands whenever it is not being read.
+// conversation.
 func (m model) blurReviewThread() model {
 	m.review.threadFocus = false
 	m.review.threadScroll = 0
@@ -127,8 +126,7 @@ func (m model) reviewThreadMax() int {
 	return max(countLines(m.reviewRestView())-max(lines-1, 1), 0)
 }
 
-// refuseReviewWrite says why a key that would write to the agent did nothing, since the key is
-// dropped from the help but a rebinding or a habit can still press it.
+// refuseReviewWrite says why a key that would write to the agent did nothing.
 func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 	reason, _ := m.reviewIsReadOnly()
 	m.review.notice = reason
@@ -186,7 +184,7 @@ func (m model) jumpReviewMatch(direction int) (tea.Model, tea.Cmd) {
 }
 
 // reviewThreadAtCursor is the thread the cursor is standing on, and false while the diff is
-// still loading, since the sidebar is drawn on frames that arrive before the patch does.
+// still loading.
 func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	if m.review.view == nil {
 		return nil, false
@@ -195,9 +193,8 @@ func (m model) reviewThreadAtCursor() (*agentv1.ReviewThread, bool) {
 	return m.review.view.GetThreadAt(m.review.cursor)
 }
 
-// jumpReviewFile moves to the next or previous file and puts that file's header at the top of the
-// pane, since the scroll margin would otherwise land a forward jump on the last rows of the window
-// and show almost nothing of the file it went to.
+// jumpReviewFile moves to the next or previous file and puts that file's header at the top of
+// the pane.
 func (m model) jumpReviewFile(direction int) (tea.Model, tea.Cmd) {
 	next := m.review.view.JumpFile(m.review.cursor, direction)
 	if next == m.review.cursor {
@@ -239,8 +236,7 @@ func (m model) scrollReview(direction int) (tea.Model, tea.Cmd) {
 	return m.moveReviewCursor(cursor)
 }
 
-// reviewPanStep is how far sideways a press goes, a third of the pane, since a fixed few
-// characters meant forty presses to cross a wide diff.
+// reviewPanStep is how far sideways a press goes, which is a third of the pane.
 func (m model) reviewPanStep() int {
 	split, ok := m.screenColumnSplit()
 	if !ok {
@@ -261,8 +257,7 @@ func (m model) panReview(delta int) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// scrollReviewToCursor moves the window only when the cursor is about to leave it, since
-// scrolling on every move repaints every row of the pane and reads as a flicker.
+// scrollReviewToCursor moves the window only when the cursor is about to leave it.
 func (m *model) scrollReviewToCursor() {
 	split, ok := m.screenColumnSplit()
 	if !ok {

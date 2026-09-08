@@ -121,8 +121,7 @@ func TestAdoptPlacesTheAgent(t *testing.T) {
 	}
 }
 
-// TestAdoptRefusesADirectoryAnotherAgentHolds pins that two agents never share a worktree,
-// since deleting either would remove the tree out from under the other.
+// TestAdoptRefusesADirectoryAnotherAgentHolds pins that two agents never share a worktree.
 func TestAdoptRefusesADirectoryAnotherAgentHolds(t *testing.T) {
 	tests := []struct {
 		name string
@@ -195,8 +194,7 @@ func TestAdoptTakesOverFromAnAgentWhoseWorktreeIsGone(t *testing.T) {
 }
 
 // TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory pins that a checkout deleted by hand
-// does not hold the branch against an adoption, since git keeps the registration until
-// somebody prunes it and nothing about the branch is really in use.
+// does not hold the branch against an adoption.
 func TestAdoptTakesOverAWorktreeRegistrationWithNoDirectory(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -238,8 +236,8 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptNeedsWorktree)
 }
 
-// TestAdoptTwiceHandsBackTheSameAgent pins that asking again returns the agent already on
-// the branch, since git cannot check it out twice.
+// TestAdoptTwiceHandsBackTheSameAgent pins that asking again returns the agent already on the
+// branch.
 func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -374,8 +372,7 @@ func TestAdoptReportsAFailureToRead(t *testing.T) {
 	require.ErrorContains(t, err, "gh: not logged in")
 }
 
-// TestLooksLikePullRequest pins which refs read as a pull request and which are branch names,
-// since the two are told apart by shape alone.
+// TestLooksLikePullRequest pins which refs read as a pull request and which are branch names.
 func TestLooksLikePullRequest(t *testing.T) {
 	tests := []struct {
 		ref  string
@@ -399,8 +396,7 @@ func TestLooksLikePullRequest(t *testing.T) {
 	}
 }
 
-// TestRepositoryFromRemote covers the remotes a checkout is cloned with, since what a pull
-// request URL is checked against is read out of one of them.
+// TestRepositoryFromRemote covers the remotes a checkout is cloned with.
 func TestRepositoryFromRemote(t *testing.T) {
 	tests := []struct {
 		remote string

@@ -253,9 +253,7 @@ func TestNewWorkflowRefusesACwdThatIsNotAPrimaryCheckout(t *testing.T) {
 	}
 }
 
-// TestUpdateWorkflowRefusesAnUnsafeWorktreePath covers the same validation on the update
-// path, since a workflow created without paths can be given them afterwards and the two
-// entry points would otherwise disagree about what a path may be.
+// TestUpdateWorkflowRefusesAnUnsafeWorktreePath covers the same validation on the update path.
 func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -276,8 +274,7 @@ func TestUpdateWorkflowRefusesAnUnsafeWorktreePath(t *testing.T) {
 }
 
 // TestWorkflowWorktreePathsAreStoredCleaned covers the spelling a workflow's paths are stored
-// in, since the setup script refuses an entry holding a dot segment and so a path written ./.env
-// would be accepted here and then skipped when it mattered.
+// in.
 func TestWorkflowWorktreePathsAreStoredCleaned(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -404,8 +401,7 @@ func TestUpdateWorkflowWorktreeDisablePreservesTheDetails(t *testing.T) {
 	assert.Equal(t, []string{".env"}, reenabled.Worktree.CopyPaths, "re-enabling hands back what was there before")
 }
 
-// TestWorkflowArchiveOnPRClosed covers the setting surviving a create and an update,
-// since it is the workflow row the archiving pass reads on every pass.
+// TestWorkflowArchiveOnPRClosed covers the setting surviving a create and an update.
 func TestWorkflowArchiveOnPRClosed(t *testing.T) {
 	st := newStore(t)
 	workflows := workflowsFor(st, newFakeTmux())
@@ -882,7 +878,7 @@ func TestDeleteWorkflow(t *testing.T) {
 }
 
 // TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold pins the refusal landing before
-// any agent is cascaded to, since agents left in the old workflow still point at the schedule.
+// any agent is cascaded to.
 func TestDeleteWorkflowRefusesAScheduleAnotherWorkflowsAgentsHold(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()

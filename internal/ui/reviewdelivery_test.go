@@ -85,7 +85,7 @@ func TestReviewDrawsDeliveryUnderEachComment(t *testing.T) {
 }
 
 // TestReviewDeliveryBadgeNamesTheMoment pins the time on the badge being the last thing that
-// happened to the comment, since when it was written is already on the line above.
+// happened to the comment.
 func TestReviewDeliveryBadgeNamesTheMoment(t *testing.T) {
 	sent := sentComment()
 	delivered := deliveredComment()
@@ -254,8 +254,7 @@ func TestAReviewCarriesAWordAboutTheWholeThing(t *testing.T) {
 	assert.Equal(t, "the shape is right", agents.released.GetBody())
 }
 
-// TestAbandoningTheReleasePanelSendsNothing covers escape being a way out, since the panel opens
-// on a key a reader presses by habit and pressing it must not commit them to a verdict.
+// TestAbandoningTheReleasePanelSendsNothing covers escape being a way out.
 func TestAbandoningTheReleasePanelSendsNothing(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
@@ -333,8 +332,8 @@ func TestReviewOfADeadAgentIsReadOnly(t *testing.T) {
 	}
 }
 
-// TestReviewOfADeadAgentKeepsTheReadersOwnRecords pins what stays working, since settling,
-// deleting and folding a file away are the person's own notes and send nothing to anyone.
+// TestReviewOfADeadAgentKeepsTheReadersOwnRecords pins settling, deleting and folding a file
+// away still working.
 func TestReviewOfADeadAgentKeepsTheReadersOwnRecords(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}

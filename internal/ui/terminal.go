@@ -11,8 +11,8 @@ import (
 // fallbackShell is what the terminal runs when tmux answers for no default shell.
 const fallbackShell = "sh"
 
-// terminalContent is a shell rooted where it was opened, keyed so that drawing the region again
-// leaves it alone: respawning a pane kills whatever is running in it.
+// terminalContent is a shell rooted where it was opened, keyed to be left alone when the region
+// is drawn again.
 func terminalContent(shell, dir string) layout.Content {
 	if shell == "" {
 		shell = fallbackShell

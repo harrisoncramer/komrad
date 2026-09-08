@@ -11,8 +11,8 @@ import (
 	agentstore "weave/internal/store/agent"
 )
 
-// cwdLookTimeout bounds each look at a directory, since a stat or a git call against a dead
-// network mount hangs rather than failing.
+// cwdLookTimeout bounds each look at a directory, which against a dead network mount hangs
+// rather than failing.
 const cwdLookTimeout = 5 * time.Second
 
 type cwdSetter interface {

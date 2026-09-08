@@ -529,9 +529,8 @@ func resize(m model, width, height int) tea.Model {
 	return next
 }
 
-// TestAgentFieldsReviewingRow pins a reviewer's record drawing whose work it reads exactly once,
-// since the agents briefed before the role existed record that under a key of their own and the
-// derived row would otherwise sit above a stale copy of itself.
+// TestAgentFieldsReviewingRow pins a reviewer's record drawing whose work it reads exactly
+// once.
 func TestAgentFieldsReviewingRow(t *testing.T) {
 	tests := []struct {
 		name       string

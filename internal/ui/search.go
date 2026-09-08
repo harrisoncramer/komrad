@@ -190,9 +190,8 @@ func (m *model) applyPreview(result previewResult) {
 	m.holdPreview(result.content, hit.spans(result.content))
 }
 
-// groupSections gathers each agent's hits within its own section, since an agent with a word
-// match and a near match has one of each, and grouping across the two would carry a near hit
-// up among the matches and leave the heading in the wrong place.
+// groupSections gathers each agent's hits within its own section, keeping a near hit from being
+// carried up among the word matches.
 func groupSections(hits []searchHit) []searchHit {
 	var matches, near []searchHit
 
@@ -208,8 +207,7 @@ func groupSections(hits []searchHit) []searchHit {
 	return append(groupByAgent(matches), groupByAgent(near)...)
 }
 
-// groupByAgent gathers each agent's hits under the first of them, since the ranking interleaves
-// agents and a header is only worth drawing over the rows it stands for.
+// groupByAgent gathers each agent's hits under the first of them.
 func groupByAgent(hits []searchHit) []searchHit {
 	grouped := make([]searchHit, 0, len(hits))
 	gathered := make(map[string]bool, len(hits))
@@ -360,14 +358,13 @@ func (m model) jumpToSearchHit() (tea.Model, tea.Cmd) {
 }
 
 // spans locates this hit's own matched words in the transcript, measured from the turn the hit
-// names rather than from whatever the preview last fetched, since an agent's hits sit next to
-// each other in the listing and the transcript on hand can belong to the one before it.
+// names and not from whatever the preview last fetched.
 func (h searchHit) spans(content string) []span {
 	return matchSpans(content, h.offset, h.length, markedTerms(h.snippet))
 }
 
 // hitHeader names the agent a run of hits came from, wearing the same marks its row wears on
-// the screen it lives on, since a snippet says nothing about the agent that wrote it.
+// the screen it lives on.
 func (m model) hitHeader(hit searchHit) string {
 	name := clipName(hit.name)
 

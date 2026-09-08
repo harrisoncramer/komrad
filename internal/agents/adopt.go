@@ -39,7 +39,7 @@ type pullRequestResolver interface {
 }
 
 // adoptAgentReadWriter is the slice of the agent store adoption reads, which is every agent the
-// panel holds, since the question is which of them already has the branch or the directory.
+// panel holds.
 type adoptAgentReadWriter interface {
 	List(ctx context.Context) ([]agentstore.Agent, error)
 	ListAll(ctx context.Context) ([]agentstore.Agent, error)
@@ -239,8 +239,7 @@ func isAdopted(agent agentstore.Agent, branch string) bool {
 	return agent.AdoptedBranch == branch && !agent.WorktreeRemoved && agent.ArchivedAt == nil
 }
 
-// agentIn returns the agent whose cwd is a directory, archived ones included, since the first
-// agent's cleanup would otherwise remove the directory out from under a second one.
+// agentIn returns the agent whose cwd is a directory, archived ones included.
 func (s *AdoptService) agentIn(ctx context.Context, dir string) (*agentstore.Agent, error) {
 	agents, err := s.agents.ListAll(ctx)
 	if err != nil {
@@ -263,8 +262,7 @@ type worktrees struct {
 	holder string
 }
 
-// readWorktrees reports the checkout holding a branch, blank when none does, since git refuses
-// to check the same branch out twice.
+// readWorktrees reports the checkout holding a branch, blank when none does.
 func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) {
 	listCtx, cancel := context.WithTimeout(ctx, worktreeListTimeout)
 	defer cancel()
@@ -295,16 +293,14 @@ func readWorktrees(ctx context.Context, repo, branch string) (worktrees, error) 
 	return found, nil
 }
 
-// doesDirExist reports whether a path is a directory right now, since a worktree registration
-// outlives a directory somebody deleted without telling git.
+// doesDirExist reports whether a path is a directory right now.
 func doesDirExist(dir string) bool {
 	info, err := os.Stat(dir)
 
 	return err == nil && info.IsDir()
 }
 
-// isSameDir compares two paths as the filesystem sees them, since a worktree listing reports
-// resolved paths and a configured cwd is whatever somebody typed.
+// isSameDir compares two paths as the filesystem sees them.
 func isSameDir(a, b string) bool {
 	resolvedA, err := filepath.EvalSymlinks(a)
 	if err != nil {
@@ -330,8 +326,7 @@ func adoptTitle(title string, pr *PullRequest, branch string) string {
 	return xstr.Slug(branch[strings.LastIndex(branch, "/")+1:], 40)
 }
 
-// adoptPrompt puts what the agent is walking into in front of whatever it was asked to do, since
-// an agent that does not know the branch is somebody else's will rewrite the commits on it.
+// adoptPrompt puts what the agent is walking into in front of whatever it was asked to do.
 func adoptPrompt(pr *PullRequest, branch, prompt string) string {
 	var b strings.Builder
 

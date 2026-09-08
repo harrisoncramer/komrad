@@ -130,8 +130,7 @@ func (f *Frame) IsOpen(region Region) bool {
 	return pane != "" && f.tmux.IsPaneAlive(pane)
 }
 
-// Close takes a region away, which is only ever the info pane, since the sidebar is the panel
-// and the stage is what the rest hangs off.
+// Close takes a region away, which is only ever the info pane.
 func (f *Frame) Close(region Region) {
 	if region == RegionInfo {
 		f.closeInfo()
@@ -206,10 +205,12 @@ func (f *Frame) Solo(on bool) {
 // IsSolo reports whether the sidebar is holding the whole window.
 func (f *Frame) IsSolo() bool { return f.solo }
 
-// SyncKeys puts the frame right about whether the sidebar is still holding the window, since tmux
-// drops a pane's zoom when the keys move off it and calls into nothing when it does, and a focus
-// report cannot tell that from the terminal the whole session is in losing focus, which leaves the
-// zoom alone.
+// Explainer: tmux drops a pane's zoom when the keys move off it and calls into nothing when it
+// does. A focus report cannot tell that from the terminal the whole session is in losing focus,
+// which leaves the zoom alone: the keys moving off reads as window_zoomed_flag 1 with
+// pane_active 1, against 0 and 0 for a select-pane.
+
+// SyncKeys puts the frame right about whether the sidebar is still holding the window.
 func (f *Frame) SyncKeys() {
 	if f.sidebar == "" {
 		return
@@ -229,8 +230,7 @@ func (f *Frame) SidebarSize() (width, height int) {
 }
 
 // SidebarWidth is how many columns the sidebar draws in when it is holding a window of the given
-// width, and whether that came from the divider rather than from the config, since a width the
-// user placed themselves is drawn as it stands and a configured one is only a starting point.
+// width, and whether that came from the divider rather than from the config.
 func (f *Frame) SidebarWidth(total int) (int, bool) {
 	if width := total - f.stageCols - 1; f.stageCols > 0 && width > 0 {
 		return width, true
@@ -277,9 +277,8 @@ func (f *Frame) ReleaseGuest(pane string) {
 	}
 }
 
-// holdSolo says again where the sidebar's zoom belongs, since split-window, swap-pane,
-// resize-pane, kill-pane and break-pane all drop it silently and telling tmux the zoom to end
-// on costs nothing when nothing dropped it.
+// holdSolo says again where the sidebar's zoom belongs, which split-window, swap-pane,
+// resize-pane, kill-pane and break-pane all drop silently.
 func (f *Frame) holdSolo() {
 	// A zoomed sidebar covers the info pane, so the window is left alone while one is up.
 	if !f.solo || f.sidebar == "" || f.info != "" {
@@ -299,8 +298,8 @@ func (f *Frame) isShowing(region Region, content Content, target Target) bool {
 		return false
 	}
 
-	// Height matters as much as width, since a region gives rows to a split under it and takes
-	// them back, and content drawn to a stale height leaves rows the pane never fills.
+	// Height matters as much as width, with a region giving rows to a split under it and taking
+	// them back.
 	return !content.Wraps || (was.width == target.Width && was.height == target.Height)
 }
 

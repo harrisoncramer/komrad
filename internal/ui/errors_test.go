@@ -189,8 +189,7 @@ func TestSuccessfulWriteReportsNothing(t *testing.T) {
 	assert.Len(t, got.messages.items, 1, "a write that succeeded says nothing and takes nothing away")
 }
 
-// TestMessageDrawsInTheRegion covers a refused write reporting without taking the screen, since
-// the row the failure is about is in the list above the region it is drawn in.
+// TestMessageDrawsInTheRegion covers a refused write reporting without taking the screen.
 func TestMessageDrawsInTheRegion(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
@@ -204,8 +203,7 @@ func TestMessageDrawsInTheRegion(t *testing.T) {
 	assert.Contains(t, view, m.listing.agents[0].agent.Name, "the list is still on screen above the region")
 }
 
-// TestMessagesYieldToTakeoverScreens pins the precedence, since a region under a list that
-// cannot be trusted would report one failed write while every row above it was stale.
+// TestMessagesYieldToTakeoverScreens pins a takeover screen coming before the message region.
 func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 	tests := []struct {
 		name string
@@ -234,8 +232,8 @@ func TestMessagesYieldToTakeoverScreens(t *testing.T) {
 	}
 }
 
-// TestMessagesKeepEscOffTheList covers esc staying the list's own key, since the region only
-// takes it once it holds the keys and a press on the list would otherwise dismiss unread.
+// TestMessagesKeepEscOffTheList covers esc staying the list's own key until the region holds
+// the keys.
 func TestMessagesKeepEscOffTheList(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
@@ -295,8 +293,7 @@ func TestConfigErrorView(t *testing.T) {
 	}
 }
 
-// TestConfigErrorScreenIsTerminal covers nothing running behind the screen, since a panel
-// that never read its config has no list to poll and nothing to come back to.
+// TestConfigErrorScreenIsTerminal covers nothing running behind the screen.
 func TestConfigErrorScreenIsTerminal(t *testing.T) {
 	m := model{configErr: errors.New("failed to parse config: bad")}
 
@@ -361,8 +358,7 @@ func TestStartupErrorView(t *testing.T) {
 	}
 }
 
-// TestStartupErrorScreenIsTerminal covers nothing running behind the screen, since the server
-// is started once and a panel whose server never started has nothing to wait for.
+// TestStartupErrorScreenIsTerminal covers nothing running behind the screen.
 func TestStartupErrorScreenIsTerminal(t *testing.T) {
 	m := model{startupErr: errors.New("the agent server stopped during startup")}
 

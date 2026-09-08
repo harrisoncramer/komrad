@@ -13,9 +13,8 @@ import (
 // enough to see what the comment is about without opening the file.
 const contextLines = 6
 
-// renderReviewParams is everything one review file has to say for itself, since a released review
-// outlives the rows naming it and has to carry who it was about and who wrote it rather than
-// leaning on the database still holding either.
+// renderReviewParams is everything one review file has to say for itself, a released review
+// outliving the rows that name it.
 type renderReviewParams struct {
 	// Agent is the agent whose work was reviewed.
 	Agent agentstore.Agent
@@ -95,8 +94,7 @@ func writeThread(out *strings.Builder, thread ReviewThreadWithMessages, lines []
 	}
 }
 
-// suggestionLead says how much weight the replacement lines carry, since a person's own edit of
-// the worktree is to be applied rather than weighed.
+// suggestionLead says how much weight the replacement lines carry.
 func suggestionLead(byHuman bool) string {
 	if byHuman {
 		return "The person reviewing wrote this replacement for those lines themselves. " +
@@ -108,8 +106,7 @@ func suggestionLead(byHuman bool) string {
 }
 
 // writeContext draws the file around the lines a comment was written about as the round froze
-// them, marking those lines, and reports whether it drew anything at all, since a file the round
-// does not hold falls back to the lines the comment was quoted against.
+// them, marking those lines, and reports whether it drew anything at all.
 func writeContext(out *strings.Builder, thread reviewstore.Thread, lines []string) bool {
 	start, end := int(thread.NewStart), int(thread.NewEnd)
 	if start <= 0 || start > len(lines) {

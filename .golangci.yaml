@@ -185,8 +185,33 @@ linters:
             skip: false
             include:
               - internal/ui/
+          # Unanchored regexps over the file path, same exclusion as comment_length.
+          comment_reference:
+            skip: false
+            exclude:
+              - config/appconfig\.go$
+          # Left off: it asks for code changes, and the sweep that turned the two comment
+          # rules on was comments only.
+          switch_default:
+            skip: true
+          comment_clause:
+            skip: false
+            exclude:
+              - config/appconfig\.go$
+            clauses:
+              - since
+              - because
+              - so that
+              - rather than
   exclusions:
     rules:
+      # commentclause is on repo-wide, and the sweep that answers it runs a package at a time, so
+      # the rule is held to the packages already swept and this list shrinks with each tranche
+      # until the rule stands on its own.
+      - path-except: (internal/ui/|internal/agents/)
+        linters:
+          - fussy
+        text: commentclause
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)

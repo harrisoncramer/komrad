@@ -10,7 +10,7 @@ import (
 )
 
 // HarvestedBody is what a thread weave read off the round's checkout says, which is attribution
-// rather than prose because the suggestion beside it already shows what the edit was.
+// rather than prose.
 const HarvestedBody = "The person reviewing wrote this edit themselves. Apply it as written; " +
 	"if it no longer applies because the code moved, say so in this thread rather than half-applying it."
 
@@ -18,8 +18,8 @@ const HarvestedBody = "The person reviewing wrote this edit themselves. Apply it
 // the number a formatter or a generator run in the checkout goes far past and a person does not.
 const harvestRunCeiling = 25
 
-// harvestFileCeiling is the same for files, since a generator rewrites few lines in very many
-// files and would otherwise slip under the run ceiling.
+// harvestFileCeiling is the same for files, which a generator rewrites very many of while
+// slipping under the run ceiling.
 const harvestFileCeiling = 8
 
 // ErrHarvestTooLarge is a harvest that would open more comments than a person plausibly wrote,
@@ -29,8 +29,8 @@ var ErrHarvestTooLarge = errors.New("that edit is too large to read as review co
 type HarvestRoundEditsParams struct {
 	AgentID string
 	RoundID string
-	// Runs are the edited runs read off the checkout, anchored by the panel because the line
-	// numbers and quoted lines a thread is pinned by come from the patch.
+	// Runs are the edited runs read off the checkout, anchored by the panel that holds the patch
+	// their line numbers and quoted lines come from.
 	Runs []review.Run
 	// Force writes a harvest that went past the ceiling, which is the reviewer answering for it.
 	Force bool
@@ -175,7 +175,7 @@ func (s *ReviewService) harvestGround(
 }
 
 // moveHarvested repins a thread onto the run it now stands for and rewrites the suggestion it
-// carries, which are two writes because the range is the thread's and the lines are its message's.
+// carries, which are two writes.
 func (s *ReviewService) moveHarvested(ctx context.Context, move review.Move) error {
 	if _, err := s.threads.MoveThread(ctx, reviewstore.MoveThreadParams{
 		ID:          move.ID,

@@ -40,8 +40,7 @@ func openWorkflowForm(t *testing.T, m model) model {
 }
 
 // TestFormTakesTheWindowBesideTheList covers a form that asks for something being drawn in a
-// column of its own, with the list it was opened over still beside it, since the list is the
-// context the form was opened from.
+// column of its own, with the list it was opened over still beside it.
 func TestFormTakesTheWindowBesideTheList(t *testing.T) {
 	m := formColumnModel(t)
 	require.False(t, m.frame.IsSolo(), "the agents list shares the window")
@@ -64,8 +63,8 @@ func TestFormTakesTheWindowBesideTheList(t *testing.T) {
 	}
 }
 
-// TestFormHandsTheWindowBackOnClose covers the way off a form, since the panes beside the panel
-// are covered by the zoom the form was holding for as long as it holds it.
+// TestFormHandsTheWindowBackOnClose covers the way off a form giving up the zoom it was
+// holding.
 func TestFormHandsTheWindowBackOnClose(t *testing.T) {
 	m := formColumnModel(t)
 	m = openWorkflowForm(t, m)
@@ -78,8 +77,8 @@ func TestFormHandsTheWindowBackOnClose(t *testing.T) {
 	assert.Equal(t, m.width, m.paneWidth(), "and the list goes back to the whole of the pane")
 }
 
-// TestConfirmDrawsBesideTheList covers a form that only wants an answer being drawn in the column
-// too, since the row it is asking about is the one thing that makes the answer obvious.
+// TestConfirmDrawsBesideTheList covers a form that only wants an answer being drawn in the
+// column too.
 func TestConfirmDrawsBesideTheList(t *testing.T) {
 	m := formColumnModel(t)
 
@@ -113,8 +112,7 @@ func TestConfirmKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 }
 
 // TestFormIsSizedToItsColumn covers the form being laid out in the column it is drawn in rather
-// than in the pane the panel had a moment before, since huh takes its width from a window size
-// and the window the panel was sent is the whole terminal.
+// than in the pane the panel had a moment before.
 func TestFormIsSizedToItsColumn(t *testing.T) {
 	m := formColumnModel(t)
 	m = openWorkflowForm(t, m)
@@ -172,8 +170,7 @@ func TestFormStaysInsideTheFrameUnderARefusal(t *testing.T) {
 }
 
 // TestAHeldFormCarriesItsOwnNotice covers where the submitting notice is drawn: under the form
-// rather than above the panel, since chrome at the top moves every row below it and a form held
-// for the length of a provision would sit there jittering.
+// rather than above the panel.
 func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
 	for _, height := range []int{24, 32, 40} {
 		m := resizedTo(t, formColumnModel(t), 160, height)
@@ -193,8 +190,7 @@ func TestAHeldFormCarriesItsOwnNotice(t *testing.T) {
 	}
 }
 
-// lastFilled is the bottom row of a view that says anything, since fitFrame pads the pane out
-// with blanks below whatever was drawn.
+// lastFilled is the bottom row of a view that says anything.
 func lastFilled(lines []string) string {
 	for i := len(lines) - 1; i >= 0; i-- {
 		if strings.TrimSpace(lines[i]) != "" {
@@ -220,9 +216,8 @@ func TestFormKeepsTheWholePaneOnANarrowWindow(t *testing.T) {
 	assert.Equal(t, m.width, width)
 }
 
-// TestFormBlursTheListBesideIt covers the list a form is opened over: the form has every key, so
-// the list is drawn the way it is when the record beside it holds them, title and row cursor
-// alike, rather than reading as the half being typed at.
+// TestFormBlursTheListBesideIt covers the list a form is opened over being drawn the way it is
+// when the record beside it holds the keys, title and row cursor alike.
 func TestFormBlursTheListBesideIt(t *testing.T) {
 	m := formColumnModel(t)
 	require.True(t, m.isListFocused(), "the list holds the keys to start with")
@@ -235,9 +230,8 @@ func TestFormBlursTheListBesideIt(t *testing.T) {
 	assert.Equal(t, blurredCursorStyle.Render(rowCursorGlyph), m.rowCursorPrefix(), "and its cursor stands still")
 }
 
-// TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving the
-// form it was refused from, since the three rows the region keeps cut a long one short and the
-// form owns every other key.
+// TestFormRefusalIsReadableFromInsideTheForm covers reaching the whole reason without leaving
+// the form it was refused from.
 func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
 	m := resizedTo(t, formColumnModel(t), 160, 40)
 
@@ -269,7 +263,7 @@ func TestFormRefusalIsReadableFromInsideTheForm(t *testing.T) {
 }
 
 // TestRenameDrawsBesideTheList covers the rename form being drawn in a column of its own like
-// every other form, since the name it is replacing is on the row it was opened from.
+// every other form.
 func TestRenameDrawsBesideTheList(t *testing.T) {
 	m := formColumnModel(t)
 

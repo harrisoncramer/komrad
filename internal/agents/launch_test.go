@@ -19,8 +19,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestNewAgent covers a launch end to end, where a refused one records nothing, since tmux
-// reads an empty pane target as whatever the user is looking at.
+// TestNewAgent covers a launch end to end, where a refused one records nothing.
 func TestNewAgent(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -242,9 +241,8 @@ func TestNewAgentIdempotency(t *testing.T) {
 	}
 }
 
-// TestNewAgentRetriesUnderTheSameKey covers what a retry of one firing does about the agent
-// the previous attempt left behind, since answering it with a create that failed is what
-// turned one launch failure into an hourly run that silently never happened.
+// TestNewAgentRetriesUnderTheSameKey covers what a retry of one firing does about the agent the
+// previous attempt left behind.
 func TestNewAgentRetriesUnderTheSameKey(t *testing.T) {
 	const key = "schedule:s1:2026-07-28T09:00:00Z"
 
@@ -391,7 +389,7 @@ func TestNewAgentRecordsWhoSpawnedIt(t *testing.T) {
 }
 
 // TestNewAgentGetsDirectory pins a ~ path being made absolute before the window is opened,
-// since tmux does no tilde expansion.
+// which tmux does no expansion of.
 func TestNewAgentGetsDirectory(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -728,8 +726,8 @@ func TestNewAgentCeiling(t *testing.T) {
 	}
 }
 
-// TestNewAgentCeilingAllowsARetriedLaunch covers the one create the ceiling does not
-// measure, since a retry carrying a key an agent already holds creates nothing.
+// TestNewAgentCeilingAllowsARetriedLaunch covers the one create the ceiling does not measure,
+// which is a retry carrying a key an agent already holds.
 func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -757,8 +755,8 @@ func TestNewAgentCeilingAllowsARetriedLaunch(t *testing.T) {
 	require.ErrorIs(t, err, ErrTooManyAgents)
 }
 
-// TestNewAgentCleansUpAfterASetupThatRan pins every refusal past the provisioner undoing
-// its work, since a worktree no row names is never reached again.
+// TestNewAgentCleansUpAfterASetupThatRan pins every refusal past the provisioner undoing its
+// work.
 func TestNewAgentCleansUpAfterASetupThatRan(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -868,7 +866,7 @@ func (c *cancellingSetupLifecycle) RunProvision(ctx context.Context, agent agent
 }
 
 // TestNewAgentClosesOutACreateTheCallerAbandoned pins the write that marks a create failed
-// outliving the request, since nothing else moves a row out of setting_up.
+// outliving the request.
 func TestNewAgentClosesOutACreateTheCallerAbandoned(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -927,8 +925,7 @@ func (c *slowCleanupLifecycle) RunDeprovision(ctx context.Context, agent agentst
 }
 
 // TestNewAgentWaitsForTheCleanupOfAFailedCreate pins the teardown of a failed create being
-// waited for, since the row is closed out on the next line and a directory still being taken
-// back under it is a create that half happened.
+// waited for.
 func TestNewAgentWaitsForTheCleanupOfAFailedCreate(t *testing.T) {
 	tmux := newFakeTmux()
 	tmux.newWindowErr = errors.New("tmux refused the window")

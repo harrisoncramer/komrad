@@ -73,7 +73,7 @@ func TestReconcileAgainstRealTmux(t *testing.T) {
 }
 
 // TestExitedCLIStopsBeingANudgeTarget pins that mail is not typed at an agent whose CLI has
-// exited, since its pane looks just like one waiting to be told.
+// exited, whose pane looks just like one waiting to be told.
 func TestExitedCLIStopsBeingANudgeTarget(t *testing.T) {
 	it := tmuxtest.New(t)
 	cli := it.Client()
@@ -116,9 +116,8 @@ func mustRegistry(t *testing.T, harnesses ...harness.Harness) *harness.Registry 
 	return registry
 }
 
-// TestReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is
-// not acted on, since a listing that came back short reads exactly like one that came back
-// right and forgetting the pane costs the agent a binding nothing restores.
+// TestReconcileHoldsAPaneOneListingLeftOut pins that a pane missing from a single listing is not
+// acted on.
 func TestReconcileHoldsAPaneOneListingLeftOut(t *testing.T) {
 	it := tmuxtest.New(t)
 	st := newStore(t)

@@ -195,9 +195,7 @@ func TestFocusKeepsTheMarkers(t *testing.T) {
 	assert.Contains(t, m.agentsView(), "›", "and the row cursor while the details have them")
 }
 
-// TestPaintRow covers laying a background under a row that is already coloured, which is the
-// one thing wrapping the row in a style cannot do, since the reset closing each fragment would
-// drop the background for everything after it.
+// TestPaintRow covers laying a background under a row that is already coloured.
 func TestPaintRow(t *testing.T) {
 	withColor(t)
 

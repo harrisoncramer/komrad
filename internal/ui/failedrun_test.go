@@ -74,8 +74,7 @@ func TestFailedRunMarkIsDrawnOnTheRow(t *testing.T) {
 	assert.NotContains(t, clear, failedRunIcon)
 }
 
-// TestRunsReadNeedsTheRunLogUpAndReadForASecond pins what counts as reading a failed run, since
-// a mark cleared by a cursor passing over a row, or while nobody is looking, is worth nothing.
+// TestRunsReadNeedsTheRunLogUpAndReadForASecond pins what counts as reading a failed run.
 func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -135,8 +134,7 @@ func TestRunsReadNeedsTheRunLogUpAndReadForASecond(t *testing.T) {
 }
 
 // TestOpeningTheRunLogLandsOnTheRunThatFailed covers the mark taking the person to the run it
-// is about, since an agent resumed since its hook failed has a newer run that went fine and the
-// pane would otherwise open on that one and clear the mark.
+// is about and not to a newer one that went fine.
 func TestOpeningTheRunLogLandsOnTheRunThatFailed(t *testing.T) {
 	logsDir := t.TempDir()
 	seedRunLogs(t, logsDir, "a1", 2)
@@ -187,8 +185,7 @@ func TestTheRunLogFollowsTheCursorOntoTheFailedRun(t *testing.T) {
 	assert.NotNil(t, cmd, "and only then is the mark claimed")
 }
 
-// seedRunLogs writes an agent count numbered run logs, oldest first, since what the pane shows
-// is a position in that listing rather than a number.
+// seedRunLogs writes an agent count numbered run logs, oldest first.
 func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
 	t.Helper()
 
@@ -201,8 +198,7 @@ func seedRunLogs(t *testing.T, logsDir, agentID string, count int) {
 	}
 }
 
-// TestRunPositionNamesWhichRunIsOnScreen covers the label on the older-run key, since that key
-// wraps in one direction and is otherwise the only way to tell where through the runs you are.
+// TestRunPositionNamesWhichRunIsOnScreen covers the label on the older-run key.
 func TestRunPositionNamesWhichRunIsOnScreen(t *testing.T) {
 	tests := []struct {
 		name string

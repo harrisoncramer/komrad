@@ -92,9 +92,8 @@ func TestDeleteAgentRunsCleanupFromAnArchivedWorkflow(t *testing.T) {
 	assert.Equal(t, []string{worktreeDeprovisioner}, lifecycle.deprovision)
 }
 
-// TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown:
-// a delete whose deprovisioner fails leaves the row behind, marked so, rather than
-// dropping it the moment the delete was asked for and losing the only place left to see why.
+// TestDeleteAgentMarksFailedToCleanupWhenTeardownFails covers the other side of a teardown: a
+// delete whose deprovisioner fails leaves the row behind, marked so.
 func TestDeleteAgentMarksFailedToCleanupWhenTeardownFails(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -152,8 +151,7 @@ func TestDeleteStaysArchivedOnAFailedTeardown(t *testing.T) {
 	assert.NotNil(t, all[0].ArchivedAt)
 }
 
-// TestDeleteAgentRetryRecordsTheLatestReasonOnly pins a second failure overwriting the first,
-// since there is one error slot per agent rather than a history of them.
+// TestDeleteAgentRetryRecordsTheLatestReasonOnly pins a second failure overwriting the first.
 func TestDeleteAgentRetryRecordsTheLatestReasonOnly(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -288,7 +286,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 }
 
 // TestDeleteAgentRemovesItsRecordedFrames pins a delete reclaiming what a recording kept for
-// that agent, since a recording is bounded per agent and nothing else ever clears it.
+// that agent.
 func TestDeleteAgentRemovesItsRecordedFrames(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -370,8 +368,8 @@ func TestArchiveAgent(t *testing.T) {
 	}
 }
 
-// TestArchiveKillsAPaneWrittenBeforeItsOwnWrite pins the archive killing the pane its own
-// write took, since the pane landed on the row after its read saw nothing there.
+// TestArchiveKillsAPaneWrittenBeforeItsOwnWrite pins the archive killing the pane its own write
+// took.
 func TestArchiveKillsAPaneWrittenBeforeItsOwnWrite(t *testing.T) {
 	st := newStore(t)
 	tmux := newFakeTmux()
@@ -488,8 +486,7 @@ func TestDeleteAgent(t *testing.T) {
 	}
 }
 
-// TestAReissuedPaneIsNotTheAgents pins every read of a stored pane id surviving reissue,
-// since tmux only promises the id is unique while the server that issued it lives.
+// TestAReissuedPaneIsNotTheAgents pins every read of a stored pane id surviving reissue.
 func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 	const shared = "%4"
 

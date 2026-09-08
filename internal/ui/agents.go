@@ -105,8 +105,8 @@ func (m model) archiveAndDeleteAgents(agents []agentstore.Agent) (model, tea.Cmd
 	)
 }
 
-// releasePanes swaps the given agents' real panes out of the stage and marks them locally as no
-// longer alive, since stageSelection would otherwise swap a released pane straight back in.
+// releasePanes swaps the given agents' panes out of the stage and marks them locally as no
+// longer alive.
 func (m *model) releasePanes(agents []agentstore.Agent) {
 	released := make(map[string]bool, len(agents))
 	for _, agent := range agents {
@@ -150,8 +150,7 @@ func (m model) jumpCursor(idx int) model {
 func (m model) toggleAgentViewed(item agentItem) (tea.Model, tea.Cmd) {
 	viewed := item.unviewed
 
-	// A mark set by hand is held against the dwell until the cursor leaves the row, since the
-	// row it is set on is the row being hovered and the dwell would otherwise undo it at once.
+	// A mark set by hand is held against the dwell until the cursor leaves the row.
 	m.hover = hoverState{
 		agentID: item.agent.ID,
 		since:   time.Now(),
@@ -277,8 +276,7 @@ func (m model) agentDoc() string {
 	}
 }
 
-// sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in, since a
-// pane swapped into a slot of another size is resized and its program redraws everything it holds.
+// sizeAgentWindows keeps every agent's own window at the size of the pane it is shown in.
 func (m *model) sizeAgentWindows() {
 	width, height := m.frame.StageCols(), m.height
 	if width <= 0 || height <= 0 {
@@ -387,8 +385,7 @@ func (m model) scheduleName(agent agentstore.Agent) string {
 
 const dormantPlaceholder = "_dormant — not running_\n\nPress open to resume."
 
-// noAgentsMarkdown is what stands beside an empty list, since a blank half of the window says
-// nothing about why it is blank.
+// noAgentsMarkdown is what stands beside an empty list.
 const noAgentsMarkdown = "# Agents\n\n_nothing here yet_\n\nPress new to make a workflow and an agent in it.\n"
 
 const settingUpPlaceholder = "_setting up…_\n\nMaking this agent's worktree. It has no pane yet."
@@ -512,9 +509,7 @@ func (m model) openChildForm(parent agentstore.Agent, values *agentFormValues) (
 	)
 }
 
-// submitChild launches the child without sending anything about where it runs, since the
-// service takes the directory and the provisioning from the parent and refuses a request
-// naming them.
+// submitChild launches the child without a directory or a provisioner.
 func (m model) submitChild(parent agentstore.Agent, values agentFormValues) (tea.Model, tea.Cmd) {
 	cmd := m.createCmd(createAgentParams{
 		Prompt:        values.Prompt,

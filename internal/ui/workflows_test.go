@@ -82,8 +82,8 @@ func TestAgentRows(t *testing.T) {
 	}
 }
 
-// TestHoveredWorkflow checks the cursor reports a real workflow only when it
-// sits on that workflow's header, since the workflow keys act on what is hovered.
+// TestHoveredWorkflow checks the cursor reports a real workflow only when it sits on that
+// workflow's header.
 func TestHoveredWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -216,8 +216,7 @@ func TestWorkflowWrites(t *testing.T) {
 }
 
 // TestAvailableHooksCarryTheWholeDirectory covers what the workflow form's hook fields are
-// chosen from, including a file waiting on a chmod, since one written and forgotten should be
-// pickable and then say why it would not run rather than never appearing.
+// chosen from, including a file waiting on a chmod.
 func TestAvailableHooksCarryTheWholeDirectory(t *testing.T) {
 	m := model{api: api{hooks: &fakeHooks{}}}
 
@@ -230,8 +229,8 @@ func TestAvailableHooksCarryTheWholeDirectory(t *testing.T) {
 	}, got)
 }
 
-// TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer: the tree
-// stays as it was, since blanking it would say every workflow had just been archived.
+// TestFailedWorkflowListKeepsTheTree covers a workflow list that does not answer: the tree stays
+// as it was.
 func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m := model{
 		frame:   layout.New(&recordingTmux{}, config.DefaultLayout()),

@@ -253,9 +253,8 @@ func TestSendMailTellsBothSidesWhenTheCapRefusesASend(t *testing.T) {
 }
 
 // TestSendMailKeepsOneNoticePerUnreadRefusal pins what a retry past the cap costs: the mark goes
-// back up, since a row cleared by a look has to say the exchange is still being refused, while a
-// notice the recipient has not read stands in for the refusals behind it and one it has read is
-// replaced so the next refusal is told too.
+// back up, an unread notice stands in for the refusals behind it, and one already read is
+// replaced.
 func TestSendMailKeepsOneNoticePerUnreadRefusal(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -348,9 +347,8 @@ func TestSendMailCapsEachPairSeparately(t *testing.T) {
 	require.NoError(t, err)
 }
 
-// TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap pins that the mark reaches the parent of
-// a pair it is not itself half of, since two children going round is the case the parent is there
-// to break and its row is the one a person is looking at.
+// TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap pins that the mark reaches the parent
+// of a pair it is not itself half of.
 func TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -375,7 +373,7 @@ func TestSendMailMarksTheParentOfTwoChildrenThatSpendTheCap(t *testing.T) {
 }
 
 // TestSendMailCapsAPairThatIsNobodysChildren pins that a pair with no parent over it is capped
-// too, marking whichever of the two sent, since that is the row a person looks at.
+// too, marking whichever of the two sent.
 func TestSendMailCapsAPairThatIsNobodysChildren(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -396,8 +394,7 @@ func TestSendMailCapsAPairThatIsNobodysChildren(t *testing.T) {
 }
 
 // TestSendMailLeavesWeavesOwnMailOutOfTheCount pins that a lifecycle notice does not spend the
-// pair's allowance, since neither agent wrote it and an agent weave talks to often would
-// otherwise be cut off from its own family.
+// pair's allowance.
 func TestSendMailLeavesWeavesOwnMailOutOfTheCount(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	family := newFakeFamily()
@@ -420,9 +417,8 @@ func TestSendMailLeavesWeavesOwnMailOutOfTheCount(t *testing.T) {
 	assert.Empty(t, family.unviewed)
 }
 
-// TestSendMailSystemNoticeIsNeverRefusedByTheCap proves, rather than assumes, that weave can
-// always reach an agent: a lifecycle notice carries no sending agent, so it is not one half of a
-// pair and clears even the tightest limit a panel could configure.
+// TestSendMailSystemNoticeIsNeverRefusedByTheCap proves weave can always reach an agent, a
+// lifecycle notice carrying no sending agent and so being no half of a pair.
 func TestSendMailSystemNoticeIsNeverRefusedByTheCap(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{
@@ -438,9 +434,8 @@ func TestSendMailSystemNoticeIsNeverRefusedByTheCap(t *testing.T) {
 	}
 }
 
-// TestSendSystemMailStampsWeaveAsTheSender proves the join the framing in hook.go relies
-// on: a lifecycle notice lands with weave's name and no agent id, which is what tells the
-// stop hook this was not the panel operator talking.
+// TestSendSystemMailStampsWeaveAsTheSender proves a lifecycle notice lands with weave's name and
+// no agent id, which is what tells the stop hook this was not the panel operator talking.
 func TestSendSystemMailStampsWeaveAsTheSender(t *testing.T) {
 	mailbox := &fakeMailbox{}
 	svc := NewMailService(NewMailServiceParams{

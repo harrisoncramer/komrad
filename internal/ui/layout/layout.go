@@ -43,8 +43,7 @@ type Target struct {
 
 type Content struct {
 	Key string
-	// Dir is where the pane is rooted, and every content names one, since a pane respawned
-	// somewhere its content did not ask for is a shell in the wrong repository.
+	// Dir is where the pane is rooted, and every content names one.
 	Dir    string
 	Wraps  bool
 	Render func(Target) ([]string, bool)

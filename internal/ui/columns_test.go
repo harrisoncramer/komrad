@@ -28,8 +28,7 @@ func sizedTo(m model, tmux *recordingTmux) model {
 	return m
 }
 
-// resizedTo puts the terminal and the panel's pane at the same size, since the panel reads its
-// size back from the pane.
+// resizedTo puts the terminal and the panel's pane at the same size.
 func resizedTo(t *testing.T, m model, width, height int) model {
 	t.Helper()
 
@@ -68,8 +67,7 @@ func TestAgentsDrawTheHoveredRowsNotes(t *testing.T) {
 	}
 }
 
-// TestAgentsGiveTheWindowToARunningAgent covers the one row that has a pane of its own, since the
-// agent's own terminal is the whole point of the stage beside the list.
+// TestAgentsGiveTheWindowToARunningAgent covers the one row that has a pane of its own.
 func TestAgentsGiveTheWindowToARunningAgent(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
@@ -215,10 +213,8 @@ func TestAHandMovedPaneCorrectsTheFrame(t *testing.T) {
 	assert.True(t, m.frame.IsSolo(), "and takes it back on the next pass, since it wants it here")
 }
 
-// TestAnUnfocusedTerminalKeepsTheWindow covers the other thing a focus report means, since tmux
-// passes its client's own focus-out to the active pane and so alt-tabbing to another application
-// looks exactly like the keys leaving while the zoom is untouched, measured as window_zoomed_flag
-// 1 and pane_active 1 against 0 and 0 for a select-pane.
+// TestAnUnfocusedTerminalKeepsTheWindow covers the other thing a focus report means, which is
+// the terminal itself losing focus with the zoom untouched.
 func TestAnUnfocusedTerminalKeepsTheWindow(t *testing.T) {
 	m, _ := paneless(t)
 	before := m.View()
@@ -232,8 +228,7 @@ func TestAnUnfocusedTerminalKeepsTheWindow(t *testing.T) {
 }
 
 // TestTheDiffColumnSaysWhatItIsWaitingFor covers the review screen before its patch arrives,
-// which can be seconds on a large worktree and read as a screen that had hung, since the column
-// is the larger half of the window and the band standing over it carries only the title.
+// which on a large worktree can take seconds.
 func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)
@@ -260,7 +255,7 @@ func TestTheDiffColumnSaysWhatItIsWaitingFor(t *testing.T) {
 }
 
 // TestColumnOffsetResetsOnANewRow covers the scroll offset belonging to the row it was scrolled
-// on, since the offset a reader had is into a different document once the cursor moves.
+// on.
 func TestColumnOffsetResetsOnANewRow(t *testing.T) {
 	var state columnState
 
@@ -400,8 +395,7 @@ func TestADraggedDividerIsDrawnWhereItIs(t *testing.T) {
 }
 
 // TestAgentWindowsAreTheSizeOfTheStage covers an agent's own window being kept at the size of the
-// slot it is shown in, since a pane swapped into a slot of another size is resized by tmux and the
-// CLI in it redraws its whole transcript.
+// slot it is shown in.
 func TestAgentWindowsAreTheSizeOfTheStage(t *testing.T) {
 	tmux := &recordingTmux{}
 	m := sizedTo(infoModel(tmux), tmux)

@@ -116,8 +116,7 @@ func TestFrameSizesTheNavPaneInColumns(t *testing.T) {
 	assert.Equal(t, []string{"%0 40"}, tmux.resizes)
 }
 
-// TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild covers the stage losing its pane, since a
-// rebuilt stage is split evenly unless it is sized the way the first one was.
+// TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild covers the stage losing its pane.
 func TestFrameSizesTheNavPaneInColumnsAgainAfterARebuild(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})
@@ -225,8 +224,7 @@ func TestFrameShowLeavesAPaneItCouldNotRenderFor(t *testing.T) {
 	assert.Len(t, tmux.respawns, 2, "and the document that failed is not held as shown")
 }
 
-// TestFrameShowRefusesTheNavRegion covers the one pane the frame will not fill, since filling
-// it would replace the process that asked.
+// TestFrameShowRefusesTheNavRegion covers the one pane the frame will not fill.
 func TestFrameShowRefusesTheNavRegion(t *testing.T) {
 	tmux := &recordingTmux{}
 	frame := New(tmux, config.DefaultLayout())
@@ -431,7 +429,7 @@ func (t *recordingTmux) SetPaneZoomed(_ string, on bool) {
 }
 
 // GetPaneFocus answers the way tmux was measured to: a pane the keys have moved off is neither
-// the active one nor zoomed any more, since select-pane drops a zoom on its way out.
+// the active one nor zoomed any more.
 func (t *recordingTmux) GetPaneFocus(string) (focused, zoomed bool) {
 	if t.keysElsewhere {
 		return false, false
@@ -523,8 +521,7 @@ func TestFrameSoloTakesTheWholeWindow(t *testing.T) {
 	assert.Equal(t, []bool{true, false}, tmux.zooms)
 }
 
-// TestFrameAttachGivesTheWindowBack covers a panel that died holding the window, since the next
-// one starts on a screen that never asked for it.
+// TestFrameAttachGivesTheWindowBack covers a panel that died holding the window.
 func TestFrameAttachGivesTheWindowBack(t *testing.T) {
 	tmux := &recordingTmux{zoomed: true}
 
@@ -574,7 +571,7 @@ func TestFrameSidebarWidthFallsBackToTheConfiguredColumns(t *testing.T) {
 }
 
 // TestFrameSidebarWidthFollowsTheDivider covers a divider the user has dragged: the sidebar is
-// measured off the pane beside it, which a zoom leaves alone, rather than off its own width.
+// measured off the pane beside it, which a zoom leaves alone.
 func TestFrameSidebarWidthFollowsTheDivider(t *testing.T) {
 	tmux := &recordingTmux{width: 120}
 	frame := New(tmux, config.Layout{SidebarWidth: 40})

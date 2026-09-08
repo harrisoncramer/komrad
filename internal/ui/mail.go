@@ -21,7 +21,7 @@ import (
 const mailTimeout = 10 * time.Second
 
 // mailPageSize is how far back either half reads, which is a screenful many times over rather
-// than the whole mailbox, since the screen is for reading what was said recently.
+// than the whole mailbox.
 const mailPageSize = 200
 
 // mailState is the mailbox of one agent, while that screen is up.
@@ -36,8 +36,7 @@ type mailState struct {
 	err       error
 }
 
-// mailRow is either the line naming a thread or one message under it, since the mailbox is read
-// a conversation at a time rather than as one run of messages.
+// mailRow is either the line naming a thread or one message under it.
 type mailRow struct {
 	// header is the line that names a thread, drawn as furniture: the cursor steps over it, so
 	// nothing has to answer for what a record or a stage would show while standing on one.
@@ -154,8 +153,7 @@ func (m *model) refreshMailCmd() tea.Cmd {
 	return m.loadMailCmd(m.mail.agentID)
 }
 
-// mailItems is the whole correspondence in the order it happened, both halves merged, since a
-// conversation split by direction is the one thing a mailbox must not do.
+// mailItems is the whole correspondence in the order it happened, both halves merged.
 func (m model) mailItems() []mailRow {
 	rows := make([]mailRow, 0, len(m.mail.inbox)+len(m.mail.outbox))
 	for _, item := range m.mail.inbox {
@@ -165,8 +163,7 @@ func (m model) mailItems() []mailRow {
 		rows = append(rows, mailRow{item: item, sent: true})
 	}
 
-	// Sorted by id rather than by the stamp, since the ids are uuidv7 and so already carry the
-	// order, and two messages written in the same second would otherwise swap under the reader.
+	// Sorted by id rather than by the stamp.
 	slices.SortFunc(rows, func(a, b mailRow) int {
 		return strings.Compare(a.item.GetId(), b.item.GetId())
 	})
@@ -197,8 +194,7 @@ func (m model) threadedMailRows(items []mailRow) []mailRow {
 		threads[root] = append(threads[root], r)
 	}
 
-	// A thread stands where its newest message does, which is the id of its last message, since
-	// the items came in ascending and the ids carry the order.
+	// A thread stands where its newest message does, which is the id of its last message.
 	slices.SortStableFunc(order, func(a, b string) int {
 		return strings.Compare(newestMailID(threads[b]), newestMailID(threads[a]))
 	})
@@ -217,8 +213,7 @@ func (m model) threadedMailRows(items []mailRow) []mailRow {
 	return rows
 }
 
-// newestMailID is the id a thread stands by, which is its last message, since a thread is only
-// ever built around one and the items came in ascending.
+// newestMailID is the id a thread stands by, which is its last message.
 func newestMailID(thread []mailRow) string {
 	return thread[len(thread)-1].item.GetId()
 }
@@ -259,8 +254,7 @@ func mailThreadRoots(rows []mailRow) map[string]string {
 	for _, r := range rows {
 		root := r.item.GetId()
 
-		// Walked with a guard rather than trusted, since a cycle here would hang the panel and
-		// the rows come off the wire.
+		// Walked with a guard rather than trusted.
 		seen := map[string]bool{root: true}
 		for {
 			up, ok := parent[root]
@@ -412,8 +406,7 @@ func nextMailRow(rows []mailRow, from, direction int) int {
 		}
 	}
 
-	// Only an empty list reaches here, since a list with any message in it has one either side
-	// of wherever the cursor was.
+	// Only an empty list reaches here.
 	return 0
 }
 
@@ -432,8 +425,7 @@ func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return mailActions().dispatch(m, k)
 }
 
-// leaveMail drops the mailbox on the way out, since a read in flight would otherwise land on
-// the agents list and paint a message over its stage.
+// leaveMail drops the mailbox on the way out.
 func (m model) leaveMail() (tea.Model, tea.Cmd) {
 	m.mail = mailState{}
 

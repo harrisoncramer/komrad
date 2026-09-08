@@ -162,8 +162,7 @@ func TestMatchAtFindsNothing(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// TestSearchDoesNotNarrow pins the whole tree staying on screen under a search, since the
-// search says where a row is rather than taking the others away.
+// TestSearchDoesNotNarrow pins the whole tree staying on screen under a search.
 func TestSearchDoesNotNarrow(t *testing.T) {
 	m := selectionTree()
 	before := m.agentRows()
@@ -188,8 +187,8 @@ func TestSearchEnterKeepsTheRow(t *testing.T) {
 	assert.Equal(t, agentRowKey("a3"), rowKeyAt(landed.agentRows(), landed.tree.cursor))
 }
 
-// TestSearchEscapeGoesBack pins escape giving up on the search and putting the cursor back where
-// it opened, rather than leaving it wherever the typing wandered to.
+// TestSearchEscapeGoesBack pins escape giving up on the search and putting the cursor back
+// where it opened.
 func TestSearchEscapeGoesBack(t *testing.T) {
 	m := selectionTree()
 	start := rowIndexOfKey(m.agentRows(), workflowRowKey("w1"))
@@ -221,8 +220,7 @@ func TestSearchEscapeGoesBackFromAStandingSearch(t *testing.T) {
 	assert.Equal(t, start, back.tree.cursor, "and the cursor is back where it started")
 }
 
-// TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list,
-// since it is the other screen that draws agents in a tree.
+// TestArchiveSearchWalksAndClears pins the archive getting the same search as the agents list.
 func TestArchiveSearchWalksAndClears(t *testing.T) {
 	m := archiveModel(&fakeArchiveAgents{}, &fakeArchiveWorkflows{}, config.DefaultKeybindings())
 	m.archive.agents = []agentstore.Agent{
@@ -257,7 +255,7 @@ func TestArchiveSearchWalksAndClears(t *testing.T) {
 }
 
 // TestSearchWalksMatchesOnlyWhileOneStands pins n and N moving between matches once a search
-// stands, and doing nothing of the sort before one does, since they are letters otherwise.
+// stands, and doing nothing of the sort before one does.
 func TestSearchWalksMatchesOnlyWhileOneStands(t *testing.T) {
 	m := selectionTree()
 	m.tree.cursor = rowIndexOfKey(m.agentRows(), agentRowKey("a1"))
@@ -347,8 +345,7 @@ func TestFilterInput(t *testing.T) {
 	}
 }
 
-// TestFilterCursor covers where the cursor lands as the search changes, since the row under it
-// is what the next key acts on.
+// TestFilterCursor covers where the cursor lands as the search changes.
 func TestFilterCursor(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -384,8 +381,7 @@ func TestFilterCursor(t *testing.T) {
 	}
 }
 
-// TestFilterKeepsSelection covers a selection surviving a search, since a search changes where
-// the cursor is rather than what is chosen.
+// TestFilterKeepsSelection covers a selection surviving a search.
 func TestFilterKeepsSelection(t *testing.T) {
 	m := filterModel()
 	m.tree.selected = selection{ids: []string{"a1", "a2"}}
@@ -455,7 +451,7 @@ func TestFilterHighlight(t *testing.T) {
 }
 
 // TestFilterViewLine covers the input drawn over the list, which stands whether or not a search
-// does, so that opening one never moves the rows under it.
+// does.
 func TestFilterViewLine(t *testing.T) {
 	tests := []struct {
 		name   string

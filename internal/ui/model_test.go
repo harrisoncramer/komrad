@@ -197,9 +197,8 @@ func items(names ...string) []agentItem {
 	return out
 }
 
-// TestNewModelWiresTmux pins the tmux dependency, since the model reaches for it only when a
-// form opens with a blank directory and a missing one panics on a keypress rather than at
-// startup.
+// TestNewModelWiresTmux pins the tmux dependency, which the model reaches for only when a form
+// opens with a blank directory.
 func TestNewModelWiresTmux(t *testing.T) {
 	tests := []struct {
 		name string

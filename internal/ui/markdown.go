@@ -86,8 +86,8 @@ func workflowProse(w workflowstore.Workflow) string {
 
 func agentFields(agent agentstore.Agent, schedule, parent string) []recordField {
 	fields := []recordField{{"name", orDash(agent.Name)}}
-	// What a child is attached to comes early, since it is the fact that explains its directory,
-	// and for a reviewer that same row is whose work it is reading.
+	// What a child is attached to comes early, and for a reviewer that same row is whose work it
+	// is reading.
 	reviewingDrawn := agent.ParentAgentID != nil && agent.Role == agentstore.RoleReviewer
 	if agent.ParentAgentID != nil {
 		fields = append(fields, recordField{attachmentFieldKey(agent.Role), orDash(parent)})

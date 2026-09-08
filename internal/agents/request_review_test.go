@@ -79,7 +79,7 @@ func TestRequestReviewNamesTheBranch(t *testing.T) {
 }
 
 // TestRequestReviewTitleOverridesTheName pins that a caller which named the reviewer keeps that
-// name, since two reviewers of one agent would otherwise collide on the one weave picks.
+// name.
 func TestRequestReviewTitleOverridesTheName(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -103,8 +103,7 @@ func TestRequestReviewTitleOverridesTheName(t *testing.T) {
 	assert.Equal(t, "second-reader", reviewer.Name)
 }
 
-// TestRequestReviewRefusals pins the agents that have no work of their own to be read, since
-// both of them sit in a checkout somebody else owns and a round taken there is that agent's.
+// TestRequestReviewRefusals pins the agents that have no work of their own to be read.
 func TestRequestReviewRefusals(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -151,7 +150,7 @@ func TestRequestReviewRefusals(t *testing.T) {
 }
 
 // TestRequestReviewKeepsOneReviewer pins that a second ask is refused rather than answered with
-// a second reviewer, since one reviewer stays with a change for every round it goes through.
+// a second reviewer.
 func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -185,8 +184,7 @@ func TestRequestReviewKeepsOneReviewer(t *testing.T) {
 }
 
 // TestRequestReviewRetryAnswersWithTheSameReviewer pins that a spent idempotency key is still a
-// retry rather than a second ask, since the guard would otherwise refuse the caller the row it
-// created.
+// retry rather than a second ask.
 func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -225,9 +223,8 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 	require.ErrorIs(t, err, ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
 }
 
-// TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one reviewer
-// rather than an agent to one for its whole life, since nothing archives a reviewer that approved
-// and the next piece of work still needs reading.
+// TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one
+// reviewer rather than an agent to one for its whole life.
 func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -275,8 +272,8 @@ func TestRequestReviewAfterAnApprovalSpawnsAnother(t *testing.T) {
 	assert.NotEqual(t, first.ID, second.ID)
 }
 
-// TestRequestReviewRefusesAChild pins that an ordinary child is refused too, since it writes in
-// a checkout it does not own however it was briefed.
+// TestRequestReviewRefusesAChild pins that an ordinary child is refused too, however it was
+// briefed.
 func TestRequestReviewRefusesAChild(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
@@ -304,8 +301,7 @@ func TestRequestReviewRefusesAChild(t *testing.T) {
 }
 
 // TestWorktreeAgentIsToldToGetItsWorkRead pins the delivery of the other half, which reaches the
-// agents weave cut a checkout for and no others, since those are the ones with a change of their
-// own for getting read to be the end of.
+// agents weave cut a checkout for and no others.
 func TestWorktreeAgentIsToldToGetItsWorkRead(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)

@@ -32,8 +32,7 @@ type reviewLoadedMsg struct {
 	err   error
 }
 
-// reviewWroteMsg is one write and the review as it stands after it, since the panel keeps no
-// copy of a thread it has just changed and reads the review back instead.
+// reviewWroteMsg is one write and the review as it stands after it.
 type reviewWroteMsg struct {
 	agentID string
 	notice  string
@@ -68,7 +67,7 @@ func (m model) enterReview(agent agentstore.Agent) (tea.Model, tea.Cmd) {
 }
 
 // refuseReview backs out to the listing, for a worktree that turned out to hold nothing once it
-// was read, since the screen the reader is dropped onto is the one the message belongs to.
+// was read.
 func (m *model) refuseReview(err error) {
 	name := m.review.agentName
 	m.review = reviewState{}
@@ -79,9 +78,8 @@ func (m *model) refuseReview(err error) {
 	m.reportBrief(describeRefusedReview(name, err), err.Error(), nil)
 }
 
-// describeRefusedReview says which of the two empty diffs this is, since an agent that has written
-// nothing and an agent whose every line is in an excluded path want opposite things said about
-// them: one has not worked yet, the other has and you asked not to be shown it.
+// describeRefusedReview says which of the two empty diffs this is: an agent that has written
+// nothing, or one whose every line is in an excluded path.
 func describeRefusedReview(name string, err error) string {
 	if errors.Is(err, diff.ErrAllExcluded) {
 		return "Everything " + name + " changed is excluded from the diff"
@@ -308,8 +306,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	return m.findRoundLeftoverCmd()
 }
 
-// indexViewedFiles indexes the files read in this round; a later round starts with none because
-// marks belong to one round and need no comparison.
+// indexViewedFiles indexes the files read in this round; a later round starts with none.
 func indexViewedFiles(viewed []*agentv1.ReviewViewedFile) map[string]bool {
 	held := map[string]bool{}
 	for _, mark := range viewed {
@@ -337,9 +334,8 @@ func (m *model) applyReviewWrote(msg reviewWroteMsg) {
 func (m *model) applyReviewThreads(threads []*agentv1.ReviewThread) {
 	m.setReviewThreads(threads)
 
-	// Where the cursor is standing is taken before the threads are pinned again, since pinning
-	// rebuilds the rows the threads with nowhere to stand are drawn on, and a thread settled or
-	// deleted takes one of those rows away from under the cursor.
+	// Where the cursor is standing is taken before the threads are pinned again, which rebuilds
+	// the rows a settled or deleted thread takes away from under it.
 	place, ok := m.review.view.GetPlace(m.review.cursor)
 	m.review.view.PinThreads(threads)
 	m.keepReviewCursor(place, ok)

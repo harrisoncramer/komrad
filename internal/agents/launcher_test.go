@@ -272,8 +272,7 @@ func TestAppendedSystemPromptGlobalContext(t *testing.T) {
 	}
 }
 
-// TestGlobalContextIsReadPerLaunch pins the file being read at each launch, since one read
-// at startup would hand every later agent stale text.
+// TestGlobalContextIsReadPerLaunch pins the file being read at each launch.
 func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "context.md")
 	require.NoError(t, os.WriteFile(path, []byte("before-the-edit"), 0o600))
@@ -293,9 +292,8 @@ func TestGlobalContextIsReadPerLaunch(t *testing.T) {
 	assert.NotContains(t, prompt, "before-the-edit")
 }
 
-// TestBriefingCarriesTheReviewRules pins the review surface being part of what weave ships rather
-// than something a person configures, since an agent that reaches for gh or mails its findings has
-// given a review nobody can settle and the panel cannot show.
+// TestBriefingCarriesTheReviewRules pins the review surface being part of what weave ships
+// rather than something a person configures.
 func TestBriefingCarriesTheReviewRules(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{Addr: "127.0.0.1:8787"})
 
@@ -319,8 +317,7 @@ func TestBriefingCarriesTheReviewRules(t *testing.T) {
 		"and who it may review, since the rule is refused at the server either way")
 }
 
-// TestAppendedSystemPromptReviewBriefing pins which half of the review loop an agent is sent,
-// since the half it will never use is the half it broke the rules of when it received both.
+// TestAppendedSystemPromptReviewBriefing pins which half of the review loop an agent is sent.
 func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 	const (
 		giving    = "### When you are the one reviewing"
@@ -384,8 +381,7 @@ func TestAppendedSystemPromptReviewBriefing(t *testing.T) {
 }
 
 // TestBriefingKeepsWhatEveryAgentNeeds pins the facts that stayed in the base briefing when the
-// review halves were cut out of it, since an agent a person reviews from the panel was never
-// told it would be and still has to know how to answer.
+// review halves were cut out of it.
 func TestBriefingKeepsWhatEveryAgentNeeds(t *testing.T) {
 	launcher := NewLauncher(NewLauncherParams{
 		Tmux:    newFakeTmux(),

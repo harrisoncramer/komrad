@@ -14,8 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReviewRoundsMarkCarriesTheCount pins the number beside the glyph, since a loop is told
-// from an ordinary review by how far the count has run rather than by the mark being there.
+// TestReviewRoundsMarkCarriesTheCount pins the number beside the glyph.
 func TestReviewRoundsMarkCarriesTheCount(t *testing.T) {
 	assert.Empty(t, reviewRoundsMark(0), "an agent no review has touched carries nothing")
 	assert.Contains(t, reviewRoundsMark(4), reviewRoundsIcon)
@@ -33,9 +32,8 @@ func TestReviewRoundsNoticeSaysWhatTheGlyphMeans(t *testing.T) {
 	assert.Empty(t, agentNotices(agentItem{}), "an agent no review has touched says nothing")
 }
 
-// TestReviewRoundsNoticeIsGivenUpFirst pins where the count sits in the order: a short pane drops
-// the notices at the tail, and a count of rounds already gone by is the one worth losing, since
-// every other mark stands for something a person can still act on.
+// TestReviewRoundsNoticeIsGivenUpFirst pins where the count sits in the order: a short pane
+// drops the notices at the tail, and a count of rounds already gone by is the one worth losing.
 func TestReviewRoundsNoticeIsGivenUpFirst(t *testing.T) {
 	notices := agentNotices(agentItem{
 		agent:      agentstore.Agent{Hidden: true},

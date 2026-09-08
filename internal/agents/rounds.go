@@ -15,9 +15,8 @@ import (
 	reviewstore "weave/internal/store/review"
 )
 
-// reviewDirName is where released reviews are kept under weave's own state directory, rather than
-// beside the agent's work, since a linked worktree's own info/exclude is not read by git and a
-// file put in the worktree would show up in the diff being reviewed.
+// reviewDirName is where released reviews are kept under weave's own state directory, and not in
+// the worktree where the file would show up in the diff being reviewed.
 const reviewDirName = "reviews"
 
 // ErrReviewNoRound is answered when a review is asked for on an agent no round has been taken
@@ -89,17 +88,14 @@ func (GitSnapshotter) FileAt(ctx context.Context, dir, sha, path string) ([]stri
 	return git.ReadFileLines(ctx, dir, sha, path)
 }
 
-// roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and the
-// commit so that taking it is idempotent and needs no row to exist first, and so that two agents
-// whose worktrees hash the same hold their rounds separately rather than sharing one ref that
-// either of them deleting would pull out from under the other.
+// roundRef is the ref a snapshot is held by so nothing collects it, named after the agent and
+// the commit.
 func roundRef(agentID, snapshotSHA string) string {
 	return "refs/weave/rounds/" + agentID + "/" + snapshotSHA
 }
 
-// OpenRound freezes what an agent has written now and records it as its next round, which is what
-// every review is given against, so that nothing a comment is pinned to can move underneath the
-// person reading it.
+// OpenRound freezes what an agent has written now and records it as its next round, which is
+// what every review is given against.
 func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author ReviewAuthor) (*reviewstore.Round, error) {
 	if err := s.mayRead(ctx, agentID, author); err != nil {
 		return nil, err
@@ -177,8 +173,7 @@ func (s *ReviewService) ListTallies(ctx context.Context) ([]reviewstore.Tally, e
 }
 
 // ListReviews is every review given on an agent, in the order their rounds were taken, with the
-// path of each dropped for anyone but the person reviewing, since it names a file on disk holding
-// somebody else's words.
+// path of each dropped for anyone but the person reviewing.
 func (s *ReviewService) ListReviews(
 	ctx context.Context,
 	agentID string,
@@ -275,8 +270,7 @@ func (s *ReviewService) notReviewedAlready(
 }
 
 // entitled says whether an author may give a review on an agent, which the person always may and
-// an agent may only of the agent it is a child of, its own work excluded, since answering a
-// review it was given is a different call.
+// an agent may only of the agent it is a child of, its own work excluded.
 func (s *ReviewService) entitled(ctx context.Context, agentID string, author ReviewAuthor) error {
 	if !author.IsHuman() && author.AgentID != nil && *author.AgentID == agentID {
 		return ErrReviewOwnWork
@@ -286,8 +280,7 @@ func (s *ReviewService) entitled(ctx context.Context, agentID string, author Rev
 }
 
 // mayRead says whether an author may look at an agent's rounds and reviews at all, which the
-// agent under review may do of its own work, since the threads it is answering are anchored to
-// those rounds and it is told to diff them.
+// agent under review may do of its own work.
 func (s *ReviewService) mayRead(ctx context.Context, agentID string, author ReviewAuthor) error {
 	if author.IsHuman() {
 		return nil
@@ -375,7 +368,7 @@ func (s *ReviewService) ReleaseReview(
 		return nil, err
 	}
 	// Notes with no conclusion have to say something, whether pinned to a line or about the work
-	// as a whole, since mail that carries neither wastes the agent a turn.
+	// as a whole.
 	if comments == 0 && strings.TrimSpace(params.Body) == "" && params.Verdict == reviewstore.VerdictCommented {
 		return nil, fmt.Errorf("%w: %q", ErrReviewEmpty, params.AgentID)
 	}
@@ -427,16 +420,15 @@ func (s *ReviewService) ReleaseReview(
 	}, nil
 }
 
-// reviewNotice is the whole of what mail carries, which is the round, the verdict, how much there
-// is and where to read it, since the review itself is in the file.
+// reviewNotice is the whole of what mail carries, which is the round, the verdict, how much
+// there is and where to read it.
 func reviewNotice(ordinal int32, verdict reviewstore.Verdict, comments int, path string) string {
 	return fmt.Sprintf("weave: review of round %d, %s, %d comment(s), read %s",
 		ordinal, strings.ReplaceAll(string(verdict), "_", " "), comments, path)
 }
 
-// reviewThreads is what one batch actually says, gathered by the messages written under it
-// rather than by the threads opened under it, since a further comment on a thread from an
-// earlier round belongs to this batch while the thread it sits in does not.
+// reviewThreads is what one batch actually says, gathered by the messages written under it and
+// not by the threads opened under it.
 func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]ReviewThreadWithMessages, error) {
 	review, err := s.reviews.GetReview(ctx, reviewID)
 	if err != nil {
@@ -471,8 +463,7 @@ func (s *ReviewService) reviewThreads(ctx context.Context, reviewID string) ([]R
 }
 
 // writeReview puts the whole review under weave's own state directory rather than in the agent's
-// worktree, where it would show up in the diff being reviewed, and leaves it there for good, since
-// the moment worth reading an old review is the moment its agent is gone.
+// worktree, and leaves it there for good.
 func (s *ReviewService) writeReview(
 	ctx context.Context,
 	agent agentstore.Agent,
@@ -529,13 +520,13 @@ type getSnapshotLinesParams struct {
 	// Dir is anywhere inside the reviewed agent's worktree.
 	Dir   string
 	Round reviewstore.Round
-	// Threads names the files, since a review quotes only what it has a comment on.
+	// Threads names the files a review has a comment on.
 	Threads []ReviewThreadWithMessages
 }
 
 // getSnapshotLines reads every file a review touches as the round froze it so each comment can
 // carry the code around it, leaving out a file that cannot be read rather than failing the
-// release, since a comment is still worth sending without the lines around it.
+// release.
 func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshotLinesParams) map[string][]string {
 	if params.Dir == "" {
 		return nil
@@ -562,8 +553,7 @@ func (s *ReviewService) getSnapshotLines(ctx context.Context, params getSnapshot
 	return held
 }
 
-// getLiveAgent refuses an agent that has been archived, since there is nobody there to hand a review
-// to and releasing one would say it had been told.
+// getLiveAgent refuses an agent that has been archived.
 func (s *ReviewService) getLiveAgent(ctx context.Context, agentID string) (*agentstore.Agent, error) {
 	agent, err := s.agents.GetByID(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {

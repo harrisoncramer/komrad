@@ -137,8 +137,7 @@ func TestRenderTranscriptEstimatesADroppedMatch(t *testing.T) {
 }
 
 // TestRenderTranscriptKeepsTheStylingAroundAMatch covers a match inside a run the renderer
-// styled, inline code being where an identifier is matched, since the reset a styled word ends
-// with would otherwise strip the colour off the rest of the run.
+// styled, inline code being where an identifier is matched.
 func TestRenderTranscriptKeepsTheStylingAroundAMatch(t *testing.T) {
 	withColor(t)
 
@@ -157,7 +156,7 @@ func TestRenderTranscriptKeepsTheStylingAroundAMatch(t *testing.T) {
 }
 
 // TestScrubMarks covers a transcript holding the search's own markers, which a captured pane
-// can, since a stray one would pair with a real match's closing marker.
+// can.
 func TestScrubMarks(t *testing.T) {
 	const content = "a \x02stray\x03 marker in the log"
 
@@ -168,7 +167,7 @@ func TestScrubMarks(t *testing.T) {
 }
 
 // TestStageFilePathIsThisPanelsOwn covers the name a screenful is written under, which carries
-// the pid because a second panel or a test run shares the same temporary directory.
+// the pid.
 func TestStageFilePathIsThisPanelsOwn(t *testing.T) {
 	path := stageFilePath("review")
 

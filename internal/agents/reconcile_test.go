@@ -268,8 +268,7 @@ func waitOutTheShellGrace(rec *Reconciler) {
 	rec.tally.now = func() time.Time { return at }
 }
 
-// TestReconcileWaitsOutALaunch pins that a just-opened pane is not read as an exit, since
-// weave types the launch command into a shell that is holding a live agent.
+// TestReconcileWaitsOutALaunch pins that a just-opened pane is not read as an exit.
 func TestReconcileWaitsOutALaunch(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -396,9 +395,8 @@ func repeatFrame(frame string, n int) []string {
 	return frames
 }
 
-// TestReconcileLeavesAnUnknownHarnessAlone pins that an agent whose CLI this binary cannot
-// run keeps the state it holds, since demoting it would report work finished off an unread
-// frame.
+// TestReconcileLeavesAnUnknownHarnessAlone pins that an agent whose CLI this binary cannot run
+// keeps the state it holds.
 func TestReconcileLeavesAnUnknownHarnessAlone(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -782,8 +780,7 @@ func TestReconcileLeavesARowAResumeHasMovedOn(t *testing.T) {
 }
 
 // TestReconcileStampsTheTurnItSettled pins that the pane raises the unread mark when no hook
-// reported the boundary, since a harness that drops its stop event otherwise leaves an agent
-// that finished indistinguishable from one nobody has worked.
+// reported the boundary.
 func TestReconcileStampsTheTurnItSettled(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -846,7 +843,7 @@ func TestReconcileUnrecognizedFrameTakesAnIdleAgentToUncertain(t *testing.T) {
 }
 
 // TestReconcileStampsNoTurnForAFrameItCouldNotRead pins that settling uncertain raises no unread
-// mark, since a screen weave could not read is no evidence a turn ended.
+// mark.
 func TestReconcileStampsNoTurnForAFrameItCouldNotRead(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()
@@ -883,7 +880,7 @@ func TestReconcileLeavesUncertainOnceTheFrameReadsAgain(t *testing.T) {
 }
 
 // TestReconcileStampsNoTurnForAPaneItForgot pins that an agent whose pane went away is not
-// marked, since a turn that lost its pane was interrupted rather than finished.
+// marked.
 func TestReconcileStampsNoTurnForAPaneItForgot(t *testing.T) {
 	st := newStore(t)
 	ctx := t.Context()

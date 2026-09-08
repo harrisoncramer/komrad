@@ -73,9 +73,7 @@ func (l *Launcher) appendedSystemPrompt(params launchParams) string {
 	return strings.Join(kept, "\n\n")
 }
 
-// reviewBriefing is the half of the review loop this agent needs, since an agent that will never
-// give a review has no use for how to give one and the obligation to get read belongs to the
-// agents weave cut a checkout for, which are the ones with a change of their own to be read.
+// reviewBriefing is the half of the review loop this agent needs.
 func reviewBriefing(params launchParams) string {
 	if params.Role == agentstore.RoleReviewer {
 		return reviewerDoc
@@ -89,8 +87,7 @@ func reviewBriefing(params launchParams) string {
 }
 
 // relationBriefing is what an agent is told about whoever it answers to, which for a child is
-// the rules it runs under as well, since those are the reason it was made this way rather than
-// as an agent of its own.
+// the rules it runs under as well.
 func relationBriefing(params launchParams) string {
 	if params.ParentAgentID != "" {
 		return childBriefing(params.ParentName, params.ParentAgentID)

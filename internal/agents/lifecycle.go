@@ -227,9 +227,8 @@ func (s *LifecycleService) ArchiveUnchangedAgents(ctx context.Context, observed 
 	return archived, errors.Join(failures...)
 }
 
-// archiveChildrenOf takes the children of the agents a sweep archived, unconditionally where
-// the parents were not, since what decides a child is gone is the parent going rather than the
-// state its own row was last read in.
+// archiveChildrenOf takes the children of the agents a sweep archived, unconditionally where the
+// parents were not.
 func (s *LifecycleService) archiveChildrenOf(ctx context.Context, parents []agentstore.Agent) ([]agentstore.Agent, error) {
 	if len(parents) == 0 {
 		return nil, nil
@@ -313,8 +312,8 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 		return nil, err
 	}
 
-	// The read-back is every agent the caller named, since one that was already live comes back
-	// as it stands, but only the ones this call took out of the archive have been restored.
+	// The read-back is every agent the caller named, and only the ones this call took out of the
+	// archive have been restored.
 	wasArchived := make(map[string]bool, len(archived))
 	for _, agent := range archived {
 		wasArchived[agent.ID] = true
@@ -327,7 +326,7 @@ func (s *LifecycleService) RestoreAgents(ctx context.Context, ids []string) ([]a
 }
 
 // requireParentsPresent refuses a child coming back while the agent it hangs under is still
-// archived, since the panel draws it indented under a row that would not be there.
+// archived.
 func (s *LifecycleService) requireParentsPresent(ctx context.Context, agents []agentstore.Agent) error {
 	held := make(map[string]bool, len(agents))
 	for _, agent := range agents {
@@ -501,8 +500,7 @@ func (s *LifecycleService) releaseRounds(ctx context.Context, ids []string) {
 }
 
 // dropOpenReviews removes the batches these agents were still writing on other agents' work,
-// which is everything of theirs worth removing, since a released review is what the agent it was
-// given to is working from and stays with its author nulled.
+// which is everything of theirs worth removing.
 func (s *LifecycleService) dropOpenReviews(ctx context.Context, ids []string) {
 	if s.reviews == nil {
 		return

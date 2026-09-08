@@ -143,8 +143,8 @@ func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 	assert.True(t, focused.isListFocused())
 }
 
-// TestMessagesTallySaysWhereTheKeysAre covers the region's own focus indicator, since it draws no
-// title of its own: the tally is dim while the list has the keys and the accent once it does not.
+// TestMessagesTallySaysWhereTheKeysAre covers the region's own focus indicator: the tally is dim
+// while the list has the keys and the accent once it does not.
 func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	t.Cleanup(func() { lipgloss.SetColorProfile(restore) })

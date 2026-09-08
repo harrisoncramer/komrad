@@ -22,11 +22,10 @@ type reviewState struct {
 	view      *review.View
 	threads   []*agentv1.ReviewThread
 
-	// cursor lives here rather than in the stage, since the sidebar draws the thread it stands on.
+	// cursor lives here rather than in the stage.
 	cursor int
 	pan    int
-	// top is the first row the pane is showing, held rather than derived from the cursor, since
-	// deriving it centres the cursor and repaints every row on every move.
+	// top is the first row the pane is showing, held rather than derived from the cursor.
 	top       int
 	composing bool
 	// releasing is set while the panel is asking what to send, which is one editor for a word
@@ -42,17 +41,14 @@ type reviewState struct {
 	// threadFocus is set while the keys are on the conversation in the sidebar rather than on the
 	// diff, which is the only way a thread taller than the pane can be read to its start.
 	threadFocus bool
-	// threadScroll is how far up from the end of the conversation the sidebar is showing, since
-	// the newest message is what a reader wants without asking for it.
+	// threadScroll is how far up from the end of the conversation the sidebar is showing.
 	threadScroll int
 
-	// pinTop holds the window where a file jump put it until the cursor moves, since the next
-	// repaint would otherwise drag it back to keep the cursor clear of the edge.
+	// pinTop holds the window where a file jump put it until the cursor moves.
 	pinTop bool
 
 	// pinFloor is the row a file jump put at the top of the pane, which the window stays at or
-	// below while the cursor is inside that file, since the margin would otherwise scroll the file
-	// it was jumped away from back into view on the first keypress.
+	// below while the cursor is inside that file.
 	pinFloor int
 	// editing is the thread a composed message is going into, empty when it will open a new
 	// thread on the line under the cursor.
@@ -65,12 +61,10 @@ type reviewState struct {
 	err   error
 
 	// roundDir is where the round has been checked out for the editor to read, named after the
-	// agent rather than the round so that it outlives a reload and is still there to be taken
-	// away when the screen closes.
+	// agent rather than the round.
 	roundDir string
 	// roundSha is the snapshot that checkout is standing on, which is what says whether it is
-	// still the round being read, since the directory is named after the agent rather than the
-	// round and outlives any one of them.
+	// still the round being read.
 	roundSha string
 	// materialising is set while that checkout is being made, so a second press does not start a
 	// second one against the same directory.
@@ -81,8 +75,8 @@ type reviewState struct {
 	// harvesting is set while what the reviewer wrote is being read back and written as threads,
 	// so a second editor closing does not start a harvest beside the one in flight.
 	harvesting bool
-	// oversized is the harvest weave refused for being large enough to be a formatter rather
-	// than a person, held so that the next press writes it rather than asking again.
+	// oversized is the harvest weave refused for being large enough to be a formatter rather than
+	// a person, and held for the next press to write.
 	oversized bool
 
 	// restore is where the cursor was standing when the patch was read again, so a reload lands
@@ -101,9 +95,8 @@ type reviewState struct {
 	// is a prompt to open the next one rather than anything the panel does on its own.
 	moved bool
 
-	// diffPolling is set while a background probe of the worktree is in flight, and diffPolled
-	// is when the last one started, since the worktree is asked every few seconds rather than
-	// every tick.
+	// diffPolling is set while a background probe of the worktree is in flight, and diffPolled is
+	// when the last one started.
 	diffPolling bool
 	diffPolled  time.Time
 }

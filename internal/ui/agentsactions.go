@@ -25,8 +25,7 @@ func agentsTable() []action {
 }
 
 // agentsModeActions are the keys that answer whatever the cursor is on, ordered ahead of the row
-// keys because a letter means one thing while a search or a selection stands and another when
-// neither does.
+// keys.
 func agentsModeActions() []action {
 	return []action{
 		{

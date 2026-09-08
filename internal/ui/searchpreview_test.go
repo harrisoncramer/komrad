@@ -15,8 +15,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// searchFiller pads a line out past any column the preview is drawn in, so that a window which
-// changed width wraps the transcript to a different number of rows.
+// searchFiller pads a line out past any column the preview is drawn in, long enough that a
+// window of another width wraps the transcript to a different number of rows.
 const searchFiller = " and then a good deal more of it said in the same breath, going on for long " +
 	"enough that no column the panel draws holds the whole of it on one row"
 
@@ -75,7 +75,7 @@ func searchPreviewModel(t *testing.T) (model, *recordingTmux) {
 }
 
 // TestSearchTakesTheWindow covers the screen taking the window off the panes it was sharing with
-// and handing it back on the way out, since the preview is drawn in a column of its own now.
+// and handing it back on the way out.
 func TestSearchTakesTheWindow(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 	assert.True(t, m.frame.IsSolo(), "the search draws both halves itself")
@@ -181,7 +181,7 @@ func TestSearchDrawsBothHalves(t *testing.T) {
 }
 
 // TestSearchPutsTheHitsWhereTheLayoutAsks covers the panel's own column standing where the panes
-// it took the window from would have, since the transcript takes the other side of the split.
+// it took the window from would have.
 func TestSearchPutsTheHitsWhereTheLayoutAsks(t *testing.T) {
 	tests := []struct {
 		name string
@@ -247,8 +247,7 @@ func TestSearchPreviewWithoutATranscript(t *testing.T) {
 	}
 }
 
-// TestSearchPreviewRewrapsOnResize covers a window that changed width, since the transcript is
-// wrapped into the column it is read in rather than into a pane that would fold it.
+// TestSearchPreviewRewrapsOnResize covers a window that changed width rewrapping the transcript.
 func TestSearchPreviewRewrapsOnResize(t *testing.T) {
 	m, _ := searchPreviewModel(t)
 	before := len(m.search.preview.doc.rows)
