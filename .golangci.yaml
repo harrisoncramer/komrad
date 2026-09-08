@@ -149,6 +149,10 @@ linters:
             skip: true
           comment_reference:
             skip: false
+          # Arrived with fussy v0.4.0 and finds 7 places here, none of them reviewed. Turning it
+          # on is its own change.
+          switch_default:
+            skip: true
           comment_length:
             skip: false
             # Unanchored regexps over the file path. The config struct's doc comments
