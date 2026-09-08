@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -718,4 +719,25 @@ func TestResolveLayers(t *testing.T) {
 		_, err := ResolveLayers([]string{""})
 		require.Error(t, err)
 	})
+}
+
+// TestEveryBindingShipsAKey walks the keybindings the way DefaultKeybindings does, since a field
+// added without a default tag panics the panel at startup and this says so in CI instead.
+func TestEveryBindingShipsAKey(t *testing.T) {
+	groups := reflect.ValueOf(DefaultKeybindings())
+
+	for i := range groups.NumField() {
+		group := groups.Field(i)
+		for j := range group.NumField() {
+			name := groups.Type().Field(i).Name + "." + group.Type().Field(j).Name
+
+			bound, ok := group.Field(j).Interface().([]string)
+			require.True(t, ok, "%s is not a key list", name)
+			assert.NotEmpty(t, bound, "%s ships no key", name)
+
+			for _, key := range bound {
+				assert.NotEmpty(t, key, "%s ships an empty key", name)
+			}
+		}
+	}
 }

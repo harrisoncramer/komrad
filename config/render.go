@@ -12,7 +12,7 @@ import (
 const preamble = `# weave configuration (github.com/harrisoncramer/weave).
 #
 # Generated from the Config struct in config. Do not edit by hand;
-# change the struct's doc comments or DefaultKeybindings and run
+# change the struct's doc comments or its default tag and run
 # 'mise run gen:config'.
 #
 # These are the built-in defaults. Do not copy this file over: write

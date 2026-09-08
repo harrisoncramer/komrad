@@ -11,6 +11,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
 	"slices"
 	"strings"
 	"time"
@@ -165,20 +166,20 @@ type Keybindings struct {
 // same everywhere rather than configured per menu.
 type NavKeys struct {
 	// Jump to the last row.
-	Bottom []string `mapstructure:"bottom"`
+	Bottom []string `mapstructure:"bottom" default:"G"`
 	// Move the cursor down.
-	Down []string `mapstructure:"down"`
+	Down []string `mapstructure:"down" default:"j"`
 	// Jump to the first row, pressed twice the way vim's gg is.
-	Top []string `mapstructure:"top"`
+	Top []string `mapstructure:"top" default:"g"`
 	// Move the cursor up.
-	Up []string `mapstructure:"up"`
+	Up []string `mapstructure:"up" default:"k"`
 }
 
 // HelpKeys is the binding that draws the legend under a list. It is its own group
 // rather than one of a screen's, since it acts the same on all of them.
 type HelpKeys struct {
 	// Toggle for the keybindings
-	Toggle []string `mapstructure:"toggle"`
+	Toggle []string `mapstructure:"toggle" default:"?"`
 }
 
 // DetailsKeys are the bindings for the details drawn under a list. Focus moves the cursor
@@ -187,9 +188,9 @@ type HelpKeys struct {
 // schedules, and the archive all draw one.
 type DetailsKeys struct {
 	// Copy the field the details cursor is on to the system clipboard.
-	Copy []string `mapstructure:"copy"`
+	Copy []string `mapstructure:"copy" default:"y"`
 	// Move the cursor between the list on screen and the details under it.
-	Focus []string `mapstructure:"focus"`
+	Focus []string `mapstructure:"focus" default:"ctrl+t"`
 }
 
 // LogsKeys are the bindings that read the hovered agent's own logs in the info pane. Open
@@ -198,9 +199,9 @@ type DetailsKeys struct {
 // through the runs before the one on screen, wrapping round to the most recent.
 type LogsKeys struct {
 	// Cycle the hovered agent's logs in the info pane.
-	Open []string `mapstructure:"open"`
+	Open []string `mapstructure:"open" default:"l"`
 	// Step back to the run before the one the info pane is showing.
-	Older []string `mapstructure:"older"`
+	Older []string `mapstructure:"older" default:"L"`
 }
 
 // FilterKeys are the bindings for the search over the list on screen. It is its own group rather
@@ -209,11 +210,11 @@ type LogsKeys struct {
 // and the keys that walk the matches answer only once the search stands.
 type FilterKeys struct {
 	// Search the list on screen for what you type, as a regular expression.
-	Open []string `mapstructure:"open"`
+	Open []string `mapstructure:"open" default:"/"`
 	// Move the cursor to the next row matching the search, wrapping at the end of the list.
-	NextMatch []string `mapstructure:"next_match"`
+	NextMatch []string `mapstructure:"next_match" default:"n"`
 	// Move the cursor to the previous row matching the search.
-	PrevMatch []string `mapstructure:"prev_match"`
+	PrevMatch []string `mapstructure:"prev_match" default:"N"`
 }
 
 // SelectionKeys are the bindings for choosing several agents at once. They are shared by
@@ -222,11 +223,11 @@ type FilterKeys struct {
 // gutter marks the chosen rows and the keys that act on one agent stand down.
 type SelectionKeys struct {
 	// Drop the whole selection, which is the way back out of multi-select mode.
-	Clear []string `mapstructure:"clear"`
+	Clear []string `mapstructure:"clear" default:"esc"`
 	// Take in every agent between the cursor and the nearest already-selected one.
-	Range []string `mapstructure:"range"`
+	Range []string `mapstructure:"range" default:"V"`
 	// Take the row under the cursor into the selection, or back out of it.
-	Toggle []string `mapstructure:"toggle"`
+	Toggle []string `mapstructure:"toggle" default:"v"`
 }
 
 // TerminalKeys is the binding that opens a shell in the info pane, rooted at the hovered
@@ -236,59 +237,59 @@ type SelectionKeys struct {
 // hands it the keyboard and only moves it when the hovered agent is rooted somewhere else.
 type TerminalKeys struct {
 	// Open a shell in the hovered agent's directory, focus the one already there, or move it here.
-	Open []string `mapstructure:"open"`
+	Open []string `mapstructure:"open" default:"T"`
 }
 
 // FormKeys are the bindings for the new-agent and rename forms. Back and Quit both
 // abort the form, split apart so they can be rebound separately.
 type FormKeys struct {
 	// Abort the form without quitting the panel.
-	Back []string `mapstructure:"back"`
+	Back []string `mapstructure:"back" default:"esc"`
 	// Abort the form and quit the panel.
-	Quit []string `mapstructure:"quit"`
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Submit the form. Plain enter belongs to the text inputs, so this is
 	// deliberately something else.
-	Submit []string `mapstructure:"submit"`
+	Submit []string `mapstructure:"submit" default:"ctrl+s"`
 }
 
 // AgentsKeys are the bindings for the agents list.
 type AgentsKeys struct {
 	// Archive the hovered agent, which stops it and moves it to the archive screen rather than destroying it.
-	Archive []string `mapstructure:"archive"`
+	Archive []string `mapstructure:"archive" default:"z"`
 	// Step out of a workflow scope, or quit at the root.
-	Back []string `mapstructure:"back"`
+	Back []string `mapstructure:"back" default:"esc"`
 	// Review what the hovered agent has changed in its worktree, with the diff and the review
 	// threads drawn beside each other across the window. The key does nothing for an agent whose
 	// workflow does not make worktrees, since there is no base branch to measure one against, and
 	// the legend leaves it off there.
-	Review []string `mapstructure:"review"`
+	Review []string `mapstructure:"review" default:"d"`
 	// Hide the hovered agent from this list.
-	Hide []string `mapstructure:"hide"`
+	Hide []string `mapstructure:"hide" default:"h"`
 	// Start a new agent.
-	New []string `mapstructure:"new"`
+	New []string `mapstructure:"new" default:"c"`
 	// Attach a child agent to the hovered agent, which runs in that agent's own checkout
 	// with no worktree of its own and is archived along with it.
-	Child []string `mapstructure:"child"`
+	Child []string `mapstructure:"child" default:"C"`
 	// Put the hovered agent's unread mark back, or take it off, for the times weave's own
 	// guess about what you have read is wrong. The mark you set by hand stands until you
 	// move the cursor off the row.
-	ToggleViewed []string `mapstructure:"toggle_viewed"`
+	ToggleViewed []string `mapstructure:"toggle_viewed" default:"u"`
 	// Read the mail the hovered agent has sent and been sent, with the mailbox in the
 	// sidebar and the message under the cursor in the stage.
-	Mail []string `mapstructure:"mail"`
+	Mail []string `mapstructure:"mail" default:"m"`
 	// Attach to the hovered agent.
-	Open []string `mapstructure:"open"`
+	Open []string `mapstructure:"open" default:"enter"`
 	// Open the pull request the hovered agent recorded, in your browser. The key does
 	// nothing on an agent with none recorded, and the legend leaves it off there.
-	OpenPR []string `mapstructure:"open_pr"`
+	OpenPR []string `mapstructure:"open_pr" default:"o"`
 	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
-	Rename []string `mapstructure:"rename"`
+	Rename []string `mapstructure:"rename" default:"r"`
 	// Search every conversation the panel holds for what you type, the archived ones included.
-	Search []string `mapstructure:"search"`
+	Search []string `mapstructure:"search" default:"s"`
 	// Toggles visibility of hidden agents alongside the rest.
-	ShowHidden []string `mapstructure:"show_hidden"`
+	ShowHidden []string `mapstructure:"show_hidden" default:"H"`
 }
 
 // MarksKeys are the bindings for the marks a person puts on rows, which work the way vim's own
@@ -297,10 +298,10 @@ type AgentsKeys struct {
 type MarksKeys struct {
 	// Set a mark on the row under the cursor, agent or workflow, then the letter to set, or
 	// the letter it already holds to take the mark off it.
-	Set []string `mapstructure:"set"`
+	Set []string `mapstructure:"set" default:"t"`
 	// Jump the cursor to a marked row, then the letter to jump to, or the jump key again to
 	// go back to where the last jump left from.
-	Jump []string `mapstructure:"jump"`
+	Jump []string `mapstructure:"jump" default:"'"`
 }
 
 // WorkflowsKeys are the bindings that act on a workflow. New is global. Rename,
@@ -308,24 +309,24 @@ type MarksKeys struct {
 type WorkflowsKeys struct {
 	// Put an agent on a branch or a pull request that already exists, in the
 	// workflow under the cursor.
-	Adopt []string `mapstructure:"adopt"`
+	Adopt []string `mapstructure:"adopt" default:"a"`
 	// Archive the workflow under the cursor, which archives the agents inside it.
-	Archive []string `mapstructure:"archive"`
+	Archive []string `mapstructure:"archive" default:"z"`
 	// Edit the workflow under the cursor.
-	Edit []string `mapstructure:"edit"`
+	Edit []string `mapstructure:"edit" default:"e"`
 	// Create a workflow. Works from anywhere in the list.
-	New []string `mapstructure:"new"`
+	New []string `mapstructure:"new" default:"w"`
 	// Rename the workflow under the cursor.
-	Rename []string `mapstructure:"rename"`
+	Rename []string `mapstructure:"rename" default:"r"`
 }
 
 // MailKeys are the bindings for the mailbox screen, which draws an agent's mail grouped
 // into threads in the sidebar, and the message the cursor is standing on in the stage.
 type MailKeys struct {
 	// Leave the mailbox for the agents list.
-	Back []string `mapstructure:"back"`
+	Back []string `mapstructure:"back" default:"esc"`
 	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 }
 
 // ReviewKeys are the bindings for the review screen, where the diff is in the stage and the
@@ -335,57 +336,57 @@ type MailKeys struct {
 // than configured.
 type ReviewKeys struct {
 	// Leave the review for the agents list.
-	Back []string `mapstructure:"back"`
+	Back []string `mapstructure:"back" default:"esc"`
 	// Send the review and stop the agent where it stands, so it reads now rather than at
 	// the end of whatever it is doing. Only in the release panel, beside the ordinary
 	// submit key, which sends without interrupting.
-	SendNow []string `mapstructure:"send_now"`
+	SendNow []string `mapstructure:"send_now" default:"ctrl+n"`
 	// Write a message on the line under the cursor, replying in the thread already there
 	// or opening a new one.
-	Compose []string `mapstructure:"compose"`
+	Compose []string `mapstructure:"compose" default:"c"`
 	// Open the round's own copy of the file under the cursor in your editor, on the line
 	// the cursor is on. The round is a frozen snapshot, so nothing you type there reaches
 	// the agent's worktree and neither of you can write over the other. What you change
 	// becomes a suggestion, which your next comment carries to the agent for it to apply
 	// in its own turn.
-	EditFile []string `mapstructure:"edit_file"`
+	EditFile []string `mapstructure:"edit_file" default:"e"`
 	// Move the keys onto the thread in the sidebar, so up and down read the conversation
 	// rather than the diff, and press it again to hand them back. A thread longer than the
 	// sidebar is otherwise only readable from its end.
-	FocusThread []string `mapstructure:"focus_thread"`
+	FocusThread []string `mapstructure:"focus_thread" default:"ctrl+f"`
 	// Jump to the next file in the diff.
-	NextFile []string `mapstructure:"next_file"`
+	NextFile []string `mapstructure:"next_file" default:"]"`
 	// Jump to the next line matching the pattern the filter key searched for.
-	NextMatch []string `mapstructure:"next_match"`
+	NextMatch []string `mapstructure:"next_match" default:"n"`
 	// Jump to the next line carrying a review thread.
-	NextThread []string `mapstructure:"next_thread"`
+	NextThread []string `mapstructure:"next_thread" default:"t"`
 	// Pan the diff left, for a line wider than the pane.
-	PanLeft []string `mapstructure:"pan_left"`
+	PanLeft []string `mapstructure:"pan_left" default:"h,left"`
 	// Pan back to the start of the line.
-	PanReset []string `mapstructure:"pan_reset"`
+	PanReset []string `mapstructure:"pan_reset" default:"0"`
 	// Pan the diff right.
-	PanRight []string `mapstructure:"pan_right"`
+	PanRight []string `mapstructure:"pan_right" default:"l,right"`
 	// Jump to the previous file in the diff.
-	PrevFile []string `mapstructure:"prev_file"`
+	PrevFile []string `mapstructure:"prev_file" default:"["`
 	// Jump to the previous line matching the pattern.
-	PrevMatch []string `mapstructure:"prev_match"`
+	PrevMatch []string `mapstructure:"prev_match" default:"N"`
 	// Jump to the previous line carrying a review thread.
-	PrevThread []string `mapstructure:"prev_thread"`
+	PrevThread []string `mapstructure:"prev_thread" default:"T"`
 	// Scroll down a few lines.
-	ScrollDown []string `mapstructure:"scroll_down"`
+	ScrollDown []string `mapstructure:"scroll_down" default:"ctrl+n"`
 	// Scroll up a few lines.
-	ScrollUp []string `mapstructure:"scroll_up"`
+	ScrollUp []string `mapstructure:"scroll_up" default:"ctrl+p"`
 	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Catch up with the agent, once the sidebar says it has written since you opened the
 	// diff. What you are reading never moves on its own, since that would take the code out
 	// from under a comment being written, so catching up is always yours to ask for.
-	Reload []string `mapstructure:"reload"`
+	Reload []string `mapstructure:"reload" default:"R"`
 	// Settle the thread under the cursor, which marks it resolved without deleting it.
-	Resolve []string `mapstructure:"resolve"`
+	Resolve []string `mapstructure:"resolve" default:"r"`
 	// Fold away the file the cursor is in once you have read it, or open it again. A file
 	// the agent writes to afterwards comes back on its own.
-	ToggleViewed []string `mapstructure:"toggle_viewed"`
+	ToggleViewed []string `mapstructure:"toggle_viewed" default:"v"`
 }
 
 // ColumnKeys move the block the panel draws beside its own list, the archived agent's
@@ -394,9 +395,9 @@ type ReviewKeys struct {
 // beside it are the shared navigation ones.
 type ColumnKeys struct {
 	// Scroll the block down a few lines.
-	ScrollDown []string `mapstructure:"scroll_down"`
+	ScrollDown []string `mapstructure:"scroll_down" default:"ctrl+n"`
 	// Scroll the block up a few lines.
-	ScrollUp []string `mapstructure:"scroll_up"`
+	ScrollUp []string `mapstructure:"scroll_up" default:"ctrl+p"`
 }
 
 // SchedulesKeys are the bindings for the schedules screen, which is its own view
@@ -405,19 +406,19 @@ type ColumnKeys struct {
 type SchedulesKeys struct {
 	// Archive the schedule under the cursor, which stops it firing. The agents it
 	// launched are kept, and nothing brings the schedule back.
-	Archive []string `mapstructure:"archive"`
+	Archive []string `mapstructure:"archive" default:"z"`
 	// Leave the schedules screen for the agents list.
-	Back []string `mapstructure:"back"`
+	Back []string `mapstructure:"back" default:"esc"`
 	// Edit the schedule under the cursor.
-	Edit []string `mapstructure:"edit"`
+	Edit []string `mapstructure:"edit" default:"e"`
 	// Write a new schedule.
-	New []string `mapstructure:"new"`
+	New []string `mapstructure:"new" default:"c"`
 	// Open the schedules screen from the agents list.
-	Open []string `mapstructure:"open"`
+	Open []string `mapstructure:"open" default:"S"`
 	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Pause or resume the schedule under the cursor.
-	Toggle []string `mapstructure:"toggle"`
+	Toggle []string `mapstructure:"toggle" default:" "`
 }
 
 // ArchiveKeys are the bindings for the archive screen, which lists the agents
@@ -425,20 +426,20 @@ type SchedulesKeys struct {
 // on the hovered agent once inside.
 type ArchiveKeys struct {
 	// Leave the archive for the agents list.
-	Back []string `mapstructure:"back"`
+	Back []string `mapstructure:"back" default:"esc"`
 	// Destroy the agent under the cursor for good, with its transcript. This is
 	// the one thing in the panel nothing undoes, so it asks first.
-	Delete []string `mapstructure:"delete"`
+	Delete []string `mapstructure:"delete" default:"d"`
 	// Destroy every archived agent for good, however many there are. The panel hands
 	// the work to a background job, since tearing down that many agents takes a while.
 	// It asks first.
-	Empty []string `mapstructure:"empty"`
+	Empty []string `mapstructure:"empty" default:"D"`
 	// Open the archive from the agents list.
-	Open []string `mapstructure:"open"`
+	Open []string `mapstructure:"open" default:"Z"`
 	// Quit the panel.
-	Quit []string `mapstructure:"quit"`
+	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Put the agent under the cursor back in the panel.
-	Restore []string `mapstructure:"restore"`
+	Restore []string `mapstructure:"restore" default:"r"`
 }
 
 // Hooks is where weave finds the scripts a workflow hangs on a moment in its agents' lives.
@@ -695,119 +696,33 @@ func DefaultLayout() Layout {
 	}
 }
 
-// DefaultKeybindings are the bindings used when the config omits them.
+// DefaultKeybindings are the bindings used when the config omits them, read from the default tag
+// on each field so that a binding and the key it ships with are written in one place.
 func DefaultKeybindings() Keybindings {
-	return Keybindings{
-		Agents: AgentsKeys{
-			Archive:      []string{"z"},
-			Back:         []string{"esc"},
-			Review:       []string{"d"},
-			Hide:         []string{"h"},
-			New:          []string{"c"},
-			Child:        []string{"C"},
-			ToggleViewed: []string{"u"},
-			Mail:         []string{"m"},
-			Open:         []string{"enter"},
-			OpenPR:       []string{"o"},
-			Quit:         []string{"ctrl+c"},
-			Rename:       []string{"r"},
-			Search:       []string{"s"},
-			ShowHidden:   []string{"H"},
-		},
-		Archive: ArchiveKeys{
-			Back:    []string{"esc"},
-			Delete:  []string{"d"},
-			Empty:   []string{"D"},
-			Open:    []string{"Z"},
-			Quit:    []string{"ctrl+c"},
-			Restore: []string{"r"},
-		},
-		Column: ColumnKeys{
-			ScrollDown: []string{"ctrl+n"},
-			ScrollUp:   []string{"ctrl+p"},
-		},
-		Details: DetailsKeys{
-			Copy:  []string{"y"},
-			Focus: []string{"ctrl+t"},
-		},
-		Filter: FilterKeys{
-			Open:      []string{"/"},
-			NextMatch: []string{"n"},
-			PrevMatch: []string{"N"},
-		},
-		Form: FormKeys{
-			Back:   []string{"esc"},
-			Quit:   []string{"ctrl+c"},
-			Submit: []string{"ctrl+s"},
-		},
-		Help: HelpKeys{
-			Toggle: []string{"?"},
-		},
-		Logs: LogsKeys{
-			Open:  []string{"l"},
-			Older: []string{"L"},
-		},
-		Nav: NavKeys{
-			Bottom: []string{"G"},
-			Down:   []string{"j"},
-			Top:    []string{"g"},
-			Up:     []string{"k"},
-		},
-		Mail: MailKeys{
-			Back: []string{"esc"},
-			Quit: []string{"ctrl+c"},
-		},
-		Marks: MarksKeys{
-			Set:  []string{"t"},
-			Jump: []string{"'"},
-		},
-		Review: ReviewKeys{
-			Back:         []string{"esc"},
-			Compose:      []string{"c"},
-			EditFile:     []string{"e"},
-			FocusThread:  []string{"ctrl+f"},
-			SendNow:      []string{"ctrl+n"},
-			NextFile:     []string{"]"},
-			NextMatch:    []string{"n"},
-			NextThread:   []string{"t"},
-			PanLeft:      []string{"h", "left"},
-			PanReset:     []string{"0"},
-			PanRight:     []string{"l", "right"},
-			PrevFile:     []string{"["},
-			PrevMatch:    []string{"N"},
-			PrevThread:   []string{"T"},
-			ScrollDown:   []string{"ctrl+n"},
-			ScrollUp:     []string{"ctrl+p"},
-			Quit:         []string{"ctrl+c"},
-			Reload:       []string{"R"},
-			Resolve:      []string{"r"},
-			ToggleViewed: []string{"v"},
-		},
-		Schedules: SchedulesKeys{
-			Archive: []string{"z"},
-			Back:    []string{"esc"},
-			Edit:    []string{"e"},
-			New:     []string{"c"},
-			Open:    []string{"S"},
-			Quit:    []string{"ctrl+c"},
-			Toggle:  []string{" "},
-		},
-		Selection: SelectionKeys{
-			Clear:  []string{"esc"},
-			Range:  []string{"V"},
-			Toggle: []string{"v"},
-		},
-		Terminal: TerminalKeys{
-			Open: []string{"T"},
-		},
-		Workflows: WorkflowsKeys{
-			Adopt:   []string{"a"},
-			Archive: []string{"z"},
-			Edit:    []string{"e"},
-			New:     []string{"w"},
-			Rename:  []string{"r"},
-		},
+	var keys Keybindings
+
+	groups := reflect.ValueOf(&keys).Elem()
+	for i := range groups.NumField() {
+		group := groups.Field(i)
+		for j := range group.NumField() {
+			group.Field(j).Set(reflect.ValueOf(defaultKeys(group.Type().Field(j))))
+		}
 	}
+
+	return keys
+}
+
+// defaultKeys is one field's shipped binding, as the comma-separated list its tag holds. A field
+// with no tag, or an empty one, panics rather than binding nothing, since a key that answers
+// nowhere is the quietest way for this file to be wrong. TestEveryBindingShipsAKey catches it
+// before anybody starts the panel.
+func defaultKeys(field reflect.StructField) []string {
+	tag, ok := field.Tag.Lookup("default")
+	if !ok || tag == "" {
+		panic(fmt.Sprintf("keybinding %s has no default tag", field.Name))
+	}
+
+	return strings.Split(tag, ",")
 }
 
 // validateLayout rejects a layout tmux could not lay the panes out at. Zero is how an omitted

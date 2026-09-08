@@ -14,7 +14,7 @@ import (
 const pkgPath = "weave/config"
 
 // reflectSchema reflects Config into a JSON schema, taking each field's description from its Go doc
-// comment in dir and each leaf's default from DefaultKeybindings.
+// comment in dir and each leaf's default from Defaults.
 func reflectSchema(dir string) (*jsonschema.Schema, error) {
 	reflector := &jsonschema.Reflector{
 		FieldNameTag: "mapstructure",
@@ -37,8 +37,8 @@ func reflectSchema(dir string) (*jsonschema.Schema, error) {
 	return schema, nil
 }
 
-// setDefaults walks the schema alongside the default value so DefaultKeybindings stays the
-// only place a default is written.
+// setDefaults walks the schema alongside the default value so Defaults stays the only place a
+// default is read from.
 func setDefaults(schema *jsonschema.Schema, value reflect.Value) error {
 	if schema.Properties == nil {
 		return nil
