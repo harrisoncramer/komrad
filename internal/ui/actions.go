@@ -10,8 +10,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-// actionID names one thing a screen does with a key, so the arm that answers it and the row that
-// names it point at one entry rather than at two copies of a binding.
+// actionID names one thing a screen does with a key
 type actionID int
 
 const (
@@ -83,29 +82,18 @@ const (
 	actionReviewFocusThread
 )
 
-// action is one arm of a screen's dispatch, the description living on the legend row instead
-// because a row can name two actions and has room for one wording.
 type action struct {
 	id   actionID
 	keys func(config.Keybindings) []string
-	// when reports whether the press reaches this arm, and nil means always.
 	when func(model) bool
-	// run takes the press as well as the model, since a row that goes both ways shares one arm.
-	run func(model, string) (tea.Model, tea.Cmd)
+	run  func(model, string) (tea.Model, tea.Cmd)
 }
 
-// legendRow is one line of the legend, naming the actions it stands for rather than repeating
-// their keys, so a rebinding reaches it without being written down twice.
 type legendRow struct {
-	of   []actionID
-	desc func(model) string
-	// show overrides when the row is drawn, nil meaning whenever an action it names would answer,
-	// the two differing where a key is taken only to refuse itself or drawn only to hold a height.
-	show func(model) bool
-	// label overrides how the keys are written, and nil spells one action's keys the way the rest
-	// of the legend does and names a fused row by the first key of each half.
+	of    []actionID
+	desc  func(model) string
+	show  func(model) bool
 	label func(config.Keybindings) string
-	// strip puts the row on the one-line legend drawn while the help is collapsed.
 	strip bool
 }
 
@@ -116,8 +104,7 @@ type actionSpec struct {
 	legend []legendRow
 }
 
-// dispatch hands the press to the first arm that answers it, and gives the model back untouched
-// when none does.
+// dispatch hands the press to the first arm that answers it, and gives the model back untouched when none does.
 func (s actionSpec) dispatch(m model, pressed string) (tea.Model, tea.Cmd) {
 	for _, a := range s.table {
 		if a.when != nil && !a.when(m) {
@@ -166,7 +153,7 @@ func (s actionSpec) isRowShown(m model, row legendRow) bool {
 	})
 }
 
-// rowBinding is the row as bubbles wants it: every key of every action it names, under one label.
+// rowBinding converts the row into the format bubbleTea wants it: every key of every action it names, under one label.
 func (s actionSpec) rowBinding(m model, row legendRow) key.Binding {
 	var keys, heads []string
 
@@ -181,8 +168,6 @@ func (s actionSpec) rowBinding(m model, row legendRow) key.Binding {
 		heads = append(heads, headLabel(bound))
 	}
 
-	// One action spells out its alternatives, having the row to itself, while a fused row names
-	// each half by its first key.
 	label := strings.Join(heads, "/")
 	if len(row.of) == 1 {
 		label = keyLabel(keys)
