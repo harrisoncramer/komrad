@@ -190,7 +190,14 @@ func (c rowCursor) jump(idx, length int) (rowCursor, bool) {
 }
 
 func (m model) listView(title string, rows []string, cursor int, help string) string {
-	header := m.titleStyle().Render(title) + "\n\n" + m.filterView()
+	return m.headedListView(m.titleStyle().Render(title)+"\n\n"+m.filterView(), rows, cursor, help)
+}
 
-	return header + renderList(rows, cursor, m.listLines(header, help)) + help
+// headedListView draws a list under a header it is handed rather than one built from a title,
+// padded out so the record and the legend under it sit at the bottom of the pane whether the
+// list fills it or not.
+func (m model) headedListView(header string, rows []string, cursor int, help string) string {
+	lines := m.listLines(header, help)
+
+	return header + padRows(renderList(rows, cursor, lines), lines) + help
 }
