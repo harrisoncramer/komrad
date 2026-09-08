@@ -81,7 +81,7 @@ func TestReleaseDropsTheRef(t *testing.T) {
 	require.NoError(t, ReleaseRef(t.Context(), root, "refs/weave/rounds/five"))
 
 	cmd := exec.Command("git", "-C", root, "rev-parse", "--verify", "--quiet", "refs/weave/rounds/five")
-	assert.Error(t, cmd.Run())
+	require.Error(t, cmd.Run())
 }
 
 // TestFileAtReadsTheRoundRatherThanTheWorktree is what lets a review quote the code a comment was

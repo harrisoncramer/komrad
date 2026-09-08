@@ -115,7 +115,7 @@ func TestBindPanelKey(t *testing.T) {
 func TestBindPanelKeyReportsRefusal(t *testing.T) {
 	tmux := &panelKeyRecorder{err: assert.AnError}
 
-	assert.Error(t, BindPanelKey(tmux, BindPanelKeyParams{Self: "/usr/local/bin/weave"}))
+	require.Error(t, BindPanelKey(tmux, BindPanelKeyParams{Self: "/usr/local/bin/weave"}))
 }
 
 // TestIsShown covers the panel asking whether anybody is looking at it, which is a client on

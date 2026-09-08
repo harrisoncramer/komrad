@@ -875,7 +875,7 @@ func TestDeleteWorkflow(t *testing.T) {
 
 			if tt.addSchedule {
 				_, err := st.Schedules.Get(ctx, scheduleID)
-				assert.ErrorIs(t, err, store.ErrNotFound, "its archived schedule goes with it")
+				require.ErrorIs(t, err, store.ErrNotFound, "its archived schedule goes with it")
 			}
 		})
 	}

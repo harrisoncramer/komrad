@@ -39,7 +39,7 @@ func TestEveryMethodsFlagsBuildARequestItsSchemaAccepts(t *testing.T) {
 			require.NoError(t, err)
 
 			err = protojson.UnmarshalOptions{}.Unmarshal(encoded, dynamicpb.NewMessage(input))
-			assert.NoError(t, err, "the request the flags built is one the schema reads: %s", encoded)
+			require.NoError(t, err, "the request the flags built is one the schema reads: %s", encoded)
 		})
 	}
 }

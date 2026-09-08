@@ -52,7 +52,7 @@ func TestAttachRefusesWithoutAPanel(t *testing.T) {
 
 			require.Error(t, err)
 			assert.Contains(t, err.Error(), "the panel is not running")
-			assert.Error(t, exec.Command("tmux", "-L", socket, "has-session", "-t", agents.ManagerSession).Run(),
+			require.Error(t, exec.Command("tmux", "-L", socket, "has-session", "-t", agents.ManagerSession).Run(),
 				"attach created the session it was supposed to refuse")
 		})
 	}

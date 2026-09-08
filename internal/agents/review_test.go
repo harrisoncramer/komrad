@@ -97,7 +97,7 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -174,7 +174,7 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			err = tt.call(t.Context(), service, agentAuthor(reviewedAgentID))
 			require.ErrorIs(t, err, want)
 
-			assert.NoError(t, tt.call(t.Context(), service, humanAuthor()))
+			require.NoError(t, tt.call(t.Context(), service, humanAuthor()))
 		})
 	}
 }
@@ -231,7 +231,7 @@ func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -1610,7 +1610,7 @@ func TestReviewThreadMustExist(t *testing.T) {
 	require.ErrorIs(t, err, ErrReviewThreadNotFound)
 
 	_, err = service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{ID: otherAgentID, Author: human})
-	assert.ErrorIs(t, err, ErrReviewThreadNotFound)
+	require.ErrorIs(t, err, ErrReviewThreadNotFound)
 }
 
 // TestReleasingAReviewCostsTheMailboxOneNotice pins the mailbox price of letting go of a review:

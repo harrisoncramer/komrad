@@ -475,7 +475,7 @@ func TestListAgentsArchived(t *testing.T) {
 
 				require.NotNil(t, agent.ArchivedAt, "an archived agent says when it was archived")
 				_, err := time.Parse(time.RFC3339, agent.GetArchivedAt())
-				assert.NoError(t, err, "and says it as an RFC 3339 timestamp")
+				require.NoError(t, err, "and says it as an RFC 3339 timestamp")
 			}
 		})
 	}
@@ -541,7 +541,7 @@ func TestUpdateAgent(t *testing.T) {
 			assert.Equal(t, id, renamed.ID, "a rename preserves the id")
 
 			_, err = st.LiveAgentByName(ctx, tt.rename)
-			assert.ErrorIs(t, err, store.ErrNotFound, "the old name no longer finds anything")
+			require.ErrorIs(t, err, store.ErrNotFound, "the old name no longer finds anything")
 		})
 	}
 }
@@ -1075,7 +1075,7 @@ func TestSendMailPastTheExchangeLimitIsResourceExhausted(t *testing.T) {
 	}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeResourceExhausted, connect.CodeOf(err))
-	assert.ErrorIs(t, err, agents.ErrExchangeCapped)
+	require.ErrorIs(t, err, agents.ErrExchangeCapped)
 }
 
 // TestReadMail pins that an agent reading its own mailbox is handed what is waiting there.

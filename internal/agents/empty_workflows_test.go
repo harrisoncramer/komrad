@@ -73,7 +73,7 @@ func TestDeleteIfEmpty(t *testing.T) {
 			got, err := st.Workflows.GetIncludingArchived(ctx, id)
 
 			if tt.wantGone || !tt.create {
-				assert.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
+				require.ErrorIs(t, err, store.ErrNotFound, "the workflow row is gone")
 
 				return
 			}

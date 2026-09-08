@@ -281,7 +281,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			if tt.wantRemoved {
 				assert.True(t, os.IsNotExist(dirErr), "every run goes with a row that is really gone")
 			} else {
-				assert.NoError(t, dirErr, "the row is still here to read the failure from, so its runs stay too")
+				require.NoError(t, dirErr, "the row is still here to read the failure from, so its runs stay too")
 			}
 		})
 	}
@@ -365,7 +365,7 @@ func TestArchiveAgent(t *testing.T) {
 			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
 
 			_, err = st.Get(t.Context(), tt.seed)
-			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
+			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
 		})
 	}
 }

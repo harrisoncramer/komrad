@@ -50,7 +50,7 @@ func TestReadsAndWritesRefuseAnIDNoRowCouldHold(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			assert.NoError(t, tt.call(open(t)),
+			require.NoError(t, tt.call(open(t)),
 				"an id no row could hold is nothing to do rather than something to report")
 		})
 	}

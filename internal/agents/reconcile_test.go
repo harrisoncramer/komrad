@@ -211,7 +211,7 @@ func TestReconcileWithoutARecorderRecordsNothing(t *testing.T) {
 
 	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
 
-	assert.NoError(t, rec.Reconcile(t.Context()))
+	require.NoError(t, rec.Reconcile(t.Context()))
 }
 
 // TestReconcileForgetsAnAbandonedPane pins that a dormant agent drops its pane id, which it

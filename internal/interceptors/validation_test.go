@@ -80,7 +80,7 @@ func TestValidationRefusesControlCharacters(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }

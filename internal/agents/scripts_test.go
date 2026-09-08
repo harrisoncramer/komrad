@@ -680,7 +680,7 @@ func TestRunDeprovisionLogsUnderItsOwnTrigger(t *testing.T) {
 	assert.Equal(t, "a2", got["weave.script.agent.id"])
 	assert.Equal(t, gone, got["weave.script.agent.cwd"], "the row is gone, so the record is what names the directory")
 	assert.True(t, doneCalled, "the caller learns the run finished, not just that it logged")
-	assert.ErrorIs(t, doneErr, scripts.ErrFailed)
+	require.ErrorIs(t, doneErr, scripts.ErrFailed)
 }
 
 // TestRunDeprovisionLogsWhatAZeroExitSaid pins stderr being kept from a zero exit, since the
@@ -705,7 +705,7 @@ func TestRunDeprovisionLogsWhatAZeroExitSaid(t *testing.T) {
 	assert.EqualValues(t, 0, got["process.exit.code"], "the script succeeded")
 	assert.Equal(t, declined, got["weave.script.stderr"], "what it declined to do is kept")
 	assert.True(t, doneCalled)
-	assert.NoError(t, doneErr)
+	require.NoError(t, doneErr)
 }
 
 // TestRunDeprovisionPersistsStdoutOnAFailure pins stdout being captured too, since a script
@@ -1511,7 +1511,7 @@ func TestConcurrencyGuardIsScopedNarrowly(t *testing.T) {
 
 			require.NoError(t, fireScript(t.Context(), t, svc))
 
-			assert.NoError(t, tt.fire(svc))
+			require.NoError(t, tt.fire(svc))
 
 			time.Sleep(500 * time.Millisecond)
 		})

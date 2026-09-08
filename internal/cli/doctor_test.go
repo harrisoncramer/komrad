@@ -51,7 +51,7 @@ func TestDoctorReadsTheConfigTheUserNamed(t *testing.T) {
 			_, err = env.LoadConfig()
 
 			if !tt.wantErr {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				return
 			}

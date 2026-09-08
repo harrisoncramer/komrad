@@ -68,7 +68,7 @@ func TestGet(t *testing.T) {
 			got, err := st.Get(ctx, id)
 
 			if tt.wantName == "" {
-				assert.ErrorIs(t, err, store.ErrNotFound)
+				require.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
