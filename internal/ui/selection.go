@@ -123,24 +123,6 @@ func (s selection) without(ids ...string) selection {
 	return selection{ids: next}
 }
 
-func (m model) applySelectionKey(k string, sel selection, rows []agentRow, cursor int) (selection, bool) {
-	switch {
-	case sel.isActive() && isBound(k, m.keys.Selection.Clear):
-		return selection{}, true
-	case isBound(k, m.keys.Selection.Toggle):
-		return sel.toggle(rows, cursor), true
-	case isBound(k, m.keys.Selection.Range):
-
-		if !sel.isActive() {
-			return sel.toggle(rows, cursor), true
-		}
-
-		return sel.extend(rows, cursor), true
-	}
-
-	return sel, false
-}
-
 func chosenAgents(sel selection, rows []agentRow) []agentstore.Agent {
 	chosen := xslice.Filter(rows, func(row agentRow) bool {
 		return !row.header && sel.has(row.item.agent.ID)

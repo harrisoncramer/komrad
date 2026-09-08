@@ -111,80 +111,16 @@ func (m *model) applyArchive(agents []agentstore.Agent, workflows []workflowstor
 func (m model) updateArchive(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// The doubled top key is a gesture rather than a binding, so it is settled before the table,
+	// which would otherwise let a single press jump.
 	if m.takeTopPress(k) {
 		return m.jumpArchiveCursor(0), nil
 	}
 	if m.topHeld {
 		return m, nil
 	}
-	if isBound(k, m.keys.Nav.Bottom) {
-		return m.jumpArchiveCursor(len(m.archiveRows()) - 1), nil
-	}
 
-	if sel, took := m.applySelectionKey(k, m.archive.selected, m.archiveRows(), m.archive.cursor); took {
-		m.archive.selected = sel
-
-		return m, nil
-	}
-
-	if m.archive.selected.isActive() {
-		return m.updateArchiveSelection(key)
-	}
-
-	switch {
-	case isBound(k, m.keys.Filter.Open):
-		return m.openFilter()
-	case isBound(k, m.keys.Archive.Quit):
-		return m, m.hide()
-	case m.filter.isStanding() && isBound(k, m.keys.Filter.NextMatch):
-		return m.jumpMatch(1)
-	case m.filter.isStanding() && isBound(k, m.keys.Filter.PrevMatch):
-		return m.jumpMatch(-1)
-	case m.filter.isStanding() && isBound(k, m.keys.Archive.Back):
-		return m.clearSearch()
-	case isBound(k, m.keys.Archive.Back):
-		return m.returnToAgents()
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveArchiveCursor(-1), nil
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveArchiveCursor(1), nil
-	case isBound(k, m.keys.Archive.Restore):
-		return m.restoreFromArchive()
-	case isBound(k, m.keys.Archive.Delete):
-		if workflow, ok := m.hoveredArchivedWorkflow(); ok {
-			return m.deleteWorkflowConfirm(workflow)
-		}
-
-		agent, ok := m.selectedArchived()
-		if !ok {
-			return m, nil
-		}
-
-		return m.deleteFromArchiveConfirm([]agentstore.Agent{agent})
-	case isBound(k, m.keys.Archive.Empty):
-		return m.emptyArchiveConfirm()
-	}
-
-	return m, nil
-}
-
-func (m model) updateArchiveSelection(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	switch {
-	case isBound(k, m.keys.Archive.Quit):
-		return m, m.hide()
-	case isBound(k, m.keys.Archive.Restore):
-		return m.restoreAgents(chosenAgents(m.archive.selected, m.archiveRows()))
-	case isBound(k, m.keys.Archive.Delete):
-		return m.deleteFromArchiveConfirm(chosenAgents(m.archive.selected, m.archiveRows()))
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveArchiveCursor(-1), nil
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveArchiveCursor(1), nil
-	}
-
-	return m, nil
+	return archiveActions().dispatch(m, k)
 }
 
 func (m model) moveArchiveCursor(delta int) model {

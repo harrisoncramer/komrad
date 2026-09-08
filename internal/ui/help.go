@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"fmt"
 	"slices"
 	"strings"
 
@@ -123,15 +122,6 @@ func binding(keys []string, desc string) key.Binding {
 	return key.NewBinding(key.WithKeys(keys...), key.WithHelp(keyLabel(keys), desc))
 }
 
-// pairBinding is a there-and-back gesture on one line of the legend, named by the first key of
-// each half since the legend has room for one way in rather than every alternative.
-func pairBinding(forward, back []string, desc string) key.Binding {
-	return key.NewBinding(
-		key.WithKeys(slices.Concat(forward, back)...),
-		key.WithHelp(headLabel(forward)+"/"+headLabel(back), desc),
-	)
-}
-
 func headLabel(keys []string) string {
 	if len(keys) == 0 {
 		return ""
@@ -173,32 +163,6 @@ func filterHelp() keyMap {
 	drop := binding([]string{"esc"}, "cancel")
 
 	return keyMap{short: []key.Binding{done, drop}, full: []key.Binding{done, drop}}
-}
-
-func (m model) filterBinding() key.Binding {
-	if m.filter.isStanding() {
-		return binding(m.keys.Filter.Open, "search: "+m.filter.query)
-	}
-
-	return binding(m.keys.Filter.Open, "search")
-}
-
-func (m model) editFilterBinding(keys []string) []key.Binding {
-	if !m.filter.isStanding() {
-		return nil
-	}
-
-	return []key.Binding{binding(keys, "clear search")}
-}
-
-// matchBindings walk the rows a standing search found, and are drawn only while one stands since
-// the keys they sit on are letters at every other time.
-func (m model) matchBindings() []key.Binding {
-	if !m.filter.isStanding() || m.screen.spec().filter == nil || m.screen.spec().filter.rows == nil {
-		return nil
-	}
-
-	return []key.Binding{pairBinding(m.keys.Filter.NextMatch, m.keys.Filter.PrevMatch, "next/prev match")}
 }
 
 // infoPaneHelp is the keys that fill the pane beside the panel, drawn off the same question the
@@ -276,28 +240,6 @@ func (m model) detailsHelp() keyMap {
 	}
 }
 
-func (m model) selectionHelp(sel selection, hovered agentRow, extra ...key.Binding) keyMap {
-	toggleDesc := "select"
-	switch {
-	case hovered.header:
-		toggleDesc = "select folder"
-	case sel.has(hovered.item.agent.ID):
-		toggleDesc = "deselect"
-	}
-
-	toggle := binding(m.keys.Selection.Toggle, toggleDesc)
-	clear := binding(m.keys.Selection.Clear, fmt.Sprintf("clear %d selected", len(sel.ids)))
-
-	full := slices.Concat(
-		[]key.Binding{toggle, binding(m.keys.Selection.Range, "select to nearest"), clear},
-		extra,
-		[]key.Binding{m.moveBinding(), m.jumpBinding()},
-		m.globalHelp(),
-	)
-
-	return keyMap{short: []key.Binding{toggle, clear, m.helpBinding()}, full: full}
-}
-
 func (m model) showHiddenDesc() string {
 	if m.tree.showHidden {
 		return "put hidden away"
@@ -307,96 +249,53 @@ func (m model) showHiddenDesc() string {
 }
 
 func (m model) scheduleHelp() keyMap {
-	toggle := "pause"
-	if item, ok := m.selectedSchedule(); ok && !item.schedule.Enabled {
-		toggle = "resume"
-	}
-
-	edit := binding(m.keys.Schedules.Edit, "edit")
-	editFilter := m.editFilterBinding(m.keys.Schedules.Back)
+	own := schedulesActions().help(m)
 
 	return keyMap{
-		short: slices.Concat([]key.Binding{edit}, editFilter, []key.Binding{m.helpBinding()}),
+		short: slices.Concat(own.short, m.globalHelp()),
 		full: slices.Concat(
+			own.full,
 			[]key.Binding{
-				binding(m.keys.Schedules.New, "new schedule"),
-				edit,
-				binding(m.keys.Schedules.Toggle, toggle),
-				binding(m.keys.Schedules.Archive, "archive"),
 				m.detailsBinding(),
 				m.messagesBinding(),
-				m.filterBinding(),
-				m.moveBinding(),
 			},
 			m.infoPaneHelp(),
-			[]key.Binding{
-				m.columnScrollBinding("the record"),
-				binding(m.keys.Schedules.Back, "back"),
-			},
-			editFilter,
+			[]key.Binding{m.columnScrollBinding("the record")},
 			m.globalHelp(),
 		),
 	}
 }
 
 func (m model) mailHelp() keyMap {
-	editFilter := m.editFilterBinding(m.keys.Mail.Back)
-
-	back := binding(m.keys.Mail.Back, "back")
+	own := mailActions().help(m)
 
 	return keyMap{
-		short: slices.Concat([]key.Binding{back}, editFilter, []key.Binding{m.helpBinding()}),
+		short: slices.Concat(own.short, m.globalHelp()),
 		full: slices.Concat(
-			[]key.Binding{back},
+			own.full,
 			[]key.Binding{
 				m.detailsBinding(),
 				m.messagesBinding(),
-				m.filterBinding(),
-				m.moveBinding(),
-				m.jumpBinding(),
 			},
 			m.infoPaneHelp(),
 			[]key.Binding{m.columnScrollBinding("the message")},
-			editFilter,
 			m.globalHelp(),
 		),
 	}
 }
 
 func (m model) archiveHelp() keyMap {
-	if m.archive.selected.isActive() {
-		hovered, _ := rowAt(m.archiveRows(), m.archive.cursor)
-
-		return m.selectionHelp(
-			m.archive.selected,
-			hovered,
-			binding(m.keys.Archive.Restore, "restore all"),
-			binding(m.keys.Archive.Delete, "delete all for good"),
-		)
-	}
-
-	editFilter := slices.Concat(m.editFilterBinding(m.keys.Archive.Back), m.matchBindings())
-	rows := m.archiveRowHelp()
-
-	short := slices.Concat(editFilter, []key.Binding{m.helpBinding()})
-	if len(rows) > 0 {
-		short = slices.Concat(rows[:1], short)
-	}
+	own := archiveActions().help(m)
 
 	return keyMap{
-		short: short,
+		short: slices.Concat(own.short, m.globalHelp()),
 		full: slices.Concat(
-			rows,
+			own.full,
 			[]key.Binding{
 				m.detailsBinding(),
 				m.messagesBinding(),
-				m.filterBinding(),
-				m.moveBinding(),
-				m.jumpBinding(),
 				m.columnScrollBinding("the notes"),
-				binding(m.keys.Archive.Back, "back"),
 			},
-			editFilter,
 			m.globalHelp(),
 		),
 	}
@@ -412,25 +311,6 @@ func (m model) columnScrollBinding(what string) key.Binding {
 			"scroll "+what,
 		),
 	)
-}
-
-func (m model) archiveRowHelp() []key.Binding {
-	if _, ok := m.hoveredArchivedWorkflow(); ok {
-		return []key.Binding{
-			binding(m.keys.Archive.Restore, "restore workflow"),
-			binding(m.keys.Selection.Toggle, "select folder"),
-		}
-	}
-	if _, ok := m.selectedArchived(); !ok {
-		return nil
-	}
-
-	return []key.Binding{
-		binding(m.keys.Archive.Restore, "restore"),
-		binding(m.keys.Selection.Toggle, "select"),
-		binding(m.keys.Archive.Delete, "delete for good"),
-		binding(m.keys.Archive.Empty, "empty the archive"),
-	}
 }
 
 func (m model) searchHelp() keyMap {
@@ -459,44 +339,16 @@ func (m model) searchHelp() keyMap {
 	}
 }
 
+// reviewHelp keeps the strip to what the screen is for, since reviewing is reading and the rest
+// of the keys sit behind the help key.
 func (m model) reviewHelp() keyMap {
-	keys := m.keys.Review
+	own := reviewActions().help(m)
 
-	move := m.moveBinding()
-
-	// An agent nobody can write to keeps every key that reads and loses every key that sends, so
-	// the ones that would be refused cannot be pressed by accident.
-	var writing, composing []key.Binding
-	if _, dead := m.reviewIsReadOnly(); !dead {
-		composing = []key.Binding{binding(keys.Compose, m.reviewComposeDesc())}
-		writing = slices.Concat(composing, []key.Binding{
-			binding(m.keys.Form.Submit, "send the review"),
-		})
-	}
-
-	// Only the things the screen is for are on the strip, since reviewing is reading and the
-	// rest of the keys are behind the help key.
 	return keyMap{
-		short: slices.Concat([]key.Binding{move}, composing, []key.Binding{m.helpBinding()}),
+		short: slices.Concat(own.short, m.globalHelp()),
 		full: slices.Concat(
-			[]key.Binding{
-				move,
-				pairBinding(keys.ScrollDown, keys.ScrollUp, "scroll"),
-				pairBinding(keys.NextFile, keys.PrevFile, "next/previous file"),
-				pairBinding(keys.NextThread, keys.PrevThread, "next/previous thread"),
-				binding(m.keys.Filter.Open, "search"),
-				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),
-				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
-				binding(keys.PanReset, "stop panning"),
-				m.jumpBinding(),
-				binding(keys.EditFile, m.reviewEditorDesc()),
-				binding(keys.Reload, m.reviewReloadDesc()),
-				binding(keys.Resolve, m.reviewResolveDesc()),
-				binding(keys.ToggleViewed, m.reviewViewedDesc()),
-				m.detailsBinding(),
-			},
-			writing,
-			[]key.Binding{binding(keys.Back, "back to the agents")},
+			own.full,
+			[]key.Binding{m.detailsBinding()},
 			m.globalHelp(),
 		),
 	}

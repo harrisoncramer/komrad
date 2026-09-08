@@ -55,6 +55,31 @@ const (
 	actionMarkJump
 	actionSchedulesOpen
 	actionArchiveOpen
+	actionScheduleNew
+	actionScheduleEdit
+	actionScheduleToggle
+	actionScheduleArchive
+	actionScheduleBack
+	actionMailBack
+	actionArchiveRestore
+	actionArchiveDelete
+	actionArchiveEmpty
+	actionArchiveBack
+	actionRestoreSelected
+	actionDeleteSelected
+	actionReviewBack
+	actionReviewScroll
+	actionReviewFile
+	actionReviewThread
+	actionReviewMatch
+	actionReviewPan
+	actionReviewPanReset
+	actionReviewEdit
+	actionReviewReload
+	actionReviewResolve
+	actionReviewViewed
+	actionReviewCompose
+	actionReviewSend
 )
 
 // action is one arm of a screen's dispatch, the description living on the legend row instead
@@ -90,8 +115,9 @@ type actionSpec struct {
 	legend []legendRow
 }
 
-// dispatch hands the press to the first arm that answers it, and reports whether one did.
-func (s actionSpec) dispatch(m model, pressed string) (tea.Model, tea.Cmd, bool) {
+// dispatch hands the press to the first arm that answers it, and gives the model back untouched
+// when none does.
+func (s actionSpec) dispatch(m model, pressed string) (tea.Model, tea.Cmd) {
 	for _, a := range s.table {
 		if a.when != nil && !a.when(m) {
 			continue
@@ -101,12 +127,10 @@ func (s actionSpec) dispatch(m model, pressed string) (tea.Model, tea.Cmd, bool)
 			continue
 		}
 
-		next, cmd := a.run(m, pressed)
-
-		return next, cmd, true
+		return a.run(m, pressed)
 	}
 
-	return m, nil, false
+	return m, nil
 }
 
 // help builds the legend from the same table the dispatch reads.

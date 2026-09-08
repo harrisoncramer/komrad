@@ -33,9 +33,7 @@ func (m model) updateAgents(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	next, cmd, _ := agentsActions().dispatch(m, k)
-
-	return next, cmd
+	return agentsActions().dispatch(m, k)
 }
 
 func (m model) withSelectedAgent(fn func(agentItem) (tea.Model, tea.Cmd)) (tea.Model, tea.Cmd) {

@@ -142,9 +142,8 @@ func helpModel() model {
 	}
 }
 
-// TestLegendOrderIsPinned records the order a screen that has not been converted yet names its
-// bindings in, since that order is hand-tuned and nothing else holds it, and it goes screen by
-// screen as each one comes to declare its own order in a table.
+// TestLegendOrderIsPinned holds the search screen's legend, which is the one screen with no table
+// to declare its own order, its keys being fixed rather than configured while the query is open.
 func TestLegendOrderIsPinned(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -153,43 +152,6 @@ func TestLegendOrderIsPinned(t *testing.T) {
 		short []string
 		full  []string
 	}{
-		{
-			name:  "schedules",
-			s:     screenSchedules,
-			of:    model.scheduleHelp,
-			short: []string{"enter edit", "? show help"},
-			full: []string{
-				"c new schedule",
-				"enter edit",
-				"space pause",
-				"z archive",
-				"C-t details",
-				"C-g messages",
-				"/ search",
-				"k/j move",
-				"l run log",
-				"T terminal here",
-				"C-n/C-p scroll the record",
-				"esc back",
-				"? show help",
-			},
-		},
-		{
-			name:  "archive",
-			s:     screenArchive,
-			of:    model.archiveHelp,
-			short: []string{"? show help"},
-			full: []string{
-				"C-t details",
-				"C-g messages",
-				"/ search",
-				"k/j move",
-				"gg/G top/bottom",
-				"C-n/C-p scroll the notes",
-				"esc back",
-				"? show help",
-			},
-		},
 		{
 			name:  "search",
 			s:     screenSearch,
@@ -201,48 +163,6 @@ func TestLegendOrderIsPinned(t *testing.T) {
 				"k/j move",
 				"gg/G top/bottom",
 				"C-n/C-p scroll the transcript",
-				"? show help",
-			},
-		},
-		{
-			name:  "mail",
-			s:     screenMail,
-			of:    model.mailHelp,
-			short: []string{"esc back", "? show help"},
-			full: []string{
-				"esc back",
-				"C-t details",
-				"C-g messages",
-				"/ search",
-				"k/j move",
-				"gg/G top/bottom",
-				"l run log",
-				"T terminal here",
-				"C-n/C-p scroll the message",
-				"? show help",
-			},
-		},
-		{
-			name:  "review",
-			s:     screenReview,
-			of:    model.reviewHelp,
-			short: []string{"k/j move", "? show help"},
-			full: []string{
-				"k/j move",
-				"C-n/C-p scroll",
-				"]/[ next/previous file",
-				"t/T next/previous thread",
-				"/ search",
-				"n/N next/previous match",
-				"h/l pan sideways",
-				"0 stop panning",
-				"gg/G top/bottom",
-				"e open in your editor",
-				"R read the diff again",
-				"r settle the thread",
-				"v mark the file viewed",
-				"C-t details",
-				"esc back to the agents",
 				"? show help",
 			},
 		},

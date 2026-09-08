@@ -1,7 +1,6 @@
 package ui
 
 import (
-	"weave/config"
 	agentv1 "weave/proto/gen/agent/v1"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -32,10 +31,11 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	}
 
 	k := key.String()
-	keys := m.keys.Review
 
+	// The diff opens for an agent that is not there, and only the back key answers until it has
+	// something to draw.
 	if m.review.view == nil {
-		if isBound(k, keys.Back) {
+		if isBound(k, m.keys.Review.Back) {
 			return m.leaveReview()
 		}
 
@@ -44,68 +44,7 @@ func (m model) updateReview(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	m.review.notice = ""
 
-	// The diff opens for an agent that is not there, so the keys that would write to it are
-	// refused here rather than left to fail at the server.
-	if _, dead := m.reviewIsReadOnly(); dead && isReviewWrite(k, m.keys) {
-		return m.refuseReviewWrite()
-	}
-
-	switch {
-	case isBound(k, keys.Back):
-		return m.leaveReview()
-	case isBound(k, keys.Quit):
-		return m, m.hide()
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveReviewCursor(m.review.view.Move(m.review.cursor, 1))
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveReviewCursor(m.review.view.Move(m.review.cursor, -1))
-	case isBound(k, m.keys.Nav.Top):
-		return m.moveReviewCursor(m.review.view.GetFirstRow())
-	case isBound(k, m.keys.Nav.Bottom):
-		return m.moveReviewCursor(m.review.view.GetLastRow())
-	case isBound(k, keys.ScrollDown):
-		return m.scrollReview(1)
-	case isBound(k, keys.ScrollUp):
-		return m.scrollReview(-1)
-	case isBound(k, keys.NextFile):
-		return m.jumpReviewFile(1)
-	case isBound(k, keys.PrevFile):
-		return m.jumpReviewFile(-1)
-	case isBound(k, keys.NextThread):
-		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, 1))
-	case isBound(k, keys.PrevThread):
-		return m.moveReviewCursor(m.review.view.JumpThread(m.review.cursor, -1))
-	case isBound(k, m.keys.Filter.Open):
-		m.review.filter.typing = true
-		m.review.filter.setQuery("")
-		m.searchReview()
-
-		return m, nil
-	case isBound(k, keys.NextMatch):
-		return m.jumpReviewMatch(1)
-	case isBound(k, keys.PrevMatch):
-		return m.jumpReviewMatch(-1)
-	case isBound(k, keys.PanRight):
-		return m.panReview(m.reviewPanStep())
-	case isBound(k, keys.PanLeft):
-		return m.panReview(-m.reviewPanStep())
-	case isBound(k, keys.PanReset):
-		return m.panReview(-m.review.pan)
-	case isBound(k, keys.Reload):
-		return m.reloadReview()
-	case isBound(k, keys.EditFile):
-		return m.editReviewFile()
-	case isBound(k, keys.Compose):
-		return m.composeReview()
-	case isBound(k, keys.Resolve):
-		return m.resolveReviewThread()
-	case isBound(k, keys.ToggleViewed):
-		return m.toggleReviewViewed()
-	case isBound(k, m.keys.Form.Submit):
-		return m.openReviewRelease()
-	}
-
-	return m, nil
+	return reviewActions().dispatch(m, k)
 }
 
 // refuseReviewWrite says why a key that would write to the agent did nothing, since the key is
@@ -115,14 +54,6 @@ func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 	m.review.notice = reason
 
 	return m, nil
-}
-
-// isReviewWrite reports whether a key would put something in front of the agent, which is the
-// set that stands down on an agent with nobody there to read it, leaving out settling, deleting
-// and marking a file read, since those are the person's own records and send nothing.
-func isReviewWrite(k string, keys config.Keybindings) bool {
-	return isBound(k, keys.Review.Compose) ||
-		isBound(k, keys.Form.Submit)
 }
 
 // updateReviewFilter is the search prompt taking keys, which is the panel's filter input drawn

@@ -51,32 +51,7 @@ func (m model) scheduleRows() []scheduleItem {
 }
 
 func (m model) updateSchedules(key tea.KeyMsg) (tea.Model, tea.Cmd) {
-	k := key.String()
-
-	switch {
-	case isBound(k, m.keys.Filter.Open):
-		return m.openFilter()
-	case isBound(k, m.keys.Schedules.Quit):
-		return m, m.hide()
-	case m.filter.isStanding() && isBound(k, m.keys.Schedules.Back):
-		return m.clearSearch()
-	case isBound(k, m.keys.Schedules.Back):
-		return m.returnToAgents()
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveScheduleCursor(-1), nil
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveScheduleCursor(1), nil
-	case isBound(k, m.keys.Schedules.New):
-		return m.newScheduleForm()
-	case isBound(k, m.keys.Schedules.Edit):
-		return m.editScheduleForm()
-	case isBound(k, m.keys.Schedules.Toggle):
-		return m.toggleSchedule()
-	case isBound(k, m.keys.Schedules.Archive):
-		return m.archiveScheduleConfirm()
-	}
-
-	return m, nil
+	return schedulesActions().dispatch(m, key.String())
 }
 
 func (m model) selectedSchedule() (scheduleItem, bool) {

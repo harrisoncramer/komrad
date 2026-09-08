@@ -420,6 +420,8 @@ func nextMailRow(rows []mailRow, from, direction int) int {
 func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
+	// The doubled top key is a gesture rather than a binding, so it is settled before the table,
+	// which would otherwise let a single press jump.
 	if m.takeTopPress(k) {
 		return m.jumpMailCursor(0), nil
 	}
@@ -427,24 +429,7 @@ func (m model) updateMail(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	switch {
-	case isBound(k, m.keys.Nav.Bottom):
-		return m.jumpMailCursor(len(m.mailRows()) - 1), nil
-	case isBound(k, m.keys.Filter.Open):
-		return m.openFilter()
-	case isBound(k, m.keys.Mail.Quit):
-		return m, m.hide()
-	case m.filter.isStanding() && isBound(k, m.keys.Mail.Back):
-		return m.clearSearch()
-	case isBound(k, m.keys.Mail.Back):
-		return m.leaveMail()
-	case isBound(k, m.keys.Nav.Up):
-		return m.moveMailCursor(-1), nil
-	case isBound(k, m.keys.Nav.Down):
-		return m.moveMailCursor(1), nil
-	}
-
-	return m, nil
+	return mailActions().dispatch(m, k)
 }
 
 // leaveMail drops the mailbox on the way out, since a read in flight would otherwise land on
