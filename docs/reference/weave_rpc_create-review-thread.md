@@ -14,6 +14,7 @@ weave rpc create-review-thread [flags]
 
 ```
       --agent-id string        string, required
+      --base-sha string        string
       --body string            string, required, at most 10000 characters
       --compact                print the response on one line
       --file-path string       string, required
