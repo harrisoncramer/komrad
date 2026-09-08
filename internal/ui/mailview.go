@@ -19,8 +19,6 @@ func (m model) mailDetails() details {
 
 	return details{
 		id:     r.item.GetId(),
-		kind:   "Mail",
-		title:  mailDirectionWord(r.sent) + " " + m.mailCounterparty(r),
 		fields: m.mailFields(r),
 	}
 }

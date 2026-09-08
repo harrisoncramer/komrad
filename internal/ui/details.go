@@ -17,8 +17,6 @@ type detailsState struct {
 
 type details struct {
 	id      string
-	kind    string
-	title   string
 	notices []notice
 	fields  []recordField
 }
@@ -161,7 +159,7 @@ func (m model) detailsLines() int {
 	return min(lines, max(m.height/2-detailsChromeLines, 0))
 }
 
-const detailsChromeLines = 4
+const detailsChromeLines = 2
 
 func (m model) detailsView() string {
 	held := m.hoveredDetails()
@@ -182,7 +180,6 @@ func (m model) detailsView() string {
 	rows := m.detailFieldRows(held.fields, cursor)
 
 	return m.detailsRule() +
-		m.detailsTitle(held) +
 		block +
 		padRows(renderList(rows, cursor, lines), lines) +
 		m.detailsRule()
@@ -195,15 +192,6 @@ func (m model) detailsRule() string {
 	}
 
 	return dimStyle.Render(strings.Repeat("─", width)) + "\n"
-}
-
-func (m model) detailsTitle(held details) string {
-	title := held.title
-	if held.kind != "" {
-		title = held.kind + ": " + title
-	}
-
-	return titleStyleFor(m.details.focused).Render(clip(title, m.lineWidth())) + "\n\n"
 }
 
 // detailsNotices are the lines the marks on the row take above the fields, giving up a notice

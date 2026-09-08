@@ -75,16 +75,16 @@ func TestDetailsDrawTheHoveredRow(t *testing.T) {
 	assert.NotContains(t, header, "session_id", "a workflow has no session of its own")
 }
 
-// TestDetailsTitleNamesWhatItIsAbout covers the line over the fields, which says whether the
-// name belongs to an agent or the workflow it sits under.
-func TestDetailsTitleNamesWhatItIsAbout(t *testing.T) {
+// TestDetailsNameWhatItIsAbout covers the record opening on the name of whatever the cursor is
+// standing on, agent or workflow, now that no title line says which it is.
+func TestDetailsNameWhatItIsAbout(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	assert.Contains(t, m.detailsView(), "Agent: auth\n\n")
+	assert.Equal(t, "auth", fieldValue(t, m.hoveredDetails(), "name"))
 
 	m.tree.cursor = 0
 
-	assert.Contains(t, m.detailsView(), "Workflow: backend\n\n")
+	assert.Equal(t, "backend", fieldValue(t, m.hoveredDetails(), "name"))
 }
 
 // TestDetailsFollowTheCursor covers moving between rows, which puts the field cursor back at
@@ -267,7 +267,7 @@ func TestDetailsHeightLeavesTheListRoom(t *testing.T) {
 		{
 			name:   "more than the pane holds is capped so the chrome and fields together take half of it",
 			height: 40,
-			want:   8,
+			want:   10,
 		},
 	}
 
@@ -300,10 +300,10 @@ func TestDetailsPadsToItsShare(t *testing.T) {
 func TestDetailsNeedsRoomForChromeAndAField(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 
-	m.height = 8
+	m.height = 4
 	assert.Empty(t, m.detailsView(), "half the pane cannot fit the chrome, let alone a field beside it")
 
-	m.height = 10
+	m.height = 6
 	assert.NotEmpty(t, m.detailsView(), "half the pane now fits the chrome and one field")
 }
 
@@ -317,7 +317,7 @@ func TestDetailsOnTheOtherLists(t *testing.T) {
 
 		view := m.detailsView()
 
-		assert.Contains(t, view, "Schedule: morning-ci")
+		assert.Contains(t, view, "morning-ci")
 		assert.Contains(t, view, "cron")
 		assert.Contains(t, view, "0 9 * * 1-5")
 
@@ -333,7 +333,7 @@ func TestDetailsOnTheOtherLists(t *testing.T) {
 
 		view := m.detailsView()
 
-		assert.Contains(t, view, "Agent: api-refactor")
+		assert.Contains(t, view, "api-refactor")
 		assert.Contains(t, view, "directory")
 
 		focused := send(t, m, "ctrl+t")
@@ -480,7 +480,7 @@ func assertKeysWithTheList(t *testing.T, m model) {
 // section, where the keys stay with the list rather than going somewhere off screen.
 func TestDetailsFocusNeedsRoomToDrawIn(t *testing.T) {
 	m := strandedModel()
-	m.height = 8
+	m.height = 4
 
 	assertKeysWithTheList(t, send(t, m, "ctrl+t"))
 }
@@ -491,7 +491,7 @@ func TestDetailsFocusGivenUpWhenThePaneShrinks(t *testing.T) {
 	focused := send(t, strandedModel(), "ctrl+t")
 	require.NotEmpty(t, focused.detailsView())
 
-	assertKeysWithTheList(t, asModel(t, resize(focused, 40, 8)))
+	assertKeysWithTheList(t, asModel(t, resize(focused, 40, 4)))
 }
 
 // TestDetailsShareTooSmallToDrawAField covers a configured share that rounds down to no field
@@ -510,7 +510,7 @@ func TestDetailsFocusReturnsWithTheSection(t *testing.T) {
 	focused := send(t, send(t, strandedModel(), "ctrl+t"), "j")
 	require.Equal(t, 1, focused.details.cursor)
 
-	shrunk := asModel(t, resize(focused, 40, 8))
+	shrunk := asModel(t, resize(focused, 40, 4))
 	assertKeysWithTheList(t, shrunk)
 
 	grown := asModel(t, resize(shrunk, 40, 24))

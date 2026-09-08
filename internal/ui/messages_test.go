@@ -29,9 +29,9 @@ func oneMessage(summary, detail string) messagesState {
 	}}}
 }
 
-// TestMessagesRegionKeepsItsHeight covers the whole point of the region: the rows it takes are
-// the same whether it is holding a failure or saying there is nothing to say.
-func TestMessagesRegionKeepsItsHeight(t *testing.T) {
+// TestMessagesRegionFitsTheMessage covers the rows the region takes: never more than the pane
+// keeps back for it, and one fewer while there is nothing to say, which is a row the list gets.
+func TestMessagesRegionFitsTheMessage(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
 
@@ -48,7 +48,8 @@ func TestMessagesRegionKeepsItsHeight(t *testing.T) {
 	})
 	filled := m.messagesRegion(record, help)
 
-	assert.Equal(t, strings.Count(idle, "\n"), strings.Count(filled, "\n"))
+	assert.Equal(t, strings.Count(idle, "\n")+1, strings.Count(filled, "\n"), "the idle region gives a row back")
+	assert.LessOrEqual(t, strings.Count(filled, "\n"), messagesRegionRows)
 	assert.Contains(t, ansi.Strip(filled), "Nothing to review in fix-ci")
 }
 

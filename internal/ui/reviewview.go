@@ -479,8 +479,6 @@ func (m model) reviewDetails() details {
 
 	return details{
 		id:      agent.ID,
-		kind:    "Agent",
-		title:   agent.Name,
 		notices: agentNotices(item),
 		fields:  append(fields, m.reviewFields()...),
 	}

@@ -23,7 +23,7 @@ func TestReviewDrawsTheAgentRecord(t *testing.T) {
 
 	view := ansi.Strip(m.reviewView())
 
-	assert.Contains(t, view, "Agent: auth")
+	assert.Contains(t, view, "› name")
 	assert.Contains(t, view, "agent_id")
 
 	held := m.hoveredDetails()
@@ -138,7 +138,7 @@ func TestReviewRecordGivesWayInASmallPane(t *testing.T) {
 	m.height = 20
 	view := m.reviewView()
 
-	assert.NotContains(t, ansi.Strip(view), "Agent: auth", "and gives way rather than running past the pane")
+	assert.NotContains(t, ansi.Strip(view), "› name", "and gives way rather than running past the pane")
 	assert.LessOrEqual(t, strings.Count(strings.TrimRight(view, "\n"), "\n")+1, m.height)
 }
 
@@ -153,7 +153,7 @@ func TestReviewRecordCannotTakeTheKeysWhileItIsDropped(t *testing.T) {
 	m.height = 12
 
 	require.Positive(t, m.detailsLines(), "the pane would hold a record, for this to prove anything")
-	require.NotContains(t, ansi.Strip(m.reviewView()), "Agent: auth", "and the sidebar drops it anyway")
+	require.NotContains(t, ansi.Strip(m.reviewView()), "› name", "and the sidebar drops it anyway")
 
 	next, _ := m.Update(keyMsg("ctrl+t"))
 	refused := next.(model)
@@ -178,7 +178,7 @@ func TestReviewRecordGivesTheKeysBackWhenThePaneShrinks(t *testing.T) {
 
 	focused.helpExpanded = true
 	focused.height = 12
-	require.NotContains(t, ansi.Strip(focused.reviewView()), "Agent: auth")
+	require.NotContains(t, ansi.Strip(focused.reviewView()), "› name")
 	assert.False(t, focused.isDetailsFocused(), "the record went, so the keys came back")
 
 	cursor := focused.review.cursor
@@ -210,7 +210,7 @@ func TestReviewRecordKeysFollowWhatIsDrawn(t *testing.T) {
 
 				taken++
 
-				assert.Contains(t, ansi.Strip(focused.reviewView()), "Agent: auth",
+				assert.Contains(t, ansi.Strip(focused.reviewView()), "› name",
 					"the record took the keys at height %d without being drawn, query=%q expanded=%v",
 					height, query, expanded)
 			}

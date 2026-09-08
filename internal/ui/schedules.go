@@ -89,8 +89,6 @@ func (m model) schedulesDetails() details {
 
 	return details{
 		id:     item.schedule.ID,
-		kind:   "Schedule",
-		title:  item.schedule.Name,
 		fields: scheduleFields(item.schedule, m.workflowByID(item.schedule.WorkflowID)),
 	}
 }

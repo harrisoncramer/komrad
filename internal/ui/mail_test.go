@@ -330,7 +330,6 @@ func TestMailDetailsNameTheCorrespondents(t *testing.T) {
 	held := m.mailDetails()
 
 	assert.Equal(t, "m1", held.id)
-	assert.Equal(t, "to emacs-fan", held.title)
 	assert.Contains(t, fieldValue(t, held, "to"), "emacs-fan (a2)")
 	assert.Equal(t, "plain", fieldValue(t, held, "kind"))
 	assert.Equal(t, "unread", fieldValue(t, held, "state"))

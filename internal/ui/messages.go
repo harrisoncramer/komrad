@@ -11,8 +11,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-// messagesRows is what the region takes under the record, drawn whether or not there is anything
-// to say, so a message arriving moves no row of the list above it.
+// messagesRows is the most rows the region takes, which the pane keeps back for it whether or
+// not the message on screen fills them, so a longer message moves no row of the list above it.
 const messagesRows = 3
 
 // messagesRegionRows is what the region costs the pane: its rows and the rule under them.
@@ -69,7 +69,7 @@ func (m model) messagesRegion(record, help string) string {
 		return ""
 	}
 
-	block := padRows(strings.Join(m.messagesSlot(), "\n")+"\n", messagesRows)
+	block := strings.Join(m.messagesSlot(), "\n") + "\n"
 	if record == "" {
 		block = m.detailsRule() + block
 	}

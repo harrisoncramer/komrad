@@ -153,7 +153,7 @@ func TestNoticesGiveUpBeforeTheFields(t *testing.T) {
 // notice is drawn as far as it goes and says so.
 func TestNoticesCutTheFirstOneShort(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
-	m.height, m.width = 16, 24
+	m.height, m.width = 12, 24
 	m.listing.agents[0].failedRun = true
 
 	view := m.detailsView()

@@ -58,6 +58,7 @@ func TestWorkflowFields(t *testing.T) {
 	}, 3)
 
 	assert.Equal(t, []recordField{
+		{"name", "api"},
 		{"agents", "3"},
 		{"default agent", "codex"},
 		{"directory", "/repo/api"},
@@ -84,6 +85,7 @@ func TestWorkflowFieldsWorktree(t *testing.T) {
 	}
 
 	assert.Equal(t, []recordField{
+		{"name", "api"},
 		{"agents", "3"},
 		{"default agent", "codex"},
 		{"directory", "/repo/api"},

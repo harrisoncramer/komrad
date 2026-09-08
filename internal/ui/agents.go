@@ -221,16 +221,12 @@ func (m model) agentsDetails() details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			kind:   "Workflow",
-			title:  r.workflow.Name,
 			fields: workflowFields(r.workflow, m.agentCount(r.workflow.ID)),
 		}
 	}
 
 	return details{
 		id:      r.item.agent.ID,
-		kind:    "Agent",
-		title:   r.item.agent.Name,
 		notices: agentNotices(r.item),
 		fields:  agentFields(r.item.agent, m.scheduleName(r.item.agent), m.parentName(r.item.agent)),
 	}

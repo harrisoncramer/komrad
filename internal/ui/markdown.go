@@ -41,7 +41,10 @@ func renderDocument(title, notice, prose, footer string) string {
 }
 
 func workflowFields(w workflowstore.Workflow, agentCount int) []recordField {
-	fields := []recordField{{"agents", fmt.Sprintf("%d", agentCount)}}
+	fields := []recordField{
+		{"name", orDash(w.Name)},
+		{"agents", fmt.Sprintf("%d", agentCount)},
+	}
 	fields = append(fields, workflowConfigFields(w)...)
 
 	return append(fields, recordField{"workflow_id", orDash(w.ID)})
@@ -159,6 +162,7 @@ Press the new key to write one.
 
 func scheduleFields(sched schedulestore.Schedule, workflow *workflowstore.Workflow) []recordField {
 	fields := []recordField{
+		{"name", orDash(sched.Name)},
 		{"cron", orDash(sched.Cron)},
 		{"timezone", orDash(sched.Timezone)},
 	}

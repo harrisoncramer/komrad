@@ -273,16 +273,12 @@ func (m model) archiveDetails() details {
 	if r.header {
 		return details{
 			id:     r.workflow.ID,
-			kind:   "Workflow",
-			title:  r.workflow.Name,
 			fields: workflowFields(r.workflow, m.archivedCount(r.workflow.ID)),
 		}
 	}
 
 	return details{
 		id:      r.item.agent.ID,
-		kind:    "Agent",
-		title:   r.item.agent.Name,
 		notices: failureNotices(r.item.agent.State),
 		fields:  archiveFields(r.item.agent, m.scheduleName(r.item.agent)),
 	}

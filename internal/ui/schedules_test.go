@@ -315,6 +315,7 @@ func TestScheduleFields(t *testing.T) {
 		})
 
 		assert.Equal(t, []recordField{
+			{"name", "morning-ci"},
 			{"cron", "0 9 * * 1-5"},
 			{"timezone", "America/New_York"},
 			{"workflow", "api"},
