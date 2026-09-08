@@ -17,8 +17,8 @@ type Suggestion struct {
 	Lines    []string
 }
 
-// Key identifies one proposal, so that a suggestion already sent or already turned down is not
-// offered again while the reviewer's text is still sitting in the checkout.
+// Key identifies one proposal, which is how one already sent or turned down is not offered
+// again.
 func (s Suggestion) Key() string {
 	return strings.Join(append([]string{
 		s.FilePath,
@@ -93,7 +93,7 @@ func WithoutSuggestion(round []string, edits []git.Edit, sent Suggestion) []stri
 	return out
 }
 
-// widen gives an insertion the neighbouring line to replace, since a range holding nothing is a
+// widen gives an insertion the neighbouring line to replace, a range holding nothing being a
 // place in the file rather than something a comment can stand on.
 func widen(suggestion Suggestion, round []string) Suggestion {
 	if suggestion.NewStart > 1 {

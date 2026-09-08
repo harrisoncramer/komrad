@@ -36,8 +36,8 @@ func servedCall(t *testing.T, body string, handler http.HandlerFunc) (string, st
 	return out.String(), seen
 }
 
-// TestHTTPLoggingNamesTheTool covers the only field worth reading on an MCP line, since every
-// call is a POST to the same path and the tool asked for is in the body.
+// TestHTTPLoggingNamesTheTool covers the only field worth reading on an MCP line, every call
+// being a POST to the same path.
 func TestHTTPLoggingNamesTheTool(t *testing.T) {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_agents","arguments":{}}}`
 
@@ -57,8 +57,8 @@ func TestHTTPLoggingNamesTheTool(t *testing.T) {
 	assert.Equal(t, body, seen)
 }
 
-// TestHTTPLoggingRecordsAFailure separates a 5xx from a 4xx, since an MCP client probes this
-// endpoint with a GET on every connect and is answered 405.
+// TestHTTPLoggingRecordsAFailure separates a 5xx from a 4xx, an MCP client probing this endpoint
+// with a GET on every connect.
 func TestHTTPLoggingRecordsAFailure(t *testing.T) {
 	tests := []struct {
 		name         string

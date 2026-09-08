@@ -39,7 +39,7 @@ func (v *validationInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryF
 	}
 }
 
-// WrapStreamingClient passes through, since the service is unary only.
+// WrapStreamingClient passes through on a unary-only service.
 func (v *validationInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }

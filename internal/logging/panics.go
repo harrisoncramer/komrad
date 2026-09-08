@@ -7,9 +7,8 @@ import (
 	"runtime/debug"
 )
 
-// LogPanic writes one record for a panic, with the stack it was recovered from; it must be
-// called from the recovery itself, since the frames that panicked are on the stack while
-// the deferred function runs and gone once it has returned.
+// LogPanic writes one record for a panic with the stack it was recovered from, and has to be
+// called from the recovery itself while those frames are still on the stack.
 func LogPanic(ctx context.Context, recovered any) {
 	From(ctx).LogAttrs(ctx, slog.LevelError, "panicked",
 		slog.String(ErrorType, fmt.Sprintf("%T", recovered)),

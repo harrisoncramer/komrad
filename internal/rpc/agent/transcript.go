@@ -61,9 +61,8 @@ func (s *Service) SearchTranscripts(ctx context.Context, req *connect.Request[ag
 	}), nil
 }
 
-// maxTranscriptWindow is the most content one GetTranscript call returns, since a transcript runs
-// to a hundred kilobytes and a caller reading it through a context window takes the rest of it by
-// following the page token.
+// maxTranscriptWindow is the most content one GetTranscript call returns, with the rest of a
+// transcript reached by following the page token.
 const maxTranscriptWindow = 32 * 1024
 
 // GetTranscript returns one window of an agent's stored transcript by id, so the search preview
@@ -116,8 +115,8 @@ func transcriptWindow(content string, cursor *transcriptstore.ContentCursor, req
 		offset = int(cursor.Offset)
 	}
 
-	// An offset past the end is the empty last page rather than an error, since a transcript
-	// the agent is still writing grows between one call and the next.
+	// An offset past the end is the empty last page rather than an error, a transcript still being
+	// written growing between one call and the next.
 	if offset >= len(content) {
 		return "", nil, nil
 	}

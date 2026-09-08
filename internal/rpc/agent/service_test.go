@@ -418,8 +418,7 @@ func TestListAgentsIdempotencyKey(t *testing.T) {
 	}
 }
 
-// TestListAgentsArchived covers the flag that swaps which set is listed, since the panel and
-// its archive read their rows through the same call.
+// TestListAgentsArchived covers the flag that swaps which set is listed.
 func TestListAgentsArchived(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -1228,8 +1227,8 @@ func TestListMail(t *testing.T) {
 	require.Len(t, again.Msg.GetMail(), 1, "listing twice still finds the mail, unlike reading")
 }
 
-// TestListMailDirection pins which half of an agent's correspondence a listing reaches, since
-// the default reads its mailbox and only an explicit direction reads what it sent.
+// TestListMailDirection pins which half of an agent's correspondence a listing reaches, the
+// default being its mailbox and an explicit direction what it sent.
 func TestListMailDirection(t *testing.T) {
 	svc, st := service(t)
 	alpha := st.SeedAgent(t, agentstore.Agent{
@@ -1450,8 +1449,7 @@ func allSearchHits(msg *agentv1.SearchTranscriptsResponse) []*agentv1.SearchHit 
 	return append(append([]*agentv1.SearchHit{}, msg.GetMatches()...), msg.GetNear()...)
 }
 
-// TestSearchTranscripts covers every field on a hit, since two of them crossed on the way out
-// still look like a working search while sending the reader to the wrong place.
+// TestSearchTranscripts covers every field on a hit.
 func TestSearchTranscripts(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -1765,8 +1763,8 @@ func TestCrossAgentReadIsRecorded(t *testing.T) {
 	}
 }
 
-// TestGetTranscript covers the agent being looked up first, since an unknown agent and one
-// with nothing synced yet would both read as empty content.
+// TestGetTranscript covers the agent being looked up first, an unknown agent and one with
+// nothing synced yet both reading as empty content.
 func TestGetTranscript(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -2012,8 +2010,8 @@ func (fakeMailConfig) GetDeliveryDeadline() (time.Duration, error) { return time
 
 func (s fakeMailConfig) GetMaxExchange() (int, error) { return int(s), nil }
 
-// markService is the real thing over the test stores, since a mark spans two tables and a fake
-// would be agreeing with itself about the rules that matter.
+// markService is the real thing over the test stores, a mark spanning two tables a fake would
+// only agree with itself about.
 func markService(st *storetest.Stores) *agents.MarkService {
 	return agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.Marks, Tx: st.Pool})
 }
@@ -2168,8 +2166,7 @@ func (f *fakeArchiveEmptier) EmptyArchive(context.Context) error {
 	return f.err
 }
 
-// TestBatchLifecycleErrorsMapToCodes covers a refused batch naming which condition stopped it,
-// since all three are all or nothing and a caller has nothing to fix otherwise.
+// TestBatchLifecycleErrorsMapToCodes covers a refused batch naming which condition stopped it.
 func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -2238,8 +2235,7 @@ func TestBatchLifecycleErrorsMapToCodes(t *testing.T) {
 	}
 }
 
-// TestBatchLifecycleReachesTheService covers the whole list arriving rather than the first id,
-// since a handler dropping the tail would archive one agent out of twelve and report success.
+// TestBatchLifecycleReachesTheService covers the whole list arriving rather than the first id.
 func TestBatchLifecycleReachesTheService(t *testing.T) {
 	tests := []struct {
 		name       string
@@ -2316,7 +2312,7 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 }
 
 // TestListAgentsSummarisesThePrompt covers the default view holding back the bulk of a page,
-// since a prompt is most of what an agent's row weighs.
+// which is the prompt.
 func TestListAgentsSummarisesThePrompt(t *testing.T) {
 	svc, st := service(t)
 	prompt := strings.Repeat("a", render.SummaryHead+50)

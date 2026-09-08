@@ -16,8 +16,8 @@ var ErrScriptNotFound = errors.New("script not found")
 func List(dirs ...string) ([]Script, error) {
 	var all []Script
 
-	// The directories are read again on every call, since a person who chmods a hook or edits
-	// its header expects the next listing to say so rather than to wait for a restart.
+	// The directories are read again on every call, so a chmod or an edited header shows up in the
+	// next listing.
 	for _, dir := range dirs {
 		if dir == "" {
 			continue

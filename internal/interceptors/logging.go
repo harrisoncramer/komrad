@@ -67,7 +67,7 @@ func (l *loggingInterceptor) WrapUnary(next connect.UnaryFunc) connect.UnaryFunc
 	}
 }
 
-// WrapStreamingClient and WrapStreamingHandler pass through, since the service is unary only.
+// WrapStreamingClient and WrapStreamingHandler pass through on a unary-only service.
 func (l *loggingInterceptor) WrapStreamingClient(next connect.StreamingClientFunc) connect.StreamingClientFunc {
 	return next
 }

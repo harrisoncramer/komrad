@@ -488,8 +488,8 @@ func TestSearchPages(t *testing.T) {
 	}
 }
 
-// TestCursorValidate covers the tokens a search refuses, since a cursor that decodes into a
-// position the query cannot use would otherwise answer with a quietly empty page.
+// TestCursorValidate covers the tokens a search refuses, which a cursor decoding into a position
+// the query cannot use would otherwise be answered with an empty page for.
 func TestCursorValidate(t *testing.T) {
 	valid := Position{
 		Rank:    0.5,

@@ -28,8 +28,8 @@ const (
 	StateUncertain       State = State(models.AgentStateUncertain)
 )
 
-// DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight
-// and an agent that failed both refuse, since neither is a pane the reconciler may judge.
+// DoesPaneDecide reports whether a frame read owns this state, which a launch still in flight and
+// an agent that failed both refuse.
 func (s State) DoesPaneDecide() bool {
 	// Written without a default so an eighth state has to be answered for here rather than
 	// falling in with whichever answer the existing seven happen to share.
@@ -62,8 +62,8 @@ const (
 	RoleReviewer    Role = Role(models.AgentRoleReviewer)
 )
 
-// orDefault answers the role an agent that names none is given, since writing work of its own is
-// what an agent does unless it was launched to read somebody else's.
+// orDefault answers the role an agent that names none is given, which is writing work of its
+// own.
 func (r Role) orDefault() Role {
 	if r == "" {
 		return RoleImplementer

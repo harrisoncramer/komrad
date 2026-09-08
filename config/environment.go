@@ -100,8 +100,7 @@ const (
 	HookPostRestore    = "post-restore"
 )
 
-// runMoments is every moment by name, which is the set a run's file name is read back against,
-// since a moment's own name may hold a hyphen.
+// runMoments is every moment by name, which is the set a run's file name is read back against.
 func runMoments() []string {
 	return []string{
 		TriggerProvision,
@@ -114,9 +113,7 @@ func runMoments() []string {
 	}
 }
 
-// MaxRunLogs is how many runs an agent keeps, older ones being pruned as new ones are written,
-// since an agent resumed daily for a year would otherwise hold a file for every one of those
-// days.
+// MaxRunLogs is how many runs an agent keeps, older ones being pruned as new ones are written.
 const MaxRunLogs = 50
 
 // RunLogDir is where one agent's run logs live under dir.
@@ -138,9 +135,8 @@ func RunLogName(number int, trigger, script string) string {
 	return fmt.Sprintf("%03d-%s-%s.log", number, trigger, script)
 }
 
-// ListRunLogs reads the runs an agent has recorded, newest first, parsing the number rather
-// than sorting on it, since a run past the ninth hundred is wider than the ones before it and
-// would otherwise sort under them.
+// ListRunLogs reads the runs an agent has recorded, newest first, parsing the number rather than
+// sorting on it.
 func ListRunLogs(dir, agentID string) []RunLog {
 	if dir == "" || agentID == "" {
 		return nil

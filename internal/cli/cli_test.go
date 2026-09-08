@@ -7,8 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestIsConfigFatal covers which commands a broken config stops, since the file names the
-// database and carrying on could write to the wrong one.
+// TestIsConfigFatal covers which commands a broken config stops.
 func TestIsConfigFatal(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -171,8 +171,7 @@ func TestSearchFindsAViewedFileName(t *testing.T) {
 	assert.Equal(t, 0, at)
 }
 
-// TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it,
-// since a jump that lands on a row saying nothing about why leaves the reader hunting for it.
+// TestFileNameMatchIsPainted covers the header a search found being drawn with the match on it.
 func TestFileNameMatchIsPainted(t *testing.T) {
 	restore := lipgloss.ColorProfile()
 	lipgloss.SetColorProfile(termenv.TrueColor)

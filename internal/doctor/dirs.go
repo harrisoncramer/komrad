@@ -108,8 +108,7 @@ func newHooksCheck() Check {
 	}
 }
 
-// newWorktreesCheck reports the directory a provisioning workflow cuts its worktrees in, since a
-// provisioner that cannot make one there refuses the create.
+// newWorktreesCheck reports the directory a provisioning workflow cuts its worktrees in.
 func newWorktreesCheck() Check {
 	return Check{
 		Name:        "worktrees",
@@ -262,8 +261,7 @@ func describePath(typed, resolved string) string {
 	return resolved
 }
 
-// describeUnowned names the directory once and the worktrees under it after, since a report
-// that repeats the path per worktree is a line nobody reads to the end of.
+// describeUnowned names the directory once and the worktrees under it after.
 func describeUnowned(dir string, unowned []string) string {
 	named, tail := unowned, ""
 	if len(unowned) > maxNamedOrphans {

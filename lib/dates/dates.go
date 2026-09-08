@@ -22,8 +22,7 @@ const (
 )
 
 // Clock is the short label a list row gets: the time of day for something that happened today,
-// and the day with the time for anything older, since a bare clock on last week's row reads as
-// though it had just arrived and a bare date says nothing about when.
+// and the day with the time for anything older.
 func Clock(t time.Time) string {
 	if t.IsZero() {
 		return ""
@@ -57,8 +56,7 @@ func StampPtr(t *time.Time) *string {
 	return &stamped
 }
 
-// Parse reads a wire stamp, giving back the zero time for anything that will not parse, since
-// a timestamp weave cannot read is one it has nothing to say about.
+// Parse reads a wire stamp, giving back the zero time for anything that will not parse.
 func Parse(stamp string) time.Time {
 	parsed, err := time.Parse(time.RFC3339, stamp)
 	if err != nil {

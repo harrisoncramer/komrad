@@ -16,8 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/emptypb"
 )
 
-// TestEmptyArchiveDestroysTheWholeArchive covers the emptying gesture end to end, since the
-// request only queues the sweep and what the keypress promises holds in the job behind it.
+// TestEmptyArchiveDestroysTheWholeArchive covers the emptying gesture end to end, the request
+// only queueing the sweep the keypress's promise holds in.
 func TestEmptyArchiveDestroysTheWholeArchive(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

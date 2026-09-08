@@ -21,7 +21,7 @@ func capture(t *testing.T, root string, args ...string) string {
 }
 
 // TestTakeLeavesTheAgentsIndexAndWorktreeAlone is the whole reason the snapshot is built in an
-// index of its own, since a round taken under a working agent must not disturb it.
+// index of its own.
 func TestTakeLeavesTheAgentsIndexAndWorktreeAlone(t *testing.T) {
 	root := repo(t)
 	write(t, root, "staged.go", "package main\n")

@@ -264,8 +264,7 @@ type tail struct {
 	buf bytes.Buffer
 }
 
-// Write accepts everything and keeps only what fits, and never reports a short write,
-// since the cap is not the writing process's problem.
+// Write accepts everything, keeps only what fits, and never reports a short write.
 func (t *tail) Write(p []byte) (int, error) {
 	t.buf.Write(p)
 	if excess := t.buf.Len() - outputLimit; excess > 0 {

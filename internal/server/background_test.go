@@ -84,8 +84,8 @@ func TestLoopLogsAFailureOnce(t *testing.T) {
 	assert.Contains(t, records[0][logging.ErrorMessage], "connection refused")
 }
 
-// TestLoopLogsEachDistinctFailure covers a loop failing two different ways, since a second
-// failure is news whether or not the first is still happening.
+// TestLoopLogsEachDistinctFailure covers a loop failing two different ways, a second failure
+// being news whether or not the first is still happening.
 func TestLoopLogsEachDistinctFailure(t *testing.T) {
 	first := errors.New("failed to list agents")
 	second := errors.New("failed to capture pane")
@@ -112,8 +112,8 @@ func TestLoopLogsTheRepeatsAtDebug(t *testing.T) {
 	assert.EqualValues(t, 3, records[2][logging.Repeats])
 }
 
-// TestLoopLogsRecovery covers the first pass to work after a run of failures, since nothing
-// else says the loop came back.
+// TestLoopLogsRecovery covers the first pass to work after a run of failures, which is the only
+// thing that says the loop came back.
 func TestLoopLogsRecovery(t *testing.T) {
 	down := errors.New("failed to list agents")
 
@@ -257,8 +257,8 @@ func TestStartBackgroundReportsAFailedRunner(t *testing.T) {
 	assert.Contains(t, err.Error(), "river is unreachable")
 }
 
-// TestShutdownDeadlineOutlivesTheSignal covers each teardown stage getting a clock of its
-// own, since deriving from the already-cancelled signal would give them no time at all.
+// TestShutdownDeadlineOutlivesTheSignal covers each teardown stage getting a clock of its own
+// rather than the already-cancelled signal's.
 func TestShutdownDeadlineOutlivesTheSignal(t *testing.T) {
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
@@ -296,8 +296,8 @@ func TestEachPassIsTracedOnItsOwn(t *testing.T) {
 	assert.NotEqual(t, traces[0], traces[1], "two passes are two traces")
 }
 
-// TestAFailedPassIsLoggedOnItsOwnTrace pins the failure onto the pass's own id, since a
-// failure written beside it is a failing loop that weave trace --recent cannot list.
+// TestAFailedPassIsLoggedOnItsOwnTrace pins the failure onto the pass's own id, which is what a
+// trace lists it by.
 func TestAFailedPassIsLoggedOnItsOwnTrace(t *testing.T) {
 	written := drive(t, slog.LevelInfo, []func(context.Context) error{
 		func(ctx context.Context) error {

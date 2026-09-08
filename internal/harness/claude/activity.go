@@ -195,16 +195,16 @@ func doesFrameShowWaiting(lines []string, boxed bool) bool {
 		return true
 	}
 
-	// A panel is read off its own rule rather than off a footer, since the footer naming the key
-	// that dismisses it is the first thing the pane cuts off.
+	// A panel is read off its own rule rather than off a footer, which is the first thing the pane
+	// cuts off.
 	for _, line := range lines {
 		if panelRule.MatchString(line) {
 			return true
 		}
 	}
 
-	// The whole frame rather than a window off the bottom, since the preview that pushes the
-	// footer off the pane pushes the cursor up with it.
+	// The whole frame rather than a window off the bottom, a preview that pushes the footer off the
+	// pane pushing the cursor up with it.
 	for _, line := range lines {
 		if optionCursor.MatchString(line) {
 			return true

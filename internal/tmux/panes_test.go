@@ -10,9 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSplitsPlaceThePaneWhereTheyAreNamedFor pins which side each one opens on, since the panel
-// picks between them by where the region belongs and a pane on the wrong side is a layout nobody
-// asked for rather than an error.
+// TestSplitsPlaceThePaneWhereTheyAreNamedFor pins which side each one opens on.
 func TestSplitsPlaceThePaneWhereTheyAreNamedFor(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -105,8 +103,8 @@ func TestSelectPaneMovesTheKeyboard(t *testing.T) {
 	assert.False(t, wasFocused, "and the one that had them has given them up")
 }
 
-// TestPaneFocusAnswersForBothHalvesAtOnce pins the two facts one query carries, since a key bound
-// on the server moves focus and zoom together and reading them apart lets them disagree.
+// TestPaneFocusAnswersForBothHalvesAtOnce pins the two facts one query carries, focus and zoom
+// moving together under a key bound on the server.
 func TestPaneFocusAnswersForBothHalvesAtOnce(t *testing.T) {
 	client := testServer(t, "focusask")
 
@@ -170,8 +168,8 @@ func paneWidth(t *testing.T, c *Client, pane string) string {
 	return strings.TrimSpace(out)
 }
 
-// TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere pins the fallback, since the panel lays
-// itself out off these and a guess would be drawn as though it were measured.
+// TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere pins the fallback the panel lays itself
+// out off.
 func TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere(t *testing.T) {
 	client := testServer(t, "measure")
 
@@ -188,8 +186,8 @@ func TestPaneMeasurementsAnswerZeroForAPaneThatIsNotThere(t *testing.T) {
 	}
 }
 
-// TestResizeWindowRefusesASizeThatIsNotOne pins the guard, since tmux reads a zero as a request
-// to fit the window to its client and the panel means it as a measurement it does not have yet.
+// TestResizeWindowRefusesASizeThatIsNotOne pins the guard, tmux reading a zero as a request to
+// fit the window to its client.
 func TestResizeWindowRefusesASizeThatIsNotOne(t *testing.T) {
 	client := testServer(t, "resizewin")
 	pane := paneAt(t, client, "resizewin", 0)
@@ -252,7 +250,7 @@ func TestDefaultShellIsWhatAPaneWouldBeParsedBy(t *testing.T) {
 }
 
 // TestDetachSessionLeavesThePaneProcessesRunning pins that hiding the manager stops at the
-// client, since detaching is how the popup is put away and its agents keep working.
+// client.
 func TestDetachSessionLeavesThePaneProcessesRunning(t *testing.T) {
 	client := testServer(t, "detach")
 	pane := paneAt(t, client, "detach", 0)

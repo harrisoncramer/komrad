@@ -48,8 +48,7 @@ func TestFriendly(t *testing.T) {
 // something about the conversion rather than about the machine's zone.
 var utcAfternoon = time.Date(2024, time.July, 2, 14, 30, 0, 0, time.UTC)
 
-// TestClock pins the two shapes a row label takes, since the point of it is that today and
-// last week do not read the same.
+// TestClock pins the two shapes a row label takes, today and last week not reading the same.
 func TestClock(t *testing.T) {
 	now := time.Now().Local()
 
@@ -82,9 +81,8 @@ func TestClock(t *testing.T) {
 	}
 }
 
-// TestClockReadsAnInstantInLocalTime pins the conversion against a zone of its own rather than
-// the machine's, and on an instant late enough in the UTC day that the two zones disagree about
-// which day it is, since a label read straight out of UTC would otherwise pass here.
+// TestClockReadsAnInstantInLocalTime pins the conversion against a zone of its own, on an instant
+// late enough in the UTC day that the two zones disagree about which day it is.
 func TestClockReadsAnInstantInLocalTime(t *testing.T) {
 	here := time.Local
 	t.Cleanup(func() { time.Local = here })
@@ -96,8 +94,8 @@ func TestClockReadsAnInstantInLocalTime(t *testing.T) {
 	assert.Equal(t, "Jul 3 11:30am", Clock(time.Date(2024, time.July, 2, 23, 30, 0, 0, time.UTC)))
 }
 
-// TestStamp pins what the wire carries, since a zero time has to read as no timestamp rather
-// than as the year one.
+// TestStamp pins what the wire carries, where a zero time reads as no timestamp rather than as
+// the year one.
 func TestStamp(t *testing.T) {
 	assert.Empty(t, Stamp(time.Time{}))
 	assert.Equal(t, "2026-09-05T14:30:00Z", Stamp(time.Date(2026, 9, 5, 14, 30, 0, 0, time.UTC)))

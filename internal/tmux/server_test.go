@@ -57,8 +57,8 @@ func TestNewWindowAlongsideASameNamedWindow(t *testing.T) {
 	assert.Equal(t, []string{"weave", "agent-one"}, windowNames(t, client, "weave"))
 }
 
-// TestSessionClientWithNothingAttached checks a server nobody is attached to and a session
-// that is not there both answer nothing, rather than a target tmux picked.
+// TestSessionClientWithNothingAttached checks a server nobody is attached to and a session that
+// is not there both answer nothing.
 func TestSessionClientWithNothingAttached(t *testing.T) {
 	client := testServer(t, "detached")
 

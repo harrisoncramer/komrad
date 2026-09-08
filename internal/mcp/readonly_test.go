@@ -182,8 +182,8 @@ func TestValidateReadOnly(t *testing.T) {
 	}
 }
 
-// TestQuery covers a truncated result saying so, since the row cap is the one thing a caller
-// cannot see coming.
+// TestQuery covers a truncated result saying so, the row cap being the one thing a caller cannot
+// see coming.
 func TestQuery(t *testing.T) {
 	const overCap = `
 WITH RECURSIVE n(i) AS (SELECT 1 UNION ALL SELECT i + 1 FROM n WHERE i < 1500)

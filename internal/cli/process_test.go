@@ -101,10 +101,8 @@ func freeAddr(t *testing.T) string {
 	return addr
 }
 
-// TestEnsureServerReportsWhyItDied covers that a server which exits during startup is
-// reported with the reason it logged, since the reason is written to a file by a process
-// this one cannot see into, and without reading it back the caller has only an address that
-// never answered.
+// TestEnsureServerReportsWhyItDied covers that a server which exits during startup is reported
+// with the reason it logged.
 func TestEnsureServerReportsWhyItDied(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "failed to reach db: connection refused")
@@ -139,9 +137,8 @@ func TestEnsureServerIgnoresOlderLogLines(t *testing.T) {
 	assert.NotContains(t, err.Error(), "an older run")
 }
 
-// TestEnsureServerWithoutAReason covers a server that dies saying nothing: the error still
-// has to point at the log, since a message with no reason and nowhere to look is not worth
-// reading.
+// TestEnsureServerWithoutAReason covers a server that dies saying nothing, where the error still
+// has to point at the log.
 func TestEnsureServerWithoutAReason(t *testing.T) {
 	logPath := filepath.Join(t.TempDir(), "serve.log")
 	self := fakeServe(t, "")
@@ -156,9 +153,8 @@ func TestEnsureServerWithoutAReason(t *testing.T) {
 	assert.Contains(t, err.Error(), logPath)
 }
 
-// TestEnsureServerWithAnUnwritableLog covers a log that cannot be opened: nothing is
-// spawned, since a server whose output goes nowhere is one whose failure cannot be reported
-// at all, and the reader is told which path could not be opened.
+// TestEnsureServerWithAnUnwritableLog covers a log that cannot be opened, where nothing is
+// spawned and the reader is told which path failed.
 func TestEnsureServerWithAnUnwritableLog(t *testing.T) {
 	blocked := filepath.Join(t.TempDir(), "not-a-directory")
 	require.NoError(t, os.WriteFile(blocked, nil, 0o644))
@@ -258,8 +254,7 @@ func TestEnsureServerReusesItsOwnBuild(t *testing.T) {
 	}
 }
 
-// TestEnsureServerReplacesAnotherBuild covers the panel finding a server it cannot use, since
-// talking to one means fields that come back empty and routes that answer 404.
+// TestEnsureServerReplacesAnotherBuild covers the panel finding a server it cannot use.
 func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
 	addr := fakeServer(t, fakeServerParams{
 		status:  http.StatusOK,
@@ -279,8 +274,7 @@ func TestEnsureServerReplacesAnotherBuild(t *testing.T) {
 		"the server that was there is stopped and a new one started over it")
 }
 
-// TestProbeServer covers what the panel decides on: ready is more than a bound socket, since
-// the server listens before it can reach its database.
+// TestProbeServer covers what the panel decides on, where ready is more than a bound socket.
 func TestProbeServer(t *testing.T) {
 	tests := []struct {
 		name   string

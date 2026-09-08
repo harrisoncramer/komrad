@@ -33,9 +33,8 @@ func run(dir string) error {
 	return errors.Join(rebuild(root, dir, staging), os.RemoveAll(staging))
 }
 
-// rebuild leaves dir holding the pages the command tree has and nothing else, since a page
-// whose command was removed or renamed otherwise stays behind documenting something the
-// binary no longer has, and nothing reading git status can see a file no generator touches.
+// rebuild leaves dir holding the pages the command tree has and nothing else, so a page whose
+// command was removed or renamed does not stay behind.
 func rebuild(root *cobra.Command, dir, staging string) error {
 	if err := doc.GenMarkdownTree(root, staging); err != nil {
 		return fmt.Errorf("generating markdown: %w", err)

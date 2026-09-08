@@ -125,8 +125,7 @@ func envWithoutTmux() []string {
 }
 
 // userPanelKey asks whichever server the user is at, this process's own when it is running in
-// tmux and otherwise the one the last open recorded, since a key set at runtime lives there
-// alone.
+// tmux and otherwise the one the last open recorded.
 func userPanelKey(state *app, socket string) string {
 	if socket == "" {
 		socket = state.tmux.GetHostSocket()

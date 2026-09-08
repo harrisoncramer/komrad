@@ -65,8 +65,8 @@ func TestProbeReportsNothingPendingOnceMigrated(t *testing.T) {
 	assert.Empty(t, pending)
 }
 
-// TestInspectDirReadsADirectoryApartFromAFile covers the three answers the directory checks
-// turn on, since a path with a file at it and a path with nothing at it need different fixes.
+// TestInspectDirReadsADirectoryApartFromAFile covers the three answers the directory checks turn
+// on.
 func TestInspectDirReadsADirectoryApartFromAFile(t *testing.T) {
 	root := t.TempDir()
 
@@ -93,8 +93,7 @@ func TestInspectDirReadsADirectoryApartFromAFile(t *testing.T) {
 	assert.False(t, state.Present, "a path with nothing at it is reported rather than raised")
 }
 
-// TestInspectDirReportsADirectoryItCannotWrite covers the answer the worktrees check fails
-// on, since a provisioner refuses the create rather than saying the directory was read-only.
+// TestInspectDirReportsADirectoryItCannotWrite covers the answer the worktrees check fails on.
 func TestInspectDirReportsADirectoryItCannotWrite(t *testing.T) {
 	root := t.TempDir()
 
@@ -134,7 +133,7 @@ func TestReadWorktreeOwnersReadsTheAgentsAndTheWorkflowDirs(t *testing.T) {
 }
 
 // TestReadWorktreeOwnersFailsWithoutTheTables covers the answer the orphan check degrades on,
-// since a database that cannot be read is not the same as a machine with no orphans.
+// where a database that cannot be read is not a machine with no orphans.
 func TestReadWorktreeOwnersFailsWithoutTheTables(t *testing.T) {
 	_, err := readWorktreeOwners(t.Context(), pgtest.URL(t))
 

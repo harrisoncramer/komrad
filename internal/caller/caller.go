@@ -30,8 +30,8 @@ func (c Caller) IsKnown() bool {
 	return c.AgentID != "" || c.SessionID != ""
 }
 
-// FromHeader reads the identity a request arrived with, dropping any value that is still a
-// shell variable, since an unexpanded one means the CLI's environment never set it.
+// FromHeader reads the identity a request arrived with, dropping any value that is still a shell
+// variable, which means the CLI's environment never set it.
 func FromHeader(header http.Header) Caller {
 	return Caller{
 		AgentID:   expanded(header.Get(AgentHeader)),
@@ -47,8 +47,8 @@ func expanded(value string) string {
 	return value
 }
 
-// SetHeader writes the identity onto a request going out, and nothing at all for a caller
-// that is not known, since an empty header reads as an answer.
+// SetHeader writes the identity onto a request going out, and nothing at all for a caller that is
+// not known.
 func (c Caller) SetHeader(header http.Header) {
 	if c.AgentID != "" {
 		header.Set(AgentHeader, c.AgentID)
@@ -71,8 +71,8 @@ func Transport(next http.RoundTripper) http.RoundTripper {
 
 type forwarding struct{ next http.RoundTripper }
 
-// RoundTrip copies what the context carries onto a clone of the request, since the request
-// handed to a transport belongs to whoever built it and must not be modified.
+// RoundTrip copies what the context carries onto a clone of the request, which belongs to
+// whoever built it.
 func (f forwarding) RoundTrip(req *http.Request) (*http.Response, error) {
 	ctx := req.Context()
 

@@ -124,9 +124,8 @@ func IsIdempotent(method protoreflect.MethodDescriptor, annotation *annotationv1
 	return level == descriptorpb.MethodOptions_IDEMPOTENT || level == descriptorpb.MethodOptions_NO_SIDE_EFFECTS
 }
 
-// EnumNames is what an enum's values are spelled with where a caller has to name one, leaving
-// out the zero value, since that is what the field holds when nobody passes anything and
-// offering it invites a caller to ask by name for the default.
+// EnumNames is what an enum's values are spelled with where a caller has to name one, leaving out
+// the zero value the field already holds when nobody passes anything.
 func EnumNames(values protoreflect.EnumDescriptor) []string {
 	names := make([]string, 0, values.Values().Len())
 	for i := range values.Values().Len() {

@@ -131,7 +131,7 @@ func TestTranscriptWindow(t *testing.T) {
 }
 
 // TestGetTranscriptPagesToTheEnd covers the windows joining back into the transcript that was
-// stored, since a caller reading one window at a time has nothing else to check it against.
+// stored.
 func TestGetTranscriptPagesToTheEnd(t *testing.T) {
 	svc, st := service(t)
 	agent := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateThinking})

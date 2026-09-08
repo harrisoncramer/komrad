@@ -6,8 +6,7 @@ type Finding struct {
 	Fix    string
 }
 
-// RenderConfigError is shown instead of the panel when the config file could not be read, since
-// printing to stderr would write to a popup tmux destroys in the same instant.
+// RenderConfigError is shown instead of the panel when the config file could not be read.
 func RenderConfigError(width int, err error) string {
 	return Screen{
 		Width: width,
@@ -52,8 +51,7 @@ func RenderStartupError(width int, err error, findings []Finding) string {
 	return screen.Render()
 }
 
-// RenderUnreachableError takes over every other screen while the service is not answering, since a
-// stale agent list left on screen would read as an empty store.
+// RenderUnreachableError takes over every other screen while the service is not answering.
 func RenderUnreachableError(width int, addr string, err error) string {
 	screen := Screen{
 		Width: width,

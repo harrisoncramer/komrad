@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestBindRootKeyTakesTheKeyFromThePanes pins which table a root binding lands in, since a key
-// bound there fires whatever pane holds the keyboard and stops that pane ever seeing it.
+// TestBindRootKeyTakesTheKeyFromThePanes pins which table a root binding lands in, a key bound
+// there firing whatever pane holds the keyboard and stopping that pane ever seeing it.
 func TestBindRootKeyTakesTheKeyFromThePanes(t *testing.T) {
 	client := testServer(t, "keys")
 
@@ -34,8 +34,7 @@ func TestBindKeyStaysBehindThePrefix(t *testing.T) {
 	assert.NotContains(t, keyTable(t, client, "root"), "F2")
 }
 
-// TestCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller, since these two are
-// what a person typing a binding into their config reads the outcome of.
+// TestCheckedBindsReportWhatTmuxSaid pins the refusal reaching the caller.
 func TestCheckedBindsReportWhatTmuxSaid(t *testing.T) {
 	client := testServer(t, "keys")
 
@@ -63,8 +62,8 @@ func keyTable(t *testing.T, c *Client, table string) string {
 	return out
 }
 
-// TestFocusEventsAreTurnedOnAtTheServer pins the scope the option is set at, since focus is a
-// server setting and setting it per session leaves the panel's other windows silent.
+// TestFocusEventsAreTurnedOnAtTheServer pins the scope the option is set at, focus being a server
+// setting that per session leaves the panel's other windows silent.
 func TestFocusEventsAreTurnedOnAtTheServer(t *testing.T) {
 	client := testServer(t, "focus")
 

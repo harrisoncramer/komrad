@@ -8,8 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListTables covers the listing being the app's tables and nothing else, since Postgres
-// keeps its own catalogs in other schemas.
+// TestListTables covers the listing being the app's tables and nothing else, Postgres keeping
+// its own catalogs in other schemas.
 func TestListTables(t *testing.T) {
 	tests := []struct {
 		name     string

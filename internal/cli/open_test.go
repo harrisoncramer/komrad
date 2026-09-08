@@ -93,8 +93,7 @@ func TestBuildManagerSessionArgsCarriesTheConfigPath(t *testing.T) {
 }
 
 // TestUserPanelKeyReadsTheServerTheUserIsAt covers the key the panel acts on coming off the
-// user's own server, since weave's own server sources their config too and would answer with a
-// value they never set at runtime.
+// user's own server.
 func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)

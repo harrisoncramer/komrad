@@ -12,8 +12,8 @@ import (
 // configTOMLPath is the checked-in file, relative to this package.
 const configTOMLPath = "../config.toml"
 
-// TestConfigTOMLIsUpToDate pins that the committed config.toml is what the generator would
-// write today, since it is generated from the config struct.
+// TestConfigTOMLIsUpToDate pins that the committed config.toml is what the generator would write
+// today.
 func TestConfigTOMLIsUpToDate(t *testing.T) {
 	rendered, err := RenderConfigTOML(".")
 	require.NoError(t, err)

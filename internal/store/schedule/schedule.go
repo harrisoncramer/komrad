@@ -241,9 +241,8 @@ func (s *Store) Archive(ctx context.Context, id string) error {
 	return nil
 }
 
-// ListInWorkflow returns every schedule pointing at a workflow, archived ones
-// included, since an archived schedule still pins the workflow row through its
-// foreign key and has to be cleared with it.
+// ListInWorkflow returns every schedule pointing at a workflow, archived ones included, each
+// still pinning the workflow row through its foreign key.
 func (s *Store) ListInWorkflow(ctx context.Context, workflowID string) ([]Schedule, error) {
 	if !store.IsID(workflowID) {
 		return nil, nil

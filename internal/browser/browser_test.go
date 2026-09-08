@@ -45,8 +45,8 @@ func TestOpenURLRefusesWhatIsNotAWebAddress(t *testing.T) {
 	}
 }
 
-// TestDetailKeepsTheEndOfWhatTheOpenerSaid pins the tail being what a refusal carries, since
-// the reason an opener gives is on the last line rather than the first.
+// TestDetailKeepsTheEndOfWhatTheOpenerSaid pins the tail being what a refusal carries, an
+// opener's reason landing on the last line.
 func TestDetailKeepsTheEndOfWhatTheOpenerSaid(t *testing.T) {
 	said := make([]byte, detailCap+64)
 	for i := range said {

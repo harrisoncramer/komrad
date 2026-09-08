@@ -43,8 +43,7 @@ type Snapshot struct {
 }
 
 // ProbeTree writes an agent's worktree out as a tree and nothing else, which is the cheap way to
-// ask whether it has moved since a round was taken, since the same working tree always hashes to
-// the same tree and no commit object is left behind by the asking.
+// ask whether it has moved since a round was taken.
 func ProbeTree(ctx context.Context, dir string) (string, error) {
 	root, err := GetRoot(ctx, dir)
 	if err != nil {
@@ -151,8 +150,8 @@ func ReleaseRef(ctx context.Context, dir, ref string) error {
 	return nil
 }
 
-// tempIndexPath names a file git may write an index to, leaving nothing there, since git reads an
-// existing empty file as a corrupt index rather than as a new one.
+// tempIndexPath names a file git may write an index to, leaving nothing there, git reading an
+// existing empty file as a corrupt index.
 func tempIndexPath() (string, error) {
 	file, err := os.CreateTemp("", "weave-round-*.index")
 	if err != nil {
@@ -172,9 +171,8 @@ func tempIndexPath() (string, error) {
 }
 
 // seedIndex fills the temporary index from HEAD so only what the agent has touched has to be
-// hashed, and is skipped in a repository with no HEAD to seed from, which is asked about rather
-// than inferred from the failure, since a read-tree that fails for any other reason would leave
-// every file HEAD holds staged as a deletion.
+// hashed, and is skipped in a repository with no HEAD, which is asked about rather than inferred
+// from the failure.
 func seedIndex(ctx context.Context, root string, env []string) error {
 	if _, err := runEnv(ctx, root, env, "rev-parse", "--verify", "--quiet", "HEAD"); err != nil {
 		return nil

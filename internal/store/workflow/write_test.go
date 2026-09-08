@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRename pins that a rename cannot collide, since nothing keys on a workflow's name the
-// way it does on an agent's.
+// TestRename pins that a rename cannot collide, nothing keying on a workflow's name the way it
+// does on an agent's.
 func TestRename(t *testing.T) {
 	tests := []struct {
 		name   string

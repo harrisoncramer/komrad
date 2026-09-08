@@ -15,9 +15,8 @@ const (
 	pollForClient = 20 * time.Millisecond
 )
 
-// TestShownAnswersFromWhatIsOnScreen drives real tmux servers, since the answer is about a
-// client being attached on one server and the record of the press on another, and a wrong
-// answer here is the panel key doing nothing.
+// TestShownAnswersFromWhatIsOnScreen drives real tmux servers, with a client attached on one and
+// the record of the press on another.
 func TestShownAnswersFromWhatIsOnScreen(t *testing.T) {
 	managerSocket := throwawaySocket(t)
 	panelSession(t, managerSocket)

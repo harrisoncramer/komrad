@@ -83,8 +83,8 @@ func TestLoad(t *testing.T) {
 	}
 }
 
-// TestLoadLayout covers the sizes and sides the panel lays its panes out at, since tmux is
-// given either a share of what it divides or a whole number of cells.
+// TestLoadLayout covers the sizes and sides the panel lays its panes out at, which tmux takes as
+// either a share or a whole number of cells.
 func TestLoadLayout(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -268,8 +268,7 @@ func TestLoadRejectsUnknownKeys(t *testing.T) {
 	}
 }
 
-// TestLoadErrorNamesTheFile covers the path being carried in the error, since the panel
-// shows that error and nothing else to say which file to open.
+// TestLoadErrorNamesTheFile covers the path being carried in the error.
 func TestLoadErrorNamesTheFile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -370,8 +369,8 @@ func TestLoadFrameHistoryRefusesToBeUnbounded(t *testing.T) {
 	}
 }
 
-// TestLoadLogLevel covers the level the service logs at, since a word slog has no answer for
-// would decode as debug and turn the log all the way up.
+// TestLoadLogLevel covers the level the service logs at, including a word slog has no answer
+// for.
 func TestLoadLogLevel(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -417,8 +416,7 @@ func TestLoadLogLevel(t *testing.T) {
 	}
 }
 
-// TestContextFile covers the default context path being filled in at read time, since one
-// machine's home directory would be wrong on every other machine.
+// TestContextFile covers the default context path being filled in at read time.
 func TestContextFile(t *testing.T) {
 	tests := []struct {
 		name string
@@ -721,8 +719,8 @@ func TestResolveLayers(t *testing.T) {
 	})
 }
 
-// TestEveryBindingShipsAKey walks the keybindings the way DefaultKeybindings does, since a field
-// added without a default tag panics the panel at startup and this says so in CI instead.
+// TestEveryBindingShipsAKey walks the keybindings the way DefaultKeybindings does, catching a
+// field added without a default tag before it panics the panel at startup.
 func TestEveryBindingShipsAKey(t *testing.T) {
 	groups := reflect.ValueOf(DefaultKeybindings())
 

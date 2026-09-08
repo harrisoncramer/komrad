@@ -7,9 +7,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestPanelKeySocket covers which tmux server the panel key is bound on: inheriting it is the
-// failure worth guarding, since inside the panel's popup TMUX names weave's own server, and a
-// key bound there is one nobody can press while the bind itself succeeds.
+// TestPanelKeySocket covers which tmux server the panel key is bound on, where inheriting it is
+// the failure worth guarding.
 func TestPanelKeySocket(t *testing.T) {
 	const managerPath = "/tmp/tmux-501/weave"
 

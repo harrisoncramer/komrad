@@ -74,8 +74,7 @@ func Reconcile(runs []Run, pinned []Pinned, frozen []Frozen) Plan {
 	takenPinned := make([]bool, len(pinned))
 
 	// A run over a thread that has gone out is not weave's to rewrite, and it protects the
-	// harvested threads beside it too, since deleting one for having no run would take a comment
-	// the reviewer never revisited.
+	// harvested threads beside it too.
 	for i, run := range runs {
 		if !isFrozenOver(run, frozen) {
 			continue

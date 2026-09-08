@@ -58,9 +58,8 @@ func TestLogPanic(t *testing.T) {
 	}
 }
 
-// TestLogAndRepanic covers the guard every root defers: a call that returns normally leaves
-// nothing behind, and a panic is written down and then raised again, since the process ends
-// either way and the record is all this adds.
+// TestLogAndRepanic covers the guard every root defers, where a call that returns normally leaves
+// nothing behind and a panic is written down and raised again.
 func TestLogAndRepanic(t *testing.T) {
 	tests := []struct {
 		name      string

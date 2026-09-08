@@ -105,8 +105,7 @@ func TestServerDownIsNotAProblem(t *testing.T) {
 	assert.Equal(t, 1, report.Summary.Warn)
 }
 
-// TestStaleServerNamesBothBuilds covers that the message carries the two versions, since
-// which one is stale is the whole question and neither is guessable from the other.
+// TestStaleServerNamesBothBuilds covers that the message carries the two versions.
 func TestStaleServerNamesBothBuilds(t *testing.T) {
 	result := newServerCheck().Run(t.Context(), serverEnv(ServerStatus{
 		Answering: true, Ready: true, Version: "v1.0.0",

@@ -136,8 +136,8 @@ func TestReadHeader(t *testing.T) {
 	assert.ElementsMatch(t, files, described, "every file in %s wants a row of its own", fixtureDir)
 }
 
-// TestReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather
-// than an error, since discover offers the file either way.
+// TestReadHeaderUnreadable covers a file weave cannot open, which reads as no header rather than
+// an error.
 func TestReadHeaderUnreadable(t *testing.T) {
 	assert.Equal(t, Header{}, readHeader(filepath.Join(t.TempDir(), "not-there")))
 }

@@ -114,8 +114,8 @@ func TestSetMarksAWorkflow(t *testing.T) {
 	assert.Equal(t, map[string]string{backend: "a"}, st.marks(t))
 }
 
-// TestALetterMovesRatherThanDoubling pins the letter leaving the row that held it, across the
-// two kinds of row, since a letter that named two places names neither.
+// TestALetterMovesRatherThanDoubling pins the letter leaving the row that held it, across the two
+// kinds of row.
 func TestALetterMovesRatherThanDoubling(t *testing.T) {
 	tests := []struct {
 		name  string
@@ -174,8 +174,8 @@ func TestALetterMovesRatherThanDoubling(t *testing.T) {
 	}
 }
 
-// TestARowHoldsOneLetter pins a second letter replacing the first rather than sitting beside it,
-// since the gutter has one cell to draw.
+// TestARowHoldsOneLetter pins a second letter replacing the first rather than sitting beside it
+// in the gutter's one cell.
 func TestARowHoldsOneLetter(t *testing.T) {
 	st := open(t)
 	alpha := st.seedAgent(t, "alpha")
@@ -230,7 +230,7 @@ func TestClearTakesTheLetterOffARow(t *testing.T) {
 }
 
 // TestArchivingFreesTheLetter pins the letter coming off as the row leaves the screen, through
-// every path that takes one off, since a letter left behind could never be handed out again.
+// every path that takes one off.
 func TestArchivingFreesTheLetter(t *testing.T) {
 	t.Run("archiving agents by id", func(t *testing.T) {
 		st := open(t)

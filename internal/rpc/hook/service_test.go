@@ -38,8 +38,8 @@ func TestOpenPullRequest(t *testing.T) {
 	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
 }
 
-// TestListHooks covers a hook with no declared timeout leaving the field unset, since a zero
-// would read as a run with no time at all.
+// TestListHooks covers a hook with no declared timeout leaving the field unset rather than
+// writing a zero.
 func TestListHooks(t *testing.T) {
 	manager := &fakeHooks{listedHooks: []agents.Script{
 		{

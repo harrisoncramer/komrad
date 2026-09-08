@@ -97,8 +97,8 @@ func TestGetConfigReportsTheBuild(t *testing.T) {
 	assert.Equal(t, version.Version(), resp.Msg.GetVersion())
 }
 
-// TestGetConfigKeysMatchTheFile pins the names the blob is keyed by, since a reader who sees
-// one has to be able to find the same setting in their own TOML file.
+// TestGetConfigKeysMatchTheFile pins the names the blob is keyed by, which a reader has to find
+// the same setting in their own TOML file under.
 func TestGetConfigKeysMatchTheFile(t *testing.T) {
 	tests := []struct {
 		name string

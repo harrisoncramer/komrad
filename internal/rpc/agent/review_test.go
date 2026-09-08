@@ -20,8 +20,7 @@ import (
 )
 
 // TestListReviewThreadsAnswersTheCallerItHas covers the identity being read off the call rather
-// than assumed, since the tool an agent has is the same one the panel reads its own drafts back
-// through, and a handler that forgot who was asking would hand a review over as it was typed.
+// than assumed.
 func TestListReviewThreadsAnswersTheCallerItHas(t *testing.T) {
 	svc, st := reviewService(t)
 	worker := st.SeedAgent(t, agentstore.Agent{
@@ -118,8 +117,8 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 	}), st
 }
 
-// fakeSnapshotter stands in for git, since these tests are about who the handler thinks is
-// calling rather than about what a worktree holds.
+// fakeSnapshotter stands in for git, these tests being about who the handler thinks is calling
+// rather than about what a worktree holds.
 type fakeSnapshotter struct{}
 
 func (fakeSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {

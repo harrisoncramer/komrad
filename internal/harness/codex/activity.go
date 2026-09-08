@@ -11,7 +11,7 @@ import (
 var workingLine = regexp.MustCompile(`(?m)^\s*[^\s\p{L}]?\s*Working\s*\(\s*\d+`)
 
 // interruptTimer leaves open both the verb, for a release that renames it, and whatever a step
-// names between the verb and the timer, since a startup step names what it is starting.
+// names between the verb and the timer.
 var interruptTimer = regexp.MustCompile(`^\s*[^\s\p{L}]?\s*\p{L}.*\(\s*\d+[^)\n]*esc to interrupt`)
 
 var waitingFooter = regexp.MustCompile(`(?i)press enter to (confirm|continue)|enter to submit answer`)
@@ -139,9 +139,8 @@ func composerText(frame string) (string, bool) {
 	// is read from the frame and the text from the frame less the dim.
 	marker := -1
 
-	// The composer is the lowest line Codex draws at the first column, since what it draws under
-	// the composer is indented furniture and what stands at the first column above it belongs to
-	// the transcript.
+	// The composer is the lowest line Codex draws at the first column, with indented furniture
+	// under it and the transcript above.
 	for i := len(drawn) - 1; i >= 0; i-- {
 		if strings.TrimSpace(drawn[i]) == "" || strings.HasPrefix(drawn[i], " ") || strings.HasPrefix(drawn[i], "\t") {
 			continue
@@ -158,8 +157,8 @@ func composerText(frame string) (string, bool) {
 		return "", false
 	}
 
-	// The composer has no rule under it, so what it holds runs down to the lowest line Codex
-	// draws below it, dim hints included, since those are the frame's own furniture.
+	// The composer has no rule under it, so what it holds runs down to the lowest line Codex draws
+	// below it, dim hints included.
 	footer := marker
 	for i := marker + 1; i < len(drawn); i++ {
 		if strings.TrimSpace(drawn[i]) != "" {

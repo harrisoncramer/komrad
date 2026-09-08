@@ -164,8 +164,7 @@ func TestDatabaseMissingFixNamesTheDatabase(t *testing.T) {
 	assert.Equal(t, "createdb weave, or point the database url at one that exists", result.Fix)
 }
 
-// TestSchemaCheck covers that being behind is reported rather than treated as broken, since
-// the service migrates on the way up.
+// TestSchemaCheck covers that being behind is reported rather than treated as broken.
 func TestSchemaCheck(t *testing.T) {
 	t.Run("up to date", func(t *testing.T) {
 		result := newSchemaCheck().Run(t.Context(), dbEnv(fakeSchema{}, nil, nil))
@@ -256,8 +255,8 @@ func TestReadOnlyLoginCheck(t *testing.T) {
 	})
 }
 
-// TestDatabaseChecksWaitOnTheDatabase covers that a Postgres nobody can reach is reported
-// once, rather than as three failures that are all the same failure.
+// TestDatabaseChecksWaitOnTheDatabase covers that a Postgres nobody can reach is reported once
+// rather than as three failures.
 func TestDatabaseChecksWaitOnTheDatabase(t *testing.T) {
 	for _, name := range []string{"schema", "readonly login"} {
 		var found bool

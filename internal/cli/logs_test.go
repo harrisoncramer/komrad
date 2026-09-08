@@ -49,9 +49,8 @@ func TestServeLogTail(t *testing.T) {
 	}
 }
 
-// TestServeLogTailIsBounded covers that a server which logged a great deal is cut down to
-// its last lines, since the error is shown on a panel screen; the cut keeps the end, where
-// the failure that stopped it is.
+// TestServeLogTailIsBounded covers that a server which logged a great deal is cut down to its
+// last lines, keeping the end where the failure that stopped it is.
 func TestServeLogTailIsBounded(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "serve.log")
 

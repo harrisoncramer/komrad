@@ -221,7 +221,7 @@ func TestGetByID(t *testing.T) {
 }
 
 // TestADeadlineIsMeasuredOnTheDatabaseClock pins that expires_at is compared against the
-// database's NOW(), since one counted from the caller's clock holds only to within the drift.
+// database's NOW() rather than the caller's clock.
 func TestADeadlineIsMeasuredOnTheDatabaseClock(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -307,8 +307,8 @@ func TestExpiredMailIsNotListedAgainOnceReported(t *testing.T) {
 	assert.Empty(t, second, "mail already reported must not be reported again")
 }
 
-// TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired pins that expiry is what
-// puts a mailbox into the sweep, since the expiry is the thing to report.
+// TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired pins that expiry is what puts a
+// mailbox into the sweep.
 func TestListPendingMailboxesIncludesAMailboxWhoseOnlyMailHasExpired(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -572,8 +572,8 @@ func TestListSentPage(t *testing.T) {
 	assert.Equal(t, sent[0].ID, page[2].ID)
 }
 
-// TestListSentPageCursorTakesTheNextPage pins that the sent listing pages the way the received
-// one does, since it carries a keyset cursor of its own.
+// TestListSentPageCursorTakesTheNextPage pins that the sent listing pages the way the received one
+// does, on a keyset cursor of its own.
 func TestListSentPageCursorTakesTheNextPage(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -779,8 +779,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, the next release raises its own")
 }
 
-// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices weave raises,
-// since two agents saying the same thing twice are two things to read.
+// TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices weave raises.
 func TestOrdinaryMailIsNeverDeduplicated(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -836,8 +835,8 @@ func TestNoticeRingsAgainOnceItHasExpired(t *testing.T) {
 	assert.Equal(t, "weave: 2 review thread(s) have activity", claimed[0].Body)
 }
 
-// TestExpiredNoticeIsReportableAgain proves a revived notice can expire a second time and
-// still be reported, since ListExpired hands back only what it has not reported before.
+// TestExpiredNoticeIsReportableAgain proves a revived notice can expire a second time and still
+// be reported.
 func TestExpiredNoticeIsReportableAgain(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

@@ -14,7 +14,7 @@ import (
 )
 
 // TestDiscover covers what the directory offers as a script, including a file that cannot be
-// run, since a script that never appears reads as the panel being broken.
+// run.
 func TestDiscover(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "open-pr"), 0o755)
@@ -337,8 +337,8 @@ func await(t *testing.T, reported chan outcomeReport) outcomeReport {
 	}
 }
 
-// TestRunAndWaitReportsWhatTheScriptSaid covers the streams coming back apart, since a
-// caller reads stdout as the script's answer and stderr as what it told a person.
+// TestRunAndWaitReportsWhatTheScriptSaid covers the streams coming back apart, stdout being the
+// script's answer and stderr what it told a person.
 func TestRunAndWaitReportsWhatTheScriptSaid(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
@@ -474,8 +474,8 @@ func TestRunAndWaitKeepsTheTailOfALoudScript(t *testing.T) {
 	assert.Contains(t, string(result.Stdout), "the-last-thing", "what is kept is the end, not the start")
 }
 
-// TestRunAndWaitAcceptsABackgroundChild pins that a script returning while a child of its
-// own is still running is finished, rather than waited on until the child exits.
+// TestRunAndWaitAcceptsABackgroundChild pins that a script returning while a child of its own is
+// still running is finished.
 func TestRunAndWaitAcceptsABackgroundChild(t *testing.T) {
 	dir := t.TempDir()
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "provision"), []byte(
@@ -514,9 +514,8 @@ func TestRunAndWaitRefusesWhatItCannotStart(t *testing.T) {
 	assert.Equal(t, -1, result.ExitCode, "a process that never ran has no status of its own")
 }
 
-// TestRunAndWaitRefusesBeforeItStarts covers the two guards that answer before there is a
-// process at all, since a bare Result reads as a clean exit and a caller recording the status
-// beside the failure would say the script both succeeded and failed.
+// TestRunAndWaitRefusesBeforeItStarts covers the two guards that answer before there is a process
+// at all, a bare Result reading as a clean exit.
 func TestRunAndWaitRefusesBeforeItStarts(t *testing.T) {
 	tests := []struct {
 		name    string

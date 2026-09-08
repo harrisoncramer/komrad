@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestHealthBody covers what the route says about itself, since the panel decides whether to
-// replace the server on the version in it.
+// TestHealthBody covers what the route says about itself, including the version the panel decides
+// whether to replace the server on.
 func TestHealthBody(t *testing.T) {
 	tests := []struct {
 		name       string

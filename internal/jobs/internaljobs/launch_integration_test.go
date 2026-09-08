@@ -20,8 +20,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestScheduledLaunchCreatesOneAgent covers the store's side of the guarantee, since River
-// retries with the same arguments and only the idempotency key stops a second agent.
+// TestScheduledLaunchCreatesOneAgent covers the store's side of the guarantee, where the
+// idempotency key is all that stops a River retry making a second agent.
 func TestScheduledLaunchCreatesOneAgent(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 

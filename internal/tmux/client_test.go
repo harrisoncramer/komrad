@@ -14,7 +14,7 @@ import (
 )
 
 // TestQueryCarriesStderr checks a failed tmux call names the command and carries tmux's own
-// complaint, since nobody is watching the loop these run on.
+// complaint.
 func TestQueryCarriesStderr(t *testing.T) {
 	if _, err := exec.LookPath("tmux"); err != nil {
 		t.Skip("tmux is not installed")
@@ -117,8 +117,8 @@ func TestKillPaneStillWarnsOnARealFailure(t *testing.T) {
 	assert.Contains(t, buf.String(), "a tmux command failed", "a real failure is not silenced")
 }
 
-// TestIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually reports,
-// since neither CLI reports the binary weave launched.
+// TestIsRunningShellReadsMeasuredCommands pins the shell allowlist to what a pane actually
+// reports, which is never the binary weave launched.
 func TestIsRunningShellReadsMeasuredCommands(t *testing.T) {
 	shells := []string{"sh", "bash", "dash", "ash", "zsh", "ksh", "csh", "tcsh", "fish", "nu", "-zsh", "-bash", "-dash"}
 	for _, command := range shells {

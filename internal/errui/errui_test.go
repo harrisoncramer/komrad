@@ -62,8 +62,8 @@ var indent = strings.Repeat(" ", labelWidth)
 
 const widePane = 100
 
-// TestFold covers how text is folded to a pane: it wraps rather than truncating, since the
-// useful part of a dial error is at the end.
+// TestFold covers how text is folded to a pane, wrapping rather than truncating so the end of a
+// dial error survives.
 func TestFold(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -112,10 +112,8 @@ func TestFold(t *testing.T) {
 	}
 }
 
-// TestScreensFitTheirPane covers the whole of every screen against the pane it draws into,
-// prose and hints included, since the renderer above the panel cuts an overrunning line
-// rather than wrapping it, losing the tail: on a hint that's the command it was naming, and
-// on a detail it's the end of the error, the part saying what went wrong.
+// TestScreensFitTheirPane covers the whole of every screen against the pane it draws into, prose
+// and hints included.
 func TestScreensFitTheirPane(t *testing.T) {
 	err := errors.New("the agent server stopped during startup: failed to reach db: dial tcp 127.0.0.1:5460: connect: connection refused")
 
@@ -202,8 +200,8 @@ func TestStartupCarriesTheFindings(t *testing.T) {
 		"nothing points at the doctor once the doctor has already answered")
 }
 
-// TestUnreachable covers that the address is shown when there is one and left out
-// when there is not, rather than rendering an empty labelled row.
+// TestUnreachable covers that the address is shown when there is one and left out when there is
+// not.
 func TestUnreachable(t *testing.T) {
 	tests := []struct {
 		name       string

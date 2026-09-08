@@ -20,8 +20,7 @@ type paneFrameReader struct {
 // which is what a harness that has started has yet to draw while the shell it was typed into is
 // still on screen.
 func (r paneFrameReader) DoesFrameShowHarness(pane, harnessID string) bool {
-	// A harness weave cannot look up is taken at its word, since waiting on a frame nothing can
-	// classify would wait out the cap every time.
+	// A harness weave cannot look up is taken at its word.
 	found, err := r.harnesses.GetByID(harnessID)
 	if err != nil {
 		return true

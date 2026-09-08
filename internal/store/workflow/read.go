@@ -55,8 +55,7 @@ type Cursor struct {
 	ID   string `json:"i"`
 }
 
-// Validate refuses a cursor holding anything but an id, since the name it pages by alongside
-// is whatever the workflow was called.
+// Validate refuses a cursor holding anything but an id.
 func (c Cursor) Validate() error {
 	if !store.IsID(c.ID) {
 		return fmt.Errorf("cursor id %q is not an id", c.ID)

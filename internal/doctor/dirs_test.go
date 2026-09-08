@@ -115,9 +115,8 @@ func TestHooksCheck(t *testing.T) {
 	}
 }
 
-// TestHooksCheckReportsThePathAsTyped covers that a configured path is reported the way it
-// was written, since an expanded home directory is the harder half to match against the
-// config the reader is about to edit.
+// TestHooksCheckReportsThePathAsTyped covers that a configured path is reported the way it was
+// written.
 func TestHooksCheckReportsThePathAsTyped(t *testing.T) {
 	typed := "~/hooks"
 	resolved := config.ExpandHome(typed)
@@ -220,8 +219,7 @@ func TestOrphanedWorktreesCheck(t *testing.T) {
 			want:     StatusWarn,
 			wantCode: "worktrees_unowned",
 			wantIn:   []string{shared, "01a1"},
-			// The agent that does hold a directory is not named, since a report of everything
-			// on disk is not a report of what is wrong.
+			// The agent that does hold a directory is not named.
 			wantNotIn: []string{"01a0"},
 		},
 		{
@@ -296,8 +294,8 @@ func TestOrphanedWorktreesCheckReadsTheWorkflowsOwnDirectories(t *testing.T) {
 	assert.NotContains(t, result.Err.Error(), "01a0", "the shared directory's one worktree has its agent")
 }
 
-// TestOrphanedWorktreesCheckNamesOnlyAFewOrphans covers that a directory full of leftovers
-// stays one readable line, since the report draws a finding on a line of its own.
+// TestOrphanedWorktreesCheckNamesOnlyAFewOrphans covers that a directory full of leftovers stays
+// one readable line.
 func TestOrphanedWorktreesCheckNamesOnlyAFewOrphans(t *testing.T) {
 	const shared = "/home/u/worktrees"
 

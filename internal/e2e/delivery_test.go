@@ -117,8 +117,8 @@ func TestDeliveryLeavesABusyAgentAlone(t *testing.T) {
 	assert.Equal(t, agents.DeliveryDone, instance.Deliver(migrations.GetId()))
 }
 
-// TestDeliveryNeverTypesAtAnAgentOnAPrompt covers the state that must never be typed at,
-// since a line sent to a permission prompt answers the prompt.
+// TestDeliveryNeverTypesAtAnAgentOnAPrompt covers the state that must never be typed at, a line
+// sent to a permission prompt answering the prompt.
 func TestDeliveryNeverTypesAtAnAgentOnAPrompt(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

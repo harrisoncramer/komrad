@@ -118,7 +118,7 @@ func TestList(t *testing.T) {
 }
 
 // TestGetIncludingArchived pins that the read carries whether the workflow is archived rather
-// than filtering on it, since that is what a restore is refused by.
+// than filtering on it, which is what a restore is refused by.
 func TestGetIncludingArchived(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -268,8 +268,8 @@ func TestListPageIsAlphabetical(t *testing.T) {
 	assert.Equal(t, []string{"Api", "backend", "backend", "frontend", "zebra"}, names)
 }
 
-// TestListPageOrderMatchesByName pins that Go can reproduce the database's order, since the
-// archive screen sorts a merged listing itself and punctuation is where the two used to part.
+// TestListPageOrderMatchesByName pins that Go can reproduce the database's order, which the
+// archive screen sorts a merged listing by.
 func TestListPageOrderMatchesByName(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

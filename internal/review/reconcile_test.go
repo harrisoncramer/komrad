@@ -30,8 +30,7 @@ func pinned(id, path string, start, end int, lines ...string) review.Pinned {
 	}
 }
 
-// TestAHarvestOfNothingWritesNothing pins the answer that runs on every screen exit, since
-// harvest fires whether or not the reviewer typed anything.
+// TestAHarvestOfNothingWritesNothing pins the answer that runs on every screen exit.
 func TestAHarvestOfNothingWritesNothing(t *testing.T) {
 	t.Parallel()
 
@@ -172,8 +171,7 @@ func TestASkippedRunProtectsTheHarvestedThreadBesideIt(t *testing.T) {
 	assert.Len(t, plan.Skipped, 1)
 }
 
-// TestThreadsInOtherFilesAreNotMatched pins that the file is part of the identity, since line
-// ten of one file overlaps line ten of every other.
+// TestThreadsInOtherFilesAreNotMatched pins that the file is part of the identity.
 func TestThreadsInOtherFilesAreNotMatched(t *testing.T) {
 	t.Parallel()
 

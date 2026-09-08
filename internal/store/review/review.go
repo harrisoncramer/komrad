@@ -63,13 +63,12 @@ type Thread struct {
 }
 
 // DeliveryState is how far one of the author's comments has got towards the agent reading it,
-// read off the batch it went out with rather than off the comment, since a review is released,
-// delivered and answered as a whole.
+// read off the batch it went out with rather than off the comment.
 type DeliveryState string
 
 const (
 	// DeliveryNone is what delivery says about a message the agent wrote itself, which is
-	// nothing, since nobody is waiting to be told about it.
+	// nothing.
 	DeliveryNone DeliveryState = ""
 	// DeliveryUnsent is a comment in a review nobody has let go of yet.
 	DeliveryUnsent DeliveryState = "unsent"
@@ -539,8 +538,8 @@ func messageFromRow(row models.ReviewMessage) Message {
 	return message
 }
 
-// deliveryOf reads a comment's state off the batch it belongs to, since a review is released,
-// delivered and answered whole rather than a comment at a time.
+// deliveryOf reads a comment's state off the batch it belongs to, a review being released,
+// delivered and answered whole.
 func deliveryOf(message Message) DeliveryState {
 	switch {
 	case message.ReviewID == nil:
@@ -554,7 +553,7 @@ func deliveryOf(message Message) DeliveryState {
 	}
 }
 
-// lines is what a text[] column is written with, since a nil slice writes SQL NULL rather than the
+// lines is what a text[] column is written with, a nil slice writing SQL NULL rather than the
 // empty array the column is declared with.
 func lines(values []string) []string {
 	if values == nil {

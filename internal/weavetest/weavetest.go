@@ -61,8 +61,8 @@ type Instance struct {
 	// BuiltinDir is where the server installed the scripts weave ships, which a test overwrites
 	// when it needs one of them to behave differently.
 	BuiltinDir string
-	// Opened holds what the instance was asked to open in a browser, since a test may not put
-	// windows in front of whoever is running it.
+	// Opened holds what the instance was asked to open in a browser, which a test may not put in
+	// front of whoever is running it.
 	Opened  *OpenedURLs
 	URL     string
 	server  *server.Server
@@ -326,8 +326,8 @@ func (i *Instance) Typed(agentID string) []string {
 	return typed
 }
 
-// WaitForTyped waits for an agent to have received the given number of typed lines, since
-// typing at a pane and the agent reading its stdin are two processes apart.
+// WaitForTyped waits for an agent to have received the given number of typed lines, typing at a
+// pane and the agent reading its stdin being two processes apart.
 func (i *Instance) WaitForTyped(agentID string, lines int) []string {
 	i.t.Helper()
 

@@ -13,8 +13,7 @@ const (
 	lightStyleName = "catppuccin-latte"
 )
 
-// token is one run of source text that shares a colour, with no background, since the same
-// line is drawn on a different one depending on the diff and the cursor.
+// token is one run of source text that shares a colour, with no background of its own.
 type token struct {
 	text       string
 	foreground string

@@ -227,8 +227,8 @@ func TestMarkForSaysWhichThreadIsWhich(t *testing.T) {
 	assert.Equal(t, unreadMark, mark, "an unread reply outranks the settling")
 }
 
-// TestASecondThreadOnALineGetsItsOwnRow covers the second of two conversations on one line
-// going to the foot, since only one can be the thread the cursor reaches there.
+// TestASecondThreadOnALineGetsItsOwnRow covers the second of two conversations on one line going
+// to the foot.
 func TestASecondThreadOnALineGetsItsOwnRow(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",

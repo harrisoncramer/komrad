@@ -176,7 +176,7 @@ func (v *View) rawMatches(y int) []span {
 }
 
 // matchesIn is where the pattern was found in a row's content, with the marker's width taken
-// off, since the content is drawn after the gutter and the marker is drawn in it.
+// off.
 func (v *View) matchesIn(y int) []span {
 	found := v.rawMatches(y)
 	if len(found) == 0 {

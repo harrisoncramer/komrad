@@ -54,8 +54,8 @@ func TestFromHeader(t *testing.T) {
 	}
 }
 
-// TestSetHeaderLeavesOutWhatIsNotKnown covers writing an identity onto a call going out: a
-// caller that named no agent writes no header at all, since an empty header reads as wrong.
+// TestSetHeaderLeavesOutWhatIsNotKnown covers a caller that named no agent writing no header at
+// all.
 func TestSetHeaderLeavesOutWhatIsNotKnown(t *testing.T) {
 	header := http.Header{}
 	Caller{AgentID: "agent-1"}.SetHeader(header)

@@ -10,8 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestReadsAndWritesRefuseAnIDNoRowCouldHold pins the guard each one opens with, since a string
-// that is not an id at all reaches Postgres as a type error rather than as a row nobody holds.
+// TestReadsAndWritesRefuseAnIDNoRowCouldHold pins the guard each one opens with, which a string
+// that is not an id at all would otherwise reach Postgres as a type error past.
 func TestReadsAndWritesRefuseAnIDNoRowCouldHold(t *testing.T) {
 	tests := []struct {
 		name string
@@ -56,8 +56,7 @@ func TestReadsAndWritesRefuseAnIDNoRowCouldHold(t *testing.T) {
 	}
 }
 
-// TestLookupsAnswerNotFoundRatherThanNothing pins the readers that speak for one agent, since a
-// caller handed a nil agent and a nil error has to invent the refusal for itself.
+// TestLookupsAnswerNotFoundRatherThanNothing pins the readers that speak for one agent.
 func TestLookupsAnswerNotFoundRatherThanNothing(t *testing.T) {
 	tests := []struct {
 		name string

@@ -129,7 +129,7 @@ func TestBuiltinWorktreeSetupRefusesAPathWithADotSegment(t *testing.T) {
 }
 
 // TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone covers copy and symlink lists being
-// applied only to a worktree this run created, since copying over a directory nests it deeper.
+// applied only to a worktree this run created, copying over a directory nesting it deeper.
 func TestBuiltinWorktreeSetupOnResumeLeavesAppliedPathsAlone(t *testing.T) {
 	repo := initRepo(t)
 	require.NoError(t, os.Mkdir(filepath.Join(repo, "node_modules"), 0o755))
@@ -277,8 +277,8 @@ func TestBuiltinWorktreeSetupOnResumeRebuildsUnderTheConfiguredDirectory(t *test
 	assertBranch(t, rebuilt, "agent/agent-moved-gone")
 }
 
-// TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory covers a create never going
-// back to a cwd, since the tree a create is asked for is the one the workflow names now.
+// TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory covers a create never going back
+// to a cwd.
 func TestBuiltinWorktreeSetupOnProvisionUsesTheConfiguredDirectory(t *testing.T) {
 	repo := initRepo(t)
 	env := worktreeEnv{
@@ -545,9 +545,8 @@ func TestBuiltinWorktreeCleanupRefusesAPlainCheckout(t *testing.T) {
 	assert.NotEmpty(t, strings.TrimSpace(string(branches)), "the branch survives since this was never a linked worktree")
 }
 
-// TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal covers a copy or symlink entry
-// naming a file the repo does not have: setup warns on stderr and keeps going rather than
-// aborting, since the worktree it already made is worth more than one missing file.
+// TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal covers a copy or symlink entry naming a
+// file the repo does not have, where setup warns on stderr and keeps going.
 func TestBuiltinWorktreeSetupCopyMissingSourceIsNonFatal(t *testing.T) {
 	repo := initRepo(t)
 
@@ -615,8 +614,7 @@ func TestBuiltinWorktreeSetupFetchesFromOrigin(t *testing.T) {
 }
 
 // TestBuiltinWorktreeSetupReadsTheCloneRatherThanTheCheckedOutBranch covers the default branch
-// being answered by what the clone already knows, since asking origin is a network round trip
-// paid on every create and the checked-out branch is somebody's own work.
+// being answered by what the clone already knows.
 func TestBuiltinWorktreeSetupReadsTheCloneRatherThanTheCheckedOutBranch(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)
@@ -875,8 +873,7 @@ func TestBuiltinWorktreeCleanupIsBestEffortWhenAlreadyGone(t *testing.T) {
 }
 
 // TestBuiltinWorktreeSetupDoesNotTrackTheBase covers the new branch being left with no upstream,
-// since tracking the base makes git status report it against a branch it is not on and makes a
-// plain push refuse.
+// which tracking the base would have git status report it against and a plain push refuse.
 func TestBuiltinWorktreeSetupDoesNotTrackTheBase(t *testing.T) {
 	upstream := initBareRepo(t)
 	repo := cloneRepo(t, upstream)

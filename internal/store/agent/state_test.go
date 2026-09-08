@@ -160,7 +160,7 @@ func TestANudgeIsHeldForTheRetryInterval(t *testing.T) {
 }
 
 // TestANudgeIsReclaimedOnTheDatabaseClock pins that the interval is counted on the database
-// clock, since inside a transaction NOW() holds at the start while the caller's clock runs on.
+// clock, where NOW() holds at the start of a transaction while the caller's clock runs on.
 func TestANudgeIsReclaimedOnTheDatabaseClock(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -260,8 +260,7 @@ func TestListUnseenTurnsDropsAnAgentBackAtWork(t *testing.T) {
 	assert.Equal(t, []string{created.ID}, unseen, "and the turn it went on to end is unread")
 }
 
-// TestListUnseenTurnsKeepsAnAgentBlockedOnAPerson pins that only working takes the mark off,
-// since a row stopped on a prompt is the one most worth travelling to.
+// TestListUnseenTurnsKeepsAnAgentBlockedOnAPerson pins that only working takes the mark off.
 func TestListUnseenTurnsKeepsAnAgentBlockedOnAPerson(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -339,7 +338,7 @@ func TestSetViewedOnAnAgentThatHasEndedNoTurn(t *testing.T) {
 }
 
 // TestListUnseenTurnsLeavesTheArchiveAlone pins that archiving an agent takes it out of the
-// mark, since an archived row has no place on the list the mark is drawn on.
+// mark.
 func TestListUnseenTurnsLeavesTheArchiveAlone(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -381,8 +380,7 @@ func TestSetReportedReasonRoundTrips(t *testing.T) {
 }
 
 // TestSetStateByIDClearsTheReportedReason pins that a reason lives as long as the turn rather
-// than the state, since a tool blocking on a dialog moves the state without ending anything,
-// and that landing idle takes it off the row of an agent that has since stopped.
+// than the state, and that landing idle takes it off the row.
 func TestSetStateByIDClearsTheReportedReason(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -411,7 +409,7 @@ func TestSetStateByIDClearsTheReportedReason(t *testing.T) {
 }
 
 // TestMarkSettingUpClearsTheReportedReason pins that a relaunch drops what the conversation
-// before it was doing, since the CLI that reported it is gone.
+// before it was doing.
 func TestMarkSettingUpClearsTheReportedReason(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

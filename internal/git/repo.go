@@ -36,7 +36,7 @@ func resolveBase(ctx context.Context, root, base string) string {
 }
 
 // GetCurrentBranch is the branch a worktree is on, and nothing for a detached head or a directory
-// git will not answer about, since neither is a branch anybody can be told about.
+// git will not answer about.
 func GetCurrentBranch(ctx context.Context, dir string) *string {
 	branch, err := Run(ctx, dir, "rev-parse", "--abbrev-ref", "HEAD")
 	if err != nil || branch == "" || branch == "HEAD" {

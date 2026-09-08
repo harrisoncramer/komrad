@@ -38,9 +38,8 @@ type Paginator[C Cursor, M Cursorable[C]] struct {
 	cursor *C
 }
 
-// The limits a Paginator applies, so a caller that asks for nothing gets a readable page and one
-// that asks for too much is capped to what a caller reading the page through a context window can
-// take, rather than to what the database could return.
+// The limits a Paginator applies, giving a caller that asks for nothing a readable page and
+// capping one that asks for too much to what a context window can take.
 const (
 	defaultLimit int64 = 20
 	maxLimit     int64 = 100
@@ -87,8 +86,8 @@ func (p *Paginator[C, M]) NextToken(resources []M) (*string, error) {
 	return Token(cursor)
 }
 
-// Token encodes a cursor a handler has built itself, which a listing of more than one
-// section needs, since its next page is not located by the last record alone.
+// Token encodes a cursor a handler has built itself, which a listing of more than one section
+// needs.
 func Token[C Cursor](cursor C) (*string, error) {
 	raw, err := json.Marshal(cursor)
 	if err != nil {
@@ -100,8 +99,8 @@ func Token[C Cursor](cursor C) (*string, error) {
 	return &token, nil
 }
 
-// Decode unpacks a page token a handler holds on its own, which an endpoint whose window is
-// not a count of records needs, since it cannot hold a Paginator to decode for it.
+// Decode unpacks a page token a handler holds on its own, which an endpoint whose window is not a
+// count of records needs.
 func Decode[C Cursor](token string) (*C, error) {
 	cursor, err := decode[C](token)
 	if err != nil {

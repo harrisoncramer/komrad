@@ -51,8 +51,7 @@ func TestRecordWritesTheFrameItWasRead(t *testing.T) {
 	assert.Equal(t, frame, string(kept))
 }
 
-// TestRecordWritesNothingWhileOff covers the setting, since a recorder is built whether or not
-// anybody asked for one.
+// TestRecordWritesNothingWhileOff covers the setting a recorder built for nobody reads.
 func TestRecordWritesNothingWhileOff(t *testing.T) {
 	dir := t.TempDir()
 	off := func() frames.Settings { return frames.Settings{Keep: 3} }

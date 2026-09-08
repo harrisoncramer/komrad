@@ -86,8 +86,8 @@ func renderSection(buf *bytes.Buffer, schema *jsonschema.Schema, path []string) 
 			return fmt.Errorf("failed to render %s: %w", strings.Join(append(path, value.name), "."), err)
 		}
 
-		// A value that runs to several lines opens on its own name rather than a
-		// padded one, since there is no column of neighbours for it to line up with.
+		// A value that runs to several lines opens on its own name rather than a padded one, having
+		// no column of neighbours to line up with.
 		if strings.Contains(rendered, "\n") {
 			fmt.Fprintf(buf, "%s = %s\n", value.name, rendered)
 
@@ -117,9 +117,7 @@ func renderValue(value any) (string, error) {
 	case int:
 		return strconv.Itoa(typed), nil
 	case float64:
-		// 'f' rather than the shortest form, since a fraction written in exponent
-		// notation is still a TOML float but not one a reader would recognize as the
-		// share of a width.
+		// 'f' rather than the shortest form, which would write a fraction in exponent notation.
 		return strconv.FormatFloat(typed, 'f', -1, 64), nil
 	case []string:
 		quoted := make([]string, 0, len(typed))

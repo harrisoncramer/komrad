@@ -138,8 +138,7 @@ func payloadHookCmd(state *app, hook payloadHook) *cobra.Command {
 	return cmd
 }
 
-// turnEndPayload is codex's notify argument, of which only the type is read, since the rest
-// names a turn weave already knows about from the caller headers.
+// turnEndPayload is codex's notify argument, of which only the type is read.
 type turnEndPayload struct {
 	Type string `json:"type"`
 }
@@ -164,8 +163,7 @@ nobody has read. Anything but a completed turn is ignored.`,
 		if state.env.AgentID == "" {
 			return nil
 		}
-		// Any arity is taken, since a notify that grew an argument would otherwise fail its own
-		// validation, print into a discarded stream, and stop the marks with nothing saying why.
+		// Any arity is taken.
 		if len(args) > 0 {
 			var payload turnEndPayload
 			if err := json.Unmarshal([]byte(args[0]), &payload); err != nil {
@@ -219,8 +217,8 @@ turn end.`,
 			return nil
 		}
 
-		// Recorded before the re-entry check, since a turn the last delivery caused is still a
-		// turn ending, and it is the turn in which the agent answered its mail.
+		// Recorded before the re-entry check, which the turn the agent answered its mail in would
+		// otherwise skip.
 		reportHookEvent(cmd, state, claude.HarnessID, claude.EventStop, body)
 
 		if payload.StopHookActive {

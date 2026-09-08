@@ -41,8 +41,8 @@ func (s *Store) Archive(ctx context.Context, ids []string) ([]AgentPane, error) 
 		return nil, nil
 	}
 
-	// The pane is read under the lock the archive takes, since a resume or a create can
-	// record one between the caller's read and this write.
+	// The pane is read under the lock the archive takes, which a resume or a create can record one
+	// inside of.
 	archived, err := s.queries.MarkAgentsArchived(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to archive %d agents: %w", len(storable), err)

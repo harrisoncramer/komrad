@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestRedact covers a password never coming out, since the config service hands the whole
-// config to MCP callers and anything let through reaches a model.
+// TestRedact covers a password never coming out of the config the service hands MCP callers.
 func TestRedact(t *testing.T) {
 	tests := []struct {
 		name string
