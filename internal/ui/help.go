@@ -564,6 +564,7 @@ func (m model) reviewHelp() keyMap {
 				binding(keys.Reload, m.reviewReloadDesc()),
 				binding(keys.Resolve, m.reviewResolveDesc()),
 				binding(keys.ToggleViewed, m.reviewViewedDesc()),
+				m.reviewThreadBinding(),
 				m.detailsBinding(),
 			},
 			writing,
@@ -571,6 +572,18 @@ func (m model) reviewHelp() keyMap {
 			m.globalHelp(),
 		),
 	}
+}
+
+// reviewThreadBinding is the key that moves between the diff and the conversation beside it, read
+// from the flag rather than from whether the thread holds the keys, since asking that measures
+// the legend this binding is drawn in.
+func (m model) reviewThreadBinding() key.Binding {
+	desc := "read the thread"
+	if _, ok := m.reviewThreadAtCursor(); ok && m.review.threadFocus {
+		desc = "back to the diff"
+	}
+
+	return binding(m.keys.Review.FocusThread, desc)
 }
 
 func keyLabel(keys []string) string {

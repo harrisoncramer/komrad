@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/lipgloss"
 )
 
 func (m model) listLines(chrome ...string) int {
@@ -37,19 +39,31 @@ func renderList(rows []string, cursor, lines int) string {
 		return strings.Join(rows, "\n") + "\n"
 	}
 
+	return windowRows(rows, lines, func(visible int) int {
+		return windowStart(cursor, len(rows), visible)
+	}, dimStyle)
+}
+
+// windowRows is the screenful of a block taller than its pane, placed by place and carrying the
+// counts of what is above and below it, which is the one copy of that arithmetic.
+func windowRows(rows []string, lines int, place func(visible int) int, style lipgloss.Style) string {
+	// A marker costs a row, so the widest window is tried first and gives one up at a time until
+	// the counts it needs have the room to be drawn beside it.
 	for markers := range 3 {
 		visible := lines - markers
 		if visible < 1 {
 			break
 		}
 
-		start := windowStart(cursor, len(rows), visible)
+		start := place(visible)
 		if markersFor(start, visible, len(rows)) <= markers {
-			return drawWindow(rows, start, visible)
+			return drawWindow(rows, start, visible, style)
 		}
 	}
 
-	start := windowStart(cursor, len(rows), lines)
+	// Nothing is said about what is hidden once every window that would say it costs a row the
+	// pane has not got, since a view taller than the pane scrolls the pane away.
+	start := place(lines)
 
 	return strings.Join(rows[start:start+lines], "\n") + "\n"
 }
@@ -66,18 +80,18 @@ func markersFor(start, visible, total int) int {
 	return markers
 }
 
-func drawWindow(rows []string, start, visible int) string {
+func drawWindow(rows []string, start, visible int, style lipgloss.Style) string {
 	end := min(start+visible, len(rows))
 
 	var b strings.Builder
 	if start > 0 {
-		b.WriteString(dimStyle.Render(fmt.Sprintf("  ↑ %d more", start)) + "\n")
+		b.WriteString(style.Render(fmt.Sprintf("  ↑ %d more", start)) + "\n")
 	}
 	for _, row := range rows[start:end] {
 		b.WriteString(row + "\n")
 	}
 	if rest := len(rows) - end; rest > 0 {
-		b.WriteString(dimStyle.Render(fmt.Sprintf("  ↓ %d more", rest)) + "\n")
+		b.WriteString(style.Render(fmt.Sprintf("  ↓ %d more", rest)) + "\n")
 	}
 
 	return b.String()
@@ -102,30 +116,6 @@ func padRows(rendered string, lines int) string {
 	}
 
 	return rendered + strings.Repeat("\n", lines-got)
-}
-
-// tailRows cuts a block down to what the pane can hold, keeping the end, since bubbletea draws
-// whatever it is handed and a view taller than the pane scrolls the pane away.
-func tailRows(rendered string, lines int) string {
-	if lines <= 0 {
-		return ""
-	}
-
-	rows := strings.Split(strings.TrimRight(rendered, "\n"), "\n")
-	if len(rows) <= lines {
-		return rendered
-	}
-
-	kept := rows[len(rows)-(lines-1):]
-	marker := dimStyle.Render(fmt.Sprintf("  ↑ %d more", len(rows)-len(kept))) + "\n"
-
-	// Joining an empty tail onto the marker still writes a newline, which is one row more than
-	// the pane has.
-	if len(kept) == 0 {
-		return marker
-	}
-
-	return marker + strings.Join(kept, "\n") + "\n"
 }
 
 func windowStart(cursor, total, visible int) int {

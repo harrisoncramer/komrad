@@ -197,6 +197,10 @@ compose       = ["c"]
 # becomes a suggestion, which your next comment carries to the agent for it to apply
 # in its own turn.
 edit_file     = ["e"]
+# Move the keys onto the thread in the sidebar, so up and down read the conversation
+# rather than the diff, and press it again to hand them back. A thread longer than the
+# sidebar is otherwise only readable from its end.
+focus_thread  = ["ctrl+f"]
 # Jump to the next file in the diff.
 next_file     = ["]"]
 # Jump to the next line matching the pattern the filter key searched for.
