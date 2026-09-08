@@ -101,8 +101,7 @@ type model struct {
 
 	// sized is the size each agent's own window was last put at, keyed by pane, so a listing that
 	// has not moved costs no tmux calls.
-	sized map[string]string
-
+	sized         map[string]string
 	info          infoState
 	details       detailsState
 	messages      messagesState

@@ -22,7 +22,11 @@ func newestMessage(m model) message {
 }
 
 func oneMessage(summary, detail string) messagesState {
-	return messagesState{items: []message{{kind: messageError, summary: summary, detail: detail}}}
+	return messagesState{items: []message{{
+		kind:    messageError,
+		summary: summary,
+		detail:  detail,
+	}}}
 }
 
 // TestMessagesRegionKeepsItsHeight covers the whole point of the region: the rows it takes are
@@ -37,7 +41,11 @@ func TestMessagesRegionKeepsItsHeight(t *testing.T) {
 	require.NotEmpty(t, idle)
 	assert.Contains(t, ansi.Strip(idle), "No messages")
 
-	m.pushMessage(message{kind: messageError, summary: "Nothing to review in fix-ci", detail: "the worktree holds no change against the base"})
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Nothing to review in fix-ci",
+		detail:  "the worktree holds no change against the base",
+	})
 	filled := m.messagesRegion(record, help)
 
 	assert.Equal(t, strings.Count(idle, "\n"), strings.Count(filled, "\n"))
@@ -72,7 +80,12 @@ func TestMessagesStackKeepsWhatCameBefore(t *testing.T) {
 func TestMessagesFocusTakesTheBlock(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 120
-	m.pushMessage(message{kind: messageError, summary: "Nothing to review in fix-ci", detail: "the worktree holds no change against the base", trace: "7c1f2a94"})
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Nothing to review in fix-ci",
+		detail:  "the worktree holds no change against the base",
+		trace:   "7c1f2a94",
+	})
 
 	focused := m.toggleMessagesFocus()
 
@@ -115,7 +128,11 @@ func TestMessagesDismissalWalksTheStack(t *testing.T) {
 func TestMessagesFocusGoesDormantOffItsScreen(t *testing.T) {
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 120
-	m.pushMessage(message{kind: messageError, summary: "Nothing to review in fix-ci", detail: "no change"})
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Nothing to review in fix-ci",
+		detail:  "no change",
+	})
 
 	focused := m.toggleMessagesFocus()
 	require.True(t, focused.isMessagesFocused())
@@ -135,7 +152,11 @@ func TestMessagesTallySaysWhereTheKeysAre(t *testing.T) {
 
 	m := detailsModel(&recordingTmux{})
 	m.height, m.width = 40, 60
-	m.pushMessage(message{kind: messageError, summary: "Nothing to review in fix-ci", detail: "no change"})
+	m.pushMessage(message{
+		kind:    messageError,
+		summary: "Nothing to review in fix-ci",
+		detail:  "no change",
+	})
 
 	blurred := m.messagesTally()
 	assert.Empty(t, ansi.Strip(blurred), "one message on its own counts nothing while it is unread")

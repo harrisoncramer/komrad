@@ -26,7 +26,12 @@ func TestAgentsViewRowsOpenAtTheGutter(t *testing.T) {
 		listing: listing{
 			workflows: []workflowstore.Workflow{{ID: "w1", Name: "weave"}},
 			agents: []agentItem{{
-				agent: agentstore.Agent{ID: "a1", Name: "worker", WorkflowID: "w1", State: agentstore.StateIdle},
+				agent: agentstore.Agent{
+					ID:         "a1",
+					Name:       "worker",
+					WorkflowID: "w1",
+					State:      agentstore.StateIdle,
+				},
 				alive: true,
 			}},
 		},
