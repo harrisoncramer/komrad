@@ -25,6 +25,7 @@ weave rpc create-review-thread [flags]
       --old-start int32        int32
       --quoted-lines strings   string, repeatable
       --request-json string    the whole request as JSON, which the flags above are laid over
+      --snapshot-sha string    string
       --suggestion strings     string, repeatable
       --timeout duration       how long to wait for the call (default 30s)
 ```

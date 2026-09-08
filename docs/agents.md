@@ -24,7 +24,7 @@ The workflow decides the repository, so a pull request has to be one opened agai
 
 Where the agent runs depends on what is already there. When nothing has the branch checked out, the agent gets a worktree of its own on it, fetched from origin first. When some other checkout already holds it, made by hand or by another tool, the agent is launched into that directory as it stands and provisions nothing. When the branch is checked out in the workflow's own directory, adoption refuses, since that is the checkout you are working in.
 
-The branch belongs to whoever made it. Weave never resets it, and deleting an adopted agent removes the worktree but leaves the branch alone. Adopting the same branch twice hands back the agent already on it rather than starting a second one, which git would refuse anyway.
+The branch belongs to whoever made it. Weave never resets it, and deleting an adopted agent removes the worktree but leaves the branch alone. Adopting a branch that already has an agent on it is refused, naming the agent that has it, since git could not check the branch out twice anyway.
 
 The agent starts knowing what it walked into: the prompt it is given is prefixed with the branch, the pull request if there is one, and that the commits are not its own to rewrite. Leave the prompt blank and it is told nothing has been asked of it yet, and to say when it is ready and wait. A pull request is recorded on the agent as it starts, so the `o` key opens it straight away.
 

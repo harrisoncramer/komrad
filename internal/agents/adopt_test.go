@@ -236,9 +236,9 @@ func TestAdoptRefusesWithoutAWorktreeWorkflow(t *testing.T) {
 	require.ErrorIs(t, err, ErrAdoptNeedsWorktree)
 }
 
-// TestAdoptTwiceHandsBackTheSameAgent pins that asking again returns the agent already on the
-// branch.
-func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
+// TestAdoptTwiceIsRefused pins asking again being a refusal naming the agent that has the
+// branch, since a success that started nothing reads as the call having done nothing at all.
+func TestAdoptTwiceIsRefused(t *testing.T) {
 	tmux := newFakeTmux()
 	st := newStore(t)
 	manager := newManager(tmux, st, "")
@@ -250,14 +250,61 @@ func TestAdoptTwiceHandsBackTheSameAgent(t *testing.T) {
 	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
 	require.NoError(t, err)
 
-	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
-	require.NoError(t, err)
-
-	assert.Equal(t, first.ID, second.ID, "the agent already on the branch comes back")
+	_, err = manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted)
+	assert.Contains(t, err.Error(), first.Name, "the refusal names the agent holding the branch")
 
 	agents, err := st.List(t.Context())
 	require.NoError(t, err)
 	assert.Len(t, agents, 1, "and no second one was started")
+}
+
+// TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused pins the one repeat that means "again,
+// safely" rather than a second agent on the branch.
+func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	repo := initRepo(t)
+	runGit(t, repo, "branch", "someones/work")
+	workflow := seedWorktreeWorkflow(t, st, repo)
+
+	params := AdoptParams{Ref: "someones/work", WorkflowID: workflow, IdempotencyKey: "one-adopt"}
+
+	first, err := manager.adopt.Adopt(t.Context(), params)
+	require.NoError(t, err)
+
+	second, err := manager.adopt.Adopt(t.Context(), params)
+	require.NoError(t, err, "a retry carrying the key that launched it is not a second adoption")
+	assert.Equal(t, first.ID, second.ID)
+
+	_, err = manager.adopt.Adopt(t.Context(), AdoptParams{
+		Ref:            "someones/work",
+		WorkflowID:     workflow,
+		IdempotencyKey: "another-adopt",
+	})
+	require.ErrorIs(t, err, ErrAdoptAlreadyAdopted, "another key is another caller, so the branch is taken")
+}
+
+// TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse pins a create that never launched leaving
+// the branch adoptable, since a refusal is only useful if the retry it invites can succeed.
+func TestAdoptAfterASetupFailureIsNotRefusedByTheCorpse(t *testing.T) {
+	tmux := newFakeTmux()
+	st := newStore(t)
+	manager := newManager(tmux, st, "")
+
+	repo := initRepo(t)
+	runGit(t, repo, "branch", "someones/work")
+	workflow := seedWorktreeWorkflow(t, st, repo)
+
+	first, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.NoError(t, err)
+	require.NoError(t, st.Agents.SetStateByID(t.Context(), first.ID, agentstore.StateFailedToCreate))
+
+	second, err := manager.adopt.Adopt(t.Context(), AdoptParams{Ref: "someones/work", WorkflowID: workflow})
+	require.NoError(t, err, "the corpse does not hold the branch against a retry")
+	assert.NotEqual(t, first.ID, second.ID)
 }
 
 // TestAdoptFromAPullRequest covers adopting by URL, which records the pull request as well
