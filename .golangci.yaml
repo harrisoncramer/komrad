@@ -162,6 +162,24 @@ linters:
             skip: false
             include:
               - internal/ui/
+          # Unanchored regexps over the file path, same exclusion as comment_length.
+          comment_reference:
+            skip: false
+            exclude:
+              - config/appconfig\.go$
+          # Left off: it asks for code changes, and the sweep that turned the two comment
+          # rules on was comments only.
+          switch_default:
+            skip: true
+          comment_clause:
+            skip: false
+            exclude:
+              - config/appconfig\.go$
+            clauses:
+              - since
+              - because
+              - so that
+              - rather than
   exclusions:
     rules:
       # A binary's package comment would be the first thing a reader of the command sees on
