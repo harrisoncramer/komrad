@@ -97,7 +97,8 @@ func serveLogger(level string) (*slog.Logger, error) {
 		return nil, err
 	}
 
-	return logging.New(os.Stderr, parsed), nil
+	// `weave start` points this process's stderr at the log file the panel also appends to.
+	return logging.New(os.Stderr, parsed).With(slog.String(logging.ProcessName, logging.ProcessServe)), nil
 }
 
 func shutdownSignal(parent context.Context) (context.Context, func()) {

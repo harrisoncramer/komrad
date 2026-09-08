@@ -30,6 +30,8 @@ const hostPathOption = "@weave_host_path"
 
 const InfoPaneOption = "@weave_info_pane"
 
+const panelPaneOption = "@weave_panel_pane"
+
 const queryTimeout = 5 * time.Second
 
 const killDelay = 100 * time.Millisecond
@@ -266,6 +268,16 @@ func (c *Client) SelectPane(pane string) {
 	c.run("select-pane", "-t", pane)
 }
 
+// SelectWindow makes the window holding a pane the session's current one, which is what an
+// attach lands on.
+func (c *Client) SelectWindow(pane string) {
+	if pane == "" {
+		return
+	}
+
+	c.run("select-window", "-t", pane)
+}
+
 // ResizePane sets a pane's width, as a count of columns or a percentage of the window.
 func (c *Client) ResizePane(pane, width string) {
 	c.run("resize-pane", "-t", pane, "-x", width)
@@ -422,6 +434,21 @@ func (c *Client) SetInfoPane(pane string) {
 // GetInfoPane reads that pane back, from the same server it was written on.
 func (c *Client) GetInfoPane() string {
 	return c.ShowGlobal(InfoPaneOption)
+}
+
+// RecordPanelPane stores the pane the panel itself draws in, which is how a later open tells a
+// panel that is still up from a session that only holds agent windows.
+func (c *Client) RecordPanelPane(pane string) {
+	if pane == "" {
+		return
+	}
+
+	c.SetGlobal(panelPaneOption, pane)
+}
+
+// GetPanelPane reads that pane back, empty when no panel has recorded one.
+func (c *Client) GetPanelPane() string {
+	return c.ShowGlobal(panelPaneOption)
 }
 
 // RecordHostSocket stores the socket path of the user's server, written by the commands that

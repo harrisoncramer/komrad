@@ -24,7 +24,7 @@ starting one is what the panel key is for.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if !isManagerSessionRunning(cmd.Context(), state) {
+			if !isPanelRunning(cmd.Context(), state) {
 				return errors.New("the panel is not running, so there is nothing to attach: " +
 					"press the panel key, or run `weave open`, to start it")
 			}

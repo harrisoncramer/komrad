@@ -74,6 +74,14 @@ const ServiceName = "service.name"
 
 const Service = "weave"
 
+// ProcessName tells the service's records apart from the panel's, which write to the same file.
+const ProcessName = "process.name"
+
+const (
+	ProcessServe = "serve"
+	ProcessPanel = "panel"
+)
+
 var severityNumbers = map[slog.Level]int{
 	slog.LevelDebug: 5,
 	slog.LevelInfo:  9,

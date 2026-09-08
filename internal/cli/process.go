@@ -63,7 +63,7 @@ func ensureServer(ctx context.Context, params ensureServerParams) error {
 	cmd := exec.Command(params.Self, args...) //nolint:noctx // a cancelled start must not kill the server it started
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
 
-	logFile, err := openServeLog(logPath)
+	logFile, err := openLogFile(logPath)
 	if err != nil {
 		return err
 	}
