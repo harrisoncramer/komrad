@@ -288,3 +288,100 @@ func TestAdriftThreadsSortByLineNotByText(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "t1", tenth.GetId())
 }
+
+// TestPinTakesAQuoteStoredWithoutItsMarker covers a thread whose quote is stored as bare code
+// rather than as the diff drew it.
+func TestPinTakesAQuoteStoredWithoutItsMarker(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "\treturn \"hi\"",
+				NewNumber: 4,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 0, 4, "\treturn \"hi\"")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok, "the thread stands on its own line")
+	assert.Equal(t, "t1", found.GetId())
+	assert.False(t, view.IsGhosted(thread), "the line reads exactly as the thread quoted it")
+}
+
+// TestPinFindsAMovedLineFromABareQuote covers the same storage against the text index, which is
+// the last thing tried before a thread is given up on.
+func TestPinFindsAMovedLineFromABareQuote(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "\tname = \"world\"",
+				NewNumber: 9,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 0, 2, "\tname = \"world\"")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok, "the text index carries the thread to where the line went")
+	assert.Equal(t, "t1", found.GetId())
+}
+
+// TestPinRefusesWhenTwoRowsReadTheSameWithoutMarkers covers the cost of matching without the
+// marker: an added line and a context line that read alike are two candidates, not one.
+func TestPinRefusesWhenTwoRowsReadTheSameWithoutMarkers(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "}",
+				OldNumber: 7,
+				NewNumber: 7,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "}",
+				NewNumber: 8,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 0, 3, "}")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, adrift, view.placed[thread.GetId()])
+}
+
+// TestPinKeepsAMarkedQuoteOffACollidingLine covers the hazard of holding both spellings in one
+// index: a marked context quote whose text is a space and a brace reads the same as the stripped
+// spelling of a row whose code is a space and a brace, and that row is a deletion.
+func TestPinKeepsAMarkedQuoteOffACollidingLine(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "conf.yaml",
+		NewPath: "conf.yaml",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      " }",
+				OldNumber: 5,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "conf.yaml", 0, 200, " }")
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, adrift, view.placed[thread.GetId()],
+		"a context line the newer round draws as a deletion is gone")
+}

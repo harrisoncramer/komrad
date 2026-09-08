@@ -46,9 +46,10 @@ const (
 // lineIndex is the diff's lines looked at from the three directions a thread can be placed
 // from: the coordinates it was written against, its line on the old side, and its text.
 type lineIndex struct {
-	byKey   map[anchorKey]int
-	byOld   map[oldKey]int
-	byQuote map[quoteKey][]int
+	byKey       map[anchorKey]int
+	byOld       map[oldKey]int
+	byQuote     map[quoteKey][]int
+	byBareQuote map[quoteKey][]int
 }
 
 type oldKey struct {
@@ -63,9 +64,10 @@ type quoteKey struct {
 
 func (v *View) indexLines() lineIndex {
 	index := lineIndex{
-		byKey:   map[anchorKey]int{},
-		byOld:   map[oldKey]int{},
-		byQuote: map[quoteKey][]int{},
+		byKey:       map[anchorKey]int{},
+		byOld:       map[oldKey]int{},
+		byQuote:     map[quoteKey][]int{},
+		byBareQuote: map[quoteKey][]int{},
 	}
 
 	for y, current := range v.rows {
@@ -83,8 +85,15 @@ func (v *View) indexLines() lineIndex {
 			oldLine:  int32(line.OldNumber),
 		}] = y
 
+		// A row answers to the spelling the diff draws it as.
 		key := quoteKey{filePath: file, quote: quote}
 		index.byQuote[key] = append(index.byQuote[key], y)
+
+		// An agent stores a quote as bare code.
+		if stripped := strippedQuote(quote); stripped != quote {
+			bare := quoteKey{filePath: file, quote: stripped}
+			index.byBareQuote[bare] = append(index.byBareQuote[bare], y)
+		}
 
 		if line.OldNumber > 0 {
 			index.byOld[oldKey{filePath: file, oldLine: line.OldNumber}] = y
@@ -115,17 +124,68 @@ func (v *View) rowFor(index lineIndex, thread *agentv1.ReviewThread) (int, place
 
 	// Text catches a line that moved rather than changed, and two matches place nothing rather
 	// than guess between them.
-	if found := index.byQuote[quoteKey{filePath: thread.GetFilePath(), quote: quote}]; quote != "" && len(found) == 1 {
+	if found := index.quoted(thread.GetFilePath(), quote); quote != "" && len(found) == 1 {
 		return found[0], pinned
 	}
 
 	return 0, adrift
 }
 
+// doesQuoteMatch reports whether the line drawn at a row is the line a thread quoted, comparing
+// without the diff marker only for a quote stored without one.
+func doesQuoteMatch(drawn, stored string) bool {
+	if stored == "" || doesCarryMarker(stored) {
+		return drawn == stored
+	}
+
+	return strippedQuote(drawn) == stored
+}
+
+// doesCarryMarker reports whether a quoted line was stored with the marker the diff draws in
+// front of it.
+func doesCarryMarker(quote string) bool {
+	if quote == "" {
+		return false
+	}
+
+	switch quote[0] {
+	case '+', '-', ' ':
+		return true
+	}
+
+	return false
+}
+
+// strippedQuote is a quoted line with its diff marker taken off the front.
+func strippedQuote(quote string) string {
+	if quote == "" {
+		return quote
+	}
+
+	switch quote[0] {
+	case '+', '-', ' ':
+		return quote[1:]
+	}
+
+	return quote
+}
+
+// quoted is the rows a thread's quote names, read only against the spelling it was stored in.
+func (index lineIndex) quoted(filePath, quote string) []int {
+	// Explainer: a drawn line always carries a marker and a bare quote never does, so the two
+	// spellings can never name the same row and the maps must not be crossed.
+	key := quoteKey{filePath: filePath, quote: quote}
+	if doesCarryMarker(quote) {
+		return index.byQuote[key]
+	}
+
+	return index.byBareQuote[key]
+}
+
 // placementFor is whether the line a thread landed on still reads the way the thread was
 // written against it.
 func (v *View) placementFor(y int, quote string) placement {
-	if text, _ := v.quoteAt(y); text == quote {
+	if text, _ := v.quoteAt(y); doesQuoteMatch(text, quote) {
 		return pinned
 	}
 
