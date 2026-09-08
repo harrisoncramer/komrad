@@ -23,6 +23,13 @@ var reviewVerdicts = []agentv1.ReviewVerdict{
 // there or opening a new one, which is prose alone: an edit of the round becomes a comment when
 // the editor closes rather than when this key is pressed.
 func (m model) composeReview() (tea.Model, tea.Cmd) {
+	// Explainer: reading walks the rounds and writes nothing, so the compose key is also the way
+	// into the mode that can. The switch reloads the whole change and puts the cursor back on the
+	// line it was pressed on, which is why one press still means one thing.
+	if !m.review.writing {
+		return m.enterReviewWriting()
+	}
+
 	thread, replying := m.reviewThreadAtCursor()
 
 	// A thread whose code is gone has no line to anchor a new thread to, but replying to it is
@@ -41,6 +48,40 @@ func (m model) composeReview() (tea.Model, tea.Cmd) {
 	m.review.editor.SetWidth(max(20, m.paneWidth()-4))
 
 	return m, m.review.editor.Focus()
+}
+
+// enterReviewWriting moves from reading to writing, keeping the reader on the line they pressed
+// the key on, and refuses when that line is in a round the whole change does not draw.
+func (m model) enterReviewWriting() (tea.Model, tea.Cmd) {
+	// Explainer: an older round draws code the agent has since rewritten, so the line under the
+	// cursor has no counterpart in the work a comment could ask it to change. Carrying the reader
+	// across would land them on whatever the anchor now matches, which is not the line they chose.
+	if said, history := m.reviewIsHistory(); history {
+		return m.refuseReviewHistory(said)
+	}
+
+	if _, ok := m.review.view.GetAnchor(m.review.cursor); !ok {
+		if _, replying := m.reviewThreadAtCursor(); !replying {
+			return m, nil
+		}
+	}
+
+	m.review.writing = true
+
+	return m.composeReview()
+}
+
+// leaveReviewWriting goes back to reading, keeping whatever has been written.
+func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
+	m.review.writing = false
+
+	// Comments already written are held by the panel rather than by the mode, so leaving keeps
+	// them and says so, which is the difference between putting a review down and losing it.
+	if m.doesReviewHoldUnsent() {
+		m.review.notice = counted(m.reviewUnsentCount(), "comment") + " kept, still unsent"
+	}
+
+	return m, nil
 }
 
 func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {

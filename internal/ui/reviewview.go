@@ -503,33 +503,53 @@ func reviewDeliveryStamp(message *agentv1.ReviewMessage) string {
 // start rather than something that starts itself, and nothing on the screen said which you were
 // doing.
 func (m model) reviewModeView() string {
-	unsent := m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
-	if unsent == 0 {
-		if _, dead := m.reviewIsReadOnly(); dead {
-			return reviewScopeOnStyle.Render("reading") +
-				dimStyle.Render(" · this agent is gone, so nothing can be sent") + "\n"
-		}
-
-		if said, history := m.reviewIsHistory(); history {
-			return reviewScopeOnStyle.Render("reading history") +
-				dimStyle.Render(" · "+said+" is finished, so nothing can be written on it") + "\n"
-		}
-
-		if m.review.awaiting {
-			return reviewScopeOnStyle.Render("reading") +
-				dimStyle.Render(" · your review is with the agent") + "\n"
-		}
-
-		return reviewScopeOnStyle.Render("reading") +
-			dimStyle.Render(" · press "+keyLabel(m.keys.Review.Compose)+" to comment") + "\n"
+	if _, dead := m.reviewIsReadOnly(); dead {
+		return reviewHeldStyle.Render("reading") +
+			dimStyle.Render(" · this agent is gone, so nothing can be sent") + "\n"
 	}
 
-	said := " · " + keyLabel(m.keys.Form.Submit) + " sends it to the agent"
+	if said, history := m.reviewIsHistory(); history {
+		return reviewHistoryStyle.Render("reading history") +
+			dimStyle.Render(" · "+said+" is finished · "+keyLabel(m.keys.Review.BaseForward)+
+				" for the work you can comment on") + "\n"
+	}
+
+	if m.review.writing {
+		return reviewWritingStyle.Render("writing a review") + dimStyle.Render(m.reviewWritingSaid()) + "\n"
+	}
+
+	if m.doesReviewHoldUnsent() {
+		return reviewHeldStyle.Render("reading") +
+			dimStyle.Render(" · "+counted(m.reviewUnsentCount(), "comment")+" written and not sent · "+
+				keyLabel(m.keys.Review.Compose)+" to carry on writing") + "\n"
+	}
+
+	if m.review.awaiting {
+		return reviewHeldStyle.Render("reading") +
+			dimStyle.Render(" · your review is with the agent") + "\n"
+	}
+
+	return reviewReadingStyle.Render("reading") +
+		dimStyle.Render(" · press "+keyLabel(m.keys.Review.Compose)+" to comment") + "\n"
+}
+
+// reviewWritingSaid is what the writing mode offers, which is the way out until something has
+// been written and the way to send it once something has.
+func (m model) reviewWritingSaid() string {
+	if !m.doesReviewHoldUnsent() {
+		return " · nothing written yet · " + keyLabel(m.keys.Review.Back) + " to go back to reading"
+	}
+
 	if m.review.pinned {
-		said = " · the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
+		return " · the code as it was when you started · " + keyLabel(m.keys.Form.Submit) + " sends it"
 	}
 
-	return reviewScopeOnStyle.Render("writing a review") + dimStyle.Render(said) + "\n"
+	return " · " + keyLabel(m.keys.Form.Submit) + " sends it to the agent"
+}
+
+// reviewUnsentCount is how many comments the reader is holding.
+func (m model) reviewUnsentCount() int {
+	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)]
 }
 
 // reviewDeliveryCountView is how the person's own comments stand, counted rather than summarised.
@@ -566,20 +586,40 @@ func (m model) reviewIsReadOnly() (string, bool) {
 	return "this agent is archived · restore it before writing to it", true
 }
 
-// reviewIsHistory says whether the diff on screen ends before the agent's current work, which is
-// a view nothing may be written on, and names the round for the refusal to say.
+// doesReviewHoldUnsent says whether the reader has comments nobody has seen.
+func (m model) doesReviewHoldUnsent() bool {
+	return m.review.activity.delivery[deliverySlot(agentv1.ReviewDeliveryState_REVIEW_DELIVERY_STATE_UNSENT)] > 0
+}
+
+// reviewSendDesc says what the send key opens, since a verdict with nothing written is an
+// approval rather than a delivery.
+func (m model) reviewSendDesc() string {
+	if m.doesReviewHoldUnsent() {
+		return "send to the agent"
+	}
+
+	return "give a verdict"
+}
+
+// reviewIsHistory says whether the round on screen ends before the agent's current work, and
+// names it for the refusal to quote.
 func (m model) reviewIsHistory() (string, bool) {
 	at := m.review.chapter
 	if at < 0 || at >= len(m.review.chapters) {
 		return "", false
 	}
 
-	chapter := m.review.chapters[at]
-	if chapter.ToSHA == m.review.round.GetSnapshotSha() {
+	if m.review.chapters[at].ToSHA == m.review.round.GetSnapshotSha() {
 		return "", false
 	}
 
 	return fmt.Sprintf("round %d of %d", at+1, len(m.review.chapters)), true
+}
+
+// doesReviewWalk says whether the round keys have anywhere to go, which reading has and writing
+// does not, since a review is written against the whole change.
+func (m model) doesReviewWalk() bool {
+	return !m.review.writing && len(m.review.chapters) > 0
 }
 
 // reviewDetails is the record drawn under the review sidebar, which is the agent whose diff is

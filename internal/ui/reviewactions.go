@@ -20,7 +20,15 @@ func reviewTable() []action {
 		{
 			id:   actionReviewBack,
 			keys: func(k config.Keybindings) []string { return k.Review.Back },
-			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.leaveReview() },
+			// Writing is a mode inside the screen, so the back key gives up the mode before it
+			// gives up the screen.
+			run: func(m model, _ string) (tea.Model, tea.Cmd) {
+				if m.review.writing {
+					return m.leaveReviewWriting()
+				}
+
+				return m.leaveReview()
+			},
 		},
 		{
 			id:   actionQuit,
@@ -75,13 +83,13 @@ func reviewTable() []action {
 		{
 			id:   actionReviewBase,
 			keys: func(k config.Keybindings) []string { return k.Review.Base },
-			when: func(m model) bool { return len(m.review.chapters) > 0 },
+			when: model.doesReviewWalk,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBase() },
 		},
 		{
 			id:   actionReviewBaseForward,
 			keys: func(k config.Keybindings) []string { return k.Review.BaseForward },
-			when: func(m model) bool { return len(m.review.chapters) > 0 },
+			when: model.doesReviewWalk,
 			run:  func(m model, _ string) (tea.Model, tea.Cmd) { return m.stepReviewBaseForward() },
 		},
 		{
@@ -93,8 +101,8 @@ func reviewTable() []action {
 			id:   actionReviewEdit,
 			keys: func(k config.Keybindings) []string { return k.Review.EditFile },
 			// An edit of the round's checkout becomes a suggestion the next comment carries, so
-			// it is a write and belongs behind the same gate as the two that say so.
-			run: orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.editReviewFile() }),
+			// it is a write, and pressing it while reading is the same way in as the compose key.
+			run: orRefuseWrite(orEnterWriting(func(m model) (tea.Model, tea.Cmd) { return m.editReviewFile() })),
 		},
 		{
 			id:   actionReviewResolve,
@@ -118,10 +126,30 @@ func reviewTable() []action {
 			run:  orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.composeReview() }),
 		},
 		{
-			id:   actionReviewSend,
+			id: actionReviewSend,
+			// A verdict with no comments is how a change is approved, so this is offered while
+			// reading as well as while writing.
 			keys: func(k config.Keybindings) []string { return k.Form.Submit },
 			run:  orRefuseWrite(func(m model) (tea.Model, tea.Cmd) { return m.openReviewRelease() }),
 		},
+	}
+}
+
+// orEnterWriting turns a write into one that opens the mode that can write first, for a reader who
+// pressed it while reading rather than switching modes and then pressing it.
+func orEnterWriting(fn func(model) (tea.Model, tea.Cmd)) func(model) (tea.Model, tea.Cmd) {
+	return func(m model) (tea.Model, tea.Cmd) {
+		if m.review.writing {
+			return fn(m)
+		}
+
+		if said, history := m.reviewIsHistory(); history {
+			return m.refuseReviewHistory(said)
+		}
+
+		m.review.writing = true
+
+		return fn(m)
 	}
 }
 
@@ -133,10 +161,6 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 			return m.refuseReviewWrite()
 		}
 
-		if said, history := m.reviewIsHistory(); history {
-			return m.refuseReviewHistory(said)
-		}
-
 		return fn(m)
 	}
 }
@@ -144,11 +168,19 @@ func orRefuseWrite(fn func(model) (tea.Model, tea.Cmd)) func(model, string) (tea
 func reviewLegend() []legendRow {
 	// A dead agent keeps every key that reads and loses every key that sends, so the ones that
 	// would only explain their own refusal are not offered.
-	writable := func(m model) bool {
+	reachable := func(m model) bool {
 		_, dead := m.reviewIsReadOnly()
+
+		return !dead
+	}
+
+	// A review already out is answered by the agent rather than added to, and an older round
+	// holds no line a comment could ask to be changed, so the keys that write are offered in
+	// neither.
+	offered := func(m model) bool {
 		_, history := m.reviewIsHistory()
 
-		return !dead && !history
+		return reachable(m) && !history && !m.review.awaiting
 	}
 
 	return []legendRow{
@@ -206,7 +238,10 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewEdit},
 			desc: model.reviewEditorDesc,
-			show: writable,
+			// Pressing it while reading opens the mode that writes, so it is offered where the
+			// compose key is.
+			show:  offered,
+			strip: true,
 		},
 		{
 			of:   []actionID{actionReviewBase},
@@ -237,15 +272,14 @@ func reviewLegend() []legendRow {
 		{
 			of:   []actionID{actionReviewCompose},
 			desc: model.reviewComposeDesc,
-			// The key stays bound while a review is out, so pressing it says why rather than
-			// doing nothing, and only the offer of it goes.
-			show:  func(m model) bool { return writable(m) && !m.review.awaiting },
+			// The compose key is the way into the mode that writes, so reading offers it too.
+			show:  offered,
 			strip: true,
 		},
 		{
 			of:   []actionID{actionReviewSend},
-			desc: func(model) string { return "send to the agent" },
-			show: writable,
+			desc: model.reviewSendDesc,
+			show: reachable,
 		},
 		{
 			of:   []actionID{actionReviewBack},

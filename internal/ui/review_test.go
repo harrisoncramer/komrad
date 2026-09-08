@@ -1700,16 +1700,17 @@ func TestReviewBaseSaysSoWhenNothingChangedSinceThatReview(t *testing.T) {
 	assert.Contains(t, m.review.notice, "nothing written")
 }
 
-// TestReviewBaseRecordsWhatItWasMeasuredFrom covers the durable half: a comment written while the
-// diff is narrowed records the commit its old side was counted from, so a later reader is not left
-// assuming the round's own base.
-func TestReviewBaseRecordsWhatItWasMeasuredFrom(t *testing.T) {
+// TestWritingIsRefusedOnAFinishedRound covers the round keys meeting the write keys: an older
+// round draws code the agent has rewritten, so the line under the cursor is not in the work a
+// comment could ask it to change, and carrying the reader forward would land them somewhere they
+// never chose.
+func TestWritingIsRefusedOnAFinishedRound(t *testing.T) {
 	dir := reviewRepo(t)
 	agents := &fakeReviewAgents{}
 
 	m := reviewWithAnEarlierReview(t, dir, agents)
 	m = pressReviewBase(t, m)
-	require.NotEmpty(t, m.review.base)
+	require.NotEmpty(t, m.review.base, "the diff narrowed to a round")
 
 	for row := 0; row < m.review.view.Len(); row++ {
 		if found, ok := m.review.view.GetAnchor(row); ok && found.NewStart > 0 {
@@ -1719,20 +1720,36 @@ func TestReviewBaseRecordsWhatItWasMeasuredFrom(t *testing.T) {
 		}
 	}
 
+	// The newest round ends at the work in hand, so its new side is the current snapshot and a
+	// comment on it is about code the agent still has.
+	_, history := m.reviewIsHistory()
+	require.False(t, history, "the newest round is not finished")
+
 	next, _ := m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.True(t, m.review.composing, "the composer opens on a narrowed diff")
+	assert.True(t, m.review.writing, "so the key opens the mode that writes")
+	assert.True(t, m.review.composing, "on the line it was pressed on")
 
-	m.review.editor.SetValue("this line, in the work since I last looked")
-	next, cmd := m.updateReviewComposer(keyMsg("ctrl+s"))
+	// An older round is a different matter, and the same key refuses rather than moving anybody.
+	m.review.composing = false
+	m.review.writing = false
+	m.review.chapters = []reviewChapter{
+		{ToSHA: "an-older-snapshot", Ordinal: 1},
+		{ToSHA: m.review.round.GetSnapshotSha(), Ordinal: 2},
+	}
+	m.review.chapter = 0
+
+	said, history := m.reviewIsHistory()
+	require.True(t, history)
+	require.Equal(t, "round 1 of 2", said)
+
+	next, _ = m.updateReview(keyMsg("c"))
 	m = next.(model)
-	require.NotNil(t, cmd)
-	cmd()
 
-	require.NotNil(t, agents.created, "the thread reached the service")
-	assert.Equal(t, m.review.base, agents.created.GetBaseSha(),
-		"and says which commit its old side was counted from")
-	assert.Positive(t, agents.created.GetNewStart())
+	assert.False(t, m.review.writing, "the mode did not open")
+	assert.False(t, m.review.composing, "and no editor did either")
+	assert.Contains(t, m.review.notice, "round 1 of 2 is finished")
+	assert.Nil(t, agents.created, "and nothing was written")
 }
 
 // TestReviewBaseIsRefusedWhenTheBaseMoved covers two rounds measured from different points, where

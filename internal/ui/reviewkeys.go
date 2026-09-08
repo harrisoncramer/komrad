@@ -134,16 +134,16 @@ func (m model) refuseReviewWrite() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// refuseReviewHistory says why a write did not happen on a round the agent has already moved
-// past, and names the key back to the work it could act on.
+// refuseReviewHistory says why a write did not happen on a round the agent has moved past, and
+// names the key back to the work a comment could still ask it to change.
 func (m model) refuseReviewHistory(said string) (tea.Model, tea.Cmd) {
 	summary := said + " is finished"
-	detail := "Nothing can be written on a round the agent has moved past, since it can only " +
-		"change the work it has now. Press " + keyLabel(m.keys.Review.BaseForward) +
-		" to come back to it."
+	detail := "This draws code the agent has already rewritten, so the line under the cursor is " +
+		"not in the work it has now and a comment on it could not be acted on. Press " +
+		keyLabel(m.keys.Review.BaseForward) + " until the whole change is on screen, then comment there."
 
 	m.reportBrief(summary, detail, nil)
-	m.review.notice = summary
+	m.review.notice = summary + ", so nothing can be written on it"
 
 	return m, nil
 }

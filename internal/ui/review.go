@@ -77,11 +77,14 @@ type reviewState struct {
 	// awaiting says the last released review has produced no work yet, so a second one would be
 	// refused.
 	awaiting bool
+	// writing says the review is in the mode that can reach the agent, which is the whole change
+	// and every key that writes, rather than the mode that walks the rounds and writes nothing.
+	writing bool
 	// chapters are the rounds of the review the two step keys walk, oldest first.
 	chapters []reviewChapter
 	// chapter is which of those is on screen, negative for the whole change.
 	chapter int
-	err    error
+	err     error
 
 	// roundDir is where the round has been checked out for the editor to read, named after the
 	// agent rather than the round.

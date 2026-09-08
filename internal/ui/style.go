@@ -44,6 +44,13 @@ var (
 	dimStyle    = errui.Dim
 	// reviewScopeOnStyle is the half of the scope switch that is in force.
 	reviewScopeOnStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+
+	// The mode is the one thing on the screen that changes what every key does, so each state
+	// gets its own colour rather than sharing the accent the scope line uses.
+	reviewReadingStyle = lipgloss.NewStyle().Foreground(colorAccent).Bold(true)
+	reviewWritingStyle = lipgloss.NewStyle().Foreground(colorSuccess).Bold(true)
+	reviewHistoryStyle = lipgloss.NewStyle().Foreground(colorWarning).Bold(true)
+	reviewHeldStyle    = lipgloss.NewStyle().Foreground(colorMuted).Bold(true)
 	blurredHeaderStyle = lipgloss.NewStyle().Foreground(colorMuted).Bold(true)
 	blurredCursorStyle = lipgloss.NewStyle().Bold(true)
 )

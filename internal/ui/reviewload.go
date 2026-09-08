@@ -17,6 +17,7 @@ import (
 	"connectrpc.com/connect"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
+	"google.golang.org/protobuf/proto"
 )
 
 const reviewEditorHeight = 4
@@ -58,6 +59,9 @@ type reviewChapter struct {
 	// Ordinal is the round the chapter ends at, which is the newest round whose comments existed
 	// while it was the work in hand.
 	Ordinal int32
+	// Until is when the agent moved past this chapter, in RFC 3339, empty for the chapter nothing
+	// follows. Anything said after it was said about later code.
+	Until string
 	// Comparable is false for a chapter whose two ends hang off different base commits, which a
 	// rebase between two reviews leaves behind.
 	Comparable bool
@@ -210,7 +214,7 @@ func (m model) doesReviewFitBaseLegend() bool {
 		return false
 	}
 
-	return m.review.baseRound != nil || m.review.base != ""
+	return m.doesReviewWalk()
 }
 
 // reviewBaseDesc says which way the base key will move, in the legend's own width budget.
@@ -273,10 +277,7 @@ func (m model) loadReviewCmd(params loadReviewCmdParams) tea.Cmd {
 			return reviewLoadedMsg{agentID: agentID, err: err}
 		}
 
-		round, pinned := pendingRound(ctx, agents, pendingRoundParams{
-			AgentID: agentID,
-			Threads: threads,
-		})
+		round, pinned := pendingRound(ctx, agents, pendingRoundParams{AgentID: agentID})
 		if round == nil {
 			opened, err := agents.OpenReviewRound(ctx, connect.NewRequest(&agentv1.OpenReviewRoundRequest{
 				AgentId: agentID,
@@ -526,6 +527,7 @@ func chapterList(params chapterListParams) []reviewChapter {
 			ToSHA:      milestone.GetSnapshotSha(),
 			At:         closed[milestone.GetOrdinal()],
 			Ordinal:    milestone.GetOrdinal(),
+			Until:      roundAfter(params.Rounds, milestone.GetOrdinal()),
 			Comparable: from == "" || fromBase == milestone.GetBaseSha(),
 		})
 
@@ -549,16 +551,81 @@ func threadsByChapter(params threadsByChapterParams) []*agentv1.ReviewThread {
 		return params.Threads
 	}
 
-	ceiling := params.Chapters[params.At].Ordinal
+	chapter := params.Chapters[params.At]
 
 	kept := make([]*agentv1.ReviewThread, 0, len(params.Threads))
 	for _, thread := range params.Threads {
-		if thread.GetRoundOrdinal() <= ceiling {
-			kept = append(kept, thread)
+		if thread.GetRoundOrdinal() > chapter.Ordinal {
+			continue
 		}
+
+		kept = append(kept, messagesByChapter(thread, chapter.Until))
 	}
 
 	return kept
+}
+
+// messagesByChapter is one thread with the replies written after the chapter closed left out, so a
+// conversation that carried on about later code is read as it stood then.
+func messagesByChapter(thread *agentv1.ReviewThread, until string) *agentv1.ReviewThread {
+	if until == "" {
+		return thread
+	}
+
+	said := thread.GetMessages()
+
+	kept := make([]*agentv1.ReviewMessage, 0, len(said))
+	for _, message := range said {
+		if isBefore(message.GetCreatedAt(), until) {
+			kept = append(kept, message)
+		}
+	}
+
+	if len(kept) == len(said) {
+		return thread
+	}
+
+	// The threads belong to the model rather than to the view, so the shortened one is a copy.
+	trimmed, ok := proto.Clone(thread).(*agentv1.ReviewThread)
+	if !ok {
+		return thread
+	}
+
+	trimmed.Messages = kept
+
+	return trimmed
+}
+
+// isBefore reports whether one stamp came before another, parsed rather than compared as text,
+// since two stamps written at different offsets sort by their offset instead of their moment.
+func isBefore(stamp, mark string) bool {
+	at, err := time.Parse(time.RFC3339, stamp)
+	if err != nil {
+		return false
+	}
+
+	against, err := time.Parse(time.RFC3339, mark)
+	if err != nil {
+		return false
+	}
+
+	return at.Before(against)
+}
+
+// roundAfter is when the round following an ordinal was taken, which is the moment the agent left
+// that round behind, and nothing when it is the newest.
+func roundAfter(rounds []*agentv1.ReviewRound, ordinal int32) string {
+	after := ""
+	for _, round := range rounds {
+		if round.GetOrdinal() <= ordinal {
+			continue
+		}
+		if after == "" || isBefore(round.GetCreatedAt(), after) {
+			after = round.GetCreatedAt()
+		}
+	}
+
+	return after
 }
 
 // awaitingReviewAnswer reports whether the person has released a review against the round on
@@ -635,21 +702,24 @@ func listReviewThreads(
 	return resp.Msg.GetThreads(), nil
 }
 
-// pendingRoundParams says whose review is being read and what has already been written on it.
+// pendingRoundParams says whose review is being read.
 type pendingRoundParams struct {
 	AgentID string
-	Threads []*agentv1.ReviewThread
 }
 
-// pendingRound is the round a reader's unsent comments were written against, and nothing when
-// they hold none, so a reader part way through a review keeps reading the snapshot they started
-// on rather than being moved onto whatever the agent has written since.
+// pendingRound is the round a reader's own open batch was opened against, and nothing when they
+// have none, so a reader part way through a review keeps reading the snapshot they started on
+// rather than being moved onto whatever the agent has written since.
 func pendingRound(
 	ctx context.Context,
 	agents agentv1connect.AgentServiceClient,
 	params pendingRoundParams,
 ) (*agentv1.ReviewRound, bool) {
-	roundID := pendingRoundID(params.Threads)
+	// Explainer: the batch says which snapshot the review is being written against, and a thread
+	// does not. Replying into a thread from an earlier round leaves an unsent message on that
+	// thread, so reading the round off the thread would drag the whole diff back to whenever that
+	// conversation started.
+	roundID := openBatchRound(ctx, agents, params.AgentID)
 	if roundID == "" {
 		return nil, false
 	}
@@ -670,21 +740,26 @@ func pendingRound(
 	return nil, false
 }
 
-// pendingRoundID is the round the reader's unsent comments sit on, empty when every comment has
-// gone to the agent already.
-func pendingRoundID(threads []*agentv1.ReviewThread) string {
-	for _, thread := range threads {
-		if thread.GetRoundId() == "" {
+// openBatchRound is the round the person's unreleased review was opened against, empty when they
+// have nothing open.
+func openBatchRound(
+	ctx context.Context,
+	agents agentv1connect.AgentServiceClient,
+	agentID string,
+) string {
+	resp, err := agents.ListReviews(ctx, connect.NewRequest(&agentv1.ListReviewsRequest{
+		AgentId: agentID,
+	}))
+	if err != nil {
+		return ""
+	}
+
+	for _, review := range resp.Msg.GetReviews() {
+		if review.GetAuthorKind() != agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_HUMAN {
 			continue
 		}
-
-		for _, message := range thread.GetMessages() {
-			if message.GetAuthorKind() == agentv1.ReviewAuthorKind_REVIEW_AUTHOR_KIND_AGENT {
-				continue
-			}
-			if message.GetSentAt() == "" {
-				return thread.GetRoundId()
-			}
+		if review.GetReleasedAt() == "" {
+			return review.GetRoundId()
 		}
 	}
 
@@ -719,6 +794,7 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 		return nil
 	}
 
+	opening := m.review.loading
 	m.review.loading = false
 	m.review.err = msg.err
 	if msg.patch == nil {
@@ -757,6 +833,14 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	}
 
 	m.setReviewThreads(msg.threads)
+
+	// A reader opening the screen on comments they never sent is already writing, since those
+	// comments are the review in hand. Only the first read does this, so putting the review down
+	// with the back key is not undone by the next reload.
+	if opening && m.doesReviewHoldUnsent() {
+		m.review.writing = true
+	}
+
 	m.review.round = msg.round
 	m.review.moved = false
 	m.review.since = msg.since
