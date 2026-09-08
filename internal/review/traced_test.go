@@ -114,3 +114,62 @@ func TestTracingLeavesTheOtherAttemptsAlone(t *testing.T) {
 	require.True(t, ok, "a line nobody drew does not cost the thread its own coordinates")
 	assert.Equal(t, "t1", found.GetId())
 }
+
+// TestAnExactCoordinateKeepsItsRowFromATracedGuess covers the two thread orders meeting one row:
+// placement walks the arms across every thread, so a traced answer cannot take a row that a
+// thread's own coordinates name, whichever of them the query returned first.
+func TestAnExactCoordinateKeepsItsRowFromATracedGuess(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "return greeting(nameOr(name))",
+				NewNumber: 4,
+			},
+		)},
+	}), false)
+
+	// The older thread has no old side and a quote that has gone, so only tracing can place it,
+	// and tracing says the row the newer thread was written on.
+	older := threadAt("older", "greet.go", 0, 9, "+return fmt.Sprintf(\"hello\")")
+	newer := threadAt("newer", "greet.go", 0, 4, "+return greeting(nameOr(name))")
+
+	view.SetTraced(map[string]Traced{"older": {FilePath: "greet.go", NewStart: 4}})
+
+	// The listing orders by round, so the older thread is offered its row first.
+	view.PinThreads([]*agentv1.ReviewThread{older, newer})
+
+	found, ok := view.GetThreadAt(2)
+	require.True(t, ok, "the row is drawn")
+	assert.Equal(t, "newer", found.GetId(), "and belongs to the thread written against it")
+	assert.Equal(t, pinned, view.placed["newer"])
+	assert.Equal(t, adrift, view.placed["older"], "the traced guess gives way rather than taking it")
+}
+
+// TestAFollowedRenameFoldsWithItsFile covers the fold check reading the thread's own path while
+// placement reads the traced one: a thread whose file was renamed and then read is collapsed
+// rather than told it is outside a window nobody narrowed.
+func TestAFollowedRenameFoldsWithItsFile(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "hello.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "return \"hello\"",
+				OldNumber: 4,
+				NewNumber: 4,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 4, 4, " return \"hello\"")
+
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "hello.go", NewStart: 4}})
+	view.SetViewed(map[string]bool{"hello.go": true})
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	assert.Equal(t, collapsed, view.placed["t1"], "the thread folds away with the file it is in")
+}

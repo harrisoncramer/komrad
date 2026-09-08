@@ -1,6 +1,7 @@
 package ui
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"strings"
@@ -132,4 +133,48 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 	assert.True(t, found.FileOnly, "the line it was about is gone")
 	assert.Equal(t, "greet.go", found.FilePath, "and the file it was in is not")
 	assert.Zero(t, found.NewStart)
+}
+
+// TestTraceThreadsSkipsRoundsTheScreenWillNotDraw covers a chapter step: the diff ends at an
+// earlier snapshot, so a thread from a later round is not drawn there and tracing it would run a
+// backwards diff of the whole tree for an answer nothing reads.
+func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
+	dir, first, second := traceRepo(t)
+
+	rounds := []*agentv1.ReviewRound{
+		{Id: "r1", Ordinal: 1, SnapshotSha: first},
+		{Id: "r2", Ordinal: 2, SnapshotSha: second},
+	}
+	threads := []*agentv1.ReviewThread{
+		{Id: "later", RoundId: "r2", FilePath: "greet.go", NewStart: 8, NewEnd: 8},
+	}
+
+	// The reader has stepped back to the first round, so that snapshot is what is drawn.
+	traced := traceThreads(t.Context(), traceThreadsParams{
+		Dir:     dir,
+		ToSHA:   first,
+		Threads: threads,
+		Rounds:  rounds,
+	})
+
+	assert.Empty(t, traced, "a later round is not traced backwards into an earlier one")
+}
+
+// TestTraceThreadsGivesUpWholeRatherThanInPart covers the deadline landing while the pairs are
+// being read: placing the threads of whichever pairs answered would make the same two commits
+// draw a comment in different places on different loads.
+func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
+	dir, first, second := traceRepo(t)
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+
+	traced := traceThreads(ctx, traceThreadsParams{
+		Dir:     dir,
+		ToSHA:   second,
+		Threads: []*agentv1.ReviewThread{{Id: "t1", RoundId: "r1", FilePath: "greet.go", NewStart: 4, NewEnd: 4}},
+		Rounds:  []*agentv1.ReviewRound{{Id: "r1", Ordinal: 1, SnapshotSha: first}},
+	})
+
+	assert.Empty(t, traced, "a pair nobody could read means no tracing rather than some of it")
 }

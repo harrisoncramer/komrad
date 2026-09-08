@@ -2,12 +2,17 @@ package ui
 
 import (
 	"context"
+	"time"
 
 	"weave/internal/git"
 	"weave/internal/position"
 	"weave/internal/review"
 	agentv1 "weave/proto/gen/agent/v1"
 )
+
+// traceTimeout is how long every pair together may take, kept apart from the load's own budget
+// so a slow tree cannot answer for some pairs and not others.
+const traceTimeout = 10 * time.Second
 
 // traceThreadsParams says which conversation to trace, where to read the repository, and which
 // snapshot the diff on screen was drawn to.
@@ -25,9 +30,50 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 		return nil
 	}
 
+	byFrom := groupBySnapshot(params)
+	if len(byFrom) == 0 {
+		return nil
+	}
+
+	// Explainer: the pairs are all or nothing. Sharing the load's deadline let it land part way
+	// through, which placed the threads of whichever pairs had answered and sent the rest to the
+	// foot, so two identical loads drew the same comments in different places.
+	ctx, cancel := context.WithTimeout(ctx, traceTimeout)
+	defer cancel()
+
+	traced := map[string]review.Traced{}
+	for from, threads := range byFrom {
+		mappings, err := git.MapRanges(ctx, git.MapRangesParams{
+			Dir:     params.Dir,
+			FromSHA: from,
+			ToSHA:   params.ToSHA,
+		})
+		if err != nil {
+			return nil
+		}
+
+		for id, found := range traceOne(traceOneParams{Mappings: mappings, Threads: threads}) {
+			traced[id] = found
+		}
+	}
+
+	return traced
+}
+
+// groupBySnapshot gathers the threads worth tracing under the snapshot each was written against,
+// leaving out the ones the screen will not draw.
+func groupBySnapshot(params traceThreadsParams) map[string][]*agentv1.ReviewThread {
 	snapshots := map[string]string{}
+	ordinals := map[string]int32{}
+	ceiling := int32(0)
+
 	for _, round := range params.Rounds {
 		snapshots[round.GetId()] = round.GetSnapshotSha()
+		ordinals[round.GetId()] = round.GetOrdinal()
+
+		if round.GetSnapshotSha() == params.ToSHA {
+			ceiling = round.GetOrdinal()
+		}
 	}
 
 	byFrom := map[string][]*agentv1.ReviewThread{}
@@ -40,26 +86,16 @@ func traceThreads(ctx context.Context, params traceThreadsParams) map[string]rev
 			continue
 		}
 
-		byFrom[from] = append(byFrom[from], thread)
-	}
-
-	traced := map[string]review.Traced{}
-	for from, threads := range byFrom {
-		mappings, err := git.MapRanges(ctx, git.MapRangesParams{
-			Dir:     params.Dir,
-			FromSHA: from,
-			ToSHA:   params.ToSHA,
-		})
-		if err != nil {
+		// A round later than the one on screen is not drawn there, so tracing it would run a
+		// backwards diff of the whole tree for an answer nothing reads.
+		if ceiling > 0 && ordinals[thread.GetRoundId()] > ceiling {
 			continue
 		}
 
-		for id, found := range traceOne(traceOneParams{Mappings: mappings, Threads: threads}) {
-			traced[id] = found
-		}
+		byFrom[from] = append(byFrom[from], thread)
 	}
 
-	return traced
+	return byFrom
 }
 
 // traceOneParams is one pair of snapshots and the threads written against the earlier one.

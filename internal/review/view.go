@@ -227,19 +227,48 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 
 	index := v.indexLines()
 
-	var unplaced []*agentv1.ReviewThread
+	pending := make([]*agentv1.ReviewThread, 0, len(threads))
 	for _, thread := range threads {
 		// A thread in a collapsed file has a line to stand on the moment the file is opened
 		// again, so it is not adrift and does not go to the foot of the diff.
-		if v.viewed[thread.GetFilePath()] {
+		if v.viewed[v.pathOf(thread)] {
 			v.placed[thread.GetId()] = collapsed
 
 			continue
 		}
 
-		y, where := v.rowFor(index, thread)
-		if where == adrift || v.pinned[y] != nil {
-			unplaced = append(unplaced, thread)
+		pending = append(pending, thread)
+	}
+
+	// Explainer: the arms are walked outside the threads rather than inside them. A row goes to
+	// the first thread that reaches it, so walking thread by thread hands the row to whichever
+	// thread the query happened to return first, and a guess from a low arm can take a row an
+	// exact coordinate from a high one wanted.
+	for _, arm := range placeArms() {
+		pending = v.placeByArm(index, arm, pending)
+	}
+
+	v.appendAdrift(pending)
+
+	// The foot section is rebuilt here, so any search holding row numbers from the old one is
+	// run again rather than left pointing at rows that have moved.
+	if v.search != nil {
+		v.SetPattern(v.search.pattern)
+	}
+}
+
+// placeByArm gives every thread this arm can place a row, and gives back the ones it could not,
+// so a later arm never takes a row an earlier one wanted.
+func (v *View) placeByArm(
+	index lineIndex,
+	arm placeArm,
+	threads []*agentv1.ReviewThread,
+) []*agentv1.ReviewThread {
+	left := make([]*agentv1.ReviewThread, 0, len(threads))
+	for _, thread := range threads {
+		y, where, ok := arm(v, index, thread)
+		if !ok || v.pinned[y] != nil {
+			left = append(left, thread)
 
 			continue
 		}
@@ -248,13 +277,7 @@ func (v *View) PinThreads(threads []*agentv1.ReviewThread) {
 		v.placed[thread.GetId()] = where
 	}
 
-	v.appendAdrift(unplaced)
-
-	// The foot section is rebuilt here, so any search holding row numbers from the old one is
-	// run again rather than left pointing at rows that have moved.
-	if v.search != nil {
-		v.SetPattern(v.search.pattern)
-	}
+	return left
 }
 
 // appendAdrift gives every thread with nowhere to stand a row at the foot of the diff, sorted
@@ -276,7 +299,7 @@ func (v *View) appendAdrift(threads []*agentv1.ReviewThread) {
 	// makes a narrowed diff look like it has thrown every comment away.
 	var changed, outside []*agentv1.ReviewThread
 	for _, thread := range threads {
-		if _, drawn := v.findFile(thread.GetFilePath()); drawn {
+		if _, drawn := v.findFile(v.pathOf(thread)); drawn {
 			changed = append(changed, thread)
 
 			continue

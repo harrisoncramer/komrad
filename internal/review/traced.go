@@ -20,6 +20,17 @@ func (v *View) SetTraced(traced map[string]Traced) {
 	v.traced = traced
 }
 
+// pathOf is the file a thread is about in the snapshot on screen, which a rename moves and which
+// tracing is the only thing that knows about.
+func (v *View) pathOf(thread *agentv1.ReviewThread) string {
+	found, ok := v.traced[thread.GetId()]
+	if !ok || found.FilePath == "" {
+		return thread.GetFilePath()
+	}
+
+	return found.FilePath
+}
+
 // tracedRowFor is the row git says a thread's lines became, and whether it said anything at all.
 func (v *View) tracedRowFor(index lineIndex, thread *agentv1.ReviewThread) (int, bool) {
 	found, ok := v.traced[thread.GetId()]
