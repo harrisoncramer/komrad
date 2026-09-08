@@ -201,6 +201,20 @@ func (m model) matchBindings() []key.Binding {
 	return []key.Binding{pairBinding(m.keys.Filter.NextMatch, m.keys.Filter.PrevMatch, "next/prev match")}
 }
 
+// infoPaneHelp is the keys that fill the pane beside the panel, drawn off the same question the
+// dispatch asks before answering them, so a screen cannot take them and leave them unnamed.
+func (m model) infoPaneHelp() []key.Binding {
+	if !m.screen.opensInfoPane() {
+		return nil
+	}
+
+	return slices.Concat(
+		[]key.Binding{binding(m.keys.Logs.Open, m.logsDesc())},
+		m.olderLogBindings(),
+		[]key.Binding{binding(m.keys.Terminal.Open, m.terminalDesc())},
+	)
+}
+
 // olderLogBindings appear only while the info pane is showing a run, naming which of an agent's
 // runs is on screen because one wrapping direction gives no other way to tell.
 func (m model) olderLogBindings() []key.Binding {
@@ -246,11 +260,9 @@ func (m model) agentHelp() keyMap {
 			m.filterBinding(),
 			m.moveBinding(),
 			m.jumpBinding(),
-			binding(m.keys.Logs.Open, m.logsDesc()),
 		},
-		m.olderLogBindings(),
+		m.infoPaneHelp(),
 		[]key.Binding{
-			binding(m.keys.Terminal.Open, m.terminalDesc()),
 			m.columnScrollBinding("the notes"),
 		},
 		m.editFilterBinding(m.keys.Agents.Back),
@@ -371,6 +383,7 @@ func (m model) rowHelp() []key.Binding {
 		binding(m.keys.Selection.Toggle, "select"),
 		binding(m.keys.Agents.OpenPR, "open pr"),
 		binding(m.keys.Agents.Review, "review diff"),
+		binding(m.keys.Agents.Mail, "mailbox"),
 		binding(m.keys.Marks.Set, "set mark"),
 		binding(m.keys.Marks.Jump, "jump to mark"),
 		m.hideBinding(),
@@ -400,17 +413,25 @@ func (m model) scheduleHelp() keyMap {
 
 	return keyMap{
 		short: slices.Concat([]key.Binding{edit}, editFilter, []key.Binding{m.helpBinding()}),
-		full: slices.Concat([]key.Binding{
-			binding(m.keys.Schedules.New, "new schedule"),
-			edit,
-			binding(m.keys.Schedules.Toggle, toggle),
-			binding(m.keys.Schedules.Archive, "archive"),
-			m.detailsBinding(),
-			m.messagesBinding(),
-			m.filterBinding(),
-			m.moveBinding(),
-			m.columnScrollBinding("the record"),
-		}, editFilter, m.globalHelp()),
+		full: slices.Concat(
+			[]key.Binding{
+				binding(m.keys.Schedules.New, "new schedule"),
+				edit,
+				binding(m.keys.Schedules.Toggle, toggle),
+				binding(m.keys.Schedules.Archive, "archive"),
+				m.detailsBinding(),
+				m.messagesBinding(),
+				m.filterBinding(),
+				m.moveBinding(),
+			},
+			m.infoPaneHelp(),
+			[]key.Binding{
+				m.columnScrollBinding("the record"),
+				binding(m.keys.Schedules.Back, "back"),
+			},
+			editFilter,
+			m.globalHelp(),
+		),
 	}
 }
 
@@ -429,8 +450,9 @@ func (m model) mailHelp() keyMap {
 				m.filterBinding(),
 				m.moveBinding(),
 				m.jumpBinding(),
-				m.columnScrollBinding("the message"),
 			},
+			m.infoPaneHelp(),
+			[]key.Binding{m.columnScrollBinding("the message")},
 			editFilter,
 			m.globalHelp(),
 		),
@@ -468,6 +490,7 @@ func (m model) archiveHelp() keyMap {
 				m.moveBinding(),
 				m.jumpBinding(),
 				m.columnScrollBinding("the notes"),
+				binding(m.keys.Archive.Back, "back"),
 			},
 			editFilter,
 			m.globalHelp(),
@@ -560,6 +583,8 @@ func (m model) reviewHelp() keyMap {
 				binding(m.keys.Filter.Open, "search"),
 				pairBinding(keys.NextMatch, keys.PrevMatch, "next/previous match"),
 				pairBinding(keys.PanLeft, keys.PanRight, "pan sideways"),
+				binding(keys.PanReset, "stop panning"),
+				m.jumpBinding(),
 				binding(keys.EditFile, m.reviewEditorDesc()),
 				binding(keys.Reload, m.reviewReloadDesc()),
 				binding(keys.Resolve, m.reviewResolveDesc()),

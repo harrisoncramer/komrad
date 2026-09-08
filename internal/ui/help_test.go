@@ -9,6 +9,7 @@ import (
 	workflowstore "weave/internal/store/workflow"
 	"weave/internal/ui/layout"
 
+	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/x/ansi"
 	"github.com/stretchr/testify/assert"
@@ -139,4 +140,163 @@ func helpModel() model {
 		width:   46,
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "everything"}}, agents: []agentItem{{agent: agentstore.Agent{Name: "api-refactor", WorkflowID: "w1"}}}}, tree: treeState{rowCursor: rowCursor{cursor: 1}},
 	}
+}
+
+// TestLegendOrderIsPinned records the order every screen names its bindings in, since the
+// order is hand-tuned reading order rather than anything derived, and a refactor that moves
+// where the bindings are built would otherwise rearrange them without failing anything.
+func TestLegendOrderIsPinned(t *testing.T) {
+	tests := []struct {
+		name  string
+		s     screen
+		of    func(model) keyMap
+		short []string
+		full  []string
+	}{
+		{
+			name:  "agents",
+			s:     screenAgents,
+			of:    model.agentHelp,
+			short: []string{"enter open", "? show help"},
+			full: []string{
+				"enter open",
+				"v select",
+				"o open pr",
+				"d review diff",
+				"m mailbox",
+				"t set mark",
+				"' jump to mark",
+				"h/H hide/show hidden",
+				"c/w new agent/workflow",
+				"C attach child",
+				"r rename",
+				"u mark read/unread",
+				"z/Z archive/archived agents",
+				"s search",
+				"S schedules",
+				"C-t details",
+				"C-g messages",
+				"/ search",
+				"k/j move",
+				"gg/G top/bottom",
+				"l run log",
+				"T terminal here",
+				"C-n/C-p scroll the notes",
+				"? show help",
+			},
+		},
+		{
+			name:  "schedules",
+			s:     screenSchedules,
+			of:    model.scheduleHelp,
+			short: []string{"enter edit", "? show help"},
+			full: []string{
+				"c new schedule",
+				"enter edit",
+				"space pause",
+				"z archive",
+				"C-t details",
+				"C-g messages",
+				"/ search",
+				"k/j move",
+				"l run log",
+				"T terminal here",
+				"C-n/C-p scroll the record",
+				"esc back",
+				"? show help",
+			},
+		},
+		{
+			name:  "archive",
+			s:     screenArchive,
+			of:    model.archiveHelp,
+			short: []string{"? show help"},
+			full: []string{
+				"C-t details",
+				"C-g messages",
+				"/ search",
+				"k/j move",
+				"gg/G top/bottom",
+				"C-n/C-p scroll the notes",
+				"esc back",
+				"? show help",
+			},
+		},
+		{
+			name:  "search",
+			s:     screenSearch,
+			of:    model.searchHelp,
+			short: []string{"enter go to it", "esc// edit the query", "? show help"},
+			full: []string{
+				"enter go to it",
+				"esc// edit the query",
+				"k/j move",
+				"gg/G top/bottom",
+				"C-n/C-p scroll the transcript",
+				"? show help",
+			},
+		},
+		{
+			name:  "mail",
+			s:     screenMail,
+			of:    model.mailHelp,
+			short: []string{"esc back", "? show help"},
+			full: []string{
+				"esc back",
+				"C-t details",
+				"C-g messages",
+				"/ search",
+				"k/j move",
+				"gg/G top/bottom",
+				"l run log",
+				"T terminal here",
+				"C-n/C-p scroll the message",
+				"? show help",
+			},
+		},
+		{
+			name:  "review",
+			s:     screenReview,
+			of:    model.reviewHelp,
+			short: []string{"k/j move", "? show help"},
+			full: []string{
+				"k/j move",
+				"C-n/C-p scroll",
+				"]/[ next/previous file",
+				"t/T next/previous thread",
+				"/ search",
+				"n/N next/previous match",
+				"h/l pan sideways",
+				"0 stop panning",
+				"gg/G top/bottom",
+				"e open in your editor",
+				"R read the diff again",
+				"r settle the thread",
+				"v mark the file viewed",
+				"C-t details",
+				"esc back to the agents",
+				"? show help",
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			m := helpModel()
+			m.screen = tt.s
+
+			k := tt.of(m)
+			assert.Equal(t, tt.short, legendLabels(k.short), "the short legend")
+			assert.Equal(t, tt.full, legendLabels(k.full), "the expanded legend")
+		})
+	}
+}
+
+func legendLabels(bindings []key.Binding) []string {
+	out := make([]string, len(bindings))
+	for i, b := range bindings {
+		out[i] = b.Help().Key + " " + b.Help().Desc
+	}
+
+	return out
 }
