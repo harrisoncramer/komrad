@@ -103,6 +103,7 @@ func (s *Service) HarvestRoundEdits(
 		AgentID: req.Msg.GetAgentId(),
 		RoundID: req.Msg.GetRoundId(),
 		Runs:    runsFrom(req.Msg.GetRuns()),
+		BaseSHA: req.Msg.GetBaseSha(),
 		Force:   req.Msg.GetForce(),
 	})
 	if err != nil {

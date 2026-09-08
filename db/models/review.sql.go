@@ -1182,19 +1182,21 @@ const moveReviewThread = `-- name: MoveReviewThread :one
 UPDATE
     review_threads t
 SET
-    old_start = $1,
-    old_end = $2,
-    new_start = $3,
-    new_end = $4,
-    quoted_lines = $5,
+    base_sha = $1,
+    old_start = $2,
+    old_end = $3,
+    new_start = $4,
+    new_end = $5,
+    quoted_lines = $6,
     updated_at = NOW()
 WHERE
-    t.id = $6
+    t.id = $7
 RETURNING
     id, agent_id, file_path, old_start, old_end, new_start, new_end, quoted_lines, human_read_at, created_at, updated_at, last_agent_activity_at, resolved_at, review_id, round_id, harvested, base_sha
 `
 
 type MoveReviewThreadParams struct {
+	BaseSha     string
 	OldStart    int32
 	OldEnd      int32
 	NewStart    int32
@@ -1205,6 +1207,7 @@ type MoveReviewThreadParams struct {
 
 func (q *Queries) MoveReviewThread(ctx context.Context, arg MoveReviewThreadParams) (*ReviewThread, error) {
 	row := q.db.QueryRow(ctx, moveReviewThread,
+		arg.BaseSha,
 		arg.OldStart,
 		arg.OldEnd,
 		arg.NewStart,

@@ -632,6 +632,7 @@ func (s *Store) ListHarvested(ctx context.Context, agentID, roundID string) ([]H
 
 type MoveThreadParams struct {
 	ID          string
+	BaseSHA     string
 	OldStart    int32
 	OldEnd      int32
 	NewStart    int32
@@ -648,6 +649,7 @@ func (s *Store) MoveThread(ctx context.Context, params MoveThreadParams) (*Threa
 
 	row, err := s.queries.MoveReviewThread(ctx, models.MoveReviewThreadParams{
 		ID:          params.ID,
+		BaseSha:     params.BaseSHA,
 		OldStart:    params.OldStart,
 		OldEnd:      params.OldEnd,
 		NewStart:    params.NewStart,

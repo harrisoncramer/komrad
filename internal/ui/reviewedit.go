@@ -344,6 +344,10 @@ func (m model) harvestCmd(edits []git.Edit) tea.Cmd {
 	agents, agentID := m.api.agents, m.review.agentID
 	roundID, force := m.review.round.GetId(), m.review.oversized
 
+	// The runs were anchored against the patch on screen, so the harvest says which commit that
+	// measured their old side from rather than leaving the service to assume the round's base.
+	base := m.review.view.GetBaseSHA()
+
 	return func() tea.Msg {
 		ctx, cancel := context.WithTimeout(context.Background(), reviewTimeout)
 		defer cancel()
@@ -352,6 +356,7 @@ func (m model) harvestCmd(edits []git.Edit) tea.Cmd {
 			AgentId: agentID,
 			RoundId: roundID,
 			Runs:    toHarvestedRuns(runs),
+			BaseSha: base,
 			Force:   force,
 		}))
 		if err != nil {

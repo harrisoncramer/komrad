@@ -2174,6 +2174,8 @@ type HarvestRoundEditsRequest struct {
 	AgentId string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
 	RoundId string                 `protobuf:"bytes,2,opt,name=round_id,json=roundId,proto3" json:"round_id,omitempty"`
 	Runs    []*HarvestedRun        `protobuf:"bytes,3,rep,name=runs,proto3" json:"runs,omitempty"`
+	// The commit the old side of these runs was measured from, empty for the round's own base.
+	BaseSha string `protobuf:"bytes,5,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// Write a harvest that went past the ceiling anyway, which is the reviewer answering for an
 	// edit big enough to look like a formatter.
 	Force         bool `protobuf:"varint,4,opt,name=force,proto3" json:"force,omitempty"`
@@ -2230,6 +2232,13 @@ func (x *HarvestRoundEditsRequest) GetRuns() []*HarvestedRun {
 		return x.Runs
 	}
 	return nil
+}
+
+func (x *HarvestRoundEditsRequest) GetBaseSha() string {
+	if x != nil {
+		return x.BaseSha
+	}
+	return ""
 }
 
 func (x *HarvestRoundEditsRequest) GetForce() bool {
@@ -2475,11 +2484,12 @@ const file_agent_v1_review_proto_rawDesc = "" +
 	"\tnew_start\x18\x04 \x01(\x05R\bnewStart\x12\x17\n" +
 	"\anew_end\x18\x05 \x01(\x05R\x06newEnd\x12!\n" +
 	"\fquoted_lines\x18\x06 \x03(\tR\vquotedLines\x12\x14\n" +
-	"\x05lines\x18\a \x03(\tR\x05lines\"\xa4\x01\n" +
+	"\x05lines\x18\a \x03(\tR\x05lines\"\xbf\x01\n" +
 	"\x18HarvestRoundEditsRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\x12\"\n" +
 	"\bround_id\x18\x02 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aroundId\x12*\n" +
-	"\x04runs\x18\x03 \x03(\v2\x16.agent.v1.HarvestedRunR\x04runs\x12\x14\n" +
+	"\x04runs\x18\x03 \x03(\v2\x16.agent.v1.HarvestedRunR\x04runs\x12\x19\n" +
+	"\bbase_sha\x18\x05 \x01(\tR\abaseSha\x12\x14\n" +
 	"\x05force\x18\x04 \x01(\bR\x05force\"\x95\x01\n" +
 	"\x19HarvestRoundEditsResponse\x12\x16\n" +
 	"\x06opened\x18\x01 \x01(\x05R\x06opened\x12\x14\n" +

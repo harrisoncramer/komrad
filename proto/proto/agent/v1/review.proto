@@ -325,6 +325,8 @@ message HarvestRoundEditsRequest {
   string agent_id = 1 [(buf.validate.field).string.min_len = 1];
   string round_id = 2 [(buf.validate.field).string.min_len = 1];
   repeated HarvestedRun runs = 3;
+  // The commit the old side of these runs was measured from, empty for the round's own base.
+  string base_sha = 5;
   // Write a harvest that went past the ceiling anyway, which is the reviewer answering for an
   // edit big enough to look like a formatter.
   bool force = 4;

@@ -103,6 +103,8 @@ func TestEditingAgainRewritesTheSameThread(t *testing.T) {
 	assert.Equal(t, 1, result.Moved)
 	assert.Equal(t, 0, result.Opened)
 	require.Len(t, reviews.threads, 1)
+	assert.Equal(t, "base-sha", reviews.threads[0].BaseSHA,
+		"a panel that says nothing moved the numbers under the round's own base")
 
 	for _, message := range reviews.messages {
 		if message.ThreadID == reviews.threads[0].ID {
@@ -200,4 +202,63 @@ func TestAHarvestOfAnotherAgentsRoundIsRefused(t *testing.T) {
 	})
 
 	require.Error(t, err)
+}
+
+// TestAHarvestRecordsWhatItWasMeasuredFrom covers the reviewer who narrows the diff, edits the
+// round's checkout and comes back: the numbers came off that narrower patch, so the thread has to
+// say which commit they were counted from rather than let a later reader assume the round's base.
+func TestAHarvestRecordsWhatItWasMeasuredFrom(t *testing.T) {
+	t.Parallel()
+
+	service, reviews := harvestService(t)
+
+	_, err := service.HarvestRoundEdits(t.Context(), HarvestRoundEditsParams{
+		AgentID: reviewedAgentID,
+		RoundID: reviewRoundID,
+		Runs:    []review.Run{harvestRun(2, 2, "fixed")},
+		BaseSHA: "an-earlier-snapshot",
+	})
+	require.NoError(t, err)
+
+	require.Len(t, reviews.threads, 1)
+	assert.Equal(t, "an-earlier-snapshot", reviews.threads[0].BaseSHA)
+}
+
+// TestAHarvestSaysNothingAndMeansTheRoundsBase covers the ordinary harvest, where the panel is
+// showing the whole change and the round's own base is the answer.
+func TestAHarvestSaysNothingAndMeansTheRoundsBase(t *testing.T) {
+	t.Parallel()
+
+	service, reviews := harvestService(t)
+
+	harvest(t, service, harvestRun(2, 2, "fixed"))
+
+	require.Len(t, reviews.threads, 1)
+	assert.Equal(t, "base-sha", reviews.threads[0].BaseSHA)
+}
+
+// TestAMovedThreadCarriesTheBaseItsNumbersCameFrom pins the second door: repinning a thread
+// rewrites its line numbers, and numbers without the commit they were counted from say something
+// that was never true.
+func TestAMovedThreadCarriesTheBaseItsNumbersCameFrom(t *testing.T) {
+	t.Parallel()
+
+	service, reviews := harvestService(t)
+
+	harvest(t, service, harvestRun(2, 2, "first"))
+	require.Len(t, reviews.threads, 1)
+	require.Equal(t, "base-sha", reviews.threads[0].BaseSHA)
+
+	result, err := service.HarvestRoundEdits(t.Context(), HarvestRoundEditsParams{
+		AgentID: reviewedAgentID,
+		RoundID: reviewRoundID,
+		Runs:    []review.Run{harvestRun(2, 2, "second")},
+		BaseSHA: "an-earlier-snapshot",
+	})
+	require.NoError(t, err)
+
+	require.Equal(t, 1, result.Moved)
+	require.Len(t, reviews.threads, 1)
+	assert.Equal(t, "an-earlier-snapshot", reviews.threads[0].BaseSHA,
+		"the base follows the numbers it belongs to")
 }

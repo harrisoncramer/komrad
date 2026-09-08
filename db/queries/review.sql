@@ -409,6 +409,7 @@ ORDER BY
 UPDATE
     review_threads t
 SET
+    base_sha = @base_sha,
     old_start = @old_start,
     old_end = @old_end,
     new_start = @new_start,

@@ -13,6 +13,7 @@ import (
 func threadAt(id, path string, oldStart, newStart int32, quote string) *agentv1.ReviewThread {
 	return &agentv1.ReviewThread{
 		Id:          id,
+		BaseSha:     patchBaseSHA,
 		FilePath:    path,
 		OldStart:    oldStart,
 		OldEnd:      oldStart,
@@ -408,7 +409,6 @@ func TestPinSkipsTheOldSideWhenItIsForeign(t *testing.T) {
 	})
 
 	thread := threadAt("t1", "greet.go", 38, 41, " func Hello() {}")
-	thread.BaseSha = patch.BaseSHA
 
 	measured := NewView(patch, false)
 	measured.PinThreads([]*agentv1.ReviewThread{thread})
