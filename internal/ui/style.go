@@ -182,11 +182,15 @@ func localReviewRoundsMark(rounds int32) string {
 	return iconMark(rounds > 0, fmt.Sprintf("%s%d", localReviewRoundsIcon, rounds), colorMuted)
 }
 
-// localVerdictMark says what the last released local review of an agent's newest round concluded.
-func localVerdictMark(verdict string) string {
+// localReviewMark is the single glyph a row draws about local review, which is the last released
+// verdict when there is one and otherwise the pencil that says a reviewer is still reading.
+func localReviewMark(inLocalReview bool, verdict string) string {
 	icon, color := localVerdictIcon(verdict)
+	if icon == "" {
+		return iconMark(inLocalReview, inLocalReviewIcon, colorAccent)
+	}
 
-	return iconMark(icon != "", icon, color)
+	return iconMark(true, icon, color)
 }
 
 // localVerdictIcon is the glyph and colour a released local verdict wears.
@@ -201,11 +205,6 @@ func localVerdictIcon(verdict string) (string, lipgloss.Color) {
 	}
 
 	return "", colorMuted
-}
-
-// inLocalReviewMark says a reviewer is still owed an answer about this agent's work.
-func inLocalReviewMark(inLocalReview bool) string {
-	return iconMark(inLocalReview, inLocalReviewIcon, colorAccent)
 }
 
 // failedRunMark says a script weave fired for the agent failed and nobody has read it, which the
