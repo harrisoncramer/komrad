@@ -328,6 +328,19 @@ func (m *model) applyReviewLoaded(msg reviewLoadedMsg) tea.Cmd {
 	m.setReviewThreads(msg.threads)
 
 	m.review.round = msg.round
+
+	// Explainer: writing and walking the rounds are exclusive, so the mode that writes withdraws
+	// the round keys. A round taken since the reader chose theirs leaves them on a finished one,
+	// where every write refuses and names the key back to the whole change, and that key is the
+	// one the mode is holding, so the mode is given up here rather than left open.
+	if said, history := m.reviewIsHistory(); history && m.review.writing {
+		m.review.writing = false
+
+		if m.review.notice == "" {
+			m.review.notice = said + " is finished, so you are reading it"
+		}
+	}
+
 	m.review.moved = false
 	m.review.since = msg.since
 	m.review.cursor = m.review.view.GetFirstRow()
