@@ -69,7 +69,7 @@ func TestNewRegistry(t *testing.T) {
 }
 
 // TestRegistryGetByID covers an id nothing implements returning an error naming what is
-// available, since the callers are loops that would dereference a nil.
+// available.
 func TestRegistryGetByID(t *testing.T) {
 	registry, err := NewRegistry(fakeHarness{id: "codex"}, fakeHarness{id: "claude"})
 	require.NoError(t, err)

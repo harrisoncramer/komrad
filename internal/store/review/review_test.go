@@ -15,8 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestARoundIsNumberedAfterTheOnesBeforeIt pins that the ordinal is the store's to decide, since
-// it is what the panel names a round by and two callers must not be able to argue about it.
+// TestARoundIsNumberedAfterTheOnesBeforeIt pins that the ordinal is the store's to decide.
 func TestARoundIsNumberedAfterTheOnesBeforeIt(t *testing.T) {
 	st := open(t)
 	agentID := seedAgent(t, st)
@@ -114,8 +113,8 @@ func TestDeliveryFollowsTheOneMail(t *testing.T) {
 	assert.Equal(t, DeliveryDelivered, delivery(t, st, thread.ID))
 }
 
-// TestAThreadCarriesTheRoundItWasWrittenAgainst pins the anchor: the list has to hand back which
-// round a thread belongs to, since that is what says whether the lines it names are still true.
+// TestAThreadCarriesTheRoundItWasWrittenAgainst pins the list handing back which round a thread
+// belongs to, which is what says whether the lines it names are still true.
 func TestAThreadCarriesTheRoundItWasWrittenAgainst(t *testing.T) {
 	st := open(t)
 	agentID := seedAgent(t, st)
@@ -271,8 +270,8 @@ func TestAViewedMarkBelongsToItsRound(t *testing.T) {
 	assert.Empty(t, viewed)
 }
 
-// TestSettlingAThreadIsCarriedByTheList pins that settling reaches the panel, since the panel
-// draws from the list and nothing else.
+// TestSettlingAThreadIsCarriedByTheList pins that settling reaches the panel, which draws from
+// the list and nothing else.
 func TestSettlingAThreadIsCarriedByTheList(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -330,8 +329,7 @@ func TestSayingSomethingElseReopensAThread(t *testing.T) {
 	assert.Nil(t, edited.ResolvedAt, "an edit reopens it too")
 }
 
-// TestASuggestionIsCarriedWithTheComment pins that replacement lines survive the round trip,
-// since they are what the agent applies rather than reasons about.
+// TestASuggestionIsCarriedWithTheComment pins that replacement lines survive the round trip.
 func TestASuggestionIsCarriedWithTheComment(t *testing.T) {
 	st := open(t)
 	agentID := seedAgent(t, st)
@@ -570,9 +568,8 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1}, tallies[0])
 }
 
-// TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten pins what the reconcile pass reads, since a
-// batch that has gone is a batch whose harvested threads are the agent's business rather than
-// something to move or drop under it.
+// TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten pins what the reconcile pass reads, which
+// leaves out the harvested threads of a batch that has gone.
 func TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -611,8 +608,8 @@ func TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten(t *testing.T) {
 	assert.Empty(t, released, "a released batch is out of the pass's hands")
 }
 
-// TestMovingAThreadKeepsWhatWasSaidInIt pins the repin a widened edit asks for, since a thread
-// rewritten rather than moved would lose the reply the agent had already given it.
+// TestMovingAThreadKeepsWhatWasSaidInIt pins the repin a widened edit asks for, which a rewrite
+// would lose the agent's reply to.
 func TestMovingAThreadKeepsWhatWasSaidInIt(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -641,8 +638,8 @@ func TestMovingAThreadKeepsWhatWasSaidInIt(t *testing.T) {
 	assert.Len(t, messages, 2, "both messages are still under it")
 }
 
-// TestMovingAThreadNobodyHoldsIsNotAQuietSuccess pins the refusal, since the reconcile pass acts
-// on what it read a moment ago and a thread deleted under it would otherwise move nothing.
+// TestMovingAThreadNobodyHoldsIsNotAQuietSuccess pins the refusal a thread deleted under the
+// reconcile pass gets.
 func TestMovingAThreadNobodyHoldsIsNotAQuietSuccess(t *testing.T) {
 	tests := []struct {
 		name string
@@ -668,8 +665,7 @@ func TestMovingAThreadNobodyHoldsIsNotAQuietSuccess(t *testing.T) {
 	}
 }
 
-// TestDeletingAThreadTakesWhatWasSaidInIt pins that an undone edit leaves nothing behind, since a
-// message under no thread is drawn nowhere and read by nothing.
+// TestDeletingAThreadTakesWhatWasSaidInIt pins that an undone edit leaves nothing behind.
 func TestDeletingAThreadTakesWhatWasSaidInIt(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -692,7 +688,7 @@ func TestDeletingAThreadTakesWhatWasSaidInIt(t *testing.T) {
 }
 
 // TestTheLastReleasedReviewIsTheNewestOne pins which batch answers for where an author last
-// looked, since the panel draws what changed since it and the first one never moves.
+// looked.
 func TestTheLastReleasedReviewIsTheNewestOne(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -745,7 +741,7 @@ func TestTheOpenReviewIsTheOneStillBeingWritten(t *testing.T) {
 }
 
 // TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased pins the cleanup a departing reviewer
-// gets, since a review already read by the agent it was given to is a record rather than a draft.
+// gets, which leaves a review the agent has already read.
 func TestDeletingAnAuthorsOpenReviewsLeavesWhatTheyReleased(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

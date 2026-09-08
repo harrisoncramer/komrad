@@ -95,7 +95,7 @@ func (w *EmptyArchiveWorker) Work(ctx context.Context, job *river.Job[EmptyArchi
 }
 
 // orphanedChildren picks the children on a page whose parent is not in the archive with them,
-// since a live parent is never named by the sweep and nothing else would reach those rows.
+// which nothing else would reach.
 func (w *EmptyArchiveWorker) orphanedChildren(ctx context.Context, batch []agentstore.Agent) ([]agentstore.Agent, error) {
 	children := xslice.Filter(batch, func(agent agentstore.Agent) bool { return agent.ParentAgentID != nil })
 	if len(children) == 0 {

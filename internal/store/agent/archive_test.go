@@ -211,8 +211,8 @@ func TestRestore(t *testing.T) {
 	}
 }
 
-// TestArchiveAndDeleteReturnThePaneTheRowHeld pins that an archive hands back the pane the
-// row held rather than the blank it just wrote, since nothing else records the pane to kill.
+// TestArchiveAndDeleteReturnThePaneTheRowHeld pins that an archive hands back the pane the row
+// held rather than the blank it just wrote.
 func TestArchiveAndDeleteReturnThePaneTheRowHeld(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

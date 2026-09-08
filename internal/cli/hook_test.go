@@ -204,8 +204,7 @@ func TestClampReason(t *testing.T) {
 }
 
 // TestEveryInstalledHookHasASubcommand pins that each event weave points a harness at is
-// answered by a subcommand of weave hook, since an event installed without one runs a command
-// that does not exist, on every turn, into a stream nobody reads.
+// answered by a subcommand of weave hook.
 func TestEveryInstalledHookHasASubcommand(t *testing.T) {
 	var names []string
 	for _, cmd := range hookCmd(&app{}).Commands() {
@@ -275,7 +274,7 @@ func TestMailPostamble(t *testing.T) {
 }
 
 // TestStopHookSurvivesAServerThatIsNotThere pins that the hook exits cleanly when nothing is
-// serving, since it runs on every turn and must never block one.
+// serving.
 func TestStopHookSurvivesAServerThatIsNotThere(t *testing.T) {
 	state := &app{
 		env:       &config.Environment{Addr: "127.0.0.1:1", AgentID: "agent-a"},

@@ -16,8 +16,7 @@ import (
 )
 
 // TestEveryMethodsFlagsBuildARequestItsSchemaAccepts walks the whole exposed surface rather than
-// one command, since the flags are built by reflection and a proto that grows a field nothing here
-// can spell is a subcommand that cannot make its call at all.
+// one command, the flags being built by reflection.
 func TestEveryMethodsFlagsBuildARequestItsSchemaAccepts(t *testing.T) {
 	for exposed := range rpcapi.GetMethods() {
 		t.Run(string(exposed.Method.FullName()), func(t *testing.T) {
@@ -44,8 +43,8 @@ func TestEveryMethodsFlagsBuildARequestItsSchemaAccepts(t *testing.T) {
 	}
 }
 
-// TestNoRequiredFieldIsUnreachableFromTheFlags pins that a field the schema insists on is one the
-// command line can carry, since the request-json escape hatch is not what the usage advertises.
+// TestNoRequiredFieldIsUnreachableFromTheFlags pins that a field the schema insists on is one
+// the command line can carry.
 func TestNoRequiredFieldIsUnreachableFromTheFlags(t *testing.T) {
 	for exposed := range rpcapi.GetMethods() {
 		t.Run(string(exposed.Method.FullName()), func(t *testing.T) {

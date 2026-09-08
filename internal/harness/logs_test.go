@@ -10,8 +10,7 @@ import (
 )
 
 // TestReadAppendOnlyLogReadsOnlyWhatIsFinished pins what one pass over a log a CLI is still
-// writing hands back, since the offset it reports is what the next pass starts from and a
-// half-written record read once is a record read twice.
+// writing hands back, along with the offset the next pass starts from.
 func TestReadAppendOnlyLogReadsOnlyWhatIsFinished(t *testing.T) {
 	tests := []struct {
 		name         string

@@ -354,8 +354,8 @@ func openAt(t *testing.T, url string) *pgxpool.Pool {
 	return pool
 }
 
-// connect opens a connection of its own, since an advisory lock is held by a
-// session rather than by a statement and cannot be taken through the pool.
+// connect opens a connection of its own, an advisory lock being held by a session rather than by
+// a statement.
 func connect(t *testing.T, url string) *pgx.Conn {
 	t.Helper()
 

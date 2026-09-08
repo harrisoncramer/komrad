@@ -6,8 +6,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestSanitizeName pins which characters are rewritten, since the name becomes a tmux window
-// name that cannot hold all of them.
+// TestSanitizeName pins which characters are rewritten to make a tmux window name.
 func TestSanitizeName(t *testing.T) {
 	tests := []struct {
 		name string

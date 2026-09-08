@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ErrPanelHidden is an answer rather than a failure, since `weave shown` says what it found in
-// its exit status and prints nothing either way.
+// ErrPanelHidden is an answer rather than a failure, which `weave shown` reports in its exit
+// status and never prints.
 var ErrPanelHidden = errors.New("the panel is not on screen on this tmux server")
 
 func shownCmd(state *app) *cobra.Command {
@@ -40,8 +40,7 @@ rather than refusing to.`,
 	}
 }
 
-// isPanelShownHere answers for this server alone, since a panel on screen somewhere else is one
-// this press is asking to have here.
+// isPanelShownHere answers for this server alone.
 func isPanelShownHere(state *app) bool {
 	socket := tmux.SocketFromEnv(state.env.Tmux)
 	if socket == "" {

@@ -44,11 +44,11 @@ func (h *Harness) Binary() string { return HarnessID }
 // first can leave behind so a later message lands in the composer.
 func (h *Harness) InterruptKeys() []string { return []string{"Escape", "Escape"} }
 
-// MintSessionID names the conversation a fresh launch will hold, since Claude takes one on the
-// command line and every later resume keys on it.
+// MintSessionID names the conversation a fresh launch will hold, which Claude takes on the
+// command line and every later resume keys on.
 func (h *Harness) MintSessionID() string { return uuid.NewString() }
 
-// FindSession has nothing to find, since Claude is told the id of every conversation it starts.
+// FindSession has nothing to find, Claude being told the id of every conversation it starts.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
 // DefaultProjectsDir is where Claude Code writes its JSONL logs, returning a relative path that

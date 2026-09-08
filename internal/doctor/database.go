@@ -86,8 +86,8 @@ func newDatabaseCheck() Check {
 	}
 }
 
-// newSchemaCheck asserts the database has every migration this build ships; being behind is not a
-// failure the user has to fix, since the service migrates on the way up.
+// newSchemaCheck asserts the database has every migration this build ships, where being behind is
+// not a failure the user has to fix.
 func newSchemaCheck() Check {
 	return Check{
 		Name:        "schema",

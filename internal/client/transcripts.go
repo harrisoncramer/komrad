@@ -12,8 +12,7 @@ import (
 )
 
 // GetFullTranscript returns one agent's transcript, following the page tokens until the content
-// is exhausted or the page ceiling is reached, since a preview of most of a very long conversation
-// beats an error where the caller wanted something to draw.
+// is exhausted or the page ceiling is reached.
 func GetFullTranscript(ctx context.Context, agents agentv1connect.AgentServiceClient, agentID string) (string, error) {
 	var (
 		content strings.Builder

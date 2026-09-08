@@ -68,8 +68,7 @@ func TestConfigRoundTrip(t *testing.T) {
 }
 
 // TestWorktreeToggleRoundTrips pins the whole of what a workflow says about its agents'
-// directories coming back as it was written, since a script of your own is no longer one of
-// the things it can say.
+// directories coming back as it was written.
 func TestWorktreeToggleRoundTrips(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

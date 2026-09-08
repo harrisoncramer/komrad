@@ -134,8 +134,7 @@ func TestWriteTextSaysWhatFailed(t *testing.T) {
 	}
 }
 
-// TestWriteTextColorIsOptional covers that the plain output carries no escapes, since it
-// is read as often through a pipe as in a terminal.
+// TestWriteTextColorIsOptional covers that the plain output carries no escapes.
 func TestWriteTextColorIsOptional(t *testing.T) {
 	var plain, colored strings.Builder
 	require.NoError(t, WriteText(&plain, sample(), false))

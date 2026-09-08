@@ -63,8 +63,8 @@ type SendParams struct {
 	Kind         Kind
 	ReplyTo      *string
 	AboutAgentID *string
-	// How long the mail stays deliverable, counted from the database's clock rather than
-	// the caller's, since every read of expires_at compares it against NOW().
+	// How long the mail stays deliverable, counted from the database's clock rather than the
+	// caller's, which every read of expires_at compares it against.
 	Deadline time.Duration
 }
 

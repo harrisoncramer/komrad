@@ -15,8 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestRecoverRPCIsInternal covers a panic answered as internal with the value left out, since
-// nothing the caller sent explains it and a panic can hold anything.
+// TestRecoverRPCIsInternal covers a panic answered as internal with the value left out.
 func TestRecoverRPCIsInternal(t *testing.T) {
 	var out bytes.Buffer
 	ctx := logging.WithLogger(t.Context(), logging.New(&out, slog.LevelError))
@@ -35,7 +34,7 @@ func TestRecoverRPCIsInternal(t *testing.T) {
 }
 
 // TestServeAndRecoverAnswers covers a panicking MCP call being answered rather than dropped,
-// since connect's own recovery never sees an endpoint served as plain HTTP.
+// which connect's own recovery never sees on an endpoint served as plain HTTP.
 func TestServeAndRecoverAnswers(t *testing.T) {
 	tests := []struct {
 		name       string

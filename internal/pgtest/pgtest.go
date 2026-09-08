@@ -24,8 +24,8 @@ const (
 	// time and swept out from under a run that is very much alive.
 	nameTimeLayout = "20060102t150405"
 
-	// maxAge is deliberately far longer than the ten minutes Go allows a test binary, since a
-	// sweep only saves disk and a run under a debugger or a raised timeout still wants its own.
+	// maxAge is deliberately far longer than the ten minutes Go allows a test binary, leaving a run
+	// under a debugger or a raised timeout its own database.
 	maxAge = 24 * time.Hour
 )
 

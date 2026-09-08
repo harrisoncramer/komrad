@@ -29,8 +29,8 @@ func TestStopHandlerRefusesAnythingButPost(t *testing.T) {
 	}
 }
 
-// TestStopHandlerAnswersBeforeStopping covers a handler that would wait on itself, since
-// shutdown waits for the requests in flight and this is one of them.
+// TestStopHandlerAnswersBeforeStopping covers a handler that would wait on itself, shutdown
+// waiting for the requests in flight and this being one of them.
 func TestStopHandlerAnswersBeforeStopping(t *testing.T) {
 	requested := make(chan struct{}, 1)
 	recorder := httptest.NewRecorder()

@@ -13,7 +13,7 @@ import (
 )
 
 // ErrNoChanges is a worktree that has not moved off its base, which is refused rather than
-// answered with an empty patch, since a diff with no files in it is nothing to show anybody.
+// answered with an empty patch.
 var ErrNoChanges = errors.New("the worktree holds no change against the base branch")
 
 // ErrAllExcluded is a worktree that has moved, every part of it inside a path the workflow keeps
@@ -77,8 +77,8 @@ func Load(ctx context.Context, params LoadParams) (*Patch, error) {
 	}, nil
 }
 
-// explainEmptyDiff says why a round drew nothing, since a worktree that never moved and one whose every
-// change is hidden from the diff both draw nothing while meaning opposite things about the agent.
+// explainEmptyDiff says why a round drew nothing, telling a worktree that never moved from one
+// whose every change is hidden.
 func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error {
 	if len(params.Exclude) == 0 {
 		return ErrNoChanges
@@ -92,9 +92,8 @@ func explainEmptyDiff(ctx context.Context, root string, params LoadParams) error
 	return ErrAllExcluded
 }
 
-// diffArgs pins the prefix git writes on the header line, since the parser drops the first
-// segment of that name whatever it is, so a user whose own config asks for no prefix or a
-// different one would have a real directory eaten off every path in the patch.
+// diffArgs pins the prefix git writes on the header line, whose first segment the parser drops
+// whatever it is.
 func diffArgs(baseSHA, snapshotSHA string, exclude []string) []string {
 	args := []string{
 		"-c", "core.quotepath=false",
@@ -168,8 +167,8 @@ func parseFiles(ctx context.Context, params parseFilesParams) ([]File, error) {
 	return files, nil
 }
 
-// countDrawnBytes is how much text a file's hunks would put on screen, which is what decides whether it
-// is drawn at all, since a snapshot stages a huge file the same as any other.
+// countDrawnBytes is how much text a file's hunks would put on screen, which is what decides
+// whether it is drawn at all.
 func countDrawnBytes(fragments []*gitdiff.TextFragment) int {
 	total := 0
 	for _, fragment := range fragments {
@@ -182,8 +181,7 @@ func countDrawnBytes(fragments []*gitdiff.TextFragment) int {
 }
 
 // modeChange is the line to show for a file whose permissions moved, which git puts in the patch
-// with no hunk to hang it off, and is nothing for a file arriving or leaving, since those have
-// only ever had the one mode and are already named as new or deleted.
+// with no hunk to hang it off, and is nothing for a file arriving or leaving.
 func modeChange(file *gitdiff.File) string {
 	if file.OldMode == 0 || file.NewMode == 0 || file.OldMode == file.NewMode {
 		return ""
@@ -257,8 +255,8 @@ func readRevision(ctx context.Context, root, revision, path string) string {
 	return string(out)
 }
 
-// filePath reads /dev/null as no file at all, which is the whole of it, since the name arrives
-// with the diff prefix already off.
+// filePath reads /dev/null as no file at all, the name arriving with the diff prefix already
+// off.
 func filePath(path string) string {
 	if path == "/dev/null" {
 		return ""

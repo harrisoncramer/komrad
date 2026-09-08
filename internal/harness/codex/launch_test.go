@@ -179,8 +179,8 @@ func TestBuildCommandQuotesFlags(t *testing.T) {
 	}
 }
 
-// TestOpeningPrompt covers the briefing arriving ahead of the prompt the agent was created
-// with, since Codex has no way to append to its system prompt.
+// TestOpeningPrompt covers the briefing arriving ahead of the prompt the agent was created with,
+// Codex having no way to append to its system prompt.
 func TestOpeningPrompt(t *testing.T) {
 	tests := []struct {
 		name   string

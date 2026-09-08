@@ -11,7 +11,7 @@ import (
 )
 
 // TestStrictJSONUnmarshal pins that a payload naming something the schema does not have is
-// refused, rather than read as the message that is left once the unknown parts are dropped.
+// refused rather than read as what is left once the unknown parts are dropped.
 func TestStrictJSONUnmarshal(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -70,7 +70,7 @@ func TestStrictJSONUnmarshal(t *testing.T) {
 }
 
 // TestStrictJSONMarshal pins that the codec still writes what connect's own JSON codec writes,
-// since only the reading side of it is meant to differ.
+// only the reading side of it being meant to differ.
 func TestStrictJSONMarshal(t *testing.T) {
 	codec := strictJSON{name: nameJSON}
 	message := &agentv1.ListMailRequest{Direction: agentv1.MailDirection_MAIL_DIRECTION_SENT}
@@ -93,7 +93,7 @@ func TestStrictJSONMarshal(t *testing.T) {
 }
 
 // TestStrictJSONRejectsNonProto pins that a value the codec cannot speak for is refused on both
-// sides, since connect hands it whatever the handler was generated with.
+// sides.
 func TestStrictJSONRejectsNonProto(t *testing.T) {
 	codec := strictJSON{name: nameJSON}
 
@@ -106,8 +106,8 @@ func TestStrictJSONRejectsNonProto(t *testing.T) {
 	require.Error(t, codec.Unmarshal([]byte(`{}`), "not a message"))
 }
 
-// TestStrictJSONNames pins the two content types connect looks the JSON codec up by, since a
-// caller that spells out the charset has to reach the same codec.
+// TestStrictJSONNames pins the two content types connect looks the JSON codec up by, which a
+// caller spelling out the charset has to reach it through.
 func TestStrictJSONNames(t *testing.T) {
 	assert.Equal(t, "json", strictJSON{name: nameJSON}.Name())
 	assert.Equal(t, "json; charset=utf-8", strictJSON{name: nameJSONCharsetUTF8}.Name())

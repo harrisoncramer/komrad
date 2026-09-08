@@ -18,8 +18,8 @@ type fixture struct {
 	*Store
 	db     store.DBTX
 	agents *agentstore.Store
-	// workflow is the one every seeded agent is filed under, since a run hangs off an agent
-	// and an agent hangs off a workflow.
+	// workflow is the one every seeded agent is filed under, a run hanging off an agent and an
+	// agent off a workflow.
 	workflow string
 }
 
@@ -58,7 +58,7 @@ func (f *fixture) seedAgent(t *testing.T) string {
 }
 
 // TestBeginRefusesAnIdNoAgentHolds pins that a run is refused rather than recorded against
-// nothing, since the id reaches the store from a caller that may have made it up.
+// nothing.
 func TestBeginRefusesAnIdNoAgentHolds(t *testing.T) {
 	f := open(t)
 

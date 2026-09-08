@@ -21,8 +21,8 @@ func TestRequestStopOnNothing(t *testing.T) {
 	assert.Zero(t, pid, "there was nothing to stop")
 }
 
-// TestRequestStopReadsThePid covers the round trip against a server that answers the way
-// serve does, since the pid is what the wait afterwards is built on.
+// TestRequestStopReadsThePid covers the round trip against a server that answers the way serve
+// does.
 func TestRequestStopReadsThePid(t *testing.T) {
 	addr := fakeServer(t, fakeServerParams{stopPid: os.Getpid()})
 

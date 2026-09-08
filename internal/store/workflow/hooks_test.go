@@ -8,8 +8,7 @@ import (
 )
 
 // TestHooksComeBackWithEveryReader pins the hooks reaching every shape a workflow is read in,
-// since the panel lists them, pages them, and gets them one at a time, and a reader that drops
-// them is a reader whose next write clears them.
+// which the panel lists, pages, and gets one at a time.
 func TestHooksComeBackWithEveryReader(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()

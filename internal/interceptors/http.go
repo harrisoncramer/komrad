@@ -61,8 +61,7 @@ func NewLoggingHandler(logger *slog.Logger, next http.Handler) http.Handler {
 			slog.Int64(logging.DurationMS, time.Since(start).Milliseconds()),
 		)
 
-		// Info rather than the debug a served RPC gets, since nothing polls this and a line
-		// here means somebody asked for something.
+		// Info rather than the debug a served RPC gets, nothing polling this endpoint.
 		level := slog.LevelInfo
 		switch {
 		case recorder.status >= http.StatusInternalServerError:

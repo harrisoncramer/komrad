@@ -19,8 +19,7 @@ import (
 
 var neverOccurring = []string{"0 0 30 2 *", "0 0 31 2 *", "0 0 31 4 *"}
 
-// TestSchedulerReconcile covers which schedules a pass registers and which it takes off,
-// since re-adding one nothing changed about would leave two jobs on the same expression.
+// TestSchedulerReconcile covers which schedules a pass registers and which it takes off.
 func TestSchedulerReconcile(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -116,8 +115,8 @@ func TestSchedulerReconcile(t *testing.T) {
 	}
 }
 
-// TestSchedulerReconcileFailure covers a listing the reconciler could not read surfacing,
-// since an empty one would read as every schedule having been deleted.
+// TestSchedulerReconcileFailure covers a listing the reconciler could not read surfacing rather
+// than reading as every schedule having been deleted.
 func TestSchedulerReconcileFailure(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -269,8 +268,8 @@ func (r *recordingPeriodic) Remove(id string) {
 	r.removed = append(r.removed, id)
 }
 
-// TestOccurrenceFor covers which firing a job is filed under, since River builds the job
-// whenever its enqueuer gets there and a wrong name either collides or blocks the next run.
+// TestOccurrenceFor covers which firing a job is filed under, whenever River's enqueuer gets to
+// building it.
 func TestOccurrenceFor(t *testing.T) {
 	minute := time.Date(2026, time.July, 28, 9, 34, 0, 0, time.UTC)
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
@@ -350,8 +349,8 @@ func TestOccurrenceForNeverOccurs(t *testing.T) {
 	}
 }
 
-// TestLaunchArgsForNeverOccurs covers such a schedule queueing nothing, since nil arguments
-// are how River is told there is no job to insert.
+// TestLaunchArgsForNeverOccurs covers such a schedule queueing nothing, nil arguments being how
+// River is told there is no job to insert.
 func TestLaunchArgsForNeverOccurs(t *testing.T) {
 	for _, expression := range neverOccurring {
 		t.Run(expression, func(t *testing.T) {

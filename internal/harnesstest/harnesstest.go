@@ -113,7 +113,7 @@ func (h *Harness) Binary() string { return h.script }
 // its command line lets the panel do.
 func (h *Harness) MintSessionID() string { return uuid.NewString() }
 
-// FindSession has nothing to find, since every conversation is named at launch.
+// FindSession has nothing to find, every conversation being named at launch.
 func (h *Harness) FindSession(string) (string, error) { return "", nil }
 
 // BuildCommand renders the command line that puts the fake agent up, quoting everything
@@ -266,7 +266,7 @@ func flatten(data []byte) []harness.Turn {
 	return turns
 }
 
-// ReadReport reads nothing, since the test harness runs no hooks of its own.
+// ReadReport reads nothing, the test harness running no hooks of its own.
 func (h *Harness) ReadReport(harness.Event, []byte) (harness.Report, error) {
 	return harness.Report{}, nil
 }

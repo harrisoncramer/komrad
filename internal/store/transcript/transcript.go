@@ -171,8 +171,7 @@ type Position struct {
 	Seq     int32   `json:"s"`
 }
 
-// Validate refuses a position holding anything but an agent id, since a rank or a sequence
-// out of place only narrows the page.
+// Validate refuses a position holding anything but an agent id.
 func (p Position) Validate() error {
 	if !store.IsID(p.AgentID) {
 		return fmt.Errorf("cursor agent id %q is not an id", p.AgentID)
@@ -204,8 +203,7 @@ func (c ContentCursor) Validate() error {
 // Validate refuses a cursor whose sections are not both positions this server could have
 // handed out.
 func (c Cursor) Validate() error {
-	// A cursor locating neither section is one this server never handed out, since a page
-	// with nothing left to walk ends the listing rather than minting a token.
+	// A cursor locating neither section is one this server never handed out.
 	if c.Matches == nil && c.Near == nil {
 		return fmt.Errorf("cursor locates neither section")
 	}

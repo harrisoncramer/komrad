@@ -45,7 +45,7 @@ func RunsFrom(view *View, edits []git.Edit, fallback func(path string) ([]string
 }
 
 // roundLines is the round's own copy of a file, taken off the patch where it draws one and from
-// the caller otherwise, since a reviewer may edit a file the diff never showed them.
+// the caller otherwise.
 func roundLines(view *View, path string, fallback func(path string) ([]string, bool)) ([]string, bool) {
 	if source, ok := view.GetSource(path); ok {
 		return SplitSource(source), true

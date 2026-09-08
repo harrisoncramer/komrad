@@ -277,8 +277,8 @@ func TestUpdateWorkflow(t *testing.T) {
 	}
 }
 
-// TestArchiveWorkflow covers the agents inside always going with it, since every agent
-// belongs to a workflow and there is nowhere to leave one.
+// TestArchiveWorkflow covers the agents inside always going with it, there being nowhere to leave
+// one.
 func TestArchiveWorkflow(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -410,9 +410,8 @@ func TestRestoreWorkflow(t *testing.T) {
 	}
 }
 
-// TestDeleteWorkflow covers the handler's codes: not found for a missing or a live
-// workflow, since only an archived one is deletable this way, and the agents inside an
-// archived workflow going with it otherwise.
+// TestDeleteWorkflow covers the handler's codes: not found for a missing or a live workflow, and
+// the agents inside an archived one going with it otherwise.
 func TestDeleteWorkflow(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -672,7 +671,7 @@ func TestListWorkflowsArchived(t *testing.T) {
 }
 
 // TestListWorkflowsSummarisesTheContext covers the default view holding back the bulk of a page,
-// since a workflow's context is most of what its row weighs.
+// which is the context.
 func TestListWorkflowsSummarisesTheContext(t *testing.T) {
 	svc, st := service(t)
 	shared := strings.Repeat("c", render.SummaryHead+50)

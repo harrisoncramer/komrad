@@ -12,9 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestParseLevel covers the levels a config can carry: an unknown word is an error rather
-// than a fallback, since the fallback slog itself would take is debug, which turns the log
-// up instead of saying the word was wrong.
+// TestParseLevel covers the levels a config can carry, where an unknown word is an error rather
+// than the debug slog itself would fall back to.
 func TestParseLevel(t *testing.T) {
 	tests := []struct {
 		name    string

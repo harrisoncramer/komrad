@@ -16,8 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEmptyArchiveSweepsEveryPage covers the walk by cursor, since asking the front of the
-// archive twice or stopping at the first page would leave agents behind and say nothing.
+// TestEmptyArchiveSweepsEveryPage covers the walk by cursor.
 func TestEmptyArchiveSweepsEveryPage(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -85,8 +84,8 @@ type fakeArchive struct {
 	// about when a child on a page names one as its parent.
 	live []agentstore.Agent
 
-	// asked is the ids each delete was given, since what the sweep leaves out of a page matters
-	// as much as what it deletes.
+	// asked is the ids each delete was given, which says what the sweep left out of a page as well
+	// as what it deleted.
 	asked [][]string
 
 	// failOn is the page, counted from one, whose delete refuses, and zero is every page
@@ -135,8 +134,7 @@ func (f *fakeArchive) ListPage(_ context.Context, limit int64, cursor *agentstor
 	return page, nil
 }
 
-// ListByID spans the archive and the live agents beside it, the way the store's own read does,
-// since what the sweep asks it is whether a parent is archived rather than whether it exists.
+// ListByID spans the archive and the live agents beside it, the way the store's own read does.
 func (f *fakeArchive) ListByID(_ context.Context, ids []string) ([]agentstore.Agent, error) {
 	wanted := make(map[string]bool, len(ids))
 	for _, id := range ids {
@@ -190,7 +188,7 @@ func (f *fakeArchive) DeleteAgents(_ context.Context, ids []string) error {
 }
 
 // TestEmptyArchiveAsksForTheParents pins that a page holding a child whose parent is in the
-// archive too names only that parent, since the delete takes the child with it.
+// archive too names only that parent, the delete taking the child with it.
 func TestEmptyArchiveAsksForTheParents(t *testing.T) {
 	archive := newFakeArchive(0)
 	archive.agents = []agentstore.Agent{

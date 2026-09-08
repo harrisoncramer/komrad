@@ -19,9 +19,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestListMailDirectionOverJSON pins what a JSON caller gets for the direction it names, since the
-// two halves of a mailbox look alike enough that being handed the wrong one reads as a real answer
-// rather than as the refusal a direction weave does not have should have earned.
+// TestListMailDirectionOverJSON pins what a JSON caller gets for the direction it names, and the
+// refusal a direction weave does not have earns.
 func TestListMailDirectionOverJSON(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

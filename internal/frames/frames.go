@@ -90,8 +90,8 @@ func (r *Recorder) Record(p RecordParams) error {
 	return prune(dir, settings.Keep)
 }
 
-// numberFrame numbers a frame within the millisecond it was written in, so that two readings landing
-// together do not take the same name.
+// numberFrame numbers a frame within the millisecond it was written in, keeping two readings that
+// land together off the same name.
 func (r *Recorder) numberFrame() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()

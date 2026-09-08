@@ -62,8 +62,7 @@ func TestGet(t *testing.T) {
 	}
 }
 
-// TestVersionIsNeverEmpty covers the binary these tests were built as, since an empty version
-// here would make a server that reports nothing compare equal to this build.
+// TestVersionIsNeverEmpty covers the binary these tests were built as.
 func TestVersionIsNeverEmpty(t *testing.T) {
 	assert.NotEmpty(t, Version())
 }

@@ -19,7 +19,7 @@ import (
 )
 
 // TestRefusalReadsWhatTheServiceSaid pins how a call that was refused reaches the person who
-// typed it, since the status line alone says the request was wrong without saying which part.
+// typed it.
 func TestRefusalReadsWhatTheServiceSaid(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -68,8 +68,8 @@ func TestRefusalReadsWhatTheServiceSaid(t *testing.T) {
 	}
 }
 
-// TestResponseIsWrittenForWhoeverIsReadingIt pins the two shapes the response comes out in, since
-// one is for a person at a terminal and the other is for the script piping it somewhere.
+// TestResponseIsWrittenForWhoeverIsReadingIt pins the two shapes the response comes out in, one
+// for a person at a terminal and one for a script piping it somewhere.
 func TestResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -109,8 +109,7 @@ func TestResponseIsWrittenForWhoeverIsReadingIt(t *testing.T) {
 	}
 }
 
-// TestCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the service receives it,
-// since the identity header is what an agent's call is recorded against.
+// TestCallCarriesWhoIsAskingAndWhatTheyAskedFor pins the request as the service receives it.
 func TestCallCarriesWhoIsAskingAndWhatTheyAskedFor(t *testing.T) {
 	var (
 		gotBody   map[string]any
@@ -164,8 +163,7 @@ func TestCallReportsWhatWentWrongRatherThanTheBody(t *testing.T) {
 	assert.Contains(t, err.Error(), "failed to reach the server", "the address is named rather than the socket error alone")
 }
 
-// TestRequireServerSaysHowToStartOne pins the message a script gets when the panel is not up,
-// since the call itself would otherwise fail as a bare connection refused.
+// TestRequireServerSaysHowToStartOne pins the message a script gets when the panel is not up.
 func TestRequireServerSaysHowToStartOne(t *testing.T) {
 	var healthPath string
 	answering := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -193,9 +191,8 @@ func deadAddr(t *testing.T) string {
 	return strings.TrimPrefix(closed.URL, "http://")
 }
 
-// TestRpcSubcommandCarriesItsFlagsToTheService walks the whole path a script takes, since the
-// flags are derived from the protos by reflection and nothing else checks that what a person
-// types on the command line arrives as the field the schema names.
+// TestRpcSubcommandCarriesItsFlagsToTheService walks the whole path a script takes, from flags
+// derived from the protos by reflection to the field the schema names.
 func TestRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
 	var got map[string]any
 
@@ -229,7 +226,7 @@ func TestRpcSubcommandCarriesItsFlagsToTheService(t *testing.T) {
 }
 
 // TestRpcSubcommandRefusalReachesTheCaller pins that a service saying no comes back as the
-// command failing with what it said, rather than as a success printing an error body.
+// command failing with what it said.
 func TestRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
 	service := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == server.HealthPath {
@@ -257,8 +254,7 @@ func TestRpcSubcommandRefusalReachesTheCaller(t *testing.T) {
 	assert.Empty(t, out.String(), "nothing is printed as though it were an answer")
 }
 
-// TestRpcSubcommandStopsWhenNothingIsServing pins that the call is not attempted at all, since
-// the refusal a script wants names the panel rather than a socket.
+// TestRpcSubcommandStopsWhenNothingIsServing pins that the call is not attempted at all.
 func TestRpcSubcommandStopsWhenNothingIsServing(t *testing.T) {
 	root := rpcCmd(&app{env: &config.Environment{Addr: deadAddr(t)}})
 

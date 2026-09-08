@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestMovePanesReachesTmuxAsOneInvocation pins the batching against a real server, since a change
-// sent a command at a time is painted a command at a time and the intermediate layout is seen.
+// TestMovePanesReachesTmuxAsOneInvocation pins the batching against a real server, a change sent
+// a command at a time being painted a command at a time.
 func TestMovePanesReachesTmuxAsOneInvocation(t *testing.T) {
 	client := testServer(t, "moves")
 
@@ -74,9 +74,8 @@ func TestMovePanesLeavesTheZoomWhereTheMoveAsksFor(t *testing.T) {
 	}
 }
 
-// TestMovePanesRespawnsAPaneWithItsScrollback pins the second command a respawn stands for, since
-// a pane's scrollback outlives the process that wrote it and would otherwise be read as the new
-// one's own output.
+// TestMovePanesRespawnsAPaneWithItsScrollback pins the second command a respawn stands for, a
+// pane's scrollback outliving the process that wrote it.
 func TestMovePanesRespawnsAPaneWithItsScrollback(t *testing.T) {
 	client := testServer(t, "respawn")
 	pane := paneAt(t, client, "respawn", 0)

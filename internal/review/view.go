@@ -34,8 +34,8 @@ type row struct {
 	thread *agentv1.ReviewThread
 }
 
-// fileSource is both sides of one file, lexed, since a deletion is drawn from the old side
-// and everything else from the new one.
+// fileSource is both sides of one file, lexed, with a deletion drawn from the old side and
+// everything else from the new one.
 type fileSource struct {
 	old []styledLine
 	new []styledLine
@@ -101,8 +101,7 @@ func NewView(patch *diff.Patch, isDark bool) *View {
 }
 
 // build flattens the patch into rows, giving a file that has been read its header and nothing
-// else, since the point of marking one is to get it out of the way until something changes in
-// it.
+// else.
 func (v *View) build() {
 	v.rows = nil
 
@@ -339,8 +338,8 @@ type Place struct {
 	// unset for a collapsed file so that opening that file again puts the cursor into it.
 	Header bool
 
-	// ThreadID is set when the cursor was standing on a thread that had come adrift rather than
-	// on a line, since those rows have no coordinates to come back to.
+	// ThreadID is set when the cursor was standing on a thread that had come adrift rather than on
+	// a line, those rows having no coordinates to come back to.
 	ThreadID string
 }
 
@@ -627,8 +626,7 @@ func (v *View) GetEditTarget(y int) (string, int, bool) {
 	return file.NewPath, v.nearestNewLine(y), true
 }
 
-// GetSource is the round's own copy of a file, and nothing for one the patch draws no text of,
-// since a binary and an omitted file have no lines to compare an edit against.
+// GetSource is the round's own copy of a file, and nothing for one the patch draws no text of.
 func (v *View) GetSource(filePath string) (string, bool) {
 	file, ok := v.findFile(filePath)
 	if !ok || file.Content != "" || file.NewPath == "" {
@@ -639,7 +637,7 @@ func (v *View) GetSource(filePath string) (string, bool) {
 }
 
 // GetRangeAnchor is the anchor covering a run of new-side lines, and nothing for a run the diff
-// does not draw whole, since a comment cannot be pinned to lines that are not on screen.
+// does not draw whole.
 func (v *View) GetRangeAnchor(filePath string, newStart, newEnd int) (*Anchor, bool) {
 	file, ok := v.findFile(filePath)
 	if !ok {

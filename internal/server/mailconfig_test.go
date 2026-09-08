@@ -47,8 +47,7 @@ func TestMailConfigRefusesAConfigItCannotRead(t *testing.T) {
 	assert.Contains(t, err.Error(), "delivery_dedline")
 }
 
-// TestMailConfigPropagatesTheLoadError covers the error the caller is handed, since a send
-// refused for a reason it cannot name is not much better than one silently defaulted.
+// TestMailConfigPropagatesTheLoadError covers the error the caller is handed.
 func TestMailConfigPropagatesTheLoadError(t *testing.T) {
 	sentinel := errors.New("no config here")
 	load := mailConfig(func() (*config.Config, error) { return nil, sentinel })

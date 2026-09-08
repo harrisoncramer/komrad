@@ -125,8 +125,8 @@ func TestLocalGuard(t *testing.T) {
 	}
 }
 
-// TestLocalGuardOverRealConnection serves the guard on a socket, since the Host check rests
-// on net/http setting an address the rows above set for themselves.
+// TestLocalGuardOverRealConnection serves the guard on a socket, where net/http sets the address
+// the Host check rests on.
 func TestLocalGuardOverRealConnection(t *testing.T) {
 	t.Parallel()
 
@@ -153,7 +153,7 @@ func TestLocalGuardOverRealConnection(t *testing.T) {
 }
 
 // TestLocalGuardRefusesEveryMethod covers the methods a CSRF check would let through as safe,
-// since connect serves idempotent unary RPCs over GET when a client asks.
+// which connect serves idempotent unary RPCs over.
 func TestLocalGuardRefusesEveryMethod(t *testing.T) {
 	t.Parallel()
 

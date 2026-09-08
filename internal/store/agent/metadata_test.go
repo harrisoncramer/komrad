@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestSetMetadata pins that a write lands on exactly one key and refuses an id belonging to
-// no live agent, rather than reporting a success the agent would go on believing.
+// TestSetMetadata pins that a write lands on exactly one key and refuses an id belonging to no
+// live agent.
 func TestSetMetadata(t *testing.T) {
 	tests := []struct {
 		name        string

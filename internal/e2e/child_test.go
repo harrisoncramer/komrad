@@ -14,7 +14,7 @@ import (
 )
 
 // TestChildAgent walks a child from attached to archived through the API the panel and the MCP
-// tools both call, since the rules it runs under are the whole point of the relation.
+// tools both call.
 func TestChildAgent(t *testing.T) {
 	instance := weavetest.Start(t, weavetest.Params{})
 	ctx := t.Context()

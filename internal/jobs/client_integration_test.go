@@ -87,8 +87,8 @@ func TestFiringIsQueuedOnce(t *testing.T) {
 	}
 }
 
-// TestFiringIsQueuedOnceAfterAnAttemptEnded covers the same guarantee once the first
-// attempt is off the queue, since every way a firing declines to launch ends the job.
+// TestFiringIsQueuedOnceAfterAnAttemptEnded covers the same guarantee once the first attempt is
+// off the queue.
 func TestFiringIsQueuedOnceAfterAnAttemptEnded(t *testing.T) {
 	nine := time.Date(2026, time.July, 28, 9, 0, 0, 0, time.UTC)
 
@@ -166,8 +166,8 @@ func TestEmptyArchiveIsQueuedAgainOnceTheSweepFinishes(t *testing.T) {
 	assert.False(t, second.UniqueSkippedAsDuplicate, "a finished sweep is not the one that runs next")
 }
 
-// TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration under,
-// since the scheduler takes one off by the schedule's id and nothing else.
+// TestPeriodicRegistrationIsKeyedByItsId covers the id River files a registration under, which
+// the scheduler takes one off by.
 func TestPeriodicRegistrationIsKeyedByItsId(t *testing.T) {
 	cron, err := agents.ParseCron("0 9 * * *", "")
 	require.NoError(t, err)
@@ -231,8 +231,8 @@ func (b *blockingLauncher) NewAgent(ctx context.Context, p agents.NewAgentParams
 	return &agentstore.Agent{ID: "a1", Name: p.Title}, nil
 }
 
-// TestStopWaitsForALaunchInFlight covers the stop waiting rather than walking away, since
-// River's rescuer does not come back for an abandoned firing for over an hour.
+// TestStopWaitsForALaunchInFlight covers the stop waiting rather than walking away, River's
+// rescuer not coming back for an abandoned firing for over an hour.
 func TestStopWaitsForALaunchInFlight(t *testing.T) {
 	stores := storetest.Open(t)
 	require.NoError(t, db.MigrateRiver(t.Context(), stores.Pool.GetRawPool()))

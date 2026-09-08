@@ -440,8 +440,7 @@ func (c *Client) GetHostSocket() string {
 }
 
 // RecordHostPath stores where the client that opened the panel was sitting, writing an empty
-// value just as deliberately, since a remembered directory the user has since left is a wrong
-// answer where forgetting one falls back to their home directory.
+// value just as deliberately.
 func (c *Client) RecordHostPath(path string) {
 	c.SetGlobal(hostPathOption, path)
 }
@@ -463,9 +462,8 @@ func (c *Client) SetSessionOption(target, name, value string) {
 	c.run("set-option", "-t", target, name, value)
 }
 
-// GetDefaultShell returns the shell tmux starts a pane's process with, which is the only
-// option that decides what a pane can parse, since tmux runs a non-empty default-command
-// through this shell too.
+// GetDefaultShell returns the shell tmux starts a pane's process with, which a non-empty
+// default-command is run through too.
 func (c *Client) GetDefaultShell() string {
 	return c.ShowGlobal("default-shell")
 }

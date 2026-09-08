@@ -398,7 +398,7 @@ func TestBuildCommandRegistersTheStopHook(t *testing.T) {
 }
 
 // TestBuildCommandDeniesSubagents covers the deny that leaves create_agent as the only way an
-// agent spawns anything, since a Claude subagent is a context the panel cannot show.
+// agent spawns anything.
 func TestBuildCommandDeniesSubagents(t *testing.T) {
 	tests := []struct {
 		name        string

@@ -177,8 +177,8 @@ func (p *Pool) InTx(ctx context.Context, fn func(DBTX) error) error {
 	return nil
 }
 
-// IsID reports whether a string could be one of the ids these stores hand out, since the
-// columns are uuid and Postgres fails a query on anything else rather than matching nothing.
+// IsID reports whether a string could be one of the ids these stores hand out, which Postgres
+// fails a query on anything but.
 func IsID(id string) bool {
 	_, err := uuid.Parse(id)
 	return err == nil

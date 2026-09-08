@@ -39,8 +39,8 @@ func TestFrameSettingsReadWhatTheFileSays(t *testing.T) {
 	assert.Equal(t, 20, held.Keep)
 }
 
-// TestFrameSettingsAreHeldBetweenReads keeps the reconcile pass from parsing the config once
-// per agent, since it asks for these on every reading it takes.
+// TestFrameSettingsAreHeldBetweenReads keeps the reconcile pass from parsing the config once per
+// agent, which it asks for these on every reading.
 func TestFrameSettingsAreHeldBetweenReads(t *testing.T) {
 	var loads int
 	settings := newFrameSettings(func() (*config.Config, error) {

@@ -316,7 +316,7 @@ func TestReadActivity(t *testing.T) {
 }
 
 // TestReadActivityIgnoresTranscriptProse checks an agent discussing the markers is not read as
-// being at one, since only the bottom of the frame counts.
+// being at one, only the bottom of the frame counting.
 func TestReadActivityIgnoresTranscriptProse(t *testing.T) {
 	tests := []struct {
 		name  string

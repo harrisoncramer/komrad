@@ -35,8 +35,8 @@ func TestEditsAreOneRunApiece(t *testing.T) {
 	}, edits[1])
 }
 
-// TestEditsSpellAnInsertionAsAnEmptyRange covers lines put in without any taken out, which name the
-// place they go after rather than a range, since a comment cannot stand on nothing.
+// TestEditsSpellAnInsertionAsAnEmptyRange covers lines put in without any taken out, which name
+// the place they go after rather than a range.
 func TestEditsSpellAnInsertionAsAnEmptyRange(t *testing.T) {
 	root := repo(t)
 	write(t, root, "wide.txt", "one\ntwo\n")

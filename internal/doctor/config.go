@@ -24,8 +24,7 @@ var (
 	}
 )
 
-// newConfigCheck asserts the user's config layers parse and names them in merge order, since with
-// more than one file the loader is the only thing that knows where a value came from.
+// newConfigCheck asserts the user's config layers parse and names them in merge order.
 func newConfigCheck() Check {
 	return Check{
 		Name:        "config",
@@ -116,8 +115,8 @@ func newDefaultHarnessCheck() Check {
 	}
 }
 
-// newHarnessBinaryCheck asserts one agent CLI is on PATH, since a missing one leaves the pane
-// printing "command not found" and going idle, which the reconciler reads as finished.
+// newHarnessBinaryCheck asserts one agent CLI is on PATH, a missing one leaving the pane idle at
+// a "command not found" the reconciler reads as finished.
 func newHarnessBinaryCheck(agent HarnessInfo) Check {
 	return Check{
 		Name:        agent.ID,

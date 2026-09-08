@@ -64,8 +64,8 @@ func TestLoadNamesWhatTheTableTakes(t *testing.T) {
 	}
 }
 
-// TestLoadStillRejectsAValueItCannotRead holds the type check in place, since the decoder is
-// no longer told to fail on a key it did not use.
+// TestLoadStillRejectsAValueItCannotRead holds the type check in place now that the decoder no
+// longer fails on a key it did not use.
 func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "config.toml")
 	require.NoError(t, os.WriteFile(path, []byte("max_agents = \"lots\"\n"), 0o644))
@@ -76,8 +76,8 @@ func TestLoadStillRejectsAValueItCannotRead(t *testing.T) {
 	assert.Contains(t, err.Error(), "max_agents")
 }
 
-// TestReportUnknownKeysSortsWhatItNames covers the order keys are reported in, since the
-// decoder walks the file in whatever order it likes.
+// TestReportUnknownKeysSortsWhatItNames covers the order keys are reported in, which the decoder
+// itself does not fix.
 func TestReportUnknownKeysSortsWhatItNames(t *testing.T) {
 	err := reportUnknownKeys([]string{"layout.splitt", "default_harnes"})
 

@@ -19,8 +19,8 @@ func GetTrace(err error) string {
 	return ""
 }
 
-// GetReason reduces a service error to the part worth reading, since a connect error
-// stringifies with its code in front of a message that says more than the code does.
+// GetReason reduces a service error to the part worth reading, a connect error stringifying with
+// its code in front of a message that says more.
 func GetReason(err error) string {
 	var connectErr *connect.Error
 	if errors.As(err, &connectErr) {

@@ -87,8 +87,7 @@ func (s *Store) SetReportedReason(ctx context.Context, id, reason string) error 
 }
 
 // ListUnseenTurns reports the agents that have ended a turn the person has not looked at since,
-// leaving off one that has gone back to work, since a row going again is not waiting on a reader
-// and the turn it is in the middle of will end with a mark of its own.
+// leaving off one that has gone back to work.
 func (s *Store) ListUnseenTurns(ctx context.Context) ([]string, error) {
 	rows, err := s.queries.ListAgentsWithUnseenTurns(ctx)
 	if err != nil {
@@ -182,9 +181,8 @@ func (s *Store) ForgetPane(ctx context.Context, params ForgetPaneParams) (bool, 
 		return false, nil
 	}
 
-	// The write is guarded on UpdatedAt rather than on the pane, since a tmux server hands out
-	// pane ids from a counter that restarts with it and a restart is when weave resumes every
-	// agent at once.
+	// The write is guarded on UpdatedAt rather than on the pane, whose ids come from a counter
+	// that restarts with the tmux server.
 	forgotten, err := s.queries.ForgetAgentPane(ctx, models.ForgetAgentPaneParams{
 		ID:            params.ID,
 		PaneID:        params.Pane,

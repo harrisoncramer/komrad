@@ -67,8 +67,7 @@ func unaryRequest(procedure, trace string) connect.AnyRequest {
 	}
 }
 
-// TestLoggingRecordsAServedCall covers one debug record per call, since the panel lists
-// everything it draws every second and an info line each would be the whole file.
+// TestLoggingRecordsAServedCall covers one debug record per call.
 func TestLoggingRecordsAServedCall(t *testing.T) {
 	written, res, err := loggedCall(t, slog.LevelDebug, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
 
@@ -95,8 +94,8 @@ func TestLoggingKeepsTheDefaultQuiet(t *testing.T) {
 	assert.Empty(t, written)
 }
 
-// TestLoggingRecordsAFailure covers the connect code being its own field, since a log where a
-// bad request and a broken service read the same cannot be triaged.
+// TestLoggingRecordsAFailure covers the connect code being its own field, which is what tells a
+// bad request from a broken service.
 func TestLoggingRecordsAFailure(t *testing.T) {
 	refused := connect.NewError(connect.CodeInvalidArgument, errors.New("name is required"))
 
@@ -139,9 +138,8 @@ func TestLoggingKeepsTheCallersTrace(t *testing.T) {
 	assert.Equal(t, "abc-123", res.Header().Get(TraceHeader))
 }
 
-// TestSplitProcedure covers how a procedure path becomes two fields, including the shapes
-// connect does not produce, since a record naming the wrong thing is worse than one
-// naming less.
+// TestSplitProcedure covers how a procedure path becomes two fields, including the shapes connect
+// does not produce.
 func TestSplitProcedure(t *testing.T) {
 	tests := []struct {
 		name        string
@@ -175,8 +173,8 @@ func TestSplitProcedure(t *testing.T) {
 	}
 }
 
-// TestLoggingNamesTheCallingAgent covers the header being the only thing that says who
-// called, since the panel and every agent share one loopback address.
+// TestLoggingNamesTheCallingAgent covers the header being the only thing that says who called,
+// the panel and every agent sharing one loopback address.
 func TestLoggingNamesTheCallingAgent(t *testing.T) {
 	req := unaryRequest("/agent.v1.AgentService/CreateAgent", "")
 	req.Header().Set(caller.AgentHeader, "agent-1")
@@ -190,8 +188,7 @@ func TestLoggingNamesTheCallingAgent(t *testing.T) {
 	assert.Equal(t, "sess-1", record[logging.SessionID])
 }
 
-// TestLoggingLeavesThePanelUnattributed covers the panel's own calls carrying no field at
-// all, since an empty one would read as an agent whose id nobody recorded.
+// TestLoggingLeavesThePanelUnattributed covers the panel's own calls carrying no field at all.
 func TestLoggingLeavesThePanelUnattributed(t *testing.T) {
 	written, _, err := loggedCall(t, slog.LevelDebug, unaryRequest("/agent.v1.AgentService/ListAgents", ""), nil)
 	require.NoError(t, err)

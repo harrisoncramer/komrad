@@ -12,8 +12,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TestAHarvestedThreadIsNamedByItsEdit is what keeps a sidebar full of harvested comments legible,
-// since every one of them carries the same body.
+// TestAHarvestedThreadIsNamedByItsEdit is what keeps a sidebar full of harvested comments
+// legible, every one of them carrying the same body.
 func TestAHarvestedThreadIsNamedByItsEdit(t *testing.T) {
 	t.Parallel()
 
@@ -44,8 +44,8 @@ func TestAThreadSomebodyTypedIsNamedByItsBody(t *testing.T) {
 	assert.Equal(t, "this needs a nil check", threadSummary(typed))
 }
 
-// TestNoRowIsWiderThanThePaneItWasDrawnFor pins every kind of row against the width it was handed,
-// since the panel pads a stage to its own frame and a row that overran it takes the layout with it.
+// TestNoRowIsWiderThanThePaneItWasDrawnFor pins every kind of row against the width it was
+// handed.
 func TestNoRowIsWiderThanThePaneItWasDrawnFor(t *testing.T) {
 	t.Parallel()
 

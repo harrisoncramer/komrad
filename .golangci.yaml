@@ -190,28 +190,20 @@ linters:
             skip: false
             exclude:
               - config/appconfig\.go$
-          # Left off: it asks for code changes, and the sweep that turned the two comment
-          # rules on was comments only.
+          # The three left off below all ask for code changes rather than for comments, and each
+          # arrived with a fussy release weave took for another reason. switch_default wants the
+          # zero value out of a default arm, which is wrong for the panel's display helpers: an
+          # unstyled lipgloss.Style and a blank verdict word are worse answers than the fallbacks
+          # they would replace. params_struct and table_test are a convention audit worth taking
+          # deliberately, at 60 and 5 sites.
           switch_default:
             skip: true
-          comment_clause:
-            skip: false
-            exclude:
-              - config/appconfig\.go$
-            clauses:
-              - since
-              - because
-              - so that
-              - rather than
+          params_struct:
+            skip: true
+          table_test:
+            skip: true
   exclusions:
     rules:
-      # commentclause is on repo-wide, and the sweep that answers it runs a package at a time, so
-      # the rule is held to the packages already swept and this list shrinks with each tranche
-      # until the rule stands on its own.
-      - path-except: (internal/ui/|internal/agents/)
-        linters:
-          - fussy
-        text: commentclause
       # A binary's package comment would be the first thing a reader of the command sees on
       # pkg.go.dev, and these three exist to be run rather than to be read about.
       - path: (^main\.go$|^cmd/|^config/gen/)

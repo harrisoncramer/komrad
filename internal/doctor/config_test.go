@@ -185,8 +185,8 @@ func TestHarnessBinaryCheck(t *testing.T) {
 	}
 }
 
-// TestHarnessChecksFollowTheRegistry covers that the report gains a row when the build
-// gains an agent CLI, rather than the list being written down a second time.
+// TestHarnessChecksFollowTheRegistry covers that the report gains a row when the build gains an
+// agent CLI.
 func TestHarnessChecksFollowTheRegistry(t *testing.T) {
 	checks := Checks(Settings{Harnesses: []HarnessInfo{
 		{ID: "claude", Binary: "claude"},

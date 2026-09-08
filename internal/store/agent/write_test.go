@@ -223,8 +223,8 @@ func TestDeleteNullsSpawnedByAgentID(t *testing.T) {
 	assert.Nil(t, stillThere.SpawnedByAgentID, "the reference is nulled rather than left dangling")
 }
 
-// TestParentAgentID pins the attachment reading back on its own rather than through the
-// spawner column, since the two answer different questions about the same pair of agents.
+// TestParentAgentID pins the attachment reading back on its own rather than through the spawner
+// column, which answers a different question about the same pair.
 func TestParentAgentID(t *testing.T) {
 	f := open(t)
 	ctx := t.Context()
@@ -275,8 +275,7 @@ func TestDeleteTakesTheChildren(t *testing.T) {
 	require.ErrorIs(t, err, store.ErrNotFound)
 }
 
-// TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it, since
-// nothing deletes them by hand and a missing cascade would leave rows keyed to a dead id.
+// TestDeleteTakesMetadata pins that a hard delete carries an agent's facts with it.
 func TestDeleteTakesMetadata(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -456,8 +455,8 @@ func TestDelete(t *testing.T) {
 	}
 }
 
-// TestDeleteByIDPicksTheArchivedRow pins that a hard delete keys on the id, since an
-// archived agent can share a name with a live one.
+// TestDeleteByIDPicksTheArchivedRow pins that a hard delete keys on the id, which an archived
+// agent sharing a name with a live one turns on.
 func TestDeleteByIDPicksTheArchivedRow(t *testing.T) {
 	st := open(t)
 	ctx := t.Context()
@@ -515,8 +514,7 @@ func TestDeleteInBatches(t *testing.T) {
 	assert.Equal(t, "api", all[0].Name)
 }
 
-// TestCreateWithRole pins the role surviving the round trip, since it is what the launcher reads
-// to decide which half of the review briefing the agent's pane is opened with.
+// TestCreateWithRole pins the role surviving the round trip.
 func TestCreateWithRole(t *testing.T) {
 	tests := []struct {
 		name string

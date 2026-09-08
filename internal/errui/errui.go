@@ -32,8 +32,8 @@ type Detail struct {
 	Value string
 }
 
-// Render lays the screen out folded to the pane, since the renderer above the panel cuts a
-// line that overruns and what is lost is the command a hint was naming.
+// Render lays the screen out folded to the pane, which the renderer above the panel cuts an
+// overrunning line in.
 func (s Screen) Render() string {
 	width := foldWidth(s.Width)
 

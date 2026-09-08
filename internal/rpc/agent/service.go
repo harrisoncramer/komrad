@@ -200,8 +200,7 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 		IdempotencyKey: req.Msg.GetIdempotencyKey(),
 	})
 	switch {
-	// A workflow with no cwd is one that cannot host an adoption at all, rather than an
-	// argument the caller got wrong, since the caller never names it.
+	// A workflow with no cwd cannot host an adoption at all.
 	case errors.Is(err, agents.ErrWorktreeNeedsCwd):
 		return nil, connect.NewError(connect.CodeFailedPrecondition, err)
 	case err != nil:
@@ -403,7 +402,7 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 		return nil, rpcerr.Wrap(err, "failed to set the metadata",
 			rpcerr.Saying(agentstore.ErrTooManyMetadataKeys, "agent %q already holds as much metadata as it may", req.Msg.GetId()))
 	}
-	// Clearing a key nothing held is not an error, since the agent asked for it to be gone.
+	// Clearing a key nothing held is not an error.
 	if !changed && req.Msg.Value != nil {
 		return nil, connect.NewError(connect.CodeNotFound, fmt.Errorf("no agent with id %q", req.Msg.GetId()))
 	}
@@ -411,8 +410,8 @@ func (s *Service) SetMetadata(ctx context.Context, req *connect.Request[agentv1.
 	return connect.NewResponse(&emptypb.Empty{}), nil
 }
 
-// Log writes one line to weave's log for an agent, which is how a running script says what
-// it did, since a script's own stdout goes nowhere.
+// Log writes one line to weave's log for an agent, which is how a running script whose stdout
+// goes nowhere says what it did.
 func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogRequest]) (*connect.Response[emptypb.Empty], error) {
 	id, err := scopedAgentID(ctx, req.Msg.GetId())
 	if err != nil {
@@ -474,7 +473,7 @@ func (s *Service) RecordReport(ctx context.Context, req *connect.Request[agentv1
 }
 
 // scopedAgentID is the agent a request is about: the one it names, or the calling agent when it
-// names none, since an agent asking about itself has no id of its own to type.
+// names none.
 func scopedAgentID(ctx context.Context, requested string) (string, error) {
 	if requested != "" {
 		return requested, nil
@@ -539,8 +538,8 @@ func (s *Service) RestoreAgents(ctx context.Context, req *connect.Request[agentv
 	return connect.NewResponse(response), nil
 }
 
-// EmptyArchive queues the sweep that deletes the whole archive as a background job, since
-// every agent in it runs its own deprovisioner and the request would be held open too long.
+// EmptyArchive queues the sweep that deletes the whole archive as a background job, every agent
+// in it running its own deprovisioner.
 func (s *Service) EmptyArchive(ctx context.Context, _ *connect.Request[emptypb.Empty]) (*connect.Response[emptypb.Empty], error) {
 	if err := s.archive.EmptyArchive(ctx); err != nil {
 		return nil, rpcerr.Wrap(err, "failed to empty the archive")

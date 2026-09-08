@@ -90,8 +90,7 @@ func (a Activity) String() string {
 	return "unknown"
 }
 
-// Event is one hook event a harness answers, spelled the way the CLI firing it spells the event,
-// since that name is what weave writes into the settings it hands that CLI.
+// Event is one hook event a harness answers, spelled the way the CLI firing it spells the event.
 type Event string
 
 // Report is what a harness read out of one of its own hook payloads, which annotates the state

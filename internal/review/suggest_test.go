@@ -134,7 +134,7 @@ func TestSuggestRefusesARunPastTheEndOfTheRound(t *testing.T) {
 	assert.False(t, ok)
 }
 
-// TestSuggestionKeySeparatesOneProposalFromAnother covers what settles a proposal, since the same
+// TestSuggestionKeySeparatesOneProposalFromAnother covers what settles a proposal, where the same
 // range proposing different lines is a different thing to answer for.
 func TestSuggestionKeySeparatesOneProposalFromAnother(t *testing.T) {
 	first := Suggestion{

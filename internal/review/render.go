@@ -19,8 +19,7 @@ const GutterWidth = 13
 const tabWidth = 4
 
 // Cursor is how the row the reader is standing on is drawn, dim while the keys are somewhere
-// else, since the diff keeps its highlight in a pane of its own and would otherwise read as
-// though the keyboard were still on it.
+// else.
 type Cursor int
 
 const (
@@ -39,7 +38,7 @@ const (
 	// that quiets one down.
 	settledMark = "✓"
 	// unsentMark is a thread holding a comment still only written down, hollow against the filled
-	// mark of a reply waiting to be read, since neither has reached the person it is for.
+	// mark of a reply waiting to be read.
 	unsentMark = "◇"
 	// viewedMark heads the header of a file that has been read and folded away.
 	viewedMark = "✓"
@@ -94,8 +93,8 @@ func (v *View) RenderRow(y int, cursor Cursor, width, offset int) string {
 		width, "…")
 }
 
-// renderFileRow draws a file's header, which once the file is collapsed has to say what is
-// folded under it, since it is then the only row that file has.
+// renderFileRow draws a file's header, which once the file is collapsed is the only row that
+// file has and says what is folded under it.
 func (v *View) renderFileRow(y int, current row, cursor Cursor, width int) string {
 	background := getBackground(diff.Context, cursor)
 	style := fileStyle.Background(background)
@@ -209,7 +208,7 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 }
 
 // threadSummary is what a thread is about in one line, which for a harvested thread is the edit
-// it proposes rather than its body, since every harvested body is the same sentence.
+// it proposes rather than its body.
 func threadSummary(thread *agentv1.ReviewThread) string {
 	if !thread.GetHarvested() {
 		return firstLine(thread)

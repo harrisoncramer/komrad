@@ -10,8 +10,8 @@ import (
 // Materialise checks a commit out as a worktree of its own, detached so nothing can be pushed
 // from it by accident.
 func Materialise(ctx context.Context, dir, sha, at string) error {
-	// A checkout already on the commit is left exactly as it is, since what the reviewer has
-	// typed into it is the suggestion they are still writing.
+	// A checkout already on the commit is left exactly as it is, holding whatever the reviewer has
+	// typed into it.
 	if head, ok := WorktreeHead(ctx, at); ok {
 		if head == sha {
 			return nil
@@ -65,8 +65,7 @@ func IsDirty(ctx context.Context, at string) (bool, error) {
 }
 
 // isWorktreeAt reports whether a path is the top of a checkout rather than somewhere inside one,
-// since git answers about the repository it finds walking up and a force checkout of the enclosing
-// repository would throw away whatever that tree held.
+// git otherwise answering about the repository it finds walking up.
 func isWorktreeAt(ctx context.Context, at string) bool {
 	top, err := Run(ctx, at, "rev-parse", "--show-toplevel")
 	if err != nil {

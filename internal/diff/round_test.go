@@ -23,8 +23,8 @@ func capture(t *testing.T, root string, args ...string) string {
 	return strings.TrimSpace(string(out))
 }
 
-// TestTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers, since an agent mid-turn
-// has committed some of its work and left the rest in the worktree.
+// TestTakeHoldsCommittedAndUncommittedWorkAlike pins what a round covers, which is an agent's
+// committed work and what it has left in the worktree.
 func TestTakeHoldsCommittedAndUncommittedWorkAlike(t *testing.T) {
 	root := repo(t)
 	run(t, root, "checkout", "-b", "agent/one")
@@ -136,8 +136,7 @@ func TestTakeExcludesNothingItself(t *testing.T) {
 	require.NoError(t, err)
 	assert.Contains(t, lines, "func Gen() {}")
 
-	// The reader is shown none of it, and is told that rather than told the agent did nothing,
-	// since it wrote a file and the exclude is the only reason there is nothing on screen.
+	// The reader is shown none of it, and is told that rather than told the agent did nothing.
 	_, err = Load(t.Context(), LoadParams{
 		Dir:         root,
 		BaseSHA:     snapshot.BaseSHA,

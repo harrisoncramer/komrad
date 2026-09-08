@@ -38,8 +38,8 @@ func token(t *testing.T, raw string) string {
 	return base64.URLEncoding.EncodeToString([]byte(raw))
 }
 
-// TestNewCursor covers the three ways a page token can be wrong, since a cursor that
-// decodes into a value the query cannot use is refused like one that would not decode.
+// TestNewCursor covers the three ways a page token can be wrong, a cursor decoding into a value
+// the query cannot use being refused like one that would not decode.
 func TestNewCursor(t *testing.T) {
 	tests := []struct {
 		name    string

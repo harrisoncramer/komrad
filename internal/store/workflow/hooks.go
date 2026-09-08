@@ -29,8 +29,8 @@ type Hook struct {
 	Script string
 }
 
-// setHooks rewrites a workflow's hooks, since a caller sends back the whole list rather than
-// an edit to one of them, and the position they land in is the order they were sent.
+// setHooks rewrites a workflow's hooks, a caller sending back the whole list and the position
+// they land in being the order they were sent.
 func (s *Store) setHooks(ctx context.Context, workflowID string, hooks []Hook) error {
 	if err := s.queries.DeleteWorkflowHooks(ctx, workflowID); err != nil {
 		return fmt.Errorf("failed to clear hooks for workflow %q: %w", workflowID, err)

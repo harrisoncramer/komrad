@@ -19,8 +19,8 @@ func stub(name string, result Result, needs ...string) Check {
 	}
 }
 
-// TestRunSkipsWhatItCannotCheck covers the reason Needs exists: a machine missing one
-// thing should say so once, rather than once for every check that would have used it.
+// TestRunSkipsWhatItCannotCheck covers the reason Needs exists, which is a machine missing one
+// thing saying so once rather than once per check.
 func TestRunSkipsWhatItCannotCheck(t *testing.T) {
 	problem := &ProblemError{Code: "gone", Message: "it is not there"}
 

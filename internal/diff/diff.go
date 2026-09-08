@@ -29,8 +29,8 @@ type Hunk struct {
 	Lines  []Line
 }
 
-// File is one file's worth of change with both sides of its source carried whole, since the
-// highlighter lexes a language over a file rather than over the fragments a patch shows.
+// File is one file's worth of change with both sides of its source carried whole, which the
+// highlighter lexes a language over.
 type File struct {
 	OldPath   string
 	NewPath   string

@@ -70,8 +70,8 @@ func (h *Harness) Binary() string { return binary }
 // prompt to dismiss the way Claude does.
 func (h *Harness) InterruptKeys() []string { return []string{"Escape"} }
 
-// MintSessionID returns empty, since Codex takes no session id on the command line and
-// names the conversation itself, which the panel adopts afterwards through FindSession.
+// MintSessionID returns empty, Codex taking no session id on the command line and naming the
+// conversation itself.
 func (h *Harness) MintSessionID() string { return "" }
 
 // defaultSessionsDir is where Codex records its rollouts, returning a relative path that
@@ -90,8 +90,8 @@ type sessionMeta struct {
 	Originator string `json:"originator"`
 }
 
-// FindSession returns the conversation Codex started for this agent, or empty when none has
-// been written yet, since Codex records nothing until the first turn is submitted.
+// FindSession returns the conversation Codex started for this agent, or empty until the first
+// turn is submitted.
 func (h *Harness) FindSession(agentID string) (string, error) {
 	if agentID == "" {
 		return "", nil
@@ -107,8 +107,8 @@ func (h *Harness) FindSession(agentID string) (string, error) {
 	// Anything else a rollout could be matched on is shared with a Codex started by hand in the
 	// same place.
 	want := originator(agentID)
-	// The newest match wins, since an agent relaunched before its first conversation was adopted
-	// leaves an abandoned rollout carrying the same stamp.
+	// The newest match wins, an agent relaunched before its first conversation was adopted leaving
+	// an abandoned rollout carrying the same stamp.
 	for _, path := range slices.Backward(paths) {
 		meta, err := readSessionMeta(path)
 		if err != nil || meta.ID == "" || meta.Originator != want {

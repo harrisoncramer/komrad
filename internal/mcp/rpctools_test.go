@@ -17,9 +17,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// noToolSurface is the methods deliberately kept out of a model's reach, which are the
-// reviewer's half of a review conversation, and the marks the panel keeps of what the person
-// has looked at, rather than the agent's.
+// noToolSurface is the methods deliberately kept out of a model's reach, which are the reviewer's
+// half of a review conversation and the marks the panel keeps for the person.
 var noToolSurface = map[protoreflect.Name]bool{
 	"EmptyArchive":            true,
 	"RecordReport":            true,

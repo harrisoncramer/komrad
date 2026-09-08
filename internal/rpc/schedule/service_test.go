@@ -527,7 +527,7 @@ func createSchedule(t *testing.T, svc *Service, workflow, name string) string {
 }
 
 // TestListSchedulesSummarisesThePrompt covers the default view holding back the bulk of a page,
-// since a schedule is almost entirely the prompt it launches with.
+// which is the prompt.
 func TestListSchedulesSummarisesThePrompt(t *testing.T) {
 	svc, workflow := service(t)
 	prompt := strings.Repeat("p", render.SummaryHead+50)

@@ -49,9 +49,8 @@ func TestLayerPathsUsesPlatformPathList(t *testing.T) {
 	assert.Equal(t, want, LayerPaths())
 }
 
-// TestListRunLogs pins the order the panel reads runs in and what it leaves out, since
-// the number is parsed rather than sorted on: a run past the ninth hundred is wider than the
-// ones before it and would otherwise sort under them.
+// TestListRunLogs pins the order the panel reads runs in and what it leaves out, with the number
+// parsed rather than sorted on.
 func TestListRunLogs(t *testing.T) {
 	dir := t.TempDir()
 	logDir := RunLogDir(dir, "a1")
@@ -81,8 +80,7 @@ func TestListRunLogs(t *testing.T) {
 	assert.Equal(t, filepath.Join(logDir, RunLogName(1000, TriggerDeprovision, "_worktree_cleanup")), runs[0].Path)
 }
 
-// TestListRunLogsWithNothingToRead pins the empty answer, since an agent that has run
-// no script has no directory at all and that is not a fault.
+// TestListRunLogsWithNothingToRead pins the empty answer an agent that has run no script gets.
 func TestListRunLogsWithNothingToRead(t *testing.T) {
 	assert.Empty(t, ListRunLogs(t.TempDir(), "a1"))
 	assert.Empty(t, ListRunLogs("", "a1"))

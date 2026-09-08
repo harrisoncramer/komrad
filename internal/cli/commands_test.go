@@ -13,9 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestEveryCommandAnswersForItself walks the whole tree rather than the commands somebody wrote a
-// test for, since a subcommand added without a description or without saying what arguments it
-// takes is one the help is wrong about and cobra accepts anything into.
+// TestEveryCommandAnswersForItself walks the whole tree rather than the commands somebody wrote
+// a test for.
 func TestEveryCommandAnswersForItself(t *testing.T) {
 	walk(t, NewRootCommand(), func(t *testing.T, cmd *cobra.Command, path string) {
 		assert.NotEmpty(t, cmd.Short, "%s says nothing about itself", path)
@@ -61,8 +60,8 @@ func walk(t *testing.T, cmd *cobra.Command, check func(*testing.T, *cobra.Comman
 	descend(cmd, cmd.Name())
 }
 
-// TestQuietErrorsAreTheOnesAlreadyAnswered pins which failures main prints and which it swallows,
-// since a command that has had its say would otherwise say it twice.
+// TestQuietErrorsAreTheOnesAlreadyAnswered pins which failures main prints and which it
+// swallows.
 func TestQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
 	for _, quiet := range []error{ErrLogged, ErrReported, ErrPanelHidden} {
 		assert.True(t, IsQuiet(quiet), "%v has already been answered", quiet)
@@ -72,8 +71,7 @@ func TestQuietErrorsAreTheOnesAlreadyAnswered(t *testing.T) {
 	assert.False(t, IsQuiet(assert.AnError), "an ordinary failure is main's to print")
 }
 
-// TestColorFollowsWhatItWasAskedFor pins the three modes and the refusal, since auto has to read
-// the writer it was handed rather than assume a terminal.
+// TestColorFollowsWhatItWasAskedFor pins the three modes and the refusal.
 func TestColorFollowsWhatItWasAskedFor(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -105,8 +103,7 @@ func TestColorFollowsWhatItWasAskedFor(t *testing.T) {
 	}
 }
 
-// TestCloseWithinSaysWhichHandleHungRatherThanWaiting pins the timeout around shutdown, since a
-// handle that never closes would otherwise hold the process open with nothing said about it.
+// TestCloseWithinSaysWhichHandleHungRatherThanWaiting pins the timeout around shutdown.
 func TestCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T) {
 	var logged bytes.Buffer
 	logger := slog.New(slog.NewTextHandler(&logged, nil))
@@ -131,7 +128,7 @@ func TestCloseWithinSaysWhichHandleHungRatherThanWaiting(t *testing.T) {
 }
 
 // TestHookBinaryPathIsThisBuild pins that agents are launched with the hooks of the binary
-// serving them, since a path read from anywhere else drifts from the build that wrote it.
+// serving them.
 func TestHookBinaryPathIsThisBuild(t *testing.T) {
 	path := getHookBinaryPath(t.Context())
 	require.NotEmpty(t, path)
