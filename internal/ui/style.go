@@ -23,7 +23,7 @@ const (
 	localReviewRoundsIcon     = "⟳"
 	inLocalReviewIcon         = "✎"
 	localApprovedIcon         = "✓"
-	localChangesRequestedIcon = "✗"
+	localChangesRequestedIcon = "↩"
 	worktreeRemovedIcon       = "⊘"
 	workflowIcon              = "⧉"
 
@@ -195,7 +195,7 @@ func localVerdictIcon(verdict string) (string, lipgloss.Color) {
 	case reviewstore.VerdictApproved:
 		return localApprovedIcon, colorSuccess
 	case reviewstore.VerdictChangesRequested:
-		return localChangesRequestedIcon, colorDanger
+		return localChangesRequestedIcon, colorWarning
 	case reviewstore.VerdictCommented:
 		return "", colorMuted
 	}

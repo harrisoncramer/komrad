@@ -53,15 +53,15 @@ func TestInReviewMarkSaysAReviewerIsOwedAnAnswer(t *testing.T) {
 func TestReviewStateNoticesSayWhatTheGlyphsMean(t *testing.T) {
 	reading := agentNotices(agentItem{inLocalReview: true})
 	require.Len(t, reading, 1)
-	assert.Contains(t, reading[0].text, "in local review")
+	assert.Contains(t, reading[0].text, "in review")
 
 	approved := agentNotices(agentItem{localVerdict: string(reviewstore.VerdictApproved)})
 	require.Len(t, approved, 1)
-	assert.Contains(t, approved[0].text, "approved locally")
+	assert.Contains(t, approved[0].text, "approved")
 
 	changes := agentNotices(agentItem{localVerdict: string(reviewstore.VerdictChangesRequested)})
 	require.Len(t, changes, 1)
-	assert.Contains(t, changes[0].text, "changes requested locally")
+	assert.Contains(t, changes[0].text, "asked for changes")
 
 	assert.Empty(t, agentNotices(agentItem{localVerdict: string(reviewstore.VerdictCommented)}),
 		"a review released without a conclusion says nothing")
