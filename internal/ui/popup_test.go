@@ -255,20 +255,12 @@ func TestHoldFocusKeyGivesItBack(t *testing.T) {
 	assert.Equal(t, []string{"C-a"}, tmux.unbound)
 }
 
-// TestFocusKeyHeldOnlyOverAStagedAgent checks the key is bound only while an agent's pane is on
-// the stage.
+// TestFocusKeyHeldOnlyOverAStagedAgent checks the key is bound while an agent's pane is on the
+// stage and given back on a screen that stages none.
 func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)
 
-	m.tree.cursor = 0
-	m.holdFocusKey()
-
-	_, bound := binds.bound["root:C-a"]
-	assert.False(t, bound)
-	assert.Equal(t, []string{"C-a"}, binds.unbound)
-
-	m.tree.cursor = 1
 	m.holdFocusKey()
 
 	command, bound := binds.bound["root:C-a"]
@@ -283,17 +275,17 @@ func TestFocusKeyHeldOnlyOverAStagedAgent(t *testing.T) {
 
 	_, bound = binds.bound["root:C-a"]
 	assert.False(t, bound)
-	assert.Equal(t, []string{"C-a", "C-a"}, binds.unbound)
+	assert.Equal(t, []string{"C-a"}, binds.unbound)
 }
 
-// TestFocusKeyGivenBackByADeadAgent checks a row with no pane of its own unbinds the key, which
-// would otherwise jump to whatever pane was last worked in.
-func TestFocusKeyGivenBackByADeadAgent(t *testing.T) {
+// TestFocusKeyGivenBackByAnEmptyStage checks the key is unbound once the guest leaves the stage,
+// which would otherwise jump to a pane nobody can see.
+func TestFocusKeyGivenBackByAnEmptyStage(t *testing.T) {
 	binds := &bindingTmux{}
 	m := focusKeyModel(binds)
 
 	m.holdFocusKey()
-	m.listing.agents[0].alive = false
+	m.frame.ReleaseGuest("%9")
 	m.holdFocusKey()
 
 	_, bound := binds.bound["root:C-a"]

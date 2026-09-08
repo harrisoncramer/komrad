@@ -51,8 +51,8 @@ func (p *PopupWindow) BindHide(key string) {
 // hand is never what the key lands on. A press with no pane to go back to is refused by tmux and
 // does nothing, which is the same outcome as returning to a pane that has since died. A root
 // binding is unconditional for as long as it stands, so the panel binds it only while an agent's
-// pane is on the stage, and unbinds it on a workflow header, on an agent with no pane, and on
-// the screens that stage no agent.
+// pane is on the stage, and gives it back when the stage holds none and on the screens that
+// stage no agent.
 
 // HoldFocusKey takes the key that moves focus between the panel's sidebar and the agent's pane
 // on the stage, or gives it back to the panes when that pane is empty.
