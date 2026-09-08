@@ -5,20 +5,20 @@ import (
 	"slices"
 )
 
-// TransformParams says which places to move, what the later commit did to the files they sit in,
-// and what to do with a place that commit wrote over.
+// TransformParams says which places to move, what happened to their files, and what to do with a
+// place the later commit wrote over.
 type TransformParams struct {
-	// Positions are the places in the earlier commit, returned against by index.
+	// Positions are the places in the earlier commit, answered for by index.
 	Positions []Position
-	// Mappings are what became of the files, at most one entry per path unless a file was
-	// copied, which is the one case a single position comes back twice.
+	// Mappings are what became of the files, with a second entry for a path only when a file was
+	// copied.
 	Mappings []Mapping
 	// Policy is what a position whose lines were rewritten becomes.
 	Policy Policy
 }
 
-// Transform moves every position handed in to where the later commit holds it, resolving paths
-// first and only then the lines, so that a rename is settled before any line is counted.
+// Transform moves every position to where the later commit holds it, resolving paths before
+// lines.
 func Transform(params TransformParams) []Result {
 	byPath := indexMappings(params.Mappings)
 
@@ -48,8 +48,7 @@ func Transform(params TransformParams) []Result {
 	return results
 }
 
-// indexMappings gathers the mappings by the path they start from, holding a slice per path since
-// a file copied in two places has a mapping for each.
+// indexMappings gathers the mappings by the path they start from.
 func indexMappings(mappings []Mapping) map[string][]Mapping {
 	byPath := map[string][]Mapping{}
 	for _, mapping := range mappings {
@@ -74,8 +73,7 @@ func transformOne(params transformOneParams) Result {
 		Outcome:  Dropped,
 	}
 
-	// A file the later commit does not hold leaves nothing to point at, whatever the policy, so
-	// what was said about it stays said where it was written.
+	// A file the later commit does not hold leaves nothing to point at, whatever the policy.
 	if params.Mapping.File.IsDeleted() {
 		return dropped
 	}
@@ -116,8 +114,8 @@ func transformOne(params transformOneParams) Result {
 	}
 }
 
-// shiftRange walks a file from the top, carrying how much the regions above have moved the lines
-// below them, and refuses a range any of those regions was written over.
+// shiftRange carries the shift the regions above a range apply to it, and refuses a range any of
+// them wrote over.
 func shiftRange(mappings []RangeMapping, lines Range) (Range, bool) {
 	ordered := slices.Clone(mappings)
 	slices.SortFunc(ordered, func(a, b RangeMapping) int {
@@ -136,9 +134,7 @@ func shiftRange(mappings []RangeMapping, lines Range) (Range, bool) {
 		case mapping.Old.End <= lines.Start:
 			start, end = start+delta, end+delta
 		case mapping.Old.Start < lines.End:
-			// Only an insertion reaches here, since anything with lines of its own inside the
-			// range overlapped it, and lines arriving inside the range make it longer rather
-			// than moving where it starts.
+			// Only an insertion reaches here, and lines arriving inside a range lengthen it.
 			end += delta
 		default:
 			return Range{Start: start, End: end}, true

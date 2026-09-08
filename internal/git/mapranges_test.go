@@ -14,8 +14,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// numbered is a file whose every line says which line it is, so a position traced through a real
-// diff can be checked against the content rather than against arithmetic.
+// numbered is a file whose every line says which line it is, so a traced position can be checked
+// against content.
 func numbered(count int) string {
 	lines := make([]string, 0, count)
 	for line := 1; line <= count; line++ {
@@ -36,7 +36,7 @@ func commitAll(t *testing.T, root, message string) string {
 }
 
 // TestMapRangesRefusals covers the callers that hand over something a repository cannot answer
-// for, since every one of them used to reach git and read whatever it said as a mapping.
+// for.
 func TestMapRangesRefusals(t *testing.T) {
 	root := repo(t)
 	head := capture(t, root, "rev-parse", "HEAD")
@@ -73,8 +73,7 @@ func TestMapRangesRefusals(t *testing.T) {
 	}
 }
 
-// TestMapRangesReadsWhatTheCommitDid pins the shape of every change git can write, since the
-// hunk header is read one way here and the whole package rests on that reading.
+// TestMapRangesReadsWhatTheCommitDid pins the shape of every change git can write.
 func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 	tests := []struct {
 		name   string
@@ -270,8 +269,7 @@ func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 	}
 }
 
-// TestMapRangesReadsOnlyThePathsAsked covers the caller that holds comments on one file and has
-// no reason to pay for the rest of a wide commit.
+// TestMapRangesReadsOnlyThePathsAsked covers the caller that holds comments on one file.
 func TestMapRangesReadsOnlyThePathsAsked(t *testing.T) {
 	root := repo(t)
 	write(t, root, "one.go", numbered(4))
@@ -294,9 +292,8 @@ func TestMapRangesReadsOnlyThePathsAsked(t *testing.T) {
 	assert.Equal(t, "one.go", mappings[0].File.OldPath)
 }
 
-// TestATracedLineHoldsItsContent is the end of the whole exercise, and the only test that proves
-// the hunk convention this package reads is the one git actually writes: every line a real commit
-// left alone is found again by content after a real diff of two real snapshots.
+// TestATracedLineHoldsItsContent proves the hunk convention read here is the one git writes: a
+// line a real commit left alone is found again by its content.
 func TestATracedLineHoldsItsContent(t *testing.T) {
 	random := rand.New(rand.NewSource(20260907))
 
@@ -345,8 +342,7 @@ func TestATracedLineHoldsItsContent(t *testing.T) {
 	}
 }
 
-// rewriteSomeLines is a file rewritten at random and the lines of the original it left alone,
-// which are the only lines a trace is allowed to place.
+// rewriteSomeLines is a file rewritten at random and the original lines it left alone.
 func rewriteSomeLines(random *rand.Rand, count int) ([]int, string) {
 	kept := make([]int, 0, count)
 	written := make([]string, 0, count)

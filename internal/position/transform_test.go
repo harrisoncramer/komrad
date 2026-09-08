@@ -14,8 +14,7 @@ func lines(start, end int) Range {
 	return Range{Start: start, End: end}
 }
 
-// rewrite is one region of a file replaced by however many lines, which is the shape both a
-// mapping and an edit of the file itself are built from.
+// rewrite is one region of a file replaced by however many lines.
 func rewrite(oldStart, oldEnd, newStart, newEnd int) RangeMapping {
 	return RangeMapping{
 		Old: lines(oldStart, oldEnd),
@@ -23,8 +22,7 @@ func rewrite(oldStart, oldEnd, newStart, newEnd int) RangeMapping {
 	}
 }
 
-// TestTransform walks the cases a caller can reach, refusals first, since the interesting half
-// of this package is what it does with a position it cannot honestly place.
+// TestTransform walks the cases a caller can reach, refusals first.
 func TestTransform(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -383,8 +381,7 @@ func TestTransform(t *testing.T) {
 	}
 }
 
-// script is an edit of a file as a list of regions replaced by however many lines, which is what
-// a diff of two files reduces to and what the properties below are generated from.
+// script is an edit of a file as a list of regions replaced by however many lines.
 type script []replacement
 
 type replacement struct {
@@ -393,8 +390,7 @@ type replacement struct {
 	newLen   int
 }
 
-// apply is the file the script leaves behind, with every line naming where it came from so a
-// traced position can be checked against the content rather than against arithmetic.
+// apply is the file the script leaves behind, with every line naming where it came from.
 func (s script) apply(old []string) []string {
 	next := make([]string, 0, len(old))
 	cursor := 1
@@ -417,8 +413,7 @@ func (s script) apply(old []string) []string {
 	return next
 }
 
-// mappings is the script said the way a diff would say it, which is the input the transformer
-// takes and the only place the two representations have to agree.
+// mappings is the script said the way a diff would say it.
 func (s script) mappings(path string) []Mapping {
 	ranges := make([]RangeMapping, 0, len(s))
 	shift := 0
@@ -474,8 +469,8 @@ func buildScript(random *rand.Rand, fileLines int) script {
 	return built
 }
 
-// TestASurvivingLineTracesToItself is the property the whole package exists for: a line the
-// later commit did not write over is found again by content, whatever moved above it.
+// TestASurvivingLineTracesToItself is the property the package exists for: a line the later
+// commit did not write over is found again by its content.
 func TestASurvivingLineTracesToItself(t *testing.T) {
 	random := rand.New(rand.NewSource(20260907))
 
@@ -520,8 +515,8 @@ func TestASurvivingLineTracesToItself(t *testing.T) {
 	}
 }
 
-// TestEveryPositionIsAnsweredExactlyOnce pins the one thing a caller cannot recover from, since a
-// position that comes back with no result at all is a comment that vanished with nothing said.
+// TestEveryPositionIsAnsweredExactlyOnce pins the one thing a caller cannot recover from: a
+// position that comes back with no result at all is a comment that vanished.
 func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 	random := rand.New(rand.NewSource(7))
 
@@ -555,8 +550,8 @@ func TestEveryPositionIsAnsweredExactlyOnce(t *testing.T) {
 	}
 }
 
-// TestOnlyARewrittenLineConflicts is the other half of the contract: a line the script left alone
-// is never refused, and a line it wrote over is never quietly placed somewhere.
+// TestOnlyARewrittenLineConflicts is the other half of the contract: a line the script left
+// alone is never refused, and a line it wrote over is never quietly placed.
 func TestOnlyARewrittenLineConflicts(t *testing.T) {
 	random := rand.New(rand.NewSource(1312))
 

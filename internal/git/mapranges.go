@@ -10,8 +10,7 @@ import (
 	"github.com/bluekeyes/go-gitdiff/gitdiff"
 )
 
-// MapRangesParams says which two commits to read and, when the caller only cares about some of
-// the tree, which paths to read of them.
+// MapRangesParams says which two commits to read and which paths of them.
 type MapRangesParams struct {
 	// Dir is anywhere inside the repository holding both commits.
 	Dir string
@@ -19,14 +18,13 @@ type MapRangesParams struct {
 	FromSHA string
 	// ToSHA is the commit they are being moved to.
 	ToSHA string
-	// Paths are the files to read, in the coordinates of the earlier commit, or none for the
-	// whole tree.
+	// Paths are the files to read in the coordinates of the earlier commit, or none for the whole
+	// tree.
 	Paths []string
 }
 
 // MapRanges is what the later commit did to each file, in the form the position package moves a
-// place through, read with no context lines at all so that a region is only the lines that
-// actually changed and a comment beside one of them is not reported as written over.
+// place through.
 func MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping, error) {
 	if params.FromSHA == "" || params.ToSHA == "" {
 		return nil, fmt.Errorf("failed to map %q: two commits are needed", params.Dir)
@@ -37,6 +35,9 @@ func MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping,
 		return nil, err
 	}
 
+	// Explainer: the diff is read with no context lines. With git's usual three, a hunk claims
+	// the untouched lines around a change as part of it, and a position on one of those lines
+	// comes back reported as written over when nothing touched it.
 	raw, err := RunBytes(ctx, root, mapRangesArgs(params)...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to diff %s against %s: %w", params.FromSHA, params.ToSHA, err)
@@ -50,8 +51,8 @@ func MapRanges(ctx context.Context, params MapRangesParams) ([]position.Mapping,
 	return mappings, nil
 }
 
-// mapPatch reads a patch git has already written, kept apart from running git so that a fuzzer
-// can hand it anything at all.
+// mapPatch reads a patch git has already written, kept apart from running git so a fuzzer can
+// reach it.
 func mapPatch(raw []byte) ([]position.Mapping, error) {
 	files, _, err := gitdiff.Parse(bytes.NewReader(raw))
 	if err != nil {
@@ -72,9 +73,8 @@ func mapPatch(raw []byte) ([]position.Mapping, error) {
 	return mappings, nil
 }
 
-// mapRangesArgs pins the prefixes git writes on the header lines, since the parser drops the
-// first segment of a name whatever it is, so a user whose own config asks for no prefix would
-// have a real directory eaten off every path.
+// mapRangesArgs pins the prefixes git writes on the header lines so the parser does not eat a
+// real directory off every path.
 func mapRangesArgs(params MapRangesParams) []string {
 	args := []string{
 		"-c", "core.quotepath=false",
@@ -95,9 +95,8 @@ func mapRangesArgs(params MapRangesParams) []string {
 	return append(args, params.Paths...)
 }
 
-// rangesOf is the regions of one file the later commit rewrote, and nothing at all for a file
-// whose content the patch does not draw, which is a binary, a rename that changed nothing, and a
-// file whose only change was its mode.
+// rangesOf is the regions of one file the later commit rewrote, and nothing for a file the patch
+// draws no content for.
 func rangesOf(file *gitdiff.File) []position.RangeMapping {
 	if file.IsBinary {
 		return nil
@@ -114,8 +113,7 @@ func rangesOf(file *gitdiff.File) []position.RangeMapping {
 	return ranges
 }
 
-// filePath reads /dev/null as no file at all, which is how a patch names the missing side of a
-// file arriving or leaving.
+// filePath reads /dev/null as no file at all.
 func filePath(path string) string {
 	if path == "/dev/null" {
 		return ""
@@ -124,9 +122,8 @@ func filePath(path string) string {
 	return path
 }
 
-// rangeOf turns one side of a hunk header into a range, reading a hunk that covers no lines as
-// the point they would arrive at, which git numbers as the line before it rather than the line
-// it sits in front of.
+// rangeOf turns one side of a hunk header into a range, counting a hunk of no lines as the point
+// they arrive at.
 func rangeOf(start, count int64) position.Range {
 	if count == 0 {
 		return position.Range{Start: int(start) + 1, End: int(start) + 1}
