@@ -989,7 +989,7 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
 	m = openReview(t, m)
 
-	assert.Equal(t, 56, m.reviewPanStep(), "a third of the 170 columns the diff is drawn in")
+	assert.Equal(t, 56, m.getReviewPanStep(), "a third of the 170 columns the diff is drawn in")
 
 	next, _ := m.updateReview(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("l")})
 	m = next.(model)
@@ -997,7 +997,7 @@ func TestReviewPanStepScalesWithThePane(t *testing.T) {
 
 	// Until the pane has been measured there is nothing to take a third of.
 	m.width = 0
-	assert.Equal(t, reviewPanStep, m.reviewPanStep())
+	assert.Equal(t, reviewPanStep, m.getReviewPanStep())
 }
 
 func unsentComment() *agentv1.ReviewMessage {

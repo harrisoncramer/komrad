@@ -140,12 +140,12 @@ func (m model) doesReviewFitBaseLegend() bool {
 	return m.doesReviewWalk()
 }
 
-// reviewBaseDesc says which way the base key will move, in the legend's own width budget.
+// reviewBaseDesc names the base key in the legend, inside its own width budget.
 func (m model) reviewBaseDesc() string {
 	return "an earlier round"
 }
 
-// reviewBaseForwardDesc is the same for the key going the other way.
+// reviewBaseForwardDesc is the same for the key that walks the other way.
 func (m model) reviewBaseForwardDesc() string {
 	return "a later round"
 }
