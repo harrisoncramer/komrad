@@ -1010,10 +1010,7 @@ func sentComment() *agentv1.ReviewMessage {
 	}
 }
 
-// TestReviewDeliveryViewCountsTheComments covers the line at the top of the sidebar, which
-// counts the person's own comments by how far each has got rather than summarising the lot of
-// them into one phrase. A review with nothing of the person's own in it counts nothing and says
-// nothing, since the mode line above it is what tells the reader where they are.
+// TestReviewDeliveryViewCountsTheComments covers the line at the top of the sidebar, which counts the person's own comments by how far each has got.
 func TestReviewDeliveryViewCountsTheComments(t *testing.T) {
 	tests := []struct {
 		name    string
