@@ -165,10 +165,9 @@ func verdictSentence(verdict reviewstore.Verdict) string {
 	case reviewstore.VerdictChangesRequested:
 		return "Changes requested. Keep working on this."
 	case reviewstore.VerdictCommented:
-		return "Comments only, with no conclusion either way."
-	default:
-		return "Comments only, with no conclusion either way."
 	}
+
+	return "Comments only, with no conclusion either way."
 }
 
 func short(sha string) string {

@@ -472,10 +472,9 @@ func (m model) updateForm(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case huh.StateAborted:
 		return m.closeForm()
 	case huh.StateNormal:
-		return m, cmd
-	default:
-		return m, cmd
 	}
+
+	return m, cmd
 }
 
 // formSizeOf turns a resize into the room the form has rather than the room the panel has, and

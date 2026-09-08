@@ -50,10 +50,9 @@ func (m model) logsDesc() string {
 	case infoAgentLog:
 		return "hide logs"
 	case infoNothing, infoTerminal, infoEditFile:
-		return "run log"
-	default:
-		return "run log"
 	}
+
+	return "run log"
 }
 
 // logTarget is the agent the log keys read.
