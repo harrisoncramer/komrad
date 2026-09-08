@@ -339,7 +339,11 @@ func TestScheduleIsNotBlockedByARunThatNeverStarted(t *testing.T) {
 			tmux.owners["%1"] = run.ID
 			tmux.captures["%1"] = tt.frame
 
-			rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
+			rec := NewReconciler(NewReconcilerParams{
+				Panes:     tmux,
+				Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+				States:    st.Agents,
+			})
 			for range reconcileMisses + 2 {
 				require.NoError(t, rec.Reconcile(ctx))
 			}

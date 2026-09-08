@@ -80,11 +80,33 @@ func TestColorFollowsWhatItWasAskedFor(t *testing.T) {
 		want    bool
 		wantErr bool
 	}{
-		{name: "always, whatever it is writing to", mode: "always", out: &bytes.Buffer{}, want: true},
-		{name: "never, even at a terminal", mode: "never", out: os.Stdout},
-		{name: "auto into a buffer is not a terminal", mode: "auto", out: &bytes.Buffer{}},
-		{name: "auto into a file that is not one either", mode: "auto", out: os.NewFile(0, os.DevNull)},
-		{name: "anything else is the caller's mistake", mode: "sometimes", out: &bytes.Buffer{}, wantErr: true},
+		{
+			name: "always, whatever it is writing to",
+			mode: "always",
+			out:  &bytes.Buffer{},
+			want: true,
+		},
+		{
+			name: "never, even at a terminal",
+			mode: "never",
+			out:  os.Stdout,
+		},
+		{
+			name: "auto into a buffer is not a terminal",
+			mode: "auto",
+			out:  &bytes.Buffer{},
+		},
+		{
+			name: "auto into a file that is not one either",
+			mode: "auto",
+			out:  os.NewFile(0, os.DevNull),
+		},
+		{
+			name:    "anything else is the caller's mistake",
+			mode:    "sometimes",
+			out:     &bytes.Buffer{},
+			wantErr: true,
+		},
 	}
 
 	for _, tt := range tests {

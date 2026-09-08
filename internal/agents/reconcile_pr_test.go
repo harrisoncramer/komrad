@@ -74,7 +74,11 @@ func TestReconcileRecordsAPullRequestOnceIdle(t *testing.T) {
 	tmux.owners["%1"] = "" // a pane that is not the agent's, so it settles idle in this one pass
 	finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
-	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithPRFinder(finder)
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:     tmux,
+		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		States:    st.Agents,
+	}).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 	require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
@@ -103,7 +107,11 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		tmux.owners["%1"] = ""
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/2"}
 
-		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithPRFinder(finder)
+		rec := NewReconciler(NewReconcilerParams{
+			Panes:     tmux,
+			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			States:    st.Agents,
+		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
@@ -119,7 +127,11 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		tmux.owners["%1"] = ""
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
-		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithPRFinder(finder)
+		rec := NewReconciler(NewReconcilerParams{
+			Panes:     tmux,
+			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			States:    st.Agents,
+		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
@@ -135,7 +147,11 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 		tmux := newFakeTmux() // still not owned: reconcile re-confirms idle, a heartbeat, not a transition
 		finder := &fakePRFinder{url: "https://github.com/harrisoncramer/weave/pull/1"}
 
-		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithPRFinder(finder)
+		rec := NewReconciler(NewReconcilerParams{
+			Panes:     tmux,
+			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			States:    st.Agents,
+		}).WithPRFinder(finder)
 		require.NoError(t, rec.Reconcile(t.Context()))
 
 		time.Sleep(50 * time.Millisecond)
@@ -148,7 +164,11 @@ func TestReconcileChecksOnceThenLeavesItAlone(t *testing.T) {
 
 		tmux := newFakeTmux()
 		tmux.owners["%1"] = ""
-		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
+		rec := NewReconciler(NewReconcilerParams{
+			Panes:     tmux,
+			Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+			States:    st.Agents,
+		})
 		require.NoError(t, rec.Reconcile(t.Context()))
 		require.Equal(t, agentstore.StateIdle, stateOf(t, st, "agent"))
 
@@ -166,7 +186,11 @@ func TestReconcileSwallowsALookupFailure(t *testing.T) {
 	tmux.owners["%1"] = ""
 	finder := &fakePRFinder{err: errors.New("gh: command not found")}
 
-	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithPRFinder(finder)
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:     tmux,
+		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		States:    st.Agents,
+	}).WithPRFinder(finder)
 	require.NoError(t, rec.Reconcile(t.Context()))
 
 	require.Eventually(t, func() bool { return finder.calls.Load() == 1 }, time.Second, 5*time.Millisecond)
@@ -185,7 +209,11 @@ func TestReconcileBacksOffAfterARateLimitedLookup(t *testing.T) {
 	tmux.owners["%1"] = ""
 	finder := &fakePRFinder{err: errors.New("API rate limit exceeded for installation ID 123.")}
 
-	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents}).WithPRFinder(finder)
+	rec := NewReconciler(NewReconcilerParams{
+		Panes:     tmux,
+		Harnesses: fakeHarnesses{harness: &fakeHarness{}},
+		States:    st.Agents,
+	}).WithPRFinder(finder)
 	at := time.Now()
 	rec.tally.now = func() time.Time { return at }
 

@@ -200,7 +200,11 @@ func buildServices(p Params, st *stores) (*services, error) {
 			PaneTyper:     p.Tmux,
 			Harnesses:     p.Harnesses,
 		}),
-		reconciler: agents.NewReconciler(agents.NewReconcilerParams{Panes: p.Tmux, Harnesses: p.Harnesses, States: st.agents}).
+		reconciler: agents.NewReconciler(agents.NewReconcilerParams{
+			Panes:     p.Tmux,
+			Harnesses: p.Harnesses,
+			States:    st.agents,
+		}).
 			WithPRFinder(agents.NewGHPRFinder()).
 			WithFrameRecorder(frames.NewRecorder(p.Env.FramesDir(), newFrameSettings(loadConfig).get)),
 	}, nil

@@ -141,7 +141,11 @@ func crowdedModel(t *testing.T) model {
 	for i := range 40 {
 		name := fmt.Sprintf("an-agent-with-a-long-name-%d", i)
 		m.listing.agents = append(m.listing.agents, agentItem{
-			agent: agentstore.Agent{ID: fmt.Sprintf("a%d", i), Name: name, WorkflowID: "w1"},
+			agent: agentstore.Agent{
+				ID:         fmt.Sprintf("a%d", i),
+				Name:       name,
+				WorkflowID: "w1",
+			},
 		})
 		m.archive.agents = append(m.archive.agents, agentstore.Agent{
 			ID: fmt.Sprintf("r%d", i), Name: name, WorkflowID: "w1",
