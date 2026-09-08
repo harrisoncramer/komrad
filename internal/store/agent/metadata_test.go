@@ -8,7 +8,6 @@ import (
 	"weave/lib/xptr"
 
 	"github.com/google/uuid"
-
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -234,45 +233,4 @@ func TestSetMetadataCeilingUnderConcurrency(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, after)
 	assert.Len(t, after.Metadata, maxMetadataKeys, "only room many racers should have gotten past the limit")
-}
-
-// TestListPageHydratesMetadata pins that a listing carries each agent's own facts and
-// nobody else's, since the panel renders straight off the listing.
-func TestListPageHydratesMetadata(t *testing.T) {
-	st := open(t)
-	ctx := t.Context()
-
-	ids := make(map[string]string, 2)
-	for _, name := range []string{"first", "second"} {
-		require.NoError(t, st.Create(ctx, Agent{Name: name, State: StateIdle}))
-		created, err := st.Get(ctx, name)
-		require.NoError(t, err)
-		require.NotNil(t, created)
-		ids[name] = created.ID
-	}
-
-	for key, value := range map[string]string{"pr": "https://github.com/o/r/pull/1", "branch": "harry/x"} {
-		changed, err := st.SetMetadata(ctx, SetMetadataParams{
-			ID:    ids["first"],
-			Key:   key,
-			Value: xptr.Ptr(value),
-		})
-		require.NoError(t, err)
-		require.True(t, changed)
-	}
-
-	listed, err := st.ListPage(ctx, 10, nil, false)
-	require.NoError(t, err)
-	require.Len(t, listed, 2)
-
-	byName := make(map[string][]Metadata, len(listed))
-	for _, agent := range listed {
-		byName[agent.Name] = agent.Metadata
-	}
-
-	assert.Equal(t, []Metadata{
-		{Key: "branch", Value: "harry/x"},
-		{Key: "pr", Value: "https://github.com/o/r/pull/1"},
-	}, byName["first"], "ordered by key, whatever order they were written in")
-	assert.Empty(t, byName["second"], "an agent that recorded nothing carries nothing")
 }

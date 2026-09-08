@@ -6,10 +6,7 @@ import (
 
 	"weave/internal/pgtest"
 	"weave/internal/store"
-	schedulestore "weave/internal/store/schedule"
 	workflowstore "weave/internal/store/workflow"
-
-	"github.com/google/uuid"
 
 	"github.com/stretchr/testify/require"
 )
@@ -72,18 +69,4 @@ func pool(t *testing.T) *store.Pool {
 	t.Cleanup(func() { _ = p.Close() })
 
 	return p
-}
-
-func seedSchedule(t *testing.T, st *fixture) string {
-	t.Helper()
-
-	created, err := schedulestore.New(st.db).Create(t.Context(), schedulestore.Config{
-		Name:       "schedule-" + uuid.NewString(),
-		Cron:       "0 9 * * *",
-		Prompt:     "go",
-		WorkflowID: st.defaultWorkflow,
-	})
-	require.NoError(t, err)
-
-	return created.ID
 }

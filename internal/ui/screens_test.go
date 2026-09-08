@@ -1,10 +1,18 @@
 package ui
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 
 	"weave/config"
+	agentstore "weave/internal/store/agent"
+	schedulestore "weave/internal/store/schedule"
+	workflowstore "weave/internal/store/workflow"
+	"weave/internal/ui/layout"
+	agentv1 "weave/proto/gen/agent/v1"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -76,4 +84,83 @@ func TestFormIsDrawnOverTheScreenItWasOpenedFrom(t *testing.T) {
 
 	assert.False(t, got.form.isActive(), "closing takes the prompt down")
 	assert.Equal(t, screenSchedules, got.screen, "and lands back where it was opened from")
+}
+
+// TestNoScreenOutgrowsThePaneItWasGiven sweeps every screen rather than the three that had an
+// instance of their own, at panes tall enough to hold their own chrome, since a pane shorter
+// than its legend overflows by design and one that is not says nothing about the screen.
+func TestNoScreenOutgrowsThePaneItWasGiven(t *testing.T) {
+	sizes := []struct {
+		width  int
+		height int
+	}{
+		{width: 46, height: 28},
+		{width: 80, height: 30},
+		{width: 120, height: 40},
+		{width: 200, height: 60},
+	}
+
+	for s := screenAgents; s <= screenMail; s++ {
+		for _, size := range sizes {
+			name := fmt.Sprintf("%d at %dx%d", s, size.width, size.height)
+			t.Run(name, func(t *testing.T) {
+				m := crowdedModel(t)
+				m.screen = s
+				m.width, m.height = size.width, size.height
+
+				for _, expanded := range []bool{false, true} {
+					shown := m
+					shown.helpExpanded = expanded
+
+					drawn := drawnLines(shown.View())
+					assert.LessOrEqual(t, len(drawn), size.height, "taller than the pane")
+
+					for i, row := range drawn {
+						assert.LessOrEqual(t, lipgloss.Width(row), size.width,
+							"row %d is wider than the pane: %q", i, row)
+					}
+				}
+			})
+		}
+	}
+}
+
+// crowdedModel is a panel with more on every screen than any pane can hold, which is the shape
+// that finds a view drawing past what it was given.
+func crowdedModel(t *testing.T) model {
+	t.Helper()
+
+	m := model{
+		keys:   config.DefaultKeybindings(),
+		frame:  layout.New(&recordingTmux{}, config.DefaultLayout()),
+		width:  80,
+		height: 24,
+		listing: listing{
+			workflows: []workflowstore.Workflow{{ID: "w1", Name: "a workflow with a long enough name"}},
+		},
+	}
+
+	for i := range 40 {
+		name := fmt.Sprintf("an-agent-with-a-long-name-%d", i)
+		m.listing.agents = append(m.listing.agents, agentItem{
+			agent: agentstore.Agent{ID: fmt.Sprintf("a%d", i), Name: name, WorkflowID: "w1"},
+		})
+		m.archive.agents = append(m.archive.agents, agentstore.Agent{
+			ID: fmt.Sprintf("r%d", i), Name: name, WorkflowID: "w1",
+		})
+		m.schedules.items = append(m.schedules.items, scheduleItem{
+			schedule: schedulestore.Schedule{ID: fmt.Sprintf("s%d", i), Name: name},
+		})
+		m.mail.inbox = append(m.mail.inbox, &agentv1.Mail{
+			Id:   fmt.Sprintf("m%d", i),
+			Body: strings.Repeat("a message long enough to want wrapping ", 3),
+		})
+		m.search.hits = append(m.search.hits, searchHit{
+			agentID: fmt.Sprintf("a%d", i),
+			name:    name,
+			snippet: strings.Repeat("a snippet long enough to want clipping ", 2),
+		})
+	}
+
+	return m
 }
