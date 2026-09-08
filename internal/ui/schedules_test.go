@@ -52,7 +52,7 @@ func TestScheduleKeys(t *testing.T) {
 		},
 		{
 			name:       "edit opens the form on the hovered schedule",
-			key:        "enter",
+			key:        "e",
 			wantScreen: screenSchedules,
 			wantForm:   formSchedule,
 		},
@@ -71,7 +71,7 @@ func TestScheduleKeys(t *testing.T) {
 		{
 			name:       "edit on an empty list does nothing",
 			empty:      true,
-			key:        "enter",
+			key:        "e",
 			wantScreen: screenSchedules,
 		},
 		{
@@ -584,7 +584,6 @@ func keyMsg(key string) tea.KeyMsg {
 
 var namedKeys = map[string]tea.KeyType{
 	"esc":    tea.KeyEsc,
-	"enter":  tea.KeyEnter,
 	"ctrl+t": tea.KeyCtrlT,
 }
 

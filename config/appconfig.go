@@ -781,7 +781,7 @@ func DefaultKeybindings() Keybindings {
 		Schedules: SchedulesKeys{
 			Archive: []string{"z"},
 			Back:    []string{"esc"},
-			Edit:    []string{"enter"},
+			Edit:    []string{"e"},
 			New:     []string{"c"},
 			Open:    []string{"S"},
 			Quit:    []string{"ctrl+c"},

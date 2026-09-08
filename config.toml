@@ -247,7 +247,7 @@ archive = ["z"]
 # Leave the schedules screen for the agents list.
 back    = ["esc"]
 # Edit the schedule under the cursor.
-edit    = ["enter"]
+edit    = ["e"]
 # Write a new schedule.
 new     = ["c"]
 # Open the schedules screen from the agents list.
