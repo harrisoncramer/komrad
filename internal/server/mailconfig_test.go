@@ -57,5 +57,5 @@ func TestMailConfigPropagatesTheLoadError(t *testing.T) {
 	require.ErrorIs(t, err, sentinel)
 
 	_, err = load.GetMaxExchange()
-	assert.ErrorIs(t, err, sentinel)
+	require.ErrorIs(t, err, sentinel)
 }

@@ -255,7 +255,7 @@ func TestCwdSyncerSyncSkipsArchivedAgents(t *testing.T) {
 func gitOutput(t *testing.T, dir string, args ...string) string {
 	t.Helper()
 
-	cmd := exec.CommandContext(context.Background(), "git", append([]string{"-C", dir}, args...)...)
+	cmd := exec.CommandContext(t.Context(), "git", append([]string{"-C", dir}, args...)...)
 	out, err := cmd.Output()
 	require.NoError(t, err)
 

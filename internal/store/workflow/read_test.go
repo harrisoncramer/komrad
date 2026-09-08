@@ -56,7 +56,7 @@ func TestGet(t *testing.T) {
 			got, err := st.Get(ctx, id)
 
 			if tt.wantName == "" {
-				assert.ErrorIs(t, err, store.ErrNotFound)
+				require.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
@@ -160,7 +160,7 @@ func TestGetIncludingArchived(t *testing.T) {
 			got, err := st.GetIncludingArchived(ctx, id)
 
 			if !tt.wantHit {
-				assert.ErrorIs(t, err, store.ErrNotFound)
+				require.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}

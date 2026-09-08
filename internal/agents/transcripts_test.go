@@ -116,7 +116,7 @@ func TestTranscriptSyncer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 			projects := t.TempDir()
 
 			agent := seedWithSessionID(t, st, testSessionID, "agent")
@@ -126,7 +126,7 @@ func TestTranscriptSyncer(t *testing.T) {
 				path = writeLog(t, projects, tt.log)
 			}
 
-			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
@@ -177,7 +177,7 @@ func TestTranscriptSyncer(t *testing.T) {
 // older agent behind it, since the same agent would fail on every pass.
 func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	projects := t.TempDir()
 
 	readable := seedWithSessionID(t, st, "claude-readable", "readable")
@@ -187,7 +187,7 @@ func TestSyncSurvivesOneUnsyncableAgent(t *testing.T) {
 	writeLogFor(t, projects, "claude-unsyncable", `{"type":"user","message":{"content":"never accepted"}}`+"\n")
 
 	store := failingTranscripts{transcriptReadWriter: st.Transcripts, failFor: unsyncable.ID}
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: store,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),
@@ -223,7 +223,7 @@ const testSessionID = "claude-abc"
 
 func seedWithSessionID(t *testing.T, st *testStore, sessionID, name string) agentstore.Agent {
 	t.Helper()
-	ctx := context.Background()
+	ctx := t.Context()
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:      name,
 		State:     agentstore.StateIdle,
@@ -265,7 +265,7 @@ func appendToLog(t *testing.T, path, body string) {
 // than skipped, since a search that quietly finds nothing goes unnoticed.
 func TestSyncReportsAnUnknownHarness(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:      "orphan",
@@ -274,7 +274,7 @@ func TestSyncReportsAnUnknownHarness(t *testing.T) {
 		SessionID: testSessionID,
 	}))
 
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: t.TempDir()})),
@@ -314,13 +314,13 @@ func TestSyncAdoptsSessions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			st := newStore(t)
-			ctx := context.Background()
+			ctx := t.Context()
 
 			require.NoError(t, st.Create(ctx, agentstore.Agent{
 				Name: "adopter", State: agentstore.StateIdle, SessionID: tt.held,
 			}))
 
-			syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+			syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 				Agents:      st.Agents,
 				Transcripts: st.Transcripts,
 				Harnesses:   fakeHarnesses{harness: &fakeHarness{found: tt.found}},
@@ -339,7 +339,7 @@ func TestSyncAdoptsSessions(t *testing.T) {
 // then read, driving the real codex harness over a real rollout.
 func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	sessions := t.TempDir()
 	cwd := t.TempDir()
 
@@ -360,7 +360,7 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 			`{"type":"response_item","payload":{"type":"message","role":"user","content":[{"type":"input_text","text":"how do I use trigram search"}]}}`+"\n"),
 		0o600))
 
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, codex.NewHarness(codex.NewHarnessParams{SessionsDir: sessions})),
@@ -382,13 +382,13 @@ func TestSyncAdoptedSessionIsIndexed(t *testing.T) {
 // which is what a CLI that truncates its log before rewriting it leaves behind.
 func TestSyncStartsOverOnALogEmptiedBetweenPasses(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 	projects := t.TempDir()
 
 	agent := seedWithSessionID(t, st, testSessionID, "agent")
 	path := writeLog(t, projects, `{"type":"user","message":{"content":"the conversation that was"}}`+"\n")
 
-	syncer := NewTranscriptSyncer(TranscriptSyncerParams{
+	syncer := NewTranscriptSyncer(NewTranscriptSyncerParams{
 		Agents:      st.Agents,
 		Transcripts: st.Transcripts,
 		Harnesses:   mustRegistry(t, claude.NewHarness(claude.NewHarnessParams{ProjectsDir: projects})),

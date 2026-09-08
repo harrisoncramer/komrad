@@ -44,7 +44,7 @@ func TestLogPanic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out bytes.Buffer
-			ctx := WithLogger(context.Background(), New(&out, slog.LevelError))
+			ctx := WithLogger(t.Context(), New(&out, slog.LevelError))
 
 			LogPanic(ctx, tt.recovered)
 
@@ -87,7 +87,7 @@ func TestLogAndRepanic(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var out bytes.Buffer
-			ctx := WithLogger(context.Background(), New(&out, slog.LevelError))
+			ctx := WithLogger(t.Context(), New(&out, slog.LevelError))
 
 			if !tt.wantPanic {
 				tt.run(ctx)

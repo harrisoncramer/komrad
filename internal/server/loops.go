@@ -61,7 +61,7 @@ func buildLoops(p buildLoopsParams) []Loop {
 		{
 			Name:     TranscriptSyncLoop,
 			Interval: TranscriptSyncInterval,
-			Pass: agents.NewTranscriptSyncer(agents.TranscriptSyncerParams{
+			Pass: agents.NewTranscriptSyncer(agents.NewTranscriptSyncerParams{
 				Agents:      p.Stores.agents,
 				Transcripts: p.Stores.transcripts,
 				Harnesses:   p.Harnesses,
@@ -75,7 +75,7 @@ func buildLoops(p buildLoopsParams) []Loop {
 		{
 			Name:     PRArchiveLoop,
 			Interval: PRArchiveInterval,
-			Pass: agents.NewPRArchiver(agents.PRArchiverParams{
+			Pass: agents.NewPRArchiver(agents.NewPRArchiverParams{
 				Agents:       p.Stores.agents,
 				Workflows:    p.Stores.workflows,
 				Archiver:     p.Services.lifecycle,

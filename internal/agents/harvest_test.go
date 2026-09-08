@@ -1,7 +1,6 @@
 package agents
 
 import (
-	"context"
 	"testing"
 
 	"weave/internal/review"
@@ -40,7 +39,7 @@ func harvestService(t *testing.T) (*ReviewService, *fakeReviewStore) {
 func harvest(t *testing.T, service *ReviewService, runs ...review.Run) *HarvestResult {
 	t.Helper()
 
-	result, err := service.HarvestRoundEdits(context.Background(), HarvestRoundEditsParams{
+	result, err := service.HarvestRoundEdits(t.Context(), HarvestRoundEditsParams{
 		AgentID: reviewedAgentID,
 		RoundID: reviewRoundID,
 		Runs:    runs,
@@ -157,7 +156,7 @@ func TestAHarvestBigEnoughToBeAFormatterIsRefused(t *testing.T) {
 		runs = append(runs, harvestRun(i+1, i+1, "reformatted"))
 	}
 
-	_, err := service.HarvestRoundEdits(context.Background(), HarvestRoundEditsParams{
+	_, err := service.HarvestRoundEdits(t.Context(), HarvestRoundEditsParams{
 		AgentID: reviewedAgentID,
 		RoundID: reviewRoundID,
 		Runs:    runs,
@@ -178,7 +177,7 @@ func TestARefusedHarvestCanBeForced(t *testing.T) {
 		runs = append(runs, harvestRun(i+1, i+1, "reformatted"))
 	}
 
-	_, err := service.HarvestRoundEdits(context.Background(), HarvestRoundEditsParams{
+	_, err := service.HarvestRoundEdits(t.Context(), HarvestRoundEditsParams{
 		AgentID: reviewedAgentID,
 		RoundID: reviewRoundID,
 		Runs:    runs,
@@ -195,7 +194,7 @@ func TestAHarvestOfAnotherAgentsRoundIsRefused(t *testing.T) {
 
 	service, _ := harvestService(t)
 
-	_, err := service.HarvestRoundEdits(context.Background(), HarvestRoundEditsParams{
+	_, err := service.HarvestRoundEdits(t.Context(), HarvestRoundEditsParams{
 		AgentID: otherAgentID,
 		RoundID: reviewRoundID,
 		Runs:    []review.Run{harvestRun(2, 2, "fixed")},

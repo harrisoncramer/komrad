@@ -93,15 +93,15 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 	mail := agents.NewMailService(agents.NewMailServiceParams{
 		MailReadWriter: st.Mail,
 		Agents:         st.Agents,
-		Config:         stubMailConfig(config.DefaultMaxExchange),
+		Config:         fakeMailConfig(config.DefaultMaxExchange),
 	})
-	review := agents.NewReviewService(agents.ReviewServiceParams{
+	review := agents.NewReviewService(agents.NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,
 		Rounds:    reviews,
 		Reviews:   reviews,
-		Snapshots: stubSnapshotter{},
+		Snapshots: fakeSnapshotter{},
 		Workflows: st.Workflows,
 		StateDir:  t.TempDir(),
 		Agents:    st.Agents,
@@ -118,17 +118,17 @@ func reviewService(t *testing.T) (*Service, *storetest.Stores) {
 	}), st
 }
 
-// stubSnapshotter stands in for git, since these tests are about who the handler thinks is
+// fakeSnapshotter stands in for git, since these tests are about who the handler thinks is
 // calling rather than about what a worktree holds.
-type stubSnapshotter struct{}
+type fakeSnapshotter struct{}
 
-func (stubSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
+func (fakeSnapshotter) Take(context.Context, git.TakeSnapshotParams) (*git.Snapshot, error) {
 	return &git.Snapshot{BaseSHA: "base-sha", SHA: "snapshot-sha"}, nil
 }
 
-func (stubSnapshotter) Hold(context.Context, string, string, string) error { return nil }
+func (fakeSnapshotter) Hold(context.Context, string, string, string) error { return nil }
 
-func (stubSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
+func (fakeSnapshotter) FileAt(context.Context, string, string, string) ([]string, error) {
 	return nil, nil
 }
 

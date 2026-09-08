@@ -45,7 +45,7 @@ type prArchiveAgentArchiver interface {
 	ArchiveUnchangedAgents(ctx context.Context, observed []agentstore.Agent) ([]agentstore.Agent, error)
 }
 
-type PRArchiverParams struct {
+type NewPRArchiverParams struct {
 	Agents       prArchiveAgentReadWriter
 	Workflows    workflowGetter
 	Archiver     prArchiveAgentArchiver
@@ -67,7 +67,7 @@ type PRArchiver struct {
 
 // NewPRArchiver builds an archiver over the agent store, the workflows that hold the
 // setting, and the way an agent is archived.
-func NewPRArchiver(p PRArchiverParams) *PRArchiver {
+func NewPRArchiver(p NewPRArchiverParams) *PRArchiver {
 	return &PRArchiver{
 		agents:       p.Agents,
 		workflows:    p.Workflows,

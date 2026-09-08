@@ -208,7 +208,7 @@ func TestGetByID(t *testing.T) {
 
 			got, err := st.GetByID(ctx, tt.lookup(*sent))
 			if !tt.wantOK {
-				assert.ErrorIs(t, err, store.ErrNotFound)
+				require.ErrorIs(t, err, store.ErrNotFound)
 
 				return
 			}
@@ -641,7 +641,7 @@ func TestDelete(t *testing.T) {
 	require.NoError(t, st.Delete(ctx, []string{sent.ID}))
 
 	_, err = st.GetByID(ctx, sent.ID)
-	assert.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
+	require.ErrorIs(t, err, store.ErrNotFound, "deleted mail is gone, not just claimed")
 }
 
 // doorbell is what a review doorbell says, which is that there is review to read and nothing
@@ -776,7 +776,7 @@ func TestPendingNoticeOfKindIsTheOneWaiting(t *testing.T) {
 	require.NoError(t, err)
 
 	_, err = st.GetPendingOfKind(ctx, recipient, KindReviewActivity, nil)
-	assert.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, the next release raises its own")
+	require.ErrorIs(t, err, store.ErrNotFound, "once the agent has taken it, the next release raises its own")
 }
 
 // TestOrdinaryMailIsNeverDeduplicated pins that the dedupe covers only notices weave raises,

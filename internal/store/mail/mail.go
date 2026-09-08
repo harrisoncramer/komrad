@@ -218,7 +218,7 @@ func (s *Store) ListByID(ctx context.Context, ids []string) ([]Mail, error) {
 		return nil, nil
 	}
 
-	rows, err := s.queries.GetMailByID(ctx, storable)
+	rows, err := s.queries.ListMailByID(ctx, storable)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get %d mail: %w", len(storable), err)
 	}

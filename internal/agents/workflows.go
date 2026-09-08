@@ -60,7 +60,7 @@ type WorkflowService struct {
 	notifier     systemMailSender
 }
 
-type WorkflowParams struct {
+type NewWorkflowServiceParams struct {
 	Workflows    workflowReader
 	Agents       workflowAgentLister
 	AgentDeleter workflowAgentDeleter
@@ -75,7 +75,7 @@ type WorkflowParams struct {
 }
 
 // NewWorkflowService builds the service from its dependencies.
-func NewWorkflowService(p WorkflowParams) *WorkflowService {
+func NewWorkflowService(p NewWorkflowServiceParams) *WorkflowService {
 	return &WorkflowService{
 		store:        p.Workflows,
 		agents:       p.Agents,
@@ -466,7 +466,7 @@ func requireNamesFree(ctx context.Context, agents nameChecker, archived []agents
 			continue
 		}
 
-		taken, err := agents.DoesActiveNameExist(ctx, agent.WorkflowID, agent.Name)
+		taken, err := agents.ActiveNameExists(ctx, agent.WorkflowID, agent.Name)
 		if err != nil {
 			return fmt.Errorf("failed to check the name of agent %q: %w", agent.Name, err)
 		}

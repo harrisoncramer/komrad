@@ -226,7 +226,7 @@ func TestGetSchedule(t *testing.T) {
 // TestGetScheduleLastResult covers that a schedule's last firing outcome reaches the RPC layer.
 func TestGetScheduleLastResult(t *testing.T) {
 	st := storetest.Open(t)
-	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	manager := agents.NewScheduleService(agents.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 	svc := NewService(st.Schedules, manager)
 	workflow := st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 
@@ -510,7 +510,7 @@ func service(t *testing.T) (*Service, string) {
 	t.Helper()
 
 	st := storetest.Open(t)
-	manager := agents.NewScheduleService(agents.ScheduleParams{Schedules: st.Schedules, Workflows: st.Workflows})
+	manager := agents.NewScheduleService(agents.NewScheduleServiceParams{Schedules: st.Schedules, Workflows: st.Workflows})
 
 	return NewService(st.Schedules, manager), st.SeedWorkflow(t, workflowstore.Config{Name: "schedules"}).ID
 }

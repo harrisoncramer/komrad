@@ -154,8 +154,8 @@ func TestTheWorktreeToggleIsTheWholeProvisioner(t *testing.T) {
 				ProvisionEnabled: tt.provision,
 			}
 
-			assert.Equal(t, tt.wantProvision, provisionerFor(context.Background(), workflows, agent))
-			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(context.Background(), workflows, agent))
+			assert.Equal(t, tt.wantProvision, provisionerFor(t.Context(), workflows, agent))
+			assert.Equal(t, tt.wantDeprovision, deprovisionerFor(t.Context(), workflows, agent))
 		})
 	}
 }

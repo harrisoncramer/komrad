@@ -49,8 +49,8 @@ type reviewThreadReadWriter interface {
 // reviewMessageReadWriter is the other half: what was said in those conversations, and how far
 // each of the person's comments has got towards the agent reading it.
 type reviewMessageReadWriter interface {
-	AddMessage(ctx context.Context, params reviewstore.AddMessageParams) (*reviewstore.Message, error)
-	EditMessage(ctx context.Context, id, body string, suggestion []string) (*reviewstore.Message, error)
+	CreateMessage(ctx context.Context, params reviewstore.CreateMessageParams) (*reviewstore.Message, error)
+	UpdateMessage(ctx context.Context, id, body string, suggestion []string) (*reviewstore.Message, error)
 	GetMessage(ctx context.Context, id string) (*reviewstore.Message, error)
 	ListMessages(ctx context.Context, threadIDs []string) ([]reviewstore.Message, error)
 }
@@ -102,7 +102,7 @@ type ReviewThreadWithMessages struct {
 	Messages []reviewstore.Message
 }
 
-type ReviewServiceParams struct {
+type NewReviewServiceParams struct {
 	Threads     reviewThreadReadWriter
 	Messages    reviewMessageReadWriter
 	Viewed      reviewViewedFileReadWriter
@@ -136,20 +136,20 @@ type ReviewService struct {
 }
 
 // NewReviewService builds the service over the review store and the things it tells.
-func NewReviewService(params ReviewServiceParams) *ReviewService {
+func NewReviewService(p NewReviewServiceParams) *ReviewService {
 	return &ReviewService{
-		threads:     params.Threads,
-		messages:    params.Messages,
-		viewed:      params.Viewed,
-		rounds:      params.Rounds,
-		reviews:     params.Reviews,
-		snapshots:   params.Snapshots,
-		workflows:   params.Workflows,
-		agents:      params.Agents,
-		mailer:      params.Mailer,
-		resumer:     params.Resumer,
-		interrupter: params.Interrupter,
-		stateDir:    params.StateDir,
+		threads:     p.Threads,
+		messages:    p.Messages,
+		viewed:      p.Viewed,
+		rounds:      p.Rounds,
+		reviews:     p.Reviews,
+		snapshots:   p.Snapshots,
+		workflows:   p.Workflows,
+		agents:      p.Agents,
+		mailer:      p.Mailer,
+		resumer:     p.Resumer,
+		interrupter: p.Interrupter,
+		stateDir:    p.StateDir,
 	}
 }
 
@@ -284,7 +284,7 @@ func (s *ReviewService) CreateReviewThread(
 
 	roundID := params.RoundID
 	if roundID == "" {
-		round, err := s.LatestRound(ctx, params.AgentID)
+		round, err := s.GetLatestRound(ctx, params.AgentID)
 		if err != nil {
 			return nil, err
 		}
@@ -349,7 +349,7 @@ func (s *ReviewService) AddReviewMessage(
 		reviewID = &open.ID
 	}
 
-	message, err := s.messages.AddMessage(ctx, reviewstore.AddMessageParams{
+	message, err := s.messages.CreateMessage(ctx, reviewstore.CreateMessageParams{
 		ThreadID:      params.ThreadID,
 		ReviewID:      reviewID,
 		Suggestion:    params.Suggestion,
@@ -454,7 +454,7 @@ func (s *ReviewService) EditReviewMessage(
 		return nil, err
 	}
 
-	return s.messages.EditMessage(ctx, params.ID, params.Body, params.Suggestion)
+	return s.messages.UpdateMessage(ctx, params.ID, params.Body, params.Suggestion)
 }
 
 type MarkReviewThreadReadParams struct {

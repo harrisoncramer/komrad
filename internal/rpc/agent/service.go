@@ -433,6 +433,7 @@ func (s *Service) Log(ctx context.Context, req *connect.Request[agentv1.LogReque
 		attrs = append(attrs, slog.String(logging.ScriptName, script))
 	}
 
+	//nolint:sloglint // this RPC exists to relay a caller's own message, so the message is the argument
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, req.Msg.GetMessage(), attrs...)
 
 	return connect.NewResponse(&emptypb.Empty{}), nil
@@ -494,6 +495,7 @@ func logCrossAgentRead(ctx context.Context, target, message string) {
 		return
 	}
 
+	//nolint:sloglint // every caller passes a literal, and the helper is the indirection the check cannot see through
 	logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, message,
 		slog.String(logging.TargetAgentID, target))
 }

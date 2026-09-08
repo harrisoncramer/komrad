@@ -14,43 +14,43 @@ import (
 const maxNamedOrphans = 3
 
 var (
-	ErrHomeUnknown = &Problem{
+	ErrHomeUnknown = &ProblemError{
 		Code:    "home_unknown",
 		Message: "the home directory the default hooks and worktrees paths hang off could not be read",
 	}
-	ErrHooksDirAbsent = &Problem{
+	ErrHooksDirAbsent = &ProblemError{
 		Code:    "hooks_dir_absent",
 		Message: "there is no hooks directory, and a workflow that names a hook finds none rather than an error",
 	}
-	ErrHooksDirUnreadable = &Problem{
+	ErrHooksDirUnreadable = &ProblemError{
 		Code:    "hooks_dir_unreadable",
 		Message: "the hooks directory could not be read",
 	}
-	ErrHooksDirNotADirectory = &Problem{
+	ErrHooksDirNotADirectory = &ProblemError{
 		Code:    "hooks_dir_not_a_directory",
 		Message: "the hooks directory is not a directory",
 	}
-	ErrWorktreesDirAbsent = &Problem{
+	ErrWorktreesDirAbsent = &ProblemError{
 		Code:    "worktrees_dir_absent",
 		Message: "the shared worktrees directory is not there",
 	}
-	ErrWorktreesDirUnreadable = &Problem{
+	ErrWorktreesDirUnreadable = &ProblemError{
 		Code:    "worktrees_dir_unreadable",
 		Message: "a worktrees directory could not be read",
 	}
-	ErrWorktreesDirNotADirectory = &Problem{
+	ErrWorktreesDirNotADirectory = &ProblemError{
 		Code:    "worktrees_dir_not_a_directory",
 		Message: "the worktrees directory is not a directory",
 	}
-	ErrWorktreesDirUnwritable = &Problem{
+	ErrWorktreesDirUnwritable = &ProblemError{
 		Code:    "worktrees_dir_unwritable",
 		Message: "the worktrees directory cannot be written to, so an agent that needs a worktree has nowhere to be put",
 	}
-	ErrWorktreesUnowned = &Problem{
+	ErrWorktreesUnowned = &ProblemError{
 		Code:    "worktrees_unowned",
 		Message: "there are worktree directories no agent answers for",
 	}
-	ErrWorktreeOwnersUnreadable = &Problem{
+	ErrWorktreeOwnersUnreadable = &ProblemError{
 		Code:    "worktree_owners_unreadable",
 		Message: "the agents that own the worktrees could not be read",
 	}

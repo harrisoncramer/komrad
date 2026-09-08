@@ -191,7 +191,7 @@ func TestRunRefusesWhatItCannotStart(t *testing.T) {
 
 			require.Error(t, err)
 			if tt.wantIs != nil {
-				assert.ErrorIs(t, err, tt.wantIs)
+				require.ErrorIs(t, err, tt.wantIs)
 			}
 		})
 	}
@@ -227,7 +227,7 @@ func TestRunRefusesADirectoryThatIsAFile(t *testing.T) {
 
 	notADir := filepath.Join(dir, "open-pr")
 
-	assert.ErrorIs(t, NewRunner().Run(RunParams{Script: found[0], Dir: notADir}), ErrDirMissing)
+	require.ErrorIs(t, NewRunner().Run(RunParams{Script: found[0], Dir: notADir}), ErrDirMissing)
 }
 
 // TestRunReportsTheOutcome covers the whole of what a caller with nothing waiting on an
@@ -282,7 +282,7 @@ func TestRunReportsTheOutcome(t *testing.T) {
 			assert.Equal(t, tt.wantCode, got.result.ExitCode)
 			assert.Contains(t, string(got.result.Stderr), tt.wantStderr)
 			if !tt.wantErr {
-				assert.NoError(t, got.err)
+				require.NoError(t, got.err)
 
 				return
 			}

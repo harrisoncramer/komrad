@@ -119,7 +119,7 @@ func New(ctx context.Context, p Params) (*Server, error) {
 		return nil, err
 	}
 
-	srv.Jobs, err = jobs.NewClient(jobs.ClientParams{
+	srv.Jobs, err = jobs.NewClient(jobs.NewClientParams{
 		Pool:      st.pool.GetRawPool(),
 		Schedules: st.schedules,
 		Results:   st.schedules,

@@ -197,7 +197,7 @@ func (s *ReviewService) moveHarvested(ctx context.Context, move review.Move) err
 		return nil
 	}
 
-	_, err = s.messages.EditMessage(ctx, messages[0].ID, HarvestedBody, move.Run.Lines)
+	_, err = s.messages.UpdateMessage(ctx, messages[0].ID, HarvestedBody, move.Run.Lines)
 
 	return err
 }

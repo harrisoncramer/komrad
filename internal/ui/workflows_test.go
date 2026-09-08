@@ -204,7 +204,7 @@ func TestWorkflowWrites(t *testing.T) {
 
 			assert.Equal(t, tt.wantWrites, workflows.writes)
 			if tt.wantReason == "" {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				return
 			}
@@ -242,7 +242,7 @@ func TestFailedWorkflowListKeepsTheTree(t *testing.T) {
 	m.applyRefresh(refreshResult{workflowsErr: errors.New("connection reset")})
 
 	assert.Len(t, m.listing.workflows, 2, "the tree already on screen is kept")
-	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
+	require.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
 // TestApplyWorkflows pins the refresh taking the listed workflows as they come, newest

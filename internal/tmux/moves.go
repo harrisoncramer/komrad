@@ -35,7 +35,8 @@ func (c *Client) MovePanes(moves []panes.Move) {
 	if _, err := c.query(args...); err != nil {
 		// One invocation reports one status, so the log names every command it held rather than
 		// saying only that something in it went wrong.
-		attrs := append(logging.Err(err), slog.String("commands", strings.Join(args, " ")))
+		attrs := append(logging.Err(err), slog.String(logging.TmuxCommands, strings.Join(args, " ")))
+		//nolint:sloglint // the adapter is called for its effect and is handed no context to carry a logger on
 		slog.Default().Warn("a tmux pane move failed", logging.Attrs(attrs)...)
 	}
 }

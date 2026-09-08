@@ -222,7 +222,7 @@ func TestRequestReviewRetryAnswersWithTheSameReviewer(t *testing.T) {
 		Prompt:         "read it",
 		IdempotencyKey: "def",
 	})
-	assert.ErrorIs(t, err, ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
+	require.ErrorIs(t, err, ErrReviewerAlreadyRunning, "a different key is a second ask rather than a retry")
 }
 
 // TestRequestReviewAfterAnApprovalSpawnsAnother pins that the guard holds a change to one reviewer

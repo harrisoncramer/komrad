@@ -10,27 +10,27 @@ import (
 )
 
 var (
-	ErrTmuxMissing = &Problem{
+	ErrTmuxMissing = &ProblemError{
 		Code:    "tmux_missing",
 		Message: "tmux is not on PATH",
 	}
-	ErrTmuxNotRunnable = &Problem{
+	ErrTmuxNotRunnable = &ProblemError{
 		Code:    "tmux_not_runnable",
 		Message: "tmux is on PATH but would not run",
 	}
-	ErrTmuxTooOld = &Problem{
+	ErrTmuxTooOld = &ProblemError{
 		Code:    "tmux_too_old",
 		Message: "tmux is too old for the panel's key binding",
 	}
-	ErrTmuxVersionUnreadable = &Problem{
+	ErrTmuxVersionUnreadable = &ProblemError{
 		Code:    "tmux_version_unreadable",
 		Message: "tmux did not report a version this understands",
 	}
-	ErrTmuxShellUnsupported = &Problem{
+	ErrTmuxShellUnsupported = &ProblemError{
 		Code:    "tmux_shell_unsupported",
 		Message: "tmux would start agent panes in a shell that cannot run an agent",
 	}
-	ErrTmuxNoServer = &Problem{
+	ErrTmuxNoServer = &ProblemError{
 		Code:    "tmux_no_server",
 		Message: "no tmux server is running to read the option from",
 	}

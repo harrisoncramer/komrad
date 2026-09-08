@@ -68,9 +68,9 @@ func TestStripDim(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, harness.StripDim(test.lines))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, harness.StripDim(tt.lines))
 		})
 	}
 }
@@ -117,9 +117,9 @@ func TestForegrounds(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			assert.Equal(t, test.want, harness.Foregrounds(test.lines))
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, harness.Foregrounds(tt.lines))
 		})
 	}
 }

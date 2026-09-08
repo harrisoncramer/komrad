@@ -438,68 +438,6 @@ func (q *Queries) GetAgentInWorkflow(ctx context.Context, arg GetAgentInWorkflow
 	return &i, err
 }
 
-const getAgentsByID = `-- name: GetAgentsByID :many
-SELECT
-    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role
-FROM
-    agents s
-WHERE
-    s.id = ANY ($1::uuid[])
-ORDER BY
-    s.id DESC
-`
-
-func (q *Queries) GetAgentsByID(ctx context.Context, ids []string) ([]*Agent, error) {
-	rows, err := q.db.Query(ctx, getAgentsByID, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []*Agent
-	for rows.Next() {
-		var i Agent
-		if err := rows.Scan(
-			&i.ID,
-			&i.Name,
-			&i.Cwd,
-			&i.Flags,
-			&i.Prompt,
-			&i.PaneID,
-			&i.State,
-			&i.StateChangedAt,
-			&i.Harness,
-			&i.SessionID,
-			&i.WorkflowID,
-			&i.ScheduleID,
-			&i.IdempotencyKey,
-			&i.SpawnedByAgentID,
-			&i.ArchivedAt,
-			&i.IsHidden,
-			&i.NudgedAt,
-			&i.Branch,
-			&i.WorktreeRemoved,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.StateSeenAt,
-			&i.InterruptedAt,
-			&i.AdoptedBranch,
-			&i.ViewedAt,
-			&i.ParentAgentID,
-			&i.TurnEndedAt,
-			&i.ProvisionEnabled,
-			&i.ReportedReason,
-			&i.Role,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, &i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getTranscript = `-- name: GetTranscript :one
 SELECT
     content,
@@ -708,6 +646,68 @@ ORDER BY
 
 func (q *Queries) ListAgents(ctx context.Context) ([]*Agent, error) {
 	rows, err := q.db.Query(ctx, listAgents)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*Agent
+	for rows.Next() {
+		var i Agent
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Cwd,
+			&i.Flags,
+			&i.Prompt,
+			&i.PaneID,
+			&i.State,
+			&i.StateChangedAt,
+			&i.Harness,
+			&i.SessionID,
+			&i.WorkflowID,
+			&i.ScheduleID,
+			&i.IdempotencyKey,
+			&i.SpawnedByAgentID,
+			&i.ArchivedAt,
+			&i.IsHidden,
+			&i.NudgedAt,
+			&i.Branch,
+			&i.WorktreeRemoved,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.StateSeenAt,
+			&i.InterruptedAt,
+			&i.AdoptedBranch,
+			&i.ViewedAt,
+			&i.ParentAgentID,
+			&i.TurnEndedAt,
+			&i.ProvisionEnabled,
+			&i.ReportedReason,
+			&i.Role,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, &i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAgentsByID = `-- name: ListAgentsByID :many
+SELECT
+    id, name, cwd, flags, prompt, pane_id, state, state_changed_at, harness, session_id, workflow_id, schedule_id, idempotency_key, spawned_by_agent_id, archived_at, is_hidden, nudged_at, branch, worktree_removed, created_at, updated_at, state_seen_at, interrupted_at, adopted_branch, viewed_at, parent_agent_id, turn_ended_at, provision_enabled, reported_reason, role
+FROM
+    agents s
+WHERE
+    s.id = ANY ($1::uuid[])
+ORDER BY
+    s.id DESC
+`
+
+func (q *Queries) ListAgentsByID(ctx context.Context, ids []string) ([]*Agent, error) {
+	rows, err := q.db.Query(ctx, listAgentsByID, ids)
 	if err != nil {
 		return nil, err
 	}

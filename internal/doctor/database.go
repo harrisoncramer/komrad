@@ -19,43 +19,43 @@ const (
 )
 
 var (
-	ErrDatabaseURLInvalid = &Problem{
+	ErrDatabaseURLInvalid = &ProblemError{
 		Code:    "database_url_invalid",
 		Message: "the database url is not a connection string Postgres accepts",
 	}
-	ErrDatabaseUnreachable = &Problem{
+	ErrDatabaseUnreachable = &ProblemError{
 		Code:    "database_unreachable",
 		Message: "nothing answered",
 	}
-	ErrDatabaseAuthFailed = &Problem{
+	ErrDatabaseAuthFailed = &ProblemError{
 		Code:    "database_auth_failed",
 		Message: "the database refused the user or password in the database url",
 	}
-	ErrDatabaseMissing = &Problem{
+	ErrDatabaseMissing = &ProblemError{
 		Code:    "database_missing",
 		Message: "the Postgres server is running but has no database of that name",
 	}
-	ErrSchemaBehind = &Problem{
+	ErrSchemaBehind = &ProblemError{
 		Code:    "schema_behind",
 		Message: "the database is missing migrations this build ships",
 	}
-	ErrSchemaUnreadable = &Problem{
+	ErrSchemaUnreadable = &ProblemError{
 		Code:    "schema_unreadable",
 		Message: "the applied migrations could not be read",
 	}
-	ErrReadOnlyLoginShared = &Problem{
+	ErrReadOnlyLoginShared = &ProblemError{
 		Code:    "readonly_login_shared",
 		Message: "WEAVE_READONLY_DATABASE_URL names the same login as DATABASE_URL",
 	}
-	ErrReadOnlyLoginUnset = &Problem{
+	ErrReadOnlyLoginUnset = &ProblemError{
 		Code:    "readonly_login_unset",
 		Message: "there is no read-only login, and the database url is not one it can be derived from",
 	}
-	ErrReadOnlyLoginElsewhere = &Problem{
+	ErrReadOnlyLoginElsewhere = &ProblemError{
 		Code:    "readonly_login_elsewhere",
 		Message: "the MCP query tools read a different database than the panel writes to",
 	}
-	ErrReadOnlyLoginUnusable = &Problem{
+	ErrReadOnlyLoginUnusable = &ProblemError{
 		Code:    "readonly_login_unusable",
 		Message: "the least-privilege login the MCP tools connect as does not work",
 	}

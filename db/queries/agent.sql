@@ -48,7 +48,7 @@ WHERE
     s.id = @id
 LIMIT 1;
 
--- name: GetAgentsByID :many
+-- name: ListAgentsByID :many
 SELECT
     *
 FROM

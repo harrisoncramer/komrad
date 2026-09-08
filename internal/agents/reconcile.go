@@ -68,13 +68,20 @@ type Reconciler struct {
 	tally             *tally
 }
 
-// NewReconciler builds a Reconciler over a tmux probe, the harnesses that read its
-// captures, and the state store.
-func NewReconciler(panes paneObserver, harnesses harnessGetter, states agentStateReadWriter) *Reconciler {
+// NewReconcilerParams is what a Reconciler is built over: a tmux probe, the harnesses that read
+// its captures, and the state store.
+type NewReconcilerParams struct {
+	Panes     paneObserver
+	Harnesses harnessGetter
+	States    agentStateReadWriter
+}
+
+// NewReconciler builds a Reconciler over the probe, harnesses and store it is given.
+func NewReconciler(p NewReconcilerParams) *Reconciler {
 	return &Reconciler{
-		tmux:      panes,
-		harnesses: harnesses,
-		store:     states,
+		tmux:      p.Panes,
+		harnesses: p.Harnesses,
+		store:     p.States,
 		tally:     newTally(),
 	}
 }

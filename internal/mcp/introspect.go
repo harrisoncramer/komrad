@@ -38,7 +38,7 @@ func (d *dbTools) listTables(ctx context.Context) ([]tableInfo, error) {
 	for _, name := range names {
 		var count int64
 		if err := d.db.QueryRow(ctx, fmt.Sprintf(`SELECT COUNT(*) FROM %q`, name)).Scan(&count); err != nil {
-			return nil, fmt.Errorf("count rows of %q: %w", name, err)
+			return nil, fmt.Errorf("failed to count the rows of %q: %w", name, err)
 		}
 		out = append(out, tableInfo{Name: name, Rows: count})
 	}
@@ -55,12 +55,12 @@ ORDER BY table_name`
 
 	rows, err := d.db.Query(ctx, stmt)
 	if err != nil {
-		return nil, fmt.Errorf("list tables: %w", err)
+		return nil, fmt.Errorf("failed to list the tables: %w", err)
 	}
 
 	names, err := scanStrings(rows)
 	if err != nil {
-		return nil, fmt.Errorf("list tables: %w", err)
+		return nil, fmt.Errorf("failed to list the tables: %w", err)
 	}
 
 	return names, nil
@@ -118,7 +118,7 @@ ORDER BY c.ordinal_position`
 
 	rows, err := d.db.Query(ctx, stmt, table)
 	if err != nil {
-		return nil, fmt.Errorf("describe columns: %w", err)
+		return nil, fmt.Errorf("failed to describe the columns: %w", err)
 	}
 	defer rows.Close()
 
@@ -126,12 +126,12 @@ ORDER BY c.ordinal_position`
 	for rows.Next() {
 		var col columnInfo
 		if err := rows.Scan(&col.Name, &col.Type, &col.Nullable, &col.Default, &col.PrimaryKey); err != nil {
-			return nil, fmt.Errorf("scan column row: %w", err)
+			return nil, fmt.Errorf("failed to scan a column row: %w", err)
 		}
 		out = append(out, col)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate columns: %w", err)
+		return nil, fmt.Errorf("failed to iterate the columns: %w", err)
 	}
 
 	return out, nil
@@ -154,12 +154,12 @@ ORDER BY 1`
 
 	rows, err := d.db.Query(ctx, stmt, table)
 	if err != nil {
-		return nil, fmt.Errorf("describe foreign keys: %w", err)
+		return nil, fmt.Errorf("failed to describe the foreign keys: %w", err)
 	}
 
 	keys, err := scanStrings(rows)
 	if err != nil {
-		return nil, fmt.Errorf("describe foreign keys: %w", err)
+		return nil, fmt.Errorf("failed to describe the foreign keys: %w", err)
 	}
 
 	return keys, nil
@@ -174,12 +174,12 @@ ORDER BY indexname`
 
 	rows, err := d.db.Query(ctx, stmt, table)
 	if err != nil {
-		return nil, fmt.Errorf("describe indexes: %w", err)
+		return nil, fmt.Errorf("failed to describe the indexes: %w", err)
 	}
 
 	indexes, err := scanStrings(rows)
 	if err != nil {
-		return nil, fmt.Errorf("describe indexes: %w", err)
+		return nil, fmt.Errorf("failed to describe the indexes: %w", err)
 	}
 
 	return indexes, nil

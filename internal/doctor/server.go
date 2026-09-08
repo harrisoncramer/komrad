@@ -10,23 +10,23 @@ import (
 const maxPort = 65535
 
 var (
-	ErrServerStale = &Problem{
+	ErrServerStale = &ProblemError{
 		Code:    "server_stale",
 		Message: "the server holding the address is a different build",
 	}
-	ErrServerNotReady = &Problem{
+	ErrServerNotReady = &ProblemError{
 		Code:    "server_not_ready",
 		Message: "the server is listening but cannot answer",
 	}
-	ErrAddressTaken = &Problem{
+	ErrAddressTaken = &ProblemError{
 		Code:    "address_taken",
 		Message: "something that is not weave is holding the listen address",
 	}
-	ErrServerDown = &Problem{
+	ErrServerDown = &ProblemError{
 		Code:    "server_down",
 		Message: "nothing is serving",
 	}
-	ErrAddressUnusable = &Problem{
+	ErrAddressUnusable = &ProblemError{
 		Code:    "address_unusable",
 		Message: "WEAVE_ADDR is not an address the server can listen on",
 	}

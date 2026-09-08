@@ -30,13 +30,13 @@ type ScheduleService struct {
 	workflows workflowReader
 }
 
-type ScheduleParams struct {
+type NewScheduleServiceParams struct {
 	Schedules scheduleReadWriter
 	Workflows workflowReader
 }
 
 // NewScheduleService builds the service from its dependencies.
-func NewScheduleService(p ScheduleParams) *ScheduleService {
+func NewScheduleService(p NewScheduleServiceParams) *ScheduleService {
 	return &ScheduleService{store: p.Schedules, workflows: p.Workflows}
 }
 

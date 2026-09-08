@@ -79,7 +79,7 @@ func TestRefreshAppliesWhatAnswered(t *testing.T) {
 	assert.Len(t, m.listing.agents, 1, "the listing that answered is taken")
 	require.Len(t, m.listing.workflows, 1, "the one that did not keeps the rows it had")
 	assert.Equal(t, "api", m.listing.workflows[0].Name)
-	assert.Error(t, m.unreachable, "and the panel says the server is not answering")
+	require.Error(t, m.unreachable, "and the panel says the server is not answering")
 }
 
 // TestStaleRefreshIsDropped covers a pass that read the store just before a keypress wrote

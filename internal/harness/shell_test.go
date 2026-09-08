@@ -162,7 +162,7 @@ func TestRequirePOSIXShell(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			err := RequirePOSIXShell(tt.shell)
 			if tt.want {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 
 				return
 			}

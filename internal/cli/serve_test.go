@@ -25,7 +25,7 @@ func TestServeLoggerRejectsAnUnknownLevel(t *testing.T) {
 // TestShutdownSignalFollowsItsParent covers the context handed to serve still being the
 // command's own, so a parent that goes away stops the server as a signal would.
 func TestShutdownSignalFollowsItsParent(t *testing.T) {
-	parent, cancelParent := context.WithCancel(context.Background())
+	parent, cancelParent := context.WithCancel(t.Context())
 
 	ctx, stop := shutdownSignal(parent)
 	defer stop()
@@ -44,7 +44,7 @@ func TestShutdownSignalFollowsItsParent(t *testing.T) {
 // TestShutdownSignalStopsOnASignal covers the wiring itself, that the signals a reload
 // and a Ctrl-C actually send are the ones being listened for.
 func TestShutdownSignalStopsOnASignal(t *testing.T) {
-	ctx, stop := shutdownSignal(context.Background())
+	ctx, stop := shutdownSignal(t.Context())
 	defer stop()
 
 	require.NoError(t, syscall.Kill(syscall.Getpid(), syscall.SIGTERM))

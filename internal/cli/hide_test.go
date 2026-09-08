@@ -28,7 +28,7 @@ func TestHideDetachesThePanelsClient(t *testing.T) {
 
 	assert.Empty(t, hostQuery(t, managerSocket, "list-clients", "-t", agents.ManagerSession, "-F", "#{client_name}"),
 		"the popup keeps its client until hide takes it away")
-	assert.NoError(t, exec.Command("tmux", "-L", managerSocket, "has-session", "-t", agents.ManagerSession).Run(),
+	require.NoError(t, exec.Command("tmux", "-L", managerSocket, "has-session", "-t", agents.ManagerSession).Run(),
 		"the session outlives the popup, so the next open lands on the view it left")
 }
 

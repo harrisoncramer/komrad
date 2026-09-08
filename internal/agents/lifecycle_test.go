@@ -281,7 +281,7 @@ func TestDeleteAgentRemovesItsRunLogs(t *testing.T) {
 			if tt.wantRemoved {
 				assert.True(t, os.IsNotExist(dirErr), "every run goes with a row that is really gone")
 			} else {
-				assert.NoError(t, dirErr, "the row is still here to read the failure from, so its runs stay too")
+				require.NoError(t, dirErr, "the row is still here to read the failure from, so its runs stay too")
 			}
 		})
 	}
@@ -365,7 +365,7 @@ func TestArchiveAgent(t *testing.T) {
 			assert.Contains(t, tmux.killedPanes, "%1", "the agent's pane is killed")
 
 			_, err = st.Get(t.Context(), tt.seed)
-			assert.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
+			require.ErrorIs(t, err, store.ErrNotFound, "the agent is hidden from listings")
 		})
 	}
 }
@@ -535,7 +535,7 @@ func TestAReissuedPaneIsNotTheAgents(t *testing.T) {
 		_, st, tmux, dormant := setup(t)
 		tmux.captures[shared] = busyFrame
 
-		rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}}, st.Agents)
+		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}}, States: st.Agents})
 		require.NoError(t, rec.Reconcile(t.Context()))
 
 		after := agentByID(t, st, dormant.ID)
@@ -682,7 +682,7 @@ func TestDeletingAnAgentTakesItsDraftsAndKeepsItsReviews(t *testing.T) {
 	first := seedRoundedAgent(t, st, reviews, "kid-a", root, "kid-a-sha")
 	second := seedRoundedAgent(t, st, reviews, "kid-b", root, "kid-b-sha")
 
-	round, err := reviews.LatestRound(t.Context(), worker)
+	round, err := reviews.GetLatestRound(t.Context(), worker)
 	require.NoError(t, err)
 
 	// The first reviewer has had its say and started another; the second is still writing its

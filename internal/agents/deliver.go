@@ -177,16 +177,16 @@ func (s *DeliveryService) nudge(ctx context.Context, agent agentstore.Agent, pen
 		return fmt.Errorf("failed to submit the nudge to agent %q: %w", agent.ID, err)
 	}
 
-	level := slog.LevelInfo
-	message := "told an agent to read its mail"
-	if didLastNudgeGoNowhere(agent) {
-		level = slog.LevelWarn
-		message = "told an agent to read its mail again, so the last time went nowhere"
+	attrs := []slog.Attr{
+		slog.String(logging.TargetAgentID, agent.ID),
+		slog.Int64(logging.UnreadMail, pending),
 	}
 
-	logging.From(ctx).LogAttrs(ctx, level, message,
-		slog.String(logging.TargetAgentID, agent.ID),
-		slog.Int64(logging.UnreadMail, pending))
+	if didLastNudgeGoNowhere(agent) {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "told an agent to read its mail again, so the last time went nowhere", attrs...)
+	} else {
+		logging.From(ctx).LogAttrs(ctx, slog.LevelInfo, "told an agent to read its mail", attrs...)
+	}
 
 	return nil
 }

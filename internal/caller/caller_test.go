@@ -1,7 +1,6 @@
 package caller
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -75,7 +74,7 @@ func TestTransportForwardsTheServedRequest(t *testing.T) {
 	}))
 	defer server.Close()
 
-	ctx := With(WithTrace(context.Background(), "trace-9"), Caller{AgentID: "agent-1", SessionID: "sess-1"})
+	ctx := With(WithTrace(t.Context(), "trace-9"), Caller{AgentID: "agent-1", SessionID: "sess-1"})
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
@@ -98,7 +97,7 @@ func TestTransportLeavesAnUnattributedCallAlone(t *testing.T) {
 	}))
 	defer server.Close()
 
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, server.URL, nil)
+	req, err := http.NewRequestWithContext(t.Context(), http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
 
 	res, err := (&http.Client{Transport: Transport(nil)}).Do(req)
@@ -115,7 +114,7 @@ func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer server.Close()
 
-	ctx := With(context.Background(), Caller{AgentID: "agent-1"})
+	ctx := With(t.Context(), Caller{AgentID: "agent-1"})
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, server.URL, nil)
 	require.NoError(t, err)
 
@@ -130,11 +129,11 @@ func TestTransportDoesNotEditTheCallersRequest(t *testing.T) {
 // outside a request.
 func TestContextCarriesTheIdentity(t *testing.T) {
 	from := Caller{AgentID: "agent-1", SessionID: "sess-1"}
-	ctx := With(WithTrace(context.Background(), "trace-9"), from)
+	ctx := With(WithTrace(t.Context(), "trace-9"), from)
 
 	assert.Equal(t, from, From(ctx))
 	assert.Equal(t, "trace-9", Trace(ctx))
 
-	assert.Equal(t, Caller{}, From(context.Background()))
-	assert.Empty(t, Trace(context.Background()))
+	assert.Equal(t, Caller{}, From(t.Context()))
+	assert.Empty(t, Trace(t.Context()))
 }

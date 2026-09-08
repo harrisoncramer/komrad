@@ -460,7 +460,7 @@ func TestReviewReloadKeyReadsAgainWithNothingMoved(t *testing.T) {
 
 	loaded, ok := cmd().(reviewLoadedMsg)
 	require.True(t, ok)
-	assert.NoError(t, loaded.err)
+	require.NoError(t, loaded.err)
 }
 
 // TestReviewDiffPollWaitsBetweenReads pins git being run every few seconds rather than every

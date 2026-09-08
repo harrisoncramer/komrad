@@ -131,7 +131,7 @@ ORDER BY
     m.id DESC
 LIMIT @lim;
 
--- name: GetMailByID :many
+-- name: ListMailByID :many
 SELECT
     *
 FROM

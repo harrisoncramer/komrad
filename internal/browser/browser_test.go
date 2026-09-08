@@ -1,7 +1,6 @@
 package browser
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -39,7 +38,7 @@ func TestOpenURLRefusesWhatIsNotAWebAddress(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := NewDesktop().OpenURL(context.Background(), tt.target)
+			err := NewDesktop().OpenURL(t.Context(), tt.target)
 
 			require.ErrorIs(t, err, ErrNotAWebURL)
 		})

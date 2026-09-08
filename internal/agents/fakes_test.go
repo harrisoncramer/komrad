@@ -441,14 +441,14 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 		tx = s.Pool
 	}
 
-	launcher := NewLauncher(LauncherParams{Tmux: options.tmux, Addr: options.addr})
-	emptied := NewEmptyWorkflowDeleter(EmptyWorkflowDeleterParams{
+	launcher := NewLauncher(NewLauncherParams{Tmux: options.tmux, Addr: options.addr})
+	emptied := NewEmptyWorkflowDeleter(NewEmptyWorkflowDeleterParams{
 		Workflows: s.Workflows,
 		Agents:    s.Agents,
 		Schedules: s.Schedules,
 	})
 
-	launch := NewLaunchService(LaunchServiceParams{
+	launch := NewLaunchService(NewLaunchServiceParams{
 		Tmux:               options.tmux,
 		Agents:             agents,
 		Reviews:            reviewstore.New(s.Pool.GetDB()),
@@ -465,7 +465,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 
 	return &testAgents{
 		launch: launch,
-		resume: NewResumeService(ResumeServiceParams{
+		resume: NewResumeService(NewResumeServiceParams{
 			Tmux:      options.tmux,
 			Agents:    agents,
 			Workflows: s.Workflows,
@@ -473,12 +473,12 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 			Harnesses: options.harnesses,
 			Scripts:   options.lifecycle,
 		}),
-		adopt: NewAdoptService(AdoptServiceParams{
+		adopt: NewAdoptService(NewAdoptServiceParams{
 			Agents:    agents,
 			Workflows: s.Workflows,
 			Launch:    launch,
 		}),
-		lifecycle: NewLifecycleService(LifecycleServiceParams{
+		lifecycle: NewLifecycleService(NewLifecycleServiceParams{
 			Tmux:           options.tmux,
 			Agents:         agents,
 			Workflows:      s.Workflows,
@@ -500,7 +500,7 @@ func (s *testStore) agentService(options agentServiceOptions) *testAgents {
 // withPullRequests rebuilds the adopt service over a resolver, which is what a test adopting
 // by pull request rather than by branch needs.
 func (a *testAgents) withPullRequests(resolver pullRequestResolver) *testAgents {
-	a.adopt = NewAdoptService(AdoptServiceParams{
+	a.adopt = NewAdoptService(NewAdoptServiceParams{
 		Agents:       a.adopt.agents,
 		Workflows:    a.adopt.workflows,
 		Launch:       a.adopt.launch,
@@ -637,7 +637,7 @@ func (s *testStore) workflowService(options workflowServiceOptions) *WorkflowSer
 		addr:      "127.0.0.1:9999",
 	})
 
-	return NewWorkflowService(WorkflowParams{
+	return NewWorkflowService(NewWorkflowServiceParams{
 		Workflows:    s.Workflows,
 		Agents:       s.Agents,
 		AgentDeleter: deleter.lifecycle,
@@ -801,7 +801,7 @@ func backdateStateSeen(t *testing.T, st *testStore, id string, age time.Duration
 
 func stateOf(t *testing.T, st *testStore, name string) agentstore.State {
 	t.Helper()
-	got, err := st.Get(context.Background(), name)
+	got, err := st.Get(t.Context(), name)
 	require.NoError(t, err)
 	require.NotNil(t, got)
 

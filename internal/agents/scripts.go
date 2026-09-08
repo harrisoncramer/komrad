@@ -37,7 +37,7 @@ type ScriptService struct {
 	logRunMu   sync.Mutex
 }
 
-type ScriptParams struct {
+type NewScriptServiceParams struct {
 	Agents     agentGetter
 	Workflows  workflowReader
 	Tmux       tmuxReadWriter
@@ -53,7 +53,7 @@ type ScriptParams struct {
 }
 
 // NewScriptService builds the service from its dependencies.
-func NewScriptService(p ScriptParams) *ScriptService {
+func NewScriptService(p NewScriptServiceParams) *ScriptService {
 	return &ScriptService{
 		agents:     p.Agents,
 		workflows:  p.Workflows,

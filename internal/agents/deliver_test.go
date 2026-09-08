@@ -455,7 +455,7 @@ func TestDeliverAllDoesNothingWhenNoMailIsWaiting(t *testing.T) {
 // is told once, rather than deferred every pass until the mail runs out of time.
 func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:    "orphan",
@@ -470,7 +470,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 	tmux.owners["%1"] = agent.ID
 	tmux.captures["%1"] = idleFrame
 
-	rec := NewReconciler(tmux, fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: &fakeHarness{}, only: []string{testHarnessID}}, States: st.Agents})
 	for range 30 {
 		require.NoError(t, rec.Reconcile(ctx))
 	}
@@ -519,7 +519,7 @@ func TestDeliverToAnAgentNoPassCanRead(t *testing.T) {
 // since a line tmux took and the agent never saw leaves nothing about the agent changed.
 func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:  "idler",
@@ -581,7 +581,7 @@ func TestDeliverRetriesANudgeTheAgentNeverActedOn(t *testing.T) {
 // the agent's state and its spent nudge exactly as they were.
 func TestDeliverRetriesANudgeAcrossAnArchive(t *testing.T) {
 	st := newStore(t)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	require.NoError(t, st.Create(ctx, agentstore.Agent{
 		Name:  "sleeper",

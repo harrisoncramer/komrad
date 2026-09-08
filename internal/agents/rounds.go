@@ -48,7 +48,7 @@ type reviewReaper interface {
 type reviewRoundReadWriter interface {
 	CreateRound(ctx context.Context, params reviewstore.CreateRoundParams) (*reviewstore.Round, error)
 	GetRound(ctx context.Context, id string) (*reviewstore.Round, error)
-	LatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error)
+	GetLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error)
 	ListRounds(ctx context.Context, agentID string) ([]reviewstore.Round, error)
 }
 
@@ -56,7 +56,7 @@ type reviewBatchReadWriter interface {
 	OpenReview(ctx context.Context, params reviewstore.OpenReviewParams) (*reviewstore.Review, error)
 	GetReview(ctx context.Context, id string) (*reviewstore.Review, error)
 	OpenReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
-	LastReleasedReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	GetLastReleasedReview(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
 	ListReviews(ctx context.Context, agentID string) ([]reviewstore.Review, error)
 	CountOpenComments(ctx context.Context, reviewID string) (int, error)
 	ReleaseReview(ctx context.Context, params reviewstore.ReleaseReviewParams) (*reviewstore.Review, error)
@@ -125,7 +125,7 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 
 	// A tree that has not moved is the round that was already taken of it, so opening the diff
 	// twice without the agent writing anything does not walk the ordinal on.
-	latest, err := s.rounds.LatestRound(ctx, agentID)
+	latest, err := s.rounds.GetLatestRound(ctx, agentID)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return nil, err
 	}
@@ -144,9 +144,9 @@ func (s *ReviewService) OpenRound(ctx context.Context, agentID string, author Re
 	})
 }
 
-// LatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
-func (s *ReviewService) LatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
-	round, err := s.rounds.LatestRound(ctx, agentID)
+// GetLatestRound is the newest round of an agent, ErrReviewNoRound when none has been taken.
+func (s *ReviewService) GetLatestRound(ctx context.Context, agentID string) (*reviewstore.Round, error) {
+	round, err := s.rounds.GetLatestRound(ctx, agentID)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil, fmt.Errorf("%w: %q", ErrReviewNoRound, agentID)
 	}
@@ -231,7 +231,7 @@ func (s *ReviewService) openReviewFor(
 		return nil, err
 	}
 
-	round, err := s.LatestRound(ctx, agentID)
+	round, err := s.GetLatestRound(ctx, agentID)
 	if err != nil {
 		return nil, err
 	}
@@ -260,7 +260,7 @@ func (s *ReviewService) notReviewedAlready(
 		return nil
 	}
 
-	last, err := s.reviews.LastReleasedReviewOf(ctx, params)
+	last, err := s.reviews.GetLastReleasedReview(ctx, params)
 	if errors.Is(err, store.ErrNotFound) {
 		return nil
 	}

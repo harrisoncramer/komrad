@@ -2,7 +2,6 @@ package logging
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -67,7 +66,7 @@ func TestErrIsTwoFields(t *testing.T) {
 	var out bytes.Buffer
 	wrapped := fmt.Errorf("failed to list agents: %w", errors.New("connection refused"))
 
-	New(&out, slog.LevelInfo).LogAttrs(context.Background(), slog.LevelError, "loop pass failed", Err(wrapped)...)
+	New(&out, slog.LevelInfo).LogAttrs(t.Context(), slog.LevelError, "loop pass failed", Err(wrapped)...)
 
 	var record map[string]any
 	require.NoError(t, json.Unmarshal(out.Bytes(), &record))
@@ -88,7 +87,8 @@ func TestContextCarriesTheRequestsLogger(t *testing.T) {
 	var out bytes.Buffer
 	logger := New(&out, slog.LevelInfo).With(slog.String(TraceID, "abc-123"))
 
-	From(WithLogger(context.Background(), logger)).Info("the handler said something")
+	ctx := WithLogger(t.Context(), logger)
+	From(ctx).InfoContext(ctx, "the handler said something")
 
 	var record map[string]any
 	require.NoError(t, json.Unmarshal(out.Bytes(), &record))
@@ -99,5 +99,5 @@ func TestContextCarriesTheRequestsLogger(t *testing.T) {
 // TestContextWithoutALogger covers code reached from somewhere other than a request, which
 // logs to the default rather than to nothing at all.
 func TestContextWithoutALogger(t *testing.T) {
-	assert.Equal(t, slog.Default(), From(context.Background()))
+	assert.Equal(t, slog.Default(), From(t.Context()))
 }

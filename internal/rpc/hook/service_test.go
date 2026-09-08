@@ -20,7 +20,7 @@ func TestOpenPullRequest(t *testing.T) {
 	manager := &fakeHooks{}
 	service := NewService(manager, manager)
 
-	_, err := service.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+	_, err := service.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a7",
 	}))
 
@@ -30,7 +30,7 @@ func TestOpenPullRequest(t *testing.T) {
 	refusing := &fakeHooks{err: agents.ErrNoPullRequest}
 	refused := NewService(refusing, refusing)
 
-	_, err = refused.OpenPullRequest(context.Background(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
+	_, err = refused.OpenPullRequest(t.Context(), connect.NewRequest(&hookv1.OpenPullRequestRequest{
 		AgentId: "a1",
 	}))
 
@@ -57,7 +57,7 @@ func TestListHooks(t *testing.T) {
 		},
 	}}
 
-	resp, err := NewService(manager, manager).ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	resp, err := NewService(manager, manager).ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 	require.NoError(t, err)
 
 	listed := resp.Msg.GetHooks()
@@ -79,7 +79,7 @@ func TestListHooksFailure(t *testing.T) {
 	failing := &fakeHooks{listErr: errors.New("permission denied")}
 	service := NewService(failing, failing)
 
-	_, err := service.ListHooks(context.Background(), connect.NewRequest(&emptypb.Empty{}))
+	_, err := service.ListHooks(t.Context(), connect.NewRequest(&emptypb.Empty{}))
 
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))

@@ -10,11 +10,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type stubPanes struct {
+type fakePanes struct {
 	frame string
 }
 
-func (s stubPanes) CapturePane(string) string { return s.frame }
+func (s fakePanes) CapturePane(string) string { return s.frame }
 
 // TestDoesFrameShowHarness covers a pane still at its shell reading as a harness that has yet to
 // draw, and a harness weave cannot look up being taken at its word instead.
@@ -64,7 +64,7 @@ func TestDoesFrameShowHarness(t *testing.T) {
 			t.Parallel()
 
 			reader := paneFrameReader{
-				panes:     stubPanes{frame: tt.frame},
+				panes:     fakePanes{frame: tt.frame},
 				harnesses: registry,
 			}
 

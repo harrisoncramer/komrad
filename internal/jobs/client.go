@@ -21,7 +21,7 @@ const maxAttempts = 5
 
 const jobTimeout = 2 * time.Minute
 
-type ClientParams struct {
+type NewClientParams struct {
 	Pool      *pgxpool.Pool
 	Schedules internaljobs.ScheduleGetter
 	Results   internaljobs.LaunchResultRecorder
@@ -34,7 +34,7 @@ type ClientParams struct {
 
 // NewClient builds the River client with the workers registered, leaving the periodic jobs
 // to the reconciler that reads them out of the schedules table.
-func NewClient(p ClientParams) (*river.Client[pgx.Tx], error) {
+func NewClient(p NewClientParams) (*river.Client[pgx.Tx], error) {
 	workers := river.NewWorkers()
 	river.AddWorker(workers, internaljobs.NewLaunchAgentWorker(p.Schedules, p.Launcher, p.Running, p.Results, p.Logger))
 	river.AddWorker(workers, internaljobs.NewEmptyArchiveWorker(p.Archived, p.Deleter))

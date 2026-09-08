@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"weave/internal/agents"
+	"weave/internal/logging"
 	"weave/internal/store"
 	schedulestore "weave/internal/store/schedule"
 	"weave/lib/xptr"
@@ -136,7 +137,11 @@ func (w *LaunchAgentWorker) retry(ctx context.Context, job *river.Job[LaunchAgen
 
 func (w *LaunchAgentWorker) record(ctx context.Context, scheduleID string, status schedulestore.LaunchResultStatus, message string) {
 	if err := w.results.RecordLaunchResult(ctx, scheduleID, status, message); err != nil {
-		w.logger.Error("failed to record a schedule's launch result", "schedule_id", scheduleID, "status", status, "error", err)
+		w.logger.LogAttrs(ctx, slog.LevelError, "failed to record a schedule's launch result",
+			append([]slog.Attr{
+				slog.String(logging.ScheduleID, scheduleID),
+				slog.String(logging.LaunchResult, string(status)),
+			}, logging.Err(err)...)...)
 	}
 }
 

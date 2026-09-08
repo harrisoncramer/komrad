@@ -173,7 +173,7 @@ func TestStageFilePathIsThisPanelsOwn(t *testing.T) {
 	path := stageFilePath("review")
 
 	assert.Contains(t, filepath.Base(path), strconv.Itoa(os.Getpid()), "the panel that wrote it")
-	assert.Equal(t, filepath.Join(os.TempDir(), filepath.Base(path)), path)
+	assert.Equal(t, filepath.Join(os.TempDir(), filepath.Base(path)), path) //nolint:usetesting // the shared temporary directory is what is being asserted, so a per-test one would assert nothing
 	assert.NotEqual(t, path, stageFilePath("transcript"), "two regions never share a file")
 }
 

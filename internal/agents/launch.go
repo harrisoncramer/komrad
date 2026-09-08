@@ -74,7 +74,7 @@ type LaunchService struct {
 	maxChildren        int
 }
 
-type LaunchServiceParams struct {
+type NewLaunchServiceParams struct {
 	Tmux               paneController
 	Agents             launchAgentReadWriter
 	Reviews            reviewVerdictReader
@@ -90,7 +90,7 @@ type LaunchServiceParams struct {
 }
 
 // NewLaunchService builds the service from its dependencies.
-func NewLaunchService(p LaunchServiceParams) *LaunchService {
+func NewLaunchService(p NewLaunchServiceParams) *LaunchService {
 	return &LaunchService{
 		tmux:               p.Tmux,
 		agents:             p.Agents,
@@ -699,7 +699,7 @@ func (s *LaunchService) uniqueAgentName(ctx context.Context, workflowID, title, 
 }
 
 func (s *LaunchService) isNameTaken(ctx context.Context, workflowID, name string) bool {
-	taken, err := s.agents.DoesActiveNameExist(ctx, workflowID, name)
+	taken, err := s.agents.ActiveNameExists(ctx, workflowID, name)
 	if err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to check whether an agent name is taken",
 			append([]slog.Attr{slog.String(logging.WorkflowID, workflowID)}, logging.Err(err)...)...)

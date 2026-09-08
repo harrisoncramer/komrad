@@ -33,7 +33,7 @@ type Launcher struct {
 	hookCommand string
 }
 
-type LauncherParams struct {
+type NewLauncherParams struct {
 	Tmux        paneWriter
 	Addr        string
 	CacheDir    string
@@ -43,7 +43,7 @@ type LauncherParams struct {
 }
 
 // NewLauncher builds a launcher that points spawned agents at the given address.
-func NewLauncher(p LauncherParams) *Launcher {
+func NewLauncher(p NewLauncherParams) *Launcher {
 	if p.Addr == "" {
 		p.Addr = defaultServerAddr
 	}

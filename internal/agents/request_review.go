@@ -18,7 +18,7 @@ var ErrReviewNeedsOwnWork = errors.New("this agent has no work of its own to hav
 // reviewVerdictReader reads where a reviewer last stood on an agent's work, which is how one
 // that has approved is told from one still owed an answer.
 type reviewVerdictReader interface {
-	LastReleasedReviewOf(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
+	GetLastReleasedReview(ctx context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error)
 }
 
 // reviewerNameSuffix is what a reviewer is called after the agent it reads, so the panel's
@@ -124,7 +124,7 @@ func liveReviewerFor(
 // hasApproved reports whether the last thing a reviewer let go of was an approval, which is the
 // end of what it has to say about the work it was given.
 func hasApproved(ctx context.Context, reviews reviewVerdictReader, agentID, reviewerID string) (bool, error) {
-	last, err := reviews.LastReleasedReviewOf(ctx, reviewstore.AuthorParams{
+	last, err := reviews.GetLastReleasedReview(ctx, reviewstore.AuthorParams{
 		AgentID:       agentID,
 		AuthorKind:    reviewstore.AuthorAgent,
 		AuthorAgentID: &reviewerID,

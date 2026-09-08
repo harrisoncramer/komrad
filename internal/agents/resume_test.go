@@ -64,7 +64,7 @@ func TestResumeDir(t *testing.T) {
 
 			cwd := tt.cwd(t, root)
 
-			service := NewResumeService(ResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
+			service := NewResumeService(NewResumeServiceParams{FallbackResumeRoot: fallbackResumeRoot})
 			got := service.getResumeDir(agentstore.Agent{
 				ID:        "agent-id",
 				Cwd:       cwd,
@@ -94,7 +94,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		}
 		service, h := newManagerWithHarness(tmux, st, "")
 
-		rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
+		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: h}, States: st.Agents})
 		for range listingsBeforePaneGone {
 			require.NoError(t, rec.Reconcile(t.Context()))
 		}
@@ -207,7 +207,7 @@ func TestAnInterruptedTurnIsAskedForAgain(t *testing.T) {
 		require.NoError(t, st.Agents.SetStateByID(t.Context(), agent.ID, agentstore.StateIdle))
 
 		tmux := newFakeTmux()
-		rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
+		rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: h}, States: st.Agents})
 		for range listingsBeforePaneGone {
 			require.NoError(t, rec.Reconcile(t.Context()))
 		}
@@ -233,7 +233,7 @@ func TestATurnCutOffWithNoTmuxServerIsAskedForAgain(t *testing.T) {
 	service, h := newManagerWithHarness(tmux, st, "")
 
 	tmux.paneOwnersErr = errors.New("error connecting to /private/tmp/tmux-501/weave")
-	rec := NewReconciler(tmux, fakeHarnesses{harness: h}, st.Agents)
+	rec := NewReconciler(NewReconcilerParams{Panes: tmux, Harnesses: fakeHarnesses{harness: h}, States: st.Agents})
 	require.Error(t, rec.Reconcile(t.Context()))
 	tmux.paneOwnersErr = nil
 

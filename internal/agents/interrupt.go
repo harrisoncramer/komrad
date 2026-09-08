@@ -8,7 +8,7 @@ import (
 	"weave/internal/store"
 )
 
-type PaneInterrupterParams struct {
+type NewPaneInterrupterParams struct {
 	Agents    agentGetter
 	Harnesses harnessGetter
 	Panes     paneWriter
@@ -23,11 +23,11 @@ type PaneInterrupter struct {
 }
 
 // NewPaneInterrupter builds the interrupter over the registry and the tmux server.
-func NewPaneInterrupter(params PaneInterrupterParams) *PaneInterrupter {
+func NewPaneInterrupter(p NewPaneInterrupterParams) *PaneInterrupter {
 	return &PaneInterrupter{
-		agents:    params.Agents,
-		harnesses: params.Harnesses,
-		panes:     params.Panes,
+		agents:    p.Agents,
+		harnesses: p.Harnesses,
+		panes:     p.Panes,
 	}
 }
 

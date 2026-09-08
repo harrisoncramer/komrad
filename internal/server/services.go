@@ -49,7 +49,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		return nil, err
 	}
 
-	scheduleService := agents.NewScheduleService(agents.ScheduleParams{
+	scheduleService := agents.NewScheduleService(agents.NewScheduleServiceParams{
 		Schedules: st.schedules,
 		Workflows: st.workflows,
 	})
@@ -64,7 +64,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		return nil, fmt.Errorf("failed to create %s: %w", runLogsDir, err)
 	}
 
-	scriptService := agents.NewScriptService(agents.ScriptParams{
+	scriptService := agents.NewScriptService(agents.NewScriptServiceParams{
 		Agents:     st.agents,
 		Workflows:  st.workflows,
 		Tmux:       p.Tmux,
@@ -84,11 +84,11 @@ func buildServices(p Params, st *stores) (*services, error) {
 		opener = browser.NewDesktop()
 	}
 
-	pullRequestOpener := agents.NewPullRequestOpener(agents.PullRequestOpenerParams{
+	pullRequestOpener := agents.NewPullRequestOpener(agents.NewPullRequestOpenerParams{
 		Agents: st.agents,
 		Opener: opener,
 	})
-	harnessLauncher := agents.NewLauncher(agents.LauncherParams{
+	harnessLauncher := agents.NewLauncher(agents.NewLauncherParams{
 		Tmux:        p.Tmux,
 		Addr:        p.Addr,
 		CacheDir:    p.Env.CacheDir,
@@ -97,7 +97,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		HookCommand: p.HookCommand,
 	})
 	paneLiveness := agents.NewPaneLiveness(p.Tmux)
-	launchService := agents.NewLaunchService(agents.LaunchServiceParams{
+	launchService := agents.NewLaunchService(agents.NewLaunchServiceParams{
 		Tmux:               p.Tmux,
 		Agents:             st.agents,
 		Reviews:            st.review,
@@ -111,7 +111,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		MaxAgents:          p.MaxAgents,
 		MaxChildren:        p.MaxChildren,
 	})
-	resumeService := agents.NewResumeService(agents.ResumeServiceParams{
+	resumeService := agents.NewResumeService(agents.NewResumeServiceParams{
 		Tmux:               p.Tmux,
 		Agents:             st.agents,
 		Workflows:          st.workflows,
@@ -120,7 +120,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Scripts:            scriptService,
 		FallbackResumeRoot: p.FallbackResumeRoot,
 	})
-	reviewService := agents.NewReviewService(agents.ReviewServiceParams{
+	reviewService := agents.NewReviewService(agents.NewReviewServiceParams{
 		Threads:   st.review,
 		Messages:  st.review,
 		Viewed:    st.review,
@@ -132,24 +132,24 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Mailer:    mailService,
 		Resumer:   resumeService,
 		StateDir:  stateDir,
-		Interrupter: agents.NewPaneInterrupter(agents.PaneInterrupterParams{
+		Interrupter: agents.NewPaneInterrupter(agents.NewPaneInterrupterParams{
 			Agents:    st.agents,
 			Harnesses: p.Harnesses,
 			Panes:     p.Tmux,
 		}),
 	})
-	adoptService := agents.NewAdoptService(agents.AdoptServiceParams{
+	adoptService := agents.NewAdoptService(agents.NewAdoptServiceParams{
 		Agents:       st.agents,
 		Workflows:    st.workflows,
 		Launch:       launchService,
 		PullRequests: agents.NewGHPullRequests(),
 	})
-	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.EmptyWorkflowDeleterParams{
+	emptyWorkflows := agents.NewEmptyWorkflowDeleter(agents.NewEmptyWorkflowDeleterParams{
 		Workflows: st.workflows,
 		Agents:    st.agents,
 		Schedules: st.schedules,
 	})
-	lifecycleService := agents.NewLifecycleService(agents.LifecycleServiceParams{
+	lifecycleService := agents.NewLifecycleService(agents.NewLifecycleServiceParams{
 		Tmux:           p.Tmux,
 		Agents:         st.agents,
 		Workflows:      st.workflows,
@@ -163,7 +163,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		MaxAgents:      p.MaxAgents,
 		MaxChildren:    p.MaxChildren,
 	})
-	workflowService := agents.NewWorkflowService(agents.WorkflowParams{
+	workflowService := agents.NewWorkflowService(agents.NewWorkflowServiceParams{
 		Workflows:    st.workflows,
 		Agents:       st.agents,
 		AgentDeleter: lifecycleService,
@@ -177,7 +177,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 		Notifier:     mailService,
 	})
 
-	markService := agents.NewMarkService(agents.MarkServiceParams{Marks: st.marks, Tx: st.pool})
+	markService := agents.NewMarkService(agents.NewMarkServiceParams{Marks: st.marks, Tx: st.pool})
 
 	return &services{
 		loadConfig:   loadConfig,
@@ -200,7 +200,7 @@ func buildServices(p Params, st *stores) (*services, error) {
 			PaneTyper:     p.Tmux,
 			Harnesses:     p.Harnesses,
 		}),
-		reconciler: agents.NewReconciler(p.Tmux, p.Harnesses, st.agents).
+		reconciler: agents.NewReconciler(agents.NewReconcilerParams{Panes: p.Tmux, Harnesses: p.Harnesses, States: st.agents}).
 			WithPRFinder(agents.NewGHPRFinder()).
 			WithFrameRecorder(frames.NewRecorder(p.Env.FramesDir(), newFrameSettings(loadConfig).get)),
 	}, nil

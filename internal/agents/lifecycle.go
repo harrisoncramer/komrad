@@ -57,7 +57,7 @@ type LifecycleService struct {
 	maxChildren    int
 }
 
-type LifecycleServiceParams struct {
+type NewLifecycleServiceParams struct {
 	Tmux           paneKiller
 	Agents         lifecycleAgentReadWriter
 	Workflows      workflowReader
@@ -73,7 +73,7 @@ type LifecycleServiceParams struct {
 }
 
 // NewLifecycleService builds the service from its dependencies.
-func NewLifecycleService(p LifecycleServiceParams) *LifecycleService {
+func NewLifecycleService(p NewLifecycleServiceParams) *LifecycleService {
 	return &LifecycleService{
 		tmux:           p.Tmux,
 		agents:         p.Agents,
@@ -523,7 +523,11 @@ func (s *LifecycleService) removeFrames(ctx context.Context, ids []string) {
 	for _, id := range ids {
 		path := frames.AgentDir(s.framesDir, id)
 		if err := os.RemoveAll(path); err != nil {
-			logging.From(ctx).Warn("failed to remove an agent's recorded frames", "path", path, "agent_id", id, "error", err)
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to remove an agent's recorded frames",
+				append([]slog.Attr{
+					slog.String(logging.FilePath, path),
+					slog.String(logging.AgentID, id),
+				}, logging.Err(err)...)...)
 		}
 	}
 }
@@ -538,7 +542,11 @@ func (s *LifecycleService) removeRunLogs(ctx context.Context, ids []string) {
 	for _, id := range ids {
 		path := config.RunLogDir(s.logsDir, id)
 		if err := os.RemoveAll(path); err != nil {
-			logging.From(ctx).Warn("failed to remove an agent's run logs", "path", path, "agent_id", id, "error", err)
+			logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to remove an agent's run logs",
+				append([]slog.Attr{
+					slog.String(logging.FilePath, path),
+					slog.String(logging.AgentID, id),
+				}, logging.Err(err)...)...)
 		}
 	}
 }

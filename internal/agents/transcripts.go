@@ -29,7 +29,7 @@ type TranscriptSyncer struct {
 	harnesses harnessGetter
 }
 
-type TranscriptSyncerParams struct {
+type NewTranscriptSyncerParams struct {
 	Agents      agentSessionReadWriter
 	Transcripts transcriptReadWriter
 	Harnesses   harnessGetter
@@ -37,7 +37,7 @@ type TranscriptSyncerParams struct {
 
 // NewTranscriptSyncer builds a syncer over the store, reading each agent's log
 // through the harness that wrote it.
-func NewTranscriptSyncer(p TranscriptSyncerParams) *TranscriptSyncer {
+func NewTranscriptSyncer(p NewTranscriptSyncerParams) *TranscriptSyncer {
 	return &TranscriptSyncer{
 		agents:    p.Agents,
 		store:     p.Transcripts,

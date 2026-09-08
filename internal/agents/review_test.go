@@ -97,7 +97,7 @@ func TestOnlyTheTargetAgentWritesToAReview(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -174,7 +174,7 @@ func TestReviewOperationsTheAgentDoesNotGet(t *testing.T) {
 			err = tt.call(t.Context(), service, agentAuthor(reviewedAgentID))
 			require.ErrorIs(t, err, want)
 
-			assert.NoError(t, tt.call(t.Context(), service, humanAuthor()))
+			require.NoError(t, tt.call(t.Context(), service, humanAuthor()))
 		})
 	}
 }
@@ -231,7 +231,7 @@ func TestOnlyTheAuthorRewritesAMessage(t *testing.T) {
 				return
 			}
 
-			assert.NoError(t, err)
+			require.NoError(t, err)
 		})
 	}
 }
@@ -846,7 +846,7 @@ func reviewServiceHolding(
 ) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{
+	return NewReviewService(NewReviewServiceParams{
 		Threads:  reviews,
 		Messages: reviews,
 		Viewed:   reviews,
@@ -872,7 +872,7 @@ func reviewServiceForAgent(
 ) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{
+	return NewReviewService(NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,
@@ -948,7 +948,7 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 			reviews := newFakeReviewStore()
 			notices := &fakeNoticeSender{answer: &mailstore.Mail{ID: "mail-1"}}
 			resumer := &fakeResumer{}
-			service := NewReviewService(ReviewServiceParams{
+			service := NewReviewService(NewReviewServiceParams{
 				Threads:   reviews,
 				Messages:  reviews,
 				Viewed:    reviews,
@@ -1344,7 +1344,7 @@ func (f *fakeReviewStore) GetRound(_ context.Context, id string) (*reviewstore.R
 	return nil, fmt.Errorf("%w: review round %q", store.ErrNotFound, id)
 }
 
-func (f *fakeReviewStore) LatestRound(_ context.Context, agentID string) (*reviewstore.Round, error) {
+func (f *fakeReviewStore) GetLatestRound(_ context.Context, agentID string) (*reviewstore.Round, error) {
 	if len(f.rounds) == 0 {
 		return nil, fmt.Errorf("%w: review round of %q", store.ErrNotFound, agentID)
 	}
@@ -1392,7 +1392,7 @@ func (f *fakeReviewStore) OpenReviewOf(_ context.Context, params reviewstore.Aut
 	return f.open, nil
 }
 
-func (f *fakeReviewStore) LastReleasedReviewOf(_ context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error) {
+func (f *fakeReviewStore) GetLastReleasedReview(_ context.Context, params reviewstore.AuthorParams) (*reviewstore.Review, error) {
 	if f.released == nil {
 		return nil, fmt.Errorf("%w: released review on %q", store.ErrNotFound, params.AgentID)
 	}
@@ -1511,9 +1511,9 @@ func (f *fakeReviewStore) ListViewedFiles(_ context.Context, roundID string) ([]
 	return files, nil
 }
 
-func (f *fakeReviewStore) AddMessage(
+func (f *fakeReviewStore) CreateMessage(
 	_ context.Context,
-	params reviewstore.AddMessageParams,
+	params reviewstore.CreateMessageParams,
 ) (*reviewstore.Message, error) {
 	message := reviewstore.Message{
 		ID:            fmt.Sprintf("message-%d", len(f.messages)+1),
@@ -1529,7 +1529,7 @@ func (f *fakeReviewStore) AddMessage(
 	return &message, nil
 }
 
-func (f *fakeReviewStore) EditMessage(
+func (f *fakeReviewStore) UpdateMessage(
 	_ context.Context,
 	id, body string,
 	suggestion []string,
@@ -1610,7 +1610,7 @@ func TestReviewThreadMustExist(t *testing.T) {
 	require.ErrorIs(t, err, ErrReviewThreadNotFound)
 
 	_, err = service.MarkReviewThreadRead(t.Context(), MarkReviewThreadReadParams{ID: otherAgentID, Author: human})
-	assert.ErrorIs(t, err, ErrReviewThreadNotFound)
+	require.ErrorIs(t, err, ErrReviewThreadNotFound)
 }
 
 // TestReleasingAReviewCostsTheMailboxOneNotice pins the mailbox price of letting go of a review:
@@ -1684,7 +1684,7 @@ func TestAReleasedReviewLeavesRoomForPeerMail(t *testing.T) {
 func reviewServiceWithRealMail(t *testing.T, reviews *fakeReviewStore, mailbox *countingMailbox) *ReviewService {
 	t.Helper()
 
-	return NewReviewService(ReviewServiceParams{
+	return NewReviewService(NewReviewServiceParams{
 		Threads:   reviews,
 		Messages:  reviews,
 		Viewed:    reviews,
