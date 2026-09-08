@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"weave/config"
+	"weave/internal/agents"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,4 +115,109 @@ func TestUserPanelKeyReadsTheServerTheUserIsAt(t *testing.T) {
 
 	assert.Equal(t, "w", userPanelKey(state, ""),
 		"attaching from outside tmux still reads the server the panel was opened from")
+}
+
+// TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas covers the repair path carrying
+// everything the session path does, since it opens the same process on the same settings.
+func TestBuildPanelWindowArgsOpensInTheSessionItAlreadyHas(t *testing.T) {
+	state := &app{
+		env: &config.Environment{
+			DatabaseURL:         "postgres://weave@db/weave",
+			ReadOnlyDatabaseURL: "postgres://weave_readonly@db/weave",
+			Addr:                "127.0.0.1:9999",
+			TmuxSocket:          "weave-test",
+			CacheDir:            "/tmp/cache",
+			Editor:              "nvim",
+		},
+		configPaths: []string{"/tmp/somewhere/config.toml"},
+	}
+
+	args := buildPanelWindowArgs(state, "/usr/local/bin/weave", false)
+
+	assert.Equal(t, []string{"new-window", "-t", agents.ManagerSession}, args[:3])
+	assert.Equal(t, forwardedEnv(t, buildManagerSessionArgs(state, "/usr/local/bin/weave")), forwardedEnv(t, args))
+	assert.Equal(t, []string{"--", "/usr/local/bin/weave", "panel", "--config", "/tmp/somewhere/config.toml"},
+		args[len(args)-5:])
+}
+
+// Explainer: the manager session holds a window per agent as well as the panel's own, so it
+// answers has-session for as long as any agent is up. Reading that answer alone reports a panel
+// that has been gone for hours, and the key then attaches a session with no panel in it.
+
+// TestIsPanelRunningNeedsThePanelsOwnPane covers the question the panel key asks before it
+// decides there is a panel to attach.
+func TestIsPanelRunningNeedsThePanelsOwnPane(t *testing.T) {
+	socket := throwawaySocket(t)
+	panelSession(t, socket)
+
+	state := hideState(socket, "")
+
+	assert.False(t, isPanelRunning(t.Context(), state), "no panel has recorded a pane yet")
+
+	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
+	state.tmux.RecordPanelPane(panelPane)
+
+	assert.True(t, isPanelRunning(t.Context(), state))
+
+	require.NoError(t, exec.Command("tmux", "-L", socket, "new-window", "-d", "-t", agents.ManagerSession).Run())
+	require.NoError(t, exec.Command("tmux", "-L", socket, "kill-pane", "-t", panelPane).Run())
+
+	assert.True(t, isManagerSessionRunning(t.Context(), state), "an agent's window keeps the session up")
+	assert.False(t, isPanelRunning(t.Context(), state), "the panel's own pane has gone")
+}
+
+// TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching covers a repair under --detach leaving
+// the current window alone, since a script that only wants the session there would otherwise
+// move whoever is watching one off the agent they were reading.
+func TestBuildPanelWindowArgsDetachesWhenNobodyIsAttaching(t *testing.T) {
+	tests := []struct {
+		name     string
+		detached bool
+		want     []string
+	}{
+		{
+			name:     "about to attach",
+			detached: false,
+			want:     []string{"new-window", "-t", agents.ManagerSession},
+		},
+		{
+			name:     "returning without attaching",
+			detached: true,
+			want:     []string{"new-window", "-d", "-t", agents.ManagerSession},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			state := &app{env: &config.Environment{}}
+
+			args := buildPanelWindowArgs(state, "/usr/local/bin/weave", tt.detached)
+
+			assert.Equal(t, tt.want, args[:len(tt.want)])
+		})
+	}
+}
+
+// Explainer: select-window moves the current window for every client attached to the session, so
+// only the path that is about to attach may touch it. ensureManagerSession runs under --detach
+// too, which is what mise/tasks/restart uses, and a script asking for a session is not asking to
+// be taken anywhere.
+
+// TestEnsureManagerSessionLeavesTheCurrentWindowAlone covers the repair not moving a watcher.
+func TestEnsureManagerSessionLeavesTheCurrentWindowAlone(t *testing.T) {
+	socket := throwawaySocket(t)
+	panelSession(t, socket)
+
+	state := hideState(socket, "")
+
+	panelPane := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{pane_id}")
+	state.tmux.RecordPanelPane(panelPane)
+
+	require.NoError(t, exec.Command("tmux", "-L", socket, "new-window", "-t", agents.ManagerSession).Run())
+	watching := hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{window_index}")
+
+	require.NoError(t, ensureManagerSession(t.Context(), state, true))
+
+	assert.Equal(t, watching, hostQuery(t, socket, "display-message", "-p", "-t", agents.ManagerSession, "#{window_index}"),
+		"a panel that is already up is nothing to do, current window included")
 }

@@ -39,13 +39,17 @@ it needs somewhere for agents to be put back into.`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, _ []string) error {
-			if err := ensureManagerSession(cmd.Context(), state); err != nil {
+			if err := ensureManagerSession(cmd.Context(), state, detach); err != nil {
 				return err
 			}
 
 			if detach {
 				return nil
 			}
+
+			// Only the attaching path says which window is current, since select-window moves every
+			// client attached to the session and nobody asked a detached open to move them.
+			state.tmux.SelectWindow(state.tmux.GetPanelPane())
 
 			socket := tmux.SocketFromEnv(state.env.Tmux)
 			state.tmux.RecordHostSocket(socket)
@@ -79,24 +83,63 @@ func isManagerSessionRunning(ctx context.Context, state *app) bool {
 	return state.tmuxCommand(ctx, "has-session", "-t", agents.ManagerSession).Run() == nil
 }
 
-func ensureManagerSession(ctx context.Context, state *app) error {
-	if isManagerSessionRunning(ctx, state) {
+// Explainer: the manager session holds a window per agent as well as the panel's own, so it
+// answers has-session long after the panel process has gone. Asking about the session alone
+// therefore reports a panel that is not there, and an open on that answer attaches a session
+// with no panel in it.
+
+// isPanelRunning reports whether a panel is drawing in the manager session.
+func isPanelRunning(ctx context.Context, state *app) bool {
+	if !isManagerSessionRunning(ctx, state) {
+		return false
+	}
+
+	return state.tmux.IsPaneAlive(state.tmux.GetPanelPane())
+}
+
+// ensureManagerSession puts a panel up, making the session when there is none and a window in
+// the session it already has when only the panel has gone.
+func ensureManagerSession(ctx context.Context, state *app, detached bool) error {
+	if !isManagerSessionRunning(ctx, state) {
+		return runTmux(ctx, state, "failed to create the manager session", buildManagerSessionArgs(state, getSelfPath()))
+	}
+
+	if isPanelRunning(ctx, state) {
 		return nil
 	}
 
-	cmd := state.tmuxCommand(ctx, buildManagerSessionArgs(state, getSelfPath())...)
+	return runTmux(ctx, state, "failed to open a panel window in the manager session",
+		buildPanelWindowArgs(state, getSelfPath(), detached))
+}
+
+func runTmux(ctx context.Context, state *app, summary string, args []string) error {
+	cmd := state.tmuxCommand(ctx, args...)
 	cmd.Stderr = os.Stderr
 
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("failed to create the manager session: %w", err)
+		return fmt.Errorf("%s: %w", summary, err)
 	}
 
 	return nil
 }
 
 func buildManagerSessionArgs(state *app, self string) []string {
+	return append([]string{"new-session", "-d", "-s", agents.ManagerSession}, panelCommandArgs(state, self)...)
+}
+
+// buildPanelWindowArgs opens the panel in a session that is already there, detached when the
+// caller is not about to attach and so has no business moving whoever is watching.
+func buildPanelWindowArgs(state *app, self string, detached bool) []string {
+	args := []string{"new-window"}
+	if detached {
+		args = append(args, "-d")
+	}
+
+	return append(append(args, "-t", agents.ManagerSession), panelCommandArgs(state, self)...)
+}
+
+func panelCommandArgs(state *app, self string) []string {
 	args := []string{
-		"new-session", "-d", "-s", agents.ManagerSession,
 		"-e", "WEAVE_TMUX_SOCKET=" + state.env.TmuxSocket,
 		"-e", "WEAVE_DATABASE_URL=" + state.env.DatabaseURL,
 		"-e", "WEAVE_READONLY_DATABASE_URL=" + state.env.ReadOnlyDatabaseURL,
