@@ -170,10 +170,10 @@ func strippedQuote(quote string) string {
 	return quote
 }
 
-// quoted is the rows a thread's quote names, read against the spelling the quote was stored in
-// and never against the other, since a drawn line always carries a marker and a bare quote never
-// does.
+// quoted is the rows a thread's quote names, read only against the spelling it was stored in.
 func (index lineIndex) quoted(filePath, quote string) []int {
+	// Explainer: a drawn line always carries a marker and a bare quote never does, so the two
+	// spellings can never name the same row and the maps must not be crossed.
 	key := quoteKey{filePath: filePath, quote: quote}
 	if doesCarryMarker(quote) {
 		return index.byQuote[key]
