@@ -138,7 +138,11 @@ func TestARunOverAReleasedThreadIsLeftAlone(t *testing.T) {
 	t.Parallel()
 
 	runs := []review.Run{run(5, 5, "mine")}
-	frozen := []review.Frozen{{FilePath: reconciledFile, NewStart: 5, NewEnd: 5}}
+	frozen := []review.Frozen{{
+		FilePath: reconciledFile,
+		NewStart: 5,
+		NewEnd:   5,
+	}}
 
 	plan := review.Reconcile(runs, nil, frozen)
 
@@ -154,7 +158,11 @@ func TestASkippedRunProtectsTheHarvestedThreadBesideIt(t *testing.T) {
 
 	runs := []review.Run{run(10, 11, "widened")}
 	standing := []review.Pinned{pinned("mine", reconciledFile, 10, 10, "was")}
-	frozen := []review.Frozen{{FilePath: reconciledFile, NewStart: 11, NewEnd: 11}}
+	frozen := []review.Frozen{{
+		FilePath: reconciledFile,
+		NewStart: 11,
+		NewEnd:   11,
+	}}
 
 	plan := review.Reconcile(runs, standing, frozen)
 

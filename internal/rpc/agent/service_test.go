@@ -2346,8 +2346,16 @@ func TestRestoreAgentsRendersEveryAgent(t *testing.T) {
 func TestListAgentsSummarisesThePrompt(t *testing.T) {
 	svc, st := service(t)
 	prompt := strings.Repeat("a", render.SummaryHead+50)
-	st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle, Prompt: prompt})
-	st.SeedAgent(t, agentstore.Agent{Name: "beta", State: agentstore.StateIdle, Prompt: "fix auth"})
+	st.SeedAgent(t, agentstore.Agent{
+		Name:   "alpha",
+		State:  agentstore.StateIdle,
+		Prompt: prompt,
+	})
+	st.SeedAgent(t, agentstore.Agent{
+		Name:   "beta",
+		State:  agentstore.StateIdle,
+		Prompt: "fix auth",
+	})
 
 	summary, err := svc.ListAgents(t.Context(), connect.NewRequest(&agentv1.ListAgentsRequest{}))
 	require.NoError(t, err)
@@ -2371,7 +2379,11 @@ func TestListAgentsSummarisesThePrompt(t *testing.T) {
 func TestGetAgentKeepsTheWholePrompt(t *testing.T) {
 	svc, st := service(t)
 	prompt := strings.Repeat("a", render.SummaryHead+50)
-	seeded := st.SeedAgent(t, agentstore.Agent{Name: "alpha", State: agentstore.StateIdle, Prompt: prompt})
+	seeded := st.SeedAgent(t, agentstore.Agent{
+		Name:   "alpha",
+		State:  agentstore.StateIdle,
+		Prompt: prompt,
+	})
 
 	got, err := svc.GetAgent(t.Context(), connect.NewRequest(&agentv1.GetAgentRequest{Id: seeded.ID}))
 	require.NoError(t, err)

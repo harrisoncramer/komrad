@@ -935,7 +935,11 @@ func TestAnsweringAReviewRingsTheReviewer(t *testing.T) {
 		author ReviewAuthor
 		want   bool
 	}{
-		{name: "the agent under review answers", author: agentAuthor(reviewedAgentID), want: true},
+		{
+			name:   "the agent under review answers",
+			author: agentAuthor(reviewedAgentID),
+			want:   true,
+		},
 		{name: "the person reviewing comments", author: humanAuthor()},
 	}
 
