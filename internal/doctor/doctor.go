@@ -16,7 +16,7 @@ import (
 	"fmt"
 )
 
-var ErrCheckPanicked = &Problem{
+var ErrCheckPanicked = &ProblemError{
 	Code:    "check_panicked",
 	Message: "this check could not be made because it failed on its own",
 }
@@ -30,19 +30,19 @@ const (
 	StatusSkip Status = "skip"
 )
 
-type Problem struct {
+type ProblemError struct {
 	Code    string
 	Message string
 }
 
 // Error returns the message the check wrote, which is the sentence a person reads.
-func (p *Problem) Error() string { return p.Message }
+func (p *ProblemError) Error() string { return p.Message }
 
 // codeOf returns the stable code of the problem err carries, or empty when it carries none;
 // a check wraps its sentinel to add detail, so the code is found through the chain rather
 // than off the error itself.
 func codeOf(err error) string {
-	var problem *Problem
+	var problem *ProblemError
 	if errors.As(err, &problem) {
 		return problem.Code
 	}

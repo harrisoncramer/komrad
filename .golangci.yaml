@@ -21,6 +21,8 @@ linters:
     - testifylint
     - sloglint
     - usetesting
+    - errname
+    - errname
   settings:
     errcheck:
       # A discarded error is the same bug whether it went to _ or nowhere, so the blank
@@ -211,6 +213,12 @@ linters:
         linters:
           - forcetypeassert
           - noctx
+      # A doctor problem is a record carrying a code and a sentence, and satisfying error is
+      # how it reaches a caller rather than what it is, so ProblemError would name the interface
+      # instead of the thing.
+      - path: ^internal/doctor/
+        linters:
+          - errname
       # depguard matches a denied package by prefix, so the panel's rule against
       # weave/internal/tmux also catches weave/internal/tmuxtest, which is the fixture the
       # panel's own tests stand a real tmux server up with rather than the adapter itself.
