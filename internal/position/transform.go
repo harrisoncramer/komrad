@@ -11,7 +11,8 @@ type TransformParams struct {
 	// Positions are the places in the earlier commit, answered for by index.
 	Positions []Position
 	// Mappings are what became of the files, with a second entry for a path only when a file was
-	// copied.
+	// copied, which is the one case a position is answered for twice and which MapRanges does
+	// not produce today.
 	Mappings []Mapping
 	// Policy is what a position whose lines were rewritten becomes.
 	Policy Policy
