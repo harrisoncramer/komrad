@@ -368,15 +368,15 @@ func TestTransform(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			got := Transform(TransformParams{
-				Positions: test.positions,
-				Mappings:  test.mappings,
-				Policy:    test.policy,
+				Positions: tt.positions,
+				Mappings:  tt.mappings,
+				Policy:    tt.policy,
 			})
 
-			assert.Equal(t, test.want, got)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }

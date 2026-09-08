@@ -63,9 +63,9 @@ func TestMapRangesRefusals(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			mappings, err := MapRanges(t.Context(), test.params)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mappings, err := MapRanges(t.Context(), tt.params)
 
 			require.Error(t, err)
 			assert.Nil(t, mappings)
@@ -248,13 +248,13 @@ func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 		},
 	}
 
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			root := repo(t)
 			write(t, root, "counted.go", numbered(9))
 			from := commitAll(t, root, "counted")
 
-			test.change(t, root)
+			tt.change(t, root)
 			to := commitAll(t, root, "changed")
 
 			mappings, err := MapRanges(t.Context(), MapRangesParams{
@@ -264,7 +264,7 @@ func TestMapRangesReadsWhatTheCommitDid(t *testing.T) {
 			})
 			require.NoError(t, err)
 
-			assert.Equal(t, test.want, mappings)
+			assert.Equal(t, tt.want, mappings)
 		})
 	}
 }
