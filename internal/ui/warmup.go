@@ -10,7 +10,7 @@ import (
 const warmupPoll = 100 * time.Millisecond
 
 // warmupCap is how long a pane is waited on before it is shown regardless, so a launch that
-// never starts a harness leaves the stage holding a placeholder forever.
+// never starts a harness does not hold the stage forever.
 const warmupCap = 4 * time.Second
 
 type warmupTickMsg struct{}
@@ -27,12 +27,10 @@ type warmupState struct {
 	since   map[string]time.Time
 	polling bool
 	pending string
-	// pendingHarness is the harness of the pane a create is holding the stage for, since the row
-	// it belongs to is not in a listing to be read off yet.
+	// pendingHarness is read off the write rather than a listing, which the new row is not in yet.
 	pendingHarness string
-	// closesForm says the create's own form is still up behind the wait, so that it is taken down
-	// in the same change that reveals the pane rather than leaving the panel drawn over the whole
-	// window until the harness turns up.
+	// closesForm says the create's own form is still up behind the wait, so the reveal takes it
+	// down in the same change.
 	closesForm bool
 }
 
@@ -53,8 +51,8 @@ func (m *model) isPaneWarm(pane, harnessID string) bool {
 		return true
 	}
 
-	// The foreground program says the harness started, which it does most of a second before it
-	// paints, so what settles the wait is a frame the harness reads as its own.
+	// The foreground program starts most of a second before the harness paints, so what settles
+	// the wait is a frame the harness reads as its own.
 	if m.hasHarnessDrawn(pane, harnessID) {
 		m.markWarm(pane)
 
@@ -85,8 +83,7 @@ func (m *model) hasHarnessDrawn(pane, harnessID string) bool {
 		return false
 	}
 
-	// A panel given no reader takes the foreground program for the answer, which is what the
-	// frame would settle if one could be classified.
+	// A panel given no reader takes the foreground program for the answer.
 	if m.harnessFrames == nil {
 		return true
 	}
@@ -101,10 +98,8 @@ func (m *model) isPaneStageable(pane, harnessID string) bool {
 		return false
 	}
 
-	// Explainer: a pane sitting at its shell has nothing coming that waiting would catch, since
-	// the launch either has not been typed yet or the harness that was typed there has gone. It
-	// is asked ahead of the wait so that no timer is started for it, and left unmarked, since it
-	// is a pane this will be asked about again rather than one weave has seen a harness in.
+	// A pane sitting at its shell has nothing coming that waiting would catch, and is left
+	// unmarked because weave has not seen a harness in it.
 	if !m.warm.ready[pane] && !m.tmux.IsPaneRunningCLI(pane) {
 		return true
 	}
@@ -184,8 +179,8 @@ func (m model) selectedAgentPane() (pane, harnessID string) {
 	return r.item.agent.Pane, r.item.agent.Harness
 }
 
-// revealCreated gives a created agent its pane and takes down the form that made it, both inside
-// one change, so the panel is never drawn across the whole window between the two.
+// revealCreated gives a created agent its pane and takes down the form that made it in one
+// change, so the panel is never drawn across the whole window between the two.
 func (m model) revealCreated(pane string) (model, tea.Cmd) {
 	m.frame.Begin()
 
@@ -210,8 +205,8 @@ func (m model) revealCreated(pane string) (model, tea.Cmd) {
 	return m, cmd
 }
 
-// pollWarmup keeps a tick going while any pane is still being waited on, and stops it once none
-// is, so a settled panel asks tmux nothing.
+// pollWarmup keeps a tick going while a pane is still being waited on, so a settled panel asks
+// tmux nothing.
 func (m model) pollWarmup() (model, tea.Cmd) {
 	if m.warm.polling || (len(m.warm.since) == 0 && m.warm.pending == "") {
 		return m, nil

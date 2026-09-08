@@ -81,8 +81,8 @@ func (m model) screenView() string {
 	// the keys while it is there, since the form has them all.
 	block := form
 	if m.isMessagesFocused() {
-		// A refusal is reported into the region under the list, and the reason is longer than the
-		// three rows it keeps, so reading it borrows the column the form is drawn in.
+		// A reason is longer than the rows the region keeps, so reading it borrows the column the
+		// form is drawn in.
 		block = m.docColumnView(split)
 	}
 

@@ -454,8 +454,8 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 		m.setNewestHint("fix and submit again")
 	}
 
-	// A refusal is reported into the region under the record, which the form is drawn beside
-	// rather than over, so the form is told to lay itself out again either way.
+	// A refusal is reported into the region under the record, so the form is told to lay itself
+	// out again.
 	if m.form.isActive() {
 		return m, tea.Batch(m.refreshCmd(), formResized())
 	}

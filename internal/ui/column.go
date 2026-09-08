@@ -180,7 +180,7 @@ func (m model) columnOf() (columnSpec, bool) {
 	}
 
 	// The region takes the block while it holds the keys, except under a form, which keeps the
-	// column it was laid out against and gives up only what is drawn in it.
+	// column it was laid out against.
 	if m.isMessagesFocused() && !m.form.isOpening() {
 		return messagesColumn(), true
 	}
@@ -326,8 +326,8 @@ func (m model) columnDoc(split columnSplit) docWindow {
 func (m model) scrollColumn(direction int) model {
 	split, ok := m.screenColumnSplit()
 
-	// A form refuses the screen's own split because the form has the column, and the region
-	// borrows that same column to draw the message the reader is scrolling.
+	// A form refuses the screen's own split because the form has the column, which the region
+	// borrows to draw the message being scrolled.
 	if !ok && m.isMessagesFocused() {
 		split, ok = m.columnSplit()
 	}
