@@ -9,6 +9,7 @@ import (
 	transcriptstore "weave/internal/store/transcript"
 
 	"github.com/charmbracelet/glamour"
+	glamouransi "github.com/charmbracelet/glamour/ansi"
 	"github.com/charmbracelet/x/ansi"
 )
 
@@ -40,9 +41,13 @@ func expandTabs(text string) string {
 }
 
 func render(markdown string, wrap int) string {
+	return renderWith(markdown, wrap, stageStyle)
+}
+
+func renderWith(markdown string, wrap int, style glamouransi.StyleConfig) string {
 	markdown = expandTabs(markdown)
 
-	options := []glamour.TermRendererOption{glamour.WithStyles(stageStyle)}
+	options := []glamour.TermRendererOption{glamour.WithStyles(style)}
 	if wrap > 0 {
 		options = append(options, glamour.WithWordWrap(wrap))
 	}

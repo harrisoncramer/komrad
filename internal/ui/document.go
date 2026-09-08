@@ -3,6 +3,8 @@ package ui
 import (
 	"fmt"
 	"strings"
+
+	"github.com/charmbracelet/glamour/ansi"
 )
 
 // docScrollStep is how far a scroll key moves a document, kept short of a screenful so the
@@ -74,5 +76,9 @@ func (d docWindow) view(rows int) string {
 // docRows renders markdown into a column of its own, a row at a time, which is what a document
 // drawn in the panel's own frame is scrolled and measured against.
 func docRows(markdown string, width int) []string {
-	return strings.Split(strings.TrimRight(render(markdown, width), "\n"), "\n")
+	return docStyledRows(markdown, width, stageStyle)
+}
+
+func docStyledRows(markdown string, width int, style ansi.StyleConfig) []string {
+	return strings.Split(strings.TrimRight(renderWith(markdown, width, style), "\n"), "\n")
 }
