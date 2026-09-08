@@ -39,7 +39,7 @@ type agentCreator interface {
 }
 
 type agentAdopter interface {
-	Adopt(ctx context.Context, params agents.AdoptParams) (agents.Adoption, error)
+	Adopt(ctx context.Context, p agents.AdoptParams) (*agentstore.Agent, error)
 }
 
 type agentLiveness interface {
@@ -190,7 +190,7 @@ func (s *Service) RequestReview(ctx context.Context, req *connect.Request[agentv
 
 // Adopt puts an agent on a branch or pull request that already exists.
 func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptRequest]) (*connect.Response[agentv1.AdoptResponse], error) {
-	adoption, err := s.adopter.Adopt(ctx, agents.AdoptParams{
+	created, err := s.adopter.Adopt(ctx, agents.AdoptParams{
 		Ref:            req.Msg.GetRef(),
 		Title:          req.Msg.GetTitle(),
 		Flags:          req.Msg.GetFlags(),
@@ -207,12 +207,7 @@ func (s *Service) Adopt(ctx context.Context, req *connect.Request[agentv1.AdoptR
 		return nil, rpcerr.Wrap(err, "failed to adopt agent")
 	}
 
-	created := adoption.Agent
-
-	return connect.NewResponse(&agentv1.AdoptResponse{
-		Agent:    renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent,
-		Existing: adoption.Existing,
-	}), nil
+	return connect.NewResponse(&agentv1.AdoptResponse{Agent: renderAgent(*created, agentFlags{alive: s.liveness.IsAgentRunning(*created)}).Agent}), nil
 }
 
 // agentFlagsFor gathers the facts about a set of agents that are not on their own rows, so a

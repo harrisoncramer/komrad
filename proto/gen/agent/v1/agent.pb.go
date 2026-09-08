@@ -870,10 +870,8 @@ func (x *AdoptRequest) GetIdempotencyKey() string {
 }
 
 type AdoptResponse struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	Agent *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
-	// Whether the agent was already on that branch, which is what asking twice answers with.
-	Existing      bool `protobuf:"varint,2,opt,name=existing,proto3" json:"existing,omitempty"`
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Agent         *Agent                 `protobuf:"bytes,1,opt,name=agent,proto3" json:"agent,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -913,13 +911,6 @@ func (x *AdoptResponse) GetAgent() *Agent {
 		return x.Agent
 	}
 	return nil
-}
-
-func (x *AdoptResponse) GetExisting() bool {
-	if x != nil {
-		return x.Existing
-	}
-	return false
 }
 
 type GetAgentRequest struct {
@@ -1852,10 +1843,9 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\aharness\x18\x06 \x01(\tB\x15\xbaH\x12r\x10\x18(2\f^[a-z0-9-]*$R\aharness\x128\n" +
 	"\x0fidempotency_key\x18\a \x01(\tB\n" +
 	"\xbaH\ar\x05\x10\x01\x18\xc8\x01H\x00R\x0eidempotencyKey\x88\x01\x01B\x12\n" +
-	"\x10_idempotency_key\"R\n" +
+	"\x10_idempotency_key\"6\n" +
 	"\rAdoptResponse\x12%\n" +
-	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\x12\x1a\n" +
-	"\bexisting\x18\x02 \x01(\bR\bexisting\"*\n" +
+	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"*\n" +
 	"\x0fGetAgentRequest\x12\x17\n" +
 	"\x02id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\x02id\"9\n" +
 	"\x10GetAgentResponse\x12%\n" +

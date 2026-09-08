@@ -2,7 +2,6 @@ package ui
 
 import (
 	"context"
-	"fmt"
 	"sync"
 	"time"
 
@@ -227,8 +226,6 @@ type written struct {
 	row     string
 	pane    string
 	harness string
-	// note is what the write has to say for itself on success, which most have nothing of.
-	note *message
 }
 
 // markViewedCmd claims what an agent has finished without going through the write path.
@@ -391,38 +388,9 @@ func (m *model) createCmd(params createAgentParams) tea.Cmd {
 }
 
 func (m *model) adoptCmd(params adoptParams) tea.Cmd {
-	return m.rowWriteCmd("Could not adopt", func(clients api) (written, error) {
-		resp, err := clients.adopt(params)
-		if err != nil {
-			return written{}, err
-		}
-
-		agent := resp.GetAgent()
-
-		return written{
-			row:     agentRowKey(agent.GetId()),
-			pane:    agent.GetPaneId(),
-			harness: agent.GetHarness(),
-			note:    adoptNote(resp),
-		}, nil
+	return m.agentWriteCmd("Could not adopt", func(clients api) (*agentv1.Agent, error) {
+		return clients.adopt(params)
 	})
-}
-
-// Explainer: adoption answers a branch that already has an agent with that agent, which is the
-// right answer and reads as nothing having happened: the form closes and the panel moves to a row
-// that was there all along. Saying it out loud is what tells that apart from a refusal.
-
-// adoptNote says when adoption handed back the agent already on the branch.
-func adoptNote(resp *agentv1.AdoptResponse) *message {
-	if !resp.GetExisting() {
-		return nil
-	}
-
-	return &message{
-		kind:    messageInfo,
-		summary: "Already adopted",
-		detail:  fmt.Sprintf("%s is on that branch already, so it was shown rather than adopted again", resp.GetAgent().GetName()),
-	}
 }
 
 func (m *model) createWorkflowCmd(cfg workflowstore.Config) tea.Cmd {
@@ -452,10 +420,6 @@ func (m model) applyWrite(result writeResult) (tea.Model, tea.Cmd) {
 
 	_, walkedAway := m.detached[result.epoch]
 	delete(m.detached, result.epoch)
-
-	if result.written != nil && result.written.note != nil {
-		m.pushMessage(*result.written.note)
-	}
 
 	if result.written != nil && !walkedAway {
 		m.enterScreen(screenAgents)
