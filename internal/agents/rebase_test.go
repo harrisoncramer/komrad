@@ -331,3 +331,97 @@ func (r *recordingRebaseAgents) SetMetadata(_ context.Context, params agentstore
 
 	return true, nil
 }
+
+// TestRebaseFastForwardsASquashedBranch covers the case that motivated the prediction: the
+// agent's work reached the base as one squashed commit, so a replay would collide with the files
+// the squash already added, and the branch is moved onto the base outright instead.
+func TestRebaseFastForwardsASquashedBranch(t *testing.T) {
+	t.Parallel()
+
+	tree, origin := buildSquashedWorktree(t)
+	agents := &recordingRebaseAgents{agent: agentstore.Agent{
+		ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		Metadata: []agentstore.Metadata{{Key: prMetadataKey, Value: "https://example.test/pr/1"}},
+	}}
+
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents:    agents,
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+
+	assert.True(t, result.FastForwarded, "the branch was moved rather than replayed")
+	assert.False(t, result.Conflicted, "which is the collision the fast-forward exists to avoid")
+	assert.True(t, result.SameTree)
+	assert.Positive(t, result.Commits, "commits a plain rebase would have replayed into that collision")
+
+	head, err := git.Run(t.Context(), tree, "rev-parse", "HEAD")
+	require.NoError(t, err)
+	base, err := git.Run(t.Context(), origin, "rev-parse", "main")
+	require.NoError(t, err)
+	assert.Equal(t, base, head, "the branch stands on the base")
+
+	assert.True(t, agents.clearedPR, "the pull request no longer tracks anything the branch carries")
+}
+
+// TestRebaseReplaysWhenTheTreesDiffer is the other side of that decision, since a fast-forward
+// taken whenever a rebase looked awkward would throw work away.
+func TestRebaseReplaysWhenTheTreesDiffer(t *testing.T) {
+	t.Parallel()
+
+	tree := buildAgentWorktree(t, false)
+	service := NewRebaseService(NewRebaseServiceParams{
+		Agents: &recordingRebaseAgents{agent: agentstore.Agent{
+			ID: "a1", Name: "auth", WorkflowID: "w1", Cwd: tree, State: agentstore.StateIdle,
+		}},
+		Workflows: fakeRebaseWorkflows{flow: worktreeFlow()},
+	})
+
+	result, err := service.Rebase(t.Context(), "a1")
+	require.NoError(t, err)
+
+	assert.False(t, result.FastForwarded)
+	assert.False(t, result.SameTree)
+
+	own, err := git.Run(t.Context(), tree, "log", "--format=%s", "-1")
+	require.NoError(t, err)
+	assert.Equal(t, "the agent's work", own, "the agent's own commit is still on the branch")
+}
+
+// buildSquashedWorktree is an agent worktree whose commits reached origin's main as one squashed
+// commit, which leaves the branch and the base naming one tree while sharing no commit.
+func buildSquashedWorktree(t *testing.T) (tree, origin string) {
+	t.Helper()
+
+	root := t.TempDir()
+	origin = filepath.Join(root, "origin")
+	gitRun(t, root, "init", "--quiet", "-b", "main", origin)
+	gitRun(t, origin, "config", "user.email", "t@example.com")
+	gitRun(t, origin, "config", "user.name", "t")
+	writeTree(t, origin, "base.txt", "base\n")
+	gitRun(t, origin, "add", "base.txt")
+	gitRun(t, origin, "commit", "--quiet", "-m", "base")
+
+	clone := filepath.Join(root, "clone")
+	gitRun(t, root, "clone", "--quiet", origin, clone)
+	gitRun(t, clone, "config", "user.email", "t@example.com")
+	gitRun(t, clone, "config", "user.name", "t")
+
+	tree = filepath.Join(root, "tree")
+	gitRun(t, clone, "worktree", "add", "--quiet", "--no-track", "-b", "agent/a1", tree, "origin/main")
+	writeTree(t, tree, "first.txt", "first\n")
+	gitRun(t, tree, "add", "first.txt")
+	gitRun(t, tree, "commit", "--quiet", "-m", "first")
+	writeTree(t, tree, "second.txt", "second\n")
+	gitRun(t, tree, "add", "second.txt")
+	gitRun(t, tree, "commit", "--quiet", "-m", "second")
+
+	// The branch reaches origin the way a squash merge puts it there, as one commit of its own.
+	gitRun(t, tree, "push", "--quiet", "origin", "agent/a1")
+	gitRun(t, origin, "merge", "--quiet", "--squash", "agent/a1")
+	gitRun(t, origin, "commit", "--quiet", "-m", "the branch, squashed (#1)")
+
+	return tree, origin
+}

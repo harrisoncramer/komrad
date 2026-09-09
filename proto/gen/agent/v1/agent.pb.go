@@ -1054,8 +1054,16 @@ type PlanRefreshResponse struct {
 	BaseRef string `protobuf:"bytes,1,opt,name=base_ref,json=baseRef,proto3" json:"base_ref,omitempty"`
 	BaseSha string `protobuf:"bytes,2,opt,name=base_sha,json=baseSha,proto3" json:"base_sha,omitempty"`
 	// How many of the agent's own commits would be replayed.
-	Commits       int32  `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
-	Branch        string `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	Commits int32  `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
+	Branch  string `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
+	// Whether the base already names the branch's own tree, which is what a squash merge leaves
+	// behind and means a replay would only collide with the files the base already holds.
+	SameTree bool `protobuf:"varint,5,opt,name=same_tree,json=sameTree,proto3" json:"same_tree,omitempty"`
+	// How many merge commits a rebase would discard, since it flattens history.
+	Merges int32 `protobuf:"varint,6,opt,name=merges,proto3" json:"merges,omitempty"`
+	// The paths a merge of the base into the branch could not settle, which is a warning rather
+	// than a verdict: a rebase replays commit by commit and can conflict where a merge would not.
+	ConflictPaths []string `protobuf:"bytes,7,rep,name=conflict_paths,json=conflictPaths,proto3" json:"conflict_paths,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1118,6 +1126,27 @@ func (x *PlanRefreshResponse) GetBranch() string {
 	return ""
 }
 
+func (x *PlanRefreshResponse) GetSameTree() bool {
+	if x != nil {
+		return x.SameTree
+	}
+	return false
+}
+
+func (x *PlanRefreshResponse) GetMerges() int32 {
+	if x != nil {
+		return x.Merges
+	}
+	return 0
+}
+
+func (x *PlanRefreshResponse) GetConflictPaths() []string {
+	if x != nil {
+		return x.ConflictPaths
+	}
+	return nil
+}
+
 type RebaseWorktreeRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	AgentId       string                 `protobuf:"bytes,1,opt,name=agent_id,json=agentId,proto3" json:"agent_id,omitempty"`
@@ -1169,7 +1198,9 @@ type RebaseWorktreeResponse struct {
 	Commits int32                  `protobuf:"varint,3,opt,name=commits,proto3" json:"commits,omitempty"`
 	Branch  string                 `protobuf:"bytes,4,opt,name=branch,proto3" json:"branch,omitempty"`
 	// Whether the rebase stopped on conflicts and is still stopped, waiting for the agent.
-	Conflicted    bool `protobuf:"varint,5,opt,name=conflicted,proto3" json:"conflicted,omitempty"`
+	Conflicted bool `protobuf:"varint,5,opt,name=conflicted,proto3" json:"conflicted,omitempty"`
+	// Whether the branch was moved onto the base outright rather than replayed onto it.
+	FastForwarded bool `protobuf:"varint,6,opt,name=fast_forwarded,json=fastForwarded,proto3" json:"fast_forwarded,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1235,6 +1266,13 @@ func (x *RebaseWorktreeResponse) GetBranch() string {
 func (x *RebaseWorktreeResponse) GetConflicted() bool {
 	if x != nil {
 		return x.Conflicted
+	}
+	return false
+}
+
+func (x *RebaseWorktreeResponse) GetFastForwarded() bool {
+	if x != nil {
+		return x.FastForwarded
 	}
 	return false
 }
@@ -2169,14 +2207,17 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x10GetAgentResponse\x12%\n" +
 	"\x05agent\x18\x01 \x01(\v2\x0f.agent.v1.AgentR\x05agent\"8\n" +
 	"\x12PlanRefreshRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"}\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xd9\x01\n" +
 	"\x13PlanRefreshResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
 	"\acommits\x18\x03 \x01(\x05R\acommits\x12\x16\n" +
-	"\x06branch\x18\x04 \x01(\tR\x06branch\";\n" +
+	"\x06branch\x18\x04 \x01(\tR\x06branch\x12\x1b\n" +
+	"\tsame_tree\x18\x05 \x01(\bR\bsameTree\x12\x16\n" +
+	"\x06merges\x18\x06 \x01(\x05R\x06merges\x12%\n" +
+	"\x0econflict_paths\x18\a \x03(\tR\rconflictPaths\";\n" +
 	"\x15RebaseWorktreeRequest\x12\"\n" +
-	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xa0\x01\n" +
+	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\xc7\x01\n" +
 	"\x16RebaseWorktreeResponse\x12\x19\n" +
 	"\bbase_ref\x18\x01 \x01(\tR\abaseRef\x12\x19\n" +
 	"\bbase_sha\x18\x02 \x01(\tR\abaseSha\x12\x18\n" +
@@ -2184,7 +2225,8 @@ const file_agent_v1_agent_proto_rawDesc = "" +
 	"\x06branch\x18\x04 \x01(\tR\x06branch\x12\x1e\n" +
 	"\n" +
 	"conflicted\x18\x05 \x01(\bR\n" +
-	"conflicted\":\n" +
+	"conflicted\x12%\n" +
+	"\x0efast_forwarded\x18\x06 \x01(\bR\rfastForwarded\":\n" +
 	"\x14ResetWorktreeRequest\x12\"\n" +
 	"\bagent_id\x18\x01 \x01(\tB\a\xbaH\x04r\x02\x10\x01R\aagentId\"\x17\n" +
 	"\x15ResetWorktreeResponse\"\xe3\x01\n" +

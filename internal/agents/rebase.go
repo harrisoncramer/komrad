@@ -80,6 +80,12 @@ type RebasePlan struct {
 	// Commits is how many of the agent's own commits would be replayed.
 	Commits int
 	Branch  string
+	// SameTree says the branch and the base name one tree, so replaying would only collide.
+	SameTree bool
+	// Merges is how many merge commits a rebase would discard.
+	Merges int
+	// ConflictPaths are the paths a merge of the base into the branch could not settle.
+	ConflictPaths []string
 }
 
 // RebaseResult is what a rebase did.
@@ -87,6 +93,9 @@ type RebaseResult struct {
 	RebasePlan
 	// Conflicted says the rebase stopped part-way and is waiting for the agent.
 	Conflicted bool
+	// FastForwarded says the branch was moved onto the base outright rather than replayed,
+	// which is what a branch whose content the base already holds gets instead.
+	FastForwarded bool
 	// ClearedPullRequest says a recorded pull request was dropped, since the rebase rewrote the
 	// branch it was opened from.
 	ClearedPullRequest bool
@@ -122,7 +131,20 @@ func (s *RebaseService) PlanRebase(ctx context.Context, agentID string) (*Rebase
 		return nil, err
 	}
 
-	return &RebasePlan{BaseRef: ref, BaseSHA: sha, Commits: commits, Branch: state.Branch}, nil
+	prediction, err := git.PredictRebase(ctx, agent.Cwd, ref)
+	if err != nil {
+		return nil, err
+	}
+
+	return &RebasePlan{
+		BaseRef:       ref,
+		BaseSHA:       sha,
+		Commits:       commits,
+		Branch:        state.Branch,
+		SameTree:      prediction.SameTree,
+		Merges:        prediction.Merges,
+		ConflictPaths: prediction.ConflictPaths,
+	}, nil
 }
 
 // Rebase moves the agent's branch onto the latest base in place.
@@ -154,12 +176,8 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 
 	result := &RebaseResult{RebasePlan: *plan}
 
-	rebaseErr := git.Rebase(ctx, agent.Cwd, plan.BaseRef)
-	switch {
-	case errors.Is(rebaseErr, git.ErrRebaseConflicted):
-		result.Conflicted = true
-	case rebaseErr != nil:
-		return nil, rebaseErr
+	if err := s.move(ctx, agent.Cwd, result); err != nil {
+		return nil, err
 	}
 
 	// A completed rebase rewrites the branch, where a stopped one has not moved it yet.
@@ -170,6 +188,29 @@ func (s *RebaseService) Rebase(ctx context.Context, agentID string) (*RebaseResu
 	s.tell(ctx, *agent, *result)
 
 	return result, nil
+}
+
+// move brings the branch onto the base, replaying its commits or, when the base already holds
+// their content, moving the branch outright rather than colliding with itself.
+func (s *RebaseService) move(ctx context.Context, dir string, result *RebaseResult) error {
+	if result.SameTree {
+		if err := git.FastForward(ctx, dir, result.BaseRef); err != nil {
+			return err
+		}
+		result.FastForwarded = true
+
+		return nil
+	}
+
+	err := git.Rebase(ctx, dir, result.BaseRef)
+	switch {
+	case errors.Is(err, git.ErrRebaseConflicted):
+		result.Conflicted = true
+	case err != nil:
+		return err
+	}
+
+	return nil
 }
 
 // clearPullRequest drops the recorded pull request and reports whether there was one.
@@ -197,33 +238,79 @@ func (s *RebaseService) tell(ctx context.Context, agent agentstore.Agent, result
 		return
 	}
 
-	var body strings.Builder
-	if result.Conflicted {
-		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s) and the rebase stopped on conflicts, so it is still in progress.\n\n",
-			result.BaseRef, short(result.BaseSHA))
-		body.WriteString("Your commits are all still there, and your branch has not moved yet. " +
-			"Do not resolve it or abort it on your own initiative: say what state you are in and wait to be told " +
-			"which way to go, since whoever pressed the key is the one deciding whether this work is worth " +
-			"carrying forward.")
-		if metadataFor(agent, prMetadataKey) != "" {
-			body.WriteString(" Say too that finishing the rebase will invalidate the pull request recorded against " +
-				"you, since it was opened from the commits the rebase is replaying, and that aborting leaves it valid.")
-		}
-	} else {
-		fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
-			result.BaseRef, short(result.BaseSHA), result.Commits)
-		body.WriteString("Your files may have changed under you, so read them again rather than trusting what you remember. " +
-			"Nothing was lost and your branch is the same branch.")
-		if result.ClearedPullRequest {
-			body.WriteString(" The pull request recorded against you has been cleared, because the rebase rewrote the " +
-				"branch it was opened from: open a new one rather than assuming the old one still tracks your work.")
-		}
-	}
-
-	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, body.String()); err != nil {
+	if _, err := s.notifier.SendSystemMail(ctx, agent.ID, rebaseMail(agent, result)); err != nil {
 		logging.From(ctx).LogAttrs(ctx, slog.LevelWarn, "failed to tell an agent its worktree was rebased",
 			append([]slog.Attr{slog.String(logging.AgentID, agent.ID)}, logging.Err(err)...)...)
 	}
+}
+
+// rebaseMail is what the agent is told, which turns on what became of its branch rather than on
+// what was asked for.
+func rebaseMail(agent agentstore.Agent, result RebaseResult) string {
+	switch {
+	case result.Conflicted:
+		return conflictedMail(agent, result)
+	case result.FastForwarded:
+		return fastForwardedMail(result)
+	default:
+		return replayedMail(result)
+	}
+}
+
+// conflictedMail is a rebase stopped part-way, which is the agent's to settle and nobody else's.
+func conflictedMail(agent agentstore.Agent, result RebaseResult) string {
+	var body strings.Builder
+
+	fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s) and the rebase stopped on conflicts, so it is still in progress.\n\n",
+		result.BaseRef, short(result.BaseSHA))
+	body.WriteString("Your commits are all still there, and your branch has not moved yet. " +
+		"Do not resolve it or abort it on your own initiative: say what state you are in and wait to be told " +
+		"which way to go, since whoever pressed the key is the one deciding whether this work is worth " +
+		"carrying forward.")
+
+	if metadataFor(agent, prMetadataKey) != "" {
+		body.WriteString(" Say too whether the pull request recorded against you is still open, since finishing " +
+			"the rebase rewrites the commits it was opened from: that invalidates an open one, and means nothing " +
+			"for one already merged.")
+	}
+
+	return body.String()
+}
+
+// fastForwardedMail is a branch moved onto the base outright, which is what a branch whose work
+// the base already holds gets instead of a replay that would collide with itself.
+func fastForwardedMail(result RebaseResult) string {
+	var body strings.Builder
+
+	fmt.Fprintf(&body, "Your branch was moved onto %s (%s) outright rather than rebased.\n\n", result.BaseRef, short(result.BaseSHA))
+	body.WriteString("The base already held every change your own commits made, which is what happens once your work " +
+		"lands there as one squashed commit, so replaying them would only have collided with your own files. ")
+	body.WriteString("No file on disk changed and nothing was lost. Your own commits are no longer on the branch, " +
+		"and the base's history stands in their place, so start your next piece of work from here.")
+
+	if result.ClearedPullRequest {
+		body.WriteString(" The pull request recorded against you has been cleared, since it no longer tracks anything " +
+			"this branch carries.")
+	}
+
+	return body.String()
+}
+
+// replayedMail is the ordinary rebase, which moved the agent's files under it.
+func replayedMail(result RebaseResult) string {
+	var body strings.Builder
+
+	fmt.Fprintf(&body, "Your worktree was rebased onto %s (%s), replaying %d of your own commits.\n\n",
+		result.BaseRef, short(result.BaseSHA), result.Commits)
+	body.WriteString("Your files may have changed under you, so read them again rather than trusting what you remember. " +
+		"Nothing was lost and your branch is the same branch.")
+
+	if result.ClearedPullRequest {
+		body.WriteString(" The pull request recorded against you has been cleared, because the rebase rewrote the " +
+			"branch it was opened from: open a new one rather than assuming the old one still tracks your work.")
+	}
+
+	return body.String()
 }
 
 // eligible answers the agent when a rebase is its to have, or the reason it is not.

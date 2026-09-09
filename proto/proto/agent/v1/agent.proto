@@ -200,6 +200,14 @@ message PlanRefreshResponse {
   // How many of the agent's own commits would be replayed.
   int32 commits = 3;
   string branch = 4;
+  // Whether the base already names the branch's own tree, which is what a squash merge leaves
+  // behind and means a replay would only collide with the files the base already holds.
+  bool same_tree = 5;
+  // How many merge commits a rebase would discard, since it flattens history.
+  int32 merges = 6;
+  // The paths a merge of the base into the branch could not settle, which is a warning rather
+  // than a verdict: a rebase replays commit by commit and can conflict where a merge would not.
+  repeated string conflict_paths = 7;
 }
 
 message RebaseWorktreeRequest {
@@ -213,6 +221,8 @@ message RebaseWorktreeResponse {
   string branch = 4;
   // Whether the rebase stopped on conflicts and is still stopped, waiting for the agent.
   bool conflicted = 5;
+  // Whether the branch was moved onto the base outright rather than replayed onto it.
+  bool fast_forwarded = 6;
 }
 
 message ResetWorktreeRequest {

@@ -276,3 +276,130 @@ func out(t *testing.T, dir string, args ...string) string {
 
 	return text
 }
+
+// TestPredictRebaseSeesASquashedBranch is the case the prediction exists for: the branch's work
+// reached the base as one squashed commit, so its own commits match nothing there by patch id
+// and replaying them collides with the files the squash already added.
+func TestPredictRebaseSeesASquashedBranch(t *testing.T) {
+	t.Parallel()
+
+	repo := squashedBranch(t)
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.True(t, prediction.SameTree, "the squash put the branch's own content on the base")
+
+	count, err := git.CountCommitsToReplay(t.Context(), repo, "main")
+	require.NoError(t, err)
+	assert.Positive(t, count, "and a rebase would still replay them, which is the trap")
+}
+
+// TestPredictRebaseCountsTheMergesItWouldDiscard covers a branch that has merged the base rather
+// than rebased onto it, whose merge a rebase throws away before replaying what it reconciled.
+func TestPredictRebaseCountsTheMergesItWouldDiscard(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	run(t, repo, "commit", "--quiet", "--allow-empty", "-m", "the agent's work")
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "theirs.txt", "main moved on")
+	run(t, repo, "add", "theirs.txt")
+	run(t, repo, "commit", "--quiet", "-m", "main moved on")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+	run(t, repo, "merge", "--quiet", "--no-ff", "-m", "merge main", "main")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.Equal(t, 1, prediction.Merges)
+}
+
+// TestPredictRebaseNamesTheConflictingPaths covers both sides changing one file, which is the
+// divergence a person wants named before the worktree is touched rather than after.
+func TestPredictRebaseNamesTheConflictingPaths(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	writeFile(t, repo, "clash.txt", "ours\n")
+	run(t, repo, "add", "clash.txt")
+	run(t, repo, "commit", "--quiet", "-m", "ours")
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "clash.txt", "theirs\n")
+	run(t, repo, "add", "clash.txt")
+	run(t, repo, "commit", "--quiet", "-m", "theirs")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.Equal(t, []string{"clash.txt"}, prediction.ConflictPaths)
+	assert.False(t, prediction.SameTree)
+}
+
+// TestPredictRebaseIsQuietOnACleanRebase pins the ordinary case reporting nothing, since a
+// prediction that always found something would be worth as little as one that never did.
+func TestPredictRebaseIsQuietOnACleanRebase(t *testing.T) {
+	t.Parallel()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	writeFile(t, repo, "ours.txt", "ours\n")
+	run(t, repo, "add", "ours.txt")
+	run(t, repo, "commit", "--quiet", "-m", "ours")
+	run(t, repo, "checkout", "--quiet", "main")
+	writeFile(t, repo, "theirs.txt", "theirs\n")
+	run(t, repo, "add", "theirs.txt")
+	run(t, repo, "commit", "--quiet", "-m", "theirs")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+
+	prediction, err := git.PredictRebase(t.Context(), repo, "main")
+	require.NoError(t, err)
+
+	assert.Empty(t, prediction.ConflictPaths)
+	assert.Zero(t, prediction.Merges)
+	assert.False(t, prediction.SameTree)
+}
+
+// TestFastForwardMovesTheBranchWithoutTouchingTheFiles covers the answer to a squashed branch:
+// the branch ref moves to the base, and because the two name one tree nothing on disk changes.
+func TestFastForwardMovesTheBranchWithoutTouchingTheFiles(t *testing.T) {
+	t.Parallel()
+
+	repo := squashedBranch(t)
+	writeFile(t, repo, "scratch.txt", "untracked")
+	before := out(t, repo, "rev-parse", "HEAD^{tree}")
+
+	require.NoError(t, git.FastForward(t.Context(), repo, "main"))
+
+	assert.Equal(t, out(t, repo, "rev-parse", "main"), out(t, repo, "rev-parse", "HEAD"),
+		"the branch stands on the base")
+	assert.Equal(t, before, out(t, repo, "rev-parse", "HEAD^{tree}"), "no tracked file moved")
+	body, err := os.ReadFile(filepath.Join(repo, "scratch.txt"))
+	require.NoError(t, err)
+	assert.Equal(t, "untracked", string(body), "the untracked file is still there")
+}
+
+// squashedBranch is a branch of two commits whose work reached main as one squashed commit,
+// which leaves the two naming the same tree while sharing no commit.
+func squashedBranch(t *testing.T) string {
+	t.Helper()
+
+	repo := newRepo(t)
+	run(t, repo, "checkout", "--quiet", "-b", "agent/abc")
+	writeFile(t, repo, "first.txt", "first\n")
+	run(t, repo, "add", "first.txt")
+	run(t, repo, "commit", "--quiet", "-m", "first")
+	writeFile(t, repo, "second.txt", "second\n")
+	run(t, repo, "add", "second.txt")
+	run(t, repo, "commit", "--quiet", "-m", "second")
+
+	run(t, repo, "checkout", "--quiet", "main")
+	run(t, repo, "merge", "--quiet", "--squash", "agent/abc")
+	run(t, repo, "commit", "--quiet", "-m", "the branch, squashed (#1)")
+	run(t, repo, "checkout", "--quiet", "agent/abc")
+
+	return repo
+}

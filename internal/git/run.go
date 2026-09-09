@@ -4,6 +4,7 @@ package git
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -47,4 +48,26 @@ func runEnv(ctx context.Context, dir string, env []string, args ...string) (stri
 	out, err := runWithEnv(ctx, dir, env, args...)
 
 	return strings.TrimSpace(string(out)), err
+}
+
+// runAllowing is git run where one exit code carries an answer rather than a failure, so the
+// output of a command that reports its finding by exiting non-zero is not thrown away.
+func runAllowing(ctx context.Context, dir string, allowed int, args ...string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, commandTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(ctx, "git", append([]string{"-C", dir}, args...)...)
+
+	out, err := cmd.Output()
+	trimmed := strings.TrimSpace(string(out))
+	if err == nil {
+		return trimmed, nil
+	}
+
+	var exit *exec.ExitError
+	if errors.As(err, &exit) && exit.ExitCode() == allowed {
+		return trimmed, nil
+	}
+
+	return "", fmt.Errorf("git %s: %w", strings.Join(args, " "), err)
 }

@@ -1376,3 +1376,74 @@ func TestSubmittingNoticeCountsUp(t *testing.T) {
 	assert.Equal(t, "  submitting… 12s · esc to keep working", submittingNotice(since, since.Add(12*time.Second)))
 	assert.Equal(t, "  submitting… 6m40s · esc to keep working", submittingNotice(since, since.Add(400*time.Second)))
 }
+
+// TestRefreshRebaseLabelNamesWhatWillRun covers the picker promising a replay when a move is
+// what would actually happen, which is the difference between the two the person is choosing on.
+func TestRefreshRebaseLabelNamesWhatWillRun(t *testing.T) {
+	t.Parallel()
+
+	plan := refreshPlan{baseRef: "origin/main", baseSHA: "a6e5d5cd1234", commits: 3}
+
+	assert.Contains(t, refreshRebaseLabel(plan), "Rebase onto origin/main")
+	assert.Contains(t, refreshRebaseLabel(plan), "replaying 3 commits")
+
+	plan.sameTree = true
+
+	assert.Contains(t, refreshRebaseLabel(plan), "Move onto origin/main")
+	assert.Contains(t, refreshRebaseLabel(plan), "dropping 3 commits")
+	assert.NotContains(t, refreshRebaseLabel(plan), "Rebase")
+}
+
+// TestRefreshWarning covers each thing the confirmation is there to say, and the ordinary case
+// saying nothing, since a warning shown every time is one nobody reads.
+func TestRefreshWarning(t *testing.T) {
+	t.Parallel()
+
+	for _, tt := range []struct {
+		name     string
+		plan     refreshPlan
+		want     []string
+		wantNone bool
+	}{
+		{
+			name:     "a rebase that would run cleanly warns about nothing",
+			plan:     refreshPlan{commits: 2},
+			wantNone: true,
+		},
+		{
+			name: "a squashed branch, whose replay would collide with its own files",
+			plan: refreshPlan{sameTree: true},
+			want: []string{"squash merge", "collide"},
+		},
+		{
+			name: "merge commits, which a rebase throws away before replaying what they settled",
+			plan: refreshPlan{merges: 2},
+			want: []string{"discards 2 merge commits"},
+		},
+		{
+			name: "the paths the two sides both changed",
+			plan: refreshPlan{conflictPaths: []string{"a.go", "b.go"}},
+			want: []string{"Both sides changed a.go, b.go"},
+		},
+		{
+			name: "more paths than are worth reading out",
+			plan: refreshPlan{conflictPaths: []string{"a.go", "b.go", "c.go", "d.go", "e.go"}},
+			want: []string{"a.go, b.go, c.go and 2 more"},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			warning := refreshWarning(tt.plan)
+			if tt.wantNone {
+				assert.Empty(t, warning)
+
+				return
+			}
+
+			for _, want := range tt.want {
+				assert.Contains(t, warning, want)
+			}
+		})
+	}
+}
