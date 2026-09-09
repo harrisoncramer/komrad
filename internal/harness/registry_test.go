@@ -17,7 +17,7 @@ func (s fakeHarness) BuildCommand(Launch) (string, error) { return "", nil }
 func (s fakeHarness) MintSessionID() string               { return "" }
 
 func (s fakeHarness) FindSession(string) (string, error) { return "", nil }
-func (s fakeHarness) ReadActivity(string) Activity       { return ActivityUnknown }
+func (s fakeHarness) ReadInput(string) Input             { return Input{} }
 func (s fakeHarness) ReadReport(Event, []byte) (Report, error) {
 	return Report{}, nil
 }

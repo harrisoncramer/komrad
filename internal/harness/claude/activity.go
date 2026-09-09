@@ -44,18 +44,18 @@ const waitingRegionLines = 6
 
 var ansiSeq = regexp.MustCompile(`\x1b\[[0-9;?]*[ -/]*[@-~]`)
 
-// inputBox is the rule opening the box and the text the box holds, less the prompt Claude
+// inputBox is the rule opening the box and the lines the box holds, less the prompt Claude
 // suggests there itself.
 type inputBox struct {
 	Rule int
-	Held string
+	Held []string
 }
 
-// ReadActivity reads what a captured frame says Claude is doing, relative to the input box
-// rather than to a count of lines off the bottom.
-func (h *Harness) ReadActivity(frame string) harness.Activity {
+// ReadInput reads what a captured frame says Claude is doing and what its box holds, relative to
+// the input box rather than to a count of lines off the bottom.
+func (h *Harness) ReadInput(frame string) harness.Input {
 	if frame == "" {
-		return harness.ActivityUnknown
+		return harness.Input{Activity: harness.ActivityUnknown}
 	}
 
 	lines, held, colours := frameLines(frame)
@@ -63,17 +63,18 @@ func (h *Harness) ReadActivity(frame string) harness.Activity {
 
 	switch {
 	case doesFrameShowWork(lines, box, boxed), isPromptGreyed(colours, box, boxed):
-		return harness.ActivityWorking
+		return harness.Input{Activity: harness.ActivityWorking}
 	case doesFrameShowWaiting(lines, boxed):
-		return harness.ActivityWaiting
+		return harness.Input{Activity: harness.ActivityWaiting}
 	case boxed:
-		if strings.TrimSpace(box.Held) != "" {
-			return harness.ActivityComposing
+		input := harness.Input{Activity: harness.ActivityIdle, Held: box.Held}
+		if strings.TrimSpace(input.Text()) != "" {
+			input.Activity = harness.ActivityComposing
 		}
 
-		return harness.ActivityIdle
+		return input
 	default:
-		return harness.ActivityUnrecognized
+		return harness.Input{Activity: harness.ActivityUnrecognized}
 	}
 }
 
@@ -114,7 +115,7 @@ func findInputBox(lines, held []string) (inputBox, bool) {
 			typed = append(typed, held[j])
 		}
 
-		return inputBox{Rule: i, Held: strings.Join(typed, "\n")}, true
+		return inputBox{Rule: i, Held: typed}, true
 	}
 
 	return inputBox{}, false

@@ -272,7 +272,7 @@ func (i *Instance) WaitForActivity(agentID string, activity harness.Activity) {
 	deadline := time.Now().Add(settleTimeout)
 	for time.Now().Before(deadline) {
 		pane := i.GetOwnedPane(agentID)
-		if pane != "" && i.Harness.ReadActivity(client.CapturePane(pane)) == activity {
+		if pane != "" && i.Harness.ReadInput(client.CapturePane(pane)).Activity == activity {
 			return
 		}
 

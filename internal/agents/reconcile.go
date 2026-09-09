@@ -183,7 +183,7 @@ func (r *Reconciler) reconcileAgent(ctx context.Context, agent agentstore.Agent,
 		return
 	}
 
-	activity := hn.ReadActivity(frame)
+	activity := hn.ReadInput(frame).Activity
 	r.recordFrame(ctx, agent, frame, activity)
 
 	switch activity {
