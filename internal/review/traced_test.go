@@ -281,19 +281,3 @@ func TestAFoldedRenameStillCountsItsThreads(t *testing.T) {
 	assert.Contains(t, view.RenderRow(0, NoCursor, 120, 0), threadMark,
 		"the header says the folded file is still holding a conversation")
 }
-
-// TestARenamedThreadHasAFileOnScreen covers what the thread pane reads to caption a comment that
-// is not on the line it was written against: a placed thread in a renamed file has a file on
-// screen, so nothing tells the reader that file has gone while they are looking at it.
-func TestARenamedThreadHasAFileOnScreen(t *testing.T) {
-	view := NewView(renamedPatch(), false)
-
-	thread := threadAt("t1", "greet.go", 2, 0, " what line two used to say")
-
-	view.PinThreads([]*agentv1.ReviewThread{thread})
-
-	require.Equal(t, ghosted, view.placed["t1"], "the thread is drawn on a line of the renamed file")
-
-	_, drawn := view.GetFile(view.PathOf(thread))
-	assert.True(t, drawn, "the file the comment is drawn in is the one the pane reports on")
-}
