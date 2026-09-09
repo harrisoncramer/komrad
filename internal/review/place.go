@@ -113,8 +113,16 @@ func (v *View) placeByArm(
 	return left
 }
 
-// rowByKey is the row whose coordinates are the ones the thread was written against.
+// rowByKey is the row whose coordinates are the ones the thread was written against, which say
+// nothing once a thread on a deleted line counted its only number from elsewhere.
 func (v *View) rowByKey(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
+	// A new-side number is placed as this patch's own whatever base it was counted from, the way
+	// every carried-over thread is placed, while a thread on a deleted line has nothing in its key
+	// but an old-side number, which names a different line in a patch measured from elsewhere.
+	if thread.GetNewStart() <= 0 && !v.doesShareBase(thread) {
+		return 0, adrift, false
+	}
+
 	y, ok := index.byKey[keyForThread(thread)]
 	if !ok {
 		return 0, adrift, false

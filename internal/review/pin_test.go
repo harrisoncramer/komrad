@@ -435,3 +435,89 @@ func TestPinSkipsTheOldSideWhenItIsForeign(t *testing.T) {
 			"and never the row that happens to hold old line 38")
 	}
 }
+
+// TestPinSkipsTheCoordinatesWhenOnlyTheOldSideIsInThem covers a thread on a line deleted before
+// the round, whose key holds nothing but an old-side number counted from another commit.
+func TestPinSkipsTheCoordinatesWhenOnlyTheOldSideIsInThem(t *testing.T) {
+	patch := patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Deletion,
+				Text:      "deleted from the base",
+				OldNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "written instead",
+				NewNumber: 2,
+			},
+		)},
+	})
+
+	thread := threadAt("t1", "greet.go", 2, 0, "-deleted from the base")
+
+	measured := NewView(patch, false)
+	measured.PinThreads([]*agentv1.ReviewThread{thread})
+	require.Equal(t, pinned, measured.placed[thread.GetId()],
+		"a thread counted from this patch's own base belongs on the line it names")
+
+	elsewhere := threadAt("t2", "greet.go", 2, 0, "-a line of the earlier snapshot")
+	elsewhere.BaseSha = "0000000000000000000000000000000000000000"
+
+	foreign := NewView(patch, false)
+	foreign.PinThreads([]*agentv1.ReviewThread{elsewhere})
+
+	assert.Equal(t, adrift, foreign.placed[elsewhere.GetId()],
+		"old line 2 of another commit is not old line 2 of this one")
+
+	for row := range foreign.Len() {
+		found, ok := foreign.GetThreadAt(row)
+		if !ok || found.GetId() != "t2" {
+			continue
+		}
+
+		quote, drawn := foreign.quoteAt(row)
+		assert.False(t, drawn && quote == "-deleted from the base",
+			"and never the deletion that happens to hold that number")
+	}
+}
+
+// TestPinTakesForeignCoordinatesThatNameTheNewSide covers a thread counted from another commit
+// whose new-side number places it anyway, since both patches end at the same snapshot.
+func TestPinTakesForeignCoordinatesThatNameTheNewSide(t *testing.T) {
+	view := NewView(patchWith(diff.File{
+		OldPath: "greet.go",
+		NewPath: "greet.go",
+		Hunks: []diff.Hunk{hunkOf(
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "package greet",
+				OldNumber: 1,
+				NewNumber: 1,
+			},
+			diff.Line{
+				Kind:      diff.Addition,
+				Text:      "func Hello() {}",
+				NewNumber: 2,
+			},
+		)},
+	}), false)
+
+	thread := threadAt("t1", "greet.go", 0, 2, "+func Hello() {}")
+	thread.BaseSha = "0000000000000000000000000000000000000000"
+	view.PinThreads([]*agentv1.ReviewThread{thread})
+
+	require.Equal(t, pinned, view.placed[thread.GetId()])
+
+	found, ok := view.GetThreadAt(3)
+	require.True(t, ok, "the added line is the same line in either patch")
+	assert.Equal(t, "t1", found.GetId())
+}
