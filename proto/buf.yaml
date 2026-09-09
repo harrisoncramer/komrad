@@ -3,9 +3,13 @@ modules:
   - path: proto
 deps:
   - buf.build/bufbuild/protovalidate
+plugins:
+  - plugin: ../local/buf-plugin-weave
 lint:
   use:
     - STANDARD
+    - RPC_READ_NO_SIDE_EFFECTS
+    - RPC_MUTATION_IDEMPOTENT
   except:
     - RPC_REQUEST_STANDARD_NAME
     - RPC_RESPONSE_STANDARD_NAME
