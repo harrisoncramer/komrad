@@ -146,7 +146,8 @@ func rawPane(t *testing.T, client *Client, session string, bracketed bool) (pane
 }
 
 // TestCutAndYankRoundTripsThroughReadline covers what the byte tests cannot, a line editor
-// clearing its own box and handing the text back, which is the whole reason the pair exists.
+// clearing its own box whole and handing the text back, which is the whole reason the pair
+// exists.
 func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
 	if _, err := os.Stat(readlineShell); err != nil {
 		t.Skipf("%s is not installed", readlineShell)
@@ -159,12 +160,16 @@ func TestCutAndYankRoundTripsThroughReadline(t *testing.T) {
 	require.NoError(t, err)
 
 	waitForFrame(t, client, pane, "$")
+	prompt := lastLine(client.CapturePane(pane))
 
 	require.NoError(t, client.SendText(pane, "echo hello world"))
 	waitForFrame(t, client, pane, "echo hello world")
 
+	// The cursor is left mid-line, which is where a kill on its own leaves the tail behind.
+	require.NoError(t, client.SendKeys(pane, "Left", "Left", "Left"))
+
 	require.NoError(t, client.CutLine(pane))
-	waitForFrameWithout(t, client, pane, "echo hello world")
+	waitForLastLine(t, client, pane, prompt)
 
 	require.NoError(t, client.YankLine(pane))
 	waitForFrame(t, client, pane, "echo hello world")
@@ -184,16 +189,24 @@ func waitForFrame(t *testing.T, client *Client, pane, want string) {
 	t.Fatalf("the pane never showed %q; it holds:\n%s", want, client.CapturePane(pane))
 }
 
-func waitForFrameWithout(t *testing.T, client *Client, pane, unwanted string) {
+// waitForLastLine waits for the bottom line of a pane to hold nothing but what is wanted, which
+// is how a box with a tail left in it is told from an empty one.
+func waitForLastLine(t *testing.T, client *Client, pane, want string) {
 	t.Helper()
 
 	for range 100 {
-		if !strings.Contains(client.CapturePane(pane), unwanted) {
+		if lastLine(client.CapturePane(pane)) == want {
 			return
 		}
 
 		time.Sleep(50 * time.Millisecond)
 	}
 
-	t.Fatalf("the pane still shows %q; it holds:\n%s", unwanted, client.CapturePane(pane))
+	t.Fatalf("the pane's bottom line never came to %q; it holds:\n%s", want, client.CapturePane(pane))
+}
+
+func lastLine(frame string) string {
+	lines := strings.Split(strings.TrimRight(frame, "\n"), "\n")
+
+	return strings.TrimSpace(lines[len(lines)-1])
 }
