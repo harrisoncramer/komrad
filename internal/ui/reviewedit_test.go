@@ -948,3 +948,113 @@ func TestReviewDrawsTheSidebarAloneWhileTheEditorIsUp(t *testing.T) {
 	assert.NotContains(t, ansi.Strip(m.View()), "package greet", "so the diff waits")
 	assert.Contains(t, ansi.Strip(m.View()), "Review · auth", "and the sidebar keeps the column")
 }
+
+// TestReviewComposerOpensTheEditorOnWhatWasTyped covers ctrl+e in the comment composer: the
+// message being written reaches the editor as a file, and what comes back is what the composer
+// holds afterwards.
+func TestReviewComposerOpensTheEditorOnWhatWasTyped(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing)
+
+	m.review.editor.SetValue("a start")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m = next.(model)
+	require.NotNil(t, cmd, "the editor is run")
+	require.True(t, m.review.composing, "and the composer is still what the keys go to")
+
+	draft, err := os.ReadFile(messageDraftPath(m.review.agentID))
+	require.NoError(t, err)
+	assert.Equal(t, "a start", string(draft), "the editor opens on what was typed")
+
+	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, body: "what the editor wrote\n"})
+
+	assert.Equal(t, "what the editor wrote", m.review.editor.Value())
+
+	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	require.NotNil(t, cmd)
+	assert.False(t, asModel(t, next).review.composing, "and the submit key still sends it")
+}
+
+// TestReviewReleaseOpensTheEditorOnWhatWasTyped covers the release box taking the same key as the
+// composer: the word about the work as a whole reaches the editor and comes back to be sent.
+func TestReviewReleaseOpensTheEditorOnWhatWasTyped(t *testing.T) {
+	dir := reviewRepo(t)
+	agents := &fakeReviewAgents{}
+	m, _ := reviewModel(t, agents, dir)
+	m = openReview(t, m)
+
+	next, _ := m.openReviewRelease()
+	m = next.(model)
+	require.True(t, m.review.releasing)
+
+	m.review.editor.SetValue("a start")
+
+	next, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlE})
+	m = next.(model)
+	require.NotNil(t, cmd, "the editor is run")
+	require.True(t, m.review.releasing, "and the release box is still what the keys go to")
+
+	draft, err := os.ReadFile(messageDraftPath(m.review.agentID))
+	require.NoError(t, err)
+	assert.Equal(t, "a start", string(draft), "the editor opens on what was typed")
+
+	verdict := m.review.verdict
+	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, body: "the work as a whole\n"})
+
+	require.Equal(t, "the work as a whole", m.review.editor.Value())
+	assert.Equal(t, verdict, m.review.verdict, "and the verdict is the one that was chosen")
+
+	next, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlS})
+	require.NotNil(t, cmd)
+	require.False(t, asModel(t, next).review.releasing, "the submit key sends it")
+
+	_, ok := cmd().(reviewWroteMsg)
+	require.True(t, ok)
+	require.NotNil(t, agents.released, "and what was sent is what the editor wrote")
+	assert.Equal(t, "the work as a whole", agents.released.GetBody())
+}
+
+// TestReviewComposerEditorFollowsTheKeymap covers the editor key being config rather than a
+// literal, so the box that takes prose in the review opens on whatever the forms open on.
+func TestReviewComposerEditorFollowsTheKeymap(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m.keys.Form.Editor = []string{"ctrl+o"}
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	require.True(t, m.review.composing)
+
+	_, cmd := m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlO})
+	assert.NotNil(t, cmd, "the rebound key runs the editor")
+
+	_, cmd = m.updateReview(tea.KeyMsg{Type: tea.KeyCtrlE})
+	assert.Nil(t, cmd, "and the key it replaced is a character in the message")
+
+	assert.Contains(t, ansi.Strip(m.reviewView()), "C-o editor",
+		"the legend names the key that is bound rather than the one that shipped")
+}
+
+// TestReviewComposerKeepsWhatItHasWhenTheEditorFails covers an editor that would not run: the
+// message being written is left alone and the reader is told.
+func TestReviewComposerKeepsWhatItHasWhenTheEditorFails(t *testing.T) {
+	dir := reviewRepo(t)
+	m, _ := reviewModel(t, &fakeReviewAgents{}, dir)
+	m = openReview(t, m)
+
+	next, _ := m.updateReview(keyMsg("c"))
+	m = next.(model)
+	m.review.editor.SetValue("a start")
+
+	m.applyMessageEdited(messageEditedMsg{agentID: m.review.agentID, err: assert.AnError})
+
+	assert.Equal(t, "a start", m.review.editor.Value())
+	assert.Contains(t, m.review.notice, "could not be read back")
+}

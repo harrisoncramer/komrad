@@ -314,7 +314,7 @@ func blueprintFields(titlePrefix string, harness, dir, flags *string) []huh.Fiel
 // them.
 func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) *huh.Form {
 	fields := append([]huh.Field{
-		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+		huh.NewText().Key("prompt").Title("Initial prompt").Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 	}, blueprintFields("", &values.Harness, &values.Dir, &values.Flags)...)
 
@@ -333,7 +333,7 @@ func newAgentForm(keys config.FormKeys, values *agentFormValues, worktree bool) 
 func childAgentForm(keys config.FormKeys, values *agentFormValues, parent agentstore.Agent) *huh.Form {
 	fields := []huh.Field{
 		huh.NewText().Key("prompt").Title(fmt.Sprintf("Child of %q", parent.Name)).
-			Description(fmt.Sprintf("ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+			Description(fmt.Sprintf("%s opens $EDITOR; %s submits", keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder(orDash(parent.Harness)).Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
@@ -350,7 +350,8 @@ func adoptAgentForm(keys config.FormKeys, values *adoptFormValues) *huh.Form {
 		huh.NewInput().Key("ref").Title("Adopt").
 			Description("a pull request url or number, or a branch already pushed or on disk").Value(&values.Ref),
 		huh.NewText().Key("prompt").Title("Prompt").
-			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. ctrl+e opens $EDITOR; %s submits", keyLabel(keys.Submit))).Value(&values.Prompt),
+			Description(fmt.Sprintf("what to do with it; blank asks it to report in and wait. %s opens $EDITOR; %s submits",
+				keyLabel(keys.Editor), keyLabel(keys.Submit))).Value(&values.Prompt),
 		huh.NewInput().Key("title").Title("Title").Description("blank names it after the pull request or branch").Value(&values.Title),
 		huh.NewInput().Key("harness").Title("Agent").Placeholder("claude").Value(&values.Harness),
 		huh.NewInput().Key("flags").Title("Flags").Placeholder("--model opus").Value(&values.Flags),
@@ -379,6 +380,7 @@ func multiFieldKeyMap(keys config.FormKeys) *huh.KeyMap {
 	submit := key.NewBinding(key.WithKeys(keys.Submit...), key.WithHelp(keyLabel(keys.Submit), "submit"))
 
 	km := formKeyMap(keys)
+	km.Text.Editor = key.NewBinding(key.WithKeys(keys.Editor...), key.WithHelp(keyLabel(keys.Editor), "open editor"))
 	km.Input.Submit = submit
 	km.Text.Submit = submit
 	km.Select.Submit = submit
@@ -624,7 +626,9 @@ func workflowConfigForm(params workflowConfigParams) (form *huh.Form, focusField
 
 	fields := append([]huh.Field{
 		huh.NewInput().Key("name").Title(params.NameTitle).Value(&values.Name),
-		huh.NewText().Key("context").Title("Context").Description("shared notes for this workflow; ctrl+e opens $EDITOR").Lines(2).Value(&values.Context),
+		huh.NewText().Key("context").Title("Context").
+			Description(fmt.Sprintf("shared notes for this workflow; %s opens $EDITOR", keyLabel(keys.Editor))).
+			Lines(2).Value(&values.Context),
 	}, blueprintFields("Default ", &values.Harness, &values.Cwd, &values.Flags)...)
 
 	toggleIndex := len(fields)
