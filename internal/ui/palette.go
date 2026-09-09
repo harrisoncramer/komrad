@@ -110,8 +110,7 @@ var stageStyle = func() ansi.StyleConfig {
 	return style
 }()
 
-// kindStyleConfig is the markdown a message is drawn in, where the kind colours the icon alone and
-// the words it stands beside are read at the same weight as any other document.
+// kindStyleConfig is the markdown a message is drawn in, where the kind colours the icon alone.
 func kindStyleConfig(kind messageKind) ansi.StyleConfig {
 	style := stageStyle
 	style.Strong.Color = nil

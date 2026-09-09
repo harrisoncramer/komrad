@@ -118,8 +118,7 @@ func (m model) messagesSummaryLine() string {
 	return clip(kindIcon(held.kind)+" "+held.summary, max(m.lineWidth()-messagesTallyWidth, 1))
 }
 
-// messagesSummaryStyle is the summary row drawn with the kind on the icon alone, the words beside
-// it reading as the row of a list rather than as a colour.
+// messagesSummaryStyle is the summary row drawn with the kind on the icon alone.
 func (m model) messagesSummaryStyle(held message) string {
 	line := m.messagesSummaryLine()
 	icon, words, _ := strings.Cut(line, " ")
