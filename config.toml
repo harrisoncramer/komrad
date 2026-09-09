@@ -87,6 +87,9 @@ open_pr       = ["o"]
 quit          = ["ctrl+c"]
 # Rename the hovered agent.
 rename        = ["r"]
+# Bring the hovered agent's worktree up to date on the latest base, or replace it. Opens a
+# picker, since the two differ in what they destroy.
+refresh       = ["W"]
 # Search every conversation the panel holds for what you type, the archived ones included.
 search        = ["s"]
 # Toggles visibility of hidden agents alongside the rest.

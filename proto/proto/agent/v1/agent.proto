@@ -186,6 +186,41 @@ message GetAgentResponse {
   Agent agent = 1;
 }
 
+// PlanRefreshRequest asks what a rebase would do without doing it, which is what the
+// confirmation names.
+message PlanRefreshRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message PlanRefreshResponse {
+  // The ref the branch would move onto, and the commit that ref named when it was read, so a
+  // person is told which commit was used rather than only which branch.
+  string base_ref = 1;
+  string base_sha = 2;
+  // How many of the agent's own commits would be replayed.
+  int32 commits = 3;
+  string branch = 4;
+}
+
+message RebaseWorktreeRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message RebaseWorktreeResponse {
+  string base_ref = 1;
+  string base_sha = 2;
+  int32 commits = 3;
+  string branch = 4;
+  // Whether the rebase stopped on conflicts and is still stopped, waiting for the agent.
+  bool conflicted = 5;
+}
+
+message ResetWorktreeRequest {
+  string agent_id = 1 [(buf.validate.field).string.min_len = 1];
+}
+
+message ResetWorktreeResponse {}
+
 message SetMarkRequest {
   // The row the letter goes on, which is an agent or a workflow and never both.
   oneof target {
@@ -513,6 +548,11 @@ service AgentService {
     option idempotency_level = IDEMPOTENT;
   }
   rpc HarvestRoundEdits(HarvestRoundEditsRequest) returns (HarvestRoundEditsResponse) {}
+  // Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
+  // itself or anybody else.
+  rpc PlanRefresh(PlanRefreshRequest) returns (PlanRefreshResponse) {}
+  rpc RebaseWorktree(RebaseWorktreeRequest) returns (RebaseWorktreeResponse) {}
+  rpc ResetWorktree(ResetWorktreeRequest) returns (ResetWorktreeResponse) {}
   rpc MarkReviewThreadRead(MarkReviewThreadReadRequest) returns (MarkReviewThreadReadResponse) {
     option idempotency_level = IDEMPOTENT;
   }

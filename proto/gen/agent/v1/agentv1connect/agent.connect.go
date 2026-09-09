@@ -111,6 +111,15 @@ const (
 	// AgentServiceHarvestRoundEditsProcedure is the fully-qualified name of the AgentService's
 	// HarvestRoundEdits RPC.
 	AgentServiceHarvestRoundEditsProcedure = "/agent.v1.AgentService/HarvestRoundEdits"
+	// AgentServicePlanRefreshProcedure is the fully-qualified name of the AgentService's PlanRefresh
+	// RPC.
+	AgentServicePlanRefreshProcedure = "/agent.v1.AgentService/PlanRefresh"
+	// AgentServiceRebaseWorktreeProcedure is the fully-qualified name of the AgentService's
+	// RebaseWorktree RPC.
+	AgentServiceRebaseWorktreeProcedure = "/agent.v1.AgentService/RebaseWorktree"
+	// AgentServiceResetWorktreeProcedure is the fully-qualified name of the AgentService's
+	// ResetWorktree RPC.
+	AgentServiceResetWorktreeProcedure = "/agent.v1.AgentService/ResetWorktree"
 	// AgentServiceMarkReviewThreadReadProcedure is the fully-qualified name of the AgentService's
 	// MarkReviewThreadRead RPC.
 	AgentServiceMarkReviewThreadReadProcedure = "/agent.v1.AgentService/MarkReviewThreadRead"
@@ -168,6 +177,11 @@ type AgentServiceClient interface {
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error)
+	// Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
+	// itself or anybody else.
+	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
+	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
+	ResetWorktree(context.Context, *connect.Request[v1.ResetWorktreeRequest]) (*connect.Response[v1.ResetWorktreeResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
@@ -383,6 +397,24 @@ func NewAgentServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(agentServiceMethods.ByName("HarvestRoundEdits")),
 			connect.WithClientOptions(opts...),
 		),
+		planRefresh: connect.NewClient[v1.PlanRefreshRequest, v1.PlanRefreshResponse](
+			httpClient,
+			baseURL+AgentServicePlanRefreshProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("PlanRefresh")),
+			connect.WithClientOptions(opts...),
+		),
+		rebaseWorktree: connect.NewClient[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse](
+			httpClient,
+			baseURL+AgentServiceRebaseWorktreeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("RebaseWorktree")),
+			connect.WithClientOptions(opts...),
+		),
+		resetWorktree: connect.NewClient[v1.ResetWorktreeRequest, v1.ResetWorktreeResponse](
+			httpClient,
+			baseURL+AgentServiceResetWorktreeProcedure,
+			connect.WithSchema(agentServiceMethods.ByName("ResetWorktree")),
+			connect.WithClientOptions(opts...),
+		),
 		markReviewThreadRead: connect.NewClient[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse](
 			httpClient,
 			baseURL+AgentServiceMarkReviewThreadReadProcedure,
@@ -471,6 +503,9 @@ type agentServiceClient struct {
 	addReviewMessage        *connect.Client[v1.AddReviewMessageRequest, v1.AddReviewMessageResponse]
 	editReviewMessage       *connect.Client[v1.EditReviewMessageRequest, v1.EditReviewMessageResponse]
 	harvestRoundEdits       *connect.Client[v1.HarvestRoundEditsRequest, v1.HarvestRoundEditsResponse]
+	planRefresh             *connect.Client[v1.PlanRefreshRequest, v1.PlanRefreshResponse]
+	rebaseWorktree          *connect.Client[v1.RebaseWorktreeRequest, v1.RebaseWorktreeResponse]
+	resetWorktree           *connect.Client[v1.ResetWorktreeRequest, v1.ResetWorktreeResponse]
 	markReviewThreadRead    *connect.Client[v1.MarkReviewThreadReadRequest, v1.MarkReviewThreadReadResponse]
 	setReviewThreadResolved *connect.Client[v1.SetReviewThreadResolvedRequest, v1.SetReviewThreadResolvedResponse]
 	openReviewRound         *connect.Client[v1.OpenReviewRoundRequest, v1.OpenReviewRoundResponse]
@@ -626,6 +661,21 @@ func (c *agentServiceClient) HarvestRoundEdits(ctx context.Context, req *connect
 	return c.harvestRoundEdits.CallUnary(ctx, req)
 }
 
+// PlanRefresh calls agent.v1.AgentService.PlanRefresh.
+func (c *agentServiceClient) PlanRefresh(ctx context.Context, req *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error) {
+	return c.planRefresh.CallUnary(ctx, req)
+}
+
+// RebaseWorktree calls agent.v1.AgentService.RebaseWorktree.
+func (c *agentServiceClient) RebaseWorktree(ctx context.Context, req *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
+	return c.rebaseWorktree.CallUnary(ctx, req)
+}
+
+// ResetWorktree calls agent.v1.AgentService.ResetWorktree.
+func (c *agentServiceClient) ResetWorktree(ctx context.Context, req *connect.Request[v1.ResetWorktreeRequest]) (*connect.Response[v1.ResetWorktreeResponse], error) {
+	return c.resetWorktree.CallUnary(ctx, req)
+}
+
 // MarkReviewThreadRead calls agent.v1.AgentService.MarkReviewThreadRead.
 func (c *agentServiceClient) MarkReviewThreadRead(ctx context.Context, req *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {
 	return c.markReviewThreadRead.CallUnary(ctx, req)
@@ -697,6 +747,11 @@ type AgentServiceHandler interface {
 	AddReviewMessage(context.Context, *connect.Request[v1.AddReviewMessageRequest]) (*connect.Response[v1.AddReviewMessageResponse], error)
 	EditReviewMessage(context.Context, *connect.Request[v1.EditReviewMessageRequest]) (*connect.Response[v1.EditReviewMessageResponse], error)
 	HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error)
+	// Panel only, deliberately carrying no tool annotation: an agent must not rebase or reset
+	// itself or anybody else.
+	PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error)
+	RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error)
+	ResetWorktree(context.Context, *connect.Request[v1.ResetWorktreeRequest]) (*connect.Response[v1.ResetWorktreeResponse], error)
 	MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error)
 	SetReviewThreadResolved(context.Context, *connect.Request[v1.SetReviewThreadResolvedRequest]) (*connect.Response[v1.SetReviewThreadResolvedResponse], error)
 	OpenReviewRound(context.Context, *connect.Request[v1.OpenReviewRoundRequest]) (*connect.Response[v1.OpenReviewRoundResponse], error)
@@ -908,6 +963,24 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(agentServiceMethods.ByName("HarvestRoundEdits")),
 		connect.WithHandlerOptions(opts...),
 	)
+	agentServicePlanRefreshHandler := connect.NewUnaryHandler(
+		AgentServicePlanRefreshProcedure,
+		svc.PlanRefresh,
+		connect.WithSchema(agentServiceMethods.ByName("PlanRefresh")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceRebaseWorktreeHandler := connect.NewUnaryHandler(
+		AgentServiceRebaseWorktreeProcedure,
+		svc.RebaseWorktree,
+		connect.WithSchema(agentServiceMethods.ByName("RebaseWorktree")),
+		connect.WithHandlerOptions(opts...),
+	)
+	agentServiceResetWorktreeHandler := connect.NewUnaryHandler(
+		AgentServiceResetWorktreeProcedure,
+		svc.ResetWorktree,
+		connect.WithSchema(agentServiceMethods.ByName("ResetWorktree")),
+		connect.WithHandlerOptions(opts...),
+	)
 	agentServiceMarkReviewThreadReadHandler := connect.NewUnaryHandler(
 		AgentServiceMarkReviewThreadReadProcedure,
 		svc.MarkReviewThreadRead,
@@ -1022,6 +1095,12 @@ func NewAgentServiceHandler(svc AgentServiceHandler, opts ...connect.HandlerOpti
 			agentServiceEditReviewMessageHandler.ServeHTTP(w, r)
 		case AgentServiceHarvestRoundEditsProcedure:
 			agentServiceHarvestRoundEditsHandler.ServeHTTP(w, r)
+		case AgentServicePlanRefreshProcedure:
+			agentServicePlanRefreshHandler.ServeHTTP(w, r)
+		case AgentServiceRebaseWorktreeProcedure:
+			agentServiceRebaseWorktreeHandler.ServeHTTP(w, r)
+		case AgentServiceResetWorktreeProcedure:
+			agentServiceResetWorktreeHandler.ServeHTTP(w, r)
 		case AgentServiceMarkReviewThreadReadProcedure:
 			agentServiceMarkReviewThreadReadHandler.ServeHTTP(w, r)
 		case AgentServiceSetReviewThreadResolvedProcedure:
@@ -1161,6 +1240,18 @@ func (UnimplementedAgentServiceHandler) EditReviewMessage(context.Context, *conn
 
 func (UnimplementedAgentServiceHandler) HarvestRoundEdits(context.Context, *connect.Request[v1.HarvestRoundEditsRequest]) (*connect.Response[v1.HarvestRoundEditsResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.HarvestRoundEdits is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) PlanRefresh(context.Context, *connect.Request[v1.PlanRefreshRequest]) (*connect.Response[v1.PlanRefreshResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.PlanRefresh is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) RebaseWorktree(context.Context, *connect.Request[v1.RebaseWorktreeRequest]) (*connect.Response[v1.RebaseWorktreeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.RebaseWorktree is not implemented"))
+}
+
+func (UnimplementedAgentServiceHandler) ResetWorktree(context.Context, *connect.Request[v1.ResetWorktreeRequest]) (*connect.Response[v1.ResetWorktreeResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("agent.v1.AgentService.ResetWorktree is not implemented"))
 }
 
 func (UnimplementedAgentServiceHandler) MarkReviewThreadRead(context.Context, *connect.Request[v1.MarkReviewThreadReadRequest]) (*connect.Response[v1.MarkReviewThreadReadResponse], error) {

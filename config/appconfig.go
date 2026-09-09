@@ -288,6 +288,9 @@ type AgentsKeys struct {
 	Quit []string `mapstructure:"quit" default:"ctrl+c"`
 	// Rename the hovered agent.
 	Rename []string `mapstructure:"rename" default:"r"`
+	// Bring the hovered agent's worktree up to date on the latest base, or replace it. Opens a
+	// picker, since the two differ in what they destroy.
+	Refresh []string `mapstructure:"refresh" default:"W"`
 	// Search every conversation the panel holds for what you type, the archived ones included.
 	Search []string `mapstructure:"search" default:"s"`
 	// Toggles visibility of hidden agents alongside the rest.

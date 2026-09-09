@@ -32,6 +32,7 @@ const (
 	actionAgentOpen
 	actionAgentOpenPR
 	actionAgentReview
+	actionAgentRefresh
 	actionAgentMail
 	actionAgentChild
 	actionAgentRename

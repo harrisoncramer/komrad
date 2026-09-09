@@ -103,6 +103,7 @@ type Service struct {
 	review      reviewConversation
 	runs        runReadWriter
 	marks       markReadWriter
+	refresher   worktreeRefresher
 }
 
 type NewServiceParams struct {
@@ -119,6 +120,7 @@ type NewServiceParams struct {
 	Review      reviewConversation
 	Runs        runReadWriter
 	Marks       markReadWriter
+	Refresher   worktreeRefresher
 }
 
 // NewService constructs the handler from the stores it reads and the services that move agents
@@ -138,6 +140,7 @@ func NewService(params NewServiceParams) *Service {
 		review:      params.Review,
 		runs:        params.Runs,
 		marks:       params.Marks,
+		refresher:   params.Refresher,
 	}
 }
 
