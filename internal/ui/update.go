@@ -60,9 +60,10 @@ func (m model) holdFocusKey() {
 	m.popup.HoldFocusKey(m.focusKey, m.pane, m.focusPane())
 }
 
-// focusPane is the agent's pane the focus key jumps to, empty where the stage holds none.
+// focusPane is the agent's pane the focus key jumps to, empty where the stage holds none or the
+// panel is drawn over it.
 func (m model) focusPane() string {
-	if m.screen != screenAgents || m.form.isOpening() {
+	if m.screen != screenAgents || m.frame.IsSolo() {
 		return ""
 	}
 

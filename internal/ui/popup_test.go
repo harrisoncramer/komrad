@@ -346,16 +346,39 @@ func TestFocusKeyGivenBackByAForm(t *testing.T) {
 	m := focusKeyModel(binds)
 
 	m.holdFocusKey()
-	m.form.kind = formRename
+
+	opened, _ := m.openRename(m.listing.agents[0].agent)
+	m = asModel(t, opened)
 	m.holdFocusKey()
 
 	_, bound := binds.bound["root:C-a"]
 	assert.False(t, bound)
 	assert.Equal(t, []string{"C-a"}, binds.unbound)
 
-	m.form.kind = formNone
+	closed, _ := m.closeForm()
+	m = asModel(t, closed)
 	m.holdFocusKey()
 
 	_, bound = binds.bound["root:C-a"]
-	assert.True(t, bound)
+	assert.True(t, bound, "closing the form gives the pane back and the key with it")
+}
+
+// TestFocusKeyGivenBackByAHeaderRow checks the key is unbound on a row with no pane of its own,
+// where the panel takes the window while the pane it covers stays parked in the stage.
+func TestFocusKeyGivenBackByAHeaderRow(t *testing.T) {
+	binds := &bindingTmux{}
+	m := focusKeyModel(binds)
+
+	m.holdFocusKey()
+
+	m.tree.cursor = 0
+	m.stageSelection()
+	require.True(t, m.frame.IsSolo(), "a header row takes the window")
+	require.Equal(t, "%9", m.frame.GuestPane(), "with the agent's pane left parked behind it")
+
+	m.holdFocusKey()
+
+	_, bound := binds.bound["root:C-a"]
+	assert.False(t, bound)
+	assert.Equal(t, []string{"C-a"}, binds.unbound)
 }
