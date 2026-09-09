@@ -17,8 +17,7 @@ func ListAllWorkflows(ctx context.Context, workflows workflowv1connect.WorkflowS
 	return listAllWorkflows(ctx, workflows, false)
 }
 
-// ListAllArchivedWorkflows returns every archived workflow; the two listings never mix, so
-// this is a call of its own rather than a flag the caller has to read back off the rows.
+// ListAllArchivedWorkflows returns every archived workflow, the two listings never mixing.
 func ListAllArchivedWorkflows(ctx context.Context, workflows workflowv1connect.WorkflowServiceClient) ([]*workflowv1.Workflow, error) {
 	return listAllWorkflows(ctx, workflows, true)
 }

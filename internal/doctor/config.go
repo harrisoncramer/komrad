@@ -85,9 +85,7 @@ func describeConfigFix(env Env) string {
 	return "write " + env.ConfigLayers[0].Path + ", or drop --config to run on the defaults"
 }
 
-// newDefaultHarnessCheck asserts the CLI a new agent runs is one this build knows how to run; the
-// config takes a name rather than a choice, so a misspelling is otherwise only found when
-// somebody tries to create an agent.
+// newDefaultHarnessCheck asserts the CLI a new agent runs is one this build knows how to run.
 func newDefaultHarnessCheck() Check {
 	return Check{
 		Name:        "default harness",

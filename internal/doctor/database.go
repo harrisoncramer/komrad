@@ -86,8 +86,8 @@ func newDatabaseCheck() Check {
 	}
 }
 
-// newSchemaCheck asserts the database has every migration this build ships, where being behind is
-// not a failure the user has to fix.
+// newSchemaCheck asserts the database has every migration this build ships, taking a database
+// behind the binary as no failure of the user's.
 func newSchemaCheck() Check {
 	return Check{
 		Name:        "schema",
@@ -111,9 +111,8 @@ func newSchemaCheck() Check {
 	}
 }
 
-// newReadOnlyLoginCheck asserts the least-privilege login exists and can connect; the service opens
-// a second pool as this login and refuses to start when it cannot, so this check connects
-// the same way the service does rather than something close to it.
+// newReadOnlyLoginCheck asserts the least-privilege login exists and can connect, connecting the
+// same way the service does.
 func newReadOnlyLoginCheck() Check {
 	return Check{
 		Name:        "readonly login",

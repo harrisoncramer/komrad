@@ -21,8 +21,7 @@ const (
 
 var ErrNotAWebURL = errors.New("not an http or https URL")
 
-// Opener is what anything with a URL to show a person calls, declared here rather than beside
-// each caller so one stand-in serves all of them in tests.
+// Opener is what anything with a URL to show a person calls.
 type Opener interface {
 	OpenURL(ctx context.Context, target string) error
 }
@@ -36,7 +35,7 @@ func NewDesktop() *Desktop {
 	return &Desktop{}
 }
 
-// OpenURL waits for the opener rather than the browser, which is as far as anything can see.
+// OpenURL waits for the opener rather than the browser.
 func (*Desktop) OpenURL(ctx context.Context, target string) error {
 	// An opener given a path or an app's own scheme acts on it, and a URL weave was handed is
 	// not always one weave wrote, so only a web address is passed on.

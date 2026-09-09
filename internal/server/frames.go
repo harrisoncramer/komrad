@@ -12,8 +12,8 @@ import (
 // again.
 const frameSettingsTTL = 5 * time.Second
 
-// frameSettings reads the recording settings from the config on disk, fresh rather than at
-// startup, so a recording can be turned on under a running service.
+// frameSettings reads the recording settings from the config on disk rather than at startup, so
+// a recording can be turned on under a running service.
 type frameSettings struct {
 	load func() (*config.Config, error)
 	now  func() time.Time
@@ -28,8 +28,8 @@ func newFrameSettings(load func() (*config.Config, error)) *frameSettings {
 	return &frameSettings{load: load, now: time.Now}
 }
 
-// get is the settings in force, re-read once the ones in hand are old enough, where a config
-// that will not load leaves the last ones standing.
+// get is the settings in force, re-read once the ones in hand are old enough, a config that will
+// not load leaving the last ones standing.
 func (f *frameSettings) get() frames.Settings {
 	f.mu.Lock()
 	defer f.mu.Unlock()

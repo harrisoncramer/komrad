@@ -9,7 +9,7 @@ import (
 )
 
 // Redact is the connection string with the password taken out, reporting a string it cannot
-// parse rather than passing it through and leaking the password.
+// parse rather than passing it through.
 func Redact(url string) string {
 	if url == "" {
 		return ""

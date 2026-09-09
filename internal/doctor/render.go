@@ -30,8 +30,7 @@ var markers = map[Status]string{
 	StatusSkip: "..",
 }
 
-// WriteJSON writes the report as the machine-readable document, indented because the reader
-// is as often a person running --json as a script.
+// WriteJSON writes the report as the machine-readable document, indented.
 func WriteJSON(out io.Writer, report Report) error {
 	encoder := json.NewEncoder(out)
 	encoder.SetIndent("", "  ")

@@ -6,6 +6,5 @@ package render
 // draw in its own vocabulary rather than in the request's.
 type LoadOption[T any] func(*T)
 
-// SummaryHead is how much of a long free-text field a summary listing returns, which is enough
-// to tell one record from another and far short of what a page of whole ones costs to read.
+// SummaryHead is how much of a long free-text field a summary listing returns.
 const SummaryHead = 200

@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// ErrPanelHidden is an answer rather than a failure, which `weave shown` reports in its exit
-// status and never prints.
+// ErrPanelHidden is an answer rather than a failure, reported in the exit status and never
+// printed.
 var ErrPanelHidden = errors.New("the panel is not on screen on this tmux server")
 
 func shownCmd(state *app) *cobra.Command {

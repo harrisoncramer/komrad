@@ -17,9 +17,7 @@ func ListAllAgents(ctx context.Context, agents agentv1connect.AgentServiceClient
 	return listAllAgents(ctx, agents, false)
 }
 
-// ListAllArchivedAgents returns every archived agent; the two listings never mix, so
-// this is a call of its own rather than a flag the caller has to remember to read
-// back off the rows.
+// ListAllArchivedAgents returns every archived agent, the two listings never mixing.
 func ListAllArchivedAgents(ctx context.Context, agents agentv1connect.AgentServiceClient) ([]*agentv1.Agent, error) {
 	return listAllAgents(ctx, agents, true)
 }

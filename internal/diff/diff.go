@@ -29,8 +29,7 @@ type Hunk struct {
 	Lines  []Line
 }
 
-// File is one file's worth of change with both sides of its source carried whole, which the
-// highlighter lexes a language over.
+// File is one file's worth of change with both sides of its source carried whole.
 type File struct {
 	OldPath   string
 	NewPath   string
@@ -60,8 +59,8 @@ type Patch struct {
 	Files       []File
 }
 
-// Stat is the size of a patch in the terms a reviewer reads first: how many files it touches,
-// and how many lines it puts in and takes out.
+// Stat is the size of a patch: how many files it touches, and how many lines it puts in and
+// takes out.
 type Stat struct {
 	Files   int
 	Added   int
@@ -80,7 +79,7 @@ func (p Patch) Stat() Stat {
 	return stat
 }
 
-// Stat is the size of one file's change, which is what a collapsed file says about itself.
+// Stat is the size of one file's change.
 func (f File) Stat() Stat {
 	stat := Stat{Files: 1}
 	for _, hunk := range f.Hunks {

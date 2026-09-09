@@ -89,23 +89,20 @@ var table = []mapping{
 	{agents.ErrOutsideFamily, connect.CodePermissionDenied},
 }
 
-// Replacement is what a caller is told in place of a sentinel's own message, given at the
-// call site because it names the request's arguments.
+// Replacement is what a caller is told in place of a sentinel's own message, given at the call
+// site because it names the request's arguments.
 type Replacement struct {
 	sentinel error
 	message  string
 }
 
-// Saying builds the message shown in place of the sentinel's own, for one whose message says
-// less than the request can.
+// Saying builds the message shown in place of the sentinel's own.
 func Saying(sentinel error, format string, args ...any) Replacement {
 	return Replacement{sentinel: sentinel, message: fmt.Sprintf(format, args...)}
 }
 
-// Wrap turns an error the domain returned into the one its caller sees: a sentinel keeps its
-// own message, or a replacement's where one is given for it, under the code mapped to it, and
-// anything else is the panel failing at something the caller cannot fix, so it is internal
-// under the failure described.
+// Wrap turns an error the domain returned into the one its caller sees, a sentinel keeping its
+// own message under the code mapped to it and anything else becoming internal.
 func Wrap(err error, failure string, replacements ...Replacement) error {
 	if err == nil {
 		return nil

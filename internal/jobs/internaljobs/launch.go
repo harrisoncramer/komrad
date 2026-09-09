@@ -26,8 +26,8 @@ type LaunchAgentArgs struct {
 // Kind is the River job kind.
 func (LaunchAgentArgs) Kind() string { return "launch_agent" }
 
-// InsertOpts dedups a firing by its arguments, adding the cancelled and discarded states
-// River leaves out so a stopped attempt cannot queue the same occurrence again.
+// InsertOpts dedups a firing by its arguments, adding the cancelled and discarded states River
+// leaves out so a stopped attempt cannot queue the same occurrence again.
 func (LaunchAgentArgs) InsertOpts() river.InsertOpts {
 	return river.InsertOpts{
 		UniqueOpts: river.UniqueOpts{
@@ -145,9 +145,8 @@ func (w *LaunchAgentWorker) record(ctx context.Context, scheduleID string, statu
 	}
 }
 
-// launchKey identifies one firing of one schedule: the schedule says which recurring
-// launch, the occurrence says which run of it, so tomorrow's 9am is a different agent while
-// a retry of today's is the same one.
+// launchKey identifies one firing of one schedule, the schedule naming the recurring launch and
+// the occurrence naming which run of it.
 func launchKey(scheduleID string, scheduledFor time.Time) string {
 	return "schedule:" + scheduleID + ":" + scheduledFor.UTC().Format(time.RFC3339)
 }

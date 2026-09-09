@@ -36,8 +36,8 @@ type Service struct {
 	schedules scheduleReadWriter
 }
 
-// NewService constructs the handler from the store it lists through and the
-// service that owns the rules.
+// NewService constructs the handler from the store it lists through and the service that owns
+// the rules.
 func NewService(lister scheduleLister, schedules scheduleReadWriter) *Service {
 	return &Service{lister: lister, schedules: schedules}
 }

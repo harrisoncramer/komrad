@@ -55,8 +55,8 @@ func NewRunner() Runner {
 	return Runner{}
 }
 
-// discover lists the scripts in dir by name with what each header declares, treating a
-// missing directory as no scripts rather than an error.
+// discover lists the scripts in dir by name with what each header declares, treating a missing
+// directory as no scripts.
 func discover(dir string) ([]Script, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -167,7 +167,7 @@ func (r Runner) Run(params RunParams) error {
 }
 
 // RunAndWait runs a script and waits for it, returning the result whether or not the script
-// succeeded since a non-zero exit is when its stderr is worth showing.
+// succeeded.
 func (r Runner) RunAndWait(ctx context.Context, params RunParams) (Result, error) {
 	if !params.Script.Executable {
 		return Result{ExitCode: noExitCode}, fmt.Errorf("failed to run script %s: %w", params.Script.Name, ErrNotExecutable)
@@ -278,8 +278,7 @@ func (t *tail) kept() []byte {
 	return t.buf.Bytes()
 }
 
-// noExitCode is what a process that never ran left behind, which is not zero: a caller
-// recording the status alongside the failure would otherwise read it as a clean exit.
+// noExitCode is what a process that never ran left behind, which is deliberately not zero.
 const noExitCode = -1
 
 func (Runner) exitCode(state *os.ProcessState) int {
