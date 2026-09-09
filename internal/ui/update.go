@@ -62,7 +62,7 @@ func (m model) holdFocusKey() {
 
 // focusPane is the agent's pane the focus key jumps to, empty where the stage holds none.
 func (m model) focusPane() string {
-	if m.screen != screenAgents {
+	if m.screen != screenAgents || m.form.isOpening() {
 		return ""
 	}
 

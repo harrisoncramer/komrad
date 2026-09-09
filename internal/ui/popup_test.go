@@ -338,3 +338,24 @@ func focusKeyModel(binds *bindingTmux) model {
 
 	return m
 }
+
+// TestFocusKeyGivenBackByAForm checks the key is unbound while a form is up over the agents
+// list, the form taking the whole window and leaving the staged pane nowhere to be seen.
+func TestFocusKeyGivenBackByAForm(t *testing.T) {
+	binds := &bindingTmux{}
+	m := focusKeyModel(binds)
+
+	m.holdFocusKey()
+	m.form.kind = formRename
+	m.holdFocusKey()
+
+	_, bound := binds.bound["root:C-a"]
+	assert.False(t, bound)
+	assert.Equal(t, []string{"C-a"}, binds.unbound)
+
+	m.form.kind = formNone
+	m.holdFocusKey()
+
+	_, bound = binds.bound["root:C-a"]
+	assert.True(t, bound)
+}
