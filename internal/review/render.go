@@ -203,8 +203,10 @@ func (v *View) renderThreadRow(current row, cursor Cursor, width int) string {
 		said += "  " + opening
 	}
 
-	return style.Render(head) + markStyle.Background(background).Render(mark) + style.Render(" ") +
-		fitWindow(style.Foreground(lipgloss.Color("8")).Italic(true).Render(said), 0, max(0, width-GutterWidth), background)
+	return ansi.Truncate(
+		style.Render(head)+markStyle.Background(background).Render(mark)+style.Render(" ")+
+			fitWindow(style.Foreground(lipgloss.Color("8")).Italic(true).Render(said), 0, max(0, width-GutterWidth), background),
+		width, "…")
 }
 
 // threadSummary is what a thread is about in one line, which for a harvested thread is the edit

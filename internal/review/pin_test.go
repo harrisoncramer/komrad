@@ -490,9 +490,9 @@ func TestPinSkipsTheCoordinatesWhenOnlyTheOldSideIsInThem(t *testing.T) {
 	}
 }
 
-// TestPinTakesForeignCoordinatesThatNameTheNewSide covers a thread counted from another commit
-// whose key names the new side too, where the row is the right one however its text has changed.
-func TestPinTakesForeignCoordinatesThatNameTheNewSide(t *testing.T) {
+// TestPinTracesForeignCoordinatesThatMatchByCoincidence covers a thread counted from another
+// commit whose pair of numbers matches an unrelated row, which git can say where it went.
+func TestPinTracesForeignCoordinatesThatMatchByCoincidence(t *testing.T) {
 	view := NewView(patchWith(diff.File{
 		OldPath: "greet.go",
 		NewPath: "greet.go",
@@ -505,22 +505,30 @@ func TestPinTakesForeignCoordinatesThatNameTheNewSide(t *testing.T) {
 			},
 			diff.Line{
 				Kind:      diff.Context,
-				Text:      "func Hello() { return }",
+				Text:      "import \"fmt\"",
 				OldNumber: 2,
 				NewNumber: 2,
+			},
+			diff.Line{
+				Kind:      diff.Context,
+				Text:      "func Hello() {}",
+				OldNumber: 5,
+				NewNumber: 5,
 			},
 		)},
 	}), false)
 
 	thread := threadAt("t1", "greet.go", 2, 2, " func Hello() {}")
 	thread.BaseSha = "0000000000000000000000000000000000000000"
+
+	view.SetTraced(map[string]Traced{"t1": {FilePath: "greet.go", NewStart: 5}})
 	view.PinThreads([]*agentv1.ReviewThread{thread})
 
-	require.Equal(t, ghosted, view.placed[thread.GetId()],
-		"a new-side number is this patch's own line whatever base counted it")
+	require.Equal(t, pinned, view.placed[thread.GetId()],
+		"the line git says it became beats the row its numbers happen to match")
 
-	found, ok := view.GetThreadAt(3)
-	require.True(t, ok, "and the foot is no better a home for it than the line itself")
+	found, ok := view.GetThreadAt(4)
+	require.True(t, ok, "and the import line at old 2 is not that row")
 	assert.Equal(t, "t1", found.GetId())
 }
 

@@ -113,12 +113,12 @@ func (v *View) placeByArm(
 	return left
 }
 
-// rowByKey is the row whose coordinates are the ones the thread was written against, which for
-// a thread on a deleted line is an old-side number and nothing else.
+// rowByKey is the row whose coordinates are the ones the thread was written against, which say
+// nothing once those numbers were counted from another commit.
 func (v *View) rowByKey(index lineIndex, thread *agentv1.ReviewThread) (int, placement, bool) {
-	// Both patches end at the same snapshot, so a new-side number names the same line whatever
-	// base it was counted from, while an old-side number on its own names a different line.
-	if thread.GetNewStart() <= 0 && !v.doesShareBase(thread) {
+	// An old-side number counted from another commit names a different line, and keyForThread
+	// matches on that number, so a foreign base is refused here and placed by trace or by text.
+	if !v.doesShareBase(thread) {
 		return 0, adrift, false
 	}
 
