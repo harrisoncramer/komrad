@@ -288,10 +288,11 @@ func clipName(name string) string {
 func wrapRows(text string, width int) []string {
 	width = max(width, 1)
 
-	rows := strings.Split(ansi.Wrap(text, width, ""), "\n")
-	for i, row := range rows {
-		// A grapheme wider than the whole column is the one thing Wrap cannot place.
-		rows[i] = ansi.Truncate(row, width, "")
+	rows := []string{}
+	for _, row := range strings.Split(ansi.Wrap(text, width, ""), "\n") {
+		// Wrap misplaces its own breakpoints, so a row can come back wider than the column it
+		// was given, and the overrun is cut onto a row of its own rather than dropped.
+		rows = append(rows, strings.Split(ansi.Hardwrap(row, width, true), "\n")...)
 	}
 
 	return rows

@@ -465,7 +465,9 @@ func TestMessagesPulseHoldsStillOnAnOlderMessage(t *testing.T) {
 func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
 	const path = "/Users/harrisoncramer/.local/state/weave/worktrees/01a086ae-d59b-769b-a8a0-202d4014bddd/bin/editor"
 
-	for _, width := range []int{20, 30, 45, 80} {
+	// 61 is a width where the wrap misplaces a breakpoint in this path and hands back a row two
+	// columns over the column it was given.
+	for _, width := range []int{20, 30, 45, 61, 80} {
 		m := detailsModel(&recordingTmux{})
 		m.height, m.width = 40, width
 		m.messages = oneMessage("Your editor could not be opened on that message", "fork/exec "+path+": no such file or directory")
@@ -486,5 +488,21 @@ func TestChromeKeepsEveryRowInsideThePane(t *testing.T) {
 		for i, row := range m.noticeLines(notice{icon: "✗", text: "nothing was written to " + path}, 0) {
 			assert.LessOrEqual(t, ansi.StringWidth(row), m.paneWidth(), "notice row %d at width %d: %q", i, width, ansi.Strip(row))
 		}
+
+		// A worktree path is nothing but dashes, and a wrap that breaks at one has to keep every
+		// column it was handed: a path the reader copies out and cannot find is the worse failure.
+		joined := strings.Join(wrapRows("a "+path, width), "")
+		assert.Contains(t, strings.ReplaceAll(joined, " ", ""), path, "path survives the wrap at width %d", width)
 	}
+}
+
+// TestReviewNoteWrapsBeforeTheFirstResize covers the note drawn before the panel has been told how
+// wide it is, which reaches the wrap as a column of nothing and would come out one letter a row.
+func TestReviewNoteWrapsBeforeTheFirstResize(t *testing.T) {
+	m := detailsModel(&recordingTmux{})
+	m.height, m.width = 0, 0
+
+	note := strings.TrimRight(m.reviewNote(dimStyle, "editing this round replaces the edit of an earlier one, so press again to go on"), "\n")
+
+	assert.Less(t, strings.Count(note, "\n")+1, 10, "rows before the first resize: %q", ansi.Strip(note))
 }

@@ -115,7 +115,7 @@ func (m model) reviewHeadView() string {
 // reviewNote is a line of prose under the conversation, wrapped into the sidebar's own column.
 func (m model) reviewNote(style lipgloss.Style, text string) string {
 	var out strings.Builder
-	for _, row := range wrapRows(text, m.paneWidth()-2) {
+	for _, row := range wrapRows(text, m.lineWidth()-2) {
 		out.WriteString(style.Render("  "+row) + "\n")
 	}
 
