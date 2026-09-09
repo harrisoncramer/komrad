@@ -18,11 +18,11 @@ func NewGHPRFinder() *GHPRFinder {
 	return &GHPRFinder{}
 }
 
-// FindPR returns the URL of a pull request for branch, or empty when gh reports none.
+// FindPR returns the URL of an open pull request for branch, or empty when gh reports none.
 func (GHPRFinder) FindPR(ctx context.Context, dir, branch string) (string, error) {
-	// This runs once per agent as it goes idle, so a pull request closed or merged in the
-	// meantime still counts as found.
-	cmd := exec.CommandContext(ctx, "gh", "pr", "list", "--head", branch, "--state", "all", "--json", "url", "--limit", "1")
+	// A branch name outlives the attempt that used it, so a closed pull request on it may
+	// belong to work the agent on that branch now has nothing to do with.
+	cmd := exec.CommandContext(ctx, "gh", "pr", "list", "--head", branch, "--state", "open", "--json", "url", "--limit", "1")
 	cmd.Dir = dir
 
 	out, err := cmd.Output()

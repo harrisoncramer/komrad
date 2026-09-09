@@ -121,3 +121,22 @@ func TestIsGHRateLimitError(t *testing.T) {
 		})
 	}
 }
+
+// TestGHPRFinderIgnoresAClosedPullRequest covers the branch name a workflow reuses across
+// attempts: the abandoned attempt leaves a closed pull request on that branch, and claiming it
+// for the agent now on the branch retires an agent for work it never did.
+func TestGHPRFinderIgnoresAClosedPullRequest(t *testing.T) {
+	args := filepath.Join(t.TempDir(), "args")
+	script := "#!/bin/sh\n" +
+		`echo "$@" > ` + args + "\n" +
+		`case "$*" in *"--state open"*) echo '[]' ;; *) echo '[{"url":"https://github.com/harrisoncramer/weave/pull/436"}]' ;; esac` + "\n"
+	t.Setenv("PATH", fakeGH(t, script))
+
+	url, err := GHPRFinder{}.FindPR(t.Context(), t.TempDir(), "fix/iss-435")
+	require.NoError(t, err)
+	assert.Empty(t, url, "a branch whose only pull request is closed has none to claim")
+
+	asked, err := os.ReadFile(args)
+	require.NoError(t, err)
+	assert.Contains(t, string(asked), "--state open")
+}
