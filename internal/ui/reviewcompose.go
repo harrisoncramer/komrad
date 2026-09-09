@@ -99,8 +99,8 @@ func (m model) leaveReviewWriting() (tea.Model, tea.Cmd) {
 func (m model) updateReviewComposer(key tea.KeyMsg) (tea.Model, tea.Cmd) {
 	k := key.String()
 
-	// Every other key is a character being typed into the message, so the few that do something
-	// else read the form's own bindings.
+	// Every other key is a character being typed into the message, so the keys that leave it, and
+	// the one that opens it in an editor, come from the form keymap.
 	switch {
 	case isBound(k, m.keys.Form.Back):
 		return m.cancelReviewMessage(), nil
