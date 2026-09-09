@@ -104,10 +104,26 @@ func TestAgentsViewReviewState(t *testing.T) {
 		frame: layout.New(&recordingTmux{}, config.DefaultLayout()),
 		keys:  config.DefaultKeybindings(),
 		listing: listing{workflows: []workflowstore.Workflow{{ID: "w1", Name: "acmecorp"}}, agents: []agentItem{
-			{agent: agentstore.Agent{ID: "a1", Name: "being-read", WorkflowID: "w1"}, inLocalReview: true},
-			{agent: agentstore.Agent{ID: "a2", Name: "signed-off", WorkflowID: "w1"}, localVerdict: string(reviewstore.VerdictApproved)},
-			{agent: agentstore.Agent{ID: "a3", Name: "sent-back", WorkflowID: "w1"}, localVerdict: string(reviewstore.VerdictChangesRequested)},
-			{agent: agentstore.Agent{ID: "a4", Name: "unread", WorkflowID: "w1"}},
+			{agent: agentstore.Agent{
+				ID:         "a1",
+				Name:       "being-read",
+				WorkflowID: "w1",
+			}, inLocalReview: true},
+			{agent: agentstore.Agent{
+				ID:         "a2",
+				Name:       "signed-off",
+				WorkflowID: "w1",
+			}, localVerdict: string(reviewstore.VerdictApproved)},
+			{agent: agentstore.Agent{
+				ID:         "a3",
+				Name:       "sent-back",
+				WorkflowID: "w1",
+			}, localVerdict: string(reviewstore.VerdictChangesRequested)},
+			{agent: agentstore.Agent{
+				ID:         "a4",
+				Name:       "unread",
+				WorkflowID: "w1",
+			}},
 		}},
 	}
 

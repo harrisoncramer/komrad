@@ -14,9 +14,27 @@ import (
 // chapterRounds is the shape the chapter tests share: rounds one to three, all off one base.
 func chapterRounds() []*agentv1.ReviewRound {
 	return []*agentv1.ReviewRound{
-		{Id: "r1", Ordinal: 1, BaseSha: "b", SnapshotSha: "s1", CreatedAt: "2026-09-08T13:00:00-04:00"},
-		{Id: "r2", Ordinal: 2, BaseSha: "b", SnapshotSha: "s2", CreatedAt: "2026-09-08T14:00:00-04:00"},
-		{Id: "r3", Ordinal: 3, BaseSha: "b", SnapshotSha: "s3", CreatedAt: "2026-09-08T15:00:00-04:00"},
+		{
+			Id:          "r1",
+			Ordinal:     1,
+			BaseSha:     "b",
+			SnapshotSha: "s1",
+			CreatedAt:   "2026-09-08T13:00:00-04:00",
+		},
+		{
+			Id:          "r2",
+			Ordinal:     2,
+			BaseSha:     "b",
+			SnapshotSha: "s2",
+			CreatedAt:   "2026-09-08T14:00:00-04:00",
+		},
+		{
+			Id:          "r3",
+			Ordinal:     3,
+			BaseSha:     "b",
+			SnapshotSha: "s3",
+			CreatedAt:   "2026-09-08T15:00:00-04:00",
+		},
 	}
 }
 

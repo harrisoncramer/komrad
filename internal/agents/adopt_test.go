@@ -270,7 +270,11 @@ func TestAdoptWithTheSameIdempotencyKeyIsAnsweredNotRefused(t *testing.T) {
 	runGit(t, repo, "branch", "someones/work")
 	workflow := seedWorktreeWorkflow(t, st, repo)
 
-	params := AdoptParams{Ref: "someones/work", WorkflowID: workflow, IdempotencyKey: "one-adopt"}
+	params := AdoptParams{
+		Ref:            "someones/work",
+		WorkflowID:     workflow,
+		IdempotencyKey: "one-adopt",
+	}
 
 	first, err := manager.adopt.Adopt(t.Context(), params)
 	require.NoError(t, err)

@@ -54,12 +54,20 @@ func TestMapRangesRefusals(t *testing.T) {
 			params: MapRangesParams{Dir: root, FromSHA: head},
 		},
 		{
-			name:   "a commit that does not exist",
-			params: MapRangesParams{Dir: root, FromSHA: head, ToSHA: "0000000000000000000000000000000000000000"},
+			name: "a commit that does not exist",
+			params: MapRangesParams{
+				Dir:     root,
+				FromSHA: head,
+				ToSHA:   "0000000000000000000000000000000000000000",
+			},
 		},
 		{
-			name:   "a directory that is not a repository",
-			params: MapRangesParams{Dir: t.TempDir(), FromSHA: head, ToSHA: head},
+			name: "a directory that is not a repository",
+			params: MapRangesParams{
+				Dir:     t.TempDir(),
+				FromSHA: head,
+				ToSHA:   head,
+			},
 		},
 	}
 

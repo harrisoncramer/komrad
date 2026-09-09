@@ -178,17 +178,37 @@ func TestMessagesDocIsColouredByKind(t *testing.T) {
 		kind messageKind
 		want string
 	}{
-		{name: "an error is the scheme's red", kind: messageError, want: "\x1b[91"},
-		{name: "a warning is its yellow", kind: messageWarning, want: "\x1b[93"},
-		{name: "a success is its green", kind: messageSuccess, want: "\x1b[92"},
-		{name: "an info is its muted grey", kind: messageInfo, want: "\x1b[90"},
+		{
+			name: "an error is the scheme's red",
+			kind: messageError,
+			want: "\x1b[91",
+		},
+		{
+			name: "a warning is its yellow",
+			kind: messageWarning,
+			want: "\x1b[93",
+		},
+		{
+			name: "a success is its green",
+			kind: messageSuccess,
+			want: "\x1b[92",
+		},
+		{
+			name: "an info is its muted grey",
+			kind: messageInfo,
+			want: "\x1b[90",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := detailsModel(&recordingTmux{})
 			m.height, m.width = 40, 120
-			m.pushMessage(message{kind: tt.kind, summary: "Nothing to review in fix-ci", detail: "no change against the base"})
+			m.pushMessage(message{
+				kind:    tt.kind,
+				summary: "Nothing to review in fix-ci",
+				detail:  "no change against the base",
+			})
 
 			focused := m.toggleMessagesFocus()
 			split, ok := focused.columnSplit()

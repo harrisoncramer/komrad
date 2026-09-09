@@ -567,7 +567,11 @@ func TestTalliesCountOneRoundOnce(t *testing.T) {
 
 	require.Len(t, tallies, 1)
 	changesRequested := VerdictChangesRequested
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1, Verdict: &changesRequested}, tallies[0])
+	assert.Equal(t, Tally{
+		AgentID: agentID,
+		Rounds:  1,
+		Verdict: &changesRequested,
+	}, tallies[0])
 }
 
 // TestHarvestedThreadsAreOnlyTheOnesStillBeingWritten pins what the reconcile pass reads, which
@@ -855,7 +859,11 @@ func TestLiveReviewersStopAtAnApproval(t *testing.T) {
 	tallies, err := st.ListTallies(ctx)
 	require.NoError(t, err)
 	require.Len(t, tallies, 1)
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 2, Verdict: &approved}, tallies[0])
+	assert.Equal(t, Tally{
+		AgentID: agentID,
+		Rounds:  2,
+		Verdict: &approved,
+	}, tallies[0])
 }
 
 // TestLiveReviewersLeaveOutADeadReviewer pins that a reviewer whose setup failed is not read as
@@ -892,7 +900,11 @@ func TestTalliesDropAVerdictAnEditOutLived(t *testing.T) {
 	tallies, err := st.ListTallies(ctx)
 	require.NoError(t, err)
 	require.Len(t, tallies, 1)
-	assert.Equal(t, Tally{AgentID: agentID, Rounds: 1, Verdict: &approved}, tallies[0])
+	assert.Equal(t, Tally{
+		AgentID: agentID,
+		Rounds:  1,
+		Verdict: &approved,
+	}, tallies[0])
 
 	openRound(t, st, agentID, "tree-two")
 

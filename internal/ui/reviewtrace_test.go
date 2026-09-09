@@ -55,8 +55,16 @@ func TestTraceThreadsFollowsALineThroughGit(t *testing.T) {
 	dir, first, second := traceRepo(t)
 
 	rounds := []*agentv1.ReviewRound{
-		{Id: "r1", Ordinal: 1, SnapshotSha: first},
-		{Id: "r2", Ordinal: 2, SnapshotSha: second},
+		{
+			Id:          "r1",
+			Ordinal:     1,
+			SnapshotSha: first,
+		},
+		{
+			Id:          "r2",
+			Ordinal:     2,
+			SnapshotSha: second,
+		},
 	}
 	threads := []*agentv1.ReviewThread{{
 		Id:       "t1",
@@ -95,7 +103,11 @@ func TestTraceThreadsLeavesTheCurrentRoundAlone(t *testing.T) {
 			NewStart: 8,
 			NewEnd:   8,
 		}},
-		Rounds: []*agentv1.ReviewRound{{Id: "r2", Ordinal: 2, SnapshotSha: second}},
+		Rounds: []*agentv1.ReviewRound{{
+			Id:          "r2",
+			Ordinal:     2,
+			SnapshotSha: second,
+		}},
 	})
 
 	assert.Empty(t, traced, "nothing to trace between one snapshot and itself")
@@ -124,7 +136,11 @@ func TestTraceThreadsKeepsTheFileWhenTheLinesAreGone(t *testing.T) {
 			NewStart: 4,
 			NewEnd:   4,
 		}},
-		Rounds: []*agentv1.ReviewRound{{Id: "r1", Ordinal: 1, SnapshotSha: first}},
+		Rounds: []*agentv1.ReviewRound{{
+			Id:          "r1",
+			Ordinal:     1,
+			SnapshotSha: first,
+		}},
 	})
 
 	found, ok := traced["t1"]
@@ -141,11 +157,25 @@ func TestTraceThreadsSkipsRoundsTheScreenWillNotDraw(t *testing.T) {
 	dir, first, second := traceRepo(t)
 
 	rounds := []*agentv1.ReviewRound{
-		{Id: "r1", Ordinal: 1, SnapshotSha: first},
-		{Id: "r2", Ordinal: 2, SnapshotSha: second},
+		{
+			Id:          "r1",
+			Ordinal:     1,
+			SnapshotSha: first,
+		},
+		{
+			Id:          "r2",
+			Ordinal:     2,
+			SnapshotSha: second,
+		},
 	}
 	threads := []*agentv1.ReviewThread{
-		{Id: "later", RoundId: "r2", FilePath: "greet.go", NewStart: 8, NewEnd: 8},
+		{
+			Id:       "later",
+			RoundId:  "r2",
+			FilePath: "greet.go",
+			NewStart: 8,
+			NewEnd:   8,
+		},
 	}
 
 	// The reader has stepped back to the first round, so that snapshot is what is drawn.
@@ -166,12 +196,32 @@ func TestTraceThreadsGivesUpWholeRatherThanInPart(t *testing.T) {
 	dir, first, second := traceRepo(t)
 
 	rounds := []*agentv1.ReviewRound{
-		{Id: "r1", Ordinal: 1, SnapshotSha: first},
-		{Id: "gone", Ordinal: 2, SnapshotSha: "0000000000000000000000000000000000000000"},
+		{
+			Id:          "r1",
+			Ordinal:     1,
+			SnapshotSha: first,
+		},
+		{
+			Id:          "gone",
+			Ordinal:     2,
+			SnapshotSha: "0000000000000000000000000000000000000000",
+		},
 	}
 	threads := []*agentv1.ReviewThread{
-		{Id: "readable", RoundId: "r1", FilePath: "greet.go", NewStart: 4, NewEnd: 4},
-		{Id: "unreadable", RoundId: "gone", FilePath: "greet.go", NewStart: 4, NewEnd: 4},
+		{
+			Id:       "readable",
+			RoundId:  "r1",
+			FilePath: "greet.go",
+			NewStart: 4,
+			NewEnd:   4,
+		},
+		{
+			Id:       "unreadable",
+			RoundId:  "gone",
+			FilePath: "greet.go",
+			NewStart: 4,
+			NewEnd:   4,
+		},
 	}
 
 	traced := traceThreads(t.Context(), traceThreadsParams{

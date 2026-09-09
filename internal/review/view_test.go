@@ -16,7 +16,11 @@ import (
 const patchBaseSHA = "0e1f2a3b4c5d6e7f80910a1b2c3d4e5f60718293"
 
 func patchWith(files ...diff.File) *diff.Patch {
-	return &diff.Patch{Root: "/repo", BaseSHA: patchBaseSHA, Files: files}
+	return &diff.Patch{
+		Root:    "/repo",
+		BaseSHA: patchBaseSHA,
+		Files:   files,
+	}
 }
 
 func hunkOf(lines ...diff.Line) diff.Hunk {
